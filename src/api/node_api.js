@@ -518,7 +518,7 @@ module.exports = {
 
         signal_params: {
             type: 'object',
-            required: ['target', 'method_api', 'method_name'],
+            required: ['source','target', 'method_api', 'method_name'],
             properties: {
                 source: {
                     type: 'string'

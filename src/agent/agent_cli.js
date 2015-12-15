@@ -168,7 +168,7 @@ AgentCLI.prototype.load = function() {
     dbg.log0('Loading agents', self.params.all_storage_paths);
     return P.all(_.map(self.params.all_storage_paths, function(storage_path_info) {
             var storage_path = storage_path_info.mount;
-            dbg.log0('current path is:', storage_path);
+
             return P.fcall(function() {
                     return P.nfcall(mkdirp, storage_path);
                 })
@@ -194,9 +194,27 @@ AgentCLI.prototype.load = function() {
         }))
         .then(function(res) {
             var nodes_count = parseInt(self.params.scale, 10) || (self.params.prod && 1) || 0;
-            dbg.log0('AGENTS STARTED', res.length);
-            dbg.log0('AGENTS SCALE TO', nodes_count);
-            var nodes_to_add = nodes_count - res.length;
+            var nodes_to_add = 0;
+            //check if there is a new drive we can use. in this case, res will contain empty cell
+            //for each new drive
+            if (res) {
+                _.each(res, function(curr_node_in_res) {
+                    if (_.isEmpty(curr_node_in_res)) {
+                        nodes_to_add = 1;
+                    }
+                });
+            }
+
+            if (nodes_to_add > 0) {
+                nodes_to_add = 1;
+                dbg.log0('AGENTS to create ', 1);
+            } else {
+                dbg.log0('AGENTS SCALE TO', nodes_count, 'res', res);
+                dbg.log0('AGENTS STARTED', res.length);
+                if (nodes_count > res.length) {
+                    nodes_to_add = nodes_count - res.length;
+                }
+            }
             if (nodes_to_add < 0) {
                 dbg.warn('NODES SCALE DOWN IS NOT YET SUPPORTED ...');
             }
@@ -241,6 +259,7 @@ AgentCLI.prototype.load.helper = function() {
 
 AgentCLI.prototype.create_node_helper = function(current_node_path_info) {
     var self = this;
+
     return P.fcall(function() {
         var current_node_path = current_node_path_info.mount;
         var node_name = os.hostname() + '-' + uuid();
@@ -248,16 +267,21 @@ AgentCLI.prototype.create_node_helper = function(current_node_path_info) {
         //windows
         path_modification = path_modification.replace('\\agent_storage\\', '');
 
+
         var node_path = path.join(current_node_path, node_name);
         var token_path = path.join(node_path, 'token');
+        dbg.log0('create_node_helper with path_modification', path_modification, 'node:', node_path, 'current_node_path', current_node_path, 'exists');
+
         if (os.type().indexOf('Windows') >= 0) {
-            node_name =node_name + '-' + current_node_path_info.drive_id.replace(':', '');
-        }else{
-            if (!_.isEmpty(path_modification)){
+            node_name = node_name + '-' + current_node_path_info.drive_id.replace(':', '');
+        } else {
+            if (!_.isEmpty(path_modification)) {
                 node_name = node_name + '-' + path_modification.replace('/', '');
             }
         }
         dbg.log0('create new node for node name', node_name, ' path:', node_path, ' token path:', token_path);
+
+
         return fs_utils.file_must_not_exist(token_path)
             .then(function() {
                 if (self.create_node_token) return;
@@ -320,12 +344,32 @@ AgentCLI.prototype.create_node_helper = function(current_node_path_info) {
 AgentCLI.prototype.create = function() {
     var self = this;
     //create root path last
-    dbg.log0('in create', self.params.all_storage_paths);
     return P.all(_.map(_.drop(self.params.all_storage_paths, 1), function(current_storage_path) {
-            return self.create_node_helper(current_storage_path);
+            return fs_utils.list_directory(current_storage_path.mount)
+                .then(function(files) {
+                    if (files.length > 0) {
+                        //multi drive path includes nodes data, no need to recreate a node, skip.
+                        return;
+                    } else {
+                        return self.create_node_helper(current_storage_path);
+                    }
+                });
         }))
         .then(function() {
-            return self.create_node_helper(self.params.all_storage_paths[0]);
+            //if multi drive, don't allow create more than one agent per drive
+            if (self.params.all_storage_paths.length > 1) {
+                return fs_utils.list_directory(self.params.all_storage_paths[0].mount)
+                    .then(function(files) {
+                        if (files.length > 0) {
+                            //In case we have multiple drives, we will allow only one node
+                            return;
+                        } else {
+                            return self.create_node_helper(self.params.all_storage_paths[0]);
+                        }
+                    });
+            } else {
+                return self.create_node_helper(self.params.all_storage_paths[0]);
+            }
         })
         .then(null, function(err) {
             dbg.error('error while creating node:', err, err.stack);

@@ -25,6 +25,10 @@ var os_util = require('../util/os_util');
 var diag = require('./agent_diagnostics');
 var AgentStore = require('./agent_store');
 var config = require('../../config.js');
+//var cluster = require('cluster');
+//var numCPUs = require('os').cpus().length;
+
+
 
 module.exports = Agent;
 
@@ -46,18 +50,28 @@ function Agent(params) {
         self.rpc.base_address = params.address;
     }
     self.client = self.rpc.client;
-    self.rpc.on('reconnect', self._on_rpc_reconnect.bind(self));
 
+    self.rpc.on('reconnect', self._on_rpc_reconnect.bind(self));
     assert(params.node_name, 'missing param: node_name');
     self.node_name = params.node_name;
     self.token = params.token;
     self.storage_path = params.storage_path;
 
+    self.all_storage_paths = params.all_storage_paths;
     if (self.storage_path) {
         assert(!self.token, 'unexpected param: token. ' +
             'with storage_path the token is expected in the file <storage_path>/token');
+        self.store = [];
+        //        self.store_cache = [];
+        dbg.log0('creating storage paths:', self.storage_path);
+        //        self.store[self.storage_path] = new AgentStore(self.storage_path);
+        //        self.store_cache[self.storage_path] = new LRUCache({
+        self.store.push({
+            storage_path: self.storage_path,
+            agent_store: new AgentStore(self.storage_path)
+        });
+        dbg.log0('creating self.store:', self.store);
 
-        self.store = new AgentStore(self.storage_path);
         self.store_cache = new LRUCache({
             name: 'AgentBlocksCache',
             max_length: 200, // ~200 MB
@@ -65,7 +79,7 @@ function Agent(params) {
             make_key: function(params) {
                 return params.id;
             },
-            load: self.store.read_block.bind(self.store)
+            load: self.store[0].agent_store.read_block.bind(self.store[0].agent_store)
         });
     } else {
         assert(self.token, 'missing param: token. ' +
@@ -79,7 +93,7 @@ function Agent(params) {
             make_key: function(params) {
                 return params.id;
             },
-            load: self.store.read_block.bind(self.store)
+            load: self.store[0].agent_store.read_block.bind(self.store)
         });
     }
 
@@ -119,7 +133,6 @@ function Agent(params) {
             // TODO verify aithorized tokens in agent?
         }
     });
-
     // register rpc http server
     self.rpc.register_http_transport(self.agent_app);
     // register rpc n2n
@@ -197,6 +210,36 @@ Agent.prototype.stop = function() {
  */
 Agent.prototype._init_node = function() {
     var self = this;
+    self.node_storage_mapping = [];
+
+    var root_path = self.all_storage_paths[0].mount.replace('./', '');
+    dbg.log0('starting agent. root_path:' + Object.prototype.toString.call(root_path.substr(0, root_path.length - 1)) + '=?=' + Object.prototype.toString.call(self.storage_path.substr(0, root_path.length - 1)));
+    var waitFor;
+    //substr is required in order to ignore win/linux conventions
+    if (self.storage_path.substr(0, root_path.length - 1) === root_path.substr(0, root_path.length - 1)) {
+        dbg.log0('main agent!!!', root_path, ' all paths:', self.all_storage_paths);
+
+        waitFor = P.all(_.map(self.all_storage_paths, function(storage_path_info) {
+            var storage_path = storage_path_info.mount;
+            dbg.log0('current path is:', storage_path);
+            return P.fcall(function() {
+                    return P.nfcall(fs.readdir, storage_path);
+                })
+                .then(function(node_name) {
+                    if (node_name.length > 0) {
+                        dbg.log0('node_name', node_name[0], 'storage_path', storage_path);
+                        var node_path = path.join(storage_path, node_name[0]);
+                        if (storage_path !== root_path) {
+                            self.store[node_path] = new AgentStore(node_path);
+                        }
+                        self.node_storage_mapping.push({
+                            node_name: node_name[0],
+                            storage_path: node_path
+                        });
+                    }
+                });
+        }));
+    }
 
     return P.fcall(function() {
             if (self.storage_path) {
@@ -314,7 +357,6 @@ Agent.prototype._start_stop_server = function() {
             break;
     }
 
-
     function retry() {
         if (self.is_started) {
             setTimeout(self._start_stop_server.bind(self), 1000);
@@ -345,17 +387,17 @@ Agent.prototype._do_heartbeat = function() {
         Date.now() > self.extended_hb_last_time + EXTENDED_HB_PERIOD) {
         extended_hb = true;
     }
+    dbg.log0('send heartbeat from node', self.node_name, self.all_storage_paths);
 
-    dbg.log0('send heartbeat from node', self.node_name);
-
-    return P.when(self.store.get_stats())
+    return P.when(self.store[0].agent_store.get_stats())
         .then(function(store_stats_arg) {
             store_stats = store_stats_arg;
-
+            dbg.log0('store_stats:', store_stats);
             if (extended_hb) {
                 return P.fcall(os_util.read_drives)
                     .then(function(drives_arg) {
                         self.drives = drives_arg;
+                        dbg.log0('d args:', drives_arg);
                     }, function(err) {
                         dbg.error('read_drives: ERROR', err.stack || err);
                     });
@@ -387,11 +429,21 @@ Agent.prototype._do_heartbeat = function() {
 
                     // for now we only use a single drive,
                     // so mark the usage on the drive of our storage folder.
-                    _.each(self.drives, function(drive) {
+                    var used_drives = _.filter(self.drives, function(drive) {
                         if (self.storage_path_mount === drive.mount) {
                             drive.storage.used = store_stats.used;
+                            return true;
+                        } else {
+                            return false;
                         }
                     });
+                    self.drives = used_drives;
+                    dbg.log0('DRIVES:', self.drives, 'NBNBNBN', used_drives);
+                    // _.each(self.drives, function(drive) {
+                    //     if (self.storage_path_mount === drive.mount) {
+                    //         drive.storage.used = store_stats.used;
+                    //     }
+                    // });
                 }
             }
 
@@ -433,8 +485,6 @@ Agent.prototype._do_heartbeat = function() {
             if (self.rpc_address !== res.rpc_address) {
                 dbg.log0('got rpc address', res.rpc_address,
                     'previously was', self.rpc_address);
-                // calling _start_stop_server to update the listening address
-                // according to the info returned from the heartbeat call
                 self.rpc_address = res.rpc_address;
                 promises.push(self._start_stop_server());
             }
@@ -451,7 +501,7 @@ Agent.prototype._do_heartbeat = function() {
                 if (store_stats.alloc !== res.storage.alloc) {
                     dbg.log0('update alloc storage from ',
                         store_stats.alloc, ' to ', res.storage.alloc);
-                    self.store.set_alloc(res.storage.alloc);
+                    self.store[0].agent_store.set_alloc(res.storage.alloc);
                 }
             }
 
@@ -466,7 +516,9 @@ Agent.prototype._do_heartbeat = function() {
 
         }).fin(function() {
             self._start_stop_heartbeats();
+            self._start_stop_heartbeats();
         });
+    //    }));
 };
 
 
@@ -519,6 +571,7 @@ Agent.prototype._on_rpc_reconnect = function(conn) {
 
 Agent.prototype.read_block = function(req) {
     var self = this;
+    dbg.log0('req etetet read_block:', req);
     var block_md = req.rpc_params.block_md;
     dbg.log1('read_block', block_md.id, 'node', self.node_name);
     return self.store_cache.get(block_md)
@@ -536,10 +589,12 @@ Agent.prototype.read_block = function(req) {
 
 Agent.prototype.write_block = function(req) {
     var self = this;
+    dbg.log0('req etetet write_block:', self.store, ' with peer::::', req.rpc_params.node_peer_id);
+
     var block_md = req.rpc_params.block_md;
     var data = req.rpc_params.data;
     dbg.log1('write_block', block_md.id, data.length, 'node', self.node_name);
-    return P.when(self.store.write_block(block_md, data))
+    return P.when(self.store[0].agent_store.write_block(block_md, data))
         .then(function() {
             self.store_cache.put(block_md, {
                 block_md: block_md,
@@ -555,6 +610,7 @@ Agent.prototype.replicate_block = function(req) {
     var target = req.rpc_params.target;
     var source = req.rpc_params.source;
     dbg.log1('replicate_block', target.id, 'node', self.node_name);
+    dbg.log0('req etetet replicate:', req);
 
     // read from source agent
     return self.client.agent.read_block({
@@ -564,7 +620,7 @@ Agent.prototype.replicate_block = function(req) {
         })
         .then(function(res) {
             self.store_cache.invalidate(target);
-            return self.store.write_block(target, res.data);
+            return self.store[0].agent_store.write_block(target, res.data);
         });
 };
 
@@ -573,7 +629,7 @@ Agent.prototype.delete_blocks = function(req) {
     var blocks = req.rpc_params.blocks;
     dbg.log0('delete_blocks', blocks, 'node', self.node_name);
     self.store_cache.multi_invalidate(blocks);
-    return self.store.delete_blocks(blocks);
+    return self.store[0].agent_store.delete_blocks(blocks);
 };
 
 Agent.prototype.kill_agent = function(req) {
@@ -691,12 +747,12 @@ Agent.prototype._add_test_APIs = function() {
         var self = this;
         var blocks = req.rpc_params.blocks;
         dbg.log0('TEST API corrupt_blocks', blocks);
-        return self.store.corrupt_blocks(blocks);
+        return self.store[0].agent_store.corrupt_blocks(blocks);
     };
 
     Agent.prototype.list_blocks = function() {
         var self = this;
         dbg.log0('TEST API list_blocks');
-        return self.store.list_blocks();
+        return self.store[0].agent_store.list_blocks();
     };
 };

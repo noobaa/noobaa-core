@@ -33,10 +33,9 @@ function get_pools_groups(bucket) {
                 _.each(tiering[0].pools, function(p) {
                     reply.push([p]);
                 });
-            } else if (tiering[0].data_plaement === 'SPREAD') {
-                reply.push([]);
+            } else if (tiering[0].data_placement === 'SPREAD') {
                 _.each(tiering[0].pools, function(p) {
-                    reply[0].push(p);
+                    reply.push(p);
                 });
             }
             return reply;

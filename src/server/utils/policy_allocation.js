@@ -34,8 +34,9 @@ function get_pools_groups(bucket) {
                     reply.push([p]);
                 });
             } else if (tiering[0].data_placement === 'SPREAD') {
+                reply.push([]); //Keep the same format as MIRROR
                 _.each(tiering[0].pools, function(p) {
-                    reply.push(p);
+                    reply[0].push(p);
                 });
             }
             return reply;

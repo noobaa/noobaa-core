@@ -54,7 +54,7 @@ function get_pools_groups(bucket) {
  */
 
 function analyze_chunk_status_on_pools(chunk, allocated_blocks, orig_pools) {
-    if (Array.isArray(orig_pools)) {
+    if (Array.isArray(orig_pools[0])) {
       orig_pools = orig_pools[0];
     }
 

@@ -474,7 +474,7 @@ ObjectDriver.prototype._write_block = function(block_md, buffer, desc) {
             data: buffer,
         }, {
             address: block_md.address,
-            timeout: config.write_timeout,
+            timeout: config.write_block_timeout,
         }).then(null, function(err) {
             console.error('FAILED write_block', desc,
                 size_utils.human_size(buffer.length), block_md.id,
@@ -931,7 +931,7 @@ ObjectDriver.prototype._read_block = function(block_md) {
                 block_md: block_md
             }, {
                 address: block_md.address,
-                timeout: config.read_timeout,
+                timeout: config.read_block_timeout,
             })
             .then(function(res) {
                 return res.data;

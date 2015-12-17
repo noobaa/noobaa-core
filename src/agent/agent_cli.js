@@ -192,13 +192,17 @@ AgentCLI.prototype.load = function() {
                     }));
                 });
         }))
-        .then(function(res) {
-            var nodes_count = parseInt(self.params.scale, 10) || (self.params.prod && 1) || 0;
+        .then(function(storage_path_nodes) {
+            var nodes_count =
+                parseInt(self.params.scale, 10) ||
+                (self.params.prod && 1) ||
+                0;
             var nodes_to_add = 0;
-            //check if there is a new drive we can use. in this case, res will contain empty cell
-            //for each new drive
-            if (res) {
-                _.each(res, function(curr_node_in_res) {
+            // check if there is a new drive we can use.
+            // in this case, storage_path_nodes will contain empty cell
+            // for each new drive
+            if (storage_path_nodes) {
+                _.each(storage_path_nodes, function(curr_node_in_res) {
                     if (_.isEmpty(curr_node_in_res)) {
                         nodes_to_add = 1;
                     }
@@ -209,10 +213,11 @@ AgentCLI.prototype.load = function() {
                 nodes_to_add = 1;
                 dbg.log0('AGENTS to create ', 1);
             } else {
-                dbg.log0('AGENTS SCALE TO', nodes_count, 'res', res);
-                dbg.log0('AGENTS STARTED', res.length);
-                if (nodes_count > res.length) {
-                    nodes_to_add = nodes_count - res.length;
+                var default_path_nodes = storage_path_nodes[0];
+                dbg.log0('AGENTS SCALE TO', nodes_count, 'storage_path_nodes', default_path_nodes);
+                dbg.log0('AGENTS STARTED', default_path_nodes.length);
+                if (nodes_count > default_path_nodes.length) {
+                    nodes_to_add = nodes_count - default_path_nodes.length;
                 }
             }
             if (nodes_to_add < 0) {

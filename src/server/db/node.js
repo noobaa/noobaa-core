@@ -153,6 +153,10 @@ var node_schema = new Schema({
         networkInterfaces: {}
     },
 
+    latency_to_server: [Number],
+    latency_of_disk_read: [Number],
+    latency_of_disk_write: [Number],
+
     // on delete set deletion time
     deleted: {
         type: Date,

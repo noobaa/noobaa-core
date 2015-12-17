@@ -46,7 +46,7 @@ mongoose.connection.on('error', function(err) {
     mongoose_connected = false;
     console.error('mongoose connection error:', err);
     if (!mongoose_timeout) {
-        mongoose_timeout = setTimeout(mongoose_conenct, 5000);
+        mongoose_timeout = setTimeout(mongoose_connect, 5000);
     }
 
 });
@@ -55,7 +55,7 @@ mongoose.connection.on('disconnected', function () {
     mongoose_connected = false;
     console.error('mongoose connection disconnected');
     if (!mongoose_timeout) {
-        mongoose_timeout = setTimeout(mongoose_conenct, 5000);
+        mongoose_timeout = setTimeout(mongoose_connect, 5000);
     }
 });
 
@@ -92,7 +92,7 @@ module.exports = {
 
     check_not_found: check_not_found,
     check_not_deleted: check_not_deleted,
-    mongoose_conenct: mongoose_conenct,
+    mongoose_connect: mongoose_connect,
     check_already_exists: check_already_exists,
     is_err_exists: is_err_exists,
     obj_ids_difference: obj_ids_difference,
@@ -204,11 +204,8 @@ module.exports = {
     }),
 };
 
-
-
-function mongoose_conenct() {
-    console.error('mongoose attempt to connect');
-
+function mongoose_connect() {
+    console.log('mongoose_connect');
     clearTimeout(mongoose_timeout);
     mongoose_timeout = null;
     if (!mongoose_connected) {

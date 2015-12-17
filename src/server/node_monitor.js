@@ -316,6 +316,40 @@ function update_heartbeat(params, conn, reply_token) {
                 updates.os_info.last_update = new Date();
             }
 
+            // push latency measurements to arrays
+            // limit the size of the array to keep the last ones using negative $slice
+            var MAX_NUM_LATENCIES = 20;
+            if (params.latency_to_server) {
+                _.merge(updates, {
+                    $push: {
+                        latency_to_server: {
+                            $each: params.latency_to_server,
+                            $slice: -MAX_NUM_LATENCIES
+                        }
+                    }
+                });
+            }
+            if (params.latency_of_disk_read) {
+                _.merge(updates, {
+                    $push: {
+                        latency_of_disk_read: {
+                            $each: params.latency_of_disk_read,
+                            $slice: -MAX_NUM_LATENCIES
+                        }
+                    }
+                });
+            }
+            if (params.latency_of_disk_write) {
+                _.merge(updates, {
+                    $push: {
+                        latency_of_disk_write: {
+                            $each: params.latency_of_disk_write,
+                            $slice: -MAX_NUM_LATENCIES
+                        }
+                    }
+                });
+            }
+
             dbg.log2('NODE heartbeat', node_id, params.ip + ':' + params.port);
 
             if (_.isEmpty(updates)) {

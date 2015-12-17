@@ -127,6 +127,12 @@ nb_api.factory('nbNodes', [
             _.each(node.drives, function(drive) {
                 extend_storage_info(drive.storage);
             });
+            node.latency_to_server_str = (_.sum(node.latency_to_server) /
+                node.latency_to_server.length).toFixed(1) + ' ms';
+            node.latency_of_disk_read_str = (_.sum(node.latency_of_disk_read) /
+                node.latency_of_disk_read.length).toFixed(1) + ' ms';
+            node.latency_of_disk_write_str = (_.sum(node.latency_of_disk_write) /
+                node.latency_of_disk_write.length).toFixed(1) + ' ms';
         }
 
         function extend_storage_info(storage) {

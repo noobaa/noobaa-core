@@ -813,8 +813,7 @@ function test_average_latency(func) {
             });
         })
         .then(function() {
-            console.log('latency results', results);
-            // throw the first result which is usually skewed
+            // throw the first result which is sometimes skewed
             return results.slice(1);
         });
 }

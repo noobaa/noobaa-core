@@ -137,6 +137,17 @@ function heartbeat(req) {
             geolocation: req.rpc_params.geolocation,
         }, {
             auth_token: req.auth_token
+        }).catch(function(err) {
+            if (err.rpc_code === 'CONFLICT') {
+                // TODO how to handle this case that the agent created but lost the token?
+                dbg.error('heartbeat: create node name CONFLICT',
+                    '(TODO probably the agent lost the token)',
+                    err.stack || err, req.rpc_params);
+                throw err;
+            } else {
+                dbg.error('heartbeat: create node ERROR', err.stack || err, req.rpc_params);
+                throw err;
+            }
         }).then(function(node) {
             req.rpc_params.node_id = node.id;
             req.rpc_params.peer_id = node.peer_id;

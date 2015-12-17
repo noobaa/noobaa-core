@@ -33,6 +33,7 @@ var node_server = {
     self_test_to_node_via_web: node_monitor.self_test_to_node_via_web,
     collect_agent_diagnostics: node_monitor.collect_agent_diagnostics,
     set_debug_node: node_monitor.set_debug_node,
+    test_latency_to_server: test_latency_to_server
 };
 
 module.exports = node_server;
@@ -428,6 +429,11 @@ function group_nodes(req) {
 }
 
 
+function test_latency_to_server(req) {
+    // nothing to do.
+    // the caller is just testing roud trip time to the server.
+}
+
 // UTILS //////////////////////////////////////////////////////////
 
 
@@ -458,7 +464,10 @@ var NODE_PICK_FIELDS = [
     'ip',
     'rpc_address',
     'srvmode',
-    'version'
+    'version',
+    'latency_to_server',
+    'latency_of_disk_read',
+    'latency_of_disk_write',
 ];
 
 var NODE_DEFAULT_FIELDS = {

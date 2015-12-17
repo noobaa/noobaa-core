@@ -83,6 +83,34 @@
     <hr/>
     <div class="row">
         <div class="heading-col col-sm-3">
+            <h4 class="text-primary">Measured Latency</h4>
+        </div>
+        <div class="content-col col-sm-6">
+            <table class="table table-no-borders">
+                <tr>
+                    <th>
+                        Round-Time-Trip to server and back
+                    </th>
+                    <td>{{node.latency_to_server_str}}</td>
+                </tr>
+                <tr>
+                    <th>
+                        Disk Write
+                    </th>
+                    <td>{{node.latency_of_disk_write_str}}</td>
+                </tr>
+                <tr>
+                    <th>
+                        Disk Read
+                    </th>
+                    <td>{{node.latency_of_disk_read_str}}</td>
+                </tr>
+            </table>
+        </div>
+    </div>
+    <hr/>
+    <div class="row">
+        <div class="heading-col col-sm-3">
             <h4 class="text-primary">Operating System</h4>
         </div>
         <div class="content-col col-sm-9">

@@ -300,6 +300,15 @@ module.exports = {
                     os_info: {
                         $ref: '/common_api/definitions/os_info'
                     },
+                    latency_to_server: {
+                        $ref: '/node_api/definitions/latency_array'
+                    },
+                    latency_of_disk_write: {
+                        $ref: '/node_api/definitions/latency_array'
+                    },
+                    latency_of_disk_read: {
+                        $ref: '/node_api/definitions/latency_array'
+                    },
                 }
             },
             reply: {
@@ -419,6 +428,13 @@ module.exports = {
             }
         },
 
+        test_latency_to_server: {
+            method: 'POST',
+            auth: {
+                system: ['admin', 'agent', 'create_node']
+            }
+        },
+
     },
 
 
@@ -513,12 +529,21 @@ module.exports = {
                 os_info: {
                     $ref: '/common_api/definitions/os_info'
                 },
+                latency_to_server: {
+                    $ref: '/node_api/definitions/latency_array'
+                },
+                latency_of_disk_write: {
+                    $ref: '/node_api/definitions/latency_array'
+                },
+                latency_of_disk_read: {
+                    $ref: '/node_api/definitions/latency_array'
+                },
             }
         },
 
         signal_params: {
             type: 'object',
-            required: ['source','target', 'method_api', 'method_name'],
+            required: ['source', 'target', 'method_api', 'method_name'],
             properties: {
                 source: {
                     type: 'string'
@@ -544,6 +569,13 @@ module.exports = {
             required: [],
             additionalProperties: true,
             properties: {}
+        },
+
+        latency_array: {
+            type: 'array',
+            items: {
+                type: 'number',
+            }
         }
 
     }

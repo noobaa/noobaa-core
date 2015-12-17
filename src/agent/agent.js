@@ -9,6 +9,7 @@ var path = require('path');
 var http = require('http');
 var https = require('https');
 var assert = require('assert');
+var crypto = require('crypto');
 var express = require('express');
 var express_morgan_logger = require('morgan');
 var express_body_parser = require('body-parser');
@@ -20,6 +21,7 @@ var dbg = require('../util/debug_module')(__filename);
 var LRUCache = require('../util/lru_cache');
 var size_utils = require('../util/size_utils');
 var url_utils = require('../util/url_utils');
+var time_utils = require('../util/time_utils');
 var promise_utils = require('../util/promise_utils');
 var os_util = require('../util/os_util');
 var diag = require('./agent_diagnostics');
@@ -380,75 +382,79 @@ Agent.prototype._do_heartbeat = function() {
     var self = this;
     var store_stats;
     var extended_hb = false;
-
-    var EXTENDED_HB_PERIOD = 3600000;
-    // var EXTENDED_HB_PERIOD = 1000;
+    var ip = ip_module.address();
+    // var EXTENDED_HB_PERIOD = 3600000;
+    var EXTENDED_HB_PERIOD = 1000;
     if (!self.extended_hb_last_time ||
         Date.now() > self.extended_hb_last_time + EXTENDED_HB_PERIOD) {
         extended_hb = true;
     }
+    var params = {
+        name: self.node_name || '',
+        geolocation: self.geolocation,
+        ip: ip,
+        version: self.heartbeat_version || '',
+        extended_hb: extended_hb,
+    };
+    if (self.rpc_address) {
+        params.rpc_address = self.rpc_address;
+    }
+    if (extended_hb) {
+        params.os_info = os_util.os_info();
+    }
+
     dbg.log0('send heartbeat from node', self.node_name, self.all_storage_paths);
 
-    return P.when(self.store[0].agent_store.get_stats())
+    return P.fcall(function() {
+            return self.store[0].agent_store.get_stats();
+        })
         .then(function(store_stats_arg) {
             store_stats = store_stats_arg;
             dbg.log0('store_stats:', store_stats);
-            if (extended_hb) {
-                return P.fcall(os_util.read_drives)
-                    .then(function(drives_arg) {
-                        self.drives = drives_arg;
-                        dbg.log0('d args:', drives_arg);
-                    }, function(err) {
-                        dbg.error('read_drives: ERROR', err.stack || err);
-                    });
-            }
+            params.storage = {
+                alloc: store_stats.alloc,
+                used: store_stats.used
+            };
         })
         .then(function() {
-
-            var ip = ip_module.address();
-            var params = {
-                name: self.node_name || '',
-                geolocation: self.geolocation,
-                ip: ip,
-                version: self.heartbeat_version || '',
-                extended_hb: extended_hb,
-                storage: {
-                    alloc: store_stats.alloc,
-                    used: store_stats.used
-                },
-            };
-
-            if (self.rpc_address) {
-                params.rpc_address = self.rpc_address;
-            }
-
-            if (extended_hb) {
-                params.os_info = os_util.os_info();
-                if (self.drives) {
-                    params.drives = self.drives;
-
-                    // for now we only use a single drive,
-                    // so mark the usage on the drive of our storage folder.
-                    var used_drives = _.filter(self.drives, function(drive) {
-                        if (self.storage_path_mount === drive.mount) {
-                            drive.storage.used = store_stats.used;
-                            return true;
-                        } else {
-                            return false;
-                        }
-                    });
-                    self.drives = used_drives;
-                    dbg.log0('DRIVES:', self.drives, 'NBNBNBN', used_drives);
-                    // _.each(self.drives, function(drive) {
-                    //     if (self.storage_path_mount === drive.mount) {
-                    //         drive.storage.used = store_stats.used;
-                    //     }
-                    // });
+            return extended_hb && os_util.read_drives()
+                .catch(function(err) {
+                    dbg.error('read_drives: ERROR', err.stack || err);
+                });
+        })
+        .then(function(drives) {
+            if (!drives) return;
+            params.drives = drives;
+            // for now we only use a single drive,
+            // so mark the usage on the drive of our storage folder.
+            var used_drives = _.filter(drives, function(drive) {
+                if (self.storage_path_mount === drive.mount) {
+                    drive.storage.used = store_stats.used;
+                    return true;
+                } else {
+                    return false;
                 }
-            }
-
+            });
+            drives = used_drives;
+            dbg.log0('DRIVES:', drives, 'NBNBNBN', used_drives);
+            // _.each(drives, function(drive) {
+            //     if (self.storage_path_mount === drive.mount) {
+            //         drive.storage.used = store_stats.used;
+            //     }
+            // });
+        })
+        .then(function() {
+            return extended_hb && self._test_latencies()
+                .catch(function(err) {
+                    dbg.error('_test_latencies: ERROR', err.stack || err);
+                });
+        })
+        .then(function(latencies) {
+            dbg.log0('LATENCIES', latencies);
+            _.extend(params, latencies);
+        })
+        .then(function() {
             dbg.log0('heartbeat params:', params, 'node', self.node_name);
-
             return self.client.node.heartbeat(params);
         })
         .then(function(res) {
@@ -507,7 +513,7 @@ Agent.prototype._do_heartbeat = function() {
 
             return P.all(promises);
         })
-        .fail(function(err) {
+        .catch(function(err) {
 
             dbg.error('HEARTBEAT FAILED', err, err.stack, 'node', self.node_name);
 
@@ -737,6 +743,81 @@ Agent.prototype.set_debug_node = function(req) {
     return '';
 };
 
+Agent.prototype._test_latencies = function() {
+    var self = this;
+    var res = {};
+    return P.invoke(self, '_test_latency_to_server')
+        .catch(function(err) {})
+        .then(function(latency_to_server) {
+            res.latency_to_server = latency_to_server;
+            return P.invoke(self, '_test_latency_of_disk_read');
+        })
+        .catch(function(err) {})
+        .then(function(latency_of_disk_read) {
+            res.latency_of_disk_read = latency_of_disk_read;
+            return P.invoke(self, '_test_latency_of_disk_write');
+        })
+        .catch(function(err) {})
+        .then(function(latency_of_disk_write) {
+            res.latency_of_disk_write = latency_of_disk_write;
+            return res;
+        });
+};
+
+Agent.prototype._test_latency_to_server = function() {
+    var self = this;
+    return test_average_latency(function() {
+        return self.client.node.test_latency_to_server({});
+    });
+};
+
+Agent.prototype._test_latency_of_disk_read = function() {
+    var self = this;
+    var data = crypto.randomBytes(1024);
+    var block_md = {
+        id: '_test_latency_of_disk_read',
+        digest_type: 'sha1'
+    };
+    block_md.digest_b64 = crypto.createHash(block_md.digest_type).update(data).digest('base64');
+    return self.store[0].agent_store.write_block(block_md, data)
+        .then(function() {
+            return test_average_latency(function() {
+                return self.store[0].agent_store.read_block(block_md);
+            });
+        });
+};
+
+Agent.prototype._test_latency_of_disk_write = function() {
+    var self = this;
+    return test_average_latency(function() {
+        var data = crypto.randomBytes(1024);
+        var block_md = {
+            id: '_test_latency_of_disk_write',
+            digest_type: 'sha1'
+        };
+        block_md.digest_b64 = crypto.createHash(block_md.digest_type).update(data).digest('base64');
+        return self.store[0].agent_store.write_block(block_md, data);
+    });
+};
+
+
+function test_average_latency(func) {
+    var results = [];
+    return promise_utils.loop(6, function() {
+            var start = time_utils.millistamp();
+            return P.fcall(func).then(function() {
+                results.push(time_utils.millistamp() - start);
+                // use some jitter delay to avoid serializing on cpu when
+                // multiple tests are run together.
+                return P.delay(200 * (0.5 + Math.random()));
+            });
+        })
+        .then(function() {
+            console.log('latency results', results);
+            // throw the first result which is usually skewed
+            return results.slice(1);
+        });
+}
 
 // AGENT TEST API /////////////////////////////////////////////////////////////
 

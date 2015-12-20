@@ -19,10 +19,12 @@
 		</buckets-overview>
 		<!-- /ko -->
 		
-		<a class="btn" data-bind="click: showKeysModal">details &amp; keys</a>
+		<a class="btn" data-bind="click: showKeysModal">connect application</a>
 
 		<modal params="visible: isKeysModalVisible">
-			<details-keys-form params="oncomplete: () => hideKeysModal()"></details-keys-form>
+			<!-- <details-keys-form params="oncomplete: () => hideKeysModal()"></details-keys-form> -->
+
+			<connect-app-wizard></connect-app-wizard>
 		</modal>			
 	</section>
 </div>

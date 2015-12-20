@@ -2,7 +2,7 @@ import * as model from 'model';
 import { isDefined, isUndefined } from 'utils';
 import page from 'page';
 import api from 'services/api';
-import { cmpStrings, cmpInts, cmpBools } from 'utils';
+import { cmpStrings, cmpInts, cmpBools, randomString } from 'utils';
 
 // Compare functions for entities.
 const bucketCmpFuncs = Object.freeze({
@@ -356,15 +356,22 @@ export function createAccount(system, email, password) {
 		.done();
 }
 
-export function createBucket(name) {
-	logAction('createBucket', { name });
+export function createBucket(name, policy) {
+	logAction('createBucket', { name, policy });
 
 	let placeholder = { name: name, placeholder: true };
 	model.bucketList.unshift(placeholder);
 
-	api.bucket.create_bucket({ name, tiering: 'default_tiering' })
-		//.delay(3000)
-		.then(bucket => model.bucketList.replace(placeholder, bucket))
+	api.tier.create_tier({ name: `${name}_tier__${randomString(5)}` })
+		.then(
+			tier => api.tiering_policy.create_policy({
+				name: `${name}_tiering`,
+				tiers: [ { order: 0, tier: tier } ]
+			})
+		)
+		.then(
+			policy => api.bucket.create_bucket({ name: name })
+		)
 		.done();
 }
 
@@ -373,5 +380,16 @@ export function deleteBucket(name) {
 
 	api.bucket.delete_bucket({ name })
 		.then(readSystemInfo)
+		.done();
+}
+
+export function updateBucketPolicy(bucketName, dataPlacement, poolList) {
+	logAction('updateBucketPolicy', { bucketName, dataPlacement, poolList });
+
+	api.tier.update_tier({ 
+		name: `${bucketName}-tier`,
+		data_placement: dataPlacement,
+		pools: poolList
+	})
 		.done();
 }

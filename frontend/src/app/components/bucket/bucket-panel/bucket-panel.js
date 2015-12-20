@@ -11,6 +11,8 @@ class BucketPanelViewModel {
 		this.bucket = bucketInfo;
 		this.objects = bucketObjectList;
 
+		bucketInfo.subscribe(x => console.log(x))
+
 		this.selectedTab = ko.pureComputed(
 			() => uiState().tab
 		);

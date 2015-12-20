@@ -152,6 +152,28 @@
 	    </g>
     </symbol>
 
+    <symbol id="bucket-unselected" viewBox="0 0 25 25">
+	    <g stroke="none" stroke-width="1" fill="none" fill-rule="evenodd">
+	        <g fill="#6D8EA1">
+	            <g transform="translate(1.000000, 0.000000)">
+	                <path d="M11.4813389,0 L22.3066565,6.25 L22.3066565,18.75 L11.4813389,25 L0.656021388,18.75 L0.656021388,6.25 L11.4813389,0 Z M11.4813389,1.1738521 L20.7064977,6.5 L11.4813389,11.8261479 L2.25618016,6.5 L11.4813389,1.1738521 Z" ></path>
+	                <polygon points="11.4813389 3.40950669 16.8342304 6.5 11.4813389 9.59049331 6.12844751 6.5 "></polygon>
+	            </g>
+	        </g>
+	    </g>    	
+    </symbol>
+
+    <symbol id="bucket-selected" viewBox="0 0 25 25">
+	    <g stroke="none" stroke-width="1" fill="none" fill-rule="evenodd">
+	        <g fill="#3494D9">
+	            <g transform="translate(1.000000, 0.000000)">
+	                <path d="M11.4813389,0 L22.3066565,6.25 L22.3066565,18.75 L11.4813389,25 L0.656021388,18.75 L0.656021388,6.25 L11.4813389,0 Z M11.4813389,1.1738521 L20.7064977,6.5 L11.4813389,11.8261479 L2.25618016,6.5 L11.4813389,1.1738521 Z" ></path>
+	                <polygon points="11.4813389 3.40950669 16.8342304 6.5 11.4813389 9.59049331 6.12844751 6.5 "></polygon>
+	            </g>
+	        </g>
+	    </g>    	
+    </symbol>
+
     <symbol id="node" viewBox="0 0 25 25">
     	<title>Node</title>
 		

@@ -11,14 +11,16 @@ class BucketSummrayViewModel {
 		);
 
 		this.qoutaUsed = ko.pureComputed(
-			() => 0 // TODO: Get relevant info when avaliable
+			() => bucket() ? bucket().storage.total : 0
 		);
 		
 		this.qoutaLimit = ko.pureComputed(
-			() => 100 // TODO: Get relevant info when avaliable
+			() => bucket() ? bucket().storage.used : 0
 		);
 
-		this.actionsVisible = ko.observable(false);
+		this.areActionsVisible = ko.observable(false);
+
+		this.isBucketPolicyModalVisible = ko.observable(false);
 	}
 
 	gagueLegend() {
@@ -28,13 +30,13 @@ class BucketSummrayViewModel {
 	gagueValues() {
 		return [
 			{
-				label: `Quota Used: ${formatSize(this.qoutaUsed())}`,
+				label: `Used: ${formatSize(this.qoutaUsed())}`,
 				value: this.qoutaUsed(),
 				color: style['text-color6'],
 				emphasise: true
 			},
 			{
-				label: `Quota Limit: ${formatSize(this.qoutaLimit())}`,
+				label: `Total: ${formatSize(this.qoutaLimit())}`,
 				value: this.qoutaLimit(),
 				color: style['text-color5']
 			}		
@@ -42,7 +44,15 @@ class BucketSummrayViewModel {
 	}
 
 	toggleActions() {
-		this.actionsVisible(!this.actionsVisible());
+		this.areActionsVisible(!this.areActionsVisible());
+	}
+
+	showBucketPolicyModal() {
+		this.isBucketPolicyModalVisible(true);
+	}
+
+	hideBucketPolicyModal() {
+		this.isBucketPolicyModalVisible(false);
 	}
 }
 

@@ -1,0 +1,80 @@
+connect-app-wizard {
+	display: block;
+	overflow: hidden;
+	width: 600px;
+
+	section + section {
+		margin-top: 3em;
+	}
+
+	.con-type {
+		margin-top: 1em;
+	}
+
+	.con-desc {
+		font-size: @font-size-normal;
+		text-indent: .25em;
+	}
+
+	.bucket-list {
+		height: 190px;
+		overflow-y: auto;
+		padding: 2px;
+
+		> li {
+			width: 100% / 4;
+		}
+	}
+
+	.bucket {
+		line-height: 1.4;
+		position: relative;
+		display: inline-block;
+		text-align: center;		
+		padding: 4px;
+		height: 90px;
+		width: 110px;
+		margin-top: 4px;
+		word-break: break-all;
+		overflow-y: hidden;
+		font-size: @font-size-normal;
+		border: 2px solid transparent;
+		transition: border-color 500ms;
+
+		&.selected {
+			border-color: @text-color6;
+    		color: @text-color6;
+    		border-radius: 3px;			
+		}
+
+		> svg-icon {
+			display: block;
+			margin: 3px auto;
+			width: @font-size-xlarge;
+			height: @font-size-xlarge;
+			vertical-align: top;
+		}
+
+		.bucket-name {
+			height: 2.8em;
+		}
+
+		&:hover::before  {
+			.fill();
+			content: '';
+			background-color: #3d94d9;
+			opacity: .3;
+			border-radius: 3px;
+		}
+	}		
+
+	.field-name {
+		.no-wrap();
+		font-weight: @font-weight-medium;
+		padding-right: 2em;
+	}
+
+	.field-value {
+		width: 100%;
+	}
+}

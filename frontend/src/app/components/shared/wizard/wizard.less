@@ -1,0 +1,22 @@
+wizard {
+	.steps {
+		.no-wrap();
+		display: block;
+		margin-top : 2em;
+		overflow: visible !important;
+		transition: transform 500ms;
+
+		> .step {
+			vertical-align: top;
+			white-space: normal;
+			width: 100%;
+			display: inline-block;
+			opacity: 0;
+			transition: opacity 450ms;
+
+			&.current {
+				opacity: 1;
+			}
+		}
+	}		
+}

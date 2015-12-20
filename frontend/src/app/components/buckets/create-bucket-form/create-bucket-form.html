@@ -1,5 +1,7 @@
 <form data-bind="submit: create">
-	<h1 class="heading2">Create New Bucket</h1>
+	<h1 class="heading2">Create Bucket</h1>
+	
+	<stepper params="steps: ['choose name', 'set policy' ]"></stepper>
 
 	<ul class="bullet-list">
 		<li>

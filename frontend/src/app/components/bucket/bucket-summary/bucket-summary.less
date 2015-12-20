@@ -33,20 +33,23 @@ bucket-summary {
 			}
 		}
 
+		.hidden-actions {
+			opacity: 0;
+			z-index: -1;
+			transition: opacity 750ms;
+			
+			&.visible {
+				z-index: 0;
+				opacity: 1;
+			}
+		}
+
 		.action {
 			display: block;
 			width: 100%;
 			font-size: @font-size-small;
 			text-align: left;
 			margin-top: .5em;
-			opacity: 0;
-			z-index: -1;
-			transition: opacity 750ms;
-
-			&.visible {
-				z-index: 0;
-				opacity: 1;
-			}
 		}		
 	}
 

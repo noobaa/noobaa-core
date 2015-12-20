@@ -8,25 +8,28 @@
 
 	<button class="btn-more btn2" data-bind="
 		click: toggleActions, 
-		text: actionsVisible() ? 'X' : '...'
+		text: areActionsVisible() ? 'X' : '...'
 	"></button> 
 
-	<button class="action btn2" data-bind="css: { visible: actionsVisible }">
-		<svg-icon params="uri: '/assets/icons.svg#pool'"></svg-icon>		
-		Upload File
-	</button>
+	<div class="hidden-actions" data-bind="css: { visible: areActionsVisible }">
+		<button class="action btn2">
+			<svg-icon params="uri: '/assets/icons.svg#pool'"></svg-icon>		
+			Upload File
+		</button>
 
-	<button class="action btn2" data-bind="css: { visible: actionsVisible }">
-		<svg-icon params="uri: '/assets/icons.svg#cloud'"></svg-icon>		
-		Set Cloud Sync
-	</button>
+		<button class="action btn2">
+			<svg-icon params="uri: '/assets/icons.svg#cloud'"></svg-icon>		
+			Set Cloud Sync
+		</button>
 
-	<button class="action btn2" data-bind="css: { visible: actionsVisible }">
-		<svg-icon params="uri: '/assets/icons.svg#bucket'"></svg-icon>		
-		Edit Policy
-	</button>
+		<button class="action btn2" data-bind="click: showBucketPolicyModal">
+			<svg-icon params="uri: '/assets/icons.svg#bucket'"></svg-icon>		
+			Edit Policy
+		</button>
+	</div>
 </section>
 
-<modal class="text-left" params="visible: true">
-	<bucket-policy-form></bucket-policy-form>
+<modal class="text-left" params="visible: isBucketPolicyModalVisible">
+	<bucket-policy-form params="oncomplete: () => hideBucketPolicyModal()">
+	</bucket-policy-form>
 </modal>

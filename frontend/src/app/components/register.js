@@ -24,11 +24,11 @@ export default function register(ko) {
 	// -------------------------------
 	// Overview
 	// -------------------------------
-	ko.components.register('overview-panel', 	require('./overview/overview-panel/overview-panel'));
-	ko.components.register('pools-overview', 	require('./overview/pools-overview/pools-overview'));
-	ko.components.register('buckets-overview',	require('./overview/buckets-overview/buckets-overview'));	
-	ko.components.register('add-node-form',		require('./overview/add-node-form/add-node-form'));
-	ko.components.register('details-keys-form',	require('./overview/details-keys-form/details-keys-form'));
+	ko.components.register('overview-panel', 		require('./overview/overview-panel/overview-panel'));
+	ko.components.register('pools-overview', 		require('./overview/pools-overview/pools-overview'));
+	ko.components.register('buckets-overview',		require('./overview/buckets-overview/buckets-overview'));	
+	ko.components.register('add-node-form',			require('./overview/add-node-form/add-node-form'));
+	ko.components.register('connect-app-wizard',	require('./overview/connect-app-wizard/connect-app-wizard'));
 
 	// -------------------------------
 	// Buckets
@@ -79,8 +79,12 @@ export default function register(ko) {
 	ko.components.register('svg-icon', 			require('./shared/svg-icon/svg-icon'));
 	ko.components.register('modal', 			require('./shared/modal/modal'));
 	ko.components.register('dropdown', 			require('./shared/dropdown/dropdown'));
-	ko.components.register('radio-button', 		require('./shared/radio-button/radio-button'));
+	ko.components.register('radio-btn', 		require('./shared/radio-btn/radio-btn'));
 	ko.components.register('capacity-gauge',	require('./shared/capacity-gauge/capacity-gauge'));	
 	ko.components.register('range-indicator', 	require('./shared/range-indicator/range-indicator'));	
 	ko.components.register('action-list', 		require('./shared/action-list/action-list'));
+	ko.components.register('stepper', 			require('./shared/stepper/stepper'));
+	ko.components.register('multiselect',		require('./shared/multiselect/multiselect'));
+	ko.components.register('slider',			require('./shared/slider/slider'));
+	ko.components.register('wizard',			require('./shared/wizard/wizard'));
 }

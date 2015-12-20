@@ -1,0 +1,34 @@
+<h1 class="heading2" data-bind="text: heading"></h1>
+
+<stepper params="steps: steps, current: step"></stepper>
+
+<div class="steps" data-bind="
+	style: { transform: stepsTransform },
+	foreach: $componentTemplateNodes
+">
+	<div class="step" data-bind="
+		css: { current: $parent.step() === $index() },
+		template: { nodes: [$data], data: $parents[1] }
+	"></div>
+</div>
+
+<div class="form-actions clear pull-right">
+	<button class="action link" 
+		data-bind="click: cancel, visible: isCancelVisible">
+		Cancel
+	</button>
+	
+	<button class="action link" 
+		data-bind="click: prev, visible: isPrevVisible">
+		Previous
+	</button>		
+
+	<button class="action btn2" 
+		data-bind="click: next, visible: isNextVisible">
+		Next
+	</button>
+	
+	<button class="action btn2" 
+		data-bind="click: done, visible: isDoneVisible, text: doneLabel">
+	</button>
+</div>

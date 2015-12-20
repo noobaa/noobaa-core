@@ -59,7 +59,7 @@ export function formatSize(num) {
 	return `${num}${sizeUnits[i]}`;
 }
 
-export function randomName(len = 8) {
+export function randomString(len = 8) {
 	return Math.random().toString(36).substring(7);
 }
 
@@ -150,4 +150,14 @@ export function makeArray(size, initializer) {
 		array.push(initializer(i));
 	}
 	return array;
+}
+
+export function cloneArray(source) {
+	return new Array(...source);
+}
+
+export function domFromHtml(html) {
+	let parser = new DOMParser();
+	let docFragment = parser.parseFromString(html, 'text/html');
+	return docFragment.children;
 }

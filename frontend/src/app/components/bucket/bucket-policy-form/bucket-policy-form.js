@@ -1,47 +1,74 @@
 import template from './bucket-policy-form.html';
 import ko from 'knockout';
+import { noop, cloneArray } from 'utils';
+import { updateBucketPolicy } from 'actions';
 
 class BucketPolicyFormViewModel {
-	constructor() {
-		this.bucketName = "My Bucket";
+	constructor({ policy, oncomplete = noop }) {
+		this.oncomplete = oncomplete;
+		
+		this.bucketName = ko.pureComputed(
+			() => 'My Bucket'
+		);
+
+		this.dataPlacement = ko.pureComputed(
+			() => 'STRIPE'
+		);
 
 		this.pools = [
-			{ name: 'Sony building', selected: ko.observable(true) },
-			{ name: 'TwinTower-Dubai', selected: ko.observable(true) },
-			{ name: 'AmsterdamP-Leiden', selected: ko.observable(true) },
-			{ name: 'NY-Pool', selected: ko.observable(true) },
-			{ name: 'Meriland', selected: ko.observable(true) },
-			{ name: 'Campus', selected: ko.observable(true) },
-			{ name: 'Chicago', selected: ko.observable(true) },
-			{ name: 'Chicago-02', selected: ko.observable(true) },
-			{ name: 'Another Chicago', selected: ko.observable(true) },
-			{ name: 'San Francisco', selected: ko.observable(true) },
-			{ name: 'Beijing_centeral',		 selected: ko.observable(true) },
-			{ name: 'Seol-Station', selected: ko.observable(true) },
-			{ name: 'Memphis', selected: ko.observable(true) },
-			{ name: 'Osaka-Servers', selected: ko.observable(true)},
-			{ name: 'Osaka-Desktops', selected: ko.observable(true) }
+			'Sony building', 
+			'TwinTower-Dubai', 
+			'AmsterdamP-Leiden', 
+			'NY-Pool',
+			'Meriland', 
+			'Campus', 
+			'Chicago', 
+			'Chicago-02', 
+			'Another Chicago',
+			'San Francisco', 
+			'Beijing_centeral', 
+			'Seol-Station',
+			'Memphis', 
+			'Osaka-Servers',
+			'Osaka-Desktops',
+			'Beijing_centeral', 
+			'Seol-Station',
+			'Memphis',
+			'Osaka-Servers2',
+			'Osaka-Desktops2', 
+			'Beijing_centeral2', 
+			'Seol-Station2', 
+			'Memphis2', 
+			'Osaka-Servers3',
+			'Osaka-Desktops3'
 		];
+
+		this.selectedPools = ko.observableArray();
 	}
 
-	selectAll() {
-		this.pools.forEach(
-			pool => pool.selected(true)
+	selectAllPools() {
+		this.selectedPools(
+			cloneArray(ko.unwrap(this.pools))
 		);
 	}
 
-	clearAll() {
-		this.pools.forEach(
-			pool => pool.selected(false)
-		);
+	clearAllPools() {
+		this.selectedPools
+			.removeAll();
 	}
 
 	save() {
+		updateBucketPolicy({ 
+			bucketName: this.bucketName(),
+			dataPlacement: this.dataPlacement(),
+			pools: this.selectedPools()
+		});
 
+		this.oncomplete();
 	}
 
 	cancel() {
-
+		this.oncomplete();
 	}
 }
 

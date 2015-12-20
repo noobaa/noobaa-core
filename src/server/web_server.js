@@ -62,7 +62,7 @@ var rootdir = path.join(__dirname, '..', '..');
 var dev_mode = (process.env.DEV_MODE === 'true');
 
 
-db.mongoose_conenct();
+db.mongoose_connect();
 
 // create express app
 var app = express();

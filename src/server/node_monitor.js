@@ -137,6 +137,17 @@ function heartbeat(req) {
             geolocation: req.rpc_params.geolocation,
         }, {
             auth_token: req.auth_token
+        }).catch(function(err) {
+            if (err.rpc_code === 'CONFLICT') {
+                // TODO how to handle this case that the agent created but lost the token?
+                dbg.error('heartbeat: create node name CONFLICT',
+                    '(TODO probably the agent lost the token)',
+                    err.stack || err, req.rpc_params);
+                throw err;
+            } else {
+                dbg.error('heartbeat: create node ERROR', err.stack || err, req.rpc_params);
+                throw err;
+            }
         }).then(function(node) {
             req.rpc_params.node_id = node.id;
             req.rpc_params.peer_id = node.peer_id;
@@ -205,12 +216,10 @@ function update_heartbeat(params, conn, reply_token) {
         version: process.env.AGENT_VERSION || '0',
         delay_ms: hb_delay_ms,
     };
-    
-    //0.4 backward compatible - reply with version and without rpc address.
-    if (!params.id)
-    {
-        reply.rpc_address =rpc_address;
 
+    //0.4 backward compatible - reply with version and without rpc address.
+    if (!params.id) {
+        reply.rpc_address = rpc_address;
     }
     if (reply_token) {
         reply.auth_token = reply_token;
@@ -318,6 +327,40 @@ function update_heartbeat(params, conn, reply_token) {
                 updates.os_info.last_update = new Date();
             }
 
+            // push latency measurements to arrays
+            // limit the size of the array to keep the last ones using negative $slice
+            var MAX_NUM_LATENCIES = 20;
+            if (params.latency_to_server) {
+                _.merge(updates, {
+                    $push: {
+                        latency_to_server: {
+                            $each: params.latency_to_server,
+                            $slice: -MAX_NUM_LATENCIES
+                        }
+                    }
+                });
+            }
+            if (params.latency_of_disk_read) {
+                _.merge(updates, {
+                    $push: {
+                        latency_of_disk_read: {
+                            $each: params.latency_of_disk_read,
+                            $slice: -MAX_NUM_LATENCIES
+                        }
+                    }
+                });
+            }
+            if (params.latency_of_disk_write) {
+                _.merge(updates, {
+                    $push: {
+                        latency_of_disk_write: {
+                            $each: params.latency_of_disk_write,
+                            $slice: -MAX_NUM_LATENCIES
+                        }
+                    }
+                });
+            }
+
             dbg.log2('NODE heartbeat', node_id, params.ip + ':' + params.port);
 
             if (_.isEmpty(updates)) {
@@ -383,6 +426,7 @@ function self_test_to_node_via_web(req) {
     console.log('SELF TEST', target, 'from', source);
 
     return server_rpc.client.agent.self_test_peer({
+        source: source,
         target: target,
         request_length: req.rpc_params.request_length || 1024,
         response_length: req.rpc_params.response_length || 1024,

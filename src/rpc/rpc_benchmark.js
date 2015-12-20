@@ -195,7 +195,7 @@ function start() {
 
             // register n2n and accept any peer_id
             var n2n_agent = rpc.register_n2n_transport();
-            n2n_agent.set_any_peer_id();
+            n2n_agent.set_any_rpc_address();
         })
         .then(function() {
 

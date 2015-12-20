@@ -18,7 +18,7 @@ var db = require('../server/db');
 
 dbg.set_process_name('BGWorkers');
 
-db.mongoose_conenct();
+db.mongoose_connect();
 
 var bg_workers_rpc;
 var http_server;

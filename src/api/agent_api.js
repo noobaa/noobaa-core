@@ -103,8 +103,14 @@ module.exports = {
             param_raw: 'data',
             params: {
                 type: 'object',
-                required: ['response_length'],
+                required: ['source', 'target', 'response_length'],
                 properties: {
+                    source: {
+                        type: 'string'
+                    },
+                    target: {
+                        type: 'string'
+                    },
                     response_length: {
                         type: 'integer'
                     },
@@ -128,8 +134,11 @@ module.exports = {
             method: 'POST',
             params: {
                 type: 'object',
-                required: ['target', 'request_length', 'response_length'],
+                required: ['source', 'target', 'request_length', 'response_length'],
                 properties: {
+                    source: {
+                        type: 'string'
+                    },
                     target: {
                         type: 'string'
                     },
@@ -187,6 +196,12 @@ module.exports = {
                 digest_b64: {
                     type: 'string'
                 },
+                node_name: {
+                    type: 'string'
+                },
+                node_peer_id: {
+                    type: 'string'
+                }
             }
         },
 

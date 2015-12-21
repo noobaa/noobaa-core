@@ -54,6 +54,33 @@ function get_pools_groups(bucket) {
  */
 
 function analyze_chunk_status_on_pools(chunk, allocated_blocks, orig_pools) {
+
+    function classify_block(fragment, block) {
+        var since_hb = now - block.node.heartbeat.getTime();
+        if (since_hb > config.LONG_GONE_THRESHOLD || block.node.srvmode === 'disabled') {
+            return js_utils.named_array_push(fragment, 'long_gone_blocks', block);
+        }
+        if (since_hb > config.SHORT_GONE_THRESHOLD) {
+            return js_utils.named_array_push(fragment, 'short_gone_blocks', block);
+        }
+        if (block.building) {
+            var since_bld = now - block.building.getTime();
+            if (since_bld > config.LONG_BUILD_THRESHOLD) {
+                return js_utils.named_array_push(fragment, 'long_building_blocks', block);
+            } else {
+                return js_utils.named_array_push(fragment, 'building_blocks', block);
+            }
+        }
+        if (!block.node.srvmode) {
+            js_utils.named_array_push(fragment, 'good_blocks', block);
+        }
+        // also keep list of blocks that we can use to replicate from
+        if (!block.node.srvmode || block.node.srvmode === 'decommissioning') {
+            js_utils.named_array_push(fragment, 'accessible_blocks', block);
+        }
+    }
+
+    var mirrored_pool = false;
     orig_pools = _.flatten(orig_pools);
 
     //convert pools to strings for comparison
@@ -68,8 +95,15 @@ function analyze_chunk_status_on_pools(chunk, allocated_blocks, orig_pools) {
         }) !== -1;
     });
 
+    if (policy_blocks.length === 0) {
+        mirrored_pool = true;
+        dbg.log0('analyze_chunk_status_on_pools: mirrored pool for chunk', chunk._id,
+            'on pools', pools);
+    }
+
     var now = Date.now();
     var blocks_by_frag_key = _.groupBy(policy_blocks, get_frag_key);
+    var all_blocks_by_frag_key = _.groupBy(allocated_blocks, get_frag_key);
     var blocks_info_to_allocate;
     var blocks_to_remove;
     var chunk_health = 'available';
@@ -83,6 +117,7 @@ function analyze_chunk_status_on_pools(chunk, allocated_blocks, orig_pools) {
         };
 
         fragment.blocks = blocks_by_frag_key[get_frag_key(fragment)] || [];
+        fragment.accessible_blocks = [];
 
         // sorting the blocks by last node heartbeat time and by srvmode and building,
         // so that reading will be served by most available node.
@@ -90,33 +125,24 @@ function analyze_chunk_status_on_pools(chunk, allocated_blocks, orig_pools) {
         // TODO need stable sorting here for parallel decision making...
         fragment.blocks.sort(block_access_sort);
 
-        dbg.log1('analyze_chunk_status:', 'chunk', chunk._id,
+        dbg.log1('analyze_chunk_status_on_pools:', 'chunk', chunk._id,
             'fragment', frag, 'num blocks', fragment.blocks.length);
 
+        //Analyze good/building blocks on the policy pools only
         _.each(fragment.blocks, function(block) {
-            var since_hb = now - block.node.heartbeat.getTime();
-            if (since_hb > config.LONG_GONE_THRESHOLD || block.node.srvmode === 'disabled') {
-                return js_utils.named_array_push(fragment, 'long_gone_blocks', block);
-            }
-            if (since_hb > config.SHORT_GONE_THRESHOLD) {
-                return js_utils.named_array_push(fragment, 'short_gone_blocks', block);
-            }
-            if (block.building) {
-                var since_bld = now - block.building.getTime();
-                if (since_bld > config.LONG_BUILD_THRESHOLD) {
-                    return js_utils.named_array_push(fragment, 'long_building_blocks', block);
-                } else {
-                    return js_utils.named_array_push(fragment, 'building_blocks', block);
-                }
-            }
-            if (!block.node.srvmode) {
-                js_utils.named_array_push(fragment, 'good_blocks', block);
-            }
-            // also keep list of blocks that we can use to replicate from
-            if (!block.node.srvmode || block.node.srvmode === 'decommissioning') {
-                js_utils.named_array_push(fragment, 'accessible_blocks', block);
-            }
+            classify_block(fragment, block);
         });
+
+        // Analyze accisible blocks on all the pools
+        var other_blocks = all_blocks_by_frag_key[get_frag_key(fragment)];
+        var other_fragment = {};
+        _.each(other_blocks, function(block) {
+            classify_block(other_fragment, block);
+        });
+
+        if (other_fragment.accessible_blocks && other_fragment.accessible_blocks.length) {
+            js_utils.array_push_all(fragment.accessible_blocks, other_fragment.accessible_blocks);
+        }
 
         var num_accessible_blocks = fragment.accessible_blocks ?
             fragment.accessible_blocks.length : 0;
@@ -144,7 +170,8 @@ function analyze_chunk_status_on_pools(chunk, allocated_blocks, orig_pools) {
             js_utils.array_push_all(blocks_to_remove, fragment.good_blocks.slice(config.OPTIMAL_REPLICAS));
         }
 
-        if (num_good_blocks < config.OPTIMAL_REPLICAS && num_accessible_blocks) {
+        if ((num_good_blocks < config.OPTIMAL_REPLICAS && num_accessible_blocks) ||
+            mirrored_pool) {
             fragment.health = 'repairing';
 
             // will allocate blocks for fragment to reach optimal count

@@ -109,17 +109,29 @@ function create_system(req) {
                 auth_token: system_token
             });
         })
+        //TODO::NBNB remove this, only for test
+        .then(function() {
+            return server_rpc.client.pools.create_pool({
+                pool: {
+                    name: 'default_mirror',
+                    nodes: [],
+                }
+            }, {
+                auth_token: system_token
+            });
+        })
         .then(function() {
             return server_rpc.client.tier.create_tier({
+                //TODO:: NBNB back to only default pool and spread
                 name: 'nodes',
-                data_placement: 'SPREAD',
+                data_placement: 'MIRROR',
                 edge_details: {
                     replicas: 3,
                     data_fragments: 1,
                     parity_fragments: 0
                 },
                 nodes: [],
-                pools: ['default_pool'],
+                pools: ['default_pool', 'default_mirror'],
             }, {
                 auth_token: system_token
             });

@@ -59,7 +59,7 @@ module.exports = function(params) {
         P.ninvoke(fileStore, "putObject", req.params.bucket, req)
             .then(function(key) {
                 dbg.log3('Stored object "%s" in bucket "%s" successfully', req.params.key, req.params.bucket);
-                res.header('ETag', key.md5);
+                res.header('ETag', '"' + key.md5 + '"');
                 return res.status(200).end();
             }).then(null, function(err) {
                 dbg.error('Error uploading object "%s" to bucket "%s"',
@@ -109,7 +109,7 @@ module.exports = function(params) {
 
     };
     var buildResponse = function(req, res, status, object, data) {
-        res.header('Etag', object.md5);
+        res.header('Etag', '"' + object.md5 + '"');
         res.header('Last-Modified', new Date(object.modifiedDate).toUTCString());
         res.header('Content-Type', object.contentType);
 
@@ -299,7 +299,7 @@ module.exports = function(params) {
                 try {
 
                     dbg.log0('COMPLETED: upload', req.query.uploadId, ' part:', req.query.partNumber, 'md5:', part_md5);
-                    res.header('ETag', part_md5);
+                    res.header('ETag', '"' + part_md5 + '"');
 
                 } catch (err) {
                     dbg.error('FAILED', err, res);
@@ -605,7 +605,7 @@ module.exports = function(params) {
             })
             .then(function() {
                 dbg.log3('COMPLETED: uploadObject', file_key_name, md5);
-                res.header('ETag', md5);
+                res.header('ETag', '"' + md5 + '"');
                 _.each(create_params.xattr, function(val, key) {
                     res.header('x-amz-meta-' + key, val);
                     dbg.log3('RETURN XATTR (2)', key, val);
@@ -998,12 +998,12 @@ module.exports = function(params) {
                             var create_date = new Date(object_md.create_time);
                             create_date.setMilliseconds(0);
 
-                            //res.header('Last-Modified', null);
+                            res.header('ETag', '"' + object_md.etag + '"');
+                            res.header('Last-Modified', create_date.toUTCString());
                             res.header('Content-Type', object_md.content_type);
                             res.header('Content-Length', object_md.size);
                             res.header('x-amz-meta-cb-modifiedtime', req.headers['x-amz-date'] || create_date);
                             res.header('x-amz-restore', 'ongoing-request="false"');
-                            res.header('ETag', object_md.etag);
                             res.header('x-amz-id-2', 'FSVaTMjrmBp3Izs1NnwBZeu7M19iI8UbxMbi0A8AirHANJBo+hEftBuiESACOMJp');
                             res.header('x-amz-request-id', 'E5CEFCB143EB505A');
                             _.each(object_md.xattr, function(val, key) {

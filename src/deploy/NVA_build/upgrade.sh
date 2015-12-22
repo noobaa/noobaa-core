@@ -48,7 +48,9 @@ function restart_webserver {
     done
 
     #MongoDB nbcore upgrade
+    deploy_log "starting mongo data upgrade"
     /usr/bin/mongo nbcore ${CORE_DIR}/src/deploy/NVA_build/mongo_upgrade.js
+    deploy_log "finished mongo data upgrade"
     
     ${SUPERCTL} start webserver
 

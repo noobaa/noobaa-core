@@ -66,15 +66,13 @@ else
         cp -R ../../src/api ./package/src/
         cp -R ../../src/native ./package/src/
         cp -R ../../binding.gyp ./package/
-
+        cd ./package
         npm install -g node-gyp
         npm install nan
 
         node-gyp rebuild
-        cp -R ../../build ./package/build
         #remove irrelevant packages
         #TODO: create new package for that matter
-        cd package
         echo "npm install"
         sed -i '/gulp/d' package.json
         sed -i '/bower/d' package.json

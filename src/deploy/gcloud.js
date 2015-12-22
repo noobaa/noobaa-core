@@ -9,8 +9,6 @@ var google = require('googleapis');
 var compute = google.compute('v1');
 var Semaphore = require('../util/semaphore');
 
-// var OAuth2 = google.auth.OAuth2;
-
 //production
 //var SERVICE_ACCOUNT_EMAIL = '212693709820-eosjslu4ekqsp95nqnon23n9sfbl4u5b@developer.gserviceaccount.com';
 //var SERVICE_ACCOUNT_KEY_FILE = './gcloud.pem';

@@ -28,8 +28,8 @@ const CAND_TCP_TYPE_ACTIVE = 'active';
 const CAND_TCP_TYPE_PASSIVE = 'passive';
 const CAND_TCP_TYPE_SO = 'so';
 
-const ICE_UFRAG_LENGTH = 4;
-const ICE_PWD_LENGTH = 22;
+const ICE_UFRAG_LENGTH = 32; // ice rfc uses 4
+const ICE_PWD_LENGTH = 32; // ice rfc uses 22
 const RAND_ICE_CHAR_POOL_64 =
     'abcdefghijklmnopqrstuvwxyz' +
     'ABCDEFGHIJKLMNOPQRTTUVWXYZ' +

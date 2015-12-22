@@ -436,7 +436,7 @@ Agent.prototype._do_heartbeat = function() {
                 }
             });
             drives = used_drives;
-            dbg.log0('DRIVES:', drives, 'NBNBNBN', used_drives);
+            dbg.log0('DRIVES:', drives, 'used drives', used_drives);
             // _.each(drives, function(drive) {
             //     if (self.storage_path_mount === drive.mount) {
             //         drive.storage.used = store_stats.used;
@@ -813,8 +813,7 @@ function test_average_latency(func) {
             });
         })
         .then(function() {
-            console.log('latency results', results);
-            // throw the first result which is usually skewed
+            // throw the first result which is sometimes skewed
             return results.slice(1);
         });
 }

@@ -192,30 +192,25 @@ AgentCLI.prototype.load = function() {
                     }));
                 });
         }))
-        .then(function(res) {
-            var nodes_count = parseInt(self.params.scale, 10) || (self.params.prod && 1) || 0;
-            var nodes_to_add = 0;
-            //check if there is a new drive we can use. in this case, res will contain empty cell
-            //for each new drive
-            if (res) {
-                _.each(res, function(curr_node_in_res) {
-                    if (_.isEmpty(curr_node_in_res)) {
-                        nodes_to_add = 1;
-                    }
-                });
-            }
-
-            if (nodes_to_add > 0) {
-                nodes_to_add = 1;
-                dbg.log0('AGENTS to create ', 1);
-            } else {
-                dbg.log0('AGENTS SCALE TO', nodes_count, 'res', res);
-                dbg.log0('AGENTS STARTED', res.length);
-                if (nodes_count > res.length) {
-                    nodes_to_add = nodes_count - res.length;
+        .then(function(storage_path_nodes) {
+            var nodes_scale = parseInt(self.params.scale, 10) || 0;
+            var number_of_new_paths = 0;
+            var existing_nodes_count = 0;
+            _.each(storage_path_nodes, function(nodes) {
+                existing_nodes_count += nodes.length;
+                if (!nodes.length) {
+                    number_of_new_paths += 1;
                 }
-            }
-            if (nodes_to_add < 0) {
+            });
+            // we create a new node for every new drive (detects as a storage path without nodes)
+            // but here we also consider the development mode of --scale
+            // which asks to create at least that number of total nodes.
+            var nodes_to_add = Math.max(nodes_scale - existing_nodes_count, number_of_new_paths);
+            dbg.log0('AGENTS SCALE TO', nodes_scale);
+            dbg.log0('AGENTS EXISTING', existing_nodes_count);
+            dbg.log0('AGENTS NEW PATHS', number_of_new_paths);
+            dbg.log0('AGENTS TO ADD', nodes_to_add);
+            if (nodes_scale < existing_nodes_count) {
                 dbg.warn('NODES SCALE DOWN IS NOT YET SUPPORTED ...');
             }
             if (nodes_to_add > 0) {

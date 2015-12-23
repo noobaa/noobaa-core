@@ -26,6 +26,11 @@ function create_pool(req) {
     var info = _.pick(req.rpc_params.pool, 'name');
     info.system = req.system.id;
 
+    if ((info.name !== 'default_pool') &&
+        (req.rpc_params.pool.nodes.length < 3)) {
+        throw req.rpc_error('NOT ENOUGH NODES', 'cant create a pool with less than 3 nodes');
+    }
+
     info.nodes = req.rpc_params.pool.nodes;
     dbg.log0('Creating new pool', info);
     return P.when(db.Pool.create(info))
@@ -34,6 +39,10 @@ function create_pool(req) {
 }
 
 function update_pool(req) {
+    if ((req.rpc_params.name === 'default_pool') &&
+        (req.rpc_params.new_name !== 'default_pool')) {
+        throw req.rpc_error('ILLEGAL POOL RENAME', 'cant change name of default pool');
+    }
     dbg.log0('Update pool', req.rpc_params.name, 'to', req.rpc_params.new_name);
     return P.when(db.Pool
             .findOne(get_pool_query(req))

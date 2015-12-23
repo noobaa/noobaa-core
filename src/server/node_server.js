@@ -69,6 +69,7 @@ function create_node(req) {
         if (req.auth.extra.tier !== tier_name) throw req.forbidden();
     }
 
+
     return db.TierCache.get({
             system: req.system.id,
             name: tier_name,

@@ -13,7 +13,7 @@ var dbg = require('../util/debug_module')(__filename);
 var pool_server = {
     create_pool: create_pool,
     update_pool: update_pool,
-    get_pool: get_pool,
+    list_pool_nodes: list_pool_nodes,
     delete_pool: delete_pool,
     add_nodes_to_pool: add_nodes_to_pool,
     remove_nodes_from_pool: remove_nodes_from_pool,
@@ -59,7 +59,7 @@ function update_pool(req) {
         });
 }
 
-function get_pool(req) {
+function list_pool_nodes(req) {
     return P.when(db.Pool
             .findOne(get_pool_query(req))
             .populate('node')

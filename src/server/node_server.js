@@ -123,7 +123,7 @@ function create_node(req) {
             });
 
             //TODO:: once we manage pools, remove this. Nodes will be associated propery
-            return server_rpc.client.pools.add_nodes_to_pool({
+            return server_rpc.client.pool.add_nodes_to_pool({
                     name: 'default_pool',
                     nodes: [info.name.toString()]
                 }, {

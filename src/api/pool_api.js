@@ -7,7 +7,7 @@
  *
  */
 module.exports = {
-    name: 'pools_api',
+    name: 'pool_api',
 
     methods: {
         create_pool: {
@@ -18,7 +18,7 @@ module.exports = {
                 required: ['pool'],
                 properties: {
                     pool: {
-                        $ref: '/pools_api/definitions/pool_definition'
+                        $ref: '/pool_api/definitions/pool_definition'
                     }
                 }
             },
@@ -47,7 +47,7 @@ module.exports = {
             }
         },
 
-        get_pool: {
+        list_pool_nodes: {
             doc: 'Get Pool',
             method: 'GET',
             params: {
@@ -60,7 +60,7 @@ module.exports = {
                 }
             },
             reply: {
-                $ref: '/pools_api/definitions/pool_definition'
+                $ref: '/pool_api/definitions/pool_definition'
             },
             auth: {
                 system: 'admin'

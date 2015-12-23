@@ -602,7 +602,7 @@ function package_build_task() {
                         return promise_utils.promised_exec('curl -u tamireran:0436dd1acfaf9cd247b3dd22a37f561f -L http://127.0.0.1:8080/job/win_agent_remote/lastBuild/artifact/build/windows/noobaa-setup-' + current_pkg_version + '.exe >build/public/noobaa-setup-' + current_pkg_version + '.exe', [], process.cwd());
                     })
                     .then(function() {
-                        return promise_utils.promised_exec('curl -u tamireran:0436dd1acfaf9cd247b3dd22a37f561f -L http://127.0.0.1:8080/job/win_s3_remote/lastBuild/artifact/build/windows/noobaa-s3rest-' + current_pkg_version + ' .exe>build/public/noobaa-s3rest-' + current_pkg_version + '.exe', [], process.cwd());
+                        return promise_utils.promised_exec('curl -u tamireran:0436dd1acfaf9cd247b3dd22a37f561f -L http://127.0.0.1:8080/job/win_s3_remote/lastBuild/artifact/build/windows/noobaa-s3rest-' + current_pkg_version + '.exe>build/public/noobaa-s3rest-' + current_pkg_version + '.exe', [], process.cwd());
                     })
                     .then(function() {
                         return promise_utils.promised_exec('chmod 777 build/public/noobaa-setup', [], process.cwd());

@@ -302,6 +302,7 @@ function pack(dest, name) {
 
     var node_modules_stream = gulp
         .src(['node_modules/**/*',
+            '!node_modules/babel*/**/*',
             '!node_modules/gulp*/**/*',
             '!node_modules/bower/**/*',
             '!node_modules/node-inspector/**/*'

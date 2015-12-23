@@ -309,6 +309,9 @@ module.exports = {
                     latency_of_disk_read: {
                         $ref: '/node_api/definitions/latency_array'
                     },
+                    debug_level: {
+                      type: 'integer',
+                    },
                 }
             },
             reply: {
@@ -538,6 +541,9 @@ module.exports = {
                 latency_of_disk_read: {
                     $ref: '/node_api/definitions/latency_array'
                 },
+                debug_level: {
+                  type: 'integer',
+                }
             }
         },
 

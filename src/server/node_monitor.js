@@ -361,6 +361,8 @@ function update_heartbeat(params, conn, reply_token) {
                 });
             }
 
+            updates.debug_level = params.debug_level || 0;
+
             dbg.log2('NODE heartbeat', node_id, params.ip + ':' + params.port);
 
             if (_.isEmpty(updates)) {

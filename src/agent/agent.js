@@ -396,6 +396,9 @@ Agent.prototype._do_heartbeat = function() {
         version: self.heartbeat_version || '',
         extended_hb: extended_hb,
     };
+
+    params.debug_level = dbg.get_module_level('core');
+
     if (self.rpc_address) {
         params.rpc_address = self.rpc_address;
     }

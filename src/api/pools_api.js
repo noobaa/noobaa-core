@@ -128,6 +128,29 @@ module.exports = {
             auth: {
                 system: 'admin'
             }
+        },
+
+        get_associated_buckets: {
+            doc: 'Return list of buckets which are using this pool',
+            method: 'GET',
+            params: {
+                type: 'object',
+                required: ['name'],
+                properties: {
+                    name: {
+                        type: 'string',
+                    },
+                }
+            },
+            reply: {
+                type: 'array',
+                items: {
+                    type: 'string'
+                }
+            },
+            auth: {
+                system: 'admin'
+            }
         }
     },
 

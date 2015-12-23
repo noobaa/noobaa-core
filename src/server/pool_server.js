@@ -17,6 +17,7 @@ var pool_server = {
     delete_pool: delete_pool,
     add_nodes_to_pool: add_nodes_to_pool,
     remove_nodes_from_pool: remove_nodes_from_pool,
+    get_associated_buckets: get_associated_buckets,
 };
 
 module.exports = pool_server;
@@ -173,6 +174,64 @@ function remove_nodes_from_pool(req) {
                     multi: true
                 })
                 .exec());
+        });
+}
+
+function get_associated_buckets(req) {
+    var pool;
+    var associated_tiers = [];
+    var associated_policies = [];
+
+    return P.when(db.Pool
+            .findOne(get_pool_query(req))
+            .exec())
+        .then(function(p) {
+            pool = p;
+            return P.when(db.Tier
+                .find({
+                    system: req.system.id,
+                    deleted: null,
+                })
+                .exec());
+        })
+        .then(function(tiers) {
+            _.each(tiers, function(t) {
+                _.each(t.pools, function(current_pool) {
+                    if (pool._id.toString() === current_pool.toString()) {
+                        associated_tiers.push(t._id.toString());
+                    }
+                });
+            });
+
+            return P.when(db.TieringPolicy
+                .find({
+                    system: req.system.id,
+                    deleted: null,
+                })
+                .exec());
+        })
+        .then(function(policies) {
+            _.each(policies, function(p) {
+                _.each(p.tiers, function(current_tier) {
+                    if (_.findIndex(associated_tiers, function(a) {
+                            return a === current_tier.tier.toString();
+                        }) !== -1) {
+                        associated_policies.push(p._id);
+                    }
+                });
+            });
+            return P.when(db.Bucket
+                .find({
+                    tiering: {
+                        $in: associated_policies
+                    },
+                })
+                .exec());
+        })
+        .then(function(res) {
+            return _.map(res, function(r) {
+                return r.name;
+            });
         });
 }
 

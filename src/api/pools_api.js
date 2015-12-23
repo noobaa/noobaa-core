@@ -155,16 +155,22 @@ module.exports = {
             type: 'object',
             required: ['pools'],
             properties: {
-                properties: [{
-                    name: {
-                        type: 'string',
-                        required: true,
-                    },
-                    nodes_count: {
-                        type: 'integer',
-                        required: true,
-                    },
-                }]
+                pools: {
+                    type: 'array',
+                    items: {
+                        type: 'object',
+                        properties: {
+                            name: {
+                                type: 'string',
+                                required: true,
+                            },
+                            nodes_count: {
+                                type: 'integer',
+                                required: true,
+                            },
+                        }
+                    }
+                }
             }
         },
     }

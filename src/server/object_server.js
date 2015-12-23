@@ -149,7 +149,9 @@ function complete_multipart_upload(req) {
             dbg.error('complete_multipart_upload_err ', err, err.stack);
         })
         .then(function() {
-            return obj_etag;
+            return {
+                etag: obj_etag
+            };
         });
 }
 

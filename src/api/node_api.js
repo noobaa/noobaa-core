@@ -423,6 +423,15 @@ module.exports = {
 
         set_debug_node: {
             method: 'POST',
+            params: {
+                type: 'object',
+                properties: {
+                    target: {
+                        type: 'string',
+                        required: true
+                    }
+                }
+            },
             auth: {
                 system: 'admin',
             }

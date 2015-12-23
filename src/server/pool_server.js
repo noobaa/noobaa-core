@@ -30,7 +30,7 @@ function create_pool(req) {
     dbg.log0('Creating new pool', info);
     return P.when(db.Pool.create(info))
         .then(null, db.check_already_exists(req, 'pool'))
-        .thenResolve();
+        .return();
 }
 
 function update_pool(req) {
@@ -46,7 +46,8 @@ function update_pool(req) {
             return P.when(db.Pool
                 .findOneAndUpdate(get_pool_query(req), updates)
                 .exec());
-        });
+        })
+        .return();
 }
 
 function get_pool(req) {
@@ -76,7 +77,8 @@ function delete_pool(req) {
             return P.when(db.Pool
                 .findOneAndUpdate(get_pool_query(req), updates)
                 .exec());
-        });
+        })
+        .return();
 }
 
 function add_nodes_to_pool(req) {
@@ -113,7 +115,8 @@ function add_nodes_to_pool(req) {
                     multi: true
                 })
                 .exec());
-        });
+        })
+        .return();
 }
 
 function remove_nodes_from_pool(req) {
@@ -164,7 +167,8 @@ function remove_nodes_from_pool(req) {
                     multi: true
                 })
                 .exec());
-        });
+        })
+        .return();
 }
 
 // UTILS //////////////////////////////////////////////////////////

@@ -577,7 +577,6 @@ Agent.prototype._on_rpc_reconnect = function(conn) {
 
 Agent.prototype.read_block = function(req) {
     var self = this;
-    dbg.log0('req etetet read_block:', req);
     var block_md = req.rpc_params.block_md;
     dbg.log1('read_block', block_md.id, 'node', self.node_name);
     return self.store_cache.get(block_md)
@@ -595,8 +594,6 @@ Agent.prototype.read_block = function(req) {
 
 Agent.prototype.write_block = function(req) {
     var self = this;
-    dbg.log0('req etetet write_block:', self.store, ' with peer::::', req.rpc_params.node_peer_id);
-
     var block_md = req.rpc_params.block_md;
     var data = req.rpc_params.data;
     dbg.log1('write_block', block_md.id, data.length, 'node', self.node_name);
@@ -616,7 +613,6 @@ Agent.prototype.replicate_block = function(req) {
     var target = req.rpc_params.target;
     var source = req.rpc_params.source;
     dbg.log1('replicate_block', target.id, 'node', self.node_name);
-    dbg.log0('req etetet replicate:', req);
 
     // read from source agent
     return self.client.agent.read_block({
@@ -728,19 +724,17 @@ Agent.prototype.collect_diagnostics = function(req) {
                 });
         })
         .then(null, function() {
-            return '';
+            return;
         });
 };
 
 Agent.prototype.set_debug_node = function(req) {
     dbg.set_level(5, 'core');
     dbg.log1('Recieved set debug req', req);
-
-    promise_utils.delay_unblocking(1000 * 10) //10m
+    promise_utils.delay_unblocking(10 * 60 * 1000) // 10 minutes
         .then(function() {
             dbg.set_level(0, 'core');
         });
-    return '';
 };
 
 Agent.prototype._test_latencies = function() {
@@ -767,7 +761,7 @@ Agent.prototype._test_latencies = function() {
 Agent.prototype._test_latency_to_server = function() {
     var self = this;
     return test_average_latency(function() {
-        return self.client.node.test_latency_to_server({});
+        return self.client.node.test_latency_to_server();
     });
 };
 

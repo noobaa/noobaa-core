@@ -483,7 +483,9 @@ nb_api.factory('nbNodes', [
                     }
                 })
                 .then(function() {
-                    $window.document.body.removeChild(link);
+                    if (link) {
+                        $window.document.body.removeChild(link);
+                    }
                 })
                 .then(null, function(err) {
                     dbg.log0('Diagnose node encountered errors', err, err.stack);
@@ -492,14 +494,9 @@ nb_api.factory('nbNodes', [
         }
 
         function set_debug_node(node) {
-            var link;
-
             return $q.when(nbClient.client.node.set_debug_node({
                     target: node.rpc_address,
                 }))
-                .then(function() {
-                    $window.document.body.removeChild(link);
-                })
                 .then(function() {
                     nbAlertify.success('Collecting Debug Information');
                 })

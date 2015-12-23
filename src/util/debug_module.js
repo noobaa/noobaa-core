@@ -275,6 +275,25 @@ InternalDebugLogger.prototype.set_level = function(mod, level) {
     this.populate_subtree(tmp_mod, level);
 };
 
+//Getting level for a node in the tree
+InternalDebugLogger.prototype.get_level = function(mod) {
+    var parts = mod.split(".");
+    var tmp_mod = this._modules;
+
+    //find the desired node to set level for
+    for (var ind = 0; ind < parts.length; ++ind) {
+        if (!tmp_mod[parts[ind]]) {
+            con.original_console();
+            console.log("No such module " + mod + " registered");
+            con.wrapper_console();
+            return;
+        }
+        tmp_mod = tmp_mod[parts[ind]];
+    }
+
+    return tmp_mod.__level;
+};
+
 InternalDebugLogger.prototype.log_internal = function(level) {
     var args;
     con.original_console();
@@ -406,6 +425,10 @@ DebugLogger.prototype.should_log = function(level) {
 
 DebugLogger.prototype.get_module_structure = function() {
     return int_dbg._modules;
+};
+
+DebugLogger.prototype.get_module_level = function(mod) {
+    return int_dbg.get_level(mod);
 };
 
 DebugLogger.prototype.set_process_name = function(name) {

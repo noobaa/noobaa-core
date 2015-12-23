@@ -469,6 +469,7 @@ var NODE_PICK_FIELDS = [
     'latency_to_server',
     'latency_of_disk_read',
     'latency_of_disk_write',
+    'debug_level',
 ];
 
 var NODE_DEFAULT_FIELDS = {

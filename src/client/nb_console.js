@@ -424,7 +424,7 @@ nb_console.controller('OverviewCtrl', [
             scope.rest_endpoint = rest_host;
             scope.bucket_name = $scope.nbSystem.system.buckets[0].name;
             scope.rest_package = download_rest_server_package;
-            console.log('rest_server_information', scope.rest_package, scope.rest_endpoint);
+            console.log('rest_server_information', scope.rest_endpoint);
             console.log('rest_server_information', $window.location, $location);
             scope.modal = nbModal({
                 template: 'console/rest_server_information.html',
@@ -434,20 +434,15 @@ nb_console.controller('OverviewCtrl', [
 
         function download_rest_server_package() {
             console.log('rest_package1');
-            var link;
-            return nbSystem.get_s3_rest_installer()
-                .then(function(url) {
-                    console.log('GOT URL1:', url);
-                    link = $window.document.createElement("a");
-                    link.id = 'noobaa_link_rest_package';
-                    $window.document.body.appendChild(link);
-                    link.download = '';
-                    link.href = url;
-                    link.click();
-                    return P.delay(2000);
-                }).then(function() {
-                    $window.document.body.removeChild(link);
-                });
+            var link = $window.document.createElement("a");
+            link.id = 'noobaa_link_rest_package';
+            $window.document.body.appendChild(link);
+            link.download = '';
+            link.href = nbSystem.system.web_links.s3rest_installer;
+            link.click();
+            return P.delay(2000).then(function() {
+                $window.document.body.removeChild(link);
+            });
         }
 
 
@@ -1234,19 +1229,14 @@ nb_console.controller('BucketViewCtrl', [
 
         function download_rest_server_package() {
             console.log('rest_package2');
-            var link;
-            return nbSystem.get_s3_rest_installer()
-                .then(function(url) {
-                    console.log('GOT URL2:', url);
-                    link = $window.document.createElement("a");
-                    link.download = '';
-                    link.href = url;
-                    $window.document.body.appendChild(link);
-                    link.click();
-                    return P.delay(2000);
-                }).then(function() {
-                    $window.document.body.removeChild(link);
-                });
+            var link = $window.document.createElement("a");
+            link.download = '';
+            link.href = nbSystem.system.web_links.s3rest_installer;
+            $window.document.body.appendChild(link);
+            link.click();
+            return P.delay(2000).then(function() {
+                $window.document.body.removeChild(link);
+            });
         }
 
     }

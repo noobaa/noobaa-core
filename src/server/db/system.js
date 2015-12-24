@@ -43,6 +43,7 @@ var system_schema = new Schema({
         type: Date,
     },
 
+    // links to system resources used for storing install packages
     resources: {
         agent_installer: {
             type: String

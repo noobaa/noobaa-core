@@ -264,34 +264,26 @@ nb_api.factory('nbNodes', [
                 });
             };
             scope.download_agent = function() {
-                var link;
-                return nbSystem.get_agent_installer()
-                    .then(function(url) {
-                        link = $window.document.createElement("a");
-                        link.download = '';
-                        link.href = url;
-                        $window.document.body.appendChild(link);
-                        link.click();
-                        return P.delay(2000);
-                    }).then(function() {
-                        $window.document.body.removeChild(link);
-                        scope.next_stage();
-                    });
+                var link = $window.document.createElement("a");
+                link.download = '';
+                link.href = nbSystem.system.web_links.agent_installer;
+                $window.document.body.appendChild(link);
+                link.click();
+                return P.delay(2000).then(function() {
+                    $window.document.body.removeChild(link);
+                    scope.next_stage();
+                });
             };
             scope.download_linux_agent = function() {
-                var link;
-                return nbSystem.get_linux_agent_installer()
-                    .then(function(url) {
-                        link = $window.document.createElement("a");
-                        link.download = '';
-                        link.href = url;
-                        $window.document.body.appendChild(link);
-                        link.click();
-                        return P.delay(2000);
-                    }).then(function() {
-                        $window.document.body.removeChild(link);
-                        scope.next_stage();
-                    });
+                var link = $window.document.createElement("a");
+                link.download = '';
+                link.href = nbSystem.system.web_links.linux_agent_installer;
+                $window.document.body.appendChild(link);
+                link.click();
+                return P.delay(2000).then(function() {
+                    $window.document.body.removeChild(link);
+                    scope.next_stage();
+                });
             };
 
             scope.copy_to_clipboard = function() {

@@ -138,28 +138,6 @@ module.exports = {
         },
 
 
-        get_system_resource_info: {
-            method: 'GET',
-            reply: {
-                type: 'object',
-                requires: [],
-                properties: {
-                    agent_installer: {
-                        type: 'string',
-                    },
-                    linux_agent_installer: {
-                        type: 'string',
-                    },
-                    s3rest_installer: {
-                        type: 'string',
-                    },
-                }
-            },
-            auth: {
-                system: 'admin',
-            }
-        },
-
         read_activity_log: {
             method: 'GET',
             params: {
@@ -386,6 +364,20 @@ module.exports = {
                 },
                 web_port: {
                     type: 'string'
+                },
+                web_links: {
+                    type: 'object',
+                    properties: {
+                        agent_installer: {
+                            type: 'string',
+                        },
+                        linux_agent_installer: {
+                            type: 'string',
+                        },
+                        s3rest_installer: {
+                            type: 'string',
+                        },
+                    }
                 },
             }
         },

@@ -20,8 +20,6 @@ var system_server = {
     add_role: add_role,
     remove_role: remove_role,
 
-    get_system_resource_info: get_system_resource_info,
-
     read_activity_log: read_activity_log,
 
     diagnose: diagnose,
@@ -408,6 +406,7 @@ function read_system(req) {
                 access_keys: req.system.access_keys,
                 ssl_port: process.env.SSL_PORT,
                 web_port: process.env.PORT,
+                web_links: get_system_web_links(req.system),
             };
         });
     });
@@ -543,20 +542,15 @@ var aws_s3 = process.env.AWS_ACCESS_KEY_ID && new AWS.S3({
 });
 
 
-/**
- *
- * READ_ACTIVITY_LOG
- *
- */
-function get_system_resource_info(req) {
-    var reply = _.mapValues(req.system.resources, function(val, key) {
+function get_system_web_links(system) {
+    var reply = _.mapValues(system.resources, function(val, key) {
         if (key === 'toObject' || !_.isString(val) || !val) {
             return;
         }
         if (process.env.ON_PREMISE) {
             var versioned_resource = val.replace('noobaa-setup', 'noobaa-setup-' + pkg.version);
             versioned_resource = versioned_resource.replace('noobaa-s3rest', 'noobaa-s3rest-' + pkg.version);
-            dbg.log('setup resources:', val, versioned_resource);
+            dbg.log1('resource link:', val, versioned_resource);
             return '/public/' + versioned_resource;
         } else {
             var params = {

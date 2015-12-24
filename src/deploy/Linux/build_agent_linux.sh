@@ -72,6 +72,10 @@ if [ "$CLEAN" = true ] ; then
     #TODO: create new package for that matter
     cd package
     sed -i '/gulp/d' package.json
+    sed -i '/babel/d' package.json
+    sed -i '/eslint/d' package.json
+    sed -i '/mongoose/d' package.json
+    sed -i '/googleapis/d' package.json
     sed -i '/bower/d' package.json
     sed -i '/bootstrap/d' package.json
     sed -i '/browserify"/d' package.json

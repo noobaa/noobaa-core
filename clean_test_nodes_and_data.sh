@@ -15,10 +15,11 @@ echo "removing DataBlocks  ..." `$DB 'db.datablocks.remove({})'`
 echo "removing DataChunks  ..." `$DB 'db.datachunks.remove({})'`
 echo "removing ObjectParts ..." `$DB 'db.objectparts.remove({})'`
 echo "removing ObjectMDs   ..." `$DB 'db.objectmds.remove({})'`
+echo "removing Nodes       ..." `$DB 'db.nodes.remove({})'`
 echo "done."
 echo ""
 
-echo "deleting agent_storage/*/blocks ..."
-rm -rf agent_storage/*/blocks
+echo "deleting agent_storage/* ..."
+rm -rf agent_storage/*
 echo "done."
 echo ""

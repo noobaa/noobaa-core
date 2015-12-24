@@ -737,7 +737,7 @@ Agent.prototype.collect_diagnostics = function(req) {
 
 Agent.prototype.set_debug_node = function(req) {
     dbg.set_level(5, 'core');
-    dbg.log1('Recieved set debug req', req);
+    dbg.log1('Recieved set debug req');
 
     promise_utils.delay_unblocking(1000 * 10) //10m
         .then(function() {

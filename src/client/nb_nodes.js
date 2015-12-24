@@ -492,14 +492,9 @@ nb_api.factory('nbNodes', [
         }
 
         function set_debug_node(node) {
-            var link;
-
             return $q.when(nbClient.client.node.set_debug_node({
                     target: node.rpc_address,
                 }))
-                .then(function() {
-                    $window.document.body.removeChild(link);
-                })
                 .then(function() {
                     nbAlertify.success('Collecting Debug Information');
                 })

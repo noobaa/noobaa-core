@@ -468,6 +468,9 @@ function set_debug_node(req) {
         .then(null, function(err) {
             dbg.log0('Error on set_debug_node', err);
             return '';
+        })
+        .then(function() {
+          dbg.log1('set_debug_node for agent', target, 'was successful');
         });
 }
 

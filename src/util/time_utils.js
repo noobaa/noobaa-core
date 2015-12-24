@@ -33,5 +33,5 @@ function sectook(since) {
 
 function time_suffix() {
     var d = new Date();
-    return d.toISOString().replace(/T/, ':').substr(5, 11);
+    return d.toISOString().replace(/T/, '-').substr(5, 11);
 }

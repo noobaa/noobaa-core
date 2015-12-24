@@ -380,22 +380,10 @@ module.exports = {
         self_test_to_node_via_web: {
             method: 'POST',
             params: {
-                type: 'object',
-                required: ['source', 'target', 'request_length', 'response_length'],
-                properties: {
-                    source: {
-                        type: 'string'
-                    },
-                    target: {
-                        type: 'string'
-                    },
-                    request_length: {
-                        type: 'integer'
-                    },
-                    response_length: {
-                        type: 'integer'
-                    }
-                },
+                $ref: '/agent_api/definitions/self_test_params'
+            },
+            reply: {
+                $ref: '/agent_api/definitions/self_test_reply'
             },
             auth: {
                 system: ['admin', 'user']

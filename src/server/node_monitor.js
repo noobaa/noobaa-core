@@ -428,8 +428,10 @@ function self_test_to_node_via_web(req) {
     return server_rpc.client.agent.self_test_peer({
         source: source,
         target: target,
-        request_length: req.rpc_params.request_length || 1024,
-        response_length: req.rpc_params.response_length || 1024,
+        request_length: req.rpc_params.request_length,
+        response_length: req.rpc_params.response_length,
+        count: req.rpc_params.count,
+        concur: req.rpc_params.concur,
     }, {
         address: source,
     });

@@ -4,7 +4,7 @@
 var _ = require('lodash');
 var P = require('../util/promise');
 var moment = require('moment');
-var chance = require('chance')();
+// var chance = require('chance')();
 var promise_utils = require('../util/promise_utils');
 var config = require('../../config');
 var dbg = require('../util/debug_module')(__filename);
@@ -318,7 +318,7 @@ nb_api.factory('nbNodes', [
             $scope.self_test_results = [];
 
             function define_phase(test) {
-                if (_.contains(test.kind, kind)) {
+                if (kind === 'Full' || test.kind === kind) {
                     $scope.self_test_results.push(test);
                 }
             }
@@ -333,10 +333,10 @@ nb_api.factory('nbNodes', [
                 $rootScope.safe_apply();
 
                 return P.fcall(test.func.bind(test))
-                    .then(function(res) {
+                    .then(function() {
                         test.done = true;
-                        test.took = (Date.now() - test.start) / 1000;
-                        dbg.log0('SELF TEST completed phase', test.name, 'took', test.took, 'sec');
+                        test.time = (Date.now() - test.start) / 1000;
+                        dbg.log0('SELF TEST completed phase', test.name, 'took', test.time, 'sec');
                         $rootScope.safe_apply();
                     }, function(err) {
                         dbg.log0('SELF TEST failed phase', test.name, err.stack || err);
@@ -373,78 +373,41 @@ nb_api.factory('nbNodes', [
                 .then(function() {
                     _.each(online_nodes, function(target_node) {
                         define_phase({
-                            name: 'connect to ' + target_node.name,
-                            kind: ['full', 'conn'],
+                            name: target_node.name,
+                            kind: 'Connectivity',
+                            total: 0,
+                            position: 0,
                             func: function() {
-                                return self_test_to_node_via_web(node, target_node);
+                                var self = this;
+                                return self_test_to_node_via_web(node, target_node)
+                                    .then(function(res) {
+                                        self.session = res && res.session;
+                                    });
                             }
                         });
                     });
 
-                    define_phase({
-                        name: 'LOAD WRITE: connect from all to one node and send 0.5MB (10 times from each)',
-                        kind: ['full', 'load'],
-                        total: 0,
-                        position: 0,
-                        func: function(target_node) {
-                            var self = this;
-                            var advance_pos = function() {
-                                self.position += 1;
-                                self.progress = (100 * (self.position / self.total)).toFixed(0) + '%';
-                                $rootScope.safe_apply();
-                            };
-                            return P.all(_.map(online_nodes, function(target_node) {
-                                self.total += 10;
-                                return promise_utils.loop(10, function() {
-                                    return self_test_to_node_via_web(
-                                            target_node, node, 0, 512 * 1024)
-                                        .then(advance_pos);
-                                });
-                            }));
-                        }
-                    });
-
-                    define_phase({
-                        name: 'LOAD READ: connect from all to one node and read 0.5MB (10 times from each)',
-                        kind: ['full', 'load'],
-                        total: 0,
-                        position: 0,
-                        func: function(target_node) {
-                            var self = this;
-                            var advance_pos = function() {
-                                self.position += 1;
-                                self.progress = (100 * (self.position / self.total)).toFixed(0) + '%';
-                                $rootScope.safe_apply();
-                            };
-                            return P.all(_.map(online_nodes, function(target_node) {
-                                self.total += 10;
-                                return promise_utils.loop(10, function() {
-                                    return self_test_to_node_via_web(
-                                            target_node, node, 512 * 1024, 0)
-                                        .then(advance_pos);
-                                });
-                            }));
-                        }
-                    });
-
-                    define_phase({
-                        name: 'transfer 100 MB from this node to the other nodes',
-                        kind: ['full', 'tx'],
-                        total: 100 * 1024 * 1024,
-                        position: 0,
-                        func: function() {
-                            var self = this;
-                            if (self.position >= self.total) return;
-                            var target_node = chance.pick(online_nodes);
-                            return self_test_to_node_via_web(
-                                    target_node, node, 512 * 1024, 512 * 1024)
-                                .then(function() {
-                                    self.position += 1024 * 1024;
-                                    self.progress = (100 * (self.position / self.total)).toFixed(0) + '%';
-                                    $rootScope.safe_apply();
-                                    return self.func();
-                                });
-                        }
+                    _.each(online_nodes, function(target_node) {
+                        define_phase({
+                            name: target_node.name,
+                            kind: 'Bandwidth',
+                            total: 512 * 1024 * 1024,
+                            position: 0,
+                            func: function() {
+                                var self = this;
+                                if (self.position >= self.total) return;
+                                return self_test_to_node_via_web(
+                                        target_node, node, 512 * 1024, 512 * 1024, 64, 4)
+                                    .then(function(res) {
+                                        self.position += 64 * 1024 * 1024;
+                                        self.progress = (100 * (self.position / self.total)).toFixed(0) + '%';
+                                        self.time = (Date.now() - self.start) / 1000;
+                                        self.session = res && res.session;
+                                        $rootScope.safe_apply();
+                                        return self.func();
+                                    });
+                            }
+                        });
                     });
 
                     return run_phases();
@@ -521,7 +484,7 @@ nb_api.factory('nbNodes', [
         }
         */
 
-        function self_test_to_node_via_web(node, target_node, request_length, response_length) {
+        function self_test_to_node_via_web(node, target_node, request_length, response_length, count, concur) {
             console.log('SELF TEST', node.name, 'to', target_node.name);
 
             return nbClient.client.node.self_test_to_node_via_web({
@@ -529,6 +492,8 @@ nb_api.factory('nbNodes', [
                 source: node.rpc_address,
                 request_length: request_length || 0,
                 response_length: response_length || 0,
+                count: count || 1,
+                concur: concur || 1,
             });
         }
 

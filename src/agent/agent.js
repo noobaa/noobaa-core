@@ -671,34 +671,61 @@ Agent.prototype.self_test_peer = function(req) {
     var source = req.rpc_params.source;
     var req_len = req.rpc_params.request_length;
     var res_len = req.rpc_params.response_length;
+    var count = req.rpc_params.count;
+    var concur = req.rpc_params.concur;
 
     dbg.log0('SELF_TEST_PEER',
+        'source', source,
+        'target', target,
         'req_len', req_len,
         'res_len', res_len,
-        'source', source,
-        'target', target);
+        'count', count,
+        'concur', concur);
 
     if (source !== self.rpc_address) {
         throw new Error('SELF_TEST_PEER wrong address ' +
             source + ' mine is ' + self.rpc_address);
     }
+    var reply = {};
+    return P.all(_.times(concur, next)).return(reply);
 
-    // read/write from target agent
-    return self.client.agent.self_test_io({
-            source: source,
-            target: target,
-            data: new Buffer(req_len),
-            response_length: res_len,
-        }, {
-            address: target,
-        })
-        .then(function(res) {
-            var data = res.data;
-            if (((!data || !data.length) && res_len > 0) ||
-                (data && data.length && data.length !== res_len)) {
-                throw new Error('SELF TEST PEER response_length mismatch');
-            }
-        });
+    function next() {
+        if (count <= 0) return;
+        count -= 1;
+        // read/write from target agent
+        return self.client.agent.self_test_io({
+                source: source,
+                target: target,
+                data: new Buffer(req_len),
+                response_length: res_len,
+            }, {
+                address: target,
+                return_rpc_req: true // we want to check req.connection
+            })
+            .then(function(req) {
+                var data = req.reply.data;
+                if (((!data || !data.length) && res_len > 0) ||
+                    (data && data.length && data.length !== res_len)) {
+                    throw new Error('SELF TEST PEER response_length mismatch');
+                }
+                var session = req.connection.session;
+                reply.session = session && session.key;
+                /*
+                if (session.tcp) {
+                    reply.session = 'tcp ' +
+                        session.tcp.localAddress + ':' + session.tcp.localPort +
+                        ' => ' +
+                        session.tcp.remoteAddress + ':' + session.tcp.remotePort;
+                } else if (session.udp) {
+                    reply.session = 'udp ' +
+                        session.tcp.localAddress + ':' + session.tcp.localPort +
+                        ' => ' +
+                        session.remote.address + ':' + session.remote.port;
+                }
+                */
+                return next();
+            });
+    }
 };
 
 Agent.prototype.collect_diagnostics = function(req) {

@@ -27,15 +27,16 @@ export default function register(ko) {
 	ko.components.register('overview-panel', 		require('./overview/overview-panel/overview-panel'));
 	ko.components.register('pools-overview', 		require('./overview/pools-overview/pools-overview'));
 	ko.components.register('buckets-overview',		require('./overview/buckets-overview/buckets-overview'));	
-	ko.components.register('add-node-form',			require('./overview/add-node-form/add-node-form'));
+	ko.components.register('add-node-wizard',		
+		require('./overview/add-node-wizard/add-node-wizard'));
 	ko.components.register('connect-app-wizard',	require('./overview/connect-app-wizard/connect-app-wizard'));
 
 	// -------------------------------
 	// Buckets
 	// -------------------------------
-	ko.components.register('buckets-panel', 	require('./buckets/buckets-panel/buckets-panel'));
-	ko.components.register('buckets-table', 	require('./buckets/buckets-table/buckets-table'));
-	ko.components.register('create-bucket-form',require('./buckets/create-bucket-form/create-bucket-form'));		
+	ko.components.register('buckets-panel', 		require('./buckets/buckets-panel/buckets-panel'));
+	ko.components.register('buckets-table', 		require('./buckets/buckets-table/buckets-table'));
+	ko.components.register('create-bucket-wizard',	require('./buckets/create-bucket-wizard/create-bucket-wizard'));
 
 	// -------------------------------
 	// Bucket

@@ -1,0 +1,11 @@
+<wizard params="
+	visible: visible,
+	heading: 'Create Bucket', 
+	steps: ['choose name', 'set policy'], 
+	actionLabel: 'Create',
+	validateStep: step => validateStep(step),
+	onComplete: () => createBucket()
+">
+	<section data-bind="template: { nodes: chooseNameStepNodes }"></section>
+	<section data-bind="template: { nodes: setPolicyStepNodes }"></section>
+</wizard>

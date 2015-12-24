@@ -1,18 +1,24 @@
 import template from './wizard.html';
 import ko from 'knockout';
-import { noop, equalNoCase } from 'utils';
+import { noop } from 'utils';
 
 class WizardViewModel {
 	constructor({
+		visible =  ko.observable(true),
 		heading = '[wizard-heading]', 
 		steps = [],
-		skip = 0
+		skip = 0,
+		actionLabel = 'Done',
+		validateStep = () => true,
+		onComplete = noop
 	}) {
+		this.visible = visible;
 		this.heading = heading;
 		this.steps = steps;
-		this.doneLabel = 'Done';
-		this.oncomplete = noop;
-		this.step = ko.observable(skip);		
+		this.actionLabel = actionLabel;
+		this.step = ko.observable(skip);
+		this.validateStep = validateStep;
+		this.onComplete = onComplete;
 
 		this.stepsTransform = ko.pureComputed(
 			() => `translate(${this.step() * -100}%)`
@@ -36,19 +42,28 @@ class WizardViewModel {
 	}
 
 	cancel() {
-		//this.oncomplete();
+		this.visible(false);
 	}
 
 	prev() {
-		this.step() > 0 && this.step(this.step() - 1);
+		if (this.step() > 0) {
+			this.step(this.step() - 1);
+		}
 	}
 
 	next() {
-		this.step() < this.steps.length - 1 && this.step(this.step() + 1);
+		if (this.step() < this.steps.length - 1 && 
+			this.validateStep(this.step() + 1)) {
+			
+			this.step(this.step() + 1)
+		}
 	}
 
 	done() {
-		this.oncomplete();
+		if (this.validateStep(this.step() + 1)) {
+			this.visible(false);
+			this.onComplete();
+		}
 	}
 }
 
@@ -61,7 +76,7 @@ function modelFactory(params, ci) {
 	// original array and not just replace it.
 	ci.templateNodes.length = 0;
 	ci.templateNodes.push(...elms);
-
+	
 	params.steps.length = elms.length;
 
 	return new WizardViewModel(params);

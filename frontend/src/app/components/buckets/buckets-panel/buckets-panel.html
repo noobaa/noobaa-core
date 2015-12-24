@@ -1,6 +1,7 @@
 <div class="buckets-panel">
 	<div class="clear">
-		<button class="pull-right btn add-bucket-btn" data-bind="click: showCreateBucketModal">
+		<button class="pull-right btn add-bucket-btn" 
+			data-bind="click: () => isCreateBucketModalVisible(true)">
 			create bucket
 		</button>
 	</div>
@@ -8,8 +9,6 @@
 	<buckets-table params="buckets: buckets">
 	</buckets-table>
 
-	 <modal params="visible: isCreateBucketModalVisible">
-	 	<create-bucket-form params="oncomplete: () => hideCreateBucketModal()">
-	 	</create-bucket-form>
-	 </modal>
+	<create-bucket-wizard params="visible: isCreateBucketModalVisible">
+	</create-bucket-wizard>
 </div>

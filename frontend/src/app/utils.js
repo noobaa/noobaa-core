@@ -60,7 +60,12 @@ export function formatSize(num) {
 }
 
 export function randomString(len = 8) {
-	return Math.random().toString(36).substring(7);
+    var possible = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+
+    return makeArray(
+		len, 
+		() => possible.charAt(Math.random() * possible.length | 0)
+	).join('');
 }
 
 export function parseQueryString(str) {
@@ -158,6 +163,6 @@ export function cloneArray(source) {
 
 export function domFromHtml(html) {
 	let parser = new DOMParser();
-	let docFragment = parser.parseFromString(html, 'text/html');
-	return docFragment.children;
+	let doc = parser.parseFromString(html, 'text/html');
+	return doc.body.children;
 }

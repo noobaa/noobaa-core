@@ -8,7 +8,7 @@
 		<a class="btn" data-bind="click: showAddNodeModal">add node</a>
 
 		<modal params="visible: isAddNodeModalVisible">
-			<add-node-form params="oncomplete: () => hideAddNodeModal()"></add-node-form>
+			<add-node-wizard params="oncomplete: () => hideAddNodeModal()"></add-node-wizard>
 		</modal>					
 	</section>
 

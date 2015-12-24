@@ -1,5 +1,6 @@
 {
 	"serverAddress": "ws://192.168.56.102:5001",
 	"inputThrottle": 400,
-	"paginationPageSize": 25
+	"paginationPageSize": 25,
+	"defaultPoolName": "default_pool"
 }

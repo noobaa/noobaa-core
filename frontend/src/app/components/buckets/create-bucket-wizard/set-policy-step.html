@@ -1,0 +1,23 @@
+<section class="container">
+	<h2 class="heading3">Policy Type</h2>
+	<ul class="list-no-style policy-types">
+		<li>
+			<radio-btn  params="name: 'policy-type', value: 'SPREAD', checked: dataPlacement, label: 'Stripe'"></radio-btn>
+			| Sperading the data across the choosen pools
+		</li>
+		<li>
+			<radio-btn params="name: 'policy-type', value: 'MIRROR', checked: dataPlacement, label: 'Mirror'"></radio-btn>
+			| Full duplication of the data in each chosen pool
+		</li>
+	</ul>
+</section>
+
+<section class="container">
+	<div class="pull-right">
+		<button class="link" data-bind="click: selectAllPools">Select all</button>
+		|
+		<button class="link" data-bind="click: clearAllPools">Clear</button>
+	</div>
+	<h2 class="heading3">Choose Pools for policy</h2>
+	<multiselect class="pools" params="options: pools, selected: selectedPools"></multiselect>
+</section>

@@ -208,7 +208,7 @@ input[type="search"] {
 		@font-type2, 
 		@font-weight-light, 
 		@font-size-small, 
-		@text-color5		
+		@text-color4		
 	);
 }
 
@@ -232,7 +232,10 @@ input[type="search"] {
 
 .container {
 	display: block;
-	margin-bottom: .5em;
+
+	+ .container {
+		margin-top: 3em;
+	}
 }
 
 .link-base() {
@@ -334,15 +337,13 @@ input[type="search"] {
 		@font-type2,
 		@font-weight-light,
 		@font-size-normal,
-		text-color4,
-		text-color2,
-		text-color1
+		@text-color1
 	);
 
 	.bg-color(
-		@bg-color8;		
-		@bg-color9;	
-		@bg-color10;	
+		@bg-color4;		
+		@bg-color5;	
+		@bg-color6;	
 	);
 }
 

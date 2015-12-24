@@ -1,4 +1,4 @@
-import template from './add-node-form.html';
+import template from './add-node-wizard.html';
 
 class AddNodeFormViewModel {
 	cosntructor() {

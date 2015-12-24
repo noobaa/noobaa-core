@@ -1,7 +1,7 @@
 import template from './multiselect.html';
 import ko from 'knockout';
 
-class MultiselectViewModel {
+class MultiSelectViewModel {
 	constructor({ options, selected }) {
 		this.options = options.map(
 			name => ({ 
@@ -16,6 +16,6 @@ class MultiselectViewModel {
 }
 
 export default {
-	viewModel: MultiselectViewModel,
+	viewModel: MultiSelectViewModel,
 	template: template
 }

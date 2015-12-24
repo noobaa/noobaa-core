@@ -356,21 +356,34 @@ export function createAccount(system, email, password) {
 		.done();
 }
 
-export function createBucket(name, policy) {
-	logAction('createBucket', { name, policy });
+export function createBucket(name, dataPlacement, pools) {
+	logAction('createBucket', { name, dataPlacement, pools });
 
 	let placeholder = { name: name, placeholder: true };
 	model.bucketList.unshift(placeholder);
 
-	api.tier.create_tier({ name: `${name}_tier__${randomString(5)}` })
+	api.tier.create_tier({ 
+		name: `${name}_tier_${randomString(5)}`,
+		data_placement: dataPlacement,
+		pools: pools
+	})
+		.then(tier => {
+			let policy = {
+				name: `${name}_tiering_${randomString(5)}`,
+				tiers: [ { order: 0, tier: tier.name } ]
+			};
+
+			return api.tiering_policy.create_policy({ policy })
+				.then(() => policy)
+		})
 		.then(
-			tier => api.tiering_policy.create_policy({
-				name: `${name}_tiering`,
-				tiers: [ { order: 0, tier: tier } ]
+			policy => api.bucket.create_bucket({ 
+				name: name, 
+				tiering: policy.name  
 			})
 		)
 		.then(
-			policy => api.bucket.create_bucket({ name: name })
+			bucket => model.bucketList.replace(placeholder, bucket)
 		)
 		.done();
 }

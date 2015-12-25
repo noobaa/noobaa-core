@@ -27,11 +27,11 @@ var system_schema = new Schema({
     },
 
     access_keys: [{
-        access_key : {
+        access_key: {
             type: String,
             required: true,
         },
-        secret_key : {
+        secret_key: {
             type: String,
             required: true,
         }
@@ -54,6 +54,21 @@ var system_schema = new Schema({
         s3rest_installer: {
             type: String
         },
+    },
+
+    // n2n_config
+    // keeps the n2n configuration for agents and other endpoints (see rpc_n2n.js)
+    // we use free mongoose schema, because it's field types are non trivial
+    // (see n2n_config json schema in common_api.js) and there's no benefit
+    // redefining it for mongoose.
+    n2n_config: {},
+
+    // when the administrator registers the system to a domain name
+    // in the DNS server we use it for redirecting agents to the system,
+    // to avoid using fixed IP.
+    // however changing the DNS name after agents are up is harder though feasible...
+    dns_name: {
+        type: String
     }
 
 }, {

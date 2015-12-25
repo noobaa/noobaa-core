@@ -272,6 +272,45 @@ module.exports = {
                 system: 'admin',
             }
         },
+
+        update_n2n_config: {
+            method: 'POST',
+            params: {
+                $ref: '/common_api/definitions/n2n_config'
+            },
+            reply: {
+                $ref: '/system_api/definitions/system_nodes_update_reply'
+            },
+            auth: {
+                system: 'admin',
+            }
+        },
+
+        update_dns_name: {
+            method: 'POST',
+            params: {
+                type: 'object',
+                required: ['dns_name'],
+                properties: {
+                    dns_name: {
+                        type: 'string'
+                    }
+                }
+            },
+            reply: {
+                $ref: '/system_api/definitions/system_nodes_update_reply'
+            },
+            auth: {
+                system: 'admin',
+            }
+        },
+
+        update_system_certificate: {
+            method: 'POST',
+            auth: {
+                system: 'admin',
+            }
+        },
     },
 
 
@@ -379,6 +418,9 @@ module.exports = {
                         },
                     }
                 },
+                n2n_config: {
+                    $ref: '/common_api/definitions/n2n_config'
+                }
             }
         },
 
@@ -423,6 +465,7 @@ module.exports = {
                 },
             }
         },
+
         access_keys: {
             type: 'object',
             required: ['access_key', 'secret_key'],
@@ -435,6 +478,20 @@ module.exports = {
                     type: String,
                 }
             }
+        },
+
+        system_nodes_update_reply: {
+            type: 'object',
+            required: ['nodes_count', 'nodes_updated'],
+            peroperties: {
+                nodes_count: {
+                    type: 'integer'
+                },
+                nodes_updated: {
+                    type: 'integer'
+                }
+            }
         }
+
     }
 };

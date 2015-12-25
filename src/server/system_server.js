@@ -24,7 +24,11 @@ var system_server = {
 
     diagnose: diagnose,
     diagnose_with_agent: diagnose_with_agent,
-    start_debug: start_debug
+    start_debug: start_debug,
+
+    update_n2n_config: update_n2n_config,
+    update_dns_name: update_dns_name,
+    update_system_certificate: update_system_certificate,
 };
 
 module.exports = system_server;
@@ -75,6 +79,18 @@ function create_system(req) {
                 s3rest_installer: 'noobaa-s3rest.exe',
                 linux_agent_installer: 'noobaa-setup'
             };
+
+            info.n2n_config = {
+                tcp_tls: true,
+                tcp_active: true,
+                tcp_permanent_passive: {
+                    min: 60100,
+                    max: 60600
+                },
+                udp_dtls: true,
+                udp_port: true,
+            };
+
             dbg.log0('Installer Resources:', info.resources);
             return P.when(db.System.create(info))
                 .then(null, db.check_already_exists(req, 'system'));
@@ -407,6 +423,8 @@ function read_system(req) {
                 ssl_port: process.env.SSL_PORT,
                 web_port: process.env.PORT,
                 web_links: get_system_web_links(req.system),
+                n2n_config: req.system.n2n_config,
+                dns_name: req.system.dns_name
             };
         });
     });
@@ -415,6 +433,7 @@ function read_system(req) {
 
 function update_system(req) {
     var info = _.pick(req.rpc_params, 'name');
+    db.SystemCache.invalidate(req.system.id);
     return P.when(req.system.update(info).exec())
         .thenResolve();
 }
@@ -426,6 +445,7 @@ function update_system(req) {
  *
  */
 function delete_system(req) {
+    db.SystemCache.invalidate(req.system.id);
     return P.when(
             req.system.update({
                 deleted: new Date()
@@ -718,6 +738,74 @@ function start_debug(req) {
                 });
             return;
         });
+}
+
+
+function update_n2n_config(req) {
+    var n2n_config = req.rpc_params;
+    dbg.log0('update_n2n_config', n2n_config);
+    db.SystemCache.invalidate(req.system.id);
+    return P.when(req.system.update({
+            n2n_config: n2n_config
+        }).exec())
+        .then(function() {
+            return db.Node.find({
+                system: req.system.id
+            }).exec();
+        })
+        .then(function(nodes) {
+            var reply = {
+                nodes_count: nodes.length,
+                nodes_updated: 0
+            };
+            return P.map(nodes, function(node) {
+                    return server_rpc.client.agent.update_n2n_config(n2n_config, {
+                        address: node.rpc_address
+                    }).then(function() {
+                        reply.nodes_updated += 1;
+                    }, function(err) {
+                        dbg.error('update_n2n_config: FAILED TO UPDATE AGENT', node.name, node.rpc_address);
+                    });
+                }, {
+                    concurrency: 5
+                })
+                .return(reply);
+        });
+}
+
+function update_dns_name(req) {
+    dbg.log0('update_dns_name', req.rpc_params);
+    db.SystemCache.invalidate(req.system.id);
+    return P.when(req.system.update({
+            dns_name: req.rpc_params.dns_name
+        }).exec())
+        .then(function() {
+            return db.Node.find({
+                system: req.system.id
+            }).exec();
+        })
+        .then(function(nodes) {
+            var reply = {
+                nodes_count: nodes.length,
+                nodes_updated: 0
+            };
+            return P.map(nodes, function(node) {
+                    return server_rpc.client.agent.update_dns_name(req.rpc_params, {
+                        address: node.rpc_address
+                    }).then(function() {
+                        reply.nodes_updated += 1;
+                    }, function(err) {
+                        dbg.error('update_dns_name: FAILED TO UPDATE AGENT', node.name, node.rpc_address);
+                    });
+                }, {
+                    concurrency: 5
+                })
+                .return(reply);
+        });
+}
+
+function update_system_certificate(req) {
+    dbg.log0('update_system_certificate', req.rpc_params);
 }
 
 

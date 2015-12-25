@@ -161,6 +161,26 @@ module.exports = {
             method: 'POST',
         },
 
+        update_n2n_config: {
+            method: 'POST',
+            params: {
+                $ref: '/common_api/definitions/n2n_config'
+            }
+        },
+
+        update_dns_name: {
+            method: 'POST',
+            params: {
+                type: 'object',
+                required: ['dns_name'],
+                properties: {
+                    dns_name: {
+                        type: 'string'
+                    }
+                }
+            }
+        }
+
     },
 
     definitions: {

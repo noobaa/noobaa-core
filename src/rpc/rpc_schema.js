@@ -78,6 +78,7 @@ RpcSchema.prototype.register_api = function(api) {
             method_api.reply_validator = validator_of_empty_schema;
         }
 
+        method_api.method = method_api.method || 'POST';
         assert(method_api.method in VALID_HTTP_METHODS,
             'RPC: unexpected http method: ' +
             method_api.method + ' for ' + method_api.fullname);

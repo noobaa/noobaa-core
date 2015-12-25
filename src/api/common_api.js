@@ -127,7 +127,7 @@ module.exports = {
             }]
         },
 
-        ice_config: {
+        n2n_config: {
             type: 'object',
             required: [],
             properties: {

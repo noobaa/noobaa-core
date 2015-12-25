@@ -397,7 +397,7 @@ nb_api.factory('nbNodes', [
                                 var self = this;
                                 if (self.position >= self.total) return;
                                 return self_test_to_node_via_web(
-                                        target_node, node, 512 * 1024, 512 * 1024, 64, 4)
+                                        target_node, node, 512 * 1024, 512 * 1024, 64, 16)
                                     .then(function(res) {
                                         self.position += 64 * 1024 * 1024;
                                         self.progress = (100 * (self.position / self.total)).toFixed(0) + '%';
@@ -461,28 +461,6 @@ nb_api.factory('nbNodes', [
                 });
         }
 
-        /*
-        function self_test_io(node, request_length, response_length) {
-            return nbClient.client.agent.self_test_io({
-                data: new Buffer(request_length || 0),
-                response_length: response_length || 0,
-            }, {
-                address: node.rpc_address,
-            });
-        }
-
-        function self_test_to_node(node, target_node, request_length, response_length) {
-            console.log('SELF TEST', node.name, 'to', target_node.name);
-
-            return nbClient.client.agent.self_test_peer({
-                target: target_node.rpc_address,
-                request_length: request_length || 0,
-                response_length: response_length || 0,
-            }, {
-                address: node.rpc_address,
-            });
-        }
-        */
 
         function self_test_to_node_via_web(node, target_node, request_length, response_length, count, concur) {
             console.log('SELF TEST', node.name, 'to', target_node.name);

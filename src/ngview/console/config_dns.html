@@ -1,0 +1,58 @@
+<div>
+    <div class="well">
+        <p>Choose DNS name or IP for Nodes connectivity to NooBaa server:</p>
+        <label class="radio-inline">
+            <input type="radio" name="dns_type" ng-model="dns_form.dns_type" value="custom" />Custom name &nbsp;
+        </label>
+        <label class="radio-inline">
+            <input type="radio" name="dns_type" ng-model="dns_form.dns_type" value="ip" ng-change="dns_form.dns_name=''" />IP address &nbsp;
+        </label>
+        <br/>
+        <br/>
+        <div class="form-control-wrapper">
+            <input type="text" class="form-control floating-label" ng-model="dns_form.dns_name" required />
+        </div>
+        <br/>
+        <div>
+            <button class="btn btn-primary" nb-click-ladda="update_dns_name()">Apply</button>
+        </div>
+        <div ng-switch="dns_form.state">
+            <span ng-switch-when="error">
+                <i class="fa fa-fw fa-warning text-warning"></i> {{dns_form.error}} ...
+            </span>
+            <span ng-switch-when="saving">
+                <i class="fa fa-fw fa-spinner fa-spin text-muted"></i> Saving changes ...
+            </span>
+            <span ng-switch-when="saved">
+                <i class="fa fa-fw fa-check text-success"></i> Changes have been saved.
+                <br/>
+                <i class="fa fa-fw {{dns_form.reply.nodes_updated<dns_form.reply.nodes_count && 'fa-warning text-warning' || 'fa-check text-success'}}"></i> {{dns_form.reply.nodes_updated}}/{{dns_form.reply.nodes_count}} nodes have been updated.
+
+            </span>
+        </div>
+    </div>
+
+    <br/>
+
+    <div ng-if="dns_form.dns_type != 'ip'">
+        <p>Notes about using a DNS name:</p>
+        <ul>
+            <li>Add the following entry to your DNS:</li>
+            <pre style="margin-top: 20px; Xmax-width: 400px">{{$location.host()}} <b>{{dns_form.dns_name}}</b></pre>
+            <li>If you want to change the name - it is best to first add the new name in your DNS to have both names available, then apply the change here in the system, and only once all nodes are updated with the new name to remove the old name from the
+                DNS.
+            </li>
+            <li>If you are unable to follow this order of actions - nodes that disconnected from the server will not be able to connect using the old name to receive the update on the new name, and will need to be reinstalled.</li>
+        </ul>
+    </div>
+    <div ng-if="dns_form.dns_type == 'ip'">
+        <p>Notes about using an IP address:</p>
+        <ul>
+            <li>Make sure that the server IP was configured Static and not DHCP, otherwise if the IP will suddenly change the nodes will loose connectivity.</li>
+            <li>If you want to change this IP - you will have to reinstall the node agents manually as there is no way for the server to communicate with them once they disconnected and do not yet </li>
+        </ul>
+    </div>
+
+    <br/>
+
+</div>

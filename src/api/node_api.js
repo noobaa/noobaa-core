@@ -322,8 +322,8 @@ module.exports = {
                     rpc_address: {
                         type: 'string'
                     },
-                    ice_config: {
-                        $ref: '/common_api/definitions/ice_config'
+                    n2n_config: {
+                        $ref: '/common_api/definitions/n2n_config'
                     },
                     version: {
                         type: 'string'

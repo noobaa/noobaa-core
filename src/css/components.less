@@ -6,6 +6,7 @@
 /*---------------------------------------------------*/
 
 @input-underline-color: #d2e2e2;
+@input-border-color: hsla(0, 0%, 50%, 0.2);
 
 .btn {
     position: relative;
@@ -115,9 +116,8 @@
 .form-control, form-control-wrapper > .from-control {
     color: @darkbg-text;
     height: 28px;
-    padding: 0;
     float: none;
-    border: none;
+    border-color: @input-border-color;
     outline: none;
     box-shadow: none;
     border-radius: 0;
@@ -147,7 +147,7 @@
     &:focus {
         background-size: 100% 2px, 100% 1px;
         box-shadow: inherit;
-        border-color: inherit;
+        border-color: @input-border-color;
 
         ~ .floating-label {
             color: @primary;
@@ -159,6 +159,10 @@
     &[disabled] {
         .text-muted;
         background-color: initial;
+    }
+
+    &[type="file"] {
+        padding: 0;
     }
 }
 
@@ -193,6 +197,15 @@ table {
     th {
         font-weight: normal;
     }
+}
+
+pre {
+    .well;
+    @pre-bg-color: hsla(0, 0%, 60%, 0.2);
+    background-color: @pre-bg-color !important;
+    color: inherit !important;
+    // border-radius: 0;
+    // border: none;
 }
 
 .well,

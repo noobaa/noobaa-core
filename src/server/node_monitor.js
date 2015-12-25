@@ -123,7 +123,7 @@ function heartbeat(req) {
         (req.role === 'admin' || req.role === 'agent')) {
         req.rpc_params.node_id = req.auth.extra.node_id;
         req.rpc_params.peer_id = req.auth.extra.peer_id;
-        return update_heartbeat(req.rpc_params, req.connection);
+        return update_heartbeat(req);
     }
 
     // check if the node doesn't yet has an id
@@ -151,7 +151,7 @@ function heartbeat(req) {
         }).then(function(node) {
             req.rpc_params.node_id = node.id;
             req.rpc_params.peer_id = node.peer_id;
-            return update_heartbeat(req.rpc_params, req.connection, node.token);
+            return update_heartbeat(req, node.token);
         });
     }
 
@@ -165,7 +165,9 @@ function heartbeat(req) {
  * UPDATE HEARTBEAT
  *
  */
-function update_heartbeat(params, conn, reply_token) {
+function update_heartbeat(req, reply_token) {
+    var params = req.rpc_params;
+    var conn = req.connection;
     var node_id = params.node_id;
     var peer_id = params.peer_id;
     var node;
@@ -226,34 +228,7 @@ function update_heartbeat(params, conn, reply_token) {
     }
 
     if (params.extended_hb) {
-        // these ice options affect only agents.
-        // non-agents use the default as defined in rpc_n2n.js,
-        // TODO keep ice config in pool/system
-        reply.ice_config = {
-            // ip options
-            offer_ipv4: true,
-            offer_ipv6: false,
-            accept_ipv4: true,
-            accept_ipv6: true,
-            offer_internal: false,
-            // tcp options
-            tcp_active: true,
-            tcp_permanent_passive: {
-                min: 60111,
-                max: 60888
-            },
-            tcp_transient_passive: false,
-            tcp_simultaneous_open: false,
-            tcp_tls: true,
-            // udp options
-            udp_port: true,
-            udp_dtls: false,
-            stun_servers: [
-                // TODO stun server address (only IPv4 is supported now, also need to resolve DNS)
-                // 'stun://our-server-ip:3479'
-                // 'stun://64.233.184.127:19302' // === 'stun://stun.l.google.com:19302'
-            ]
-        };
+        reply.n2n_config = _.cloneDeep(req.system.n2n_config);
     }
 
     // code for testing performance of server with no heartbeat work

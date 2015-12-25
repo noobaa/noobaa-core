@@ -110,6 +110,8 @@ function Agent(params) {
         self_test_peer: self.self_test_peer.bind(self),
         collect_diagnostics: self.collect_diagnostics.bind(self),
         set_debug_node: self.set_debug_node.bind(self),
+        update_n2n_config: self.update_n2n_config.bind(self),
+        update_dns_name: self.update_dns_name.bind(self),
     };
 
     self.agent_app = (function() {
@@ -473,8 +475,9 @@ Agent.prototype._do_heartbeat = function() {
                 self.extended_hb_last_time = Date.now();
             }
 
-            if (res.ice_config) {
-                self.n2n_agent.update_ice_config(res.ice_config);
+            if (res.n2n_config) {
+                console.log('HEARTBEAT GOT UPDATE N2N CONFIG', res.n2n_config);
+                self.n2n_agent.update_n2n_config(res.n2n_config);
             }
 
             var promises = [];
@@ -838,6 +841,20 @@ function test_average_latency(func) {
             return results.slice(1);
         });
 }
+
+Agent.prototype.update_n2n_config = function(req) {
+    console.log('AGENT GOT UPDATE N2N CONFIG', req.rpc_params);
+    var n2n_config = req.rpc_params;
+    this.n2n_agent.update_n2n_config(n2n_config);
+};
+
+Agent.prototype.update_dns_name = function(req) {
+    console.log('AGENT GOT UPDATE DNS NAME', req.rpc_params);
+    // TODO update_dns_name
+    // var dns_name = req.rpc_params.dns_name;
+    dbg.error('TODO update_dns_name');
+};
+
 
 // AGENT TEST API /////////////////////////////////////////////////////////////
 

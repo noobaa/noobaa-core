@@ -58,20 +58,27 @@ else
         cp ../../package.json ./package/
         cp ../../config.js ./package/
         cp ~/.nvm/versions/node/v4.2.2/bin/node ./package/
+
         mkdir ./package/src/
         cp -R ../../src/s3 ./package/src/
         cp -R ../../src/util ./package/src/
         cp -R ../../src/rpc ./package/src/
         cp -R ../../src/api ./package/src/
+        cp -R ../../src/native ./package/src/
+        cp -R ../../binding.gyp ./package/
+        cd ./package
         npm install -g node-gyp
-        node-gyp configure
-        node-gyp build
-        cp -R ../../build ./package/build
+        npm install nan
+
+        node-gyp rebuild
         #remove irrelevant packages
         #TODO: create new package for that matter
-        cd package
         echo "npm install"
         sed -i '/gulp/d' package.json
+        sed -i '/babel/d' package.json
+        sed -i '/eslint/d' package.json
+        sed -i '/mongoose/d' package.json
+        sed -i '/googleapis/d' package.json
         sed -i '/bower/d' package.json
         sed -i '/bootstrap/d' package.json
         sed -i '/browserify"/d' package.json

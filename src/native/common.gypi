@@ -16,7 +16,9 @@
                 [ 'OS=="win"', {
                     'conditions': [
                         ['target_arch=="x64"', {
-                            'openssl_root%': 'C:/OpenSSL-Win64'
+    #                      for now, always build 32
+    #                      'openssl_root%': 'C:/OpenSSL-Win64'
+                            'openssl_root%': 'C:/OpenSSL-Win32'
                         }, {
                             'openssl_root%': 'C:/OpenSSL-Win32'
                         }],

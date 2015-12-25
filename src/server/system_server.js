@@ -114,7 +114,7 @@ function create_system(req) {
                 .then(null, db.check_already_exists(req, 'role'));
         })
         .then(function() {
-            return server_rpc.client.pools.create_pool({
+            return server_rpc.client.pool.create_pool({
                 pool: {
                     name: 'default_pool',
                     nodes: [],

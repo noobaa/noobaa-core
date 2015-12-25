@@ -751,6 +751,10 @@ function update_n2n_config(req) {
         .then(function() {
             return db.Node.find({
                 system: req.system.id
+            }, {
+                // select just what we need
+                name: 1,
+                rpc_address: 1
             }).exec();
         })
         .then(function(nodes) {
@@ -782,6 +786,10 @@ function update_dns_name(req) {
         .then(function() {
             return db.Node.find({
                 system: req.system.id
+            }, {
+                // select just what we need
+                name: 1,
+                rpc_address: 1
             }).exec();
         })
         .then(function(nodes) {

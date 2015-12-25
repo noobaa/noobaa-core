@@ -24,7 +24,7 @@ var uuid = require('node-uuid');
 var os = require('os');
 var os_util = require('../util/os_util');
 
-
+module.exports = AgentCLI;
 
 setInterval(function() {
     dbg.log0('memory usage', process.memoryUsage());
@@ -510,6 +510,8 @@ AgentCLI.prototype.show = function(func_name) {
 function populate_general_help(general) {
     general.push('show("<function>"") to show help on a specific API');
 }
+
+AgentCLI.main = main;
 
 function main() {
     var cli = new AgentCLI(argv);

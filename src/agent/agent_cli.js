@@ -514,7 +514,7 @@ function populate_general_help(general) {
 function main() {
     var cli = new AgentCLI(argv);
     cli.init().done(function() {
-        if (argv.norepl) return;
+        if (!argv.repl) return;
         // start a Read-Eval-Print-Loop
         var repl_srv = repl.start({
             prompt: 'agent-cli > ',

@@ -3,7 +3,7 @@
     <div class="well">
         <p>Choose the TCP ports to use:</p>
 
-        <div ng-if="true || nbClient.account && nbClient.account.is_support">
+        <div ng-if="nbClient.account && nbClient.account.is_support">
             <p>
                 <label class="radio-inline">
                     <input type="radio" name="proto" ng-model="n2n_form.proto" value="tcp_and_udp" /> TCP with UDP fallback (recommended) &nbsp;

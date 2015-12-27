@@ -1444,6 +1444,7 @@ function make_session_key(local, remote) {
  */
 function listen_on_port_range(port_range) {
     var attempts = 0;
+    var max_attempts = 3;
     return P.fcall(try_to_listen);
 
     function try_to_listen() {
@@ -1452,9 +1453,7 @@ function listen_on_port_range(port_range) {
         if (typeof(port_range) === 'object') {
             if (typeof(port_range.min) === 'number' &&
                 typeof(port_range.max) === 'number') {
-                if (attempts > Math.min(10, 10 * (port_range.max - port_range.min))) {
-                    throw new Error('ICE PORT ALLOCATION EXHAUSTED');
-                }
+                max_attempts = Math.min(10, 10 * (port_range.max - port_range.min));
                 port = chance.integer(port_range);
             } else {
                 port = port_range.port || 0;
@@ -1464,7 +1463,10 @@ function listen_on_port_range(port_range) {
         } else {
             port = 0;
         }
-        dbg.log0('ICE listen_on_port_range', port, 'attempts', attempts, port_range);
+        if (attempts > max_attempts) {
+            throw new Error('ICE PORT ALLOCATION EXHAUSTED');
+        }
+        dbg.log0('ICE listen_on_port_range', port, 'attempts', attempts);
         attempts += 1;
         server.listen(port);
         // wait for listen even, while also watching for error/close.

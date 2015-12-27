@@ -294,15 +294,22 @@ InternalDebugLogger.prototype.get_level = function(mod) {
     return tmp_mod.__level;
 };
 
+var LOG_FUNC_PER_LEVEL = {
+    LOG: 'log',
+    INFO: 'info',
+    WARN: 'warn',
+    ERROR: 'error',
+};
+
 InternalDebugLogger.prototype.log_internal = function(level) {
     var args;
     con.original_console();
     if (this._log) { //browser workaround
         args = Array.prototype.slice.call(arguments, 0);
         args.push("");
-        this._log.log.apply(this._log, args);
+        this._log[level].apply(this._log, args);
     } else { //browser, don't use winston. Add timestamp and level
-        var logfunc = 'log';
+        var logfunc = LOG_FUNC_PER_LEVEL[level] || 'log';
         args = Array.prototype.slice.call(arguments, 1);
         if (typeof(args[0] === 'string')) { //Keep string formatting if exists
             args[0] = formatted_time() + ' [' + level + '] ' + args[0];

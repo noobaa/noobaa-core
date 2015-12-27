@@ -36,7 +36,7 @@
         </table>
 
         <div>
-            <button class="btn btn-primary" nb-click-ladda="update_n2n_config()">Apply</button>
+            <button class="btn btn-primary" nb-click-ladda="apply_n2n_config()">Apply</button>
         </div>
 
         <div ng-switch="n2n_form.state">
@@ -59,7 +59,8 @@
     <ul>
         <li>Ports can be set to either single port (ex. 9999) or port range (ex. 60100-60600).</li>
         <li>TCP ports should be manually opened in firewall/NAT in order to be reachable.</li>
-        <li>In any case if TCP will not be reachable, UDP on random port will be used for fallback, which is capable of bypassing firewall/NAT, assuming UDP is allowed in your network.</li>
+        <li>Connections are secured using SSL.</li>
+        <li>In any case if TCP will not be reachable, UDP will be used for fallback, which is capable of bypassing firewall/NAT, assuming UDP is allowed in your network.</li>
     </ul>
 
 </form>

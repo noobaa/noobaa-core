@@ -63,13 +63,10 @@ var system_schema = new Schema({
     // redefining it for mongoose.
     n2n_config: {},
 
-    // when the administrator registers the system to a domain name
-    // in the DNS server we use it for redirecting agents to the system,
-    // to avoid using fixed IP.
-    // however changing the DNS name after agents are up is harder though feasible...
-    dns_name: {
+    // the DNS name or IP address used for the server
+    base_address: {
         type: String
-    }
+    },
 
 }, {
     // we prefer to call ensureIndexes explicitly when needed

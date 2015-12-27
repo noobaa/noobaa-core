@@ -952,7 +952,7 @@ Ice.prototype._upgrade_to_tls = function(session) {
     }
 
     function once_connected() {
-        dbg.log0('ICE TLS CONNECTED', session.key);
+        dbg.log0('ICE TLS CONNECTED', session.key, tls_conn.getCipher());
         session.tcp = tls_conn;
         tls_conn.frame_stream = new FrameStream(tls_conn);
         self.emit('connect', session);

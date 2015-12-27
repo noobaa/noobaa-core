@@ -279,6 +279,9 @@ module.exports = {
                     ip: {
                         type: 'string'
                     },
+                    base_address: {
+                        type: 'string'
+                    },
                     rpc_address: {
                         type: 'string'
                     },
@@ -499,6 +502,9 @@ module.exports = {
                     $ref: '/node_api/definitions/srvmode'
                 },
                 rpc_address: {
+                    type: 'string'
+                },
+                base_address: {
                     type: 'string'
                 },
                 peer_id: {

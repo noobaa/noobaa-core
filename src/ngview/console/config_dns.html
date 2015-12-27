@@ -1,21 +1,35 @@
 <div>
     <div class="well">
         <p>Choose DNS name or IP for Nodes connectivity to NooBaa server:</p>
+
         <label class="radio-inline">
-            <input type="radio" name="dns_type" ng-model="dns_form.dns_type" value="custom" />Custom name &nbsp;
+            <input type="radio" name="dns_type" ng-model="dns_form.dns_type" value="dns" />Custom name &nbsp;
         </label>
         <label class="radio-inline">
-            <input type="radio" name="dns_type" ng-model="dns_form.dns_type" value="ip" ng-change="dns_form.dns_name=''" />IP address &nbsp;
+            <input type="radio" name="dns_type" ng-model="dns_form.dns_type" value="ip" />IP address &nbsp;
         </label>
         <br/>
         <br/>
-        <div class="form-control-wrapper">
+
+        <div class="form-control-wrapper" ng-show="dns_form.dns_type=='dns'">
             <input type="text" class="form-control floating-label" ng-model="dns_form.dns_name" required />
         </div>
-        <br/>
-        <div>
-            <button class="btn btn-primary" nb-click-ladda="update_dns_name()">Apply</button>
+        <div class="form-control-wrapper" ng-show="dns_form.dns_type=='ip'">
+            <input type="text" class="form-control floating-label" ng-model="dns_form.ip_address" required disabled />
         </div>
+        <br/>
+
+        <div ng-show="dns_form.dns_type=='dns'">
+            <i class="fa fa-exclamation-triangle fa-fw"></i>
+            <i>Before you apply, add the following entry to your DNS:</i>
+            <pre style="margin-top: 20px; Xmax-width: 400px">{{dns_form.ip_address}} <b>{{dns_form.dns_name}}</b></pre>
+            <br/>
+        </div>
+
+        <div>
+            <button class="btn btn-primary" nb-click-ladda="apply_dns_config()">Apply</button>
+        </div>
+
         <div ng-switch="dns_form.state">
             <span ng-switch-when="error">
                 <i class="fa fa-fw fa-warning text-warning"></i> {{dns_form.error}} ...
@@ -35,14 +49,12 @@
     <br/>
 
     <div>
-        <p>Notes about using a DNS name:</p>
+        <p>Notes about using a DNS name (recommended):</p>
         <ul>
-            <li>Add the following entry to your DNS:</li>
-            <pre style="margin-top: 20px; Xmax-width: 400px">{{$location.host()}} <b>{{dns_form.dns_name}}</b></pre>
-            <li>If you want to change the name - it is best to first add the new name in your DNS to have both names available, then apply the change here in the system, and only once all nodes are updated with the new name to remove the old name from the
+            <li>If you want to change the name - it is recommended to first add the new name in your DNS to have both old and new names available, then apply the change here in the system, and only once all nodes are updated with the new name to remove the old name from the
                 DNS.
             </li>
-            <li>If you are unable to follow this order of actions - nodes that disconnected from the server will not be able to connect using the old name to receive the update on the new name, and will need to be reinstalled.</li>
+            <li>If you are unable to use the suggested order of actions - nodes that disconnected from the server will not be able to connect using the old address to receive the update on the new name, and will need to be reinstalled.</li>
         </ul>
     </div>
     <div>
@@ -52,7 +64,5 @@
             <li>If you want to change this IP - you will have to reinstall the node agents manually as there is no way for the server to communicate with them once they disconnected and do not yet </li>
         </ul>
     </div>
-
-    <br/>
 
 </div>

@@ -168,13 +168,13 @@ module.exports = {
             }
         },
 
-        update_dns_name: {
+        update_base_address: {
             method: 'POST',
             params: {
                 type: 'object',
-                required: ['dns_name'],
+                required: ['base_address'],
                 properties: {
-                    dns_name: {
+                    base_address: {
                         type: 'string'
                     }
                 }

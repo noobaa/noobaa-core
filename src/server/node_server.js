@@ -464,6 +464,7 @@ var NODE_PICK_FIELDS = [
     'peer_id',
     'ip',
     'rpc_address',
+    'base_address',
     'srvmode',
     'version',
     'latency_to_server',

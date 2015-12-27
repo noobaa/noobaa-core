@@ -27,7 +27,7 @@ var system_server = {
     start_debug: start_debug,
 
     update_n2n_config: update_n2n_config,
-    update_dns_name: update_dns_name,
+    update_base_address: update_base_address,
     update_system_certificate: update_system_certificate,
 };
 
@@ -36,6 +36,7 @@ module.exports = system_server;
 var _ = require('lodash');
 var P = require('../util/promise');
 var crypto = require('crypto');
+var ip_module = require('ip');
 var size_utils = require('../util/size_utils');
 var promise_utils = require('../util/promise_utils');
 var diag = require('./utils/server_diagnostics');
@@ -72,14 +73,12 @@ function create_system(req) {
                 }];
             }
             info.owner = req.account.id;
-
-            // set default package names
             info.resources = {
+                // set default package names
                 agent_installer: 'noobaa-setup.exe',
                 s3rest_installer: 'noobaa-s3rest.exe',
                 linux_agent_installer: 'noobaa-setup'
             };
-
             info.n2n_config = {
                 tcp_tls: true,
                 tcp_active: true,
@@ -91,7 +90,6 @@ function create_system(req) {
                 udp_port: true,
             };
 
-            dbg.log0('Installer Resources:', info.resources);
             return P.when(db.System.create(info))
                 .then(null, db.check_already_exists(req, 'system'));
         })
@@ -385,6 +383,7 @@ function read_system(req) {
 
         })).then(function(updated_buckets) {
             dbg.log2('updated_buckets:', updated_buckets);
+            var ip_address = ip_module.address();
             return {
                 name: req.system.name,
                 roles: _.map(roles, function(role) {
@@ -424,7 +423,9 @@ function read_system(req) {
                 web_port: process.env.PORT,
                 web_links: get_system_web_links(req.system),
                 n2n_config: req.system.n2n_config,
-                dns_name: req.system.dns_name
+                ip_address: ip_address,
+                base_address: req.system.base_address ||
+                    'wss://' + ip_address + ':' + process.env.SSL_PORT
             };
         });
     });
@@ -777,11 +778,11 @@ function update_n2n_config(req) {
         });
 }
 
-function update_dns_name(req) {
-    dbg.log0('update_dns_name', req.rpc_params);
+function update_base_address(req) {
+    dbg.log0('update_base_address', req.rpc_params);
     db.SystemCache.invalidate(req.system.id);
     return P.when(req.system.update({
-            dns_name: req.rpc_params.dns_name
+            base_address: req.rpc_params.base_address
         }).exec())
         .then(function() {
             return db.Node.find({
@@ -798,12 +799,12 @@ function update_dns_name(req) {
                 nodes_updated: 0
             };
             return P.map(nodes, function(node) {
-                    return server_rpc.client.agent.update_dns_name(req.rpc_params, {
+                    return server_rpc.client.agent.update_base_address(req.rpc_params, {
                         address: node.rpc_address
                     }).then(function() {
                         reply.nodes_updated += 1;
                     }, function(err) {
-                        dbg.error('update_dns_name: FAILED TO UPDATE AGENT', node.name, node.rpc_address);
+                        dbg.error('update_base_address: FAILED TO UPDATE AGENT', node.name, node.rpc_address);
                     });
                 }, {
                     concurrency: 5

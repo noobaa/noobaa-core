@@ -8,15 +8,21 @@
             <table class="table table-no-borders">
                 <tr>
                     <th>
+                        <i class="fa fa-tag fa-lg fa-fw text-muted"></i> Version
+                    </th>
+                    <td>{{node.version}}</td>
+                </tr>
+                <tr>
+                    <th>
                         <i class="fa fa-heartbeat fa-lg fa-fw text-muted"></i> Heartbeat
                     </th>
                     <td>{{node.hearbeat_moment.fromNow()}}</td>
                 </tr>
                 <tr>
                     <th>
-                        <i class="fa fa-tag fa-lg fa-fw text-muted"></i> Version
+                        <i class="fa fa-home fa-lg fa-fw text-muted"></i> Server Address
                     </th>
-                    <td>{{node.version}}</td>
+                    <td>{{node.base_address}}</td>
                 </tr>
             </table>
         </div>

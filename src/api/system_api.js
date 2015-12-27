@@ -286,13 +286,13 @@ module.exports = {
             }
         },
 
-        update_dns_name: {
+        update_base_address: {
             method: 'POST',
             params: {
                 type: 'object',
-                required: ['dns_name'],
+                required: ['base_address'],
                 properties: {
-                    dns_name: {
+                    base_address: {
                         type: 'string'
                     }
                 }
@@ -420,7 +420,13 @@ module.exports = {
                 },
                 n2n_config: {
                     $ref: '/common_api/definitions/n2n_config'
-                }
+                },
+                ip_address: {
+                    type: 'string'
+                },
+                base_address: {
+                    type: 'string'
+                },
             }
         },
 

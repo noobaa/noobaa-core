@@ -111,7 +111,7 @@ function Agent(params) {
         collect_diagnostics: self.collect_diagnostics.bind(self),
         set_debug_node: self.set_debug_node.bind(self),
         update_n2n_config: self.update_n2n_config.bind(self),
-        update_dns_name: self.update_dns_name.bind(self),
+        update_base_address: self.update_base_address.bind(self),
     };
 
     self.agent_app = (function() {
@@ -395,6 +395,7 @@ Agent.prototype._do_heartbeat = function() {
         name: self.node_name || '',
         geolocation: self.geolocation,
         ip: ip,
+        base_address: self.rpc.base_address,
         version: self.heartbeat_version || '',
         extended_hb: extended_hb,
     };
@@ -528,9 +529,7 @@ Agent.prototype._do_heartbeat = function() {
 
         }).fin(function() {
             self._start_stop_heartbeats();
-            self._start_stop_heartbeats();
         });
-    //    }));
 };
 
 
@@ -846,16 +845,23 @@ function test_average_latency(func) {
 }
 
 Agent.prototype.update_n2n_config = function(req) {
+    var self = this;
     console.log('AGENT GOT UPDATE N2N CONFIG', req.rpc_params);
     var n2n_config = req.rpc_params;
-    this.n2n_agent.update_n2n_config(n2n_config);
+    self.n2n_agent.update_n2n_config(n2n_config);
 };
 
-Agent.prototype.update_dns_name = function(req) {
-    console.log('AGENT GOT UPDATE DNS NAME', req.rpc_params);
-    // TODO update_dns_name
-    // var dns_name = req.rpc_params.dns_name;
-    dbg.error('TODO update_dns_name');
+Agent.prototype.update_base_address = function(req) {
+    var self = this;
+    console.log('AGENT GOT UPDATE BASE ADDRESS', req.rpc_params, 'was', self.rpc.base_address);
+    var base_address = req.rpc_params.base_address;
+    self.rpc.base_address = base_address;
+    // TODO update_base_address in agent_conf.json
+    console.error('TODO update_base_address in agent_conf.json');
+    // setTimeout(function() {
+    //     self.rpc.disconnect_all();
+    //     self._do_heartbeat();
+    // }, 1000);
 };
 
 

@@ -266,6 +266,10 @@ function update_heartbeat(req, reply_token) {
                 params.rpc_address !== node.rpc_address) {
                 updates.rpc_address = params.rpc_address;
             }
+            if (params.base_address &&
+                params.base_address !== node.base_address) {
+                updates.base_address = params.base_address;
+            }
             if (params.version && params.version !== node.version) {
                 updates.version = params.version;
             }

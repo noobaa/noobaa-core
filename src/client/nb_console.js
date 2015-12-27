@@ -3,6 +3,7 @@
 
 var _ = require('lodash');
 var P = require('../util/promise');
+var url = require('url');
 var pkg = require('../../package.json');
 
 require('./nb_util');
@@ -103,9 +104,9 @@ nb_console.controller('ConfigViewCtrl', [
         nbSystem, nbNodes, nbFiles, nbClient, nbAlertify, nbModal) {
         $scope.nav.active = 'cog';
         $scope.nav.reload_view = reload_view;
-        $scope.update_n2n_config = update_n2n_config;
-        $scope.update_dns_name = update_dns_name;
-        $scope.update_system_certificate = update_system_certificate;
+        $scope.apply_n2n_config = apply_n2n_config;
+        $scope.apply_dns_config= apply_dns_config;
+        $scope.apply_system_certificate = apply_system_certificate;
 
         reload_view(true);
 
@@ -135,13 +136,21 @@ nb_console.controller('ConfigViewCtrl', [
                     $scope.n2n_form.tcp_tls = !!n2n_config.tcp_tls;
                     console.log('n2n_form', $scope.n2n_form);
                     $scope.dns_form = $scope.dns_form || {};
-                    $scope.dns_form.dns_name = nbSystem.system.dns_name;
+                    $scope.dns_form.ip_address = nbSystem.system.ip_address;
+                    var addr_url = url.parse(nbSystem.system.base_address);
+                    if (addr_url.hostname === nbSystem.system.ip_address) {
+                        $scope.dns_form.dns_type = 'ip';
+                        $scope.dns_form.dns_name = 'noobaa.local';
+                    } else {
+                        $scope.dns_form.dns_type = 'dns';
+                        $scope.dns_form.dns_name = addr_url.hostname;
+                    }
                 });
         }
 
-        function update_n2n_config() {
+        function apply_n2n_config() {
             var n2n_form = $scope.n2n_form;
-            console.log('update n2n_form', n2n_form);
+            console.log('apply_n2n_config: n2n_form', n2n_form);
             n2n_form.state = '';
             n2n_form.error = '';
             n2n_form.reply = null;
@@ -169,7 +178,7 @@ nb_console.controller('ConfigViewCtrl', [
                 n2n_config.udp_port = false;
             }
             n2n_config.tcp_tls = !!n2n_form.tcp_tls;
-            console.log('update_n2n_config', n2n_config);
+            console.log('apply_n2n_config: n2n_config', n2n_config);
             return $q.when()
                 .then(function() {
                     n2n_form.state = 'saving';
@@ -207,22 +216,31 @@ nb_console.controller('ConfigViewCtrl', [
             }
         }
 
-        function update_dns_name() {
+        function apply_dns_config() {
             var dns_form = $scope.dns_form;
-            console.log('update_dns_name', dns_form);
+            console.log('apply_dns_config', dns_form);
             dns_form.state = '';
             dns_form.error = '';
             dns_form.reply = null;
-            if (!dns_form.dns_name) {
-                dns_form.state = 'error';
-                dns_form.error = 'Missing name';
-                return;
+            var base_addr_url = url.parse(nbSystem.system.base_address);
+            base_addr_url.host = '';
+            if (dns_form.dns_type === 'dns') {
+                if (!dns_form.dns_name) {
+                    dns_form.state = 'error';
+                    dns_form.error = 'Missing name';
+                    return;
+                }
+                base_addr_url.hostname = dns_form.dns_name;
+            } else {
+                base_addr_url.hostname = nbSystem.system.ip_address;
             }
+            var base_address = url.format(base_addr_url);
+            console.log('update_base_address', base_addr_url);
             return $q.when()
                 .then(function() {
                     dns_form.state = 'saving';
-                    return nbClient.client.system.update_dns_name({
-                        dns_name: dns_form.dns_name
+                    return nbClient.client.system.update_base_address({
+                        base_address: base_address
                     });
                 })
                 .then(function(res) {
@@ -235,8 +253,8 @@ nb_console.controller('ConfigViewCtrl', [
                 .then(reload_view);
         }
 
-        function update_system_certificate() {
-            console.log('update_system_certificate');
+        function apply_system_certificate() {
+            console.log('apply_system_certificate');
         }
 
     }

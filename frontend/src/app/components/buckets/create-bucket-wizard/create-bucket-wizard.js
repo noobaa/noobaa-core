@@ -2,17 +2,17 @@ import template from './create-bucket-wizard.html';
 import chooseNameStepTempalte from './choose-name-step.html'
 import setPolicyStepTempalte from './set-policy-step.html'
 import ko from 'knockout';
-import { domFromHtml } from 'utils';
 import bucketNameValidationRules from './bucket-name-validation-rules';
 import { poolList } from 'model';
 import { createBucket } from 'actions';
 import { defaultPoolName } from 'config';
+import { cloneArray } from 'utils';
 
 class CreateBucketWizardViewModel {
-	constructor({ visible }) {
-		this.visible = visible;
-		this.chooseNameStepNodes = domFromHtml(chooseNameStepTempalte);
-		this.setPolicyStepNodes = domFromHtml(setPolicyStepTempalte);
+	constructor({ onClose }) {
+		this.onClose = onClose;
+		this.chooseNameStepTemplate = chooseNameStepTempalte;
+		this.setPolicyStepTemplate = setPolicyStepTempalte;
 
 		this.bucketName = ko.observable()
 			.extend({ validation: bucketNameValidationRules });
@@ -23,30 +23,27 @@ class CreateBucketWizardViewModel {
 			pool => pool.name
 		);
 
-		this.selectedPools = ko.observableArray([ 
-			defaultPoolName
-		]);
+		this.selectedPools = ko.observableArray([ defaultPoolName ])
+			.extend({ required: { message: 'Please select at least one pool for the policy' } });
 	}
 
 	validateStep(step) {
 		switch (step) {
 			case 1: 
 				let isNameValid = this.bucketName.isValid();
-				
-				// Irritate the observable in order to force display the 
-				// validation message.
 				!isNameValid && this.bucketName.valueHasMutated();  
-		
 				return isNameValid;
 
 			case 2: 
-				return this.selectedPools().length > 0;
+				let isPoolsValid = this.selectedPools.isValid();
+				!isPoolsValid && this.selectedPools.valueHasMutated();
+				return isPoolsValid;
 		}
 	}
 
 	selectAllPools() {
 		this.selectedPools(
-			new Array(...this.pools())
+			cloneArray(this.pools())
 		);
 	}
 

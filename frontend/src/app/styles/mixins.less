@@ -21,7 +21,7 @@
 	}
 }
 
-.bg-color(@normal, @hover, @active) {
+.bg-color(@normal, @hover, @active, @disabled) {
 	background-color: @normal;
 
 	&:hover {
@@ -31,6 +31,12 @@
 	&:active {
 		background-color:@active;
 	}	
+
+	&[disabled] {
+		&, &:hover, &:active {
+			background-color: @disabled;
+		}
+	}
 }
 
 .placeholder(@color) {

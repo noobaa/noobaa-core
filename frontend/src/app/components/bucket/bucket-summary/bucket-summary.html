@@ -12,24 +12,29 @@
 	"></button> 
 
 	<div class="hidden-actions" data-bind="css: { visible: areActionsVisible }">
-		<button class="action btn2">
-			<svg-icon params="uri: '/assets/icons.svg#pool'"></svg-icon>		
+		<button class="action btn3" data-bind="click: () => isUploadFilesModalVisible(true)">
+			<svg-icon params="uri: '/assets/icons.svg#upload'"></svg-icon>		
 			Upload File
 		</button>
 
-		<button class="action btn2">
+		<button class="action btn3">
 			<svg-icon params="uri: '/assets/icons.svg#cloud'"></svg-icon>		
 			Set Cloud Sync
 		</button>
 
-		<button class="action btn2" data-bind="click: showBucketPolicyModal">
-			<svg-icon params="uri: '/assets/icons.svg#bucket'"></svg-icon>		
+		<button class="action btn3" data-bind="click: () => isPolicyModalVisible(true)">
+			<svg-icon params="uri: '/assets/icons.svg#policy'"></svg-icon>		
 			Edit Policy
 		</button>
 	</div>
 </section>
 
-<modal class="text-left" params="visible: isBucketPolicyModalVisible">
-	<bucket-policy-form params="oncomplete: () => hideBucketPolicyModal()">
-	</bucket-policy-form>
-</modal>
+<!-- ko if: isPolicyModalVisible -->
+<bucket-policy-modal params="policyName: policy, onClose: () => isPolicyModalVisible(false)">
+</bucket-policy-modal>
+<!-- /ko -->		
+
+<!-- ko if:isUploadFilesModalVisible -->
+<upload-files-modal params="bucketName: name, onClose: () => isUploadFilesModalVisible(false)">
+</upload-files-modal>
+<!-- /ko -->	

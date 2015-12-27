@@ -1,17 +1,16 @@
 import template from './bucket-panel.html';
 import ko from 'knockout';
 import page from 'page';
+import { uiState, bucketInfo, bucketObjectList } from 'model';
 
 // import { inputThrottle } from 'config';
 // import { throttle, stringifyQueryString } from 'utils';
-import { uiState, bucketInfo, bucketObjectList } from 'model';
+
 
 class BucketPanelViewModel {
 	constructor() {
 		this.bucket = bucketInfo;
 		this.objects = bucketObjectList;
-
-		bucketInfo.subscribe(x => console.log(x))
 
 		this.selectedTab = ko.pureComputed(
 			() => uiState().tab

@@ -9,29 +9,40 @@ bucket-summary {
 		vertical-align: top;
 		display: inline-block;
 
-		button {
-			background-color: @gray-lv4;
+		.action {
+			display: block;
+			width: 100%;
+			font-size: @font-size-small;
+			text-align: left;
+			margin-top: .5em;
 			vertical-align: middle;
 
-			&:hover {
-				background-color: @gray-lv5;
+			> input {
+				.hide();
 			}
 		}
+
 
 		.btn-more {
 			font-size: @font-size-large;
 			padding: .85em .5em;
 			line-height: 0;
 			width: 41px;
+			background-color: @gray-lv4;	
+			vertical-align: middle;		
+
+			&:hover {
+				background-color: @gray-lv5;
+			}
 		}
 
-		.main-action {
+/*		.main-action {
 			background-color: @blue-dark;
 
 			&:hover {
 				background-color: @blue-mid;
 			}
-		}
+		}*/
 
 		.hidden-actions {
 			opacity: 0;
@@ -42,14 +53,14 @@ bucket-summary {
 				z-index: 0;
 				opacity: 1;
 			}
-		}
 
-		.action {
-			display: block;
-			width: 100%;
-			font-size: @font-size-small;
-			text-align: left;
-			margin-top: .5em;
+/*			.action {
+				background-color: @gray-lv4;
+
+				&:hover {
+					background-color: @gray-lv5;
+				}
+			}*/
 		}		
 	}
 

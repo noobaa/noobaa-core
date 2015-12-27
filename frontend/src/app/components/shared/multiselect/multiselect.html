@@ -1,8 +1,9 @@
-<ul class="list-no-style clear" data-bind="foreach: options">
-	<li>
-		<label class="option no-wrap">
-			<input type="checkbox"  data-bind="checked: selected"/>
-			<span data-bind="text: name"></span>
-		</label>
-	</li>
-</ul>
+<div class="multiselect-options box" data-bind="validationOptions: { insertMessages: false }">
+	<ul class="list-no-style clear" data-bind="foreach: options">
+		<li>
+			<checkbox class="option" params="value: $data, checked: $component.selected">
+			</checkbox>
+		</li>
+	</ul>
+</div>
+<div class="val-msg" data-bind="validationMessage: selected"></div>

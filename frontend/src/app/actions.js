@@ -2,7 +2,13 @@ import * as model from 'model';
 import { isDefined, isUndefined } from 'utils';
 import page from 'page';
 import api from 'services/api';
+import config from 'config';
 import { cmpStrings, cmpInts, cmpBools, randomString } from 'utils';
+
+// TODO: resolve browserify issue with export of the aws-sdk module.
+// The current workaround use the AWS that is set on the global window object.
+import 'aws-sdk';
+AWS = window.AWS;
 
 // Compare functions for entities.
 const bucketCmpFuncs = Object.freeze({
@@ -110,7 +116,7 @@ export function showBucket() {
 
 	let ctx = model.routeContext();
 	let { bucket, tab } = ctx.params;
-	let { objFilter } = ctx.query;
+	let { filter, sortBy = 'name', order = 1, page = 0 } = ctx.query;
 
 	model.uiState({
 		layout: 'main-layout',
@@ -124,7 +130,7 @@ export function showBucket() {
 	});
 
 	readBucket(bucket);
-	listBucketObjects(bucket, objFilter);		
+	listBucketObjects(bucket, filter, sortBy, parseInt(order), parseInt(page));		
 }
 
 export function showObject() {
@@ -259,6 +265,12 @@ export function readSystemInfo() {
 		.then(reply => {
 			let keys = reply.access_keys[0];
 
+			AWS.config.update({
+				accessKeyId: keys.access_key,
+                secretAccessKey: keys.secret_key,
+                sslEnabled: false
+			});
+
 			systemOverview({
 				endpoint: '192.168.0.1',
 				keys: {
@@ -285,6 +297,7 @@ export function readSystemInfo() {
 		.done();
 }
 
+
 export function readBucket(name) {
 	logAction('readBucket', { name });
 
@@ -293,11 +306,37 @@ export function readBucket(name) {
 		.done();
 }
 
-export function listBucketObjects(bucketName, filter) {
-	logAction('listBucketObjects', { bucketName, filter });
+export function readBucketPolicy(name) {
+	logAction('readBucketPolicy', { name });
 
-	api.object.list_objects({ bucket: bucketName, key_query: filter })
-		.then(reply => model.bucketObjectList(reply.objects))
+	model.bucketPolicy(null);
+	api.tiering_policy.read_policy({ name })
+		.then(model.bucketPolicy)
+		.done();
+}
+
+export function listBucketObjects(bucketName, filter, sortBy, order, page) {
+	logAction('listBucketObjects', { bucketName, filter, sortBy, order, page });
+
+	let bucketObjectList = model.bucketObjectList;
+
+	api.object.list_objects({ 
+			bucket: bucketName,
+			key_query: filter,
+			sort: sortBy,
+			order: order,
+			skip: config.paginationPageSize * page,
+			limit: config.paginationPageSize,
+			pagination: true
+		})
+		.then(reply => {
+			bucketObjectList.sortedBy(sortBy);
+			bucketObjectList.filter(filter);
+			bucketObjectList.order(order);
+			bucketObjectList.page(page);
+			bucketObjectList.count(reply.total_count);
+			bucketObjectList(reply.objects);
+		}) 
 		.done();
 }
 
@@ -363,12 +402,14 @@ export function createBucket(name, dataPlacement, pools) {
 	model.bucketList.unshift(placeholder);
 
 	api.tier.create_tier({ 
-		name: `${name}_tier_${randomString(5)}`,
+		name: randomString(8),
 		data_placement: dataPlacement,
 		pools: pools
 	})
 		.then(tier => {
 			let policy = {
+				// TODO: remove the random string after patching the server
+				// with a delete bucket that deletes also the policy
 				name: `${name}_tiering_${randomString(5)}`,
 				tiers: [ { order: 0, tier: tier.name } ]
 			};
@@ -396,13 +437,66 @@ export function deleteBucket(name) {
 		.done();
 }
 
-export function updateBucketPolicy(bucketName, dataPlacement, poolList) {
-	logAction('updateBucketPolicy', { bucketName, dataPlacement, poolList });
+export function updateTier(name, dataPlacement, pools) {
+	logAction('updateTier', { name, dataPlacement, pools });
 
 	api.tier.update_tier({ 
-		name: `${bucketName}-tier`,
+		name: name,
 		data_placement: dataPlacement,
-		pools: poolList
+		pools: pools
 	})
 		.done();
+}
+export function uploadFiles(bucketName, files) {
+	logAction('uploadFiles', { bucketName, files });
+
+	let recentUploads = model.recentUploads;
+	let s3 = new AWS.S3({
+	    endpoint: config.serverAddress,
+	    s3ForcePathStyle: true,
+	    sslEnabled: false,	
+	});
+
+	Array.from(files).forEach(
+		file => {
+			// Create an entry in the recent uploaded list.
+			let entry = {
+				name: file.name,
+				state: 'IN_PORCESS',
+				progress: 0,
+				error: null
+			};
+			recentUploads.unshift(entry);
+
+			// Start the upload.
+			s3.upload({
+				Key: file.name,
+				Bucket: bucketName,
+				Body: file,
+				ContentType: file.type
+			}, err => {
+				if (!err) {
+					// Use replace to trigger change event.
+					recentUploads.replace(entry, Object.assign(
+						entry, 
+						{ progress: 1, state: 'SUCCESS' }
+					));
+
+
+				} else {
+					//Use replace to trigger change event.
+					recentUploads.replace(entry, Object.assign(
+						entry, 
+						{ state: 'FAILED', err: err }
+					));
+				}
+			}).on('httpUploadProgress', ({ loaded, total }) => {
+				// Use replace to trigger change event.
+				recentUploads.replace(entry, Object.assign(
+					entry, 
+					{ progress: loaded / total }
+				));
+			});
+		}
+	);
 }

@@ -5,11 +5,14 @@
 		</pools-overview>
 		<!-- /ko -->
 		
-		<a class="btn" data-bind="click: showAddNodeModal">add node</a>
+		<a class="btn" data-bind="click: () => isInstallNodeWizardlVisible(true)">
+			install node
+		</a>
 
-		<modal params="visible: isAddNodeModalVisible">
-			<add-node-wizard params="oncomplete: () => hideAddNodeModal()"></add-node-wizard>
-		</modal>					
+		<!-- ko if: isInstallNodeWizardlVisible -->
+		<install-node-wizard params="onClose: () => isInstallNodeWizardlVisible(false)">
+		</install-node-wizard>
+		<!-- /ko -->
 	</section>
 
 	<section class="pull-right">
@@ -19,12 +22,13 @@
 		</buckets-overview>
 		<!-- /ko -->
 		
-		<a class="btn" data-bind="click: showKeysModal">connect application</a>
+		<a class="btn" data-bind="click: () => isConnectAppWizardVisible(true)">
+			connect application
+		</a>
 
-		<modal params="visible: isKeysModalVisible">
-			<!-- <details-keys-form params="oncomplete: () => hideKeysModal()"></details-keys-form> -->
-
-			<connect-app-wizard></connect-app-wizard>
-		</modal>			
+		<!-- ko if: isConnectAppWizardVisible -->
+		<connect-app-wizard params="onClose: () => isConnectAppWizardVisible(false)">
+		</connect-app-wizard>
+		<!-- /ko -->
 	</section>
 </div>

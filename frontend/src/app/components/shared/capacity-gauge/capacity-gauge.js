@@ -1,5 +1,6 @@
 import template from './capacity-gauge.html';
 import ko from 'knockout';
+import style from 'style';
 
 const radius = 98;
 const lineWidth = 4;
@@ -24,6 +25,8 @@ class CapacityGaugeViewModel {
 			this._drawPart(ctx, parts[i], offset, total);
 			offset += parts[i].value / total;
 		}
+
+		this._drawPercentage(ctx, 0/0);
 	}
 
 	_drawPart(ctx, part, start, total) {
@@ -44,6 +47,18 @@ class CapacityGaugeViewModel {
 			ctx.stroke();
 			ctx.closePath();				
 		}		
+	}
+
+	_drawPercentage(ctx, percentage) {
+		let text = Number.isNaN(percentage) ? 'N/A' : `${percentage}%`;
+
+		// Set timeout to allow the font-face to load before drawing the text.
+		setTimeout(() => {
+			ctx.fillStyle = style['text-color4'];
+			ctx.font = `${style['font-size-large']} ${style['font-type2']} Arial`;
+			ctx.fillText(text, radius - ctx.measureText(text).width / 2 | 0, radius);	
+		}, 10)
+		
 	}
 }
 

@@ -94,6 +94,11 @@ input[type="password"] {
 
 input[type="search"] {
 	.textfield();
+
+	line-height: 1.4;
+	font-size: @font-size-medium;
+	padding-left: 2em;
+	background: url('/assets/search.png') no-repeat;
 }
 
 .pull-right {
@@ -277,10 +282,15 @@ input[type="search"] {
 }
 
 .btn-base() {
+	display: inline-block;
 	border: none;
 	background: none;
 	cursor: @cursor-pointer;
 	padding: .75em 1em;
+
+	&[disabled] {
+		cursor: default;
+	}
 }
 
 .btn-flat {
@@ -307,7 +317,8 @@ input[type="search"] {
 	.bg-color(
 		@bg-color8,
 		@bg-color9,
-		@bg-color10
+		@bg-color10,
+		@bg-color7
 	);
 
 	text-transform: uppercase;	
@@ -326,7 +337,8 @@ input[type="search"] {
 	.bg-color(
 		@bg-color8,
 		@bg-color9,
-		@bg-color10		
+		@bg-color10,	
+		@bg-color7
 	);	
 }
 
@@ -337,13 +349,14 @@ input[type="search"] {
 		@font-type2,
 		@font-weight-light,
 		@font-size-normal,
-		@text-color1
+		@text-color1,
 	);
 
 	.bg-color(
-		@bg-color4;		
-		@bg-color5;	
-		@bg-color6;	
+		@bg-color4,
+		@bg-color5,	
+		@bg-color6,
+		@bg-color3
 	);
 }
 
@@ -368,14 +381,14 @@ input[type="search"] {
 
 .data-table
 {
-	padding-top: 3.5em;
+	height: 100%;
+	position: relative;
+
+	padding-top: 3.7em;
 
 	&.no-head {
 		padding-top: 0;
 	}
-
-	height: 100%;
-	position: relative;
 
 	> table {
 		border-collapse: collapse;
@@ -576,7 +589,7 @@ input[type="search"] {
 	line-height: 1.8;
 }
 
-.form-actions {
+.action-line {
 	margin-top: 1.5em;
 
 	.link {

@@ -27,6 +27,14 @@ export let bucketInfo = ko.observable();
 
 // Hold the current bucket object list.
 export let bucketObjectList = ko.observableArray();
+bucketObjectList.count = ko.observable(0);
+bucketObjectList.sortedBy = ko.observable('name');
+bucketObjectList.order = ko.observable(1);
+bucketObjectList.filter = ko.observable();
+bucketObjectList.page = ko.observable(0);
+
+// Hold the current bucket policy.
+export let bucketPolicy = ko.observable();
 
 // Hold the current pool list. derived from system info.
 export let poolList = ko.observableArray();
@@ -53,8 +61,5 @@ export let objectInfo = ko.observable();
 export let objectPartList = ko.observableArray();
 objectPartList.filter = ko.observable();
 
-
-
-
-
-
+// Hold the recent uploads.
+export let recentUploads = ko.observableArray();

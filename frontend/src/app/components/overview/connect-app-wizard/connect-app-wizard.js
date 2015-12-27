@@ -1,7 +1,6 @@
 import template from './connect-app-wizard.html';
 import selectSlideTemplate from './select-slide.html';
 import connecSlideTemplate from './connect-slide.html';
-import { domFromHtml } from 'utils';
 import ko from 'knockout';
 import { bucketList } from 'model';
 
@@ -13,8 +12,9 @@ const connectionTypes = Object.freeze([
 	},
 	{
 		type: 'FS',
-		label: 'Linux File Access',
-		description: 'Please provide a good explanation',
+		label: 'Linux File Access (Using Fuse)',
+		description: 'Comming Soon...',
+		disabled: true
 	},
 	{
 		type: 'HDFS',
@@ -25,24 +25,17 @@ const connectionTypes = Object.freeze([
 ]);
 
 class ConnectApplicationWizard {
-	constructor() {
-	 	this.selectSlideNodes = domFromHtml(selectSlideTemplate);
-	 	this.connectSlideNodes = domFromHtml(connecSlideTemplate);
+	constructor({ onClose }) {
+		this.onClose = onClose;
+	 	this.selectSlideTemplate = selectSlideTemplate;
+	 	this.connectSlideTemplate = connecSlideTemplate;
 
 	 	this.conTypes = connectionTypes;
 	 	this.selectedConType = ko.observable(this.conTypes[0]);
 
-		let buckets = [
-			'my-first-bucket',
-			'default_buckets',
-			'ohad',
-			'avins-very-long-bucket-name',
-			'my-first-bucket-2',
-			'default_buckets-2',
-			'bla-bla-bla',
-			'what-is-this',
-			'shiri',			
-		]
+		let buckets = bucketList.map(
+			bucket => bucket.name
+		);
 
 		this.selectedBucket = ko.observable();
 		this.buckets = buckets.map(
@@ -63,7 +56,7 @@ class ConnectApplicationWizard {
 				return item;
 			}
 		);
-	 	this.selectedBucket(this.buckets[0])
+	 	this.selectedBucket(this.buckets[0]);
 	}
 }
 

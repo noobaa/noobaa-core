@@ -27,8 +27,7 @@ export default function register(ko) {
 	ko.components.register('overview-panel', 		require('./overview/overview-panel/overview-panel'));
 	ko.components.register('pools-overview', 		require('./overview/pools-overview/pools-overview'));
 	ko.components.register('buckets-overview',		require('./overview/buckets-overview/buckets-overview'));	
-	ko.components.register('add-node-wizard',		
-		require('./overview/add-node-wizard/add-node-wizard'));
+	ko.components.register('install-node-wizard',	require('./overview/install-node-wizard/install-node-wizard'));
 	ko.components.register('connect-app-wizard',	require('./overview/connect-app-wizard/connect-app-wizard'));
 
 	// -------------------------------
@@ -45,7 +44,8 @@ export default function register(ko) {
 	ko.components.register('bucket-summary', 		require('./bucket/bucket-summary/bucket-summary'));
 	ko.components.register('bucket-objects-tab',	require('./bucket/bucket-objects-tab/bucket-objects-tab'));
 	ko.components.register('bucket-objects-table',	require('./bucket/bucket-objects-table/bucket-objects-table'));
-	ko.components.register('bucket-policy-form',	require('./bucket/bucket-policy-form/bucket-policy-form'));
+	ko.components.register('bucket-policy-modal',	require('./bucket/bucket-policy-modal/bucket-policy-modal'));
+	ko.components.register('upload-files-modal',	require('./bucket/upload-files-modal/upload-files-modal'));
 
 	// -------------------------------
 	// Object
@@ -81,6 +81,7 @@ export default function register(ko) {
 	ko.components.register('modal', 			require('./shared/modal/modal'));
 	ko.components.register('dropdown', 			require('./shared/dropdown/dropdown'));
 	ko.components.register('radio-btn', 		require('./shared/radio-btn/radio-btn'));
+	ko.components.register('checkbox', 			require('./shared/checkbox/checkbox'));
 	ko.components.register('capacity-gauge',	require('./shared/capacity-gauge/capacity-gauge'));	
 	ko.components.register('range-indicator', 	require('./shared/range-indicator/range-indicator'));	
 	ko.components.register('action-list', 		require('./shared/action-list/action-list'));

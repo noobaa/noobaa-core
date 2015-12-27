@@ -1,34 +1,54 @@
-<!-- 				<input type="search" class="obj-filter" placeholder="Filter Files" 
-					data-bind="textInput: objectFilter" /> -->
+<input type="search" class="filter" placeholder="Filter Files" data-bind="textInput: filter" />
 
-<section class="data-table">
-	<table>
-		<thead>
-			<tr>
-				<th class="state-col" data-bind="css: cssFor('state')">
-					<a data-bind="href: hrefFor('state')">State</a>
-				</th>	
-				<th class="name-col text-left" data-bind="css: cssFor('name')">
-					<a data-bind="href: hrefFor('name')">File Name</a>
-				</th>
-				<th class="size-col" data-bind="css: cssFor('size')">
-					<a data-bind="href: hrefFor('size')">File Size</a>
-				</th>
-			</tr>
-		</thead>
+<div class="pagination pull-right">
+	<span class="page-indicator" data-bind="ifnot: noResults">
+		<span class="highlight" data-bind="text: pageStart"></span>
+		-
+		<span class="highlight" data-bind="text: pageEnd"></span>
+		of
+		<span class="highlight" data-bind="text: count"></span>
+	</span>
+	
+	<button class="btn3" data-bind="click: pageBackward, attr: { disabled: inFirstPage}">
+		<svg-icon params="uri: backwardIcon"></svg-icon>
+	</button>
+	<button class="btn3" data-bind="click: pageForward, attr: { disabled: inLastPage}">
+		<svg-icon params="uri: forwardIcon"></svg-icon>
+	</button>
+</div>
 
-		<tbody data-bind="foreach: rows">
-			<tr>
-				<td class="state-col">
-					<svg-icon params="uri: stateIcon"></svg-icon>
-				</td>
+<section class="table-wrapper">
+	<div class="data-table">
+		<table>
+			<thead>
+				<tr>
+					<th class="state-col" data-bind="css: orderClassFor('state')">
+						<a href data-bind="click: () => orderBy('state')">State</a>
+					</th>	
+					<th class="name-col text-left" data-bind="css: orderClassFor('name')">
+						<a href data-bind="click: () => orderBy('name')">Name</a>
+					</th>
+					<th class="size-col" data-bind="css: orderClassFor('size')">
+						<a href data-bind="click: () => orderBy('size')">Size</a>
+					</th>
+				</tr>
+			</thead>
 
-				<td class="name-col text-left">
-					<a class="link" data-bind="text: name, href: href"></a>
-				</td>
+			<tbody data-bind="foreach: rows">
+				<!-- ko if: isVisible -->
+				<tr>
+					<td class="state-col">
+						<svg-icon params="uri: stateIcon"></svg-icon>
+					</td>
 
-				<td class="size-col" data-bind="text: size"></td>
-			</tr>
-		</tbody>
-	</table>
+					<td class="name-col text-left">
+						<a class="link" data-bind="text: name, href: href"></a>
+					</td>
+
+					<td class="size-col" data-bind="text: size"></td>
+				</tr>
+				<!-- /ko -->
+			</tbody>
+		</table>
+	</div>
 </section>

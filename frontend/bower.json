@@ -17,6 +17,7 @@
     "numeral": "~1.5.3",
     "page": "~1.6.4",
     "knockout-validation": "~2.0.3",
-    "moment": "~2.10.6"
+    "moment": "~2.10.6",
+    "aws-sdk": "aws-sdk-js#~2.2.26"
   }
 }

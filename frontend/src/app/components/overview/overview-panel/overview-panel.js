@@ -26,24 +26,8 @@ class OverviewPanelViewModel {
 			() => numeral(systemOverview().objectCount).format('0,0')
 		);
 
-		this.isAddNodeModalVisible = ko.observable(false);
-		this.isKeysModalVisible = ko.observable(false);
-	}
-
-	showKeysModal() {
-		this.isKeysModalVisible(true);
-	}
-
-	hideKeysModal() {
-		this.isKeysModalVisible(false);
-	}
-
-	showAddNodeModal() {
-		this.isAddNodeModalVisible(true);
-	}
-
-	hideAddNodeModal() {
-		this.isAddNodeModalVisible(false);
+		this.isInstallNodeWizardlVisible = ko.observable(false);
+		this.isConnectAppWizardVisible = ko.observable(false);
 	}
 }
 

@@ -3,6 +3,7 @@ import 'knockout-projections';
 import 'knockout-validation';
 import registerBindings from 'bindings/register';
 import registerComponents from 'components/register';
+import registerValidationRules from 'validations';
 import page from 'page';
 import routing from 'routing';
 import { uiState } from 'model';
@@ -18,9 +19,10 @@ ko.validation.init({
 	messagesOnModified: true
 });
 
-// Register custom bindings and components.
+// Register custom bindings, components and validation rules.
 registerBindings(ko);
 registerComponents(ko);
+registerValidationRules(ko);
 
 // Configure the appliction router.
 routing(page);

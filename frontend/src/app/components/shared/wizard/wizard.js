@@ -4,21 +4,23 @@ import { noop } from 'utils';
 
 class WizardViewModel {
 	constructor({
-		visible =  ko.observable(true),
 		heading = '[wizard-heading]', 
 		steps = [],
 		skip = 0,
 		actionLabel = 'Done',
 		validateStep = () => true,
-		onComplete = noop
+		onCancel = noop,
+		onComplete = noop,
+		onClose = noop
 	}) {
-		this.visible = visible;
 		this.heading = heading;
 		this.steps = steps;
 		this.actionLabel = actionLabel;
 		this.step = ko.observable(skip);
 		this.validateStep = validateStep;
+		this.onCancel = onCancel;
 		this.onComplete = onComplete;
+		this.onClose = onClose;
 
 		this.stepsTransform = ko.pureComputed(
 			() => `translate(${this.step() * -100}%)`
@@ -42,7 +44,8 @@ class WizardViewModel {
 	}
 
 	cancel() {
-		this.visible(false);
+		this.onCancel();
+		this.onClose();
 	}
 
 	prev() {
@@ -61,8 +64,8 @@ class WizardViewModel {
 
 	done() {
 		if (this.validateStep(this.step() + 1)) {
-			this.visible(false);
 			this.onComplete();
+			this.onClose();
 		}
 	}
 }

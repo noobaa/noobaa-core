@@ -62,7 +62,6 @@ function RPC(options) {
     this._connection_by_id = {};
     this._connection_by_address = {};
     this._address_to_url_cache = {};
-    this._reply_logger = console.info;
 
     options = options || {};
 

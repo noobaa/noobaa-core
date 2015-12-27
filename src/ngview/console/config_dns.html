@@ -1,29 +1,36 @@
 <form id="config_dns">
     <div class="well">
-        <p>Choose DNS name or IP for Nodes connectivity to NooBaa server:</p>
+        <p>Choose DNS Name or IP Address for Nodes connectivity to NooBaa server:</p>
 
         <label class="radio-inline">
-            <input type="radio" name="dns_type" ng-model="dns_form.dns_type" value="dns" />Custom name &nbsp;
+            <input type="radio" name="dns_type" ng-model="dns_form.dns_type" value="dns" />DNS Name &nbsp;
         </label>
         <label class="radio-inline">
-            <input type="radio" name="dns_type" ng-model="dns_form.dns_type" value="ip" />IP address &nbsp;
+            <input type="radio" name="dns_type" ng-model="dns_form.dns_type" value="ip" />IP Address &nbsp;
         </label>
-        <br/>
-        <br/>
-
-        <div class="form-control-wrapper" ng-show="dns_form.dns_type=='dns'">
-            <input type="text" class="form-control floating-label" ng-model="dns_form.dns_name" required />
+        <div style="margin-top: 10px">
+            <div class="form-control-wrapper" ng-show="dns_form.dns_type=='dns'">
+                <input type="text" class="form-control floating-label" ng-model="dns_form.dns_name" required />
+            </div>
+            <div class="form-control-wrapper" ng-show="dns_form.dns_type=='ip'">
+                <input type="text" class="form-control floating-label" ng-model="dns_form.ip_address" required disabled />
+            </div>
         </div>
-        <div class="form-control-wrapper" ng-show="dns_form.dns_type=='ip'">
-            <input type="text" class="form-control floating-label" ng-model="dns_form.ip_address" required disabled />
-        </div>
-        <br/>
 
-        <div ng-show="dns_form.dns_type=='dns'">
-            <i class="fa fa-exclamation-triangle fa-fw"></i>
-            <i>Before you apply, add the following entry to your DNS:</i>
-            <pre style="margin-top: 20px; Xmax-width: 400px">{{dns_form.ip_address}} <b>{{dns_form.dns_name}}</b></pre>
-            <br/>
+        <div ng-show="dns_form.dns_type=='dns'" style="margin-top: 20px">
+            <p><i class="fa fa-exclamation-triangle fa-fw"></i>
+                <i>Before you apply, add the following entry to your DNS:</i></p>
+            <div class="well well-light well-sm">
+                <table class="table table-no-borders table-condensed font-monospace" style="margin: 0">
+                    <tr>
+                        <th class="compact">IP:</th>
+                        <td class="compact">{{dns_form.ip_address}}</td>
+                        <th class="compact">Name:</th>
+                        <td class="compact">{{dns_form.dns_name}}</td>
+                        <td></td>
+                    </tr>
+                </table>
+            </div>
         </div>
 
         <div>

@@ -229,6 +229,7 @@ function report_bad_block(req) {
  */
 function read_object_mappings(req) {
     var obj;
+    var reply;
 
     return find_object_md(req)
         .then(function(obj_arg) {
@@ -247,10 +248,28 @@ function read_object_mappings(req) {
             return object_mapper.read_object_mappings(params);
         })
         .then(function(parts) {
-            return {
+            reply = {
                 size: obj.size,
                 parts: parts,
             };
+            return P.join(
+                P.when(db.Bucket.findOneAndUpdate({
+                    name: req.rpc_params.bucket,
+                    deleted: null,
+                }, {
+                    $inc: {
+                        'stats.reads': 1
+                    }
+                })),
+                P.when(db.ObjectMD.findOneAndUpdate(object_md_query(req), {
+                    $inc: {
+                        'stats.reads': 1
+                    }
+                }))
+            );
+        })
+        .then(function() {
+            return reply;
         });
 }
 
@@ -436,7 +455,7 @@ function set_all_files_for_sync(sysid, bucketid) {
 
 
 function get_object_info(md) {
-    var info = _.pick(md, 'size', 'content_type', 'etag', 'xattr');
+    var info = _.pick(md, 'size', 'content_type', 'etag', 'xattr', 'stats');
     info.size = info.size || 0;
     info.content_type = info.content_type || 'application/octet-stream';
     info.etag = info.etag || '';
@@ -444,6 +463,8 @@ function get_object_info(md) {
     if (_.isNumber(md.upload_size)) {
         info.upload_size = md.upload_size;
     }
+    info.stats = {};
+    info.stats.reads = (info.stats && info.stats.reads) || 0;
     return info;
 }
 

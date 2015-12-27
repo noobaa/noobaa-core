@@ -86,6 +86,15 @@ var bucket_schema = new Schema({
         }
     },
 
+    stats: {
+        reads: {
+            type: Number,
+        },
+        writes: {
+            type: Number,
+        }
+    },
+
     // on delete set deletion time
     deleted: {
         type: Date,

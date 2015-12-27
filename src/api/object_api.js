@@ -572,7 +572,13 @@ module.exports = {
                 },
                 xattr: {
                     $ref: '/object_api/definitions/xattr',
-                }
+                },
+                stats: {
+                    type: 'object',
+                    reads: {
+                        type: 'integer',
+                    }
+                },
             }
         },
 

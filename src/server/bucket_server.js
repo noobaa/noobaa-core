@@ -47,6 +47,10 @@ function create_bucket(req) {
             if (tiering) {
                 info.tiering = tiering[0]._id;
             }
+            info.stats = {
+                reads: 0,
+                writes: 0,
+            };
             return db.Bucket.create(info);
         })
         .then(function(bucket) {
@@ -458,7 +462,7 @@ function get_bucket_info(bucket) {
                 return reply;
             });
     } else {
-      return reply;
+        return reply;
     }
 }
 

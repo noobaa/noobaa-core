@@ -199,7 +199,7 @@ function create_policy(req) {
                 .then(null, db.check_already_exists(req, 'tiering_policy'))
                 .then(function() {
                     req.rpc_params.name = req.rpc_params.policy.name;
-                    return P.when(get_policy_pools(req));
+                    return P.when(read_policy(req));
                 });
         });
 }

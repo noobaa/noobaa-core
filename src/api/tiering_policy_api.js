@@ -23,7 +23,7 @@ module.exports = {
                 }
             },
             reply: {
-                $ref: '/tiering_policy_api/definitions/tiering_policy'
+                $ref: '/tiering_policy_api/definitions/tiering_policy_extended'
             },
             auth: {
                 system: 'admin'

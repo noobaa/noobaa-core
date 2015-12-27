@@ -99,7 +99,7 @@ function read_bucket(req) {
                     var free = 0;
                     var total = 0;
                     _.each(reply.tiering[0].tiers, function(t) {
-                        var aggr = nodes_aggregated[t.id];
+                        var aggr = nodes_aggregated[t.tier];
                         var replicas = t.replicas || 3;
                         alloc += (aggr && aggr.alloc) || 0;
                         used += (aggr && aggr.used) || 0;

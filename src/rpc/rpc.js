@@ -62,6 +62,7 @@ function RPC(options) {
     this._connection_by_id = {};
     this._connection_by_address = {};
     this._address_to_url_cache = {};
+    this._reply_logger = console.info;
 
     options = options || {};
 
@@ -248,6 +249,10 @@ RPC.prototype.client_request = function(api, method_api, params, options) {
                 'srv', req.srv,
                 'reqid', req.reqid);
 
+            if (self._reply_logger) {
+                self._reply_logger('RPC REPLY', req.srv, '==>', reply);
+            }
+
             self.emit_stats('stats.client_request.done', req);
 
             if (options.return_rpc_req) {
@@ -388,8 +393,8 @@ RPC.prototype.handle_request = function(conn, msg) {
 
             return conn.send(req.export_response_buffer(), 'res', req);
 
-        // })
-        // .fin(function() {
+            // })
+            // .fin(function() {
             // dbg.log0('RPC', req.srv, 'took', time_utils.millitook(millistamp));
         });
 };
@@ -424,6 +429,10 @@ RPC.prototype.handle_response = function(conn, msg) {
     }
 };
 
+
+RPC.prototype.set_reply_logger = function(reply_logger) {
+    this._reply_logger = reply_logger;
+};
 
 /**
  *

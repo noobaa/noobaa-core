@@ -422,10 +422,11 @@ function list_multipart_parts(params) {
  * set_multipart_part_md5
  *
  */
-function set_multipart_part_md5(obj) {
+function set_multipart_part_md5(params) {
     return P.when(db.ObjectPart.find({
-                obj: obj.obj._id,
-                upload_part_number: obj.upload_part_number,
+                system: params.obj.system,
+                obj: params.obj._id,
+                upload_part_number: params.upload_part_number,
                 part_sequence_number: 0,
                 deleted: null,
             })
@@ -434,12 +435,12 @@ function set_multipart_part_md5(obj) {
             })
             .exec())
         .then(function(part_obj) {
-            dbg.log1('set_multipart_part_md5_obj: ', part_obj[0]._id, obj.etag);
+            dbg.log1('set_multipart_part_md5_obj: ', part_obj[0]._id, params.etag);
             return P.when(db.ObjectPart.update({
                 _id: part_obj[0]._id
             }, {
                 $set: {
-                    etag: obj.etag
+                    etag: params.etag
                 }
             }).exec());
         })
@@ -459,6 +460,7 @@ function calc_multipart_md5(obj) {
             'ObjectPart.find(part_sequence_number:0).',
             'add part_sequence_number to index?');
         return db.ObjectPart.find({
+                system: obj.system,
                 obj: obj,
                 part_sequence_number: 0,
                 deleted: null,
@@ -469,7 +471,6 @@ function calc_multipart_md5(obj) {
             .sort({
                 upload_part_number: 1,
                 _id: -1 // when same, get newest first
-
             })
             .exec();
     }).then(function(upload_parts) {

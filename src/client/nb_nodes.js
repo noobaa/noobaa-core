@@ -188,59 +188,24 @@ nb_api.factory('nbNodes', [
 
         function add_node() {
             var scope = $rootScope.$new();
-
             scope.$location = $location;
+            scope.nbSystem = nbSystem;
             scope.stage = 1;
-            var config_json = {
+            var agent_conf = {
                 dbg_log_level: 2,
                 tier: 'nodes',
                 prod: true,
-                bucket: 'files',
                 root_path: './agent_storage/',
                 port: 8888,
-                secure_port: 9999
+                secure_port: 9999,
+                address: nbSystem.system.base_address,
+                system: nbSystem.system.name,
+                access_key: nbSystem.system.access_keys[0].access_key,
+                secret_key: nbSystem.system.access_keys[0].secret_key
             };
+            scope.encoded_agent_conf = $window.btoa(JSON.stringify(agent_conf));
+            console.log('agent config', agent_conf, 'encoded', scope.encoded_agent_conf);
 
-            config_json.address = 'wss://noobaa.local:' + nbSystem.system.ssl_port;
-            config_json.system = nbSystem.system.name;
-            config_json.access_key = nbSystem.system.access_keys[0].access_key;
-            config_json.secret_key = nbSystem.system.access_keys[0].secret_key;
-            var encodedData = $window.btoa(JSON.stringify(config_json));
-            scope.encodedData = encodedData;
-            var secured_host = ($window.location.host).replace(':' + nbSystem.system.web_port, ':' + nbSystem.system.ssl_port);
-            config_json.address = 'wss://' + secured_host;
-            encodedData = $window.btoa(JSON.stringify(config_json));
-            scope.encodedDataIP = encodedData;
-            scope.current_host = $window.location.host;
-            scope.typeOptions = [{
-                name: 'Use custom DNS',
-                value: ''
-            }, {
-                name: 'Use ' + secured_host,
-                value: scope.encodedDataIP
-            }, ];
-            console.log('type options', scope.typeOptions);
-            scope.encoding = {
-                type: scope.typeOptions[0].value,
-                new_dns: '',
-                show_other_dns: true
-            };
-
-            console.log(JSON.stringify(config_json), String.toString(config_json), 'encoded', encodedData);
-
-            scope.dns_select = function(selected_value) {
-                if (scope.typeOptions[1].value !== selected_value) {
-                    scope.encoding.show_other_dns = true;
-                } else {
-                    scope.encoding.show_other_dns = false;
-                }
-            };
-            scope.new_dns = function() {
-                config_json.address = 'wss://' + scope.encoding.new_dns + ':' + nbSystem.system.ssl_port;
-                encodedData = $window.btoa(JSON.stringify(config_json));
-                scope.typeOptions[0].value = encodedData;
-                scope.encoding.type = scope.typeOptions[0].value;
-            };
             scope.next_stage = function() {
                 scope.stage += 1;
                 if (scope.stage > 4) {
@@ -252,6 +217,15 @@ nb_api.factory('nbNodes', [
                 if (scope.stage < 1) {
                     scope.stage = 1;
                 }
+            };
+            scope.goto_config_dns = function() {
+                scope.modal.modal('hide');
+                scope.modal.on('hidden.bs.modal', function() {
+                    $timeout(function() {
+                        $location.path('/config/');
+                        $location.hash('config_dns');
+                    }, 1);
+                });
             };
             scope.goto_nodes_list = function() {
                 scope.modal.modal('hide');

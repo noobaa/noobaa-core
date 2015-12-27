@@ -1,4 +1,4 @@
-<div>
+<form id="config_dns">
     <div class="well">
         <p>Choose DNS name or IP for Nodes connectivity to NooBaa server:</p>
 
@@ -49,20 +49,18 @@
     <br/>
 
     <div>
-        <p>Notes about using a DNS name (recommended):</p>
         <ul>
-            <li>If you want to change the name - it is recommended to first add the new name in your DNS to have both old and new names available, then apply the change here in the system, and only once all nodes are updated with the new name to remove the old name from the
-                DNS.
+            <li>It is recommended to use a DNS name rather than IP address.</li>
+            <li>When using IP address - make sure that the server IP was configured Static and not DHCP, otherwise if the IP will suddenly change the nodes will loose connectivity.</li>
+            <li>Changing DNS name procedure:
+                <ol>
+                    <li>add the new name in your DNS to have both old and new names available</li>
+                    <li>apply the change here in the form above</li>
+                    <li>once all nodes are updated with the new name, the old name can be removed from the DNS.</li>
+                </ol>
             </li>
-            <li>If you are unable to use the suggested order of actions - nodes that disconnected from the server will not be able to connect using the old address to receive the update on the new name, and will need to be reinstalled.</li>
-        </ul>
-    </div>
-    <div>
-        <p>Notes about using an IP address:</p>
-        <ul>
-            <li>Make sure that the server IP was configured Static and not DHCP, otherwise if the IP will suddenly change the nodes will loose connectivity.</li>
-            <li>If you want to change this IP - you will have to reinstall the node agents manually as there is no way for the server to communicate with them once they disconnected and do not yet </li>
+            <li>In any case, reinstalling a node (from the add node wizard) will update the server address used by that node.</li>
         </ul>
     </div>
 
-</div>
+</form>

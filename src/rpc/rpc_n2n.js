@@ -153,8 +153,8 @@ function RpcN2NAgent(options) {
         // tcp options
         tcp_active: true,
         tcp_permanent_passive: {
-            min: 60111,
-            max: 60888
+            min: 60100,
+            max: 60600
         },
         tcp_transient_passive: false,
         tcp_simultaneous_open: false,
@@ -282,26 +282,6 @@ RpcN2NAgent.prototype.signal = function(params) {
     return conn.accept(params.info);
 };
 
-
-/*
-function read_on_premise_stun_server() {
-    return fs.readFileAsync('agent_conf.json')
-        .then(function(data) {
-            var agent_conf = JSON.parse(data);
-            var host_url = url.parse(agent_conf.address);
-            return P.nfcall(dns.resolve, host_url.hostname);
-        })
-        .then(function(server_ips) {
-            if (!server_ips || !server_ips[0]) return;
-            var stun_url = url.parse('stun://' + server_ips[0] + ':3479');
-            dbg.log0('N2N STUN SERVER from agent_conf.json', stun_url.href);
-            return stun_url;
-        })
-        .catch(function(err) {
-            dbg.log0('N2N NO STUN SERVER in agent_conf.json');
-        });
-}
-*/
 
 // TODO this is a temporary place to keep the SSL certificate
 function get_global_ssl_key() {

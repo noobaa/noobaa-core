@@ -35,6 +35,28 @@
             </tr>
         </table>
 
+        <div ng-if="n2n_form.proto!='udp'" style="margin-top: 20px">
+            <p><i class="fa fa-exclamation-triangle fa-fw"></i>
+                <i>Before you apply, add the following exception to your Firewall/NAT:</i></p>
+            <div class="well well-light well-sm">
+                <table class="table table-no-borders table-condensed font-monospace" style="margin: 0">
+                    <tr>
+                        <th class="compact">Source:</th>
+                        <td class="compact">any</td>
+                        <th class="compact">Destination:</th>
+                        <td class="compact">any</td>
+                        <th class="compact">Protocol:</th>
+                        <td class="compact">tcp</td>
+                        <th class="compact">Ports:</th>
+                        <td class="compact">{{n2n_form.tcp_ports}}</td>
+                        <th class="compact">Description:</th>
+                        <td class="compact">NooBaa</td>
+                        <td></td>
+                    </tr>
+                </table>
+            </div>
+        </div>
+
         <div>
             <button class="btn btn-primary" nb-click-ladda="apply_n2n_config()">Apply</button>
         </div>

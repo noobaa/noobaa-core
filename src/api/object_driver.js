@@ -185,7 +185,7 @@ ObjectDriver.prototype.upload_stream_parts = function(params) {
                 }, dedup_config);
             },
             transform: function(data) {
-                dbg.log0('upload_stream_parts: chunking', size_utils.human_offset(this.offset));
+                dbg.log1('upload_stream_parts: chunking', size_utils.human_offset(this.offset));
                 this.offset += data.length;
                 return P.ninvoke(this.chunker, 'push', data);
             },
@@ -219,7 +219,7 @@ ObjectDriver.prototype.upload_stream_parts = function(params) {
                 };
                 part_sequence_number += 1;
                 this.offset += data.length;
-                dbg.log0('upload_stream_parts: encode', range_utils.human_range(part));
+                dbg.log1('upload_stream_parts: encode', range_utils.human_range(part));
                 return P.ninvoke(object_coding, 'encode', object_coding_tpool, data)
                     .then(function(chunk) {
                         part.chunk = chunk;
@@ -392,7 +392,7 @@ ObjectDriver.prototype._write_fragments = function(part) {
     }
 
     var frags_map = _.indexBy(part.chunk.frags, get_frag_key);
-    dbg.log0('_write_fragments: part', part,part.alloc_part.frags[0].blocks);
+    dbg.log1('_write_fragments: part', part, part.alloc_part.frags[0].blocks);
 
     return P.map(part.alloc_part.frags, function(fragment) {
         var frag_key = get_frag_key(fragment);

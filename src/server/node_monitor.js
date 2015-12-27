@@ -185,7 +185,7 @@ function update_heartbeat(req, reply_token) {
     var rpc_proto = process.env.AGENTS_PROTOCOL || 'n2n';
     var rpc_address;
     if (rpc_proto !== 'n2n') {
-        rpc_address = rpc_proto + '://' + params.ip + ':' + (process.env.AGENT_PORT || 60111);
+        rpc_address = rpc_proto + '://' + params.ip + ':' + (process.env.AGENT_PORT || 9999);
     } else {
         rpc_address = 'n2n://' + peer_id;
         dbg.log0('PEER REVERSE ADDRESS', rpc_address, conn.url.href);

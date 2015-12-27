@@ -654,7 +654,7 @@ Agent.prototype.self_test_io = function(req) {
     var req_len = data ? data.length : 0;
     var res_len = req.rpc_params.response_length;
 
-    dbg.log0('SELF_TEST_IO',
+    dbg.log1('SELF_TEST_IO',
         'req_len', req_len,
         'res_len', res_len,
         'source', req.rpc_params.source,
@@ -715,19 +715,6 @@ Agent.prototype.self_test_peer = function(req) {
                 }
                 var session = req.connection.session;
                 reply.session = session && session.key;
-                /*
-                if (session.tcp) {
-                    reply.session = 'tcp ' +
-                        session.tcp.localAddress + ':' + session.tcp.localPort +
-                        ' => ' +
-                        session.tcp.remoteAddress + ':' + session.tcp.remotePort;
-                } else if (session.udp) {
-                    reply.session = 'udp ' +
-                        session.tcp.localAddress + ':' + session.tcp.localPort +
-                        ' => ' +
-                        session.remote.address + ':' + session.remote.port;
-                }
-                */
                 return next();
             });
     }

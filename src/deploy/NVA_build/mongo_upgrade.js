@@ -5,7 +5,7 @@ upgrade();
 
 /* Upade mongo structures and values with new things since the latest version*/
 function upgrade() {
-    update_systems_resource_links();
+    update_systems();
     var mypool = db.pools.findOne();
     if (mypool) {
         print('\n*** v0.4 detected, not upgrade needed (detected by the existance of a pool)');
@@ -16,27 +16,36 @@ function upgrade() {
     print('\nUPGRADE DONE.');
 }
 
-function update_systems_resource_links() {
+function update_systems() {
     print('\n*** updating systems resources links ...');
     db.systems.find().forEach(function(sys) {
-        if (sys.resources.linux_agent_installer) {
-            print('keep resources of system', sys.name);
-            printjson(sys);
-        } else {
-            print('updating system', sys.name, '...');
-            printjson(sys);
-            db.systems.update({
-                _id: sys._id
-            }, {
-                $set: {
-                    resources: {
-                        linux_agent_installer: 'noobaa-setup',
-                        agent_installer: 'noobaa-setup.exe',
-                        s3rest_installer: 'noobaa-s3rest.exe'
-                    }
-                }
-            });
+        var updates = {};
+        if (!sys.resources.linux_agent_installer) {
+            updates.resources = {
+                linux_agent_installer: 'noobaa-setup',
+                agent_installer: 'noobaa-setup.exe',
+                s3rest_installer: 'noobaa-s3rest.exe'
+            };
         }
+        if (!sys.n2n_config) {
+            updates.n2n_config = {
+                tcp_tls: true,
+                tcp_active: true,
+                tcp_permanent_passive: {
+                    min: 60100,
+                    max: 60600
+                },
+                udp_dtls: true,
+                udp_port: true,
+            };
+        }
+        print('updating system', sys.name, '...', updates);
+        printjson(sys);
+        db.systems.update({
+            _id: sys._id
+        }, {
+            $set: updates
+        });
     });
 }
 

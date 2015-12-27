@@ -415,25 +415,26 @@ function list_multipart_parts(params) {
  */
 function set_multipart_part_md5(obj) {
     return P.when(db.ObjectPart.find({
-            obj: obj.obj._id,
-            upload_part_number: obj.upload_part_number,
-            part_sequence_number: 0,
-            deleted: null,
+                obj: obj.obj._id,
+                upload_part_number: obj.upload_part_number,
+                part_sequence_number: 0,
+                deleted: null,
+            })
+            .sort({
+                _id: -1 // when same, get newest first
+            })
+            .exec())
+        .then(function(part_obj) {
+            dbg.log1('set_multipart_part_md5_obj: ', part_obj[0]._id, obj.etag);
+            return P.when(db.ObjectPart.update({
+                _id: part_obj[0]._id
+            }, {
+                $set: {
+                    etag: obj.etag
+                }
+            }).exec());
         })
-        .sort({
-            _id: -1 // when same, get newest first
-        })
-        .exec()
-    ).then(function(part_obj) {
-        dbg.log1('set_multipart_part_md5_obj: ', part_obj[0]._id, obj.etag);
-        return P.when(db.ObjectPart.update({
-            _id: part_obj[0]._id
-        }, {
-            $set: {
-                etag: obj.etag
-            }
-        }).exec());
-    });
+        .return();
 }
 /**
  *
@@ -995,7 +996,7 @@ function find_dups_and_existing_parts(bucket, obj, parts) {
         )
         .spread(function(existing_parts_arg, dup_chunks) {
             existing_parts = existing_parts_arg;
-            existing_chunks = dup_chunks;
+            existing_chunks = dup_chunks || [];
             _.each(existing_parts, function(existing_part) {
                 if (existing_part.chunk) {
                     existing_chunks.push(existing_part.chunk);

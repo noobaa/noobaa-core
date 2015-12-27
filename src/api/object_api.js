@@ -125,6 +125,15 @@ module.exports = {
                     }
                 }
             },
+            reply: {
+                type: 'object',
+                properties: {
+                    etag: {
+                        type: 'string',
+                        required: true
+                    }
+                }
+            },
             auth: {
                 system: ['admin', 'user']
             }
@@ -279,7 +288,9 @@ module.exports = {
                                 },
                                 block_ids: {
                                     type: 'array',
-                                    items: 'string',
+                                    items: {
+                                        type: 'string',
+                                    }
                                 },
                             }
                         }

@@ -110,6 +110,8 @@ function Agent(params) {
         self_test_peer: self.self_test_peer.bind(self),
         collect_diagnostics: self.collect_diagnostics.bind(self),
         set_debug_node: self.set_debug_node.bind(self),
+        update_n2n_config: self.update_n2n_config.bind(self),
+        update_base_address: self.update_base_address.bind(self),
     };
 
     self.agent_app = (function() {
@@ -393,6 +395,7 @@ Agent.prototype._do_heartbeat = function() {
         name: self.node_name || '',
         geolocation: self.geolocation,
         ip: ip,
+        base_address: self.rpc.base_address,
         version: self.heartbeat_version || '',
         extended_hb: extended_hb,
     };
@@ -476,8 +479,9 @@ Agent.prototype._do_heartbeat = function() {
                 self.extended_hb_last_time = Date.now();
             }
 
-            if (res.ice_config) {
-                self.n2n_agent.update_ice_config(res.ice_config);
+            if (res.n2n_config) {
+                console.log('HEARTBEAT GOT UPDATE N2N CONFIG', res.n2n_config);
+                self.n2n_agent.update_n2n_config(res.n2n_config);
             }
 
             var promises = [];
@@ -525,9 +529,7 @@ Agent.prototype._do_heartbeat = function() {
 
         }).fin(function() {
             self._start_stop_heartbeats();
-            self._start_stop_heartbeats();
         });
-    //    }));
 };
 
 
@@ -580,7 +582,6 @@ Agent.prototype._on_rpc_reconnect = function(conn) {
 
 Agent.prototype.read_block = function(req) {
     var self = this;
-    dbg.log0('req etetet read_block:', req);
     var block_md = req.rpc_params.block_md;
     dbg.log1('read_block', block_md.id, 'node', self.node_name);
     return self.store_cache.get(block_md)
@@ -598,8 +599,6 @@ Agent.prototype.read_block = function(req) {
 
 Agent.prototype.write_block = function(req) {
     var self = this;
-    dbg.log0('req etetet write_block:', self.store, ' with peer::::', req.rpc_params.node_peer_id);
-
     var block_md = req.rpc_params.block_md;
     var data = req.rpc_params.data;
     dbg.log1('write_block', block_md.id, data.length, 'node', self.node_name);
@@ -619,7 +618,6 @@ Agent.prototype.replicate_block = function(req) {
     var target = req.rpc_params.target;
     var source = req.rpc_params.source;
     dbg.log1('replicate_block', target.id, 'node', self.node_name);
-    dbg.log0('req etetet replicate:', req);
 
     // read from source agent
     return self.client.agent.read_block({
@@ -678,34 +676,61 @@ Agent.prototype.self_test_peer = function(req) {
     var source = req.rpc_params.source;
     var req_len = req.rpc_params.request_length;
     var res_len = req.rpc_params.response_length;
+    var count = req.rpc_params.count;
+    var concur = req.rpc_params.concur;
 
     dbg.log0('SELF_TEST_PEER',
+        'source', source,
+        'target', target,
         'req_len', req_len,
         'res_len', res_len,
-        'source', source,
-        'target', target);
+        'count', count,
+        'concur', concur);
 
     if (source !== self.rpc_address) {
         throw new Error('SELF_TEST_PEER wrong address ' +
             source + ' mine is ' + self.rpc_address);
     }
+    var reply = {};
+    return P.all(_.times(concur, next)).return(reply);
 
-    // read/write from target agent
-    return self.client.agent.self_test_io({
-            source: source,
-            target: target,
-            data: new Buffer(req_len),
-            response_length: res_len,
-        }, {
-            address: target,
-        })
-        .then(function(res) {
-            var data = res.data;
-            if (((!data || !data.length) && res_len > 0) ||
-                (data && data.length && data.length !== res_len)) {
-                throw new Error('SELF TEST PEER response_length mismatch');
-            }
-        });
+    function next() {
+        if (count <= 0) return;
+        count -= 1;
+        // read/write from target agent
+        return self.client.agent.self_test_io({
+                source: source,
+                target: target,
+                data: new Buffer(req_len),
+                response_length: res_len,
+            }, {
+                address: target,
+                return_rpc_req: true // we want to check req.connection
+            })
+            .then(function(req) {
+                var data = req.reply.data;
+                if (((!data || !data.length) && res_len > 0) ||
+                    (data && data.length && data.length !== res_len)) {
+                    throw new Error('SELF TEST PEER response_length mismatch');
+                }
+                var session = req.connection.session;
+                reply.session = session && session.key;
+                /*
+                if (session.tcp) {
+                    reply.session = 'tcp ' +
+                        session.tcp.localAddress + ':' + session.tcp.localPort +
+                        ' => ' +
+                        session.tcp.remoteAddress + ':' + session.tcp.remotePort;
+                } else if (session.udp) {
+                    reply.session = 'udp ' +
+                        session.tcp.localAddress + ':' + session.tcp.localPort +
+                        ' => ' +
+                        session.remote.address + ':' + session.remote.port;
+                }
+                */
+                return next();
+            });
+    }
 };
 
 Agent.prototype.collect_diagnostics = function(req) {
@@ -731,19 +756,17 @@ Agent.prototype.collect_diagnostics = function(req) {
                 });
         })
         .then(null, function() {
-            return '';
+            return;
         });
 };
 
 Agent.prototype.set_debug_node = function(req) {
     dbg.set_level(5, 'core');
     dbg.log1('Recieved set debug req');
-
-    promise_utils.delay_unblocking(1000 * 10) //10m
+    promise_utils.delay_unblocking(10 * 60 * 1000) // 10 minutes
         .then(function() {
             dbg.set_level(0, 'core');
         });
-    return '';
 };
 
 Agent.prototype._test_latencies = function() {
@@ -770,7 +793,7 @@ Agent.prototype._test_latencies = function() {
 Agent.prototype._test_latency_to_server = function() {
     var self = this;
     return test_average_latency(function() {
-        return self.client.node.test_latency_to_server({});
+        return self.client.node.test_latency_to_server();
     });
 };
 
@@ -820,6 +843,27 @@ function test_average_latency(func) {
             return results.slice(1);
         });
 }
+
+Agent.prototype.update_n2n_config = function(req) {
+    var self = this;
+    console.log('AGENT GOT UPDATE N2N CONFIG', req.rpc_params);
+    var n2n_config = req.rpc_params;
+    self.n2n_agent.update_n2n_config(n2n_config);
+};
+
+Agent.prototype.update_base_address = function(req) {
+    var self = this;
+    console.log('AGENT GOT UPDATE BASE ADDRESS', req.rpc_params, 'was', self.rpc.base_address);
+    var base_address = req.rpc_params.base_address;
+    self.rpc.base_address = base_address;
+    // TODO update_base_address in agent_conf.json
+    console.error('TODO update_base_address in agent_conf.json');
+    // setTimeout(function() {
+    //     self.rpc.disconnect_all();
+    //     self._do_heartbeat();
+    // }, 1000);
+};
+
 
 // AGENT TEST API /////////////////////////////////////////////////////////////
 

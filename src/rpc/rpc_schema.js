@@ -61,16 +61,24 @@ RpcSchema.prototype.register_api = function(api) {
         method_api.api = api;
         method_api.name = method_name;
         method_api.fullname = '/' + api.name + '/methods/' + method_name;
-        method_api.params = method_api.params || {};
-        method_api.reply = method_api.reply || {};
-        method_api.params.id = method_api.fullname + '/params';
-        method_api.reply.id = method_api.fullname + '/reply';
-        prepare_schema(method_api.params);
-        prepare_schema(method_api.reply);
-        method_api.params_validator = validator(method_api.params, self._validator_options);
-        method_api.reply_validator = validator(method_api.reply, self._validator_options);
-        method_api.params_properties = method_api.params.properties;
 
+        if (method_api.params) {
+            method_api.params.id = method_api.fullname + '/params';
+            prepare_schema(method_api.params);
+            method_api.params_validator = validator(method_api.params, self._validator_options);
+        } else {
+            method_api.params_validator = validator_of_empty_schema;
+        }
+
+        if (method_api.reply) {
+            method_api.reply.id = method_api.fullname + '/reply';
+            prepare_schema(method_api.reply);
+            method_api.reply_validator = validator(method_api.reply, self._validator_options);
+        } else {
+            method_api.reply_validator = validator_of_empty_schema;
+        }
+
+        method_api.method = method_api.method || 'POST';
         assert(method_api.method in VALID_HTTP_METHODS,
             'RPC: unexpected http method: ' +
             method_api.method + ' for ' + method_api.fullname);
@@ -132,6 +140,14 @@ function prepare_schema(base, schema, path) {
             if (!val) return;
             prepare_schema(base, val, path.concat(key));
         });
+    } else if (!schema.type &&
+        !schema.$ref &&
+        !schema.oneOf &&
+        !schema.allOf &&
+        !schema.anyOf) {
+        console.error('RPC SCHEMA illegal schema, missing type/$ref/oneOf/anyOf',
+            base.id, 'path', path.join('.'), 'schema', JSON.stringify(schema));
+        throw new Error('RPC SCHEMA illegal schema ' + base.id);
     }
 
     if (schema === base) {
@@ -184,5 +200,14 @@ function prepare_schema(base, schema, path) {
             // base.export_buffers.toString(),
             // base.import_buffers.toString());
         }
+    }
+}
+
+function validator_of_empty_schema(json) {
+    if (_.isEmpty(json)) {
+        return true;
+    } else {
+        validator_of_empty_schema.errors = "expected empty schema";
+        return false;
     }
 }

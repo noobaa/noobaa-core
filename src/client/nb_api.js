@@ -240,9 +240,6 @@ nb_api.factory('nbSystem', [
         $scope.create_system = create_system;
         $scope.connect_system = connect_system;
         $scope.toggle_system = toggle_system;
-        $scope.get_agent_installer = get_agent_installer;
-        $scope.get_linux_agent_installer = get_linux_agent_installer;
-        $scope.get_s3_rest_installer = get_s3_rest_installer;
         $scope.read_activity_log = read_activity_log;
         $scope.read_activity_log_newest = read_activity_log_newest;
         $scope.read_activity_log_newer = read_activity_log_newer;
@@ -347,38 +344,8 @@ nb_api.factory('nbSystem', [
             }
         }
 
-        function get_agent_installer() {
-            return $q.when()
-                .then(function() {
-                    return nbClient.client.system.get_system_resource_info({});
-                })
-                .then(function(res) {
-                    console.log('SYSTEM RESOURCES (windows)', res);
-                    return res.agent_installer || '';
-                });
-        }
 
-        function get_linux_agent_installer() {
-            return $q.when()
-                .then(function() {
-                    return nbClient.client.system.get_system_resource_info({});
-                })
-                .then(function(res) {
-                    console.log('SYSTEM RESOURCES (linux)', res);
-                    return res.linux_agent_installer || '';
-                });
-        }
 
-        function get_s3_rest_installer() {
-            return $q.when()
-                .then(function() {
-                    return nbClient.client.system.get_system_resource_info({});
-                })
-                .then(function(res) {
-                    console.log('SYSTEM RESOURCES (S3)', res);
-                    return res.s3rest_installer || '';
-                });
-        }
         // ACTIVITY LOG
 
         function read_activity_log() {

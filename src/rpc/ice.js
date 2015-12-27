@@ -23,7 +23,7 @@ var dbg = require('../util/debug_module')(__filename);
 const CAND_TYPE_HOST = 'host';
 const CAND_TYPE_SERVER_REFLEX = 'server';
 const CAND_TYPE_PEER_REFLEX = 'peer';
-const CAND_DISCARD_PORT = 9;
+const CAND_DISCARD_PORT = 0;
 const CAND_TCP_TYPE_ACTIVE = 'active';
 const CAND_TCP_TYPE_PASSIVE = 'passive';
 const CAND_TCP_TYPE_SO = 'so';
@@ -952,7 +952,7 @@ Ice.prototype._upgrade_to_tls = function(session) {
     }
 
     function once_connected() {
-        dbg.log0('ICE TLS CONNECTED', session.key);
+        dbg.log0('ICE TLS CONNECTED', session.key, tls_conn.getCipher());
         session.tcp = tls_conn;
         tls_conn.frame_stream = new FrameStream(tls_conn);
         self.emit('connect', session);

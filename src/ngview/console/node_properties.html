@@ -8,15 +8,21 @@
             <table class="table table-no-borders">
                 <tr>
                     <th>
+                        <i class="fa fa-tag fa-lg fa-fw text-muted"></i> Version
+                    </th>
+                    <td>{{node.version}}</td>
+                </tr>
+                <tr>
+                    <th>
                         <i class="fa fa-heartbeat fa-lg fa-fw text-muted"></i> Heartbeat
                     </th>
                     <td>{{node.hearbeat_moment.fromNow()}}</td>
                 </tr>
                 <tr>
                     <th>
-                        <i class="fa fa-tag fa-lg fa-fw text-muted"></i> Version
+                        <i class="fa fa-home fa-lg fa-fw text-muted"></i> Server Address
                     </th>
-                    <td>{{node.version}}</td>
+                    <td>{{node.base_address}}</td>
                 </tr>
             </table>
         </div>
@@ -165,29 +171,46 @@
         <div class="content-col col-sm-9">
             <button class="btn btn-primary" nb-click-ladda="nbNodes.self_test(node, self_test_kind)">Start</button>
             <div style="display: inline-block; width: 150px">
-                <select class="form-control" ng-init="self_test_kind='conn'" ng-model="self_test_kind">
-                    <option value="conn">Connectivity</option>
-                    <!-- <option value="rw">Read-Write</option> -->
-                    <option value="load">Load one node</option>
-                    <option value="tx">Data Transfer</option>
-                    <option value="full">Full</option>
+                <select class="form-control" ng-init="self_test_kind='Connectivity'" ng-model="self_test_kind">
+                    <option value="Connectivity">Connectivity</option>
+                    <option value="Bandwidth">Bandwidth</option>
+                    <option value="Full">Full</option>
                 </select>
             </div>
             <br/>
             <table class="table table-condensed table-no-borders">
-                <tr ng-repeat="test in nbNodes.self_test_results">
+                <tr>
+                    <th>Test</th>
+                    <th>Node</th>
+                    <th>Time</th>
+                    <th>Speed</th>
+                    <th>Progress</th>
+                </tr>
+                <tr ng-repeat-start="test in nbNodes.self_test_results">
+                    <td>{{test.kind}}</td>
                     <td>{{test.name}}</td>
+                    <td>{{test.time.toFixed(3)}} seconds</td>
                     <td>
-                        <span ng-if="test.progress">{{test.progress}}</span>
-                        <span ng-if="test.took">( took {{test.took.toFixed(3)}} seconds )</span>
+                        <span ng-if="test.position && test.time">
+                            {{(test.position/test.time/1024/1024).toFixed(1)}} MB/s
+                        </span>
                     </td>
                     <td>
+                        <span ng-if="test.start && !test.done">{{test.progress}}</span>
                         <span ng-if="test.start && !test.done && !test.error">
                             <i class="fa fa-spinner fa-spin fa-lg fa-fw"></i>
                         </span>
                         <i class="fa fa-check fa-lg fa-fw text-success" ng-if="test.done"></i>
                         <i class="fa fa-times fa-lg fa-fw text-danger" ng-attr-title="{{test.error}}" ng-if="test.error" rel="tooltip"></i>
                     </td>
+                </tr>
+                <tr ng-repeat-end>
+                    <td></td>
+                    <td>
+                        <span ng-if="test.session" class="text-muted">( {{test.session}} )</span>
+                    </td>
+                    <td></td>
+                    <td></td>
                 </tr>
             </table>
         </div>

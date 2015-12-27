@@ -1,0 +1,66 @@
+<form id="config_dns">
+    <div class="well">
+        <p>Choose DNS name or IP for Nodes connectivity to NooBaa server:</p>
+
+        <label class="radio-inline">
+            <input type="radio" name="dns_type" ng-model="dns_form.dns_type" value="dns" />Custom name &nbsp;
+        </label>
+        <label class="radio-inline">
+            <input type="radio" name="dns_type" ng-model="dns_form.dns_type" value="ip" />IP address &nbsp;
+        </label>
+        <br/>
+        <br/>
+
+        <div class="form-control-wrapper" ng-show="dns_form.dns_type=='dns'">
+            <input type="text" class="form-control floating-label" ng-model="dns_form.dns_name" required />
+        </div>
+        <div class="form-control-wrapper" ng-show="dns_form.dns_type=='ip'">
+            <input type="text" class="form-control floating-label" ng-model="dns_form.ip_address" required disabled />
+        </div>
+        <br/>
+
+        <div ng-show="dns_form.dns_type=='dns'">
+            <i class="fa fa-exclamation-triangle fa-fw"></i>
+            <i>Before you apply, add the following entry to your DNS:</i>
+            <pre style="margin-top: 20px; Xmax-width: 400px">{{dns_form.ip_address}} <b>{{dns_form.dns_name}}</b></pre>
+            <br/>
+        </div>
+
+        <div>
+            <button class="btn btn-primary" nb-click-ladda="apply_dns_config()">Apply</button>
+        </div>
+
+        <div ng-switch="dns_form.state">
+            <span ng-switch-when="error">
+                <i class="fa fa-fw fa-warning text-warning"></i> {{dns_form.error}} ...
+            </span>
+            <span ng-switch-when="saving">
+                <i class="fa fa-fw fa-spinner fa-spin text-muted"></i> Saving changes ...
+            </span>
+            <span ng-switch-when="saved">
+                <i class="fa fa-fw fa-check text-success"></i> Changes have been saved.
+                <br/>
+                <i class="fa fa-fw {{dns_form.reply.nodes_updated<dns_form.reply.nodes_count && 'fa-warning text-warning' || 'fa-check text-success'}}"></i> {{dns_form.reply.nodes_updated}}/{{dns_form.reply.nodes_count}} nodes have been updated.
+
+            </span>
+        </div>
+    </div>
+
+    <br/>
+
+    <div>
+        <ul>
+            <li>It is recommended to use a DNS name rather than IP address.</li>
+            <li>When using IP address - make sure that the server IP was configured Static and not DHCP, otherwise if the IP will suddenly change the nodes will loose connectivity.</li>
+            <li>Changing DNS name procedure:
+                <ol>
+                    <li>add the new name in your DNS to have both old and new names available</li>
+                    <li>apply the change here in the form above</li>
+                    <li>once all nodes are updated with the new name, the old name can be removed from the DNS.</li>
+                </ol>
+            </li>
+            <li>In any case, reinstalling a node (from the add node wizard) will update the server address used by that node.</li>
+        </ul>
+    </div>
+
+</form>

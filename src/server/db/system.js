@@ -27,11 +27,11 @@ var system_schema = new Schema({
     },
 
     access_keys: [{
-        access_key : {
+        access_key: {
             type: String,
             required: true,
         },
-        secret_key : {
+        secret_key: {
             type: String,
             required: true,
         }
@@ -43,6 +43,7 @@ var system_schema = new Schema({
         type: Date,
     },
 
+    // links to system resources used for storing install packages
     resources: {
         agent_installer: {
             type: String
@@ -53,7 +54,19 @@ var system_schema = new Schema({
         s3rest_installer: {
             type: String
         },
-    }
+    },
+
+    // n2n_config
+    // keeps the n2n configuration for agents and other endpoints (see rpc_n2n.js)
+    // we use free mongoose schema, because it's field types are non trivial
+    // (see n2n_config json schema in common_api.js) and there's no benefit
+    // redefining it for mongoose.
+    n2n_config: {},
+
+    // the DNS name or IP address used for the server
+    base_address: {
+        type: String
+    },
 
 }, {
     // we prefer to call ensureIndexes explicitly when needed

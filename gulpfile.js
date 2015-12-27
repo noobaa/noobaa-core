@@ -47,8 +47,7 @@ if (!process.env.PORT) {
     dotenv.load();
 }
 
-var active_server;
-var bg_workers_server;
+var active_services = {};
 var build_on_premise = true;
 var skip_install = false;
 var use_local_executable = false;
@@ -79,12 +78,14 @@ function leave_no_wounded(err) {
     if (err) {
         console.log(err.stack);
     }
-    if (active_server) {
-        console.log('LEAVE NO WOUNDED - kill active server', active_server.pid);
-        active_server.removeAllListeners('error');
-        active_server.removeAllListeners('exit');
-        active_server.kill('SIGKILL');
-    }
+    _.each(active_services, function(service, service_name) {
+        delete active_services[service_name];
+        if (!service) return;
+        console.log('LEAVE NO WOUNDED - kill active server', service.pid);
+        service.removeAllListeners('error');
+        service.removeAllListeners('exit');
+        service.kill('SIGKILL');
+    });
     gutil.beep();
     gutil.beep();
     process.exit();
@@ -122,6 +123,8 @@ var PATHS = {
 
     server_main: 'src/server/web_server.js',
     bg_workers_main: 'src/bg_workers/bg_workers_starter.js',
+    agent_main: 'src/agent/agent_cli.js',
+    s3_main: 'src/s3/s3rver.js',
     client_bundle: 'src/client/index.js',
     client_libs: [
         // browserify nodejs wrappers
@@ -720,84 +723,46 @@ gulp.task('mocha', function() {
 gulp.task('test', ['lint', 'mocha']);
 
 
-function serve() {
-    if (active_server) {
+function run_service(service_name, main_script) {
+    var service = active_services[service_name];
+    if (service) {
         console.log(' ');
         console.log('~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~');
-        console.log('~~~      KILL SERVER       ~~~ (pid=' + active_server.pid + ')');
+        console.log('~~~      ' + service_name + ' KILL (pid=' + service.pid + ')');
         console.log('~~~ (wait exit to respawn) ~~~');
         console.log('~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~');
         console.log(' ');
-        active_server.kill();
+        service.kill();
         return;
     }
     console.log(' ');
     console.log('~~~~~~~~~~~~~~~~~~~~~~');
-    console.log('~~~  START SERVER  ~~~');
+    console.log('~~~  ' + service_name + ' START');
     console.log('~~~~~~~~~~~~~~~~~~~~~~');
     console.log(' ');
-    active_server = child_process.fork(
-        PATHS.server_main, []
+    service = active_services[service_name] = child_process.fork(
+        main_script, process.argv.slice(2)
     );
-    active_server.on('error', function(err) {
+    service.on('error', function(err) {
         console.error(' ');
         console.error('~~~~~~~~~~~~~~~~~~~~~~');
-        console.error('~~~  SERVER ERROR  ~~~', err);
+        console.error('~~~  ' + service_name + ' ERROR:', err);
         console.error('~~~~~~~~~~~~~~~~~~~~~~');
         console.error(' ');
         gutil.beep();
     });
-    active_server.on('exit', function(code, signal) {
+    service.on('exit', function(code, signal) {
         console.error(' ');
         console.error('~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~');
-        console.error('~~~       SERVER EXIT       ~~~ (rc=' + code + ')');
+        console.error('~~~       ' + service_name + ' EXIT (rc=' + code + ')');
         console.error('~~~  (respawn in 1 second)  ~~~');
         console.error('~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~');
         console.error(' ');
-        active_server = null;
-        setTimeout(serve, 1);
+        service = null;
+        delete active_services[service_name];
+        setTimeout(run_service, 1, service_name, main_script);
     });
-    gulp_notify('noobaa serving...').end('stam');
-}
-
-function serve_bg() {
-    if (bg_workers_server) {
-        console.log(' ');
-        console.log('~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~');
-        console.log('~~~      KILL BG WORKERS   ~~~ (pid=' + bg_workers_server.pid + ')');
-        console.log('~~~ (wait exit to respawn) ~~~');
-        console.log('~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~');
-        console.log(' ');
-        bg_workers_server.kill();
-        return;
-    }
-    console.log(' ');
-    console.log('~~~~~~~~~~~~~~~~~~~~~~~');
-    console.log('~~~ START BG WORKERS ~~~');
-    console.log('~~~~~~~~~~~~~~~~~~~~~~~');
-    console.log(' ');
-    bg_workers_server = child_process.fork(
-        PATHS.bg_workers_main, []
-    );
-    bg_workers_server.on('error', function(err) {
-        console.error(' ');
-        console.error('~~~~~~~~~~~~~~~~~~~~~~~');
-        console.error('~~~ BG WORKERS ERROR ~~~', err);
-        console.error('~~~~~~~~~~~~~~~~~~~~~~~');
-        console.error(' ');
-        gutil.beep();
-    });
-    bg_workers_server.on('exit', function(code, signal) {
-        console.error(' ');
-        console.error('~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~');
-        console.error('~~~     BG WORKERS EXIT     ~~~ (rc=' + code + ')');
-        console.error('~~~  (respawn in 1 second)  ~~~');
-        console.error('~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~');
-        console.error(' ');
-        bg_workers_server = null;
-        setTimeout(serve_bg, 1);
-    });
-    gulp_notify('noobaa bg serving...').end('stam');
+    gulp_notify(service_name + ' is serving...').end('stam');
 }
 
 gulp.task('install', [
@@ -810,8 +775,16 @@ gulp.task('install', [
     'client',
     'agent'
 ]);
+
+var serve = run_service.bind(null, 'md-server', PATHS.server_main);
+var serve_bg = run_service.bind(null, 'bg-worker', PATHS.bg_workers_main);
+var serve_agent = run_service.bind(null, 'agent', PATHS.agent_main);
+var serve_s3 = run_service.bind(null, 's3', PATHS.s3_main);
+
 gulp.task('serve', [], serve);
 gulp.task('serve_bg', [], serve_bg);
+gulp.task('serve_agent', [], serve_agent);
+gulp.task('serve_s3', [], serve_s3);
 gulp.task('install_and_serve', ['install'], serve);
 gulp.task('install_css_and_serve', ['css'], serve);
 gulp.task('install_client_and_serve', ['client', 'ng'], serve);
@@ -821,41 +794,54 @@ gulp.task('watch', ['serve'], function() {
         'src/css/**/*'
     ], ['install_css_and_serve']);
     gulp.watch([
+        'src/client/**/*',
+        'src/ngview/**/*',
         'src/api/**/*',
         'src/rpc/**/*',
         'src/util/**/*',
-        'src/client/**/*',
-        'src/ngview/**/*',
     ], ['install_client_and_serve']);
     gulp.watch([
-        'src/agent/**/*',
-        'src/s3/**/*',
         'src/server/**/*',
         'src/views/**/*',
     ], ['serve']);
 });
-
-gulp.task('watch_bg', ['lint'], function() {
+gulp.task('watch_bg', ['serve_bg'], function() {
     gulp.watch([
+        'src/bg_workers/**/*',
         'src/server/**/*',
         'src/api/**/*',
         'src/rpc/**/*',
         'src/util/**/*',
-        'src/bg_workers/**/*',
     ], ['serve_bg']);
-    serve_bg();
+});
+gulp.task('watch_agent', ['serve_agent'], function() {
+    gulp.watch([
+        'src/agent/**/*',
+        'src/api/**/*',
+        'src/rpc/**/*',
+        'src/util/**/*',
+    ], ['serve_agent']);
+});
+gulp.task('watch_s3', ['serve_s3'], function() {
+    gulp.watch([
+        'src/s3/**/*',
+        'src/api/**/*',
+        'src/rpc/**/*',
+        'src/util/**/*',
+    ], ['serve_s3']);
 });
 
 gulp.task('start', function() {
-    var server_module = '.' + path.sep + PATHS.server_main;
-    console.log('~~~ START ~~~', server_module);
-    require(server_module);
+    require('.' + path.sep + PATHS.server_main);
 });
-
 gulp.task('start_bg', function() {
-    var server_module = '.' + path.sep + PATHS.bg_workers_main;
-    console.log('~~~ START BG ~~~', server_module);
-    require(server_module);
+    require('.' + path.sep + PATHS.bg_workers_main);
+});
+gulp.task('start_agent', function() {
+    require('.' + path.sep + PATHS.agent_main).main();
+});
+gulp.task('start_s3', function() {
+    require('.' + path.sep + PATHS.s3_main);
 });
 
 gulp.task('default', ['start']);

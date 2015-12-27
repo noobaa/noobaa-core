@@ -1,0 +1,66 @@
+<form id="config_n2n">
+
+    <div class="well">
+        <p>Choose the TCP ports to use:</p>
+
+        <div ng-if="nbClient.account && nbClient.account.is_support">
+            <p>
+                <label class="radio-inline">
+                    <input type="radio" name="proto" ng-model="n2n_form.proto" value="tcp_and_udp" /> TCP with UDP fallback (recommended) &nbsp;
+                </label>
+                <label class="radio-inline">
+                    <input type="radio" name="proto" ng-model="n2n_form.proto" value="tcp" /> TCP only &nbsp;
+                </label>
+                <label class="radio-inline">
+                    <input type="radio" name="proto" ng-model="n2n_form.proto" value="udp" /> UDP only &nbsp;
+                </label>
+            </p>
+            <p>
+                <label class="checkbox-inline">
+                    <input type="checkbox" name="tcp_tls" ng-model="n2n_form.tcp_tls" />Use SSL
+                </label>
+            </p>
+        </div>
+
+        <table class="table table-no-borders" style="margin: 0">
+            <tr>
+                <td style="width: 1px; white-space: nowrap">
+                    <label>TCP Ports:</label>
+                </td>
+                <td>
+                    <div class="form-control-wrapper">
+                        <input type="text" name="tcp_ports" ng-model="n2n_form.tcp_ports" placeholder="Example: 9999 or 60100-60600" pattern="[0-9]+(-[0-9]+)?" class="form-control floating-label" required />
+                    </div>
+                </td>
+            </tr>
+        </table>
+
+        <div>
+            <button class="btn btn-primary" nb-click-ladda="apply_n2n_config()">Apply</button>
+        </div>
+
+        <div ng-switch="n2n_form.state">
+            <span ng-switch-when="error">
+                <i class="fa fa-fw fa-warning text-warning"></i> {{n2n_form.error}} ...
+            </span>
+            <span ng-switch-when="saving">
+                <i class="fa fa-fw fa-spinner fa-spin text-muted"></i> Saving changes ...
+            </span>
+            <span ng-switch-when="saved">
+                <i class="fa fa-fw fa-check text-success"></i> Changes have been saved.
+                <br/>
+                <i class="fa fa-fw {{n2n_form.reply.nodes_updated<n2n_form.reply.nodes_count && 'fa-warning text-warning' || 'fa-check text-success'}}"></i> {{n2n_form.reply.nodes_updated}}/{{n2n_form.reply.nodes_count}} nodes have been updated.
+            </span>
+        </div>
+    </div>
+
+    <br/>
+
+    <ul>
+        <li>Ports can be set to either single port (ex. 9999) or port range (ex. 60100-60600).</li>
+        <li>TCP ports should be manually opened in firewall/NAT in order to be reachable.</li>
+        <li>Connections are secured using SSL.</li>
+        <li>In any case if TCP will not be reachable, UDP will be used for fallback, which is capable of bypassing firewall/NAT, assuming UDP is allowed in your network.</li>
+    </ul>
+
+</form>

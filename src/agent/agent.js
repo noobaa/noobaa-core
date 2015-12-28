@@ -27,6 +27,9 @@ var os_util = require('../util/os_util');
 var diag = require('./agent_diagnostics');
 var AgentStore = require('./agent_store');
 var config = require('../../config.js');
+var pkg = require('./package.json');
+var current_pkg_version = pkg.version;
+
 //var cluster = require('cluster');
 //var numCPUs = require('os').cpus().length;
 
@@ -468,12 +471,12 @@ Agent.prototype._do_heartbeat = function() {
                 'hb version', self.heartbeat_version,
                 'node', self.node_name);
 
-            if (res.version && self.heartbeat_version && self.heartbeat_version !== res.version) {
+            if (res.version && current_pkg_version && current_pkg_version !== res.version) {
                 dbg.log0('version changed, exiting');
                 process.exit(0);
             }
 
-            self.heartbeat_version = res.version;
+            self.heartbeat_version = current_pkg_version;
             self.heartbeat_delay_ms = res.delay_ms;
             if (extended_hb) {
                 self.extended_hb_last_time = Date.now();

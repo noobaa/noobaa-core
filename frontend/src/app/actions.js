@@ -169,6 +169,7 @@ export function showPools() {
 	model.poolList.order(query.order < 0 ? -1 : 1);
 
 	readSystemInfo();
+	listAllNodes();
 }
 
 export function showPool() {
@@ -341,8 +342,17 @@ export function listBucketObjects(bucketName, filter, sortBy, order, page) {
 }
 
 export function readObjectMetadata(bucketName, objectName) {
-	api.object.read_object_md({ bucket: bucketName, key: objectName })
-		.then(reply => model.objectInfo({ name: objectName, info: reply }))
+	logAction('readObjectMetadata', { bucketName, objectName });
+
+	api.object.read_object_md({
+		 bucket: bucketName, 
+		 key: objectName 
+	})
+		.then(
+			reply => model.objectInfo({ 
+				name: objectName, 
+				info: reply 
+		}))
 		.done();
 }
 
@@ -355,10 +365,28 @@ export function listObjectParts(bucketName, objectName) {
 }
 
 export function readPool(name) {
-	logAction('readPool', { name });
-	
-	api.pools.get_pool({ name })
-		.then(model.poolInfo)
+
+	// TODO: Change to api.pool.read_pool when avaliable.
+	api.system.read_system()
+		.then(
+			si => {
+				let pool = si.pools.find(
+					pool => pool.name === name 
+				);
+
+				model.poolInfo(pool)
+			}
+		)
+		.done();
+}
+
+export function listAllNodes() {
+	logAction('listAllNodes');
+
+	api.node.list_nodes({})
+		.then(
+			reply => model.nodeList(reply.nodes)
+		)
 		.done();
 }
 

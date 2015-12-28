@@ -1,5 +1,5 @@
-<div class="pool-panel text-center">
-	<pool-summary class="center"></pool-summary>
+<div class="pool-panel text-center" data-bind="if: ready">
+	<pool-summary class="center" params="pool: pool"></pool-summary>
 
 	<ul class="tabs details-pane">
 		<li data-bind="css: { selected: isTabSelected('nodes') }">

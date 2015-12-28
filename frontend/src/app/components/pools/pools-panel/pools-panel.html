@@ -1,11 +1,17 @@
 <div class="pools-panel">
 	<div class="clear">
-		<a class="pull-right btn add-pool-btn">
-			add pool
-		</a>
+		<button class="pull-right btn add-pool-btn"
+			data-bind="click: () => isCreatePoolWizardVisible(true)">
+			create pool
+		</button>
 	</div>
 
 	<pools-table params="pools: pools"></pools-table>
 </div>
+
+<!-- ko if: isCreatePoolWizardVisible -->
+<create-pool-wizard params="onClose: () => isCreatePoolWizardVisible(false)">
+</create-pool-wizard>
+<!-- /ko -->
 	 
 	 

@@ -44,7 +44,11 @@ poolList.order = ko.observable(1);
 // Hold the current pool info.
 export let poolInfo = ko.observable();
 
-// Hold the current node list.
+// Hold a list of all the nodes in the system.
+export let nodeList = ko.observableArray();
+
+
+// Hold the current pool node list.
 export let poolNodeList = ko.observableArray();
 poolNodeList.filter = ko.observable();
 

@@ -69,6 +69,7 @@ label {
 
 ::-webkit-scrollbar  {
 	width: 10px;
+	height: 10px;
 }
 
 ::-webkit-scrollbar-track  {
@@ -384,7 +385,7 @@ input[type="search"] {
 	height: 100%;
 	position: relative;
 
-	padding-top: 3.7em;
+	padding-top: 3.2em;
 
 	&.no-head {
 		padding-top: 0;
@@ -415,10 +416,12 @@ input[type="search"] {
 		}
 
 		&::before {
+			pointer-events: none;
 			background: linear-gradient(to bottom, @bg-color2, transparent);
 		}
 
 		&::after {
+			pointer-events: none;
 			bottom: 0;
 			background: linear-gradient(to bottom, transparent, @bg-color2);
 		}
@@ -456,8 +459,9 @@ input[type="search"] {
 		}
 
 		th, td {
+			box-sizing: content-box;
 			word-break: break-all;
-			padding: 1em 2em;		
+			padding: .75em 1.5em;		
 
 			&.greedy {
 				width: 100%;

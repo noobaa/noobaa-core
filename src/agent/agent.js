@@ -27,7 +27,7 @@ var os_util = require('../util/os_util');
 var diag = require('./agent_diagnostics');
 var AgentStore = require('./agent_store');
 var config = require('../../config.js');
-var pkg = require('./package.json');
+var pkg = require('../../package.json');
 var current_pkg_version = pkg.version;
 
 //var cluster = require('cluster');

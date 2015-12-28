@@ -20,6 +20,8 @@ var server_rpc = require('./server_rpc').server_rpc;
 var bg_worker = require('./server_rpc').bg_worker;
 var system_server = require('./system_server');
 var dbg = require('../util/debug_module')(__filename);
+var pkg = require('../../package.json');
+var current_pkg_version = pkg.version;
 
 server_rpc.on('reconnect', _on_reconnect);
 
@@ -215,7 +217,7 @@ function update_heartbeat(req, reply_token) {
 
 
     var reply = {
-        version: process.env.AGENT_VERSION || '0',
+        version: current_pkg_version || '0',
         delay_ms: hb_delay_ms,
     };
 

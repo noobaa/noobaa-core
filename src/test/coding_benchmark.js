@@ -131,7 +131,7 @@ function test() {
         var dedup_chunker = new native_core.DedupChunker({
             tpool: new native_core.ThreadPool(1)
         }, new native_core.DedupConfig({}));
-        var object_coding_tpool = new native_util.ThreadPool(2);
+        var object_coding_tpool = new native_core.ThreadPool(2);
         var object_coding = new native_core.ObjectCoding({
             digest_type: 'sha384',
             compress_type: 'snappy',

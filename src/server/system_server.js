@@ -296,17 +296,17 @@ function read_system(req) {
         var objects_sys = objects_aggregate[''] || {};
         var ret_pools = [];
         _.each(pools, function(p) {
-            var aggregate_p = nodes_aggregate_pool[p.id] || {};
+            var aggregate_p = nodes_aggregate_pool[p._id] || {};
             ret_pools.push({
                 name: p.name,
                 total_nodes: p.nodes.length,
                 online_nodes: aggregate_p.online || 0,
                 //TODO:: in tier we divide by number of replicas, in pool we have no such concept
                 storage: {
-                    total: (p.total || 0),
-                    free: (p.free || 0),
-                    used: (p.used || 0),
-                    alloc: (p.alloc || 0)
+                    total: (aggregate_p.total || 0),
+                    free: (aggregate_p.free || 0),
+                    used: (aggregate_p.used || 0),
+                    alloc: (aggregate_p.alloc || 0)
                 }
             });
         });

@@ -147,27 +147,18 @@ function finalize_object_parts(bucket, obj, parts) {
             });
 
             dbg.log2("finalize_object_parts unset block building mode ", block_ids);
-            return P.join(
-                block_ids.length && db.DataBlock.collection.updateMany({
-                    _id: {
-                        $in: _.map(block_ids, db.new_object_id)
-                    }
-                }, {
-                    $unset: {
-                        building: ''
-                    }
-                }, {
-                    multi: true
-                }), // .exec();
-                P.when(db.Bucket.findOneAndUpdate({
-                    _id: bucket._id,
-                    deleted: null,
-                }, {
-                    $inc: {
-                        'stats.writes': 1
-                    }
-                }))
-            );
+            return block_ids.length && db.DataBlock.collection.updateMany({
+                _id: {
+                    $in: _.map(block_ids, db.new_object_id)
+                }
+            }, {
+                $unset: {
+                    building: ''
+                }
+            }, {
+                multi: true
+            });
+            // .exec();
         })
         .then(function() {
             // using a timeout to limit our wait here.

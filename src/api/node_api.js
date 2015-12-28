@@ -148,6 +148,9 @@ module.exports = {
                         type: 'object',
                         required: [],
                         properties: {
+                            pool: {
+                                type: 'string',
+                            },
                             tier: {
                                 type: 'string'
                             },
@@ -313,7 +316,7 @@ module.exports = {
                         $ref: '/node_api/definitions/latency_array'
                     },
                     debug_level: {
-                      type: 'integer',
+                        type: 'integer',
                     },
                 }
             },
@@ -545,7 +548,7 @@ module.exports = {
                     $ref: '/node_api/definitions/latency_array'
                 },
                 debug_level: {
-                  type: 'integer',
+                    type: 'integer',
                 }
             }
         },

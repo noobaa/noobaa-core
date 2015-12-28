@@ -311,6 +311,17 @@ function list_nodes_int(query, system_id, skip, limit, pagination, req) {
                         info.tier = tier;
                     });
             }
+
+            if (query.pool) {
+                return db.PoolCache.get({
+                        system: system_id,
+                        name: query.pool,
+                    })
+                    .then(db.check_not_deleted(req, 'pool'))
+                    .then(function(pool) {
+                        info.pool = pool;
+                    });
+            }
         })
         .then(function() {
             var find = db.Node.find(info)

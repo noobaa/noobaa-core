@@ -3,6 +3,7 @@
 
 var _ = require('lodash');
 var P = require('../util/promise');
+var url = require('url');
 var pkg = require('../../package.json');
 
 require('./nb_util');
@@ -64,8 +65,8 @@ nb_console.config(['$routeProvider', '$locationProvider', '$compileProvider',
                 templateUrl: 'console/support.html',
                 reloadOnSearch: false,
             })
-            .when('/users', {
-                templateUrl: 'console/users_management.html',
+            .when('/config', {
+                templateUrl: 'console/config_view.html',
                 reloadOnSearch: false,
             })
             .otherwise({
@@ -88,12 +89,176 @@ nb_console.controller('ConsoleCtrl', [
         $scope.nbFiles = nbFiles;
         $scope.nbAlertify = nbAlertify;
         $scope.version = pkg.version;
+        $scope.$location = $location;
         $scope.nav = {
             active: 'overview',
         };
     }
 ]);
 
+
+nb_console.controller('ConfigViewCtrl', [
+    '$scope', '$http', '$q', '$window', '$location', '$rootScope', '$timeout',
+    'nbSystem', 'nbNodes', 'nbFiles', 'nbClient', 'nbAlertify', 'nbModal',
+    function($scope, $http, $q, $window, $location, $rootScope, $timeout,
+        nbSystem, nbNodes, nbFiles, nbClient, nbAlertify, nbModal) {
+        $scope.nav.active = 'cog';
+        $scope.nav.reload_view = reload_view;
+        $scope.apply_n2n_config = apply_n2n_config;
+        $scope.apply_dns_config= apply_dns_config;
+        $scope.apply_system_certificate = apply_system_certificate;
+
+        reload_view(true);
+
+        function reload_view(init_only) {
+            return $q.when()
+                .then(function() {
+                    if (init_only) {
+                        return nbSystem.init_system;
+                    } else {
+                        return nbSystem.reload_system();
+                    }
+                })
+                .then(function() {
+                    var n2n_config = nbSystem.system.n2n_config;
+                    var tcp_ports = '';
+                    if (n2n_config.tcp_permanent_passive) {
+                        tcp_ports =
+                            n2n_config.tcp_permanent_passive.port ||
+                            (n2n_config.tcp_permanent_passive.min + '-' +
+                                n2n_config.tcp_permanent_passive.max);
+                    }
+                    console.log('n2n_config', n2n_config);
+                    $scope.n2n_form = $scope.n2n_form || {};
+                    $scope.n2n_form.proto = n2n_config.tcp_active ?
+                        (n2n_config.udp_port ? 'tcp_and_udp' : 'tcp') : 'udp';
+                    $scope.n2n_form.tcp_ports = tcp_ports.toString();
+                    $scope.n2n_form.tcp_tls = !!n2n_config.tcp_tls;
+                    console.log('n2n_form', $scope.n2n_form);
+                    $scope.dns_form = $scope.dns_form || {};
+                    $scope.dns_form.ip_address = nbSystem.system.ip_address;
+                    var addr_url = url.parse(nbSystem.system.base_address);
+                    if (addr_url.hostname === nbSystem.system.ip_address) {
+                        $scope.dns_form.dns_type = 'ip';
+                        $scope.dns_form.dns_name = 'noobaa.local';
+                    } else {
+                        $scope.dns_form.dns_type = 'dns';
+                        $scope.dns_form.dns_name = addr_url.hostname;
+                    }
+                });
+        }
+
+        function apply_n2n_config() {
+            var n2n_form = $scope.n2n_form;
+            console.log('apply_n2n_config: n2n_form', n2n_form);
+            n2n_form.state = '';
+            n2n_form.error = '';
+            n2n_form.reply = null;
+            var tcp_ports;
+            if (n2n_form.proto !== 'udp') {
+                tcp_ports = parse_port_range_config_string(n2n_form.tcp_ports);
+                if (!tcp_ports) {
+                    n2n_form.state = 'error';
+                    n2n_form.error = 'Invalid TCP port/range';
+                    return;
+                }
+            }
+            var n2n_config = {};
+            if (n2n_form.proto === 'tcp_and_udp' || n2n_form.proto === 'tcp') {
+                n2n_config.tcp_active = true;
+                n2n_config.tcp_permanent_passive = tcp_ports;
+            } else {
+                n2n_config.tcp_active = false;
+                n2n_config.tcp_permanent_passive = false;
+            }
+            if (n2n_form.proto === 'tcp_and_udp' || n2n_form.proto === 'udp') {
+                n2n_config.udp_port = true;
+                // parse_port_range_config_string(n2n_form.udp_ports);
+            } else {
+                n2n_config.udp_port = false;
+            }
+            n2n_config.tcp_tls = !!n2n_form.tcp_tls;
+            console.log('apply_n2n_config: n2n_config', n2n_config);
+            return $q.when()
+                .then(function() {
+                    n2n_form.state = 'saving';
+                    return nbClient.client.system.update_n2n_config(n2n_config);
+                })
+                .then(function(res) {
+                    n2n_form.state = 'saved';
+                    n2n_form.reply = res;
+                }, function(err) {
+                    n2n_form.state = 'error';
+                    n2n_form.error = err;
+                })
+                .then(reload_view);
+        }
+
+        function parse_port_range_config_string(s) {
+            if (!s) return;
+            var sp = s.split('-');
+            if (sp.length !== 1 && sp.length !== 2) return;
+            var min = parseInt(sp[0], 10);
+            var max = parseInt(sp[1], 10);
+            if (max) {
+                if (min <= max && min >= 1024 && max <= 64 * 1024) {
+                    return {
+                        min: min,
+                        max: max
+                    };
+                }
+            } else if (min) {
+                if (min >= 1024 && min <= 64 * 1024) {
+                    return {
+                        port: min
+                    };
+                }
+            }
+        }
+
+        function apply_dns_config() {
+            var dns_form = $scope.dns_form;
+            console.log('apply_dns_config', dns_form);
+            dns_form.state = '';
+            dns_form.error = '';
+            dns_form.reply = null;
+            var base_addr_url = url.parse(nbSystem.system.base_address);
+            base_addr_url.host = '';
+            if (dns_form.dns_type === 'dns') {
+                if (!dns_form.dns_name) {
+                    dns_form.state = 'error';
+                    dns_form.error = 'Missing name';
+                    return;
+                }
+                base_addr_url.hostname = dns_form.dns_name;
+            } else {
+                base_addr_url.hostname = nbSystem.system.ip_address;
+            }
+            var base_address = url.format(base_addr_url);
+            console.log('update_base_address', base_addr_url);
+            return $q.when()
+                .then(function() {
+                    dns_form.state = 'saving';
+                    return nbClient.client.system.update_base_address({
+                        base_address: base_address
+                    });
+                })
+                .then(function(res) {
+                    dns_form.state = 'saved';
+                    dns_form.reply = res;
+                }, function(err) {
+                    dns_form.state = 'error';
+                    dns_form.error = err;
+                })
+                .then(reload_view);
+        }
+
+        function apply_system_certificate() {
+            console.log('apply_system_certificate');
+        }
+
+    }
+]);
 
 
 nb_console.controller('SupportViewCtrl', [
@@ -124,7 +289,14 @@ nb_console.controller('SupportViewCtrl', [
         reload_view(true);
 
         function reload_view(init_only) {
-            return nbSystem.init_system
+            return $q.when()
+                .then(function() {
+                    if (init_only) {
+                        return nbSystem.init_system;
+                    } else {
+                        return nbSystem.reload_system();
+                    }
+                })
                 .then(function() {
                     if (!nbClient.account || !nbClient.account.is_support) {
                         $location.path('/');
@@ -184,8 +356,6 @@ nb_console.controller('UserManagementViewCtrl', [
     'nbClient', 'nbSystem', 'nbNodes', 'nbHashRouter', 'nbAlertify', 'nbModal',
     function($scope, $q, $timeout, $window, $location, $routeParams,
         nbClient, nbSystem, nbNodes, nbHashRouter, nbAlertify, nbModal) {
-        $scope.nav.active = 'cog';
-        $scope.nav.reload_view = reload_view;
         $scope.add_new_user = add_new_user;
         $scope.delete_user = delete_user;
         $scope.reset_password = reset_password;
@@ -193,10 +363,6 @@ nb_console.controller('UserManagementViewCtrl', [
 
         reload_accounts();
         console.log('accounts:' + $scope.accounts);
-
-        function reload_view(init_only) {
-            return nbSystem.init_system;
-        }
 
         function reload_accounts() {
             return $q.when(nbClient.client.account.list_system_accounts())
@@ -424,7 +590,7 @@ nb_console.controller('OverviewCtrl', [
             scope.rest_endpoint = rest_host;
             scope.bucket_name = $scope.nbSystem.system.buckets[0].name;
             scope.rest_package = download_rest_server_package;
-            console.log('rest_server_information', scope.rest_package, scope.rest_endpoint);
+            console.log('rest_server_information', scope.rest_endpoint);
             console.log('rest_server_information', $window.location, $location);
             scope.modal = nbModal({
                 template: 'console/rest_server_information.html',
@@ -434,20 +600,15 @@ nb_console.controller('OverviewCtrl', [
 
         function download_rest_server_package() {
             console.log('rest_package1');
-            var link;
-            return nbSystem.get_s3_rest_installer()
-                .then(function(url) {
-                    console.log('GOT URL1:', url);
-                    link = $window.document.createElement("a");
-                    link.id = 'noobaa_link_rest_package';
-                    $window.document.body.appendChild(link);
-                    link.download = '';
-                    link.href = url;
-                    link.click();
-                    return P.delay(2000);
-                }).then(function() {
-                    $window.document.body.removeChild(link);
-                });
+            var link = $window.document.createElement("a");
+            link.id = 'noobaa_link_rest_package';
+            $window.document.body.appendChild(link);
+            link.download = '';
+            link.href = nbSystem.system.web_links.s3rest_installer;
+            link.click();
+            return P.delay(2000).then(function() {
+                $window.document.body.removeChild(link);
+            });
         }
 
 
@@ -1234,19 +1395,14 @@ nb_console.controller('BucketViewCtrl', [
 
         function download_rest_server_package() {
             console.log('rest_package2');
-            var link;
-            return nbSystem.get_s3_rest_installer()
-                .then(function(url) {
-                    console.log('GOT URL2:', url);
-                    link = $window.document.createElement("a");
-                    link.download = '';
-                    link.href = url;
-                    $window.document.body.appendChild(link);
-                    link.click();
-                    return P.delay(2000);
-                }).then(function() {
-                    $window.document.body.removeChild(link);
-                });
+            var link = $window.document.createElement("a");
+            link.download = '';
+            link.href = nbSystem.system.web_links.s3rest_installer;
+            $window.document.body.appendChild(link);
+            link.click();
+            return P.delay(2000).then(function() {
+                $window.document.body.removeChild(link);
+            });
         }
 
     }

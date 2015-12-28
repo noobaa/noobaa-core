@@ -24,7 +24,7 @@ var uuid = require('node-uuid');
 var os = require('os');
 var os_util = require('../util/os_util');
 
-
+module.exports = AgentCLI;
 
 setInterval(function() {
     dbg.log0('memory usage', process.memoryUsage());
@@ -511,10 +511,12 @@ function populate_general_help(general) {
     general.push('show("<function>"") to show help on a specific API');
 }
 
+AgentCLI.main = main;
+
 function main() {
     var cli = new AgentCLI(argv);
     cli.init().done(function() {
-        if (argv.norepl) return;
+        if (!argv.repl) return;
         // start a Read-Eval-Print-Loop
         var repl_srv = repl.start({
             prompt: 'agent-cli > ',

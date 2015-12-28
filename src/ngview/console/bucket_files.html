@@ -25,8 +25,8 @@
                 <tr>
                     <!-- <th></th> -->
                     <th>
-                        <div class="form-group">
-                            <input type="text" class="form-control floating-label" style="margin-top: -2px; border-bottom: none" placeholder="File Name (click to search)" ng-model="files_query.search" ng-model-options="{debounce: 700}" ng-change="bucket_router.set_query('search',files_query.search)"
+                        <div class="form-control-wrapper">
+                            <input type="text" class="form-control floating-label" style="margin-top: -2px" placeholder="File Name (click to search)" ng-model="files_query.search" ng-model-options="{debounce: 700}" ng-change="bucket_router.set_query('search',files_query.search)"
                             />
                         </div>
                     </th>

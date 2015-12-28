@@ -77,9 +77,8 @@ function formatted_time() {
 
 function extract_module(mod, ignore_extension) {
     var stems = {
-        "noobaa-core/src/": "core.",
-        "noobaa-signaling/": "signaling.",
-        "Program Files\\NooBaa": "core."
+        "/src/": "",
+        "Program Files\\NooBaa": ""
     };
 
     //for initial module construction, filename is passed, remove extension
@@ -96,7 +95,7 @@ function extract_module(mod, ignore_extension) {
     var ind;
     //compact stem directory structure
     _.each(stems, function(val, s) {
-        ind = name.indexOf(s);
+        ind = name.lastIndexOf(s);
         if (ind !== -1) {
             name = stems[s] + name.substr(ind + s.length);
         }
@@ -294,24 +293,33 @@ InternalDebugLogger.prototype.get_level = function(mod) {
     return tmp_mod.__level;
 };
 
+var LOG_FUNC_PER_LEVEL = {
+    LOG: 'log',
+    INFO: 'info',
+    WARN: 'warn',
+    ERROR: 'error',
+};
+
 InternalDebugLogger.prototype.log_internal = function(level) {
     var args;
-    //con.original_console();
-    if (this._log) { //browser workaround
-        args = Array.prototype.slice.call(arguments, 0);
-        args.push("");
-        this._log.log.apply(this._log, args);
-    } else { //browser, don't use winston. Add timestamp and level
-        var logfunc = 'log';
+    con.original_console();
+    if (this._log) {
+        // normal path (non browser)
         args = Array.prototype.slice.call(arguments, 1);
-        if (typeof(args[0] === 'string')) { //Keep string formatting if exists
+        args.push("");
+        this._log[level].apply(this._log, args);
+    } else {
+        // browser workaround, don't use winston. Add timestamp and level
+        var logfunc = LOG_FUNC_PER_LEVEL[level] || 'log';
+        args = Array.prototype.slice.call(arguments, 1);
+        if (typeof(args[0]) === 'string') { //Keep string formatting if exists
             args[0] = formatted_time() + ' [' + level + '] ' + args[0];
         } else {
             args.unshift(formatted_time() + ' [' + level + '] ');
         }
-        if (level === 'ERROR' || level === 'WARN') {
-            logfunc = 'error';
-        }
+        // if (level === 'ERROR' || level === 'WARN') {
+        // logfunc = 'error';
+        // }
         console[logfunc].apply(console, args);
     }
     //con.wrapper_console();
@@ -374,7 +382,7 @@ function log_bt_builder(i) {
             var err = new Error();
             var bt = err.stack.substr(err.stack.indexOf(")") + 1).replace(/(\r\n|\n|\r)/gm, " ");
             var args = Array.prototype.slice.call(arguments);
-            if (typeof(args[0] === 'string')) { //Keep string formatting if exists
+            if (typeof(args[0]) === 'string') { //Keep string formatting if exists
                 args[0] = " " + this._name + ":: " + (args[0] ? args[0] : '') + bt;
             } else {
                 args.unshift(" " + this._name + ":: ");
@@ -395,7 +403,7 @@ for (i = 0; i < 5; ++i) {
 function log_syslog_builder(syslevel) {
     return function() {
         var args = Array.prototype.slice.call(arguments);
-        if (typeof(args[0] === 'string')) { //Keep string formatting if exists
+        if (typeof(args[0]) === 'string') { //Keep string formatting if exists
             args[0] = " " + this._name + ":: " + (args[0] ? args[0] : '');
         } else {
             args.unshift(" " + this._name + ":: ");

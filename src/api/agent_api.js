@@ -133,22 +133,10 @@ module.exports = {
         self_test_peer: {
             method: 'POST',
             params: {
-                type: 'object',
-                required: ['source', 'target', 'request_length', 'response_length'],
-                properties: {
-                    source: {
-                        type: 'string'
-                    },
-                    target: {
-                        type: 'string'
-                    },
-                    request_length: {
-                        type: 'integer'
-                    },
-                    response_length: {
-                        type: 'integer'
-                    }
-                },
+                $ref: '/agent_api/definitions/self_test_params'
+            },
+            reply: {
+                $ref: '/agent_api/definitions/self_test_reply'
             },
         },
 
@@ -172,6 +160,26 @@ module.exports = {
         set_debug_node: {
             method: 'POST',
         },
+
+        update_n2n_config: {
+            method: 'POST',
+            params: {
+                $ref: '/common_api/definitions/n2n_config'
+            }
+        },
+
+        update_base_address: {
+            method: 'POST',
+            params: {
+                type: 'object',
+                required: ['base_address'],
+                properties: {
+                    base_address: {
+                        type: 'string'
+                    }
+                }
+            }
+        }
 
     },
 
@@ -201,6 +209,47 @@ module.exports = {
                 },
                 node_peer_id: {
                     type: 'string'
+                }
+            }
+        },
+
+        self_test_params: {
+            type: 'object',
+            required: [
+                'source',
+                'target',
+                'request_length',
+                'response_length',
+                'count',
+                'concur',
+            ],
+            properties: {
+                source: {
+                    type: 'string',
+                },
+                target: {
+                    type: 'string',
+                },
+                request_length: {
+                    type: 'integer',
+                },
+                response_length: {
+                    type: 'integer',
+                },
+                count: {
+                    type: 'integer',
+                },
+                concur: {
+                    type: 'integer',
+                }
+            }
+        },
+
+        self_test_reply: {
+            type: 'object',
+            properties: {
+                session: {
+                    type: 'string',
                 }
             }
         },

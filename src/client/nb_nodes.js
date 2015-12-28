@@ -4,7 +4,7 @@
 var _ = require('lodash');
 var P = require('../util/promise');
 var moment = require('moment');
-var chance = require('chance')();
+// var chance = require('chance')();
 var promise_utils = require('../util/promise_utils');
 var config = require('../../config');
 var dbg = require('../util/debug_module')(__filename);
@@ -188,59 +188,24 @@ nb_api.factory('nbNodes', [
 
         function add_node() {
             var scope = $rootScope.$new();
-
             scope.$location = $location;
+            scope.nbSystem = nbSystem;
             scope.stage = 1;
-            var config_json = {
+            var agent_conf = {
                 dbg_log_level: 2,
                 tier: 'nodes',
                 prod: true,
-                bucket: 'files',
                 root_path: './agent_storage/',
                 port: 8888,
-                secure_port: 9999
+                secure_port: 9999,
+                address: nbSystem.system.base_address,
+                system: nbSystem.system.name,
+                access_key: nbSystem.system.access_keys[0].access_key,
+                secret_key: nbSystem.system.access_keys[0].secret_key
             };
+            scope.encoded_agent_conf = $window.btoa(JSON.stringify(agent_conf));
+            console.log('agent config', agent_conf, 'encoded', scope.encoded_agent_conf);
 
-            config_json.address = 'wss://noobaa.local:' + nbSystem.system.ssl_port;
-            config_json.system = nbSystem.system.name;
-            config_json.access_key = nbSystem.system.access_keys[0].access_key;
-            config_json.secret_key = nbSystem.system.access_keys[0].secret_key;
-            var encodedData = $window.btoa(JSON.stringify(config_json));
-            scope.encodedData = encodedData;
-            var secured_host = ($window.location.host).replace(':' + nbSystem.system.web_port, ':' + nbSystem.system.ssl_port);
-            config_json.address = 'wss://' + secured_host;
-            encodedData = $window.btoa(JSON.stringify(config_json));
-            scope.encodedDataIP = encodedData;
-            scope.current_host = $window.location.host;
-            scope.typeOptions = [{
-                name: 'Use custom DNS',
-                value: ''
-            }, {
-                name: 'Use ' + secured_host,
-                value: scope.encodedDataIP
-            }, ];
-            console.log('type options', scope.typeOptions);
-            scope.encoding = {
-                type: scope.typeOptions[0].value,
-                new_dns: '',
-                show_other_dns: true
-            };
-
-            console.log(JSON.stringify(config_json), String.toString(config_json), 'encoded', encodedData);
-
-            scope.dns_select = function(selected_value) {
-                if (scope.typeOptions[1].value !== selected_value) {
-                    scope.encoding.show_other_dns = true;
-                } else {
-                    scope.encoding.show_other_dns = false;
-                }
-            };
-            scope.new_dns = function() {
-                config_json.address = 'wss://' + scope.encoding.new_dns + ':' + nbSystem.system.ssl_port;
-                encodedData = $window.btoa(JSON.stringify(config_json));
-                scope.typeOptions[0].value = encodedData;
-                scope.encoding.type = scope.typeOptions[0].value;
-            };
             scope.next_stage = function() {
                 scope.stage += 1;
                 if (scope.stage > 4) {
@@ -253,6 +218,15 @@ nb_api.factory('nbNodes', [
                     scope.stage = 1;
                 }
             };
+            scope.goto_config_dns = function() {
+                scope.modal.modal('hide');
+                scope.modal.on('hidden.bs.modal', function() {
+                    $timeout(function() {
+                        $location.path('/config/');
+                        $location.hash('config_dns');
+                    }, 1);
+                });
+            };
             scope.goto_nodes_list = function() {
                 scope.modal.modal('hide');
                 scope.modal.on('hidden.bs.modal', function() {
@@ -264,34 +238,26 @@ nb_api.factory('nbNodes', [
                 });
             };
             scope.download_agent = function() {
-                var link;
-                return nbSystem.get_agent_installer()
-                    .then(function(url) {
-                        link = $window.document.createElement("a");
-                        link.download = '';
-                        link.href = url;
-                        $window.document.body.appendChild(link);
-                        link.click();
-                        return P.delay(2000);
-                    }).then(function() {
-                        $window.document.body.removeChild(link);
-                        scope.next_stage();
-                    });
+                var link = $window.document.createElement("a");
+                link.download = '';
+                link.href = nbSystem.system.web_links.agent_installer;
+                $window.document.body.appendChild(link);
+                link.click();
+                return P.delay(2000).then(function() {
+                    $window.document.body.removeChild(link);
+                    scope.next_stage();
+                });
             };
             scope.download_linux_agent = function() {
-                var link;
-                return nbSystem.get_linux_agent_installer()
-                    .then(function(url) {
-                        link = $window.document.createElement("a");
-                        link.download = '';
-                        link.href = url;
-                        $window.document.body.appendChild(link);
-                        link.click();
-                        return P.delay(2000);
-                    }).then(function() {
-                        $window.document.body.removeChild(link);
-                        scope.next_stage();
-                    });
+                var link = $window.document.createElement("a");
+                link.download = '';
+                link.href = nbSystem.system.web_links.linux_agent_installer;
+                $window.document.body.appendChild(link);
+                link.click();
+                return P.delay(2000).then(function() {
+                    $window.document.body.removeChild(link);
+                    scope.next_stage();
+                });
             };
 
             scope.copy_to_clipboard = function() {
@@ -326,7 +292,7 @@ nb_api.factory('nbNodes', [
             $scope.self_test_results = [];
 
             function define_phase(test) {
-                if (_.contains(test.kind, kind)) {
+                if (kind === 'Full' || test.kind === kind) {
                     $scope.self_test_results.push(test);
                 }
             }
@@ -341,10 +307,10 @@ nb_api.factory('nbNodes', [
                 $rootScope.safe_apply();
 
                 return P.fcall(test.func.bind(test))
-                    .then(function(res) {
+                    .then(function() {
                         test.done = true;
-                        test.took = (Date.now() - test.start) / 1000;
-                        dbg.log0('SELF TEST completed phase', test.name, 'took', test.took, 'sec');
+                        test.time = (Date.now() - test.start) / 1000;
+                        dbg.log0('SELF TEST completed phase', test.name, 'took', test.time, 'sec');
                         $rootScope.safe_apply();
                     }, function(err) {
                         dbg.log0('SELF TEST failed phase', test.name, err.stack || err);
@@ -381,78 +347,41 @@ nb_api.factory('nbNodes', [
                 .then(function() {
                     _.each(online_nodes, function(target_node) {
                         define_phase({
-                            name: 'connect to ' + target_node.name,
-                            kind: ['full', 'conn'],
+                            name: target_node.name,
+                            kind: 'Connectivity',
+                            total: 0,
+                            position: 0,
                             func: function() {
-                                return self_test_to_node_via_web(node, target_node);
+                                var self = this;
+                                return self_test_to_node_via_web(node, target_node)
+                                    .then(function(res) {
+                                        self.session = res && res.session;
+                                    });
                             }
                         });
                     });
 
-                    define_phase({
-                        name: 'LOAD WRITE: connect from all to one node and send 0.5MB (10 times from each)',
-                        kind: ['full', 'load'],
-                        total: 0,
-                        position: 0,
-                        func: function(target_node) {
-                            var self = this;
-                            var advance_pos = function() {
-                                self.position += 1;
-                                self.progress = (100 * (self.position / self.total)).toFixed(0) + '%';
-                                $rootScope.safe_apply();
-                            };
-                            return P.all(_.map(online_nodes, function(target_node) {
-                                self.total += 10;
-                                return promise_utils.loop(10, function() {
-                                    return self_test_to_node_via_web(
-                                            target_node, node, 0, 512 * 1024)
-                                        .then(advance_pos);
-                                });
-                            }));
-                        }
-                    });
-
-                    define_phase({
-                        name: 'LOAD READ: connect from all to one node and read 0.5MB (10 times from each)',
-                        kind: ['full', 'load'],
-                        total: 0,
-                        position: 0,
-                        func: function(target_node) {
-                            var self = this;
-                            var advance_pos = function() {
-                                self.position += 1;
-                                self.progress = (100 * (self.position / self.total)).toFixed(0) + '%';
-                                $rootScope.safe_apply();
-                            };
-                            return P.all(_.map(online_nodes, function(target_node) {
-                                self.total += 10;
-                                return promise_utils.loop(10, function() {
-                                    return self_test_to_node_via_web(
-                                            target_node, node, 512 * 1024, 0)
-                                        .then(advance_pos);
-                                });
-                            }));
-                        }
-                    });
-
-                    define_phase({
-                        name: 'transfer 100 MB from this node to the other nodes',
-                        kind: ['full', 'tx'],
-                        total: 100 * 1024 * 1024,
-                        position: 0,
-                        func: function() {
-                            var self = this;
-                            if (self.position >= self.total) return;
-                            var target_node = chance.pick(online_nodes);
-                            return self_test_to_node_via_web(
-                                    target_node, node, 512 * 1024, 512 * 1024)
-                                .then(function() {
-                                    self.position += 1024 * 1024;
-                                    self.progress = (100 * (self.position / self.total)).toFixed(0) + '%';
-                                    $rootScope.safe_apply();
-                                    return self.func();
-                                });
-                        }
+                    _.each(online_nodes, function(target_node) {
+                        define_phase({
+                            name: target_node.name,
+                            kind: 'Bandwidth',
+                            total: 512 * 1024 * 1024,
+                            position: 0,
+                            func: function() {
+                                var self = this;
+                                if (self.position >= self.total) return;
+                                return self_test_to_node_via_web(
+                                        target_node, node, 512 * 1024, 512 * 1024, 64, 16)
+                                    .then(function(res) {
+                                        self.position += 64 * 1024 * 1024;
+                                        self.progress = (100 * (self.position / self.total)).toFixed(0) + '%';
+                                        self.time = (Date.now() - self.start) / 1000;
+                                        self.session = res && res.session;
+                                        $rootScope.safe_apply();
+                                        return self.func();
+                                    });
+                            }
+                        });
                     });
 
                     return run_phases();
@@ -483,7 +412,9 @@ nb_api.factory('nbNodes', [
                     }
                 })
                 .then(function() {
-                    $window.document.body.removeChild(link);
+                    if (link) {
+                        $window.document.body.removeChild(link);
+                    }
                 })
                 .then(null, function(err) {
                     dbg.log0('Diagnose node encountered errors', err, err.stack);
@@ -492,14 +423,9 @@ nb_api.factory('nbNodes', [
         }
 
         function set_debug_node(node) {
-            var link;
-
             return $q.when(nbClient.client.node.set_debug_node({
                     target: node.rpc_address,
                 }))
-                .then(function() {
-                    $window.document.body.removeChild(link);
-                })
                 .then(function() {
                     nbAlertify.success('Collecting Debug Information');
                 })
@@ -509,30 +435,8 @@ nb_api.factory('nbNodes', [
                 });
         }
 
-        /*
-        function self_test_io(node, request_length, response_length) {
-            return nbClient.client.agent.self_test_io({
-                data: new Buffer(request_length || 0),
-                response_length: response_length || 0,
-            }, {
-                address: node.rpc_address,
-            });
-        }
 
-        function self_test_to_node(node, target_node, request_length, response_length) {
-            console.log('SELF TEST', node.name, 'to', target_node.name);
-
-            return nbClient.client.agent.self_test_peer({
-                target: target_node.rpc_address,
-                request_length: request_length || 0,
-                response_length: response_length || 0,
-            }, {
-                address: node.rpc_address,
-            });
-        }
-        */
-
-        function self_test_to_node_via_web(node, target_node, request_length, response_length) {
+        function self_test_to_node_via_web(node, target_node, request_length, response_length, count, concur) {
             console.log('SELF TEST', node.name, 'to', target_node.name);
 
             return nbClient.client.node.self_test_to_node_via_web({
@@ -540,6 +444,8 @@ nb_api.factory('nbNodes', [
                 source: node.rpc_address,
                 request_length: request_length || 0,
                 response_length: response_length || 0,
+                count: count || 1,
+                concur: concur || 1,
             });
         }
 

@@ -170,6 +170,29 @@ module.exports = {
             }
         },
 
+        pools_stats: {
+            type: 'array',
+            items: {
+                type: 'integer',
+            },
+        },
+
+        tier_stats: {
+            type: 'array',
+            items: {
+                type: 'object',
+                required: [],
+                properties: {
+                    pools_num: {
+                        type: 'integer',
+                    },
+                    data_placement: {
+                        type: 'string',
+                    }
+                },
+            }
+        },
+
         all_stats: {
             type: 'object',
             equired: ['systems_stats', 'nodes_stats', 'ops_stats'],
@@ -182,6 +205,12 @@ module.exports = {
                 },
                 ops_stats: {
                     $ref: '/stats_api/definitions/ops_stats'
+                },
+                pools_stats: {
+                    $ref: '/stats_api/definitions/pools_stats'
+                },
+                tier_stats: {
+                    $ref: '/stats_api/definitions/tier_stats'
                 },
             }
         },

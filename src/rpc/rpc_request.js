@@ -101,7 +101,10 @@ RpcRequest.prototype.export_request_buffers = function() {
     if (this.auth_token) {
         header.auth_token = this.auth_token;
     }
-    var buffers = this.method_api.params.export_buffers(this.params);
+    var buffers;
+    if (this.method_api.params) {
+        buffers = this.method_api.params.export_buffers(this.params);
+    }
     return RpcRequest.encode_message(header, buffers);
 };
 
@@ -116,7 +119,9 @@ RpcRequest.prototype.import_request_message = function(msg, api, method_api) {
     this.params = msg.header.params;
     this.auth_token = msg.header.auth_token;
     if (method_api) {
-        method_api.params.import_buffers(this.params, msg.buffer);
+        if (method_api.params) {
+            method_api.params.import_buffers(this.params, msg.buffer);
+        }
         try {
             method_api.validate_params(this.params, 'SERVER');
         } catch (err) {
@@ -150,7 +155,9 @@ RpcRequest.prototype.export_response_buffer = function() {
         header.error = _.pick(this.error, 'rpc_code', 'message');
     } else {
         header.reply = this.reply;
-        buffers = this.method_api.reply.export_buffers(this.reply);
+        if (this.method_api.reply) {
+            buffers = this.method_api.reply.export_buffers(this.reply);
+        }
     }
     return RpcRequest.encode_message(header, buffers);
 };
@@ -168,7 +175,9 @@ RpcRequest.prototype.import_response_message = function(msg) {
         this.rpc_error(err.rpc_code, err.message);
     } else {
         this.reply = msg.header.reply;
-        this.method_api.reply.import_buffers(this.reply, msg.buffer);
+        if (this.method_api.reply) {
+            this.method_api.reply.import_buffers(this.reply, msg.buffer);
+        }
         try {
             this.method_api.validate_reply(this.reply, 'CLIENT');
             this.response_defer.resolve(this.reply);
@@ -186,8 +195,8 @@ RpcRequest.prototype.import_response_message = function(msg) {
  */
 RpcRequest.prototype.rpc_error = function(rpc_code, message, reason) {
     var err = new Error('RPC ERROR');
-    err.rpc_code = rpc_code || 'INTERNAL';
-    err.message = message || '';
+    err.rpc_code = (rpc_code || 'INTERNAL').toString();
+    err.message = (message || '').toString();
     dbg.error('RPC ERROR', this.srv, reason || '', err.rpc_code, err.message, err.stack);
     if (this.error) {
         dbg.error('RPC MULTIPLE ERRORS, existing error', this.error);

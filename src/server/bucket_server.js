@@ -47,6 +47,10 @@ function create_bucket(req) {
             if (tiering) {
                 info.tiering = tiering[0]._id;
             }
+            info.stats = {
+                reads: 0,
+                writes: 0,
+            };
             return db.Bucket.create(info);
         })
         .then(function(bucket) {
@@ -95,7 +99,7 @@ function read_bucket(req) {
                     var free = 0;
                     var total = 0;
                     _.each(reply.tiering[0].tiers, function(t) {
-                        var aggr = nodes_aggregated[t.id];
+                        var aggr = nodes_aggregated[t.tier];
                         var replicas = t.replicas || 3;
                         alloc += (aggr && aggr.alloc) || 0;
                         used += (aggr && aggr.used) || 0;
@@ -458,7 +462,7 @@ function get_bucket_info(bucket) {
                 return reply;
             });
     } else {
-      return reply;
+        return reply;
     }
 }
 

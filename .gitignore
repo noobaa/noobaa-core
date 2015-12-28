@@ -17,7 +17,7 @@ tags
 coverage/
 
 ## testing agent storage
-mongodb_storage
+metadata_storage*
 agent_storage*
 agent_conf.json*
 

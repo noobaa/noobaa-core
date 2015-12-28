@@ -101,6 +101,11 @@ var node_schema = new Schema({
         type: String,
     },
 
+    // the server address that the node is using
+    base_address: {
+        type: String,
+    },
+
     // listening rpc address (url) of the agent
     rpc_address: {
         type: String,

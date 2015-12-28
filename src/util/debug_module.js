@@ -302,7 +302,7 @@ var LOG_FUNC_PER_LEVEL = {
 
 InternalDebugLogger.prototype.log_internal = function(level) {
     var args;
-    con.original_console();
+    //con.original_console();
     if (this._log) {
         // normal path (non browser)
         args = Array.prototype.slice.call(arguments, 1);

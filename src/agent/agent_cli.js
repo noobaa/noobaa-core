@@ -21,6 +21,10 @@ var dbg = require('../util/debug_module')(__filename);
 var child_process = require('child_process');
 var s3_auth = require('aws-sdk/lib/signers/s3');
 var uuid = require('node-uuid');
+var os = require('os');
+var os_util = require('../util/os_util');
+
+module.exports = AgentCLI;
 
 setInterval(function() {
     dbg.log0('memory usage', process.memoryUsage());
@@ -92,14 +96,59 @@ AgentCLI.prototype.init = function() {
                     });
             }
         }).then(function() {
+            return os_util.read_drives();
+        })
+        .then(function(drives) {
+            dbg.log0('drives:', drives, ' current location ', process.cwd());
+            var hds = _.filter(drives, function(hd_info) {
+                if ((hd_info.drive_id.indexOf('/dev/') >= 0 && hd_info.mount.indexOf('/boot') < 0 && hd_info.mount.indexOf('/Volumes/') < 0) ||
+                    (hd_info.drive_id.length === 2 && hd_info.drive_id.indexOf(':') === 1)) {
+                    dbg.log0('Found relevant volume', hd_info.drive_id);
+                    return true;
+                }
+            });
+            var server_uuid = os.hostname() + '-' + uuid();
+            console.log('Server:' + server_uuid + ' with HD:' + JSON.stringify(hds));
+
+            var mount_points = [];
+
+            if (os.type() === 'Windows_NT') {
+                _.each(hds, function(hd_info) {
+                    if (process.cwd().toLowerCase().indexOf(hd_info.drive_id.toLowerCase()) === 0) {
+                        hd_info.mount = './agent_storage/';
+                        mount_points.push(hd_info);
+                    } else {
+                        hd_info.mount = hd_info.mount + '\\agent_storage\\';
+                        mount_points.push(hd_info);
+                    }
+                });
+            } else {
+                _.each(hds, function(hd_info) {
+                    if (hd_info.mount === "/") {
+                        hd_info.mount = './agent_storage/';
+                        mount_points.push(hd_info);
+                    } else {
+                        hd_info.mount = '/' + hd_info.mount + '/agent_storage/';
+                        mount_points.push(hd_info);
+                    }
+                });
+            }
+
+            dbg.log0('mount_points:', mount_points);
+            self.params.root_path = mount_points[0].mount;
+
+            dbg.log0('root path:', self.params.root_path);
+            self.params.all_storage_paths = mount_points;
+
+        }).then(function() {
 
             return self.load()
                 .then(function() {
                     dbg.log0('COMPLETED: load');
-                }, function(err) {
-                    dbg.error('ERROR: load', self.params, err.stack);
-                    throw new Error(err);
                 });
+        }).then(null, function(err) {
+            dbg.error('ERROR: load', self.params, err.stack);
+            throw new Error(err);
         });
 };
 
@@ -116,43 +165,70 @@ AgentCLI.prototype.init.helper = function() {
  */
 AgentCLI.prototype.load = function() {
     var self = this;
+    dbg.log0('Loading agents', self.params.all_storage_paths);
+    return P.all(_.map(self.params.all_storage_paths, function(storage_path_info) {
+            var storage_path = storage_path_info.mount;
 
-    return P.fcall(function() {
-            return P.nfcall(mkdirp, self.params.root_path);
-        })
-        .then(function() {
-            return self.hide_storage_folder();
-        })
-        .then(null, function(err) {
-            dbg.error('Windows - failed to hide', err.stack || err);
-            // TODO really continue on error?
-        })
-        .then(function() {
-            dbg.log0('root_path', self.params.root_path);
-            return P.nfcall(fs.readdir, self.params.root_path);
-        })
-        .then(function(names) {
-            return P.all(_.map(names, function(node_name) {
-                return self.start(node_name);
-            }));
-        })
-        .then(function(res) {
-            dbg.log0('loaded ', res.length, 'agents. show details with: list()');
-            if (self.params.prod && !res.length) {
-                return self.create();
+            return P.fcall(function() {
+                    return P.nfcall(mkdirp, storage_path);
+                })
+                .then(function() {
+                    return self.hide_storage_folder(storage_path);
+                })
+                .then(null, function(err) {
+                    dbg.error('Windows - failed to hide', err.stack || err);
+                    // TODO really continue on error?
+                })
+                .then(function() {
+                    dbg.log0('root_path', storage_path);
+                    return P.nfcall(fs.readdir, storage_path);
+                })
+                .then(function(nodes_names) {
+                    dbg.log0('nodes_names:', nodes_names);
+                    return P.all(_.map(nodes_names, function(node_name) {
+                        dbg.log0('node_name', node_name, 'storage_path', storage_path);
+                        var node_path = path.join(storage_path, node_name);
+                        return self.start(node_name, node_path);
+                    }));
+                });
+        }))
+        .then(function(storage_path_nodes) {
+            var nodes_scale = parseInt(self.params.scale, 10) || 0;
+            var number_of_new_paths = 0;
+            var existing_nodes_count = 0;
+            _.each(storage_path_nodes, function(nodes) {
+                existing_nodes_count += nodes.length;
+                if (!nodes.length) {
+                    number_of_new_paths += 1;
+                }
+            });
+            // we create a new node for every new drive (detects as a storage path without nodes)
+            // but here we also consider the development mode of --scale
+            // which asks to create at least that number of total nodes.
+            var nodes_to_add = Math.max(nodes_scale - existing_nodes_count, number_of_new_paths);
+            dbg.log0('AGENTS SCALE TO', nodes_scale);
+            dbg.log0('AGENTS EXISTING', existing_nodes_count);
+            dbg.log0('AGENTS NEW PATHS', number_of_new_paths);
+            dbg.log0('AGENTS TO ADD', nodes_to_add);
+            if (nodes_scale < existing_nodes_count) {
+                dbg.warn('NODES SCALE DOWN IS NOT YET SUPPORTED ...');
+            }
+            if (nodes_to_add > 0) {
+                return self.create_some(nodes_to_add);
             }
         })
         .then(null, function(err) {
             dbg.log0('load failed ' + err.stack);
             throw err;
         });
+
+
 };
 
-AgentCLI.prototype.hide_storage_folder = function() {
-    var self = this;
+AgentCLI.prototype.hide_storage_folder = function(current_storage_path) {
     dbg.log0('os:', os.type());
     if (os.type().indexOf('Windows') >= 0) {
-        var current_path = self.params.root_path;
+        var current_path = current_storage_path;
         current_path = current_path.substring(0, current_path.length - 1);
         current_path = current_path.replace('./', '');
 
@@ -176,6 +252,83 @@ AgentCLI.prototype.load.helper = function() {
     dbg.log0("create token, start nodes ");
 };
 
+AgentCLI.prototype.create_node_helper = function(current_node_path_info) {
+    var self = this;
+
+    return P.fcall(function() {
+        var current_node_path = current_node_path_info.mount;
+        var node_name = os.hostname() + '-' + uuid();
+        var path_modification = current_node_path.replace('/agent_storage/', '').replace('/', '').replace('.', '');
+        //windows
+        path_modification = path_modification.replace('\\agent_storage\\', '');
+
+
+        var node_path = path.join(current_node_path, node_name);
+        var token_path = path.join(node_path, 'token');
+        dbg.log0('create_node_helper with path_modification', path_modification, 'node:', node_path, 'current_node_path', current_node_path, 'exists');
+
+        if (os.type().indexOf('Windows') >= 0) {
+            node_name = node_name + '-' + current_node_path_info.drive_id.replace(':', '');
+        } else {
+            if (!_.isEmpty(path_modification)) {
+                node_name = node_name + '-' + path_modification.replace('/', '');
+            }
+        }
+        dbg.log0('create new node for node name', node_name, ' path:', node_path, ' token path:', token_path);
+
+
+        return fs_utils.file_must_not_exist(token_path)
+            .then(function() {
+                if (self.create_node_token) return;
+                // authenticate and create a token for new nodes
+
+                var basic_auth_params = _.pick(self.params,
+                    'system', 'role');
+                if (_.isEmpty(basic_auth_params)) {
+                    throw new Error("No credentials");
+                } else {
+                    var secret_key = self.params.secret_key;
+                    var auth_params_str = JSON.stringify(basic_auth_params);
+                    var signature = self.s3.sign(secret_key, auth_params_str);
+                    var auth_params = {
+                        access_key: self.params.access_key,
+                        string_to_sign: auth_params_str,
+                        signature: signature,
+                    };
+                    if (self.params.tier) {
+                        auth_params.extra = {
+                            tier: self.params.tier,
+                            node_path: node_path
+                        };
+                    }
+                    dbg.log0('create_access_key_auth', auth_params);
+                    return self.client.create_access_key_auth(auth_params);
+                }
+            })
+            .then(function(res) {
+                if (res) {
+                    dbg.log0('result create:', res, 'node path:', node_path);
+                    self.create_node_token = res.token;
+                } else {
+                    dbg.log0('has token', self.create_node_token);
+                }
+                return P.nfcall(mkdirp, node_path);
+            }).then(function() {
+                dbg.log0('writing token', token_path);
+                return P.nfcall(fs.writeFile, token_path, self.create_node_token);
+            })
+            .then(function() {
+                dbg.log0('about to start node', node_path, 'with node name:', node_name);
+                return self.start(node_name, node_path);
+            }).then(function(res) {
+                dbg.log0('created', node_name);
+                return res;
+            }).then(null, function(err) {
+                dbg.log0('create failed', node_name, err, err.stack);
+                throw err;
+            });
+    });
+};
 /**
  *
  * CREATE
@@ -185,56 +338,36 @@ AgentCLI.prototype.load.helper = function() {
  */
 AgentCLI.prototype.create = function() {
     var self = this;
-
-    var node_name = os.hostname() + '-' + uuid();
-    var node_path = path.join(self.params.root_path, node_name);
-    var token_path = path.join(node_path, 'token');
-    dbg.log0('create new node');
-    return fs_utils.file_must_not_exist(token_path)
+    //create root path last
+    return P.all(_.map(_.drop(self.params.all_storage_paths, 1), function(current_storage_path) {
+            return fs_utils.list_directory(current_storage_path.mount)
+                .then(function(files) {
+                    if (files.length > 0) {
+                        //multi drive path includes nodes data, no need to recreate a node, skip.
+                        return;
+                    } else {
+                        return self.create_node_helper(current_storage_path);
+                    }
+                });
+        }))
         .then(function() {
-            if (self.create_node_token) return;
-            // authenticate and create a token for new nodes
-
-            var basic_auth_params = _.pick(self.params,
-                'system', 'role');
-            if (_.isEmpty(basic_auth_params)) {
-                throw new Error("No credentials");
+            //if multi drive, don't allow create more than one agent per drive
+            if (self.params.all_storage_paths.length > 1) {
+                return fs_utils.list_directory(self.params.all_storage_paths[0].mount)
+                    .then(function(files) {
+                        if (files.length > 0) {
+                            //In case we have multiple drives, we will allow only one node
+                            return;
+                        } else {
+                            return self.create_node_helper(self.params.all_storage_paths[0]);
+                        }
+                    });
             } else {
-                var secret_key = self.params.secret_key;
-                var auth_params_str = JSON.stringify(basic_auth_params);
-                var signature = self.s3.sign(secret_key, auth_params_str);
-                var auth_params = {
-                    access_key: self.params.access_key,
-                    string_to_sign: auth_params_str,
-                    signature: signature
-                };
-                if (self.params.tier) {
-                    auth_params.extra = {
-                        tier: self.params.tier
-                    };
-                }
-                return self.client.create_access_key_auth(auth_params);
+                return self.create_node_helper(self.params.all_storage_paths[0]);
             }
         })
-        .then(function(res) {
-            if (res) {
-                dbg.log0('result create:', res);
-                self.create_node_token = res.token;
-            } else {
-                dbg.log0('has token', self.create_node_token);
-            }
-            return P.nfcall(mkdirp, node_path);
-        }).then(function() {
-            return P.nfcall(fs.writeFile, token_path, self.create_node_token);
-        })
-        .then(function() {
-            return self.start(node_name);
-        }).then(function(res) {
-            dbg.log0('created', node_name);
-            return res;
-        }, function(err) {
-            dbg.log0('create failed', node_name, err, err.stack);
-            throw err;
+        .then(null, function(err) {
+            dbg.error('error while creating node:', err, err.stack);
         });
 };
 
@@ -270,24 +403,28 @@ AgentCLI.prototype.create_some.helper = function() {
  * start agent
  *
  */
-AgentCLI.prototype.start = function(node_name) {
+AgentCLI.prototype.start = function(node_name, node_path) {
     var self = this;
+    dbg.log0('agent started ', node_path, node_name);
 
     var agent = self.agents[node_name];
     if (!agent) {
+
         agent = self.agents[node_name] = new Agent({
             address: self.params.address,
             node_name: node_name,
-            storage_path: path.join(self.params.root_path, node_name),
+            storage_path: node_path,
+            all_storage_paths: self.params.all_storage_paths,
         });
-        dbg.log0('agent inited', node_name, self.params.addres, self.params.port, self.params.secure_port);
+
+        dbg.log0('agent inited', node_name, self.params.addres, self.params.port, self.params.secure_port, node_path);
     }
 
     return P.fcall(function() {
         return promise_utils.retry(100, 1000, 1000, agent.start.bind(agent));
     }).then(function(res) {
-        dbg.log0('agent started', node_name);
-        return res;
+        dbg.log0('agent started', node_name, 'res', res);
+        return node_name;
     }, function(err) {
         dbg.log0('FAILED TO START AGENT', node_name, err);
         throw err;
@@ -335,7 +472,7 @@ AgentCLI.prototype.list = function() {
     var i = 1;
     _.each(self.agents, function(agent, node_name) {
         dbg.log0('#' + i, agent.is_started ? '<ok>' : '<STOPPED>',
-            'node', node_name, 'port', agent.http_port);
+            'node', node_name, 'address', agent.rpc_address);
         i++;
     });
 };
@@ -374,11 +511,12 @@ function populate_general_help(general) {
     general.push('show("<function>"") to show help on a specific API');
 }
 
-function main() {
+AgentCLI.main = main;
 
+function main() {
     var cli = new AgentCLI(argv);
     cli.init().done(function() {
-        if (argv.norepl) return;
+        if (!argv.repl) return;
         // start a Read-Eval-Print-Loop
         var repl_srv = repl.start({
             prompt: 'agent-cli > ',

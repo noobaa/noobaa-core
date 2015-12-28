@@ -15,13 +15,16 @@
                 <tr>
                     <!-- <th></th> -->
                     <th>
-                        <div class="form-group">
-                            <input type="text" class="form-control floating-label" style="margin-top: -2px; border-bottom: none" placeholder="Node Name (click to search)" ng-model="nodes_query.search" ng-model-options="{debounce: 700}" ng-change="tier_router.set_query('search',nodes_query.search)"
+                        <div class="form-control-wrapper">
+                            <input type="text" class="form-control floating-label" style="margin-top: -2px" placeholder="Node Name (click to search)" ng-model="nodes_query.search" ng-model-options="{debounce: 700}" ng-change="tier_router.set_query('search',nodes_query.search)"
                             />
                         </div>
                     </th>
                     <th>IP</th>
                     <th>Raw Storage</th>
+                    <th>RTT</th>
+                    <th>Disk Read</th>
+                    <th>Disk Write</th>
                     <th>Status</th>
                 </tr>
                 <tr ng-repeat="node in nodes">
@@ -36,8 +39,11 @@
                             <span class="text-primary">{{node.name}}</span>
                         </a>
                     </td>
-                    <td>{{node.ip}}</td>
-                    <td>{{human_size(node.storage.used)}}</td>
+                    <td style="width: 1px; white-space: nowrap">{{node.ip}}</td>
+                    <td style="width: 1px; white-space: nowrap">{{human_size(node.storage.used)}}</td>
+                    <td style="width: 1px; white-space: nowrap">{{node.latency_to_server_str}}</td>
+                    <td style="width: 1px; white-space: nowrap">{{node.latency_of_disk_read_str}}</td>
+                    <td style="width: 1px; white-space: nowrap">{{node.latency_of_disk_write_str}}</td>
                     <td>
                         <span ng-switch="node.srvmode">
                             <span ng-switch-when="disabled" class="text-muted">Disabled</span>

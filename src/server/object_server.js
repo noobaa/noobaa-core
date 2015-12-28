@@ -50,7 +50,7 @@ module.exports = object_server;
 function create_multipart_upload(req) {
     return load_bucket(req)
         .then(function() {
-            dbg.log0('create_multipart_upload xattr',req.rpc_params);
+            dbg.log0('create_multipart_upload xattr', req.rpc_params);
             var info = {
                 system: req.system.id,
                 bucket: req.bucket.id,
@@ -149,7 +149,19 @@ function complete_multipart_upload(req) {
             dbg.error('complete_multipart_upload_err ', err, err.stack);
         })
         .then(function() {
-            return obj_etag;
+            return P.when(db.Bucket.findOneAndUpdate({
+                _id: obj.bucket,
+                deleted: null,
+            }, {
+                $inc: {
+                    'stats.writes': 1
+                }
+            }));
+        })
+        .then(function() {
+            return {
+                etag: obj_etag
+            };
         });
 }
 
@@ -175,7 +187,7 @@ function abort_multipart_upload(req) {
  *
  */
 function allocate_object_parts(req) {
-    return find_object_md(req)
+    return find_cached_object_md(req)
         .then(function(obj) {
             fail_obj_not_in_upload_mode(req, obj);
             return object_mapper.allocate_object_parts(
@@ -192,7 +204,7 @@ function allocate_object_parts(req) {
  *
  */
 function finalize_object_parts(req) {
-    return find_object_md(req)
+    return find_cached_object_md(req)
         .then(function(obj) {
             fail_obj_not_in_upload_mode(req, obj);
             return object_mapper.finalize_object_parts(
@@ -227,6 +239,7 @@ function report_bad_block(req) {
  */
 function read_object_mappings(req) {
     var obj;
+    var reply;
 
     return find_object_md(req)
         .then(function(obj_arg) {
@@ -245,10 +258,28 @@ function read_object_mappings(req) {
             return object_mapper.read_object_mappings(params);
         })
         .then(function(parts) {
-            return {
+            reply = {
                 size: obj.size,
                 parts: parts,
             };
+            return P.join(
+                P.when(db.Bucket.findOneAndUpdate({
+                    name: req.rpc_params.bucket,
+                    deleted: null,
+                }, {
+                    $inc: {
+                        'stats.reads': 1
+                    }
+                })),
+                P.when(db.ObjectMD.findOneAndUpdate(object_md_query(req), {
+                    $inc: {
+                        'stats.reads': 1
+                    }
+                }))
+            );
+        })
+        .then(function() {
+            return reply;
         });
 }
 
@@ -276,10 +307,10 @@ function read_object_md(req) {
  *
  */
 function update_object_md(req) {
-    dbg.log0('update object md',req.rpc_params);
+    dbg.log0('update object md', req.rpc_params);
     return find_object_md(req)
         .then(function(obj) {
-            var updates = _.pick(req.rpc_params, 'content_type','xattr');
+            var updates = _.pick(req.rpc_params, 'content_type', 'xattr');
             return obj.update(updates).exec();
         })
         .then(db.check_not_deleted(req, 'object'))
@@ -370,6 +401,14 @@ function list_objects(req) {
             if (limit) {
                 find.limit(limit);
             }
+            var sort = req.rpc_params.sort;
+            if (sort) {
+                var order = (req.rpc_params.order === -1) ? -1 : 1;
+                var sort_opt = {};
+                sort_opt[sort] = order;
+                find.sort(sort_opt);
+            }
+
             return P.all([
                 find.exec(),
                 req.rpc_params.pagination && db.ObjectMD.count(info)
@@ -426,7 +465,7 @@ function set_all_files_for_sync(sysid, bucketid) {
 
 
 function get_object_info(md) {
-    var info = _.pick(md, 'size', 'content_type', 'etag', 'xattr');
+    var info = _.pick(md, 'size', 'content_type', 'etag', 'xattr', 'stats');
     info.size = info.size || 0;
     info.content_type = info.content_type || 'application/octet-stream';
     info.etag = info.etag || '';
@@ -434,6 +473,8 @@ function get_object_info(md) {
     if (_.isNumber(md.upload_size)) {
         info.upload_size = md.upload_size;
     }
+    info.stats = {};
+    info.stats.reads = (info.stats && info.stats.reads) || 0;
     return info;
 }
 
@@ -462,16 +503,21 @@ function object_md_query(req) {
 function find_object_md(req) {
     return load_bucket(req)
         .then(function() {
-            var query = _.omit(object_md_query(req), 'deleted');
-            query.deleted = null;
-            dbg.log0('find object:', query);
-            return db.ObjectMD.findOne(query).exec();
+            return db.ObjectMD.findOne(object_md_query(req)).exec();
         })
-        .then(db.check_not_found(req, 'object'))
-        .then(function(obj) {
-            dbg.log0('find object(2):', obj);
-            return obj;
-        });
+        .then(db.check_not_deleted(req, 'object'));
+}
+
+function find_cached_object_md(req) {
+    return load_bucket(req)
+        .then(function() {
+            return db.ObjectMDCache.get({
+                system: req.system.id,
+                bucket: req.bucket.id,
+                key: req.rpc_params.key
+            });
+        })
+        .then(db.check_not_deleted(req, 'object'));
 }
 
 function fail_obj_not_in_upload_mode(req, obj) {

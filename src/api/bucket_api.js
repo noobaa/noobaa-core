@@ -23,9 +23,12 @@ module.exports = {
                         type: 'string',
                     },
                     tiering: {
-                        $ref: '/tiering_policy_api/definitions/tiering_policy'
+                        type: 'string',
                     }
                 }
+            },
+            reply: {
+                $ref: '/bucket_api/definitions/bucket_info'
             },
             auth: {
                 system: 'admin'

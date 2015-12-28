@@ -22,6 +22,9 @@ module.exports = {
                     }
                 }
             },
+            reply: {
+                $ref: '/tiering_policy_api/definitions/tiering_policy_extended'
+            },
             auth: {
                 system: 'admin'
             }
@@ -39,13 +42,36 @@ module.exports = {
                     }
                 }
             },
+            reply: {
+                $ref: '/tiering_policy_api/definitions/tiering_policy'
+            },
             auth: {
                 system: 'admin'
             }
         },
 
-        get_policy: {
-            doc: 'Get Tiering Policy',
+        read_policy: {
+            doc: 'Read Tiering Policy',
+            method: 'GET',
+            params: {
+                type: 'object',
+                required: ['name'],
+                properties: {
+                    name: {
+                        type: 'string',
+                    },
+                }
+            },
+            reply: {
+                $ref: '/tiering_policy_api/definitions/tiering_policy_extended'
+            },
+            auth: {
+                system: 'admin'
+            }
+        },
+
+        get_policy_pools: {
+            doc: 'Get Tiering Policy Pools',
             method: 'GET',
             params: {
                 type: 'object',
@@ -104,6 +130,46 @@ module.exports = {
                     }]
                 }
             }
-        }
-    }
+        },
+        tiering_policy_extended: {
+            type: 'object',
+            required: ['name', 'tiers'],
+            properties: {
+                name: {
+                    type: 'string',
+                },
+                tiers: {
+                    type: 'array',
+                    properties: [{
+                        order: {
+                            type: Number,
+                            required: true,
+                        },
+                        tier: {
+                            type: 'object',
+                            required: ['name', 'tiers'],
+                            properties: {
+                                name: {
+                                    type: 'string',
+                                },
+                                data_placement: {
+                                    type: 'string',
+                                    enum: ['MIRROR', 'SPREAD'],
+                                },
+                                pools: {
+                                    type: 'array',
+                                    properties: [{
+                                        name: {
+                                            type: 'string',
+                                            required: true,
+                                        },
+                                    }],
+                                },
+                            },
+                        },
+                    }],
+                },
+            },
+        },
+    },
 };

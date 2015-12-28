@@ -10,6 +10,8 @@ var stats_aggregator = {
     get_systems_stats: get_systems_stats,
     get_nodes_stats: get_nodes_stats,
     get_ops_stats: get_ops_stats,
+    get_pool_stats: get_pool_stats,
+    get_tier_stats: get_tier_stats,
     get_all_stats: get_all_stats,
 
     //OP stats collection
@@ -207,6 +209,39 @@ function get_ops_stats(req) {
     return ops_stats;
 }
 
+function get_pool_stats(req) {
+    var pool_stats = [];
+    return P.when(db.Pool
+            .find({
+                deleted: null,
+            })
+            .exec())
+        .then(function(pools) {
+            _.each(pools, function(p) {
+                pool_stats.push(p.nodes.length);
+            });
+            return pool_stats;
+        });
+}
+
+function get_tier_stats(req) {
+    var tier_stats = [];
+    return P.when(db.Tier
+            .find({
+                deleted: null,
+            })
+            .exec())
+        .then(function(tiers) {
+            _.each(tiers, function(t) {
+                tier_stats.push({
+                    pools_num: t.pools.length,
+                    data_placement: t.data_placement,
+                });
+            });
+            return tier_stats;
+        });
+}
+
 //Collect operations related stats and usage
 function get_all_stats(req) {
     //var self = this;
@@ -225,13 +260,23 @@ function get_all_stats(req) {
             return get_systems_stats(req);
         })
         .then(function(sys_stats) {
-            dbg.log2('SYSTEM_SERVER_STATS_AGGREGATOR:', '  Collecting Nodes');
             stats_payload.sys_stats = sys_stats;
+            dbg.log2('SYSTEM_SERVER_STATS_AGGREGATOR:', '  Collecting Nodes');
             return get_nodes_stats(req);
         })
         .then(function(node_stats) {
-            dbg.log2('SYSTEM_SERVER_STATS_AGGREGATOR:', '  Collecting Ops (STUB)'); //TODO
             stats_payload.node_stats = node_stats;
+            dbg.log2('SYSTEM_SERVER_STATS_AGGREGATOR:', '  Collecting Pools');
+            return get_pool_stats(req);
+        })
+        .then(function(pools_stats) {
+            stats_payload.pools_stats = pools_stats;
+            dbg.log2('SYSTEM_SERVER_STATS_AGGREGATOR:', '  Collecting Tiers');
+            return get_tier_stats(req);
+        })
+        .then(function(tier_stats) {
+            stats_payload.tier_stats = tier_stats;
+            dbg.log2('SYSTEM_SERVER_STATS_AGGREGATOR:', '  Collecting Ops (STUB)'); //TODO
             return get_ops_stats(req);
         })
         .then(function(ops_stats) {
@@ -311,7 +356,7 @@ function send_stats_payload(payload) {
             return;
         })
         .then(null, function(err) {
-            dbg.log0('Phone Home data send failed', err, err.stack());
+            dbg.log0('Phone Home data send failed', err, err.stack);
         });
 }
 

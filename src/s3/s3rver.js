@@ -57,7 +57,8 @@ if (cluster.isMaster) {
             if (params.address) {
                 api.rpc.base_address = params.address;
             }
-            return api.rpc.register_n2n_transport();
+            var n2n_agent =  api.rpc.register_n2n_transport();
+            n2n_agent.set_any_rpc_address();
         })
         .then(function() {
             return P.nfcall(pem.createCertificate.bind(pem), {

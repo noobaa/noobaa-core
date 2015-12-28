@@ -23,13 +23,13 @@ var dbg = require('../util/debug_module')(__filename);
 const CAND_TYPE_HOST = 'host';
 const CAND_TYPE_SERVER_REFLEX = 'server';
 const CAND_TYPE_PEER_REFLEX = 'peer';
-const CAND_DISCARD_PORT = 9;
+const CAND_DISCARD_PORT = 0;
 const CAND_TCP_TYPE_ACTIVE = 'active';
 const CAND_TCP_TYPE_PASSIVE = 'passive';
 const CAND_TCP_TYPE_SO = 'so';
 
-const ICE_UFRAG_LENGTH = 4;
-const ICE_PWD_LENGTH = 22;
+const ICE_UFRAG_LENGTH = 32; // ice rfc uses 4
+const ICE_PWD_LENGTH = 32; // ice rfc uses 22
 const RAND_ICE_CHAR_POOL_64 =
     'abcdefghijklmnopqrstuvwxyz' +
     'ABCDEFGHIJKLMNOPQRTTUVWXYZ' +
@@ -952,7 +952,7 @@ Ice.prototype._upgrade_to_tls = function(session) {
     }
 
     function once_connected() {
-        dbg.log0('ICE TLS CONNECTED', session.key);
+        dbg.log0('ICE TLS CONNECTED', session.key, tls_conn.getCipher());
         session.tcp = tls_conn;
         tls_conn.frame_stream = new FrameStream(tls_conn);
         self.emit('connect', session);
@@ -1444,6 +1444,7 @@ function make_session_key(local, remote) {
  */
 function listen_on_port_range(port_range) {
     var attempts = 0;
+    var max_attempts = 3;
     return P.fcall(try_to_listen);
 
     function try_to_listen() {
@@ -1452,9 +1453,7 @@ function listen_on_port_range(port_range) {
         if (typeof(port_range) === 'object') {
             if (typeof(port_range.min) === 'number' &&
                 typeof(port_range.max) === 'number') {
-                if (attempts > port_range.max - port_range.min) {
-                    throw new Error('ICE PORT ALLOCATION EXHAUSTED');
-                }
+                max_attempts = Math.min(10, 10 * (port_range.max - port_range.min));
                 port = chance.integer(port_range);
             } else {
                 port = port_range.port || 0;
@@ -1464,7 +1463,10 @@ function listen_on_port_range(port_range) {
         } else {
             port = 0;
         }
-        dbg.log1('ICE listen_on_port_range', port, 'attempts', attempts);
+        if (attempts > max_attempts) {
+            throw new Error('ICE PORT ALLOCATION EXHAUSTED');
+        }
+        dbg.log0('ICE listen_on_port_range', port, 'attempts', attempts);
         attempts += 1;
         server.listen(port);
         // wait for listen even, while also watching for error/close.

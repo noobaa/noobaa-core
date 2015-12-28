@@ -138,28 +138,6 @@ module.exports = {
         },
 
 
-        get_system_resource_info: {
-            method: 'GET',
-            reply: {
-                type: 'object',
-                requires: [],
-                properties: {
-                    agent_installer: {
-                        type: 'string',
-                    },
-                    linux_agent_installer: {
-                        type: 'string',
-                    },
-                    s3rest_installer: {
-                        type: 'string',
-                    },
-                }
-            },
-            auth: {
-                system: 'admin',
-            }
-        },
-
         read_activity_log: {
             method: 'GET',
             params: {
@@ -294,6 +272,45 @@ module.exports = {
                 system: 'admin',
             }
         },
+
+        update_n2n_config: {
+            method: 'POST',
+            params: {
+                $ref: '/common_api/definitions/n2n_config'
+            },
+            reply: {
+                $ref: '/system_api/definitions/system_nodes_update_reply'
+            },
+            auth: {
+                system: 'admin',
+            }
+        },
+
+        update_base_address: {
+            method: 'POST',
+            params: {
+                type: 'object',
+                required: ['base_address'],
+                properties: {
+                    base_address: {
+                        type: 'string'
+                    }
+                }
+            },
+            reply: {
+                $ref: '/system_api/definitions/system_nodes_update_reply'
+            },
+            auth: {
+                system: 'admin',
+            }
+        },
+
+        update_system_certificate: {
+            method: 'POST',
+            auth: {
+                system: 'admin',
+            }
+        },
     },
 
 
@@ -316,6 +333,7 @@ module.exports = {
                 'name',
                 'roles',
                 'tiers',
+                'pools',
                 'storage',
                 'nodes',
                 'buckets',
@@ -350,6 +368,27 @@ module.exports = {
                         $ref: '/bucket_api/definitions/bucket_info'
                     }
                 },
+                pools: {
+                    type: 'array',
+                    items: {
+                        type: 'object',
+                        required: ['name', 'total_nodes', 'online_nodes', 'storage'],
+                        properties: {
+                            name: {
+                                type: 'string'
+                            },
+                            total_nodes: {
+                                type: 'integer',
+                            },
+                            online_nodes: {
+                                type: 'integer',
+                            },
+                            storage: {
+                                $ref: '/common_api/definitions/storage_info'
+                            },
+                        },
+                    },
+                },
                 objects: {
                     type: 'integer'
                 },
@@ -363,6 +402,29 @@ module.exports = {
                     type: 'string'
                 },
                 web_port: {
+                    type: 'string'
+                },
+                web_links: {
+                    type: 'object',
+                    properties: {
+                        agent_installer: {
+                            type: 'string',
+                        },
+                        linux_agent_installer: {
+                            type: 'string',
+                        },
+                        s3rest_installer: {
+                            type: 'string',
+                        },
+                    }
+                },
+                n2n_config: {
+                    $ref: '/common_api/definitions/n2n_config'
+                },
+                ip_address: {
+                    type: 'string'
+                },
+                base_address: {
                     type: 'string'
                 },
             }
@@ -409,6 +471,7 @@ module.exports = {
                 },
             }
         },
+
         access_keys: {
             type: 'object',
             required: ['access_key', 'secret_key'],
@@ -421,6 +484,20 @@ module.exports = {
                     type: String,
                 }
             }
+        },
+
+        system_nodes_update_reply: {
+            type: 'object',
+            required: ['nodes_count', 'nodes_updated'],
+            peroperties: {
+                nodes_count: {
+                    type: 'integer'
+                },
+                nodes_updated: {
+                    type: 'integer'
+                }
+            }
         }
+
     }
 };

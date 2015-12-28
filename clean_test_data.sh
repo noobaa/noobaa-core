@@ -1,41 +1,24 @@
 #!/bin/bash
 
-read -p "1. Are you sure? [y/N] " -n 1 -r
-echo    # (optional) move to a new line
-if [[ ! $REPLY =~ ^[Yy]$ ]]
-then
-    echo "You managed to abort me. bye."
-    exit 1
-fi
+echo "disk usage of agent_storage:"
+du -sh agent_storage/*
 
-read -p "2. Still sure? [y/N] " -n 1 -r
-echo    # (optional) move to a new line
-if [[ ! $REPLY =~ ^[Yy]$ ]]
-then
-    echo "You almost fooled me. bye."
-    exit 1
-fi
+./are_you_sure.sh || exit $?
 
-read -p "3. Last chance? [y/N] " -n 1 -r
-echo    # (optional) move to a new line
-if [[ ! $REPLY =~ ^[Yy]$ ]]
-then
-    echo "You are living on the edge. bye."
-    exit 1
-fi
-
-echo -n "4. You have 3 seconds to abort ... "
-for i in `seq 3`
-do
-    echo -n "$i "
-    sleep 1
-done
 echo ""
 echo ""
 echo "running ..."
-
 echo ""
-mongo nbcore _clean_db_objects.js
 
+DB="mongo nbcore --quiet --eval"
+echo "removing DataBlocks  ..." `$DB 'db.datablocks.remove({})'`
+echo "removing DataChunks  ..." `$DB 'db.datachunks.remove({})'`
+echo "removing ObjectParts ..." `$DB 'db.objectparts.remove({})'`
+echo "removing ObjectMDs   ..." `$DB 'db.objectmds.remove({})'`
+echo "done."
 echo ""
-source _clean_agent_blocks.sh
+
+echo "deleting agent_storage/*/blocks ..."
+rm -rf agent_storage/*/blocks
+echo "done."
+echo ""

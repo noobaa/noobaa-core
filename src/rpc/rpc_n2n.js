@@ -35,8 +35,8 @@ function RpcN2NConnection(addr_url, n2n_agent) {
     var self = this;
     if (!n2n_agent) throw new Error('N2N AGENT NOT REGISTERED');
     RpcBaseConnection.call(self, addr_url);
-
-    self.ice = new Ice(self.connid, n2n_agent.ice_config, self.url.href);
+    self.n2n_agent = n2n_agent;
+    self.ice = new Ice(self.connid, n2n_agent.n2n_config, self.url.href);
 
     self.ice.on('close', function() {
         var closed_err = new Error('N2N ICE CLOSED');
@@ -48,7 +48,15 @@ function RpcN2NConnection(addr_url, n2n_agent) {
         self.emit('error', err);
     });
 
+    self.reset_n2n_listener = function() {
+        var reset_err = new Error('N2N RESET');
+        reset_err.stack = '';
+        self.emit('error', reset_err);
+    };
+    n2n_agent.on('reset_n2n', self.reset_n2n_listener);
+
     self.ice.once('connect', function(session) {
+        self.session = session;
         if (session.tcp) {
             dbg.log0('N2N CONNECTED TO TCP',
                 // session.tcp.localAddress + ':' + session.tcp.localPort, '=>',
@@ -100,6 +108,7 @@ RpcN2NConnection.prototype.accept = function(remote_info) {
 };
 
 RpcN2NConnection.prototype._close = function(err) {
+    this.n2n_agent.removeListener('reset_n2n', this.reset_n2n_listener);
     this.ice.close();
 };
 
@@ -131,12 +140,8 @@ function RpcN2NAgent(options) {
     // lazy loading of native_core to use Nudp
     var Nudp = native_core().Nudp;
 
-    // initialize the ICE config structure
-    self.ice_config = {
-
-        // auth options
-        ufrag_length: 32,
-        pwd_length: 32,
+    // initialize the default config structure
+    self.n2n_config = {
 
         // ip options
         offer_ipv4: true,
@@ -148,8 +153,8 @@ function RpcN2NAgent(options) {
         // tcp options
         tcp_active: true,
         tcp_permanent_passive: {
-            min: 60111,
-            max: 60888
+            min: 60100,
+            max: 60600
         },
         tcp_transient_passive: false,
         tcp_simultaneous_open: false,
@@ -193,6 +198,7 @@ function RpcN2NAgent(options) {
             // send ice info to the peer over a relayed signal channel
             // in order to coordinate NAT traversal.
             return self.signaller({
+                source: self.rpc_address,
                 target: target,
                 info: info
             });
@@ -202,80 +208,80 @@ function RpcN2NAgent(options) {
 
 util.inherits(RpcN2NAgent, EventEmitter);
 
-RpcN2NAgent.prototype.reset_peer_id = function() {
-    this.peer_id = undefined;
+RpcN2NAgent.prototype.reset_rpc_address = function() {
+    this.rpc_address = undefined;
 };
-RpcN2NAgent.prototype.set_peer_id = function(peer_id) {
-    this.peer_id = peer_id;
+RpcN2NAgent.prototype.set_rpc_address = function(rpc_address) {
+    this.rpc_address = rpc_address;
 };
-RpcN2NAgent.prototype.set_any_peer_id = function() {
-    this.peer_id = '*';
+RpcN2NAgent.prototype.set_any_rpc_address = function() {
+    this.rpc_address = '*';
 };
 
 RpcN2NAgent.prototype.set_ssl_context = function(secure_context_params) {
-    this.ice_config.ssl_options.secureContext =
+    this.n2n_config.ssl_options.secureContext =
         tls.createSecureContext(secure_context_params);
 };
 
-RpcN2NAgent.prototype.update_ice_config = function(config) {
+var global_tcp_permanent_passive;
+
+RpcN2NAgent.prototype.update_n2n_config = function(config) {
+    dbg.log0('UPDATE N2N CONFIG', config);
     var self = this;
     _.each(config, function(val, key) {
         if (key === 'tcp_permanent_passive') {
             // since the tcp permanent object holds more info than just the port_range
             // then we need to check if the port range cofig changes, if not we ignore
             // if it did then we have to start a new
-            var conf = self.ice_config.tcp_permanent_passive;
-            if (!_.isEqual(_.pick('min', 'max', 'port'), val)) {
+            var conf = self.n2n_config.tcp_permanent_passive;
+            var conf_val = _.pick(conf, 'min', 'max', 'port');
+            dbg.log0('update_n2n_config: update tcp_permanent_passive old', conf_val, 'new', val);
+            if (!_.isEqual(conf_val, val)) {
                 if (conf.server) {
+                    dbg.log0('update_n2n_config: close tcp_permanent_passive old server');
                     conf.server.close();
+                    conf.server = null;
+                    global_tcp_permanent_passive = null;
                 }
-                self.ice_config.tcp_permanent_passive = _.clone(val);
+                if (!global_tcp_permanent_passive) {
+                    global_tcp_permanent_passive = _.clone(val);
+                }
+                self.n2n_config.tcp_permanent_passive = global_tcp_permanent_passive;
             }
         } else {
-            self.ice_config[key] = val;
+            self.n2n_config[key] = val;
         }
     });
+
+    // emit 'reset_n2n' to notify all existing connections to close
+    self.emit('reset_n2n');
+    var remaining_listeners = self.listenerCount('reset_n2n');
+    if (remaining_listeners) {
+        dbg.warn('update_n2n_config: remaining listeners on reset_n2n event',
+            remaining_listeners, '(probably a connection that forgot to call close)');
+    }
 };
 
 RpcN2NAgent.prototype.signal = function(params) {
     var self = this;
-    dbg.log0('N2N AGENT signal:', params);
+    dbg.log0('N2N AGENT signal:', params, 'my rpc_address', self.rpc_address);
 
-    // TODO target address is me, should use the source address but we don't send it ...
-    var target_url = url_utils.quick_parse(params.target);
-    // the special case if peer_id='*' allows testing code to accept for any peer_id
-    if (!self.peer_id || !target_url.hostname ||
-        (self.peer_id !== '*' && self.peer_id !== target_url.hostname)) {
+    // target address is me, source is you.
+    // the special case if rpc_address='*' allows testing code to accept for any target
+    var source = url_utils.quick_parse(params.source);
+    var target = url_utils.quick_parse(params.target);
+    if (!self.rpc_address || !target ||
+        (self.rpc_address !== '*' && self.rpc_address !== target.href)) {
         throw new Error('N2N MISMATCHING PEER ID ' + params.target +
-            ' my peer id ' + self.peer_id);
+            ' my rpc_address ' + self.rpc_address);
     }
-    var conn = new RpcN2NConnection(target_url, self);
+    var conn = new RpcN2NConnection(source, self);
     conn.once('connect', function() {
         self.emit('connection', conn);
     });
     return conn.accept(params.info);
 };
 
-
-/*
-function read_on_premise_stun_server() {
-    return fs.readFileAsync('agent_conf.json')
-        .then(function(data) {
-            var agent_conf = JSON.parse(data);
-            var host_url = url.parse(agent_conf.address);
-            return P.nfcall(dns.resolve, host_url.hostname);
-        })
-        .then(function(server_ips) {
-            if (!server_ips || !server_ips[0]) return;
-            var stun_url = url.parse('stun://' + server_ips[0] + ':3479');
-            dbg.log0('N2N STUN SERVER from agent_conf.json', stun_url.href);
-            return stun_url;
-        })
-        .catch(function(err) {
-            dbg.log0('N2N NO STUN SERVER in agent_conf.json');
-        });
-}
-*/
 
 // TODO this is a temporary place to keep the SSL certificate
 function get_global_ssl_key() {

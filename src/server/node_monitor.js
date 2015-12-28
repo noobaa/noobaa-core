@@ -20,6 +20,8 @@ var server_rpc = require('./server_rpc').server_rpc;
 var bg_worker = require('./server_rpc').bg_worker;
 var system_server = require('./system_server');
 var dbg = require('../util/debug_module')(__filename);
+var pkg = require('../../package.json');
+var current_pkg_version = pkg.version;
 
 server_rpc.on('reconnect', _on_reconnect);
 
@@ -123,7 +125,7 @@ function heartbeat(req) {
         (req.role === 'admin' || req.role === 'agent')) {
         req.rpc_params.node_id = req.auth.extra.node_id;
         req.rpc_params.peer_id = req.auth.extra.peer_id;
-        return update_heartbeat(req.rpc_params, req.connection);
+        return update_heartbeat(req);
     }
 
     // check if the node doesn't yet has an id
@@ -137,10 +139,21 @@ function heartbeat(req) {
             geolocation: req.rpc_params.geolocation,
         }, {
             auth_token: req.auth_token
+        }).catch(function(err) {
+            if (err.rpc_code === 'CONFLICT') {
+                // TODO how to handle this case that the agent created but lost the token?
+                dbg.error('heartbeat: create node name CONFLICT',
+                    '(TODO probably the agent lost the token)',
+                    err.stack || err, req.rpc_params);
+                throw err;
+            } else {
+                dbg.error('heartbeat: create node ERROR', err.stack || err, req.rpc_params);
+                throw err;
+            }
         }).then(function(node) {
             req.rpc_params.node_id = node.id;
             req.rpc_params.peer_id = node.peer_id;
-            return update_heartbeat(req.rpc_params, req.connection, node.token);
+            return update_heartbeat(req, node.token);
         });
     }
 
@@ -154,7 +167,9 @@ function heartbeat(req) {
  * UPDATE HEARTBEAT
  *
  */
-function update_heartbeat(params, conn, reply_token) {
+function update_heartbeat(req, reply_token) {
+    var params = req.rpc_params;
+    var conn = req.connection;
     var node_id = params.node_id;
     var peer_id = params.peer_id;
     var node;
@@ -172,7 +187,7 @@ function update_heartbeat(params, conn, reply_token) {
     var rpc_proto = process.env.AGENTS_PROTOCOL || 'n2n';
     var rpc_address;
     if (rpc_proto !== 'n2n') {
-        rpc_address = rpc_proto + '://' + params.ip + ':' + (process.env.AGENT_PORT || 60111);
+        rpc_address = rpc_proto + '://' + params.ip + ':' + (process.env.AGENT_PORT || 9999);
     } else {
         rpc_address = 'n2n://' + peer_id;
         dbg.log0('PEER REVERSE ADDRESS', rpc_address, conn.url.href);
@@ -200,44 +215,22 @@ function update_heartbeat(params, conn, reply_token) {
         params.rpc_address = rpc_address;
     }
 
+
     var reply = {
-        rpc_address: rpc_address,
-        version: process.env.AGENT_VERSION || '0',
+        version: current_pkg_version || '0',
         delay_ms: hb_delay_ms,
     };
+
+    //0.4 backward compatible - reply with version and without rpc address.
+    if (!params.id) {
+        reply.rpc_address = rpc_address;
+    }
     if (reply_token) {
         reply.auth_token = reply_token;
     }
 
     if (params.extended_hb) {
-        // these ice options affect only agents.
-        // non-agents use the default as defined in rpc_n2n.js,
-        // TODO keep ice config in pool/system
-        reply.ice_config = {
-            // ip options
-            offer_ipv4: true,
-            offer_ipv6: false,
-            accept_ipv4: true,
-            accept_ipv6: true,
-            offer_internal: false,
-            // tcp options
-            tcp_active: true,
-            tcp_permanent_passive: {
-                min: 60111,
-                max: 60888
-            },
-            tcp_transient_passive: false,
-            tcp_simultaneous_open: false,
-            tcp_tls: true,
-            // udp options
-            udp_port: true,
-            udp_dtls: false,
-            stun_servers: [
-                // TODO stun server address (only IPv4 is supported now, also need to resolve DNS)
-                // 'stun://our-server-ip:3479'
-                // 'stun://64.233.184.127:19302' // === 'stun://stun.l.google.com:19302'
-            ]
-        };
+        reply.n2n_config = _.cloneDeep(req.system.n2n_config);
     }
 
     // code for testing performance of server with no heartbeat work
@@ -275,6 +268,10 @@ function update_heartbeat(params, conn, reply_token) {
                 params.rpc_address !== node.rpc_address) {
                 updates.rpc_address = params.rpc_address;
             }
+            if (params.base_address &&
+                params.base_address !== node.base_address) {
+                updates.base_address = params.base_address;
+            }
             if (params.version && params.version !== node.version) {
                 updates.version = params.version;
             }
@@ -310,6 +307,42 @@ function update_heartbeat(params, conn, reply_token) {
                 updates.os_info = params.os_info;
                 updates.os_info.last_update = new Date();
             }
+
+            // push latency measurements to arrays
+            // limit the size of the array to keep the last ones using negative $slice
+            var MAX_NUM_LATENCIES = 20;
+            if (params.latency_to_server) {
+                _.merge(updates, {
+                    $push: {
+                        latency_to_server: {
+                            $each: params.latency_to_server,
+                            $slice: -MAX_NUM_LATENCIES
+                        }
+                    }
+                });
+            }
+            if (params.latency_of_disk_read) {
+                _.merge(updates, {
+                    $push: {
+                        latency_of_disk_read: {
+                            $each: params.latency_of_disk_read,
+                            $slice: -MAX_NUM_LATENCIES
+                        }
+                    }
+                });
+            }
+            if (params.latency_of_disk_write) {
+                _.merge(updates, {
+                    $push: {
+                        latency_of_disk_write: {
+                            $each: params.latency_of_disk_write,
+                            $slice: -MAX_NUM_LATENCIES
+                        }
+                    }
+                });
+            }
+
+            updates.debug_level = params.debug_level || 0;
 
             dbg.log2('NODE heartbeat', node_id, params.ip + ':' + params.port);
 
@@ -376,9 +409,12 @@ function self_test_to_node_via_web(req) {
     console.log('SELF TEST', target, 'from', source);
 
     return server_rpc.client.agent.self_test_peer({
+        source: source,
         target: target,
-        request_length: req.rpc_params.request_length || 1024,
-        response_length: req.rpc_params.response_length || 1024,
+        request_length: req.rpc_params.request_length,
+        response_length: req.rpc_params.response_length,
+        count: req.rpc_params.count,
+        concur: req.rpc_params.concur,
     }, {
         address: source,
     });
@@ -415,6 +451,9 @@ function set_debug_node(req) {
         .then(null, function(err) {
             dbg.log0('Error on set_debug_node', err);
             return '';
+        })
+        .then(function() {
+          dbg.log1('set_debug_node for agent', target, 'was successful');
         });
 }
 

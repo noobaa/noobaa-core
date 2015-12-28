@@ -39,13 +39,12 @@
                 <div style="min-height: 200px; padding: 20px">
                     <div ng-if="stage==1">
                         <p class="text-center">
-                            <b>Configure the following entry in your DNS</b>
-                            <br/> in order for the nodes to connect to the NooBaa server:
+                            <b>The Server Address for Node connections is:</b>
                         </p>
-                        <pre style="margin-top: 20px; max-width: 380px" class="center-block">{{$location.host()}} <b>noobaa.local</b></pre>
-                        <div class="text-center" style="margin-top: 20px">
-                            ** this server IP should be available on the network
-                        </div>
+                        <pre style="margin-top: 20px; Xmax-width: 380px" class="center-block text-center">{{nbSystem.system.base_address}}</pre>
+                        <p class="text-center" style="margin-top: 20px">
+                            ** Using a DNS name instead of IP address is recommended. You can update the Server DNS Name from the <a ng-click="goto_config_dns()">System Configuration</a> page.
+                        </p>
                     </div>
                     <div ng-if="stage==2">
                         <p class="text-center">
@@ -69,25 +68,16 @@
                             <b>Distribute and run the agent installer on the nodes
                             <br/> you wish to participate in the network</b>
                         </p>
-                        <p class="text-left" style="margin-top: 20px">
-                            ** Use the following arguments for silent install to this system:
+                        <pre id="copy-text-area" style="font-size: 11px; color: hsl(0,0%,50%)" class="block" data-placement="bottom"><b>/S /config</b> {{ encoded_agent_conf }}</pre>
+                        <p class="text-center" style="margin-top: 20px">
+                            ** Use the following arguments line for silent install to this system:
                         </p>
-                        <select class="form-control" ng-model="encoding.type" required ng-options='option.value as option.name for option in typeOptions' ng-change="dns_select(encoding.type)">
-                        </select>
-                        <br>
-                        <br>
-                        <span ng-show="encoding.show_other_dns" >
-                            <div class="form-group">
-                                <input type="text" class="form-control floating-label" style="margin-top: -2px; border-bottom: none" placeholder="enter other DNS name" ng-model="encoding.new_dns" ng-change="new_dns()" ng-model-options="{debounce: 700}" />
-                            </div>
-                        </span>
-
-                        <pre style="font-size: 11px; color: hsl(0,0%,50%)" class="block" nb-clipboard="'/S /config ' + encoding.type" rel="tooltip" title="Click to copy to clipboard" data-placement="bottom"><b>/S /config</b> {{ encoding.type }}</pre>
-                        <button class="btn btn-default" style="width: 30%;padding: 10px" nb-clipboard="'/S /config ' + encoding.type">
-                            Copy To Clipboard
-                        </button>
+                        <div class="text-center" style="margin-top: 20px">
+                            <button ng-click="copy_to_clipboard()" id="copy-button" class="btn btn-default">
+                                Copy To Clipboard
+                            </button>
+                        </div>
                     </div>
-
                     <div ng-if="stage==4">
                         <p class="text-center">
                             <b>Review the new nodes</b>
@@ -103,7 +93,7 @@
                     </div>
                 </div>
 
-                <div style="padding: 30px" class="text-right">
+                <div style="padding: 10px" class="text-right">
                     <button class="btn btn-default" ng-click="prev_stage()" ng-show="stage>1">
                         Previous
                     </button>

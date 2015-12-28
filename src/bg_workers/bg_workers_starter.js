@@ -8,55 +8,17 @@ require('dotenv').load();
 
 var _ = require('lodash');
 var P = require('../util/promise');
-var mongoose = require('mongoose');
 var http = require('http');
 var promise_utils = require('../util/promise_utils');
 var cloud_sync = require('./cloud_sync');
 var build_chunks = require('./build_chunks_worker');
 var dbg = require('../util/debug_module')(__filename);
-var mongoose_logger = require('../util/mongoose_logger');
+var db = require('../server/db');
+
 
 dbg.set_process_name('BGWorkers');
 
-//TODO:: move all this to db index (function and direct call)
-var debug_mode = (process.env.DEBUG_MODE === 'true');
-var mongoose_connected = false;
-var mongoose_timeout = null;
-
-// connect to the database
-if (debug_mode) {
-    mongoose.set('debug', mongoose_logger(dbg.log0.bind(dbg)));
-}
-
-mongoose.connection.once('open', function() {
-    // call ensureIndexes explicitly for each model
-    mongoose_connected = true;
-    return P.all(_.map(mongoose.modelNames(), function(model_name) {
-        return P.npost(mongoose.model(model_name), 'ensureIndexes');
-    }));
-});
-
-mongoose.connection.on('error', function(err) {
-    mongoose_connected = false;
-    console.error('mongoose connection error:', err);
-    if (!mongoose_timeout) {
-        mongoose_timeout = setTimeout(mongoose_conenct, 5000);
-    }
-
-});
-
-function mongoose_conenct() {
-    clearTimeout(mongoose_timeout);
-    mongoose_timeout = null;
-    if (!mongoose_connected) {
-        mongoose.connect(
-            process.env.MONGOHQ_URL ||
-            process.env.MONGOLAB_URI ||
-            'mongodb://localhost/nbcore');
-    }
-}
-
-mongoose_conenct();
+db.mongoose_connect();
 
 var bg_workers_rpc;
 var http_server;

@@ -204,7 +204,22 @@ function test() {
         concur = _.isNaN(concur) ? 1 : concur;
         var nparts = parseInt(process.argv[5]);
         nparts = _.isNaN(nparts) ? 1 : nparts;
+        console.log('CONCUR', concur, 'NPARTS', nparts);
         init_api()
+            .then(function() {
+                return api.client.object.delete_object({
+                    bucket: 'files',
+                    key: path.basename(filename),
+                }).fail(function() {});
+            })
+            .then(function() {
+                return api.client.object.create_multipart_upload({
+                    bucket: 'files',
+                    key: path.basename(filename),
+                    size: 1024 * 1024 * 1024 * 1024,
+                    content_type: 'application/octet_stream'
+                });
+            })
             .then(function() {
                 var req_count = 0;
                 var part_count = 0;

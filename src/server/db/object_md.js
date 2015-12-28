@@ -71,6 +71,13 @@ var objmd_schema = new Schema({
     // xattr saved as free form object
     xattr: {},
 
+    // Statistics
+    stats: {
+        reads: {
+            type: Number,
+        }
+    },
+
     // on delete set deletion time
     //see relation to cloud_synced, if deleted will ever be actually
     //remove from the DB, need to wait until its cloud_synced === true

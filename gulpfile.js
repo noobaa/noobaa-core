@@ -3,7 +3,7 @@
 var gulp = require('gulp');
 var gutil = require('gulp-util');
 // var gulp_debug = require('gulp-debug');
-// var gulp_replace = require('gulp-replace');
+var gulp_replace = require('gulp-replace');
 // var gulp_filter = require('gulp-filter');
 var gulp_size = require('gulp-size');
 var gulp_concat = require('gulp-concat');
@@ -38,17 +38,21 @@ var bower = require('bower');
 var Q = require('q');
 var _ = require('lodash');
 var promise_utils = require('./src/util/promise_utils');
+var pkg = require('./package.json');
+var current_pkg_version;
+
 
 if (!process.env.PORT) {
     console.log('loading .env file ( no foreman ;)');
     dotenv.load();
 }
 
-var active_server;
-var bg_workers_server;
+var active_services = {};
 var build_on_premise = true;
 var skip_install = false;
 var use_local_executable = false;
+var git_commit = "DEVONLY";
+
 for (var arg_idx = 0; arg_idx < process.argv.length; arg_idx++) {
     if (process.argv[arg_idx] === '--on_premise') {
         build_on_premise = true;
@@ -62,19 +66,26 @@ for (var arg_idx = 0; arg_idx < process.argv.length; arg_idx++) {
     if (process.argv[arg_idx] === '--local') {
         use_local_executable = true;
     }
-
+    if (process.argv[arg_idx] === '--GIT_COMMIT') {
+        git_commit = process.argv[arg_idx + 1].substr(0, 7);
+    }
 }
+
+current_pkg_version = pkg.version + '-' + git_commit;
+console.log('current_pkg_version:', current_pkg_version);
 
 function leave_no_wounded(err) {
     if (err) {
         console.log(err.stack);
     }
-    if (active_server) {
-        console.log('LEAVE NO WOUNDED - kill active server', active_server.pid);
-        active_server.removeAllListeners('error');
-        active_server.removeAllListeners('exit');
-        active_server.kill('SIGKILL');
-    }
+    _.each(active_services, function(service, service_name) {
+        delete active_services[service_name];
+        if (!service) return;
+        console.log('LEAVE NO WOUNDED - kill active server', service.pid);
+        service.removeAllListeners('error');
+        service.removeAllListeners('exit');
+        service.kill('SIGKILL');
+    });
     gutil.beep();
     gutil.beep();
     process.exit();
@@ -90,8 +101,7 @@ var PATHS = {
 
     assets: {
         'build/public': [
-            'node_modules/video.js/dist/video-js/video-js.swf',
-            'node_modules/zeroclipboard/dist/ZeroClipboard.swf',
+            'node_modules/video.js/dist/video-js/video-js.swf'
         ],
         'build/public/css': [],
         'build/public/fonts': [
@@ -113,8 +123,40 @@ var PATHS = {
 
     server_main: 'src/server/web_server.js',
     bg_workers_main: 'src/bg_workers/bg_workers_starter.js',
+    agent_main: 'src/agent/agent_cli.js',
+    s3_main: 'src/s3/s3rver.js',
     client_bundle: 'src/client/index.js',
-    // agent_bundle: 'src/agent/index.js',
+    client_libs: [
+        // browserify nodejs wrappers
+        'fs',
+        'os',
+        'url',
+        'util',
+        'path',
+        'http',
+        'https',
+        'buffer',
+        'crypto',
+        'stream',
+        'assert',
+        'events',
+        'querystring',
+        // other libs
+        'lodash',
+        'moment',
+        'ws',
+        'ip',
+        'q',
+        'aws-sdk',
+        'bluebird',
+        'generate-function',
+        'performance-now',
+        'is-my-json-valid',
+        'concat-stream',
+        'dev-null',
+        'chance',
+        'winston',
+    ],
     client_externals: [
         'node_modules/bootstrap/dist/js/bootstrap.js',
         'vendor/arrive-2.0.0.min.js', // needed by material for dynamic content
@@ -237,7 +279,7 @@ function pack(dest, name) {
             });
             return {
                 name: 'noobaa-NVA',
-                version: '0.0.0',
+                version: current_pkg_version,
                 private: true,
                 main: 'index.js',
                 dependencies: deps,
@@ -263,10 +305,9 @@ function pack(dest, name) {
 
     var node_modules_stream = gulp
         .src(['node_modules/**/*',
+            '!node_modules/babel*/**/*',
             '!node_modules/gulp*/**/*',
-            '!node_modules/heapdump/**/*',
             '!node_modules/bower/**/*',
-            '!node_modules/bcrypt/**/*',
             '!node_modules/node-inspector/**/*'
         ], {
             base: 'node_modules'
@@ -303,10 +344,15 @@ function pack(dest, name) {
             p.dirname = path.join('build/public', p.dirname);
         }));
 
+    var build_native_stream = gulp
+        .src(['build/Release/**/*', ], {})
+        .pipe(gulp_rename(function(p) {
+            p.dirname = path.join('build/Release', p.dirname);
+        }));
 
     return event_stream
         .merge(pkg_stream, src_stream, images_stream, basejs_stream,
-            vendor_stream, agent_distro, build_stream, node_modules_stream)
+            vendor_stream, agent_distro, build_stream, build_native_stream, node_modules_stream)
         .pipe(gulp_rename(function(p) {
             p.dirname = path.join('noobaa-core', p.dirname);
         }))
@@ -453,7 +499,7 @@ gulp.task('agent', ['lint'], function() {
             });
             return {
                 name: 'noobaa-agent',
-                version: '0.0.0',
+                version: current_pkg_version,
                 private: true,
                 bin: 'agent/agent_cli.js',
                 main: 'agent/agent_cli.js',
@@ -508,11 +554,11 @@ function build_agent_distro() {
         })
         .then(function() {
             gutil.log('before downloading linux setup');
-            return promise_utils.promised_exec('curl -u tamireran:0436dd1acfaf9cd247b3dd22a37f561f -L http://146.148.16.59:8080/job/LinuxBuild/lastBuild/artifact/build/linux/noobaa-setup >build/public/noobaa-setup',
+            return promise_utils.promised_exec('curl -u tamireran:0436dd1acfaf9cd247b3dd22a37f561f -L http://146.148.16.59:8080/job/LinuxBuild/lastBuild/artifact/build/linux/noobaa-setup' + current_pkg_version + ' >build/public/noobaa-setup',
                 build_params, process.cwd());
         })
         .then(function() {
-            return promise_utils.promised_exec('chmod 777 build/public/noobaa-setup',
+            return promise_utils.promised_exec('chmod 777 build/public/noobaa-setup*',
                 build_params, process.cwd());
         })
         .then(function() {
@@ -545,27 +591,39 @@ function build_rest_distro() {
 
 function package_build_task() {
     var DEST = 'build/public';
-    var NAME = 'noobaa-NVA.tar';
+    var NAME = 'noobaa-NVA';
 
     //Remove previously build package
-    return Q.nfcall(child_process.exec, 'rm -f ' + DEST + '/' + NAME + '.gz')
+    return Q.nfcall(child_process.exec, 'rm -f ' + DEST + '/' + NAME + '*.tar.gz')
         .then(function(res) { //build agent distribution setup
             if (!use_local_executable) {
-                return build_agent_distro();
-            } else {
-                return;
-            }
-        })
-        .then(function() { //build rest distribution setup
-            if (!use_local_executable) {
-                return build_rest_distro();
+                gutil.log('before downloading setup and rest');
+                return Q.fcall(function() {
+                        return promise_utils.promised_exec('curl -u tamireran:0436dd1acfaf9cd247b3dd22a37f561f -L http://127.0.0.1:8080/job/LinuxBuild/lastBuild/artifact/build/linux/noobaa-setup-' + current_pkg_version + ' >build/public/noobaa-setup-' + current_pkg_version, [], process.cwd());
+                    })
+                    .then(function() {
+                        return promise_utils.promised_exec('curl -u tamireran:0436dd1acfaf9cd247b3dd22a37f561f -L http://127.0.0.1:8080/job/win_agent_remote/lastBuild/artifact/build/windows/noobaa-setup-' + current_pkg_version + '.exe >build/public/noobaa-setup-' + current_pkg_version + '.exe', [], process.cwd());
+                    })
+                    .then(function() {
+                        return promise_utils.promised_exec('curl -u tamireran:0436dd1acfaf9cd247b3dd22a37f561f -L http://127.0.0.1:8080/job/win_s3_remote/lastBuild/artifact/build/windows/noobaa-s3rest-' + current_pkg_version + '.exe>build/public/noobaa-s3rest-' + current_pkg_version + '.exe', [], process.cwd());
+                    })
+                    .then(function() {
+                        return promise_utils.promised_exec('chmod 777 build/public/noobaa-setup', [], process.cwd());
+                    });
             } else {
                 return;
             }
         })
         .then(function() {
+            gutil.log('before downloading nvm and node package');
+            return promise_utils.promised_exec('curl -o- https://raw.githubusercontent.com/creationix/nvm/master/nvm.sh >build/public/nvm.sh', [], process.cwd());
+        })
+        .then(function() {
+            return promise_utils.promised_exec('curl -o- https://nodejs.org/dist/v4.2.2/node-v4.2.2-linux-x64.tar.xz >build/public/node-v4.2.2-linux-x64.tar.xz', [], process.cwd());
+        })
+        .then(function() {
             //call for packing
-            return pack(DEST, NAME);
+            return pack(DEST, NAME + "-" + current_pkg_version + '.tar');
         })
         .then(null, function(error) {
             gutil.log("error ", error, error.stack);
@@ -582,34 +640,26 @@ if (skip_install === true) {
     });
 }
 
-gulp.task('client', ['bower', 'ng'], function() {
+
+gulp.task('client_libs', ['bower'], function() {
     var DEST = 'build/public/js';
-    var NAME = 'index.js';
-    var NAME_MIN = 'index.min.js';
+    var NAME = 'libs.js';
+    var NAME_MIN = 'libs.min.js';
     var bundler = browserify({
-        entries: [
-            './' + PATHS.client_bundle,
-            // './' + PATHS.agent_bundle
-        ],
         debug: true,
-
-        // TODO this browserify config will not work in node-webkit....
-
-        // bare is alias for both --no-builtins, --no-commondir,
-        // and sets --insert-global-vars to just "__filename,__dirname".
-        // This is handy if you want to run bundles in node.
-        // bare: true,
-        // detectGlobals: false,
-        // list: true,
     });
+    _.each(PATHS.client_libs, function(lib) {
+        bundler.require(lib, {
+            expose: lib
+        });
+    });
+
     // using gulp_replace to fix collision of requires
-    var client_bundle_stream = bundler.bundle()
+    var client_libs_bundle_stream = bundler.bundle()
         .pipe(vinyl_source_stream(NAME))
         .pipe(vinyl_buffer());
-    // .pipe(gulp_replace(/\brequire\b/g, 'require_browserify'))
-    // .pipe(gulp_replace(/\brequire_node\b/g, 'require'));
     var client_merged_stream = event_stream.merge(
-        client_bundle_stream,
+        client_libs_bundle_stream,
         gulp.src(PATHS.client_externals)
     );
     return client_merged_stream
@@ -619,6 +669,36 @@ gulp.task('client', ['bower', 'ng'], function() {
         .pipe(gulp.dest(DEST))
         .pipe(gulp_cached(NAME))
         .pipe(gulp_uglify())
+        .pipe(gulp_rename(NAME_MIN))
+        .pipe(gulp_size_log(NAME_MIN))
+        .pipe(gulp.dest(DEST));
+});
+
+gulp.task('client', function() {
+    var DEST = 'build/public/js';
+    var NAME = 'app.js';
+    var NAME_MIN = 'app.min.js';
+    var bundler = browserify('./' + PATHS.client_bundle, {
+            debug: true,
+        })
+        .transform('babelify', {
+            presets: ['es2015']
+        });
+    _.each(PATHS.client_libs, function(lib) {
+        bundler.external(lib);
+    });
+    gutil.log('setting upgrade', pkg.version, current_pkg_version);
+
+    return bundler.bundle()
+        .pipe(vinyl_source_stream(NAME))
+        .pipe(vinyl_buffer())
+        .pipe(gulp_replace('"version": "' + pkg.version + '"', '"version": "' + current_pkg_version + '"'))
+        .pipe(gulp_plumber(PLUMB_CONF))
+        .pipe(gulp_size_log(NAME))
+        .pipe(gulp.dest(DEST))
+        .pipe(gulp_cached(NAME))
+        .pipe(gulp_uglify())
+        .pipe(gulp_replace('noobaa-core",version:"' + pkg.version + '"', 'noobaa-core",version:"' + current_pkg_version + '"'))
         .pipe(gulp_rename(NAME_MIN))
         .pipe(gulp_size_log(NAME_MIN))
         .pipe(gulp.dest(DEST));
@@ -643,133 +723,125 @@ gulp.task('mocha', function() {
 gulp.task('test', ['lint', 'mocha']);
 
 
-function serve() {
-    if (active_server) {
+function run_service(service_name, main_script) {
+    var service = active_services[service_name];
+    if (service) {
         console.log(' ');
         console.log('~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~');
-        console.log('~~~      KILL SERVER       ~~~ (pid=' + active_server.pid + ')');
+        console.log('~~~      ' + service_name + ' KILL (pid=' + service.pid + ')');
         console.log('~~~ (wait exit to respawn) ~~~');
         console.log('~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~');
         console.log(' ');
-        active_server.kill();
+        service.kill();
         return;
     }
     console.log(' ');
     console.log('~~~~~~~~~~~~~~~~~~~~~~');
-    console.log('~~~  START SERVER  ~~~');
+    console.log('~~~  ' + service_name + ' START');
     console.log('~~~~~~~~~~~~~~~~~~~~~~');
     console.log(' ');
-    active_server = child_process.fork(
-        PATHS.server_main, []
+    service = active_services[service_name] = child_process.fork(
+        main_script, process.argv.slice(2)
     );
-    active_server.on('error', function(err) {
+    service.on('error', function(err) {
         console.error(' ');
         console.error('~~~~~~~~~~~~~~~~~~~~~~');
-        console.error('~~~  SERVER ERROR  ~~~', err);
+        console.error('~~~  ' + service_name + ' ERROR:', err);
         console.error('~~~~~~~~~~~~~~~~~~~~~~');
         console.error(' ');
         gutil.beep();
     });
-    active_server.on('exit', function(code, signal) {
+    service.on('exit', function(code, signal) {
         console.error(' ');
         console.error('~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~');
-        console.error('~~~       SERVER EXIT       ~~~ (rc=' + code + ')');
+        console.error('~~~       ' + service_name + ' EXIT (rc=' + code + ')');
         console.error('~~~  (respawn in 1 second)  ~~~');
         console.error('~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~');
         console.error(' ');
-        active_server = null;
-        setTimeout(serve, 1);
+        service = null;
+        delete active_services[service_name];
+        setTimeout(run_service, 1, service_name, main_script);
     });
-    gulp_notify('noobaa serving...').end('stam');
+    gulp_notify(service_name + ' is serving...').end('stam');
 }
 
-function serve_bg() {
-    if (bg_workers_server) {
-        console.log(' ');
-        console.log('~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~');
-        console.log('~~~      KILL BG WORKERS   ~~~ (pid=' + bg_workers_server.pid + ')');
-        console.log('~~~ (wait exit to respawn) ~~~');
-        console.log('~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~');
-        console.log(' ');
-        bg_workers_server.kill();
-        return;
-    }
-    console.log(' ');
-    console.log('~~~~~~~~~~~~~~~~~~~~~~~');
-    console.log('~~~ START BG WORKERS ~~~');
-    console.log('~~~~~~~~~~~~~~~~~~~~~~~');
-    console.log(' ');
-    bg_workers_server = child_process.fork(
-        PATHS.bg_workers_main, []
-    );
-    bg_workers_server.on('error', function(err) {
-        console.error(' ');
-        console.error('~~~~~~~~~~~~~~~~~~~~~~~');
-        console.error('~~~ BG WORKERS ERROR ~~~', err);
-        console.error('~~~~~~~~~~~~~~~~~~~~~~~');
-        console.error(' ');
-        gutil.beep();
-    });
-    bg_workers_server.on('exit', function(code, signal) {
-        console.error(' ');
-        console.error('~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~');
-        console.error('~~~     BG WORKERS EXIT     ~~~ (rc=' + code + ')');
-        console.error('~~~  (respawn in 1 second)  ~~~');
-        console.error('~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~');
-        console.error(' ');
-        bg_workers_server = null;
-        setTimeout(serve_bg, 1);
-    });
-    gulp_notify('noobaa bg serving...').end('stam');
-}
+gulp.task('install', [
+    'bower',
+    'assets',
+    'ng',
+    'css',
+    'lint',
+    'client_libs',
+    'client',
+    'agent'
+]);
 
-gulp.task('install', ['bower', 'assets', 'css', 'ng', 'lint', 'client', 'agent']);
+var serve = run_service.bind(null, 'md-server', PATHS.server_main);
+var serve_bg = run_service.bind(null, 'bg-worker', PATHS.bg_workers_main);
+var serve_agent = run_service.bind(null, 'agent', PATHS.agent_main);
+var serve_s3 = run_service.bind(null, 's3', PATHS.s3_main);
+
 gulp.task('serve', [], serve);
 gulp.task('serve_bg', [], serve_bg);
+gulp.task('serve_agent', [], serve_agent);
+gulp.task('serve_s3', [], serve_s3);
 gulp.task('install_and_serve', ['install'], serve);
 gulp.task('install_css_and_serve', ['css'], serve);
-gulp.task('install_client_and_serve', ['client'], serve);
+gulp.task('install_client_and_serve', ['client', 'ng'], serve);
 
-gulp.task('start_dev', ['install_and_serve'], function() {
+gulp.task('watch', ['serve'], function() {
     gulp.watch([
         'src/css/**/*'
     ], ['install_css_and_serve']);
     gulp.watch([
+        'src/client/**/*',
+        'src/ngview/**/*',
         'src/api/**/*',
         'src/rpc/**/*',
         'src/util/**/*',
-        'src/client/**/*',
-        'src/ngview/**/*',
     ], ['install_client_and_serve']);
     gulp.watch([
-        'src/agent/**/*',
-        'src/s3/**/*',
         'src/server/**/*',
         'src/views/**/*',
     ], ['serve']);
 });
-
-gulp.task('start_bg', ['lint'], function() {
+gulp.task('watch_bg', ['serve_bg'], function() {
     gulp.watch([
+        'src/bg_workers/**/*',
         'src/server/**/*',
         'src/api/**/*',
         'src/rpc/**/*',
         'src/util/**/*',
-        'src/bg_workers/**/*',
     ], ['serve_bg']);
-    serve_bg();
+});
+gulp.task('watch_agent', ['serve_agent'], function() {
+    gulp.watch([
+        'src/agent/**/*',
+        'src/api/**/*',
+        'src/rpc/**/*',
+        'src/util/**/*',
+    ], ['serve_agent']);
+});
+gulp.task('watch_s3', ['serve_s3'], function() {
+    gulp.watch([
+        'src/s3/**/*',
+        'src/api/**/*',
+        'src/rpc/**/*',
+        'src/util/**/*',
+    ], ['serve_s3']);
 });
 
-gulp.task('start_prod', function() {
-    var server_module = '.' + path.sep + PATHS.server_main;
-    console.log('~~~ START PROD ~~~', server_module);
-    require(server_module);
+gulp.task('start', function() {
+    require('.' + path.sep + PATHS.server_main);
 });
-
-if (process.env.DEV_MODE === 'true') {
-    gulp.task('start', ['start_dev']);
-} else {
-    gulp.task('start', ['start_prod']);
-}
+gulp.task('start_bg', function() {
+    require('.' + path.sep + PATHS.bg_workers_main);
+});
+gulp.task('start_agent', function() {
+    require('.' + path.sep + PATHS.agent_main).main();
+});
+gulp.task('start_s3', function() {
+    require('.' + path.sep + PATHS.s3_main);
+});
 
 gulp.task('default', ['start']);

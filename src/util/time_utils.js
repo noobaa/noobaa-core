@@ -7,7 +7,8 @@ module.exports = {
     nanostamp: nanostamp,
     secstamp: secstamp,
     millitook: millitook,
-    sectook: sectook
+    sectook: sectook,
+    time_suffix: time_suffix
 };
 
 function millistamp() {
@@ -28,4 +29,9 @@ function millitook(since) {
 
 function sectook(since) {
     return (secstamp() - since).toFixed(1) + 'sec';
+}
+
+function time_suffix() {
+    var d = new Date();
+    return d.toISOString().replace(/T/, '-').substr(5, 11);
 }

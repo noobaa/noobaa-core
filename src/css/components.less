@@ -6,6 +6,7 @@
 /*---------------------------------------------------*/
 
 @input-underline-color: #d2e2e2;
+@input-border-color: hsla(0, 0%, 50%, 0.2);
 
 .btn {
     position: relative;
@@ -43,7 +44,7 @@
 
         &.btn-info {
             color: #03a9f4;
-        
+
             &:hover {
                 background-color: rgba(3,169,244,.2);
             }
@@ -58,7 +59,7 @@
         padding: 15px;
         font-size: 26px;
         width: 56px;
-        height: 56px;  
+        height: 56px;
         vertical-align: middle;
 
         >  i, span {
@@ -74,7 +75,7 @@
             background-color: black;
             vertical-align: middle;
         }*/
-    } 
+    }
 }
 
 .btn.btn-fab-upload {
@@ -100,7 +101,7 @@
 
 .well {
     margin-bottom: 10px;
-    box-shadow: 
+    box-shadow:
         0 8px 17px 0 rgba(0,0,0,.2),
         0 6px 20px 0 rgba(0,0,0,.19);
 
@@ -115,9 +116,8 @@
 .form-control, form-control-wrapper > .from-control {
     color: @darkbg-text;
     height: 28px;
-    padding: 0;
     float: none;
-    border: none;
+    border-color: @input-border-color;
     outline: none;
     box-shadow: none;
     border-radius: 0;
@@ -132,7 +132,7 @@
     ~ .floating-label {
         position: absolute;
         pointer-events: none;
-        transition: .2s ease all;            
+        transition: .2s ease all;
         font-size: 11px;
         top: -10px;
     }
@@ -141,19 +141,28 @@
         top: 5px;
         left: 0;
         font-size: 14px;
-        color: #7e7e7e;      
+        color: #7e7e7e;
     }
 
     &:focus {
         background-size: 100% 2px, 100% 1px;
         box-shadow: inherit;
-        border-color: inherit;
+        border-color: @input-border-color;
 
         ~ .floating-label {
-            color: @primary;                        
+            color: @primary;
             font-size: 11px;
-            top: -10px;                 
+            top: -10px;
         }
+    }
+
+    &[disabled] {
+        .text-muted;
+        background-color: initial;
+    }
+
+    &[type="file"] {
+        padding: 0;
     }
 }
 
@@ -188,6 +197,29 @@ table {
     th {
         font-weight: normal;
     }
+    th, td {
+        &.compact {
+            width: 1px;
+            .text-nowrap;
+        }
+    }
+}
+
+.well-light,
+.well.well-light {
+    background-color: hsla(0, 0%, 60%, 0.2) !important;
+    color: inherit !important;
+}
+
+.font-monospace {
+    font-family: @font-family-monospace;
+    font-size: 90%;
+}
+
+pre {
+    .well;
+    .well-light;
+    .well-sm;
 }
 
 .well,
@@ -597,9 +629,9 @@ table th {
     /* background-color: darken(@gray-lighter, 3%); */
 }
 
-*:focus {
-    color: initial;
-}
+// *:focus {
+    // color: initial;
+// }
 
 .noselect {
     -webkit-touch-callout: none;

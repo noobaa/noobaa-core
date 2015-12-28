@@ -3,6 +3,9 @@
 var _ = require('lodash');
 var P = require('../../util/promise');
 var mongoose = require('mongoose');
+var mongoose_logger = require('../../util/mongoose_logger');
+var dbg = require('../../util/debug_module')(__filename);
+
 
 var LRUCache = require('../../util/lru_cache');
 var Account = require('./account');
@@ -19,7 +22,43 @@ var DataBlock = require('./data_block');
 var ActivityLog = require('./activity_log');
 var Pool = require('./pool');
 var TieringPolicy = require('./tiering_policy');
+var dbutils = require('./dbutils');
 // var dbg = require('../util/debug_module')(__filename);
+var debug_mode = (process.env.DEBUG_MODE === 'true');
+var mongoose_connected = false;
+var mongoose_timeout = null;
+
+// connect to the database
+if (debug_mode) {
+    mongoose.set('debug', mongoose_logger(dbg.log0.bind(dbg)));
+}
+
+mongoose.connection.on('connected', function() {
+    // call ensureIndexes explicitly for each model
+    console.log('mongoose connection connected');
+    mongoose_connected = true;
+    return P.all(_.map(mongoose.modelNames(), function(model_name) {
+        return P.npost(mongoose.model(model_name), 'ensureIndexes');
+    }));
+});
+
+mongoose.connection.on('error', function(err) {
+    mongoose_connected = false;
+    console.error('mongoose connection error:', err);
+    if (!mongoose_timeout) {
+        mongoose_timeout = setTimeout(mongoose_connect, 5000);
+    }
+
+});
+
+mongoose.connection.on('disconnected', function () {
+    mongoose_connected = false;
+    console.error('mongoose connection disconnected');
+    if (!mongoose_timeout) {
+        mongoose_timeout = setTimeout(mongoose_connect, 5000);
+    }
+});
+
 
 /**
  *
@@ -53,9 +92,12 @@ module.exports = {
 
     check_not_found: check_not_found,
     check_not_deleted: check_not_deleted,
+    mongoose_connect: mongoose_connect,
     check_already_exists: check_already_exists,
     is_err_exists: is_err_exists,
     obj_ids_difference: obj_ids_difference,
+    populate: dbutils.populate,
+    uniq_ids: dbutils.uniq_ids,
 
     AccountCache: new LRUCache({
         name: 'AccountCache',
@@ -146,7 +188,7 @@ module.exports = {
     ObjectMDCache: new LRUCache({
         name: 'ObjectMDCache',
         max_length: 1000,
-        expiry_ms: 10000, // 10 seconds of blissfull ignorance
+        expiry_ms: 1000, // 1 second of blissfull ignorance
         make_key: function(params) {
             return params.system + ':' + params.bucket + ':' + params.key;
         },
@@ -162,6 +204,17 @@ module.exports = {
     }),
 };
 
+function mongoose_connect() {
+    console.log('mongoose_connect');
+    clearTimeout(mongoose_timeout);
+    mongoose_timeout = null;
+    if (!mongoose_connected) {
+        mongoose.connect(
+            process.env.MONGOHQ_URL ||
+            process.env.MONGOLAB_URI ||
+            'mongodb://localhost/nbcore');
+    }
+}
 
 function check_not_found(req, entity) {
     return function(doc) {

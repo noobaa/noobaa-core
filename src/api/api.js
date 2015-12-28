@@ -22,7 +22,7 @@ api_schema.register_api(require('./cloud_sync_api'));
 api_schema.register_api(require('./debug_api'));
 api_schema.register_api(require('./redirector_api'));
 api_schema.register_api(require('./tiering_policy_api'));
-api_schema.register_api(require('./pools_api'));
+api_schema.register_api(require('./pool_api'));
 
 function new_rpc(options) {
     options = options || {};

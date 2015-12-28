@@ -1,71 +1,43 @@
 <div ng-controller="UserManagementViewCtrl">
 
-    <div class="page-header page-data">
+    <div class="table-responsive">
+        <table class="table table-no-borders">
+            <tr>
+                <!-- <th></th> -->
+                <th>Email</th>
+                <th>Role</th>
+                <th>Status</th>
+                <th>Actions</th>
+            </tr>
+            <tr ng-repeat="account in accounts">
+                <!-- <td style="width: 1px; vertical-align: middle;" class="table-btn text-left">
+                        </td> -->
 
-        <h1 class="capitalize">Users Management</h1>
-
-        <ol class="breadcrumb capitalize">
-            <li>
-                <a href="/console/">Overview</a>
-            </li>
-            <li class="active">Users Management</li>
-        </ol>
-
-        <br/>
-
+                <td>
+                    <i class="fa fa-user fa-lg fa-fw text-muted"></i>
+                    <span style="text-transform: lowercase;"></span>
+                    {{account.email}}
+                </td>
+                <!-- we fetched only the current system, and we assume that there is only one role per account-->
+                <td style="vertical-align: middle;">{{account.systems[0].roles[0]}}
+                    <!-- of {{human_size(bucket.storage.alloc)}} -->
+                </td>
+                <td style="vertical-align: middle;" class="text-success">Active
+                </td>
+                <!-- <td>{{bucket.tiering}}</td> -->
+                <td style="padding:0 0 0 0;vertical-align: middle;border:1px;">
+                    <i style="padding:3 0 3 0;" class="fa fa-trash-o fa-lg btn btn-default" rel="tooltip" title="Delete user"  nb-click-ladda="delete_user('{{account.email}}')"></i>
+                    <i style="padding:3 0 3 0;" class="fa fa-random fa-lg btn btn-default" rel="tooltip" title="Reset password"  nb-click-ladda="reset_password('{{account.email}}')"></i>
+                    <i style="padding:3 0 3 0;" class="fa fa-envelope fa-lg btn btn-default" rel="tooltip" title="Set email"  nb-click-ladda="set_email('{{account.email}}')"></i>
+                </td>
+            </tr>
+        </table>
     </div>
 
-    <div class="row" >
-        <button class="btn btn-primary btn-lg" style="float: right;padding: 10px ;margin-right: 40px" nb-click-ladda="add_new_user();">
+    <div class="text-left">
+        <button class="btn btn-primary" Xstyle="float: right;padding: 10px ;margin-right: 40px" nb-click-ladda="add_new_user();">
             New User
         </button>
-    </div>
-    <hr>
-    <div class="row">
-
-        <div class="heading-col col-sm-3">
-            <h4 class="text-primary">
-                Users Management
-            </h4>
-            <p class="text-muted">
-                Users can manage NooBaa system.
-            </p>
-        </div>
-        <div class="content-col col-sm-9">
-            <div class="table-responsive">
-                <table class="table table-no-borders">
-                <tr>
-                        <th></th>
-                        <th>Email</th>
-                        <th>Role</th>
-                        <th>Status</th>
-                        <th>Actions</th>
-                    </tr>
-                    <tr ng-repeat="account in accounts">
-                        <td style="vertical-align: middle;" class="table-btn text-left" >
-                            <i class="fa fa-user fa-lg fa-fw text-muted"></i>
-                            <span style="text-transform: lowercase;"></span>
-                        </td>
-
-                        <td >
-                                {{account.email}}
-                        </td>
-                        <!-- we fetched only the current system, and we assume that there is only one role per account-->
-                        <td style="vertical-align: middle;">{{account.systems[0].roles[0]}}
-                            <!-- of {{human_size(bucket.storage.alloc)}} -->
-                        </td>
-                        <td style="vertical-align: middle;" class="text-success">Active
-                        </td>
-                        <!-- <td>{{bucket.tiering}}</td> -->
-                        <td style="padding:0 0 0 0;vertical-align: middle;border:1px;">
-                            <i style="padding:0 0 0 0;" class="fa fa-trash-o fa-lg btn btn-default" rel="tooltip" title="Delete user"  nb-click-ladda="delete_user('{{account.email}}')"></i>
-                            <i style="padding:0 0 0 0;" class="fa fa-random fa-lg btn btn-default" rel="tooltip" title="Reset password"  nb-click-ladda="reset_password('{{account.email}}')"></i>
-                            <i style="padding:0 0 0 0;" class="fa fa-envelope fa-lg btn btn-default" rel="tooltip" title="Set email"  nb-click-ladda="set_email('{{account.email}}')"></i>
-                        </td>
-                    </tr>
-                </table>
-            </div>
-        </div>
     </div>
 
 </div>

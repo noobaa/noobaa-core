@@ -63,6 +63,8 @@ function get_main_drive_name() {
 }
 
 function get_mount_of_path(path) {
+    console.log('get_mount_of_path');
+
     if (os.type() === 'Windows_NT') {
         return P.nfcall(fs.realpath, path)
             .then(function(fullpath) {
@@ -80,6 +82,7 @@ function get_mount_of_path(path) {
 }
 
 function read_mac_linux_drives() {
+    console.log('read_mac_linux_drives');
     return P.nfcall(node_df, {
             // this is a hack to make node_df append the -l flag to the df command
             // in order to get only local file systems.
@@ -100,6 +103,7 @@ function read_mac_linux_drives() {
 }
 
 function read_windows_drives() {
+    var windows_drives = {};
     return wmic('volume')
         .then(function(volumes) {
             return _.compact(_.map(volumes, function(vol) {
@@ -115,13 +119,35 @@ function read_windows_drives() {
                 if (!vol.DriveLetter) return;
                 return {
                     mount: vol.DriveLetter,
-                    drive_id: vol.DeviceID,
+                    drive_id: vol.DriveLetter,
                     storage: {
                         total: parseInt(vol.Capacity, 10),
                         free: parseInt(vol.FreeSpace, 10),
                     }
                 };
             }));
+        }).then(function(local_volumes) {
+            windows_drives = local_volumes;
+            return wmic('netuse')
+                .then(function(network_volumes) {
+                    var all_drives = {};
+                    if (_.compact(network_volumes).length>0) {
+
+                        all_drives = _(windows_drives).concat(_.compact(_.map(network_volumes, function(network_vol) {
+                            return {
+                                mount: network_vol.RemotePath,
+                                drive_id: network_vol.LocalName,
+                                storage: {
+                                    total: parseInt(0, 10),
+                                    free: parseInt(0, 10),
+                                }
+                            };
+                        })));
+                        return all_drives.value();
+                    } else {
+                        return windows_drives;
+                    }
+                });
         });
 }
 

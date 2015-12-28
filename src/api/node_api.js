@@ -148,6 +148,9 @@ module.exports = {
                         type: 'object',
                         required: [],
                         properties: {
+                            pool: {
+                                type: 'string',
+                            },
                             tier: {
                                 type: 'string'
                             },
@@ -262,6 +265,14 @@ module.exports = {
                     'storage',
                 ],
                 properties: {
+                    //0.4 backward compatibility. allows id and port for old agents
+                    //will return simple reply that will result with agent upgrade
+                    id: {
+                        type: 'string'
+                    },
+                    port: {
+                        type: 'integer'
+                    },
                     name: {
                         type: 'string'
                     },
@@ -269,6 +280,9 @@ module.exports = {
                         type: 'string'
                     },
                     ip: {
+                        type: 'string'
+                    },
+                    base_address: {
                         type: 'string'
                     },
                     rpc_address: {
@@ -292,11 +306,23 @@ module.exports = {
                     os_info: {
                         $ref: '/common_api/definitions/os_info'
                     },
+                    latency_to_server: {
+                        $ref: '/node_api/definitions/latency_array'
+                    },
+                    latency_of_disk_write: {
+                        $ref: '/node_api/definitions/latency_array'
+                    },
+                    latency_of_disk_read: {
+                        $ref: '/node_api/definitions/latency_array'
+                    },
+                    debug_level: {
+                        type: 'integer',
+                    },
                 }
             },
             reply: {
                 type: 'object',
-                required: ['rpc_address', 'version', 'delay_ms'],
+                required: ['version', 'delay_ms'],
                 properties: {
                     auth_token: {
                         // auth token will only be sent back if new node was created
@@ -305,8 +331,8 @@ module.exports = {
                     rpc_address: {
                         type: 'string'
                     },
-                    ice_config: {
-                        $ref: '/common_api/definitions/ice_config'
+                    n2n_config: {
+                        $ref: '/common_api/definitions/n2n_config'
                     },
                     version: {
                         type: 'string'
@@ -363,22 +389,10 @@ module.exports = {
         self_test_to_node_via_web: {
             method: 'POST',
             params: {
-                type: 'object',
-                required: ['source', 'target', 'request_length', 'response_length'],
-                properties: {
-                    source: {
-                        type: 'string'
-                    },
-                    target: {
-                        type: 'string'
-                    },
-                    request_length: {
-                        type: 'integer'
-                    },
-                    response_length: {
-                        type: 'integer'
-                    }
-                },
+                $ref: '/agent_api/definitions/self_test_params'
+            },
+            reply: {
+                $ref: '/agent_api/definitions/self_test_reply'
             },
             auth: {
                 system: ['admin', 'user']
@@ -406,8 +420,24 @@ module.exports = {
 
         set_debug_node: {
             method: 'POST',
+            params: {
+                type: 'object',
+                properties: {
+                    target: {
+                        type: 'string',
+                        required: true
+                    }
+                }
+            },
             auth: {
                 system: 'admin',
+            }
+        },
+
+        test_latency_to_server: {
+            method: 'POST',
+            auth: {
+                system: ['admin', 'agent', 'create_node']
             }
         },
 
@@ -477,6 +507,9 @@ module.exports = {
                 rpc_address: {
                     type: 'string'
                 },
+                base_address: {
+                    type: 'string'
+                },
                 peer_id: {
                     type: 'string'
                 },
@@ -505,13 +538,28 @@ module.exports = {
                 os_info: {
                     $ref: '/common_api/definitions/os_info'
                 },
+                latency_to_server: {
+                    $ref: '/node_api/definitions/latency_array'
+                },
+                latency_of_disk_write: {
+                    $ref: '/node_api/definitions/latency_array'
+                },
+                latency_of_disk_read: {
+                    $ref: '/node_api/definitions/latency_array'
+                },
+                debug_level: {
+                    type: 'integer',
+                }
             }
         },
 
         signal_params: {
             type: 'object',
-            required: ['target', 'method_api', 'method_name'],
+            required: ['source', 'target', 'method_api', 'method_name'],
             properties: {
+                source: {
+                    type: 'string'
+                },
                 target: {
                     type: 'string'
                 },
@@ -533,6 +581,13 @@ module.exports = {
             required: [],
             additionalProperties: true,
             properties: {}
+        },
+
+        latency_array: {
+            type: 'array',
+            items: {
+                type: 'number',
+            }
         }
 
     }

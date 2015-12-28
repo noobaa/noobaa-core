@@ -1,9 +1,10 @@
 'use strict';
 
 module.exports = {
-    allocate_by_policy: allocate_by_policy,
-    analyze_chunk_status: analyze_chunk_status,
+    allocate_on_pools: allocate_on_pools,
+    analyze_chunk_status_on_pools: analyze_chunk_status_on_pools,
     remove_allocation: remove_allocation,
+    get_pools_groups: get_pools_groups,
 };
 
 var _ = require('lodash');
@@ -15,49 +16,94 @@ var config = require('../../../config.js');
 var dbg = require('../../util/debug_module')(__filename);
 
 
-function allocate_by_policy(chunk, avoid_nodes) {
-    return P.when(block_allocator.allocate_block(chunk, avoid_nodes));
+function allocate_on_pools(chunk, avoid_nodes, pools) {
+    return P.when(block_allocator.allocate_block(chunk, avoid_nodes, pools));
 }
 
 function remove_allocation(blocks) {
     return P.when(block_allocator.remove_blocks(blocks));
 }
 
-/**
- *
- * analyze_chunk_status
- *
- * compute the status in terms of availability
- * of the chunk blocks per fragment and as a whole.
- *
- */
-
-function analyze_chunk_status(chunk, all_blocks) {
-    var status = {};
-    return P.when(read_tiering_info(chunk.bucket))
-        .then(function(tiering_info) {
-            //TODO:: currently only 1 tier, take into account multiuple tiers once implemented
-            if (tiering_info[0].data_placement === 'SPREAD') {
-                //console.error('NBNB IN SPREAD!!!!');
-                //status = [analyze_chunk_status_on_pool(chunk, all_blocks, tiering_info[0].pools)];
-            } else { //MIRROR, analyze per each pool
-                //console.error('NBNB IN MIRROR!!!!');
-                return P.allSettled(_.map(tiering_info[0].pools, function(p) {
-                        status[p._id] = analyze_chunk_status_on_pool(chunk, all_blocks, p);
-                    }))
-                    .then(function(r) {
-
-                    });
+function get_pools_groups(bucket) {
+    //TODO take into account multi-tiering
+    var reply = [];
+    return P.when(read_tiering_info(bucket))
+        .then(function(tiering) {
+            if (tiering[0].data_placement === 'MIRROR') {
+                _.each(tiering[0].pools, function(p) {
+                    reply.push([p]);
+                });
+            } else if (tiering[0].data_placement === 'SPREAD') {
+                reply.push([]); //Keep the same format as MIRROR
+                _.each(tiering[0].pools, function(p) {
+                    reply[0].push(p);
+                });
             }
-            return P.when(analyze_chunk_status_on_pool(chunk, all_blocks));
-            //return status;
+            return reply;
         });
 }
 
+/**
+ *
+ * analyze_chunk_status_on_pools
+ *
+ * compute the status in terms of availability
+ * of the chunk blocks per fragment and as a whole.
+ * takes into account state on specific given pools only.
+ *
+ */
 
-function analyze_chunk_status_on_pool(chunk, all_blocks, pools) {
+function analyze_chunk_status_on_pools(chunk, allocated_blocks, orig_pools) {
+
+    function classify_block(fragment, block) {
+        var since_hb = now - block.node.heartbeat.getTime();
+        if (since_hb > config.LONG_GONE_THRESHOLD || block.node.srvmode === 'disabled') {
+            return js_utils.named_array_push(fragment, 'long_gone_blocks', block);
+        }
+        if (since_hb > config.SHORT_GONE_THRESHOLD) {
+            return js_utils.named_array_push(fragment, 'short_gone_blocks', block);
+        }
+        if (block.building) {
+            var since_bld = now - block.building.getTime();
+            if (since_bld > config.LONG_BUILD_THRESHOLD) {
+                return js_utils.named_array_push(fragment, 'long_building_blocks', block);
+            } else {
+                return js_utils.named_array_push(fragment, 'building_blocks', block);
+            }
+        }
+        if (!block.node.srvmode) {
+            js_utils.named_array_push(fragment, 'good_blocks', block);
+        }
+        // also keep list of blocks that we can use to replicate from
+        if (!block.node.srvmode || block.node.srvmode === 'decommissioning') {
+            js_utils.named_array_push(fragment, 'accessible_blocks', block);
+        }
+    }
+
+    var mirrored_pool = false;
+    orig_pools = _.flatten(orig_pools);
+
+    //convert pools to strings for comparison
+    var pools = _.map(orig_pools, function(p) {
+        return p.toString();
+    });
+
+    //Remove blocks which are allocated on non-associated (to pools) nodes
+    var policy_blocks = _.filter(allocated_blocks, function(b) {
+        return _.findIndex(pools, function(p) {
+            return p === b.node.pool.toString();
+        }) !== -1;
+    });
+
+    if (policy_blocks.length === 0) {
+        mirrored_pool = true;
+        dbg.log0('analyze_chunk_status_on_pools: mirrored pool for chunk', chunk._id,
+            'on pools', pools);
+    }
+
     var now = Date.now();
-    var blocks_by_frag_key = _.groupBy(all_blocks, get_frag_key);
+    var blocks_by_frag_key = _.groupBy(policy_blocks, get_frag_key);
+    var all_blocks_by_frag_key = _.groupBy(allocated_blocks, get_frag_key);
     var blocks_info_to_allocate;
     var blocks_to_remove;
     var chunk_health = 'available';
@@ -71,6 +117,7 @@ function analyze_chunk_status_on_pool(chunk, all_blocks, pools) {
         };
 
         fragment.blocks = blocks_by_frag_key[get_frag_key(fragment)] || [];
+        fragment.accessible_blocks = [];
 
         // sorting the blocks by last node heartbeat time and by srvmode and building,
         // so that reading will be served by most available node.
@@ -78,33 +125,24 @@ function analyze_chunk_status_on_pool(chunk, all_blocks, pools) {
         // TODO need stable sorting here for parallel decision making...
         fragment.blocks.sort(block_access_sort);
 
-        dbg.log1('analyze_chunk_status:', 'chunk', chunk._id,
+        dbg.log1('analyze_chunk_status_on_pools:', 'chunk', chunk._id,
             'fragment', frag, 'num blocks', fragment.blocks.length);
 
+        //Analyze good/building blocks on the policy pools only
         _.each(fragment.blocks, function(block) {
-            var since_hb = now - block.node.heartbeat.getTime();
-            if (since_hb > config.LONG_GONE_THRESHOLD || block.node.srvmode === 'disabled') {
-                return js_utils.named_array_push(fragment, 'long_gone_blocks', block);
-            }
-            if (since_hb > config.SHORT_GONE_THRESHOLD) {
-                return js_utils.named_array_push(fragment, 'short_gone_blocks', block);
-            }
-            if (block.building) {
-                var since_bld = now - block.building.getTime();
-                if (since_bld > config.LONG_BUILD_THRESHOLD) {
-                    return js_utils.named_array_push(fragment, 'long_building_blocks', block);
-                } else {
-                    return js_utils.named_array_push(fragment, 'building_blocks', block);
-                }
-            }
-            if (!block.node.srvmode) {
-                js_utils.named_array_push(fragment, 'good_blocks', block);
-            }
-            // also keep list of blocks that we can use to replicate from
-            if (!block.node.srvmode || block.node.srvmode === 'decommissioning') {
-                js_utils.named_array_push(fragment, 'accessible_blocks', block);
-            }
+            classify_block(fragment, block);
         });
+
+        // Analyze accisible blocks on all the pools
+        var other_blocks = all_blocks_by_frag_key[get_frag_key(fragment)];
+        var other_fragment = {};
+        _.each(other_blocks, function(block) {
+            classify_block(other_fragment, block);
+        });
+
+        if (other_fragment.accessible_blocks && other_fragment.accessible_blocks.length) {
+            js_utils.array_push_all(fragment.accessible_blocks, other_fragment.accessible_blocks);
+        }
 
         var num_accessible_blocks = fragment.accessible_blocks ?
             fragment.accessible_blocks.length : 0;
@@ -132,7 +170,8 @@ function analyze_chunk_status_on_pool(chunk, all_blocks, pools) {
             js_utils.array_push_all(blocks_to_remove, fragment.good_blocks.slice(config.OPTIMAL_REPLICAS));
         }
 
-        if (num_good_blocks < config.OPTIMAL_REPLICAS && num_accessible_blocks) {
+        if ((num_good_blocks < config.OPTIMAL_REPLICAS && num_accessible_blocks) ||
+            mirrored_pool) {
             fragment.health = 'repairing';
 
             // will allocate blocks for fragment to reach optimal count
@@ -161,7 +200,7 @@ function analyze_chunk_status_on_pool(chunk, all_blocks, pools) {
 
     return {
         chunk: chunk,
-        all_blocks: all_blocks,
+        all_blocks: policy_blocks,
         frags: frags,
         blocks_info_to_allocate: blocks_info_to_allocate,
         blocks_to_remove: blocks_to_remove,

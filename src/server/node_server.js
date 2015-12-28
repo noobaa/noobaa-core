@@ -9,7 +9,7 @@ var object_mapper = require('./object_mapper');
 var node_monitor = require('./node_monitor');
 var server_rpc = require('./server_rpc').server_rpc;
 var db = require('./db');
-// var dbg = require('../util/debug_module')(__filename);
+var dbg = require('../util/debug_module')(__filename);
 
 /**
  *
@@ -33,6 +33,7 @@ var node_server = {
     self_test_to_node_via_web: node_monitor.self_test_to_node_via_web,
     collect_agent_diagnostics: node_monitor.collect_agent_diagnostics,
     set_debug_node: node_monitor.set_debug_node,
+    test_latency_to_server: test_latency_to_server
 };
 
 module.exports = node_server;
@@ -68,6 +69,7 @@ function create_node(req) {
         if (req.auth.extra.tier !== tier_name) throw req.forbidden();
     }
 
+
     return db.TierCache.get({
             system: req.system.id,
             name: tier_name,
@@ -80,7 +82,14 @@ function create_node(req) {
                 throw req.rpc_error('NOT_FOUND', null,
                     'TIER SYSTEM MISMATCH ' + info.name + ' ' + info.system);
             }
-
+            return db.PoolCache.get({
+                system: req.system.id,
+                name: 'default_pool',
+            });
+        })
+        .then(function(pool) {
+            info.pool = pool.id;
+            dbg.log0('CREATE NODE', info);
             return db.Node.create(info);
         })
         .then(null, db.check_already_exists(req, 'node'))
@@ -114,7 +123,7 @@ function create_node(req) {
             });
 
             //TODO:: once we manage pools, remove this. Nodes will be associated propery
-            return server_rpc.client.pools.add_nodes_to_pool({
+            return server_rpc.client.pool.add_nodes_to_pool({
                     name: 'default_pool',
                     nodes: [info.name.toString()]
                 }, {
@@ -302,6 +311,17 @@ function list_nodes_int(query, system_id, skip, limit, pagination, req) {
                         info.tier = tier;
                     });
             }
+
+            if (query.pool) {
+                return db.PoolCache.get({
+                        system: system_id,
+                        name: query.pool,
+                    })
+                    .then(db.check_not_deleted(req, 'pool'))
+                    .then(function(pool) {
+                        info.pool = pool;
+                    });
+            }
         })
         .then(function() {
             var find = db.Node.find(info)
@@ -421,6 +441,11 @@ function group_nodes(req) {
 }
 
 
+function test_latency_to_server(req) {
+    // nothing to do.
+    // the caller is just testing roud trip time to the server.
+}
+
 // UTILS //////////////////////////////////////////////////////////
 
 
@@ -450,8 +475,13 @@ var NODE_PICK_FIELDS = [
     'peer_id',
     'ip',
     'rpc_address',
+    'base_address',
     'srvmode',
-    'version'
+    'version',
+    'latency_to_server',
+    'latency_of_disk_read',
+    'latency_of_disk_write',
+    'debug_level',
 ];
 
 var NODE_DEFAULT_FIELDS = {
@@ -484,7 +514,15 @@ function get_node_full_info(node) {
 }
 
 function get_storage_info(storage) {
-    return _.omit(_.pick(storage, 'total', 'free', 'used', 'alloc', 'limit'), _.isUndefined);
+    //return _.omit(_.pick(storage, 'total', 'free', 'used', 'alloc', 'limit'), _.isUndefined);
+    var DEFAULT_STORAGE = {
+        total: 0,
+        free: 0,
+        used: 0,
+        alloc: 0,
+        limit: 0
+    };
+    return _.defaults(storage, DEFAULT_STORAGE);
 }
 
 function find_node_by_name(req) {

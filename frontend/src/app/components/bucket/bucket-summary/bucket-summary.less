@@ -1,73 +1,8 @@
 bucket-summary {
 	padding-top: 3em;
 
-	capacity-gauge {
-		margin-right: 8em;
+	.action-list {
+		margin-left: 8em;
 	}
 
-	.actions {
-		vertical-align: top;
-		display: inline-block;
-
-		.action {
-			display: block;
-			width: 100%;
-			font-size: @font-size-small;
-			text-align: left;
-			margin-top: .5em;
-			vertical-align: middle;
-
-			> input {
-				.hide();
-			}
-		}
-
-
-		.btn-more {
-			font-size: @font-size-large;
-			padding: .85em .5em;
-			line-height: 0;
-			width: 41px;
-			background-color: @gray-lv4;	
-			vertical-align: middle;		
-
-			&:hover {
-				background-color: @gray-lv5;
-			}
-		}
-
-/*		.main-action {
-			background-color: @blue-dark;
-
-			&:hover {
-				background-color: @blue-mid;
-			}
-		}*/
-
-		.hidden-actions {
-			opacity: 0;
-			z-index: -1;
-			transition: opacity 750ms;
-			
-			&.visible {
-				z-index: 0;
-				opacity: 1;
-			}
-
-/*			.action {
-				background-color: @gray-lv4;
-
-				&:hover {
-					background-color: @gray-lv5;
-				}
-			}*/
-		}		
-	}
-
-	svg-icon {
-		height: @font-size-medium;
-		width: @font-size-medium;
-		margin-right: .5em;
-		vertical-align: middle;
-	}			
 }	

@@ -27,9 +27,9 @@ class BucketSummrayViewModel {
 		);
 
 		this.areActionsVisible = ko.observable(false);
-
 		this.isPolicyModalVisible = ko.observable(false);
 		this.isUploadFilesModalVisible = ko.observable(false);
+		this.isCloudSyncModalVisible = ko.observable(false);
 
 		this.gauge = {
 			legend: `${this.fileCount() ? numeral(this.fileCount()).format('0,0') : 'No'} files`,

@@ -1,4 +1,5 @@
-<node-summary params="node: node" class="center clear"></node-summary>
+<!-- ko if: ready -->
+<node-summary class="text-center" params="node: node"></node-summary>
 
 <ul class="tabs details-pane">
 	<li data-bind="css: { selected: selectedTab() == 'parts' }">
@@ -19,6 +20,6 @@
 		<node-info params="node: node" class="tab-content"></node-info>
 	</li>
 </ul>	
-
+<!-- /ko -->
 
  

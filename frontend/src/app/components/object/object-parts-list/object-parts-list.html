@@ -1,3 +1,19 @@
-<ul>
-	
+<ul class="list-no-style" data-bind="foreach: parts">
+	<li>
+		<div class="row">
+			<button class="btn-flat pull-right">+</button>
+			<svg-icon params="uri: stateIcon"></svg-icon>
+			<span data-bind="text: name"></span>
+		</div>
+		
+		<ul class="list-no-style" data-bind="foreach: blocks">
+			<li>
+				<div class="sub-row">
+					<span class="pull-right emphasized" data-bind="text: nodeIp">
+					</span>
+					<a class="link" href data-bind="text: nodeName"></a>
+				</div>
+			</li>
+		</ul>
+	</li>
 </ul>

@@ -68,9 +68,21 @@ class NodeInfoViewModel {
 			return {
 				name: mount,
 				values: [
-					{ value: used, label: formatSize(used),	color: style['text-color6'] },
-					{ value: os,   label: formatSize(os),	color: style['text-color2'] },
-					{ value: free, label: formatSize(free),	color: style['text-color5'] }
+					{
+						legend: `NooBaa: ${formatSize(used)}`,
+						value: used,
+						color: style['text-color6']
+					},
+					{
+						legend: `OS: ${formatSize(os)}`,
+						value: os,
+						color: style['text-color2']
+					},
+					{
+						legend: `Unused: ${formatSize(free)}`,
+						value: free,
+						color: style['text-color5']
+					}
 				]
 			};
 		});

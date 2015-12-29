@@ -1,0 +1,49 @@
+object-parts-list {
+	display: block;
+	height: 100%;
+	overflow: auto;
+	padding-right: 1em;
+
+	.text(
+		@font-type2, 
+		@font-weight-light, 
+		@font-size-normal, 
+		@text-color4
+	);
+
+		
+	li {
+		box-sizing: content-box;
+		word-break: break-all;
+
+		&:last-child {
+			border: none;
+		}
+	}
+
+	li + li {
+		ul {
+			display: none
+		}
+	}
+
+	.row {
+		padding: .75em 1.5em;
+		border-bottom: 1px solid @bg-color4;
+
+		svg-icon {
+			vertical-align: middle;
+		}
+	}
+
+	li:last-child > .row {
+		border: none;
+	}	
+
+	.sub-row {
+		padding: .75em;
+		padding-left: 3.5em;
+		padding-right: 1.5em;
+		border-bottom: 1px solid @bg-color3;		
+	}
+}

@@ -1,1 +1,17 @@
-this is the template
+<section class="action-list">
+	<button class="action btn2" data-bind="click: () => isPreviewModalVisible(true)">
+		<svg-icon params="uri: '/assets/icons.svg#preview'"></svg-icon>
+		Preview
+	</button>
+	<a class="action btn3" data-bind="href: s3Url" download>
+		<svg-icon params="uri: '/assets/icons.svg#download'"></svg-icon>
+		Download
+	</a>
+</section>
+
+<!-- ko if: isPreviewModalVisible -->
+<object-preview-modal params="
+	onClose: () => isPreviewModalVisible(false), 
+	uri: s3Url
+"></object-preview-modal>
+<!-- /ko -->

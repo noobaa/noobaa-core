@@ -1,37 +1,34 @@
-<!-- ko if: dataReady -->
-<h2 class="remark node-ip" data-bind="text: ip"></h2>
+<ul class="list-no-style status-line">
+	<li title="ip">
+		<svg-icon params="uri: '/assets/icons.svg#ip'"></svg-icon>
+		<span data-bind="text: ip"></span>
+	</li>
+	<li title="heartbeat">
+		<svg-icon params="uri: '/assets/icons.svg#heartbeat'"></svg-icon>
+		<span data-bind="text: heartbeat"></span>
+	</li>
+	<li title="state">
+		<svg-icon params="uri: stateIcon"></svg-icon>
+		<span data-bind="text: state"></span>
+	</li>	
+	<li title="trust">
+		<svg-icon params="uri: trustIcon"></svg-icon>
+		<span data-bind="text: trust"></span>
+	</li>
+</ul>
 
-<capacity-gauge params="legend: gaugeLegend, values: gaugeValues"></capacity-gauge>	
+<div class="text-center">
+	<capacity-gauge params="legend: gaugeLegend, values: gaugeValues"></capacity-gauge>	
 
-<div class="extras">
-	<ul class="properties" class="pull-left">
-		<li>
-			<svg-icon params="uri: stateIcon"></svg-icon>
-			<span data-bind="text: stateText"></span>
-		</li>
+	<section class="action-list">
+		<button class="action btn2">
+			<svg-icon params="uri: '/assets/icons.svg#node-test'"></svg-icon>
+			Test Node
+		</button> 		
 
-		<li>
-			<svg-icon params="uri: trustIcon"></svg-icon>
-			<span data-bind="text: trustText"></span>
-		</li>
-	</ul>
-
-	<action-list data-bind="label: 'actions'">
-		<action data-bind="click: $parent.decommission">
-			Decommission Node
-		</action>
-
-		<action data-bind="click: $parent.disonnect">
-			Disconnect Node
-		</action>
-
-		<action data-bind="click: $parent.test">
-			Self Test
-		</action>
-
-		<action data-bind="click: $parent.diagnose">
-			Diagnose Node
-		</action>
-	</action-list>
+		<button class="action btn3">
+			<svg-icon params="uri: '/assets/icons.svg#node-diagnose'"></svg-icon>
+			Diagnose
+		</button> 	
+	</section>
 </div>
-<!-- /ko -->

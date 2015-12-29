@@ -53,7 +53,10 @@ export function start() {
 		// Try to restore the last session
 		.then(({account, system}) => {
 			if (isDefined(account)) {
-				model.sessionInfo({ user: account.email, system: system.name });
+				model.sessionInfo({ 
+					user: account.email, 
+					system: system.name 
+				});
 			} 
 		})
 		// Start the router.
@@ -188,16 +191,21 @@ export function showPool() {
 	});
 
 	readPool(pool);
+	listPoolNodes(pool);
 }
 
 export function showNode() {
 	logAction('showNode');
 
-	let { node, tab } = model.routeContext().params;
+	let { pool, node, tab } = model.routeContext().params;
 	model.uiState({
 		layout: 'main-layout',
 		title: node,
-		breadcrumbs: [],
+		breadcrumbs: [
+			{ href: "systems/:system" },
+			{ href: "pools", label: "POOLS"},
+			{ href: ":pool", label: pool}
+		],
 		panel: 'node',
 		tab: tab || 'parts'
 	});
@@ -298,7 +306,6 @@ export function readSystemInfo() {
 		.done();
 }
 
-
 export function readBucket(name) {
 	logAction('readBucket', { name });
 
@@ -344,22 +351,54 @@ export function listBucketObjects(bucketName, filter, sortBy, order, page) {
 export function readObjectMetadata(bucketName, objectName) {
 	logAction('readObjectMetadata', { bucketName, objectName });
 
-	api.object.read_object_md({
-		 bucket: bucketName, 
-		 key: objectName 
-	})
+
+	api.system.read_system()
 		.then(
-			reply => model.objectInfo({ 
-				name: objectName, 
-				info: reply 
-		}))
+			reply => {
+				let keys = reply.access_keys[0];
+
+				AWS.config.update({
+					accessKeyId: keys.access_key,
+	                secretAccessKey: keys.secret_key,
+	                sslEnabled: false
+				});
+			}
+		)
+		.then(
+			() => 	api.object.read_object_md({
+				 bucket: bucketName, 
+				 key: objectName 
+			})
+		).then(
+			reply => {
+				let s3 = new AWS.S3({
+				    endpoint: config.serverAddress,
+				    s3ForcePathStyle: true,
+				    sslEnabled: false,	
+				});
+
+				model.objectInfo({ 
+					name: objectName, 
+					bucket: bucketName,
+					info: reply,				
+					s3Url: s3.getSignedUrl(
+						'getObject', 
+						{ Bucket: bucketName, Key: objectName }
+					)
+				});
+			}
+		)
 		.done();
 }
 
 export function listObjectParts(bucketName, objectName) {
 	logAction('listObjectParts', { bucketName, objectName });
 
-	api.object.read_object_mappings({ bucket: bucketName, key: objectName, adminfo: true })
+	api.object.read_object_mappings({ 
+		bucket: bucketName, 
+		key: objectName, 
+		adminfo: true 
+	})
 		.then(reply => model.objectPartList(reply.parts))
 		.done();
 }
@@ -376,6 +415,16 @@ export function readPool(name) {
 
 				model.poolInfo(pool)
 			}
+		)
+		.done();
+}
+
+export function listPoolNodes(poolName) {
+	logAction('listPoolNodes', { poolName });
+
+	api.node.list_nodes({})
+		.then(
+		reply => model.poolNodeList(reply.nodes)
 		)
 		.done();
 }
@@ -475,6 +524,20 @@ export function updateTier(name, dataPlacement, pools) {
 	})
 		.done();
 }
+
+export function createPool(name, nodes) {
+	logAction('createPool', { name, nodes });
+
+	let placeholder = { name: name, placeholder: true };
+	model.poolList.unshift(placeholder);
+
+	api.pool.create_pool({
+		pool: { name, nodes }
+	})
+		.then(readSystemInfo())
+		.done();
+}
+
 export function uploadFiles(bucketName, files) {
 	logAction('uploadFiles', { bucketName, files });
 

@@ -5,7 +5,7 @@ import { poolList } from 'model';
 class PoolsPanelViewModel {
 	constructor() {
 		this.pools = poolList;
-		this.isCreatePoolWizardVisible = ko.observable(true);
+		this.isCreatePoolWizardVisible = ko.observable(false);
 	}
 }
 

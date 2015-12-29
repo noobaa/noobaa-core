@@ -4,44 +4,49 @@ node-info {
 	}
 
 	.drives {
-		.legned {
-			float: right;
+		.drive-list {
+			width: 100%;
+			display: table;
+			border-spacing: .5em;
 
-			.bullet { 
-				float: left;
-				margin: 0 .5em;
+			> li {
+				display: table-row;
 
-				&::before {
-					content: '';
-					display: inline-block;
-					width: .75em;
-					height: .75em;
-					background-color: black;
-					margin-right: .25em;
+				> .drive-icon,
+				> .drive-name,
+				> .drive-capacity {
+					box-sizing: content-box;
+					display: table-cell;
+					vertical-align: middle;
 				}
 			}
-
-			.noobaa::before {
-				background-color: @text-color6;
-			}
-
-			.os::before {
-				background-color: @text-color2;
-			}
-
-			.unused::before {
-				background-color: @text-color5;
-			}
 		}
 
-		svg-icon {
-			margin-right: .5em;
-			width: @font-size-large;
-			height: @font-size-large;
+		.drive-icon {
+			min-width: 25px;
 		}
 
-		range-indicator {
-			padding-left: 7em;
+		.drive-name {
+			display: inline-block;
+			min-width: 10em;
+			vertical-align: middle;
+			margin-right: 1em;
+		}
+
+		.drive-capacity {
+			font-size: @font-size-small;
+			font-weight: @font-weight-medium;
+			line-height: 1.2;
+			height: 10px;
+
+			.legend + .legend::before {
+				content: ' | ';
+				color: @text-color4;
+			}
+
+			bar {
+				width: 100%;
+			}
 		}
 	}
 

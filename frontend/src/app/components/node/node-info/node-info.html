@@ -41,15 +41,32 @@
 <hr>
 
 <section class="drives">
-	<ul class="list-no-style legned">
-		<li class="bullet noobaa">NooBaa</li>
-		<li class="bullet os">OS</li>
-		<li class="bullet unused">Unused</li>
+	<h3 class="heading3">
+		Drives | Total <span data-bind="text: totalSize"></span>
+	</h3>
+
+	<ul class ="drive-list list-no-style" data-bind="foreach: drives">
+		<li>
+			<div class="drive-icon">
+				<svg-icon params="uri: '/assets/icons.svg#drive'"></svg-icon>
+			</div>
+			
+			<span class="no-wrap drive-name" data-bind="text: name"></span>
+
+			<div class="drive-capacity">
+				<div data-bind="foreach: values">
+					<span class="legend" data-bind="
+						style: { color: color }, 
+						text: legend
+					"></span>
+				</div>
+				<bar params="values: values"></bar>
+			</div>
+		</li>
 	</ul>
 
-	<h3 class="heading3">Drives (Total <span data-bind="text: totalSize"></span>)</h3>
 
-	<ul class="prop-sheet drives text-left" data-bind="foreach: drives">
+<!-- 	<ul class="prop-sheet drives text-left" data-bind="foreach: drives">
 		<li class="prop">
 			<div class="prop-name">
 				<svg-icon params="uri: '/assets/icons.svg#drive'"></svg-icon>
@@ -58,7 +75,7 @@
 
 			<range-indicator class="prop-value" params="values: values"></range-indicator>	
 		</li>
-	</ul>
+	</ul> -->
 </section>
 
 <hr>

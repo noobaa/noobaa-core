@@ -6,6 +6,11 @@ class NodePanelViewModel {
 	constructor() {
 		this.node = nodeInfo;
 		this.objects = nodeObjectList;
+
+		this.ready = ko.pureComputed(
+			() => !!this.node()
+		);		
+
 		this.selectedTab = ko.pureComputed(
 			() => uiState().tab
 		);

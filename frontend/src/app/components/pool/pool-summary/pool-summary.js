@@ -6,7 +6,20 @@ import { formatSize } from 'utils';
 
 class PoolSummaryViewModel {
 	constructor({ pool }) {
-		console.log(pool())
+		this.onlineCount = ko.pureComputed(
+			() => {
+				let count = pool().online_nodes;
+				return `${count > 0 ? numeral(count).format('0,0') : 'No'} Online Nodes`;
+			}
+		);
+
+		this.offlineCount = ko.pureComputed(
+			() => {
+				let count = pool().total_nodes - pool().online_nodes;
+				return `${count > 0 ? numeral(count).format('0,0') : 'No'} Offline Nodes`;
+			}
+		);
+
 		this.gaugeLegend = ko.pureComputed(
 			() => `${numeral(pool().total_nodes).format('0,0')} Nodes`
 		);
@@ -16,7 +29,7 @@ class PoolSummaryViewModel {
 				let { used, free } = pool().storage;
 				return [
 					this._makeGaugeValue('Capacity Used', used, style['text-color6'], true),
-					this._makeGaugeValue('Potential Capacity', free, style['text-color5'], true)
+					this._makeGaugeValue('Potential Capacity', free, style['text-color5'], false)
 				]
 			}
 		);

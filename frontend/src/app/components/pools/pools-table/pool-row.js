@@ -1,5 +1,6 @@
 import ko from 'knockout';
 import numeral from 'numeral';
+import { formatSize } from 'utils';
 import page from 'page';
 
 export default class PoolRowViewModel {
@@ -31,11 +32,11 @@ export default class PoolRowViewModel {
 		);
 
 		this.usage = ko.pureComputed(
-			() => numeral(pool().storage.used).format('0,0')
+			() => formatSize(pool().storage.used)
 		);
 
 		this.capacity = ko.pureComputed(
-			() => numeral(pool().storage.total).format('0,0')
+			() => formatSize(pool().storage.total)
 		);
 
 		this.allowDelete = ko.pureComputed(

@@ -1,3 +1,4 @@
+<!-- ko if: ready -->
 <div class="object-panel">
 	<object-summary params="object: object" class="center clear"></object-summary>
 
@@ -11,9 +12,10 @@
 			</a>
 
 			<section class="tab-content">
-				<object-parts-table params="object: object, parts: parts">
-				</object-parts-table>
+				<object-parts-list params="object: object, parts: parts">
+				</object-parts-list>
 			</section>
 		</li>
 	</ul>
 </div>	
+<!-- /ko -->

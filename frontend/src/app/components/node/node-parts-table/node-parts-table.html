@@ -2,35 +2,30 @@
 	<table>
 		<thead>
 			<tr>
-				<th>State</th>
-				<th class="greedy text-left">Part of File Name</th>
-				<th>Start Offset</th>
-				<th>End Offset</th>
-				<th>Part Size</th>
+				<th class="state-col">State</th>
+				<th class="name-col text-left">File Name</th>
+				<th class="start-col">Start Offset</th>
+				<th class="end-col">End Offset</th>
+				<th class="size-col">Part Size</th>
 			</tr>	
-			
-			<tr class="collapse-row">
-				<th>State</th>
-				<th class="greedy text-left">Part of File Name</th>
-				<th>Start Offset</th>
-				<th>End Offset</th>
-				<th>Part Size</th>
-			</tr>
 		</thead>
 		
 		<tbody  data-bind="foreach: rows">
+			<!-- ko if: isVisible -->
 			<tr>
-				<td>
+				<td class="state-col">
 					<svg-icon params="uri: stateIcon"></svg-icon>	
 				</td>
 
-				<td class="text-left">
-					<a class="link" data-bind="href: objectUrl, text: objectName"></a>
+				<td class="name-col text-left">
+					<a class="link" data-bind="href: href, text: name"></a>
 				</td>
-				<td data-bind="text: startOffset"></td>
-				<td data-bind="text: endOffset"></td>
-				<td data-bind="text: size"></td>
+				
+				<td class="start-col" data-bind="text: startOffset"></td>
+				<td class="end-col" data-bind="text: endOffset"></td>
+				<td class="size-col" data-bind="text: size"></td>
 			</tr>
+			<!-- /ko -->
 		</tbody>
 	</table>
 </section>

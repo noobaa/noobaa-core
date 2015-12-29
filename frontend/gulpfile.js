@@ -143,11 +143,15 @@ gulp.task('watch-lib', function() {
 });
 
 gulp.task('watch-app', function() {
-	// Watch speperated because of gulp-watch bug.
+	// Watch separated because of a gulp-watch bug.
 
 	$.watch('src/app/**/*.js', function() {
 		runSequence('build-app');
 	});	
+
+	$.watch('src/app/config.json', function() {
+		runSequence('build-app');
+	});
 
 	$.watch('src/app/**/*.html', function() {
 		runSequence('build-app');

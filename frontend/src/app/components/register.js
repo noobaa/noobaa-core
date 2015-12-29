@@ -46,13 +46,16 @@ export default function register(ko) {
 	ko.components.register('bucket-objects-table',	require('./bucket/bucket-objects-table/bucket-objects-table'));
 	ko.components.register('bucket-policy-modal',	require('./bucket/bucket-policy-modal/bucket-policy-modal'));
 	ko.components.register('upload-files-modal',	require('./bucket/upload-files-modal/upload-files-modal'));
+	ko.components.register('cloud-sync-modal',		require('./bucket/cloud-sync-modal/cloud-sync-modal'));
 
 	// -------------------------------
 	// Object
 	// -------------------------------
-	ko.components.register('object-panel', 		require('./object/object-panel/object-panel'));
-	ko.components.register('object-summary', 	require('./object/object-summary/object-summary'));
-	ko.components.register('object-parts-table',require('./object/object-parts-table/object-parts-table'));	
+	ko.components.register('object-panel', 			require('./object/object-panel/object-panel'));
+	ko.components.register('object-summary', 		require('./object/object-summary/object-summary'));
+	ko.components.register('object-parts-table',	require('./object/object-parts-table/object-parts-table'));	
+	ko.components.register('object-parts-list',		require('./object/object-parts-list/object-parts-list'));	
+	ko.components.register('object-preview-modal',	require('./object/object-preview-modal/object-preview-modal'));		
 
 	// -------------------------------
 	// Pools
@@ -64,8 +67,9 @@ export default function register(ko) {
 	// -------------------------------
 	// Pool
 	// -------------------------------
-	ko.components.register('pool-panel', 	require('./pool/pool-panel/pool-panel'));
-	ko.components.register('pool-summary', 	require('./pool/pool-summary/pool-summary'));
+	ko.components.register('pool-panel', 		require('./pool/pool-panel/pool-panel'));
+	ko.components.register('pool-summary', 		require('./pool/pool-summary/pool-summary'));
+	ko.components.register('pool-nodes-table', 	require('./pool/pool-nodes-table/pool-nodes-table'));
 
 	// -------------------------------
 	// Node
@@ -84,6 +88,7 @@ export default function register(ko) {
 	ko.components.register('radio-btn', 		require('./shared/radio-btn/radio-btn'));
 	ko.components.register('checkbox', 			require('./shared/checkbox/checkbox'));
 	ko.components.register('capacity-gauge',	require('./shared/capacity-gauge/capacity-gauge'));	
+	ko.components.register('bar',				require('./shared/bar/bar'));	
 	ko.components.register('range-indicator', 	require('./shared/range-indicator/range-indicator'));	
 	ko.components.register('action-list', 		require('./shared/action-list/action-list'));
 	ko.components.register('stepper', 			require('./shared/stepper/stepper'));

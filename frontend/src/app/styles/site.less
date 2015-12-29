@@ -289,6 +289,10 @@ input[type="search"] {
 	cursor: @cursor-pointer;
 	padding: .75em 1em;
 
+	svg-icon {
+		margin-right: .5em;
+	}
+
 	&[disabled] {
 		cursor: default;
 	}
@@ -462,10 +466,6 @@ input[type="search"] {
 			box-sizing: content-box;
 			word-break: break-all;
 			padding: .75em 1.5em;		
-
-			&.greedy {
-				width: 100%;
-			}
 		}
 
 		tr {
@@ -500,7 +500,7 @@ input[type="search"] {
 		line-height: 2.5;
 		border-left: 4px solid transparent;
 		cursor: @cursor-pointer;
-		z-index: 1;
+		z-index: 0;
 
 		svg-icon {
 			width: @font-size-xlarge;
@@ -520,7 +520,7 @@ input[type="search"] {
 		background-color: @bg-color2;
 		box-shadow: 0 0 4px 0px @shadow-color;
 		padding: 1em 2em;
-		overflow: auto;
+		overflow-y: auto;	
 	}
 
 	.selected {
@@ -602,6 +602,18 @@ input[type="search"] {
 	}
 }
 
+.action-list {
+	display: inline-block;
+	vertical-align: top;
+
+	.action {
+		margin-top: .5em;
+		text-align: left;
+		display: block;
+		width: 13em;
+	}	
+}
+
 .text-tech {
 	line-height: 1.5;
 	font-family: @font-type3;
@@ -613,4 +625,21 @@ input[type="search"] {
 .box {
 	background-color: @bg-color2;
 	padding: 1em 1.25em;		
+}
+
+.status-line {
+	margin-top: .5em;
+	margin-bottom: 3em;
+
+	li {
+		display: inline-block;
+
+		+ li {
+			margin-left: 2em;
+
+			svg-icon, span {
+				vertical-align: middle;
+			}
+		}
+	}	
 }

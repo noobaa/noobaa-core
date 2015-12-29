@@ -1,3 +1,4 @@
+import ko from 'knockout';
 import numeral from 'numeral';
 
 const partStateIconMapping = Object.freeze({
@@ -7,12 +8,33 @@ const partStateIconMapping = Object.freeze({
 });
 
 export default class ObjectRowViewModel {
-	constructor(objectName, bucketName, partInfo) {
-		this.stateIcon = partStateIconMapping[partInfo.chunk.adminfo.health];
-		this.objectName = objectName;
-		this.objectUrl = `/systems/:system/buckets/${bucketName}/objects/${objectName}`;
-		this.startOffset = numeral(partInfo.start).format('0.0b');
-		this.endOffset = numeral(partInfo.end).format('0.0b');
-		this.size = numeral(partInfo.chunk.size).format('0.0b');
+	constructor(part) {
+		this.isVisible = ko.pureComputed(
+			() => !!part()
+		);
+
+		this.stateIcon = ko.pureComputed(
+			() => partStateIconMapping[part().state] 
+		);
+
+		this.name = ko.pureComputed(
+			() => part().object
+		);
+
+		this.href = ko.pureComputed(
+			() => `/systems/:system/buckets/${part().bucket}/objects/${part().object}`
+		);
+
+		this.startOffset = ko.pureComputed(
+			() => numeral(part().start).format('0.0b')
+		);
+
+		this.endOffset = ko.pureComputed(
+			() => numeral(part().end).format('0.0b')
+		);
+
+		this.size = ko.pureComputed(
+			() => numeral(part().size).format('0.0b')
+		)
 	}
 }

@@ -1,15 +1,16 @@
-<div class="pool-panel text-center" data-bind="if: ready">
-	<pool-summary class="center" params="pool: pool"></pool-summary>
+<!-- ko if: ready -->
+<pool-summary class="text-center" params="pool: pool"></pool-summary>
 
-	<ul class="tabs details-pane">
-		<li data-bind="css: { selected: isTabSelected('nodes') }">
-			<a class="tab-header" data-bind="href: '/systems/:system/pools/:pool/nodes'">
-				<svg-icon params="uri: '/assets/icons.svg#node'"></svg-icon>
-				Nodes
-			</a>
+<ul class="tabs details-pane">
+	<li data-bind="css: { selected: isTabSelected('nodes') }">
+		<a class="tab-header" data-bind="href: '/systems/:system/pools/:pool/nodes'">
+			<svg-icon params="uri: '/assets/icons.svg#node'"></svg-icon>
+			Nodes
+		</a>
 
-			<section class="tab-content">
-			</section>
-		</li>
-	</ul>
-</div>
+		<section class="tab-content">
+			<pool-nodes-table params="nodes: nodes"></pool-nodes-table>
+		</section>
+	</li>
+</ul>
+<!-- /ko -->

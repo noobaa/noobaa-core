@@ -6,6 +6,11 @@ class ObjectPanelViewModel {
 	constructor() {
 		this.object = objectInfo;
 		this.parts  = objectPartList;
+
+		this.ready = ko.pureComputed(
+			() => !!this.object()
+		)
+
 		this.selectedTab = ko.pureComputed(
 			() => uiState().tab
 		);

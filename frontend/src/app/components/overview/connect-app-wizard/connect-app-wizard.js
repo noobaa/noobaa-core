@@ -2,7 +2,9 @@ import template from './connect-app-wizard.html';
 import selectSlideTemplate from './select-slide.html';
 import connecSlideTemplate from './connect-slide.html';
 import ko from 'knockout';
-import { bucketList } from 'model';
+import { bucketList, systemOverview } from 'model';
+import { serverAddress } from 'config';
+import { copyTextToClipboard } from 'utils';
 
 const connectionTypes = Object.freeze([
 	{
@@ -56,7 +58,19 @@ class ConnectApplicationWizard {
 				return item;
 			}
 		);
-	 	this.selectedBucket(this.buckets[0]);
+	 	this.selectedBucket(this.buckets()[0]);
+	
+	 	this.endpoint = serverAddress;
+	 	this.accessKey = ko.pureComputed(
+	 		() => systemOverview().keys.access
+ 		);
+ 		this.secretKey = ko.pureComputed(
+	 		() => systemOverview().keys.secret
+ 		);
+	}
+
+	copyToClipboard(text) {
+		copyTextToClipboard(ko.unwrap(text));
 	}
 }
 

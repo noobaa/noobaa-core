@@ -16,23 +16,27 @@ class NodeSummaryViewModel {
 		);
 
 		this.stateIcon = ko.pureComputed(
-			() => this._mapStateIcon(node())
+			() => `/assets/icons.svg#node-${node().online ? 'online' : 'offline'}`
 		)
 
-		this.stateText = ko.pureComputed(
-			() => this._mapStateText(node())
+		this.state = ko.pureComputed(
+			() => node().online ? 'Online' : 'Offline'
+		);
+
+		this.heartbeat = ko.pureComputed(
+			() => moment(node().heartbeat).fromNow()
 		);
 
 		this.trustIcon = ko.pureComputed(
-			() => this._mapTrustIcon(node())
+			() => `/assets/icons.svg#${node().trusted ? 'trusted' : 'untrusted'}`
 		);
 
-		this.trustText = ko.pureComputed(
-			() => this._mapTrustText(node())
+		this.trust = ko.pureComputed(
+			() => node().trusted ? 'Trusted' : 'Untrusted'
 		);
 
 		this.gaugeLegend = ko.pureComputed(
-			() => this._mapGaugeLegend(node())
+			() => `Capacity (${formatSize(node().storage.total)})`
 		);
 
 		this.gaugeValues = ko.pureComputed(
@@ -40,28 +44,6 @@ class NodeSummaryViewModel {
 		);
 	}
 
-	_mapStateIcon({ online }) {
-		return `/assets/icons.svg#node-${online ? 'online' : 'offline'}`;
-	}
-
-	_mapStateText({ online, heartbeat }) {
-		let stateText = online ? 'Online' : 'Offline';
-		let formattedTime = moment(heartbeat).fromNow();
-
-		return `${stateText} (Last heartbeat: ${formattedTime})`;		
-	}
-
-	_mapTrustIcon({ trusted }) {
-		return `/assets/icons.svg#${trusted ? 'trusted' : 'untrusted'}`;
-	}
-
-	_mapTrustText({ trusted }) {
-		return trusted ? 'Trusted' : 'Untrusted';	
-	}
-
-	_mapGaugeLegend({ storage }) {
-		return `Capacity (${formatSize(storage.total)})`;
-	}
 
 	_mapGaugeValues({ storage }) {
 		let { total, used, free } = storage;

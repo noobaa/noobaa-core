@@ -1,0 +1,26 @@
+<section class="data-table">
+	<table>
+		<thead>
+			<tr>
+				<th class="state-col">state</th>
+				<th class="name-col text-left">node name</th>
+				<th class="ip-col">ip</th>
+				<th class="capacity-col">capacity</th>
+			</tr>
+		</thead>
+		<tbody data-bind="foreach: rows">
+			<!-- ko if: isVisible -->
+			<tr>
+				<td class="state-col">
+					<svg-icon params="uri: stateIcon"></svg-icon>
+				</td>
+				<td class="name-col text-left" >
+					<a class="link" data-bind="text: name, href: href"></a>
+				</td>
+				<td class="ip-col" data-bind="text: ip"></td>
+				<td class="capacity-col" data-bind="text: capacity"></td>
+			</tr>
+			<!-- /ko -->
+		</tbody>
+	</table>
+</section>

@@ -11,27 +11,27 @@
 		</tr>
 		<tr>
 			<td class="field-name">REST Endpoint:</td>
-			<td class="field-value">123.456.789.123</td>
+			<td class="field-value" data-bind="text: endpoint"></td>
 			<td class="copy-btn">
-				<button class="btn-flat" title="copy to clipboard">
+				<button class="btn-flat" title="copy to clipboard" data-bind="click: () => copyToClipboard(endpoint)">
 					<svg-icon class="icon-small" params="uri: '/assets/icons.svg#copy'"></svg-icon>
 				</button>
 			</td>
 		</tr>				
 		<tr>
 			<td class="field-name">Access Key:</td>
-			<td class="field-value">dsfhksjdhfjksd-sdkjhfkjs-sdfsdf-324dsf</td>
+			<td class="field-value" data-bind="text: accessKey"></td>
 			<td class="copy-btn">
-				<button class="btn-flat" title="copy to clipboard">
+				<button class="btn-flat" title="copy to clipboard" data-bind="click: () => copyToClipboard(accessKey)">
 					<svg-icon class="icon-small" params="uri: '/assets/icons.svg#copy'"></svg-icon>
 				</button>
 			</td>
 		</tr>				
 		<tr>
 			<td class="field-name">Secret Key:</td>
-			<td class="field-value">dsfhksjdhfjksd-sdkjhfkjs-sdfsdf-324dsf</td>
+			<td class="field-value" data-bind="text: secretKey"></td>
 			<td class="copy-btn">
-				<button class="btn-flat" title="copy to clipboard">
+				<button class="btn-flat" title="copy to clipboard" data-bind="click: () => copyToClipboard(secretKey)">
 					<svg-icon class="icon-small" params="uri: '/assets/icons.svg#copy'"></svg-icon>
 				</button>
 			</td>

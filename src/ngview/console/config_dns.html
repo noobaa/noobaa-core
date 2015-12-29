@@ -8,28 +8,12 @@
         <label class="radio-inline">
             <input type="radio" name="dns_type" ng-model="dns_form.dns_type" value="ip" />IP Address &nbsp;
         </label>
-        <div style="margin-top: 10px">
+        <div style="margin: 10px 0">
             <div class="form-control-wrapper" ng-show="dns_form.dns_type=='dns'">
                 <input type="text" class="form-control floating-label" ng-model="dns_form.dns_name" required />
             </div>
             <div class="form-control-wrapper" ng-show="dns_form.dns_type=='ip'">
                 <input type="text" class="form-control floating-label" ng-model="dns_form.ip_address" required disabled />
-            </div>
-        </div>
-
-        <div ng-show="dns_form.dns_type=='dns'" style="margin-top: 20px">
-            <p><i class="fa fa-exclamation-triangle fa-fw"></i>
-                <i>Before you apply, add the following entry to your DNS:</i></p>
-            <div class="well well-light well-sm">
-                <table class="table table-no-borders table-condensed font-monospace" style="margin: 0">
-                    <tr>
-                        <th class="compact">IP:</th>
-                        <td class="compact">{{dns_form.ip_address}}</td>
-                        <th class="compact">Name:</th>
-                        <td class="compact">{{dns_form.dns_name}}</td>
-                        <td></td>
-                    </tr>
-                </table>
             </div>
         </div>
 
@@ -48,15 +32,31 @@
                 <i class="fa fa-fw fa-check text-success"></i> Changes have been saved.
                 <br/>
                 <i class="fa fa-fw {{dns_form.reply.nodes_updated<dns_form.reply.nodes_count && 'fa-warning text-warning' || 'fa-check text-success'}}"></i> {{dns_form.reply.nodes_updated}}/{{dns_form.reply.nodes_count}} nodes have been updated.
-
             </span>
         </div>
+
     </div>
 
     <br/>
 
+    <div ng-show="dns_form.dns_type=='dns'" style="Xmargin-top: 20px">
+        <p><i class="fa fa-exclamation-triangle fa-fw"></i>
+            <i>Before you apply, add the following entry to your DNS:</i></p>
+        <div class="well well-light well-sm">
+            <table class="table table-no-borders table-condensed font-monospace" style="margin: 0">
+                <tr>
+                    <th class="compact">IP:</th>
+                    <td class="compact">{{dns_form.ip_address}}</td>
+                    <th class="compact">Name:</th>
+                    <td class="compact">{{dns_form.dns_name}}</td>
+                    <td></td>
+                </tr>
+            </table>
+        </div>
+    </div>
+
     <div>
-        <ul>
+        <ul style="padding-left: 19px">
             <li>It is recommended to use a DNS name rather than IP address.</li>
             <li>When using IP address - make sure that the server IP was configured Static and not DHCP, otherwise if the IP will suddenly change the nodes will loose connectivity.</li>
             <li>Changing DNS name procedure:

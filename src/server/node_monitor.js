@@ -221,6 +221,16 @@ function update_heartbeat(req, reply_token) {
         delay_ms: hb_delay_ms,
     };
 
+    // since the heartbeat api is dynamic through new versions
+    // if we detect that this is a new version we return immediately
+    // with the new version so that the agent will update the code first
+    // and only after the upgrade we will run the heartbeat functionality
+    if (params.version && reply.version && params.version !== reply.version) {
+        dbg.log0('SEND MINIMAL REPLY WITH NEW VERSION',
+            params.version, '=>', reply.version, 'node', node_id);
+        return reply;
+    }
+
     //0.4 backward compatible - reply with version and without rpc address.
     if (!params.id) {
         reply.rpc_address = rpc_address;

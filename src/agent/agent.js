@@ -399,7 +399,7 @@ Agent.prototype._do_heartbeat = function() {
         geolocation: self.geolocation,
         ip: ip,
         base_address: self.rpc.base_address,
-        version: self.heartbeat_version || '',
+        version: current_pkg_version || '',
         extended_hb: extended_hb,
     };
 
@@ -468,7 +468,7 @@ Agent.prototype._do_heartbeat = function() {
         })
         .then(function(res) {
             dbg.log0('heartbeat: res.version', res.version,
-                'hb version', self.heartbeat_version,
+                'current_pkg_version', current_pkg_version,
                 'node', self.node_name);
 
             if (res.version && current_pkg_version && current_pkg_version !== res.version) {
@@ -476,7 +476,6 @@ Agent.prototype._do_heartbeat = function() {
                 process.exit(0);
             }
 
-            self.heartbeat_version = current_pkg_version;
             self.heartbeat_delay_ms = res.delay_ms;
             if (extended_hb) {
                 self.extended_hb_last_time = Date.now();

@@ -6,7 +6,6 @@
 /*---------------------------------------------------*/
 
 @input-underline-color: #d2e2e2;
-@input-border-color: hsla(0, 0%, 50%, 0.2);
 
 .btn {
     position: relative;
@@ -117,7 +116,9 @@
     color: @darkbg-text;
     height: 28px;
     float: none;
-    border-color: @input-border-color;
+    border-top: none;
+    border-left: none;
+    border-right: none;
     outline: none;
     box-shadow: none;
     border-radius: 0;
@@ -147,7 +148,7 @@
     &:focus {
         background-size: 100% 2px, 100% 1px;
         box-shadow: inherit;
-        border-color: @input-border-color;
+        border: none;
 
         ~ .floating-label {
             color: @primary;

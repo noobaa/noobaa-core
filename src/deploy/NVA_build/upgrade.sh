@@ -51,7 +51,7 @@ function restart_webserver {
     deploy_log "starting mongo data upgrade"
     /usr/bin/mongo nbcore ${CORE_DIR}/src/deploy/NVA_build/mongo_upgrade.js
     deploy_log "finished mongo data upgrade"
-
+    
     ${SUPERCTL} start webserver
 
 }
@@ -101,48 +101,36 @@ function do_upgrade {
   disable_supervisord
 
   unalias cp
-  deploy_log "Tar file extracted successfully"
-  deploy_log "Running pre-upgrade..."
+  deploy_log "Tar extracted successfully, Running pre upgrade"
   ${WRAPPER_FILE_PATH}${WRAPPER_FILE_NAME} pre ${FSUFFIX}
-  deploy_log "Running pre-upgrade: done"
 
   deploy_log "Backup of current version and extract of new"
   #Delete old backup
-  deploy_log "Deleting old backup..."
   rm -rf /backup
-  deploy_log "Deleting old backup: done"
   #Backup and extract
-  deploy_log "Creating a new backup..."
   mv ${CORE_DIR} /backup
   mkdir ${CORE_DIR}
   mv ${TMP_PATH}${PACKAGE_FILE_NAME} /root/node_modules
-  deploy_log "Creating a new backup: done"
   cd /root/node_modules
-  deploy_log "Extracting new version..."
+  deploy_log "Extracting new version"
   tar -xzvf ./${PACKAGE_FILE_NAME} >& /dev/null
-  deploy_log "Extracting new version: done"
+
   # Re-setup Repos
-  deploy_log "Setting up repos..."
   setup_repos
-  deploy_log "Setting up repos: done"
 
-  deploy_log "Running post upgrade..."
+  deploy_log "Running post upgrade"
   ${WRAPPER_FILE_PATH}${WRAPPER_FILE_NAME} post ${FSUFFIX}
-  deploy_log "Running post upgrade: done"
+  deploy_log "Finished post upgrade"
 
-  deploy_log "Enabling supervisor..."
   enable_supervisord
-  deploy_log "Enabling supervisor: done"
+  deploy_log "Enabling supervisor"
   #workaround - from some reason, without sleep + restart, the server starts with odd behavior
   #TODO: understand why and fix.
   sleep 5;
-  deploy_log "Restarting s3rver..."
   restart_s3rver
-  deploy_log "Restarting s3rver: done"
-  deploy_log "Restarting webserver..."
+  deploy_log "Restarted s3rver"
       restart_webserver
-  deploy_log "Restarting webserver: done"
-  deploy_log "Hooray! Upgrade finished successfully!"
+  deploy_log "Upgrade finished successfully!"
 }
 
 #Node.js Cluster chnages the .spawn behavour. On a normal spawn FDs are not inherited,

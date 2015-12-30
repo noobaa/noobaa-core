@@ -1,26 +1,36 @@
 'use strict';
-var argv = require('yargs').argv;
-var gulp = require('gulp');
-var del = require('del');
-var VFile = require('vinyl');
-var sourceStream = require('vinyl-source-stream');
-var buffer = require('vinyl-buffer');
-var browserify = require('browserify');
-var stringify = require('stringify');
-var babelify = require('babelify');
-var bowerResolve = require('bower-resolve');
-var runSequence = require('run-sequence');
-var through = require('through2'); 
-var $ = require('gulp-load-plugins')();
+let argv = require('yargs').argv;
+let gulp = require('gulp');
+let del = require('del');
+let VFile = require('vinyl');
+let sourceStream = require('vinyl-source-stream');
+let buffer = require('vinyl-buffer');
+let browserify = require('browserify');
+let stringify = require('stringify');
+let babelify = require('babelify');
+let runSequence = require('run-sequence');
+let through = require('through2'); 
+let $ = require('gulp-load-plugins')();
 
-var buildPath = './dist';
-var uglify = !!argv.uglify;
+let buildPath = './dist';
+let uglify = !!argv.uglify;
+
+let libs = [
+	{ name: 'knockout', 			path: String.raw`.\src\lib\knockout\dist\knockout.debug.js` },
+	{ name: 'knockout-mapping', 	path: String.raw`.\src\lib\knockout-mapping\knockout.mapping` },
+	{ name: 'knockout-projections', path: String.raw`.\src\lib\knockout-projections\dist\knockout-projections.min.js` },
+	{ name: 'knockout-validation', 	path: String.raw`.\src\lib\knockout-validation\dist\knockout.validation.js` },
+	{ name: 'numeral',				path: String.raw`.\src\lib\numeral\numeral.js` },
+	{ name: 'page',					path: String.raw`.\src\lib\page\page.js` },
+	{ name: 'moment',				path: String.raw`.\src\lib\moment\moment.js` },
+	{ name: 'aws-sdk',				path: String.raw`.\src\lib\aws-sdk\dist\aws-sdk.js` },
+];
 
 // ----------------------------------
 // Default Task
 // ---------------------------------- 
 
-gulp.task('default', function(cb) {
+gulp.task('default', cb => {
 	runSequence(
 		'build',
 		'watch',
@@ -34,7 +44,7 @@ gulp.task('default', function(cb) {
 // Build Tasks
 // ---------------------------------- 
 
-gulp.task('build', function(cb) {
+gulp.task('build', cb => {
 	runSequence(
 		'clean',
 		['build-lib', 'build-api', 'build-app', 'compile-styles', 'copy'],
@@ -42,20 +52,18 @@ gulp.task('build', function(cb) {
 	);
 });
 
-gulp.task('clean', function(cb) {
-	del([buildPath]).then(function() {
+gulp.task('clean', cb => {
+	del([buildPath]).then(() => {
 		cb();
 	});
-
 });
 
-gulp.task('build-lib', function() {
-	var b = browserify({ debug: true, noParse: true });
+gulp.task('build-lib', () => {
+	let b = browserify({ debug: true, noParse: true });
 	
-	getBowerDependencies().forEach(function(lib) {
-		var resolvedPath = bowerResolve.fastReadSync(lib);
-		b.require(resolvedPath, { expose: lib })
-	});
+	libs.forEach(
+		lib => b.require(lib.path, { expose: lib.name }) 
+	);
 
 	return b.bundle()
 		.on('error', errorHandler)
@@ -67,8 +75,8 @@ gulp.task('build-lib', function() {
 		.pipe(gulp.dest(buildPath));
 });
 
-gulp.task('build-api', function() {
-	var b = browserify({ debug: true });
+gulp.task('build-api', () => {
+	let b = browserify({ debug: true });
 	
 	b.require('../src/api/index.js', { expose: 'nb-api' });
 
@@ -82,16 +90,14 @@ gulp.task('build-api', function() {
 		.pipe(gulp.dest(buildPath));
 });
 
-gulp.task('build-app', ['build-js-style'], function() {
-	var b = browserify({ debug: true, paths: ['./src/app'] })
+gulp.task('build-app', ['build-js-style'], () => {
+	let b = browserify({ debug: true, paths: ['./src/app'] })
 		.require(buildPath + '/style.json', { expose: 'style' })
 		.transform(babelify, { optional: ['runtime', 'es7.decorators'] })
 		.transform(stringify({ minify: uglify }))
 		.add('src/app/main');
 
-	getBowerDependencies().forEach(function(lib) {
-		b.external(lib);	
-	});
+	libs.forEach( lib => b.external(lib.name) );
 	b.external('nb-api');
 
 	return b.bundle()
@@ -104,7 +110,7 @@ gulp.task('build-app', ['build-js-style'], function() {
 		.pipe(gulp.dest(buildPath));
 });
 
-gulp.task('compile-styles', function() {
+gulp.task('compile-styles', () => {
 	return gulp.src(['src/app/**/*.less'], { base: '.' })
 		.pipe($.lessImport('styles.less'))
 		.pipe($.sourcemaps.init())
@@ -115,14 +121,14 @@ gulp.task('compile-styles', function() {
 		.pipe(gulp.dest(buildPath));
 });
 
-gulp.task('copy', function() {
+gulp.task('copy', () => {
 	return gulp.src(['src/index.html', 'src/assets/**/*'], { base: 'src' })
 		.pipe(gulp.dest(buildPath));
 });
 
-gulp.task('build-js-style', function() {
+gulp.task('build-js-style', () => {
 	return gulp.src('src/app/styles/variables.less', { base: 'src/app/styles' })
- 		.pipe(varsToLessClass())
+ 		.pipe(letsToLessClass())
  		.pipe($.less())
  		.pipe(cssClassToJson())
  		.pipe(gulp.dest(buildPath));
@@ -134,41 +140,41 @@ gulp.task('build-js-style', function() {
 
 gulp.task('watch', [ 'watch-lib', 'watch-app', 'watch-styles', 'watch-assets' ]);
 
-gulp.task('watch-lib', function() {
-	$.watch('bower.json', function() {
+gulp.task('watch-lib', () => {
+	$.watch('bower.json', () => {
 		// Invalidate the cached bower.json.
 		delete require.cache[require.resolve('bower.json')];
 		runSequence('build-lib');
 	});	
 });
 
-gulp.task('watch-app', function() {
+gulp.task('watch-app', () => {
 	// Watch separated because of a gulp-watch bug.
 
-	$.watch('src/app/**/*.js', function() {
+	$.watch('src/app/**/*.js', () => {
 		runSequence('build-app');
 	});	
 
-	$.watch('src/app/config.json', function() {
+	$.watch('src/app/config.json', () => {
 		runSequence('build-app');
 	});
 
-	$.watch('src/app/**/*.html', function() {
+	$.watch('src/app/**/*.html', () => {
 		runSequence('build-app');
 	});		
 
-	$.watch('src/styles/variables.less', function() {
+	$.watch('src/styles/letiables.less', () => {
 		runSequence('build-app');
 	});		
 });
 
-gulp.task('watch-styles', function() {
-	$.watch(['src/app/**/*.less'], function() {
+gulp.task('watch-styles', () => {
+	$.watch(['src/app/**/*.less'], () => {
 		runSequence('compile-styles')
 	});
 });
 
-gulp.task('watch-assets', function() {
+gulp.task('watch-assets', () => {
 	$.watch(['src/index.html', 'src/assets/*'], function(vinyl) {
 		// Copy the file that changed.
 		gulp.src(vinyl.path, { base: 'src' })
@@ -179,15 +185,15 @@ gulp.task('watch-assets', function() {
 // ----------------------------------
 // Web Server Tasks
 // ----------------------------------
-var wsStream;
-gulp.task('serve', function() {
+let wsStream;
+gulp.task('serve', () => {
 	wsStream && esStream.emit('kill');
 
 	wsStream = gulp.src(buildPath)
 		.pipe($.webserver({
 			fallback: '/index.html',
 			open: true,
-			middleware: cacheControl(60)
+			middleware: cacheControl(60),
 		}));
 
 	return wsStream;
@@ -197,23 +203,13 @@ gulp.task('serve', function() {
 // Helper functions
 // ---------------------------------- 
 
-function getBowerDependencies() {
-	var dependencies = {};
-	try {
-		dependencies = require('./bower.json').dependencies;
-	} catch (e) {
-	}
-
-	return Object.keys(dependencies);
-}
-
-function varsToLessClass() {
+function letsToLessClass() {
 	return through.obj(function(file, encoding, callback) {
-		var contents = file.contents.toString('utf-8');
-		var regExp = /@([A-Za-z0-9\-]+)\s*\:\s*(.+?)\s*;/g;
-		var output =  [];
+		let contents = file.contents.toString('utf-8');
+		let regExp = /@([A-Za-z0-9\-]+)\s*\:\s*(.+?)\s*;/g;
+		let output =  [];
 
-		var matches = regExp.exec(contents);
+		let matches = regExp.exec(contents);
 		while (matches) {
 			output.push(matches[1] + ': @' + matches[1] + ';')
 			matches = regExp.exec(contents);
@@ -231,11 +227,11 @@ function varsToLessClass() {
 
 function cssClassToJson() {
 	return through.obj(function(file, encoding, callback) {
-		var contents = file.contents.toString('utf-8');
-		var regExp = /([A-Za-z0-9\-]+)\s*:\s*(.+?)\s*;/g;
-		var output = {};
+		let contents = file.contents.toString('utf-8');
+		let regExp = /([A-Za-z0-9\-]+)\s*:\s*(.+?)\s*;/g;
+		let output = {};
 
-		var matches = regExp.exec(contents);		
+		let matches = regExp.exec(contents);		
 		while (matches) { 			
 			output[matches[1]] = matches[2];
 			matches = regExp.exec(contents);
@@ -256,7 +252,7 @@ function errorHandler(err) {
 }
 
 function cacheControl(seconds) {
-    var millis = 1000 * seconds;
+    let millis = 1000 * seconds;
     return function(req, res, next) {
         res.setHeader("Cache-Control", "public, max-age=" + seconds);
         res.setHeader("Expires", new Date(Date.now() + millis).toUTCString());

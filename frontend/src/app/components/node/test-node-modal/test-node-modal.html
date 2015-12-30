@@ -1,0 +1,26 @@
+<modal>
+	<h1 class="heading1">Test Node</h1>
+
+	<div class="text-left">
+		<h2 class="heading3">Test Type</h2>
+		
+		<button class="btn3 pull-right" data-bind="click: runTest">Run Test</button>
+
+		<div class="test-type" data-bind="foreach: testTypes">
+			<radio-btn class="test-type" params="
+				group: 'test-type', 
+				label: label,
+				value: value,
+				checked: $parent.testType
+			"></radio-btn>
+		</div>
+	</div>
+
+	<div class="results box text-left">
+		Run Test to see results
+	</div>
+
+	<div class="action-line pull-right">
+		<button class="action btn2" data-bind="click: close">Close</button>		
+	</div>	
+</modal>

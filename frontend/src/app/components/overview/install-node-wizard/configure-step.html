@@ -1,0 +1,30 @@
+<h2 class="heading3">
+	Choose DNS name or IP for nodes connectivity to NooBaa server
+</h2>
+
+<section class="addr-type">
+	<radio-btn params="
+		group: 'addr-type', 
+		label: 'IP Address', 
+		value: 'IP',
+		checked: addrType
+	"></radio-btn>
+
+	<radio-btn params="
+		group: 'addr-type', 
+		label: 'DNS Name (recommended)', 
+		value: 'DNS',
+		checked: addrType,
+		disabled: true
+	"></radio-btn>
+	
+
+	<output class="addr" data-bind="text: addr"></output>
+
+	<p class="remark">
+		* DNS Name not configured, to config your DNS name go to 
+		<a class="link" href>system configuration</a>
+	</p>
+
+
+</section>

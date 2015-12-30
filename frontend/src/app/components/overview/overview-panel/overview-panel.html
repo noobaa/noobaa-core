@@ -5,9 +5,9 @@
 		</pools-overview>
 		<!-- /ko -->
 		
-		<a class="btn" data-bind1="click: () => isInstallNodeWizardlVisible(true)">
+		<button class="btn" data-bind="click: () => isInstallNodeWizardlVisible(true)">
 			install node
-		</a>
+		</button>
 
 		<!-- ko if: isInstallNodeWizardlVisible -->
 		<install-node-wizard params="onClose: () => isInstallNodeWizardlVisible(false)">
@@ -22,9 +22,9 @@
 		</buckets-overview>
 		<!-- /ko -->
 		
-		<a class="btn" data-bind="click: () => isConnectAppWizardVisible(true)">
+		<button class="btn" data-bind="click: () => isConnectAppWizardVisible(true)">
 			connect application
-		</a>
+		</button>
 
 		<!-- ko if: isConnectAppWizardVisible -->
 		<connect-app-wizard params="onClose: () => isConnectAppWizardVisible(false)">

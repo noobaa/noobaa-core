@@ -1,81 +1,17 @@
 <wizard params="
-	heading: 'Add New Node', 
-	steps: ['configure', 'download', 'run', 'review'],
+	heading: 'Install Node', 
+	steps: ['download', 'run', 'review'],
 	onClose: onClose
 ">
-
-	<section class="configure-step">
-		<section>
-			<h2 class="heading3">
-				Choose DNS name or IP for nodes connectivity to NooBaa server
-			</h2>
-
-			<div class="addr-type">
-	 			<radio-btn params="name: 'addr-type', label: 'IP Address', value: 'IP'"></radio-btn>
-	 			<br>
-	 			<output class="addr">13.456.789.456</output>
-	 		</div>
-
-	 		<div class="addr-type">
-				<radio-btn params="name: 'addr-type', label: 'DNS Name', value: 'DNS'"></radio-btn>
-				<br>
-				<input class="addr" type="text" class="text-field" placeholder="Enter DNS name here"/>
-			</div>
-		</section>
-
-		<section>
-			<h2 class="heading3">Copy the following Config String</h2>
-			<div class="box">
-				<button class="btn-flat pull-right">
-					<svg-icon class="icon-small" params="uri: '/assets/icons.svg#copy'"></svg-icon>
-				</button>
-				
-				asasfasfkjhsjfh askljsakjld iklsadjf lkisadfkjl sadkljfhsasd lkjfhasdklj fasdklf haskl
-				sakjdf hsd jkfh sdjk fhs klsdjhf lksdjhf klsdfh sdkljfh sdkf\
-				lsdk hfrklsdhf kjlsdh fklsdjhsdklj hsdlkjfh kjl			
-			</div>
-			<p class="remark">* Please copy the config string before continuing</p>
-		</section>
-	</section>
+	<section class="download-step text-center" data-bind="
+		template: { html: downloadStepTemplate }
+	"></section>
 	
-	<section class="download-step text-center">
-		<h2 class="heading3 ">Downaload the NooBaa agent</h2>	
-		<div>
-			<button class="btn3 download-btn">Windows</button>
-			<button class="btn3 download-btn">Linux</button>
-		</div>
-		<p class="remark">* See next step for installation and running instructions</p>
-	</section>
+	<section class="run-step" data-bind="
+		template: { html: runStepTemplate }
+	"></section>
 	
-	<section class="run-step">
-		<div>
-			
-			<h2 class="heading3">
-				<svg-icon params="uri: '/assets/icons.svg#pool'"></svg-icon>
-				Distribution (recommended)
-			</h2>
-			<p>Distribute the agent with its configuration (the copied string) via any distribution tool to all the nodes you wish to participate in the network.</p>
-
-			<p class="text-tech">
-<!-- 				<button class="btn-flat pull-right">
-					<svg-icon class="icon-small" params="uri: '/assets/icons.svg#copy'"></svg-icon>
-				</button> -->
-				
-				eyJkYmdfbG9nX2xldmVsIjoyLCJ0aWVyIjoibm9kZXMiLCJwcm9kIjp0cnVlLCJidWNrZXQiOiJmaWxlcyIsInJvb3RfcGF0aCI6Ii4vYWdlbnRfc3RvcmFnZS8iLCJwb3J0Ijo4ODg4LCJzZWN1cmVfcG9ydCI6OTk5OSwiYWRkcmVzcyI6IndzczovLzE5Mi4xNjguNTYuMTAyOjU0NDMiLCJzeXN0ZW0iOiJkZW1vIiwiYWNjZXNzX2tleSI6IjEyMyIsInNlY3JldF9rZXkiOiJhYmMifQ==		
-			</p>			
-		</div>
-
-		<div style="margin-top:3em">
-			<h2 class="heading3">
-				<svg-icon params="uri: '/assets/icons.svg#node'"></svg-icon>
-				Manual Installation
-			</h2>
-			<p>
-				Open a shell window and run the following command: 
-				<div class="text-tech">noobaa-setup.exe /S config "eyJkYmdfbG9nX2xldmVsIjoyLCJ0aWVyIjoibm9kZXMiLCJwcm9kIjp0cnVlLCJidWNrZXQiOiJmaWxlcyIsInJvb3RfcGF0aCI6Ii4vYWdlbnRfc3RvcmFnZS8iLCJwb3J0Ijo4ODg4LCJzZWN1cmVfcG9ydCI6OTk5OSwiYWRkcmVzcyI6IndzczovLzE5Mi4xNjguNTYuMTAyOjU0NDMiLCJzeXN0ZW0iOiJkZW1vIiwiYWNjZXNzX2tleSI6IjEyMyIsInNlY3JldF9rZXkiOiJhYmMifQ=="</div>
-			</p>
-		</div>
-
-	</section>
-	<section></section>
+	<section class="review-step" data-bind="
+		template: { html: reviewStepTemplate }
+	"></section>
 </wizard>

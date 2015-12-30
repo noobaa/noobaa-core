@@ -42,6 +42,9 @@ class NodeSummaryViewModel {
 		this.gaugeValues = ko.pureComputed(
 			() => this._mapGaugeValues(node())
 		);
+
+		this.isTestModalVisible = ko.observable(true);
+		this.isDiagnoseModalVisible = ko.observable(false);		
 	}
 
 

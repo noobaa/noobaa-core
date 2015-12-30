@@ -51,7 +51,7 @@ function restart_webserver {
     deploy_log "starting mongo data upgrade"
     /usr/bin/mongo nbcore ${CORE_DIR}/src/deploy/NVA_build/mongo_upgrade.js
     deploy_log "finished mongo data upgrade"
-    
+
     ${SUPERCTL} start webserver
 
 }
@@ -146,7 +146,7 @@ if [ "$1" == "from_file" ]; then
   allargs="$@"
   shift
   if [ "$1" != "" ]; then
-      deploy_log "upgrade.sh called with ${allargs}"
+      deploy_log "upgrade.sh called for package extraction"
       cp -f $1 ${TMP_PATH}${PACKAGE_FILE_NAME}
       extract_package
       shift

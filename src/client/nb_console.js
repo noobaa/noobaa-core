@@ -241,6 +241,10 @@ nb_console.controller('ConfigViewCtrl', [
                     dns_form.state = 'saving';
                     return nbClient.client.system.update_base_address({
                         base_address: base_address
+                    }, {
+                        // send this request over the new address
+                        // to make sure it is indeed working
+                        address: base_address
                     });
                 })
                 .then(function(res) {

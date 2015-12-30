@@ -4,6 +4,7 @@
 var _ = require('lodash');
 var P = require('../util/promise');
 var moment = require('moment');
+var url = require('url');
 // var chance = require('chance')();
 var promise_utils = require('../util/promise_utils');
 var config = require('../../config');
@@ -190,6 +191,7 @@ nb_api.factory('nbNodes', [
             var scope = $rootScope.$new();
             scope.$location = $location;
             scope.nbSystem = nbSystem;
+            scope.server_address = url.parse(nbSystem.system.base_address).hostname;
             scope.stage = 1;
             var agent_conf = {
                 dbg_log_level: 2,

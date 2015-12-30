@@ -787,6 +787,7 @@ gulp.task('serve_agent', [], serve_agent);
 gulp.task('serve_s3', [], serve_s3);
 gulp.task('install_and_serve', ['install'], serve);
 gulp.task('install_css_and_serve', ['css'], serve);
+gulp.task('install_ng_and_serve', ['ng'], serve);
 gulp.task('install_client_and_serve', ['client', 'ng'], serve);
 
 gulp.task('watch', ['serve'], function() {
@@ -794,8 +795,10 @@ gulp.task('watch', ['serve'], function() {
         'src/css/**/*'
     ], ['install_css_and_serve']);
     gulp.watch([
-        'src/client/**/*',
         'src/ngview/**/*',
+    ], ['install_ng_and_serve']);
+    gulp.watch([
+        'src/client/**/*',
         'src/api/**/*',
         'src/rpc/**/*',
         'src/util/**/*',

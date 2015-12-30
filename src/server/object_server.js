@@ -149,6 +149,16 @@ function complete_multipart_upload(req) {
             dbg.error('complete_multipart_upload_err ', err, err.stack);
         })
         .then(function() {
+            return P.when(db.Bucket.findOneAndUpdate({
+                _id: obj.bucket,
+                deleted: null,
+            }, {
+                $inc: {
+                    'stats.writes': 1
+                }
+            }).exec());
+        })
+        .then(function() {
             return {
                 etag: obj_etag
             };

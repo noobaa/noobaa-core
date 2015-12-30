@@ -27,6 +27,9 @@ var os_util = require('../util/os_util');
 var diag = require('./agent_diagnostics');
 var AgentStore = require('./agent_store');
 var config = require('../../config.js');
+var pkg = require('../../package.json');
+var current_pkg_version = pkg.version;
+
 //var cluster = require('cluster');
 //var numCPUs = require('os').cpus().length;
 
@@ -396,7 +399,7 @@ Agent.prototype._do_heartbeat = function() {
         geolocation: self.geolocation,
         ip: ip,
         base_address: self.rpc.base_address,
-        version: self.heartbeat_version || '',
+        version: current_pkg_version || '',
         extended_hb: extended_hb,
     };
 
@@ -465,15 +468,14 @@ Agent.prototype._do_heartbeat = function() {
         })
         .then(function(res) {
             dbg.log0('heartbeat: res.version', res.version,
-                'hb version', self.heartbeat_version,
+                'current_pkg_version', current_pkg_version,
                 'node', self.node_name);
 
-            if (res.version && self.heartbeat_version && self.heartbeat_version !== res.version) {
+            if (res.version && current_pkg_version && current_pkg_version !== res.version) {
                 dbg.log0('version changed, exiting');
                 process.exit(0);
             }
 
-            self.heartbeat_version = res.version;
             self.heartbeat_delay_ms = res.delay_ms;
             if (extended_hb) {
                 self.extended_hb_last_time = Date.now();
@@ -840,15 +842,40 @@ Agent.prototype.update_n2n_config = function(req) {
 
 Agent.prototype.update_base_address = function(req) {
     var self = this;
-    console.log('AGENT GOT UPDATE BASE ADDRESS', req.rpc_params, 'was', self.rpc.base_address);
     var base_address = req.rpc_params.base_address;
-    self.rpc.base_address = base_address;
-    // TODO update_base_address in agent_conf.json
-    console.error('TODO update_base_address in agent_conf.json');
-    // setTimeout(function() {
-    //     self.rpc.disconnect_all();
-    //     self._do_heartbeat();
-    // }, 1000);
+    dbg.log0('update_base_address: to -', base_address, 'was -', self.rpc.base_address);
+    return P.fcall(function() {
+            // test this new address first by pinging it
+            return self.client.node.test_latency_to_server(null, {
+                address: base_address
+            });
+        })
+        .then(function() {
+            return P.nfcall(fs.readFile, 'agent_conf.json')
+                .then(function(data) {
+                    var agent_conf = JSON.parse(data);
+                    dbg.log0('update_base_address: old address in agent_conf.json was -', agent_conf.address);
+                    return agent_conf;
+                }, function(err) {
+                    if (err.code === 'ENOENT') {
+                        dbg.log0('update_base_address: no agent_conf.json file. creating new one...');
+                        return {};
+                    } else {
+                        throw err;
+                    }
+                });
+        })
+        .then(function(agent_conf) {
+            agent_conf.address = base_address;
+            var data = JSON.stringify(agent_conf);
+            return P.nfcall(fs.writeFile, 'agent_conf.json', data);
+        })
+        .then(function() {
+            dbg.log0('update_base_address: done -', base_address);
+            self.rpc.base_address = base_address;
+            // self.rpc.disconnect_all();
+            self._do_heartbeat();
+        });
 };
 
 

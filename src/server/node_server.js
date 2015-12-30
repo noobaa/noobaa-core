@@ -311,6 +311,17 @@ function list_nodes_int(query, system_id, skip, limit, pagination, req) {
                         info.tier = tier;
                     });
             }
+
+            if (query.pool) {
+                return db.PoolCache.get({
+                        system: system_id,
+                        name: query.pool,
+                    })
+                    .then(db.check_not_deleted(req, 'pool'))
+                    .then(function(pool) {
+                        info.pool = pool;
+                    });
+            }
         })
         .then(function() {
             var find = db.Node.find(info)
@@ -503,7 +514,15 @@ function get_node_full_info(node) {
 }
 
 function get_storage_info(storage) {
-    return _.omit(_.pick(storage, 'total', 'free', 'used', 'alloc', 'limit'), _.isUndefined);
+    //return _.omit(_.pick(storage, 'total', 'free', 'used', 'alloc', 'limit'), _.isUndefined);
+    var DEFAULT_STORAGE = {
+        total: 0,
+        free: 0,
+        used: 0,
+        alloc: 0,
+        limit: 0
+    };
+    return _.defaults(storage, DEFAULT_STORAGE);
 }
 
 function find_node_by_name(req) {

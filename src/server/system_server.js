@@ -38,6 +38,7 @@ var P = require('../util/promise');
 var crypto = require('crypto');
 var ip_module = require('ip');
 var size_utils = require('../util/size_utils');
+// var stun = require('../rpc/stun');
 var promise_utils = require('../util/promise_utils');
 var diag = require('./utils/server_diagnostics');
 var db = require('./db');
@@ -384,6 +385,15 @@ function read_system(req) {
         })).then(function(updated_buckets) {
             dbg.log2('updated_buckets:', updated_buckets);
             var ip_address = ip_module.address();
+            var n2n_config = req.system.n2n_config;
+            // TODO use n2n_config.stun_servers ?
+            // var stun_address = 'stun://' + ip_address + ':' + stun.PORT;
+            // var stun_address = 'stun://64.233.184.127:19302'; // === 'stun://stun.l.google.com:19302'
+            // n2n_config.stun_servers = n2n_config.stun_servers || [];
+            // if (!_.contains(n2n_config.stun_servers, stun_address)) {
+            //     n2n_config.stun_servers.unshift(stun_address);
+            //     dbg.log0('read_system: n2n_config.stun_servers', n2n_config.stun_servers);
+            // }
             return {
                 name: req.system.name,
                 roles: _.map(roles, function(role) {
@@ -422,7 +432,7 @@ function read_system(req) {
                 ssl_port: process.env.SSL_PORT,
                 web_port: process.env.PORT,
                 web_links: get_system_web_links(req.system),
-                n2n_config: req.system.n2n_config,
+                n2n_config: n2n_config,
                 ip_address: ip_address,
                 base_address: req.system.base_address ||
                     'wss://' + ip_address + ':' + process.env.SSL_PORT

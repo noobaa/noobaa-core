@@ -36,7 +36,7 @@ var bucket_server = require('./bucket_server');
 var tier_server = require('./tier_server');
 var account_server = require('./account_server');
 var node_server = require('./node_server');
-var object_mapper = require('./object_mapper');
+var object_mapper = require('./mapper/object_mapper');
 var cluster_server = require('./cluster_server');
 
 

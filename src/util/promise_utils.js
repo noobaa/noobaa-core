@@ -1,7 +1,7 @@
 // module targets: nodejs & browserify
 'use strict';
 
-// var _ = require('lodash');
+var _ = require('lodash');
 var P = require('./promise');
 var child_process = require('child_process');
 require('setimmediate');
@@ -23,6 +23,8 @@ module.exports = {
     full_dir_copy: full_dir_copy,
     wait_for_event: wait_for_event,
     pwhile: pwhile,
+    auto: auto,
+    all_obj: all_obj,
 };
 
 
@@ -287,4 +289,61 @@ function wait_for_event(emitter, event, timeout) {
             setTimeout(reject, timeout);
         }
     });
+}
+
+/**
+ * auto run set of tasks with dependencies as fast as possible.
+ * based on async.js auto.
+ * the tasks format is for example:
+ *  {
+ *      load1: function() { return P.delay(1000).resolve(1) },
+ *      load2: function() { return P.delay(2000).resolve(2) },
+ *      sum: ['load1', 'load2', function(load1, load2) { return load1 + load2 }],
+ *      mult: ['load1', 'load2', function(load1, load2) { return load1 * load2 }],
+ *      save: ['sum', 'mult', function(sum, mult) { console.log('sum', sum, 'mult', mult) }],
+ *  }
+ */
+function auto(tasks) {
+    var tasks_info = _.mapValues(tasks, function(func, name) {
+        var deps;
+        if (_.isArray(func)) {
+            deps = func.slice(0, -1);
+            func = func[func.length - 1];
+        }
+        if (!_.isFunction(func)) {
+            throw new Error('task value must be a function for task:' + name);
+        }
+        _.each(deps, function(dep) {
+            if (!tasks[dep]) {
+                throw new Error('no such task dep: ' + dep + ' for task: ' + name);
+            }
+        });
+        return {
+            func: func,
+            deps: deps,
+            defer: P.defer()
+        };
+    });
+    all_obj(_.mapValues(tasks_info, function(task, name) {
+        return P.all(_.map(task.deps, function(dep) {
+                return tasks_info[dep].defer.promise;
+            }))
+            .then(function(results) {
+                return task.func.apply(null, results);
+            })
+            .then(task.defer.resolve, task.defer.reject);
+    }));
+}
+
+/**
+ * like P.all but for objects.
+ * returns new object with all values resolved, or reject if any failed.
+ */
+function all_obj(obj) {
+    var new_obj = {};
+    return P.all(_.map(obj, function(val, key) {
+        return P.resolve(val).then(function(res) {
+            new_obj[key] = res;
+        });
+    })).return(new_obj);
 }

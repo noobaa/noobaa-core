@@ -842,15 +842,40 @@ Agent.prototype.update_n2n_config = function(req) {
 
 Agent.prototype.update_base_address = function(req) {
     var self = this;
-    console.log('AGENT GOT UPDATE BASE ADDRESS', req.rpc_params, 'was', self.rpc.base_address);
     var base_address = req.rpc_params.base_address;
-    self.rpc.base_address = base_address;
-    // TODO update_base_address in agent_conf.json
-    console.error('TODO update_base_address in agent_conf.json');
-    // setTimeout(function() {
-    //     self.rpc.disconnect_all();
-    //     self._do_heartbeat();
-    // }, 1000);
+    dbg.log0('update_base_address: to -', base_address, 'was -', self.rpc.base_address);
+    return P.fcall(function() {
+            // test this new address first by pinging it
+            return self.client.node.test_latency_to_server(null, {
+                address: base_address
+            });
+        })
+        .then(function() {
+            return P.nfcall(fs.readFile, 'agent_conf.json')
+                .then(function(data) {
+                    var agent_conf = JSON.parse(data);
+                    dbg.log0('update_base_address: old address in agent_conf.json was -', agent_conf.address);
+                    return agent_conf;
+                }, function(err) {
+                    if (err.code === 'ENOENT') {
+                        dbg.log0('update_base_address: no agent_conf.json file. creating new one...');
+                        return {};
+                    } else {
+                        throw err;
+                    }
+                });
+        })
+        .then(function(agent_conf) {
+            agent_conf.address = base_address;
+            var data = JSON.stringify(agent_conf);
+            return P.nfcall(fs.writeFile, 'agent_conf.json', data);
+        })
+        .then(function() {
+            dbg.log0('update_base_address: done -', base_address);
+            self.rpc.base_address = base_address;
+            // self.rpc.disconnect_all();
+            self._do_heartbeat();
+        });
 };
 
 

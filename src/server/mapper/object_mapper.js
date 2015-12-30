@@ -30,17 +30,18 @@ module.exports = {
 };
 
 var _ = require('lodash');
-var P = require('../util/promise');
-var db = require('./db');
-var server_rpc = require('./server_rpc').server_rpc;
-var object_utils = require('./utils/object_mapper_utils');
-var policy_allocation = require('./utils/policy_allocation');
-var range_utils = require('../util/range_utils');
-var string_utils = require('../util/string_utils');
-var dbg = require('../util/debug_module')(__filename);
-var config = require('../../config.js');
+var P = require('../../util/promise');
 var crypto = require('crypto');
-var time_utils = require('../util/time_utils');
+var db = require('../db');
+var chunk_builder = require('./chunk_builder');
+var policy_allocator = require('./policy_allocator');
+var block_allocator = require('./block_allocator');
+var server_rpc = require('../server_rpc').server_rpc;
+var range_utils = require('../../util/range_utils');
+var string_utils = require('../../util/string_utils');
+var dbg = require('../../util/debug_module')(__filename);
+var config = require('../../../config.js');
+var time_utils = require('../../util/time_utils');
 
 
 /**
@@ -136,7 +137,7 @@ function finalize_object_parts(bucket, obj, parts) {
                 if (!block.building) {
                     dbg.warn("ERROR block not in building mode ", block);
                     // for reentrancy we avoid failing if the building mode
-                    //  was already unset, and just go ahead with calling object_utils.build_chunks
+                    //  was already unset, and just go ahead with calling chunk_builder.build_chunks
                     // which will handle it all.
                     // throw new Error('block not in building mode');
                 }
@@ -158,7 +159,6 @@ function finalize_object_parts(bucket, obj, parts) {
             }, {
                 multi: true
             });
-            // .exec();
         })
         .then(function() {
             // using a timeout to limit our wait here.
@@ -166,7 +166,7 @@ function finalize_object_parts(bucket, obj, parts) {
             // sake of user experienceand leave it to the background worker.
             // TODO dont suppress build errors, fix them.
             return P.fcall(function() {
-                    return object_utils.build_chunks(chunks);
+                    return chunk_builder.build_chunks(chunks);
                 })
                 .timeout(config.server_finalize_build_timeout, 'finalize build timeout')
                 .then(null, function(err) {
@@ -583,7 +583,7 @@ function fix_multipart_parts(obj) {
  */
 function agent_delete_call(node, del_blocks) {
     return P.fcall(function() {
-        var block_md = object_utils.get_block_md(del_blocks[0]);
+        var block_md = block_allocator.get_block_md(del_blocks[0]);
         return server_rpc.client.agent.delete_blocks({
             blocks: _.map(del_blocks, function(block) {
                 return block._id.toString();
@@ -757,7 +757,7 @@ function report_bad_block(params) {
                         var avoid_nodes = _.map(all_blocks, function(block) {
                             return block.node._id.toString();
                         });
-                        return policy_allocation.allocate_on_pools(chunk, avoid_nodes);
+                        return policy_allocator.allocate_on_pools(chunk, avoid_nodes);
                     })
                     .then(function(new_block_arg) {
                         new_block = new_block_arg;
@@ -773,12 +773,12 @@ function report_bad_block(params) {
                         return db.DataBlock.create(new_block);
                     })
                     .then(function() {
-                        return policy_allocation.remove_allocation([bad_block]);
+                        return policy_allocator.remove_allocation([bad_block]);
                     })
                     .then(function() {
                         dbg.log0('report_bad_block: DONE. create new_block', new_block,
                             'params', params);
-                        return object_utils.get_block_md(new_block);
+                        return block_allocator.get_block_md(new_block);
                     }, function(err) {
                         dbg.error('report_bad_block: ERROR params', params, err.stack || err);
                         throw err;
@@ -819,9 +819,9 @@ function chunks_and_objects_count(systemid) {
 // UTILS //////////////////////////////////////////////////////////
 
 function get_part_info(params) {
-    return P.when(policy_allocation.get_pools_groups(params.chunk.bucket))
+    return P.when(policy_allocator.get_pools_groups(params.chunk.bucket))
         .then(function(pools) {
-            return P.when(policy_allocation.analyze_chunk_status_on_pools(params.chunk, params.blocks, pools))
+            return P.when(policy_allocator.analyze_chunk_status_on_pools(params.chunk, params.blocks, pools))
                 .then(function(chunk_status) {
                     var p = _.pick(params.part, 'start', 'end');
 
@@ -878,7 +878,7 @@ function get_part_info(params) {
 
                         part_fragment.blocks = _.map(blocks, function(block) {
                             var ret = {
-                                block_md: object_utils.get_block_md(block),
+                                block_md: block_allocator.get_block_md(block),
                             };
                             var node = block.node;
                             if (params.adminfo) {
@@ -1029,9 +1029,9 @@ function find_dups_and_existing_parts(bucket, obj, parts) {
             }
             return P.map(existing_chunks, function(chunk) {
                 chunk.all_blocks = blocks_by_chunk_id[chunk._id];
-                return P.when(policy_allocation.get_pools_groups(chunk.bucket))
+                return P.when(policy_allocator.get_pools_groups(chunk.bucket))
                     .then(function(pools) {
-                        return P.when(policy_allocation.analyze_chunk_status_on_pools(chunk, chunk.all_blocks, pools))
+                        return P.when(policy_allocator.analyze_chunk_status_on_pools(chunk, chunk.all_blocks, pools))
                             .then(function(cstatus) {
                                 chunk.chunk_status = cstatus;
                                 var prev = digest_to_chunk[chunk.digest_b64];
@@ -1111,9 +1111,9 @@ function call_allocation(bucket, obj, parts, reply, digest_to_chunk) {
                 return block.node._id.toString();
             });
             return P.map(part.frags, function(fragment) {
-                    return P.when(policy_allocation.get_pools_groups(part.db_chunk.bucket))
+                    return P.when(policy_allocator.get_pools_groups(part.db_chunk.bucket))
                         .then(function(pools) {
-                            return policy_allocation.allocate_on_pools(part.db_chunk, avoid_nodes, pools)
+                            return policy_allocator.allocate_on_pools(part.db_chunk, avoid_nodes, pools)
                                 .then(function(block) {
                                     if (!block) {
                                         throw new Error('call_allocation: no nodes for allocation');

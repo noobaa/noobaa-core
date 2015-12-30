@@ -2,16 +2,17 @@
 'use strict';
 
 var _ = require('lodash');
-var P = require('../util/promise');
+var P = require('../../util/promise');
 var moment = require('moment');
-var db = require('./db');
-var config = require('../../config.js');
-var dbg = require('../util/debug_module')(__filename);
+var db = require('../db');
+var config = require('../../../config.js');
+var dbg = require('../../util/debug_module')(__filename);
 
 
 module.exports = {
     allocate_block: allocate_block,
     remove_blocks: remove_blocks,
+    get_block_md: get_block_md,
 };
 
 
@@ -152,4 +153,11 @@ function get_round_robin(nodes) {
     var rr = nodes.rr || 0;
     nodes.rr = (rr + 1) % nodes.length;
     return nodes[rr];
+}
+
+function get_block_md(block) {
+    var b = _.pick(block, 'size', 'digest_type', 'digest_b64');
+    b.id = block._id.toString();
+    b.address = block.node.rpc_address;
+    return b;
 }

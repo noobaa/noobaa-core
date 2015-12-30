@@ -148,6 +148,9 @@ module.exports = {
                         type: 'object',
                         required: [],
                         properties: {
+                            pool: {
+                                type: 'string',
+                            },
                             tier: {
                                 type: 'string'
                             },
@@ -257,9 +260,12 @@ module.exports = {
             params: {
                 type: 'object',
                 required: [
-                    'ip',
                     'version',
-                    'storage',
+                    // do not require more fields! see explaination -
+                    // the heartbeat request should require the minimal fields
+                    // since on upgrades the agents are still running old version
+                    // and the heartbeat is the one that should let them know they
+                    // should pull the new version, so it should not fail on missing/extra fields.
                 ],
                 properties: {
                     //0.4 backward compatibility. allows id and port for old agents
@@ -313,13 +319,20 @@ module.exports = {
                         $ref: '/node_api/definitions/latency_array'
                     },
                     debug_level: {
-                      type: 'integer',
+                        type: 'integer',
                     },
                 }
             },
             reply: {
                 type: 'object',
-                required: ['version', 'delay_ms'],
+                required: [
+                    'version',
+                    // do not require more fields! see explaination -
+                    // the heartbeat reply should require the minimal fields
+                    // since on upgrades the agents are still running old version
+                    // and the heartbeat is the one that should let them know they
+                    // should pull the new version, so it should not fail on missing/extra fields.
+                ],
                 properties: {
                     auth_token: {
                         // auth token will only be sent back if new node was created
@@ -545,7 +558,7 @@ module.exports = {
                     $ref: '/node_api/definitions/latency_array'
                 },
                 debug_level: {
-                  type: 'integer',
+                    type: 'integer',
                 }
             }
         },

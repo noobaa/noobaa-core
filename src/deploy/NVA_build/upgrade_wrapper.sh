@@ -239,6 +239,7 @@ function post_upgrade {
 
   yum install -y ntp
   sudo /sbin/chkconfig ntpd on 2345
+	sudo /etc/init.d/ntpd start
 
   rm -f /tmp/*.tar.gz
   rm -rf /tmp/v*

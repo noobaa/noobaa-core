@@ -5,7 +5,7 @@ var _ = require('lodash');
 var P = require('../util/promise');
 var size_utils = require('../util/size_utils');
 var string_utils = require('../util/string_utils');
-var object_mapper = require('./object_mapper');
+var object_mapper = require('./mapper/object_mapper');
 var node_monitor = require('./node_monitor');
 var server_rpc = require('./server_rpc').server_rpc;
 var db = require('./db');
@@ -309,6 +309,17 @@ function list_nodes_int(query, system_id, skip, limit, pagination, req) {
                     .then(db.check_not_deleted(req, 'tier'))
                     .then(function(tier) {
                         info.tier = tier;
+                    });
+            }
+
+            if (query.pool) {
+                return db.PoolCache.get({
+                        system: system_id,
+                        name: query.pool,
+                    })
+                    .then(db.check_not_deleted(req, 'pool'))
+                    .then(function(pool) {
+                        info.pool = pool;
                     });
             }
         })

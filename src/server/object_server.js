@@ -4,7 +4,7 @@
 var _ = require('lodash');
 var P = require('../util/promise');
 var db = require('./db');
-var object_mapper = require('./object_mapper');
+var object_mapper = require('./mapper/object_mapper');
 var glob_to_regexp = require('glob-to-regexp');
 var dbg = require('../util/debug_module')(__filename);
 var string_utils = require('../util/string_utils');
@@ -156,7 +156,7 @@ function complete_multipart_upload(req) {
                 $inc: {
                     'stats.writes': 1
                 }
-            }));
+            }).exec());
         })
         .then(function() {
             return {

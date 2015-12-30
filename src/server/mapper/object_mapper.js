@@ -167,7 +167,7 @@ function finalize_object_parts(bucket, obj, parts) {
                     $inc: {
                         'stats.writes': 1
                     }
-                }))
+                }).exec())
             );
         })
         .then(function() {

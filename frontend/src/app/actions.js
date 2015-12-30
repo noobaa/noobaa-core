@@ -216,6 +216,9 @@ export function showNode() {
 
 export function refresh() {
 	logAction('refresh');
+
+	let { pathname, search } = window.location;
+	page.redirect(pathname + search);
 }
 
 // -----------------------------------------------------
@@ -281,7 +284,7 @@ export function readSystemInfo() {
 			});
 
 			systemOverview({
-				endpoint: '192.168.0.1',
+				endpoint: reply.ip_address,
 				keys: {
 					access: keys.access_key,
 					secret: keys.secret_key,

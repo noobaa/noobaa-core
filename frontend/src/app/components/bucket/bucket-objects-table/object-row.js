@@ -2,9 +2,9 @@ import { formatSize } from 'utils';
 import ko from 'knockout';
 
 const statusIconMapping = Object.freeze({
-	AVALIABLE: '/assets/icons.svg#object-healthy',
-	IN_PROCESS: '/assets/icons.svg#object-in-porcess',
-	UNAVALIABLE: '/assets/icons.svg#object-problem'
+	AVALIABLE: '/fe/assets/icons.svg#object-healthy',
+	IN_PROCESS: '/fe/assets/icons.svg#object-in-porcess',
+	UNAVALIABLE: '/fe/assets/icons.svg#object-problem'
 });
 
 export default class ObjectRowViewModel {
@@ -22,7 +22,7 @@ export default class ObjectRowViewModel {
 		);
 
 		this.href = ko.pureComputed(
-			() => `/systems/:system/buckets/:bucket/objects/${this.name()}`
+			() => `/fe/systems/:system/buckets/:bucket/objects/${this.name()}`
 		);
 
 		this.size = ko.pureComputed(

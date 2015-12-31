@@ -2,9 +2,9 @@ import ko from 'knockout';
 import numeral from 'numeral';
 
 const partStateIconMapping = Object.freeze({
-	available: 	'/assets/icons.svg#part-available',
-	in_process: '/assets/icons.svg#part-in-process',
-	unavailable:'/assets/icons.svg#part-unavailable' 
+	available: 	'/fe/assets/icons.svg#part-available',
+	in_process: '/fe/assets/icons.svg#part-in-process',
+	unavailable:'/fe/assets/icons.svg#part-unavailable' 
 });
 
 export default class ObjectRowViewModel {
@@ -22,7 +22,7 @@ export default class ObjectRowViewModel {
 		);
 
 		this.href = ko.pureComputed(
-			() => `/systems/:system/buckets/${part().bucket}/objects/${part().object}`
+			() => `/fe/systems/:system/buckets/${part().bucket}/objects/${part().object}`
 		);
 
 		this.startOffset = ko.pureComputed(

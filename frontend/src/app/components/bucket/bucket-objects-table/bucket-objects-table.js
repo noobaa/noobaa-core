@@ -39,11 +39,11 @@ class BucketObjectsTableViewModel {
 		);
 
 		this.backwardIcon = ko.pureComputed(
-			() => `/assets/icons.svg#backward${this.inFirstPage() ? '-disabled' : '' }`
+			() => `/fe/assets/icons.svg#backward${this.inFirstPage() ? '-disabled' : '' }`
 		);
 
 		this.forwardIcon = ko.pureComputed(
-			() => `/assets/icons.svg#forward${this.inLastPage() ? '-disabled' : '' }`
+			() => `/fe/assets/icons.svg#forward${this.inLastPage() ? '-disabled' : '' }`
 		);		
 
 		this.rows = makeArray(

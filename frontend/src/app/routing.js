@@ -34,21 +34,21 @@ export default function routing(page) {
 	page('*', parseQuery)
 
 	// Check authentication and authorization for the following paths.
-	page('/systems/:system', authorize);
-	page('/systems/:system/*', authorize);
+	page('/fe/systems/:system', authorize);
+	page('/fe/systems/:system/*', authorize);
 
 	// Screens handlers.
-	page('/login', saveContext, actions.showLogin)
-	page('/systems/:system', saveContext, actions.showOverview);
-	page('/systems/:system/buckets', saveContext, actions.showBuckets);
-	page('/systems/:system/buckets/:bucket/:tab?', saveContext, actions.showBucket);
-	page('/systems/:system/buckets/:bucket/objects/:object/:tab?', saveContext, actions.showObject);
-	page('/systems/:system/pools',  saveContext, actions.showPools);
-	page('/systems/:system/pools/:pool/:tab?', saveContext, actions.showPool);
-	page('/systems/:system/pools/:pool/nodes/:node/:tab?', saveContext, actions.showNode);
+	page('/fe/login', saveContext, actions.showLogin)
+	page('/fe/systems/:system', saveContext, actions.showOverview);
+	page('/fe/systems/:system/buckets', saveContext, actions.showBuckets);
+	page('/fe/systems/:system/buckets/:bucket/:tab?', saveContext, actions.showBucket);
+	page('/fe/systems/:system/buckets/:bucket/objects/:object/:tab?', saveContext, actions.showObject);
+	page('/fe/systems/:system/pools',  saveContext, actions.showPools);
+	page('/fe/systems/:system/pools/:pool/:tab?', saveContext, actions.showPool);
+	page('/fe/systems/:system/pools/:pool/nodes/:node/:tab?', saveContext, actions.showNode);
 		
 	// Redirect any other request to the login page.
-	page.redirect('*', '/login');
+	page.redirect('*', '/fe/login');
 }	
 
 

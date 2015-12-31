@@ -2,9 +2,9 @@ import ko from 'knockout';
 import numeral from 'numeral';
 
 const uploadStateIconMapping = {
-	IN_PORCESS: '/assets/icons.svg#object-in-process',
-	SUCCESS: '/assets/icons.svg#object-healthy',
-	FAILED: '/assets/icons.svg#object-problem'
+	IN_PORCESS: '/fe/assets/icons.svg#object-in-process',
+	SUCCESS: '/fe/assets/icons.svg#object-healthy',
+	FAILED: '/fe/assets/icons.svg#object-problem'
 };
 
 export default class UploadRowViewModel {

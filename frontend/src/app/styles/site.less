@@ -29,12 +29,6 @@ fieldset {
 	border: none;
 }
 
-hr {
-	border: none;
-	border-top: 1px solid @bg-color3;
-	margin: 1em 0;
-}
-
 tr.collapse-row {
 	visibility: collapse;
 	line-height: 0 !important;
@@ -99,7 +93,7 @@ input[type="search"] {
 	line-height: 1.4;
 	font-size: @font-size-medium;
 	padding-left: 2em;
-	background: url('/assets/search.png') no-repeat;
+	background: url('/fe/assets/search.png') no-repeat;
 }
 
 .pull-right {
@@ -394,6 +388,10 @@ input[type="search"] {
 	color: @text-color8;
 }
 
+.underline {
+	border-bottom: 1px solid @text-color4;
+}
+
 .data-table
 {
 	height: 100%;
@@ -619,7 +617,7 @@ input[type="search"] {
 	.action {
 		margin-top: .5em;
 		text-align: left;
-		display: block;
+		display: inline-block;
 		width: 13em;
 	}	
 }

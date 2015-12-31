@@ -72,7 +72,7 @@ export function showLogin(ctx) {
 
 	let session = model.sessionInfo();
 	if (session) {
-		page.redirect(`/systems/${session.system}`);
+		page.redirect(`/fe/systems/${session.system}`);
 
 	} else {
 		model.uiState({ 
@@ -239,7 +239,7 @@ export function signIn(email, password, redirectTo) {
 					model.sessionInfo({ user: email, system: system })
 
 					if (isUndefined(redirectTo)) {
-						redirectTo = `/systems/${system}`;
+						redirectTo = `/fe/systems/${system}`;
 					}
 
 					page.redirect(decodeURIComponent(redirectTo));
@@ -487,7 +487,7 @@ export function createAccount(system, email, password) {
 			localStorage.setItem('sessionToken', token);
 			model.sessionInfo({ user: email, system: system});
 
-			page.redirect(`/systems/${system}`);
+			page.redirect(`/fe/systems/${system}`);
 		})
 		.done();
 }

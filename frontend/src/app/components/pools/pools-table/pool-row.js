@@ -9,14 +9,14 @@ export default class PoolRowViewModel {
 			() => !!pool()
 		);
 
-		this.stateIcon = '/assets/icons.svg#pool';
+		this.stateIcon = '/fe/assets/icons.svg#pool';
 
 		this.name = ko.pureComputed(
 			() => pool().name
 		);
 
 		this.href = ko.pureComputed(
-			() => `/systems/:system/pools/${pool().name}`
+			() => `/fe/systems/:system/pools/${pool().name}`
 		);
 
 		this.nodeCount = ko.pureComputed(
@@ -49,7 +49,7 @@ export default class PoolRowViewModel {
 		});
 
 		this.deleteIcon = ko.pureComputed(
-			() => `/assets/icons.svg#${
+			() => `/fe/assets/icons.svg#${
 				this.isDeleteCandidate() ? 'trash-opened' : 'trash-closed'
 			}`
 		);

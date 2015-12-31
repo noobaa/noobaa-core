@@ -8,7 +8,7 @@ export default class NodeRowViewModel {
 		);
 
 		this.stateIcon = ko.pureComputed(
-			() => `/assets/icons.svg#node-${node().online ? 'online' : 'offline'}`
+			() => `/fe/assets/icons.svg#node-${node().online ? 'online' : 'offline'}`
 		);
 
 		this.name = ko.pureComputed(
@@ -16,7 +16,7 @@ export default class NodeRowViewModel {
 		);
 
 		this.href = ko.pureComputed(
-			() => `/systems/:system/pools/:pool/nodes/${node().name}`
+			() => `/fe/systems/:system/pools/:pool/nodes/${node().name}`
 		);
 
 		this.ip = ko.pureComputed(

@@ -4,8 +4,8 @@ import { formatSize, isDefined } from 'utils';
 import { deleteBucket } from'actions';
 
 const stateIconMapping = Object.freeze({
-	true: '/assets/icons.svg#bucket-healthy',
-	false: '/assets/icons.svg#bucket-problam'
+	true: '/fe/assets/icons.svg#bucket-healthy',
+	false: '/fe/assets/icons.svg#bucket-problam'
 });
 
 const cloudSyncStatusMapping = Object.freeze({
@@ -37,7 +37,7 @@ export default class BucketRowViewModel {
 		);
 
 		this.href = ko.pureComputed(
-			() => this.isDisabled() ? '' : `/systems/:system/buckets/${bucket().name}`
+			() => this.isDisabled() ? '' : `/fe/systems/:system/buckets/${bucket().name}`
 		);
 
 		this.fileCount = ko.pureComputed(
@@ -75,7 +75,7 @@ export default class BucketRowViewModel {
 		});
 
 		this.deleteIcon = ko.pureComputed(
-			() => `/assets/icons.svg#${
+			() => `/fe/assets/icons.svg#${
 				this.allowDelete() ? 
 					(this.isDeleteCandidate() ? 'trash-opened' : 'trash-closed') : 
 					'no-entry'

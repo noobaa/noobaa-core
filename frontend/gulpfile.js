@@ -192,7 +192,8 @@ gulp.task('serve', () => {
 	wsStream = gulp.src(buildPath)
 		.pipe($.webserver({
 			fallback: '/index.html',
-			open: true,
+			open: '/fe',
+			path: '/fe',
 			middleware: cacheControl(60),
 		}));
 

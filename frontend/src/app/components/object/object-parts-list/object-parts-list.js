@@ -3,9 +3,9 @@ import ko from 'knockout';
 import { formatSize } from 'utils';
 
 const partStateIconMapping = Object.freeze({
-	available: 	'/assets/icons.svg#part-available',
-	in_process: '/assets/icons.svg#part-in-process',
-	unavailable:'/assets/icons.svg#part-unavailable' 
+	available: 	'/fe/assets/icons.svg#part-available',
+	in_process: '/fe/assets/icons.svg#part-in-process',
+	unavailable:'/fe/assets/icons.svg#part-unavailable' 
 });
 
 class ObjectPartsListViewModel {
@@ -26,7 +26,7 @@ class ObjectPartsListViewModel {
 
 		let blocks = part.frags[0].blocks.map(
 			block =>  ({
-				nodeStateIcon: `/assets/icons.svg#node-${
+				nodeStateIcon: `/fe/assets/icons.svg#node-${
 					block.adminfo.online ? 'online' : 'offline'
 				}`,
 				nodeIp: block.adminfo.node_ip,

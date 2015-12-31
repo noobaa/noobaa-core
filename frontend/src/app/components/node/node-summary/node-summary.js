@@ -16,7 +16,7 @@ class NodeSummaryViewModel {
 		);
 
 		this.stateIcon = ko.pureComputed(
-			() => `/assets/icons.svg#node-${node().online ? 'online' : 'offline'}`
+			() => `/fe/assets/icons.svg#node-${node().online ? 'online' : 'offline'}`
 		)
 
 		this.state = ko.pureComputed(
@@ -28,7 +28,7 @@ class NodeSummaryViewModel {
 		);
 
 		this.trustIcon = ko.pureComputed(
-			() => `/assets/icons.svg#${node().trusted ? 'trusted' : 'untrusted'}`
+			() => `/fe/assets/icons.svg#${node().trusted ? 'trusted' : 'untrusted'}`
 		);
 
 		this.trust = ko.pureComputed(

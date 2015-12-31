@@ -49,7 +49,7 @@ class ConnectApplicationWizard {
 						write: this.selectedBucket
 					}),
 					icon: ko.pureComputed(
-						() => `/assets/icons.svg#bucket-${
+						() => `/fe/assets/icons.svg#bucket-${
 							item.selected() ? 'selected' : 'unselected'
 						}`
 					)

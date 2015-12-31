@@ -38,7 +38,7 @@ class InstallNodeWizardViewModel {
 		 	() => `${this._extractAgentName(this.linuxAgentUrl())} ${this.distConf()}`
 		);
 
-		this.defaultPoolUrl = `/systems/:system/pools/${defaultPoolName}`;
+		this.defaultPoolUrl = `/fe/systems/:system/pools/${defaultPoolName}`;
 	}
 
 	copyToClipboard(text) {

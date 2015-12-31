@@ -19,5 +19,8 @@
     "knockout-validation": "~2.0.3",
     "moment": "~2.10.6",
     "aws-sdk": "aws-sdk-js#~2.2.26"
+  },
+  "resolutions": {
+    "knockout": "~3.3"
   }
 }

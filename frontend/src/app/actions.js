@@ -3,7 +3,7 @@ import { isDefined, isUndefined } from 'utils';
 import page from 'page';
 import api from 'services/api';
 import config from 'config';
-import { cmpStrings, cmpInts, cmpBools, randomString } from 'utils';
+import { encodeBase64, cmpStrings, cmpInts, cmpBools, randomString } from 'utils';
 
 // TODO: resolve browserify issue with export of the aws-sdk module.
 // The current workaround use the AWS that is set on the global window object.
@@ -272,7 +272,7 @@ export function readServerInfo() {
 export function readSystemInfo() {
 	logAction('readSystemInfo');
 
-	let { systemOverview, bucketList, poolList } = model;
+	let { systemOverview, agentInstallationInfo, bucketList, poolList } = model;
 	api.system.read_system()
 		.then(reply => {
 			let keys = reply.access_keys[0];
@@ -295,11 +295,25 @@ export function readSystemInfo() {
 				nodeCount: reply.nodes.count,
 			});
 
+			agentInstallationInfo({
+				agentConf: encodeBase64({
+	                address: reply.base_address,
+	                system: reply.name,
+	                access_key: keys.access_key,
+	                secret_key: keys.secret_key,
+	                tier: 'nodes',
+	                root_path: './agent_storage/'
+	            }),
+				downloadUris: {
+					windows: reply.web_links.agent_installer,
+					linux: reply.web_links.linux_agent_installer
+				}
+			});
+
 			bucketList(reply.buckets);
 			bucketList.sort(
 				(b1, b2) => bucketList.order() * bucketCmpFuncs[bucketList.sortedBy()](b1, b2)
 			);
-
 
 			poolList(reply.pools);
 			poolList().sort(

@@ -4,7 +4,9 @@ import downloadStepTemplate from './download-step.html';
 import runStepTemplate from './run-step.html';
 import reviewStepTemplate from './review-step.html';
 import ko from 'knockout';
-import { serverAddress } from 'config';
+import { defaultPoolName } from 'config';
+import { agentInstallationInfo } from 'model';
+import { copyTextToClipboard } from 'utils';
 
 class InstallNodeWizardViewModel {
 	constructor({ onClose }) {
@@ -14,13 +16,37 @@ class InstallNodeWizardViewModel {
 		this.reviewStepTemplate = reviewStepTemplate;
 		this.onClose = onClose;
 
-		this.addrType = ko.observable('IP');
-		this.dnsName = ko.observable();
-		
-		this.dnsName = ko.observable();
-		this.addr = ko.pureComputed(
-			() => this.addrType() === 'IP' ? serverAddress : 'noobaa.com'
+		this.installationType = ko.observable('DIST_TOOL');
+
+		this.windowAgentUrl = ko.pureComputed(
+			() => agentInstallationInfo().downloadUris.windows
 		);
+
+		this.linuxAgentUrl = ko.pureComputed(
+			() => agentInstallationInfo().downloadUris.linux
+		);
+
+		this.distConf = ko.pureComputed(
+			() => `/S /config ${agentInstallationInfo().agentConf}` 
+		);
+
+		this.windowsInstallCommand = ko.pureComputed(
+		 	() => `${this._extractAgentName(this.windowAgentUrl())} ${this.distConf()}`
+		);
+
+		this.linuxInstallCommand = ko.pureComputed(
+		 	() => `${this._extractAgentName(this.linuxAgentUrl())} ${this.distConf()}`
+		);
+
+		this.defaultPoolUrl = `/systems/:system/pools/${defaultPoolName}`;
+	}
+
+	copyToClipboard(text) {
+		copyTextToClipboard(ko.unwrap(text));
+	}
+
+	_extractAgentName(url) {
+		return url.substr(url.lastIndexOf('/') + 1);
 	}
 }
 

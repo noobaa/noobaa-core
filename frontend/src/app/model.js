@@ -17,6 +17,9 @@ export let serverInfo = ko.observable();
 // Hold a overview information of a system.
 export let systemOverview = ko.observable();
 
+// Hold agent installation information.
+export let agentInstallationInfo = ko.observable();
+
 // Hold the current bucket list. derived from system info.
 export let bucketList = ko.observableArray(); 
 bucketList.sortedBy = ko.observable('name')

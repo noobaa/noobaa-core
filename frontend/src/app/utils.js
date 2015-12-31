@@ -166,3 +166,7 @@ export function domFromHtml(html) {
 	let doc = parser.parseFromString(html, 'text/html');
 	return doc.body.children;
 }
+
+export function encodeBase64(obj) {
+	return btoa(JSON.stringify(obj));
+}

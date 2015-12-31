@@ -27,10 +27,7 @@ upload-files-modal {
 		.hide();
 	}
 
-	.files-table {
-		background-color: @bg-color2;
-		padding: 1em;
-		padding-top: 0;
+	.uploads {
 		width: 700px;
 
 		table {
@@ -38,19 +35,25 @@ upload-files-modal {
 		}
 
 		.state-col {
-			min-width: 45px;
+			min-width: 4em;
 		}
 
 		.progress-col {
-			min-width: 80px;
+			min-width: 6em;
 		}
 
 		.name-col {
 			width: 100%;
 		}
 
-		.file.failed {
-			color: @text-color8;
+		.file {
+			&.completed > .progress-col {
+				color: @text-color7;
+			}
+
+			&.failed > .progress-col {
+				color: @text-color8;
+			}
 		}
 	}
 }

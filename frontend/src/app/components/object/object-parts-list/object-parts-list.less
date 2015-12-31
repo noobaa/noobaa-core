@@ -16,14 +16,12 @@ object-parts-list {
 		box-sizing: content-box;
 		word-break: break-all;
 
-		&:last-child {
+		&:last-child > .row {
 			border: none;
 		}
-	}
 
-	li + li {
-		ul {
-			display: none
+		svg-icon {
+			margin-right: .5em;
 		}
 	}
 
@@ -31,13 +29,21 @@ object-parts-list {
 		padding: .75em 1.5em;
 		border-bottom: 1px solid @bg-color4;
 
+		.expend-btn {
+			font-size: @font-size-normal;
+		}
+
 		svg-icon {
 			vertical-align: middle;
 		}
 	}
 
-	li:last-child > .row {
-		border: none;
+	.block-list {
+		display: none;
+
+		&.expended {
+			display: block;
+		}	
 	}	
 
 	.sub-row {

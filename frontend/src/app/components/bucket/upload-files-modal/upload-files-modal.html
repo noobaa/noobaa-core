@@ -23,29 +23,32 @@
 		</label>
 	</section>
 
-	<!-- <h2 clas="heading3">Recently Uploaded Files</h2> -->
-	<section class="files-table container">
-		<div class="data-table">
-			<table>
-				<thead>
-					<tr>
-						<th class="state-col">State</th>
-						<th class="name-col text-left">File Name</th>
-						<th class="progress-col">Progress</th>
-					</tr>
-				</thead>
-				<tbody data-bind="foreach: files">
-					<!-- ko if: isVisible -->
-					<tr class="file" data-bind="css: css">
-						<td class="state-col">
-							<svg-icon params="uri: stateIcon"></svg-icon>
-						</td>
-						<td class="name-col text-left" data-bind="text: name"></td>
-						<td class="progress-col" data-bind="text: progress"></td>
-					</tr>
-					<!-- /ko -->
-				</tbody>
-			</table>
+	<section class="container">
+		<h2 class="heading3 text-left">Recently Uploaded</h2>	
+		
+		<div class="uploads box">
+			<div class="data-table">
+				<table>
+					<thead>
+						<tr>
+							<th class="state-col">State</th>
+							<th class="name-col text-left">File Name</th>
+							<th class="progress-col">Progress</th>
+						</tr>
+					</thead>
+					<tbody data-bind="foreach: files">
+						<!-- ko if: isVisible -->
+						<tr class="file" data-bind="css: css">
+							<td class="state-col">
+								<svg-icon params="uri: stateIcon"></svg-icon>
+							</td>
+							<td class="name-col text-left" data-bind="text: name"></td>
+							<td class="progress-col" data-bind="text: progress"></td>
+						</tr>
+						<!-- /ko -->
+					</tbody>
+				</table>
+			</div>
 		</div>
 	</section>
 

@@ -26,9 +26,13 @@ export default class UploadRowViewModel {
 		);
 
 		this.progress = ko.pureComputed(
-			() => upload().state !== 'FAILED' ? 
-				numeral(upload().progress).format('0%') : 
-				'FAILED'
+			() => {
+				if (upload().state === 'IN_PROCESS') {
+					return numeral(upload().progress).format('0%');
+				} else {
+					return upload().state;				
+				}
+			} 
 		);
 	}
 }

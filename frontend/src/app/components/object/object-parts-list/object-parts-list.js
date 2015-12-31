@@ -15,6 +15,10 @@ class ObjectPartsListViewModel {
 		);
 	}
 
+	expendPart(part) {
+		part.isExpended(!part.isExpended());
+	}
+
 	_mapPart(parts, part) {
 		let partsNumber = part.part_sequence_number + 1;
 		let size = formatSize(part.chunk.size);
@@ -22,15 +26,20 @@ class ObjectPartsListViewModel {
 
 		let blocks = part.frags[0].blocks.map(
 			block =>  ({
+				nodeStateIcon: `/assets/icons.svg#node-${
+					block.adminfo.online ? 'online' : 'offline'
+				}`,
 				nodeIp: block.adminfo.node_ip,
-				nodeName: block.adminfo.node_name
+				nodeName: block.adminfo.node_name,
 			})
 		);
 
 		return {
 			stateIcon: partStateIconMapping[state],
-			name: `Part ${partsNumber} of ${parts().length} ( ${size} )`,
-			blocks: blocks
+			name: `Part ${partsNumber} of ${parts().length}`,
+			size: size,
+			blocks: blocks,
+			isExpended: ko.observable(false)
 		}
 	}
 }

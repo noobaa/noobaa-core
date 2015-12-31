@@ -568,8 +568,8 @@ export function uploadFiles(bucketName, files) {
 	    sslEnabled: false,	
 	});
 
-	Array.from(files).forEach(
-		file => {
+	let requests = Array.from(files).map(
+		file => new Promise((resolve, reject) => {
 			// Create an entry in the recent uploaded list.
 			let entry = {
 				name: file.name,
@@ -580,34 +580,37 @@ export function uploadFiles(bucketName, files) {
 			recentUploads.unshift(entry);
 
 			// Start the upload.
-			s3.upload({
-				Key: file.name,
-				Bucket: bucketName,
-				Body: file,
-				ContentType: file.type
-			}, err => {
-				if (!err) {
+			s3.upload(
+				{
+					Key: file.name,
+					Bucket: bucketName,
+					Body: file,
+					ContentType: file.type
+				}, 
+				error => {
+					if (!error) {
+						entry.state = 'COMPLETED';
+						entry.progress = 1;
+					} else {
+						entry.state = 'FAILED';
+						entry.error = error;
+					}
+
 					// Use replace to trigger change event.
-					recentUploads.replace(entry, Object.assign(
-						entry, 
-						{ progress: 1, state: 'SUCCESS' }
-					));
-
-
-				} else {
-					//Use replace to trigger change event.
-					recentUploads.replace(entry, Object.assign(
-						entry, 
-						{ state: 'FAILED', err: err }
-					));
+					recentUploads.replace(entry, entry);
 				}
-			}).on('httpUploadProgress', ({ loaded, total }) => {
-				// Use replace to trigger change event.
-				recentUploads.replace(entry, Object.assign(
-					entry, 
-					{ progress: loaded / total }
-				));
-			});
-		}
+			)
+			.on('httpUploadProgress', 
+				({ loaded, total }) => {
+					entry.progress = loaded / total;
+
+					// Use replace to trigger change event.
+					recentUploads.replace(entry, entry);
+				}
+			);
+		})
 	);
+
+	Promise.all(requests)
+		.then(refresh());
 }

@@ -1,13 +1,25 @@
 import template from './overview-panel.html';
 import ko from 'knockout';
-import { isDefined } from 'utils';
+import { formatSize } from 'utils';
 import numeral from 'numeral';
 import { systemOverview } from 'model';
 
 class OverviewPanelViewModel {
 	constructor() {
-		this.ready = ko.pureComputed(
-			() => isDefined(systemOverview())
+		this.isReady = ko.pureComputed(
+			() => !!systemOverview()
+		);
+
+		this.systemCapacity = ko.pureComputed(
+			() => formatSize(systemOverview().capacity)
+		);
+
+		this.onlineNodeCount = ko.pureComputed(
+			() => numeral(systemOverview().onlineNodeCount).format('0,0')
+		);
+
+		this.offlineNodeCount = ko.pureComputed(
+			() => numeral(systemOverview().offlineNodeCount).format('0,0')
 		);
 
 		this.poolCount = ko.pureComputed(

@@ -289,10 +289,13 @@ export function readSystemInfo() {
 					access: keys.access_key,
 					secret: keys.secret_key,
 				},
+				capacity: reply.storage.total,
 				bucketCount: reply.buckets.length,
 				objectCount: reply.objects,
 				poolCount: reply.pools.length,
 				nodeCount: reply.nodes.count,
+				onlineNodeCount: reply.nodes.online,
+				offlineNodeCount: reply.nodes.count - reply.nodes.online
 			});
 
 			agentInstallationInfo({

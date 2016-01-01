@@ -233,11 +233,11 @@ function create_access_key_auth(req) {
                 if (!system || system.deleted) {
                     throw req.unauthorized('system not found');
                 }
-                dbg.log0('system.access_keys', system && system.access_keys);
+                dbg.log2('system.access_keys', system && system.access_keys);
 
                 var secret_key = _.result(_.find(system._doc.access_keys, 'access_key', access_key), 'secret_key');
                 var s3_signature = s3.sign(secret_key, string_to_sign);
-                dbg.log0('signature for access key:', access_key, 'string:', string_to_sign, ' is', s3_signature);
+                dbg.log2('signature for access key:', access_key, 'string:', string_to_sign, ' is', s3_signature);
 
                 //TODO:bring back ASAP!!!! - temporary for V4 "Support"
                 //
@@ -252,7 +252,7 @@ function create_access_key_auth(req) {
                     role: 'admin',
                     extra: req.rpc_params.extra,
                 });
-                console.log('ACCESS TOKEN:', token);
+                dbg.log2('ACCESS TOKEN:', token);
                 return {
                     token: token
                 };

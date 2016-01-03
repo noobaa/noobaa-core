@@ -1,7 +1,6 @@
 import ko from 'knockout';
 import numeral from 'numeral';
 import { formatSize } from 'utils';
-import page from 'page';
 
 export default class PoolRowViewModel {
 	constructor(pool, deleteCandidate) {

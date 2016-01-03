@@ -1,5 +1,6 @@
 import template from './pools-table.html';
 import ko from 'knockout';
+import page from 'page';
 import PoolRowViewModel from './pool-row';
 import { stringifyQueryString, makeArray } from 'utils';
 

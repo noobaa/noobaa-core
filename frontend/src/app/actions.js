@@ -319,8 +319,8 @@ export function readSystemInfo() {
 			);
 
 			poolList(reply.pools);
-			poolList().sort(
-				(p1, p2) => poolList.order() * poolCmpFuncs[poolList.sortedBy()](b1, b2)
+			poolList.sort(
+				(p1, p2) => poolList.order() * poolCmpFuncs[poolList.sortedBy()](p1, p2)
 			);
 		})
 		.done();

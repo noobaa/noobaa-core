@@ -8,7 +8,7 @@
 
 		<!-- ko foreach: crumbs -->
 		<li class="pull-left link" >
-			<a class="cut-text" data-bind="href: href, text: label"></a>
+			<a class="no-wrap" data-bind="href: href, text: label, attr: { title: label }"></a>
 		</li>
 		<!-- /ko -->
 	</ul>	

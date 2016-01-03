@@ -103,7 +103,7 @@ export function showBuckets() {
 	model.uiState({
 		layout: 'main-layout',
 		title: 'BUCKETS',
-		breadcrumbs: [ { href: "systems/:system" } ],
+		breadcrumbs: [ { href: "fe/systems/:system" } ],
 		panel: 'buckets',
 	});
 
@@ -125,7 +125,7 @@ export function showBucket() {
 		layout: 'main-layout',
 		title: bucket,
 		breadcrumbs: [
-			{ href: "systems/:system" },
+			{ href: "fe/systems/:system" },
 			{ href: "buckets", label: "BUCKETS" },
 		],
 		panel: 'bucket',
@@ -145,7 +145,7 @@ export function showObject() {
 		layout: 'main-layout',
 		title: object,
 		breadcrumbs: [
-			{ href: "systems/:system" },
+			{ href: "fe/systems/:system" },
 			{ href: "buckets", label: "BUCKETS" },
 			{ href: ":bucket", label: bucket },
 		],			
@@ -163,7 +163,7 @@ export function showPools() {
 	model.uiState({
 		layout: 'main-layout',
 		title: 'POOLS',
-		breadcrumbs: [ { href: "systems/:system" } ],
+		breadcrumbs: [ { href: "fe/systems/:system" } ],
 		panel: 'pools'
 	});
 
@@ -183,7 +183,7 @@ export function showPool() {
 		layout: 'main-layout',
 		title: pool,
 		breadcrumbs: [ 
-			{ href: "systems/:system" },
+			{ href: "fe/systems/:system" },
 			{ href: "pools", label: "POOLS"}
 		],
 		panel: 'pool',
@@ -202,7 +202,7 @@ export function showNode() {
 		layout: 'main-layout',
 		title: node,
 		breadcrumbs: [
-			{ href: "systems/:system" },
+			{ href: "fe/systems/:system" },
 			{ href: "pools", label: "POOLS"},
 			{ href: ":pool", label: pool}
 		],

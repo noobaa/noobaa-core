@@ -59,13 +59,15 @@ del /Q package.json
 rename package.json_s package.json
 copy ..\..\binding.gyp .
 nvm use 4.2.2 32
-nvm list
 call nvm list
+
 call npm install
 xcopy /Y/I/E .\build\Release .\Release-32
-pause
+
 del /q/s .\build\Release
 nvm use 4.2.2 64
+nvm list
+
 call .\node_modules\.bin\node-gyp --arch=x64 configure
 call .\node_modules\.bin\node-gyp --arch=x64 build
 

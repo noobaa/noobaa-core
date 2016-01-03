@@ -69,15 +69,24 @@ Function .onInit
 	Var /global UPGRADE
 	Var /global AUTO_UPGRADE
 
-	${If} ${RunningX64}
-		# 64 bit code
-		StrCpy $InstDir "$PROGRAMFILES64\${NB}"
+	;check first if there is an old installation on program files (x86)
+	;if so, just upgrade with x64 binaries
 
-	${Else}
-		# 32 bit code
-		StrCpy $InstDir "$PROGRAMFILES\${NB}"
+	StrCpy $InstDir "$PROGRAMFILES\${NB}"
+	IfFileExists $INSTDIR\agent_conf.json IgnoreError SetRunningFolder
+		SetRunningFolder:
+			${If} ${RunningX64}
+				# 64 bit code
+				StrCpy $InstDir "$PROGRAMFILES64\${NB}"
+			${Else}
+				# 32 bit code
+				StrCpy $InstDir "$PROGRAMFILES\${NB}"
+			${EndIf}
+		IgnoreError:
+			ClearErrors
 
-	${EndIf}
+
+
 
 	;Install or upgrade?
 	StrCpy $UPGRADE "false"
@@ -206,6 +215,7 @@ Section "Noobaa Local Service"
 			Delete "$INSTDIR\service_installer.bat"
 			Delete "$INSTDIR\node.exe"
 			Delete "$INSTDIR\service.bat"
+			RMDir /r "$INSTDIR\Release"
 		${EndIf}
 	${Else}
 		File "7za.exe"

@@ -17,6 +17,7 @@ var devnull = require('dev-null');
 var config = require('../../config.js');
 var dbg = require('../util/debug_module')(__filename);
 var native_core = require('../util/native_core');
+var dedup_options = require("./dedup_options");
 
 module.exports = ObjectDriver;
 
@@ -112,7 +113,7 @@ function lazy_init_natives() {
     if (natives_inited) return;
     var nc = native_core();
     DedupChunker = nc.DedupChunker;
-    dedup_config = new nc.DedupConfig({});
+    dedup_config = new nc.DedupConfig(dedup_options);
     // these threadpools are global OS threads used to offload heavy CPU work
     // from the node.js thread so that it will keep processing incoming IO while
     // encoding/decoding the object chunks in high performance native code.
@@ -462,7 +463,7 @@ ObjectDriver.prototype._write_block = function(block_md, buffer, desc) {
 
         dbg.log0('write_block', desc,
             size_utils.human_size(buffer.length), block_md.id,
-            'to', block_md.address,'block:',block_md);
+            'to', block_md.address, 'block:', block_md);
 
         if (process.env.WRITE_BLOCK_ERROR_INJECTON &&
             process.env.WRITE_BLOCK_ERROR_INJECTON > Math.random()) {

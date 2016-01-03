@@ -16,14 +16,14 @@ let buildPath = './dist';
 let uglify = !!argv.uglify;
 
 let libs = [
-	{ name: 'knockout', 			path: String.raw`.\src\lib\knockout\dist\knockout.debug.js` },
-	{ name: 'knockout-mapping', 	path: String.raw`.\src\lib\knockout-mapping\knockout.mapping` },
-	{ name: 'knockout-projections', path: String.raw`.\src\lib\knockout-projections\dist\knockout-projections.min.js` },
-	{ name: 'knockout-validation', 	path: String.raw`.\src\lib\knockout-validation\dist\knockout.validation.js` },
-	{ name: 'numeral',				path: String.raw`.\src\lib\numeral\numeral.js` },
-	{ name: 'page',					path: String.raw`.\src\lib\page\page.js` },
-	{ name: 'moment',				path: String.raw`.\src\lib\moment\moment.js` },
-	{ name: 'aws-sdk',				path: String.raw`.\src\lib\aws-sdk\dist\aws-sdk.js` },
+	{ name: 'knockout', 			path: './src/lib/knockout/dist/knockout.debug.js' },
+	{ name: 'knockout-mapping', 	path: './src/lib/knockout-mapping/knockout.mapping' },
+	{ name: 'knockout-projections', path: './src/lib/knockout-projections/dist/knockout-projections.min.js' },
+	{ name: 'knockout-validation', 	path: './src/lib/knockout-validation/dist/knockout.validation.js' },
+	{ name: 'numeral',				path: './src/lib/numeral/numeral.js' },
+	{ name: 'page',					path: './src/lib/page/page.js' },
+	{ name: 'moment',				path: './src/lib/moment/moment.js' },
+	{ name: 'aws-sdk',				path: './src/lib/aws-sdk/dist/aws-sdk.js' },
 ];
 
 // ----------------------------------

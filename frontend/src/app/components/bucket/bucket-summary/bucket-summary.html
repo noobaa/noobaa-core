@@ -1,32 +1,20 @@
 <capacity-gauge params="legend: gagueLegend(), values: gagueValues()"></capacity-gauge>
 
 <section class="action-list">
-<!-- 	<button class="main-action btn2">
-		<svg-icon params="uri: '/fe/assets/icons.svg#bucket'"></svg-icon>
-		Details &amp; Keys
-	</button>  -->
+	<button class="action btn2" data-bind="click: () => isUploadFilesModalVisible(true)">
+		<svg-icon params="uri: '/fe/assets/icons.svg#upload'"></svg-icon>		
+		Upload File
+	</button>
 
-<!-- 	<button class="btn-more btn2" data-bind="
-		click: toggleActions, 
-		text: areActionsVisible() ? 'X' : '...'
-	"></button>  -->
+	<button class="action btn3" data-bind="click: () => isCloudSyncModalVisible(true)">
+		<svg-icon params="uri: '/fe/assets/icons.svg#cloud'"></svg-icon>		
+		Set Cloud Sync
+	</button>
 
-<!-- 	<div class="hidden-actions" data-bind="css: { visible: areActionsVisible }"> -->
-		<button class="action btn2" data-bind="click: () => isUploadFilesModalVisible(true)">
-			<svg-icon params="uri: '/fe/assets/icons.svg#upload'"></svg-icon>		
-			Upload File
-		</button>
-
-		<button class="action btn3" data-bind="click: () => isCloudSyncModalVisible(true)">
-			<svg-icon params="uri: '/fe/assets/icons.svg#cloud'"></svg-icon>		
-			Set Cloud Sync
-		</button>
-
-		<button class="action btn3" data-bind="click: () => isPolicyModalVisible(true)">
-			<svg-icon params="uri: '/fe/assets/icons.svg#policy'"></svg-icon>		
-			Edit Policy
-		</button>
-	<!-- </div> -->
+	<button class="action btn3" data-bind="click: () => isPolicyModalVisible(true)">
+		<svg-icon params="uri: '/fe/assets/icons.svg#policy'"></svg-icon>		
+		Edit Policy
+	</button>
 </section>
 
 <!-- ko if: isPolicyModalVisible -->

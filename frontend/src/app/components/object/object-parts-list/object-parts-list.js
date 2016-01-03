@@ -39,7 +39,7 @@ class ObjectPartsListViewModel {
 			name: `Part ${partsNumber} of ${parts().length}`,
 			size: size,
 			blocks: blocks,
-			isExpended: ko.observable(false)
+			isExpended: ko.observable(parts().length === 1)
 		}
 	}
 }

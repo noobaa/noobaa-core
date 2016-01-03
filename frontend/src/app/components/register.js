@@ -10,7 +10,7 @@ export default function register(ko) {
 	// Layout
 	// -------------------------------
 	ko.components.register('main-layout', 	require('./layout/main-layout/main-layout'));	
-	ko.components.register('header', 		require('./layout/header/header'));
+	ko.components.register('main-header', 		require('./layout/main-header/main-header'));
 	ko.components.register('commands-bar', 	require('./layout/commands-bar/commands-bar'));
 	ko.components.register('breadcrumbs', 	require('./layout/breadcrumbs/breadcrumbs'));
 	
@@ -53,7 +53,6 @@ export default function register(ko) {
 	// -------------------------------
 	ko.components.register('object-panel', 			require('./object/object-panel/object-panel'));
 	ko.components.register('object-summary', 		require('./object/object-summary/object-summary'));
-	ko.components.register('object-parts-table',	require('./object/object-parts-table/object-parts-table'));	
 	ko.components.register('object-parts-list',		require('./object/object-parts-list/object-parts-list'));	
 	ko.components.register('object-preview-modal',	require('./object/object-preview-modal/object-preview-modal'));		
 

@@ -21,6 +21,6 @@
     "aws-sdk": "aws-sdk-js#~2.2.26"
   },
   "resolutions": {
-    "knockout": "~3.3"
+    "knockout": "~3.4"
   }
 }

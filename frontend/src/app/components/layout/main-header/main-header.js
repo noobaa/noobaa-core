@@ -1,4 +1,4 @@
-import template from './header.html';
+import template from './main-header.html';
 import ko from 'knockout';
 import { uiState } from 'model';
 

@@ -1,5 +1,5 @@
 {
-	"serverAddress": "10.128.152.25",
+	"serverAddress": "192.168.1.226",
 	//"serverAddress": "192.168.1.22",
 	"serverPort": "5001",
 	"inputThrottle": 400,

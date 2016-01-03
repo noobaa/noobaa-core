@@ -34,21 +34,21 @@ var system_server = {
 module.exports = system_server;
 
 var _ = require('lodash');
-var P = require('../util/promise');
 var crypto = require('crypto');
 var ip_module = require('ip');
-var size_utils = require('../util/size_utils');
-// var stun = require('../rpc/stun');
-var promise_utils = require('../util/promise_utils');
+var AWS = require('aws-sdk');
 var diag = require('./utils/server_diagnostics');
+var cs_utils = require('./utils/cloud_sync_utils');
 var db = require('./db');
 var server_rpc = require('./server_rpc').server_rpc;
 var bg_worker = require('./server_rpc').bg_worker;
-var AWS = require('aws-sdk');
+var bucket_server = require('./bucket_server');
+var size_utils = require('../util/size_utils');
+var P = require('../util/promise');
+// var stun = require('../rpc/stun');
+var promise_utils = require('../util/promise_utils');
 var dbg = require('../util/debug_module')(__filename);
 var promise_utils = require('../util/promise_utils');
-var bucket_server = require('./bucket_server');
-var moment = require('moment');
 var pkg = require('../../package.json');
 
 /**
@@ -342,40 +342,7 @@ function read_system(req) {
                     }
                 });
             }).then(function(sync_policy) {
-                dbg.log2('bucket sync_policy is:', sync_policy);
-                if (!_.isEmpty(sync_policy)) {
-                    var interval_text = 0;
-                    if (sync_policy.policy.schedule < 60) {
-                        interval_text = sync_policy.policy.schedule + ' minutes';
-                    } else {
-                        if (sync_policy.policy.schedule < 60 * 24) {
-                            interval_text = sync_policy.policy.schedule / 60 + ' hours';
-                        } else {
-                            interval_text = sync_policy.policy.schedule / (60 * 24) + ' days';
-                        }
-                    }
-                    b.policy_schedule_in_min = interval_text;
-                    //If sync time is epoch (never synced) change to never synced
-                    if (sync_policy.paused) {
-                        b.cloud_sync_status = 'NOTSET';
-                    }
-                    if (!sync_policy.health) {
-                        b.cloud_sync_status = 'UNABLE';
-                    }
-                    if (sync_policy.status === 'IDLE') {
-                        b.cloud_sync_status = 'SYNCED';
-                    } else {
-                        b.cloud_sync_status = 'SYNCING';
-                    }
-                    if (sync_policy.policy.last_sync === 0) {
-                        b.last_sync = 'Waiting for first sync';
-                        b.cloud_sync_status = 'UNSYNCED';
-                    } else {
-                        b.last_sync = moment(sync_policy.policy.last_sync).format('LLL');
-                    }
-                } else {
-                    b.cloud_sync_status = 'NOTSET';
-                }
+                cs_utils.resolve_cloud_sync_info(sync_policy, b);
                 dbg.log2('bucket is:', b);
                 return b;
             }).then(null, function(err) {

@@ -493,7 +493,7 @@ function add_region_instances(region_name, count, is_docker_host, number_of_dock
                     } else {
                         if (is_win) {
                             startup_script = 'http://noobaa-download.s3.amazonaws.com/init_agent.bat';
-                            machine_type = 'https://www.googleapis.com/compute/v1/projects/' + NooBaaProject + '/zones/' + region_name + '/machineTypes/g1-small';
+                            machine_type = 'https://www.googleapis.com/compute/v1/projects/' + NooBaaProject + '/zones/' + region_name + '/machineTypes/n1-highcpu-2';
                             source_image = 'https://www.googleapis.com/compute/v1/projects/windows-cloud/global/images/windows-server-2012-r2-dc-v20150511';
                         }
                     }

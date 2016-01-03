@@ -32,11 +32,11 @@ export default class PoolRowViewModel {
 		);
 
 		this.usage = ko.pureComputed(
-			() => formatSize(pool().storage.used)
+			() => pool().storage ? formatSize(pool().storage.used) : 'N/A'
 		);
 
 		this.capacity = ko.pureComputed(
-			() => formatSize(pool().storage.total)
+			() => pool().storage ? formatSize(pool().storage.total) : 'N/A'
 		);
 
 		this.allowDelete = ko.pureComputed(

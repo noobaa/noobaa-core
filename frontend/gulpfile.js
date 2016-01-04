@@ -10,6 +10,7 @@ let stringify = require('stringify');
 let babelify = require('babelify');
 let runSequence = require('run-sequence');
 let through = require('through2'); 
+let fs = require('fs');
 let $ = require('gulp-load-plugins')();
 
 let buildPath = './dist';
@@ -23,6 +24,7 @@ let libs = [
 	{ name: 'numeral',				path: './src/lib/numeral/numeral.js' },
 	{ name: 'page',					path: './src/lib/page/page.js' },
 	{ name: 'moment',				path: './src/lib/moment/moment.js' },
+	{ name: 'shifty',				path: './src/lib/shifty/dist/shifty.js' },
 	{ name: 'aws-sdk',				path: './src/lib/aws-sdk/dist/aws-sdk.js' },
 ];
 
@@ -38,7 +40,6 @@ gulp.task('default', cb => {
 		cb
 	);
 });
-
 
 // ----------------------------------
 // Build Tasks
@@ -90,7 +91,7 @@ gulp.task('build-api', () => {
 		.pipe(gulp.dest(buildPath));
 });
 
-gulp.task('build-app', ['build-js-style'], () => {
+gulp.task('build-app', ['build-js-style', 'ensure-server-conf'], () => {
 	let b = browserify({ debug: true, paths: ['./src/app'] })
 		.require(buildPath + '/style.json', { expose: 'style' })
 		.transform(babelify, { optional: ['runtime', 'es7.decorators'] })
@@ -132,8 +133,17 @@ gulp.task('build-js-style', () => {
  		.pipe($.less())
  		.pipe(cssClassToJson())
  		.pipe(gulp.dest(buildPath));
-})
+});
 
+
+gulp.task('ensure-server-conf', cb => {
+	try { 
+		fs.readFileSync('src/app/server-conf.json')
+	} catch (e) {
+		fs.writeFileSync('src/app/server-conf.json', '{}');
+	}
+	cb();
+});
 // ----------------------------------
 // Watch Tasks
 // ---------------------------------- 
@@ -203,7 +213,6 @@ gulp.task('serve', () => {
 // ----------------------------------
 // Helper functions
 // ---------------------------------- 
-
 function letsToLessClass() {
 	return through.obj(function(file, encoding, callback) {
 		let contents = file.contents.toString('utf-8');
@@ -259,4 +268,12 @@ function cacheControl(seconds) {
         res.setHeader("Expires", new Date(Date.now() + millis).toUTCString());
         return next();
     };
+}
+
+function getServerConf() {
+	try {
+		return require('./server.json');
+	} catch(e) {
+		return {};
+	}
 }

@@ -35,7 +35,7 @@ var node_server = {
     collect_agent_diagnostics: node_monitor.collect_agent_diagnostics,
     set_debug_node: node_monitor.set_debug_node,
     test_latency_to_server: test_latency_to_server,
-    get_random_test_nodes: get_random_test_nodes,
+    get_test_nodes: get_test_nodes,
 };
 
 module.exports = node_server;
@@ -492,7 +492,7 @@ function max_node_capacity(req) {
  * GET_RANDOM_TEST_NODES
  * return X random nodes for self test purposes
  */
-function get_random_test_nodes(req) {
+function get_test_nodes(req) {
     var count = req.rpc_params.count;
     var minimum_online_heartbeat = db.Node.get_minimum_online_heartbeat();
     return P.when(db.Node

@@ -471,7 +471,7 @@ module.exports = {
             }
         },
 
-        get_random_test_nodes: {
+        get_test_nodes: {
             method: 'GET',
             params: {
                 type: 'object',

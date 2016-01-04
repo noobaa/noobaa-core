@@ -2,8 +2,8 @@ import ko from 'knockout';
 import numeral from 'numeral';
 
 const uploadStateIconMapping = {
-	IN_PORCESS: '/fe/assets/icons.svg#object-in-process',
-	SUCCESS: '/fe/assets/icons.svg#object-healthy',
+	UPLOADING: '/fe/assets/icons.svg#object-in-process',
+	COMPLETED: '/fe/assets/icons.svg#object-healthy',
 	FAILED: '/fe/assets/icons.svg#object-problem'
 };
 
@@ -26,13 +26,13 @@ export default class UploadRowViewModel {
 		);
 
 		this.progress = ko.pureComputed(
-			() => {
-				if (upload().state === 'IN_PROCESS') {
-					return numeral(upload().progress).format('0%');
-				} else {
-					return upload().state;				
-				}
-			} 
+			() => upload().state === 'UPLOADING' ?
+				numeral(upload().progress).format('0%') :
+				upload().state
+		);
+
+		this.toolTip = ko.pureComputed(
+			() => upload().state === 'FAILED' ? upload().error : undefined
 		);
 	}
 }

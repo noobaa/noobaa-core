@@ -3,6 +3,7 @@ import { isDefined, isUndefined } from 'utils';
 import page from 'page';
 import api from 'services/api';
 import config from 'config';
+import { hostname as endpoint } from 'server-conf';
 import { encodeBase64, cmpStrings, cmpInts, cmpBools, randomString } from 'utils';
 
 // TODO: resolve browserify issue with export of the aws-sdk module.
@@ -284,7 +285,7 @@ export function readSystemInfo() {
 			});
 
 			systemOverview({
-				endpoint: reply.ip_address,
+				endpoint: endpoint,
 				keys: {
 					access: keys.access_key,
 					secret: keys.secret_key,
@@ -396,7 +397,7 @@ export function readObjectMetadata(bucketName, objectName) {
 		).then(
 			reply => {
 				let s3 = new AWS.S3({
-				    endpoint: config.serverAddress,
+				    endpoint: endpoint,
 				    s3ForcePathStyle: true,
 				    sslEnabled: false,	
 				});
@@ -470,8 +471,13 @@ export function listAllNodes() {
 export function readNode(nodeName) {
 	logAction('readNode', { nodeName });
 
+	if (model.nodeInfo() && model.nodeInfo().name !== nodeName) {
+		model.nodeInfo(null);
+	}
+
+
 	api.node.read_node({ name: nodeName })
-		.then(reply => model.nodeInfo(reply))
+		.then(model.nodeInfo)
 		.done();
 }
 
@@ -571,7 +577,7 @@ export function uploadFiles(bucketName, files) {
 
 	let recentUploads = model.recentUploads;
 	let s3 = new AWS.S3({
-	    endpoint: config.serverAddress,
+	    endpoint: endpoint,
 	    s3ForcePathStyle: true,
 	    sslEnabled: false,	
 	});
@@ -581,7 +587,7 @@ export function uploadFiles(bucketName, files) {
 			// Create an entry in the recent uploaded list.
 			let entry = {
 				name: file.name,
-				state: 'IN_PROCESS',
+				state: 'UPLOADING',
 				progress: 0,
 				error: null
 			};

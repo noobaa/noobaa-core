@@ -1,4 +1,4 @@
-const sizeUnits = ['B', 'KB', 'MB', 'GB', 'TB', 'PB', 'EB', 'ZB', 'YB' ];
+const sizeUnits = ['bytes', 'KB', 'MB', 'GB', 'TB', 'PB', 'EB', 'ZB', 'YB' ];
 
 export function noop() {
 }
@@ -56,7 +56,7 @@ export function formatSize(num) {
 		num = num.toFixed(num < 10 ? 1 : 0);
 	}
 
-	return `${num}${sizeUnits[i]}`;
+	return `${num} ${sizeUnits[i]}`;
 }
 
 export function randomString(len = 8) {

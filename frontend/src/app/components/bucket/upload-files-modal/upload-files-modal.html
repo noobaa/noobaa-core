@@ -43,7 +43,10 @@
 								<svg-icon params="uri: stateIcon"></svg-icon>
 							</td>
 							<td class="name-col text-left" data-bind="text: name"></td>
-							<td class="progress-col" data-bind="text: progress"></td>
+							<td class="progress-col" data-bind="
+								text: progress,
+								attr: { title: toolTip }
+							"></td>
 						</tr>
 						<!-- /ko -->
 					</tbody>

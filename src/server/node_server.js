@@ -254,6 +254,7 @@ function list_nodes(req) {
  */
 function list_nodes_int(query, system_id, skip, limit, pagination, sort, order, req) {
     var info;
+    var sort_opt = {};
     return P.fcall(function() {
             info = {
                 system: system_id,
@@ -303,6 +304,12 @@ function list_nodes_int(query, system_id, skip, limit, pagination, sort, order, 
                         break;
                 }
             }
+
+            if (sort) {
+                var sort_order = (order === -1) ? -1 : 1;
+                sort_opt[sort] = sort_order;
+            }
+
             if (query.tier) {
                 return db.TierCache.get({
                         system: system_id,
@@ -313,8 +320,7 @@ function list_nodes_int(query, system_id, skip, limit, pagination, sort, order, 
                         info.tier = tier;
                     });
             }
-
-            if (query.pool) {
+            if (query.pool) { //Keep last in chain due to promise
                 return db.Pool.find({
                         system: system_id,
                         name: {
@@ -330,19 +336,10 @@ function list_nodes_int(query, system_id, skip, limit, pagination, sort, order, 
                         info.pool.$in = query_pools;
                     });
             }
-
-            /*
-            sort: {
-                type: 'string',
-                enum: ['state', 'name', 'ip', 'capacity', 'hd', 'trust', 'online']
-            },
-            order: {
-                type: 'integer',
-            },*/
         })
         .then(function() {
             var find = db.Node.find(info)
-                .sort('-_id')
+                .sort(sort_opt)
                 .populate('tier', 'name');
             if (skip) {
                 find.skip(skip);

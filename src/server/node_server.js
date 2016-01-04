@@ -505,7 +505,7 @@ function get_node_full_info(node) {
             storage: get_storage_info(drive.storage)
         };
     });
-    info.online = node.is_online();
+    info.online = db.Node.is_online(node);
     info.os_info = node.os_info && node.os_info.toObject() || {};
     if (info.os_info.uptime) {
         info.os_info.uptime = info.os_info.uptime.getTime();

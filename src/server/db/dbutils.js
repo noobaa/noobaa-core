@@ -1,6 +1,7 @@
 'use strict';
 
 var _ = require('lodash');
+var P = require('../../util/promise');
 
 module.exports = {
     uniq_ids: uniq_ids,
@@ -12,9 +13,10 @@ module.exports = {
  * this is needed since ObjectId is an object so === comparison is not
  * logically correct for it even for two objects with the same id.
  */
-function uniq_ids(ids) {
+function uniq_ids(docs, doc_path) {
     var map = {};
-    _.each(ids, function(id) {
+    _.each(docs, function(doc) {
+        var id = _.get(doc, doc_path);
         if (id) {
             map[id.toString()] = id;
         }
@@ -27,13 +29,14 @@ function uniq_ids(ids) {
  */
 function populate(doc_path, collection) {
     return function(docs) {
-        return collection.find({
+        var ids = uniq_ids(docs, doc_path);
+        console.log('POPULATE:', collection.modelName, ids);
+        if (!docs.length || !ids.length) return docs;
+        return P.when(collection.collection.find({
                 _id: {
-                    $in: uniq_ids(_.map(docs, function(doc) {
-                        return _.get(doc, doc_path);
-                    }))
+                    $in: ids
                 }
-            })
+            }).toArray())
             .then(function(items) {
                 var items_by_idstr = _.indexBy(items, '_id');
                 _.each(docs, function(doc) {

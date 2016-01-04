@@ -473,8 +473,6 @@ function get_object_info(md) {
     if (_.isNumber(md.upload_size)) {
         info.upload_size = md.upload_size;
     }
-    info.stats = {};
-    info.stats.reads = (info.stats && info.stats.reads) || 0;
     return info;
 }
 

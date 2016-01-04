@@ -2,13 +2,13 @@
 
 module.exports = {
     build_chunks: build_chunks,
-    get_block_md: get_block_md,
 };
 
 var _ = require('lodash');
 var P = require('../../util/promise');
 var db = require('../db');
-var policy_allocation = require('./policy_allocation');
+var policy_allocator = require('./policy_allocator');
+var block_allocator = require('./block_allocator');
 var server_rpc = require('../server_rpc').server_rpc;
 var promise_utils = require('../../util/promise_utils');
 var js_utils = require('../../util/js_utils');
@@ -45,7 +45,7 @@ function build_chunks(chunks) {
 
             if (analysis_res.blocks_to_remove.length) {
                 dbg.log0('build_chunks: removing blocks', analysis_res.blocks_to_remove.length);
-                remove_blocks_promise = policy_allocation.remove_allocation(analysis_res.blocks_to_remove);
+                remove_blocks_promise = policy_allocator.remove_allocation(analysis_res.blocks_to_remove);
             }
 
             // allocate blocks
@@ -59,7 +59,7 @@ function build_chunks(chunks) {
                 return promise_utils.iterate(chunk_status.stat.blocks_info_to_allocate,
                     function(block_info_to_allocate) {
                         //TODO:: NBNB change
-                        return policy_allocation.allocate_on_pools(block_info_to_allocate.chunk,
+                        return policy_allocator.allocate_on_pools(block_info_to_allocate.chunk,
                                 avoid_nodes,
                                 chunk_status.pools)
                             .then(function(new_block) {
@@ -181,10 +181,10 @@ function build_chunks_analysis(chunks) {
             return P.all(_.map(chunks, function(chunk) {
                     var chunk_blocks = blocks_by_chunk[chunk._id];
                     //TODO:: NBNB change
-                    return P.when(policy_allocation.get_pools_groups(chunk.bucket))
+                    return P.when(policy_allocator.get_pools_groups(chunk.bucket))
                         .then(function(pools) {
                             return P.all(_.map(pools, function(p) {
-                                return P.when(policy_allocation.analyze_chunk_status_on_pools(chunk, chunk_blocks, p))
+                                return P.when(policy_allocator.analyze_chunk_status_on_pools(chunk, chunk_blocks, p))
                                     .then(function(stat) {
                                         js_utils.array_push_all(blocks_to_remove, stat.blocks_to_remove);
                                         return {
@@ -217,8 +217,8 @@ function build_chunks_replicate_blocks(analysis_info) {
                         // block that failed to allocate - skip replicate anyhow.
                         return;
                     }
-                    var target = get_block_md(block);
-                    var source = get_block_md(block_info_to_allocate.source);
+                    var target = block_allocator.get_block_md(block);
+                    var source = block_allocator.get_block_md(block_info_to_allocate.source);
 
                     dbg.log1('build_chunks_replicate_blocks: replicating to', target, 'from', source, 'chunk',
                         chunk_status.stat.chunk);
@@ -317,11 +317,4 @@ function build_chunks_update_db(replicate_res, success_chunk_ids, failed_chunk_i
         })
         // .exec()
     ]);
-}
-
-function get_block_md(block) {
-    var b = _.pick(block, 'size', 'digest_type', 'digest_b64');
-    b.id = block._id.toString();
-    b.address = block.node.rpc_address;
-    return b;
 }

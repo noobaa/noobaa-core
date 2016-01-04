@@ -29,24 +29,25 @@ try {
 
 
 //Detect our context, node/atom/browser
+//Different context requires different handling, for example winston usage or console wrapping
 var processType;
 if (typeof process !== 'undefined' &&
     process.versions &&
     process.versions['atom-shell']) { //atom shell
     var winston = require('winston');
     processType = "atom";
+    var con = require('./console_wrapper');
 } else if (!global.document) {
     // node
     var winston = require('winston');
     processType = "node";
+    var con = require('./console_wrapper');
 } else {
     //browser
     processType = "browser";
 }
 
 var int_dbg = new InternalDebugLogger();
-
-var con = require('./console_wrapper');
 
 var MONTHS = {
     "1": "Jan",
@@ -76,9 +77,10 @@ function formatted_time() {
 }
 
 function extract_module(mod, ignore_extension) {
+    // the 'core.' prefix is helpful for setting the level for all modules
     var stems = {
-        "/src/": "",
-        "Program Files\\NooBaa": ""
+        "/src/": "core.",
+        "Program Files\\NooBaa": "core."
     };
 
     //for initial module construction, filename is passed, remove extension
@@ -260,9 +262,9 @@ InternalDebugLogger.prototype.set_level = function(mod, level) {
     //find the desired node to set level for
     for (var ind = 0; ind < parts.length; ++ind) {
         if (!tmp_mod[parts[ind]]) {
-            con.original_console();
+            con && con.original_console();
             console.log("No such module " + mod + " registered");
-            con.wrapper_console();
+            con && con.wrapper_console();
             return;
         }
         tmp_mod = tmp_mod[parts[ind]];
@@ -282,9 +284,9 @@ InternalDebugLogger.prototype.get_level = function(mod) {
     //find the desired node to set level for
     for (var ind = 0; ind < parts.length; ++ind) {
         if (!tmp_mod[parts[ind]]) {
-            con.original_console();
+            con && con.original_console();
             console.log("No such module " + mod + " registered");
-            con.wrapper_console();
+            con && con.wrapper_console();
             return;
         }
         tmp_mod = tmp_mod[parts[ind]];
@@ -302,7 +304,7 @@ var LOG_FUNC_PER_LEVEL = {
 
 InternalDebugLogger.prototype.log_internal = function(level) {
     var args;
-    con.original_console();
+    con && con.original_console();
     if (this._log) {
         // normal path (non browser)
         args = Array.prototype.slice.call(arguments, 1);
@@ -322,7 +324,7 @@ InternalDebugLogger.prototype.log_internal = function(level) {
         // }
         console[logfunc].apply(console, args);
     }
-    con.wrapper_console();
+    con && con.wrapper_console();
 };
 
 /*
@@ -411,10 +413,17 @@ function log_syslog_builder(syslevel) {
         int_dbg.log_internal.apply(int_dbg, args);
     };
 }
-for (i = 0; i < con.syslog_levels.length; ++i) {
-    DebugLogger.prototype[con.syslog_levels[i]] = log_syslog_builder(con.syslog_levels[i]);
-}
 
+if (!con) {
+    var syslog_levels = ["trace", "log", "info", "error", "warn"];
+    for (i = 0; i < syslog_levels.length; ++i) {
+        DebugLogger.prototype[syslog_levels[i]] = log_syslog_builder(syslog_levels[i]);
+    }
+} else {
+    for (i = 0; i < con.syslog_levels.length; ++i) {
+        DebugLogger.prototype[con.syslog_levels[i]] = log_syslog_builder(con.syslog_levels[i]);
+    }
+}
 
 DebugLogger.prototype.set_level = function(level, mod) {
     if (typeof mod !== 'undefined') {
@@ -453,6 +462,8 @@ DebugLogger.prototype.log_progress = function(fraction) {
     }
 };
 
-//Register a "console" module DebugLogger for the console wrapper
-var conlogger = new DebugLogger("CONSOLE.js");
-con.register_logger(conlogger);
+if (con) {
+    //Register a "console" module DebugLogger for the console wrapper
+    var conlogger = new DebugLogger("CONSOLE.js");
+    con.register_logger(conlogger);
+}

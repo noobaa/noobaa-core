@@ -128,10 +128,11 @@ function test() {
     function test_coding() {
         var CoalesceStream = require("../util/coalesce_stream");
         var native_core = require("../util/native_core")();
+        var dedup_options = require("../api/dedup_options");
         var dedup_chunker = new native_core.DedupChunker({
             tpool: new native_core.ThreadPool(1)
-        }, new native_core.DedupConfig({}));
-        var object_coding_tpool = new native_util.ThreadPool(2);
+        }, new native_core.DedupConfig(dedup_options));
+        var object_coding_tpool = new native_core.ThreadPool(2);
         var object_coding = new native_core.ObjectCoding({
             digest_type: 'sha384',
             compress_type: 'snappy',

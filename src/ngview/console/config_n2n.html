@@ -35,28 +35,6 @@
             </tr>
         </table>
 
-        <div ng-if="n2n_form.proto!='udp'" style="margin-top: 20px">
-            <p><i class="fa fa-exclamation-triangle fa-fw"></i>
-                <i>Before you apply, add the following exception to your Firewall/NAT:</i></p>
-            <div class="well well-light well-sm">
-                <table class="table table-no-borders table-condensed font-monospace" style="margin: 0">
-                    <tr>
-                        <th class="compact">Source:</th>
-                        <td class="compact">any</td>
-                        <th class="compact">Destination:</th>
-                        <td class="compact">any</td>
-                        <th class="compact">Protocol:</th>
-                        <td class="compact">tcp</td>
-                        <th class="compact">Ports:</th>
-                        <td class="compact">{{n2n_form.tcp_ports}}</td>
-                        <th class="compact">Description:</th>
-                        <td class="compact">NooBaa</td>
-                        <td></td>
-                    </tr>
-                </table>
-            </div>
-        </div>
-
         <div>
             <button class="btn btn-primary" nb-click-ladda="apply_n2n_config()">Apply</button>
         </div>
@@ -74,11 +52,34 @@
                 <i class="fa fa-fw {{n2n_form.reply.nodes_updated<n2n_form.reply.nodes_count && 'fa-warning text-warning' || 'fa-check text-success'}}"></i> {{n2n_form.reply.nodes_updated}}/{{n2n_form.reply.nodes_count}} nodes have been updated.
             </span>
         </div>
+
     </div>
 
     <br/>
 
-    <ul>
+    <div ng-if="n2n_form.proto!='udp'" style="Xmargin-top: 20px">
+        <p><i class="fa fa-exclamation-triangle fa-fw"></i>
+            <i>Before you apply, add the following exception to your Firewall/NAT:</i></p>
+        <div class="well well-light well-sm">
+            <table class="table table-no-borders table-condensed font-monospace" style="margin: 0">
+                <tr>
+                    <th class="compact">Source:</th>
+                    <td class="compact">any</td>
+                    <th class="compact">Destination:</th>
+                    <td class="compact">any</td>
+                    <th class="compact">Protocol:</th>
+                    <td class="compact">tcp</td>
+                    <th class="compact">Ports:</th>
+                    <td class="compact">{{n2n_form.tcp_ports}}</td>
+                    <th class="compact">Description:</th>
+                    <td class="compact">NooBaa</td>
+                    <td></td>
+                </tr>
+            </table>
+        </div>
+    </div>
+
+    <ul style="padding-left: 19px">
         <li>Ports can be set to either single port (ex. 9999) or port range (ex. 60100-60600).</li>
         <li>TCP ports should be manually opened in firewall/NAT in order to be reachable.</li>
         <li>Connections are secured using SSL.</li>

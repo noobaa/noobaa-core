@@ -6,7 +6,7 @@ module.exports = {
 
 var P = require('../util/promise');
 var db = require('../server/db');
-var object_mapper_utils = require('../server/utils/object_mapper_utils');
+var chunk_builder = require('../server/mapper/chunk_builder');
 var dbg = require('../util/debug_module')(__filename);
 
 /**
@@ -62,7 +62,7 @@ function background_worker() {
             }
 
             if (chunks.length) {
-                return object_mapper_utils.build_chunks(chunks);
+                return chunk_builder.build_chunks(chunks);
             }
         })
         .then(function() {

@@ -34,20 +34,21 @@ var system_server = {
 module.exports = system_server;
 
 var _ = require('lodash');
-var P = require('../util/promise');
 var crypto = require('crypto');
 var ip_module = require('ip');
-var size_utils = require('../util/size_utils');
-var promise_utils = require('../util/promise_utils');
+var AWS = require('aws-sdk');
 var diag = require('./utils/server_diagnostics');
+var cs_utils = require('./utils/cloud_sync_utils');
 var db = require('./db');
 var server_rpc = require('./server_rpc').server_rpc;
 var bg_worker = require('./server_rpc').bg_worker;
-var AWS = require('aws-sdk');
+var bucket_server = require('./bucket_server');
+var size_utils = require('../util/size_utils');
+var P = require('../util/promise');
+// var stun = require('../rpc/stun');
+var promise_utils = require('../util/promise_utils');
 var dbg = require('../util/debug_module')(__filename);
 var promise_utils = require('../util/promise_utils');
-var bucket_server = require('./bucket_server');
-var moment = require('moment');
 var pkg = require('../../package.json');
 
 /**
@@ -296,17 +297,17 @@ function read_system(req) {
         var objects_sys = objects_aggregate[''] || {};
         var ret_pools = [];
         _.each(pools, function(p) {
-            var aggregate_p = nodes_aggregate_pool[p.id] || {};
+            var aggregate_p = nodes_aggregate_pool[p._id] || {};
             ret_pools.push({
                 name: p.name,
                 total_nodes: p.nodes.length,
                 online_nodes: aggregate_p.online || 0,
                 //TODO:: in tier we divide by number of replicas, in pool we have no such concept
                 storage: {
-                    total: (p.total || 0),
-                    free: (p.free || 0),
-                    used: (p.used || 0),
-                    alloc: (p.alloc || 0)
+                    total: (aggregate_p.total || 0),
+                    free: (aggregate_p.free || 0),
+                    used: (aggregate_p.used || 0),
+                    alloc: (aggregate_p.alloc || 0)
                 }
             });
         });
@@ -341,40 +342,7 @@ function read_system(req) {
                     }
                 });
             }).then(function(sync_policy) {
-                dbg.log2('bucket sync_policy is:', sync_policy);
-                if (!_.isEmpty(sync_policy)) {
-                    var interval_text = 0;
-                    if (sync_policy.policy.schedule < 60) {
-                        interval_text = sync_policy.policy.schedule + ' minutes';
-                    } else {
-                        if (sync_policy.policy.schedule < 60 * 24) {
-                            interval_text = sync_policy.policy.schedule / 60 + ' hours';
-                        } else {
-                            interval_text = sync_policy.policy.schedule / (60 * 24) + ' days';
-                        }
-                    }
-                    b.policy_schedule_in_min = interval_text;
-                    //If sync time is epoch (never synced) change to never synced
-                    if (sync_policy.paused) {
-                        b.cloud_sync_status = 'NOTSET';
-                    }
-                    if (!sync_policy.health) {
-                        b.cloud_sync_status = 'UNABLE';
-                    }
-                    if (sync_policy.status === 'IDLE') {
-                        b.cloud_sync_status = 'SYNCED';
-                    } else {
-                        b.cloud_sync_status = 'SYNCING';
-                    }
-                    if (sync_policy.policy.last_sync === 0) {
-                        b.last_sync = 'Waiting for first sync';
-                        b.cloud_sync_status = 'UNSYNCED';
-                    } else {
-                        b.last_sync = moment(sync_policy.policy.last_sync).format('LLL');
-                    }
-                } else {
-                    b.cloud_sync_status = 'NOTSET';
-                }
+                cs_utils.resolve_cloud_sync_info(sync_policy, b);
                 dbg.log2('bucket is:', b);
                 return b;
             }).then(null, function(err) {
@@ -384,6 +352,15 @@ function read_system(req) {
         })).then(function(updated_buckets) {
             dbg.log2('updated_buckets:', updated_buckets);
             var ip_address = ip_module.address();
+            var n2n_config = req.system.n2n_config;
+            // TODO use n2n_config.stun_servers ?
+            // var stun_address = 'stun://' + ip_address + ':' + stun.PORT;
+            // var stun_address = 'stun://64.233.184.127:19302'; // === 'stun://stun.l.google.com:19302'
+            // n2n_config.stun_servers = n2n_config.stun_servers || [];
+            // if (!_.contains(n2n_config.stun_servers, stun_address)) {
+            //     n2n_config.stun_servers.unshift(stun_address);
+            //     dbg.log0('read_system: n2n_config.stun_servers', n2n_config.stun_servers);
+            // }
             return {
                 name: req.system.name,
                 roles: _.map(roles, function(role) {
@@ -422,7 +399,7 @@ function read_system(req) {
                 ssl_port: process.env.SSL_PORT,
                 web_port: process.env.PORT,
                 web_links: get_system_web_links(req.system),
-                n2n_config: req.system.n2n_config,
+                n2n_config: n2n_config,
                 ip_address: ip_address,
                 base_address: req.system.base_address ||
                     'wss://' + ip_address + ':' + process.env.SSL_PORT

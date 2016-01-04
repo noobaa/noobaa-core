@@ -5,7 +5,7 @@ var _ = require('lodash');
 var P = require('../util/promise');
 var size_utils = require('../util/size_utils');
 var string_utils = require('../util/string_utils');
-var object_mapper = require('./object_mapper');
+var object_mapper = require('./mapper/object_mapper');
 var node_monitor = require('./node_monitor');
 var server_rpc = require('./server_rpc').server_rpc;
 var db = require('./db');
@@ -26,6 +26,7 @@ var node_server = {
     list_nodes: list_nodes,
     list_nodes_int: list_nodes_int,
     group_nodes: group_nodes,
+    max_node_capacity: max_node_capacity,
 
     heartbeat: node_monitor.heartbeat,
     redirect: node_monitor.redirect,
@@ -33,7 +34,8 @@ var node_server = {
     self_test_to_node_via_web: node_monitor.self_test_to_node_via_web,
     collect_agent_diagnostics: node_monitor.collect_agent_diagnostics,
     set_debug_node: node_monitor.set_debug_node,
-    test_latency_to_server: test_latency_to_server
+    test_latency_to_server: test_latency_to_server,
+    get_random_test_nodes: get_random_test_nodes,
 };
 
 module.exports = node_server;
@@ -242,6 +244,8 @@ function list_nodes(req) {
         req.rpc_params.skip,
         req.rpc_params.limit,
         req.rpc_params.pagination,
+        req.rpc_params.sort,
+        req.rpc_params.order,
         req);
 }
 
@@ -250,8 +254,9 @@ function list_nodes(req) {
  * LIST_NODES_INT
  *
  */
-function list_nodes_int(query, system_id, skip, limit, pagination, req) {
+function list_nodes_int(query, system_id, skip, limit, pagination, sort, order, req) {
     var info;
+    var sort_opt = {};
     return P.fcall(function() {
             info = {
                 system: system_id,
@@ -301,6 +306,12 @@ function list_nodes_int(query, system_id, skip, limit, pagination, req) {
                         break;
                 }
             }
+
+            if (sort) {
+                var sort_order = (order === -1) ? -1 : 1;
+                sort_opt[sort] = sort_order;
+            }
+
             if (query.tier) {
                 return db.TierCache.get({
                         system: system_id,
@@ -311,10 +322,26 @@ function list_nodes_int(query, system_id, skip, limit, pagination, req) {
                         info.tier = tier;
                     });
             }
+            if (query.pool) { //Keep last in chain due to promise
+                return db.Pool.find({
+                        system: system_id,
+                        name: {
+                            $in: query.pool
+                        },
+                    })
+                    .then(function(rpools) {
+                        var query_pools = _.map(rpools, function(p) {
+                            return p._id;
+                        });
+
+                        info.pool = {};
+                        info.pool.$in = query_pools;
+                    });
+            }
         })
         .then(function() {
             var find = db.Node.find(info)
-                .sort('-_id')
+                .sort(sort_opt)
                 .populate('tier', 'name');
             if (skip) {
                 find.skip(skip);
@@ -432,7 +459,70 @@ function group_nodes(req) {
 
 function test_latency_to_server(req) {
     // nothing to do.
-    // the caller is just testing roud trip time to the server.
+    // the caller is just testing round trip time to the server.
+}
+
+/*
+ * MAX_NODE_CAPACITY
+ * Return maximal node capacity according to given filter
+ */
+function max_node_capacity(req) {
+    //TODO:: once filter is mplemented in list_nodes, also add it here for the query
+    return P.when(db.Node
+            .find({
+                system: req.system.id,
+                deleted: null,
+            })
+            .sort({
+                'storage.total': 1
+            })
+            .limit(1))
+        .then(function(max) {
+            var max_capacity = 0;
+            _.each(max[0].drives, function(d) {
+                if (d.storage.total > max_capacity) {
+                    max_capacity = d.storage.total;
+                }
+            });
+            return max_capacity;
+        });
+}
+
+/*
+ * GET_RANDOM_TEST_NODES
+ * return X random nodes for self test purposes
+ */
+function get_random_test_nodes(req) {
+    var count = req.rpc_params.count;
+    var minimum_online_heartbeat = db.Node.get_minimum_online_heartbeat();
+    return P.when(db.Node
+            .count({
+                system: req.system.id,
+                heartbeat: {
+                    $gt: minimum_online_heartbeat
+                },
+                deleted: null,
+            }))
+        .then(function(total_nodes) {
+            var rand_start = Math.floor(Math.random() *
+                (total_nodes - count > 0 ? total_nodes - count : total_nodes));
+            return P.when(db.Node
+                .find({
+                    system: req.system.id,
+                    heartbeat: {
+                        $gt: minimum_online_heartbeat
+                    },
+                    deleted: null,
+                })
+                .skip(rand_start)
+                .limit(count));
+        })
+        .then(function(nodes) {
+            var targets = _.map(nodes, function(n) {
+                return 'n2n://' + n.peer_id;
+            });
+            return targets;
+        });
 }
 
 // UTILS //////////////////////////////////////////////////////////

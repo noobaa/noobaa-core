@@ -117,6 +117,7 @@ function read_bucket(req) {
                         .count({
                             system: req.system.id,
                             bucket: bucket.id,
+                            deleted: null,
                         }));
                 })
                 .then(function(obj_count) {

@@ -215,7 +215,7 @@ Section "Noobaa Local Service"
 			Delete "$INSTDIR\service_installer.bat"
 			Delete "$INSTDIR\node.exe"
 			Delete "$INSTDIR\service.bat"
-			RMDir /r "$INSTDIR\Release"
+			RMDir /r "$INSTDIR\build"
 		${EndIf}
 	${Else}
 		File "7za.exe"
@@ -235,8 +235,10 @@ Section "Noobaa Local Service"
 		File ".\64\libeay32.dll"
 		File ".\64\ssleay32.dll"
 		File ".\64\node.exe"
-		File /r "Release-64"
-		Rename $INSTDIR\Release-64 $INSTDIR\Release
+		RMDir /r "$INSTDIR\build"
+		File /r  "build"
+		RMDir /r "$INSTDIR\build\Release-32"
+		Rename $INSTDIR\build\Release-64 $INSTDIR\build\Release
 
 	${Else}
     # 32 bit code
@@ -244,8 +246,10 @@ Section "Noobaa Local Service"
 		File ".\32\libeay32.dll"
 		File ".\32\ssleay32.dll"
 		File ".\32\node.exe"
-		File /r "Release-32"
-		Rename $INSTDIR\Release-32 $INSTDIR\Release
+		RMDir /r "$INSTDIR\build"
+		File /r  "build"
+		RMDir /r "$INSTDIR\build\Release-64"
+		Rename $INSTDIR\build\Release-32 $INSTDIR\build\Release
 
 	${EndIf}
 

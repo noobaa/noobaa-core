@@ -1,4 +1,23 @@
-<capacity-gauge params="legend: gagueLegend(), values: gagueValues()"></capacity-gauge>
+<!-- ko if: dataReady -->
+<section class="gauge-legend">
+	<h3 class="heading3 underline">
+		Potential Capacity: 
+		<span data-bind="text: totalText"></span>
+	</h3>
+
+	<ul class="list-no-style">
+		<li class="used-legend">
+			Used: 
+			<span class="emphasized" data-bind="text: usedText"></span>
+		</li>
+		<li class="total-legend">
+			Free: 
+			<span class="emphasized" data-bind="text: freeText"></span>
+		</li>
+	</ul>		
+</section>
+
+<quantity-gauge params="values: gaugeValues"></quantity-gauge>
 
 <section class="action-list">
 	<button class="action btn2" data-bind="click: () => isUploadFilesModalVisible(true)">
@@ -16,6 +35,7 @@
 		Edit Policy
 	</button>
 </section>
+<!-- /ko -->
 
 <!-- ko if: isPolicyModalVisible -->
 <bucket-policy-modal params="

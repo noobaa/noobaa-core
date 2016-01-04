@@ -20,28 +20,34 @@ class PoolSummaryViewModel {
 			}
 		);
 
-		this.gaugeLegend = ko.pureComputed(
-			() => `${numeral(pool().total_nodes).format('0,0')} Nodes`
+		this.total = ko.pureComputed(
+			() => pool().storage.total
 		);
 
-		this.gaugeValues = ko.pureComputed(
-			() => {
-				let { used, free } = pool().storage;
-				return [
-					this._makeGaugeValue('Capacity Used', used, style['text-color6'], true),
-					this._makeGaugeValue('Potential Capacity', free, style['text-color5'], false)
-				]
-			}
-		);
-	}
+		this.totalText = ko.pureComputed(
+			() => formatSize(this.total())
+		);		
 
-	_makeGaugeValue(label, value, color, emphasise) {
-		return {
-			label: `${label}: ${ formatSize(value) }`,
-			value: value,
-			color: color,
-			emphasise: emphasise
-		}
+		this.used = ko.pureComputed(
+			() => pool().storage.used
+		);
+
+		this.usedText = ko.pureComputed(
+			() => formatSize(this.used())
+		);		
+
+		this.free = ko.pureComputed(
+			() => pool().storage.free
+		);		
+
+		this.freeText = ko.pureComputed(
+			() => formatSize(this.free())
+		);		
+
+		this.gaugeValues = [
+			{ value: this.used, color: style['text-color6'], emphasize: true },
+			{ value: this.free, color: style['text-color4'], emphasize: false },
+		];
 	}
 }
 

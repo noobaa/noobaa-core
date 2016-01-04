@@ -35,37 +35,46 @@ class NodeSummaryViewModel {
 			() => node().trusted ? 'Trusted' : 'Untrusted'
 		);
 
-		this.gaugeLegend = ko.pureComputed(
-			() => `Capacity (${formatSize(node().storage.total)})`
+		this.total = ko.pureComputed(
+			() => node().storage.total
 		);
 
-		this.gaugeValues = ko.pureComputed(
-			() => this._mapGaugeValues(node())
+		this.totalText = ko.pureComputed(
+			() => formatSize(this.total())
+		);		
+
+		this.used = ko.pureComputed(
+			() => node().storage.used
 		);
 
-		this.isTestModalVisible = ko.observable(true);
+		this.usedText = ko.pureComputed(
+			() => formatSize(this.used())
+		);		
+
+		this.free = ko.pureComputed(
+			() => node().storage.free
+		);		
+
+		this.freeText = ko.pureComputed(
+			() => formatSize(this.free())
+		);
+
+		this.os = ko.pureComputed(
+			() => this.total() - (this.used() + this.free())
+		);		
+
+		this.osText = ko.pureComputed(
+			() => formatSize(this.os())
+		);		
+
+		this.gaugeValues = [
+			{ value: this.used, color: style['text-color6'], emphasize: true },
+			{ value: this.os, color: style['text-color2'] },
+			{ value: this.free, color: style['text-color5'] }
+		]
+
+		this.isTestModalVisible = ko.observable(false);
 		this.isDiagnoseModalVisible = ko.observable(false);		
-	}
-
-
-	_mapGaugeValues({ storage }) {
-		let { total, used, free } = storage;
-		let os = total - (used + free); 
-
-		return [
-			this._makeGaugeValue('NooBaa', used, style['text-color6'], true),
-			this._makeGaugeValue('OS', os, style['text-color2'], false),
-			this._makeGaugeValue('Unused', free, style['text-color5'], false)
-		];		
-	}
-
-	_makeGaugeValue(label, value, color, emphasise) {
-		return {
-			label: `${label} (${ formatSize(value) })`,
-			value: value,
-			color: color,
-			emphasise: emphasise
-		}
 	}		
 }
 

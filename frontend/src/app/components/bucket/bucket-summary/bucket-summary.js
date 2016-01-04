@@ -6,72 +6,58 @@ import { formatSize } from 'utils';
 
 class BucketSummrayViewModel {
 	constructor({ bucket }) {
+		this.dataReady = ko.pureComputed(
+			() => !!bucket()
+		);
+
 		this.name  = ko.pureComputed(
-			() => bucket() ? bucket().name : null
+			() => bucket().name
 		);
 
 		this.fileCount = ko.pureComputed(
-			() => bucket() ? bucket().num_objects : 0
+			() => bucket().num_objects
+		);
+
+		this.fileCountText = ko.pureComputed(
+			() => `${this.fileCount() ? numeral(this.fileCount()).format('0,0') : 'No'} files`
+		)		
+		
+		this.total = ko.pureComputed(
+			() => bucket().storage.used
+		);
+
+		this.totalText = ko.pureComputed(
+			() => formatSize(bucket().storage.total)
+		);
+
+		this.free = ko.pureComputed(
+			() => bucket().storage.free
+		);
+
+		this.freeText = ko.pureComputed(
+			() => formatSize(this.free())
 		);
 
 		this.used = ko.pureComputed(
-			() => bucket() ? bucket().storage.total : 0
+			() => bucket().storage.used
 		);
-		
-		this.total = ko.pureComputed(
-			() => bucket() ? bucket().storage.used : 0
+
+		this.usedText = ko.pureComputed(
+			() => formatSize(this.used())
 		);
+
+		this.gaugeValues = [ 
+			{ value: this.used, color: style['text-color6'], emphasize: true },
+			{ value: this.free, color: style['text-color4'] }
+		]
 
 		this.policy = ko.pureComputed(
-			() => bucket() ? bucket().tiering[0].name : null
+			() => bucket().tiering[0].name
 		);
 
-		this.areActionsVisible = ko.observable(false);
 		this.isPolicyModalVisible = ko.observable(false);
 		this.isUploadFilesModalVisible = ko.observable(false);
 		this.isCloudSyncModalVisible = ko.observable(false);
-
-		this.gauge = {
-			legend: `${this.fileCount() ? numeral(this.fileCount()).format('0,0') : 'No'} files`,
-			total: {
-				label: `Total: ${formatSize(this.total())}`,
-				value: this.total(),
-				color: style['text-color5']
-			},
-			values: [
-				{
-					label: `Used: ${formatSize(this.used())}`,
-					value: this.used(),
-					color: style['text-color6'],
-					emphasise: true
-				}
-			]
-		};
-	}
-
-	gagueLegend() {
-		let count = this.fileCount();
-		return `${count ? numeral(count).format('0,0') : 'No'} files`;
-	}
-
-	gagueValues() {
-		return [
-			{
-				label: `Used: ${formatSize(this.used())}`,
-				value: this.used(),
-				color: style['text-color6'],
-				emphasise: true
-			},
-			{
-				label: `Total: ${formatSize(this.total())}`,
-				value: this.total() || 1,
-				color: style['text-color5']
-			}		
-		];
-	}
-
-	toggleActions() {
-		this.areActionsVisible(!this.areActionsVisible());
 	}
 }
 

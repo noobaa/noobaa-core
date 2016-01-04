@@ -149,7 +149,10 @@ module.exports = {
                         required: [],
                         properties: {
                             pool: {
-                                type: 'string',
+                                type: 'array',
+                                items: {
+                                    type: 'string',
+                                },
                             },
                             tier: {
                                 type: 'string'
@@ -176,6 +179,13 @@ module.exports = {
                     },
                     pagination: {
                         type: 'boolean'
+                    },
+                    sort: {
+                        type: 'string',
+                        enum: ['state', 'name', 'ip', 'capacity', 'hd', 'trust', 'online']
+                    },
+                    order: {
+                        type: 'integer',
                     },
                 }
             },

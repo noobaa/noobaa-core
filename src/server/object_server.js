@@ -292,10 +292,26 @@ function read_object_mappings(req) {
  */
 function read_object_md(req) {
     dbg.log0('read_obj(1):', req.rpc_params);
+    var objid;
     return find_object_md(req)
         .then(function(obj) {
+            objid = obj._id;
             dbg.log0('read_obj:', obj);
             return get_object_info(obj);
+        })
+        .then(function(info) {
+            if (!req.rpc_params.pagination) {
+                return info;
+            } else {
+                return P.when(db.ObjectPart.count({
+                        obj: objid,
+                        deleted: null,
+                    }))
+                    .then(function(c) {
+                        info.total_parts_count = c;
+                        return info;
+                    });
+            }
         });
 }
 

@@ -394,7 +394,7 @@ function list_objects(req) {
             var skip = req.rpc_params.skip;
             var limit = req.rpc_params.limit;
             console.log('key query2', info);
-            var find = db.ObjectMD.find(info).sort('-_id');
+            var find = db.ObjectMD.find(info);
             if (skip) {
                 find.skip(skip);
             }

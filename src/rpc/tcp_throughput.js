@@ -1,18 +1,21 @@
 'use strict';
+var fs = require('fs');
 var net = require('net');
+var tls = require('tls');
 main();
 
 function main() {
     var type = process.argv[2] || false;
     var port = parseInt(process.argv[3], 10) || 50505;
     var ip = process.argv[4] || '127.0.0.1';
+    var ssl = process.argv[5] || false;
     if (/help/.test(type)) {
         return usage();
     }
     if (type === 'client') {
-        run_client(port, ip);
+        run_client(port, ip, ssl);
     } else if (type === 'server') {
-        run_server(port);
+        run_server(port, ssl);
     } else {
         console.error('Unexpected type:', type);
         return usage();
@@ -20,13 +23,20 @@ function main() {
 }
 
 function usage() {
-    console.log('\nUsage: [client|server] [port] [ip]\n');
+    console.log('\nUsage: [client|server] [port] [ip] [ssl]\n');
 }
 
-function run_server(port) {
+function run_server(port, ssl) {
     console.log('SERVER', port);
-    var server = net.createServer();
-    server.on('connection', setup_conn);
+    var server;
+    if (ssl) {
+        server = tls.createServer({
+            key: fs.readFileSync('guy-key.pem'),
+            cert: fs.readFileSync('guy-cert.pem'),
+        }, setup_conn);
+    } else {
+        server = net.createServer(setup_conn);
+    }
     server.on('listening', function() {
         console.log('listening for connections ...');
     });
@@ -36,12 +46,15 @@ function run_server(port) {
     server.listen(port);
 }
 
-function run_client(port, ip) {
+function run_client(port, ip, ssl) {
     console.log('CLIENT', ip + ':' + port);
-    var conn = net.connect(port, ip);
-    setup_conn(conn);
-    conn.on('connect', function() {
-        console.log('client connected');
+    var conn = (ssl ? tls : net).connect({
+        port: port,
+        host: ip,
+        // we allow self generated certificates to avoid public CA signing:
+        rejectUnauthorized: false,
+    }, function() {
+        console.log('client connected', conn.getCipher && conn.getCipher());
         var buf = new Buffer(64 * 1024 * 1024);
         send();
 
@@ -54,6 +67,7 @@ function run_client(port, ip) {
             conn.on('drain', send);
         }
     });
+    setup_conn(conn);
 }
 
 function setup_conn(conn) {

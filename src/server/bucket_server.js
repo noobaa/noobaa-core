@@ -26,12 +26,13 @@ module.exports = {
 };
 
 var _ = require('lodash');
-var P = require('../util/promise');
 var AWS = require('aws-sdk');
 var db = require('./db');
 var object_server = require('./object_server');
 var bg_worker = require('./server_rpc').bg_worker;
+var cs_utils = require('./utils/cloud_sync_utils');
 var dbg = require('../util/debug_module')(__filename);
+var P = require('../util/promise');
 
 
 /**
@@ -116,10 +117,15 @@ function read_bucket(req) {
                         .count({
                             system: req.system.id,
                             bucket: bucket.id,
+                            deleted: null,
                         }));
                 })
                 .then(function(obj_count) {
                     reply.num_objects = obj_count;
+                    return P.when(get_cloud_sync_policy(req));
+                })
+                .then(function(sync_policy) {
+                    cs_utils.resolve_cloud_sync_info(sync_policy, reply);
                     return reply;
                 });
         });
@@ -407,7 +413,6 @@ function set_cloud_sync(req) {
         })
         .thenResolve();
 }
-
 
 /**
  *

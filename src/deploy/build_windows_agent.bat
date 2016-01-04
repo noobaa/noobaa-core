@@ -43,6 +43,7 @@ findstr version package.json>version.txt
 set /P current_version_line=<version.txt
 findstr version package.json|awk '{print $2}'|awk -F'"' '{print $2 >"version.txt"}'
 set /P current_package_version=<version.txt
+
 set GIT_COMMIT=%GIT_COMMIT:~0,7%
 echo %current_version_line%
 echo %current_package_version%
@@ -50,30 +51,63 @@ del version.txt
 sed -i 's/%current_version_line%/\"version\": \"%current_package_version%-%GIT_COMMIT%\",/' package.json
 
 
-
 REM
 REM remove irrelevant packages
 type package.json  | findstr /v forever-service | findstr /v babel-preset | findstr /v mongoose | findstr /v heapdump | findstr /v selectize | findstr /v jsonwebtoken | findstr /v forever | findstr /v eslint | findstr /v googleapis | findstr /v gulp | findstr /v bower | findstr /v bootstrap | findstr /v browserify | findstr /v rebuild | findstr /v eslint| findstr /v nodetime| findstr /v newrelic > package.json_s
 
-
 del /Q package.json
 rename package.json_s package.json
 copy ..\..\binding.gyp .
+nvm use 4.2.2 32
+call nvm list
+
 call npm install
-xcopy /Y/I/E ..\..\build\Release .\Release
-del /Q node.exe
-del /Q openssl.exe
+xcopy /Y/I/E .\build\Release .\build\Release-32
+
+del /q/s .\build\Release
+nvm use 4.2.2 64
+nvm list
+
+call .\node_modules\.bin\node-gyp --arch=x64 configure
+call .\node_modules\.bin\node-gyp --arch=x64 build
+
+xcopy /Y/I/E .\build\Release .\build\Release-64
+
+call curl -L https://nodejs.org/dist/v4.2.2/win-x86/node.exe > node-32.exe
+call curl -L https://nodejs.org/dist/v4.2.2/win-x64/node.exe > node-64.exe
+call curl -L https://indy.fulgan.com/SSL/openssl-1.0.2d-i386-win32.zip > openssl_32.zip
+call curl -L https://indy.fulgan.com/SSL/openssl-1.0.2d-x64_86-win64.zip > openssl_64.zip
+
+mkdir .\32
+mkdir .\64
+
+rd /q/s .\build\Release
+rd /q/s .\build\src
+rd /q/s .\build\Windows
+del /q .\build\*.*
+
+call 7za.exe e openssl_32.zip -y -x!*.txt
+del /Q openssl_32.zip
+
+copy /y *.dll .\32\
+copy /y node-32.exe .\32\node.exe
+copy /y openssl.exe .\32\openssl.exe
+
 del /Q *.dll
-del /Q ..\public\*.dll
-del /Q ..\public\node.exe
-del /Q ..\public\openssl.exe
-call curl -L https://nodejs.org/dist/v4.2.2/win-x86/node.exe > node.exe
-call curl -L https://indy.fulgan.com/SSL/openssl-1.0.2d-i386-win32.zip > openssl.zip
-call 7za.exe e openssl.zip -y -x!*.txt
-del /Q openssl.zip
-copy /y *.dll ..\public\
-copy /y node.exe ..\public\node.exe
-copy /y openssl.exe ..\public\openssl.exe
+del /Q node-32.exe
+del /Q openssl.exe
+
+call 7za.exe e openssl_64.zip -y -x!*.txt
+del /Q openssl_64.zip
+
+copy /y *.dll .\64\
+copy /y node-64.exe .\64\node.exe
+copy /y openssl.exe .\64\openssl.exe
+
+del /Q *.dll
+del /Q node-64.exe
+del /Q openssl.exe
+
 cd ..\..
 echo "done building"
 

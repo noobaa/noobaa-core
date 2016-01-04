@@ -11,6 +11,8 @@ ${StrRep}
 !include "CharToASCII.nsh"
 !include "LogicLib.nsh"
 !include "Base64.nsh"
+!include x64.nsh
+
 !define MAX_PATH 2600
 !define NSIS_MAX_STRLEN=8192
 
@@ -25,6 +27,7 @@ BrandingText "${NB}"
 OutFile "noobaa-setup.exe"
 
 InstallDir "$PROGRAMFILES\${NB}"
+
 RequestExecutionLevel admin
 
 !define writeFile "!insertmacro writeFile"
@@ -65,6 +68,26 @@ Function .onInit
 	Var /global config
 	Var /global UPGRADE
 	Var /global AUTO_UPGRADE
+
+	;check first if there is an old installation on program files (x86)
+	;if so, just upgrade with x64 binaries
+
+	StrCpy $InstDir "$PROGRAMFILES\${NB}"
+	IfFileExists $INSTDIR\agent_conf.json IgnoreError SetRunningFolder
+		SetRunningFolder:
+			${If} ${RunningX64}
+				# 64 bit code
+				StrCpy $InstDir "$PROGRAMFILES64\${NB}"
+			${Else}
+				# 32 bit code
+				StrCpy $InstDir "$PROGRAMFILES\${NB}"
+			${EndIf}
+		IgnoreError:
+			ClearErrors
+
+
+
+
 	;Install or upgrade?
 	StrCpy $UPGRADE "false"
 
@@ -192,12 +215,12 @@ Section "Noobaa Local Service"
 			Delete "$INSTDIR\service_installer.bat"
 			Delete "$INSTDIR\node.exe"
 			Delete "$INSTDIR\service.bat"
+			RMDir /r "$INSTDIR\build"
 		${EndIf}
 	${Else}
 		File "7za.exe"
 		File "NooBaa_Agent_wd.exe"
 		File "wget.exe"
-		File "openssl.exe"
 
 	${EndIf}
 
@@ -205,20 +228,39 @@ Section "Noobaa Local Service"
 	File "${ICON}"
 	File "NooBaa_Agent_wd.exe"
 	File "7za.exe"
-	File "openssl.exe"
-	File "libeay32.dll"
-	File "ssleay32.dll"
+
+	${If} ${RunningX64}
+    # 64 bit code
+		File ".\64\openssl.exe"
+		File ".\64\libeay32.dll"
+		File ".\64\ssleay32.dll"
+		File ".\64\node.exe"
+		RMDir /r "$INSTDIR\build"
+		File /r  "build"
+		RMDir /r "$INSTDIR\build\Release-32"
+		Rename $INSTDIR\build\Release-64 $INSTDIR\build\Release
+
+	${Else}
+    # 32 bit code
+		File ".\32\openssl.exe"
+		File ".\32\libeay32.dll"
+		File ".\32\ssleay32.dll"
+		File ".\32\node.exe"
+		RMDir /r "$INSTDIR\build"
+		File /r  "build"
+		RMDir /r "$INSTDIR\build\Release-64"
+		Rename $INSTDIR\build\Release-32 $INSTDIR\build\Release
+
+	${EndIf}
+
 	File "package.json"
 	File "wget.exe"
-	file "config.js"
-	file "node.exe"
+	File "config.js"
 	File /r "ssl"
 	File /r "src"
 	File /r "node_modules"
-	File /r "Release"
 
 	Delete "$INSTDIR\ver.txt"
-	${WriteFile} "$INSTDIR\ver.txt" "Version 0.2"
 
 	${If} $AUTO_UPGRADE == "false" ;delete all files that we want to update
 

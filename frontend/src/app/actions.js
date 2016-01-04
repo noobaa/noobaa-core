@@ -605,9 +605,14 @@ export function uploadFiles(bucketName, files) {
 					if (!error) {
 						entry.state = 'COMPLETED';
 						entry.progress = 1;
+						resolve(1);
 					} else {
 						entry.state = 'FAILED';
 						entry.error = error;
+						
+						// This is not a bug we want to resolve failed uploads
+						// in order to finalize the entire upload process.
+						resolve(0);
 					}
 
 					// Use replace to trigger change event.
@@ -626,5 +631,13 @@ export function uploadFiles(bucketName, files) {
 	);
 
 	Promise.all(requests)
-		.then(refresh());
+		.then(
+			results => results.reduce(
+				(sum, result) => sum += result
+			)
+		)
+		.then(
+			completedCount => completedCount > 0 && refresh()
+		)
+		.done();
 }

@@ -25,13 +25,16 @@ class ObjectPartsListViewModel {
 		let state = part.chunk.adminfo.health;
 
 		let blocks = part.frags[0].blocks.map(
-			block =>  ({
-				nodeStateIcon: `/fe/assets/icons.svg#node-${
-					block.adminfo.online ? 'online' : 'offline'
-				}`,
-				nodeIp: block.adminfo.node_ip,
-				nodeName: block.adminfo.node_name,
-			})
+			block =>  {
+				let { online, node_ip, node_name, pool_name } = block.adminfo;
+
+				return {
+					nodeStateIcon: `/fe/assets/icons.svg#node-${online ? 'online' : 'offline'}`,
+					nodeIp: node_ip,
+					nodeName: node_name,
+					href: `/fe/systems/:system/pools/${pool_name}/nodes/${node_name}`
+				}
+			}
 		);
 
 		return {

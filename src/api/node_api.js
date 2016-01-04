@@ -461,6 +461,16 @@ module.exports = {
             }
         },
 
+        max_node_capacity: {
+            method: 'GET',
+            reply: {
+                type: 'integer'
+            },
+            auth: {
+                system: 'admin',
+            }
+        },
+
     },
 
 

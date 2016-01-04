@@ -242,6 +242,8 @@ function list_nodes(req) {
         req.rpc_params.skip,
         req.rpc_params.limit,
         req.rpc_params.pagination,
+        req.rpc_params.sort,
+        req.rpc_params.order,
         req);
 }
 
@@ -250,8 +252,9 @@ function list_nodes(req) {
  * LIST_NODES_INT
  *
  */
-function list_nodes_int(query, system_id, skip, limit, pagination, req) {
+function list_nodes_int(query, system_id, skip, limit, pagination, sort, order, req) {
     var info;
+    var sort_opt = {};
     return P.fcall(function() {
             info = {
                 system: system_id,
@@ -301,6 +304,12 @@ function list_nodes_int(query, system_id, skip, limit, pagination, req) {
                         break;
                 }
             }
+
+            if (sort) {
+                var sort_order = (order === -1) ? -1 : 1;
+                sort_opt[sort] = sort_order;
+            }
+
             if (query.tier) {
                 return db.TierCache.get({
                         system: system_id,
@@ -311,21 +320,26 @@ function list_nodes_int(query, system_id, skip, limit, pagination, req) {
                         info.tier = tier;
                     });
             }
-
-            if (query.pool) {
-                return db.PoolCache.get({
+            if (query.pool) { //Keep last in chain due to promise
+                return db.Pool.find({
                         system: system_id,
-                        name: query.pool,
+                        name: {
+                            $in: query.pool
+                        },
                     })
-                    .then(db.check_not_deleted(req, 'pool'))
-                    .then(function(pool) {
-                        info.pool = pool;
+                    .then(function(rpools) {
+                        var query_pools = _.map(rpools, function(p) {
+                            return p._id;
+                        });
+
+                        info.pool = {};
+                        info.pool.$in = query_pools;
                     });
             }
         })
         .then(function() {
             var find = db.Node.find(info)
-                .sort('-_id')
+                .sort(sort_opt)
                 .populate('tier', 'name');
             if (skip) {
                 find.skip(skip);

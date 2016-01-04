@@ -1416,12 +1416,13 @@ nb_console.controller('BucketViewCtrl', [
 
 nb_console.controller('FileViewCtrl', [
     '$scope', '$q', '$timeout', '$window', '$location', '$routeParams', '$sce',
-    'nbClient', 'nbSystem', 'nbFiles', 'nbNodes', 'nbHashRouter', 'nbModal',
+    'nbClient', 'nbSystem', 'nbFiles', 'nbNodes', 'nbHashRouter', 'nbModal', 'nbAlertify',
     function($scope, $q, $timeout, $window, $location, $routeParams, $sce,
-        nbClient, nbSystem, nbFiles, nbNodes, nbHashRouter, nbModal) {
+        nbClient, nbSystem, nbFiles, nbNodes, nbHashRouter, nbModal, nbAlertify) {
         $scope.nav.active = 'bucket';
         $scope.nav.reload_view = reload_view;
         $scope.play = play;
+        $scope.delete_file = delete_file;
         $scope.parts_num_pages = 0;
         $scope.parts_page_size = 10;
         $scope.parts_query = {};
@@ -1492,6 +1493,10 @@ nb_console.controller('FileViewCtrl', [
         }
 
         function reload_parts(hash_query) {
+            if ($scope.deleted) {
+                console.log('reload_parts: not loading for deleted file');
+                return;
+            }
             $scope.parts_query = _.clone(hash_query);
             var params = {
                 bucket: $routeParams.bucket_name,
@@ -1516,6 +1521,25 @@ nb_console.controller('FileViewCtrl', [
                 size: 'lg',
                 scope: $scope,
             });
+        }
+
+        function delete_file() {
+            return nbAlertify.confirm('Really delete "' + $routeParams.file_name + '"?')
+                .then(function() {
+                    return nbFiles.delete_file($routeParams.bucket_name, $routeParams.file_name)
+                })
+                .then(function() {
+                    $scope.deleted = true;
+                    $timeout(function() {
+                        $location.path('/bucket/' + $routeParams.bucket_name);
+                        $location.hash('files');
+                        nbAlertify.log('Deleted.');
+                    }, 1);
+                })
+                .then(null, function(err) {
+                    if (err.message === 'canceled') return;
+                    throw err;
+                });
         }
 
     }

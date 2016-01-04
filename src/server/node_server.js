@@ -26,6 +26,7 @@ var node_server = {
     list_nodes: list_nodes,
     list_nodes_int: list_nodes_int,
     group_nodes: group_nodes,
+    max_node_capacity: max_node_capacity,
 
     heartbeat: node_monitor.heartbeat,
     redirect: node_monitor.redirect,
@@ -457,7 +458,33 @@ function group_nodes(req) {
 
 function test_latency_to_server(req) {
     // nothing to do.
-    // the caller is just testing roud trip time to the server.
+    // the caller is just testing round trip time to the server.
+}
+
+/*
+ * MAX_NODE_CAPACITY
+ * Return maximal node capacity according to given filter
+ */
+function max_node_capacity(req) {
+    //TODO:: once filter is mplemented in list_nodes, also add it here for the query
+    return P.when(db.Node
+            .find({
+                system: req.system.id,
+                deleted: null,
+            })
+            .sort({
+                'storage.total': 1
+            })
+            .limit(1))
+        .then(function(max) {
+            var max_capacity = 0;
+            _.each(max[0].drives, function(d) {
+                if (d.storage.total > max_capacity) {
+                    max_capacity = d.storage.total;
+                }
+            });
+            return max_capacity;
+        });
 }
 
 // UTILS //////////////////////////////////////////////////////////

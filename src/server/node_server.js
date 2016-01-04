@@ -34,7 +34,8 @@ var node_server = {
     self_test_to_node_via_web: node_monitor.self_test_to_node_via_web,
     collect_agent_diagnostics: node_monitor.collect_agent_diagnostics,
     set_debug_node: node_monitor.set_debug_node,
-    test_latency_to_server: test_latency_to_server
+    test_latency_to_server: test_latency_to_server,
+    get_random_test_nodes: get_random_test_nodes,
 };
 
 module.exports = node_server;
@@ -484,6 +485,43 @@ function max_node_capacity(req) {
                 }
             });
             return max_capacity;
+        });
+}
+
+/*
+ * GET_RANDOM_TEST_NODES
+ * return X random nodes for self test purposes
+ */
+function get_random_test_nodes(req) {
+    var count = req.rpc_params.count;
+    var minimum_online_heartbeat = db.Node.get_minimum_online_heartbeat();
+    return P.when(db.Node
+            .count({
+                system: req.system.id,
+                heartbeat: {
+                    $gt: minimum_online_heartbeat
+                },
+                deleted: null,
+            }))
+        .then(function(total_nodes) {
+            var rand_start = Math.floor(Math.random() *
+                (total_nodes - count > 0 ? total_nodes - count : total_nodes));
+            return P.when(db.Node
+                .find({
+                    system: req.system.id,
+                    heartbeat: {
+                        $gt: minimum_online_heartbeat
+                    },
+                    deleted: null,
+                })
+                .skip(rand_start)
+                .limit(count));
+        })
+        .then(function(nodes) {
+            var targets = _.map(nodes, function(n) {
+                return 'n2n://' + n.peer_id;
+            });
+            return targets;
         });
 }
 

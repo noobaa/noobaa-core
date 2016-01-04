@@ -292,10 +292,26 @@ function read_object_mappings(req) {
  */
 function read_object_md(req) {
     dbg.log0('read_obj(1):', req.rpc_params);
+    var objid;
     return find_object_md(req)
         .then(function(obj) {
+            objid = obj._id;
             dbg.log0('read_obj:', obj);
             return get_object_info(obj);
+        })
+        .then(function(info) {
+            if (!req.rpc_params.pagination) {
+                return info;
+            } else {
+                return P.when(db.ObjectPart.count({
+                        obj: objid,
+                        deleted: null,
+                    }))
+                    .then(function(c) {
+                        info.total_parts_count = c;
+                        return info;
+                    });
+            }
         });
 }
 
@@ -394,7 +410,7 @@ function list_objects(req) {
             var skip = req.rpc_params.skip;
             var limit = req.rpc_params.limit;
             console.log('key query2', info);
-            var find = db.ObjectMD.find(info).sort('-_id');
+            var find = db.ObjectMD.find(info);
             if (skip) {
                 find.skip(skip);
             }
@@ -473,8 +489,6 @@ function get_object_info(md) {
     if (_.isNumber(md.upload_size)) {
         info.upload_size = md.upload_size;
     }
-    info.stats = {};
-    info.stats.reads = (info.stats && info.stats.reads) || 0;
     return info;
 }
 

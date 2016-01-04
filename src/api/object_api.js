@@ -407,7 +407,19 @@ module.exports = {
         read_object_md: {
             method: 'GET',
             params: {
-                $ref: '/object_api/definitions/object_path'
+                type: 'object',
+                required: ['bucket', 'key'],
+                properties: {
+                    bucket: {
+                        type: 'string',
+                    },
+                    key: {
+                        type: 'string',
+                    },
+                    pagination: {
+                        type: 'boolean'
+                    },
+                }
             },
             reply: {
                 $ref: '/object_api/definitions/object_info'
@@ -579,6 +591,9 @@ module.exports = {
                         type: 'integer',
                     }
                 },
+                total_parts_count: {
+                    type: 'integer',
+                },
             }
         },
 
@@ -731,6 +746,9 @@ module.exports = {
                                     },
                                     node_name: {
                                         type: 'string',
+                                    },
+                                    pool_name: {
+                                        type: 'string,'
                                     },
                                     node_ip: {
                                         type: 'string',

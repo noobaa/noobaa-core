@@ -149,7 +149,10 @@ module.exports = {
                         required: [],
                         properties: {
                             pool: {
-                                type: 'string',
+                                type: 'array',
+                                items: {
+                                    type: 'string',
+                                },
                             },
                             tier: {
                                 type: 'string'
@@ -176,6 +179,13 @@ module.exports = {
                     },
                     pagination: {
                         type: 'boolean'
+                    },
+                    sort: {
+                        type: 'string',
+                        enum: ['state', 'name', 'ip', 'capacity', 'hd', 'trust', 'online']
+                    },
+                    order: {
+                        type: 'integer',
                     },
                 }
             },
@@ -450,6 +460,38 @@ module.exports = {
                 system: ['admin', 'agent', 'create_node']
             }
         },
+
+        max_node_capacity: {
+            method: 'GET',
+            reply: {
+                type: 'integer'
+            },
+            auth: {
+                system: 'admin',
+            }
+        },
+
+        get_random_test_nodes: {
+            method: 'GET',
+            params: {
+                type: 'object',
+                required: ['count'],
+                properties: {
+                    count: {
+                        type: 'integer',
+                    },
+                }
+            },
+            reply: {
+                type: 'array',
+                items: {
+                    type: 'string'
+                }
+            },
+            auth: {
+                system: 'admin',
+            }
+        }
 
     },
 

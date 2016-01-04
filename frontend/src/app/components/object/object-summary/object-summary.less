@@ -1,8 +1,20 @@
 object-summary {
-
+	display: block;
+	
 	> section {
-		margin-top: 2em;
+		vertical-align: top;
 		display: inline-block;
-		width: 300px;
+		width: 22em;
+	}
+
+	.status-line {
+		li::before {
+			display: inline-block;
+			content: '';
+			vertical-align: middle;
+			border: 3px solid @text-color4;
+			margin-right: .25em;
+			margin-top: -2px;
+		}
 	}
 }

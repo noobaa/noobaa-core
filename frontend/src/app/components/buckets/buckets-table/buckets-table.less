@@ -22,21 +22,23 @@ buckets-table {
 	}
 
 	.state-col,
-	.filecount-col,
 	.totalsize-col,
 	.freesize-col {
-		min-width: 45px;
+		min-width: 4em;
+	}
+
+	.delete-col,
+	.filecount-col {
+		min-width: 6em;
+	}
+
+	.cloudsync-col {
+		min-width: 7em;
 	}
 
 	.name-col{
 		width: 100%;	
 	}
-
-	.cloudsync-col,
-	.delete-col {
-		min-width: 85px;
-	}
-
 
 	.unable-to-sync {
 		color: @text-color8;

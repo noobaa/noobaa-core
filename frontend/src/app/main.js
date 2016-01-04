@@ -1,15 +1,16 @@
 import ko from 'knockout';
 import 'knockout-projections';
 import 'knockout-validation';
+import registerExtenders from 'extenders/register';
+import registerValidationRules from 'validations';
 import registerBindings from 'bindings/register';
 import registerComponents from 'components/register';
-import registerValidationRules from 'validations';
 import page from 'page';
 import routing from 'routing';
 import { uiState } from 'model';
 import { start } from 'actions';
 
-// Enable knockout 3.4 deferred updates.
+// Enable knockout 3.4 defer<p></p>red updates.
 ko.options.deferUpdates = true;
 
 // Setup validation policy.
@@ -22,10 +23,11 @@ ko.validation.init({
 	messagesOnModified: true
 });
 
-// Register custom bindings, components and validation rules.
+// Register custom extenders, bindings, components and validation rules.
+registerExtenders(ko);
 registerBindings(ko);
-registerComponents(ko);
 registerValidationRules(ko);
+registerComponents(ko);
 
 // Configure the appliction router.
 routing(page);

@@ -87,7 +87,8 @@ export default function register(ko) {
 	ko.components.register('dropdown', 			require('./shared/dropdown/dropdown'));
 	ko.components.register('radio-btn', 		require('./shared/radio-btn/radio-btn'));
 	ko.components.register('checkbox', 			require('./shared/checkbox/checkbox'));
-	ko.components.register('capacity-gauge',	require('./shared/capacity-gauge/capacity-gauge'));	
+	ko.components.register('quantity-gauge',	require('./shared/quantity-gauge/quantity-gauge'));	
+	ko.components.register('needle-gauge',		require('./shared/needle-gauge/needle-gauge'));	
 	ko.components.register('bar',				require('./shared/bar/bar'));	
 	ko.components.register('range-indicator', 	require('./shared/range-indicator/range-indicator'));	
 	ko.components.register('action-list', 		require('./shared/action-list/action-list'));

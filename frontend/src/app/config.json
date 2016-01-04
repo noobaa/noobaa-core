@@ -1,7 +1,4 @@
 {
-	"serverAddress": "192.168.1.226",
-	//"serverAddress": "192.168.1.22",
-	"serverPort": "5001",
 	"inputThrottle": 400,
 	"paginationPageSize": 25,
 	"defaultPoolName": "default_pool"

@@ -535,6 +535,7 @@ input[type="search"] {
 		.tab-header {
 			background-color: @bg-color2;
 			border-color: @text-color6;
+			color: @text-color6;
 			box-shadow: -2px 0 4px 0px @shadow-color;
 			cursor: default;
 		}
@@ -621,6 +622,24 @@ input[type="search"] {
 		display: inline-block;
 		width: 13em;
 	}	
+}
+
+.gauge-legend {
+	text-align: left;
+	vertical-align: top;
+	display: inline-block;
+	width: 22em;	
+
+	li::before {
+		content: '';
+		line-height: inherit;
+		display: inline-block;
+		width: .75em;
+		height: .75em;
+		background-color: black;
+		vertical-align: middle;
+		margin-right: .5em;;
+	}
 }
 
 .text-tech {

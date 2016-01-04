@@ -75,10 +75,10 @@ export default class BucketRowViewModel {
 		});
 
 		this.deleteIcon = ko.pureComputed(
-			() => `/fe/assets/icons.svg#${
+			() => `/fe/assets/icons.svg#trash-${
 				this.allowDelete() ? 
-					(this.isDeleteCandidate() ? 'trash-opened' : 'trash-closed') : 
-					'no-entry'
+					(this.isDeleteCandidate() ? 'opened' : 'closed') : 
+					'disabled'
 			}`
 		);
 

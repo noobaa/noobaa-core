@@ -1,10 +1,20 @@
+<!-- ko if: dataReady -->
+<ul class="status-line">
+	<li>
+		File Size:
+		<span data-bind="text: size"></span>
+	</li>
+	<li>
+		File Parts:
+		<span data-bind="text: partsCount"></span>
+	</li>
+</ul>		
+
 <section class="text-left">
-	<h3 class="heading3 underline">Weekly File Reads: 85</h3>
-	<ul class="list-no-style">
-		<li>File Size: 1.4GB</li>
-		<li>File Parts: 126</li>
-	</ul>		
+	<h3 class="heading3 underline">Weekly File Reads</h3>
 </section>
+
+<needle-gauge params="value: reads, threshold: 500, scale: 1.5"></needle-gauge>
 
 <section class="action-list text-right">
 	<button class="action btn2" data-bind="click: () => isPreviewModalVisible(true)">
@@ -16,6 +26,7 @@
 		Download
 	</a>
 </section>
+<!-- /ko -->
 
 <!-- ko if: isPreviewModalVisible -->
 <object-preview-modal params="

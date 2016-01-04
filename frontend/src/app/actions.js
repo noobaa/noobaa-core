@@ -371,6 +371,10 @@ export function listBucketObjects(bucketName, filter, sortBy, order, page) {
 export function readObjectMetadata(bucketName, objectName) {
 	logAction('readObjectMetadata', { bucketName, objectName });
 
+	// Drop previous data if of diffrent object.
+	if (!!model.objectInfo() && model.objectInfo().name !== objectName) {
+		model.objectInfo(null);
+	}
 
 	api.system.read_system()
 		.then(
@@ -424,6 +428,10 @@ export function listObjectParts(bucketName, objectName) {
 }
 
 export function readPool(name) {
+
+	if (model.poolInfo() && model.poolInfo().name !== name) {
+		model.poolInfo(null);
+	}
 
 	// TODO: Change to api.pool.read_pool when avaliable.
 	api.system.read_system()
@@ -573,7 +581,7 @@ export function uploadFiles(bucketName, files) {
 			// Create an entry in the recent uploaded list.
 			let entry = {
 				name: file.name,
-				state: 'IN_PORCESS',
+				state: 'IN_PROCESS',
 				progress: 0,
 				error: null
 			};

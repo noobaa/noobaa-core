@@ -471,6 +471,28 @@ module.exports = {
             }
         },
 
+        get_random_test_nodes: {
+            method: 'GET',
+            params: {
+                type: 'object',
+                required: ['count'],
+                properties: {
+                    count: {
+                        type: 'integer',
+                    },
+                }
+            },
+            reply: {
+                type: 'array',
+                items: {
+                    type: 'string'
+                }
+            },
+            auth: {
+                system: 'admin',
+            }
+        }
+
     },
 
 

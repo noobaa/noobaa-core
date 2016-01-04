@@ -11,16 +11,17 @@
   "homepage": "index.html",
   "private": true,
   "dependencies": {
-    "knockout": "knockoutjs#~3.3.0",
+    "knockout": "~3.4.0",
     "knockout-mapping": "~2.4.1",
     "knockout-projections": "~1.1.0",
     "numeral": "~1.5.3",
     "page": "~1.6.4",
     "knockout-validation": "~2.0.3",
     "moment": "~2.10.6",
-    "aws-sdk": "aws-sdk-js#~2.2.26"
+    "aws-sdk": "aws-sdk-js#~2.2.26",
+    "shifty": "~1.5.1"
   },
   "resolutions": {
-    "knockout": "~3.4"
+    "knockout": "~3.4.0"
   }
 }

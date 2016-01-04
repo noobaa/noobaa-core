@@ -36,7 +36,65 @@ function create_pool(req) {
     dbg.log0('Creating new pool', info);
     return P.when(db.Pool.create(info))
         .then(null, db.check_already_exists(req, 'pool'))
-        .return();
+        .then(function(newp) {
+            //If any of the associated nodes already belong to a different pool => move them
+            return P.when(db.Node
+                    .find({
+                        system: req.system.id,
+                        name: {
+                            $in: info.nodes
+                        }
+                    }))
+                .then(function(nodes) {
+                    //Remove nodes from their pools
+                    var pools_to_nodes = {};
+                    _.each(nodes, function(n) {
+                        if (!pools_to_nodes[n.pool]) {
+                            pools_to_nodes[n.pool] = [n.name];
+                        } else {
+                            pools_to_nodes[n.pool].push(n.name);
+                        }
+                    });
+                    return P.all(_.map(pools_to_nodes, function(pool, i) {
+                        return P.when(db.Pool.findOne({
+                                system: req.system.id,
+                                _id: i,
+                                deleted: null,
+                            }))
+                            .then(function(pname) {
+                                return remove_nodes_from_pool({
+                                    system: {
+                                        id: req.system.id
+                                    },
+                                    rpc_params: {
+                                        nodes: pool,
+                                        name: pname.name,
+                                    }
+                                });
+                            });
+                    }));
+                })
+                .then(function() {
+                    //Update the nodes themselves
+                    return P.when(db.Node
+                        .update({
+                            name: {
+                                $in: info.nodes
+                            }
+                        }, {
+                            $set: {
+                                pool: newp._id,
+                            }
+                        }, {
+                            multi: true
+                        })
+                        .exec());
+                });
+        })
+        .then(function() {
+            dbg.log0('New pool created', info);
+            return;
+        });
 }
 
 function update_pool(req) {
@@ -131,7 +189,7 @@ function add_nodes_to_pool(req) {
 
 function remove_nodes_from_pool(req) {
     dbg.log0('Removing ', req.rpc_params.nodes, 'from pool', req.rpc_params.name);
-    var new_nodes;
+    var new_nodes = {};
     return P.when(db.Pool
             .findOne(get_pool_query(req))
             .exec())
@@ -140,7 +198,6 @@ function remove_nodes_from_pool(req) {
             _.each(pool.nodes, function(n) {
                 new_nodes[n] = true;
             });
-
             _.each(req.rpc_params.nodes, function(n) {
                 if (new_nodes[n]) {
                     delete new_nodes[n];
@@ -155,10 +212,10 @@ function remove_nodes_from_pool(req) {
                 .exec());
         })
         .then(function() {
-            return P.when(db.pool
+            return P.when(db.Pool
                 .findOne({
                     system: req.system.id,
-                    name: 'defaut_pool',
+                    name: 'default_pool',
                     deleted: null,
                 })
                 .exec());
@@ -171,7 +228,7 @@ function remove_nodes_from_pool(req) {
                     }
                 }, {
                     $set: {
-                        pool: p.id,
+                        pool: p._id,
                     }
                 }, {
                     multi: true

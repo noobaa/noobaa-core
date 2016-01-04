@@ -242,6 +242,8 @@ function list_nodes(req) {
         req.rpc_params.skip,
         req.rpc_params.limit,
         req.rpc_params.pagination,
+        req.rpc_params.sort,
+        req.rpc_params.order,
         req);
 }
 
@@ -250,7 +252,7 @@ function list_nodes(req) {
  * LIST_NODES_INT
  *
  */
-function list_nodes_int(query, system_id, skip, limit, pagination, req) {
+function list_nodes_int(query, system_id, skip, limit, pagination, sort, order, req) {
     var info;
     return P.fcall(function() {
             info = {
@@ -313,15 +315,30 @@ function list_nodes_int(query, system_id, skip, limit, pagination, req) {
             }
 
             if (query.pool) {
-                return db.PoolCache.get({
+                return db.Pool.find({
                         system: system_id,
-                        name: query.pool,
+                        name: {
+                            $in: query.pool
+                        },
                     })
-                    .then(db.check_not_deleted(req, 'pool'))
-                    .then(function(pool) {
-                        info.pool = pool;
+                    .then(function(rpools) {
+                        var query_pools = _.map(rpools, function(p) {
+                            return p._id;
+                        });
+
+                        info.pool = {};
+                        info.pool.$in = query_pools;
                     });
             }
+
+            /*
+            sort: {
+                type: 'string',
+                enum: ['state', 'name', 'ip', 'capacity', 'hd', 'trust', 'online']
+            },
+            order: {
+                type: 'integer',
+            },*/
         })
         .then(function() {
             var find = db.Node.find(info)

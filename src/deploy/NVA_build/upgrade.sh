@@ -76,11 +76,15 @@ function check_latest_version {
 }
 
 function extract_package {
+  #Clean previous extracted package
+  rm -rf ${EXTRACTION_PATH}*
+  #Create path and extract package
   mkdir -p ${EXTRACTION_PATH}
   cd ${EXTRACTION_PATH}
   cp ${TMP_PATH}${PACKAGE_FILE_NAME} .
   tar -xzvf ./${PACKAGE_FILE_NAME} >& /dev/null
 
+  #If package can't be extracted, clean 
   if [ $? -ne 0 ]; then
     deploy_log "Corrupted package file, could not open"
     rm -rf ${EXTRACTION_PATH}*

@@ -411,7 +411,7 @@ function put_object(ip, source) {
         });
 }
 
-function get_object(ip) {
+function get_object(ip, path) {
     load_demo_config_env(); //switch to Demo system
 
     var rest_endpoint = 'http://' + ip + ':80/';
@@ -426,10 +426,18 @@ function get_object(ip) {
         Key: 'ec2_wrapper_test_upgrade.dat',
     };
 
+    if (path) {
+        var file = fs.createWriteStream(path);
+    }
+
     var start_ts = Date.now();
     console.log('about to download object');
     return P.fcall(function() {
-            return s3bucket.getObject(params).createReadStream();
+            if (path) {
+                return s3bucket.getObject(params).createReadStream().pipe(file);
+            } else {
+                return s3bucket.getObject(params).createWriteStream();
+            }
         })
         .then(function() {
             console.log('Download object took', (Date.now() - start_ts) / 1000, 'seconds');
@@ -553,7 +561,7 @@ function add_agent_region_instances(region_name, count, is_docker_host, number_o
             run_script = run_script.replace('$network', 1);
             run_script = run_script.replace('$router', '0.0.0.0');
 
-            console.log('script:',run_script);
+            console.log('script:', run_script);
         }
 
     }

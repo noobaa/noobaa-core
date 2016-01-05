@@ -1,8 +1,13 @@
-<main class="login-layout fill" data-bind="with: form">
-	<div class="content">
+<main class="login-layout fill">
+	<div class="content" data-bind="
+		with: form, 
+		css: { shake: shake },
+		event: {  animationend: () => shake(false) }
+	">
 		<h1 class="heading2">
 			<svg-icon params="uri: '/fe/assets/icons.svg#logo'" class="logo"></svg-icon>	
-			Welcome to <span class="noobaa">NooBaa</span>
+			Welcome to 
+			<span class="noobaa">NooBaa</span>
 		</h1>
 
 		<div data-bind="component: $data"></div>

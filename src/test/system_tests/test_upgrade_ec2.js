@@ -4,16 +4,14 @@ var _ = require('lodash');
 var P = require('../../util/promise');
 var argv = require('minimist')(process.argv);
 var request = require('request');
-var fs = require('fs');
 var ec2_wrap = require('../../deploy/ec2_wrapper');
 var ec2_deploy_agents = require('../../deploy/ec2_deploy_agents');
 var promise_utils = require('../../util/promise_utils');
-// var formData = require('form-data');
+var ops = require('./basic_server_ops');
 
 var default_instance_type = 'm3.large';
 //var default_instance_type = 't2.micro'; //TODO:: NBNB change back
 
-var test_file = '/tmp/test_upgrade_100mb.dat';
 
 //TODO: on upload file, wait for systemOk ? (see next todo, maybe sleep too)
 //TODO: sleep after agents creation until ready
@@ -36,98 +34,6 @@ function show_usage() {
 
     console.error('\nIf creating a new instace, will also create a dockers instance with 10 agents in the same region');
     console.error('\n');
-}
-
-function upload_and_upgrade(ip, upgrade_pack, instance_id, target_region) {
-    console.log('Upgrading the machine');
-
-    var filename;
-    if (upgrade_pack.indexOf('/') !== -1) {
-        filename = upgrade_pack.substring(upgrade_pack.indexOf('/'));
-    } else {
-        filename = upgrade_pack;
-    }
-
-    var formData = {
-        upgrade_file: {
-            value: fs.createReadStream(upgrade_pack),
-            options: {
-                filename: filename,
-                contentType: 'application/x-gzip'
-            }
-        }
-    };
-
-    return P.ninvoke(request, 'post', {
-            url: 'https://' + ip + ':8443/upgrade',
-            formData: formData,
-            rejectUnauthorized: false,
-        })
-        .then(function(httpResponse, body) {
-            console.log('Upload package successful');
-            var isNotListening = true;
-            return P.delay(60000).then(function() {
-                return promise_utils.pwhile(
-                    function() {
-                        return isNotListening;
-                    },
-                    function() {
-                        return P.ninvoke(request, 'get', {
-                            url: 'http://' + ip + ':8080/',
-                            rejectUnauthorized: false,
-                        }).then(function(res, body) {
-                            console.log('Web Server started after upgrade');
-                            isNotListening = false;
-                        }, function(err) {
-                            console.log('waiting for Web Server to start');
-                            return P.delay(10000);
-                        });
-                    });
-            }).then(function() {
-
-                isNotListening = true;
-                return P.delay(60000).then(function() {
-                    return promise_utils.pwhile(
-                        function() {
-                            return isNotListening;
-                        },
-                        function() {
-                            return P.ninvoke(request, 'get', {
-                                url: 'https://' + ip + ':8443/',
-                                rejectUnauthorized: false,
-                            }).then(function(res, body) {
-                                console.log('S3 server started after upgrade');
-                                isNotListening = false;
-                            }, function(err) {
-                                console.log('waiting for S3 server to start');
-                                return P.delay(10000);
-                            });
-                        });
-                });
-            });
-
-
-        })
-        .then(null, function(err) {
-            console.error('Upload package failed', err, err.stack);
-            throw new Error('Upload package failed ' + err);
-        });
-}
-
-function get_agent_setup(ip) {
-    return P.ninvoke(request, 'get', {
-            url: 'https://' + ip + ':8443/public/noobaa-setup.exe',
-            rejectUnauthorized: false,
-        })
-        .then(function(response) {
-            console.log('Download of noobaa-setup was successful');
-            return;
-        })
-        .then(null, function(err) {
-            console.error('Download of noobaa-setup failed', err);
-            throw new Error('Download of noobaa-setup failed ' + err);
-        });
-
 }
 
 function create_new_agents(target_ip, target_region) {
@@ -171,55 +77,6 @@ function create_new_agents(target_ip, target_region) {
             throw new Error('Error in creating new instance for agents ' + err);
         });
 
-}
-
-function upload_file(ip) {
-    return P.fcall(function() {
-            //verify the 'demo' system exists on the instance
-            return ec2_wrap.verify_demo_system(ip);
-        })
-        .then(function() {
-            //upload the file
-            return P.fcall(function() {
-                    return ec2_wrap.put_object(ip, test_file);
-                })
-                .then(function() {
-                    console.log('Upload file successfully');
-                })
-                .then(null, function(err) {
-                    console.error('Error in upload_file', err);
-                    throw new Error('Error in upload_file ' + err);
-                });
-        })
-        .then(null, function(err) {
-            console.error('Error in verify_demo_system', err, err.stack);
-            throw new Error('Error in verify_demo_system ' + err);
-        });
-}
-
-function download_file(ip) {
-    return P.fcall(function() {
-            //verify the 'demo' system exists on the instance
-            return ec2_wrap.verify_demo_system(ip);
-        })
-        .then(function() {
-            //upload the file
-            return P.fcall(function() {
-                    return ec2_wrap.get_object(ip);
-                })
-                .then(function() {
-                    console.log('Download file successfully');
-                    return;
-                })
-                .then(null, function(err) {
-                    console.error('Error in download_file', err);
-                    throw new Error('Error in download_file ' + err);
-                });
-        })
-        .then(null, function(err) {
-            console.error('Error in verify_demo_system', err);
-            throw new Error('Error in verify_demo_system ' + err);
-        });
 }
 
 function main() {
@@ -289,24 +146,24 @@ function main() {
                                     return P.delay(10000);
                                 });
                             }).then(function() {
-                            return upload_and_upgrade(target_ip, argv.upgrade_pack, instance_id, target_region);
+                            return ops.upload_and_upgrade(target_ip, argv.upgrade_pack);
                         });
                     })
                     .then(function() {
-                        return get_agent_setup(target_ip);
+                        return ops.get_agent_setup(target_ip);
                     })
                     .then(function() {
                         return create_new_agents(target_ip, target_region);
                     })
                     .then(function() {
                         console.log('Generating a 100MB random test file for upload');
-                        return promise_utils.promised_exec('dd if=/dev/random of=' + test_file + ' count=100 bs=1m');
+                        return ops.generate_random_file(100);
+                    })
+                    .then(function(fname) {
+                        return ops.upload_file(target_ip, fname);
                     })
                     .then(function() {
-                        return upload_file(target_ip);
-                    })
-                    .then(function() {
-                        return download_file(target_ip);
+                        return ops.download_file(target_ip);
                     })
                     .then(function() {
                         console.log('Test Done');

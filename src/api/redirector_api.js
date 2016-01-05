@@ -64,6 +64,16 @@ module.exports = {
                 system: 'admin'
             }
         },
+
+        print_registered_agents: {
+            method: 'GET',
+            reply: {
+                type: 'string',
+            },
+            auth: {
+                system: 'admin'
+            }
+        }
     },
 
     definitions: {

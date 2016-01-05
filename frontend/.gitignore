@@ -31,4 +31,4 @@ logs/
 .DS_Store
 
 ## Server configuratin for builds where the rpc server and web server are diffrent
-src/arr/server.json
+src/app/server-conf.json

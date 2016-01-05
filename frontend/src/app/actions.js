@@ -67,12 +67,14 @@ export function start() {
 }
 
 // -----------------------------------------------------
-// High level UI update actions (given routing context). 
+// High level UI update actions. 
 // -----------------------------------------------------
-export function showLogin(ctx) {
-	logAction('showLogin', ctx);
+export function showLogin() {
+	logAction('showLogin');
 
 	let session = model.sessionInfo();
+	let ctx = model.routeContext();
+
 	if (!!session) {
 		page.redirect(`/fe/systems/${session.system}`);
 
@@ -235,32 +237,36 @@ export function signIn(email, password, redirectTo) {
 
 	api.create_auth_token({ email, password })
 		.then(() => api.system.list_systems())
-		.then(({ systems }) => {
-			let system = systems[0].name;
+		.then(
+			({ systems }) => {
+				let system = systems[0].name;
 
-			return api.create_auth_token({ system, email, password })
-				.then(({ token }) => {
-					localStorage.setItem('sessionToken', token);
-					
-					model.sessionInfo({ user: email, system: system })
+				return api.create_auth_token({ system, email, password })
+					.then(({ token }) => {
+						localStorage.setItem('sessionToken', token);
+						
+						model.sessionInfo({ user: email, system: system })
 
-					if (isUndefined(redirectTo)) {
-						redirectTo = `/fe/systems/${system}`;
-					}
+						if (isUndefined(redirectTo)) {
+							redirectTo = `/fe/systems/${system}`;
+						}
 
-					page.redirect(decodeURIComponent(redirectTo));
-				})
-		})
-		.catch(err => {
-			if (err.rpc_code === 'UNAUTHORIZED') {
-				model.loginInfo({
-					retryCount: model.loginInfo().retryCount + 1
-				});
-
-			} else {
-				throw err;
+						page.redirect(decodeURIComponent(redirectTo));
+					})
 			}
-		})
+		)
+		.catch(
+			err => {
+				if (err.rpc_code === 'UNAUTHORIZED') {
+					model.loginInfo({
+						retryCount: model.loginInfo().retryCount + 1
+					});
+
+				} else {
+					throw err;
+				}
+			}
+		)
 		.done();
 }
 
@@ -274,9 +280,11 @@ export function signOut() {
 // -----------------------------------------------------
 export function readServerInfo() {
 	api.account.accounts_status()
-		.then(reply => model.serverInfo({
-			initialized: reply.has_accounts
-		}))
+		.then(
+			reply => model.serverInfo({
+				initialized: reply.has_accounts
+			})
+		)
 		.done();
 }
 
@@ -285,55 +293,57 @@ export function readSystemInfo() {
 
 	let { systemOverview, agentInstallationInfo, bucketList, poolList } = model;
 	api.system.read_system()
-		.then(reply => {
-			let keys = reply.access_keys[0];
+		.then(
+			reply => {
+				let keys = reply.access_keys[0];
 
-			AWS.config.update({
-				accessKeyId: keys.access_key,
-                secretAccessKey: keys.secret_key,
-                sslEnabled: false
-			});
+				AWS.config.update({
+					accessKeyId: keys.access_key,
+	                secretAccessKey: keys.secret_key,
+	                sslEnabled: false
+				});
 
-			systemOverview({
-				endpoint: endpoint,
-				keys: {
-					access: keys.access_key,
-					secret: keys.secret_key,
-				},
-				capacity: reply.storage.total,
-				bucketCount: reply.buckets.length,
-				objectCount: reply.objects,
-				poolCount: reply.pools.length,
-				nodeCount: reply.nodes.count,
-				onlineNodeCount: reply.nodes.online,
-				offlineNodeCount: reply.nodes.count - reply.nodes.online
-			});
+				systemOverview({
+					endpoint: endpoint,
+					keys: {
+						access: keys.access_key,
+						secret: keys.secret_key,
+					},
+					capacity: reply.storage.total,
+					bucketCount: reply.buckets.length,
+					objectCount: reply.objects,
+					poolCount: reply.pools.length,
+					nodeCount: reply.nodes.count,
+					onlineNodeCount: reply.nodes.online,
+					offlineNodeCount: reply.nodes.count - reply.nodes.online
+				});
 
-			agentInstallationInfo({
-				agentConf: encodeBase64({
-	                address: reply.base_address,
-	                system: reply.name,
-	                access_key: keys.access_key,
-	                secret_key: keys.secret_key,
-	                tier: 'nodes',
-	                root_path: './agent_storage/'
-	            }),
-				downloadUris: {
-					windows: reply.web_links.agent_installer,
-					linux: reply.web_links.linux_agent_installer
-				}
-			});
+				agentInstallationInfo({
+					agentConf: encodeBase64({
+		                address: reply.base_address,
+		                system: reply.name,
+		                access_key: keys.access_key,
+		                secret_key: keys.secret_key,
+		                tier: 'nodes',
+		                root_path: './agent_storage/'
+		            }),
+					downloadUris: {
+						windows: reply.web_links.agent_installer,
+						linux: reply.web_links.linux_agent_installer
+					}
+				});
 
-			bucketList(reply.buckets);
-			bucketList.sort(
-				(b1, b2) => bucketList.order() * bucketCmpFuncs[bucketList.sortedBy()](b1, b2)
-			);
+				bucketList(reply.buckets);
+				bucketList.sort(
+					(b1, b2) => bucketList.order() * bucketCmpFuncs[bucketList.sortedBy()](b1, b2)
+				);
 
-			poolList(reply.pools);
-			poolList.sort(
-				(p1, p2) => poolList.order() * poolCmpFuncs[poolList.sortedBy()](p1, p2)
-			);
-		})
+				poolList(reply.pools);
+				poolList.sort(
+					(p1, p2) => poolList.order() * poolCmpFuncs[poolList.sortedBy()](p1, p2)
+				);
+			}
+		)
 		.done();
 }
 
@@ -368,14 +378,16 @@ export function listBucketObjects(bucketName, filter, sortBy, order, page) {
 			limit: config.paginationPageSize,
 			pagination: true
 		})
-		.then(reply => {
-			bucketObjectList.sortedBy(sortBy);
-			bucketObjectList.filter(filter);
-			bucketObjectList.order(order);
-			bucketObjectList.page(page);
-			bucketObjectList.count(reply.total_count);
-			bucketObjectList(reply.objects);
-		}) 
+		.then(
+			reply => {
+				bucketObjectList.sortedBy(sortBy);
+				bucketObjectList.filter(filter);
+				bucketObjectList.order(order);
+				bucketObjectList.page(page);
+				bucketObjectList.count(reply.total_count);
+				bucketObjectList(reply.objects);
+			}
+		) 
 		.done();
 }
 
@@ -434,7 +446,9 @@ export function listObjectParts(bucketName, objectName) {
 		key: objectName, 
 		adminfo: true 
 	})
-		.then(reply => model.objectPartList(reply.parts))
+		.then(
+			reply => model.objectPartList(reply.parts)
+		)
 		.done();
 }
 
@@ -502,24 +516,40 @@ export function listNodeObjects(nodeName) {
 	logAction('readNode', { nodeName });
 
 	api.node.read_node_maps({ name: nodeName })
-		.then(relpy => model.nodeObjectList(relpy.objects))
+		.then(
+			relpy => model.nodeObjectList(relpy.objects)
+		)
 		.done();
 }
 
 // -----------------------------------------------------
 // Managment actions.
 // -----------------------------------------------------
-export function createAccount(system, email, password) {
-	logAction('createAccount', { system, email, password });
+export function createAccount(system, email, password, dnsName) {
+	logAction('createAccount', { system, email, password, dnsName });
 
 	api.account.create_account({ name: system, email: email, password: password })
-		.then(({ token }) => {
-			api.options.auth_token = token;
-			localStorage.setItem('sessionToken', token);
-			model.sessionInfo({ user: email, system: system});
+		.then(
+			({ token }) => {
+				api.options.auth_token = token;
+				localStorage.setItem('sessionToken', token);
+				model.sessionInfo({ user: email, system: system});
 
-			page.redirect(`/fe/systems/${system}`);
-		})
+				page.redirect(`/fe/systems/${system}`);
+			}
+		)
+		.then(
+			() => {
+				if (dnsName) {
+					return api.system.update_base_address({
+						base_address: dnsName
+					});
+
+				} else {
+					return Promise.when(true);
+				}
+			}
+		)
 		.done();
 }
 
@@ -534,17 +564,19 @@ export function createBucket(name, dataPlacement, pools) {
 		data_placement: dataPlacement,
 		pools: pools
 	})
-		.then(tier => {
-			let policy = {
-				// TODO: remove the random string after patching the server
-				// with a delete bucket that deletes also the policy
-				name: `${name}_tiering_${randomString(5)}`,
-				tiers: [ { order: 0, tier: tier.name } ]
-			};
+		.then(
+			tier => {
+				let policy = {
+					// TODO: remove the random string after patching the server
+					// with a delete bucket that deletes also the policy
+					name: `${name}_tiering_${randomString(5)}`,
+					tiers: [ { order: 0, tier: tier.name } ]
+				};
 
-			return api.tiering_policy.create_policy({ policy })
-				.then(() => policy)
-		})
+				return api.tiering_policy.create_policy({ policy })
+					.then(() => policy)
+			}
+		)
 		.then(
 			policy => api.bucket.create_bucket({ 
 				name: name, 
@@ -585,7 +617,9 @@ export function createPool(name, nodes) {
 	api.pool.create_pool({
 		pool: { name, nodes }
 	})
-		.then(readSystemInfo())
+		.then(
+			() => readSystemInfo()
+		)
 		.done();
 }
 

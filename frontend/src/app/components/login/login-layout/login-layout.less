@@ -1,15 +1,19 @@
 .login-layout {
 	padding: .5em;
-	background: url(/fe/assets/login-background.png) no-repeat;
+	background: url('/fe/assets/login-background.png') no-repeat;
 	background-size: cover;
 
 	.content {
 		position: fixed;
 		top: 50%;
 		left: 50%;
-		width: 35em;
-		text-align: center;				
-		transform: translate(-50%, -50%);				
+		text-align: center;			
+		width: 25em;	
+		transform: translate(-50%, -50%);			
+	}
+
+	.shake {
+		animation: shake 750ms ease-in-out;
 	}
 
 	.heading2 {
@@ -34,18 +38,23 @@
 	}
 
 	input {
-		margin-bottom: 1em;
 		color: @text-color1;
+		margin-right: 0;
+		width: 100%;
 
-		.placeholder(@text-color2);
+		.placeholder(@text-color4);
 
-		&:focus {
-			color: @text-color1;
-			border-color: @text-color1;
+		+ .val-msg {
+			display: block !important;
 		}
+	}
+
+	.val-msg {
+		margin-bottom: 1em;
 	}
 
 	.btn2 {
 		margin-top: 1.5em;
+		width: 80%;
 	}	
 }

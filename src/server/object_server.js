@@ -300,7 +300,7 @@ function read_object_md(req) {
             return get_object_info(obj);
         })
         .then(function(info) {
-            if (!req.rpc_params.pagination) {
+            if (!req.rpc_params.get_parts_count) {
                 return info;
             } else {
                 return P.when(db.ObjectPart.count({

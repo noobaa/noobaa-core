@@ -17,11 +17,11 @@ class ObjectSummaryViewModel {
 		);
 
 		this.size = ko.pureComputed(
-			() => formatSize(object().info.size)
+			() => `Size: ${formatSize(object().info.size)}`
 		);
 
 		this.partsCount = ko.pureComputed(
-			() => 'N/A' // TODO: object().info.parts_count
+			() => `Parts Count: ${object().info.total_parts_count || 'N/A'}`
 		);
 
 		this.isPreviewModalVisible = ko.observable(false);

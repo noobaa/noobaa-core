@@ -14,10 +14,10 @@ export default function routing(page) {
 		let session = sessionInfo();
 		if (!session) {
 			let returnUrl = encodeURIComponent(ctx.pathname);
-			page.redirect(`/login?return-url=${returnUrl}`);
+			page.redirect(`/fe/login?return-url=${returnUrl}`);
 
 		} else if (session.system !== ctx.params.system) {
-			page.redirect('/unauthorized');
+			page.redirect('/fe/unauthorized');
 
 		} else {
 			next();

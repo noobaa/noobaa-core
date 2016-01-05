@@ -4,7 +4,8 @@ import page from 'page';
 import api from 'services/api';
 import config from 'config';
 import { hostname as endpoint } from 'server-conf';
-import { encodeBase64, cmpStrings, cmpInts, cmpBools, randomString } from 'utils';
+import { encodeBase64, cmpStrings, cmpInts, cmpBools, randomString, 
+	stringifyQueryString } from 'utils';
 
 // TODO: resolve browserify issue with export of the aws-sdk module.
 // The current workaround use the AWS that is set on the global window object.
@@ -72,15 +73,15 @@ export function showLogin(ctx) {
 	logAction('showLogin', ctx);
 
 	let session = model.sessionInfo();
-	if (session) {
+	if (!!session) {
 		page.redirect(`/fe/systems/${session.system}`);
 
 	} else {
 		model.uiState({ 
 			layout: 'login-layout', 
-			returnUrl: ctx.query.returnUrl 
+			returnUrl: ctx.query.returnUrl,
 		});
-		
+
 		readServerInfo();
 	}
 }	
@@ -179,7 +180,11 @@ export function showPools() {
 export function showPool() {
 	logAction('showPool');
 
-	let { pool, tab } = model.routeContext().params;
+	let ctx = model.routeContext();
+	let { pool, tab } = ctx.params;
+	let { sortBy = 'name', order = 1 } = ctx.query;
+
+	
 	model.uiState({
 		layout: 'main-layout',
 		title: pool,
@@ -192,7 +197,7 @@ export function showPool() {
 	});
 
 	readPool(pool);
-	listPoolNodes(pool);
+	listPoolNodes(pool, sortBy, parseInt(order));
 }
 
 export function showNode() {
@@ -233,7 +238,7 @@ export function signIn(email, password, redirectTo) {
 		.then(({ systems }) => {
 			let system = systems[0].name;
 
-			api.create_auth_token({ system, email, password })
+			return api.create_auth_token({ system, email, password })
 				.then(({ token }) => {
 					localStorage.setItem('sessionToken', token);
 					
@@ -247,7 +252,12 @@ export function signIn(email, password, redirectTo) {
 				})
 		})
 		.catch(err => {
-			if (err.rpc_code !== 'UNAUTHORIZED') {
+			if (err.rpc_code === 'UNAUTHORIZED') {
+				model.loginInfo({
+					retryCount: model.loginInfo().retryCount + 1
+				});
+
+			} else {
 				throw err;
 			}
 		})
@@ -255,7 +265,7 @@ export function signIn(email, password, redirectTo) {
 }
 
 export function signOut() {
-	localStorage.setItem('sessionToken', token);
+	localStorage.removeItem('sessionToken');
 	model.sessionInfo(null);
 }
 
@@ -448,12 +458,19 @@ export function readPool(name) {
 		.done();
 }
 
-export function listPoolNodes(poolName) {
-	logAction('listPoolNodes', { poolName });
-
-	api.node.list_nodes({})
+export function listPoolNodes(poolName, sortBy, order) {
+	logAction('listPoolNodes', { poolName, sortBy, order });
+	
+	api.node.list_nodes({  
+		sort: sortBy,
+		order: order
+	})
 		.then(
-		reply => model.poolNodeList(reply.nodes)
+			reply => {
+				model.poolNodeList(reply.nodes);
+				model.poolNodeList.sortedBy(sortBy);
+				model.poolNodeList.order(order);
+			}
 		)
 		.done();
 }

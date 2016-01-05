@@ -8,6 +8,11 @@ export let uiState = ko.observable({
 // Hold the current route context.
 export let routeContext = ko.observable();
 
+// Hold login state information.
+export let loginInfo = ko.observable({
+	retryCount: 0
+});
+
 // Hold current session information.
 export let sessionInfo = ko.observable();
 
@@ -53,7 +58,9 @@ export let nodeList = ko.observableArray();
 
 // Hold the current pool node list.
 export let poolNodeList = ko.observableArray();
-poolNodeList.filter = ko.observable();
+poolNodeList.sortedBy = ko.observable();
+poolNodeList.order = ko.observable();
+// poolNodeList.filter = ko.observable();
 
 // Hold the current node info.
 export let nodeInfo = ko.observable();

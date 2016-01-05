@@ -84,9 +84,12 @@ export function stringifyQueryString(query) {
 	return Object.keys(query)
 		.reduce((list, key) => {
 			if (!isUndefined(query[key])) {
-				let name = encodeURIComponent(toDashedCase(key));
-				let value = encodeURIComponent(query[key]);
-				list.push((`${name}=${value}`))
+				let encodedName = encodeURIComponent(toDashedCase(key));
+				let value = query[key] === true ?
+					encodedName :
+					`${encodedName}=${encodeURIComponent(query[key])}`
+
+				list.push(value);
 			}
 
 			return list;

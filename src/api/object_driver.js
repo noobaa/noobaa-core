@@ -135,12 +135,16 @@ function lazy_init_natives() {
  */
 ObjectDriver.prototype.upload_stream = function(params) {
     var self = this;
-    var create_params = _.pick(params, 'bucket', 'key', 'size', 'content_type');
+    var create_params = _.pick(params, 'bucket', 'key', 'size', 'content_type', 'add_suffix');
     var bucket_key_params = _.pick(params, 'bucket', 'key');
 
     dbg.log0('upload_stream: start upload', params.key);
     return self.client.object.create_multipart_upload(create_params)
-        .then(function() {
+        .then(function(res) {
+            if (res.used_key) { //add_suffix was sent and a suffix was added
+                params.key = res.used_key;
+                bucket_key_params.key = res.used_key;
+            }
             return self.upload_stream_parts(params);
         })
         .then(function() {

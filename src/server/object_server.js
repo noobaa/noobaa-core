@@ -48,10 +48,12 @@ module.exports = object_server;
  *
  */
 function create_multipart_upload(req) {
+    var info;
+    var reply = {};
     return load_bucket(req)
         .then(function() {
             dbg.log0('create_multipart_upload xattr', req.rpc_params);
-            var info = {
+            info = {
                 system: req.system.id,
                 bucket: req.bucket.id,
                 key: req.rpc_params.key,
@@ -62,8 +64,28 @@ function create_multipart_upload(req) {
                 xattr: req.rpc_params.xattr
             };
             return P.when(db.ObjectMD.create(info));
+        }).fail(function(err) {
+            if (db.is_err_exists(err) && req.rpc_params.add_suffix) {
+                return P.when(db.ObjectMD
+                        .count({
+                            system: req.system.id,
+                            bucket: req.bucket.id,
+                            key: new RegExp(req.rpc_params.key + '_copy*'),
+                            deleted: null
+                        }))
+                    .then(function(copies) {
+                        info.key = req.rpc_params.key + '_copy_' + (copies + 1);
+                        reply.used_key = info.key;
+                        return P.when(db.ObjectMD.create(info));
+                    });
+            } else {
+                throw err;
+            }
         }).then(function(data) {
             dbg.log0('after create_multipart_upload', data);
+            if (reply.used_key) {
+                return reply;
+            }
         });
 }
 

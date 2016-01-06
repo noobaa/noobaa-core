@@ -9,14 +9,15 @@ Tools contains various tools which are not part of the working flows but can be 
 
 * ###rpc_shell
   A command line shell (using repl) to invoke RPC commands on the different servers (MD, BGWorkers).
-  currently supports the following control commands:
-    - .list_functions - Shows all control commands.
-    - .list - Shows all API categories.
-    - .show <API> - show all available RPC functions under a given API category.
+  Currently supports the following control commands:
+    - .list_functions   - Show all control commands.
+    - .list             - Show all API categories.
+    - .show <API>       - Show all available RPC functions under a given API category.
     - .call <API> <FUNC> [ARGS] - Invokes the RPC call API.FUNC and passes ARGS as arguments to the call.
       Arguments should be provided with the '=' sign notation.
       For example :
 
+      The equivalent for a js call for
       ___node.list_nodes({
         query: {
           pool: 'default_pool',

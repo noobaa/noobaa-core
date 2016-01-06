@@ -40,7 +40,7 @@ module.exports = {
                 }
             },
             reply: {
-                required: [],
+                type: 'object',
                 properties: {
                     used_key: {
                         type: 'string'

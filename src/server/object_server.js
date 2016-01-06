@@ -49,7 +49,7 @@ module.exports = object_server;
  */
 function create_multipart_upload(req) {
     var info;
-    var reply;
+    var reply = {};
     return load_bucket(req)
         .then(function() {
             dbg.log0('create_multipart_upload xattr', req.rpc_params);

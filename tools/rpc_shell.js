@@ -14,14 +14,22 @@ function RPCShell() {
 
 function construct_rpc_arguments(str_args) {
     var ret_json = {};
-    var words;
+    var words, i;
     //parse each argument on =
-    //left of it is the key name, right is the values
-    _.each(str_args, function(a) {
-        words = a.split('=');
-        console.warn('handling arg', a, 'words are', words);
-        ret_json[words[0]] = words[1];
-    });
+    //left of it is the key name, right is the values.
+    //if right contains {}, its a complex value, call construct again on it
+    if (str_args.length === 1 &&
+        str_args[0].indexOf('=') !== -1) {
+        _.each(str_args, function(a) {
+            i = a.indexOf('=');
+            words = [a.slice(0, i), a.slice(i + 1)];
+            if (words[1][0] !== '{') {
+                ret_json[words[0]] = words[1];
+            } else {
+                ret_json[words[0]] = construct_rpc_arguments([words[1].substring(1, words[1].length - 1)]);
+            }
+        });
+    }
     return ret_json;
 }
 

@@ -93,7 +93,7 @@ function read_bucket(req) {
                 .then(function(info) {
                     reply = info;
                     // TODO read bucket's storage and objects info
-                    var query_tiers = _.map(info.tiering[0].tiers, function(t) { //TODO: Multi tiers
+                    var query_tiers = _.map(info.tiering.tiers, function(t) { //TODO: Multi tiers
                         return t.tier;
                     });
                     return P.when(db.Tier
@@ -478,7 +478,7 @@ function get_bucket_info(bucket) {
                     deleted: null,
                 }))
             .then(function(tiering) {
-                reply.tiering = tiering;
+                reply.tiering = tiering[0]; //Always only one tiering policy
                 return reply;
             });
     } else {

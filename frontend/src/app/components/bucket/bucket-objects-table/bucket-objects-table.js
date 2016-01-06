@@ -30,7 +30,7 @@ class BucketObjectsTableViewModel {
 		);
 	}
 
-	gotTo(pageNum) {
+	goTo(pageNum) {
 		this._query(
 			this.filter(),
 			this.sortedBy(),

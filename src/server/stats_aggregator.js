@@ -24,11 +24,11 @@ module.exports = stats_aggregator;
 var _ = require('lodash');
 var P = require('../util/promise');
 var request = require('request');
-var formData = require('form-data');
+var FormData = require('form-data');
 // var util = require('util');
 var db = require('./db');
 var promise_utils = require('../util/promise_utils');
-var histogram = require('../util/histogram');
+var Histogram = require('../util/histogram');
 var dbg = require('../util/debug_module')(__filename);
 var config = require('../../config.js');
 var system_server = require('./system_server');
@@ -302,7 +302,7 @@ function register_histogram(opname, master_label, structure) {
     }
 
     if (!ops_aggregation.hasOwnProperty(opname)) {
-        ops_aggregation[opname] = new histogram(master_label, structure);
+        ops_aggregation[opname] = new Histogram(master_label, structure);
     }
 
     dbg.log2('register_histogram registered', opname, '-', master_label, 'with', structure);
@@ -343,7 +343,7 @@ function get_support_account_id() {
 send_stats_payload; // lint unused bypass
 
 function send_stats_payload(payload) {
-    var form = new formData();
+    var form = new FormData();
     form.append('phdata', JSON.stringify(payload));
 
     return P.ninvoke(request, 'post', {
@@ -364,7 +364,7 @@ function send_stats_payload(payload) {
 function get_empty_nodes_histo() {
     //TODO: Add histogram for limit, once implemented
     var empty_nodes_histo = {};
-    empty_nodes_histo.histo_allocation = new histogram('AllocationSizes(GB)', [{
+    empty_nodes_histo.histo_allocation = new Histogram('AllocationSizes(GB)', [{
         label: 'low',
         start_val: 0
     }, {
@@ -375,7 +375,7 @@ function get_empty_nodes_histo() {
         start_val: 500
     }]);
 
-    empty_nodes_histo.histo_usage = new histogram('UsedSpace(GB)', [{
+    empty_nodes_histo.histo_usage = new Histogram('UsedSpace(GB)', [{
         label: 'low',
         start_val: 0
     }, {
@@ -386,7 +386,7 @@ function get_empty_nodes_histo() {
         start_val: 500
     }]);
 
-    empty_nodes_histo.histo_free = new histogram('FreeSpace(GB)', [{
+    empty_nodes_histo.histo_free = new Histogram('FreeSpace(GB)', [{
         label: 'low',
         start_val: 0
     }, {
@@ -397,7 +397,7 @@ function get_empty_nodes_histo() {
         start_val: 500
     }]);
 
-    empty_nodes_histo.histo_uptime = new histogram('Uptime(Days)', [{
+    empty_nodes_histo.histo_uptime = new Histogram('Uptime(Days)', [{
         label: 'short',
         start_val: 0
     }, {

@@ -412,6 +412,9 @@ module.exports = {
                 base_address: {
                     type: 'string'
                 },
+                version: {
+                    type: 'string'
+                },
             }
         },
 

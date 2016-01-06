@@ -34,6 +34,17 @@ module.exports = {
                     xattr: {
                         $ref: '/object_api/definitions/xattr',
                     },
+                    add_suffix: {
+                        type: 'boolean',
+                    },
+                }
+            },
+            reply: {
+                required: [],
+                properties: {
+                    used_key: {
+                        type: 'string'
+                    },
                 }
             },
             auth: {

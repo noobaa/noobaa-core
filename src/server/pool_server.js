@@ -14,6 +14,7 @@ var pool_server = {
     create_pool: create_pool,
     update_pool: update_pool,
     list_pool_nodes: list_pool_nodes,
+    read_pool: read_pool,
     delete_pool: delete_pool,
     add_nodes_to_pool: add_nodes_to_pool,
     remove_nodes_from_pool: remove_nodes_from_pool,
@@ -128,6 +129,39 @@ function list_pool_nodes(req) {
             var reply;
             reply.name = req.rpc_params.name;
             reply.nodes = _.pluck(pool.nodes, 'name');
+            return reply;
+        });
+}
+
+function read_pool(req) {
+    var reply;
+    var pool;
+    return P.when(db.Pool
+            .findOne(get_pool_query(req))
+            .populate('node')
+            .exec())
+        .then(db.check_not_deleted(req, 'pool'))
+        .then(function(p) {
+            pool = p;
+            return P.when(db.Node.aggregate_nodes({
+                system: req.system.id,
+                deleted: null,
+            }, 'pool'));
+        })
+        .then(function(aggr) {
+            var aggregate_p = aggr[pool._id] || {};
+            reply = {
+                name: pool.name,
+                total_nodes: pool.nodes.length,
+                online_nodes: aggregate_p.online || 0,
+                //TODO:: in tier we divide by number of replicas, in pool we have no such concept
+                storage: {
+                    total: (aggregate_p.total || 0),
+                    free: (aggregate_p.free || 0),
+                    used: (aggregate_p.used || 0),
+                    alloc: (aggregate_p.alloc || 0)
+                }
+            };
             return reply;
         });
 }

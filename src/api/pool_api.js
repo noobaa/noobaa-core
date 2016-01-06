@@ -48,7 +48,7 @@ module.exports = {
         },
 
         list_pool_nodes: {
-            doc: 'Get Pool',
+            doc: 'List Pool Nodes',
             method: 'GET',
             params: {
                 type: 'object',
@@ -61,6 +61,26 @@ module.exports = {
             },
             reply: {
                 $ref: '/pool_api/definitions/pool_definition'
+            },
+            auth: {
+                system: 'admin'
+            }
+        },
+
+        read_pool: {
+            doc: 'Read Pool Information',
+            method: 'GET',
+            params: {
+                type: 'object',
+                required: ['name'],
+                properties: {
+                    name: {
+                        type: 'string',
+                    },
+                }
+            },
+            reply: {
+                $ref: '/pool_api/definitions/pool_extended_info'
             },
             auth: {
                 system: 'admin'
@@ -172,6 +192,25 @@ module.exports = {
                     }]
                 }
             }
+        },
+
+        pool_extended_info: {
+            type: 'object',
+            required: ['name', 'total_nodes', 'online_nodes', 'storage'],
+            properties: {
+                name: {
+                    type: 'string'
+                },
+                total_nodes: {
+                    type: 'integer',
+                },
+                online_nodes: {
+                    type: 'integer',
+                },
+                storage: {
+                    $ref: '/common_api/definitions/storage_info'
+                },
+            },
         },
 
         pools_info: {

@@ -142,7 +142,9 @@ export function showBucket() {
 export function showObject() {
 	logAction('showObject');
 	
-	let { object, bucket, tab } = model.routeContext().params;
+	let ctx = model.routeContext();
+	let { object, bucket, tab } = ctx.params;
+	let { page = 0 } = ctx.query;
 
 	model.uiState({
 		layout: 'main-layout',
@@ -157,7 +159,7 @@ export function showObject() {
 	});
 
 	readObjectMetadata(bucket, object)
-	listObjectParts(bucket, object);
+	listObjectParts(bucket, object, parseInt(page));
 }
 
 export function showPools() {
@@ -442,21 +444,30 @@ export function readObjectMetadata(bucketName, objectName) {
 		.done();
 }
 
-export function listObjectParts(bucketName, objectName) {
-	logAction('listObjectParts', { bucketName, objectName });
+export function listObjectParts(bucketName, objectName, page) {
+	logAction('listObjectParts', { bucketName, objectName, page });
 
 	api.object.read_object_mappings({ 
 		bucket: bucketName, 
 		key: objectName, 
+		skip: config.paginationPageSize * page,
+		limit: config.paginationPageSize,
 		adminfo: true 
 	})
 		.then(
-			reply => model.objectPartList(reply.parts)
+			reply => {
+				model.objectPartList(reply.parts);
+				model.objectPartList.page(page);
+
+				// TODO: change to real count when avaliable.
+				model.objectPartList.count(1000);				
+			}
 		)
 		.done();
 }
 
 export function readPool(name) {
+	logAction('readPool', { name });
 
 	if (model.poolInfo() && model.poolInfo().name !== name) {
 		model.poolInfo(null);
@@ -526,16 +537,6 @@ export function readNode(nodeName) {
 		.done();
 }
 
-export function listNodeObjects(nodeName) {
-	logAction('listNodeObjects', { nodeName });
-
-	api.node.read_node_maps({ name: nodeName })
-		.then(
-			relpy => model.nodeObjectList(relpy.objects)
-		)
-		.done();
-}
-
 export function listNodeStoredParts(nodeName, page) {
 	logAction('listNodeStoredParts', { nodeName, page });
 
@@ -561,6 +562,8 @@ export function listNodeStoredParts(nodeName, page) {
 						},
 						[]
 					);
+
+				// TODO: change to server side paganation when avaliable.
 
 				let pageParts = parts.slice(
 					config.paginationPageSize * page,

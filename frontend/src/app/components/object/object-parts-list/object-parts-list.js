@@ -1,6 +1,8 @@
 import template from './object-parts-list.html';
 import ko from 'knockout';
-import { formatSize } from 'utils';
+import page from 'page';
+import { paginationPageSize } from 'config';
+import { formatSize, stringifyQueryString } from 'utils';
 
 const partStateIconMapping = Object.freeze({
 	available: 	'/fe/assets/icons.svg#part-available',
@@ -10,9 +12,22 @@ const partStateIconMapping = Object.freeze({
 
 class ObjectPartsListViewModel {
 	constructor({ parts }) {
-		this.parts = parts.map(
-			part => this._mapPart(parts, part)
+		this.pageSize = paginationPageSize;
+		this.count = parts.count;
+		
+		this.currPage = ko.pureComputed({
+			read: parts.page,
+			write: page => this.goTo(page)
+		});
+
+		this.rows = parts.map(
+			(part, i) => this._mapPart(parts, part)
 		);
+	}
+
+	goTo(pageNum) {
+		let query = stringifyQueryString({ page: pageNum });
+		page.show(`${window.location.pathname}?${query}`);
 	}
 
 	expendPart(part) {
@@ -42,7 +57,7 @@ class ObjectPartsListViewModel {
 			name: `Part ${partsNumber} of ${parts().length}`,
 			size: size,
 			blocks: blocks,
-			isExpended: ko.observable(parts().length === 1)
+			isExpended: ko.observable(false)
 		}
 	}
 }

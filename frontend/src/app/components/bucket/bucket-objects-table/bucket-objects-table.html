@@ -1,21 +1,7 @@
 <input type="search" class="filter" placeholder="Filter Files" data-bind="textInput: filter" />
 
-<div class="pagination pull-right">
-	<span class="page-indicator" data-bind="ifnot: noResults">
-		<span class="highlight" data-bind="text: pageStart"></span>
-		-
-		<span class="highlight" data-bind="text: pageEnd"></span>
-		of
-		<span class="highlight" data-bind="text: count"></span>
-	</span>
-	
-	<button class="btn3" data-bind="click: pageBackward, attr: { disabled: inFirstPage}">
-		<svg-icon params="uri: backwardIcon"></svg-icon>
-	</button>
-	<button class="btn3" data-bind="click: pageForward, attr: { disabled: inLastPage}">
-		<svg-icon params="uri: forwardIcon"></svg-icon>
-	</button>
-</div>
+<paginator params="pageSize: pageSize, itemCount: count, page: currPage" class="pull-right">
+</paginator>
 
 <section class="table-wrapper">
 	<div class="data-table">

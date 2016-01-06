@@ -1,11 +1,11 @@
 import template from './node-panel.html';
 import ko from 'knockout';
-import { uiState, nodeInfo, nodeObjectList } from 'model';
+import { uiState, nodeInfo, nodeStoredPartList } from 'model';
 
 class NodePanelViewModel {
 	constructor() {
 		this.node = nodeInfo;
-		this.objects = nodeObjectList;
+		this.storedParts = nodeStoredPartList;
 
 		this.ready = ko.pureComputed(
 			() => !!this.node()

@@ -18,7 +18,7 @@ class CreatePoolWizardViewModel {
 			.extend({
 				required: { 
 					params: true,
-					message: 'Name is required'
+					message: 'Please enter a name for the pool'
 				},
 				maxLength: {
 					params: 63,
@@ -35,23 +35,37 @@ class CreatePoolWizardViewModel {
 			.extend({
 				minLength: {
 					params: 3,
-					message: 'Plase select at least 3 nodes'
+					message: 'Please select at least 3 nodes'
 				}
 			});
+
+		this.chooseNameErrors = ko.validation.group({
+			name: this.poolName
+		})
+
+		this.assignNodesErrors = ko.validation.group({
+			selectedNodes: this.selectedNodes
+		})
 	}
 
 	validateStep(step) {
 		switch (step) {
 			case 1: 
-				let isNameValid = this.poolName.isValid();
-				!isNameValid && this.poolName.valueHasMutated();  
-				return isNameValid;
+				if (this.chooseNameErrors().length > 0) {
+					this.chooseNameErrors.showAllMessages();
+					return false;
+				}
+				break;
 
 			case 2: 
-				let isSelecedNodesValid = this.selectedNodes.isValid();
-				!isSelecedNodesValid && this.selectedNodes.valueHasMutated();
-				return isSelecedNodesValid;
+				if (this.assignNodesErrors().length > 0) {
+					this.assignNodesErrors.showAllMessages();
+					return false;
+				}
+				break;
 		}
+
+		return true;
 	}
 
 	createPool() {

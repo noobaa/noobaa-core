@@ -8,7 +8,9 @@
 			Stored File Parts
 		</a>
 
-		<node-parts-table params="objects: objects" class="tab-content"></node-parts-table>
+		<section class="tab-content">
+			<node-parts-table params="parts: storedParts"></node-parts-table>
+		</section>
 	</li>
 
 	<li data-bind="css: { selected: selectedTab() === 'info' }">
@@ -17,7 +19,9 @@
 			Info
 		</a>
 
-		<node-info params="node: node" class="tab-content"></node-info>
+		<section class="tab-content">
+			<node-info params="node: node"></node-info>
+		</section>
 	</li>
 </ul>	
 <!-- /ko -->

@@ -10,12 +10,11 @@ import routing from 'routing';
 import { uiState } from 'model';
 import { start } from 'actions';
 
-// Enable knockout 3.4 defer<p></p>red updates.
+// Enable knockout 3.4 deferred updates.
 ko.options.deferUpdates = true;
 
 // Setup validation policy.
 ko.validation.init({
-	//insertMessages: false,
 	errorMessageClass: 'val-msg',
 	decorateInputElement: true,
 	errorElementClass: 'invalid',

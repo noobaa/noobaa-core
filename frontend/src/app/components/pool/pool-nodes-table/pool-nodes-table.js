@@ -1,22 +1,51 @@
 import template from './pool-nodes-table.html';
 import ko from 'knockout';
 import page from 'page';
-import { paginationPageSize as pageSize } from 'config';
+import { paginationPageSize } from 'config';
 import { makeArray} from 'utils';
 import NodeRowViewModel from './node-row';
-import { stringifyQueryString } from 'utils';
+import { throttle, stringifyQueryString } from 'utils';
 
 class PoolNodesTableViewModel {
 	constructor({ nodes }) {
-		this.rows = makeArray(
-			pageSize,
-			i => new NodeRowViewModel(() => nodes()[i])
-		);
-
+		this.pageSize = paginationPageSize;
+		this.count = nodes.count;
 		this.sortedBy = nodes.sortedBy;
 		this.order = nodes.order;
-		this.filter = ko.observable('');
+
+		this.currPage = ko.pureComputed({
+			read: nodes.page,
+			write:  page => this.goTo(page)
+		});
+
+		this.filter = ko.pureComputed({
+			read: nodes.filter,
+			write: throttle(phrase => this.filterObjects(phrase), 750)
+		});
+
+		this.rows = makeArray(
+			this.pageSize,
+			i => new NodeRowViewModel(() => nodes()[i])
+		);
 	}
+
+	goTo(pageNum) {
+		this._query(
+			this.filter(),
+			this.sortedBy(),
+			this.order(),
+			pageNum
+		)
+	}
+
+	filterObjects(phrase) {
+		this._query(
+			phrase || undefined, 
+			this.sortedBy(), 
+			this.order(),
+			0
+		); 
+	}	
 
 	orderBy(colName) {
 		this._query(
@@ -33,8 +62,8 @@ class PoolNodesTableViewModel {
 		} 
 	}	
 
-	_query(filter, sortBy, order, currPage) {
-		let query = stringifyQueryString({ filter, sortBy, order, page: currPage });
+	_query(filter, sortBy, order, pageNum) {
+		let query = stringifyQueryString({ filter, sortBy, order, page: pageNum });
 		page.show(`${window.location.pathname}?${query}`);		
 	}	
 }

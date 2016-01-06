@@ -6,6 +6,10 @@ import { formatSize } from 'utils';
 
 class PoolSummaryViewModel {
 	constructor({ pool }) {
+		this.dataReady = ko.pureComputed(
+			() => !!pool()
+		);
+
 		this.onlineCount = ko.pureComputed(
 			() => {
 				let count = pool().online_nodes;

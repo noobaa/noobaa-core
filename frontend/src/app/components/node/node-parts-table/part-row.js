@@ -14,27 +14,31 @@ export default class ObjectRowViewModel {
 		);
 
 		this.stateIcon = ko.pureComputed(
-			() => partStateIconMapping[part().state] 
+			() => !!part() && partStateIconMapping[part().info.chunk.adminfo.health] 
 		);
 
-		this.name = ko.pureComputed(
-			() => part().object
+		this.object = ko.pureComputed(
+			() => !!part() && part().object
+		);
+
+		this.bucket = ko.pureComputed(
+			() => !!part() && part().bucket
 		);
 
 		this.href = ko.pureComputed(
-			() => `/fe/systems/:system/buckets/${part().bucket}/objects/${part().object}`
+			() => !!part() && `/fe/systems/:system/buckets/${part().bucket}/objects/${part().object}`
 		);
 
 		this.startOffset = ko.pureComputed(
-			() => numeral(part().start).format('0.0b')
+			() => !!part() && numeral(part().info.start).format('0.0b')
 		);
 
 		this.endOffset = ko.pureComputed(
-			() => numeral(part().end).format('0.0b')
+			() => !!part() && numeral(part().info.end).format('0.0b')
 		);
 
 		this.size = ko.pureComputed(
-			() => numeral(part().size).format('0.0b')
+			() => !!part() && numeral(part().info.size).format('0.0b')
 		)
 	}
 }

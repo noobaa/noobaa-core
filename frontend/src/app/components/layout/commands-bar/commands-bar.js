@@ -1,5 +1,5 @@
 import template from './commands-bar.html'; 
-import { refresh } from 'actions';
+import { refresh, signOut } from 'actions';
 
 class CommandBarViewModel {
 	constructor() {
@@ -8,6 +8,10 @@ class CommandBarViewModel {
 
 	refresh() {
 		refresh();
+	}
+
+	signOut() {
+		signOut();
 	}
 }
 

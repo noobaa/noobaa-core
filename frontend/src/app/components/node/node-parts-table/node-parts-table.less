@@ -1,4 +1,13 @@
 node-parts-table {
+	display: block;
+	position: relative;
+	height: 100%;
+
+	.table-wrapper {
+		.fill();
+		top : 4em;
+	}
+
 	.state-col {
 		min-width: 4em;
 	}
@@ -7,8 +16,11 @@ node-parts-table {
 		width: 100%;
 	}
 
-	.start-col, .end-col {
+	.bucket-col,
+	.start-col, 
+	.end-col {
 		min-width: 7em;
+		max-width: 7em;
 	}
 
 	.size-col {

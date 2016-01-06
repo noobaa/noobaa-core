@@ -1,37 +1,44 @@
-<section class="data-table">
-	<table>
-		<thead>
-			<tr>
-				<th class="state-col" data-bind="css: orderClassFor('state')">
-					<a href data-bind="click: () => orderBy('state')">state</a>
-				</th>	
+<input type="search" class="filter" placeholder="Filter Files" data-bind="textInput: filter" />
 
-				<th class="name-col text-left" data-bind="css: orderClassFor('name')">
-					<a href data-bind="click: () => orderBy('name')">node name</a>
-				</th>	
+<paginator params="itemCount: count, pageSize: pageSize, page: currPage" class="pull-right">
+</paginator>
 
-				<th class="ip-col" data-bind="css: orderClassFor('ip')">
-					<a href data-bind="click: () => orderBy('ip')">ip</a>
-				</th>	
+<section class="table-wrapper">
+	<div class="data-table">
+		<table>
+			<thead>
+				<tr>
+					<th class="state-col" data-bind="css: orderClassFor('state')">
+						<a href data-bind="click: () => orderBy('state')">state</a>
+					</th>	
 
-				<th class="capacity-col" data-bind="css: orderClassFor('capacity')">
-					<a href data-bind="click: () => orderBy('capacity')">capacity</a>
-				</th>					
-			</tr>
-		</thead>
-		<tbody data-bind="foreach: rows">
-			<!-- ko if: isVisible -->
-			<tr>
-				<td class="state-col">
-					<svg-icon params="uri: stateIcon"></svg-icon>
-				</td>
-				<td class="name-col text-left" >
-					<a class="link" data-bind="text: name, href: href"></a>
-				</td>
-				<td class="ip-col" data-bind="text: ip"></td>
-				<td class="capacity-col" data-bind="text: capacity"></td>
-			</tr>
-			<!-- /ko -->
-		</tbody>
-	</table>
+					<th class="name-col text-left" data-bind="css: orderClassFor('name')">
+						<a href data-bind="click: () => orderBy('name')">node name</a>
+					</th>	
+
+					<th class="ip-col" data-bind="css: orderClassFor('ip')">
+						<a href data-bind="click: () => orderBy('ip')">ip</a>
+					</th>	
+
+					<th class="capacity-col" data-bind="css: orderClassFor('capacity')">
+						<a href data-bind="click: () => orderBy('capacity')">capacity</a>
+					</th>					
+				</tr>
+			</thead>
+			<tbody data-bind="foreach: rows">
+				<!-- ko if: isVisible -->
+				<tr>
+					<td class="state-col">
+						<svg-icon params="uri: stateIcon"></svg-icon>
+					</td>
+					<td class="name-col text-left" >
+						<a class="link" data-bind="text: name, href: href"></a>
+					</td>
+					<td class="ip-col" data-bind="text: ip"></td>
+					<td class="capacity-col" data-bind="text: capacity"></td>
+				</tr>
+				<!-- /ko -->
+			</tbody>
+		</table>
+	</div>
 </section>

@@ -7,19 +7,33 @@ class SignInFormViewModel {
 	constructor() {
 		this.email = ko.observable()
 			.extend({ 
-				required: { message: 'Email address is required' }
+				required: { message: 'Please enter an email address' },
+				email: { message: 'Please enter a proper email address' }
 			});
 		
 		this.password = ko.observable()
 			.extend({ 
-				required: { message: 'Password is required' }
+				required: { message: 'Please enter a password' }
 			});
+
+		let retryCount = ko.pureComputed(
+			() => loginInfo().retryCount
+		);
 
 		this.isDirty = ko.observable(false);
 
 		this.showInvalidMessage = ko.pureComputed(
-			() => !this.isDirty() && loginInfo().retryCount > 0 
+			() => !this.isDirty() && retryCount() > 0 
 		);
+
+		let temp = this.temp = ko.observable(0);
+		this.shake = ko.pureComputed({
+			read: () => {
+				console.log(retryCount(), temp());
+				return retryCount() > temp()
+			},
+			write: val => val === false && temp(retryCount())
+		});		
 
 		this.errors = ko.validation.group(this);
 	}

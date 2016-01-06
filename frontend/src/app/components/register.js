@@ -42,7 +42,6 @@ export default function register(ko) {
 	// -------------------------------
 	ko.components.register('bucket-panel', 			require('./bucket/bucket-panel/bucket-panel'));
 	ko.components.register('bucket-summary', 		require('./bucket/bucket-summary/bucket-summary'));
-	ko.components.register('bucket-objects-tab',	require('./bucket/bucket-objects-tab/bucket-objects-tab'));
 	ko.components.register('bucket-objects-table',	require('./bucket/bucket-objects-table/bucket-objects-table'));
 	ko.components.register('bucket-policy-modal',	require('./bucket/bucket-policy-modal/bucket-policy-modal'));
 	ko.components.register('upload-files-modal',	require('./bucket/upload-files-modal/upload-files-modal'));
@@ -96,4 +95,5 @@ export default function register(ko) {
 	ko.components.register('multiselect',		require('./shared/multiselect/multiselect'));
 	ko.components.register('slider',			require('./shared/slider/slider'));
 	ko.components.register('wizard',			require('./shared/wizard/wizard'));
+	ko.components.register('paginator',			require('./shared/paginator/paginator'));
 }

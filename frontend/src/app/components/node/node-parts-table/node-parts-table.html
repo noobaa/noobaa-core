@@ -1,31 +1,39 @@
-<section class="data-table">
-	<table>
-		<thead>
-			<tr>
-				<th class="state-col">State</th>
-				<th class="name-col text-left">File Name</th>
-				<th class="start-col">Start Offset</th>
-				<th class="end-col">End Offset</th>
-				<th class="size-col">Part Size</th>
-			</tr>	
-		</thead>
-		
-		<tbody  data-bind="foreach: rows">
-			<!-- ko if: isVisible -->
-			<tr>
-				<td class="state-col">
-					<svg-icon params="uri: stateIcon"></svg-icon>	
-				</td>
+<paginator params="pageSize: pageSize, itemCount: count, page: currPage" class="pull-right">
+</paginator>
 
-				<td class="name-col text-left">
-					<a class="link" data-bind="href: href, text: name"></a>
-				</td>
-				
-				<td class="start-col" data-bind="text: startOffset"></td>
-				<td class="end-col" data-bind="text: endOffset"></td>
-				<td class="size-col" data-bind="text: size"></td>
-			</tr>
-			<!-- /ko -->
-		</tbody>
-	</table>
+<section class="table-wrapper">
+	<div class="data-table">
+		<table>
+			<thead>
+				<tr>
+					<th class="state-col">State</th>
+					<th class="name-col text-left">File Name</th>
+					<th class="bucket-col">Bucket</th>
+					<th class="start-col">Start Offset</th>
+					<th class="end-col">End Offset</th>
+					<th class="size-col">Part Size</th>
+				</tr>	
+			</thead>
+			
+			<tbody  data-bind="foreach: rows">
+				<!-- ko if: isVisible -->
+				<tr>
+					<td class="state-col">
+						<svg-icon params="uri: stateIcon"></svg-icon>	
+					</td>
+
+					<td class="name-col text-left">
+						<a class="link" data-bind="href: href, text: object"></a>
+					</td>
+					
+					<td class="bucket-col no-wrap" data-bind="text: bucket"></td>
+					
+					<td class="start-col" data-bind="text: startOffset"></td>
+					<td class="end-col" data-bind="text: endOffset"></td>
+					<td class="size-col" data-bind="text: size"></td>
+				</tr>
+				<!-- /ko -->
+			</tbody>
+		</table>
+	</div>
 </section>

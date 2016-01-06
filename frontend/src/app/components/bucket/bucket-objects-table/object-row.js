@@ -14,11 +14,11 @@ export default class ObjectRowViewModel {
 		);
 
 		this.name = ko.pureComputed(
-			() => obj().key
+			() => !!obj() && obj().key
 		);
 
 		this.stateIcon = ko.pureComputed(
-			() => statusIconMapping[obj().info.state || 'AVALIABLE']
+			() => !!obj() && statusIconMapping[obj().info.state || 'AVALIABLE']
 		);
 
 		this.href = ko.pureComputed(
@@ -26,7 +26,7 @@ export default class ObjectRowViewModel {
 		);
 
 		this.size = ko.pureComputed(
-			() => formatSize(obj().info.size)
+			() => !!obj() && formatSize(obj().info.size)
 		);
 	}
 }

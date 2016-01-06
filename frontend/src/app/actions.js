@@ -4,8 +4,7 @@ import page from 'page';
 import api from 'services/api';
 import config from 'config';
 import { hostname as endpoint } from 'server-conf';
-import { encodeBase64, cmpStrings, cmpInts, cmpBools, randomString, 
-	stringifyQueryString } from 'utils';
+import { encodeBase64, cmpStrings, cmpInts, cmpBools, randomString } from 'utils';
 
 // TODO: resolve browserify issue with export of the aws-sdk module.
 // The current workaround use the AWS that is set on the global window object.
@@ -184,7 +183,7 @@ export function showPool() {
 
 	let ctx = model.routeContext();
 	let { pool, tab } = ctx.params;
-	let { sortBy = 'name', order = 1 } = ctx.query;
+	let { filter, sortBy = 'name', order = 1, page = 0 } = ctx.query;
 
 	
 	model.uiState({
@@ -199,13 +198,16 @@ export function showPool() {
 	});
 
 	readPool(pool);
-	listPoolNodes(pool, sortBy, parseInt(order));
+	listPoolNodes(pool, filter, sortBy, parseInt(order), parseInt(page));
 }
 
 export function showNode() {
 	logAction('showNode');
 
-	let { pool, node, tab } = model.routeContext().params;
+	let ctx= model.routeContext();
+	let { pool, node, tab } = ctx.params;
+	let { page = 0 } = ctx.query;
+
 	model.uiState({
 		layout: 'main-layout',
 		title: node,
@@ -219,7 +221,7 @@ export function showNode() {
 	});
 
 	readNode(node);
-	listNodeObjects(node);		
+	listNodeStoredParts(node, parseInt(page));		
 }	
 
 export function refresh() {
@@ -246,6 +248,7 @@ export function signIn(email, password, redirectTo) {
 						localStorage.setItem('sessionToken', token);
 						
 						model.sessionInfo({ user: email, system: system })
+						model.loginInfo({ retryCount: 0 });
 
 						if (isUndefined(redirectTo)) {
 							redirectTo = `/fe/systems/${system}`;
@@ -273,6 +276,7 @@ export function signIn(email, password, redirectTo) {
 export function signOut() {
 	localStorage.removeItem('sessionToken');
 	model.sessionInfo(null);
+	refresh();
 }
 
 // -----------------------------------------------------
@@ -472,18 +476,28 @@ export function readPool(name) {
 		.done();
 }
 
-export function listPoolNodes(poolName, sortBy, order) {
-	logAction('listPoolNodes', { poolName, sortBy, order });
+export function listPoolNodes(poolName, filter, sortBy, order, page) {
+	logAction('listPoolNodes', { poolName, filter, sortBy, order, page });
 	
 	api.node.list_nodes({  
+		query: {
+			pool: [ poolName ],
+			name: filter
+		},
 		sort: sortBy,
-		order: order
+		order: order,
+		skip: config.paginationPageSize * page,
+		limit: config.paginationPageSize,
+		pagination: true
 	})
 		.then(
 			reply => {
 				model.poolNodeList(reply.nodes);
+				model.poolNodeList.count(reply.total_count);				
+				model.poolNodeList.filter(filter);
 				model.poolNodeList.sortedBy(sortBy);
 				model.poolNodeList.order(order);
+				model.poolNodeList.page(page)
 			}
 		)
 		.done();
@@ -513,11 +527,52 @@ export function readNode(nodeName) {
 }
 
 export function listNodeObjects(nodeName) {
-	logAction('readNode', { nodeName });
+	logAction('listNodeObjects', { nodeName });
 
 	api.node.read_node_maps({ name: nodeName })
 		.then(
 			relpy => model.nodeObjectList(relpy.objects)
+		)
+		.done();
+}
+
+export function listNodeStoredParts(nodeName, page) {
+	logAction('listNodeStoredParts', { nodeName, page });
+
+	api.node.read_node_maps({ name: nodeName })
+		.then(
+			reply => {
+				let parts = reply.objects
+					.map(
+						obj => obj.parts.map(
+							part => {
+								return {
+									object: obj.key,
+									bucket: obj.bucket,
+									info: part
+								}
+							}
+						)
+					)
+					.reduce(
+						(list, objParts) => {
+							list.push(...objParts);
+							return list;
+						},
+						[]
+					);
+
+				let pageParts = parts.slice(
+					config.paginationPageSize * page,
+					config.paginationPageSize * (page + 1),
+				);
+
+				let partsCount = parts.length;
+
+				model.nodeStoredPartList(pageParts);
+				model.nodeStoredPartList.page(page);
+				model.nodeStoredPartList.count(partsCount);
+			}
 		)
 		.done();
 }
@@ -689,6 +744,5 @@ export function uploadFiles(bucketName, files) {
 		)
 		.then(
 			completedCount => completedCount > 0 && refresh()
-		)
-		.done();
+		);
 }

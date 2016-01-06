@@ -6,10 +6,12 @@
 		<input type="password" placeholder="Password" data-bind="textInput: password"/>
 	</div>
 
-	<span class="invalid-msg val-msg">
-		<span data-bind="visible: showInvalidMessage()">
-			Invalid email address or password
-		</span>
-	</span>
-	<button class="btn2 center" data-bind="click: signIn">Sign In</button>
+	<div data-bind="css: { shake: shake }, animation: { end: () => shake(false) }">
+		<span class="invalid-msg val-msg">
+			<span data-bind="visible: showInvalidMessage()">
+				Invalid email address or password
+			</span>
+		</span>	
+		<button class="btn2 center" data-bind="click: signIn">Sign In</button>
+	</div>
 </form>

@@ -25,20 +25,34 @@ class CreateBucketWizardViewModel {
 
 		this.selectedPools = ko.observableArray([ defaultPoolName ])
 			.extend({ required: { message: 'Please select at least one pool for the policy' } });
+
+		this.chooseNameErrors = ko.validation.group({
+			name: this.bucketName
+		})
+
+		this.setPolicyErrors = ko.validation.group({
+			selectedPools: this.selectedPools
+		})
 	}
 
 	validateStep(step) {
 		switch (step) {
 			case 1: 
-				let isNameValid = this.bucketName.isValid();
-				!isNameValid && this.bucketName.valueHasMutated();  
-				return isNameValid;
+				if (this.chooseNameErrors().length > 0) {
+					this.chooseNameErrors.showAllMessages();
+					return false;
+				}
+				break;
 
 			case 2: 
-				let isPoolsValid = this.selectedPools.isValid();
-				!isPoolsValid && this.selectedPools.valueHasMutated();
-				return isPoolsValid;
+				if (this.setPolicyErrors().length > 0) {
+					this.setPolicyErrors.showAllMessages();
+					return false;
+				}
+				break;
 		}
+
+		return true;
 	}
 
 	selectAllPools() {

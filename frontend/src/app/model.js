@@ -58,15 +58,23 @@ export let nodeList = ko.observableArray();
 
 // Hold the current pool node list.
 export let poolNodeList = ko.observableArray();
-poolNodeList.sortedBy = ko.observable();
-poolNodeList.order = ko.observable();
-// poolNodeList.filter = ko.observable();
+poolNodeList.count = ko.observable(0);
+poolNodeList.sortedBy = ko.observable('name');
+poolNodeList.order = ko.observable(1);
+poolNodeList.filter = ko.observable();
+poolNodeList.page = ko.observable(0);
+
 
 // Hold the current node info.
 export let nodeInfo = ko.observable();
 
 // Hold the objects that are stored on the curr node.
 export let nodeObjectList = ko.observableArray();
+
+// Hold the parts that are stored on the curr node.
+export let nodeStoredPartList = ko.observableArray();
+nodeStoredPartList.page = ko.observable(0);
+nodeStoredPartList.count = ko.observable(0);
 
 // Hold the current node info.
 export let objectInfo = ko.observable();

@@ -37,8 +37,16 @@ function main() {
             console.warn('Upgrading failed with', error, error.stack);
             stop();
         })
-       .then(function() {
-            console.log('Upgrading successful, generating 1MB file');
+        .then(function() {
+            console.log('Upgrade successful, waiting on agents to upgrade');
+            return P.when(ops.wait_on_agents_upgrade(argv.target_ip))
+                .fail(function(error) {
+                    console.warn('Agents failed to upgrade', error, error.stack);
+                    stop();
+                });
+        })
+        .then(function() {
+            console.log('Agents upgraded successfuly, generating 1MB file');
             return ops.generate_random_file(1)
                 .then(function(path) {
                     console.log('Verifying ul/dl of 1MB file', path);

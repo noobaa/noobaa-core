@@ -1,11 +1,13 @@
 "use strict";
 
+var _ = require('lodash');
 var request = require('request');
 var fs = require('fs');
 var crypto = require('crypto');
 var P = require('../../util/promise');
 var ec2_wrap = require('../../deploy/ec2_wrapper');
 var promise_utils = require('../../util/promise_utils');
+var api = require('../../api');
 
 var test_file = '/tmp/test_upgrade';
 
@@ -16,6 +18,7 @@ module.exports = {
     download_file: download_file,
     verify_upload_download: verify_upload_download,
     generate_random_file: generate_random_file,
+    wait_on_agents_upgrade: wait_on_agents_upgrade,
     calc_md5: calc_md5,
 };
 
@@ -194,6 +197,61 @@ function generate_random_file(size_mb) {
     return promise_utils.promised_exec('dd if=/dev/random of=' + fname + ' count=' + size_mb + ' bs=1m')
         .then(function() {
             return fname;
+        });
+}
+
+function wait_on_agents_upgrade(ip) {
+    var client = new api.Client();
+    var sys_ver;
+
+    return P.fcall(function() {
+            var auth_params = {
+                email: 'demo@noobaa.com',
+                password: 'DeMo',
+                system: 'demo'
+            };
+            return client.create_auth_token(auth_params);
+        })
+        .then(function() {
+            return P.when(client.bucket.read_system({}))
+                .then(function(res) {
+                    sys_ver = res.version;
+                });
+        })
+        .fail(function(error) {
+            console.warn('Failed with', error, error.stack);
+            throw error;
+        })
+        .then(function() {
+            //Loop on list_agents until all agents version was updated
+            //Timeout at 10 minutes
+            var old_agents = true;
+            var wait_time = 0;
+            return P.delay(5000).then(function() {
+                return promise_utils.pwhile(
+                    function() {
+                        return old_agents;
+                    },
+                    function() {
+                        return P.when(client.node.list_nodes({}))
+                            .then(function(nodes) {
+                                old_agents = false;
+                                _.each(nodes, function(n) {
+                                    if (n.version !== sys_ver) {
+                                        old_agents = true;
+                                    }
+                                });
+                                if (old_agents) {
+                                    if (wait_time >= 120) {
+                                        throw new Error('Timeout while waiting for agents to upgrade');
+                                    }
+                                    console.log('waiting for agents to upgrade');
+                                    wait_time += 5;
+                                    return P.delay(5000);
+                                }
+                            });
+                    });
+            });
         });
 }
 

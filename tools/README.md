@@ -4,7 +4,7 @@ Tools contains various tools which are not part of the working flows but can be 
 
 ###Tools Table of Contents:
 
-* [rpc_shell](#DebugLogger) - Invoke RPC commands.
+* [rpc_shell](#rpc_shell) - Invoke RPC commands.
 
 
 * ###rpc_shell

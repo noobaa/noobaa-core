@@ -416,7 +416,7 @@ module.exports = {
                     key: {
                         type: 'string',
                     },
-                    pagination: {
+                    get_parts_count: {
                         type: 'boolean'
                     },
                 }

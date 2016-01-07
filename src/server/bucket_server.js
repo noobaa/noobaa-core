@@ -81,6 +81,7 @@ function read_bucket(req) {
         deleted: null,
     };
     var reply = {};
+    var associated_pools;
 
     return P.when(db.Bucket
             .findOne(get_bucket_query(req))
@@ -92,16 +93,30 @@ function read_bucket(req) {
                 .then(function(info) {
                     reply = info;
                     // TODO read bucket's storage and objects info
-                    return P.when(db.Node.aggregate_nodes(by_system_id_undeleted, 'tier'));
+                    var query_tiers = _.map(info.tiering.tiers, function(t) { //TODO: Multi tiers
+                        return t.tier;
+                    });
+                    return P.when(db.Tier
+                            .find({
+                                system: req.system.id,
+                                _id: {
+                                    $in: query_tiers
+                                },
+                                deleted: null,
+                            }))
+                        .then(function(tiers) {
+                            associated_pools = tiers[0].pools;
+                            return P.when(db.Node.aggregate_nodes(by_system_id_undeleted, 'pool'));
+                        });
                 })
                 .then(function(nodes_aggregated) {
                     var alloc = 0;
                     var used = 0;
                     var free = 0;
                     var total = 0;
-                    _.each(reply.tiering[0].tiers, function(t) {
-                        var aggr = nodes_aggregated[t.tier];
-                        var replicas = t.replicas || 3;
+                    _.each(associated_pools, function(p) {
+                        var aggr = nodes_aggregated[p];
+                        var replicas = 3; //TODO:: read from actual tier
                         alloc += (aggr && aggr.alloc) || 0;
                         used += (aggr && aggr.used) || 0;
                         total += ((aggr && aggr.total) || 0) / replicas;
@@ -463,7 +478,7 @@ function get_bucket_info(bucket) {
                     deleted: null,
                 }))
             .then(function(tiering) {
-                reply.tiering = tiering;
+                reply.tiering = tiering[0]; //Always only one tiering policy
                 return reply;
             });
     } else {

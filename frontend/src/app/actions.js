@@ -420,7 +420,8 @@ export function readObjectMetadata(bucketName, objectName) {
 		.then(
 			() => 	api.object.read_object_md({
 				 bucket: bucketName, 
-				 key: objectName 
+				 key: objectName,
+				 pagination: true
 			})
 		).then(
 			reply => {

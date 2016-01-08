@@ -14,11 +14,13 @@ var cloud_sync = require('./cloud_sync');
 var build_chunks = require('./build_chunks_worker');
 var dbg = require('../util/debug_module')(__filename);
 var db = require('../server/db');
+var mongo_client = require('../server/stores/mongo_client');
 
 
 dbg.set_process_name('BGWorkers');
 
 db.mongoose_connect();
+mongo_client.connect();
 
 var bg_workers_rpc;
 var http_server;

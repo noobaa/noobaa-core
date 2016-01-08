@@ -19,7 +19,7 @@ module.exports = {
 function register_servers() {
     var options = {
         middleware: [
-            require('./stores/system_store').get_system_info_for_request,
+            require('./stores/system_store').get_system_store_data_for_request,
             // setup the rpc authorizer to check the request auth_token
             require('./auth_server').authorize,
         ]

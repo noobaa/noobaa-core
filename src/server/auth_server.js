@@ -64,7 +64,7 @@ function create_auth(req) {
         if (!email) return;
 
         // consider email not found the same as bad password to avoid phishing attacks.
-        target_account = req.system_info.accounts_by_email[email];
+        target_account = req.system_store_data.accounts_by_email[email];
         if (!target_account) throw req.unauthorized('credentials account not found');
 
         // when password is not provided it means we want to give authorization
@@ -91,7 +91,7 @@ function create_auth(req) {
                 throw req.unauthorized('no account_id in auth and no credetials');
             }
 
-            var account_arg = req.system_info.get_by_id(req.auth.account_id);
+            var account_arg = req.system_store_data.get_by_id(req.auth.account_id);
             target_account = target_account || account_arg;
             authenticated_account = authenticated_account || account_arg;
 
@@ -109,7 +109,7 @@ function create_auth(req) {
         if (system_name) {
 
             // find system by name
-            system = req.system_info.get_system_by_name(system_name);
+            system = req.system_store_data.get_system_by_name(system_name);
             if (!system || system.deleted) throw req.unauthorized('system not found');
 
             // find the role of authenticated_account in the system
@@ -179,7 +179,7 @@ function create_access_key_auth(req) {
     var signature = req.rpc_params.signature;
     // var expiry = req.rpc_params.expiry;
 
-    var system = _.find(req.system_info.systems, function(sys) {
+    var system = _.find(req.system_store_data.systems, function(sys) {
         return !!_.find(sys.access_keys, 'access_key', access_key);
     });
     if (!system || system.deleted) {
@@ -331,8 +331,8 @@ function _prepare_auth_request(req) {
 
         dbg.log1('load_auth:', options, req.auth);
         if (req.auth) {
-            req.account = req.system_info.get_by_id(req.auth.account_id);
-            req.system = req.system_info.get_by_id(req.auth.system_id);
+            req.account = req.system_store_data.get_by_id(req.auth.account_id);
+            req.system = req.system_store_data.get_by_id(req.auth.system_id);
             req.role = req.auth.role;
         }
         var ignore_missing_account = !options.account;

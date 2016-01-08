@@ -80,10 +80,10 @@ function SystemStore() {
     var self = this;
     self.START_REFRESH_THRESHOLD = 60000;
     self.FORCE_REFRESH_THRESHOLD = 120000;
-    self.get_system_info_for_request = function(req) {
+    self.get_system_store_data_for_request = function(req) {
         req.system_store = self;
-        return self.get().then(function(system_info) {
-            req.system_info = system_info;
+        return self.get().then(function(system_store_data) {
+            req.system_store_data = system_store_data;
         });
     };
 }
@@ -93,15 +93,15 @@ SystemStore.prototype.get = function() {
     var self = this;
     return P.fcall(function() {
         var load_time = 0;
-        if (self.system_info) {
-            load_time = self.system_info.time;
+        if (self.system_store_data) {
+            load_time = self.system_store_data.time;
         }
         var since_load = Date.now() - load_time;
         if (since_load < self.START_REFRESH_THRESHOLD) {
-            return self.system_info;
+            return self.system_store_data;
         } else if (since_load < self.FORCE_REFRESH_THRESHOLD) {
             self.load();
-            return self.system_info;
+            return self.system_store_data;
         } else {
             return self.load();
         }
@@ -112,14 +112,14 @@ SystemStore.prototype.get = function() {
 SystemStore.prototype.get_nonblocking = function() {
     var self = this;
     var load_time = 0;
-    if (self.system_info) {
-        load_time = self.system_info.time;
+    if (self.system_store_data) {
+        load_time = self.system_store_data.time;
     }
     var since_load = Date.now() - load_time;
     if (since_load < self.FORCE_REFRESH_THRESHOLD) {
-        return self.system_info;
+        return self.system_store_data;
     }
-    throw new Error('cannot return system info nonblocking');
+    throw new Error('cannot return system store nonblocking');
 };
 
 
@@ -127,18 +127,18 @@ SystemStore.prototype.load = function() {
     var self = this;
     if (self._load_promise) return self._load_promise;
     dbg.log0('SystemStore: fetching ...');
-    var system_info = new SystemInfo();
+    var system_store_data = new SystemStoreData();
     var millistamp = time_utils.millistamp();
-    self._load_promise = self.fetch_data(system_info)
+    self._load_promise = self.fetch_data(system_store_data)
         .then(function() {
             dbg.log0('SystemStore: fetch took', time_utils.millitook(millistamp));
-            dbg.log0('SystemStore: fetch size', size_utils.human_size(JSON.stringify(system_info).length));
+            dbg.log0('SystemStore: fetch size', size_utils.human_size(JSON.stringify(system_store_data).length));
             millistamp = time_utils.millistamp();
-            system_info.rebuild();
-            self.system_info = system_info;
+            system_store_data.rebuild();
+            self.system_store_data = system_store_data;
             dbg.log0('SystemStore: rebuild took', time_utils.millitook(millistamp));
-            dbg.log0('SystemStore: system_info', system_info);
-            return self.system_info;
+            dbg.log0('SystemStore: system_store_data', system_store_data);
+            return self.system_store_data;
         })
         .catch(function(err) {
             dbg.error('SystemStore: load failed', err.stack || err);
@@ -153,7 +153,7 @@ SystemStore.prototype.load = function() {
 
 
 SystemStore.prototype.invalidate = function() {
-    this.system_info = null;
+    this.system_store_data = null;
 };
 
 
@@ -250,21 +250,21 @@ SystemStore.prototype.make_changes = function(changes) {
 
 /**
  *
- * SystemInfo
+ * SystemStoreData
  *
  */
-function SystemInfo(data) {
+function SystemStoreData(data) {
     this.time = Date.now();
 }
 
-SystemInfo.prototype.rebuild = function() {
+SystemStoreData.prototype.rebuild = function() {
     this.rebuild_idmap();
     this.rebuild_object_links();
     this.rebuild_indexes();
     this.rebuild_custom();
 };
 
-SystemInfo.prototype.rebuild_idmap = function() {
+SystemStoreData.prototype.rebuild_idmap = function() {
     var self = this;
     self.idmap = {};
     _.each(COLLECTIONS, function(schema, collection) {
@@ -279,7 +279,7 @@ SystemInfo.prototype.rebuild_idmap = function() {
     });
 };
 
-SystemInfo.prototype.rebuild_object_links = function() {
+SystemStoreData.prototype.rebuild_object_links = function() {
     var self = this;
     _.each(COLLECTIONS, function(schema, collection) {
         var items = self[collection];
@@ -305,7 +305,7 @@ SystemInfo.prototype.rebuild_object_links = function() {
 };
 
 
-SystemInfo.prototype.rebuild_indexes = function() {
+SystemStoreData.prototype.rebuild_indexes = function() {
     var self = this;
     _.each(INDEXES, function(index) {
         _.each(self[index.collection], function(item) {
@@ -318,7 +318,7 @@ SystemInfo.prototype.rebuild_indexes = function() {
                 map[key].push(val);
             } else {
                 if (key in map) {
-                    dbg.error('SystemInfo: system index collision on',
+                    dbg.error('SystemStoreData: system index collision on',
                         index.name, key, val, map[key]);
                 } else {
                     map[key] = val;
@@ -328,14 +328,14 @@ SystemInfo.prototype.rebuild_indexes = function() {
     });
 };
 
-SystemInfo.prototype.rebuild_custom = function() {
+SystemStoreData.prototype.rebuild_custom = function() {
     // var self = this;
 };
 
-SystemInfo.prototype.get_by_id = function(id) {
+SystemStoreData.prototype.get_by_id = function(id) {
     return id ? this.idmap[id.toString()] : null;
 };
 
-SystemInfo.prototype.get_system_by_name = function(name) {
+SystemStoreData.prototype.get_system_by_name = function(name) {
     return this.systems_by_name[name];
 };

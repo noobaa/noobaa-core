@@ -1,7 +1,7 @@
 'use strict';
 
 var _ = require('lodash');
-var P = require('../../util/promise');
+var P = require('./promise');
 
 module.exports = {
     uniq_ids: uniq_ids,
@@ -30,7 +30,8 @@ function uniq_ids(docs, doc_path) {
 function populate(doc_path, collection) {
     return function(docs) {
         var ids = uniq_ids(docs, doc_path);
-        console.log('POPULATE:', collection.modelName, ids);
+        collection = collection.collection || collection;
+        console.log('POPULATE:', collection.collectionName, ids);
         if (!docs.length || !ids.length) return docs;
         return P.when(collection.collection.find({
                 _id: {

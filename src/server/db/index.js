@@ -22,7 +22,7 @@ var DataBlock = require('./data_block');
 var ActivityLog = require('./activity_log');
 var Pool = require('./pool');
 var TieringPolicy = require('./tiering_policy');
-var dbutils = require('./dbutils');
+var mongo_utils = require('../../util/mongo_utils');
 // var dbg = require('../util/debug_module')(__filename);
 var debug_mode = (process.env.DEBUG_MODE === 'true');
 var mongoose_connected = false;
@@ -32,6 +32,12 @@ var mongoose_timeout = null;
 if (debug_mode) {
     mongoose.set('debug', mongoose_logger(dbg.log0.bind(dbg)));
 }
+
+var MONGODB_URL =
+    process.env.MONGODB_URL ||
+    process.env.MONGOHQ_URL ||
+    process.env.MONGOLAB_URI ||
+    'mongodb://127.0.0.1/nbcore';
 
 mongoose.connection.on('connected', function() {
     // call ensureIndexes explicitly for each model
@@ -96,8 +102,8 @@ module.exports = {
     check_already_exists: check_already_exists,
     is_err_exists: is_err_exists,
     obj_ids_difference: obj_ids_difference,
-    populate: dbutils.populate,
-    uniq_ids: dbutils.uniq_ids,
+    populate: mongo_utils.populate,
+    uniq_ids: mongo_utils.uniq_ids,
 
     AccountCache: new LRUCache({
         name: 'AccountCache',
@@ -209,10 +215,7 @@ function mongoose_connect() {
     clearTimeout(mongoose_timeout);
     mongoose_timeout = null;
     if (!mongoose_connected) {
-        mongoose.connect(
-            process.env.MONGOHQ_URL ||
-            process.env.MONGOLAB_URI ||
-            'mongodb://localhost/nbcore');
+        mongoose.connect(MONGODB_URL);
     }
 }
 

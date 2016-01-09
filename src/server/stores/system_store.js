@@ -129,7 +129,7 @@ SystemStore.prototype.load = function() {
     dbg.log0('SystemStore: fetching ...');
     var system_store_data = new SystemStoreData();
     var millistamp = time_utils.millistamp();
-    self._load_promise = self.fetch_data(system_store_data)
+    self._load_promise = self.read_data_from_db(system_store_data)
         .then(function() {
             dbg.log0('SystemStore: fetch took', time_utils.millitook(millistamp));
             dbg.log0('SystemStore: fetch size', size_utils.human_size(JSON.stringify(system_store_data).length));
@@ -157,7 +157,7 @@ SystemStore.prototype.invalidate = function() {
 };
 
 
-SystemStore.prototype.fetch_data = function(target) {
+SystemStore.prototype.read_data_from_db = function(target) {
     // var self = this;
     var non_deleted_query = {
         deleted: null

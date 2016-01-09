@@ -48,23 +48,19 @@ module.exports = object_server;
  *
  */
 function create_multipart_upload(req) {
-    return load_bucket(req)
-        .then(function() {
-            dbg.log0('create_multipart_upload xattr', req.rpc_params);
-            var info = {
-                system: req.system.id,
-                bucket: req.bucket.id,
-                key: req.rpc_params.key,
-                size: req.rpc_params.size,
-                content_type: req.rpc_params.content_type || 'application/octet-stream',
-                upload_size: 0,
-                cloud_synced: false,
-                xattr: req.rpc_params.xattr
-            };
-            return P.when(db.ObjectMD.create(info));
-        }).then(function(data) {
-            dbg.log0('after create_multipart_upload', data);
-        });
+    load_bucket(req);
+    dbg.log0('create_multipart_upload xattr', req.rpc_params);
+    var info = {
+        system: req.system.id,
+        bucket: req.bucket.id,
+        key: req.rpc_params.key,
+        size: req.rpc_params.size,
+        content_type: req.rpc_params.content_type || 'application/octet-stream',
+        upload_size: 0,
+        cloud_synced: false,
+        xattr: req.rpc_params.xattr
+    };
+    return P.when(db.ObjectMD.create(info)).return();
 }
 
 
@@ -137,14 +133,17 @@ function complete_multipart_upload(req) {
                 obj: obj,
             });
 
-            return obj.update({
+            return db.ObjectMD.collection.updateOne({
+                _id: obj._id
+            }, {
+                $set: {
                     size: object_size || obj.size,
                     etag: obj_etag,
-                    $unset: {
-                        upload_size: 1
-                    }
-                })
-                .exec();
+                },
+                $unset: {
+                    upload_size: 1
+                }
+            });
         }).then(null, function(err) {
             dbg.error('complete_multipart_upload_err ', err, err.stack);
         })
@@ -342,8 +341,8 @@ function update_object_md(req) {
  */
 function delete_object(req) {
     var deleted_object;
-    return load_bucket(req)
-        .then(function() {
+    load_bucket(req);
+    return P.fcall(function() {
             var query = _.omit(object_md_query(req), 'deleted');
             return db.ObjectMD.findOne(query).exec();
         })
@@ -387,8 +386,8 @@ var ONE_LEVEL_SLASH_DELIMITER = one_level_delimiter('/');
  */
 function list_objects(req) {
     dbg.log0('key query', req.rpc_params);
-    return load_bucket(req)
-        .then(function() {
+    load_bucket(req);
+    return P.fcall(function() {
             var info = _.omit(object_md_query(req), 'key');
             if (req.rpc_params.key_query) {
                 info.key = new RegExp(string_utils.escapeRegExp(req.rpc_params.key_query), 'i');
@@ -493,16 +492,7 @@ function get_object_info(md) {
 }
 
 function load_bucket(req) {
-    return db.BucketCache.get({
-            system: req.system.id,
-            name: req.rpc_params.bucket,
-        })
-        .then(db.check_not_deleted(req, 'bucket'))
-        .then(function(bucket) {
-            req.bucket = bucket;
-        }).then(null, function(err) {
-            dbg.error('load bucket error:', err);
-        });
+    req.bucket = req.system.buckets_by_name[req.rpc_params.bucket];
 }
 
 function object_md_query(req) {
@@ -515,16 +505,16 @@ function object_md_query(req) {
 }
 
 function find_object_md(req) {
-    return load_bucket(req)
-        .then(function() {
+    load_bucket(req);
+    return P.fcall(function() {
             return db.ObjectMD.findOne(object_md_query(req)).exec();
         })
         .then(db.check_not_deleted(req, 'object'));
 }
 
 function find_cached_object_md(req) {
-    return load_bucket(req)
-        .then(function() {
+    load_bucket(req);
+    return P.fcall(function() {
             return db.ObjectMDCache.get({
                 system: req.system.id,
                 bucket: req.bucket.id,

@@ -80,12 +80,6 @@ function SystemStore() {
     var self = this;
     self.START_REFRESH_THRESHOLD = 60000;
     self.FORCE_REFRESH_THRESHOLD = 120000;
-    self.get_system_store_data_for_request = function(req) {
-        req.system_store = self;
-        return self.get().then(function(system_store_data) {
-            req.system_store_data = system_store_data;
-        });
-    };
 }
 
 
@@ -179,9 +173,9 @@ SystemStore.prototype.read_data_from_db = function(target) {
  *
  * make_changes({
  *   systems: {
- *      insert: {...}            <or array of inserts>,
- *      update: {_id:123, ...}   <or array of updates>,
- *      remove: 789              <or array of ids to remove>,
+ *      insert: [{...}]            <array of inserts>,
+ *      update: [{_id:123, ...}]   <array of updates>,
+ *      remove: [789]              <array of ids to remove>,
  *   },
  *   buckets: { insert, update, remove },
  * })
@@ -199,45 +193,21 @@ SystemStore.prototype.make_changes = function(changes) {
             bulk_per_collection[collection] =
             bulk_per_collection[collection] ||
             mongo_client.db.collection(collection).initializeUnorderedBulkOp();
-        if (change.insert) {
-            if (_.isArray(change.insert)) {
-                _.each(change.insert, function(insert) {
-                    bulk.insert(insert);
-                });
-            } else {
-                bulk.insert(change.insert);
-            }
-        }
-        if (change.update) {
-            if (_.isArray(change.update)) {
-                _.each(change.update, function(update) {
-                    bulk.find({
-                        _id: update._id
-                    }).updateOne({
-                        $set: update
-                    });
-                });
-            } else {
-                bulk.find({
-                    _id: change.update._id
-                }).updateOne({
-                    $set: change.update
-                });
-            }
-        }
-        if (change.remove) {
-            if (_.isArray(change.remove)) {
-                _.each(change.remove, function(id) {
-                    bulk.find({
-                        _id: id
-                    }).removeOne();
-                });
-            } else {
-                bulk.find({
-                    _id: change.remove
-                }).removeOne();
-            }
-        }
+        _.each(change.insert, function(insert) {
+            bulk.insert(insert);
+        });
+        _.each(change.update, function(update) {
+            bulk.find({
+                _id: update._id
+            }).updateOne({
+                $set: update
+            });
+        });
+        _.each(change.remove, function(id) {
+            bulk.find({
+                _id: id
+            }).removeOne();
+        });
     });
     return P.all(_.map(bulk_per_collection, function(bulk) {
             return P.ninvoke(bulk, 'execute');

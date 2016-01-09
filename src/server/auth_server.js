@@ -5,6 +5,7 @@ var _ = require('lodash');
 var P = require('../util/promise');
 var jwt = require('jsonwebtoken');
 var dbg = require('../util/debug_module')(__filename);
+var system_store = require('./stores/system_store');
 var bcrypt = require('bcrypt');
 var S3Auth = require('aws-sdk/lib/signers/s3');
 var s3_auth = new S3Auth();
@@ -56,6 +57,7 @@ function create_auth(req) {
     var authenticated_account;
     var target_account;
     var system;
+    var system_store_data = system_store.get_nonblocking();
 
     return P.fcall(function() {
 
@@ -64,7 +66,7 @@ function create_auth(req) {
         if (!email) return;
 
         // consider email not found the same as bad password to avoid phishing attacks.
-        target_account = req.system_store_data.accounts_by_email[email];
+        target_account = system_store_data.accounts_by_email[email];
         if (!target_account) throw req.unauthorized('credentials account not found');
 
         // when password is not provided it means we want to give authorization
@@ -91,7 +93,7 @@ function create_auth(req) {
                 throw req.unauthorized('no account_id in auth and no credetials');
             }
 
-            var account_arg = req.system_store_data.get_by_id(req.auth.account_id);
+            var account_arg = system_store_data.get_by_id(req.auth.account_id);
             target_account = target_account || account_arg;
             authenticated_account = authenticated_account || account_arg;
 
@@ -109,7 +111,7 @@ function create_auth(req) {
         if (system_name) {
 
             // find system by name
-            system = req.system_store_data.get_system_by_name(system_name);
+            system = system_store_data.get_system_by_name(system_name);
             if (!system || system.deleted) throw req.unauthorized('system not found');
 
             // find the role of authenticated_account in the system
@@ -178,8 +180,9 @@ function create_access_key_auth(req) {
     var string_to_sign = req.rpc_params.string_to_sign;
     var signature = req.rpc_params.signature;
     // var expiry = req.rpc_params.expiry;
+    var system_store_data = system_store.get_nonblocking();
 
-    var system = _.find(req.system_store_data.systems, function(sys) {
+    var system = _.find(system_store_data.systems, function(sys) {
         return !!_.find(sys.access_keys, 'access_key', access_key);
     });
     if (!system || system.deleted) {
@@ -327,12 +330,13 @@ function _prepare_auth_request(req) {
      *      - <Array> roles: acceptable roles
      */
     req.load_auth = function(options) {
+        var system_store_data = system_store.get_nonblocking();
         options = options || {};
 
         dbg.log1('load_auth:', options, req.auth);
         if (req.auth) {
-            req.account = req.system_store_data.get_by_id(req.auth.account_id);
-            req.system = req.system_store_data.get_by_id(req.auth.system_id);
+            req.account = system_store_data.get_by_id(req.auth.account_id);
+            req.system = system_store_data.get_by_id(req.auth.system_id);
             req.role = req.auth.role;
         }
         var ignore_missing_account = !options.account;

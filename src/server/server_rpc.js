@@ -17,11 +17,15 @@ module.exports = {
 };
 
 function register_servers() {
+    var system_store = require('./stores/system_store');
+    var auth_server = require('./auth_server');
     var options = {
         middleware: [
-            require('./stores/system_store').get_system_store_data_for_request,
+            function(req) {
+                return system_store.get();
+            },
             // setup the rpc authorizer to check the request auth_token
-            require('./auth_server').authorize,
+            auth_server.authorize,
         ]
     };
 

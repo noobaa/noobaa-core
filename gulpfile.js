@@ -607,9 +607,12 @@ function build_rest_distro() {
 
 
 gulp.task('run_fe_build', function(cb) {
+    // Works for both window 32bit and 64bit versions.
+    let gulpCmd = process.platform === 'win32' ? 'gulp.cmd' : 'gulp';
+
     // Run the fe gulp build.
     var proc = child_process.spawn(
-        path.join(process.cwd(),'node_modules','.bin','gulp.cmd'),
+        path.join(process.cwd(),'node_modules','.bin', gulpCmd),
         ['build'], 
         { 
             cwd: path.join(process.cwd(),'frontend') 

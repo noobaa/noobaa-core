@@ -83,19 +83,19 @@ function SystemStore() {
 }
 
 
-SystemStore.prototype.get = function() {
+SystemStore.prototype.refresh = function() {
     var self = this;
     return P.fcall(function() {
         var load_time = 0;
-        if (self.system_store_data) {
-            load_time = self.system_store_data.time;
+        if (self.data) {
+            load_time = self.data.time;
         }
         var since_load = Date.now() - load_time;
         if (since_load < self.START_REFRESH_THRESHOLD) {
-            return self.system_store_data;
+            return self.data;
         } else if (since_load < self.FORCE_REFRESH_THRESHOLD) {
             self.load();
-            return self.system_store_data;
+            return self.data;
         } else {
             return self.load();
         }
@@ -103,36 +103,22 @@ SystemStore.prototype.get = function() {
 };
 
 
-SystemStore.prototype.get_nonblocking = function() {
-    var self = this;
-    var load_time = 0;
-    if (self.system_store_data) {
-        load_time = self.system_store_data.time;
-    }
-    var since_load = Date.now() - load_time;
-    if (since_load < self.FORCE_REFRESH_THRESHOLD) {
-        return self.system_store_data;
-    }
-    throw new Error('cannot return system store nonblocking');
-};
-
-
 SystemStore.prototype.load = function() {
     var self = this;
     if (self._load_promise) return self._load_promise;
     dbg.log0('SystemStore: fetching ...');
-    var system_store_data = new SystemStoreData();
+    var new_data = new SystemStoreData();
     var millistamp = time_utils.millistamp();
-    self._load_promise = self.read_data_from_db(system_store_data)
+    self._load_promise = self.read_data_from_db(new_data)
         .then(function() {
             dbg.log0('SystemStore: fetch took', time_utils.millitook(millistamp));
-            dbg.log0('SystemStore: fetch size', size_utils.human_size(JSON.stringify(system_store_data).length));
+            dbg.log0('SystemStore: fetch size', size_utils.human_size(JSON.stringify(new_data).length));
             millistamp = time_utils.millistamp();
-            system_store_data.rebuild();
-            self.system_store_data = system_store_data;
+            new_data.rebuild();
+            self.data = new_data;
             dbg.log0('SystemStore: rebuild took', time_utils.millitook(millistamp));
-            dbg.log0('SystemStore: system_store_data', system_store_data);
-            return self.system_store_data;
+            dbg.log0('SystemStore: new_data', new_data);
+            return self.data;
         })
         .catch(function(err) {
             dbg.error('SystemStore: load failed', err.stack || err);
@@ -143,11 +129,6 @@ SystemStore.prototype.load = function() {
             self._load_promise = null;
         });
     return self._load_promise;
-};
-
-
-SystemStore.prototype.invalidate = function() {
-    this.system_store_data = null;
 };
 
 
@@ -202,13 +183,13 @@ SystemStore.prototype.make_changes = function(changes) {
     }
 
     return self.load()
-        .then(function(system_store_data) {
+        .then(function(data) {
 
             _.each(changes.insert, function(list, collection) {
                 var bulk = get_bulk(collection);
                 _.each(list, function(item) {
                     self.check_schema(collection, item);
-                    system_store_data.check_indexes(collection, item);
+                    data.check_indexes(collection, item);
                     bulk.insert(item);
                 });
             });
@@ -216,7 +197,7 @@ SystemStore.prototype.make_changes = function(changes) {
                 var bulk = get_bulk(collection);
                 _.each(list, function(item) {
                     self.check_schema(collection, item);
-                    system_store_data.check_indexes(collection, item);
+                    data.check_indexes(collection, item);
                     bulk.find({
                         _id: item._id
                     }).updateOne({
@@ -272,11 +253,10 @@ SystemStoreData.prototype.rebuild_idmap = function() {
     _.each(COLLECTIONS, function(schema, collection) {
         var items = self[collection];
         _.each(items, function(item) {
-            // add to idmap
             self.idmap[item._id.toString()] = item;
-            // we keep backward compatible since mongoose exposes 'id'
-            // and we have existing code that uses it
-            item.id = item._id;
+            // keep backward compatible since mongoose exposes 'id'
+            // for the sake of existing code that uses it
+            // item.id = item._id;
         });
     });
 };

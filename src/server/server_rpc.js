@@ -22,7 +22,7 @@ function register_servers() {
     var options = {
         middleware: [
             function(req) {
-                return system_store.get();
+                return system_store.refresh();
             },
             // setup the rpc authorizer to check the request auth_token
             auth_server.authorize,

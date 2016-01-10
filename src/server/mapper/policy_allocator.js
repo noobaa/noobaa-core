@@ -211,8 +211,7 @@ function classify_block(fragment, block, now) {
  * Reading tiering info for a bucket
  */
 function get_tiering_info(bucket_id) {
-    var system_store_data = system_store.get_nonblocking();
-    var bucket = system_store_data.get_by_id(bucket_id);
+    var bucket = system_store.data.get_by_id(bucket_id);
     var tiers = _.pluck(bucket.tiering.tiers, 'tier');
     return tiers;
 }

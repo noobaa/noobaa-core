@@ -78,8 +78,8 @@ var INDEXES = [{
  */
 function SystemStore() {
     var self = this;
-    self.START_REFRESH_THRESHOLD = 60000;
-    self.FORCE_REFRESH_THRESHOLD = 120000;
+    self.START_REFRESH_THRESHOLD = 10000;
+    self.FORCE_REFRESH_THRESHOLD = 60000;
 }
 
 
@@ -172,49 +172,78 @@ SystemStore.prototype.read_data_from_db = function(target) {
  * send batch of changes to the system db. example:
  *
  * make_changes({
- *   systems: {
- *      insert: [{...}]            <array of inserts>,
- *      update: [{_id:123, ...}]   <array of updates>,
- *      remove: [789]              <array of ids to remove>,
+ *   insert: {
+ *      systems: [{...}],
+ *      buckets: [{...}],
  *   },
- *   buckets: { insert, update, remove },
+ *   update: {
+ *      systems: [{_id:123, ...}],
+ *      buckets: [{_id:456, ...}],
+ *   },
+ *   remove: {
+ *      systems: [123, 789],
+ *   }
  * })
  *
  */
 SystemStore.prototype.make_changes = function(changes) {
     var self = this;
-    self.invalidate();
     var bulk_per_collection = {};
-    _.each(changes, function(change, collection) {
+
+    function get_bulk(collection) {
         if (!(collection in COLLECTIONS)) {
-            throw new Error('SystemStore: make_changes bad collection name' + collection);
+            throw new Error('SystemStore: make_changes bad collection name - ' + collection);
         }
         var bulk =
             bulk_per_collection[collection] =
             bulk_per_collection[collection] ||
             mongo_client.db.collection(collection).initializeUnorderedBulkOp();
-        _.each(change.insert, function(insert) {
-            bulk.insert(insert);
-        });
-        _.each(change.update, function(update) {
-            bulk.find({
-                _id: update._id
-            }).updateOne({
-                $set: update
+        return bulk;
+    }
+
+    return self.load()
+        .then(function(system_store_data) {
+
+            _.each(changes.insert, function(list, collection) {
+                var bulk = get_bulk(collection);
+                _.each(list, function(item) {
+                    self.check_schema(collection, item);
+                    system_store_data.check_indexes(collection, item);
+                    bulk.insert(item);
+                });
             });
+            _.each(changes.update, function(list, collection) {
+                var bulk = get_bulk(collection);
+                _.each(list, function(item) {
+                    self.check_schema(collection, item);
+                    system_store_data.check_indexes(collection, item);
+                    bulk.find({
+                        _id: item._id
+                    }).updateOne({
+                        $set: item
+                    });
+                });
+            });
+            _.each(changes.remove, function(list, collection) {
+                var bulk = get_bulk(collection);
+                _.each(list, function(id) {
+                    bulk.find({
+                        _id: id
+                    }).removeOne();
+                });
+            });
+
+            return P.all(_.map(bulk_per_collection, function(bulk) {
+                return P.ninvoke(bulk, 'execute');
+            }));
+        })
+        .then(function() {
+            return self.load();
         });
-        _.each(change.remove, function(id) {
-            bulk.find({
-                _id: id
-            }).removeOne();
-        });
-    });
-    return P.all(_.map(bulk_per_collection, function(bulk) {
-            return P.ninvoke(bulk, 'execute');
-        }))
-        .finally(function() {
-            self.invalidate();
-        });
+};
+
+SystemStore.prototype.check_schema = function(collection, item) {
+    // TODO SystemStore.check_schema
 };
 
 
@@ -227,11 +256,14 @@ function SystemStoreData(data) {
     this.time = Date.now();
 }
 
+SystemStoreData.prototype.get_by_id = function(id) {
+    return id ? this.idmap[id.toString()] : null;
+};
+
 SystemStoreData.prototype.rebuild = function() {
     this.rebuild_idmap();
     this.rebuild_object_links();
     this.rebuild_indexes();
-    this.rebuild_custom();
 };
 
 SystemStoreData.prototype.rebuild_idmap = function() {
@@ -298,14 +330,19 @@ SystemStoreData.prototype.rebuild_indexes = function() {
     });
 };
 
-SystemStoreData.prototype.rebuild_custom = function() {
-    // var self = this;
-};
-
-SystemStoreData.prototype.get_by_id = function(id) {
-    return id ? this.idmap[id.toString()] : null;
-};
-
-SystemStoreData.prototype.get_system_by_name = function(name) {
-    return this.systems_by_name[name];
+SystemStoreData.prototype.check_indexes = function(collection, item) {
+    var self = this;
+    _.each(INDEXES, function(index) {
+        if (index.collection !== collection) return;
+        var key = _.get(item, index.key || '_id');
+        var context = index.context ? _.get(item, index.context) : self;
+        var map = context[index.name] = context[index.name] || {};
+        if (!index.val_array) {
+            if (key in map) {
+                var err = new Error(index.name + ' already exists');
+                err.rpc_code = 'CONFLICT';
+                throw err;
+            }
+        }
+    });
 };

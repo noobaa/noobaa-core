@@ -111,7 +111,7 @@ function create_auth(req) {
         if (system_name) {
 
             // find system by name
-            system = system_store_data.get_system_by_name(system_name);
+            system = system_store_data.systems_by_name[system_name];
             if (!system || system.deleted) throw req.unauthorized('system not found');
 
             // find the role of authenticated_account in the system

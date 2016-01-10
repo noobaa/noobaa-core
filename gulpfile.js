@@ -366,7 +366,7 @@ function pack(dest, name) {
             agent_distro, 
             build_stream, 
             build_native_stream, 
-            build_fe_strea  m, 
+            build_fe_stream, 
             node_modules_stream
         )
         .pipe(gulp_rename(function(p) {

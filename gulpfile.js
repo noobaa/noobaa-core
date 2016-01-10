@@ -665,15 +665,13 @@ function package_build_task() {
         });
 }
 
-if (skip_install === true) {
-    gulp.task('package_build', ['lint', 'agent', 'run_fe_build'], function() {
-        package_build_task();
-    });
-} else {
-    gulp.task('package_build', ['lint', 'install', 'agent'], function() {
-        package_build_task();
-    });
-}
+var deps = skip_install ?
+    ['lint', 'agent', 'run_fe_build'] :
+    ['lint', 'install', 'agent', 'run_fe_build'];
+
+gulp.task('package_build', deps, function() {
+    return package_build_task();
+});
 
 
 gulp.task('client_libs', ['bower'], function() {

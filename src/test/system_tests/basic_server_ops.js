@@ -211,10 +211,10 @@ function wait_on_agents_upgrade(ip) {
                 password: 'DeMo',
                 system: 'demo'
             };
-            return rpc.client.create_auth_token(auth_params);
+            return client.create_auth_token(auth_params);
         })
         .then(function() {
-            return P.when(client.bucket.read_system({}))
+            return P.when(rpc.client.bucket.read_system({}))
                 .then(function(res) {
                     sys_ver = res.version;
                 });

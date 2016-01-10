@@ -12,6 +12,9 @@ var dbg = require('../util/debug_module')(__filename);
  *
  */
 var tier_server = {
+    new_tier_defaults: new_tier_defaults,
+    new_policy_defaults: new_policy_defaults,
+
     //Tiers
     create_tier: create_tier,
     read_tier: read_tier,
@@ -30,6 +33,32 @@ var tier_server = {
 module.exports = tier_server;
 
 
+
+function new_tier_defaults(name, system_id, pool_ids) {
+    return {
+        _id: db.new_object_id(),
+        system: system_id,
+        name: name,
+        replicas: 3,
+        data_fragments: 1,
+        parity_fragments: 0,
+        data_placement: 'SPREAD',
+        nodes: [],
+        pools: pool_ids,
+    };
+}
+
+function new_policy_defaults(name, system_id, tier_id) {
+    return {
+        _id: db.new_object_id(),
+        system: system_id,
+        name: name,
+        tiers: [{
+            order: 0,
+            tier: tier_id
+        }]
+    };
+}
 
 
 /**

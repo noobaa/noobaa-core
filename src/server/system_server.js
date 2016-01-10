@@ -8,6 +8,8 @@
  *
  */
 var system_server = {
+    new_system_defaults: new_system_defaults,
+    new_system_changes: new_system_changes,
 
     create_system: create_system,
     read_system: read_system,
@@ -34,22 +36,81 @@ var system_server = {
 module.exports = system_server;
 
 var _ = require('lodash');
+var P = require('../util/promise');
 var crypto = require('crypto');
 var ip_module = require('ip');
-var AWS = require('aws-sdk');
+// var AWS = require('aws-sdk');
 var diag = require('./utils/server_diagnostics');
 var cs_utils = require('./utils/cloud_sync_utils');
 var db = require('./db');
 var server_rpc = require('./server_rpc').server_rpc;
 var bg_worker = require('./server_rpc').bg_worker;
 var bucket_server = require('./bucket_server');
+var pool_server = require('./pool_server');
+var tier_server = require('./tier_server');
+var system_store = require('./stores/system_store');
 var size_utils = require('../util/size_utils');
-var P = require('../util/promise');
 // var stun = require('../rpc/stun');
 var promise_utils = require('../util/promise_utils');
 var dbg = require('../util/debug_module')(__filename);
-var promise_utils = require('../util/promise_utils');
 var pkg = require('../../package.json');
+
+
+function new_system_defaults(name, owner_account_id) {
+    var system = {
+        _id: db.new_object_id(),
+        name: name,
+        owner: owner_account_id,
+        access_keys: (name === 'demo') ? [{
+            access_key: '123',
+            secret_key: 'abc',
+        }] : [{
+            access_key: crypto.randomBytes(16).toString('hex'),
+            secret_key: crypto.randomBytes(32).toString('hex'),
+        }],
+        resources: {
+            // set default package names
+            agent_installer: 'noobaa-setup.exe',
+            s3rest_installer: 'noobaa-s3rest.exe',
+            linux_agent_installer: 'noobaa-setup'
+        },
+        n2n_config: {
+            tcp_tls: true,
+            tcp_active: true,
+            tcp_permanent_passive: {
+                min: 60100,
+                max: 60600
+            },
+            udp_dtls: true,
+            udp_port: true,
+        },
+    };
+    return system;
+}
+
+function new_system_changes(name, owner_account_id) {
+    var system = new_system_defaults(name, owner_account_id);
+    var pool = pool_server.new_pool_defaults('default_pool', system._id);
+    var tier = tier_server.new_tier_defaults('nodes', system._id, [pool._id]);
+    var policy = tier_server.new_policy_defaults('default_tiering', system._id, tier._id);
+    var bucket = bucket_server.new_bucket_defaults('files', system._id, policy._id);
+    var role = {
+        account: owner_account_id,
+        system: system._id,
+        role: 'admin'
+    };
+    return {
+        insert: {
+            systems: [system],
+            buckets: [bucket],
+            tiering_policies: [policy],
+            tiers: [tier],
+            pools: [pool],
+            roles: [role],
+        }
+    };
+}
+
 
 /**
  *
@@ -57,120 +118,9 @@ var pkg = require('../../package.json');
  *
  */
 function create_system(req) {
-    var system;
-    var system_token;
-    var info = _.pick(req.rpc_params, 'name');
-
-    return P.fcall(function() {
-            if (info.name === 'demo') {
-                info.access_keys = [{
-                    access_key: '123',
-                    secret_key: 'abc',
-                }];
-            } else {
-                info.access_keys = [{
-                    access_key: crypto.randomBytes(16).toString('hex'),
-                    secret_key: crypto.randomBytes(32).toString('hex'),
-                }];
-            }
-            info.owner = req.account.id;
-            info.resources = {
-                // set default package names
-                agent_installer: 'noobaa-setup.exe',
-                s3rest_installer: 'noobaa-s3rest.exe',
-                linux_agent_installer: 'noobaa-setup'
-            };
-            info.n2n_config = {
-                tcp_tls: true,
-                tcp_active: true,
-                tcp_permanent_passive: {
-                    min: 60100,
-                    max: 60600
-                },
-                udp_dtls: true,
-                udp_port: true,
-            };
-
-            return P.when(db.System.create(info))
-                .then(null, db.check_already_exists(req, 'system'));
-        })
-        .then(function(system_arg) {
-            system = system_arg;
-
-            // a token for the new system
-            system_token = req.make_auth_token({
-                account_id: req.account.id,
-                system_id: system.id,
-                role: 'admin',
-            });
-
-            // TODO if role create fails, we should recover the role from the system owner
-            return P.when(db.Role.create({
-                    account: req.account.id,
-                    system: system.id,
-                    role: 'admin',
-                }))
-                .then(null, db.check_already_exists(req, 'role'));
-        })
-        .then(function() {
-            return server_rpc.client.pool.create_pool({
-                pool: {
-                    name: 'default_pool',
-                    nodes: [],
-                }
-            }, {
-                auth_token: system_token
-            });
-        })
-        .then(function() {
-            return server_rpc.client.tier.create_tier({
-                name: 'nodes',
-                data_placement: 'SPREAD',
-                edge_details: {
-                    replicas: 3,
-                    data_fragments: 1,
-                    parity_fragments: 0
-                },
-                nodes: [],
-                pools: ['default_pool'],
-            }, {
-                auth_token: system_token
-            });
-        })
-        .then(function() {
-            return server_rpc.client.tiering_policy.create_policy({
-                policy: {
-                    name: 'default_tiering',
-                    tiers: [{
-                        order: 0,
-                        tier: 'nodes'
-                    }]
-                }
-            }, {
-                auth_token: system_token
-            });
-        })
-        .then(function() {
-            return server_rpc.client.bucket.create_bucket({
-                name: 'files',
-                tiering: 'default_tiering'
-            }, {
-                auth_token: system_token
-            });
-        })
-        // .then(function() {
-        //     var config = {
-        //         "dbg_log_level": 2,
-        //         "address": "wss://127.0.0.1:" + process.env.SSL_PORT,
-        //         "port": "80",
-        //         "ssl_port": "443",
-        //         "access_key": info.access_keys[0].access_key,
-        //         "secret_key": info.access_keys[0].secret_key
-        //     };
-        //     if (process.env.ON_PREMISE === 'true') {
-        //         return P.nfcall(fs.writeFile, process.cwd() + '/agent_conf.json', JSON.stringify(config));
-        //     }
-        // })
+    var name = req.rpc_params.name;
+    var changes = new_system_changes(name, req.account._id);
+    return system_store.make_changes(changes)
         .then(function() {
             if (process.env.ON_PREMISE === 'true') {
                 return P.fcall(function() {
@@ -183,60 +133,78 @@ function create_system(req) {
                     });
             }
         })
-        //Auto generate agent executable.
-        // Removed for now, as we need signed exe
-        //
-        // .then(function() {
-        //     if (process.env.ON_PREMISE) {
-        //         return P.Promise(function(resolve, reject) {
-        //
-        //             var build_params = [
-        //                 '--access_key=' + info.access_keys[0].access_key,
-        //                 '--secret_key=' + info.access_keys[0].secret_key,
-        //                 '--system_id=' + system.id,
-        //                 '--system=' + system.name,
-        //                 '--on_premise_env=1',
-        //                 '--address=wss://noobaa.local:443'
-        //             ];
-        //
-        //             var build_script = child_process.spawn(
-        //                 'src/deploy/build_atom_agent_win.sh', build_params, {
-        //                     cwd: process.cwd()
-        //                 });
-        //
-        //             build_script.on('close', function(code) {
-        //                 if (code !== 0) {
-        //                     resolve();
-        //                 } else {
-        //                     reject(new Error('build_script returned error code ' + code));
-        //                 }
-        //             });
-        //
-        //             var stdout = '',
-        //                 stderr = '';
-        //
-        //             build_script.stdout.setEncoding('utf8');
-        //
-        //             build_script.stdout.on('data', function(data) {
-        //                 stdout += data;
-        //                 dbg.log0(data);
-        //             });
-        //
-        //             build_script.stderr.setEncoding('utf8');
-        //             build_script.stderr.on('data', function(data) {
-        //                 stderr += data;
-        //                 dbg.log0(data);
-        //             });
-        //         });
-        //     }
-        // })
         .then(function() {
+            var system = system_store.data.systems_by_name[name];
             return {
-                token: system_token,
+                // a token for the new system
+                token: req.make_auth_token({
+                    account_id: req.account.id,
+                    system_id: system._id,
+                    role: 'admin',
+                }),
                 info: get_system_info(system)
             };
         });
 }
+
+//     var config = {
+//         "dbg_log_level": 2,
+//         "address": "wss://127.0.0.1:" + process.env.SSL_PORT,
+//         "port": "80",
+//         "ssl_port": "443",
+//         "access_key": info.access_keys[0].access_key,
+//         "secret_key": info.access_keys[0].secret_key
+//     };
+//     if (process.env.ON_PREMISE === 'true') {
+//         return P.nfcall(fs.writeFile, process.cwd() + '/agent_conf.json', JSON.stringify(config));
+//     }
+//Auto generate agent executable.
+// Removed for now, as we need signed exe
+//
+//     if (process.env.ON_PREMISE) {
+//         return P.Promise(function(resolve, reject) {
+//
+//             var build_params = [
+//                 '--access_key=' + info.access_keys[0].access_key,
+//                 '--secret_key=' + info.access_keys[0].secret_key,
+//                 '--system_id=' + system.id,
+//                 '--system=' + system.name,
+//                 '--on_premise_env=1',
+//                 '--address=wss://noobaa.local:443'
+//             ];
+//
+//             var build_script = child_process.spawn(
+//                 'src/deploy/build_atom_agent_win.sh', build_params, {
+//                     cwd: process.cwd()
+//                 });
+//
+//             build_script.on('close', function(code) {
+//                 if (code !== 0) {
+//                     resolve();
+//                 } else {
+//                     reject(new Error('build_script returned error code ' + code));
+//                 }
+//             });
+//
+//             var stdout = '',
+//                 stderr = '';
+//
+//             build_script.stdout.setEncoding('utf8');
+//
+//             build_script.stdout.on('data', function(data) {
+//                 stdout += data;
+//                 dbg.log0(data);
+//             });
+//
+//             build_script.stderr.setEncoding('utf8');
+//             build_script.stderr.on('data', function(data) {
+//                 stderr += data;
+//                 dbg.log0(data);
+//             });
+//         });
+//     }
+// })
+
 
 
 
@@ -462,6 +430,7 @@ function list_systems_int(is_support, get_ids, account) {
     if (!is_support) {
         query.account = account;
     }
+    console.log('list_systems_int', query);
 
     return P.when(
             db.Role.find(query)
@@ -534,12 +503,12 @@ function remove_role(req) {
 
 
 
-var S3_SYSTEM_BUCKET = process.env.S3_SYSTEM_BUCKET || 'noobaa-core';
-var aws_s3 = process.env.AWS_ACCESS_KEY_ID && new AWS.S3({
-    accessKeyId: process.env.AWS_ACCESS_KEY_ID,
-    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
-    region: process.env.AWS_REGION || 'eu-central-1'
-});
+// var S3_SYSTEM_BUCKET = process.env.S3_SYSTEM_BUCKET || 'noobaa-core';
+// var aws_s3 = process.env.AWS_ACCESS_KEY_ID && new AWS.S3({
+//     accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+//     secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+//     region: process.env.AWS_REGION || 'eu-central-1'
+// });
 
 
 function get_system_web_links(system) {
@@ -547,25 +516,22 @@ function get_system_web_links(system) {
         if (key === 'toObject' || !_.isString(val) || !val) {
             return;
         }
-        if (process.env.ON_PREMISE) {
-            var versioned_resource = val.replace('noobaa-setup', 'noobaa-setup-' + pkg.version);
-            versioned_resource = versioned_resource.replace('noobaa-s3rest', 'noobaa-s3rest-' + pkg.version);
-            dbg.log1('resource link:', val, versioned_resource);
-            return '/public/' + versioned_resource;
-        } else {
-            var params = {
-                Bucket: S3_SYSTEM_BUCKET,
-                Key: '/' + val,
-                Expires: 24 * 3600 // 1 day
-            };
-            if (aws_s3) {
-                return aws_s3.getSignedUrl('getObject', params);
-            } else {
-                // workaround if we didn't setup aws credentials,
-                // and just try a plain unsigned url
-                return 'https://' + params.Bucket + '.s3.amazonaws.com/' + params.Key;
-            }
-        }
+        var versioned_resource = val.replace('noobaa-setup', 'noobaa-setup-' + pkg.version);
+        versioned_resource = versioned_resource.replace('noobaa-s3rest', 'noobaa-s3rest-' + pkg.version);
+        dbg.log1('resource link:', val, versioned_resource);
+        return '/public/' + versioned_resource;
+        // var params = {
+        //     Bucket: S3_SYSTEM_BUCKET,
+        //     Key: '/' + val,
+        //     Expires: 24 * 3600 // 1 day
+        // };
+        // if (aws_s3) {
+        //     return aws_s3.getSignedUrl('getObject', params);
+        // } else {
+        //     // workaround if we didn't setup aws credentials,
+        //     // and just try a plain unsigned url
+        //     return 'https://' + params.Bucket + '.s3.amazonaws.com/' + params.Key;
+        // }
     });
     // remove keys with undefined values
     return _.omit(reply, _.isUndefined);

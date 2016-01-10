@@ -170,6 +170,7 @@ SystemStore.prototype.read_data_from_db = function(target) {
 SystemStore.prototype.make_changes = function(changes) {
     var self = this;
     var bulk_per_collection = {};
+    var now = new Date();
 
     function get_bulk(collection) {
         if (!(collection in COLLECTIONS)) {
@@ -210,7 +211,11 @@ SystemStore.prototype.make_changes = function(changes) {
                 _.each(list, function(id) {
                     bulk.find({
                         _id: id
-                    }).removeOne();
+                    }).updateOne({
+                        $set: {
+                            deleted: now
+                        }
+                    });
                 });
             });
 

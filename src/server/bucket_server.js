@@ -8,6 +8,8 @@
  */
 
 module.exports = {
+    new_bucket_defaults: new_bucket_defaults,
+
     //Bucket Management
     create_bucket: create_bucket,
     read_bucket: read_bucket,
@@ -35,6 +37,19 @@ var dbg = require('../util/debug_module')(__filename);
 var P = require('../util/promise');
 
 
+function new_bucket_defaults(name, system_id, tiering_policy_id) {
+    return {
+        name: name,
+        system: system_id,
+        tiering: tiering_policy_id,
+        stats:  {
+            reads: 0,
+            writes: 0,
+        }
+    };
+}
+
+
 /**
  *
  * CREATE_BUCKET
@@ -43,16 +58,11 @@ var P = require('../util/promise');
 function create_bucket(req) {
     return resolve_tiering_policy(req.system.id, req.rpc_params.tiering)
         .then(function(tiering) {
-            var info = _.pick(req.rpc_params, 'name');
-            info.system = req.system.id;
-            if (tiering) {
-                info.tiering = tiering[0]._id;
-            }
-            info.stats = {
-                reads: 0,
-                writes: 0,
-            };
-            return db.Bucket.create(info);
+            var bucket = new_bucket_defaults(
+                req.rpc_params.name,
+                req.system._id,
+                tiering[0]._id);
+            return db.Bucket.create(bucket);
         })
         .then(function(bucket) {
             console.log('create bucket:', bucket, 'account', req.account.id);
@@ -224,43 +234,34 @@ function list_buckets(req) {
 function get_cloud_sync_policy(req) {
     dbg.log3('get_cloud_sync_policy');
     var reply = [];
-    return P.when(db.Bucket
-            .findOne({
-                system: req.system.id,
-                name: req.rpc_params.name,
-                deleted: null,
-            })
-            .exec())
-        .then(function(b) {
-            var bucket = b;
-            if (bucket.cloud_sync && bucket.cloud_sync.endpoint) {
-                return P.when(bg_worker.cloud_sync.get_policy_status({
-                        sysid: req.system.id,
-                        bucketid: bucket._id.toString()
-                    }))
-                    .then(function(stat) {
-                        reply = {
-                            name: bucket.name,
-                            policy: {
-                                endpoint: bucket.cloud_sync.endpoint,
-                                access_keys: [bucket.cloud_sync.access_keys],
-                                schedule: bucket.cloud_sync.schedule_min,
-                                last_sync: bucket.cloud_sync.last_sync.getTime(),
-                                paused: bucket.cloud_sync.paused,
-                                c2n_enabled: bucket.cloud_sync.c2n_enabled,
-                                n2c_enabled: bucket.cloud_sync.n2c_enabled,
-                                additions_only: bucket.cloud_sync.additions_only
-                            },
-                            health: stat.health,
-                            status: stat.status,
-                        };
+    var bucket = req.system.buckets_by_name[req.rpc_params.name];
+    if (bucket.cloud_sync && bucket.cloud_sync.endpoint) {
+        return P.when(bg_worker.cloud_sync.get_policy_status({
+                sysid: req.system.id,
+                bucketid: bucket._id.toString()
+            }))
+            .then(function(stat) {
+                reply = {
+                    name: bucket.name,
+                    policy: {
+                        endpoint: bucket.cloud_sync.endpoint,
+                        access_keys: [bucket.cloud_sync.access_keys],
+                        schedule: bucket.cloud_sync.schedule_min,
+                        last_sync: bucket.cloud_sync.last_sync.getTime(),
+                        paused: bucket.cloud_sync.paused,
+                        c2n_enabled: bucket.cloud_sync.c2n_enabled,
+                        n2c_enabled: bucket.cloud_sync.n2c_enabled,
+                        additions_only: bucket.cloud_sync.additions_only
+                    },
+                    health: stat.health,
+                    status: stat.status,
+                };
 
-                        return reply;
-                    });
-            } else {
-                return {};
-            }
-        });
+                return reply;
+            });
+    } else {
+        return {};
+    }
 }
 
 /**

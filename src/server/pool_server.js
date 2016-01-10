@@ -11,6 +11,7 @@ var dbg = require('../util/debug_module')(__filename);
  *
  */
 var pool_server = {
+    new_pool_defaults: new_pool_defaults,
     create_pool: create_pool,
     update_pool: update_pool,
     list_pool_nodes: list_pool_nodes,
@@ -21,6 +22,15 @@ var pool_server = {
 };
 
 module.exports = pool_server;
+
+function new_pool_defaults(name, system_id) {
+    return {
+        _id: db.new_object_id(),
+        system: system_id,
+        name: name,
+        nodes: [],
+    };
+}
 
 
 function create_pool(req) {

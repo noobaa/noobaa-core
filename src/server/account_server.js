@@ -4,8 +4,10 @@
 var _ = require('lodash');
 var P = require('../util/promise');
 var db = require('./db');
-var server_rpc = require('./server_rpc').server_rpc;
+var bcrypt = require('bcrypt');
 var system_store = require('./stores/system_store');
+var system_server = require('./system_server');
+// var server_rpc = require('./server_rpc').server_rpc;
 // var dbg = require('../util/debug_module')(__filename);
 
 
@@ -38,59 +40,41 @@ module.exports = account_server;
  *
  */
 function create_account(req) {
-    var info = _.pick(req.rpc_params, 'name', 'email', 'password');
-    var account;
-
-    return P.when(db.Account.create(info))
-        .then(null, db.check_already_exists(req, 'account'))
-        .then(function(account_arg) {
-            account = account_arg;
-            console.log('account created!!', account);
-
-            if (req.is_support || !req.system) {
-                console.log('about to create system:' + info.name);
-                system_store.invalidate();
-                return server_rpc.client.system.create_system({
-                        name: info.name
-                    }, {
-                        // the request needs a token with the newly created account
-                        auth_token: req.make_auth_token({
-                            account_id: account.id,
-                        })
-                    })
-                    .then(function(res) {
-                        console.log('create_system:', res);
-                        // db.ActivityLog.create({
-                        //     system: res.info,
-                        //     level: 'info',
-                        //     event: 'account.create',
-                        //     account: account,
-                        // });
-                        return {
-                            token: res.token
-                        };
-                    });
+    var account = _.pick(req.rpc_params, 'name', 'email', 'password');
+    account._id = db.new_object_id();
+    return P.fcall(function() {
+            return bcrypt_password(account);
+        })
+        .then(function() {
+            var changes;
+            if (!req.system) {
+                changes = system_server.new_system_changes(account.name, account);
+                changes.insert.accounts = [account];
             } else {
-                console.log('no need to create system:' + info.name, 'acc_id:', account.id, 'sys id', req.system);
-                db.ActivityLog.create({
-                    system: req.system,
-                    level: 'info',
-                    event: 'account.create',
-                    account: account,
-                    actor: req.account.id
-                });
-                return P.when(db.Role.create({
-                        account: account.id,
-                        system: req.system._id,
-                        role: 'admin',
-                    }))
-                    .then(function() {
-                        return {
-                            token: ''
-                        };
-                    });
-
+                changes = {
+                    insert: {
+                        accounts: [account],
+                        roles: [{
+                            account: account._id,
+                            system: req.system._id,
+                            role: 'admin',
+                        }]
+                    }
+                };
             }
+            db.ActivityLog.create({
+                event: 'account.create',
+                level: 'info',
+                system: req.system && req.system._id,
+                actor: req.account && req.account._id,
+                account: account._id,
+            });
+            return system_store.make_changes(changes);
+        })
+        .then(function() {
+            return {
+                token: ''
+            };
         });
 
 }
@@ -103,16 +87,7 @@ function create_account(req) {
  *
  */
 function read_account(req) {
-    // read roles of this account
-    return P.when(
-            db.Role.find({
-                account: req.account.id
-            })
-            .populate('system')
-            .exec())
-        .then(function(roles) {
-            return get_account_info(req.account, roles);
-        });
+    return get_account_info(req.account);
 }
 
 
@@ -123,45 +98,32 @@ function read_account(req) {
  *
  */
 function update_account(req) {
-    console.log('req.rpc:', req.rpc_params);
-
-    // pick and send the updates
-    var info = _.pick(req.rpc_params, 'name', 'email', 'password');
+    var updates = _.pick(req.rpc_params, 'name', 'email', 'password');
     return P.fcall(function() {
-            if (req.rpc_params.original_email) {
-                var original_email = req.rpc_params.original_email;
-                console.log('update account of ', original_email, ' with ', info.email);
-                return P.when(db.Account.find({
-                        email: original_email,
-                        deleted: null
-                    })
-                    .exec());
-            } else {
-                // invalidate the local cache
-                db.AccountCache.invalidate(req.account.id);
-                return [{
-                    _id: req.account.id
-                }];
-            }
+            return bcrypt_password(updates);
         })
-        .then(function(account_info) {
-            console.log('account update info2:' + account_info[0]._id + ':::' + account_info[0].id + ':::' + req.account.id + ':::' + JSON.stringify(info));
-            // we just mark the deletion time to make it easy to regret
-            // and to avoid stale refs side effects of actually removing from the db.
-            return P.when(db.Account
-                .findByIdAndUpdate(account_info[0]._id,
-                    info)
-                .exec()).
-            then(function(update_info) {
-                console.log('update status:' + JSON.stringify(update_info));
-            }).
-            then(null, function(err) {
-                console.log('error while update2', err);
+        .then(function() {
+            var orig_email = req.rpc_params.original_email;
+            if (orig_email) {
+                var orig_account = system_store.data.accounts_by_email[orig_email];
+                updates._id = orig_account._id;
+            } else {
+                updates._id = req.account._id;
+            }
+            db.ActivityLog.create({
+                event: 'account.update',
+                level: 'info',
+                system: req.system._id,
+                actor: req.account._id,
+                account: updates._id,
+            });
+            return system_store.make_changes({
+                update: {
+                    account: [updates]
+                }
             });
         })
-        .then(null, function(err) {
-            console.log('error while update', err);
-        });
+        .return();
 }
 
 
@@ -172,48 +134,18 @@ function update_account(req) {
  *
  */
 function delete_account(req) {
-
-    return P.fcall(function() {
-            if (req.params) {
-                var user_email = req.params;
-                console.log('delete_account1', user_email);
-                return P.when(db.Account.find({
-                        email: user_email,
-                        deleted: null
-                    })
-                    .exec());
-            } else {
-                // invalidate the local cache
-                db.AccountCache.invalidate(req.account.id);
-                return [{
-                    _id: req.account.id
-                }];
-            }
-        })
-        .then(function(account_info) {
-            console.log('account_info2:' + account_info[0]._id + ':::' + JSON.stringify(account_info[0]));
-
-            // we just mark the deletion time to make it easy to regret
-            // and to avoid stale refs side effects of actually removing from the db.
-            return P.when(db.Account
-                .findByIdAndUpdate(account_info[0]._id, {
-                    deleted: new Date()
-                })
-                .exec());
-        })
-        .then(function(account_info_2) {
-            console.log('account_info_2', account_info_2 + ':');
-            return P.when(db.ActivityLog.create({
-                system: req.system,
-                level: 'info',
-                event: 'account.delete',
-                account: account_info_2,
-                actor: req.account.id
-            }));
-        })
-        .then(null, function(err) {
-            console.log('error while deleting', err);
-        });
+    db.ActivityLog.create({
+        event: 'account.delete',
+        level: 'info',
+        system: req.system._id,
+        actor: req.account._id,
+        account: req.account._id,
+    });
+    return system_store.make_changes({
+        remove: {
+            account: [req.account._id]
+        }
+    });
 }
 
 
@@ -223,48 +155,21 @@ function delete_account(req) {
  *
  */
 function list_accounts(req, system_id) {
-
-
-    var roles_query = db.Role.find();
-    var accounts_query = db.Account.find();
-    var accounts_promise;
-
-    //query for all accounts, not for support user
-    if (!_.isUndefined(system_id)) {
-        roles_query = db.Role.find({
-            system: req.system.id
-        });
-        accounts_query = db.Account.find({
-            deleted: null
-        });
-
-    }
-    if (req.account.is_support || !_.isUndefined(system_id)) {
-        // for support account - list all accounts and roles
-        accounts_promise = accounts_query.exec();
+    var accounts;
+    if (req.account.is_support) {
+        // for support account - list all accounts
+        accounts = system_store.data.accounts;
     } else {
-        // for normal accounts - use current account and query account roles
-        roles_query.where('account').eq(req.account.id);
-        accounts_promise = P.resolve(req.account);
+        // for normal accounts - use current account
+        accounts = [req.account];
     }
-
-    roles_query.populate('system');
-
-    return P.all([accounts_promise, roles_query.exec()])
-        .spread(function(accounts, roles) {
-            var roles_per_account = _.groupBy(roles, function(role) {
-                return role.account;
-            });
-
-            return {
-                accounts: _.map(accounts, function(account) {
-                    if (roles_per_account[account.id]) {
-                        var account_roles = roles_per_account[account.id];
-                        return get_account_info(account, account_roles);
-                    }
-                })
-            };
+    // system_id is provided by internal call from list_system_accounts
+    if (system_id) {
+        accounts = _.filter(accounts, function(account) {
+            return account.system._id.toString() === system_id.toString();
         });
+    }
+    return _.map(accounts, get_account_info);
 }
 
 /**
@@ -273,18 +178,8 @@ function list_accounts(req, system_id) {
  *
  */
 function list_system_accounts(req) {
-    return P.fcall(function() {
-        return list_accounts(req, req.system.id);
-    }).then(function(accounts) {
-        var normalized_accounts = _.filter(accounts.accounts, null);
-        accounts.accounts = normalized_accounts;
-        return accounts;
-    });
+    return list_accounts(req, req.system._id);
 }
-
-// once any account is found then we can save this state
-// in memory since it will not change.
-var any_account_exists = false;
 
 
 /**
@@ -293,34 +188,18 @@ var any_account_exists = false;
  *
  */
 function accounts_status(req) {
-    return P.fcall(function() {
-            // use the cached value only if positive,
-            // otherwise we have to check the DB to know for sure
-            if (any_account_exists) {
-                return true;
-            } else {
-                return check_db_if_any_account_exists();
-            }
-        })
-        .then(function(has_accounts) {
-            if (has_accounts) {
-                any_account_exists = true;
-            }
-            return {
-                has_accounts: has_accounts
-            };
-        });
+    var any_non_support_account = _.find(system_store.data.accounts, function(account) {
+        return !account.is_support;
+    });
+    return {
+        has_accounts: !!any_non_support_account
+    };
 }
 
+// called only from stats_aggregator,
+// we can remove here and access directly from there
 function get_system_roles(req) {
-    return P.when(
-            db.Role.find({
-                system: req.system.id
-            })
-            .exec())
-        .then(function(roles) {
-            return roles;
-        });
+    return req.system.roles_by_account;
 }
 
 /**
@@ -330,24 +209,7 @@ function get_system_roles(req) {
  */
 
 function get_account_sync_credentials_cache(req) {
-    console.log('req.rpc2:', req.rpc_params);
-
-    return P.fcall(function() {
-        return P.when(db.Account.find({
-                    _id: req.account.id,
-                    deleted: null
-                })
-                .exec())
-            .then(function(account_info) {
-                var current_account = account_info[0];
-                console.log('account update info5:' + req.account.id + ':::' + JSON.stringify(current_account));
-                if (current_account.sync_credentials_cache) {
-                    return current_account.sync_credentials_cache;
-                } else {
-                    return [];
-                }
-            });
-    });
+    return req.account.sync_credentials_cache || [];
 }
 /**
  *
@@ -356,43 +218,17 @@ function get_account_sync_credentials_cache(req) {
  */
 
 function add_account_sync_credentials_cache(req) {
-    console.log('req.rpc:', req.rpc_params);
-
-    // pick and send the updates
     var info = _.pick(req.rpc_params, 'access_key', 'secret_key');
-    return P.fcall(function() {
-            return P.when(db.Account.find({
-                        _id: req.account.id,
-                        deleted: null
-                    })
-                    .exec())
-                .then(function(account_info) {
-                    var current_account = account_info[0];
-                    console.log('account update info3:' + req.account.id + ':::' + JSON.stringify(account_info), '::AA::', JSON.stringify(info));
-                    if (current_account.sync_credentials_cache) {
-                        current_account.sync_credentials_cache.push(info);
-                        console.log('push');
-
-                    } else {
-                        current_account.sync_credentials_cache = [info];
-                        console.log('no push ', current_account);
-                    }
-                    console.log('account update info4:' + req.account.id + ':::' + JSON.stringify(current_account));
-                    return P.when(db.Account
-                        .findByIdAndUpdate(req.account.id,
-                            _.pick(current_account, 'sync_credentials_cache')
-                        )
-                        .exec());
-                }).then(function(update_info) {
-                    console.log('update status:' + JSON.stringify(update_info));
-                }).
-            then(null, function(err) {
-                console.log('error while update2', err);
-            });
-        })
-        .then(null, function(err) {
-            console.log('error while update', err);
-        });
+    var updates = {
+        _id: req.account._id,
+        sync_credentials_cache: req.account.sync_credentials_cache || []
+    };
+    updates.sync_credentials_cache.push(info);
+    return system_store.make_changes({
+        update: {
+            account: [updates]
+        }
+    }).return();
 }
 
 
@@ -402,27 +238,19 @@ function add_account_sync_credentials_cache(req) {
 
 
 
-function get_account_info(account, roles) {
+function get_account_info(account) {
     console.log('account', account);
     var info = _.pick(account, 'name', 'email', '_id');
     if (account.is_support) {
         info.is_support = true;
     }
-
-    // make a list of systems from the account roles
-    var roles_per_system = _.groupBy(roles, function(role) {
-        if (role.system && !role.system.deleted) {
-            return role.system.id;
-        }
-    });
-
-    info.systems = _.map(roles_per_system, function(system_roles) {
+    info.systems = _.map(account.roles_by_system, function(roles, system_id) {
+        var system = system_store.data.get_by_id(system_id);
         return {
-            name: system_roles[0].system.name,
-            roles: _.pluck(system_roles, 'role')
+            name: system.name,
+            roles: roles
         };
     });
-
     console.log('get_account_info', info);
     return info;
 }
@@ -436,16 +264,27 @@ function get_account_info(account, roles) {
  *
  */
 function create_support_account() {
-    return P.when(db.Account.create({
-            name: 'Support',
-            email: 'support@noobaa.com',
-            password: process.env.SUPPORT_DEFAULT_PASSWORD || 'help',
-            is_support: true
-        }))
+    return system_store.refresh()
         .then(function() {
-            console.log('SUPPORT ACCOUNT CREATED');
-        }, function(err) {
-            if (db.is_err_exists(err)) return;
+            var support_account = _.find(system_store.data.accounts, function(account) {
+                return !!account.is_support;
+            });
+            if (support_account) return;
+            return system_store.make_changes({
+                insert: {
+                    accounts: [{
+                        name: 'Support',
+                        email: 'support@noobaa.com',
+                        password: process.env.SUPPORT_DEFAULT_PASSWORD || 'help',
+                        is_support: true
+                    }]
+                }
+            });
+        })
+        .then(function() {
+            console.log('SUPPORT ACCOUNT CREATED/EXISTS');
+        })
+        .catch(function(err) {
             console.error('FAILED CREATE SUPPORT ACCOUNT (will retry)', err);
             var delay = 3000 + (1000 * Math.random());
             return P.delay(delay).then(create_support_account);
@@ -455,16 +294,18 @@ function create_support_account() {
 P.delay(1000).then(create_support_account);
 
 
-function check_db_if_any_account_exists() {
-    return P.when(
-            db.Account.findOne({
-                is_support: null,
-                deleted: null
-            }, {
-                _id: 1
-            })
-            .exec())
-        .then(function(any_account) {
-            return !!any_account;
+
+function bcrypt_password(account) {
+    if (!account.password) {
+        return P.resolve();
+    }
+    return P.fcall(function() {
+            return P.nfcall(bcrypt.genSalt, 10);
+        })
+        .then(function(salt) {
+            return P.nfcall(bcrypt.hash, account.password, salt);
+        })
+        .then(function(password_hash) {
+            account.password = password_hash;
         });
 }

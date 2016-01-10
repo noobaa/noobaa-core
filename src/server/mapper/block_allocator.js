@@ -62,7 +62,7 @@ function new_block(chunk, node, size) {
     return /*new db.DataBlock*/ ({
         _id: db.new_object_id(),
         system: chunk.system,
-        tier: node.tier,
+        tier: node.tier._id,
         chunk: chunk,
         node: node,
         layer: 'D',
@@ -110,42 +110,29 @@ function update_tier_alloc_nodes(system, tier, pools) {
 function get_associated_nodes(system, pools) {
     var min_heartbeat = db.Node.get_minimum_alloc_heartbeat();
     var associated_nodes = [];
-    return P.when(db.Pool
-            .find({
-                _id: {
-                    $in: _.flatten(pools),
-                }
-            })
-            .exec())
-        .then(function(res_pools) {
-            _.each(res_pools, function(p) {
-                if (p.nodes.length !== 0) {
-                    associated_nodes = associated_nodes.concat(p.nodes);
-                }
-            });
-            return associated_nodes;
-        })
-        .then(function() {
-            var q = {
-                system: system,
-                deleted: null,
-                name: {
-                    $in: associated_nodes
-                },
-                heartbeat: {
-                    $gt: min_heartbeat
-                },
-                srvmode: null,
-            };
-
-            return P.when(db.Node.find(q)
-                .sort({
-                    // sorting with lowest used storage nodes first
-                    'storage.used': 1
-                })
-                .limit(100)
-                .exec());
-        });
+    pools = _.flatten(pools);
+    _.each(pools, function(p) {
+        if (p.nodes.length) {
+            associated_nodes = associated_nodes.concat(p.nodes);
+        }
+    });
+    return P.when(db.Node.collection.find({
+        system: system,
+        deleted: null,
+        name: {
+            $in: associated_nodes
+        },
+        heartbeat: {
+            $gt: min_heartbeat
+        },
+        srvmode: null,
+    }, {
+        sort: {
+            // sorting with lowest used storage nodes first
+            'storage.used': 1
+        },
+        limit: 100
+    }).toArray());
 }
 
 

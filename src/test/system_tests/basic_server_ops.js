@@ -51,7 +51,7 @@ function upload_and_upgrade(ip, upgrade_pack) {
         .then(function(httpResponse, body) {
             console.log('Upload package successful');
             var isNotListening = true;
-            return P.delay(60000).then(function() {
+            return P.delay(10000).then(function() {
                 return promise_utils.pwhile(
                     function() {
                         return isNotListening;
@@ -201,6 +201,7 @@ function generate_random_file(size_mb) {
 }
 
 function wait_on_agents_upgrade(ip) {
+    var rpc = api.new_rpc({base_address: ip});
     var client = new api.Client();
     var sys_ver;
 
@@ -210,7 +211,7 @@ function wait_on_agents_upgrade(ip) {
                 password: 'DeMo',
                 system: 'demo'
             };
-            return client.create_auth_token(auth_params);
+            return rpc.client.create_auth_token(auth_params);
         })
         .then(function() {
             return P.when(client.bucket.read_system({}))

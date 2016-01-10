@@ -611,7 +611,9 @@ gulp.task('run_fe_build', function(cb) {
     var proc = child_process.spawn(
         path.join(process.cwd(),'node_modules','.bin','gulp.cmd'),
         ['build'], 
-        path.join(process.cwd(),'frontend')
+        { 
+            cwd: path.join(process.cwd(),'frontend') 
+        }
     ); 
 
     // Redirect the process output and error streams.

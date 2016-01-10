@@ -5,6 +5,7 @@ var _ = require('lodash');
 var P = require('../util/promise');
 var db = require('./db');
 var server_rpc = require('./server_rpc').server_rpc;
+var system_store = require('./stores/system_store');
 // var dbg = require('../util/debug_module')(__filename);
 
 
@@ -46,11 +47,9 @@ function create_account(req) {
             account = account_arg;
             console.log('account created!!', account);
 
-        }).then(function() {
-
-            if (req.is_support || _.isUndefined(req.system)) {
-
+            if (req.is_support || !req.system) {
                 console.log('about to create system:' + info.name);
+                system_store.invalidate();
                 return server_rpc.client.system.create_system({
                         name: info.name
                     }, {
@@ -60,7 +59,7 @@ function create_account(req) {
                         })
                     })
                     .then(function(res) {
-                        console.log('nothing to do', res);
+                        console.log('create_system:', res);
                         // db.ActivityLog.create({
                         //     system: res.info,
                         //     level: 'info',

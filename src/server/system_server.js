@@ -334,9 +334,7 @@ function read_system(req) {
             }
             return P.fcall(function() {
                 return bucket_server.get_cloud_sync_policy({
-                    system: {
-                        id: req.system.id
-                    },
+                    system: req.system,
                     rpc_params: {
                         name: b.name
                     }
@@ -346,7 +344,7 @@ function read_system(req) {
                 dbg.log2('bucket is:', b);
                 return b;
             }).then(null, function(err) {
-                dbg.error('failed reading bucket information');
+                dbg.error('failed reading bucket information', err.stack || err);
             });
 
         })).then(function(updated_buckets) {
@@ -412,7 +410,9 @@ function read_system(req) {
 function update_system(req) {
     var info = _.pick(req.rpc_params, 'name');
     db.SystemCache.invalidate(req.system.id);
-    return P.when(req.system.update(info).exec())
+    return P.when(db.System.update({
+            _id: req.system._id
+        }, info).exec())
         .thenResolve();
 }
 
@@ -425,7 +425,9 @@ function update_system(req) {
 function delete_system(req) {
     db.SystemCache.invalidate(req.system.id);
     return P.when(
-            req.system.update({
+            db.System.update({
+                _id: req.system._id
+            }, {
                 deleted: new Date()
             })
             .exec())
@@ -723,7 +725,9 @@ function update_n2n_config(req) {
     var n2n_config = req.rpc_params;
     dbg.log0('update_n2n_config', n2n_config);
     db.SystemCache.invalidate(req.system.id);
-    return P.when(req.system.update({
+    return P.when(db.System.update({
+            _id: req.system._id
+        }, {
             n2n_config: n2n_config
         }).exec())
         .then(function() {
@@ -758,7 +762,9 @@ function update_n2n_config(req) {
 function update_base_address(req) {
     dbg.log0('update_base_address', req.rpc_params);
     db.SystemCache.invalidate(req.system.id);
-    return P.when(req.system.update({
+    return P.when(db.System.update({
+            _id: req.system._id
+        }, {
             base_address: req.rpc_params.base_address
         }).exec())
         .then(function() {

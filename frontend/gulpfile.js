@@ -29,10 +29,10 @@ let libs = [
 ];
 
 // ----------------------------------
-// Default Task
+// Full task
 // ---------------------------------- 
 
-gulp.task('default', cb => {
+gulp.task('full', cb => {
 	runSequence(
 		'build',
 		'watch',
@@ -59,7 +59,7 @@ gulp.task('clean', cb => {
 	});
 });
 
-gulp.task('build-lib', () => {
+gulp.task('build-lib', ['install-deps'], () => {
 	let b = browserify({ debug: true, noParse: true });
 	
 	libs.forEach(
@@ -75,6 +75,7 @@ gulp.task('build-lib', () => {
 		.pipe($.sourcemaps.write('./'))
 		.pipe(gulp.dest(buildPath));
 });
+
 
 gulp.task('build-api', () => {
 	let b = browserify({ debug: true });
@@ -135,7 +136,6 @@ gulp.task('build-js-style', () => {
  		.pipe(gulp.dest(buildPath));
 });
 
-
 gulp.task('ensure-server-conf', cb => {
 	try { 
 		fs.readFileSync('src/app/server-conf.json')
@@ -144,6 +144,12 @@ gulp.task('ensure-server-conf', cb => {
 	}
 	cb();
 });
+
+gulp.task('install-deps', () => {
+	return gulp.src('./bower.json')
+		.pipe($.install());
+});
+
 // ----------------------------------
 // Watch Tasks
 // ---------------------------------- 
@@ -164,8 +170,8 @@ gulp.task('watch-app', () => {
 	$.watch('src/app/**/*.js', () => {
 		runSequence('build-app');
 	});	
-
-	$.watch('src/app/config.json', () => {
+	
+	$.watch('src/app/**/*.json', () => {
 		runSequence('build-app');
 	});
 
@@ -268,12 +274,4 @@ function cacheControl(seconds) {
         res.setHeader("Expires", new Date(Date.now() + millis).toUTCString());
         return next();
     };
-}
-
-function getServerConf() {
-	try {
-		return require('./server.json');
-	} catch(e) {
-		return {};
-	}
 }

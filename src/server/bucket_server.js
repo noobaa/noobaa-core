@@ -91,7 +91,7 @@ function read_bucket(req) {
             db.Node.aggregate_nodes({
                 system: req.system._id,
                 deleted: null,
-            }, 'tier'),
+            }, 'pool'),
             db.ObjectMD.count({
                 system: req.system._id,
                 bucket: bucket._id,
@@ -105,20 +105,23 @@ function read_bucket(req) {
             var used = 0;
             var free = 0;
             var total = 0;
-            _.each(reply.tiering.tiers, function(t) {
-                var aggr = nodes_aggregated[t.tier];
-                var replicas = t.replicas || 3;
-                alloc += (aggr && aggr.alloc) || 0;
-                used += (aggr && aggr.used) || 0;
-                total += ((aggr && aggr.total) || 0) / replicas;
-                free += ((aggr && aggr.free) || 0) / replicas;
-                reply.storage = {
-                    alloc: alloc,
-                    used: used,
-                    total: total,
-                    free: free,
-                };
+            _.each(bucket.tiering.tiers, function(t) {
+                _.each(t.tier.pools, function(pool) {
+                    var aggr = nodes_aggregated[pool._id];
+                    if (!aggr) return;
+                    var replicas = t.replicas || 3;
+                    alloc += aggr.alloc || 0;
+                    used += aggr.used || 0;
+                    total += (aggr.total || 0) / replicas;
+                    free += (aggr.free || 0) / replicas;
+                });
             });
+            reply.storage = {
+                alloc: alloc,
+                used: used,
+                total: total,
+                free: free,
+            };
             return reply;
         });
 }

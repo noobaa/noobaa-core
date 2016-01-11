@@ -368,7 +368,8 @@ function read_system(req) {
                 n2n_config: n2n_config,
                 ip_address: ip_address,
                 base_address: req.system.base_address ||
-                    'wss://' + ip_address + ':' + process.env.SSL_PORT
+                    'wss://' + ip_address + ':' + process.env.SSL_PORT,
+                version: pkg.version,
             };
         });
     });

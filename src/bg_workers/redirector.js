@@ -5,9 +5,11 @@ module.exports = {
     register_agent: register_agent,
     unregister_agent: unregister_agent,
     resync_agents: resync_agents,
+    print_registered_agents: print_registered_agents,
 };
 
 var _ = require('lodash');
+var util = require('util');
 var P = require('../util/promise');
 var bg_workers_rpc = require('./bg_workers_rpc').bg_workers_rpc;
 var dbg = require('../util/debug_module')(__filename);
@@ -75,6 +77,11 @@ function resync_agents(req) {
     _.each(req.rpc_params.agents, function(agent) {
         add_agent_to_connection(req.connection, agent);
     });
+}
+
+function print_registered_agents(req) {
+    dbg.log0('Registered Agents:', util.inspect(REGISTERED_AGENTS.agents2srvs, false, null));
+    return REGISTERED_AGENTS.agents2srvs.size + ' Registered Agents printed';
 }
 
 function cleanup_on_close(connection) {

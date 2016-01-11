@@ -318,6 +318,17 @@ app.get('/fe/*', function(req, res) {
     }
 })
 
+app.get('/fe/systems*', function(req, res) {
+var filePath = path.join(rootdir, 'frontend', 'dist',  'index.html');
+    
+    if (fs.existsSync(filePath)) {
+        res.sendFile(filePath);
+    } else {
+        res.statusCode = 404;
+       res.end();
+    }
+})
+
 ////////////
 // STATIC //
 ////////////
@@ -347,8 +358,6 @@ app.use('/public/', cache_control(dev_mode ? 0 : 10 * 60)); // 10 minutes
 app.use('/public/', express.static(path.join(rootdir, 'build', 'public')));
 app.use('/public/images/', cache_control(dev_mode ? 3600 : 24 * 3600)); // 24 hours
 app.use('/public/images/', express.static(path.join(rootdir, 'images')));
-
-app.use('/fe/assets', express.static(path.join(rootdir, 'frontend', 'dist', 'assets')));
 
 app.use('/', express.static(path.join(rootdir, 'public')));
 
@@ -396,32 +405,19 @@ function error_404(req, res, next) {
     });
 }
 
-/*
-function error_403(req, res, next) {
-    console.log('NO USER', req.originalMethod, req.originalUrl);
-    if (can_accept_html(req)) {
-        return res.redirect(URL.format({
-            pathname: '/login/',
-            query: {
-                state: req.originalUrl
-            }
-        }));
-    }
-    var err = {
-        status: 403, // forbidden
-        message: 'NO USER',
-        reload: true
-    };
-    return next(err);
-}
 
-function error_501(req, res, next) {
-    return next({
-        status: 501, // not implemented
-        message: 'Working on it... ' + req.originalUrl
-    });
-}
-*/
+// Server the new frontend (management console)
+app.use('/fe/assets', express.static(path.join(rootdir, 'frontend', 'dist', 'assets')));
+app.use('/fe', express.static(path.join(rootdir, 'frontend','dist')));
+app.get('/fe/**/', function(req, res) {
+var filePath = path.join(rootdir, 'frontend', 'dist',  'index.html');
+    if (fs.existsSync(filePath)) {
+        res.sendFile(filePath);
+    } else {
+        res.statusCode = 404;
+       res.end();
+    }
+})
 
 // decide if the client can accept html reply.
 // the xhr flag in the request (X-Requested-By header) is not commonly sent

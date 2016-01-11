@@ -306,29 +306,6 @@ app.get('/get_log_level', function(req, res) {
 });
 
 
-
-app.get('/fe/*', function(req, res) {
-    var filePath = path.join(rootdir, 'frontend', 'dist',  'index/html')
-    
-    if (path.existsSync(filePath)) {
-        res.sendFile(filePath);
-    } else {
-       res.statusCode = 404;
-       res.end();
-    }
-})
-
-app.get('/fe/systems*', function(req, res) {
-var filePath = path.join(rootdir, 'frontend', 'dist',  'index.html');
-    
-    if (fs.existsSync(filePath)) {
-        res.sendFile(filePath);
-    } else {
-        res.statusCode = 404;
-       res.end();
-    }
-})
-
 ////////////
 // STATIC //
 ////////////

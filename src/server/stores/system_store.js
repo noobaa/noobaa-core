@@ -2,6 +2,7 @@
 
 var _ = require('lodash');
 var P = require('../../util/promise');
+var util = require('util');
 var mongodb = require('mongodb');
 var mongo_client = require('./mongo_client');
 var time_utils = require('../../util/time_utils');
@@ -171,6 +172,9 @@ SystemStore.prototype.make_changes = function(changes) {
     var self = this;
     var bulk_per_collection = {};
     var now = new Date();
+    console.log('SystemStore.make_changes:', util.inspect(changes, {
+        depth: 3
+    }));
 
     function get_bulk(collection) {
         if (!(collection in COLLECTIONS)) {
@@ -323,8 +327,9 @@ SystemStoreData.prototype.check_indexes = function(collection, item) {
         var context = index.context ? _.get(item, index.context) : self;
         var map = context[index.name] = context[index.name] || {};
         if (!index.val_array) {
-            if (key in map) {
-                var err = new Error(index.name + ' already exists');
+            var existing = map[key];
+            if (existing && String(existing._id) !== String(item._id)) {
+                var err = new Error('collision in ' + index.name);
                 err.rpc_code = 'CONFLICT';
                 throw err;
             }

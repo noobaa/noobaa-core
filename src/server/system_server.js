@@ -119,7 +119,7 @@ function new_system_changes(name, owner_account_id) {
  */
 function create_system(req) {
     var name = req.rpc_params.name;
-    var changes = new_system_changes(name, req.account._id);
+    var changes = new_system_changes(name, req.account && req.account._id);
     return system_store.make_changes(changes)
         .then(function() {
             if (process.env.ON_PREMISE === 'true') {

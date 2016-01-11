@@ -32,6 +32,7 @@ var AWS = require('aws-sdk');
 var db = require('./db');
 var object_server = require('./object_server');
 var bg_worker = require('./server_rpc').bg_worker;
+var system_store = require('./stores/system_store');
 var cs_utils = require('./utils/cloud_sync_utils');
 var dbg = require('../util/debug_module')(__filename);
 var P = require('../util/promise');
@@ -42,7 +43,7 @@ function new_bucket_defaults(name, system_id, tiering_policy_id) {
         name: name,
         system: system_id,
         tiering: tiering_policy_id,
-        stats:  {
+        stats: {
             reads: 0,
             writes: 0,
         }
@@ -56,28 +57,25 @@ function new_bucket_defaults(name, system_id, tiering_policy_id) {
  *
  */
 function create_bucket(req) {
-    return resolve_tiering_policy(req.system.id, req.rpc_params.tiering)
-        .then(function(tiering) {
-            var bucket = new_bucket_defaults(
-                req.rpc_params.name,
-                req.system._id,
-                tiering[0]._id);
-            return db.Bucket.create(bucket);
-        })
-        .then(function(bucket) {
-            console.log('create bucket:', bucket, 'account', req.account.id);
-            return db.ActivityLog.create({
-                system: req.system,
-                level: 'info',
-                event: 'bucket.create',
-                bucket: bucket,
-                actor: req.account.id
-            });
-        })
-        .then(null, db.check_already_exists(req, 'bucket'))
-        .then(function() {
-            return P.when(read_bucket(req));
-        });
+    var tiering_policy = resolve_tiering_policy(req.system, req.rpc_params.tiering);
+    var bucket = new_bucket_defaults(
+        req.rpc_params.name,
+        req.system._id,
+        tiering_policy._id);
+    db.ActivityLog.create({
+        event: 'bucket.create',
+        level: 'info',
+        system: req.system._id,
+        actor: req.account._id,
+        bucket: bucket._id,
+    });
+    return system_store.make_changes({
+        insert: {
+            buckets: [bucket]
+        }
+    }).then(function() {
+        return read_bucket(req);
+    });
 }
 
 /**
@@ -86,58 +84,42 @@ function create_bucket(req) {
  *
  */
 function read_bucket(req) {
-    var by_system_id_undeleted = {
-        system: req.system.id,
-        deleted: null,
-    };
-    var reply = {};
-
-    return P.when(db.Bucket
-            .findOne(get_bucket_query(req))
-            .populate('tiering.tiers')
-            .exec())
-        .then(db.check_not_deleted(req, 'bucket'))
-        .then(function(bucket) {
-            return P.when(get_bucket_info(bucket))
-                .then(function(info) {
-                    reply = info;
-                    // TODO read bucket's storage and objects info
-                    return P.when(db.Node.aggregate_nodes(by_system_id_undeleted, 'tier'));
-                })
-                .then(function(nodes_aggregated) {
-                    var alloc = 0;
-                    var used = 0;
-                    var free = 0;
-                    var total = 0;
-                    _.each(reply.tiering[0].tiers, function(t) {
-                        var aggr = nodes_aggregated[t.tier];
-                        var replicas = t.replicas || 3;
-                        alloc += (aggr && aggr.alloc) || 0;
-                        used += (aggr && aggr.used) || 0;
-                        total += ((aggr && aggr.total) || 0) / replicas;
-                        free += ((aggr && aggr.free) || 0) / replicas;
-                        reply.storage = {
-                            alloc: alloc,
-                            used: used,
-                            total: total,
-                            free: free,
-                        };
-                    });
-                    return P.when(db.ObjectMD
-                        .count({
-                            system: req.system.id,
-                            bucket: bucket.id,
-                            deleted: null,
-                        }));
-                })
-                .then(function(obj_count) {
-                    reply.num_objects = obj_count;
-                    return P.when(get_cloud_sync_policy(req));
-                })
-                .then(function(sync_policy) {
-                    cs_utils.resolve_cloud_sync_info(sync_policy, reply);
-                    return reply;
-                });
+    var bucket = find_bucket(req);
+    var reply = get_bucket_info(bucket);
+    // TODO read bucket's storage and objects info
+    return P.join(
+            db.Node.aggregate_nodes({
+                system: req.system._id,
+                deleted: null,
+            }, 'tier'),
+            db.ObjectMD.count({
+                system: req.system._id,
+                bucket: bucket._id,
+                deleted: null,
+            }),
+            get_cloud_sync_policy(req))
+        .spread(function(nodes_aggregated, obj_count, sync_policy) {
+            reply.num_objects = obj_count;
+            cs_utils.resolve_cloud_sync_info(sync_policy, reply);
+            var alloc = 0;
+            var used = 0;
+            var free = 0;
+            var total = 0;
+            _.each(reply.tiering.tiers, function(t) {
+                var aggr = nodes_aggregated[t.tier];
+                var replicas = t.replicas || 3;
+                alloc += (aggr && aggr.alloc) || 0;
+                used += (aggr && aggr.used) || 0;
+                total += ((aggr && aggr.total) || 0) / replicas;
+                free += ((aggr && aggr.free) || 0) / replicas;
+                reply.storage = {
+                    alloc: alloc,
+                    used: used,
+                    total: total,
+                    free: free,
+                };
+            });
+            return reply;
         });
 }
 
@@ -149,21 +131,21 @@ function read_bucket(req) {
  *
  */
 function update_bucket(req) {
-    return resolve_tiering_policy(req.system.id, req.rpc_params.tiering)
-        .then(function(tiering) {
-            var updates = {};
-            if (req.rpc_params.new_name) {
-                updates.name = req.rpc_params.new_name;
-            }
-            if (tiering) {
-                updates.tiering = tiering;
-            }
-            return db.Bucket
-                .findOneAndUpdate(get_bucket_query(req), updates)
-                .exec();
-        })
-        .then(db.check_not_deleted(req, 'bucket'))
-        .thenResolve();
+    var tiering_policy = resolve_tiering_policy(req.system, req.rpc_params.tiering);
+    var updates = {
+        _id: req.bucket._id
+    };
+    if (req.rpc_params.new_name) {
+        updates.name = req.rpc_params.new_name;
+    }
+    if (tiering_policy) {
+        updates.tiering_policy = tiering_policy._id;
+    }
+    return system_store.make_changes({
+        update: {
+            buckets: [updates]
+        }
+    }).return();
 }
 
 
@@ -174,32 +156,26 @@ function update_bucket(req) {
  *
  */
 function delete_bucket(req) {
-    var updates = {
-        deleted: new Date()
-    };
-    var bucketid;
-    return P.when(db.Bucket
-            .findOneAndUpdate(get_bucket_query(req), updates)
-            .exec())
-        .then(function(bucket_info) {
-            bucketid = bucket_info._id;
-            return db.ActivityLog.create({
-                system: req.system,
-                level: 'info',
-                event: 'bucket.delete',
-                bucket: bucket_info,
-                actor: req.account.id
-            });
+    db.ActivityLog.create({
+        event: 'bucket.delete',
+        level: 'info',
+        system: req.system._id,
+        actor: req.account._id,
+        bucket: req.bucket._id,
+    });
+    return system_store.make_changes({
+            remove: {
+                buckets: [req.bucket._id]
+            }
         })
-        .then(db.check_not_found(req, 'bucket'))
         .then(function() {
             return P.when(bg_worker.cloud_sync.refresh_policy({
-                sysid: req.system.id,
-                bucketid: bucketid.toString(),
+                sysid: req.system._id,
+                bucketid: req.bucket._id.toString(),
                 force_stop: true,
             }));
         })
-        .thenResolve();
+        .return();
 }
 
 
@@ -210,20 +186,9 @@ function delete_bucket(req) {
  *
  */
 function list_buckets(req) {
-    return P.when(db.Bucket
-            .find({
-                system: req.system.id,
-                deleted: null,
-            })
-            .populate('tiering')
-            .exec())
-        .then(function(buckets) {
-            return {
-                buckets: _.map(buckets, function(bucket) {
-                    return _.pick(bucket, 'name');
-                })
-            };
-        });
+    return _.map(req.system.buckets_by_name, function(bucket) {
+        return _.pick(bucket, 'name');
+    });
 }
 
 /**
@@ -445,47 +410,39 @@ function get_cloud_buckets(req) {
 // UTILS //////////////////////////////////////////////////////////
 
 
-function get_bucket_query(req) {
-    return {
-        system: req.system.id,
-        name: req.rpc_params.name,
-        deleted: null,
-    };
+function find_bucket(req) {
+    var bucket = req.system.buckets_by_name[req.rpc_params.name];
+    if (!bucket) {
+        dbg.error('BUCKET NOT FOUND', req.rpc_params.name);
+        throw req.rpc_error('NOT_FOUND', 'missing bucket');
+    }
+    return bucket;
 }
 
 function get_bucket_info(bucket) {
     var reply = _.pick(bucket, 'name');
-
     if (bucket.tiering) {
-        return P.when(db.TieringPolicy
-                .find({
-                    system: bucket.system,
-                    _id: bucket.tiering,
-                    deleted: null,
-                }))
-            .then(function(tiering) {
-                reply.tiering = tiering;
-                return reply;
-            });
-    } else {
-        return reply;
+        reply.tiering = _.pick(bucket.tiering, 'name');
+        reply.tiering.tiers = _.map(bucket.tiering.tiers, function(t) {
+            return {
+                order: t.order,
+                tier: t.tier.name
+            };
+        });
     }
+    return reply;
 }
 
-function resolve_tiering_policy(system_id, tiering) {
-    if (!tiering) return P.resolve();
-    return P.when(db.TieringPolicy
-            .find({
-                system: system_id,
-                name: tiering,
-                deleted: null,
-            })
-            .exec())
-        .then(function(tiering_policy) {
-            if (!tiering_policy) {
-                console.log('TIER POLICY NOT FOUND', tiering);
-                throw new Error('missing tiering policy');
-            }
-            return tiering_policy;
-        });
+function resolve_tiering_policy(req, tiering) {
+    if (!tiering) return;
+    var tiering_policy = system_store.get_by_id(tiering);
+    if (!tiering_policy) {
+        dbg.error('TIER POLICY NOT FOUND', tiering);
+        throw req.rpc_error('NOT_FOUND', 'missing tiering policy');
+    }
+    if (tiering_policy.system._id.toString() !== req.system._id.toString()) {
+        dbg.error('TIER POLICY NOT FOUND IN SYSTEM', tiering);
+        throw req.rpc_error('NOT_FOUND', 'missing tiering policy');
+    }
+    return tiering_policy;
 }

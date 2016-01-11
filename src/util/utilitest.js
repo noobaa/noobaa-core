@@ -13,6 +13,7 @@ var express_method_override = require('method-override');
 var mongoose = require('mongoose');
 var mongoose_logger = require('./mongoose_logger');
 var dbg = require('./debug_module')(__filename);
+var mongo_client = require('../server/stores/mongo_client');
 
 mongoose.set('debug', mongoose_logger(dbg.log0.bind(dbg)));
 
@@ -59,6 +60,8 @@ before(function(done) {
         return P.all(_.map(mongoose.modelNames(), function(model_name) {
             return P.npost(mongoose.model(model_name), 'ensureIndexes');
         }));
+    }).then(function() {
+        return mongo_client.connect();
     }).then(function() {
         return P.npost(http_server, 'listen');
     }).then(function() {

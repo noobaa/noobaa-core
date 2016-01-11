@@ -25,6 +25,7 @@ var client = new api.Client();
 
 // register api servers
 var server_rpc = require('../server/server_rpc').server_rpc;
+require('../server/server_rpc').register_servers();
 
 _.each(mongoose.modelNames(), function(model_name) {
     mongoose.model(model_name).schema.set('autoIndex', false);

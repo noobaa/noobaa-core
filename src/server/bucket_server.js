@@ -134,9 +134,10 @@ function read_bucket(req) {
  *
  */
 function update_bucket(req) {
+    var bucket = find_bucket(req);
     var tiering_policy = resolve_tiering_policy(req.system, req.rpc_params.tiering);
     var updates = {
-        _id: req.bucket._id
+        _id: bucket._id
     };
     if (req.rpc_params.new_name) {
         updates.name = req.rpc_params.new_name;
@@ -159,22 +160,23 @@ function update_bucket(req) {
  *
  */
 function delete_bucket(req) {
+    var bucket = find_bucket(req);
     db.ActivityLog.create({
         event: 'bucket.delete',
         level: 'info',
         system: req.system._id,
         actor: req.account._id,
-        bucket: req.bucket._id,
+        bucket: bucket._id,
     });
     return system_store.make_changes({
             remove: {
-                buckets: [req.bucket._id]
+                buckets: [bucket._id]
             }
         })
         .then(function() {
             return P.when(bg_worker.cloud_sync.refresh_policy({
                 sysid: req.system._id,
-                bucketid: req.bucket._id.toString(),
+                bucketid: bucket._id.toString(),
                 force_stop: true,
             }));
         })
@@ -201,35 +203,33 @@ function list_buckets(req) {
  */
 function get_cloud_sync_policy(req) {
     dbg.log3('get_cloud_sync_policy');
-    var reply = [];
-    var bucket = req.system.buckets_by_name[req.rpc_params.name];
-    if (bucket.cloud_sync && bucket.cloud_sync.endpoint) {
-        return P.when(bg_worker.cloud_sync.get_policy_status({
-                sysid: req.system.id,
-                bucketid: bucket._id.toString()
-            }))
-            .then(function(stat) {
-                reply = {
-                    name: bucket.name,
-                    policy: {
-                        endpoint: bucket.cloud_sync.endpoint,
-                        access_keys: [bucket.cloud_sync.access_keys],
-                        schedule: bucket.cloud_sync.schedule_min,
-                        last_sync: bucket.cloud_sync.last_sync.getTime(),
-                        paused: bucket.cloud_sync.paused,
-                        c2n_enabled: bucket.cloud_sync.c2n_enabled,
-                        n2c_enabled: bucket.cloud_sync.n2c_enabled,
-                        additions_only: bucket.cloud_sync.additions_only
-                    },
-                    health: stat.health,
-                    status: stat.status,
-                };
-
-                return reply;
-            });
-    } else {
+    var reply;
+    var bucket = find_bucket(req);
+    if (!bucket.cloud_sync || !bucket.cloud_sync.endpoint) {
         return {};
     }
+    return P.when(bg_worker.cloud_sync.get_policy_status({
+            sysid: req.system.id,
+            bucketid: bucket._id.toString()
+        }))
+        .then(function(stat) {
+            reply = {
+                name: bucket.name,
+                policy: {
+                    endpoint: bucket.cloud_sync.endpoint,
+                    access_keys: [bucket.cloud_sync.access_keys],
+                    schedule: bucket.cloud_sync.schedule_min,
+                    last_sync: bucket.cloud_sync.last_sync.getTime(),
+                    paused: bucket.cloud_sync.paused,
+                    c2n_enabled: bucket.cloud_sync.c2n_enabled,
+                    n2c_enabled: bucket.cloud_sync.n2c_enabled,
+                    additions_only: bucket.cloud_sync.additions_only
+                },
+                health: stat.health,
+                status: stat.status,
+            };
+            return reply;
+        });
 }
 
 /**
@@ -240,40 +240,30 @@ function get_cloud_sync_policy(req) {
 function get_all_cloud_sync_policies(req) {
     dbg.log3('get_all_cloud_sync_policies');
     var reply = [];
-    return P.when(db.Bucket
-            .find({
-                system: req.system.id,
-                deleted: null,
+    return P.all(_.map(req.system.buckets_by_name, function(bucket) {
+        if (!bucket.cloud_sync.endpoint) return;
+        return bg_worker.cloud_sync.get_policy_status({
+                sysid: req.system._id,
+                bucketid: bucket._id
             })
-            .exec())
-        .then(function(buckets) {
-            _.each(buckets, function(bucket, i) {
-                if (bucket.cloud_sync.endpoint) {
-                    return P.when(bg_worker.cloud_sync.get_policy_status({
-                            sysid: req.system.id,
-                            bucketid: bucket._id.toString()
-                        }))
-                        .then(function(stat) {
-                            reply.push({
-                                name: bucket.name,
-                                policy: {
-                                    endpoint: bucket.cloud_sync.endpoint,
-                                    access_keys: [bucket.cloud_sync.access_keys],
-                                    schedule: bucket.cloud_sync.schedule_min,
-                                    last_sync: bucket.cloud_sync.last_sync.getTime(),
-                                    paused: bucket.cloud_sync.paused,
-                                    c2n_enabled: bucket.cloud_sync.c2n_enabled,
-                                    n2c_enabled: bucket.cloud_sync.n2c_enabled,
-                                    additions_only: bucket.cloud_sync.additions_only
-                                },
-                                health: stat.health,
-                                status: stat.status,
-                            });
-                        });
-                }
+            .then(function(stat) {
+                reply.push({
+                    name: bucket.name,
+                    health: stat.health,
+                    status: stat.status,
+                    policy: {
+                        endpoint: bucket.cloud_sync.endpoint,
+                        access_keys: [bucket.cloud_sync.access_keys],
+                        schedule: bucket.cloud_sync.schedule_min,
+                        last_sync: bucket.cloud_sync.last_sync.getTime(),
+                        paused: bucket.cloud_sync.paused,
+                        c2n_enabled: bucket.cloud_sync.c2n_enabled,
+                        n2c_enabled: bucket.cloud_sync.n2c_enabled,
+                        additions_only: bucket.cloud_sync.additions_only
+                    }
+                });
             });
-            return reply;
-        });
+    })).return(reply);
 }
 
 /**
@@ -283,32 +273,24 @@ function get_all_cloud_sync_policies(req) {
  */
 function delete_cloud_sync(req) {
     dbg.log2('delete_cloud_sync:', req.rpc_params.name, 'on', req.system.id);
-    var updates = {
-        cloud_sync: {}
-    };
-    var bucketid;
-    return P.when(db.Bucket
-            .findOne({
-                system: req.system.id,
-                name: req.rpc_params.name,
-                deleted: null,
-            })
-            .exec())
-        .then(function(bucket) {
-            bucketid = bucket._id;
-            dbg.log3('delete_cloud_sync: delete on bucket', bucket);
-            return P.when(db.Bucket
-                .findOneAndUpdate(get_bucket_query(req), updates)
-                .exec());
+    var bucket = find_bucket(req);
+    dbg.log3('delete_cloud_sync: delete on bucket', bucket);
+    return system_store.make_changes({
+            update: {
+                buckets: {
+                    _id: bucket._id,
+                    cloud_sync: {}
+                }
+            }
         })
         .then(function() {
-            return P.when(bg_worker.cloud_sync.refresh_policy({
+            return bg_worker.cloud_sync.refresh_policy({
                 sysid: req.system.id,
-                bucketid: bucketid.toString(),
+                bucketid: bucket._id,
                 force_stop: true,
-            }));
+            });
         })
-        .thenResolve();
+        .return();
 }
 
 /**
@@ -318,7 +300,7 @@ function delete_cloud_sync(req) {
  */
 function set_cloud_sync(req) {
     dbg.log0('set_cloud_sync:', req.rpc_params.name, 'on', req.system.id, 'with', req.rpc_params.policy);
-    var bucket;
+    var bucket = find_bucket(req);
     var force_stop = false;
     //Verify parameters, bi-directional sync can't be set with additions_only
     if (req.rpc_params.policy.additions_only &&
@@ -327,60 +309,51 @@ function set_cloud_sync(req) {
         dbg.warn('set_cloud_sync bi-directional sync cant be set with additions_only');
         throw new Error('bi-directional sync cant be set with additions_only');
     }
-    var updates = {
-        cloud_sync: {
-            endpoint: req.rpc_params.policy.endpoint,
-            access_keys: {
-                access_key: req.rpc_params.policy.access_keys[0].access_key,
-                secret_key: req.rpc_params.policy.access_keys[0].secret_key
-            },
-            schedule_min: req.rpc_params.policy.schedule,
-            last_sync: 0,
-            paused: req.rpc_params.policy.paused,
-            c2n_enabled: req.rpc_params.policy.c2n_enabled,
-            n2c_enabled: req.rpc_params.policy.n2c_enabled,
-            additions_only: req.rpc_params.policy.additions_only
-        }
+    var cloud_sync = {
+        endpoint: req.rpc_params.policy.endpoint,
+        access_keys: {
+            access_key: req.rpc_params.policy.access_keys[0].access_key,
+            secret_key: req.rpc_params.policy.access_keys[0].secret_key
+        },
+        schedule_min: req.rpc_params.policy.schedule,
+        last_sync: 0,
+        paused: req.rpc_params.policy.paused,
+        c2n_enabled: req.rpc_params.policy.c2n_enabled,
+        n2c_enabled: req.rpc_params.policy.n2c_enabled,
+        additions_only: req.rpc_params.policy.additions_only
     };
 
-    return P.when(db.Bucket
-            .findOne({
-                system: req.system.id,
-                name: req.rpc_params.name,
-                deleted: null,
-            })
-            .exec())
-        .then(function(b) {
-            bucket = b;
-            //If either of the following is changed, signal the cloud sync worker to force stop and reload
-            if (bucket.cloud_sync.endpoint !== updates.cloud_sync.endpoint ||
-                bucket.cloud_sync.access_keys.access_key !== updates.cloud_sync.access_keys.access_key ||
-                bucket.cloud_sync.access_keys.secret_key !== updates.cloud_sync.access_keys.secret_key ||
-                updates.cloud_sync.paused) {
-                force_stop = true;
+    //If either of the following is changed, signal the cloud sync worker to force stop and reload
+    if (bucket.cloud_sync.endpoint !== cloud_sync.endpoint ||
+        bucket.cloud_sync.access_keys.access_key !== cloud_sync.access_keys.access_key ||
+        bucket.cloud_sync.access_keys.secret_key !== cloud_sync.access_keys.secret_key ||
+        cloud_sync.paused) {
+        force_stop = true;
+    }
+    return system_store.make_changes({
+            update: {
+                buckets: {
+                    _id: bucket._id,
+                    cloud_sync: cloud_sync
+                }
             }
-            return P.when(db.Bucket
-                .findOneAndUpdate(get_bucket_query(req), updates)
-                .exec());
         })
         .then(function() {
             //TODO:: scale, fine for 1000 objects, not for 1M
-            return object_server.set_all_files_for_sync(req.system.id, bucket._id);
+            return object_server.set_all_files_for_sync(req.system._id, bucket._id);
         })
         .then(function() {
-            return P.when(bg_worker.cloud_sync.refresh_policy({
-                sysid: req.system.id,
-                bucketid: bucket._id.toString(),
+            return bg_worker.cloud_sync.refresh_policy({
+                sysid: req.system._id,
+                bucketid: bucket._id,
                 force_stop: force_stop,
-            }));
+            });
         })
-        .then(function() {
-            return;
-        }).then(null, function(err) {
+        .catch(function(err) {
             dbg.error('Error setting cloud sync', err, err.stack);
-            throw new Error(err.message);
+            throw err;
         })
-        .thenResolve();
+        .return();
 }
 
 /**
@@ -402,9 +375,9 @@ function get_cloud_buckets(req) {
             buckets.push(bucket.Name);
         });
         return buckets;
-    }).then(null, function(err) {
-        console.log("Error:", err.message);
-        throw new Error(err.message);
+    }).catch(function(err) {
+        dbg.error("get_cloud_buckets ERROR", err.stack || err);
+        throw err;
     });
 
 }

@@ -214,22 +214,14 @@ function create_system(req) {
  *
  */
 function read_system(req) {
+    var system = req.system;
     return P.fcall(function() {
-        var by_system_id = {
-            system: req.system.id
-        };
         var by_system_id_undeleted = {
-            system: req.system.id,
+            system: system._id,
             deleted: null,
         };
 
         return P.all([
-            // roles
-            db.Role.find(by_system_id).populate('account').exec(),
-
-            // tiers
-            db.Tier.find(by_system_id_undeleted).exec(),
-
             // nodes - count, online count, allocated/used storage aggregate by tier
             db.Node.aggregate_nodes(by_system_id_undeleted, 'tier'),
 
@@ -249,22 +241,19 @@ function read_system(req) {
                 },
                 reduce: size_utils.reduce_sum
             }),
-
-            // buckets
-            db.Bucket.find(by_system_id_undeleted).exec(),
-
-            // pools
-            db.Pool.find(by_system_id_undeleted).exec(),
         ]);
 
-    }).spread(function(roles, tiers, nodes_aggregate_tier, nodes_aggregate_pool,
-        objects_aggregate, blocks, buckets, pools) {
+    }).spread(function(
+        nodes_aggregate_tier,
+        nodes_aggregate_pool,
+        objects_aggregate,
+        blocks) {
+
         blocks = _.mapValues(_.indexBy(blocks, '_id'), 'value');
-        var tiers_by_id = _.indexBy(tiers, '_id');
         var nodes_sys = nodes_aggregate_tier[''] || {};
         var objects_sys = objects_aggregate[''] || {};
         var ret_pools = [];
-        _.each(pools, function(p) {
+        _.each(system.pools_by_name, function(p) {
             var aggregate_p = nodes_aggregate_pool[p._id] || {};
             ret_pools.push({
                 name: p.name,
@@ -279,15 +268,14 @@ function read_system(req) {
                 }
             });
         });
-        return P.all(_.map(buckets, function(bucket) {
+        return P.all(_.map(system.buckets_by_name, function(bucket) {
             var b = _.pick(bucket, 'name');
             var a = objects_aggregate[bucket.id] || {};
             b.storage = {
                 used: a.size || 0,
             };
             b.num_objects = a.count || 0;
-            b.tiering = _.map(bucket.tiering.tiers, function(tier_id) {
-                var tier = tiers_by_id[tier_id];
+            b.tiering = _.map(bucket.tiering.tiers, function(tier) {
                 if (!tier) return '';
                 var replicas = tier.replicas || 3;
                 var t = nodes_aggregate_tier[tier.id];
@@ -302,7 +290,7 @@ function read_system(req) {
             }
             return P.fcall(function() {
                 return bucket_server.get_cloud_sync_policy({
-                    system: req.system,
+                    system: system,
                     rpc_params: {
                         name: b.name
                     }
@@ -318,7 +306,7 @@ function read_system(req) {
         })).then(function(updated_buckets) {
             dbg.log2('updated_buckets:', updated_buckets);
             var ip_address = ip_module.address();
-            var n2n_config = req.system.n2n_config;
+            var n2n_config = system.n2n_config;
             // TODO use n2n_config.stun_servers ?
             // var stun_address = 'stun://' + ip_address + ':' + stun.PORT;
             // var stun_address = 'stun://64.233.184.127:19302'; // === 'stun://stun.l.google.com:19302'
@@ -328,15 +316,17 @@ function read_system(req) {
             //     dbg.log0('read_system: n2n_config.stun_servers', n2n_config.stun_servers);
             // }
             return {
-                name: req.system.name,
-                roles: _.map(roles, function(role) {
-                    role = _.pick(role, 'role', 'account');
-                    role.account = _.pick(role.account, 'name', 'email');
-                    return role;
+                name: system.name,
+                roles: _.map(system.roles_by_account, function(roles, account_id) {
+                    var account = system_store.data.get_by_id(account_id);
+                    return {
+                        roles: roles,
+                        account: _.pick(account, 'name', 'email')
+                    };
                 }),
-                tiers: _.map(tiers, function(tier) {
+                tiers: _.map(system.tiers_by_name, function(tier) {
                     var t = _.pick(tier, 'name');
-                    var a = nodes_aggregate_tier[tier.id];
+                    var a = nodes_aggregate_tier[tier._id];
                     t.storage = _.defaults(_.pick(a, 'total', 'free', 'used', 'alloc'), {
                         alloc: 0,
                         used: 0
@@ -361,13 +351,13 @@ function read_system(req) {
                 pools: ret_pools,
                 buckets: updated_buckets,
                 objects: objects_sys.count || 0,
-                access_keys: req.system.access_keys,
+                access_keys: system.access_keys,
                 ssl_port: process.env.SSL_PORT,
                 web_port: process.env.PORT,
-                web_links: get_system_web_links(req.system),
+                web_links: get_system_web_links(system),
                 n2n_config: n2n_config,
                 ip_address: ip_address,
-                base_address: req.system.base_address ||
+                base_address: system.base_address ||
                     'wss://' + ip_address + ':' + process.env.SSL_PORT,
                 version: pkg.version,
             };

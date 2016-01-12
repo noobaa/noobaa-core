@@ -217,6 +217,7 @@ function wait_on_agents_upgrade(ip) {
             return P.when(api.client.system.read_system({}))
                 .then(function(res) {
                     sys_ver = res.version;
+                    console.warn('NBNB:: res ver is', sys_ver);
                 });
         })
         .fail(function(error) {
@@ -234,10 +235,15 @@ function wait_on_agents_upgrade(ip) {
                         return old_agents;
                     },
                     function() {
-                        return P.when(api.client.node.list_nodes({}))
+                        return P.when(api.client.node.list_nodes({
+                                query: {
+                                    state: 'online',
+                                }
+                            }))
                             .then(function(nodes) {
                                 old_agents = false;
-                                _.each(nodes, function(n) {
+                                _.each(nodes.nodes, function(n) {
+                                    console.warn('NBNB:: agent version', n.version);
                                     if (n.version !== sys_ver) {
                                         old_agents = true;
                                     }

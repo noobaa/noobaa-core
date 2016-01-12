@@ -277,10 +277,10 @@ function delete_cloud_sync(req) {
     dbg.log3('delete_cloud_sync: delete on bucket', bucket);
     return system_store.make_changes({
             update: {
-                buckets: {
+                buckets: [{
                     _id: bucket._id,
                     cloud_sync: {}
-                }
+                }]
             }
         })
         .then(function() {
@@ -332,10 +332,10 @@ function set_cloud_sync(req) {
     }
     return system_store.make_changes({
             update: {
-                buckets: {
+                buckets: [{
                     _id: bucket._id,
                     cloud_sync: cloud_sync
-                }
+                }]
             }
         })
         .then(function() {

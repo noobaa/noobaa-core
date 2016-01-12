@@ -92,7 +92,10 @@ function new_system_changes(name, owner_account_id) {
     var system = new_system_defaults(name, owner_account_id);
     var pool = pool_server.new_pool_defaults('default_pool', system._id);
     var tier = tier_server.new_tier_defaults('nodes', system._id, [pool._id]);
-    var policy = tier_server.new_policy_defaults('default_tiering', system._id, tier._id);
+    var policy = tier_server.new_policy_defaults('default_tiering', system._id, [{
+        tier: tier._id,
+        order: 0
+    }]);
     var bucket = bucket_server.new_bucket_defaults('files', system._id, policy._id);
     var role = {
         account: owner_account_id,
@@ -103,7 +106,7 @@ function new_system_changes(name, owner_account_id) {
         insert: {
             systems: [system],
             buckets: [bucket],
-            tiering_policies: [policy],
+            tieringpolicies: [policy],
             tiers: [tier],
             pools: [pool],
             roles: [role],

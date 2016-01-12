@@ -14,13 +14,7 @@ module.exports = {
             doc: 'Create Tiering Policy',
             method: 'POST',
             params: {
-                type: 'object',
-                required: ['policy'],
-                properties: {
-                    policy: {
-                        $ref: '/tiering_policy_api/definitions/tiering_policy'
-                    }
-                }
+                $ref: '/tiering_policy_api/definitions/tiering_policy'
             },
             reply: {
                 $ref: '/tiering_policy_api/definitions/tiering_policy_extended'
@@ -34,13 +28,7 @@ module.exports = {
             doc: 'Update Tiering Policy',
             method: 'POST',
             params: {
-                type: 'object',
-                required: ['policy'],
-                properties: {
-                    policy: {
-                        $ref: '/tiering_policy_api/definitions/tiering_policy'
-                    }
-                }
+                $ref: '/tiering_policy_api/definitions/tiering_policy'
             },
             reply: {
                 $ref: '/tiering_policy_api/definitions/tiering_policy'
@@ -109,6 +97,7 @@ module.exports = {
     },
 
     definitions: {
+
         tiering_policy: {
             type: 'object',
             required: ['name', 'tiers'],
@@ -118,19 +107,22 @@ module.exports = {
                 },
                 tiers: {
                     type: 'array',
-                    properties: [{
-                        order: {
-                            type: Number,
-                            required: true,
-                        },
-                        tier: {
-                            type: 'string',
-                            required: true,
-                        },
-                    }]
+                    items: {
+                        type: 'object',
+                        required: ['order', 'tier'],
+                        properties: {
+                            order: {
+                                type: 'integer',
+                            },
+                            tier: {
+                                type: 'string',
+                            },
+                        }
+                    }
                 }
             }
         },
+
         tiering_policy_extended: {
             type: 'object',
             required: ['name', 'tiers'],
@@ -140,34 +132,40 @@ module.exports = {
                 },
                 tiers: {
                     type: 'array',
-                    properties: [{
-                        order: {
-                            type: Number,
-                            required: true,
-                        },
-                        tier: {
-                            type: 'object',
-                            required: ['name', 'tiers'],
-                            properties: {
-                                name: {
-                                    type: 'string',
-                                },
-                                data_placement: {
-                                    type: 'string',
-                                    enum: ['MIRROR', 'SPREAD'],
-                                },
-                                pools: {
-                                    type: 'array',
-                                    properties: [{
-                                        name: {
-                                            type: 'string',
-                                            required: true,
-                                        },
-                                    }],
-                                },
+                    items: {
+                        type: 'object',
+                        required: ['order', 'tier'],
+                        properties: {
+                            order: {
+                                type: 'integer',
                             },
-                        },
-                    }],
+                            tier: {
+                                type: 'object',
+                                required: ['name', 'tiers'],
+                                properties: {
+                                    name: {
+                                        type: 'string',
+                                    },
+                                    data_placement: {
+                                        type: 'string',
+                                        enum: ['MIRROR', 'SPREAD'],
+                                    },
+                                    pools: {
+                                        type: 'array',
+                                        items: {
+                                            type: 'object',
+                                            required: ['name'],
+                                            properties: {
+                                                name: {
+                                                    type: 'string',
+                                                },
+                                            }
+                                        }
+                                    },
+                                }
+                            },
+                        }
+                    }
                 },
             },
         },

@@ -45,23 +45,11 @@ var tier_schema = new Schema({
         required: true,
     }],
 
-    nodes: [{
-        ref: 'Node',
-        type: types.ObjectId,
-        required: true,
-    }],
-
     data_placement: {
         type: String,
         enum: ['MIRROR', 'SPREAD'],
         required: true,
     },
-
-    // details needed to access the cloud storage
-    // for example for AWS S3 the details should contain:
-    //     access_key, secret, region, etc.
-    // TODO define schema for cloud_details?
-    cloud_details: {},
 
     // on delete set deletion time
     deleted: {

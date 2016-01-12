@@ -119,7 +119,7 @@ function update_account(req) {
             });
             return system_store.make_changes({
                 update: {
-                    account: [updates]
+                    accounts: [updates]
                 }
             });
         })
@@ -143,7 +143,7 @@ function delete_account(req) {
     });
     return system_store.make_changes({
         remove: {
-            account: [req.account._id]
+            accounts: [req.account._id]
         }
     });
 }
@@ -226,7 +226,7 @@ function add_account_sync_credentials_cache(req) {
     updates.sync_credentials_cache.push(info);
     return system_store.make_changes({
         update: {
-            account: [updates]
+            accounts: [updates]
         }
     }).return();
 }

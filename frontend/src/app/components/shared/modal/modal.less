@@ -1,12 +1,12 @@
 modal {
+	.fixed();
+	display: block;	
+	z-index: 2;
+
 	.modal-backdrop {
-		position: fixed;
-		top: 0;
-		left: 0;
-		bottom: 0;
-		right: 0;
+		.fill();
+		.fade-in;
 		background-color: @shadow-color;
-		z-index: 1;		
 	}
 
 	.modal-content {

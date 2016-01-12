@@ -1,14 +1,28 @@
 import ko from 'knockout';
+import { noop } from 'utils';
 
 export default {
     init: function(element, valueAccessor, allBindings, viewModel, bindingContext) {
-    	ko.utils.registerEventHandler(element, 'scroll', () => {
-			let { scrollTop, scrollHeight, offsetHeight } = element;
+    	let value = valueAccessor();
 
-			if (scrollTop >= scrollHeight - offsetHeight) {
-				let location = scrollTop / (scrollHeight - offsetHeight);
-				console.log(location * 100 + '%');	
-			}	
-    	});
+    	let pos = ko.unwrap(value);
+    	if (typeof pos === "number") {
+    		let { scrollHeight, offsetHeight } = element;
+    		element.scrollTop = (scrollHeight - offsetHeight) * pos;
+    	}
+
+    	if (!ko.isWritableObservable(value)) {
+    		value = noop;
+    	}
+
+    	ko.utils.registerEventHandler(
+    		element, 
+    		'scroll', 
+    		() => {
+				let { scrollTop, scrollHeight, offsetHeight } = element;
+				let pos = scrollTop / (scrollHeight - offsetHeight);
+				value(pos);
+    		}
+		);	
 	}
 }

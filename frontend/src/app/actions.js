@@ -4,7 +4,7 @@ import page from 'page';
 import api from 'services/api';
 import config from 'config';
 import { hostname as endpoint } from 'server-conf';
-import { encodeBase64, cmpStrings, cmpInts, cmpBools, randomString } from 'utils';
+import { encodeBase64, cmpStrings, cmpInts, cmpBools, randomString, last } from 'utils';
 
 // TODO: resolve browserify issue with export of the aws-sdk module.
 // The current workaround use the AWS that is set on the global window object.
@@ -233,6 +233,24 @@ export function refresh() {
 	page.redirect(pathname + search);
 }
 
+export function openAuditLog() {
+	logAction('openAuditLog');
+
+	model.uiState(
+		Object.assign(model.uiState(), { 
+			tray: { componentName: 'audit-pane' }
+		})
+	);
+}
+
+export function closeTray() {
+	logAction('closeTray');
+
+	model.uiState(
+		Object.assign(model.uiState(), { tray: null })
+	);
+}
+
 // -----------------------------------------------------
 // Sign In/Out actions.
 // -----------------------------------------------------
@@ -421,7 +439,7 @@ export function readObjectMetadata(bucketName, objectName) {
 			() => 	api.object.read_object_md({
 				 bucket: bucketName, 
 				 key: objectName,
-				 pagination: true
+				 get_parts_count: true
 			})
 		).then(
 			reply => {
@@ -474,17 +492,8 @@ export function readPool(name) {
 		model.poolInfo(null);
 	}
 
-	// TODO: Change to api.pool.read_pool when avaliable.
-	api.system.read_system()
-		.then(
-			si => {
-				let pool = si.pools.find(
-					pool => pool.name === name 
-				);
-
-				model.poolInfo(pool)
-			}
-		)
+	api.pool.read_pool({ name })
+		.then(model.poolInfo)
 		.done();
 }
 
@@ -749,4 +758,57 @@ export function uploadFiles(bucketName, files) {
 		.then(
 			completedCount => completedCount > 0 && refresh()
 		);
+}
+
+export function loadAuditEntries(categories, count) {
+	logAction('loadAuditEntries', { categories, count });
+
+	let auditLog = model.auditLog;
+	let filter = categories
+		.map(
+			category => `(^${category}.)`
+		)
+		.join('|');
+
+	if (filter !== '') {
+		api.system.read_activity_log({
+			event: filter || '^$',
+			limit: count
+		})
+			.then(
+				reply => {
+					auditLog(reply.logs.reverse());
+					auditLog.loadedCategories(categories);
+				}
+			)
+			.done();
+
+	} else {
+		auditLog([]);
+		auditLog.loadedCategories([]);
+	}
+}
+
+export function loadMoreAuditEntries(count) {
+	logAction('loadMoreAuditEntries', { count });
+
+	let auditLog = model.auditLog;
+	let lastEntryTime = last(auditLog()).time;
+	let filter = model.auditLog.loadedCategories()
+		.map(
+			category => `(^${category}.)` 
+		)
+		.join('|');
+
+	if (filter !== '') {
+		api.system.read_activity_log({
+			event: filter,
+			till: lastEntryTime,
+			limit: count 
+		})
+			.then(
+				reply => auditLog.push(...reply.logs.reverse())
+			)
+			.done()
+	}
 }

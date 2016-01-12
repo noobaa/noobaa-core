@@ -68,7 +68,6 @@
     </symbol>
 
     <symbol id="log" viewBox="0 0 25 25">
-    	<title>Log</title>
 	    <g stroke="none" stroke-width="1" fill="none" fill-rule="evenodd">
 	        <g transform="translate(-987.000000, -22.000000)" fill="#6D8EA1">
 	            <g id="header" transform="translate(0.000000, 16.000000)">
@@ -763,6 +762,14 @@
 	            <path d="M2.79079777,9.521875 L12.4828368,1 L12.4828368,10 L2.73079989,10 L2.79079777,9.521875 Z" fill="#6D8EA1" ></path>
 	        </g>
 	    </g>    	
+    </symbol>    
+
+	<symbol id="notifications" viewBox="0 0 25 25">
+	    <g  stroke="none" stroke-width="1" fill="none" fill-rule="evenodd" >
+	        <g stroke="#607D8B" stroke-width="3">
+	            <path d="M12.5,23 C31.3811189,23 19.0357719,18.2989899 19.0357719,12.5 C19.0357719,6.70101013 16.1096072,2 12.5,2 C8.89039284,2 5.96422808,6.70101013 5.96422808,12.5 C5.96422808,18.2989899 -6.38111888,23 12.5,23 Z" ></path>
+	        </g>
+	    </g>		
     </symbol>    
 
     <!-- <symbol id="<name>" viewBox="0 0 25 25">

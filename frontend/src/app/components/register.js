@@ -79,6 +79,12 @@ export default function register(ko) {
 	ko.components.register('test-node-modal',	require('./node/test-node-modal/test-node-modal'));
 
 	// -------------------------------
+	// Admin
+	// -------------------------------
+	ko.components.register('audit-pane', 		require('./admin/audit-pane/audit-pane'));
+
+
+	// -------------------------------
 	// shared
 	// -------------------------------
 	ko.components.register('svg-icon', 			require('./shared/svg-icon/svg-icon'));
@@ -96,4 +102,5 @@ export default function register(ko) {
 	ko.components.register('slider',			require('./shared/slider/slider'));
 	ko.components.register('wizard',			require('./shared/wizard/wizard'));
 	ko.components.register('paginator',			require('./shared/paginator/paginator'));
+	ko.components.register('tray',				require('./shared/tray/tray'));	
 }

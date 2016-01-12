@@ -173,3 +173,7 @@ export function domFromHtml(html) {
 export function encodeBase64(obj) {
 	return btoa(JSON.stringify(obj));
 }
+
+export function last(arr) {
+	return arr[arr.length - 1];
+}

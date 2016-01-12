@@ -1,6 +1,8 @@
 multiselect {
+	display: block;
+
 	.multiselect-options {
-		height: 9em;		
+		height: 100%;
 	}
 
 	ul {
@@ -12,10 +14,16 @@ multiselect {
 	.option {
 		float: left;
 		width: 100% / 3;
-		line-height: 1.5;
+		line-height: 1.9;
 	}
 
 	.val-msg {
 		line-height: 1.5;
+	}
+
+	&.cols4 {
+		.option {
+			width: 100% / 4;
+		}
 	}
 }

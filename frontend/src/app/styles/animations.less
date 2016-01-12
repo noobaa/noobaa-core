@@ -12,16 +12,51 @@
 	}
 }	
 
-@keyframes shake2 {
-	0%, 100% {
-		transform: translate(-50%, -50%);				
+@keyframes slide-left {
+	from {
+		transform: translateX(100%);
 	}
 
-	16.66%, 83.33% {
-		transform: translate(-40%, -50%);
-	}
-
-	46.66% {
-		transform: translate(-60%, -50%);
+	to {
+		transform: translateX(0);
 	}
 }
+
+@keyframes fade-in {
+	from {
+		opacity: 0;
+	}
+
+	to {
+		opacity: 1;
+	}
+}
+
+@keyframes pop-centered {
+	from {
+		transform: translate(-50%, -50%) scale(.95) ;
+		opacity: 0;
+	}
+
+	to {
+		transform:  translate(-50%, -50%) scale(1);	
+		opacity: 1;
+	}	
+}
+
+.shake {
+	animation: shake 750ms ease-in-out;
+}
+
+.slide-left {
+	animation: slide-left 300ms ease-out;
+}
+
+.fade-in {
+	animation: fade-in 300ms linear;
+}
+
+.pop-centered {
+	animation: pop-centered 300ms;
+}
+

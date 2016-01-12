@@ -21,7 +21,7 @@ class ObjectPartsListViewModel {
 		});
 
 		this.rows = parts.map(
-			(part, i) => this._mapPart(parts, part)
+			(part, i) => this._mapPart(part, this.currPage(), i(), this.count())
 		);
 	}
 
@@ -34,8 +34,8 @@ class ObjectPartsListViewModel {
 		part.isExpended(!part.isExpended());
 	}
 
-	_mapPart(parts, part) {
-		let partsNumber = part.part_sequence_number + 1;
+	_mapPart(part, page, index, partCount) {
+		let partNumber = page * this.pageSize + index;
 		let size = formatSize(part.chunk.size);
 		let state = part.chunk.adminfo.health;
 
@@ -54,7 +54,7 @@ class ObjectPartsListViewModel {
 
 		return {
 			stateIcon: partStateIconMapping[state],
-			name: `Part ${partsNumber} of ${parts().length}`,
+			name: `Part ${partNumber} of ${partCount}`,
 			size: size,
 			blocks: blocks,
 			isExpended: ko.observable(false)

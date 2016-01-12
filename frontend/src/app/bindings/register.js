@@ -8,5 +8,6 @@ export default function register(ko) {
 	ko.bindingHandlers.href 		= require('./href');
 	ko.bindingHandlers.scroll 		= require('./scroll');
 	ko.bindingHandlers.canvas 		= require('./canvas');	
+	ko.bindingHandlers.transition	= require('./transition');
 	ko.bindingHandlers.animation	= require('./animation');
 }

@@ -83,3 +83,8 @@ objectPartList.page = ko.observable(0);
 
 // Hold the recent uploads.
 export let recentUploads = ko.observableArray();
+
+// Hold the audit log 
+export let auditLog = ko.observableArray();
+auditLog.loadedCategories = ko.observableArray();
+auditLog.scrollPop = ko.observable();

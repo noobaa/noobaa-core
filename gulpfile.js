@@ -608,7 +608,7 @@ function build_rest_distro() {
 
 gulp.task('frontend', function() {
     return gulp_spawn('npm', ['install'], {
-        cwd: path.join(process.cwd(), 'frontend')
+        cwd: 'frontend'
     });
 });
 

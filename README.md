@@ -1,6 +1,6 @@
 noobaa-core
 ===========
-[![Build Status](https://snap-ci.com/YEqf0E9LAfcOUoAjHlVHRkcptwUTnWNxW9jLqwHAqKc/build_image)](https://snap-ci.com/noobaa/noobaa-core/branch/master)
+[![Build Status](http://146.148.16.59:8080/job/MDserver/badge/icon)](http://146.148.16.59:8080/job/MDserver/badge/icon)
 
 
 ###Utils Table of Contents:

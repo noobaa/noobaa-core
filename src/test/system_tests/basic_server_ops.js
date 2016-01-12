@@ -202,7 +202,7 @@ function generate_random_file(size_mb) {
 
 function wait_on_agents_upgrade(ip) {
     api.client = new api.Client();
-    api.rpc.base_address = 'ws://' + ip + ':5001';
+    api.rpc.base_address = 'ws://' + ip + ':8080';
     var sys_ver;
 
     return P.fcall(function() {
@@ -214,7 +214,7 @@ function wait_on_agents_upgrade(ip) {
             return api.client.create_auth_token(auth_params);
         })
         .then(function() {
-            return P.when(api.client.bucket.read_system({}))
+            return P.when(api.client.system.read_system({}))
                 .then(function(res) {
                     sys_ver = res.version;
                 });

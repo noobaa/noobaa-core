@@ -20,7 +20,7 @@ var COLLECTIONS = {
     roles: {},
     accounts: {},
     buckets: {},
-    tiering_policies: {},
+    tieringpolicies: {},
     tiers: {},
     pools: {},
 };
@@ -203,11 +203,20 @@ SystemStore.prototype.make_changes = function(changes) {
                 _.each(list, function(item) {
                     self.check_schema(collection, item);
                     data.check_indexes(collection, item);
+                    var updates = _.omit(item, '_id');
+                    var first_key;
+                    _.forOwn(updates, function(val, key) {
+                        first_key = key;
+                        return false; // break loop immediately
+                    });
+                    if (first_key[0] !== '$') {
+                        updates = {
+                            $set: updates
+                        };
+                    }
                     bulk.find({
                         _id: item._id
-                    }).updateOne({
-                        $set: item
-                    });
+                    }).updateOne(updates);
                 });
             });
             _.each(changes.remove, function(list, collection) {
@@ -230,6 +239,24 @@ SystemStore.prototype.make_changes = function(changes) {
         .then(function() {
             return self.load();
         });
+};
+
+SystemStore.prototype.make_changes_in_background = function(changes) {
+    var self = this;
+    self.bg_changes = self.bg_changes || {};
+    _.merge(self.bg_changes, changes, function(a, b) {
+        if (_.isArray(a) && _.isArray(b)) {
+            return a.concat(b);
+        }
+    });
+    if (!self.bg_timeout) {
+        self.bg_timeout = setTimeout(function() {
+            var bg_changes = self.bg_changes;
+            self.bg_changes = null;
+            self.bg_timeout = null;
+            self.make_changes(bg_changes);
+        }, 3000);
+    }
 };
 
 SystemStore.prototype.check_schema = function(collection, item) {

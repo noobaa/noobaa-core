@@ -38,6 +38,7 @@ var policy_allocator = require('./policy_allocator');
 var block_allocator = require('./block_allocator');
 var MappingAllocator = require('./map_allocator');
 var server_rpc = require('../server_rpc').server_rpc;
+var system_store = require('../stores/system_store');
 // var time_utils = require('../../util/time_utils');
 var range_utils = require('../../util/range_utils');
 var string_utils = require('../../util/string_utils');
@@ -254,23 +255,10 @@ function read_node_mappings(params) {
                 return obj._id;
             });
 
-            // TODO GUYM use cache
-            return db.Bucket.collection.find({
-                _id: {
-                    $in: db.uniq_ids(objects, 'bucket')
-                },
-                deleted: null,
-            }, {
-                fields: {
-                    name: 1
-                }
-            }).toArray();
-        }).then(function(buckets) {
-            var buckets_by_id = _.indexBy(buckets, '_id');
             return _.map(objects, function(obj, obj_id) {
                 return {
                     key: obj.key,
-                    bucket: buckets_by_id[obj.bucket].name,
+                    bucket: system_store.data.get_by_id(obj.bucket).name,
                     parts: parts_per_obj_id[obj_id]
                 };
             });

@@ -5,6 +5,7 @@ var _ = require('lodash');
 var P = require('../util/promise');
 var db = require('./db');
 var object_mapper = require('./mapper/object_mapper');
+var system_store = require('./stores/system_store');
 var glob_to_regexp = require('glob-to-regexp');
 var dbg = require('../util/debug_module')(__filename);
 var string_utils = require('../util/string_utils');
@@ -148,16 +149,16 @@ function complete_multipart_upload(req) {
             dbg.error('complete_multipart_upload_err ', err, err.stack);
         })
         .then(function() {
-            return P.when(db.Bucket.findOneAndUpdate({
-                _id: obj.bucket,
-                deleted: null,
-            }, {
-                $inc: {
-                    'stats.writes': 1
+            system_store.make_changes_in_background({
+                update: {
+                    buckets: [{
+                        _id: obj.bucket,
+                        $inc: {
+                            'stats.writes': 1
+                        }
+                    }]
                 }
-            }).exec());
-        })
-        .then(function() {
+            });
             return {
                 etag: obj_etag
             };
@@ -261,21 +262,23 @@ function read_object_mappings(req) {
                 size: obj.size,
                 parts: parts,
             };
-            return P.join(
-                P.when(db.Bucket.findOneAndUpdate({
-                    name: req.rpc_params.bucket,
-                    deleted: null,
-                }, {
-                    $inc: {
-                        'stats.reads': 1
-                    }
-                })),
-                P.when(db.ObjectMD.findOneAndUpdate(object_md_query(req), {
-                    $inc: {
-                        'stats.reads': 1
-                    }
-                }))
-            );
+            system_store.make_changes_in_background({
+                update: {
+                    buckets: [{
+                        _id: obj.bucket,
+                        $inc: {
+                            'stats.reads': 1
+                        }
+                    }]
+                }
+            });
+            return P.when(db.ObjectMD.collection.updateOne({
+                _id: obj._id
+            }, {
+                $inc: {
+                    'stats.reads': 1
+                }
+            }));
         })
         .then(function() {
             return reply;

@@ -70,30 +70,16 @@ function create_node(req) {
     if (req.role !== 'admin') {
         if (req.auth.extra.tier !== tier_name) throw req.forbidden();
     }
+    var tier = req.system.tiers_by_name[tier_name];
+    var pool = req.system.pools_by_name.default_pool;
+    if (!tier || !pool) {
+        throw req.rpc_error('NOT_FOUND', 'TIER/POOL NOT FOUND');
+    }
+    info.tier = tier._id;
+    info.pool = pool._id;
 
-
-    return db.TierCache.get({
-            system: req.system.id,
-            name: tier_name,
-        })
-        .then(db.check_not_deleted(req, 'tier'))
-        .then(function(tier) {
-            info.tier = tier;
-
-            if (String(tier.system) !== String(info.system)) {
-                throw req.rpc_error('NOT_FOUND', null,
-                    'TIER SYSTEM MISMATCH ' + info.name + ' ' + info.system);
-            }
-            return db.PoolCache.get({
-                system: req.system.id,
-                name: 'default_pool',
-            });
-        })
-        .then(function(pool) {
-            info.pool = pool.id;
-            dbg.log0('CREATE NODE', info);
-            return db.Node.create(info);
-        })
+    dbg.log0('CREATE NODE', info);
+    return P.when(db.Node.create(info))
         .then(null, db.check_already_exists(req, 'node'))
         .then(function(node) {
             // create async
@@ -313,34 +299,21 @@ function list_nodes_int(query, system_id, skip, limit, pagination, sort, order, 
             }
 
             if (query.tier) {
-                return db.TierCache.get({
-                        system: system_id,
-                        name: query.tier,
-                    })
-                    .then(db.check_not_deleted(req, 'tier'))
-                    .then(function(tier) {
-                        info.tier = tier;
-                    });
+                var tier = req.system.tiers_by_name[query.tier];
+                info.tier = tier._id;
             }
             if (query.pool) { //Keep last in chain due to promise
-                return db.Pool.find({
-                        system: system_id,
-                        name: {
-                            $in: query.pool
-                        },
-                    })
-                    .then(function(rpools) {
-                        var query_pools = _.map(rpools, function(p) {
-                            return p._id;
-                        });
-
-                        info.pool = {};
-                        info.pool.$in = query_pools;
-                    });
+                var pools_ids = _.map(query.pool, function(pool_name) {
+                    var pool = req.system.pools_by_name[pool_name];
+                    return pool._id;
+                });
+                info.pool = {
+                    $in: pools_ids
+                };
             }
-        })
-        .then(function() {
-            var find = db.Node.find(info)
+            var find = db.Node.collection.find(info, {
+                sort: sort_opt
+            })
                 .sort(sort_opt)
                 .populate('tier', 'name');
             if (skip) {

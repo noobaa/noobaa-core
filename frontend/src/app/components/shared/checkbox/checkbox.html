@@ -1,0 +1,9 @@
+<label class="no-wrap">
+	<input type="checkbox" data-bind="
+		checked: $data.checked, 
+		checkedValue: $data.value,
+		disable: $data.disabled || false
+	"/>
+	<span class="checkbox-box"></span>
+	<span class="checkbox-label" data-bind="text: $data.label || $data.value"></span>
+</label>

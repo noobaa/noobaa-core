@@ -1,0 +1,20 @@
+<!-- ko if: ready -->
+<div class="object-panel">
+	<object-summary params="object: object" class="center clear"></object-summary>
+
+	<ul class="tabs details-pane">
+		<li data-bind="css: { selected: selectedTab() === 'parts' }">
+			<a class="tab-header" 
+				data-bind= "href: '/:system/buckets/:bucket/objects/:object/parts'">
+				<svg-icon params="uri: '/fe/assets/icons.svg#part-light'"></svg-icon>
+				File Parts
+			</a>
+
+			<section class="tab-content">
+				<object-parts-list params="object: object, parts: parts">
+				</object-parts-list>
+			</section>
+		</li>
+	</ul>
+</div>	
+<!-- /ko -->

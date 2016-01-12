@@ -1,0 +1,11 @@
+<wizard params="
+	heading: 'Create Pool',
+	steps: ['choose name', 'assign nodes'],
+	doneLabel: 'Create',
+	validateStep: step => validateStep(step),
+	onComplete: () => createPool(),
+	onClose: onClose
+">
+	<section data-bind="template: { html: chooseNameStepTemplate }"></section>
+	<section data-bind="template: { html: assignNodesStepTemplate }"></section>
+</wizard>

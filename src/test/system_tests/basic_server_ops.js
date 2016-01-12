@@ -4,6 +4,7 @@ var _ = require('lodash');
 var request = require('request');
 var fs = require('fs');
 var crypto = require('crypto');
+var os = require('os');
 var P = require('../../util/promise');
 var ec2_wrap = require('../../deploy/ec2_wrapper');
 var promise_utils = require('../../util/promise_utils');
@@ -194,15 +195,23 @@ function verify_upload_download(ip, path) {
 function generate_random_file(size_mb) {
     var prefix = Math.round(Math.random() * 100) + '.dat';
     var fname = test_file + prefix;
-    return promise_utils.promised_exec('dd if=/dev/random of=' + fname + ' count=' + size_mb + ' bs=1m')
+    var dd_cmd;
+
+    if (os.type() === 'Darwin') {
+        dd_cmd = 'dd if=/dev/urandom of=' + fname + ' count=' + size_mb + ' bs=1m';
+    } else if (os.type() === 'Linux') {
+        dd_cmd = 'dd if=/dev/urandom of=' + fname + ' count=' + size_mb + ' bs=1M';
+    }
+
+    return promise_utils.promised_exec(dd_cmd)
         .then(function() {
             return fname;
         });
 }
 
 function wait_on_agents_upgrade(ip) {
-    var rpc = api.new_rpc({base_address: ip});
-    var client = new api.Client();
+    api.client = new api.Client();
+    api.rpc.base_address = 'ws://' + ip + ':8080';
     var sys_ver;
 
     return P.fcall(function() {
@@ -211,10 +220,10 @@ function wait_on_agents_upgrade(ip) {
                 password: 'DeMo',
                 system: 'demo'
             };
-            return client.create_auth_token(auth_params);
+            return api.client.create_auth_token(auth_params);
         })
         .then(function() {
-            return P.when(rpc.client.bucket.read_system({}))
+            return P.when(api.client.system.read_system({}))
                 .then(function(res) {
                     sys_ver = res.version;
                 });
@@ -234,10 +243,14 @@ function wait_on_agents_upgrade(ip) {
                         return old_agents;
                     },
                     function() {
-                        return P.when(client.node.list_nodes({}))
+                        return P.when(api.client.node.list_nodes({
+                                query: {
+                                    state: 'online',
+                                }
+                            }))
                             .then(function(nodes) {
                                 old_agents = false;
-                                _.each(nodes, function(n) {
+                                _.each(nodes.nodes, function(n) {
                                     if (n.version !== sys_ver) {
                                         old_agents = true;
                                     }

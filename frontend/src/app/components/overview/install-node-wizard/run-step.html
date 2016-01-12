@@ -1,0 +1,73 @@
+<div class="container">
+	<h2 class="heading3"/>Choose your Installation Type</h2>
+
+	<radio-btn class="line" params="
+		group: 'inst-type',
+		value: 'DIST_TOOL',
+		label: 'Distribution (recommended)',
+		checked: installationType
+	"></radio-btn>
+
+	<radio-btn class="line" params="
+		group: 'inst-type',
+		value: 'MANUAL_WIN',
+		label: 'Manual Installation - Windows',
+		checked: installationType
+	"></radio-btn>
+	
+	<radio-btn class="line" params="
+		group: 'inst-type',
+		value: 'MANUAL_LINUX',
+		label: 'Manual Installation - Linux',
+		checked: installationType
+	"></radio-btn>	
+</div>
+
+
+<section class="container">
+	<h2 class="heading3"/>Start the Installation Process</h2>
+	
+	<!-- ko if: installationType() === 'DIST_TOOL' -->
+	<p>Distribute the agent with the following configuration via any distribution tool to all the nodes you wish to participate in the network.</p>
+
+	<div class="box" >
+		<button class="copy-btn btn-flat pull-right" 
+			title="copy to clipboard" 
+			data-bind="click: () => copyToClipboard(distConf)">
+
+			<svg-icon class="icon-small" params="uri: '/fe/assets/icons.svg#copy'"></svg-icon>	
+		</button>
+		
+		<output class="text-tech" data-bind="text: distConf"></output>
+	</div>
+	<!-- /ko -->	
+
+
+	<!-- ko if: installationType() === 'MANUAL_WIN' -->
+	<p>Open a CMD window and run the following command (you must have admin privileges).</p>
+	<div class="box">
+		<button class="copy-btn btn-flat pull-right" 
+			title="copy to clipboard" 
+			data-bind="click: () => copyToClipboard(distConf)">
+
+			<svg-icon class="icon-small" params="uri: '/fe/assets/icons.svg#copy'"></svg-icon>	
+		</button>
+		
+		<output class="text-tech" data-bind="text: windowsInstallCommand"></output>		
+	</div>
+	<!-- /ko -->	
+
+	<!-- ko if: installationType() === 'MANUAL_LINUX' -->
+	<p>Run the following command in your shell (you must have root privileges).</p>
+	<div class="box">
+		<button class="copy-btn btn-flat pull-right" 
+			title="copy to clipboard" 
+			data-bind="click: () => copyToClipboard(distConf)">
+
+			<svg-icon class="icon-small" params="uri: '/fe/assets/icons.svg#copy'"></svg-icon>	
+		</button>
+
+		<output class="text-tech" data-bind="text: linuxInstallCommand"></output>
+	</div>
+	<!-- /ko -->		
+</section>

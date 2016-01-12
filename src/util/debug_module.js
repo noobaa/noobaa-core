@@ -344,6 +344,7 @@ function DebugLogger(mod) {
 
     var name = extract_module(mod);
     this._name = name;
+
     this._cur_level = int_dbg.build_module_context(this._name, int_dbg._modules);
 
     //set debug level for all modules, if defined

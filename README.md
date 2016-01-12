@@ -1,6 +1,6 @@
 noobaa-core
 ===========
-[![Build Status](https://snap-ci.com/YEqf0E9LAfcOUoAjHlVHRkcptwUTnWNxW9jLqwHAqKc/build_image)](https://snap-ci.com/noobaa/noobaa-core/branch/master)
+[![Build Status](http://146.148.16.59:8080/buildStatus/icon?job=MDserver)](http://146.148.16.59:8080/job/MDserver)
 
 ###Utils Table of Contents:
 
@@ -15,3 +15,4 @@ noobaa-core
 [5. BG Workers](https://github.com/noobaa/noobaa-core/blob/master/src/bg_workers/README.md)
 
 [6. Build Machines](https://github.com/noobaa/noobaa-core/wiki/Windows-Build-Machine-Cook-Book)
+

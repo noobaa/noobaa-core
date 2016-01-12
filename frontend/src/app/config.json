@@ -1,0 +1,5 @@
+{
+	"inputThrottle": 400,
+	"paginationPageSize": 25,
+	"defaultPoolName": "default_pool"
+}

@@ -1,0 +1,83 @@
+radio-btn {
+	display: inline-block;
+	vertical-align: bottom;
+
+	label {
+		display: inline-block;
+		cursor: default;
+
+		&:focus {
+			background-color: red;
+		}
+	}
+
+	input {
+		.hide();
+
+		&:focus ~ .radio-knob {
+			outline: @outline;
+			outline-offset: -1px;
+		}
+
+		&:checked {
+			+ .radio-knob::before {
+				opacity: 1;
+			}
+
+			~ .radio-label {
+				color: @text-color6;
+			}
+		}
+
+		&[disabled] {
+			~ .radio-knob {
+				border-color : @gray-lv4;
+
+				&::before {
+					background-color: @gray-lv4;
+				}
+			}
+
+			~ .radio-label {
+				color: @gray-lv5;
+			}
+
+			~ .radio-knob, ~ .radio-label {
+				cursor: default;
+			}
+		}
+	}
+
+	.radio-knob {
+		position: relative;
+		display: inline-block;
+		width: 1.25em;
+		height: 1.25em;
+		border-radius: 5em;
+		border: 2px solid @bg-color6;
+		cursor: @cursor-pointer;
+		text-align: center;
+		line-height: .9;
+		vertical-align: middle;
+
+		&::before {
+			content: '';
+			display: inline-block;
+			opacity: 0;
+			width: .8em;
+			height: .8em;			
+			border-radius: .8em;
+			background-color: @bg-color11;
+			vertical-align: middle;
+			transition: opacity 500ms;
+		}		
+	}
+
+	.radio-label {
+		display: inline-block;
+		font-weight: @font-weight-medium;
+		margin-left: .25em;
+		transition: color 500ms;
+		cursor: @cursor-pointer;
+	}
+}

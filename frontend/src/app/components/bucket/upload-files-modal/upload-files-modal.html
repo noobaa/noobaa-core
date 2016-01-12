@@ -1,0 +1,61 @@
+<modal>
+	<h1 class="heading2">Upload Files</h1>
+
+	<section class="file-drop-area container text-center" data-bind="
+		css: { dragover: !!dragCounter() },
+		event: { 
+			dragenter: dragEnter,
+			dragleave: dragLeave,
+			dragover: () => false,
+			drop: (_, evt) => drop(evt.dataTransfer.files)
+		}
+	">
+		<p class="dnd-msg paragraph">Drag Here</p>
+		
+		<div class="method-seperator">OR</div>
+
+		<label class="browse-btn btn3">
+			Browse
+
+			<input type="file" multiple data-bind="event: { 
+				change: (_, evt) => upload(evt.target.files) 
+			}"/>
+		</label>
+	</section>
+
+	<section class="container">
+		<h2 class="heading3 text-left">Recently Uploaded</h2>	
+		
+		<div class="uploads box">
+			<div class="data-table">
+				<table>
+					<thead>
+						<tr>
+							<th class="state-col">State</th>
+							<th class="name-col text-left">File Name</th>
+							<th class="progress-col">Progress</th>
+						</tr>
+					</thead>
+					<tbody data-bind="foreach: files">
+						<!-- ko if: isVisible -->
+						<tr class="file" data-bind="css: css">
+							<td class="state-col">
+								<svg-icon params="uri: stateIcon"></svg-icon>
+							</td>
+							<td class="name-col text-left" data-bind="text: name"></td>
+							<td class="progress-col" data-bind="
+								text: progress,
+								attr: { title: toolTip }
+							"></td>
+						</tr>
+						<!-- /ko -->
+					</tbody>
+				</table>
+			</div>
+		</div>
+	</section>
+
+	<div class="action-line pull-right">
+		<button class="action btn2" data-bind="click: close">Close</button>		
+	</div>
+</modal>

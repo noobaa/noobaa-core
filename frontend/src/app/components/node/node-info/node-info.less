@@ -1,0 +1,73 @@
+node-info {
+	.system .prop {
+			width: 50%;
+	}
+
+	.drives {
+		.drive-list {
+			width: 100%;
+			display: table;
+			border-spacing: .5em;
+
+			> li {
+				display: table-row;
+
+				> .drive-icon,
+				> .drive-name,
+				> .drive-capacity {
+					box-sizing: content-box;
+					display: table-cell;
+					vertical-align: middle;
+				}
+			}
+		}
+
+		.drive-icon {
+			min-width: 25px;
+		}
+
+		.drive-name {
+			display: inline-block;
+			min-width: 10em;
+			vertical-align: middle;
+			margin-right: 1em;
+		}
+
+		.drive-capacity {
+			font-size: @font-size-small;
+			font-weight: @font-weight-medium;
+			line-height: 1.2;
+			height: 10px;
+
+			.legend + .legend::before {
+				content: ' | ';
+				color: @text-color4;
+			}
+
+			bar {
+				width: 100%;
+			}
+		}
+	}
+
+	.networks {
+		.controller-name {
+			&::after {
+				content: ':';
+			}
+		}
+
+		.address-list {
+			font-family: @font-type3;
+
+			li {
+				padding: 0 .5em;
+				display: inline-block;
+				background-color: @bg-color1;
+				color: @text-color4;
+				width: 15em;
+				font-size: @font-size-small;
+			}
+		}
+	}
+}

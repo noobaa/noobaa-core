@@ -41,7 +41,6 @@ var promise_utils = require('./src/util/promise_utils');
 var pkg = require('./package.json');
 var current_pkg_version;
 
-
 if (!process.env.PORT) {
     console.log('loading .env file ( no foreman ;)');
     dotenv.load();
@@ -306,7 +305,7 @@ function pack(dest, name) {
 
     var node_modules_stream = gulp
         .src(['node_modules/**/*',
-            '!node_modules/babel*/**/*',
+            '!node_modules/babel*/**/*',    
             '!node_modules/gulp*/**/*',
             '!node_modules/bower/**/*',
             '!node_modules/node-inspector/**/*'
@@ -351,9 +350,25 @@ function pack(dest, name) {
             p.dirname = path.join('build/Release', p.dirname);
         }));
 
+    var build_fe_stream = gulp
+        .src(['frontend/dist/**/*'], {})
+        .pipe(gulp_rename(function(p) {
+            p.dirname = path.join('frontend/dist', p.dirname);
+        }));
+
     return event_stream
-        .merge(pkg_stream, src_stream, images_stream, basejs_stream,
-            vendor_stream, agent_distro, build_stream, build_native_stream, node_modules_stream)
+        .merge(
+            pkg_stream, 
+            src_stream, 
+            images_stream, 
+            basejs_stream,
+            vendor_stream, 
+            agent_distro, 
+            build_stream, 
+            build_native_stream, 
+            build_fe_stream, 
+            node_modules_stream
+        )
         .pipe(gulp_rename(function(p) {
             p.dirname = path.join('noobaa-core', p.dirname);
         }))
@@ -590,6 +605,30 @@ function build_rest_distro() {
         });
 }
 
+
+gulp.task('run_fe_build', function(cb) {
+    // Works for both window 32bit and 64bit versions.
+    let gulpCmd = process.platform === 'win32' ? 'gulp.cmd' : 'gulp';
+
+    // Run the fe gulp build.
+    var proc = child_process.spawn(
+        path.join(process.cwd(),'node_modules','.bin', gulpCmd),
+        ['build'], 
+        { 
+            cwd: path.join(process.cwd(),'frontend') 
+        }
+    ); 
+
+    // Redirect the process output and error streams.
+    proc.stdout.pipe(process.stdout);
+    proc.stderr.pipe(process.stderr);
+
+    // Finish the task on process error or exit.
+    proc.on('error', function(err) { cb(err) });
+    proc.on('exit', function(code) { cb(code !== 0) });
+});
+
+
 function package_build_task() {
     var DEST = 'build/public';
     var NAME = 'noobaa-NVA';
@@ -631,15 +670,13 @@ function package_build_task() {
         });
 }
 
-if (skip_install === true) {
-    gulp.task('package_build', ['lint', 'agent'], function() {
-        package_build_task();
-    });
-} else {
-    gulp.task('package_build', ['lint', 'install', 'agent'], function() {
-        package_build_task();
-    });
-}
+var deps = skip_install ?
+    ['lint', 'agent', 'run_fe_build'] :
+    ['lint', 'install', 'agent', 'run_fe_build'];
+
+gulp.task('package_build', deps, function() {
+    return package_build_task();
+});
 
 
 gulp.task('client_libs', ['bower'], function() {

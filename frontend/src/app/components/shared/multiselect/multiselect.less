@@ -1,0 +1,29 @@
+multiselect {
+	display: block;
+
+	.multiselect-options {
+		height: 100%;
+	}
+
+	ul {
+		overflow-y: auto;
+		height: 100%;		
+		padding: 1em;
+	}
+
+	.option {
+		float: left;
+		width: 100% / 3;
+		line-height: 1.9;
+	}
+
+	.val-msg {
+		line-height: 1.5;
+	}
+
+	&.cols4 {
+		.option {
+			width: 100% / 4;
+		}
+	}
+}

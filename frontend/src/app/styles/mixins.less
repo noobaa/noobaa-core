@@ -1,0 +1,99 @@
+.text(@type, @weight, @size, @color) {
+	font-family: @type;
+	font-size: @size;
+	font-weight: @weight;
+	color: @color;	
+}
+
+.text(@type, @weight, @size, @color, @hover-color) {
+	.text(@type, @weight, @size, @color);
+
+	&:hover {
+		color: @hover-color;
+	}
+}
+
+.text(@type, @weight, @size, @color, @hover-color, @active-color) {
+	.text(@type, @weight, @size, @color, @hover-color);
+
+	&:active {
+		color: @active-color;
+	}
+}
+
+.bg-color(@normal, @hover, @active, @disabled) {
+	background-color: @normal;
+
+	&:hover {
+		background-color:@hover;
+	}
+
+	&:active {
+		background-color:@active;
+	}	
+
+	&[disabled] {
+		&, &:hover, &:active {
+			background-color: @disabled;
+		}
+	}
+}
+
+.placeholder(@color) {
+	&::-webkit-input-placeholder {
+	   color: @color;
+	}
+
+	&:-moz-placeholder { /* Firefox 18- */
+	   color: @color;  
+	}
+
+	::-moz-placeholder {  /* Firefox 19+ */
+	   color: @color;  
+	}
+
+	:-ms-input-placeholder {  
+	   color: @color;  
+	}
+
+	&::placholder {
+		color: @bg-color7;
+	}
+}
+
+.textfield(@width: 20em) {
+	width: @width;
+	display: inline-block;
+	outline: none;
+	background: none;
+	border: none;
+	border-bottom: 1px solid @bg-color7;
+	margin-right: 1em;	
+	margin-bottom: .5em;
+	line-height: 1.4;
+
+	.text(
+		@font-type2,
+		@font-weight-light,
+		@font-size-normal,
+		@text-color4
+	);
+
+	.placeholder(@text-color5);	
+
+	&:focus, &.invalid:focus {
+		color: @text-color2;
+		border-color: @text-color2;
+	}
+
+	&.invalid {
+		color: @text-color8;
+		border-color: @text-color8;
+	}		
+}
+
+.hide() {
+	position: fixed;
+	top: -9999px;
+	z-index: -1;
+}

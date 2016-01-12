@@ -1,0 +1,40 @@
+<input type="search" class="filter" placeholder="Filter Files" data-bind="textInput: filter" />
+
+<paginator params="pageSize: pageSize, itemCount: count, page: currPage" class="pull-right">
+</paginator>
+
+<section class="table-wrapper">
+	<div class="data-table">
+		<table>
+			<thead>
+				<tr>
+					<th class="state-col" data-bind="css: orderClassFor('state')">
+						<a href data-bind="click: () => orderBy('state')">State</a>
+					</th>	
+					<th class="name-col text-left" data-bind="css: orderClassFor('name')">
+						<a href data-bind="click: () => orderBy('name')">Name</a>
+					</th>
+					<th class="size-col" data-bind="css: orderClassFor('size')">
+						<a href data-bind="click: () => orderBy('size')">Size</a>
+					</th>
+				</tr>
+			</thead>
+
+			<tbody data-bind="foreach: rows">
+				<!-- ko if: isVisible -->
+				<tr>
+					<td class="state-col">
+						<svg-icon params="uri: stateIcon"></svg-icon>
+					</td>
+
+					<td class="name-col text-left">
+						<a class="link" data-bind="text: name, href: href"></a>
+					</td>
+
+					<td class="size-col" data-bind="text: size"></td>
+				</tr>
+				<!-- /ko -->
+			</tbody>
+		</table>
+	</div>
+</section>

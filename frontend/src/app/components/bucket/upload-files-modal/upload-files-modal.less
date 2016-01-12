@@ -1,0 +1,59 @@
+upload-files-modal {
+
+	.file-drop-area {
+		margin-top: 2em;
+		padding: 1em;
+		border: 3px dashed @bg-color4;
+		font-size: @font-size-normal;
+
+		&.dragover {
+			border-color: @bg-color11;
+		}
+	}
+
+	.dnd-msg {
+		display: inline-block;
+		color: @text-color4;
+		margin: 0;
+	}
+
+	.method-seperator {
+		margin: 1em;
+		font-weight: @font-weight-medium;
+		color: @text-color3;
+	}
+
+	.browse-btn > input[type=file] {
+		.hide();
+	}
+
+	.uploads {
+		width: 700px;
+
+		table {
+			height: 200px;
+		}
+
+		.state-col {
+			min-width: 4em;
+		}
+
+		.progress-col {
+			min-width: 6em;
+		}
+
+		.name-col {
+			width: 100%;
+		}
+
+		.file {
+			&.completed > .progress-col {
+				color: @text-color7;
+			}
+
+			&.failed > .progress-col {
+				color: @text-color8;
+			}
+		}
+	}
+}

@@ -1,0 +1,34 @@
+<div class="wrapper" tabindex="0">
+	<output data-bind="value: selected().label"></output>
+
+	<ul class="options" data-bind="foreach: options">
+		<li data-bind="
+			template: $componentTemplateNodes.length ? { nodes componentTemplateNodes } : {}
+		">
+			<span data-bind="text: label, action: " 
+		</li>
+	</ul>
+</div>
+
+
+<dropdown params="options: [1,2,3], action: value => console.log(value)"></dropdown>
+
+<select data-bind="pretty-select">
+	<option data-bind="value: 3">GB</option>
+	<option data-bind="value: 4">TB</option>
+	<option data-bind="value: 5">PB</option>
+</select>
+
+
+
+<action-list>
+	<action></action>
+	<action></action>
+	<action></action>
+</action-list>
+
+<select-list>
+	<opt></opt>
+	<opt></opt>
+	<opt></opt>
+</select-list>

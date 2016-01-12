@@ -137,6 +137,10 @@
     "winston": "^1.0.1",
     "ws": "~0.8.0",
     "xml2js": "^0.4.10",
+    "zeroclipboard": "^2.2.0"
+  },
+  "devDependencies": {
+    "through2": "^2.0.0",
     "yargs": "^3.21.0"
   }
 }

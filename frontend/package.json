@@ -32,6 +32,7 @@
     "yargs": "^3.27.0"
   },
   "scripts": {
+    "prepublish": "./node_modules/.bin/gulp build",
     "lint": "eslint src",
     "test": "echo \"Error: no test specified\" && exit 1"
   },

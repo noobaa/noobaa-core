@@ -209,8 +209,9 @@ function read_node_maps(req) {
  *
  */
 function list_nodes(req) {
-    return list_nodes_int(req.rpc_params.query,
+    return list_nodes_int(
         req.system._id,
+        req.rpc_params.query,
         req.rpc_params.skip,
         req.rpc_params.limit,
         req.rpc_params.pagination,
@@ -224,7 +225,7 @@ function list_nodes(req) {
  * LIST_NODES_INT
  *
  */
-function list_nodes_int(query, system_id, skip, limit, pagination, sort, order, req) {
+function list_nodes_int(system_id, query, skip, limit, pagination, sort, order, req) {
     var info;
     var sort_opt = {};
     return P.fcall(function() {
@@ -232,11 +233,7 @@ function list_nodes_int(query, system_id, skip, limit, pagination, sort, order, 
                 system: system_id,
                 deleted: null,
             };
-            if (!query) {
-                return [
-                    [], 0
-                ];
-            }
+            query = query || {};
             if (query.name) {
                 info.$or = [{
                     'name': new RegExp(query.name, 'i')

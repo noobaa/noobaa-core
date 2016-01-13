@@ -53,7 +53,10 @@ before(function(done) {
         account_params.name = 'coretest';
         return client.account.create_account(account_params);
     }).then(function() {
-        return client.create_auth_token(account_credentials);
+        var cred_with_system = _.extend({
+            system: 'coretest'
+        }, account_credentials);
+        return client.create_auth_token(cred_with_system);
     }).nodeify(done);
 });
 

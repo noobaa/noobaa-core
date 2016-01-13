@@ -167,10 +167,13 @@ function list_accounts(req, system_id) {
     // system_id is provided by internal call from list_system_accounts
     if (system_id) {
         accounts = _.filter(accounts, function(account) {
-            return account.system._id.toString() === system_id.toString();
+            var roles = account.roles_by_system[system_id];
+            return roles && roles.length;
         });
     }
-    return _.map(accounts, get_account_info);
+    return {
+        accounts: _.map(accounts, get_account_info)
+    };
 }
 
 /**

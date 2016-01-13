@@ -262,21 +262,25 @@ function read_object_mappings(req) {
                 size: obj.size,
                 parts: parts,
             };
-            return P.join(
-                P.when(db.Bucket.findOneAndUpdate({
-                    name: req.rpc_params.bucket,
-                    deleted: null,
-                }, {
-                    $inc: {
-                        'stats.reads': 1
-                    }
-                })),
-                P.when(db.ObjectMD.findOneAndUpdate(object_md_query(req), {
-                    $inc: {
-                        'stats.reads': 1
-                    }
-                }))
-            );
+            if (!req.rpc_params.adminfo) {
+                return P.join(
+                    P.when(db.Bucket.findOneAndUpdate({
+                        name: req.rpc_params.bucket,
+                        deleted: null,
+                    }, {
+                        $inc: {
+                            'stats.reads': 1
+                        }
+                    })),
+                    P.when(db.ObjectMD.findOneAndUpdate(object_md_query(req), {
+                        $inc: {
+                            'stats.reads': 1
+                        }
+                    }))
+                );
+            } else {
+                return;
+            }
         })
         .then(function() {
             return reply;

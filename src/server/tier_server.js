@@ -2,7 +2,7 @@
 'use strict';
 
 var _ = require('lodash');
-var P = require('../util/promise');
+// var P = require('../util/promise');
 var db = require('./db');
 var dbg = require('../util/debug_module')(__filename);
 var system_store = require('./stores/system_store');
@@ -47,15 +47,12 @@ function new_tier_defaults(name, system_id, pool_ids) {
     };
 }
 
-function new_policy_defaults(name, system_id, tier_id) {
+function new_policy_defaults(name, system_id, tiers_orders) {
     return {
         _id: db.new_object_id(),
         system: system_id,
         name: name,
-        tiers: [{
-            order: 0,
-            tier: tier_id
-        }]
+        tiers: tiers_orders
     };
 }
 

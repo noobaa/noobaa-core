@@ -48,7 +48,7 @@ function create_account(req) {
         .then(function() {
             var changes;
             if (!req.system) {
-                changes = system_server.new_system_changes(account.name, account);
+                changes = system_server.new_system_changes(account.name, account._id);
                 changes.insert.accounts = [account];
             } else {
                 changes = {

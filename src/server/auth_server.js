@@ -114,19 +114,19 @@ function create_auth(req) {
             if (!system || system.deleted) throw req.unauthorized('system not found');
 
             // find the role of authenticated_account in the system
-            var roles = system.roles_by_account[authenticated_account.id];
+            var roles = system.roles_by_account[authenticated_account._id];
 
             // now approve the role -
             if (
                 // support account  can do anything
                 authenticated_account.is_support ||
                 // system owner can do anything
-                String(system.owner) === String(authenticated_account.id) ||
+                String(system.owner) === String(authenticated_account._id) ||
                 // system admin can do anything
                 _.contains(roles, 'admin') ||
                 // non admin is not allowed to delegate roles to other accounts
                 (role_name && _.contains(roles, role_name) &&
-                    String(target_account.id) === String(authenticated_account.id))) {
+                    String(target_account._id) === String(authenticated_account._id))) {
                 // "system admin" can use any role
                 role_name = role_name || 'admin';
             } else {
@@ -135,8 +135,8 @@ function create_auth(req) {
         }
 
         var token = req.make_auth_token({
-            account_id: target_account.id,
-            system_id: system && system.id,
+            account_id: target_account._id,
+            system_id: system && system._id,
             role: role_name,
             extra: req.rpc_params.extra,
         });
@@ -205,7 +205,7 @@ function create_access_key_auth(req) {
     // }
 
     var token = req.make_auth_token({
-        system_id: system && system.id,
+        system_id: system && system._id,
         role: 'admin',
         extra: req.rpc_params.extra,
     });

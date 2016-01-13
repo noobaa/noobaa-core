@@ -356,28 +356,20 @@ function list_systems(req) {
  *
  */
 function list_systems_int(is_support, get_ids, account) {
-    var query = {};
-
     // support gets to see all systems
-    if (!is_support) {
-        query.account = account;
-    }
-    console.log('list_systems_int', query);
-
-    return P.when(
-            db.Role.find(query)
-            .populate('system')
-            .exec())
-        .then(function(roles) {
-            return {
-                systems: _.compact(_.map(roles, function(role) {
-                    if (!role.system || role.system.deleted) {
-                        return null;
-                    }
-                    return get_system_info(role.system, get_ids);
-                }))
-            };
+    var roles;
+    if (is_support) {
+        roles = system_store.data.roles;
+    } else {
+        roles = _.filter(system_store.data.roles, function(role) {
+            return String(role.account._id) === String(account._id);
         });
+    }
+    return {
+        systems: _.map(roles, function(role) {
+            return get_system_info(role.system, get_ids);
+        })
+    };
 }
 
 
@@ -611,12 +603,14 @@ function start_debug(req) {
 function update_n2n_config(req) {
     var n2n_config = req.rpc_params;
     dbg.log0('update_n2n_config', n2n_config);
-    db.SystemCache.invalidate(req.system._id);
-    return P.when(db.System.update({
-            _id: req.system._id
-        }, {
-            n2n_config: n2n_config
-        }).exec())
+    return system_store.make_changes({
+            update: {
+                systems: [{
+                    _id: req.system._id,
+                    n2n_config: n2n_config
+                }]
+            }
+        })
         .then(function() {
             return db.Node.find({
                 system: req.system._id
@@ -648,12 +642,14 @@ function update_n2n_config(req) {
 
 function update_base_address(req) {
     dbg.log0('update_base_address', req.rpc_params);
-    db.SystemCache.invalidate(req.system._id);
-    return P.when(db.System.update({
-            _id: req.system._id
-        }, {
-            base_address: req.rpc_params.base_address
-        }).exec())
+    return system_store.make_changes({
+            update: {
+                systems: [{
+                    _id: req.system._id,
+                    base_address: req.rpc_params.base_address
+                }]
+            }
+        })
         .then(function() {
             return db.Node.find({
                 system: req.system._id

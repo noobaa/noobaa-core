@@ -81,7 +81,7 @@ function create_tier(req) {
             }
         })
         .then(function() {
-            return read_tier(req);
+            return get_tier_info(tier);
         });
 }
 
@@ -94,16 +94,7 @@ function create_tier(req) {
  */
 function read_tier(req) {
     var tier = find_tier_by_name(req);
-    var reply = _.pick(tier, TIER_PLACEMENT_FIELDS.concat(['name']));
-    reply.pools = _.map(tier.pools, function(pool) {
-        return pool.name;
-    });
-    // TODO read tier's storage
-    reply.storage = {
-        alloc: 0,
-        used: 0,
-    };
-    return reply;
+    return get_tier_info(tier);
 }
 
 
@@ -156,9 +147,9 @@ function delete_tier(req) {
 
 function create_policy(req) {
     var policy = new_policy_defaults(
-        req.rpc_params.name,
+        req.rpc_params.policy.name,
         req.system._id,
-        _.map(req.rpc_params.tiers, function(t) {
+        _.map(req.rpc_params.policy.tiers, function(t) {
             return {
                 order: t.order,
                 tier: req.system.tiers_by_name[t.tier]._id,
@@ -171,7 +162,7 @@ function create_policy(req) {
             }
         })
         .then(function() {
-            return read_policy(req);
+            return get_policy_info(req);
         });
 }
 
@@ -187,20 +178,7 @@ function get_policy_pools(req) {
 
 function read_policy(req) {
     var policy = find_policy_by_name(req);
-    var reply = _.pick(policy, 'name');
-    reply.tiers = _.map(policy.tiers, function(t) {
-        return {
-            order: t.order,
-            tier: {
-                name: t.tier.name,
-                data_placement: t.tier.data_placement,
-                pools: _.map(t.tier.pools, function(p) {
-                    return p.name;
-                })
-            },
-        };
-    });
-    return reply;
+    return get_policy_info(policy);
 }
 
 function delete_policy(req) {
@@ -233,4 +211,34 @@ function find_policy_by_name(req) {
         throw req.rpc_error('NOT_FOUND', 'POLICY NOT FOUND ' + name);
     }
     return policy;
+}
+
+function get_tier_info(tier) {
+    var info = _.pick(tier, 'name', TIER_PLACEMENT_FIELDS);
+    info.pools = _.map(tier.pools, function(pool) {
+        return pool.name;
+    });
+    // TODO read tier's storage
+    info.storage = {
+        alloc: 0,
+        used: 0,
+    };
+    return info;
+}
+
+function get_policy_info(policy) {
+    var info = _.pick(policy, 'name');
+    info.tiers = _.map(policy.tiers, function(t) {
+        return {
+            order: t.order,
+            tier: {
+                name: t.tier.name,
+                data_placement: t.tier.data_placement,
+                pools: _.map(t.tier.pools, function(p) {
+                    return p.name;
+                })
+            },
+        };
+    });
+    return info;
 }

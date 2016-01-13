@@ -119,8 +119,8 @@ function create_node(req) {
                 })
                 .then(function() {
                     return {
-                        id: node._id,
-                        peer_id: node.peer_id,
+                        id: String(node._id),
+                        peer_id: String(node.peer_id),
                         token: token
                     };
                 });
@@ -248,7 +248,7 @@ function list_nodes_int(query, system_id, skip, limit, pagination, sort, order, 
                 system: system_id,
                 deleted: null,
             };
-            if (!query) return;
+            if (!query) return [[], 0];
             if (query.name) {
                 info.$or = [{
                     'name': new RegExp(query.name, 'i')
@@ -311,9 +311,7 @@ function list_nodes_int(query, system_id, skip, limit, pagination, sort, order, 
                     $in: pools_ids
                 };
             }
-            var find = db.Node.collection.find(info, {
-                sort: sort_opt
-            })
+            var find = db.Node.find(info)
                 .sort(sort_opt)
                 .populate('tier', 'name');
             if (skip) {

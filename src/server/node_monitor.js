@@ -34,8 +34,7 @@ var heartbeat_find_node_by_id_barrier = new Barrier({
     expiry_ms: 500, // milliseconds to wait for others to join
     process: function(node_ids) {
         dbg.log2('heartbeat_find_node_by_id_barrier', node_ids.length);
-        return P.when(db.Node
-                .find({
+        return P.when(db.Node.find({
                     deleted: null,
                     _id: {
                         $in: node_ids
@@ -96,18 +95,16 @@ var heartbeat_update_node_timestamp_barrier = new Barrier({
     expiry_ms: 500, // milliseconds to wait for others to join
     process: function(node_ids) {
         dbg.log2('heartbeat_update_node_timestamp_barrier', node_ids.length);
-        return P.when(db.Node
-                .update({
+        return P.when(db.Node.collection.updateMany({
                     deleted: null,
                     _id: {
                         $in: node_ids
                     },
                 }, {
-                    heartbeat: new Date()
-                }, {
-                    multi: true
-                })
-                .exec())
+                    $set: {
+                        heartbeat: new Date()
+                    }
+                }))
             .thenResolve();
     }
 });
@@ -150,10 +147,10 @@ function heartbeat(req) {
                 dbg.error('heartbeat: create node ERROR', err.stack || err, req.rpc_params);
                 throw err;
             }
-        }).then(function(node) {
-            req.rpc_params.node_id = node._id;
-            req.rpc_params.peer_id = node.peer_id;
-            return update_heartbeat(req, node.token);
+        }).then(function(res) {
+            req.rpc_params.node_id = res.id;
+            req.rpc_params.peer_id = res.peer_id;
+            return update_heartbeat(req, res.token);
         });
     }
 
@@ -361,12 +358,15 @@ function update_heartbeat(req, reply_token) {
                 return heartbeat_update_node_timestamp_barrier.call(node_id);
             } else {
                 updates.heartbeat = new Date();
-                return node.update(updates).exec();
+                return db.Node.update({
+                    _id: node_id
+                }, updates).exec();
             }
         }).then(function() {
+            var storage = node && node.storage || {};
             reply.storage = {
-                alloc: node.storage.alloc || 0,
-                used: node.storage.used || 0,
+                alloc: storage.alloc || 0,
+                used: storage.used || 0,
             };
             return reply;
         });

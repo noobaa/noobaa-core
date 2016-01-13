@@ -195,22 +195,6 @@ function read_system(req) {
         blocks = _.mapValues(_.indexBy(blocks, '_id'), 'value');
         var nodes_sys = nodes_aggregate_tier[''] || {};
         var objects_sys = objects_aggregate[''] || {};
-        var ret_pools = [];
-        _.each(system.pools_by_name, function(p) {
-            var aggregate_p = nodes_aggregate_pool[p._id] || {};
-            ret_pools.push({
-                name: p.name,
-                total_nodes: p.nodes.length,
-                online_nodes: aggregate_p.online || 0,
-                //TODO:: in tier we divide by number of replicas, in pool we have no such concept
-                storage: {
-                    total: (aggregate_p.total || 0),
-                    free: (aggregate_p.free || 0),
-                    used: (aggregate_p.used || 0),
-                    alloc: (aggregate_p.alloc || 0)
-                }
-            });
-        });
         return P.all(_.map(system.buckets_by_name, function(bucket) {
             var b = _.pick(bucket, 'name');
             var a = objects_aggregate[bucket._id] || {};
@@ -292,7 +276,21 @@ function read_system(req) {
                     count: nodes_sys.count || 0,
                     online: nodes_sys.online || 0,
                 },
-                pools: ret_pools,
+                pools: _.map(system.pools_by_name, function(pool) {
+                    var p = nodes_aggregate_pool[pool._id] || {};
+                    return {
+                        name: pool.name,
+                        total_nodes: p.count || 0,
+                        online_nodes: p.online || 0,
+                        //TODO:: in tier we divide by number of replicas, in pool we have no such concept
+                        storage: {
+                            total: (p.total || 0),
+                            free: (p.free || 0),
+                            used: (p.used || 0),
+                            alloc: (p.alloc || 0)
+                        }
+                    };
+                }),
                 buckets: updated_buckets,
                 objects: objects_sys.count || 0,
                 access_keys: system.access_keys,

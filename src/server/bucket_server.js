@@ -57,7 +57,7 @@ function new_bucket_defaults(name, system_id, tiering_policy_id) {
  *
  */
 function create_bucket(req) {
-    var tiering_policy = resolve_tiering_policy(req.system, req.rpc_params.tiering);
+    var tiering_policy = resolve_tiering_policy(req, req.rpc_params.tiering);
     var bucket = new_bucket_defaults(
         req.rpc_params.name,
         req.system._id,
@@ -74,7 +74,7 @@ function create_bucket(req) {
             buckets: [bucket]
         }
     }).then(function() {
-        return read_bucket(req);
+        return get_bucket_info(req, bucket);
     });
 }
 
@@ -84,46 +84,7 @@ function create_bucket(req) {
  *
  */
 function read_bucket(req) {
-    var bucket = find_bucket(req);
-    var reply = get_bucket_info(bucket);
-    // TODO read bucket's storage and objects info
-    return P.join(
-            db.Node.aggregate_nodes({
-                system: req.system._id,
-                deleted: null,
-            }, 'pool'),
-            db.ObjectMD.count({
-                system: req.system._id,
-                bucket: bucket._id,
-                deleted: null,
-            }),
-            get_cloud_sync_policy(req))
-        .spread(function(nodes_aggregated, obj_count, sync_policy) {
-            reply.num_objects = obj_count;
-            cs_utils.resolve_cloud_sync_info(sync_policy, reply);
-            var alloc = 0;
-            var used = 0;
-            var free = 0;
-            var total = 0;
-            _.each(bucket.tiering.tiers, function(t) {
-                _.each(t.tier.pools, function(pool) {
-                    var aggr = nodes_aggregated[pool._id];
-                    if (!aggr) return;
-                    var replicas = t.replicas || 3;
-                    alloc += aggr.alloc || 0;
-                    used += aggr.used || 0;
-                    total += (aggr.total || 0) / replicas;
-                    free += (aggr.free || 0) / replicas;
-                });
-            });
-            reply.storage = {
-                alloc: alloc,
-                used: used,
-                total: total,
-                free: free,
-            };
-            return reply;
-        });
+    return get_bucket_info(req);
 }
 
 
@@ -135,7 +96,8 @@ function read_bucket(req) {
  */
 function update_bucket(req) {
     var bucket = find_bucket(req);
-    var tiering_policy = resolve_tiering_policy(req.system, req.rpc_params.tiering);
+    var tiering_policy = req.rpc_params.tiering &&
+        resolve_tiering_policy(req, req.rpc_params.tiering);
     var updates = {
         _id: bucket._id
     };
@@ -191,9 +153,11 @@ function delete_bucket(req) {
  *
  */
 function list_buckets(req) {
-    return _.map(req.system.buckets_by_name, function(bucket) {
-        return _.pick(bucket, 'name');
-    });
+    return {
+        buckets: _.map(req.system.buckets_by_name, function(bucket) {
+            return _.pick(bucket, 'name');
+        })
+    };
 }
 
 /**
@@ -201,10 +165,10 @@ function list_buckets(req) {
  * GET_CLOUD_SYNC_POLICY
  *
  */
-function get_cloud_sync_policy(req) {
+function get_cloud_sync_policy(req, bucket) {
     dbg.log3('get_cloud_sync_policy');
     var reply;
-    var bucket = find_bucket(req);
+    bucket = bucket || find_bucket(req);
     if (!bucket.cloud_sync || !bucket.cloud_sync.endpoint) {
         return {};
     }
@@ -395,29 +359,61 @@ function find_bucket(req) {
     return bucket;
 }
 
-function get_bucket_info(bucket) {
-    var reply = _.pick(bucket, 'name');
+function get_bucket_info(req, bucket) {
+    bucket = bucket || find_bucket(req);
+    var info = _.pick(bucket, 'name');
     if (bucket.tiering) {
-        reply.tiering = _.pick(bucket.tiering, 'name');
-        reply.tiering.tiers = _.map(bucket.tiering.tiers, function(t) {
+        info.tiering = _.pick(bucket.tiering, 'name');
+        info.tiering.tiers = _.map(bucket.tiering.tiers, function(t) {
             return {
                 order: t.order,
                 tier: t.tier.name
             };
         });
     }
-    return reply;
+    return P.join(
+            db.Node.aggregate_nodes({
+                system: req.system._id,
+                deleted: null,
+            }, 'pool'),
+            db.ObjectMD.count({
+                system: req.system._id,
+                bucket: bucket._id,
+                deleted: null,
+            }),
+            get_cloud_sync_policy(req, bucket))
+        .spread(function(nodes_aggregated, obj_count, sync_policy) {
+            info.num_objects = obj_count;
+            cs_utils.resolve_cloud_sync_info(sync_policy, info);
+            var alloc = 0;
+            var used = 0;
+            var free = 0;
+            var total = 0;
+            _.each(bucket.tiering.tiers, function(t) {
+                _.each(t.tier.pools, function(pool) {
+                    var aggr = nodes_aggregated[pool._id];
+                    if (!aggr) return;
+                    var replicas = t.replicas || 3;
+                    alloc += aggr.alloc || 0;
+                    used += aggr.used || 0;
+                    total += (aggr.total || 0) / replicas;
+                    free += (aggr.free || 0) / replicas;
+                });
+            });
+            info.storage = {
+                alloc: alloc,
+                used: used,
+                total: total,
+                free: free,
+            };
+            return info;
+        });
 }
 
-function resolve_tiering_policy(req, tiering) {
-    if (!tiering) return;
-    var tiering_policy = system_store.get_by_id(tiering);
+function resolve_tiering_policy(req, policy_name) {
+    var tiering_policy = req.system.tiering_policies_by_name[policy_name];
     if (!tiering_policy) {
-        dbg.error('TIER POLICY NOT FOUND', tiering);
-        throw req.rpc_error('NOT_FOUND', 'missing tiering policy');
-    }
-    if (tiering_policy.system._id.toString() !== req.system._id.toString()) {
-        dbg.error('TIER POLICY NOT FOUND IN SYSTEM', tiering);
+        dbg.error('TIER POLICY NOT FOUND', policy_name);
         throw req.rpc_error('NOT_FOUND', 'missing tiering policy');
     }
     return tiering_policy;

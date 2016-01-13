@@ -118,7 +118,7 @@ SystemStore.prototype.load = function() {
             new_data.rebuild();
             self.data = new_data;
             dbg.log0('SystemStore: rebuild took', time_utils.millitook(millistamp));
-            dbg.log0('SystemStore: new_data', util.inspect(new_data, {
+            dbg.log1('SystemStore: new_data', util.inspect(new_data, {
                 depth: 4
             }));
             return self.data;
@@ -174,7 +174,7 @@ SystemStore.prototype.make_changes = function(changes) {
     var self = this;
     var bulk_per_collection = {};
     var now = new Date();
-    console.log('SystemStore.make_changes:', util.inspect(changes, {
+    dbg.log0('SystemStore.make_changes:', util.inspect(changes, {
         depth: 4
     }));
 
@@ -294,7 +294,7 @@ SystemStoreData.prototype.rebuild_idmap = function() {
             var idstr = item._id.toString();
             var existing = self.idmap[idstr];
             if (existing) {
-                console.error('SystemStoreData: id collision', item, existing);
+                dbg.error('SystemStoreData: id collision', item, existing);
             } else {
                 self.idmap[idstr] = item;
             }

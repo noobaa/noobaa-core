@@ -113,7 +113,7 @@ function update_account(req) {
             db.ActivityLog.create({
                 event: 'account.update',
                 level: 'info',
-                system: req.system._id,
+                system: req.system && req.system._id,
                 actor: req.account._id,
                 account: updates._id,
             });
@@ -137,15 +137,16 @@ function delete_account(req) {
     db.ActivityLog.create({
         event: 'account.delete',
         level: 'info',
-        system: req.system._id,
+        system: req.system && req.system._id,
         actor: req.account._id,
         account: req.account._id,
     });
     return system_store.make_changes({
-        remove: {
-            accounts: [req.account._id]
-        }
-    });
+            remove: {
+                accounts: [req.account._id]
+            }
+        })
+        .return();
 }
 
 

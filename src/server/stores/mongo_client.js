@@ -36,8 +36,11 @@ function MongoClient() {
  * connect and return the db instance which will handle reconnections.
  * mongodb_url is optional and by default takes from env or local db.
  */
-MongoClient.prototype.connect = function() {
+MongoClient.prototype.connect = function(url) {
     var self = this;
+    if (url) {
+        self.url = url;
+    }
     if (self.db) return self.db;
     return mongodb.MongoClient.connect(self.url, self.config)
         .then(function(db) {

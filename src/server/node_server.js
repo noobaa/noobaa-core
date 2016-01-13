@@ -7,7 +7,6 @@ var size_utils = require('../util/size_utils');
 var string_utils = require('../util/string_utils');
 var object_mapper = require('./mapper/object_mapper');
 var node_monitor = require('./node_monitor');
-var server_rpc = require('./server_rpc').server_rpc;
 var db = require('./db');
 var dbg = require('../util/debug_module')(__filename);
 
@@ -104,26 +103,11 @@ function create_node(req) {
                 }
             });
 
-            var system_token = req.make_auth_token({
-                account_id: account_id,
-                system_id: req.system._id,
-                role: 'admin',
-            });
-
-            //TODO:: once we manage pools, remove this. Nodes will be associated propery
-            return server_rpc.client.pool.add_nodes_to_pool({
-                    name: 'default_pool',
-                    nodes: [info.name.toString()]
-                }, {
-                    auth_token: system_token
-                })
-                .then(function() {
-                    return {
-                        id: String(node._id),
-                        peer_id: String(node.peer_id),
-                        token: token
-                    };
-                });
+            return {
+                id: String(node._id),
+                peer_id: String(node.peer_id),
+                token: token
+            };
         });
 }
 
@@ -248,7 +232,11 @@ function list_nodes_int(query, system_id, skip, limit, pagination, sort, order, 
                 system: system_id,
                 deleted: null,
             };
-            if (!query) return [[], 0];
+            if (!query) {
+                return [
+                    [], 0
+                ];
+            }
             if (query.name) {
                 info.$or = [{
                     'name': new RegExp(query.name, 'i')

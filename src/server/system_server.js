@@ -309,12 +309,13 @@ function read_system(req) {
 
 
 function update_system(req) {
-    var info = _.pick(req.rpc_params, 'name');
-    db.SystemCache.invalidate(req.system._id);
-    return P.when(db.System.update({
-            _id: req.system._id
-        }, info).exec())
-        .thenResolve();
+    var updates = _.pick(req.rpc_params, 'name');
+    updates._id = req.system._id;
+    return system_store.make_changes({
+        update: {
+            systems: [updates]
+        }
+    }).return();
 }
 
 
@@ -324,15 +325,11 @@ function update_system(req) {
  *
  */
 function delete_system(req) {
-    db.SystemCache.invalidate(req.system._id);
-    return P.when(
-            db.System.update({
-                _id: req.system._id
-            }, {
-                deleted: new Date()
-            })
-            .exec())
-        .thenResolve();
+    return system_store.make_changes({
+        remove: {
+            systems: [req.system._id]
+        }
+    }).return();
 }
 
 
@@ -390,23 +387,17 @@ function list_systems_int(is_support, get_ids, account) {
  *
  */
 function add_role(req) {
-    return P.when(
-            db.Account
-            .findOne({
-                email: req.rpc_params.email,
-                deleted: null,
-            })
-            .exec())
-        .then(db.check_not_deleted(req, 'account'))
-        .then(function(account) {
-            return db.Role.create({
+    var account = find_account_by_email(req);
+    return system_store.make_changes({
+        insert: {
+            roles: [{
+                _id: db.new_object_id(),
                 account: account._id,
                 system: req.system._id,
                 role: req.rpc_params.role,
-            });
-        })
-        .then(null, db.check_already_exists(req, 'role'))
-        .thenResolve();
+            }]
+        }
+    }).return();
 }
 
 
@@ -417,23 +408,18 @@ function add_role(req) {
  *
  */
 function remove_role(req) {
-    return P.when(
-            db.Account
-            .findOne({
-                email: req.rpc_params.email,
-                deleted: null,
-            })
-            .exec())
-        .then(db.check_not_deleted(req, 'account'))
-        .then(function(account) {
-            return db.Role
-                .findOneAndRemove({
-                    account: account._id,
-                    system: req.system._id,
-                })
-                .exec();
-        })
-        .thenResolve();
+    var account = find_account_by_email(req);
+    var roles = _.filter(system_store.data.roles, function(role) {
+        return String(role.system._id) === String(req.system._id) &&
+            String(role.account._id) === String(account._id) &&
+            role.role === req.rpc_params.role;
+    });
+    var roles_ids = _.map(roles, '_id');
+    return system_store.make_changes({
+        remove: {
+            roles: roles_ids
+        }
+    }).return();
 }
 
 
@@ -711,4 +697,12 @@ function get_system_info(system, get_id) {
     } else {
         return _.pick(system, 'name');
     }
+}
+
+function find_account_by_email(req) {
+    var account = system_store.data.accounts_by_email[req.rpc_params.email];
+    if (!account) {
+        throw req.rpc_error('NOT_FOUND', 'account not found: ' + req.rpc_params.email);
+    }
+    return account;
 }

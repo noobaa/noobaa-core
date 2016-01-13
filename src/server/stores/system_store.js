@@ -115,12 +115,12 @@ SystemStore.prototype.load = function() {
             dbg.log0('SystemStore: fetch took', time_utils.millitook(millistamp));
             dbg.log0('SystemStore: fetch size', size_utils.human_size(JSON.stringify(new_data).length));
             millistamp = time_utils.millistamp();
-            new_data.rebuild();
-            self.data = new_data;
-            dbg.log0('SystemStore: rebuild took', time_utils.millitook(millistamp));
-            dbg.log1('SystemStore: new_data', util.inspect(new_data, {
+            dbg.log0('SystemStore: fetch data', util.inspect(new_data, {
                 depth: 4
             }));
+            new_data.rebuild();
+            dbg.log0('SystemStore: rebuild took', time_utils.millitook(millistamp));
+            self.data = new_data;
             return self.data;
         })
         .catch(function(err) {
@@ -344,8 +344,8 @@ SystemStoreData.prototype.rebuild_indexes = function() {
                 map[key].push(val);
             } else {
                 if (key in map) {
-                    dbg.error('SystemStoreData: system index collision on',
-                        index.name, key, val, map[key]);
+                    dbg.error('SystemStoreData:', index.name,
+                        'collision on key', key, val, map[key]);
                 } else {
                     map[key] = val;
                 }
@@ -360,11 +360,12 @@ SystemStoreData.prototype.check_indexes = function(collection, item) {
         if (index.collection !== collection) return;
         var key = _.get(item, index.key || '_id');
         var context = index.context ? _.get(item, index.context) : self;
+        if (!context) return;
         var map = context[index.name] = context[index.name] || {};
         if (!index.val_array) {
             var existing = map[key];
             if (existing && String(existing._id) !== String(item._id)) {
-                var err = new Error('collision in ' + index.name);
+                var err = new Error(index.name + ' collision on key ' + key);
                 err.rpc_code = 'CONFLICT';
                 throw err;
             }

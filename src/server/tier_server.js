@@ -167,7 +167,7 @@ function create_policy(req) {
 }
 
 function update_policy(req) {
-    dbg.log0('Updating tiering policy');
+    throw req.rpc_error('TODO', 'Update tiering policy?');
 }
 
 function get_policy_pools(req) {

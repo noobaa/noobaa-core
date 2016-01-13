@@ -120,45 +120,37 @@ var NODES_STATS_DEFAULTS = {
 function get_nodes_stats(req) {
     var nodes_stats = _.cloneDeep(NODES_STATS_DEFAULTS);
     var nodes_histo = get_empty_nodes_histo();
-    return P.fcall(function() {
-            //Get ALL systems
-            return system_server.list_systems_int(null, true);
-        })
-        .then(function(res) {
-            //Per each system fill out the needed info
-            return P.all(_.map(res.systems, function(sys, i) {
-                    return P.fcall(function() {
-                        return node_server.list_nodes_int({}, sys.id);
-                    });
-                }))
-                .then(function(results) {
-                    for (var isys = 0; isys < results.length; ++isys) {
-                        for (var inode = 0; inode < results[isys].nodes.length; ++inode) {
-                            nodes_stats.count++;
+    //Per each system fill out the needed info
+    return P.all(_.map(system_store.data.systems, function(system) {
+            return node_server.list_nodes_int(system._id);
+        }))
+        .then(function(results) {
+            for (var isys = 0; isys < results.length; ++isys) {
+                for (var inode = 0; inode < results[isys].nodes.length; ++inode) {
+                    nodes_stats.count++;
 
-                            nodes_histo.histo_allocation.add_value(results[isys].nodes[inode].storage.alloc / SCALE_BYTES_TO_GB);
-                            nodes_histo.histo_usage.add_value(results[isys].nodes[inode].storage.used / SCALE_BYTES_TO_GB);
-                            nodes_histo.histo_free.add_value(results[isys].nodes[inode].storage.free / SCALE_BYTES_TO_GB);
-                            nodes_histo.histo_uptime.add_value((results[isys].nodes[inode].os_info.uptime / SCALE_SEC_TO_DAYS));
+                    nodes_histo.histo_allocation.add_value(results[isys].nodes[inode].storage.alloc / SCALE_BYTES_TO_GB);
+                    nodes_histo.histo_usage.add_value(results[isys].nodes[inode].storage.used / SCALE_BYTES_TO_GB);
+                    nodes_histo.histo_free.add_value(results[isys].nodes[inode].storage.free / SCALE_BYTES_TO_GB);
+                    nodes_histo.histo_uptime.add_value((results[isys].nodes[inode].os_info.uptime / SCALE_SEC_TO_DAYS));
 
-                            if (results[isys].nodes[inode].os_info.ostype === 'Darwin') {
-                                nodes_stats.os.osx++;
-                            } else if (results[isys].nodes[inode].os_info.ostype === 'Windows_NT') {
-                                nodes_stats.os.win++;
-                            } else if (results[isys].nodes[inode].os_info.ostype === 'Linux') {
-                                nodes_stats.os.linux++;
-                            } else {
-                                nodes_stats.os.other++;
-                            }
-                        }
+                    if (results[isys].nodes[inode].os_info.ostype === 'Darwin') {
+                        nodes_stats.os.osx++;
+                    } else if (results[isys].nodes[inode].os_info.ostype === 'Windows_NT') {
+                        nodes_stats.os.win++;
+                    } else if (results[isys].nodes[inode].os_info.ostype === 'Linux') {
+                        nodes_stats.os.linux++;
+                    } else {
+                        nodes_stats.os.other++;
                     }
-                    for (var h in nodes_histo) {
-                        if (nodes_histo.hasOwnProperty(h)) {
-                            nodes_stats[nodes_histo[h].get_master_label()] = nodes_histo[h].get_object_data(false);
-                        }
-                    }
-                    return nodes_stats;
-                });
+                }
+            }
+            for (var h in nodes_histo) {
+                if (nodes_histo.hasOwnProperty(h)) {
+                    nodes_stats[nodes_histo[h].get_master_label()] = nodes_histo[h].get_object_data(false);
+                }
+            }
+            return nodes_stats;
         })
         .then(null, function(err) {
             dbg.log0('Error in collecting nodes stats, skipping current sampling point', err);

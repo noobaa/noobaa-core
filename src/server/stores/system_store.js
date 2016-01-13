@@ -34,36 +34,36 @@ var INDEXES = [{
     collection: 'accounts',
     key: 'email'
 }, {
-    context: 'system',
     name: 'buckets_by_name',
     collection: 'buckets',
+    context: 'system',
     key: 'name'
 }, {
-    context: 'system',
     name: 'tiering_policies_by_name',
-    collection: 'tiering_policies',
+    collection: 'tieringpolicies',
+    context: 'system',
     key: 'name'
 }, {
-    context: 'system',
     name: 'tiers_by_name',
     collection: 'tiers',
+    context: 'system',
     key: 'name'
 }, {
-    context: 'system',
     name: 'pools_by_name',
     collection: 'pools',
+    context: 'system',
     key: 'name'
 }, {
-    context: 'system',
     name: 'roles_by_account',
     collection: 'roles',
+    context: 'system',
     key: 'account._id',
     val: 'role',
     val_array: true,
 }, {
-    context: 'account',
     name: 'roles_by_system',
     collection: 'roles',
+    context: 'account',
     key: 'system._id',
     val: 'role',
     val_array: true,
@@ -118,7 +118,9 @@ SystemStore.prototype.load = function() {
             new_data.rebuild();
             self.data = new_data;
             dbg.log0('SystemStore: rebuild took', time_utils.millitook(millistamp));
-            dbg.log0('SystemStore: new_data', new_data);
+            dbg.log0('SystemStore: new_data', util.inspect(new_data, {
+                depth: 4
+            }));
             return self.data;
         })
         .catch(function(err) {
@@ -173,7 +175,7 @@ SystemStore.prototype.make_changes = function(changes) {
     var bulk_per_collection = {};
     var now = new Date();
     console.log('SystemStore.make_changes:', util.inspect(changes, {
-        depth: 3
+        depth: 4
     }));
 
     function get_bulk(collection) {
@@ -289,7 +291,13 @@ SystemStoreData.prototype.rebuild_idmap = function() {
     _.each(COLLECTIONS, function(schema, collection) {
         var items = self[collection];
         _.each(items, function(item) {
-            self.idmap[item._id.toString()] = item;
+            var idstr = item._id.toString();
+            var existing = self.idmap[idstr];
+            if (existing) {
+                console.error('SystemStoreData: id collision', item, existing);
+            } else {
+                self.idmap[idstr] = item;
+            }
             // keep backward compatible since mongoose exposes 'id'
             // for the sake of existing code that uses it
             // item.id = item._id;

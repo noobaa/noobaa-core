@@ -41,7 +41,7 @@ module.exports = account_server;
  */
 function create_account(req) {
     var account = _.pick(req.rpc_params, 'name', 'email', 'password');
-    account._id = db.new_object_id();
+    account._id = system_store.generate_id();
     return P.fcall(function() {
             return bcrypt_password(account);
         })

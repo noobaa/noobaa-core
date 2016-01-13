@@ -148,6 +148,10 @@ SystemStore.prototype.read_data_from_db = function(target) {
     }));
 };
 
+SystemStore.prototype.generate_id = function() {
+    return new mongodb.ObjectId();
+};
+
 
 /**
  *

@@ -40,6 +40,7 @@ var MappingAllocator = require('./map_allocator');
 var server_rpc = require('../server_rpc').server_rpc;
 var system_store = require('../stores/system_store');
 // var time_utils = require('../../util/time_utils');
+var mongo_utils = require('../../util/mongo_utils');
 var range_utils = require('../../util/range_utils');
 var string_utils = require('../../util/string_utils');
 var dbg = require('../../util/debug_module')(__filename);
@@ -70,7 +71,7 @@ function finalize_object_parts(bucket, obj, parts) {
 
             // find parts by start offset, deleted parts are handled later
             find_consecutive_parts(obj, parts)
-            .then(db.populate('chunk', db.DataChunk)),
+            .then(mongo_utils.populate('chunk', db.DataChunk)),
 
             // find blocks by list of ids, deleted blocks are handled later
             block_ids.length &&
@@ -196,7 +197,7 @@ function read_object_mappings(params) {
                 limit: params.limit || 0
             }).toArray();
         })
-        .then(db.populate('chunk', db.DataChunk))
+        .then(mongo_utils.populate('chunk', db.DataChunk))
         .then(function(parts) {
             return read_parts_mappings({
                 parts: parts,
@@ -232,13 +233,13 @@ function read_node_mappings(params) {
                 'adding chunk index?');
             return db.ObjectPart.collection.find({
                 chunk: {
-                    $in: db.uniq_ids(blocks, 'chunk')
+                    $in: mongo_utils.uniq_ids(blocks, 'chunk')
                 },
                 deleted: null,
             }).toArray();
         })
-        .then(db.populate('chunk', db.DataChunk))
-        .then(db.populate('obj', db.ObjectMD))
+        .then(mongo_utils.populate('chunk', db.DataChunk))
+        .then(mongo_utils.populate('obj', db.ObjectMD))
         .then(function(parts) {
             return read_parts_mappings({
                 parts: parts,
@@ -277,7 +278,7 @@ function read_node_mappings(params) {
  */
 function read_parts_mappings(params) {
     var chunks = _.map(params.parts, 'chunk');
-    var chunk_ids = db.uniq_ids(chunks, '_id');
+    var chunk_ids = mongo_utils.uniq_ids(chunks, '_id');
 
     // find all blocks of the resulting parts
     return P.when(db.DataBlock.collection.find({
@@ -288,7 +289,7 @@ function read_parts_mappings(params) {
         }, {
             sort: 'frag'
         }).toArray())
-        .then(db.populate('node', db.Node))
+        .then(mongo_utils.populate('node', db.Node))
         .then(function(blocks) {
             var blocks_by_chunk = _.groupBy(blocks, 'chunk');
             return P.all(_.map(params.parts, function(part) {
@@ -326,7 +327,7 @@ function list_multipart_parts(params) {
             sort: 'upload_part_number'
                 // TODO set limit max_parts?
         }).toArray())
-        .then(db.populate('chunk', db.DataChunk))
+        .then(mongo_utils.populate('chunk', db.DataChunk))
         .then(function(parts) {
             var upload_parts = _.groupBy(parts, 'upload_part_number');
             dbg.log0('list_multipart_parts: upload_parts', upload_parts);
@@ -557,7 +558,7 @@ function delete_objects_from_agents(deleted_chunk_ids) {
             //delete_object_mappings with P.all along with the DataBlocks
             //deletion update
         }).toArray())
-        .then(db.populate('node', db.Node))
+        .then(mongo_utils.populate('node', db.Node))
         .then(function(deleted_blocks) {
             //TODO: If the overload of these calls is too big, we should protect
             //ourselves in a similar manner to the replication
@@ -584,7 +585,7 @@ function delete_object_mappings(obj) {
             obj: obj._id,
             deleted: null,
         }).toArray())
-        .then(db.populate('chunk', db.DataChunk))
+        .then(mongo_utils.populate('chunk', db.DataChunk))
         .then(function(parts) {
             deleted_parts = parts;
             //Mark parts as deleted
@@ -615,9 +616,9 @@ function delete_object_mappings(obj) {
         })
         .then(function(referring_parts) {
             //Seperate non referred chunks
-            var referred_chunks_ids = db.uniq_ids(referring_parts, 'chunk');
+            var referred_chunks_ids = mongo_utils.uniq_ids(referring_parts, 'chunk');
             var non_referred_chunks_ids =
-                db.obj_ids_difference(all_chunk_ids, referred_chunks_ids);
+                mongo_utils.obj_ids_difference(all_chunk_ids, referred_chunks_ids);
             dbg.log4("all object's chunk ids are", all_chunk_ids,
                 "non referenced chunk ids are", non_referred_chunks_ids);
             //Update non reffered chunks and their blocks as deleted
@@ -665,7 +666,7 @@ function report_bad_block(params) {
                 'end',
                 'upload_part_number',
                 'part_sequence_number')))
-            .then(db.populate('chunk', db.DataChunk))
+            .then(mongo_utils.populate('chunk', db.DataChunk))
         )
         .spread(function(bad_block, part) {
             if (!bad_block) {
@@ -690,7 +691,7 @@ function report_bad_block(params) {
                         chunk: chunk,
                         deleted: null,
                     }).toArray())
-                    .then(db.populate('node', db.Node))
+                    .then(mongo_utils.populate('node', db.Node))
                     .then(function(all_blocks) {
                         var avoid_nodes = _.map(all_blocks, function(block) {
                             return block.node._id.toString();

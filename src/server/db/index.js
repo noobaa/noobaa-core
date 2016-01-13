@@ -22,7 +22,6 @@ var DataBlock = require('./data_block');
 var ActivityLog = require('./activity_log');
 var Pool = require('./pool');
 var TieringPolicy = require('./tiering_policy');
-var mongo_utils = require('../../util/mongo_utils');
 // var dbg = require('../util/debug_module')(__filename);
 var debug_mode = (process.env.DEBUG_MODE === 'true');
 var mongoose_connected = false;
@@ -57,7 +56,7 @@ mongoose.connection.on('error', function(err) {
 
 });
 
-mongoose.connection.on('disconnected', function () {
+mongoose.connection.on('disconnected', function() {
     mongoose_connected = false;
     console.error('mongoose connection disconnected');
     if (!mongoose_timeout) {
@@ -81,113 +80,19 @@ module.exports = {
     // be confusing and buggy...
     new_object_id: mongoose.Types.ObjectId,
 
-    Account: Account,
-    Role: Role,
-    System: System,
-    Tier: Tier,
     Node: Node,
-    Bucket: Bucket,
     ObjectMD: ObjectMD,
     ObjectPart: ObjectPart,
     DataChunk: DataChunk,
     DataBlock: DataBlock,
     ActivityLog: ActivityLog,
-    Cluster: Cluster,
-    Pool: Pool,
-    TieringPolicy: TieringPolicy,
 
     check_not_found: check_not_found,
     check_not_deleted: check_not_deleted,
     mongoose_connect: mongoose_connect,
     check_already_exists: check_already_exists,
     is_err_exists: is_err_exists,
-    obj_ids_difference: obj_ids_difference,
-    populate: mongo_utils.populate,
-    uniq_ids: mongo_utils.uniq_ids,
 
-    AccountCache: new LRUCache({
-        name: 'AccountCache',
-        load: function(account_id) {
-            console.log('AccountCache: load', account_id);
-            return P.when(Account.findById(account_id).exec())
-                .then(function(account) {
-                    if (!account || account.deleted) return;
-                    return account;
-                });
-        }
-    }),
-
-    SystemCache: new LRUCache({
-        name: 'SystemCache',
-        load: function(system_id) {
-            console.log('SystemCache: load', system_id);
-            return P.when(System.findById(system_id).exec())
-                .then(function(system) {
-                    if (!system || system.deleted) return;
-                    return system;
-                });
-        }
-    }),
-
-    BucketCache: new LRUCache({
-        name: 'BucketCache',
-        make_key: function(params) {
-            return params.system + ':' + params.name;
-        },
-        load: function(params) {
-            console.log('BucketCache: load', params.name);
-            return P.when(Bucket.findOne({
-                system: params.system,
-                name: params.name,
-                deleted: null,
-            }).exec());
-        }
-    }),
-
-    TierCache: new LRUCache({
-        name: 'TierCache',
-        make_key: function(params) {
-            return params.system + ':' + params.name;
-        },
-        load: function(params) {
-            console.log('TierCache: load', params.name);
-            return P.when(Tier.findOne({
-                system: params.system,
-                name: params.name,
-                deleted: null,
-            }).exec());
-        }
-    }),
-
-    PoolCache: new LRUCache({
-        name: 'PoolCache',
-        make_key: function(params) {
-            return params.system + ':' + params.name;
-        },
-        load: function(params) {
-            console.log('PoolCache: load', params.name);
-            return P.when(Pool.findOne({
-                system: params.system,
-                name: params.name,
-                deleted: null,
-            }).exec());
-        }
-    }),
-
-    TieringPolicyCache: new LRUCache({
-        name: 'TieringPolicyCache',
-        make_key: function(params) {
-            return params.system + ':' + params.name;
-        },
-        load: function(params) {
-            console.log('TieringPolicyCache: load', params.name);
-            return P.when(TieringPolicy.findOne({
-                system: params.system,
-                name: params.name,
-                deleted: null,
-            }).exec());
-        }
-    }),
 
     // short living cache for objects
     // the purpose is to reduce hitting the DB many many times per second during upload/download.
@@ -260,23 +165,4 @@ function check_already_exists(req, entity) {
 
 function is_err_exists(err) {
     return err && err.code === 11000;
-}
-
-/*
- *@param base - the array to subtract from
- *@param values - array of values to subtract from base
- *@out - return an array of string containing values in base which did no appear in values
- */
-function obj_ids_difference(base, values) {
-    var map_base = {};
-    for (var i = 0; i < base.length; ++i) {
-
-        map_base[base[i]] = base[i];
-    }
-    for (i = 0; i < values.length; ++i) {
-
-        delete map_base[values[i]];
-    }
-
-    return _.values(map_base);
 }

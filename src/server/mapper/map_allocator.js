@@ -8,10 +8,10 @@ var config = require('../../../config.js');
 var js_utils = require('../../util/js_utils');
 var time_utils = require('../../util/time_utils');
 var range_utils = require('../../util/range_utils');
+var mongo_utils = require('../../util/mongo_utils');
 // var chunk_builder = require('./chunk_builder');
 var policy_allocator = require('./policy_allocator');
 var block_allocator = require('./block_allocator');
-var util = require('util');
 
 
 module.exports = MappingAllocator;
@@ -77,7 +77,7 @@ MappingAllocator.prototype.run = function() {
 MappingAllocator.prototype.load_existing_parts = function() {
     var self = this;
     return find_consecutive_parts(self.obj, self.parts)
-        .then(db.populate('chunk', db.DataChunk))
+        .then(mongo_utils.populate('chunk', db.DataChunk))
         .then(function(existing_parts) {
             self.existing_parts = existing_parts;
             _.each(existing_parts, function(part) {
@@ -110,7 +110,8 @@ MappingAllocator.prototype.find_dups = function() {
 
 MappingAllocator.prototype.load_blocks_for_existing_chunks = function() {
     var self = this;
-    var chunks_ids = db.uniq_ids(self.existing_chunks, '_id');
+    dbg.log1('load_blocks_for_existing_chunks');
+    var chunks_ids = mongo_utils.uniq_ids(self.existing_chunks, '_id');
     if (!chunks_ids.length) return;
     return P.when(db.DataBlock.collection.find({
             chunk: {
@@ -118,7 +119,7 @@ MappingAllocator.prototype.load_blocks_for_existing_chunks = function() {
             },
             deleted: null,
         }).toArray())
-        .then(db.populate('node', db.Node))
+        .then(mongo_utils.populate('node', db.Node))
         .then(function(blocks) {
             dbg.log0('load_blocks_for_existing_chunks', blocks.length);
             self.blocks_by_chunk_id = _.groupBy(blocks, 'chunk');

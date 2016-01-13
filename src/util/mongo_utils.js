@@ -4,9 +4,26 @@ var _ = require('lodash');
 var P = require('./promise');
 
 module.exports = {
+    obj_ids_difference: obj_ids_difference,
     uniq_ids: uniq_ids,
     populate: populate
 };
+
+/*
+ *@param base - the array to subtract from
+ *@param values - array of values to subtract from base
+ *@out - return an array of string containing values in base which did no appear in values
+ */
+function obj_ids_difference(base, values) {
+    var map_base = {};
+    for (var i = 0; i < base.length; ++i) {
+        map_base[base[i]] = base[i];
+    }
+    for (i = 0; i < values.length; ++i) {
+        delete map_base[values[i]];
+    }
+    return _.values(map_base);
+}
 
 /**
  * make a list of ObjectId unique by indexing their string value

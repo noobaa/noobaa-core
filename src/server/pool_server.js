@@ -27,7 +27,7 @@ module.exports = pool_server;
 
 function new_pool_defaults(name, system_id) {
     return {
-        _id: db.new_object_id(),
+        _id: system_store.generate_id(),
         system: system_id,
         name: name,
         nodes: [],

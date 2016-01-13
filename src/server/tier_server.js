@@ -3,7 +3,6 @@
 
 var _ = require('lodash');
 // var P = require('../util/promise');
-var db = require('./db');
 var dbg = require('../util/debug_module')(__filename);
 var system_store = require('./stores/system_store');
 
@@ -36,7 +35,7 @@ module.exports = tier_server;
 
 function new_tier_defaults(name, system_id, pool_ids) {
     return {
-        _id: db.new_object_id(),
+        _id: system_store.generate_id(),
         system: system_id,
         name: name,
         replicas: 3,
@@ -49,7 +48,7 @@ function new_tier_defaults(name, system_id, pool_ids) {
 
 function new_policy_defaults(name, system_id, tiers_orders) {
     return {
-        _id: db.new_object_id(),
+        _id: system_store.generate_id(),
         system: system_id,
         name: name,
         tiers: tiers_orders

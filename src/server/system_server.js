@@ -58,7 +58,7 @@ var pkg = require('../../package.json');
 
 function new_system_defaults(name, owner_account_id) {
     var system = {
-        _id: db.new_object_id(),
+        _id: system_store.generate_id(),
         name: name,
         owner: owner_account_id,
         access_keys: (name === 'demo') ? [{
@@ -388,7 +388,7 @@ function add_role(req) {
     return system_store.make_changes({
         insert: {
             roles: [{
-                _id: db.new_object_id(),
+                _id: system_store.generate_id(),
                 account: account._id,
                 system: req.system._id,
                 role: req.rpc_params.role,

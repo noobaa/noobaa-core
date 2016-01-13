@@ -262,6 +262,11 @@ function read_object_mappings(req) {
                 size: obj.size,
                 parts: parts,
             };
+            // when called from admin console, we do not update the stats
+            // so that viewing the mapping in the ui will not increase read count
+            if (req.rpc_params.adminfo) {
+                return;
+            }
             system_store.make_changes_in_background({
                 update: {
                     buckets: [{

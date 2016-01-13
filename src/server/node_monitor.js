@@ -151,7 +151,7 @@ function heartbeat(req) {
                 throw err;
             }
         }).then(function(node) {
-            req.rpc_params.node_id = node.id;
+            req.rpc_params.node_id = node._id;
             req.rpc_params.peer_id = node.peer_id;
             return update_heartbeat(req, node.token);
         });

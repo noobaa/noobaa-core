@@ -52,8 +52,8 @@ function create_multipart_upload(req) {
     load_bucket(req);
     dbg.log0('create_multipart_upload xattr', req.rpc_params);
     var info = {
-        system: req.system.id,
-        bucket: req.bucket.id,
+        system: req.system._id,
+        bucket: req.bucket._id,
         key: req.rpc_params.key,
         size: req.rpc_params.size,
         content_type: req.rpc_params.content_type || 'application/octet-stream',
@@ -500,8 +500,8 @@ function load_bucket(req) {
 
 function object_md_query(req) {
     return {
-        system: req.system.id,
-        bucket: req.bucket.id,
+        system: req.system._id,
+        bucket: req.bucket._id,
         key: req.rpc_params.key,
         deleted: null
     };
@@ -519,8 +519,8 @@ function find_cached_object_md(req) {
     load_bucket(req);
     return P.fcall(function() {
             return db.ObjectMDCache.get({
-                system: req.system.id,
-                bucket: req.bucket.id,
+                system: req.system._id,
+                bucket: req.bucket._id,
                 key: req.rpc_params.key
             });
         })

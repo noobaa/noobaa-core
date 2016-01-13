@@ -141,7 +141,7 @@ function create_system(req) {
             return {
                 // a token for the new system
                 token: req.make_auth_token({
-                    account_id: req.account.id,
+                    account_id: req.account._id,
                     system_id: system._id,
                     role: 'admin',
                 }),
@@ -149,66 +149,6 @@ function create_system(req) {
             };
         });
 }
-
-//     var config = {
-//         "dbg_log_level": 2,
-//         "address": "wss://127.0.0.1:" + process.env.SSL_PORT,
-//         "port": "80",
-//         "ssl_port": "443",
-//         "access_key": info.access_keys[0].access_key,
-//         "secret_key": info.access_keys[0].secret_key
-//     };
-//     if (process.env.ON_PREMISE === 'true') {
-//         return P.nfcall(fs.writeFile, process.cwd() + '/agent_conf.json', JSON.stringify(config));
-//     }
-//Auto generate agent executable.
-// Removed for now, as we need signed exe
-//
-//     if (process.env.ON_PREMISE) {
-//         return P.Promise(function(resolve, reject) {
-//
-//             var build_params = [
-//                 '--access_key=' + info.access_keys[0].access_key,
-//                 '--secret_key=' + info.access_keys[0].secret_key,
-//                 '--system_id=' + system.id,
-//                 '--system=' + system.name,
-//                 '--on_premise_env=1',
-//                 '--address=wss://noobaa.local:443'
-//             ];
-//
-//             var build_script = child_process.spawn(
-//                 'src/deploy/build_atom_agent_win.sh', build_params, {
-//                     cwd: process.cwd()
-//                 });
-//
-//             build_script.on('close', function(code) {
-//                 if (code !== 0) {
-//                     resolve();
-//                 } else {
-//                     reject(new Error('build_script returned error code ' + code));
-//                 }
-//             });
-//
-//             var stdout = '',
-//                 stderr = '';
-//
-//             build_script.stdout.setEncoding('utf8');
-//
-//             build_script.stdout.on('data', function(data) {
-//                 stdout += data;
-//                 dbg.log0(data);
-//             });
-//
-//             build_script.stderr.setEncoding('utf8');
-//             build_script.stderr.on('data', function(data) {
-//                 stderr += data;
-//                 dbg.log0(data);
-//             });
-//         });
-//     }
-// })
-
-
 
 
 /**
@@ -273,18 +213,19 @@ function read_system(req) {
         });
         return P.all(_.map(system.buckets_by_name, function(bucket) {
             var b = _.pick(bucket, 'name');
-            var a = objects_aggregate[bucket.id] || {};
+            var a = objects_aggregate[bucket._id] || {};
             b.storage = {
                 used: a.size || 0,
             };
             b.num_objects = a.count || 0;
             b.tiering = _.map(bucket.tiering.tiers, function(tier) {
-                if (!tier) return '';
                 var replicas = tier.replicas || 3;
-                var t = nodes_aggregate_tier[tier.id];
-                // TODO how to account bucket total storage with multiple tiers?
-                b.storage.total = (t.total || 0) / replicas;
-                b.storage.free = (t.free || 0) / replicas;
+                var t = nodes_aggregate_tier[tier.tier._id];
+                if (t) {
+                    // TODO how to account bucket total storage with multiple tiers?
+                    b.storage.total = (t.total || 0) / replicas;
+                    b.storage.free = (t.free || 0) / replicas;
+                }
                 return tier.name;
             });
             if (_.isUndefined(b.storage.total)) {
@@ -371,7 +312,7 @@ function read_system(req) {
 
 function update_system(req) {
     var info = _.pick(req.rpc_params, 'name');
-    db.SystemCache.invalidate(req.system.id);
+    db.SystemCache.invalidate(req.system._id);
     return P.when(db.System.update({
             _id: req.system._id
         }, info).exec())
@@ -385,7 +326,7 @@ function update_system(req) {
  *
  */
 function delete_system(req) {
-    db.SystemCache.invalidate(req.system.id);
+    db.SystemCache.invalidate(req.system._id);
     return P.when(
             db.System.update({
                 _id: req.system._id
@@ -405,10 +346,12 @@ function delete_system(req) {
  */
 function list_systems(req) {
     console.log('List systems:', req.account);
-    if (!req.account.is_support) {
-        return list_systems_int(false, false, req.account.id);
+    if (!req.account) {
+        return list_systems_int(false, false);
     }
-
+    if (!req.account.is_support) {
+        return list_systems_int(false, false, req.account._id);
+    }
     return list_systems_int(true, false);
 }
 
@@ -459,8 +402,8 @@ function add_role(req) {
         .then(db.check_not_deleted(req, 'account'))
         .then(function(account) {
             return db.Role.create({
-                account: account.id,
-                system: req.system.id,
+                account: account._id,
+                system: req.system._id,
                 role: req.rpc_params.role,
             });
         })
@@ -487,8 +430,8 @@ function remove_role(req) {
         .then(function(account) {
             return db.Role
                 .findOneAndRemove({
-                    account: account.id,
-                    system: req.system.id,
+                    account: account._id,
+                    system: req.system._id,
                 })
                 .exec();
         })
@@ -541,7 +484,7 @@ function get_system_web_links(system) {
  */
 function read_activity_log(req) {
     var q = db.ActivityLog.find({
-        system: req.system.id,
+        system: req.system._id,
     });
 
     var reverse = true;
@@ -684,7 +627,7 @@ function start_debug(req) {
 function update_n2n_config(req) {
     var n2n_config = req.rpc_params;
     dbg.log0('update_n2n_config', n2n_config);
-    db.SystemCache.invalidate(req.system.id);
+    db.SystemCache.invalidate(req.system._id);
     return P.when(db.System.update({
             _id: req.system._id
         }, {
@@ -692,7 +635,7 @@ function update_n2n_config(req) {
         }).exec())
         .then(function() {
             return db.Node.find({
-                system: req.system.id
+                system: req.system._id
             }, {
                 // select just what we need
                 name: 1,
@@ -721,7 +664,7 @@ function update_n2n_config(req) {
 
 function update_base_address(req) {
     dbg.log0('update_base_address', req.rpc_params);
-    db.SystemCache.invalidate(req.system.id);
+    db.SystemCache.invalidate(req.system._id);
     return P.when(db.System.update({
             _id: req.system._id
         }, {
@@ -729,7 +672,7 @@ function update_base_address(req) {
         }).exec())
         .then(function() {
             return db.Node.find({
-                system: req.system.id
+                system: req.system._id
             }, {
                 // select just what we need
                 name: 1,

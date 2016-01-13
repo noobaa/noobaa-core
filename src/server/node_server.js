@@ -51,7 +51,7 @@ function create_node(req) {
         'is_server',
         'geolocation'
     );
-    info.system = req.system.id;
+    info.system = req.system._id;
     info.heartbeat = new Date(0);
     info.peer_id = db.new_object_id();
 
@@ -91,22 +91,22 @@ function create_node(req) {
             });
             var account_id = '';
             if (req.account) {
-                account_id = req.account.id;
+                account_id = req.account._id;
             }
             // a token for the agent authorized to use the new node id.
             var token = req.make_auth_token({
                 account_id: account_id,
-                system_id: req.system.id,
+                system_id: req.system._id,
                 role: 'agent',
                 extra: {
-                    node_id: node.id,
+                    node_id: node._id,
                     peer_id: node.peer_id,
                 }
             });
 
             var system_token = req.make_auth_token({
                 account_id: account_id,
-                system_id: req.system.id,
+                system_id: req.system._id,
                 role: 'admin',
             });
 
@@ -119,7 +119,7 @@ function create_node(req) {
                 })
                 .then(function() {
                     return {
-                        id: node.id,
+                        id: node._id,
                         peer_id: node.peer_id,
                         token: token
                     };
@@ -226,7 +226,7 @@ function read_node_maps(req) {
  */
 function list_nodes(req) {
     return list_nodes_int(req.rpc_params.query,
-        req.system.id,
+        req.system._id,
         req.rpc_params.skip,
         req.rpc_params.limit,
         req.rpc_params.pagination,
@@ -351,7 +351,7 @@ function group_nodes(req) {
             var reduce_sum = size_utils.reduce_sum;
             var group_by = req.rpc_params.group_by;
             var by_system = {
-                system: req.system.id,
+                system: req.system._id,
                 deleted: null,
             };
 
@@ -443,7 +443,7 @@ function max_node_capacity(req) {
     //TODO:: once filter is mplemented in list_nodes, also add it here for the query
     return P.when(db.Node
             .find({
-                system: req.system.id,
+                system: req.system._id,
                 deleted: null,
             })
             .sort({
@@ -470,7 +470,7 @@ function get_test_nodes(req) {
     var minimum_online_heartbeat = db.Node.get_minimum_online_heartbeat();
     return P.when(db.Node
             .count({
-                system: req.system.id,
+                system: req.system._id,
                 heartbeat: {
                     $gt: minimum_online_heartbeat
                 },
@@ -481,7 +481,7 @@ function get_test_nodes(req) {
                 (total_nodes - count > 0 ? total_nodes - count : total_nodes));
             return P.when(db.Node
                 .find({
-                    system: req.system.id,
+                    system: req.system._id,
                     heartbeat: {
                         $gt: minimum_online_heartbeat
                     },
@@ -587,7 +587,7 @@ function find_node_by_name(req) {
 
 function get_node_query(req) {
     return {
-        system: req.system.id,
+        system: req.system._id,
         name: req.rpc_params.name,
         deleted: null,
     };

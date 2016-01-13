@@ -209,8 +209,8 @@ function get_cloud_sync_policy(req) {
         return {};
     }
     return P.when(bg_worker.cloud_sync.get_policy_status({
-            sysid: req.system.id,
-            bucketid: bucket._id.toString()
+            sysid: req.system._id,
+            bucketid: bucket._id
         }))
         .then(function(stat) {
             reply = {
@@ -272,7 +272,7 @@ function get_all_cloud_sync_policies(req) {
  *
  */
 function delete_cloud_sync(req) {
-    dbg.log2('delete_cloud_sync:', req.rpc_params.name, 'on', req.system.id);
+    dbg.log2('delete_cloud_sync:', req.rpc_params.name, 'on', req.system._id);
     var bucket = find_bucket(req);
     dbg.log3('delete_cloud_sync: delete on bucket', bucket);
     return system_store.make_changes({
@@ -285,7 +285,7 @@ function delete_cloud_sync(req) {
         })
         .then(function() {
             return bg_worker.cloud_sync.refresh_policy({
-                sysid: req.system.id,
+                sysid: req.system._id,
                 bucketid: bucket._id,
                 force_stop: true,
             });
@@ -299,7 +299,7 @@ function delete_cloud_sync(req) {
  *
  */
 function set_cloud_sync(req) {
-    dbg.log0('set_cloud_sync:', req.rpc_params.name, 'on', req.system.id, 'with', req.rpc_params.policy);
+    dbg.log0('set_cloud_sync:', req.rpc_params.name, 'on', req.system._id, 'with', req.rpc_params.policy);
     var bucket = find_bucket(req);
     var force_stop = false;
     //Verify parameters, bi-directional sync can't be set with additions_only

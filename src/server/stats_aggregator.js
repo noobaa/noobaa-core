@@ -84,7 +84,7 @@ function get_systems_stats(req) {
         .then(function(clusterid) {
             sys_stats.clusterid = clusterid;
             //Get ALL systems
-            return system_server.list_systems_int(true, true);
+            return system_server.list_systems_int(null, true);
         })
         .then(function(res) {
             sys_stats.count = res.systems.length;
@@ -155,7 +155,7 @@ function get_nodes_stats(req) {
     var nodes_histo = get_empty_nodes_histo();
     return P.fcall(function() {
             //Get ALL systems
-            return system_server.list_systems_int(true, true);
+            return system_server.list_systems_int(null, true);
         })
         .then(function(res) {
             //Per each system fill out the needed info

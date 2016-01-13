@@ -342,12 +342,17 @@ function delete_system(req) {
 function list_systems(req) {
     console.log('List systems:', req.account);
     if (!req.account) {
-        return list_systems_int(false, false);
+        if (!req.system) {
+            throw req.rpc_error('FORBIDDEN', 'list_systems requires authentication with account or system');
+        }
+        return {
+            systems: [get_system_info(req.system, false)]
+        };
     }
-    if (!req.account.is_support) {
-        return list_systems_int(false, false, req.account._id);
+    if (req.account.is_support) {
+        return list_systems_int(null, false);
     }
-    return list_systems_int(true, false);
+    return list_systems_int(req.account, false);
 }
 
 /**
@@ -355,10 +360,10 @@ function list_systems(req) {
  * LIST_SYSTEMS_INT
  *
  */
-function list_systems_int(is_support, get_ids, account) {
+function list_systems_int(account, get_ids) {
     // support gets to see all systems
     var roles;
-    if (is_support) {
+    if (!account) {
         roles = system_store.data.roles;
     } else {
         roles = _.filter(system_store.data.roles, function(role) {

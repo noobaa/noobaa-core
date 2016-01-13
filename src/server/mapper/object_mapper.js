@@ -761,104 +761,91 @@ function get_part_info(params) {
         .then(function(pools) {
             //A single pool to be sent back with the MD (if adminfo is provided)
             //In case of spread, take first, in case of mirror take 1 of them (also the first)
-            return P.fcall(function() {
-                    if (!params.adminfo) {
-                        return '';
+
+            return P.when(policy_allocator.analyze_chunk_status_on_pools(params.chunk, params.blocks, pools))
+                .then(function(chunk_status) {
+                    var p = _.pick(params.part, 'start', 'end');
+
+                    p.chunk = _.pick(params.chunk,
+                        'size',
+                        'digest_type',
+                        'digest_b64',
+                        'compress_type',
+                        'compress_size',
+                        'cipher_type',
+                        'cipher_key_b64',
+                        'cipher_iv_b64',
+                        'cipher_auth_tag_b64',
+                        'data_frags',
+                        'lrc_frags');
+                    if (params.adminfo) {
+                        p.chunk.adminfo = {
+                            health: chunk_status.chunk_health
+                        };
                     }
-                    return P.when(db.Pool
-                            .findOne({
-                                _id: _.flatten(pools)[0],
-                            }).exec())
-                        .then(function(p) {
-                            return p.name;
-                        });
-                })
-                .then(function(pool) {
-                    var rep_pool = pool;
+                    p.part_sequence_number = params.part.part_sequence_number;
+                    if (params.upload_part_number) {
+                        p.upload_part_number = params.upload_part_number;
+                    }
+                    if (params.set_obj) {
+                        p.obj = params.part.obj;
+                    }
+                    if (params.part.chunk_offset) {
+                        p.chunk_offset = params.part.chunk_offset;
+                    }
 
-                    return P.when(policy_allocator.analyze_chunk_status_on_pools(params.chunk, params.blocks, pools))
-                        .then(function(chunk_status) {
-                            var p = _.pick(params.part, 'start', 'end');
+                    p.frags = _.map(chunk_status.frags, function(fragment) {
+                        var blocks = params.building && fragment.building_blocks ||
+                            params.adminfo && fragment.blocks ||
+                            fragment.accessible_blocks;
 
-                            p.chunk = _.pick(params.chunk,
-                                'size',
-                                'digest_type',
-                                'digest_b64',
-                                'compress_type',
-                                'compress_size',
-                                'cipher_type',
-                                'cipher_key_b64',
-                                'cipher_iv_b64',
-                                'cipher_auth_tag_b64',
-                                'data_frags',
-                                'lrc_frags');
+                        var part_fragment = _.pick(fragment, 'layer', 'layer_n', 'frag', 'size');
+
+                        // take the digest from some block.
+                        // TODO better check that the rest of the blocks match...
+                        if (fragment.blocks[0]) {
+                            part_fragment.digest_type = fragment.blocks[0].digest_type;
+                            part_fragment.digest_b64 = fragment.blocks[0].digest_b64;
+                        } else {
+                            part_fragment.digest_type = '';
+                            part_fragment.digest_b64 = '';
+                        }
+
+                        if (params.adminfo) {
+                            part_fragment.adminfo = {
+                                health: fragment.health,
+                            };
+                        }
+
+                        part_fragment.blocks = _.map(blocks, function(block) {
+                            var ret = {
+                                block_md: block_allocator.get_block_md(block),
+                            };
+                            var node = block.node;
                             if (params.adminfo) {
-                                p.chunk.adminfo = {
-                                    health: chunk_status.chunk_health
+                                var rep_pool_id = _.flatten(pools)[0];
+                                var rep_pool = system_store.data.get_by_id(rep_pool_id);
+                                var adminfo = {
+                                    pool_name: rep_pool && rep_pool.name || '',
+                                    tier_name: 'nodes', // TODO get real tier name
+                                    node_name: node.name,
+                                    node_ip: node.ip,
+                                    online: db.Node.is_online(node),
                                 };
-                            }
-                            p.part_sequence_number = params.part.part_sequence_number;
-                            if (params.upload_part_number) {
-                                p.upload_part_number = params.upload_part_number;
-                            }
-                            if (params.set_obj) {
-                                p.obj = params.part.obj;
-                            }
-                            if (params.part.chunk_offset) {
-                                p.chunk_offset = params.part.chunk_offset;
-                            }
-
-                            p.frags = _.map(chunk_status.frags, function(fragment) {
-                                var blocks = params.building && fragment.building_blocks ||
-                                    params.adminfo && fragment.blocks ||
-                                    fragment.accessible_blocks;
-
-                                var part_fragment = _.pick(fragment, 'layer', 'layer_n', 'frag', 'size');
-
-                                // take the digest from some block.
-                                // TODO better check that the rest of the blocks match...
-                                if (fragment.blocks[0]) {
-                                    part_fragment.digest_type = fragment.blocks[0].digest_type;
-                                    part_fragment.digest_b64 = fragment.blocks[0].digest_b64;
-                                } else {
-                                    part_fragment.digest_type = '';
-                                    part_fragment.digest_b64 = '';
+                                if (node.srvmode) {
+                                    adminfo.srvmode = node.srvmode;
                                 }
-
-                                if (params.adminfo) {
-                                    part_fragment.adminfo = {
-                                        health: fragment.health,
-                                    };
+                                if (block.building) {
+                                    adminfo.building = true;
                                 }
-
-                                part_fragment.blocks = _.map(blocks, function(block) {
-                                    var ret = {
-                                        block_md: block_allocator.get_block_md(block),
-                                    };
-                                    var node = block.node;
-                                    if (params.adminfo) {
-                                        var adminfo = {
-                                            pool_name: rep_pool,
-                                            tier_name: 'nodes', // TODO get real tier name
-                                            node_name: node.name,
-                                            node_ip: node.ip,
-                                            online: db.Node.is_online(node),
-                                        };
-                                        if (node.srvmode) {
-                                            adminfo.srvmode = node.srvmode;
-                                        }
-                                        if (block.building) {
-                                            adminfo.building = true;
-                                        }
-                                        ret.adminfo = adminfo;
-                                    }
-                                    return ret;
-                                });
-                                return part_fragment;
-                            });
-
-                            return p;
+                                ret.adminfo = adminfo;
+                            }
+                            return ret;
                         });
+                        return part_fragment;
+                    });
+
+                    return p;
                 });
         });
 }

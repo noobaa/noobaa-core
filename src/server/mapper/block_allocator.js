@@ -108,19 +108,13 @@ function update_tier_alloc_nodes(system, tier, pools) {
 }
 
 function get_associated_nodes(system, pools) {
-    var min_heartbeat = db.Node.get_minimum_alloc_heartbeat();
-    var associated_nodes = [];
     pools = _.flatten(pools);
-    _.each(pools, function(p) {
-        if (p.nodes.length) {
-            associated_nodes = associated_nodes.concat(p.nodes);
-        }
-    });
+    var min_heartbeat = db.Node.get_minimum_alloc_heartbeat();
     return P.when(db.Node.collection.find({
         system: system,
         deleted: null,
-        name: {
-            $in: associated_nodes
+        pool: {
+            $in: _.map(pools, '_id')
         },
         heartbeat: {
             $gt: min_heartbeat

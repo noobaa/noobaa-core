@@ -35,6 +35,7 @@
     "native_core": false
   },
   "dependencies": {
+    "ajv": "^3.2.2",
     "animate.css": "~3.2.5",
     "async": "~0.9.0",
     "aws-sdk": "~2.2.0",

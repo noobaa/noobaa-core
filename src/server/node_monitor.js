@@ -404,6 +404,8 @@ function redirect(req) {
         'with params', req.rpc_params.request_params);
     return server_rpc.client[api][method](req.rpc_params.request_params, {
         address: target,
+    }).then(function(res) {
+        return res || {};
     });
 }
 

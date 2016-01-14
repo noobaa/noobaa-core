@@ -10,13 +10,14 @@ module.exports = {
     name: 'redirector_api',
 
     methods: {
+
         redirect: {
             method: 'POST',
             params: {
-                $ref: '/node_api/definitions/signal_params'
+                $ref: '/node_api/definitions/redirect_params'
             },
             reply: {
-                $ref: '/node_api/definitions/signal_reply'
+                $ref: '/node_api/definitions/redirect_reply'
             },
             auth: {
                 system: false
@@ -29,7 +30,7 @@ module.exports = {
                 $ref: '/redirector_api/definitions/basic_registration_info'
             },
             auth: {
-                system: 'admin'
+                system: false
             }
         },
 
@@ -39,7 +40,7 @@ module.exports = {
                 $ref: '/redirector_api/definitions/basic_registration_info'
             },
             auth: {
-                system: 'admin'
+                system: false
             }
         },
 
@@ -61,7 +62,7 @@ module.exports = {
                 },
             },
             auth: {
-                system: 'admin'
+                system: false
             }
         },
 
@@ -71,20 +72,46 @@ module.exports = {
                 type: 'string',
             },
             auth: {
-                system: 'admin'
+                system: false
             }
         }
     },
 
     definitions: {
+
         basic_registration_info: {
             type: 'object',
-            required: ['agent', 'server', 'port'],
+            required: ['peer_id'],
             properties: {
                 peer_id: {
                     type: 'string',
                 },
             }
-        }
+        },
+
+        redirect_params: {
+            type: 'object',
+            required: ['target', 'method_api', 'method_name'],
+            properties: {
+                target: {
+                    type: 'string'
+                },
+                method_api: {
+                    type: 'string'
+                },
+                method_name: {
+                    type: 'string'
+                },
+                request_params: {
+                    type: 'object',
+                    additionalProperties: true,
+                },
+            },
+        },
+
+        redirect_reply: {
+            type: 'object',
+            additionalProperties: true,
+        },
     }
 };

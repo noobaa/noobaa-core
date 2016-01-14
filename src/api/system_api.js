@@ -480,7 +480,7 @@ module.exports = {
         system_nodes_update_reply: {
             type: 'object',
             required: ['nodes_count', 'nodes_updated'],
-            peroperties: {
+            properties: {
                 nodes_count: {
                     type: 'integer'
                 },

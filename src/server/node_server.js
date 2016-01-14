@@ -549,15 +549,13 @@ function get_node_full_info(node) {
 }
 
 function get_storage_info(storage) {
-    //return _.omit(_.pick(storage, 'total', 'free', 'used', 'alloc', 'limit'), _.isUndefined);
-    var DEFAULT_STORAGE = {
-        total: 0,
-        free: 0,
-        used: 0,
-        alloc: 0,
-        limit: 0
+    return {
+        total: storage.total || 0,
+        free: storage.free || 0,
+        used: storage.used || 0,
+        alloc: storage.alloc || 0,
+        limit: storage.limit || 0
     };
-    return _.defaults(storage, DEFAULT_STORAGE);
 }
 
 function find_node_by_name(req) {

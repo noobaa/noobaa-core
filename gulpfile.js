@@ -150,7 +150,7 @@ var PATHS = {
         'bluebird',
         'generate-function',
         'performance-now',
-        'is-my-json-valid',
+        'ajv',
         'concat-stream',
         'dev-null',
         'chance',

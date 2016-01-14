@@ -75,7 +75,7 @@ module.exports = {
                     type: 'array',
                     items: {
                         type: 'object',
-                        required: [],
+                        // required: [],
                         properties: {
                             tiers: {
                                 type: 'integer'
@@ -181,7 +181,7 @@ module.exports = {
             type: 'array',
             items: {
                 type: 'object',
-                required: [],
+                // required: [],
                 properties: {
                     pools_num: {
                         type: 'integer',

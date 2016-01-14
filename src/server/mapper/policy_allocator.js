@@ -86,6 +86,7 @@ function analyze_chunk_status_on_pools(chunk, allocated_blocks, orig_pools) {
         var fragment = {
             layer: 'D',
             frag: frag,
+            size: chunk.size
         };
 
         fragment.blocks = blocks_by_frag_key[get_frag_key(fragment)] || [];

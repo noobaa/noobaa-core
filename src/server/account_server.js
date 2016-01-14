@@ -244,7 +244,7 @@ function add_account_sync_credentials_cache(req) {
 
 function get_account_info(account) {
     console.log('account', account);
-    var info = _.pick(account, 'name', 'email', '_id');
+    var info = _.pick(account, 'name', 'email');
     if (account.is_support) {
         info.is_support = true;
     }

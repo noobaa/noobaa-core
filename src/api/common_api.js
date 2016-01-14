@@ -17,7 +17,7 @@ module.exports = {
 
         storage_info: {
             type: 'object',
-            required: [],
+            // required: [],
             properties: {
                 total: {
                     $ref: '/common_api/definitions/bigint'
@@ -43,7 +43,7 @@ module.exports = {
 
         drive_info: {
             type: 'object',
-            required: [],
+            // required: [],
             properties: {
                 mount: {
                     type: 'string'
@@ -59,7 +59,7 @@ module.exports = {
 
         os_info: {
             type: 'object',
-            required: [],
+            // required: [],
             properties: {
                 hostname: {
                     type: 'string'
@@ -129,7 +129,7 @@ module.exports = {
 
         n2n_config: {
             type: 'object',
-            required: [],
+            // required: [],
             properties: {
                 // ip options
                 offer_ipv4: {

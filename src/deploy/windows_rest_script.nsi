@@ -194,8 +194,6 @@ Section "NooBaa S3 REST Service"
 		File "7za.exe"
 		File "NooBaa_Agent_wd.exe"
 		File "wget.exe"
-		File "openssl.exe"
-
 	${EndIf}
 
 	WriteUninstaller "$INSTDIR\uninstall-noobaa-S3REST.exe"

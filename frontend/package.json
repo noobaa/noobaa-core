@@ -29,7 +29,8 @@
     "vinyl": "^1.1.0",
     "vinyl-buffer": "^1.0.0",
     "vinyl-source-stream": "^1.1.0",
-    "yargs": "^3.27.0"
+    "yargs": "^3.27.0",
+     "through2": "^0.6.5"
   },
   "scripts": {
     "prepublish": "./node_modules/.bin/gulp build",

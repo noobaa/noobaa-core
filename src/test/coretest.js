@@ -25,6 +25,7 @@ var client = new api.Client();
 
 // register api servers
 var server_rpc = require('../server/server_rpc').server_rpc;
+require('../server/server_rpc').register_servers();
 
 _.each(mongoose.modelNames(), function(model_name) {
     mongoose.model(model_name).schema.set('autoIndex', false);
@@ -52,7 +53,10 @@ before(function(done) {
         account_params.name = 'coretest';
         return client.account.create_account(account_params);
     }).then(function() {
-        return client.create_auth_token(account_credentials);
+        var cred_with_system = _.extend({
+            system: 'coretest'
+        }, account_credentials);
+        return client.create_auth_token(cred_with_system);
     }).nodeify(done);
 });
 

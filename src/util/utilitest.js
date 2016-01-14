@@ -13,8 +13,10 @@ var express_method_override = require('method-override');
 var mongoose = require('mongoose');
 var mongoose_logger = require('./mongoose_logger');
 var dbg = require('./debug_module')(__filename);
+var mongo_client = require('../server/stores/mongo_client');
 
 mongoose.set('debug', mongoose_logger(dbg.log0.bind(dbg)));
+var MONGODB_URL = 'mongodb://localhost/utilitest';
 
 // we create a single express app and server to make the test faster,
 // but there's a caveat - setting up routes on the same app has the issue
@@ -47,7 +49,7 @@ before(function(done) {
         var defer = P.defer();
         mongoose.connection.once('open', defer.resolve);
         mongoose.connection.on('error', console.error.bind(console, 'mongoose connection error:'));
-        mongoose.connect('mongodb://localhost/utilitest');
+        mongoose.connect(MONGODB_URL);
         return defer.promise;
     }).then(function() {
         // dropDatabase to clear the previous test
@@ -59,6 +61,8 @@ before(function(done) {
         return P.all(_.map(mongoose.modelNames(), function(model_name) {
             return P.npost(mongoose.model(model_name), 'ensureIndexes');
         }));
+    }).then(function() {
+        return mongo_client.connect(MONGODB_URL);
     }).then(function() {
         return P.npost(http_server, 'listen');
     }).then(function() {

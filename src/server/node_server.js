@@ -7,7 +7,6 @@ var size_utils = require('../util/size_utils');
 var string_utils = require('../util/string_utils');
 var object_mapper = require('./mapper/object_mapper');
 var node_monitor = require('./node_monitor');
-var server_rpc = require('./server_rpc').server_rpc;
 var db = require('./db');
 var dbg = require('../util/debug_module')(__filename);
 
@@ -51,7 +50,7 @@ function create_node(req) {
         'is_server',
         'geolocation'
     );
-    info.system = req.system.id;
+    info.system = req.system._id;
     info.heartbeat = new Date(0);
     info.peer_id = db.new_object_id();
 
@@ -70,30 +69,16 @@ function create_node(req) {
     if (req.role !== 'admin') {
         if (req.auth.extra.tier !== tier_name) throw req.forbidden();
     }
+    var tier = req.system.tiers_by_name[tier_name];
+    var pool = req.system.pools_by_name.default_pool;
+    if (!tier || !pool) {
+        throw req.rpc_error('NOT_FOUND', 'TIER/POOL NOT FOUND');
+    }
+    info.tier = tier._id;
+    info.pool = pool._id;
 
-
-    return db.TierCache.get({
-            system: req.system.id,
-            name: tier_name,
-        })
-        .then(db.check_not_deleted(req, 'tier'))
-        .then(function(tier) {
-            info.tier = tier;
-
-            if (String(tier.system) !== String(info.system)) {
-                throw req.rpc_error('NOT_FOUND', null,
-                    'TIER SYSTEM MISMATCH ' + info.name + ' ' + info.system);
-            }
-            return db.PoolCache.get({
-                system: req.system.id,
-                name: 'default_pool',
-            });
-        })
-        .then(function(pool) {
-            info.pool = pool.id;
-            dbg.log0('CREATE NODE', info);
-            return db.Node.create(info);
-        })
+    dbg.log0('CREATE NODE', info);
+    return P.when(db.Node.create(info))
         .then(null, db.check_already_exists(req, 'node'))
         .then(function(node) {
             // create async
@@ -105,39 +90,24 @@ function create_node(req) {
             });
             var account_id = '';
             if (req.account) {
-                account_id = req.account.id;
+                account_id = req.account._id;
             }
             // a token for the agent authorized to use the new node id.
             var token = req.make_auth_token({
                 account_id: account_id,
-                system_id: req.system.id,
+                system_id: req.system._id,
                 role: 'agent',
                 extra: {
-                    node_id: node.id,
+                    node_id: node._id,
                     peer_id: node.peer_id,
                 }
             });
 
-            var system_token = req.make_auth_token({
-                account_id: account_id,
-                system_id: req.system.id,
-                role: 'admin',
-            });
-
-            //TODO:: once we manage pools, remove this. Nodes will be associated propery
-            return server_rpc.client.pool.add_nodes_to_pool({
-                    name: 'default_pool',
-                    nodes: [info.name.toString()]
-                }, {
-                    auth_token: system_token
-                })
-                .then(function() {
-                    return {
-                        id: node.id,
-                        peer_id: node.peer_id,
-                        token: token
-                    };
-                });
+            return {
+                id: String(node._id),
+                peer_id: String(node.peer_id),
+                token: token
+            };
         });
 }
 
@@ -239,8 +209,9 @@ function read_node_maps(req) {
  *
  */
 function list_nodes(req) {
-    return list_nodes_int(req.rpc_params.query,
-        req.system.id,
+    return list_nodes_int(
+        req.system._id,
+        req.rpc_params.query,
         req.rpc_params.skip,
         req.rpc_params.limit,
         req.rpc_params.pagination,
@@ -254,7 +225,7 @@ function list_nodes(req) {
  * LIST_NODES_INT
  *
  */
-function list_nodes_int(query, system_id, skip, limit, pagination, sort, order, req) {
+function list_nodes_int(system_id, query, skip, limit, pagination, sort, order, req) {
     var info;
     var sort_opt = {};
     return P.fcall(function() {
@@ -262,7 +233,7 @@ function list_nodes_int(query, system_id, skip, limit, pagination, sort, order, 
                 system: system_id,
                 deleted: null,
             };
-            if (!query) return;
+            query = query || {};
             if (query.name) {
                 info.$or = [{
                     'name': new RegExp(query.name, 'i')
@@ -313,33 +284,18 @@ function list_nodes_int(query, system_id, skip, limit, pagination, sort, order, 
             }
 
             if (query.tier) {
-                return db.TierCache.get({
-                        system: system_id,
-                        name: query.tier,
-                    })
-                    .then(db.check_not_deleted(req, 'tier'))
-                    .then(function(tier) {
-                        info.tier = tier;
-                    });
+                var tier = req.system.tiers_by_name[query.tier];
+                info.tier = tier._id;
             }
             if (query.pool) { //Keep last in chain due to promise
-                return db.Pool.find({
-                        system: system_id,
-                        name: {
-                            $in: query.pool
-                        },
-                    })
-                    .then(function(rpools) {
-                        var query_pools = _.map(rpools, function(p) {
-                            return p._id;
-                        });
-
-                        info.pool = {};
-                        info.pool.$in = query_pools;
-                    });
+                var pools_ids = _.map(query.pool, function(pool_name) {
+                    var pool = req.system.pools_by_name[pool_name];
+                    return pool._id;
+                });
+                info.pool = {
+                    $in: pools_ids
+                };
             }
-        })
-        .then(function() {
             var find = db.Node.find(info)
                 .sort(sort_opt)
                 .populate('tier', 'name');
@@ -378,7 +334,7 @@ function group_nodes(req) {
             var reduce_sum = size_utils.reduce_sum;
             var group_by = req.rpc_params.group_by;
             var by_system = {
-                system: req.system.id,
+                system: req.system._id,
                 deleted: null,
             };
 
@@ -470,7 +426,7 @@ function max_node_capacity(req) {
     //TODO:: once filter is mplemented in list_nodes, also add it here for the query
     return P.when(db.Node
             .find({
-                system: req.system.id,
+                system: req.system._id,
                 deleted: null,
             })
             .sort({
@@ -497,7 +453,7 @@ function get_test_nodes(req) {
     var minimum_online_heartbeat = db.Node.get_minimum_online_heartbeat();
     return P.when(db.Node
             .count({
-                system: req.system.id,
+                system: req.system._id,
                 heartbeat: {
                     $gt: minimum_online_heartbeat
                 },
@@ -508,7 +464,7 @@ function get_test_nodes(req) {
                 (total_nodes - count > 0 ? total_nodes - count : total_nodes));
             return P.when(db.Node
                 .find({
-                    system: req.system.id,
+                    system: req.system._id,
                     heartbeat: {
                         $gt: minimum_online_heartbeat
                     },
@@ -584,7 +540,7 @@ function get_node_full_info(node) {
             storage: get_storage_info(drive.storage)
         };
     });
-    info.online = node.is_online();
+    info.online = db.Node.is_online(node);
     info.os_info = node.os_info && node.os_info.toObject() || {};
     if (info.os_info.uptime) {
         info.os_info.uptime = info.os_info.uptime.getTime();
@@ -593,15 +549,13 @@ function get_node_full_info(node) {
 }
 
 function get_storage_info(storage) {
-    //return _.omit(_.pick(storage, 'total', 'free', 'used', 'alloc', 'limit'), _.isUndefined);
-    var DEFAULT_STORAGE = {
-        total: 0,
-        free: 0,
-        used: 0,
-        alloc: 0,
-        limit: 0
+    return {
+        total: storage.total || 0,
+        free: storage.free || 0,
+        used: storage.used || 0,
+        alloc: storage.alloc || 0,
+        limit: storage.limit || 0
     };
-    return _.defaults(storage, DEFAULT_STORAGE);
 }
 
 function find_node_by_name(req) {
@@ -614,7 +568,7 @@ function find_node_by_name(req) {
 
 function get_node_query(req) {
     return {
-        system: req.system.id,
+        system: req.system._id,
         name: req.rpc_params.name,
         deleted: null,
     };

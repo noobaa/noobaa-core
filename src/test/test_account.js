@@ -62,7 +62,7 @@ describe('account', function() {
                 }).then(function() {
                     throw new Error('expected error: account already exists');
                 }, function(err) {
-                    assert.strictEqual(err.message, 'account already exists');
+                    assert.strictEqual(err.rpc_code, 'CONFLICT');
                 });
             }).then(function() {
                 return client.account.update_account({

@@ -9,7 +9,7 @@ module.exports = {
 
 var _ = require('lodash');
 var P = require('../../util/promise');
-var db = require('../db');
+var system_store = require('../stores/system_store');
 var block_allocator = require('./block_allocator');
 var js_utils = require('../../util/js_utils');
 var config = require('../../../config.js');
@@ -24,23 +24,21 @@ function remove_allocation(blocks) {
     return P.when(block_allocator.remove_blocks(blocks));
 }
 
-function get_pools_groups(bucket) {
+function get_pools_groups(bucket_id) {
     //TODO take into account multi-tiering
     var reply = [];
-    return P.when(read_tiering_info(bucket))
-        .then(function(tiering) {
-            if (tiering[0].data_placement === 'MIRROR') {
-                _.each(tiering[0].pools, function(p) {
-                    reply.push([p]);
-                });
-            } else if (tiering[0].data_placement === 'SPREAD') {
-                reply.push([]); //Keep the same format as MIRROR
-                _.each(tiering[0].pools, function(p) {
-                    reply[0].push(p);
-                });
-            }
-            return reply;
+    var tiers = get_tiering_info(bucket_id);
+    if (tiers[0].data_placement === 'MIRROR') {
+        _.each(tiers[0].pools, function(p) {
+            reply.push([p]);
         });
+    } else if (tiers[0].data_placement === 'SPREAD') {
+        reply.push([]); //Keep the same format as MIRROR
+        _.each(tiers[0].pools, function(p) {
+            reply[0].push(p);
+        });
+    }
+    return reply;
 }
 
 /**
@@ -54,38 +52,12 @@ function get_pools_groups(bucket) {
  */
 
 function analyze_chunk_status_on_pools(chunk, allocated_blocks, orig_pools) {
-
-    function classify_block(fragment, block) {
-        var since_hb = now - block.node.heartbeat.getTime();
-        if (since_hb > config.LONG_GONE_THRESHOLD || block.node.srvmode === 'disabled') {
-            return js_utils.named_array_push(fragment, 'long_gone_blocks', block);
-        }
-        if (since_hb > config.SHORT_GONE_THRESHOLD) {
-            return js_utils.named_array_push(fragment, 'short_gone_blocks', block);
-        }
-        if (block.building) {
-            var since_bld = now - block.building.getTime();
-            if (since_bld > config.LONG_BUILD_THRESHOLD) {
-                return js_utils.named_array_push(fragment, 'long_building_blocks', block);
-            } else {
-                return js_utils.named_array_push(fragment, 'building_blocks', block);
-            }
-        }
-        if (!block.node.srvmode) {
-            js_utils.named_array_push(fragment, 'good_blocks', block);
-        }
-        // also keep list of blocks that we can use to replicate from
-        if (!block.node.srvmode || block.node.srvmode === 'decommissioning') {
-            js_utils.named_array_push(fragment, 'accessible_blocks', block);
-        }
-    }
-
     var mirrored_pool = false;
     orig_pools = _.flatten(orig_pools);
 
     //convert pools to strings for comparison
     var pools = _.map(orig_pools, function(p) {
-        return p.toString();
+        return p._id.toString();
     });
 
     //Remove blocks which are allocated on non-associated (to pools) nodes
@@ -114,6 +86,7 @@ function analyze_chunk_status_on_pools(chunk, allocated_blocks, orig_pools) {
         var fragment = {
             layer: 'D',
             frag: frag,
+            size: chunk.size
         };
 
         fragment.blocks = blocks_by_frag_key[get_frag_key(fragment)] || [];
@@ -130,14 +103,14 @@ function analyze_chunk_status_on_pools(chunk, allocated_blocks, orig_pools) {
 
         //Analyze good/building blocks on the policy pools only
         _.each(fragment.blocks, function(block) {
-            classify_block(fragment, block);
+            classify_block(fragment, block, now);
         });
 
         // Analyze accisible blocks on all the pools
         var other_blocks = all_blocks_by_frag_key[get_frag_key(fragment)];
         var other_fragment = {};
         _.each(other_blocks, function(block) {
-            classify_block(other_fragment, block);
+            classify_block(other_fragment, block, now);
         });
 
         if (other_fragment.accessible_blocks && other_fragment.accessible_blocks.length) {
@@ -208,41 +181,40 @@ function analyze_chunk_status_on_pools(chunk, allocated_blocks, orig_pools) {
     };
 }
 
+
+function classify_block(fragment, block, now) {
+    var since_hb = now - block.node.heartbeat.getTime();
+    if (since_hb > config.LONG_GONE_THRESHOLD || block.node.srvmode === 'disabled') {
+        return js_utils.named_array_push(fragment, 'long_gone_blocks', block);
+    }
+    if (since_hb > config.SHORT_GONE_THRESHOLD) {
+        return js_utils.named_array_push(fragment, 'short_gone_blocks', block);
+    }
+    if (block.building) {
+        var since_bld = now - block.building.getTime();
+        if (since_bld > config.LONG_BUILD_THRESHOLD) {
+            return js_utils.named_array_push(fragment, 'long_building_blocks', block);
+        } else {
+            return js_utils.named_array_push(fragment, 'building_blocks', block);
+        }
+    }
+    if (!block.node.srvmode) {
+        js_utils.named_array_push(fragment, 'good_blocks', block);
+    }
+    // also keep list of blocks that we can use to replicate from
+    if (!block.node.srvmode || block.node.srvmode === 'decommissioning') {
+        js_utils.named_array_push(fragment, 'accessible_blocks', block);
+    }
+}
+
+
 /**
  * Reading tiering info for a bucket
  */
-function read_tiering_info(bucketid) {
-    var tiering_info = [];
-    return P.when(db.Bucket
-            .findOne({
-                _id: bucketid,
-            })
-            .populate('tiering') //TODO:: check if needed
-            .exec())
-        .then(function(bucket) {
-            return P.when(db.TieringPolicy
-                    .findOne({
-                        _id: bucket.tiering,
-                    })
-                    .exec())
-                .then(function(pol) {
-                    var tier_ids = _.pluck(pol.tiers, 'tier');
-                    return P.when(db.Tier
-                            .find({
-                                _id: {
-                                    $in: tier_ids,
-                                }
-                            })
-                            .exec())
-                        .then(function(tiers) {
-                            _.each(tiers, function(n) {
-                                //TODO take into account multiple tiers
-                                tiering_info.push(n);
-                            });
-                            return tiering_info;
-                        });
-                });
-        });
+function get_tiering_info(bucket_id) {
+    var bucket = system_store.data.get_by_id(bucket_id);
+    var tiers = _.pluck(bucket.tiering.tiers, 'tier');
+    return tiers;
 }
 
 /**

@@ -184,12 +184,15 @@ module.exports = {
                 },
                 nodes: {
                     type: 'array',
-                    properties: [{
-                        node: {
-                            type: 'string',
-                            required: true,
-                        },
-                    }]
+                    items: {
+                        type: 'object',
+                        required: ['node'],
+                        properties: {
+                            node: {
+                                type: 'string',
+                            },
+                        }
+                    }
                 }
             }
         },
@@ -221,14 +224,13 @@ module.exports = {
                     type: 'array',
                     items: {
                         type: 'object',
+                        required: ['name', 'nodes_count'],
                         properties: {
                             name: {
                                 type: 'string',
-                                required: true,
                             },
                             nodes_count: {
                                 type: 'integer',
-                                required: true,
                             },
                         }
                     }

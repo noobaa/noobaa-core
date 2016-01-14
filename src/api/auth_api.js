@@ -20,7 +20,7 @@ module.exports = {
             method: 'POST',
             params: {
                 type: 'object',
-                required: [],
+                // required: [],
                 properties: {
                     email: {
                         doc: 'If email is provided the new authorization will refer to it. ' +
@@ -113,7 +113,7 @@ module.exports = {
             method: 'GET',
             reply: {
                 type: 'object',
-                required: [],
+                // required: [],
                 properties: {
                     account: {
                         type: 'object',

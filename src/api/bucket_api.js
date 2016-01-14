@@ -130,7 +130,7 @@ module.exports = {
             },
             reply: {
                 type: 'object',
-                required: [],
+                // required: [],
                 properties: {
                     name: {
                         type: 'string',
@@ -155,10 +155,10 @@ module.exports = {
             method: 'GET',
             reply: {
                 type: 'array',
-                required: [],
-                properties: {
+                // required: [],
+                item: {
                     type: 'object',
-                    items: {
+                    properties: {
                         name: {
                             type: 'string',
                         },

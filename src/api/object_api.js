@@ -127,10 +127,10 @@ module.exports = {
             },
             reply: {
                 type: 'object',
+                required: ['etag'],
                 properties: {
                     etag: {
                         type: 'string',
-                        required: true
                     }
                 }
             },
@@ -238,7 +238,7 @@ module.exports = {
                         type: 'array',
                         items: {
                             type: 'object',
-                            required: [],
+                            // required: [],
                             properties: {
                                 dedup: {
                                     type: 'boolean'
@@ -343,7 +343,7 @@ module.exports = {
             },
             reply: {
                 type: 'object',
-                required: [],
+                // required: [],
                 properties: {
                     new_block: {
                         $ref: '/agent_api/definitions/block_md'
@@ -587,8 +587,10 @@ module.exports = {
                 },
                 stats: {
                     type: 'object',
-                    reads: {
-                        type: 'integer',
+                    properties: {
+                        reads: {
+                            type: 'integer',
+                        }
                     }
                 },
                 total_parts_count: {
@@ -748,7 +750,7 @@ module.exports = {
                                         type: 'string',
                                     },
                                     pool_name: {
-                                        type: 'string,'
+                                        type: 'string'
                                     },
                                     node_ip: {
                                         type: 'string',

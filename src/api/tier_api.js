@@ -23,20 +23,20 @@ module.exports = {
                     name: {
                         type: 'string',
                     },
-                    edge_details: {
-                        $ref: '/tier_api/definitions/edge_details'
-                    },
-                    cloud_details: {
-                        $ref: '/tier_api/definitions/cloud_details'
-                    },
-                    nodes: {
-                        $ref: '/system_api/definitions/nodes_info'
-                    },
                     pools: {
                         $ref: '/tier_api/definitions/pool_info'
                     },
                     data_placement: {
                         $ref: '/tier_api/definitions/data_placement_enum'
+                    },
+                    replicas: {
+                        type: 'integer',
+                    },
+                    data_fragments: {
+                        type: 'integer',
+                    },
+                    parity_fragments: {
+                        type: 'integer',
                     },
                 }
             },
@@ -81,20 +81,20 @@ module.exports = {
                     new_name: {
                         type: 'string',
                     },
-                    edge_details: {
-                        $ref: '/tier_api/definitions/edge_details'
-                    },
-                    cloud_details: {
-                        $ref: '/tier_api/definitions/cloud_details'
-                    },
-                    nodes: {
-                        $ref: '/system_api/definitions/nodes_info'
-                    },
                     pools: {
                         $ref: '/tier_api/definitions/pool_info'
                     },
                     data_placement: {
                         $ref: '/tier_api/definitions/data_placement_enum'
+                    },
+                    replicas: {
+                        type: 'integer',
+                    },
+                    data_fragments: {
+                        type: 'integer',
+                    },
+                    parity_fragments: {
+                        type: 'integer',
                     },
                 }
             },
@@ -126,36 +126,25 @@ module.exports = {
 
         tier_info: {
             type: 'object',
-            required: ['name', 'storage', 'nodes', 'pools', 'data_placement'],
+            required: [
+                'name',
+                'pools',
+                'data_placement',
+                'replicas',
+                'data_fragments',
+                'parity_fragments',
+                'storage',
+            ],
             properties: {
                 name: {
                     type: 'string',
-                },
-                edge_details: {
-                    $ref: '/tier_api/definitions/edge_details'
-                },
-                cloud_details: {
-                    $ref: '/tier_api/definitions/cloud_details'
-                },
-                storage: {
-                    $ref: '/common_api/definitions/storage_info'
-                },
-                nodes: {
-                    $ref: '/system_api/definitions/nodes_info'
                 },
                 pools: {
                     $ref: '/tier_api/definitions/pool_info'
                 },
                 data_placement: {
                     $ref: '/tier_api/definitions/data_placement_enum'
-                }
-            }
-        },
-
-        edge_details: {
-            type: 'object',
-            required: ['replicas', 'data_fragments', 'parity_fragments'],
-            properties: {
+                },
                 replicas: {
                     type: 'integer',
                 },
@@ -165,13 +154,10 @@ module.exports = {
                 parity_fragments: {
                     type: 'integer',
                 },
+                storage: {
+                    $ref: '/common_api/definitions/storage_info'
+                },
             }
-        },
-
-        cloud_details: {
-            type: 'object',
-            // vendor specific properties
-            additionalProperties: true,
         },
 
         data_placement_enum: {

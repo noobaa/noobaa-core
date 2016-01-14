@@ -136,9 +136,8 @@ function Agent(params) {
 
     // register rpc to serve the agent_api
     self.rpc.register_service(api.schema.agent_api, self.agent_server, {
-        authorize: function(req, method_api) {
-            // TODO verify aithorized tokens in agent?
-        }
+        // TODO should we verify authorized tokens in agent?
+        // middleware: function(req) {}
     });
     // register rpc http server
     self.rpc.register_http_transport(self.agent_app);

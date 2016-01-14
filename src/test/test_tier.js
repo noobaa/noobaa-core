@@ -44,11 +44,6 @@ describe('tier', function() {
             return client.tier.update_tier({
                 name: 'cloud',
                 new_name: 'cloudy',
-                cloud_details: {
-                    access_key: 'access_key2',
-                    secret: 'secret2',
-                    region: 'region2',
-                }
             });
         }).then(function() {
             return client.tier.delete_tier({

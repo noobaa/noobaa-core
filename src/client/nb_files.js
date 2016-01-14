@@ -21,6 +21,7 @@ nb_api.factory('nbFiles', [
         $scope.clear_upload = clear_upload;
         $scope.read_entire_object = read_entire_object;
         $scope.set_access_keys = set_access_keys;
+        $scope.delete_file = delete_file;
 
         $scope.uploads = [];
         $scope.transfers = [];
@@ -275,6 +276,21 @@ nb_api.factory('nbFiles', [
             stream.once('error', defer.reject);
             source.pipe(stream);
             return defer.promise;
+        }
+
+        function delete_file(bucket, key) {
+            return $q(function(resolve, reject, notify) {
+                $scope.s3.deleteObject({
+                    Bucket: bucket,
+                    Key: key
+                }, function(err) {
+                    if (err) {
+                        reject(err);
+                    } else {
+                        resolve(err);
+                    }
+                });
+            });
         }
 
         return $scope;

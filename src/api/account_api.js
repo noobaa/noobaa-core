@@ -50,7 +50,7 @@ module.exports = {
             doc: 'Read the info of the authorized account',
             method: 'GET',
             reply: {
-                $ref: '/definitions/account_api/account_info'
+                $ref: '/account_api/definitions/account_info'
             },
             auth: {
                 system: false,
@@ -62,7 +62,7 @@ module.exports = {
             method: 'PUT',
             params: {
                 type: 'object',
-                required: [],
+                // required: [],
                 properties: {
                     name: {
                         type: 'string',
@@ -101,7 +101,7 @@ module.exports = {
                     accounts: {
                         type: 'array',
                         items: {
-                            $ref: '/definitions/account_api/account_info'
+                            $ref: '/account_api/definitions/account_info'
                         }
                     }
                 }
@@ -122,7 +122,7 @@ module.exports = {
                     accounts: {
                         type: 'array',
                         items: {
-                            $ref: '/definitions/account_api/account_info'
+                            $ref: '/account_api/definitions/account_info'
                         }
                     }
                 }
@@ -154,7 +154,7 @@ module.exports = {
             method: 'PUT',
             params: {
                 type: 'object',
-                required: [],
+                // required: [],
                 properties: {
                     access_key: {
                         type: 'string',

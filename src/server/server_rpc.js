@@ -17,9 +17,16 @@ module.exports = {
 };
 
 function register_servers() {
+    var system_store = require('./stores/system_store');
+    var auth_server = require('./auth_server');
     var options = {
-        // setup the rpc authorizer to check the request auth_token
-        authorize: require('./auth_server').authorize,
+        middleware: [
+            function(req) {
+                return system_store.refresh();
+            },
+            // setup the rpc authorizer to check the request auth_token
+            auth_server.authorize,
+        ]
     };
 
     server_rpc.register_service(api.schema.auth_api, require('./auth_server'), options);

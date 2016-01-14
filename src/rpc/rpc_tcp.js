@@ -17,8 +17,7 @@ var dbg = require('../util/debug_module')(__filename);
 util.inherits(RpcTcpConnection, RpcBaseConnection);
 
 const TCP_FRAME_CONFIG = {
-    magic: 'TCPmagic',
-    max_lex: 4 * 1024 * 1024,
+    magic: 'TCPmagic'
 };
 
 

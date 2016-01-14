@@ -319,13 +319,6 @@ RPC.prototype.handle_request = function(conn, msg) {
             // set api info to the request
             req.import_request_message(msg, service.api, service.method_api);
 
-            // we allow to authorize once per connection -
-            // if the request did not send specific token, use the conn level token.
-            if (!req.auth_token) {
-                // TODO better save conn.auth parsed instead of reparsing the token again
-                req.auth_token = conn.auth_token;
-            }
-
             dbg.log3('RPC handle_request: ENTER',
                 'srv', req.srv,
                 'reqid', req.reqid,
@@ -333,9 +326,15 @@ RPC.prototype.handle_request = function(conn, msg) {
 
             self.emit_stats('stats.handle_request.start', req);
 
-            // authorize the request
-            if (service.options.authorize) {
-                return service.options.authorize(req);
+            // call service middlewares if provided
+            if (_.isArray(service.options.middleware)) {
+                return _.reduce(service.options.middleware, function(promise, middleware) {
+                    return promise.then(function() {
+                        return middleware(req);
+                    });
+                }, P.resolve());
+            } else if (_.isFunction(service.options.middleware)) {
+                return service.options.middleware(req);
             }
 
         })

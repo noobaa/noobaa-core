@@ -1,8 +1,7 @@
 /* jshint node:true */
 'use strict';
 
-var db = require('./db');
-var P = require('../util/promise');
+var system_store = require('./stores/system_store');
 
 /*
  * Cluster Server
@@ -20,9 +19,6 @@ module.exports = cluster_server;
  *
  */
 function get_cluster_id(req) {
-    return P.when(db.Cluster.find()
-            .exec())
-        .then(function(id) {
-            return id[0].cluster_id;
-        });
+    var cluster = system_store.clusters[0];
+    return cluster ? cluster.cluster_id : '';
 }

@@ -31,5 +31,12 @@ module.exports = {
             }
         },
 
+        load_system_store: {
+            method: 'POST',
+            auth: {
+                system: false
+            }
+        },
+
     },
 };

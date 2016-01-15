@@ -19,3 +19,4 @@ bg_workers_rpc.register_redirector_transport();
 bg_workers_rpc.register_service(api.schema.cloud_sync_api, require('./cloud_sync_rpc'));
 bg_workers_rpc.register_service(api.schema.redirector_api, require('./redirector'));
 bg_workers_rpc.register_service(api.schema.debug_api, require('../server/debug_server'));
+bg_workers_rpc.register_service(api.schema.cluster_api, require('../server/cluster_server'));

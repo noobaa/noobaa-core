@@ -7,6 +7,7 @@ var mongodb = require('mongodb');
 var mongo_client = require('./mongo_client');
 var time_utils = require('../../util/time_utils');
 var size_utils = require('../../util/size_utils');
+var bg_worker = require('../server_rpc').bg_worker;
 var dbg = require('../../util/debug_module')(__filename);
 // var promise_utils = require('../../util/promise_utils');
 
@@ -79,8 +80,8 @@ var INDEXES = [{
  */
 function SystemStore() {
     var self = this;
-    self.START_REFRESH_THRESHOLD = 10000;
-    self.FORCE_REFRESH_THRESHOLD = 60000;
+    self.START_REFRESH_THRESHOLD = 10 * 60 * 1000;
+    self.FORCE_REFRESH_THRESHOLD = 60 * 60 * 1000;
 }
 
 
@@ -110,7 +111,12 @@ SystemStore.prototype.load = function() {
     dbg.log0('SystemStore: fetching ...');
     var new_data = new SystemStoreData();
     var millistamp = time_utils.millistamp();
-    self._load_promise = self.read_data_from_db(new_data)
+    self._load_promise = P.fcall(function() {
+            return self.register_for_changes();
+        })
+        .then(function() {
+            return self.read_data_from_db(new_data);
+        })
         .then(function() {
             dbg.log0('SystemStore: fetch took', time_utils.millitook(millistamp));
             dbg.log0('SystemStore: fetch size', size_utils.human_size(JSON.stringify(new_data).length));
@@ -134,6 +140,10 @@ SystemStore.prototype.load = function() {
     return self._load_promise;
 };
 
+
+SystemStore.prototype.register_for_changes = function() {
+    return bg_worker.redirector.register_to_cluster();
+};
 
 SystemStore.prototype.read_data_from_db = function(target) {
     // var self = this;
@@ -193,7 +203,7 @@ SystemStore.prototype.make_changes = function(changes) {
         return bulk;
     }
 
-    return self.load()
+    return P.when(self.refresh())
         .then(function(data) {
 
             _.each(changes.insert, function(list, collection) {
@@ -243,7 +253,12 @@ SystemStore.prototype.make_changes = function(changes) {
             }));
         })
         .then(function() {
-            return self.load();
+            // notify all the cluster (including myself) to reload
+            return bg_worker.redirector.publish_to_cluster({
+                method_api: 'cluster_api',
+                method_name: 'load_system_store',
+                target: ''
+            });
         });
 };
 

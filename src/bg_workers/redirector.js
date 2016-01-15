@@ -6,6 +6,8 @@ module.exports = {
     unregister_agent: unregister_agent,
     resync_agents: resync_agents,
     print_registered_agents: print_registered_agents,
+    register_to_cluster: register_to_cluster,
+    publish_to_cluster: publish_to_cluster,
 };
 
 var _ = require('lodash');
@@ -13,10 +15,10 @@ var util = require('util');
 var P = require('../util/promise');
 var bg_workers_rpc = require('./bg_workers_rpc').bg_workers_rpc;
 var dbg = require('../util/debug_module')(__filename);
+dbg.set_level(5);
 
-var REGISTERED_AGENTS = {
-    agents2srvs: new Map(),
-};
+var agents_address_map = new Map();
+var cluster_connections = new Set();
 
 /*
  * REDIRECTOR API
@@ -26,11 +28,11 @@ function redirect(req) {
 
     //Remove the leading n2n:// prefix from the address
     var target_agent = req.rpc_params.target.slice(6);
-    var entry = REGISTERED_AGENTS.agents2srvs.get(target_agent);
-    if (entry) {
-        dbg.log3('redirect found entry', entry);
+    var address = agents_address_map.get(target_agent);
+    if (address) {
+        dbg.log3('redirect found entry', address);
         return P.when(bg_workers_rpc.client.node.redirect(req.rpc_params, {
-            address: entry.server,
+            address: address,
         }));
     } else {
         throw new Error('Agent not registered ' + target_agent);
@@ -41,12 +43,10 @@ function register_agent(req) {
     dbg.log2('Registering agent', req.rpc_params.peer_id, 'with server', req.connection.url.href);
 
     var agent = req.rpc_params.peer_id;
-    var entry = REGISTERED_AGENTS.agents2srvs.get(agent);
-    if (entry) {
+    var address = agents_address_map.get(agent);
+    if (address) {
         // Update data
-        REGISTERED_AGENTS.agents2srvs.set(agent, {
-            server: req.connection.url.href,
-        });
+        agents_address_map.set(agent, req.connection.url.href);
     } else {
         add_agent_to_connection(req.connection, agent);
     }
@@ -80,8 +80,8 @@ function resync_agents(req) {
 }
 
 function print_registered_agents(req) {
-    dbg.log0('Registered Agents:', util.inspect(REGISTERED_AGENTS.agents2srvs, false, null));
-    return REGISTERED_AGENTS.agents2srvs.size + ' Registered Agents printed';
+    dbg.log0('Registered Agents:', util.inspect(agents_address_map, false, null));
+    return agents_address_map.size + ' Registered Agents printed';
 }
 
 function cleanup_on_close(connection) {
@@ -99,9 +99,7 @@ function cleanup_on_close(connection) {
 }
 
 function add_agent_to_connection(connection, agent) {
-    REGISTERED_AGENTS.agents2srvs.set(agent, {
-        server: connection.url.href,
-    });
+    agents_address_map.set(agent, connection.url.href);
 
     //Save agent on connection for quick cleanup on close,
     //Register on close handler to clean the agents form the agents2srvs map
@@ -115,18 +113,45 @@ function add_agent_to_connection(connection, agent) {
 }
 
 function remove_agent_from_connection(connection, agent) {
-    var entry = REGISTERED_AGENTS.agents2srvs.get(agent);
-    if (entry) {
-        if (connection.url.href === entry.server) {
+    var address = agents_address_map.get(agent);
+    if (address) {
+        if (connection.url.href === address) {
             //Remove agent
-            REGISTERED_AGENTS.agents2srvs.delete(agent);
+            agents_address_map.delete(agent);
         } else {
             dbg.warn('hmmm, recieved unregister for', agent, 'on connection to', connection.url.href,
-                'while previously registered on', entry.server, ', ignoring');
+                'while previously registered on', address, ', ignoring');
         }
     }
     if (!connection.agents || !connection.agents.delete(agent)) {
         dbg.warn('hmmm, recieved unregister for', agent, 'on connection to', connection.url.href,
             'while the agent was not registered on this connection');
     }
+}
+
+
+function register_to_cluster(req) {
+    var conn = req.connection;
+    if (!cluster_connections.has(conn)) {
+        dbg.log0('register_to_cluster', conn.url.href);
+        cluster_connections.add(conn);
+        conn.on('close', function() {
+            cluster_connections.delete(conn);
+        });
+    }
+}
+
+function publish_to_cluster(req) {
+    var api = req.rpc_params.method_api.slice(0, -4); // remove _api suffix
+    var method = req.rpc_params.method_name;
+    var addresses = ['fcall://fcall']; // also call on myself
+    cluster_connections.forEach(function(conn) {
+        addresses.push(conn.url.href);
+    });
+    dbg.log0('publish_to_cluster:', addresses);
+    return P.map(addresses, function(address) {
+        return bg_workers_rpc.client[api][method](req.rpc_params.request_params, {
+            address: address
+        });
+    }).return({});
 }

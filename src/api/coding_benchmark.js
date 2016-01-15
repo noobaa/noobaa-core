@@ -264,6 +264,7 @@ function test() {
                                 };
                                 p.frags = _.times(1, function(j) {
                                     return {
+                                        'size': 1024 * 1024,
                                         'layer': 'D',
                                         'layer_n': 0,
                                         'frag': j,

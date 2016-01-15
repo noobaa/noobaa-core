@@ -685,7 +685,7 @@ function update_base_address(req) {
 }
 
 function update_system_certificate(req) {
-    dbg.log0('update_system_certificate', req.rpc_params);
+    throw req.rpc_error('TODO', 'update_system_certificate');
 }
 
 

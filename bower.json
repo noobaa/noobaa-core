@@ -6,7 +6,6 @@
     "ladda": "~0.9.8",
     "bootstrap-sidebar": "~0.2.2",
     "spinkit": "1.0.1",
-    "datetimepicker": "~2.4.3",
-    "aws-sdk": "aws-sdk-js#~2.2.26"
+    "datetimepicker": "~2.4.3"
   }
 }

@@ -17,9 +17,16 @@ module.exports = {
 };
 
 function register_servers() {
+    var system_store = require('./stores/system_store');
+    var auth_server = require('./auth_server');
     var options = {
-        // setup the rpc authorizer to check the request auth_token
-        authorize: require('./auth_server').authorize,
+        middleware: [
+            function(req) {
+                return system_store.refresh();
+            },
+            // setup the rpc authorizer to check the request auth_token
+            auth_server.authorize,
+        ]
     };
 
     server_rpc.register_service(api.schema.auth_api, require('./auth_server'), options);
@@ -32,5 +39,6 @@ function register_servers() {
     server_rpc.register_service(api.schema.object_api, require('./object_server'), options);
     server_rpc.register_service(api.schema.pool_api, require('./pool_server'), options);
     server_rpc.register_service(api.schema.stats_api, require('./stats_aggregator'), options);
-    server_rpc.register_service(api.schema.debug_api, require('./debug_server'));
+    server_rpc.register_service(api.schema.debug_api, require('./debug_server'), options);
+    server_rpc.register_service(api.schema.cluster_api, require('./cluster_server'), options);
 }

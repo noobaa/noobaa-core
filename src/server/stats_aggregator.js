@@ -24,23 +24,18 @@ module.exports = stats_aggregator;
 var _ = require('lodash');
 var P = require('../util/promise');
 var request = require('request');
-var formData = require('form-data');
+var FormData = require('form-data');
 // var util = require('util');
 var db = require('./db');
 var promise_utils = require('../util/promise_utils');
-var histogram = require('../util/histogram');
+var Histogram = require('../util/histogram');
 var dbg = require('../util/debug_module')(__filename);
 var config = require('../../config.js');
 var system_server = require('./system_server');
-var bucket_server = require('./bucket_server');
-var tier_server = require('./tier_server');
-var account_server = require('./account_server');
 var node_server = require('./node_server');
-var object_mapper = require('./mapper/object_mapper');
-var cluster_server = require('./cluster_server');
+var system_store = require('./stores/system_store');
 
 
-var support_account;
 var ops_aggregation = {};
 var SCALE_BYTES_TO_GB = 1024 * 1024 * 1024;
 var SCALE_SEC_TO_DAYS = 60 * 60 * 24;
@@ -77,62 +72,34 @@ function get_systems_stats(req) {
     var sys_stats = _.cloneDeep(SYSTEM_STATS_DEFAULTS);
     sys_stats.version = process.env.CURRENT_VERSION || 'Unknown';
     sys_stats.agent_version = process.env.AGENT_VERSION || 'Unknown';
-
-    return P.fcall(function() {
-            return cluster_server.get_cluster_id();
+    sys_stats.clusterid = system_store.data.clusters[0]._id;
+    sys_stats.count = system_store.data.systems.length;
+    P.all(_.map(system_store.data.systems, function(system) {
+            return system_server.read_system({
+                    system: system
+                })
+                .then(function(res) {
+                    return _.defaults({
+                        roles: res.roles.length,
+                        tiers: res.tiers.length,
+                        buckets: res.buckets.length,
+                        objects: res.objects,
+                        allocated_space: res.storage.alloc,
+                        used_space: res.storage.used,
+                        total_space: res.storage.total,
+                        associated_nodes: res.nodes.count,
+                        properties: {
+                            on: res.nodes.online,
+                            off: res.nodes.count - res.nodes.online,
+                        }
+                    }, SINGLE_SYS_DEFAULTS);
+                });
+        }))
+        .then(function(systems) {
+            sys_stats.systems = systems;
+            return sys_stats;
         })
-        .then(function(clusterid) {
-            sys_stats.clusterid = clusterid;
-            //Get ALL systems
-            return system_server.list_systems_int(true, true);
-        })
-        .then(function(res) {
-            sys_stats.count = res.systems.length;
-            for (var i = 0; i < sys_stats.count; ++i) {
-                sys_stats.systems.push(_.cloneDeep(SINGLE_SYS_DEFAULTS));
-            }
-            //Per each system fill out the needed info
-            return P.all(_.map(res.systems, function(sys, i) {
-                return P.fcall(function() {
-                        return tier_server.list_tiers({
-                            system: sys,
-                        });
-                    })
-                    .then(function(tiers) {
-                        sys_stats.systems[i].tiers = tiers.length;
-                        return bucket_server.list_buckets({
-                            system: sys
-                        });
-                    })
-                    .then(function(buckets) {
-                        sys_stats.systems[i].buckets = buckets.buckets.length;
-                        return object_mapper.chunks_and_objects_count(sys.id);
-                    })
-                    .then(function(objects) {
-                        sys_stats.systems[i].chunks = objects.chunks_num;
-                        sys_stats.systems[i].objects = objects.objects_num;
-                        return account_server.get_system_roles({
-                            system: sys
-                        });
-                    })
-                    .then(function(accounts) {
-                        sys_stats.systems[i].roles = accounts.length;
-                        return system_server.read_system({
-                            system: sys
-                        });
-                    })
-                    .then(function(res_system) {
-                        sys_stats.systems[i].allocated_space = res_system.storage.alloc;
-                        sys_stats.systems[i].used_space = res_system.storage.used;
-                        sys_stats.systems[i].total_space = res_system.storage.total;
-                        sys_stats.systems[i].associated_nodes = res_system.nodes.count;
-                        sys_stats.systems[i].properties.on = res_system.nodes.online;
-                        sys_stats.systems[i].properties.off = res_system.nodes.count - res_system.nodes.online;
-                        return sys_stats;
-                    });
-            }));
-        })
-        .then(null, function(err) {
+        .catch(function(err) {
             dbg.log0('Error in collecting systems stats, skipping current sampling point', err);
             throw new Error('Error in collecting systems stats');
         });
@@ -153,45 +120,37 @@ var NODES_STATS_DEFAULTS = {
 function get_nodes_stats(req) {
     var nodes_stats = _.cloneDeep(NODES_STATS_DEFAULTS);
     var nodes_histo = get_empty_nodes_histo();
-    return P.fcall(function() {
-            //Get ALL systems
-            return system_server.list_systems_int(true, true);
-        })
-        .then(function(res) {
-            //Per each system fill out the needed info
-            return P.all(_.map(res.systems, function(sys, i) {
-                    return P.fcall(function() {
-                        return node_server.list_nodes_int({}, sys.id);
-                    });
-                }))
-                .then(function(results) {
-                    for (var isys = 0; isys < results.length; ++isys) {
-                        for (var inode = 0; inode < results[isys].nodes.length; ++inode) {
-                            nodes_stats.count++;
+    //Per each system fill out the needed info
+    return P.all(_.map(system_store.data.systems, function(system) {
+            return node_server.list_nodes_int(system._id);
+        }))
+        .then(function(results) {
+            for (var isys = 0; isys < results.length; ++isys) {
+                for (var inode = 0; inode < results[isys].nodes.length; ++inode) {
+                    nodes_stats.count++;
 
-                            nodes_histo.histo_allocation.add_value(results[isys].nodes[inode].storage.alloc / SCALE_BYTES_TO_GB);
-                            nodes_histo.histo_usage.add_value(results[isys].nodes[inode].storage.used / SCALE_BYTES_TO_GB);
-                            nodes_histo.histo_free.add_value(results[isys].nodes[inode].storage.free / SCALE_BYTES_TO_GB);
-                            nodes_histo.histo_uptime.add_value((results[isys].nodes[inode].os_info.uptime / SCALE_SEC_TO_DAYS));
+                    nodes_histo.histo_allocation.add_value(results[isys].nodes[inode].storage.alloc / SCALE_BYTES_TO_GB);
+                    nodes_histo.histo_usage.add_value(results[isys].nodes[inode].storage.used / SCALE_BYTES_TO_GB);
+                    nodes_histo.histo_free.add_value(results[isys].nodes[inode].storage.free / SCALE_BYTES_TO_GB);
+                    nodes_histo.histo_uptime.add_value((results[isys].nodes[inode].os_info.uptime / SCALE_SEC_TO_DAYS));
 
-                            if (results[isys].nodes[inode].os_info.ostype === 'Darwin') {
-                                nodes_stats.os.osx++;
-                            } else if (results[isys].nodes[inode].os_info.ostype === 'Windows_NT') {
-                                nodes_stats.os.win++;
-                            } else if (results[isys].nodes[inode].os_info.ostype === 'Linux') {
-                                nodes_stats.os.linux++;
-                            } else {
-                                nodes_stats.os.other++;
-                            }
-                        }
+                    if (results[isys].nodes[inode].os_info.ostype === 'Darwin') {
+                        nodes_stats.os.osx++;
+                    } else if (results[isys].nodes[inode].os_info.ostype === 'Windows_NT') {
+                        nodes_stats.os.win++;
+                    } else if (results[isys].nodes[inode].os_info.ostype === 'Linux') {
+                        nodes_stats.os.linux++;
+                    } else {
+                        nodes_stats.os.other++;
                     }
-                    for (var h in nodes_histo) {
-                        if (nodes_histo.hasOwnProperty(h)) {
-                            nodes_stats[nodes_histo[h].get_master_label()] = nodes_histo[h].get_object_data(false);
-                        }
-                    }
-                    return nodes_stats;
-                });
+                }
+            }
+            for (var h in nodes_histo) {
+                if (nodes_histo.hasOwnProperty(h)) {
+                    nodes_stats[nodes_histo[h].get_master_label()] = nodes_histo[h].get_object_data(false);
+                }
+            }
+            return nodes_stats;
         })
         .then(null, function(err) {
             dbg.log0('Error in collecting nodes stats, skipping current sampling point', err);
@@ -210,36 +169,27 @@ function get_ops_stats(req) {
 }
 
 function get_pool_stats(req) {
-    var pool_stats = [];
-    return P.when(db.Pool
-            .find({
-                deleted: null,
-            })
-            .exec())
-        .then(function(pools) {
-            _.each(pools, function(p) {
-                pool_stats.push(p.nodes.length);
-            });
-            return pool_stats;
+    return db.Node.collection.group(['pool'], {
+        deleted: null
+    }, {
+        count: 0
+    }, function reduce(node, group) {
+        group.count += 1;
+    }).then(function(res) {
+        var node_count_by_pool = _.mapValues(_.indexBy(res, 'pool'), 'count');
+        return _.map(system_store.data.pools, function(pool) {
+            return node_count_by_pool[pool._id] || 0;
         });
+    });
 }
 
 function get_tier_stats(req) {
-    var tier_stats = [];
-    return P.when(db.Tier
-            .find({
-                deleted: null,
-            })
-            .exec())
-        .then(function(tiers) {
-            _.each(tiers, function(t) {
-                tier_stats.push({
-                    pools_num: t.pools.length,
-                    data_placement: t.data_placement,
-                });
-            });
-            return tier_stats;
-        });
+    return _.map(system_store.data.tiers, function(t) {
+        return {
+            pools_num: t.pools.length,
+            data_placement: t.data_placement,
+        };
+    });
 }
 
 //Collect operations related stats and usage
@@ -253,9 +203,6 @@ function get_all_stats(req) {
 
     dbg.log2('SYSTEM_SERVER_STATS_AGGREGATOR:', 'BEGIN');
     return P.fcall(function() {
-            return get_support_account_id();
-        })
-        .then(function() {
             dbg.log2('SYSTEM_SERVER_STATS_AGGREGATOR:', '  Collecting Systems');
             return get_systems_stats(req);
         })
@@ -302,7 +249,7 @@ function register_histogram(opname, master_label, structure) {
     }
 
     if (!ops_aggregation.hasOwnProperty(opname)) {
-        ops_aggregation[opname] = new histogram(master_label, structure);
+        ops_aggregation[opname] = new Histogram(master_label, structure);
     }
 
     dbg.log2('register_histogram registered', opname, '-', master_label, 'with', structure);
@@ -322,28 +269,10 @@ function add_sample_point(opname, duration) {
     ops_aggregation[opname].add_value(duration);
 }
 
-/*
- * UTILS
- */
-function get_support_account_id() {
-    return db.Account
-        .findOne({
-            email: 'support@noobaa.com',
-            deleted: null,
-        })
-        .exec()
-        .then(function(account_arg) {
-            support_account = account_arg;
-        })
-        .then(null, function(err) {
-            dbg.log0('Error in getting support account', err);
-        });
-}
-
 send_stats_payload; // lint unused bypass
 
 function send_stats_payload(payload) {
-    var form = new formData();
+    var form = new FormData();
     form.append('phdata', JSON.stringify(payload));
 
     return P.ninvoke(request, 'post', {
@@ -364,7 +293,7 @@ function send_stats_payload(payload) {
 function get_empty_nodes_histo() {
     //TODO: Add histogram for limit, once implemented
     var empty_nodes_histo = {};
-    empty_nodes_histo.histo_allocation = new histogram('AllocationSizes(GB)', [{
+    empty_nodes_histo.histo_allocation = new Histogram('AllocationSizes(GB)', [{
         label: 'low',
         start_val: 0
     }, {
@@ -375,7 +304,7 @@ function get_empty_nodes_histo() {
         start_val: 500
     }]);
 
-    empty_nodes_histo.histo_usage = new histogram('UsedSpace(GB)', [{
+    empty_nodes_histo.histo_usage = new Histogram('UsedSpace(GB)', [{
         label: 'low',
         start_val: 0
     }, {
@@ -386,7 +315,7 @@ function get_empty_nodes_histo() {
         start_val: 500
     }]);
 
-    empty_nodes_histo.histo_free = new histogram('FreeSpace(GB)', [{
+    empty_nodes_histo.histo_free = new Histogram('FreeSpace(GB)', [{
         label: 'low',
         start_val: 0
     }, {
@@ -397,7 +326,7 @@ function get_empty_nodes_histo() {
         start_val: 500
     }]);
 
-    empty_nodes_histo.histo_uptime = new histogram('Uptime(Days)', [{
+    empty_nodes_histo.histo_uptime = new Histogram('Uptime(Days)', [{
         label: 'short',
         start_val: 0
     }, {

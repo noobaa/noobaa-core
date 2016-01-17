@@ -7,7 +7,6 @@ var moment = require('moment');
 var url = require('url');
 // var chance = require('chance')();
 var promise_utils = require('../util/promise_utils');
-var config = require('../../config');
 var dbg = require('../util/debug_module')(__filename);
 
 var nb_api = angular.module('nb_api');
@@ -340,9 +339,9 @@ nb_api.factory('nbNodes', [
                             });
                             dbg.log0('SELF TEST got', online_nodes.length,
                                 'online nodes out of', nodes.length, 'total nodes');
-                            if (online_nodes.length < config.min_node_number) {
-                                nbAlertify.error('Not enough online nodes');
-                                throw new Error('Not enough online nodes');
+                            if (!online_nodes.length) {
+                                nbAlertify.error('No online nodes');
+                                throw new Error('No online nodes');
                             }
                         });
                 })

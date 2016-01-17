@@ -8,6 +8,8 @@
  *
  */
 var system_server = {
+    new_system_defaults: new_system_defaults,
+    new_system_changes: new_system_changes,
 
     create_system: create_system,
     read_system: read_system,
@@ -34,22 +36,84 @@ var system_server = {
 module.exports = system_server;
 
 var _ = require('lodash');
+var P = require('../util/promise');
 var crypto = require('crypto');
 var ip_module = require('ip');
-var AWS = require('aws-sdk');
+// var AWS = require('aws-sdk');
 var diag = require('./utils/server_diagnostics');
 var cs_utils = require('./utils/cloud_sync_utils');
 var db = require('./db');
 var server_rpc = require('./server_rpc').server_rpc;
 var bg_worker = require('./server_rpc').bg_worker;
 var bucket_server = require('./bucket_server');
+var pool_server = require('./pool_server');
+var tier_server = require('./tier_server');
+var system_store = require('./stores/system_store');
 var size_utils = require('../util/size_utils');
-var P = require('../util/promise');
 // var stun = require('../rpc/stun');
 var promise_utils = require('../util/promise_utils');
 var dbg = require('../util/debug_module')(__filename);
-var promise_utils = require('../util/promise_utils');
 var pkg = require('../../package.json');
+
+
+function new_system_defaults(name, owner_account_id) {
+    var system = {
+        _id: system_store.generate_id(),
+        name: name,
+        owner: owner_account_id,
+        access_keys: (name === 'demo') ? [{
+            access_key: '123',
+            secret_key: 'abc',
+        }] : [{
+            access_key: crypto.randomBytes(16).toString('hex'),
+            secret_key: crypto.randomBytes(32).toString('hex'),
+        }],
+        resources: {
+            // set default package names
+            agent_installer: 'noobaa-setup.exe',
+            s3rest_installer: 'noobaa-s3rest.exe',
+            linux_agent_installer: 'noobaa-setup'
+        },
+        n2n_config: {
+            tcp_tls: true,
+            tcp_active: true,
+            tcp_permanent_passive: {
+                min: 60100,
+                max: 60600
+            },
+            udp_dtls: true,
+            udp_port: true,
+        },
+    };
+    return system;
+}
+
+function new_system_changes(name, owner_account_id) {
+    var system = new_system_defaults(name, owner_account_id);
+    var pool = pool_server.new_pool_defaults('default_pool', system._id);
+    var tier = tier_server.new_tier_defaults('nodes', system._id, [pool._id]);
+    var policy = tier_server.new_policy_defaults('default_tiering', system._id, [{
+        tier: tier._id,
+        order: 0
+    }]);
+    var bucket = bucket_server.new_bucket_defaults('files', system._id, policy._id);
+    var role = {
+        account: owner_account_id,
+        system: system._id,
+        role: 'admin'
+    };
+    return {
+        insert: {
+            systems: [system],
+            buckets: [bucket],
+            tieringpolicies: [policy],
+            tiers: [tier],
+            pools: [pool],
+            roles: [role],
+        }
+    };
+}
+
 
 /**
  *
@@ -57,120 +121,9 @@ var pkg = require('../../package.json');
  *
  */
 function create_system(req) {
-    var system;
-    var system_token;
-    var info = _.pick(req.rpc_params, 'name');
-
-    return P.fcall(function() {
-            if (info.name === 'demo') {
-                info.access_keys = [{
-                    access_key: '123',
-                    secret_key: 'abc',
-                }];
-            } else {
-                info.access_keys = [{
-                    access_key: crypto.randomBytes(16).toString('hex'),
-                    secret_key: crypto.randomBytes(32).toString('hex'),
-                }];
-            }
-            info.owner = req.account.id;
-            info.resources = {
-                // set default package names
-                agent_installer: 'noobaa-setup.exe',
-                s3rest_installer: 'noobaa-s3rest.exe',
-                linux_agent_installer: 'noobaa-setup'
-            };
-            info.n2n_config = {
-                tcp_tls: true,
-                tcp_active: true,
-                tcp_permanent_passive: {
-                    min: 60100,
-                    max: 60600
-                },
-                udp_dtls: true,
-                udp_port: true,
-            };
-
-            return P.when(db.System.create(info))
-                .then(null, db.check_already_exists(req, 'system'));
-        })
-        .then(function(system_arg) {
-            system = system_arg;
-
-            // a token for the new system
-            system_token = req.make_auth_token({
-                account_id: req.account.id,
-                system_id: system.id,
-                role: 'admin',
-            });
-
-            // TODO if role create fails, we should recover the role from the system owner
-            return P.when(db.Role.create({
-                    account: req.account.id,
-                    system: system.id,
-                    role: 'admin',
-                }))
-                .then(null, db.check_already_exists(req, 'role'));
-        })
-        .then(function() {
-            return server_rpc.client.pool.create_pool({
-                pool: {
-                    name: 'default_pool',
-                    nodes: [],
-                }
-            }, {
-                auth_token: system_token
-            });
-        })
-        .then(function() {
-            return server_rpc.client.tier.create_tier({
-                name: 'nodes',
-                data_placement: 'SPREAD',
-                edge_details: {
-                    replicas: 3,
-                    data_fragments: 1,
-                    parity_fragments: 0
-                },
-                nodes: [],
-                pools: ['default_pool'],
-            }, {
-                auth_token: system_token
-            });
-        })
-        .then(function() {
-            return server_rpc.client.tiering_policy.create_policy({
-                policy: {
-                    name: 'default_tiering',
-                    tiers: [{
-                        order: 0,
-                        tier: 'nodes'
-                    }]
-                }
-            }, {
-                auth_token: system_token
-            });
-        })
-        .then(function() {
-            return server_rpc.client.bucket.create_bucket({
-                name: 'files',
-                tiering: 'default_tiering'
-            }, {
-                auth_token: system_token
-            });
-        })
-        // .then(function() {
-        //     var config = {
-        //         "dbg_log_level": 2,
-        //         "address": "wss://127.0.0.1:" + process.env.SSL_PORT,
-        //         "port": "80",
-        //         "ssl_port": "443",
-        //         "access_key": info.access_keys[0].access_key,
-        //         "secret_key": info.access_keys[0].secret_key
-        //     };
-        //     if (process.env.ON_PREMISE === 'true') {
-        //         return P.nfcall(fs.writeFile, process.cwd() + '/agent_conf.json', JSON.stringify(config));
-        //     }
-        // })
+    var name = req.rpc_params.name;
+    var changes = new_system_changes(name, req.account && req.account._id);
+    return system_store.make_changes(changes)
         .then(function() {
             if (process.env.ON_PREMISE === 'true') {
                 return P.fcall(function() {
@@ -183,61 +136,19 @@ function create_system(req) {
                     });
             }
         })
-        //Auto generate agent executable.
-        // Removed for now, as we need signed exe
-        //
-        // .then(function() {
-        //     if (process.env.ON_PREMISE) {
-        //         return P.Promise(function(resolve, reject) {
-        //
-        //             var build_params = [
-        //                 '--access_key=' + info.access_keys[0].access_key,
-        //                 '--secret_key=' + info.access_keys[0].secret_key,
-        //                 '--system_id=' + system.id,
-        //                 '--system=' + system.name,
-        //                 '--on_premise_env=1',
-        //                 '--address=wss://noobaa.local:443'
-        //             ];
-        //
-        //             var build_script = child_process.spawn(
-        //                 'src/deploy/build_atom_agent_win.sh', build_params, {
-        //                     cwd: process.cwd()
-        //                 });
-        //
-        //             build_script.on('close', function(code) {
-        //                 if (code !== 0) {
-        //                     resolve();
-        //                 } else {
-        //                     reject(new Error('build_script returned error code ' + code));
-        //                 }
-        //             });
-        //
-        //             var stdout = '',
-        //                 stderr = '';
-        //
-        //             build_script.stdout.setEncoding('utf8');
-        //
-        //             build_script.stdout.on('data', function(data) {
-        //                 stdout += data;
-        //                 dbg.log0(data);
-        //             });
-        //
-        //             build_script.stderr.setEncoding('utf8');
-        //             build_script.stderr.on('data', function(data) {
-        //                 stderr += data;
-        //                 dbg.log0(data);
-        //             });
-        //         });
-        //     }
-        // })
         .then(function() {
+            var system = system_store.data.systems_by_name[name];
             return {
-                token: system_token,
+                // a token for the new system
+                token: req.make_auth_token({
+                    account_id: req.account._id,
+                    system_id: system._id,
+                    role: 'admin',
+                }),
                 info: get_system_info(system)
             };
         });
 }
-
 
 
 /**
@@ -246,22 +157,14 @@ function create_system(req) {
  *
  */
 function read_system(req) {
+    var system = req.system;
     return P.fcall(function() {
-        var by_system_id = {
-            system: req.system.id
-        };
         var by_system_id_undeleted = {
-            system: req.system.id,
+            system: system._id,
             deleted: null,
         };
 
         return P.all([
-            // roles
-            db.Role.find(by_system_id).populate('account').exec(),
-
-            // tiers
-            db.Tier.find(by_system_id_undeleted).exec(),
-
             // nodes - count, online count, allocated/used storage aggregate by tier
             db.Node.aggregate_nodes(by_system_id_undeleted, 'tier'),
 
@@ -281,51 +184,32 @@ function read_system(req) {
                 },
                 reduce: size_utils.reduce_sum
             }),
-
-            // buckets
-            db.Bucket.find(by_system_id_undeleted).exec(),
-
-            // pools
-            db.Pool.find(by_system_id_undeleted).exec(),
         ]);
 
-    }).spread(function(roles, tiers, nodes_aggregate_tier, nodes_aggregate_pool,
-        objects_aggregate, blocks, buckets, pools) {
+    }).spread(function(
+        nodes_aggregate_tier,
+        nodes_aggregate_pool,
+        objects_aggregate,
+        blocks) {
+
         blocks = _.mapValues(_.indexBy(blocks, '_id'), 'value');
-        var tiers_by_id = _.indexBy(tiers, '_id');
         var nodes_sys = nodes_aggregate_tier[''] || {};
         var objects_sys = objects_aggregate[''] || {};
-        var ret_pools = [];
-        _.each(pools, function(p) {
-            var aggregate_p = nodes_aggregate_pool[p._id] || {};
-            ret_pools.push({
-                name: p.name,
-                total_nodes: p.nodes.length,
-                online_nodes: aggregate_p.online || 0,
-                //TODO:: in tier we divide by number of replicas, in pool we have no such concept
-                storage: {
-                    total: (aggregate_p.total || 0),
-                    free: (aggregate_p.free || 0),
-                    used: (aggregate_p.used || 0),
-                    alloc: (aggregate_p.alloc || 0)
-                }
-            });
-        });
-        return P.all(_.map(buckets, function(bucket) {
+        return P.all(_.map(system.buckets_by_name, function(bucket) {
             var b = _.pick(bucket, 'name');
-            var a = objects_aggregate[bucket.id] || {};
+            var a = objects_aggregate[bucket._id] || {};
             b.storage = {
                 used: a.size || 0,
             };
             b.num_objects = a.count || 0;
-            b.tiering = _.map(bucket.tiering.tiers, function(tier_id) {
-                var tier = tiers_by_id[tier_id];
-                if (!tier) return '';
+            b.tiering = _.map(bucket.tiering.tiers, function(tier) {
                 var replicas = tier.replicas || 3;
-                var t = nodes_aggregate_tier[tier.id];
-                // TODO how to account bucket total storage with multiple tiers?
-                b.storage.total = (t.total || 0) / replicas;
-                b.storage.free = (t.free || 0) / replicas;
+                var t = nodes_aggregate_tier[tier.tier._id];
+                if (t) {
+                    // TODO how to account bucket total storage with multiple tiers?
+                    b.storage.total = (t.total || 0) / replicas;
+                    b.storage.free = (t.free || 0) / replicas;
+                }
                 return tier.name;
             });
             if (_.isUndefined(b.storage.total)) {
@@ -334,9 +218,7 @@ function read_system(req) {
             }
             return P.fcall(function() {
                 return bucket_server.get_cloud_sync_policy({
-                    system: {
-                        id: req.system.id
-                    },
+                    system: system,
                     rpc_params: {
                         name: b.name
                     }
@@ -346,13 +228,13 @@ function read_system(req) {
                 dbg.log2('bucket is:', b);
                 return b;
             }).then(null, function(err) {
-                dbg.error('failed reading bucket information');
+                dbg.error('failed reading bucket information', err.stack || err);
             });
 
         })).then(function(updated_buckets) {
             dbg.log2('updated_buckets:', updated_buckets);
             var ip_address = ip_module.address();
-            var n2n_config = req.system.n2n_config;
+            var n2n_config = system.n2n_config;
             // TODO use n2n_config.stun_servers ?
             // var stun_address = 'stun://' + ip_address + ':' + stun.PORT;
             // var stun_address = 'stun://64.233.184.127:19302'; // === 'stun://stun.l.google.com:19302'
@@ -362,15 +244,17 @@ function read_system(req) {
             //     dbg.log0('read_system: n2n_config.stun_servers', n2n_config.stun_servers);
             // }
             return {
-                name: req.system.name,
-                roles: _.map(roles, function(role) {
-                    role = _.pick(role, 'role', 'account');
-                    role.account = _.pick(role.account, 'name', 'email');
-                    return role;
+                name: system.name,
+                roles: _.map(system.roles_by_account, function(roles, account_id) {
+                    var account = system_store.data.get_by_id(account_id);
+                    return {
+                        roles: roles,
+                        account: _.pick(account, 'name', 'email')
+                    };
                 }),
-                tiers: _.map(tiers, function(tier) {
+                tiers: _.map(system.tiers_by_name, function(tier) {
                     var t = _.pick(tier, 'name');
-                    var a = nodes_aggregate_tier[tier.id];
+                    var a = nodes_aggregate_tier[tier._id];
                     t.storage = _.defaults(_.pick(a, 'total', 'free', 'used', 'alloc'), {
                         alloc: 0,
                         used: 0
@@ -392,16 +276,30 @@ function read_system(req) {
                     count: nodes_sys.count || 0,
                     online: nodes_sys.online || 0,
                 },
-                pools: ret_pools,
+                pools: _.map(system.pools_by_name, function(pool) {
+                    var p = nodes_aggregate_pool[pool._id] || {};
+                    return {
+                        name: pool.name,
+                        total_nodes: p.count || 0,
+                        online_nodes: p.online || 0,
+                        //TODO:: in tier we divide by number of replicas, in pool we have no such concept
+                        storage: {
+                            total: (p.total || 0),
+                            free: (p.free || 0),
+                            used: (p.used || 0),
+                            alloc: (p.alloc || 0)
+                        }
+                    };
+                }),
                 buckets: updated_buckets,
                 objects: objects_sys.count || 0,
-                access_keys: req.system.access_keys,
+                access_keys: system.access_keys,
                 ssl_port: process.env.SSL_PORT,
                 web_port: process.env.PORT,
-                web_links: get_system_web_links(req.system),
+                web_links: get_system_web_links(system),
                 n2n_config: n2n_config,
                 ip_address: ip_address,
-                base_address: req.system.base_address ||
+                base_address: system.base_address ||
                     'wss://' + ip_address + ':' + process.env.SSL_PORT,
                 version: pkg.version,
             };
@@ -411,10 +309,13 @@ function read_system(req) {
 
 
 function update_system(req) {
-    var info = _.pick(req.rpc_params, 'name');
-    db.SystemCache.invalidate(req.system.id);
-    return P.when(req.system.update(info).exec())
-        .thenResolve();
+    var updates = _.pick(req.rpc_params, 'name');
+    updates._id = req.system._id;
+    return system_store.make_changes({
+        update: {
+            systems: [updates]
+        }
+    }).return();
 }
 
 
@@ -424,13 +325,11 @@ function update_system(req) {
  *
  */
 function delete_system(req) {
-    db.SystemCache.invalidate(req.system.id);
-    return P.when(
-            req.system.update({
-                deleted: new Date()
-            })
-            .exec())
-        .thenResolve();
+    return system_store.make_changes({
+        remove: {
+            systems: [req.system._id]
+        }
+    }).return();
 }
 
 
@@ -442,11 +341,18 @@ function delete_system(req) {
  */
 function list_systems(req) {
     console.log('List systems:', req.account);
-    if (!req.account.is_support) {
-        return list_systems_int(false, false, req.account.id);
+    if (!req.account) {
+        if (!req.system) {
+            throw req.rpc_error('FORBIDDEN', 'list_systems requires authentication with account or system');
+        }
+        return {
+            systems: [get_system_info(req.system, false)]
+        };
     }
-
-    return list_systems_int(true, false);
+    if (req.account.is_support) {
+        return list_systems_int(null, false);
+    }
+    return list_systems_int(req.account, false);
 }
 
 /**
@@ -454,28 +360,21 @@ function list_systems(req) {
  * LIST_SYSTEMS_INT
  *
  */
-function list_systems_int(is_support, get_ids, account) {
-    var query = {};
-
+function list_systems_int(account, get_ids) {
     // support gets to see all systems
-    if (!is_support) {
-        query.account = account;
-    }
-
-    return P.when(
-            db.Role.find(query)
-            .populate('system')
-            .exec())
-        .then(function(roles) {
-            return {
-                systems: _.compact(_.map(roles, function(role) {
-                    if (!role.system || role.system.deleted) {
-                        return null;
-                    }
-                    return get_system_info(role.system, get_ids);
-                }))
-            };
+    var roles;
+    if (!account) {
+        roles = system_store.data.roles;
+    } else {
+        roles = _.filter(system_store.data.roles, function(role) {
+            return String(role.account._id) === String(account._id);
         });
+    }
+    return {
+        systems: _.map(roles, function(role) {
+            return get_system_info(role.system, get_ids);
+        })
+    };
 }
 
 
@@ -485,23 +384,17 @@ function list_systems_int(is_support, get_ids, account) {
  *
  */
 function add_role(req) {
-    return P.when(
-            db.Account
-            .findOne({
-                email: req.rpc_params.email,
-                deleted: null,
-            })
-            .exec())
-        .then(db.check_not_deleted(req, 'account'))
-        .then(function(account) {
-            return db.Role.create({
-                account: account.id,
-                system: req.system.id,
+    var account = find_account_by_email(req);
+    return system_store.make_changes({
+        insert: {
+            roles: [{
+                _id: system_store.generate_id(),
+                account: account._id,
+                system: req.system._id,
                 role: req.rpc_params.role,
-            });
-        })
-        .then(null, db.check_already_exists(req, 'role'))
-        .thenResolve();
+            }]
+        }
+    }).return();
 }
 
 
@@ -512,33 +405,28 @@ function add_role(req) {
  *
  */
 function remove_role(req) {
-    return P.when(
-            db.Account
-            .findOne({
-                email: req.rpc_params.email,
-                deleted: null,
-            })
-            .exec())
-        .then(db.check_not_deleted(req, 'account'))
-        .then(function(account) {
-            return db.Role
-                .findOneAndRemove({
-                    account: account.id,
-                    system: req.system.id,
-                })
-                .exec();
-        })
-        .thenResolve();
+    var account = find_account_by_email(req);
+    var roles = _.filter(system_store.data.roles, function(role) {
+        return String(role.system._id) === String(req.system._id) &&
+            String(role.account._id) === String(account._id) &&
+            role.role === req.rpc_params.role;
+    });
+    var roles_ids = _.map(roles, '_id');
+    return system_store.make_changes({
+        remove: {
+            roles: roles_ids
+        }
+    }).return();
 }
 
 
 
-var S3_SYSTEM_BUCKET = process.env.S3_SYSTEM_BUCKET || 'noobaa-core';
-var aws_s3 = process.env.AWS_ACCESS_KEY_ID && new AWS.S3({
-    accessKeyId: process.env.AWS_ACCESS_KEY_ID,
-    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
-    region: process.env.AWS_REGION || 'eu-central-1'
-});
+// var S3_SYSTEM_BUCKET = process.env.S3_SYSTEM_BUCKET || 'noobaa-core';
+// var aws_s3 = process.env.AWS_ACCESS_KEY_ID && new AWS.S3({
+//     accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+//     secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+//     region: process.env.AWS_REGION || 'eu-central-1'
+// });
 
 
 function get_system_web_links(system) {
@@ -546,25 +434,22 @@ function get_system_web_links(system) {
         if (key === 'toObject' || !_.isString(val) || !val) {
             return;
         }
-        if (process.env.ON_PREMISE) {
-            var versioned_resource = val.replace('noobaa-setup', 'noobaa-setup-' + pkg.version);
-            versioned_resource = versioned_resource.replace('noobaa-s3rest', 'noobaa-s3rest-' + pkg.version);
-            dbg.log1('resource link:', val, versioned_resource);
-            return '/public/' + versioned_resource;
-        } else {
-            var params = {
-                Bucket: S3_SYSTEM_BUCKET,
-                Key: '/' + val,
-                Expires: 24 * 3600 // 1 day
-            };
-            if (aws_s3) {
-                return aws_s3.getSignedUrl('getObject', params);
-            } else {
-                // workaround if we didn't setup aws credentials,
-                // and just try a plain unsigned url
-                return 'https://' + params.Bucket + '.s3.amazonaws.com/' + params.Key;
-            }
-        }
+        var versioned_resource = val.replace('noobaa-setup', 'noobaa-setup-' + pkg.version);
+        versioned_resource = versioned_resource.replace('noobaa-s3rest', 'noobaa-s3rest-' + pkg.version);
+        dbg.log1('resource link:', val, versioned_resource);
+        return '/public/' + versioned_resource;
+        // var params = {
+        //     Bucket: S3_SYSTEM_BUCKET,
+        //     Key: '/' + val,
+        //     Expires: 24 * 3600 // 1 day
+        // };
+        // if (aws_s3) {
+        //     return aws_s3.getSignedUrl('getObject', params);
+        // } else {
+        //     // workaround if we didn't setup aws credentials,
+        //     // and just try a plain unsigned url
+        //     return 'https://' + params.Bucket + '.s3.amazonaws.com/' + params.Key;
+        // }
     });
     // remove keys with undefined values
     return _.omit(reply, _.isUndefined);
@@ -580,7 +465,7 @@ function get_system_web_links(system) {
  */
 function read_activity_log(req) {
     var q = db.ActivityLog.find({
-        system: req.system.id,
+        system: req.system._id,
     });
 
     var reverse = true;
@@ -723,13 +608,17 @@ function start_debug(req) {
 function update_n2n_config(req) {
     var n2n_config = req.rpc_params;
     dbg.log0('update_n2n_config', n2n_config);
-    db.SystemCache.invalidate(req.system.id);
-    return P.when(req.system.update({
-            n2n_config: n2n_config
-        }).exec())
+    return system_store.make_changes({
+            update: {
+                systems: [{
+                    _id: req.system._id,
+                    n2n_config: n2n_config
+                }]
+            }
+        })
         .then(function() {
             return db.Node.find({
-                system: req.system.id
+                system: req.system._id
             }, {
                 // select just what we need
                 name: 1,
@@ -758,13 +647,17 @@ function update_n2n_config(req) {
 
 function update_base_address(req) {
     dbg.log0('update_base_address', req.rpc_params);
-    db.SystemCache.invalidate(req.system.id);
-    return P.when(req.system.update({
-            base_address: req.rpc_params.base_address
-        }).exec())
+    return system_store.make_changes({
+            update: {
+                systems: [{
+                    _id: req.system._id,
+                    base_address: req.rpc_params.base_address
+                }]
+            }
+        })
         .then(function() {
             return db.Node.find({
-                system: req.system.id
+                system: req.system._id
             }, {
                 // select just what we need
                 name: 1,
@@ -792,7 +685,7 @@ function update_base_address(req) {
 }
 
 function update_system_certificate(req) {
-    dbg.log0('update_system_certificate', req.rpc_params);
+    throw req.rpc_error('TODO', 'update_system_certificate');
 }
 
 
@@ -805,4 +698,12 @@ function get_system_info(system, get_id) {
     } else {
         return _.pick(system, 'name');
     }
+}
+
+function find_account_by_email(req) {
+    var account = system_store.data.accounts_by_email[req.rpc_params.email];
+    if (!account) {
+        throw req.rpc_error('NOT_FOUND', 'account not found: ' + req.rpc_params.email);
+    }
+    return account;
 }

@@ -3,11 +3,12 @@
 
 var _ = require('lodash');
 var P = require('../util/promise');
-var db = require('./db');
 var jwt = require('jsonwebtoken');
 var dbg = require('../util/debug_module')(__filename);
-var s3_auth = require('aws-sdk/lib/signers/s3');
-var s3 = new s3_auth();
+var system_store = require('./stores/system_store');
+var bcrypt = require('bcrypt');
+var S3Auth = require('aws-sdk/lib/signers/s3');
+var s3_auth = new S3Auth();
 
 /**
  *
@@ -54,123 +55,88 @@ function create_auth(req) {
     var role_name = req.rpc_params.role;
     // var expiry = req.rpc_params.expiry;
     var authenticated_account;
-    var account;
+    var target_account;
     var system;
 
     return P.fcall(function() {
 
-        // if email is not provided we skip finding account by email
+        // if email is not provided we skip finding target_account by email
         // and use the current auth account as the authenticated_account
         if (!email) return;
 
-        // find account by email
-        return db.Account
-            .findOne({
-                email: email,
-                deleted: null,
-            })
-            .exec()
-            .then(function(account_arg) {
+        // consider email not found the same as bad password to avoid phishing attacks.
+        target_account = system_store.data.accounts_by_email[email];
+        if (!target_account) throw req.unauthorized('credentials account not found');
 
-                // consider email not found the same as bad password to avoid phishing attacks.
-                account = account_arg;
-                if (!account) throw req.unauthorized('credentials account not found');
+        // when password is not provided it means we want to give authorization
+        // by the currently authorized to another specific account instead of
+        // using credentials.
+        if (!password) return;
 
-                // when password is not provided it means we want to give authorization
-                // by the currently authorized to another specific account instead of
-                // using credentials.
-                if (!password) return;
-
-                // use bcrypt to verify password
-                return P.npost(account, 'verify_password', [password])
-                    .then(function(match) {
-                        if (!match) throw req.unauthorized('password mismatch');
-                        // authentication passed!
-                        // so this account is the authenticated_account
-                        authenticated_account = account;
-                    });
+        // use bcrypt to verify password
+        return P.nfcall(bcrypt.compare, password, target_account.password)
+            .then(function(match) {
+                if (!match) throw req.unauthorized('password mismatch');
+                // authentication passed!
+                // so this account is the authenticated_account
+                authenticated_account = target_account;
             });
 
     }).then(function() {
 
         // if both accounts were resolved (they can be the same account),
         // then we can skip loading the current authorized account
-        if (authenticated_account && account) return;
+        if (!authenticated_account || !target_account) {
+            // find the current authorized account and assign
+            if (!req.auth || !req.auth.account_id) {
+                throw req.unauthorized('no account_id in auth and no credetials');
+            }
 
-        // find the current authorized account and assign
-        if (!req.auth || !req.auth.account_id) {
-            throw req.unauthorized('no account_id in auth and no credetials');
+            var account_arg = system_store.data.get_by_id(req.auth.account_id);
+            target_account = target_account || account_arg;
+            authenticated_account = authenticated_account || account_arg;
+
         }
-        return db.Account
-            .findById(req.auth.account_id)
-            .exec()
-            .then(function(account_arg) {
-                account = account || account_arg;
-                authenticated_account = authenticated_account || account_arg;
-            });
-
-    }).then(function() {
 
         // check the accounts are valid
         if (!authenticated_account || authenticated_account.deleted) {
             throw req.unauthorized('authenticated account not found');
         }
-        if (!account || account.deleted) throw req.unauthorized('account not found');
+        if (!target_account || target_account.deleted) {
+            throw req.unauthorized('target account not found');
+        }
 
         // system is optional, and will not be included in the token if not provided
-        if (!system_name) return;
+        if (system_name) {
 
-        // find system by name
-        return db.System
-            .findOne({
-                name: system_name,
-                deleted: null,
-            })
-            .exec()
-            .then(function(system_arg) {
+            // find system by name
+            system = system_store.data.systems_by_name[system_name];
+            if (!system || system.deleted) throw req.unauthorized('system not found');
 
-                system = system_arg;
-                if (!system || system.deleted) throw req.unauthorized('system not found');
+            // find the role of authenticated_account in the system
+            var roles = system.roles_by_account[authenticated_account._id];
 
-                // now we need to approve the role.
-                // "support accounts" or "system owners" can use any role the ask for.
-                if (authenticated_account.is_support ||
-                    String(system.owner) === String(authenticated_account.id)) {
-                    role_name = role_name || 'admin';
-                    return;
-                }
-
-                // find the role of authenticated_account and system
-                return db.Role
-                    .findOne({
-                        account: authenticated_account.id,
-                        system: system.id,
-                    })
-                    .exec()
-                    .then(function(role) {
-
-                        if (!role) throw req.unauthorized('account has no role in system');
-
-                        // "system admin" can use any role
-                        if (role.role === 'admin') {
-                            role_name = role_name || 'admin';
-                            return;
-                        }
-
-                        // non admin is not allowed to delegate to other accounts
-                        // and only allowed to use its formal role
-                        if (String(account.id) === String(authenticated_account.id) ||
-                            role_name !== role.role) {
-                            throw req.unauthorized('non admin cannot delegate');
-                        }
-                    });
-            });
-
-    }).then(function() {
+            // now approve the role -
+            if (
+                // support account  can do anything
+                authenticated_account.is_support ||
+                // system owner can do anything
+                String(system.owner) === String(authenticated_account._id) ||
+                // system admin can do anything
+                _.contains(roles, 'admin') ||
+                // non admin is not allowed to delegate roles to other accounts
+                (role_name && _.contains(roles, role_name) &&
+                    String(target_account._id) === String(authenticated_account._id))) {
+                // "system admin" can use any role
+                role_name = role_name || 'admin';
+            } else {
+                throw req.unauthorized('account role not allowed');
+            }
+        }
 
         var token = req.make_auth_token({
-            account_id: account.id,
-            system_id: system && system.id,
+            account_id: target_account._id,
+            system_id: system && system._id,
             role: role_name,
             extra: req.rpc_params.extra,
         });
@@ -213,51 +179,40 @@ function create_access_key_auth(req) {
     var string_to_sign = req.rpc_params.string_to_sign;
     var signature = req.rpc_params.signature;
     // var expiry = req.rpc_params.expiry;
-    var system;
 
-    dbg.log0('create_access_key_auth', access_key, string_to_sign, signature);
-
-    return P.fcall(function() {
-
-        // find system by name
-        return db.System.findOne({
-                "access_keys": {
-                    $elemMatch: {
-                        "access_key": access_key
-                    }
-                }
-            })
-            .exec()
-            .then(function(system_arg) {
-                system = system_arg;
-                if (!system || system.deleted) {
-                    throw req.unauthorized('system not found');
-                }
-                dbg.log0('system.access_keys', system && system.access_keys);
-
-                var secret_key = _.result(_.find(system._doc.access_keys, 'access_key', access_key), 'secret_key');
-                var s3_signature = s3.sign(secret_key, string_to_sign);
-                dbg.log0('signature for access key:', access_key, 'string:', string_to_sign, ' is', s3_signature);
-
-                //TODO:bring back ASAP!!!! - temporary for V4 "Support"
-                //
-                // if (signature === s3_signature) {
-                //     dbg.log0('s3 authentication test passed!!!');
-                // } else {
-                //     throw req.unauthorized('SignatureDoesNotMatch');
-                // }
-
-                var token = req.make_auth_token({
-                    system_id: system && system.id,
-                    role: 'admin',
-                    extra: req.rpc_params.extra,
-                });
-                console.log('ACCESS TOKEN:', token);
-                return {
-                    token: token
-                };
-            });
+    var system = _.find(system_store.data.systems, function(sys) {
+        return !!_.find(sys.access_keys, 'access_key', access_key);
     });
+    if (!system || system.deleted) {
+        throw req.unauthorized('system not found');
+    }
+    dbg.log1('create_access_key_auth:',
+        'system.name', system.name,
+        'access_key', access_key,
+        'string_to_sign', string_to_sign,
+        'signature', signature);
+
+    var secret_key = _.result(_.find(system.access_keys, 'access_key', access_key), 'secret_key');
+    var s3_signature = s3_auth.sign(secret_key, string_to_sign);
+    dbg.log2('signature for access key:', access_key, 'string:', string_to_sign, ' is', s3_signature);
+
+    //TODO:bring back ASAP!!!! - temporary for V4 "Support"
+    //
+    // if (signature === s3_signature) {
+    //     dbg.log0('s3 authentication test passed!!!');
+    // } else {
+    //     throw req.unauthorized('SignatureDoesNotMatch');
+    // }
+
+    var token = req.make_auth_token({
+        system_id: system && system._id,
+        role: 'admin',
+        extra: req.rpc_params.extra,
+    });
+    dbg.log2('ACCESS TOKEN:', token);
+    return {
+        token: token
+    };
 }
 
 
@@ -321,24 +276,22 @@ function authorize(req) {
 
     if (req.method_api.auth !== false) {
         dbg.log3('authorize:', req.method_api.auth, req.srv);
+        req.load_auth(req.method_api.auth);
 
-        return req.load_auth(req.method_api.auth)
-            .then(function() {
-                //if request request has access signature, validate the signature
-                if (auth_token_obj) {
-                    var secret_key = _.result(_.find(req.system._doc.access_keys, 'access_key', auth_token_obj.access_key), 'secret_key');
-                    var s3_signature = s3.sign(secret_key, auth_token_obj.string_to_sign);
+        //if request request has access signature, validate the signature
+        if (auth_token_obj) {
+            // var secret_key = _.result(_.find(req.system.access_keys, 'access_key', auth_token_obj.access_key), 'secret_key');
+            // var s3_signature = s3_auth.sign(secret_key, auth_token_obj.string_to_sign);
 
-                    //TODO:bring back ASAP!!!! - temporary for V4 "Support"
+            //TODO:bring back ASAP!!!! - temporary for V4 "Support"
 
-                    // if (auth_token_obj.signature === s3_signature) {
-                    //     dbg.log3('Access key authentication (per request) test passed !!!');
-                    // } else {
-                    //     dbg.error('Signature for access key:', auth_token_obj.access_key, 'computed:', s3_signature, 'expected:', auth_token_obj.signature);
-                    //     throw req.unauthorized('SignatureDoesNotMatch');
-                    // }
-                }
-            });
+            // if (auth_token_obj.signature === s3_signature) {
+            //     dbg.log3('Access key authentication (per request) test passed !!!');
+            // } else {
+            //     dbg.error('Signature for access key:', auth_token_obj.access_key, 'computed:', s3_signature, 'expected:', auth_token_obj.signature);
+            //     throw req.unauthorized('SignatureDoesNotMatch');
+            // }
+        }
     }
 }
 
@@ -353,6 +306,13 @@ function authorize(req) {
  *
  */
 function _prepare_auth_request(req) {
+
+    // we allow to authorize once per connection -
+    // if the request did not send specific token, use the conn level token.
+    if (!req.auth_token) {
+        // TODO better save req.connection.auth parsed instead of reparsing the token again
+        req.auth_token = req.connection.auth_token;
+    }
 
     /**
      *
@@ -370,64 +330,32 @@ function _prepare_auth_request(req) {
     req.load_auth = function(options) {
         options = options || {};
 
-        return P.fcall(function() {
-            dbg.log3('options:', options, req.auth);
-            // check that auth has account_id
-            var ignore_missing_account = (options.account === false || _.isEmpty(options.account));
-            if (!req.auth || !req.auth.account_id) {
-                if (ignore_missing_account) {
-                    return;
-                } else {
-                    throw req.unauthorized('no account_id in auth');
-                }
+        dbg.log1('load_auth:', options, req.auth);
+        if (req.auth) {
+            req.account = system_store.data.get_by_id(req.auth.account_id);
+            req.system = system_store.data.get_by_id(req.auth.system_id);
+            req.role = req.auth.role;
+        }
+        var ignore_missing_account = !options.account;
+        var ignore_missing_system = (options.system === false);
+        if (!ignore_missing_account) {
+            // check that auth has account
+            if (!req.account) {
+                throw req.unauthorized('auth account not found');
             }
-
-            // use a cache because this is called on every authorized api
-            return db.AccountCache.get(req.auth.account_id)
-                .then(function(account) {
-                    if (!account) {
-                        if (ignore_missing_account) {
-                            return;
-                        } else {
-                            throw req.unauthorized('auth account not found in cache');
-                        }
-                    }
-                    req.account = account;
-                });
-
-        }).then(function() {
-
+        }
+        if (!ignore_missing_system) {
             // check that auth contains system
-            var ignore_missing_system = (options.system === false || _.isEmpty(options.system));
-            if (!req.auth || !req.auth.system_id) {
-                if (ignore_missing_system) {
-                    return;
-                } else {
-                    throw req.unauthorized('no system_id in auth');
-                }
+            if (!req.system) {
+                throw req.unauthorized('auth system not found');
             }
 
             // check that auth contains valid system role
-
-            if (!ignore_missing_system && !_.contains(options.system, req.auth.role)) {
-                throw req.unauthorized('system role not allowed');
+            if (!_.contains(options.system, req.auth.role)) {
+                throw req.unauthorized('auth role not allowed in system');
             }
-
-            // use a cache because this is called on every authorized api
-            return db.SystemCache.get(req.auth.system_id)
-                .then(function(system) {
-                    if (!system) {
-                        if (ignore_missing_system) {
-                            return;
-                        } else {
-                            throw req.unauthorized('auth system not found in cache');
-                        }
-                    }
-                    req.system = system;
-                    req.role = req.auth.role;
-                    dbg.log3('load auth system:', req.system);
-                });
-        });
+        }
+        dbg.log3('load auth system:', req.system);
     };
 
 

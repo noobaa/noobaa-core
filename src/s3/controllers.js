@@ -902,13 +902,11 @@ module.exports = function(params) {
                         } else {
                             dbg.log3('Creating new tiering_policy for bucket', bucketName);
                             return clients[access_key].client.tiering_policy.create_policy({
-                                    policy: {
-                                        name: bucketName + '_tiering',
-                                        tiers: [{
-                                            order: 0,
-                                            tier: 'nodes'
-                                        }]
-                                    }
+                                    name: bucketName + '_tiering',
+                                    tiers: [{
+                                        order: 0,
+                                        tier: 'nodes'
+                                    }]
                                 })
                                 .then(function() {
                                     dbg.log3('Creating new bucket', bucketName);

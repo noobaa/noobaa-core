@@ -203,8 +203,8 @@ function get_minimum_alloc_heartbeat() {
     return moment().subtract(2, 'minutes').toDate();
 }
 
-node_schema.methods.is_online = function() {
-    return !this.srvmode && this.heartbeat >= get_minimum_online_heartbeat();
+node_schema.statics.is_online = function(node) {
+    return !node.srvmode && node.heartbeat >= get_minimum_online_heartbeat();
 };
 
 node_schema.statics.get_minimum_online_heartbeat = get_minimum_online_heartbeat;

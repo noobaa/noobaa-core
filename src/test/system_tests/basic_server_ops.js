@@ -198,9 +198,9 @@ function generate_random_file(size_mb) {
     var dd_cmd;
 
     if (os.type() === 'Darwin') {
-        dd_cmd = 'dd if=/dev/random of=' + fname + ' count=' + size_mb + ' bs=1m';
+        dd_cmd = 'dd if=/dev/urandom of=' + fname + ' count=' + size_mb + ' bs=1m';
     } else if (os.type() === 'Linux') {
-        dd_cmd = 'dd if=/dev/random of=' + fname + ' count=' + size_mb + ' bs=1M';
+        dd_cmd = 'dd if=/dev/urandom of=' + fname + ' count=' + size_mb + ' bs=1M';
     }
 
     return promise_utils.promised_exec(dd_cmd)

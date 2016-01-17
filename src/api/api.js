@@ -23,6 +23,7 @@ api_schema.register_api(require('./debug_api'));
 api_schema.register_api(require('./redirector_api'));
 api_schema.register_api(require('./tiering_policy_api'));
 api_schema.register_api(require('./pool_api'));
+api_schema.register_api(require('./cluster_api'));
 
 function new_rpc(options) {
     options = options || {};
@@ -81,10 +82,10 @@ function Client(default_options) {
 
     self.object_driver_lazy = function() {
         // the object driver is a "heavy" object with caches
-        if (!this.object_driver) {
-            this.object_driver = new ObjectDriver(this);
+        if (!self.object_driver) {
+            self.object_driver = new ObjectDriver(self);
         }
-        return this.object_driver;
+        return self.object_driver;
     };
 
     return self;

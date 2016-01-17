@@ -421,10 +421,13 @@ module.exports = {
 
         role_info: {
             type: 'object',
-            required: ['role', 'account'],
+            required: ['roles', 'account'],
             properties: {
-                role: {
-                    $ref: '/system_api/definitions/role_enum'
+                roles: {
+                    type: 'array',
+                    items: {
+                        $ref: '/system_api/definitions/role_enum'
+                    }
                 },
                 account: {
                     type: 'object',
@@ -477,7 +480,7 @@ module.exports = {
         system_nodes_update_reply: {
             type: 'object',
             required: ['nodes_count', 'nodes_updated'],
-            peroperties: {
+            properties: {
                 nodes_count: {
                     type: 'integer'
                 },

@@ -35,6 +35,7 @@ var fs = require('fs');
 var cluster = require('cluster');
 var pkg = require('../../package.json');
 var db = require('../server/db');
+var mongo_client = require('./stores/mongo_client');
 
 
 
@@ -63,6 +64,7 @@ var dev_mode = (process.env.DEV_MODE === 'true');
 
 
 db.mongoose_connect();
+mongo_client.connect();
 
 // create express app
 var app = express();

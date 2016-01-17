@@ -114,7 +114,7 @@ module.exports = {
                         type: 'array',
                         items: {
                             type: 'object',
-                            required: [],
+                            // required: [],
                             properties: {
                                 key: {
                                     type: 'string'
@@ -142,11 +142,11 @@ module.exports = {
             method: 'GET',
             params: {
                 type: 'object',
-                required: [],
+                // required: [],
                 properties: {
                     query: {
                         type: 'object',
-                        required: [],
+                        // required: [],
                         properties: {
                             pool: {
                                 type: 'array',
@@ -213,11 +213,11 @@ module.exports = {
             method: 'GET',
             params: {
                 type: 'object',
-                required: [],
+                // required: [],
                 properties: {
                     group_by: {
                         type: 'object',
-                        required: [],
+                        // required: [],
                         properties: {
                             tier: {
                                 type: 'boolean'
@@ -373,20 +373,10 @@ module.exports = {
         n2n_signal: {
             method: 'POST',
             params: {
-                type: 'object',
-                required: ['target'],
-                additionalProperties: true,
-                properties: {
-                    target: {
-                        type: 'string'
-                    },
-                }
+                $ref: '/node_api/definitions/signal_params'
             },
             reply: {
-                type: 'object',
-                required: [],
-                additionalProperties: true,
-                properties: {}
+                $ref: '/node_api/definitions/signal_reply'
             },
             auth: {
                 system: false
@@ -442,10 +432,10 @@ module.exports = {
             method: 'POST',
             params: {
                 type: 'object',
+                required: ['target'],
                 properties: {
                     target: {
                         type: 'string',
-                        required: true
                     }
                 }
             },
@@ -607,32 +597,18 @@ module.exports = {
 
         signal_params: {
             type: 'object',
-            required: ['source', 'target', 'method_api', 'method_name'],
+            required: ['target'],
+            additionalProperties: true,
             properties: {
-                source: {
-                    type: 'string'
-                },
                 target: {
                     type: 'string'
-                },
-                method_api: {
-                    type: 'string'
-                },
-                method_name: {
-                    type: 'string'
-                },
-                request_params: {
-                    type: 'object',
-                    additionalProperties: true,
                 },
             },
         },
 
         signal_reply: {
             type: 'object',
-            required: [],
             additionalProperties: true,
-            properties: {}
         },
 
         latency_array: {

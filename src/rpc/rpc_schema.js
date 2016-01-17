@@ -4,7 +4,7 @@ module.exports = RpcSchema;
 
 var _ = require('lodash');
 var assert = require('assert');
-var validator = require('is-my-json-valid');
+var Ajv = require('ajv');
 var genfun = require('generate-function');
 var dbg = require('../util/debug_module')(__filename);
 
@@ -13,9 +13,9 @@ var dbg = require('../util/debug_module')(__filename);
  */
 function RpcSchema() {
     this._schemas = {};
-    this._validator_options = {
-        schemas: this._schemas,
-        verbose: true,
+    this._validator = new Ajv({
+        missingRefs: 'ignore',
+        // verbose: true,
         formats: {
             idate: function(val) {
                 var d = new Date(val);
@@ -28,7 +28,7 @@ function RpcSchema() {
         // TODO banUnknownProperties is pending issue
         // https://github.com/mafintosh/is-my-json-valid/issues/59
         banUnknownProperties: true
-    };
+    });
 }
 
 var VALID_HTTP_METHODS = {
@@ -52,7 +52,13 @@ RpcSchema.prototype.register_api = function(api) {
     _.each(api.definitions, function(schema, name) {
         schema.id = '/' + api.name + '/definitions/' + name;
         prepare_schema(schema);
-        self._schemas[schema.id] = schema;
+        try {
+            self._validator.addSchema(schema);
+        } catch (err) {
+            dbg.error('register_api: failed compile definition schema',
+                schema, err.stack || err);
+            throw err;
+        }
     });
 
     // go over the api and check its validity
@@ -65,7 +71,13 @@ RpcSchema.prototype.register_api = function(api) {
         if (method_api.params) {
             method_api.params.id = method_api.fullname + '/params';
             prepare_schema(method_api.params);
-            method_api.params_validator = validator(method_api.params, self._validator_options);
+            try {
+                method_api.params_validator = self._validator.compile(method_api.params);
+            } catch (err) {
+                dbg.error('register_api: failed compile params schema',
+                    method_api.params, err.stack || err);
+                throw err;
+            }
         } else {
             method_api.params_validator = validator_of_empty_schema;
         }
@@ -73,7 +85,13 @@ RpcSchema.prototype.register_api = function(api) {
         if (method_api.reply) {
             method_api.reply.id = method_api.fullname + '/reply';
             prepare_schema(method_api.reply);
-            method_api.reply_validator = validator(method_api.reply, self._validator_options);
+            try {
+                method_api.reply_validator = self._validator.compile(method_api.reply);
+            } catch (err) {
+                dbg.error('register_api: failed compile reply schema',
+                    method_api.reply, err.stack || err);
+                throw err;
+            }
         } else {
             method_api.reply_validator = validator_of_empty_schema;
         }

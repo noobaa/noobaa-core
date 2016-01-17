@@ -1,8 +1,7 @@
 /* jshint node:true */
 'use strict';
 
-var db = require('./db');
-var P = require('../util/promise');
+var system_store = require('./stores/system_store');
 
 /*
  * Cluster Server
@@ -10,6 +9,7 @@ var P = require('../util/promise');
 
 var cluster_server = {
     get_cluster_id: get_cluster_id,
+    load_system_store: load_system_store,
 };
 
 module.exports = cluster_server;
@@ -20,9 +20,13 @@ module.exports = cluster_server;
  *
  */
 function get_cluster_id(req) {
-    return P.when(db.Cluster.find()
-            .exec())
-        .then(function(id) {
-            return id[0].cluster_id;
-        });
+    var cluster = system_store.data.clusters[0];
+    return cluster ? cluster.cluster_id : '';
+}
+
+/**
+ *
+ */
+function load_system_store(req) {
+    return system_store.load().return();
 }

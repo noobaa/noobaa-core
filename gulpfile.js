@@ -150,7 +150,7 @@ var PATHS = {
         'bluebird',
         'generate-function',
         'performance-now',
-        'is-my-json-valid',
+        'ajv',
         'concat-stream',
         'dev-null',
         'chance',
@@ -305,7 +305,7 @@ function pack(dest, name) {
 
     var node_modules_stream = gulp
         .src(['node_modules/**/*',
-            '!node_modules/babel*/**/*',    
+            '!node_modules/babel*/**/*',
             '!node_modules/gulp*/**/*',
             '!node_modules/bower/**/*',
             '!node_modules/node-inspector/**/*'
@@ -358,15 +358,15 @@ function pack(dest, name) {
 
     return event_stream
         .merge(
-            pkg_stream, 
-            src_stream, 
-            images_stream, 
+            pkg_stream,
+            src_stream,
+            images_stream,
             basejs_stream,
-            vendor_stream, 
-            agent_distro, 
-            build_stream, 
-            build_native_stream, 
-            build_fe_stream, 
+            vendor_stream,
+            agent_distro,
+            build_stream,
+            build_native_stream,
+            build_fe_stream,
             node_modules_stream
         )
         .pipe(gulp_rename(function(p) {
@@ -606,28 +606,27 @@ function build_rest_distro() {
 }
 
 
-gulp.task('run_fe_build', function(cb) {
-    // Works for both window 32bit and 64bit versions.
-    let gulpCmd = process.platform === 'win32' ? 'gulp.cmd' : 'gulp';
-
-    // Run the fe gulp build.
-    var proc = child_process.spawn(
-        path.join(process.cwd(),'node_modules','.bin', gulpCmd),
-        ['build'], 
-        { 
-            cwd: path.join(process.cwd(),'frontend') 
-        }
-    ); 
-
-    // Redirect the process output and error streams.
-    proc.stdout.pipe(process.stdout);
-    proc.stderr.pipe(process.stderr);
-
-    // Finish the task on process error or exit.
-    proc.on('error', function(err) { cb(err) });
-    proc.on('exit', function(code) { cb(code !== 0) });
+gulp.task('frontend', function() {
+    return gulp_spawn('npm', ['install'], {
+        cwd: 'frontend'
+    });
 });
 
+function gulp_spawn(cmd, args, options) {
+    return new Promise(function(resolve, reject) {
+        options = options || {};
+        options.stdio = options.stdio || 'inherit';
+        var proc = child_process.spawn(cmd, args, options);
+        proc.on('error', reject);
+        proc.on('exit', function(code) {
+            if (code !== 0) {
+                reject(new Error('"' + cmd + ' ' + args.join(' ') + '" exit with error code ' + code));
+            } else {
+                resolve();
+            }
+        });
+    });
+}
 
 function package_build_task() {
     var DEST = 'build/public';
@@ -670,9 +669,7 @@ function package_build_task() {
         });
 }
 
-var deps = skip_install ?
-    ['lint', 'agent', 'run_fe_build'] :
-    ['lint', 'install', 'agent', 'run_fe_build'];
+var deps = skip_install ? ['lint', 'agent', 'frontend'] : ['lint', 'install', 'agent', 'frontend'];
 
 gulp.task('package_build', deps, function() {
     return package_build_task();
@@ -811,7 +808,8 @@ gulp.task('install', [
     'lint',
     'client_libs',
     'client',
-    'agent'
+    'agent',
+    'frontend'
 ]);
 
 var serve = run_service.bind(null, 'md-server', PATHS.server_main);

@@ -46,6 +46,7 @@ export default function routing(page) {
 	page('/fe/systems/:system/pools',  saveContext, actions.showPools);
 	page('/fe/systems/:system/pools/:pool/:tab?', saveContext, actions.showPool);
 	page('/fe/systems/:system/pools/:pool/nodes/:node/:tab?', saveContext, actions.showNode);
+	page('/fe/systems/:system/management/:tab?', saveContext, actions.showManagement);
 		
 	// Redirect any other request to the login page.
 	page.redirect('*', '/fe/login');

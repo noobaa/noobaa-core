@@ -1,6 +1,6 @@
 import template from './create-system-form.html';
 import ko from 'knockout';
-import { createAccount } from 'actions';
+import { createSystemAccount } from 'actions';
 
 class CreateSystemFormViewModel {
 	constructor() {
@@ -45,7 +45,7 @@ class CreateSystemFormViewModel {
 
 	createSystem() {
 		if (this.errors().length === 0) {
-			createAccount(this.systemName(), this.ownerEmail(), this.ownerPassword(), this.systemDNS());
+			createSystemAccount(this.systemName(), this.ownerEmail(), this.ownerPassword(), this.systemDNS());
 		} else {
 			this.errors.showAllMessages();
 		}

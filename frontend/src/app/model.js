@@ -25,7 +25,7 @@ export let systemOverview = ko.observable();
 // Hold agent installation information.
 export let agentInstallationInfo = ko.observable();
 
-// Hold the current bucket list. derived from system info.
+// Hold the current bucket list. deriv`ed` from system info.
 export let bucketList = ko.observableArray(); 
 bucketList.sortedBy = ko.observable('name')
 bucketList.order = ko.observable(1);
@@ -86,5 +86,7 @@ export let recentUploads = ko.observableArray();
 
 // Hold the audit log 
 export let auditLog = ko.observableArray();
-auditLog.loadedCategories = ko.observableArray();
-auditLog.scrollPop = ko.observable();
+auditLog.loadedCategories = ko.observable();
+
+// Hold the current account list
+export let accountList = ko.observableArray();

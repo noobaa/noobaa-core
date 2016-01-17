@@ -3,15 +3,15 @@ import AuditRowViewModel from './audit-row';
 import ko from 'knockout';
 import { auditLog } from 'model';
 import { loadAuditEntries, loadMoreAuditEntries } from 'actions';
-import categoryMapping from './category-mapping';
+import categories from './categories';
 
 const pageSize = 25;
 const scrollThrottle = 750;
 
 class AuditPaneViewModel {
 	constructor() {
-		this.categories = Object.keys(categoryMapping).map(
-			key => ({ value: key, label: categoryMapping[key] })
+		this.categories = Object.keys(categories).map(
+			key => ({ value: key, label: categories[key].displayName })
 		);
 
 		this.selectedCategories = ko.pureComputed({
@@ -34,13 +34,15 @@ class AuditPaneViewModel {
 		this.scroll.subscribe(
 			pos => pos > .9 && loadMoreAuditEntries(pageSize)
 		);
+
+		if (!auditLog.loadedCategories()) {
+			this.selectedCategories(Object.keys(categories))
+		}
 	}
 
 	selectAllCategories() {
 		this.selectedCategories(
-			this.categories.map(
-				category => category.value
-			)
+			Object.keys(categories)
 		);
 	}
 

@@ -1,10 +1,9 @@
 import * as model from 'model';
-import { isDefined, isUndefined } from 'utils';
 import page from 'page';
 import api from 'services/api';
 import config from 'config';
 import { hostname as endpoint } from 'server-conf';
-import { encodeBase64, cmpStrings, cmpInts, cmpBools, randomString, last } from 'utils';
+import { isDefined, isUndefined, encodeBase64, cmpStrings, cmpInts, cmpBools, randomString, last } from 'utils';
 
 // TODO: resolve browserify issue with export of the aws-sdk module.
 // The current workaround use the AWS that is set on the global window object.
@@ -121,7 +120,7 @@ export function showBucket() {
 	logAction('showBucket');
 
 	let ctx = model.routeContext();
-	let { bucket, tab } = ctx.params;
+	let { bucket, tab = 'objects' } = ctx.params;
 	let { filter, sortBy = 'name', order = 1, page = 0 } = ctx.query;
 
 	model.uiState({
@@ -132,7 +131,7 @@ export function showBucket() {
 			{ href: "buckets", label: "BUCKETS" },
 		],
 		panel: 'bucket',
-		tab: tab || 'objects'
+		tab: tab
 	});
 
 	readBucket(bucket);
@@ -143,7 +142,7 @@ export function showObject() {
 	logAction('showObject');
 	
 	let ctx = model.routeContext();
-	let { object, bucket, tab } = ctx.params;
+	let { object, bucket, tab = 'parts' } = ctx.params;
 	let { page = 0 } = ctx.query;
 
 	model.uiState({
@@ -155,7 +154,7 @@ export function showObject() {
 			{ href: ":bucket", label: bucket },
 		],			
 		panel: 'object',
-		tab: tab || 'parts'
+		tab: tab
 	});
 
 	readObjectMetadata(bucket, object)
@@ -184,7 +183,7 @@ export function showPool() {
 	logAction('showPool');
 
 	let ctx = model.routeContext();
-	let { pool, tab } = ctx.params;
+	let { pool, tab = 'nodes' } = ctx.params;
 	let { filter, sortBy = 'name', order = 1, page = 0 } = ctx.query;
 
 	
@@ -196,7 +195,7 @@ export function showPool() {
 			{ href: "pools", label: "POOLS"}
 		],
 		panel: 'pool',
-		tab: tab || 'nodes'	
+		tab: tab
 	});
 
 	readPool(pool);
@@ -206,8 +205,8 @@ export function showPool() {
 export function showNode() {
 	logAction('showNode');
 
-	let ctx= model.routeContext();
-	let { pool, node, tab } = ctx.params;
+	let ctx = model.routeContext();
+	let { pool, node, tab = 'parts' } = ctx.params;
 	let { page = 0 } = ctx.query;
 
 	model.uiState({
@@ -219,12 +218,26 @@ export function showNode() {
 			{ href: ":pool", label: pool}
 		],
 		panel: 'node',
-		tab: tab || 'parts'
+		tab: tab
 	});
 
 	readNode(node);
 	listNodeStoredParts(node, parseInt(page));		
 }	
+
+export function showManagement() {
+	logAction('showManagement');
+
+	let { tab = 'accounts' } = model.routeContext().params;
+
+	model.uiState({
+		layout: 'main-layout',
+		title: 'SYSTEM MANAGEMENT',
+		breadcrumbs: [ { href: "fe/systems/:system" } ],
+		panel: 'management',
+		tab: tab
+	});
+}
 
 export function refresh() {
 	logAction('refresh');
@@ -306,6 +319,7 @@ export function readServerInfo() {
 	api.account.accounts_status()
 		.then(
 			reply => model.serverInfo({
+				endpoint: endpoint || window.location.hostname,
 				initialized: reply.has_accounts
 			})
 		)
@@ -320,12 +334,6 @@ export function readSystemInfo() {
 		.then(
 			reply => {
 				let keys = reply.access_keys[0];
-
-				AWS.config.update({
-					accessKeyId: keys.access_key,
-	                secretAccessKey: keys.secret_key,
-	                sslEnabled: false
-				});
 
 				systemOverview({
 					endpoint: endpoint,
@@ -423,44 +431,41 @@ export function readObjectMetadata(bucketName, objectName) {
 		model.objectInfo(null);
 	}
 
-	api.system.read_system()
-		.then(
-			reply => {
-				let keys = reply.access_keys[0];
+	let objInfoPromise = api.object.read_object_md({
+		 bucket: bucketName, 
+		 key: objectName,
+		 get_parts_count: true
+	});
 
-				AWS.config.update({
-					accessKeyId: keys.access_key,
-	                secretAccessKey: keys.secret_key,
-	                sslEnabled: false
-				});
-			}
-		)
+	let S3Promise = api.system.read_system()
 		.then(
-			() => 	api.object.read_object_md({
-				 bucket: bucketName, 
-				 key: objectName,
-				 get_parts_count: true
-			})
-		).then(
 			reply => {
-				let s3 = new AWS.S3({
-				    endpoint: endpoint,
+				let { access_key, secret_key } = reply.access_keys[0];
+
+				return new AWS.S3({
+				    endpoint: reply.ip_address,
+				    credentials: {
+				    	accessKeyId:  access_key,
+				    	secretAccessKey:  secret_key
+				    },
 				    s3ForcePathStyle: true,
-				    sslEnabled: false,	
-				});
-
-				model.objectInfo({ 
-					name: objectName, 
-					bucket: bucketName,
-					info: reply,				
-					s3Url: s3.getSignedUrl(
-						'getObject', 
-						{ Bucket: bucketName, Key: objectName }
-					)
-				});
+				    sslEnabled: false,
+				})
 			}
-		)
-		.done();
+		);
+
+	Promise.all([objInfoPromise, S3Promise])
+		.then(
+			([objInfo, s3]) => model.objectInfo({ 
+				name: objectName, 
+				bucket: bucketName,
+				info: objInfo,				
+				s3Url: s3.getSignedUrl(
+					'getObject', 
+					{ Bucket: bucketName, Key: objectName }
+				)
+			})
+		);
 }
 
 export function listObjectParts(bucketName, objectName, page) {
@@ -593,17 +598,15 @@ export function listNodeStoredParts(nodeName, page) {
 // -----------------------------------------------------
 // Managment actions.
 // -----------------------------------------------------
-export function createAccount(system, email, password, dnsName) {
-	logAction('createAccount', { system, email, password, dnsName });
+export function createSystemAccount(systemName, email, password, dnsName) {
+	logAction('createSystemAccount', { systemName, email, password, dnsName });
 
-	api.account.create_account({ name: system, email: email, password: password })
+	api.account.create_account({ name: systemName, email: email, password: password })
 		.then(
 			({ token }) => {
 				api.options.auth_token = token;
 				localStorage.setItem('sessionToken', token);
-				model.sessionInfo({ user: email, system: system});
-
-				page.redirect(`/fe/systems/${system}`);
+				model.sessionInfo({ user: email, system: systemName});
 			}
 		)
 		.then(
@@ -618,7 +621,38 @@ export function createAccount(system, email, password, dnsName) {
 				}
 			}
 		)
+		.then(
+			() => page.redirect(`/fe/systems/${systemName}`)
+		)
 		.done();
+}
+
+export function createAccount(name, email, password) {
+	logAction('createAccount', { name, email, password });
+
+	let accountList = model.accountList;
+
+	api.account.create_account({ name, email, password })
+		.then(
+			({ token }) => {
+				api.options.auth_token = token;
+				localStorage.setItem('sessionToken', token);
+				model.sessionInfo({ user: email, system: system});
+			}
+		)
+		.then(
+			() => {
+				if (dnsName) {
+					return api.system.update_base_address({
+						base_address: dnsName
+					});
+
+				} else {
+					return Promise.when(true);
+				}
+			}
+		)
+		.done();	
 }
 
 export function createBucket(name, dataPlacement, pools) {
@@ -693,70 +727,91 @@ export function createPool(name, nodes) {
 
 export function uploadFiles(bucketName, files) {
 	logAction('uploadFiles', { bucketName, files });
-
+	
 	let recentUploads = model.recentUploads;
-	let s3 = new AWS.S3({
-	    endpoint: endpoint,
-	    s3ForcePathStyle: true,
-	    sslEnabled: false,	
-	});
+	api.system.read_system()
+		.then(
+			reply => {
+				let { access_key, secret_key } = reply.access_keys[0];
 
-	let requests = Array.from(files).map(
-		file => new Promise((resolve, reject) => {
-			// Create an entry in the recent uploaded list.
-			let entry = {
-				name: file.name,
-				state: 'UPLOADING',
-				progress: 0,
-				error: null
-			};
-			recentUploads.unshift(entry);
+				return new AWS.S3({
+				    endpoint: reply.ip_address,
+				    credentials: {
+				    	accessKeyId:  access_key,
+				    	secretAccessKey:  secret_key
+				    },
+				    s3ForcePathStyle: true,
+				    sslEnabled: false,
+				})
+			}
+		)
+		.then(
+			s3 => {
+				let uploadRequests = Array.from(files).map(
+					file => new Promise(
+						(resolve, reject) => {
+							// Create an entry in the recent uploaded list.
+							let entry = {
+								name: file.name,
+								state: 'UPLOADING',
+								progress: 0,
+								error: null
+							};
+							recentUploads.unshift(entry);
 
-			// Start the upload.
-			s3.upload(
-				{
-					Key: file.name,
-					Bucket: bucketName,
-					Body: file,
-					ContentType: file.type
-				}, 
-				error => {
-					if (!error) {
-						entry.state = 'COMPLETED';
-						entry.progress = 1;
-						resolve(1);
-					} else {
-						entry.state = 'FAILED';
-						entry.error = error;
-						
-						// This is not a bug we want to resolve failed uploads
-						// in order to finalize the entire upload process.
-						resolve(0);
-					}
+							// Start the upload.
+							s3.upload(
+								{
+									Key: file.name,
+									Bucket: bucketName,
+									Body: file,
+									ContentType: file.type
+								}, 
+								error => {
+									if (!error) {
+										entry.state = 'COMPLETED';
+										entry.progress = 1;
+										resolve(1);
 
-					// Use replace to trigger change event.
-					recentUploads.replace(entry, entry);
-				}
-			)
-			.on('httpUploadProgress', 
-				({ loaded, total }) => {
-					entry.progress = loaded / total;
+									} else {
+										entry.state = 'FAILED';
+										entry.error = error;
+										
+										// This is not a bug we want to resolve failed uploads
+										// in order to finalize the entire upload process.
+										resolve(0);
+									}
 
-					// Use replace to trigger change event.
-					recentUploads.replace(entry, entry);
-				}
-			);
-		})
-	);
+									// Use replace to trigger change event.
+									recentUploads.replace(entry, entry);
+								}
+							)
+							//	Report on progress.
+							.on('httpUploadProgress', 
+								({ loaded, total }) => {
+									entry.progress = loaded / total;
 
-	Promise.all(requests)
+									// Use replace to trigger change event.
+									recentUploads.replace(entry, entry);
+								}
+							);
+						}
+					)
+				);
+
+				return Promise.all(uploadRequests);
+			}
+		)
 		.then(
 			results => results.reduce(
 				(sum, result) => sum += result
 			)
 		)
 		.then(
-			completedCount => completedCount > 0 && refresh()
+			completedCount => {
+				console.log('herer', completedCount);
+				completedCount > 0 && refresh()
+			}
 		);
 }
 
@@ -811,4 +866,14 @@ export function loadMoreAuditEntries(count) {
 			)
 			.done()
 	}
+}
+
+export function loadAccountList() {
+	logAction('loadAccountList');
+
+	api.account.list_system_accounts()
+		.then(
+			reply => model.accountList(reply.accounts)
+		)
+		.done()
 }

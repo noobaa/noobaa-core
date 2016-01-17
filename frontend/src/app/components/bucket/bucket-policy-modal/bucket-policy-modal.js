@@ -12,18 +12,24 @@ class BucketPolicyModalViewModel {
 			pool => pool.name
 		);
 
-		this.dataPlacement = ko.observable();
-		this.selectedPools = ko.observableArray();
-
-		this.tier = ko.pureComputed(
-			() => bucketPolicy() ? bucketPolicy().tiers[0].tier : null
+		let tier = ko.pureComputed(
+			() => !!bucketPolicy() ? bucketPolicy().tiers[0].tier : null
 		);
 
-		this.initSubscription = this.tier.subscribe(
-			tier => {
-				this.dataPlacement(tier.data_placement);
-				this.selectedPools(tier.pools)
-			}
+		this.dataReady = ko.pureComputed(
+			() => !!tier()
+		);
+
+		this.tierName = ko.pureComputed(
+			() => tier().name
+		);
+
+		this.dataPlacement = ko.observableWithDefault(
+			() => tier().dataPlacement
+		);
+
+		this.selectedPools = ko.observableWithDefault(
+			() => tier().pools
 		);
 
 		readBucketPolicy(ko.unwrap(policyName));
@@ -43,7 +49,7 @@ class BucketPolicyModalViewModel {
 
 	save() {
 		updateTier(
-			this.tier().name,
+			this.tierName(),
 			this.dataPlacement(),
 			this.selectedPools()
 		);
@@ -53,11 +59,6 @@ class BucketPolicyModalViewModel {
 
 	cancel() {
 		this.onClose();
-	}
-
-	dispose() {
-		console.log('here');
-		this.initSubscription.dispose();
 	}
 }
 

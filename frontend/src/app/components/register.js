@@ -79,6 +79,12 @@ export default function register(ko) {
 	ko.components.register('test-node-modal',	require('./node/test-node-modal/test-node-modal'));
 
 	// -------------------------------
+	// Management
+	// -------------------------------
+	ko.components.register('management-panel',	require('./management/management-panel/management-panel'));
+	ko.components.register('accounts-table',	require('./management/accounts-table/accounts-table'));
+
+	// -------------------------------
 	// Admin
 	// -------------------------------
 	ko.components.register('audit-pane', 		require('./admin/audit-pane/audit-pane'));

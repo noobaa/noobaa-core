@@ -9,6 +9,7 @@ var system_store = require('./stores/system_store');
 
 var cluster_server = {
     get_cluster_id: get_cluster_id,
+    load_system_store: load_system_store,
 };
 
 module.exports = cluster_server;
@@ -19,6 +20,13 @@ module.exports = cluster_server;
  *
  */
 function get_cluster_id(req) {
-    var cluster = system_store.clusters[0];
+    var cluster = system_store.data.clusters[0];
     return cluster ? cluster.cluster_id : '';
+}
+
+/**
+ *
+ */
+function load_system_store(req) {
+    return system_store.load().return();
 }

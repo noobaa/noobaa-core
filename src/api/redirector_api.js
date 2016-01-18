@@ -74,7 +74,28 @@ module.exports = {
             auth: {
                 system: false
             }
-        }
+        },
+
+        register_to_cluster: {
+            method: 'POST',
+            auth: {
+                system: false
+            }
+        },
+
+        publish_to_cluster: {
+            method: 'POST',
+            params: {
+                $ref: '/node_api/definitions/redirect_params'
+            },
+            reply: {
+                $ref: '/node_api/definitions/redirect_reply'
+            },
+            auth: {
+                system: false
+            }
+        },
+
     },
 
     definitions: {

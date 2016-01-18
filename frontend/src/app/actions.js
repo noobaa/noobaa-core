@@ -3,7 +3,8 @@ import page from 'page';
 import api from 'services/api';
 import config from 'config';
 import { hostname as endpoint } from 'server-conf';
-import { isDefined, isUndefined, encodeBase64, cmpStrings, cmpInts, cmpBools, randomString, last } from 'utils';
+import { isDefined, isUndefined, encodeBase64, cmpStrings, cmpInts, cmpBools, 
+	randomString, last, stringifyQueryString } from 'utils';
 
 // TODO: resolve browserify issue with export of the aws-sdk module.
 // The current workaround use the AWS that is set on the global window object.
@@ -32,6 +33,27 @@ const poolCmpFuncs = Object.freeze({
 	usage: (p1, p2) => cmpInts(p1.storage.used, p2.storage.used),
 	capacity: (p1, p2) => cmpInts(p1.storage.total, p2.storage.total),
 });
+
+export function navigateTo(path = window.location.pathname, query = {}) {
+	logAction('navigateTo', { path, query });
+
+	page.show(`${path}?${stringifyQueryString(query)}`);
+}
+
+export function redirectTo(path = window.location.pathname, query = {}) {
+	logAction('navigateTo', { path, query });
+
+	page.redirect(`${path}?${stringifyQueryString(query)}`);
+}
+
+export function refresh() {
+	logAction('refresh');
+
+	let { pathname, search } = window.location;
+	
+	// Reload the current path
+	page.redirect(pathname + search);
+}
 
 // Utility function to log actions.
 function logAction(action, payload) {
@@ -237,13 +259,6 @@ export function showManagement() {
 		panel: 'management',
 		tab: tab
 	});
-}
-
-export function refresh() {
-	logAction('refresh');
-
-	let { pathname, search } = window.location;
-	page.redirect(pathname + search);
 }
 
 export function openAuditLog() {
@@ -696,7 +711,7 @@ export function deleteBucket(name) {
 
 	api.bucket.delete_bucket({ name })
 		.then(readSystemInfo)
-		.done();
+		.done();``
 }
 
 export function updateTier(name, dataPlacement, pools) {

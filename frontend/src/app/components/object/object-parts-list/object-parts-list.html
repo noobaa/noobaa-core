@@ -4,7 +4,7 @@
 <div class="list-wrapper fill">
 	<ul class="list-no-style" data-bind="foreach: rows">
 		<li>
-			<div class="row" data-bind="click: $parent.expendPart">
+			<div class="row" data-bind="click: toggleExpend">
 				<button class="expend-btn btn-flat pull-right text-tech" 
 					data-bind="text: isExpended() ? '-' : '+'"></button>
 

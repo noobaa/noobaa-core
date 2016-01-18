@@ -2,7 +2,7 @@ import template from './bucket-policy-modal.html';
 import ko from 'knockout';
 import { noop, cloneArray } from 'utils';
 import { poolList, bucketPolicy } from 'model';
-import { readSystemInfo, readBucketPolicy, updateTier } from 'actions';
+import { readSystemInfo, loadBucketPolicy, updateTier } from 'actions';
 
 class BucketPolicyModalViewModel {
 	constructor({ policyName, onClose = noop }) {
@@ -32,7 +32,7 @@ class BucketPolicyModalViewModel {
 			() => tier().pools
 		);
 
-		readBucketPolicy(ko.unwrap(policyName));
+		loadBucketPolicy(ko.unwrap(policyName));
 		readSystemInfo();
 	}
 

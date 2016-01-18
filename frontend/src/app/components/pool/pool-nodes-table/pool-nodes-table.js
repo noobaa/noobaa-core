@@ -1,10 +1,9 @@
 import template from './pool-nodes-table.html';
+import NodeRowViewModel from './node-row';
 import ko from 'knockout';
 import { paginationPageSize } from 'config';
-import { makeArray} from 'utils';
-import NodeRowViewModel from './node-row';
-import { throttle, stringifyQueryString } from 'utils';
-import { navigatTo } from 'actions';
+import { makeArray, throttle} from 'utils';
+import { redirectTo } from 'actions';
 
 class PoolNodesTableViewModel {
 	constructor({ nodes }) {

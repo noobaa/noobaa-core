@@ -5,8 +5,9 @@ import runStepTemplate from './run-step.html';
 import reviewStepTemplate from './review-step.html';
 import ko from 'knockout';
 import { defaultPoolName } from 'config';
-import { agentInstallationInfo } from 'model';
+import { agentInstallationInfo as installInfo } from 'model';
 import { copyTextToClipboard } from 'utils';
+import { loadAgentInstallationInfo } from 'actions';
 
 class InstallNodeWizardViewModel {
 	constructor({ onClose }) {
@@ -15,19 +16,22 @@ class InstallNodeWizardViewModel {
 		this.runStepTemplate = runStepTemplate;
 		this.reviewStepTemplate = reviewStepTemplate;
 		this.onClose = onClose;
-
 		this.installationType = ko.observable('DIST_TOOL');
 
+		this.dataReady = ko.pureComputed(
+			() => !!installInfo()
+		);
+
 		this.windowAgentUrl = ko.pureComputed(
-			() => agentInstallationInfo().downloadUris.windows
+			() => installInfo().downloadUris.windows
 		);
 
 		this.linuxAgentUrl = ko.pureComputed(
-			() => agentInstallationInfo().downloadUris.linux
+			() => installInfo().downloadUris.linux
 		);
 
 		this.distConf = ko.pureComputed(
-			() => `/S /config ${agentInstallationInfo().agentConf}` 
+			() => `/S /config ${installInfo().agentConf}` 
 		);
 
 		this.windowsInstallCommand = ko.pureComputed(
@@ -39,6 +43,8 @@ class InstallNodeWizardViewModel {
 		);
 
 		this.defaultPoolUrl = `/fe/systems/:system/pools/${defaultPoolName}`;
+
+		loadAgentInstallationInfo();
 	}
 
 	copyToClipboard(text) {

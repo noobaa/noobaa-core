@@ -4,58 +4,16 @@ import api from 'services/api';
 import config from 'config';
 import { hostname as endpoint } from 'server-conf';
 import { isDefined, isUndefined, encodeBase64, cmpStrings, cmpInts, cmpBools, 
-	randomString, last, stringifyQueryString } from 'utils';
+	randomString, last, stringifyQueryString, clamp } from 'utils';
 
 // TODO: resolve browserify issue with export of the aws-sdk module.
 // The current workaround use the AWS that is set on the global window object.
 import 'aws-sdk';
 AWS = window.AWS;
 
-// Compare functions for entities.
-const bucketCmpFuncs = Object.freeze({
-	state: (b1, b2) => cmpBools(b1.state, b2.state),
-	name: (b1, b2) => cmpStrings(b1.name, b2.name),
-	filecount: (b1, b2) => cmpInts(b1.num_objects, b2.num_objects),
-	totalsize: (b1, b2) => cmpInts(b1.storage.total, b2.storage.total),
-	freesize: (b1, b2) => cmpInts(b1.storage.free, b2.storage.free),
-	cloudsync: (b1, b2) => cmpStrings(b1.cloud_sync_status, b2.cloud_sync_status)
-});
-
-const poolCmpFuncs = Object.freeze({
-	state: (p1, p2) => cmpBools(true, true),
-	name: (p1, p2) => cmpStrings(p1.name, p2.name),
-	nodecount: (p1, p2) => cmpInts(p1.total_nodes, p2.total_nodes),
-	onlinecount: (p1, p2) => cmpInts(p1.online_nodes, p2.online_nodes),
-	offlinecount: (p1, p2) => cmpInts(
-		p1.total_nodes - p1.online_nodes, 
-		p2.total_nodes - p2.online_nodes, 
-	),
-	usage: (p1, p2) => cmpInts(p1.storage.used, p2.storage.used),
-	capacity: (p1, p2) => cmpInts(p1.storage.total, p2.storage.total),
-});
-
-export function navigateTo(path = window.location.pathname, query = {}) {
-	logAction('navigateTo', { path, query });
-
-	page.show(`${path}?${stringifyQueryString(query)}`);
-}
-
-export function redirectTo(path = window.location.pathname, query = {}) {
-	logAction('navigateTo', { path, query });
-
-	page.redirect(`${path}?${stringifyQueryString(query)}`);
-}
-
-export function refresh() {
-	logAction('refresh');
-
-	let { pathname, search } = window.location;
-	
-	// Reload the current path
-	page.redirect(pathname + search);
-}
-
+// -----------------------------------------------------
 // Utility function to log actions.
+// -----------------------------------------------------
 function logAction(action, payload) {
 	if (typeof payload !== 'undefined') {
 		console.info(`action dispatched: ${action} with`, payload);
@@ -87,6 +45,30 @@ export function start() {
 }
 
 // -----------------------------------------------------
+// Navigation actions
+// -----------------------------------------------------
+export function navigateTo(path = window.location.pathname, query = {}) {
+	logAction('navigateTo', { path, query });
+
+	page.show(`${path}?${stringifyQueryString(query)}`);
+}
+
+export function redirectTo(path = window.location.pathname, query = {}) {
+	logAction('navigateTo', { path, query });
+
+	page.redirect(`${path}?${stringifyQueryString(query)}`);
+}
+
+export function refresh() {
+	logAction('refresh');
+
+	let { pathname, search } = window.location;
+	
+	// Reload the current path
+	page.redirect(pathname + search);
+}
+
+// -----------------------------------------------------
 // High level UI update actions. 
 // -----------------------------------------------------
 export function showLogin() {
@@ -96,7 +78,7 @@ export function showLogin() {
 	let ctx = model.routeContext();
 
 	if (!!session) {
-		page.redirect(`/fe/systems/${session.system}`);
+		redirectTo(`/fe/systems/${session.system}`);
 
 	} else {
 		model.uiState({ 
@@ -104,7 +86,7 @@ export function showLogin() {
 			returnUrl: ctx.query.returnUrl,
 		});
 
-		readServerInfo();
+		loadServerInfo();
 	}
 }	
 
@@ -118,7 +100,7 @@ export function showOverview() {
 		panel: 'overview'	
 	});
 
-	readSystemInfo();
+	loadSystemOverview();
 }
 
 export function showBuckets() {
@@ -131,11 +113,8 @@ export function showBuckets() {
 		panel: 'buckets',
 	});
 
-	let query = model.routeContext().query;
-	model.bucketList.sortedBy(query.sortBy || 'name');
-	model.bucketList.order(query.order < 0 ? -1 : 1);
-	
-	readSystemInfo();
+	let { sortBy, order } = model.routeContext().query;
+	loadBucketList(sortBy, order);
 }
 
 export function showBucket() {
@@ -156,8 +135,8 @@ export function showBucket() {
 		tab: tab
 	});
 
-	readBucket(bucket);
-	listBucketObjects(bucket, filter, sortBy, parseInt(order), parseInt(page));		
+	loadBucketInfo(bucket);
+	loadBucketObjectList(bucket, filter, sortBy, parseInt(order), parseInt(page));		
 }
 
 export function showObject() {
@@ -179,8 +158,8 @@ export function showObject() {
 		tab: tab
 	});
 
-	readObjectMetadata(bucket, object)
-	listObjectParts(bucket, object, parseInt(page));
+	loadObjectMetadata(bucket, object)
+	loadObjectPartList(bucket, object, parseInt(page));
 }
 
 export function showPools() {
@@ -193,12 +172,8 @@ export function showPools() {
 		panel: 'pools'
 	});
 
-	let query = model.routeContext().query;
-	model.poolList.sortedBy(query.sortBy || 'name');
-	model.poolList.order(query.order < 0 ? -1 : 1);
-
-	readSystemInfo();
-	listAllNodes();
+	let { sortBy, order } = model.routeContext().query;
+	loadPoolList(sortBy, order);
 }
 
 export function showPool() {
@@ -220,8 +195,8 @@ export function showPool() {
 		tab: tab
 	});
 
-	readPool(pool);
-	listPoolNodes(pool, filter, sortBy, parseInt(order), parseInt(page));
+	loadPoolInfo(pool);
+	loadPoolNodeList(pool, filter, sortBy, parseInt(order), parseInt(page));
 }
 
 export function showNode() {
@@ -243,8 +218,8 @@ export function showNode() {
 		tab: tab
 	});
 
-	readNode(node);
-	listNodeStoredParts(node, parseInt(page));		
+	loadNodeInfo(node);
+	loadNodeStoredPartsList(node, parseInt(page));		
 }	
 
 export function showManagement() {
@@ -282,8 +257,8 @@ export function closeTray() {
 // -----------------------------------------------------
 // Sign In/Out actions.
 // -----------------------------------------------------
-export function signIn(email, password, redirectTo) {
-	logAction('signIn', { email, password, redirectTo });
+export function signIn(email, password, redirectUrl) {
+	logAction('signIn', { email, password, redirectUrl });
 
 	api.create_auth_token({ email, password })
 		.then(() => api.system.list_systems())
@@ -298,11 +273,11 @@ export function signIn(email, password, redirectTo) {
 						model.sessionInfo({ user: email, system: system })
 						model.loginInfo({ retryCount: 0 });
 
-						if (isUndefined(redirectTo)) {
-							redirectTo = `/fe/systems/${system}`;
+						if (isUndefined(redirectUl)) {
+							redirectUrl = `/fe/systems/${system}`;
 						}
 
-						page.redirect(decodeURIComponent(redirectTo));
+						redirectTo(decodeURIComponent(redirectUrl));
 					})
 			}
 		)
@@ -330,7 +305,9 @@ export function signOut() {
 // -----------------------------------------------------
 // Information retrieval actions.
 // -----------------------------------------------------
-export function readServerInfo() {
+export function loadServerInfo() {
+	logAction('loadServerInfo');
+
 	api.account.accounts_status()
 		.then(
 			reply => model.serverInfo({
@@ -341,21 +318,15 @@ export function readServerInfo() {
 		.done();
 }
 
-export function readSystemInfo() {
-	logAction('readSystemInfo');
+export function loadSystemOverview() {
+	logAction('loadSystemOverview');
 
-	let { systemOverview, agentInstallationInfo, bucketList, poolList } = model;
+	let systemOverview = model.systemOverview;
 	api.system.read_system()
 		.then(
 			reply => {
-				let keys = reply.access_keys[0];
-
 				systemOverview({
 					endpoint: endpoint,
-					keys: {
-						access: keys.access_key,
-						secret: keys.secret_key,
-					},
 					capacity: reply.storage.total,
 					bucketCount: reply.buckets.length,
 					objectCount: reply.objects,
@@ -363,7 +334,86 @@ export function readSystemInfo() {
 					nodeCount: reply.nodes.count,
 					onlineNodeCount: reply.nodes.online,
 					offlineNodeCount: reply.nodes.count - reply.nodes.online
-				});
+				})	
+			}
+		)	
+		.done();
+}
+
+const bucketCmpFuncs = Object.freeze({
+	state: (b1, b2) => cmpBools(b1.state, b2.state),
+	name: (b1, b2) => cmpStrings(b1.name, b2.name),
+	filecount: (b1, b2) => cmpInts(b1.num_objects, b2.num_objects),
+	totalsize: (b1, b2) => cmpInts(b1.storage.total, b2.storage.total),
+	freesize: (b1, b2) => cmpInts(b1.storage.free, b2.storage.free),
+	cloudsync: (b1, b2) => cmpStrings(b1.cloud_sync_status, b2.cloud_sync_status)
+});
+
+export function loadBucketList(sortBy = 'name', order = 1) {
+	logAction('loadBucketList', { sortBy, order });
+
+	// Normalize the order.
+	order = clamp(order, -1, 1);
+
+	let bucketList = model.bucketList;
+	api.system.read_system()
+		.then(
+			({ buckets }) => {
+				bucketList(
+					buckets.sort(
+						(b1, b2) => order * bucketCmpFuncs[sortBy](b1, b2)
+					)
+				);
+				bucketList.sortedBy(sortBy);
+				bucketList.order(order);
+			}
+		)
+		.done();
+}
+
+const poolCmpFuncs = Object.freeze({
+	state: (p1, p2) => cmpBools(true, true),
+	name: (p1, p2) => cmpStrings(p1.name, p2.name),
+	nodecount: (p1, p2) => cmpInts(p1.total_nodes, p2.total_nodes),
+	onlinecount: (p1, p2) => cmpInts(p1.online_nodes, p2.online_nodes),
+	offlinecount: (p1, p2) => cmpInts(
+		p1.total_nodes - p1.online_nodes, 
+		p2.total_nodes - p2.online_nodes, 
+	),
+	usage: (p1, p2) => cmpInts(p1.storage.used, p2.storage.used),
+	capacity: (p1, p2) => cmpInts(p1.storage.total, p2.storage.total),
+});
+
+export function loadPoolList(sortBy = 'name', order = 1) {
+	logAction('loadPoolList', { sortBy, order });
+
+	// Normalize the order.
+	order = clamp(order, -1, 1);
+
+	let poolList = model.poolList;
+	api.system.read_system()
+		.then(
+			({ pools }) => {
+				poolList(
+					pools.sort(
+						(b1, b2) => order * poolCmpFuncs[sortBy](b1, b2)
+					)
+				);
+				poolList.sortedBy(sortBy);
+				poolList.order(order);
+			}
+		)
+		.done();
+}
+
+export function loadAgentInstallationInfo() {
+	logAction('loadAgentInstallationInfo');
+
+	let { agentInstallationInfo } = model;
+	api.system.read_system()
+		.then(
+			reply => {
+				let keys = reply.access_keys[0];
 
 				agentInstallationInfo({
 					agentConf: encodeBase64({
@@ -379,31 +429,21 @@ export function readSystemInfo() {
 						linux: reply.web_links.linux_agent_installer
 					}
 				});
-
-				bucketList(reply.buckets);
-				bucketList.sort(
-					(b1, b2) => bucketList.order() * bucketCmpFuncs[bucketList.sortedBy()](b1, b2)
-				);
-
-				poolList(reply.pools);
-				poolList.sort(
-					(p1, p2) => poolList.order() * poolCmpFuncs[poolList.sortedBy()](p1, p2)
-				);
 			}
 		)
 		.done();
 }
 
-export function readBucket(name) {
-	logAction('readBucket', { name });
+export function loadBucketInfo(name) {
+	logAction('loadBucketInfo', { name });
 
 	api.bucket.read_bucket({ name })
 		.then(model.bucketInfo)
 		.done();
 }
 
-export function readBucketPolicy(name) {
-	logAction('readBucketPolicy', { name });
+export function loadBucketPolicy(name) {
+	logAction('loadBucketPolicy', { name });
 
 	model.bucketPolicy(null);
 	api.tiering_policy.read_policy({ name })
@@ -411,8 +451,8 @@ export function readBucketPolicy(name) {
 		.done();
 }
 
-export function listBucketObjects(bucketName, filter, sortBy, order, page) {
-	logAction('listBucketObjects', { bucketName, filter, sortBy, order, page });
+export function loadBucketObjectList(bucketName, filter, sortBy, order, page) {
+	logAction('loadBucketObjectList', { bucketName, filter, sortBy, order, page });
 
 	let bucketObjectList = model.bucketObjectList;
 
@@ -427,19 +467,19 @@ export function listBucketObjects(bucketName, filter, sortBy, order, page) {
 		})
 		.then(
 			reply => {
+				bucketObjectList(reply.objects);
 				bucketObjectList.sortedBy(sortBy);
 				bucketObjectList.filter(filter);
 				bucketObjectList.order(order);
 				bucketObjectList.page(page);
 				bucketObjectList.count(reply.total_count);
-				bucketObjectList(reply.objects);
 			}
 		) 
 		.done();
 }
 
-export function readObjectMetadata(bucketName, objectName) {
-	logAction('readObjectMetadata', { bucketName, objectName });
+export function loadObjectMetadata(bucketName, objectName) {
+	logAction('loadObjectMetadata', { bucketName, objectName });
 
 	// Drop previous data if of diffrent object.
 	if (!!model.objectInfo() && model.objectInfo().name !== objectName) {
@@ -483,8 +523,8 @@ export function readObjectMetadata(bucketName, objectName) {
 		);
 }
 
-export function listObjectParts(bucketName, objectName, page) {
-	logAction('listObjectParts', { bucketName, objectName, page });
+export function loadObjectPartList(bucketName, objectName, page) {
+	logAction('loadObjectPartList', { bucketName, objectName, page });
 
 	api.object.read_object_mappings({ 
 		bucket: bucketName, 
@@ -494,8 +534,8 @@ export function listObjectParts(bucketName, objectName, page) {
 		adminfo: true 
 	})
 		.then(
-			reply => {
-				model.objectPartList(reply.parts);
+			({ parts }) => {
+				model.objectPartList(parts);
 				model.objectPartList.page(page);
 
 				// TODO: change to real count when avaliable.
@@ -505,8 +545,8 @@ export function listObjectParts(bucketName, objectName, page) {
 		.done();
 }
 
-export function readPool(name) {
-	logAction('readPool', { name });
+export function loadPoolInfo(name) {
+	logAction('loadPoolInfo', { name });
 
 	if (model.poolInfo() && model.poolInfo().name !== name) {
 		model.poolInfo(null);
@@ -517,8 +557,8 @@ export function readPool(name) {
 		.done();
 }
 
-export function listPoolNodes(poolName, filter, sortBy, order, page) {
-	logAction('listPoolNodes', { poolName, filter, sortBy, order, page });
+export function loadPoolNodeList(poolName, filter, sortBy, order, page) {
+	logAction('loadPoolNodeList', { poolName, filter, sortBy, order, page });
 	
 	api.node.list_nodes({  
 		query: {
@@ -554,21 +594,20 @@ export function listAllNodes() {
 		.done();
 }
 
-export function readNode(nodeName) {
-	logAction('readNode', { nodeName });
+export function loadNodeInfo(nodeName) {
+	logAction('loadNodeInfo', { nodeName });
 
 	if (model.nodeInfo() && model.nodeInfo().name !== nodeName) {
 		model.nodeInfo(null);
 	}
-
 
 	api.node.read_node({ name: nodeName })
 		.then(model.nodeInfo)
 		.done();
 }
 
-export function listNodeStoredParts(nodeName, page) {
-	logAction('listNodeStoredParts', { nodeName, page });
+export function loadNodeStoredPartsList(nodeName, page) {
+	logAction('loadNodeStoredPartsList', { nodeName, page });
 
 	api.node.read_node_maps({ name: nodeName })
 		.then(
@@ -594,20 +633,80 @@ export function listNodeStoredParts(nodeName, page) {
 					);
 
 				// TODO: change to server side paganation when avaliable.
-
 				let pageParts = parts.slice(
 					config.paginationPageSize * page,
 					config.paginationPageSize * (page + 1),
 				);
 
-				let partsCount = parts.length;
-
 				model.nodeStoredPartList(pageParts);
 				model.nodeStoredPartList.page(page);
-				model.nodeStoredPartList.count(partsCount);
+				model.nodeStoredPartList.count(parts.length);
 			}
 		)
 		.done();
+}
+
+export function loadAuditEntries(categories, count) {
+	logAction('loadAuditEntries', { categories, count });
+
+	let auditLog = model.auditLog;
+	let filter = categories
+		.map(
+			category => `(^${category}.)`
+		)
+		.join('|');
+
+	if (filter !== '') {
+		api.system.read_activity_log({
+			event: filter || '^$',
+			limit: count
+		})
+			.then(
+				({ logs }) => {
+					auditLog(logs.reverse());
+					auditLog.loadedCategories(categories);
+				}
+			)
+			.done();
+
+	} else {
+		auditLog([]);
+		auditLog.loadedCategories([]);
+	}
+}
+
+export function loadMoreAuditEntries(count) {
+	logAction('loadMoreAuditEntries', { count });
+
+	let auditLog = model.auditLog;
+	let lastEntryTime = last(auditLog()).time;
+	let filter = model.auditLog.loadedCategories()
+		.map(
+			category => `(^${category}.)` 
+		)
+		.join('|');
+
+	if (filter !== '') {
+		api.system.read_activity_log({
+			event: filter,
+			till: lastEntryTime,
+			limit: count 
+		})
+			.then(
+				({ logs }) => auditLog.push(...logs.reverse())
+			)
+			.done()
+	}
+}
+
+export function loadAccountList() {
+	logAction('loadAccountList');
+
+	api.account.list_system_accounts()
+		.then(
+			({ accounts }) => model.accountList(accounts)
+		)
+		.done()
 }
 
 // -----------------------------------------------------
@@ -637,7 +736,7 @@ export function createSystemAccount(systemName, email, password, dnsName) {
 			}
 		)
 		.then(
-			() => page.redirect(`/fe/systems/${systemName}`)
+			() => redirectTo(`/fe/systems/${systemName}`)
 		)
 		.done();
 }
@@ -710,8 +809,8 @@ export function deleteBucket(name) {
 	logAction('deleteBucket', { name });
 
 	api.bucket.delete_bucket({ name })
-		.then(readSystemInfo)
-		.done();``
+		.then(refresh)
+		.done();
 }
 
 export function updateTier(name, dataPlacement, pools) {
@@ -734,9 +833,15 @@ export function createPool(name, nodes) {
 	api.pool.create_pool({
 		pool: { name, nodes }
 	})
-		.then(
-			() => readSystemInfo()
-		)
+		.then(loadPoolList)
+		.done();
+}
+
+export function deletePool(name) {
+	logAction('deletePool', { name });
+
+	api.pool.delete_pool({ name })
+		.then(refresh)
 		.done();
 }
 
@@ -828,67 +933,4 @@ export function uploadFiles(bucketName, files) {
 				completedCount > 0 && refresh()
 			}
 		);
-}
-
-export function loadAuditEntries(categories, count) {
-	logAction('loadAuditEntries', { categories, count });
-
-	let auditLog = model.auditLog;
-	let filter = categories
-		.map(
-			category => `(^${category}.)`
-		)
-		.join('|');
-
-	if (filter !== '') {
-		api.system.read_activity_log({
-			event: filter || '^$',
-			limit: count
-		})
-			.then(
-				reply => {
-					auditLog(reply.logs.reverse());
-					auditLog.loadedCategories(categories);
-				}
-			)
-			.done();
-
-	} else {
-		auditLog([]);
-		auditLog.loadedCategories([]);
-	}
-}
-
-export function loadMoreAuditEntries(count) {
-	logAction('loadMoreAuditEntries', { count });
-
-	let auditLog = model.auditLog;
-	let lastEntryTime = last(auditLog()).time;
-	let filter = model.auditLog.loadedCategories()
-		.map(
-			category => `(^${category}.)` 
-		)
-		.join('|');
-
-	if (filter !== '') {
-		api.system.read_activity_log({
-			event: filter,
-			till: lastEntryTime,
-			limit: count 
-		})
-			.then(
-				reply => auditLog.push(...reply.logs.reverse())
-			)
-			.done()
-	}
-}
-
-export function loadAccountList() {
-	logAction('loadAccountList');
-
-	api.account.list_system_accounts()
-		.then(
-			reply => model.accountList(reply.accounts)
-		)
-		.done()
 }

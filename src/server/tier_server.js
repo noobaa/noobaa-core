@@ -2,10 +2,12 @@
 'use strict';
 
 var _ = require('lodash');
-// var P = require('../util/promise');
+var P = require('../util/promise');
 var dbg = require('../util/debug_module')(__filename);
 var system_store = require('./stores/system_store');
 var size_utils = require('../util/size_utils');
+var mongo_utils = require('../util/mongo_utils');
+var db = require('./db');
 
 /**
  *
@@ -96,7 +98,17 @@ function create_tier(req) {
  */
 function read_tier(req) {
     var tier = find_tier_by_name(req);
-    return get_tier_info(tier);
+    var pool_ids = mongo_utils.uniq_ids(tier.pools, '_id');
+    return P.when(db.Node.aggregate_nodes({
+            system: req.system._id,
+            pool: {
+                $in: pool_ids
+            },
+            deleted: null,
+        }, 'pool'))
+        .then(function(nodes_aggregate_pool) {
+            return get_tier_info(tier, nodes_aggregate_pool);
+        });
 }
 
 
@@ -180,7 +192,20 @@ function get_policy_pools(req) {
 
 function read_policy(req) {
     var policy = find_policy_by_name(req);
-    return get_tiering_policy_info(policy);
+    var pools = _.flatten(_.map(policy.tiers,
+        tier_and_order => tier_and_order.tier.pools
+    ));
+    var pool_ids = mongo_utils.uniq_ids(pools, '_id');
+    return P.when(db.Node.aggregate_nodes({
+            system: req.system._id,
+            pool: {
+                $in: pool_ids
+            },
+            deleted: null,
+        }, 'pool'))
+        .then(function(nodes_aggregate_pool) {
+            return get_tiering_policy_info(policy, nodes_aggregate_pool);
+        });
 }
 
 function delete_policy(req) {
@@ -227,8 +252,14 @@ function get_tier_info(tier, nodes_aggregate_pool) {
         dbg.error('BAD TIER DATA PLACEMENT (assuming spread)', tier);
         reducer = size_utils.reduce_sum;
     }
+    nodes_aggregate_pool = nodes_aggregate_pool || {};
     var pools_storage = _.map(tier.pools, pool => nodes_aggregate_pool[pool._id]);
     info.storage = size_utils.reduce_storage(reducer, pools_storage, 1, tier.replicas);
+    _.defaults(info.storage, {
+        used: 0,
+        total: 0,
+        free: 0,
+    });
     return info;
 }
 

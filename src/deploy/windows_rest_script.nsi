@@ -9,6 +9,7 @@
 ${StrRep}
 !include "CharToASCII.nsh"
 !include "Base64.nsh"
+!include x64.nsh
 
 
 ; Usage example:
@@ -60,12 +61,27 @@ Function .onInit
 	Var /global system
 	Var /global config
 	Var /global UPGRADE
-	Var /global AUTO_UPGRADE
 	;Install or upgrade?
 	StrCpy $UPGRADE "false"
+	Var /global AUTO_UPGRADE
+
+	;check first if there is an old installation on program files (x86)
+	;if so, just upgrade with x64 binaries
+
+	StrCpy $InstDir "$PROGRAMFILES\${NB}"
+	IfFileExists $INSTDIR\agent_conf.json IgnoreError SetRunningFolder
+		SetRunningFolder:
+			${If} ${RunningX64}
+				# 64 bit code
+				StrCpy $InstDir "$PROGRAMFILES64\${NB}"
+			${Else}
+				# 32 bit code
+				StrCpy $InstDir "$PROGRAMFILES\${NB}"
+			${EndIf}
+		IgnoreError:
+			ClearErrors
 
 
-	ClearErrors
 	${GetOptions} $CMDLINE "/config" $config
 	${If} ${Errors}
 		${GetOptions} $CMDLINE "/address" $address
@@ -149,9 +165,21 @@ Section "NooBaa S3 REST Service"
 		${EndIf}
 	${EndIf}
 
+	IfFileExists $INSTDIR\*.* Upgrades Standard
+		Upgrades:
+			StrCpy $UPGRADE "true"
+		Standard:
+			StrCpy $AUTO_UPGRADE "false"
+
+	IfFileExists $INSTDIR\noobaa-s3rest.exe Auto_Upgrades Auto_Standard
+		Auto_Upgrades:
+			StrCpy $AUTO_UPGRADE "true"
+		Auto_Standard:
 
 	${If} $UPGRADE == 'true' ;delete all files that we want to update
-		nsExec::ExecToStack '$\"$INSTDIR\service_uninstaller.bat$\""'
+		${If} $AUTO_UPGRADE == "false" ;delete all files that we want to update
+			nsExec::ExecToStack '$\"$INSTDIR\service_uninstaller.bat$\""'
+		${EndIf}
 		Delete "$INSTDIR\config.js"
 		Delete "$INSTDIR\package.json"
 		Delete "$INSTDIR\${ICON}"
@@ -166,32 +194,51 @@ Section "NooBaa S3 REST Service"
 		File "7za.exe"
 		File "NooBaa_Agent_wd.exe"
 		File "wget.exe"
-		File "openssl.exe"
-
 	${EndIf}
 
 	WriteUninstaller "$INSTDIR\uninstall-noobaa-S3REST.exe"
 	File "${ICON}"
 	File "NooBaa_Agent_wd.exe"
 	File "7za.exe"
-	File "openssl.exe"
-	File "libeay32.dll"
-	File "ssleay32.dll"
+
+
+		${If} ${RunningX64}
+	    # 64 bit code
+			File ".\64\openssl.exe"
+			File ".\64\libeay32.dll"
+			File ".\64\ssleay32.dll"
+			File ".\64\node.exe"
+			RMDir /r "$INSTDIR\build"
+			File /r  "build"
+			RMDir /r "$INSTDIR\build\Release-32"
+			Rename $INSTDIR\build\Release-64 $INSTDIR\build\Release
+
+		${Else}
+	    # 32 bit code
+			File ".\32\openssl.exe"
+			File ".\32\libeay32.dll"
+			File ".\32\ssleay32.dll"
+			File ".\32\node.exe"
+			RMDir /r "$INSTDIR\build"
+			File /r  "build"
+			RMDir /r "$INSTDIR\build\Release-64"
+			Rename $INSTDIR\build\Release-32 $INSTDIR\build\Release
+
+		${EndIf}
+
+
 	File "package.json"
 	File "wget.exe"
 	file "config.js"
-	file "node.exe"
 	File /r "ssl"
 	File /r "src"
 	File /r "node_modules"
-	File /r "Release"
 
 	${WriteFile} "$INSTDIR\service.bat" "@echo off"
 	${WriteFile} "$INSTDIR\service.bat" "rem Version 0.1"
-	${WriteFile} "$INSTDIR\service.bat" ">service.log ("
 	${WriteFile} "$INSTDIR\service.bat" "  cd $\"$INSTDIR$\""
-	${WriteFile} "$INSTDIR\service.bat" "  rem upgrade only if service is up and running"
-	${WriteFile} "$INSTDIR\service.bat" "  $\"$INSTDIR\NooBaa_Agent_wd$\" status 'Noobaa S3REST Service'"
+	${WriteFile} "$INSTDIR\service.bat" "set OPENSSL_CONF=$INSTDIR\ssl\openssl.cnf "
+	${WriteFile} "$INSTDIR\service.bat" "$\"$INSTDIR\node.exe$\" $\"$INSTDIR\src\s3\s3rver_starter.js$\" "
 	${WriteFile} "$INSTDIR\service.bat" "  set level=$\"%errorlevel%$\""
 	${WriteFile} "$INSTDIR\service.bat" "  echo %level% "
 	${WriteFile} "$INSTDIR\service.bat" "  if $\"%level%$\" == $\"0$\" ("
@@ -202,9 +249,7 @@ Section "NooBaa S3 REST Service"
 	${WriteFile} "$INSTDIR\service.bat" "    		del noobaa-s3rest.exe"
 	${WriteFile} "$INSTDIR\service.bat" "  		)"
 	${WriteFile} "$INSTDIR\service.bat" ")"
-	${WriteFile} "$INSTDIR\service.bat" "set OPENSSL_CONF=$INSTDIR\ssl\openssl.cnf "
-	${WriteFile} "$INSTDIR\service.bat" "$\"$INSTDIR\node.exe$\" $\"$INSTDIR\src\s3\s3rver_starter.js$\" "
-	${WriteFile} "$INSTDIR\service.bat" ")"
+
 	${WriteFile} "$INSTDIR\service_installer.bat" "cd $\"$INSTDIR$\""
 	${WriteFile} "$INSTDIR\service_installer.bat" "NooBaa_Agent_wd.exe install $\"Noobaa S3REST Service$\" $\"$INSTDIR\service.bat$\""
 	${WriteFile} "$INSTDIR\service_installer.bat" "NooBaa_Agent_wd set $\"Noobaa S3REST Service$\" AppStderr $\"$INSTDIR\Noobaa_S3REST_Service.log$\""

@@ -204,7 +204,10 @@ AgentCLI.prototype.load = function() {
             // we create a new node for every new drive (detects as a storage path without nodes)
             // but here we also consider the development mode of --scale
             // which asks to create at least that number of total nodes.
-            var nodes_to_add = Math.max(nodes_scale - existing_nodes_count, number_of_new_paths);
+            // Please note that the sacle is per storage path. if the scale is 2 and there are two HD
+            // we will have 4 nodes. In addition, we will always scale to at least 1 node
+
+            var nodes_to_add = Math.max(nodes_scale,1) - existing_nodes_count;
             dbg.log0('AGENTS SCALE TO', nodes_scale);
             dbg.log0('AGENTS EXISTING', existing_nodes_count);
             dbg.log0('AGENTS NEW PATHS', number_of_new_paths);

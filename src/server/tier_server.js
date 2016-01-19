@@ -5,6 +5,7 @@ var _ = require('lodash');
 // var P = require('../util/promise');
 var dbg = require('../util/debug_module')(__filename);
 var system_store = require('./stores/system_store');
+var size_utils = require('../util/size_utils');
 
 /**
  *
@@ -14,6 +15,8 @@ var system_store = require('./stores/system_store');
 var tier_server = {
     new_tier_defaults: new_tier_defaults,
     new_policy_defaults: new_policy_defaults,
+    get_tier_info: get_tier_info,
+    get_tiering_policy_info: get_tiering_policy_info,
 
     //Tiers
     create_tier: create_tier,
@@ -161,7 +164,7 @@ function create_policy(req) {
             }
         })
         .then(function() {
-            return get_policy_info(req);
+            return get_tiering_policy_info(req);
         });
 }
 
@@ -177,7 +180,7 @@ function get_policy_pools(req) {
 
 function read_policy(req) {
     var policy = find_policy_by_name(req);
-    return get_policy_info(policy);
+    return get_tiering_policy_info(policy);
 }
 
 function delete_policy(req) {
@@ -212,32 +215,34 @@ function find_policy_by_name(req) {
     return policy;
 }
 
-function get_tier_info(tier) {
+function get_tier_info(tier, nodes_aggregate_pool) {
     var info = _.pick(tier, 'name', TIER_PLACEMENT_FIELDS);
-    info.pools = _.map(tier.pools, function(pool) {
-        return pool.name;
-    });
-    // TODO read tier's storage
-    info.storage = {
-        alloc: 0,
-        used: 0,
-    };
+    info.pools = _.map(tier.pools, pool => pool.name);
+    var reducer;
+    if (tier.data_placement === 'MIRROR') {
+        reducer = size_utils.reduce_minimum;
+    } else if (tier.data_placement === 'SPREAD') {
+        reducer = size_utils.reduce_sum;
+    } else {
+        dbg.error('BAD TIER DATA PLACEMENT (assuming spread)', tier);
+        reducer = size_utils.reduce_sum;
+    }
+    var pools_storage = _.map(tier.pools, pool => nodes_aggregate_pool[pool._id]);
+    info.storage = size_utils.reduce_storage(reducer, pools_storage, 1, tier.replicas);
     return info;
 }
 
-function get_policy_info(policy) {
-    var info = _.pick(policy, 'name');
-    info.tiers = _.map(policy.tiers, function(t) {
+function get_tiering_policy_info(tiering_policy, nodes_aggregate_pool) {
+    var info = _.pick(tiering_policy, 'name');
+    var tiers_storage = [];
+    info.tiers = _.map(tiering_policy.tiers, function(tier_and_order) {
+        var tier_info = get_tier_info(tier_and_order.tier, nodes_aggregate_pool);
+        tiers_storage.push(tier_info.storage);
         return {
-            order: t.order,
-            tier: {
-                name: t.tier.name,
-                data_placement: t.tier.data_placement,
-                pools: _.map(t.tier.pools, function(p) {
-                    return p.name;
-                })
-            },
+            order: tier_and_order.order,
+            tier: tier_info
         };
     });
+    info.storage = size_utils.reduce_storage(size_utils.reduce_sum, tiers_storage, 1, 1);
     return info;
 }

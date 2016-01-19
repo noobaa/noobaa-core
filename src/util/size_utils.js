@@ -1,6 +1,8 @@
 // module targets: nodejs & browserify
 'use strict';
 
+var _ = require('lodash');
+
 /**
  * functions to handle storage sizes that might not fit into single integer
  * supports either a single number;
@@ -31,6 +33,10 @@ var SIZE_UNITS = ['', 'K', 'M', 'G', 'T', 'P', 'E', 'Z', 'Y'];
 
 
 module.exports = {
+    to_bigint: to_bigint,
+    to_bigint_storage: to_bigint_storage,
+    reduce_storage: reduce_storage,
+    reduce_minimum: reduce_minimum,
     reduce_sum: reduce_sum,
     human_size: human_size,
     human_offset: human_offset,
@@ -45,6 +51,101 @@ module.exports = {
     MAX_UINT32: MAX_UINT32,
 };
 
+
+function to_bigint(x) {
+    var n;
+    var peta;
+    if (typeof(x) === 'object' && x) {
+        n = Math.floor(x.n);
+        peta = Math.floor(x.peta);
+    } else {
+        n = Math.floor(Number(x)) || 0;
+    }
+    while (n >= PETABYTE) {
+        n -= PETABYTE;
+        peta += 1;
+    }
+    return !peta ? n : {
+        n: n,
+        peta: peta,
+    };
+}
+
+function to_bigint_storage(storage) {
+    return _.mapValues(storage, to_bigint);
+}
+
+/**
+ * mult_factor & div_factor must be positive integers.
+ */
+function bigint_factor(bigint, mult_factor, div_factor) {
+    var n = 0;
+    var peta = 0;
+    if (typeof(bigint) === 'object' && bigint) {
+        n = Math.floor(bigint.n);
+        peta = Math.floor(bigint.peta);
+    } else {
+        n = Math.floor(Number(bigint)) || 0;
+    }
+    peta *= mult_factor;
+    var peta_mod = peta % div_factor;
+    peta = (peta - peta_mod) / div_factor;
+    n = Math.floor((peta_mod * PETABYTE  +  n * mult_factor) / div_factor);
+    while (n >= PETABYTE) {
+        n -= PETABYTE;
+        peta += 1;
+    }
+    return !peta ? n : {
+        n: n,
+        peta: peta,
+    };
+}
+
+function reduce_storage(reducer, storage_items, mult_factor, div_factor) {
+    var storage = {};
+    _.each(storage_items, item => {
+        _.each(item, (val, key) => {
+            storage[key] = storage[key] || [];
+            storage[key].push(val);
+        });
+    });
+    _.each(storage, (val, key) => {
+        storage[key] = bigint_factor(reducer(key, val), mult_factor, div_factor);
+    });
+    return storage;
+}
+
+
+// a map-reduce part for finding the minimum value
+// this function must be self contained to be able to send to mongo mapReduce()
+// so not using any functions or constants from above.
+function reduce_minimum(key, values) {
+    var PETABYTE = 1024 * 1024 * 1024 * 1024 * 1024;
+    var n_min = 0;
+    var peta_min = 0;
+    values.forEach(function(v) {
+        var n = 0;
+        var peta = 0;
+        if (typeof(v) === 'number') {
+            n = v;
+        } else if (v) {
+            n = v.n;
+            peta = v.peta;
+        }
+        while (n >= PETABYTE) {
+            n -= PETABYTE;
+            peta += 1;
+        }
+        if (peta < peta_min || (peta === peta_min && n < n_min)) {
+            n_min = n;
+            peta_min = peta;
+        }
+    });
+    return !peta_min ? n_min : {
+        n: n_min,
+        peta: peta_min,
+    };
+}
 
 
 // a map-reduce part for summing up

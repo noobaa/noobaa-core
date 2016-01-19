@@ -41,7 +41,6 @@ var crypto = require('crypto');
 var ip_module = require('ip');
 // var AWS = require('aws-sdk');
 var diag = require('./utils/server_diagnostics');
-var cs_utils = require('./utils/cloud_sync_utils');
 var db = require('./db');
 var server_rpc = require('./server_rpc').server_rpc;
 var bg_worker = require('./server_rpc').bg_worker;
@@ -158,152 +157,128 @@ function create_system(req) {
  */
 function read_system(req) {
     var system = req.system;
-    return P.fcall(function() {
-        var by_system_id_undeleted = {
-            system: system._id,
-            deleted: null,
-        };
+    var by_system_id_undeleted = {
+        system: system._id,
+        deleted: null,
+    };
+    return P.join(
+        // nodes - count, online count, allocated/used storage aggregate by tier
+        db.Node.aggregate_nodes(by_system_id_undeleted, 'tier'),
 
-        return P.all([
-            // nodes - count, online count, allocated/used storage aggregate by tier
-            db.Node.aggregate_nodes(by_system_id_undeleted, 'tier'),
+        //TODO:: merge this and the previous call into one query, two memory ops
+        // nodes - count, online count, allocated/used storage aggregate by pool
+        db.Node.aggregate_nodes(by_system_id_undeleted, 'pool'),
 
-            //TODO:: merge this and the previous call into one query, two memory ops
-            // nodes - count, online count, allocated/used storage aggregate by pool
-            db.Node.aggregate_nodes(by_system_id_undeleted, 'pool'),
+        // objects - size, count
+        db.ObjectMD.aggregate_objects(by_system_id_undeleted),
 
-            // objects - size, count
-            db.ObjectMD.aggregate_objects(by_system_id_undeleted),
+        // blocks
+        db.DataBlock.mapReduce({
+            query: by_system_id_undeleted,
+            map: function() {
+                /* global emit */
+                emit('size', this.size);
+            },
+            reduce: size_utils.reduce_sum
+        }),
 
-            // blocks
-            db.DataBlock.mapReduce({
-                query: by_system_id_undeleted,
-                map: function() {
-                    /* global emit */
-                    emit('size', this.size);
-                },
-                reduce: size_utils.reduce_sum
-            }),
-        ]);
+        promise_utils.all_obj(system.buckets_by_name, function(bucket) {
+            return bucket_server.get_cloud_sync_policy({
+                system: system,
+                rpc_params: {
+                    name: bucket.name
+                }
+            });
+        })
 
-    }).spread(function(
+    ).spread(function(
         nodes_aggregate_tier,
         nodes_aggregate_pool,
         objects_aggregate,
-        blocks) {
+        blocks,
+        cloud_sync_by_bucket) {
 
         blocks = _.mapValues(_.indexBy(blocks, '_id'), 'value');
         var nodes_sys = nodes_aggregate_tier[''] || {};
         var objects_sys = objects_aggregate[''] || {};
-        return P.all(_.map(system.buckets_by_name, function(bucket) {
-            var b = _.pick(bucket, 'name');
-            var a = objects_aggregate[bucket._id] || {};
-            b.storage = {
-                used: a.size || 0,
-            };
-            b.num_objects = a.count || 0;
-            b.tiering = _.map(bucket.tiering.tiers, function(tier) {
-                var replicas = tier.replicas || 3;
-                var t = nodes_aggregate_tier[tier.tier._id];
-                if (t) {
-                    // TODO how to account bucket total storage with multiple tiers?
-                    b.storage.total = (t.total || 0) / replicas;
-                    b.storage.free = (t.free || 0) / replicas;
-                }
-                return tier.name;
-            });
-            if (_.isUndefined(b.storage.total)) {
-                b.storage.total = (nodes_sys.total || 0) / 3;
-                b.storage.free = (nodes_sys.free || 0) / 3;
-            }
-            return P.fcall(function() {
-                return bucket_server.get_cloud_sync_policy({
-                    system: system,
-                    rpc_params: {
-                        name: b.name
-                    }
+        var ip_address = ip_module.address();
+        var n2n_config = system.n2n_config;
+        // TODO use n2n_config.stun_servers ?
+        // var stun_address = 'stun://' + ip_address + ':' + stun.PORT;
+        // var stun_address = 'stun://64.233.184.127:19302'; // === 'stun://stun.l.google.com:19302'
+        // n2n_config.stun_servers = n2n_config.stun_servers || [];
+        // if (!_.contains(n2n_config.stun_servers, stun_address)) {
+        //     n2n_config.stun_servers.unshift(stun_address);
+        //     dbg.log0('read_system: n2n_config.stun_servers', n2n_config.stun_servers);
+        // }
+        return {
+            name: system.name,
+            objects: objects_sys.count || 0,
+            buckets: _.map(system.buckets_by_name, function(bucket) {
+                return bucket_server.get_bucket_info(
+                    bucket,
+                    objects_aggregate,
+                    nodes_aggregate_pool,
+                    cloud_sync_by_bucket[bucket.name]);
+            }),
+            roles: _.map(system.roles_by_account, function(roles, account_id) {
+                var account = system_store.data.get_by_id(account_id);
+                return {
+                    roles: roles,
+                    account: _.pick(account, 'name', 'email')
+                };
+            }),
+            tiers: _.map(system.tiers_by_name, function(tier) {
+                var t = _.pick(tier, 'name');
+                var a = nodes_aggregate_tier[tier._id];
+                t.storage = size_utils.to_bigint_storage({
+                    used: a.used,
+                    total: a.total,
+                    free: a.free,
                 });
-            }).then(function(sync_policy) {
-                cs_utils.resolve_cloud_sync_info(sync_policy, b);
-                dbg.log2('bucket is:', b);
-                return b;
-            }).then(null, function(err) {
-                dbg.error('failed reading bucket information', err.stack || err);
-            });
-
-        })).then(function(updated_buckets) {
-            dbg.log2('updated_buckets:', updated_buckets);
-            var ip_address = ip_module.address();
-            var n2n_config = system.n2n_config;
-            // TODO use n2n_config.stun_servers ?
-            // var stun_address = 'stun://' + ip_address + ':' + stun.PORT;
-            // var stun_address = 'stun://64.233.184.127:19302'; // === 'stun://stun.l.google.com:19302'
-            // n2n_config.stun_servers = n2n_config.stun_servers || [];
-            // if (!_.contains(n2n_config.stun_servers, stun_address)) {
-            //     n2n_config.stun_servers.unshift(stun_address);
-            //     dbg.log0('read_system: n2n_config.stun_servers', n2n_config.stun_servers);
-            // }
-            return {
-                name: system.name,
-                roles: _.map(system.roles_by_account, function(roles, account_id) {
-                    var account = system_store.data.get_by_id(account_id);
-                    return {
-                        roles: roles,
-                        account: _.pick(account, 'name', 'email')
-                    };
-                }),
-                tiers: _.map(system.tiers_by_name, function(tier) {
-                    var t = _.pick(tier, 'name');
-                    var a = nodes_aggregate_tier[tier._id];
-                    t.storage = _.defaults(_.pick(a, 'total', 'free', 'used', 'alloc'), {
-                        alloc: 0,
-                        used: 0
-                    });
-                    t.nodes = _.defaults(_.pick(a, 'count', 'online'), {
-                        count: 0,
-                        online: 0
-                    });
-                    return t;
-                }),
-                storage: {
-                    total: nodes_sys.total || 0,
-                    free: nodes_sys.free || 0,
-                    alloc: nodes_sys.alloc || 0,
-                    used: objects_sys.size || 0,
-                    real: blocks.size || 0,
-                },
-                nodes: {
-                    count: nodes_sys.count || 0,
-                    online: nodes_sys.online || 0,
-                },
-                pools: _.map(system.pools_by_name, function(pool) {
-                    var p = nodes_aggregate_pool[pool._id] || {};
-                    return {
-                        name: pool.name,
-                        total_nodes: p.count || 0,
-                        online_nodes: p.online || 0,
-                        //TODO:: in tier we divide by number of replicas, in pool we have no such concept
-                        storage: {
-                            total: (p.total || 0),
-                            free: (p.free || 0),
-                            used: (p.used || 0),
-                            alloc: (p.alloc || 0)
-                        }
-                    };
-                }),
-                buckets: updated_buckets,
-                objects: objects_sys.count || 0,
-                access_keys: system.access_keys,
-                ssl_port: process.env.SSL_PORT,
-                web_port: process.env.PORT,
-                web_links: get_system_web_links(system),
-                n2n_config: n2n_config,
-                ip_address: ip_address,
-                base_address: system.base_address ||
-                    'wss://' + ip_address + ':' + process.env.SSL_PORT,
-                version: pkg.version,
-            };
-        });
+                t.nodes = {
+                    count: a.count || 0,
+                    online: a.online || 0,
+                };
+                return t;
+            }),
+            storage: size_utils.to_bigint_storage({
+                total: nodes_sys.total,
+                free: nodes_sys.free,
+                alloc: nodes_sys.alloc,
+                used: objects_sys.size,
+                real: blocks.size,
+            }),
+            nodes: {
+                count: nodes_sys.count || 0,
+                online: nodes_sys.online || 0,
+            },
+            pools: _.map(system.pools_by_name, function(pool) {
+                var p = nodes_aggregate_pool[pool._id] || {};
+                return {
+                    name: pool.name,
+                    nodes: {
+                        count: p.count || 0,
+                        online: p.online || 0,
+                    },
+                    //TODO:: in tier we divide by number of replicas, in pool we have no such concept
+                    storage: size_utils.to_bigint_storage({
+                        total: p.total,
+                        free: p.free,
+                        used: p.used,
+                    })
+                };
+            }),
+            access_keys: system.access_keys,
+            ssl_port: process.env.SSL_PORT,
+            web_port: process.env.PORT,
+            web_links: get_system_web_links(system),
+            n2n_config: n2n_config,
+            ip_address: ip_address,
+            base_address: system.base_address ||
+                'wss://' + ip_address + ':' + process.env.SSL_PORT,
+            version: pkg.version,
+        };
     });
 }
 

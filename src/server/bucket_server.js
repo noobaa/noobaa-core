@@ -397,7 +397,7 @@ function get_bucket_info(req, bucket) {
                     alloc += aggr.alloc || 0;
                     used += aggr.used || 0;
                     total += Math.floor((aggr.total || 0) / replicas);
-                    free += Math,floor((aggr.free || 0) / replicas);
+                    free += Math.floor((aggr.free || 0) / replicas);
                 });
             });
             info.storage = {

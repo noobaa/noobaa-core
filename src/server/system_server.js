@@ -214,13 +214,6 @@ function read_system(req) {
         return {
             name: system.name,
             objects: objects_sys.count || 0,
-            buckets: _.map(system.buckets_by_name, function(bucket) {
-                return bucket_server.get_bucket_info(
-                    bucket,
-                    objects_aggregate,
-                    nodes_aggregate_pool,
-                    cloud_sync_by_bucket[bucket.name]);
-            }),
             roles: _.map(system.roles_by_account, function(roles, account_id) {
                 var account = system_store.data.get_by_id(account_id);
                 return {
@@ -228,20 +221,16 @@ function read_system(req) {
                     account: _.pick(account, 'name', 'email')
                 };
             }),
-            tiers: _.map(system.tiers_by_name, function(tier) {
-                var t = _.pick(tier, 'name');
-                var a = nodes_aggregate_tier[tier._id];
-                t.storage = size_utils.to_bigint_storage({
-                    used: a.used,
-                    total: a.total,
-                    free: a.free,
-                });
-                t.nodes = {
-                    count: a.count || 0,
-                    online: a.online || 0,
-                };
-                return t;
-            }),
+            buckets: _.map(system.buckets_by_name,
+                bucket => bucket_server.get_bucket_info(
+                    bucket,
+                    objects_aggregate,
+                    nodes_aggregate_pool,
+                    cloud_sync_by_bucket[bucket.name])),
+            pools: _.map(system.pools_by_name,
+                pool => pool_server.get_pool_info(pool, nodes_aggregate_pool)),
+            tiers: _.map(system.tiers_by_name,
+                tier => tier_server.get_tier_info(tier, nodes_aggregate_pool)),
             storage: size_utils.to_bigint_storage({
                 total: nodes_sys.total,
                 free: nodes_sys.free,
@@ -253,22 +242,6 @@ function read_system(req) {
                 count: nodes_sys.count || 0,
                 online: nodes_sys.online || 0,
             },
-            pools: _.map(system.pools_by_name, function(pool) {
-                var p = nodes_aggregate_pool[pool._id] || {};
-                return {
-                    name: pool.name,
-                    nodes: {
-                        count: p.count || 0,
-                        online: p.online || 0,
-                    },
-                    //TODO:: in tier we divide by number of replicas, in pool we have no such concept
-                    storage: size_utils.to_bigint_storage({
-                        total: p.total,
-                        free: p.free,
-                        used: p.used,
-                    })
-                };
-            }),
             access_keys: system.access_keys,
             ssl_port: process.env.SSL_PORT,
             web_port: process.env.PORT,

@@ -741,11 +741,8 @@ module.exports = {
                             },
                             adminfo: {
                                 type: 'object',
-                                required: ['tier_name', 'node_name'],
+                                required: ['pool_name', 'node_name', 'node_ip', 'online'],
                                 properties: {
-                                    tier_name: {
-                                        type: 'string',
-                                    },
                                     node_name: {
                                         type: 'string',
                                     },
@@ -755,11 +752,11 @@ module.exports = {
                                     node_ip: {
                                         type: 'string',
                                     },
-                                    srvmode: {
-                                        $ref: '/node_api/definitions/srvmode'
-                                    },
                                     online: {
                                         type: 'boolean'
+                                    },
+                                    srvmode: {
+                                        $ref: '/node_api/definitions/srvmode'
                                     },
                                     building: {
                                         type: 'boolean',

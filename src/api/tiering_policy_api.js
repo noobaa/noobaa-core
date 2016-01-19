@@ -23,7 +23,7 @@ module.exports = {
                 }
             },
             reply: {
-                $ref: '/tiering_policy_api/definitions/tiering_policy_extended'
+                $ref: '/tiering_policy_api/definitions/tiering_policy'
             },
             auth: {
                 system: 'admin'
@@ -63,7 +63,7 @@ module.exports = {
                 }
             },
             reply: {
-                $ref: '/tiering_policy_api/definitions/tiering_policy_extended'
+                $ref: '/tiering_policy_api/definitions/tiering_policy'
             },
             auth: {
                 system: 'admin'
@@ -165,13 +165,7 @@ module.exports = {
                                     pools: {
                                         type: 'array',
                                         items: {
-                                            type: 'object',
-                                            required: ['name'],
-                                            properties: {
-                                                name: {
-                                                    type: 'string',
-                                                },
-                                            }
+                                            type: 'string'
                                         }
                                     },
                                 }

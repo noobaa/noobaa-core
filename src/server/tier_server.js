@@ -230,13 +230,7 @@ function get_policy_info(policy) {
     info.tiers = _.map(policy.tiers, function(t) {
         return {
             order: t.order,
-            tier: {
-                name: t.tier.name,
-                data_placement: t.tier.data_placement,
-                pools: _.map(t.tier.pools, function(p) {
-                    return p.name;
-                })
-            },
+            tier: t.tier.name
         };
     });
     return info;

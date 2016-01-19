@@ -824,11 +824,9 @@ function get_part_info(params) {
                             };
                             var node = block.node;
                             if (params.adminfo) {
-                                var rep_pool_id = _.flatten(pools)[0];
-                                var rep_pool = system_store.data.get_by_id(rep_pool_id);
+                                var pool = system_store.data.get_by_id(node.pool);
                                 var adminfo = {
-                                    pool_name: rep_pool && rep_pool.name || '',
-                                    tier_name: 'nodes', // TODO get real tier name
+                                    pool_name: pool.name,
                                     node_name: node.name,
                                     node_ip: node.ip,
                                     online: db.Node.is_online(node),

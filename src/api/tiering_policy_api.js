@@ -153,7 +153,7 @@ module.exports = {
                             },
                             tier: {
                                 type: 'object',
-                                required: ['name', 'tiers'],
+                                required: ['name'],
                                 properties: {
                                     name: {
                                         type: 'string',

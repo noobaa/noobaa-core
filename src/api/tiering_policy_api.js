@@ -165,7 +165,13 @@ module.exports = {
                                     pools: {
                                         type: 'array',
                                         items: {
-                                            type: 'string'
+                                            type: 'object',
+                                            required: ['name'],
+                                            properties: {
+                                                name: {
+                                                    type: 'string',
+                                                },
+                                            }
                                         }
                                     },
                                 }

@@ -396,8 +396,8 @@ function get_bucket_info(req, bucket) {
                     var replicas = t.replicas || 3;
                     alloc += aggr.alloc || 0;
                     used += aggr.used || 0;
-                    total += (aggr.total || 0) / replicas;
-                    free += (aggr.free || 0) / replicas;
+                    total += Math.floor((aggr.total || 0) / replicas);
+                    free += Math,floor((aggr.free || 0) / replicas);
                 });
             });
             info.storage = {

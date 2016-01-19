@@ -116,23 +116,23 @@ var heartbeat_update_node_timestamp_barrier = new Barrier({
  */
 function heartbeat(req) {
     dbg.log0('heartbeat:', 'ROLE', req.role, 'AUTH', req.auth, 'PARAMS', req.rpc_params);
+    var extra = req.auth.extra || {};
 
     // verify the authorization to use this node for non admin roles
-    if (req.auth.extra.node_id &&
+    if (extra.node_id &&
         (req.role === 'admin' || req.role === 'agent')) {
-        req.rpc_params.node_id = req.auth.extra.node_id;
-        req.rpc_params.peer_id = req.auth.extra.peer_id;
+        req.rpc_params.node_id = extra.node_id;
+        req.rpc_params.peer_id = extra.peer_id;
         return update_heartbeat(req);
     }
 
     // check if the node doesn't yet has an id
     // and has auth that can create a node,
     // then first create the node and then update the heartbeat
-    if (!req.auth.extra.node_id &&
+    if (!extra.node_id &&
         (req.role === 'admin' || req.role === 'create_node')) {
         return server_rpc.client.node.create_node({
             name: req.rpc_params.name,
-            tier: req.auth.extra.tier,
             geolocation: req.rpc_params.geolocation,
         }, {
             auth_token: req.auth_token

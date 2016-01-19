@@ -154,9 +154,6 @@ module.exports = {
                                     type: 'string',
                                 },
                             },
-                            tier: {
-                                type: 'string'
-                            },
                             name: {
                                 // regexp
                                 type: 'string'
@@ -219,7 +216,7 @@ module.exports = {
                         type: 'object',
                         // required: [],
                         properties: {
-                            tier: {
+                            pool: {
                                 type: 'boolean'
                             },
                             geolocation: {
@@ -239,7 +236,7 @@ module.exports = {
                             type: 'object',
                             required: ['count'],
                             properties: {
-                                tier: {
+                                pool: {
                                     type: 'string'
                                 },
                                 geolocation: {
@@ -495,9 +492,6 @@ module.exports = {
                 name: {
                     type: 'string',
                 },
-                tier: {
-                    type: 'string',
-                },
                 is_server: {
                     type: 'boolean',
                 },
@@ -520,7 +514,7 @@ module.exports = {
             required: [
                 'id',
                 'name',
-                'tier',
+                'pool',
                 'geolocation',
                 'rpc_address',
                 'peer_id',
@@ -537,7 +531,7 @@ module.exports = {
                 name: {
                     type: 'string'
                 },
-                tier: {
+                pool: {
                     type: 'string'
                 },
                 geolocation: {

@@ -199,16 +199,13 @@ module.exports = {
 
         pool_extended_info: {
             type: 'object',
-            required: ['name', 'total_nodes', 'online_nodes', 'storage'],
+            required: ['name', 'nodes', 'storage'],
             properties: {
                 name: {
                     type: 'string'
                 },
-                total_nodes: {
-                    type: 'integer',
-                },
-                online_nodes: {
-                    type: 'integer',
+                nodes: {
+                    $ref: '/system_api/definitions/nodes_info'
                 },
                 storage: {
                     $ref: '/common_api/definitions/storage_info'

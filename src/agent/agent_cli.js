@@ -74,7 +74,6 @@ AgentCLI.prototype.init = function() {
                 access_key: '123',
                 secret_key: 'abc',
                 system: 'demo',
-                tier: 'nodes',
                 bucket: 'files'
             });
             if (self.params.address) {
@@ -295,12 +294,6 @@ AgentCLI.prototype.create_node_helper = function(current_node_path_info) {
                         string_to_sign: auth_params_str,
                         signature: signature,
                     };
-                    if (self.params.tier) {
-                        auth_params.extra = {
-                            tier: self.params.tier,
-                            node_path: node_path
-                        };
-                    }
                     dbg.log0('create_access_key_auth', auth_params);
                     return self.client.create_access_key_auth(auth_params);
                 }

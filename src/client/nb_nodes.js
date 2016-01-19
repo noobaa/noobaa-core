@@ -194,7 +194,6 @@ nb_api.factory('nbNodes', [
             scope.stage = 1;
             var agent_conf = {
                 dbg_log_level: 2,
-                tier: 'nodes',
                 prod: true,
                 root_path: './agent_storage/',
                 port: 8888,

@@ -62,7 +62,6 @@ function new_block(chunk, node, size) {
     return /*new db.DataBlock*/ ({
         _id: db.new_object_id(),
         system: chunk.system,
-        tier: node.tier._id,
         chunk: chunk,
         node: node,
         layer: 'D',

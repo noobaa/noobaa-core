@@ -57,12 +57,6 @@ var node_schema = new Schema({
         required: true,
     },
 
-    tier: {
-        ref: 'Tier',
-        type: types.ObjectId,
-        required: true,
-    },
-
     pool: {
         ref: 'Pool',
         type: types.ObjectId,
@@ -179,7 +173,7 @@ var node_schema = new Schema({
 
 node_schema.index({
     system: 1,
-    tier: 1,
+    pool: 1,
     name: 1,
     deleted: 1, // allow to filter deleted
 }, {

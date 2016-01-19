@@ -28,12 +28,11 @@ describe('node', function() {
             });
         }).then(function() {
             return client.tier.create_tier({
-                name: 'tier',              
+                name: 'tier',
             });
         }).then(function() {
             return client.node.create_node({
                 name: 'haha',
-                tier: 'tier',
                 geolocation: 'home',
             });
         }).then(function(res) {

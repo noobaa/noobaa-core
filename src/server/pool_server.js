@@ -14,6 +14,7 @@ var size_utils = require('../util/size_utils');
  */
 var pool_server = {
     new_pool_defaults: new_pool_defaults,
+    get_pool_info: get_pool_info,
     create_pool: create_pool,
     update_pool: update_pool,
     list_pool_nodes: list_pool_nodes,
@@ -31,7 +32,6 @@ function new_pool_defaults(name, system_id) {
         _id: system_store.generate_id(),
         system: system_id,
         name: name,
-        nodes: [],
     };
 }
 
@@ -99,23 +99,9 @@ function read_pool(req) {
             system: req.system._id,
             pool: pool._id,
             deleted: null,
-        }))
-        .then(function(nodes_aggregate) {
-            var n = nodes_aggregate[''] || {};
-            return {
-                name: pool.name,
-                nodes: {
-                    count: n.count || 0,
-                    online: n.online || 0,
-                },
-                // notice that the pool storage is raw,
-                // and does not consider number of replicas like in tier
-                storage: size_utils.to_bigint_storage({
-                    total: n.total,
-                    free: n.free,
-                    used: n.used,
-                })
-            };
+        }, 'pool'))
+        .then(function(nodes_aggregate_pool) {
+            return get_pool_info(pool, nodes_aggregate_pool);
         });
 }
 
@@ -192,4 +178,22 @@ function find_pool_by_name(req) {
         throw req.rpc_error('NOT_FOUND', 'POOL NOT FOUND ' + name);
     }
     return pool;
+}
+
+function get_pool_info(pool, nodes_aggregate_pool) {
+    var n = nodes_aggregate_pool[pool._id] || {};
+    return {
+        name: pool.name,
+        nodes: {
+            count: n.count || 0,
+            online: n.online || 0,
+        },
+        // notice that the pool storage is raw,
+        // and does not consider number of replicas like in tier
+        storage: size_utils.to_bigint_storage({
+            total: n.total,
+            free: n.free,
+            used: n.used,
+        })
+    };
 }

@@ -34,7 +34,8 @@ routing(page);
 
 // Bind the ui to the 
 ko.applyBindings({ 
-	layout: ko.pureComputed( () => uiState().layout ) 
+	layout: ko.pureComputed( () => uiState().layout ),
+	modal: ko.pureComputed( () => uiState().modal )
 });
 
 // start the application.

@@ -41,8 +41,8 @@ bucketObjectList.order = ko.observable(1);
 bucketObjectList.filter = ko.observable();
 bucketObjectList.page = ko.observable(0);
 
-// Hold the current bucket policy.
-export let bucketPolicy = ko.observable();
+// Hold the current tier information.
+export let tierInfo = ko.observable();
 
 // Hold the current pool list. derived from system info.
 export let poolList = ko.observableArray();

@@ -29,7 +29,7 @@ export function start() {
 	logAction('start');
 	
 	api.options.auth_token = localStorage.getItem('sessionToken');
-	api.auth.read_auth()
+	return api.auth.read_auth()
 		// Try to restore the last session
 		.then(({account, system}) => {
 			if (isDefined(account)) {
@@ -41,7 +41,7 @@ export function start() {
 		})
 		// Start the router.
 		.then(() => page.start())
-		.done();
+		.done()
 }
 
 // -----------------------------------------------------
@@ -236,6 +236,10 @@ export function showManagement() {
 	});
 }
 
+export function showCreateBucketWizard() {
+	loadAction('showCreateBucketModal')
+}
+
 export function openAuditLog() {
 	logAction('openAuditLog');
 
@@ -297,6 +301,8 @@ export function signIn(email, password, redirectUrl) {
 }
 
 export function signOut() {
+	session.kill();
+
 	localStorage.removeItem('sessionToken');
 	model.sessionInfo(null);
 	refresh();
@@ -325,8 +331,12 @@ export function loadSystemOverview() {
 	api.system.read_system()
 		.then(
 			reply => {
+				let { access_key, secret_key } = reply.access_keys[0];
+
 				systemOverview({
 					endpoint: endpoint,
+					accessKey: access_key,
+					secretKey: secret_key, 
 					capacity: reply.storage.total,
 					bucketCount: reply.buckets.length,
 					objectCount: reply.objects,
@@ -709,6 +719,14 @@ export function loadAccountList() {
 		.done()
 }
 
+export function loadTier(name) {
+	logAction('loadTier', { name });
+
+	api.tier.read_tier({ name })
+		.then(x => console.log(x))
+		.done();
+}
+
 // -----------------------------------------------------
 // Managment actions.
 // -----------------------------------------------------
@@ -743,8 +761,6 @@ export function createSystemAccount(systemName, email, password, dnsName) {
 
 export function createAccount(name, email, password) {
 	logAction('createAccount', { name, email, password });
-
-	let accountList = model.accountList;
 
 	api.account.create_account({ name, email, password })
 		.then(

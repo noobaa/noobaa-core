@@ -179,7 +179,7 @@ gulp.task('watch-app', () => {
 		runSequence('build-app');
 	});		
 
-	$.watch('src/styles/letiables.less', () => {
+	$.watch('src/styles/variables.less', () => {
 		runSequence('build-app');
 	});		
 });
@@ -191,7 +191,7 @@ gulp.task('watch-styles', () => {
 });
 
 gulp.task('watch-assets', () => {
-	$.watch(['src/index.html', 'src/assets/*'], function(vinyl) {
+	$.watch(['src/index.html', 'src/assets/**/*'], function(vinyl) {
 		// Copy the file that changed.
 		gulp.src(vinyl.path, { base: 'src' })
 			.pipe(gulp.dest(buildPath));

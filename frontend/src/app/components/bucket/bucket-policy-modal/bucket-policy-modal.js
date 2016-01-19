@@ -1,39 +1,35 @@
 import template from './bucket-policy-modal.html';
 import ko from 'knockout';
 import { noop, cloneArray } from 'utils';
-import { poolList, bucketPolicy } from 'model';
-import { readSystemInfo, loadBucketPolicy, updateTier } from 'actions';
+import { poolList, tierInfo } from 'model';
+import { loadPoolList, loadTier, updateTier } from 'actions';
 
 class BucketPolicyModalViewModel {
-	constructor({ policyName, onClose = noop }) {
+	constructor({ policy, onClose = noop }) {
 		this.onClose = onClose;
+
+		this.tierName = ko.pureComputed(
+			() => policy().tiers[0].tier
+		);
+
+		this.dataReady = ko.pureComputed(
+			() => !!tierInfo()
+		);
+
+		this.dataPlacement = ko.observableWithDefault(
+			() => tierInfo().dataPlacement
+		);
+
+		this.selectedPools = ko.observableWithDefault(
+			() => tierInfo().pools
+		);
 
 		this.pools = poolList.map(
 			pool => pool.name
 		);
 
-		let tier = ko.pureComputed(
-			() => !!bucketPolicy() ? bucketPolicy().tiers[0].tier : null
-		);
-
-		this.dataReady = ko.pureComputed(
-			() => !!tier()
-		);
-
-		this.tierName = ko.pureComputed(
-			() => tier().name
-		);
-
-		this.dataPlacement = ko.observableWithDefault(
-			() => tier().dataPlacement
-		);
-
-		this.selectedPools = ko.observableWithDefault(
-			() => tier().pools
-		);
-
-		loadBucketPolicy(ko.unwrap(policyName));
-		readSystemInfo();
+		loadTier(tierName());
+		loadPoolList();
 	}
 
 	selectAllPools() {

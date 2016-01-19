@@ -132,7 +132,6 @@ function heartbeat(req) {
         (req.role === 'admin' || req.role === 'create_node')) {
         return server_rpc.client.node.create_node({
             name: req.rpc_params.name,
-            tier: req.auth.extra.tier,
             geolocation: req.rpc_params.geolocation,
         }, {
             auth_token: req.auth_token

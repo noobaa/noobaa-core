@@ -62,19 +62,10 @@ function create_node(req) {
         free: 0,
     };
 
-    // when the request role is admin it can provide any of the system tiers.
-    // when the role was authorized only for create_node the athorization
-    // must include the allowed tier.
-    var tier_name = req.rpc_params.tier;
-    if (req.role !== 'admin') {
-        if (req.auth.extra.tier !== tier_name) throw req.forbidden();
-    }
-    var tier = req.system.tiers_by_name[tier_name];
     var pool = req.system.pools_by_name.default_pool;
-    if (!tier || !pool) {
-        throw req.rpc_error('NOT_FOUND', 'TIER/POOL NOT FOUND');
+    if (!pool) {
+        throw req.rpc_error('NOT_FOUND', 'DEFAULT POOL NOT FOUND');
     }
-    info.tier = tier._id;
     info.pool = pool._id;
 
     dbg.log0('CREATE NODE', info);
@@ -146,9 +137,6 @@ function update_node(req) {
             srvmode: 1
         };
     }
-
-    // TODO move node between tiers - requires decomission
-    if (req.rpc_params.tier) throw req.rpc_error('INTERNAL', 'TODO switch tier');
 
     return P.when(db.Node
             .findOneAndUpdate(get_node_query(req), updates)
@@ -283,10 +271,6 @@ function list_nodes_int(system_id, query, skip, limit, pagination, sort, order, 
                 sort_opt[sort] = sort_order;
             }
 
-            if (query.tier) {
-                var tier = req.system.tiers_by_name[query.tier];
-                info.tier = tier._id;
-            }
             if (query.pool) { //Keep last in chain due to promise
                 var pools_ids = _.map(query.pool, function(pool_name) {
                     var pool = req.system.pools_by_name[pool_name];
@@ -298,7 +282,7 @@ function list_nodes_int(system_id, query, skip, limit, pagination, sort, order, 
             }
             var find = db.Node.find(info)
                 .sort(sort_opt)
-                .populate('tier', 'name');
+                .populate('pool', 'name');
             if (skip) {
                 find.skip(skip);
             }
@@ -348,8 +332,8 @@ function group_nodes(req) {
                 },
                 map: function() {
                     var key = {};
-                    if (group_by.tier) {
-                        key.t = this.tier;
+                    if (group_by.pool) {
+                        key.p = this.pool;
                     }
                     if (group_by.geolocation) {
                         key.g = this.geolocation;
@@ -400,8 +384,8 @@ function group_nodes(req) {
                             used: r.value.u,
                         }
                     };
-                    if (r._id.t) {
-                        group.tier = r._id.t;
+                    if (r._id.p) {
+                        group.pool = r._id.p;
                     }
                     if (r._id.g) {
                         group.geolocation = r._id.g;
@@ -530,7 +514,7 @@ function get_node_full_info(node) {
     if (node.srvmode) {
         info.srvmode = node.srvmode;
     }
-    info.tier = node.tier.name;
+    info.pool = node.pool.name;
     info.heartbeat = node.heartbeat.getTime();
     info.storage = get_storage_info(node.storage);
     info.drives = _.map(node.drives, function(drive) {
@@ -561,7 +545,7 @@ function get_storage_info(storage) {
 function find_node_by_name(req) {
     return P.when(
             db.Node.findOne(get_node_query(req))
-            .populate('tier', 'name')
+            .populate('pool', 'name')
             .exec())
         .then(db.check_not_deleted(req, 'node'));
 }

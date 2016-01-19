@@ -49,7 +49,6 @@ ClientCLI.prototype.init = function() {
                 email: 'demo@noobaa.com',
                 password: 'DeMo',
                 system: 'demo',
-                tier: 'nodes',
                 bucket: 'files'
             });
         })

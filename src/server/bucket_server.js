@@ -9,6 +9,7 @@
 
 module.exports = {
     new_bucket_defaults: new_bucket_defaults,
+    get_bucket_info: get_bucket_info,
 
     //Bucket Management
     create_bucket: create_bucket,
@@ -31,9 +32,12 @@ var _ = require('lodash');
 var AWS = require('aws-sdk');
 var db = require('./db');
 var object_server = require('./object_server');
+var tier_server = require('./tier_server');
 var bg_worker = require('./server_rpc').bg_worker;
 var system_store = require('./stores/system_store');
 var cs_utils = require('./utils/cloud_sync_utils');
+var size_utils = require('../util/size_utils');
+var mongo_utils = require('../util/mongo_utils');
 var dbg = require('../util/debug_module')(__filename);
 var P = require('../util/promise');
 
@@ -74,7 +78,8 @@ function create_bucket(req) {
             buckets: [bucket]
         }
     }).then(function() {
-        return get_bucket_info(req, bucket);
+        var created_bucket = find_bucket(req);
+        return get_bucket_info(created_bucket);
     });
 }
 
@@ -84,7 +89,29 @@ function create_bucket(req) {
  *
  */
 function read_bucket(req) {
-    return get_bucket_info(req);
+    var bucket = find_bucket(req);
+    var pools = _.flatten(_.map(bucket.tiering.tiers,
+        tier_and_order => tier_and_order.tier.pools
+    ));
+    var pool_ids = mongo_utils.uniq_ids(pools, '_id');
+    return P.join(
+        // objects - size, count
+        db.ObjectMD.aggregate_objects({
+            system: req.system._id,
+            bucket: bucket._id,
+            deleted: null,
+        }),
+        db.Node.aggregate_nodes({
+            system: req.system._id,
+            pool: {
+                $in: pool_ids
+            },
+            deleted: null,
+        }, 'pool'),
+        get_cloud_sync_policy(req, bucket)
+    ).spread(function(objects_aggregate, nodes_aggregate_pool, cloud_sync_policy) {
+        return get_bucket_info(bucket, objects_aggregate, nodes_aggregate_pool, cloud_sync_policy);
+    });
 }
 
 
@@ -167,17 +194,16 @@ function list_buckets(req) {
  */
 function get_cloud_sync_policy(req, bucket) {
     dbg.log3('get_cloud_sync_policy');
-    var reply;
     bucket = bucket || find_bucket(req);
     if (!bucket.cloud_sync || !bucket.cloud_sync.endpoint) {
         return {};
     }
     return P.when(bg_worker.cloud_sync.get_policy_status({
-            sysid: req.system._id,
+            sysid: bucket.system._id,
             bucketid: bucket._id
         }))
         .then(function(stat) {
-            reply = {
+            return {
                 name: bucket.name,
                 policy: {
                     endpoint: bucket.cloud_sync.endpoint,
@@ -192,7 +218,6 @@ function get_cloud_sync_policy(req, bucket) {
                 health: stat.health,
                 status: stat.status,
             };
-            return reply;
         });
 }
 
@@ -359,55 +384,21 @@ function find_bucket(req) {
     return bucket;
 }
 
-function get_bucket_info(req, bucket) {
-    bucket = bucket || find_bucket(req);
+function get_bucket_info(bucket, objects_aggregate, nodes_aggregate_pool, cloud_sync_policy) {
     var info = _.pick(bucket, 'name');
+    var objects_aggregate_bucket = objects_aggregate[bucket._id] || {};
     if (bucket.tiering) {
-        info.tiering = _.pick(bucket.tiering, 'name');
-        info.tiering.tiers = _.map(bucket.tiering.tiers, function(t) {
-            return {
-                order: t.order,
-                tier: t.tier.name
-            };
-        });
+        info.tiering = tier_server.get_tiering_policy_info(bucket.tiering, nodes_aggregate_pool);
     }
-    return P.join(
-            db.Node.aggregate_nodes({
-                system: req.system._id,
-                deleted: null,
-            }, 'pool'),
-            db.ObjectMD.count({
-                system: req.system._id,
-                bucket: bucket._id,
-                deleted: null,
-            }),
-            get_cloud_sync_policy(req, bucket))
-        .spread(function(nodes_aggregated, obj_count, sync_policy) {
-            info.num_objects = obj_count;
-            cs_utils.resolve_cloud_sync_info(sync_policy, info);
-            var alloc = 0;
-            var used = 0;
-            var free = 0;
-            var total = 0;
-            _.each(bucket.tiering.tiers, function(t) {
-                _.each(t.tier.pools, function(pool) {
-                    var aggr = nodes_aggregated[pool._id];
-                    if (!aggr) return;
-                    var replicas = t.replicas || 3;
-                    alloc += aggr.alloc || 0;
-                    used += aggr.used || 0;
-                    total += Math.floor((aggr.total || 0) / replicas);
-                    free += Math.floor((aggr.free || 0) / replicas);
-                });
-            });
-            info.storage = {
-                alloc: alloc,
-                used: used,
-                total: total,
-                free: free,
-            };
-            return info;
-        });
+
+    info.num_objects = objects_aggregate_bucket.count || 0;
+    info.storage = size_utils.to_bigint_storage({
+        used: objects_aggregate_bucket.size || 0,
+        total: info.tiering && info.tiering.storage && info.tiering.storage.total || 0,
+        free: info.tiering && info.tiering.storage && info.tiering.storage.free || 0,
+    });
+    cs_utils.resolve_cloud_sync_info(cloud_sync_policy, info);
+    return info;
 }
 
 function resolve_tiering_policy(req, policy_name) {

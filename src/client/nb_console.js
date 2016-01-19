@@ -1150,7 +1150,7 @@ nb_console.controller('TierViewCtrl', [
         function reload_nodes(hash_query) {
             $scope.nodes_query = _.clone(hash_query);
             var query = {
-                tier: $routeParams.tier_name
+                pool: $scope.tier.pools
             };
             if ($scope.nodes_query.search) {
                 query.name = $scope.nodes_query.search;
@@ -1526,7 +1526,7 @@ nb_console.controller('FileViewCtrl', [
         function delete_file() {
             return nbAlertify.confirm('Really delete "' + $routeParams.file_name + '"?')
                 .then(function() {
-                    return nbFiles.delete_file($routeParams.bucket_name, $routeParams.file_name)
+                    return nbFiles.delete_file($routeParams.bucket_name, $routeParams.file_name);
                 })
                 .then(function() {
                     $scope.deleted = true;

@@ -339,11 +339,12 @@ function auto(tasks) {
  * like P.all but for objects.
  * returns new object with all values resolved, or reject if any failed.
  */
-function all_obj(obj) {
+function all_obj(obj, func) {
     var new_obj = {};
-    return P.all(_.map(obj, function(val, key) {
-        return P.resolve(val).then(function(res) {
-            new_obj[key] = res;
-        });
-    })).return(new_obj);
+    func = func || ((val, key) => val);
+    return P.all(_.map(obj, (val, key) => {
+            return P.fcall(func, val, key)
+                .then(res => new_obj[key] = res);
+        }))
+        .return(new_obj);
 }

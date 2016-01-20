@@ -85,7 +85,8 @@ function create_tier(req) {
             }
         })
         .then(function() {
-            return get_tier_info(tier);
+            var create_tier = find_tier_by_name(req);
+            return get_tier_info(create_tier);
         });
 }
 

@@ -78,6 +78,7 @@ function create_bucket(req) {
             buckets: [bucket]
         }
     }).then(function() {
+        req.load_auth();
         var created_bucket = find_bucket(req);
         return get_bucket_info(created_bucket);
     });

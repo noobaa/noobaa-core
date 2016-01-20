@@ -85,6 +85,7 @@ function create_tier(req) {
             }
         })
         .then(function() {
+            req.load_auth();
             var create_tier = find_tier_by_name(req);
             return get_tier_info(create_tier);
         });

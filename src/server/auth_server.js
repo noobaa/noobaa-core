@@ -276,7 +276,7 @@ function authorize(req) {
 
     if (req.method_api.auth !== false) {
         dbg.log3('authorize:', req.method_api.auth, req.srv);
-        req.load_auth(req.method_api.auth);
+        req.load_auth();
 
         //if request request has access signature, validate the signature
         if (auth_token_obj) {
@@ -327,8 +327,8 @@ function _prepare_auth_request(req) {
      *      - <Boolean> system: if false don't fail if there is no system in req.auth
      *      - <Array> roles: acceptable roles
      */
-    req.load_auth = function(options) {
-        options = options || {};
+    req.load_auth = function() {
+        var options = this.method_api.auth || {};
 
         dbg.log1('load_auth:', options, req.auth);
         if (req.auth) {

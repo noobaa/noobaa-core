@@ -387,6 +387,7 @@ function find_bucket(req) {
 
 function get_bucket_info(bucket, objects_aggregate, nodes_aggregate_pool, cloud_sync_policy) {
     var info = _.pick(bucket, 'name');
+    objects_aggregate = objects_aggregate || {};
     var objects_aggregate_bucket = objects_aggregate[bucket._id] || {};
     if (bucket.tiering) {
         info.tiering = tier_server.get_tiering_policy_info(bucket.tiering, nodes_aggregate_pool);

@@ -163,9 +163,9 @@ function delete_tier(req) {
 
 function create_policy(req) {
     var policy = new_policy_defaults(
-        req.rpc_params.policy.name,
+        req.rpc_params.name,
         req.system._id,
-        _.map(req.rpc_params.policy.tiers, function(t) {
+        _.map(req.rpc_params.tiers, function(t) {
             return {
                 order: t.order,
                 tier: req.system.tiers_by_name[t.tier]._id,

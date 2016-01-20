@@ -37,8 +37,8 @@ function new_pool_defaults(name, system_id) {
 
 
 function create_pool(req) {
-    var name = req.rpc_params.pool.name;
-    var nodes = req.rpc_params.pool.nodes;
+    var name = req.rpc_params.name;
+    var nodes = req.rpc_params.nodes;
     if (name !== 'default_pool' && nodes.length < 3) {
         throw req.rpc_error('NOT ENOUGH NODES', 'cant create a pool with less than 3 nodes');
     }

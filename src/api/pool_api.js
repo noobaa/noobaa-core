@@ -14,13 +14,7 @@ module.exports = {
             doc: 'Create Pool',
             method: 'POST',
             params: {
-                type: 'object',
-                required: ['pool'],
-                properties: {
-                    pool: {
-                        $ref: '/pool_api/definitions/pool_definition'
-                    }
-                }
+                $ref: '/pool_api/definitions/pool_definition'
             },
             auth: {
                 system: 'admin'

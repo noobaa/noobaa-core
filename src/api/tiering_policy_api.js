@@ -14,13 +14,7 @@ module.exports = {
             doc: 'Create Tiering Policy',
             method: 'POST',
             params: {
-                type: 'object',
-                required: ['policy'],
-                properties: {
-                    policy: {
-                        $ref: '/tiering_policy_api/definitions/tiering_policy'
-                    }
-                }
+                $ref: '/tiering_policy_api/definitions/tiering_policy'
             },
             reply: {
                 $ref: '/tiering_policy_api/definitions/tiering_policy'
@@ -34,13 +28,7 @@ module.exports = {
             doc: 'Update Tiering Policy',
             method: 'POST',
             params: {
-                type: 'object',
-                required: ['policy'],
-                properties: {
-                    policy: {
-                        $ref: '/tiering_policy_api/definitions/tiering_policy'
-                    }
-                }
+                $ref: '/tiering_policy_api/definitions/tiering_policy'
             },
             reply: {
                 $ref: '/tiering_policy_api/definitions/tiering_policy'

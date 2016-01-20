@@ -17,18 +17,18 @@ class BucketPolicyModalViewModel {
 		);
 
 		this.dataPlacement = ko.observableWithDefault(
-			() => tierInfo().dataPlacement
+			() => !!tierInfo() && tierInfo().data_placement
 		);
 
 		this.selectedPools = ko.observableWithDefault(
-			() => tierInfo().pools
+			() => !!tierInfo() && tierInfo().pools
 		);
 
 		this.pools = poolList.map(
 			pool => pool.name
 		);
 
-		loadTier(tierName());
+		loadTier(this.tierName());
 		loadPoolList();
 	}
 

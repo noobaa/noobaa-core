@@ -277,7 +277,7 @@ export function signIn(email, password, redirectUrl) {
 						model.sessionInfo({ user: email, system: system })
 						model.loginInfo({ retryCount: 0 });
 
-						if (isUndefined(redirectUl)) {
+						if (isUndefined(redirectUrl)) {
 							redirectUrl = `/fe/systems/${system}`;
 						}
 
@@ -384,11 +384,11 @@ export function loadBucketList(sortBy = 'name', order = 1) {
 const poolCmpFuncs = Object.freeze({
 	state: (p1, p2) => cmpBools(true, true),
 	name: (p1, p2) => cmpStrings(p1.name, p2.name),
-	nodecount: (p1, p2) => cmpInts(p1.total_nodes, p2.total_nodes),
-	onlinecount: (p1, p2) => cmpInts(p1.online_nodes, p2.online_nodes),
+	nodecount: (p1, p2) => cmpInts(p1.nodes.count, p2.nodes.count),
+	onlinecount: (p1, p2) => cmpInts(p1.nodes.online, p2.nodes.online),
 	offlinecount: (p1, p2) => cmpInts(
-		p1.total_nodes - p1.online_nodes, 
-		p2.total_nodes - p2.online_nodes, 
+		p1.nodes.count - p1.nodes.online, 
+		p2.nodes.count - p2.nodes.online, 
 	),
 	usage: (p1, p2) => cmpInts(p1.storage.used, p2.storage.used),
 	capacity: (p1, p2) => cmpInts(p1.storage.total, p2.storage.total),
@@ -594,12 +594,12 @@ export function loadPoolNodeList(poolName, filter, sortBy, order, page) {
 		.done();
 }
 
-export function listAllNodes() {
-	logAction('listAllNodes');
+export function loadFullNodeList() {
+	logAction('loadFullNodeList');
 
 	api.node.list_nodes({})
 		.then(
-			reply => model.nodeList(reply.nodes)
+			reply => model.fullNodeList(reply.nodes)
 		)
 		.done();
 }
@@ -723,7 +723,7 @@ export function loadTier(name) {
 	logAction('loadTier', { name });
 
 	api.tier.read_tier({ name })
-		.then(x => console.log(x))
+		.then(model.tierInfo)
 		.done();
 }
 
@@ -749,7 +749,7 @@ export function createSystemAccount(systemName, email, password, dnsName) {
 					});
 
 				} else {
-					return Promise.when(true);
+					return Promise.resolve(true);
 				}
 			}
 		)

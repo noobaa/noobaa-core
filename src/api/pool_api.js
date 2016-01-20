@@ -185,13 +185,7 @@ module.exports = {
                 nodes: {
                     type: 'array',
                     items: {
-                        type: 'object',
-                        required: ['node'],
-                        properties: {
-                            node: {
-                                type: 'string',
-                            },
-                        }
+                        type: 'string',
                     }
                 }
             }

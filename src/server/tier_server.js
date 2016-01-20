@@ -178,7 +178,9 @@ function create_policy(req) {
             }
         })
         .then(function() {
-            return get_tiering_policy_info(req);
+            req.load_auth();
+            var created_policy = find_policy_by_name(req);
+            return get_tiering_policy_info(created_policy);
         });
 }
 

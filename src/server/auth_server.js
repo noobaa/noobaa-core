@@ -401,7 +401,9 @@ function _prepare_auth_request(req) {
      *
      */
     req.unauthorized = function(reason) {
-        return req.rpc_error('UNAUTHORIZED', null, reason);
+        return req.rpc_error('UNAUTHORIZED', '', {
+            reason: reason
+        });
     };
 
 
@@ -413,7 +415,9 @@ function _prepare_auth_request(req) {
      *
      */
     req.forbidden = function(reason) {
-        return req.rpc_error('FORBIDDEN', null, reason);
+        return req.rpc_error('FORBIDDEN', '', {
+            reason: reason
+        });
     };
 
 }

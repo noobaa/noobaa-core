@@ -152,7 +152,7 @@ function Ice(connid, config, signal_target) {
     self.remote_candidates = {};
 
     self.on('error', function(err) {
-        dbg.error('ICE ERROR', err.stack || err);
+        dbg.warn('ICE CLOSE ON ERROR', err.stack || err);
         self.close();
     });
 }
@@ -694,7 +694,7 @@ Ice.prototype._init_udp_connection = function(conn) {
 
     function close_conn(err) {
         if (err) {
-            dbg.error('ICE UDP CLOSING', err || '');
+            dbg.warn('ICE UDP CLOSING', err || '');
         }
         conn.close();
     }
@@ -750,7 +750,7 @@ function init_tcp_connection(conn, session, ice, ice_lookup) {
 
     function destroy_conn(err) {
         if (err) {
-            dbg.error('ICE TCP DESTROYING', err || '');
+            dbg.warn('ICE TCP DESTROYING', err || '');
         }
         temp_queue = null;
         conn.destroy();
@@ -944,9 +944,9 @@ Ice.prototype._upgrade_to_tls = function(session) {
 
     function destroy_conn(err) {
         if (err) {
-            dbg.error('TLS ERROR:', session.key, err);
+            dbg.warn('TLS ERROR:', session.key, err);
         } else {
-            dbg.error('TLS CLOSED:', session.key);
+            dbg.warn('TLS CLOSED:', session.key);
         }
         session.close(err);
     }

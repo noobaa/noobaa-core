@@ -23,7 +23,7 @@ module.exports = {
                         type: 'string',
                     },
                     tiering: {
-                        type: 'string',
+                        $ref: '/bucket_api/definitions/tiering'
                     }
                 }
             },
@@ -67,7 +67,7 @@ module.exports = {
                         type: 'string',
                     },
                     tiering: {
-                        $ref: '/tiering_policy_api/definitions/tiering_policy'
+                        $ref: '/bucket_api/definitions/tiering'
                     }
                 }
             },
@@ -251,7 +251,7 @@ module.exports = {
                     type: 'string',
                 },
                 tiering: {
-                    $ref: '/tiering_policy_api/definitions/tiering_policy'
+                    $ref: '/bucket_api/definitions/tiering'
                 },
                 storage: {
                     $ref: '/common_api/definitions/storage_info'
@@ -262,6 +262,19 @@ module.exports = {
                 cloud_sync_status: {
                     enum: ['UNSYNCED', 'SYNCING', 'PASUED', 'UNABLE', 'SYNCED', 'NOTSET'],
                     type: 'string',
+                }
+            }
+        },
+
+        tiering: {
+            type: 'array',
+            items: {
+                type: 'object',
+                required: ['tier'],
+                properties: {
+                    tier: {
+                        type: 'string', // tier name
+                    }
                 }
             }
         },

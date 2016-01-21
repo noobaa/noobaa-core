@@ -157,13 +157,10 @@ function remove_nodes_from_pool(req) {
 
 function get_associated_buckets(req) {
     var pool = find_pool_by_name(req);
-    var associated_buckets = _.filter(req.system.buckets_by_name, function(bucket) {
-        return _.find(bucket.tiering.tiers, function(tier_and_order) {
-            return _.find(tier_and_order.tier.pools, function(pool2) {
-                return String(pool._id) === String(pool2._id);
-            });
-        });
-    });
+    var associated_buckets = _.filter(req.system.buckets_by_name,
+        bucket => _.find(bucket.tiering,
+            level => _.find(level.tier.pools,
+                pool2 => String(pool._id) === String(pool2._id))));
     return _.map(associated_buckets, function(bucket) {
         return bucket.name;
     });

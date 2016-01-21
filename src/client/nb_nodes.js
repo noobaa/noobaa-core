@@ -17,6 +17,7 @@ nb_api.factory('nbNodes', [
     function($q, $timeout, nbGoogle, $window, $rootScope,
         $location, nbAlertify, nbModal, nbClient, nbSystem) {
         var $scope = {};
+        $scope.create_pool = create_pool;
         $scope.refresh_node_groups = refresh_node_groups;
         $scope.draw_nodes_map = draw_nodes_map;
         $scope.list_nodes = list_nodes;
@@ -31,6 +32,17 @@ nb_api.factory('nbNodes', [
         $scope.diagnose_node = diagnose_node;
         $scope.set_debug_node = set_debug_node;
 
+        function create_pool(name) {
+            return $q.when()
+                .then(function() {
+                    return nbClient.client.pool.create_pool({
+                        name: name
+                    });
+                })
+                .then(function(res) {
+                    console.log('CREATED POOL', res);
+                });
+        }
 
         function refresh_node_groups(selected_geo) {
             return $q.when()
@@ -88,7 +100,7 @@ nb_api.factory('nbNodes', [
         }
 
         function goto_node_by_block(block) {
-            var path = '/tier/' + block.adminfo.tier_name + '/' + block.adminfo.node_name;
+            var path = '/pool/' + block.adminfo.pool_name + '/' + block.adminfo.node_name;
             console.log('goto', path);
             $location.path(path);
             $location.hash('');
@@ -231,7 +243,7 @@ nb_api.factory('nbNodes', [
                 scope.modal.modal('hide');
                 scope.modal.on('hidden.bs.modal', function() {
                     $timeout(function() {
-                        $location.path('/tier/' + nbSystem.system.tiers[0].name);
+                        $location.path('/pool/default_pool');
                         $location.hash('nodes');
                         console.log('$location', $location.absUrl());
                     }, 1);
@@ -538,7 +550,7 @@ nb_api.factory('nbNodes', [
                 var selection = chart.getSelection();
                 if (selection[0]) {
                     var geo = data.getValue(selection[0].row, 0);
-                    $location.path('/tier/' + nbSystem.system.tiers[0].name);
+                    $location.path('/pool/default_pool');
                     $location.hash('nodes&geo=' + geo);
                 }
                 $rootScope.safe_apply();

@@ -33,11 +33,13 @@ var bucket_schema = new Schema({
         type: String,
     },
 
-    tiering: {
-        ref: 'TieringPolicy',
-        type: types.ObjectId,
-        required: true,
-    },
+    tiering: [{
+        tier: {
+            ref: 'Tier',
+            type: types.ObjectId,
+            required: true,
+        }
+    }],
 
     // cloud sync target, if exists
     cloud_sync: {

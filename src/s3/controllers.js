@@ -900,20 +900,12 @@ module.exports = function(params) {
                                 'The requested bucket already exists');
                             return buildXmlResponse(res, 409, template);
                         } else {
-                            dbg.log3('Creating new tiering_policy for bucket', bucketName);
-                            return clients[access_key].client.tiering_policy.create_policy({
-                                    name: bucketName + '_tiering',
-                                    tiers: [{
-                                        order: 0,
-                                        tier: 'nodes'
+                            dbg.log3('Creating new bucket', bucketName);
+                            return clients[access_key].client.bucket.create_bucket({
+                                    name: bucketName,
+                                    tiering: [{
+                                        tier: 'default_tier'
                                     }]
-                                })
-                                .then(function() {
-                                    dbg.log3('Creating new bucket', bucketName);
-                                    return clients[access_key].client.bucket.create_bucket({
-                                        name: bucketName,
-                                        tiering: bucketName + '_tiering'
-                                    });
                                 })
                                 .then(function() {
                                     dbg.log3('Created new bucket "%s" successfully', bucketName);

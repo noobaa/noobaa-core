@@ -32,6 +32,7 @@ var account_server = {
 
 module.exports = account_server;
 
+system_store.on('load', ensure_support_account);
 
 
 /**
@@ -276,39 +277,36 @@ function get_account_info(account) {
 
 /**
  *
- * CREATE_SUPPORT_ACCOUNT
+ *
  *
  */
-function create_support_account() {
+function ensure_support_account() {
     return system_store.refresh()
         .then(function() {
             var support_account = _.find(system_store.data.accounts, function(account) {
                 return !!account.is_support;
             });
-            if (support_account) return;
-            return system_store.make_changes({
-                insert: {
-                    accounts: [{
-                        name: 'Support',
-                        email: 'support@noobaa.com',
-                        password: process.env.SUPPORT_DEFAULT_PASSWORD || 'help',
-                        is_support: true
-                    }]
-                }
-            });
-        })
-        .then(function() {
-            console.log('SUPPORT ACCOUNT CREATED/EXISTS');
+            if (support_account) {
+                return;
+            }
+            support_account = {
+                name: 'Support',
+                email: 'support@noobaa.com',
+                password: process.env.SUPPORT_DEFAULT_PASSWORD || 'help',
+                is_support: true
+            };
+            return bcrypt_password(support_account)
+                .then(() => system_store.make_changes({
+                    insert: {
+                        accounts: [support_account]
+                    }
+                }))
+                .then(() => console.log('SUPPORT ACCOUNT CREATED'));
         })
         .catch(function(err) {
-            console.error('FAILED CREATE SUPPORT ACCOUNT (will retry)', err);
-            var delay = 3000 + (1000 * Math.random());
-            return P.delay(delay).then(create_support_account);
+            console.error('FAILED CREATE SUPPORT ACCOUNT', err);
         });
 }
-
-P.delay(1000).then(create_support_account);
-
 
 
 function bcrypt_password(account) {

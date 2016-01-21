@@ -3,6 +3,7 @@
 let _ = require('lodash');
 let P = require('../../util/promise');
 let util = require('util');
+let EventEmitter = require('events').EventEmitter;
 let mongodb = require('mongodb');
 let mongo_client = require('./mongo_client');
 let js_utils = require('../../util/js_utils');
@@ -162,11 +163,13 @@ class SystemStoreData {
  * loads date from the database and keeps in memory optimized way.
  *
  */
-class SystemStore {
+class SystemStore extends EventEmitter {
 
     constructor() {
+        super();
         this.START_REFRESH_THRESHOLD = 10 * 60 * 1000;
         this.FORCE_REFRESH_THRESHOLD = 60 * 60 * 1000;
+        setTimeout(() => this.refresh(), 1000);
     }
 
     refresh() {
@@ -205,14 +208,12 @@ class SystemStore {
                 new_data.rebuild();
                 dbg.log0('SystemStore: rebuild took', time_utils.millitook(millistamp));
                 this.data = new_data;
+                this.emit('load');
                 return this.data;
             })
             .finally(() => this._load_promise = null)
             .catch(err => {
                 dbg.error('SystemStore: load failed', err.stack || err);
-                P.delay(1000)
-                    .then(() => this.load())
-                    .catch(() => {});
                 throw err;
             });
         return this._load_promise;

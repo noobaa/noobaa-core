@@ -186,15 +186,12 @@ Section "Noobaa Local Service"
 		Upgrades:
 			StrCpy $UPGRADE "true"
 		Standard:
+			StrCpy $AUTO_UPGRADE "false"
 
-	StrCpy $AUTO_UPGRADE "false"
 	IfFileExists $INSTDIR\noobaa-setup.exe Auto_Upgrades Auto_Standard
 		Auto_Upgrades:
 			StrCpy $AUTO_UPGRADE "true"
 		Auto_Standard:
-
-
-	;MessageBox MB_OK "Value of parameters is $address $system_id $access_key $secret_key $system"
 
 	${If} $UPGRADE == "true" ;delete all files that we want to update
 

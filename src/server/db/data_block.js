@@ -21,13 +21,6 @@ var data_block_schema = new Schema({
         required: true,
     },
 
-    // tier is copied from the node to allow filtering
-    tier: {
-        ref: 'Tier',
-        type: types.ObjectId,
-        required: true,
-    },
-
     // the storage node of this block
     node: {
         ref: 'Node',
@@ -100,7 +93,6 @@ data_block_schema.index({
 
 data_block_schema.index({
     system: 1,
-    tier: 1,
     node: 1,
     deleted: 1, // allow to filter deleted
 }, {

@@ -19,7 +19,6 @@ const COLLECTIONS = js_utils.deep_freeze({
     roles: {},
     accounts: {},
     buckets: {},
-    tieringpolicies: {},
     tiers: {},
     pools: {},
 });
@@ -35,11 +34,6 @@ const INDEXES = js_utils.deep_freeze([{
 }, {
     name: 'buckets_by_name',
     collection: 'buckets',
-    context: 'system',
-    key: 'name'
-}, {
-    name: 'tiering_policies_by_name',
-    collection: 'tieringpolicies',
     context: 'system',
     key: 'name'
 }, {

@@ -329,11 +329,6 @@ function get_part_info(params) {
                         'cipher_auth_tag_b64',
                         'data_frags',
                         'lrc_frags');
-                    if (params.adminfo) {
-                        p.chunk.adminfo = {
-                            health: chunk_status.chunk_health
-                        };
-                    }
                     p.part_sequence_number = params.part.part_sequence_number;
                     if (params.upload_part_number) {
                         p.upload_part_number = params.upload_part_number;
@@ -347,7 +342,7 @@ function get_part_info(params) {
 
                     p.frags = _.map(chunk_status.frags, function(fragment) {
                         var blocks = params.building && fragment.building_blocks ||
-                            params.adminfo && fragment.blocks ||
+                            // params.adminfo && fragment.blocks ||
                             fragment.accessible_blocks;
 
                         var part_fragment = _.pick(fragment, 'layer', 'layer_n', 'frag', 'size');
@@ -362,33 +357,10 @@ function get_part_info(params) {
                             part_fragment.digest_b64 = '';
                         }
 
-                        if (params.adminfo) {
-                            part_fragment.adminfo = {
-                                health: fragment.health,
-                            };
-                        }
-
                         part_fragment.blocks = _.map(blocks, function(block) {
-                            var ret = {
+                            return {
                                 block_md: block_allocator.get_block_md(block),
                             };
-                            var node = block.node;
-                            if (params.adminfo) {
-                                var adminfo = {
-                                    tier_name: 'nodes', // TODO get tier name
-                                    node_name: node.name,
-                                    node_ip: node.ip,
-                                    online: db.Node.is_online(node),
-                                };
-                                if (node.srvmode) {
-                                    adminfo.srvmode = node.srvmode;
-                                }
-                                if (block.building) {
-                                    adminfo.building = true;
-                                }
-                                ret.adminfo = adminfo;
-                            }
-                            return ret;
                         });
                         return part_fragment;
                     });

@@ -8,8 +8,11 @@ var P = require('../util/promise');
 // var assert = require('assert');
 var coretest = require('./coretest');
 
-
 describe('bucket', function() {
+
+    const SYS = 'test_bucket_system';
+    const TIER = 'test_bucket_tier';
+    const BKT = 'test_bucket_bucket';
 
     var client = coretest.new_client();
 
@@ -17,16 +20,16 @@ describe('bucket', function() {
         this.timeout(20000);
         P.fcall(function() {
             return client.system.create_system({
-                name: 'sys'
+                name: SYS
             });
         }).then(function() {
             // authenticate now with the new system
             return client.create_auth_token({
-                system: 'sys'
+                system: SYS
             });
         }).then(function() {
             return client.tier.create_tier({
-                name: 'edge',                
+                name: TIER,
             });
         }).nodeify(done);
     });
@@ -36,28 +39,32 @@ describe('bucket', function() {
             return client.bucket.list_buckets();
         }).then(function() {
             return client.bucket.create_bucket({
-                name: 'bkt',
-                tiering: 'default_tiering',
+                name: BKT,
+                tiering: [{
+                    tier: TIER
+                }],
             });
         }).then(function() {
             return client.bucket.list_buckets();
         }).then(function() {
             return client.bucket.read_bucket({
-                name: 'bkt',
+                name: BKT,
             });
         }).then(function() {
             return client.bucket.update_bucket({
-                name: 'bkt',
-                new_name: 'bkt2',
-                tiering: 'default_tiering',
+                name: BKT,
+                new_name: BKT + '2',
+                tiering: [{
+                    tier: TIER
+                }],
             });
         }).then(function() {
             return client.bucket.read_bucket({
-                name: 'bkt2',
+                name: BKT + '2',
             });
         }).then(function() {
             return client.bucket.delete_bucket({
-                name: 'bkt2',
+                name: BKT + '2',
             });
         }).nodeify(done);
     });

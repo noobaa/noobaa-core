@@ -16,7 +16,7 @@
                     <!-- <th></th> -->
                     <th>
                         <div class="form-control-wrapper">
-                            <input type="text" class="form-control floating-label" style="margin-top: -2px" placeholder="Node Name (click to search)" ng-model="nodes_query.search" ng-model-options="{debounce: 700}" ng-change="tier_router.set_query('search',nodes_query.search)"
+                            <input type="text" class="form-control floating-label" style="margin-top: -2px" placeholder="Node Name (click to search)" ng-model="nodes_query.search" ng-model-options="{debounce: 700}" ng-change="pool_router.set_query('search',nodes_query.search)"
                             />
                         </div>
                     </th>
@@ -34,7 +34,7 @@
                     </label>
                 </td> -->
                     <td class="table-btn text-left">
-                        <a ng-href="tier/{{tier.name}}/{{node.name}}" class="btn btn-link btn-block capitalize">
+                        <a ng-href="pool/{{pool.name}}/{{node.name}}" class="btn btn-link btn-block capitalize">
                             <i class="fa fa-desktop fa-lg fa-fw text-muted"></i>
                             <span class="text-primary">{{node.name}}</span>
                         </a>
@@ -65,13 +65,13 @@
         <nav class="noselect">
             <ul class="pagination">
                 <li>
-                    <a nb-click-ladda="tier_router.set_page(nodes_query.page-1)">&laquo;</a>
+                    <a nb-click-ladda="pool_router.set_page(nodes_query.page-1)">&laquo;</a>
                 </li>
                 <li ng-repeat="page in nodes_pages" ng-class="{active: page==nodes_query.page}">
-                    <a nb-click-ladda="tier_router.set_page(page)">{{page+1}}</a>
+                    <a nb-click-ladda="pool_router.set_page(page)">{{page+1}}</a>
                 </li>
                 <li>
-                    <a nb-click-ladda="tier_router.set_page(nodes_query.page+1)">&raquo;</a>
+                    <a nb-click-ladda="pool_router.set_page(nodes_query.page+1)">&raquo;</a>
                 </li>
             </ul>
         </nav>

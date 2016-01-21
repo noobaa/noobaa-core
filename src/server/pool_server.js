@@ -5,6 +5,7 @@ var P = require('../util/promise');
 var db = require('./db');
 var dbg = require('../util/debug_module')(__filename);
 var system_store = require('./stores/system_store');
+var size_utils = require('../util/size_utils');
 
 /**
  *
@@ -13,6 +14,7 @@ var system_store = require('./stores/system_store');
  */
 var pool_server = {
     new_pool_defaults: new_pool_defaults,
+    get_pool_info: get_pool_info,
     create_pool: create_pool,
     update_pool: update_pool,
     list_pool_nodes: list_pool_nodes,
@@ -30,7 +32,6 @@ function new_pool_defaults(name, system_id) {
         _id: system_store.generate_id(),
         system: system_id,
         name: name,
-        nodes: [],
     };
 }
 
@@ -83,7 +84,7 @@ function list_pool_nodes(req) {
                 _id: 0,
                 name: 1,
             }
-        }))
+        }).toArray())
         .then(function(nodes) {
             return {
                 name: pool.name,
@@ -98,21 +99,9 @@ function read_pool(req) {
             system: req.system._id,
             pool: pool._id,
             deleted: null,
-        }))
-        .then(function(nodes_aggregate) {
-            var n = nodes_aggregate[''] || {};
-            return {
-                name: pool.name,
-                total_nodes: n.count || 0,
-                online_nodes: n.online || 0,
-                // TODO:: in tier we divide by number of replicas, in pool we have no such concept
-                storage: {
-                    total: n.total || 0,
-                    free: n.free || 0,
-                    used: n.used || 0,
-                    alloc: n.alloc || 0
-                }
-            };
+        }, 'pool'))
+        .then(function(nodes_aggregate_pool) {
+            return get_pool_info(pool, nodes_aggregate_pool);
         });
 }
 
@@ -168,13 +157,10 @@ function remove_nodes_from_pool(req) {
 
 function get_associated_buckets(req) {
     var pool = find_pool_by_name(req);
-    var associated_buckets = _.filter(req.system.buckets_by_name, function(bucket) {
-        return _.find(bucket.tiering.tiers, function(tier) {
-            return _.find(tier.tier.pools, function(pool2) {
-                return String(pool._id) === String(pool2._id);
-            });
-        });
-    });
+    var associated_buckets = _.filter(req.system.buckets_by_name,
+        bucket => _.find(bucket.tiering,
+            level => _.find(level.tier.pools,
+                pool2 => String(pool._id) === String(pool2._id))));
     return _.map(associated_buckets, function(bucket) {
         return bucket.name;
     });
@@ -189,4 +175,22 @@ function find_pool_by_name(req) {
         throw req.rpc_error('NOT_FOUND', 'POOL NOT FOUND ' + name);
     }
     return pool;
+}
+
+function get_pool_info(pool, nodes_aggregate_pool) {
+    var n = nodes_aggregate_pool[pool._id] || {};
+    return {
+        name: pool.name,
+        nodes: {
+            count: n.count || 0,
+            online: n.online || 0,
+        },
+        // notice that the pool storage is raw,
+        // and does not consider number of replicas like in tier
+        storage: size_utils.to_bigint_storage({
+            total: n.total,
+            free: n.free,
+            used: n.used,
+        })
+    };
 }

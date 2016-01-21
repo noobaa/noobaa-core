@@ -1,33 +1,30 @@
 /* global db, print, printjson, ObjectId, setVerboseShell */
+/* jshint -W089 */ // ignore for-in loops without hasOwnProperty checks
 'use strict';
+var DEFAULT_POOL_NAME = 'default_pool';
+var DEFAULT_TIER_NAME = 'default_tier';
 setVerboseShell(true);
 upgrade();
 
 /* Upade mongo structures and values with new things since the latest version*/
 function upgrade() {
-    update_systems();
-    var mypool = db.pools.findOne();
-    if (mypool) {
-        print('\n*** v0.4 detected, not upgrade needed (detected by the existance of a pool)');
-        upgrade_to_0_4();
-    } else {
-        upgrade_to_0_4();
-    }
+    upgrade_systems();
+    upgrade_chunks_add_ref_to_bucket();
     print('\nUPGRADE DONE.');
 }
 
-function update_systems() {
+function upgrade_systems() {
     print('\n*** updating systems resources links ...');
-    db.systems.find().forEach(function(sys) {
+    db.systems.find().forEach(function(system) {
         var updates = {};
-        if (!sys.resources.linux_agent_installer) {
+        if (!system.resources.linux_agent_installer) {
             updates.resources = {
                 linux_agent_installer: 'noobaa-setup',
                 agent_installer: 'noobaa-setup.exe',
                 s3rest_installer: 'noobaa-s3rest.exe'
             };
         }
-        if (!sys.n2n_config) {
+        if (!system.n2n_config) {
             updates.n2n_config = {
                 tcp_tls: true,
                 tcp_active: true,
@@ -39,98 +36,114 @@ function update_systems() {
                 udp_port: true,
             };
         }
-        print('updating system', sys.name, '...', updates);
-        printjson(sys);
+        print('updating system', system.name, '...', updates);
+        printjson(system);
         db.systems.update({
-            _id: sys._id
+            _id: system._id
         }, {
             $set: updates
         });
     });
+    db.systems.find().forEach(upgrade_system);
 }
 
 
-/* upgrade to 4.0 adding tiering layer*/
-function upgrade_to_0_4() {
-    print('\n*** upgrading to 0.4 - add tiering layer ...');
+function upgrade_system(system) {
+    print('\n*** upgrade_system ...', system.name);
 
-    print('\n*** finding system id ...');
-    var sys_id = db.systems.findOne()._id;
-    print('found system id', sys_id);
-
-    print('\n*** finding nodes names ...');
-    var nodes_array = [];
-    db.nodes.find({}, {
-        name: 1,
-        _id: 0
-    }).forEach(function(node) {
-        nodes_array.push(node.name);
+    print('\n*** find default pool ...');
+    var default_pool = db.pools.findOne({
+        system: system._id,
+        name: DEFAULT_POOL_NAME
     });
-    print('found nodes', nodes_array);
+    if (!default_pool) {
+        print('\n*** create default pool ...');
+        db.pools.insert({
+            system: system._id,
+            name: DEFAULT_POOL_NAME
+        });
+        default_pool = db.pools.findOne({
+            system: system._id,
+            name: DEFAULT_POOL_NAME
+        });
+    }
 
-    print('\n*** inserting default pool ...');
-    db.pools.insert({
-        'name': 'default_pool',
-        'nodes': nodes_array,
-        'system': sys_id
-    });
-
-    print('\n*** finding pools ...');
-    var pools_array = [];
-    db.pools.find({}, {
-        _id: 1
-    }).forEach(function(pool) {
-        pools_array.push(pool._id);
-    });
-    print('found pools', pools_array);
-
-    print('\n*** updating all tiers to use default pool ...');
-    db.tiers.update({}, {
+    print('\n*** update nodes to default pool ...');
+    db.nodes.update({
+        system: system._id,
+        pool: null
+    }, {
         $set: {
-            "data_placement": "SPREAD",
-            "replicas": 3,
-            "data_fragments": 1,
-            "nodes": [],
-            "pools": pools_array,
-        }
-    });
-
-    print('\n*** finding tier id ...');
-    var tier_id = db.tiers.findOne()._id;
-    print('found tier id', tier_id);
-
-    print('\n*** inserting tiering policy ...');
-    db.tieringpolicies.insert({
-        "name": "default_tiering",
-        "system": sys_id,
-        "tiers": [{
-            "order": 0,
-            "tier": tier_id
-        }]
-    });
-
-    print('\n*** finding tiering policy id ...');
-    var tiering_policy_id = db.tieringpolicies.findOne()._id;
-    print('found tiering policy id', tiering_policy_id);
-
-    print('\n*** updating all buckets to use tiering policy ...');
-    db.buckets.update({}, {
-        $set: {
-            tiering: tiering_policy_id
+            pool: default_pool._id
+        },
+        $unset: {
+            tier: 1
         }
     }, {
         multi: true
     });
 
-    update_bucket_for_chunks();
+    print('\n*** remove old tiers ...');
+    db.tiers.remove({
+        system: system._id,
+        pools: null
+    }, {
+        multi: true
+    });
+    print('\n*** find default tier ...');
+    var default_tier = db.tiers.findOne({
+        system: system._id,
+        name: DEFAULT_TIER_NAME
+    });
+    if (!default_tier) {
+        print('\n*** create default tier ...');
+        db.tiers.insert({
+            system: system._id,
+            name: DEFAULT_TIER_NAME,
+            data_placement: 'SPREAD',
+            replicas: 3,
+            data_fragments: 1,
+            parity_fragments: 0,
+            pools: [default_pool._id],
+        });
+        default_tier = db.tiers.findOne({
+            system: system._id,
+            name: DEFAULT_TIER_NAME
+        });
+    }
+
+    print('\n*** update buckets to default tier ...');
+    db.buckets.update({
+        system: system._id,
+        tiering: null
+    }, {
+        $set: {
+            tiering: [{
+                tier: default_tier._id
+            }]
+        }
+    }, {
+        multi: true
+    });
+
 }
 
-function update_bucket_for_chunks() {
-    print('\n*** updating bucket for chunks ...');
+function upgrade_chunks_add_ref_to_bucket() {
+    print('\n*** upgrade_chunks_add_ref_to_bucket ...');
+
+    var num_chunks_to_upgrade = db.datachunks.count({
+        bucket: null
+    });
+    if (!num_chunks_to_upgrade) {
+        print('\n*** no chunks require upgrade.');
+        // return;
+    }
+    print('\n*** number of chunks to upgrade', num_chunks_to_upgrade);
 
     // find all the objects and map them to buckets
     // notice that the map keeps strings, and not object ids
     // in order to correctly match equal ids
+    var num_objects = 0;
     var map_obj_to_bucket = {};
     db.objectmds.find({
         deleted: null
@@ -138,13 +151,12 @@ function update_bucket_for_chunks() {
         _id: 1,
         bucket: 1,
     }).forEach(function(obj) {
+        num_objects += 1;
         map_obj_to_bucket[obj._id.valueOf()] = obj.bucket.valueOf();
     });
 
-    print('map_obj_to_bucket:');
-    printjson(map_obj_to_bucket);
-
     // find all parts in order to map chunks to objects and therefore to buckets
+    var num_parts = 0;
     var map_chunk_to_bucket = {};
     db.objectparts.find({
         deleted: null
@@ -153,6 +165,7 @@ function update_bucket_for_chunks() {
         obj: 1,
         chunk: 1
     }).forEach(function(part) {
+        num_parts += 1;
         var obj_id = part.obj.valueOf();
         var chunk_id = part.chunk.valueOf();
         var obj_bucket = map_obj_to_bucket[obj_id] || '';
@@ -169,7 +182,13 @@ function update_bucket_for_chunks() {
         }
     });
 
-    print('map_chunk_to_bucket:');
+    print('num_objects:', num_objects);
+    print('num_parts:', num_parts);
+
+    print('\nmap_obj_to_bucket:');
+    printjson(map_obj_to_bucket);
+
+    print('\nmap_chunk_to_bucket:');
     printjson(map_chunk_to_bucket);
 
     // invert the map of chunks to bucket to have a map of bucket to array of chunks
@@ -185,17 +204,15 @@ function update_bucket_for_chunks() {
         bucket_to_chunks[bucket].push(new ObjectId(chunk));
     }
 
-    print('bucket_to_chunks:');
-    printjson(bucket_to_chunks);
-
     for (bucket in bucket_to_chunks) {
         var chunks = bucket_to_chunks[bucket];
-        print('updating bucket', bucket, 'for all these chunks:');
+        print('\nupdating bucket', bucket, 'for all these chunks:');
         printjson(chunks);
         db.datachunks.update({
             _id: {
                 $in: chunks
-            }
+            },
+            bucket: null
         }, {
             $set: {
                 bucket: bucket

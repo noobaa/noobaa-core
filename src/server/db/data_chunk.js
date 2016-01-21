@@ -23,12 +23,6 @@ var data_chunk_schema = new Schema({
         required: true,
     },
 
-    // optional - a storage tier of this chunk
-    tier: {
-        ref: 'Tier',
-        type: types.ObjectId,
-    },
-
     //the bucket of this chunk
     bucket: {
         ref: 'Bucket',

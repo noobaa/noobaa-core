@@ -613,50 +613,36 @@ RPC.prototype._accept_new_connection = function(conn) {
  *
  */
 RPC.prototype._reconnect = function(addr_url, reconn_backoff) {
-    var self = this;
-    var conn;
-
     // use the previous backoff for delay
     reconn_backoff = reconn_backoff || RECONN_BACKOFF_BASE;
 
-    P.delay(reconn_backoff)
-        .then(function() {
-
-            // create new connection (if not present)
-            return self._get_connection(addr_url, 'reconnect');
-
-        })
-        .then(function(conn_arg) {
-            conn = conn_arg;
-
-            // increase the backoff for the new connection,
-            // so that if it closes the backoff will keep increasing up to max.
-            conn._reconn_backoff = Math.min(
-                reconn_backoff * RECONN_BACKOFF_FACTOR, RECONN_BACKOFF_MAX);
-
-            return conn.connect();
-
-        })
-        .then(function() {
-
-            // remove the backoff once connected
-            delete conn._reconn_backoff;
-
-            dbg.log1('RPC RECONNECTED', addr_url.href,
-                'reconn_backoff', reconn_backoff);
-
-            self.emit('reconnect', conn);
-
-        }, function(err) {
-
-            // since the new connection should already listen for close events,
-            // then this path will be called again from there,
-            // so no need to loop and retry from here.
-            dbg.warn('RPC RECONNECT FAILED', addr_url.href,
-                'reconn_backoff', reconn_backoff,
-                err.stack || err);
-
-        });
+    var conn = this._get_connection(addr_url, 'called from reconnect');
+    // increase the backoff for the new connection,
+    // so that if it closes the backoff will keep increasing up to max.
+    if (conn._reconnect_timeout) return;
+    conn._reconn_backoff = Math.min(
+        reconn_backoff * RECONN_BACKOFF_FACTOR, RECONN_BACKOFF_MAX);
+    conn._reconnect_timeout = setTimeout(() => {
+        conn._reconnect_timeout = undefined;
+        var conn2 = this._get_connection(addr_url, 'called from reconnect2');
+        if (conn2 !== conn) return;
+        P.fcall(() => conn.connect())
+            .then(() => {
+                // remove the backoff once connected
+                conn._reconn_backoff = undefined;
+                dbg.log1('RPC RECONNECTED', addr_url.href,
+                    'reconn_backoff', reconn_backoff);
+                this.emit('reconnect', conn);
+            })
+            .catch(err => {
+                // since the new connection should already listen for close events,
+                // then this path will be called again from there,
+                // so no need to loop and retry from here.
+                dbg.warn('RPC RECONNECT FAILED', addr_url.href,
+                    'reconn_backoff', reconn_backoff,
+                    err.stack || err);
+            });
+    }, reconn_backoff);
 };
 
 
@@ -706,6 +692,11 @@ RPC.prototype._connection_closed = function(conn) {
         clearInterval(conn._ping_interval);
         conn._ping_interval = null;
     }
+
+    // clear the reconnect timeout if was set before on this connection
+    // to handle the actual reconnect we make a new connection object
+    clearTimeout(conn._reconnect_timeout);
+    conn._reconnect_timeout = undefined;
 
     // for base_address try to reconnect after small delay.
     if (!conn._no_reconnect && self._should_reconnect(conn.url.href)) {

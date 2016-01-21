@@ -90,10 +90,12 @@ function new_system_defaults(name, owner_account_id) {
 function new_system_changes(name, owner_account_id) {
     var system = new_system_defaults(name, owner_account_id);
     var pool = pool_server.new_pool_defaults('default_pool', system._id);
-    var tier = tier_server.new_tier_defaults('default_tier', system._id, [pool._id]);
-    var bucket = bucket_server.new_bucket_defaults('files', system._id, [{
-        tier: tier._id
+    var tier = tier_server.new_tier_defaults('nodes', system._id, [pool._id]);
+    var policy = tier_server.new_policy_defaults('default_tiering', system._id, [{
+        tier: tier._id,
+        order: 0
     }]);
+    var bucket = bucket_server.new_bucket_defaults('files', system._id, policy._id);
     var role = {
         account: owner_account_id,
         system: system._id,
@@ -103,6 +105,7 @@ function new_system_changes(name, owner_account_id) {
         insert: {
             systems: [system],
             buckets: [bucket],
+            tieringpolicies: [policy],
             tiers: [tier],
             pools: [pool],
             roles: [role],
@@ -195,7 +198,7 @@ function read_system(req) {
         blocks,
         cloud_sync_by_bucket) {
 
-        blocks = _.mapValues(_.indexBy(blocks, '_id'), 'value');
+        blocks = _.mapValues(_.keyBy(blocks, '_id'), 'value');
         var nodes_sys = nodes_aggregate_tier[''] || {};
         var objects_sys = objects_aggregate[''] || {};
         var ip_address = ip_module.address();
@@ -204,7 +207,7 @@ function read_system(req) {
         // var stun_address = 'stun://' + ip_address + ':' + stun.PORT;
         // var stun_address = 'stun://64.233.184.127:19302'; // === 'stun://stun.l.google.com:19302'
         // n2n_config.stun_servers = n2n_config.stun_servers || [];
-        // if (!_.contains(n2n_config.stun_servers, stun_address)) {
+        // if (!_.includes(n2n_config.stun_servers, stun_address)) {
         //     n2n_config.stun_servers.unshift(stun_address);
         //     dbg.log0('read_system: n2n_config.stun_servers', n2n_config.stun_servers);
         // }
@@ -397,7 +400,7 @@ function get_system_web_links(system) {
         // }
     });
     // remove keys with undefined values
-    return _.omit(reply, _.isUndefined);
+    return _.omitBy(reply, _.isUndefined);
 }
 
 

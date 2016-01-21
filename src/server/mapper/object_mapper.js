@@ -96,7 +96,7 @@ function finalize_object_parts(bucket, obj, parts) {
                     return p.chunk;
                 });
             }));
-            var chunk_by_id = _.indexBy(chunks, '_id');
+            var chunk_by_id = _.keyBy(chunks, '_id');
             _.each(blocks, function(block) {
                 if (!block.building) {
                     dbg.warn("ERROR block not in building mode ", block);
@@ -591,7 +591,7 @@ function delete_object_mappings(obj) {
             //Mark parts as deleted
             return db.ObjectPart.collection.updateMany({
                 _id: {
-                    $in: _.pluck(parts, '_id')
+                    $in: _.map(parts, '_id')
                 }
             }, {
                 $set: {
@@ -601,7 +601,7 @@ function delete_object_mappings(obj) {
         })
         .then(function() {
             var chunks = _.map(deleted_parts, 'chunk');
-            all_chunk_ids = _.pluck(chunks, '_id');
+            all_chunk_ids = _.map(chunks, '_id');
             //For every chunk, verify if its no longer referenced
             return db.ObjectPart.collection.find({
                 chunk: {

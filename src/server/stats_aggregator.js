@@ -176,7 +176,7 @@ function get_pool_stats(req) {
     }, function reduce(node, group) {
         group.count += 1;
     }).then(function(res) {
-        var node_count_by_pool = _.mapValues(_.indexBy(res, 'pool'), 'count');
+        var node_count_by_pool = _.mapValues(_.keyBy(res, 'pool'), 'count');
         return _.map(system_store.data.pools, function(pool) {
             return node_count_by_pool[pool._id] || 0;
         });

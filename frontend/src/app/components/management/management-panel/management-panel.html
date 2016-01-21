@@ -1,0 +1,53 @@
+<div class="management-panel">
+	<ul class="tabs">
+		<li data-bind="css: { selected: isTabSelected('accounts') }">
+			<a class="tab-header" data-bind="href: '/fe/systems/:system/management/accounts'">
+				Accounts
+			</a>
+
+			<section class="tab-content">
+				<accounts-table></accounts-table>
+			</section>
+		</li>
+
+		<!-- <li data-bind="css: { selected: isTabSelected('alerts') }">
+			<a class="tab-header" data-bind="href: '/fe/systems/:system/management/alerts'">
+				Alerts
+			</a>
+
+			<section class="tab-content">
+				this is the alerting tab
+			</section>
+		</li> -->
+
+		<li data-bind="css: { selected: isTabSelected('network') }">
+			<a class="tab-header" data-bind="href: '/fe/systems/:system/management/network'">
+				Network &amp; Security
+			</a>
+
+			<section class="tab-content">
+				this is the network tab
+			</section>
+		</li>		
+
+		<li data-bind="css: { selected: isTabSelected('cluster') }">
+			<a class="tab-header" data-bind="href: '/fe/systems/:system/management/cluster'">
+				Cluster
+			</a>
+
+			<section class="tab-content">
+				this is the cluster tab
+			</section>
+		</li>				
+
+<!-- 		<li data-bind="css: { selected: isTabSelected('policies') }">
+			<a class="tab-header" data-bind="href: '/fe/systems/:system/management/policies'">
+				Policies
+			</a>
+
+			<section class="tab-content">
+				this is the policies tab
+			</section>
+		</li>				 -->
+	</ul>
+</div>

@@ -900,12 +900,20 @@ module.exports = function(params) {
                                 'The requested bucket already exists');
                             return buildXmlResponse(res, 409, template);
                         } else {
-                            dbg.log3('Creating new bucket', bucketName);
-                            return clients[access_key].client.bucket.create_bucket({
-                                    name: bucketName,
-                                    tiering: [{
-                                        tier: 'default_tier'
+                            dbg.log3('Creating new tiering_policy for bucket', bucketName);
+                            return clients[access_key].client.tiering_policy.create_policy({
+                                    name: bucketName + '_tiering',
+                                    tiers: [{
+                                        order: 0,
+                                        tier: 'nodes'
                                     }]
+                                })
+                                .then(function() {
+                                    dbg.log3('Creating new bucket', bucketName);
+                                    return clients[access_key].client.bucket.create_bucket({
+                                        name: bucketName,
+                                        tiering: bucketName + '_tiering'
+                                    });
                                 })
                                 .then(function() {
                                     dbg.log3('Created new bucket "%s" successfully', bucketName);
@@ -1235,8 +1243,9 @@ module.exports = function(params) {
                         };
                         set_xattr(req, create_params);
 
-                        dbg.log0('Init Multipart, buckets', clients[access_key].buckets, '::::', _.where(clients[access_key].buckets, {
-                            bucket: req.bucket
+                        dbg.log0('Init Multipart, buckets', clients[access_key].buckets, '::::', 
+                            _.filter(clients[access_key].buckets, {                           
+                                bucket: req.bucket
                         }));
                         if (!_.has(clients[access_key].buckets, req.bucket)) {
 

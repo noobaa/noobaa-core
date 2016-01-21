@@ -1,33 +1,35 @@
 import template from './bucket-policy-modal.html';
 import ko from 'knockout';
 import { noop, cloneArray } from 'utils';
-import { poolList, bucketPolicy } from 'model';
-import { readSystemInfo, readBucketPolicy, updateTier } from 'actions';
+import { poolList, tierInfo } from 'model';
+import { loadPoolList, loadTier, updateTier } from 'actions';
 
 class BucketPolicyModalViewModel {
-	constructor({ policyName, onClose = noop }) {
+	constructor({ policy, onClose = noop }) {
 		this.onClose = onClose;
+
+		this.tierName = ko.pureComputed(
+			() => policy().tiers[0].tier
+		);
+
+		this.dataReady = ko.pureComputed(
+			() => !!tierInfo()
+		);
+
+		this.dataPlacement = ko.observableWithDefault(
+			() => !!tierInfo() && tierInfo().data_placement
+		);
+
+		this.selectedPools = ko.observableWithDefault(
+			() => !!tierInfo() && tierInfo().pools
+		);
 
 		this.pools = poolList.map(
 			pool => pool.name
 		);
 
-		this.dataPlacement = ko.observable();
-		this.selectedPools = ko.observableArray();
-
-		this.tier = ko.pureComputed(
-			() => bucketPolicy() ? bucketPolicy().tiers[0].tier : null
-		);
-
-		this.initSubscription = this.tier.subscribe(
-			tier => {
-				this.dataPlacement(tier.data_placement);
-				this.selectedPools(tier.pools)
-			}
-		);
-
-		readBucketPolicy(ko.unwrap(policyName));
-		readSystemInfo();
+		loadTier(this.tierName());
+		loadPoolList();
 	}
 
 	selectAllPools() {
@@ -43,7 +45,7 @@ class BucketPolicyModalViewModel {
 
 	save() {
 		updateTier(
-			this.tier().name,
+			this.tierName(),
 			this.dataPlacement(),
 			this.selectedPools()
 		);
@@ -53,11 +55,6 @@ class BucketPolicyModalViewModel {
 
 	cancel() {
 		this.onClose();
-	}
-
-	dispose() {
-		console.log('here');
-		this.initSubscription.dispose();
 	}
 }
 

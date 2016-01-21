@@ -21,6 +21,7 @@ api_schema.register_api(require('./stats_api'));
 api_schema.register_api(require('./cloud_sync_api'));
 api_schema.register_api(require('./debug_api'));
 api_schema.register_api(require('./redirector_api'));
+api_schema.register_api(require('./tiering_policy_api'));
 api_schema.register_api(require('./pool_api'));
 api_schema.register_api(require('./cluster_api'));
 

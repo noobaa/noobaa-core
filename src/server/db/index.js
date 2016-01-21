@@ -21,6 +21,7 @@ var DataChunk = require('./data_chunk');
 var DataBlock = require('./data_block');
 var ActivityLog = require('./activity_log');
 var Pool = require('./pool');
+var TieringPolicy = require('./tiering_policy');
 // var dbg = require('../util/debug_module')(__filename);
 var debug_mode = (process.env.DEBUG_MODE === 'true');
 var mongoose_connected = false;

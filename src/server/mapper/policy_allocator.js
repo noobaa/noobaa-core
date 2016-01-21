@@ -27,15 +27,14 @@ function remove_allocation(blocks) {
 function get_pools_groups(bucket_id) {
     //TODO take into account multi-tiering
     var reply = [];
-    var bucket = system_store.data.get_by_id(bucket_id);
-    var tier0 = bucket.tiering[0].tier;
-    if (tier0.data_placement === 'MIRROR') {
-        _.each(tier0.pools, function(p) {
+    var tiers = get_tiering_info(bucket_id);
+    if (tiers[0].data_placement === 'MIRROR') {
+        _.each(tiers[0].pools, function(p) {
             reply.push([p]);
         });
-    } else if (tier0.data_placement === 'SPREAD') {
+    } else if (tiers[0].data_placement === 'SPREAD') {
         reply.push([]); //Keep the same format as MIRROR
-        _.each(tier0.pools, function(p) {
+        _.each(tiers[0].pools, function(p) {
             reply[0].push(p);
         });
     }
@@ -208,6 +207,15 @@ function classify_block(fragment, block, now) {
     }
 }
 
+
+/**
+ * Reading tiering info for a bucket
+ */
+function get_tiering_info(bucket_id) {
+    var bucket = system_store.data.get_by_id(bucket_id);
+    var tiers = _.map(bucket.tiering.tiers, 'tier');
+    return tiers;
+}
 
 /**
  * sorting function for sorting blocks with most recent heartbeat first

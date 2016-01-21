@@ -177,3 +177,7 @@ export function encodeBase64(obj) {
 export function last(arr) {
 	return arr[arr.length - 1];
 }
+
+export function clamp(num, min, max) {
+	return Math.max(min, Math.min(num, max));
+}

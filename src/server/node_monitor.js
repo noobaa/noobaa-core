@@ -45,7 +45,7 @@ var heartbeat_find_node_by_id_barrier = new Barrier({
                 .select('ip port peer_id storage geolocation')
                 .exec())
             .then(function(res) {
-                var nodes_by_id = _.indexBy(res, '_id');
+                var nodes_by_id = _.keyBy(res, '_id');
                 return _.map(node_ids, function(node_id) {
                     return nodes_by_id[node_id];
                 });
@@ -78,7 +78,7 @@ var heartbeat_count_node_storage_barrier = new Barrier({
             }))
             .then(function(res) {
                 // convert the map-reduce array to map of node_id -> sum of block sizes
-                var nodes_storage = _.mapValues(_.indexBy(res, '_id'), 'value');
+                var nodes_storage = _.mapValues(_.keyBy(res, '_id'), 'value');
                 return _.map(node_ids, function(node_id) {
                     return nodes_storage[node_id] || 0;
                 });

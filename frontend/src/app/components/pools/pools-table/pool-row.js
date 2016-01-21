@@ -19,15 +19,15 @@ export default class PoolRowViewModel {
 		);
 
 		this.nodeCount = ko.pureComputed(
-			() => numeral(pool().total_nodes).format('0,0')
+			() => numeral(pool().nodes.count).format('0,0')
 		);
 
 		this.onlineCount = ko.pureComputed(
-			() => numeral(pool().online_nodes).format('0,0')
+			() => numeral(pool().nodes.online).format('0,0')
 		);
 
 		this.offlineCount = ko.pureComputed(
-			() => numeral(pool().total_nodes - pool().online_nodes).format('0,0')
+			() => numeral(this.nodeCount() - this.onlineCount()).format('0,0')
 		);
 
 		this.usage = ko.pureComputed(
@@ -39,7 +39,7 @@ export default class PoolRowViewModel {
 		);
 
 		this.allowDelete = ko.pureComputed(
-			() => pool().total_nodes === 0
+			() => this.nodeCount() === 0
 		);
 
 		this.isDeleteCandidate = ko.pureComputed({

@@ -25,7 +25,7 @@ export let systemOverview = ko.observable();
 // Hold agent installation information.
 export let agentInstallationInfo = ko.observable();
 
-// Hold the current bucket list. derived from system info.
+// Hold the current bucket list. deriv`ed` from system info.
 export let bucketList = ko.observableArray(); 
 bucketList.sortedBy = ko.observable('name')
 bucketList.order = ko.observable(1);
@@ -41,8 +41,8 @@ bucketObjectList.order = ko.observable(1);
 bucketObjectList.filter = ko.observable();
 bucketObjectList.page = ko.observable(0);
 
-// Hold the current bucket policy.
-export let bucketPolicy = ko.observable();
+// Hold the current tier information.
+export let tierInfo = ko.observable();
 
 // Hold the current pool list. derived from system info.
 export let poolList = ko.observableArray();
@@ -53,7 +53,7 @@ poolList.order = ko.observable(1);
 export let poolInfo = ko.observable();
 
 // Hold a list of all the nodes in the system.
-export let nodeList = ko.observableArray();
+export let fullNodeList = ko.observableArray();
 
 
 // Hold the current pool node list.
@@ -86,5 +86,7 @@ export let recentUploads = ko.observableArray();
 
 // Hold the audit log 
 export let auditLog = ko.observableArray();
-auditLog.loadedCategories = ko.observableArray();
-auditLog.scrollPop = ko.observable();
+auditLog.loadedCategories = ko.observable();
+
+// Hold the current account list
+export let accountList = ko.observableArray();

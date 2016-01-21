@@ -280,7 +280,7 @@ nb_util.factory('nbHashRouter', [
             }
             var hash = encodeURIComponent(route);
             // compact the query by removing empty values
-            var hash_query = _.pick(query, function(val, key) {
+            var hash_query = _.pickBy(query, function(val, key) {
                 return !!val;
             });
             // handle pagination - translate the page number from 0-based to 1-based

@@ -37,8 +37,8 @@ function new_pool_defaults(name, system_id) {
 
 
 function create_pool(req) {
-    var name = req.rpc_params.pool.name;
-    var nodes = req.rpc_params.pool.nodes;
+    var name = req.rpc_params.name;
+    var nodes = req.rpc_params.nodes;
     if (name !== 'default_pool' && nodes.length < 3) {
         throw req.rpc_error('NOT ENOUGH NODES', 'cant create a pool with less than 3 nodes');
     }
@@ -157,10 +157,13 @@ function remove_nodes_from_pool(req) {
 
 function get_associated_buckets(req) {
     var pool = find_pool_by_name(req);
-    var associated_buckets = _.filter(req.system.buckets_by_name,
-        bucket => _.find(bucket.tiering,
-            level => _.find(level.tier.pools,
-                pool2 => String(pool._id) === String(pool2._id))));
+    var associated_buckets = _.filter(req.system.buckets_by_name, function(bucket) {
+        return _.find(bucket.tiering.tiers, function(tier_and_order) {
+            return _.find(tier_and_order.tier.pools, function(pool2) {
+                return String(pool._id) === String(pool2._id);
+            });
+        });
+    });
     return _.map(associated_buckets, function(bucket) {
         return bucket.name;
     });

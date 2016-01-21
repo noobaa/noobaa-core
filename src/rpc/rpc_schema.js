@@ -12,7 +12,6 @@ var dbg = require('../util/debug_module')(__filename);
  * a registry for api's
  */
 function RpcSchema() {
-    this._schemas = {};
     this._validator = new Ajv({
         missingRefs: 'ignore',
         // verbose: true,
@@ -25,9 +24,6 @@ function RpcSchema() {
                 return Buffer.isBuffer(val);
             }
         },
-        // TODO banUnknownProperties is pending issue
-        // https://github.com/mafintosh/is-my-json-valid/issues/59
-        banUnknownProperties: true
     });
 }
 

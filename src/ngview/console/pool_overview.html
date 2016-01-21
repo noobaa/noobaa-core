@@ -3,30 +3,30 @@
         <div class="well well-sm clearfix" style="height: 450px">
             <div class="clearfix">
                 <a class="btn btn-flat btn-info btn-sm pull-right"
-                    ng-click="tier_router.set('nodes')">See
+                    ng-click="pool_router.set('nodes')">See
                     nodes list</a>
             </div>
             <h3 style="margin-top: 40px"><b>POOL STATUS</b></h3>
             <div class="text-center" style="padding-top: 40px">
-                <a class="btn btn-default" style="margin-right: 30px" ng-click="tier_router.set('nodes', {state:'online'})">
+                <a class="btn btn-default" style="margin-right: 30px" ng-click="pool_router.set('nodes', {state:'online'})">
                     <span class="relpos">
                         <i class="fa fa-desktop" style="font-size: 80px"></i>
                         <i class="fa fa-check text-success abspos"
                             style="font-size: 30px; top: -45px; left: 30px"></i>
                     </span>
                     <h5 class="text-muted">
-                        {{tier.nodes.online}}
+                        {{pool.nodes.online}}
                         Online
                     </h5>
                 </a>
-                <a class="btn btn-default" ng-click="tier_router.set('nodes', {state:'offline'})">
+                <a class="btn btn-default" ng-click="pool_router.set('nodes', {state:'offline'})">
                     <span class="relpos">
                         <i class="fa fa-desktop" style="font-size: 80px; color: #555"></i>
                         <i class="fa fa-moon-o text-muted abspos"
                             style="font-size: 30px; top: -45px; left: 30px"></i>
                     </span>
                     <h5 class="text-muted">
-                        {{tier.nodes.count-tier.nodes.online}}
+                        {{pool.nodes.count-pool.nodes.online}}
                         Offline
                     </h5>
                 </a>
@@ -41,7 +41,7 @@
         <div class="well well-sm clearfix" style="height: 450px">
             <div class="clearfix">
                 <a class="btn btn-flat btn-info btn-sm pull-right"
-                    ng-click="tier_router.set('stats')" style="visibility: hidden">See
+                    ng-click="pool_router.set('stats')" style="visibility: hidden">See
                     more</a>
             </div>
             <h3 style="margin-top: 40px"><b>POOL STORAGE</b></h3>
@@ -50,9 +50,9 @@
             <div>
                 <br/>
                 <br/>
-                NooBaa Usage (Raw) : {{human_size(tier.storage.used)}}
+                NooBaa Usage (Raw) : {{human_size(pool.storage.used)}}
                 <br/>
-                Available Space (Raw) : {{human_size(tier.storage.free)}}
+                Available Space (Raw) : {{human_size(pool.storage.free)}}
             </div>
             -->
         </div>

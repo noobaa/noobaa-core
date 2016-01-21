@@ -22,24 +22,24 @@
                 <div class="row">
                     <div class="col-lg-6">
                         <div style="white-space: nowrap; font-size: 32px; margin-top: 5px">
-                            <a ng-href="/console/tier/{{nbSystem.system.tiers[0].name}}">
+                            <a ng-href="/console/pools/">
                                 <b class="uppercase text-muted">
-                                    {{nbSystem.system.tiers[0].name}}
+                                    NODES
                                     &nbsp;
                                 </b>
                                 <span style="font-size: 0">
-                                    <span style="font-size: 32px; color: hsla(0,0%,100%,0.2)">{{leading_zeros(nbSystem.system.tiers[0].nodes.online,6)}}</span>
-                                    <span style="font-size: 32px" class="text-muted">{{nbSystem.system.tiers[0].nodes.online}}</span>
+                                    <span style="font-size: 32px; color: hsla(0,0%,100%,0.2)">{{leading_zeros(nbSystem.system.nodes.online,6)}}</span>
+                                    <span style="font-size: 32px" class="text-muted">{{nbSystem.system.nodes.online}}</span>
                                 </span>
                             </a>
                         </div>
                         <div>
-                            <span ng-if="nbSystem.system.tiers[0].nodes.count <= nbSystem.system.tiers[0].nodes.online" style="font-size: 14px; color: hsla(0,0%,100%,0.2)">
+                            <span ng-if="nbSystem.system.nodes.count <= nbSystem.system.nodes.online" style="font-size: 14px; color: hsla(0,0%,100%,0.2)">
                                 <i class="fa fa-check fa-fw text-success"></i> all nodes are online
                             </span>
-                            <a ng-if="nbSystem.system.tiers[0].nodes.count > nbSystem.system.tiers[0].nodes.online" ng-href="/console/tier/{{nbSystem.system.tiers[0].name}}#nodes&state=offline" style="font-size: 14px">
+                            <a ng-if="nbSystem.system.nodes.count > nbSystem.system.nodes.online" ng-href="/console/pools/" style="font-size: 14px">
                                 <span class="text-warning">
-                                    <i class="fa fa-warning fa-fw"></i> {{nbSystem.system.tiers[0].nodes.count - nbSystem.system.tiers[0].nodes.online}} offline nodes
+                                    <i class="fa fa-warning fa-fw"></i> {{nbSystem.system.nodes.count - nbSystem.system.nodes.online}} offline nodes
                                 </span>
                             </a>
                         </div>
@@ -58,22 +58,22 @@
                 <div class="row">
                     <div class="col-lg-6">
                         <div style="white-space: nowrap; font-size: 32px; margin-top: 5px">
-                            <a ng-href="/console/bucket/{{nbSystem.system.buckets[0].name}}">
+                            <a ng-href="/console/buckets/">
                                 <b class="uppercase text-muted" >
-                                    {{nbSystem.system.buckets[0].name}}
+                                    FILES
                                     &nbsp;
                                 </b>
                                 <span style="font-size: 0">
-                                    <span style="font-size: 32px; color: hsla(0,0%,100%,0.2)">{{leading_zeros(nbSystem.system.buckets[0].num_objects,6)}}</span>
-                                    <span style="font-size: 32px" class="text-muted">{{nbSystem.system.buckets[0].num_objects}}</span>
+                                    <span style="font-size: 32px; color: hsla(0,0%,100%,0.2)">{{leading_zeros(nbSystem.system.objects,6)}}</span>
+                                    <span style="font-size: 32px" class="text-muted">{{nbSystem.system.objects}}</span>
                                 </span>
                             </a>
                         </div>
                         <div>
-                            <span ng-if="nbSystem.system.tiers[0].nodes.online >= 3" style="font-size: 14px; color: hsla(0,0%,100%,0.2)">
+                            <span ng-if="nbSystem.system.nodes.online >= 3" style="font-size: 14px; color: hsla(0,0%,100%,0.2)">
                                 <i class="fa fa-check fa-fw text-success"></i> ready to upload
                             </span>
-                            <span ng-if="nbSystem.system.tiers[0].nodes.online < 3" style="font-size: 14px">
+                            <span ng-if="nbSystem.system.nodes.online < 3" style="font-size: 14px">
                                 <span class="text-warning">
                                     <i class="fa fa-warning fa-fw"></i> not enough nodes
                                 </span>

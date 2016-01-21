@@ -788,7 +788,7 @@ export function createAccount(name, email, password) {
 export function createBucket(name, dataPlacement, pools) {
 	logAction('createBucket', { name, dataPlacement, pools });
 
-	let bucketList = { model };
+	let { bucketList } = model;
 
 	api.tier.create_tier({ 
 		name: randomString(8),
@@ -815,7 +815,7 @@ export function createBucket(name, dataPlacement, pools) {
 			})
 		)
 		.then(
-			() => loadBucketList(bucketPolicy.sortedBy(), bucketList.order())
+			() => loadBucketList(bucketList.sortedBy(), bucketList.order())
 		)
 		.done();
 }
@@ -842,7 +842,7 @@ export function updateTier(name, dataPlacement, pools) {
 export function createPool(name, nodes) {
 	logAction('createPool', { name, nodes });
 
-	let poolList = { model };
+	let { poolList } = model;
 	api.pool.create_pool({ name, nodes })
 		.then(
 			() => loadPoolList(poolList.sortedBy(), poolList.order())

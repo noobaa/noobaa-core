@@ -1243,8 +1243,9 @@ module.exports = function(params) {
                         };
                         set_xattr(req, create_params);
 
-                        dbg.log0('Init Multipart, buckets', clients[access_key].buckets, '::::', _.where(clients[access_key].buckets, {
-                            bucket: req.bucket
+                        dbg.log0('Init Multipart, buckets', clients[access_key].buckets, '::::', 
+                            _.filter(clients[access_key].buckets, {                           
+                                bucket: req.bucket
                         }));
                         if (!_.has(clients[access_key].buckets, req.bucket)) {
 

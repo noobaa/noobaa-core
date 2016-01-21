@@ -341,13 +341,13 @@ function _prepare_auth_request(req) {
         if (!ignore_missing_account) {
             // check that auth has account
             if (!req.account) {
-                throw req.unauthorized('auth account not found');
+                throw req.unauthorized('auth account not found ' + (req.auth && req.auth.account_id));
             }
         }
         if (!ignore_missing_system) {
             // check that auth contains system
             if (!req.system) {
-                throw req.unauthorized('auth system not found');
+                throw req.unauthorized('auth system not found ' + (req.auth && req.auth.system_id));
             }
 
             // check that auth contains valid system role

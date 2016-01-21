@@ -186,6 +186,7 @@ RPC.prototype.client_request = function(api, method_api, params, options) {
     var req = new RpcRequest();
     req.new_request(api, method_api, params, options.auth_token);
     req.response_defer = P.defer();
+    req.response_defer.promise.catch(_.noop); // to prevent error log of unhandled rejection
 
     // assign a connection to the request
     var conn = self._assign_connection(req, options);
@@ -683,9 +684,10 @@ RPC.prototype._connection_closed = function(conn) {
 
     // reject pending requests
     _.each(conn._sent_requests, function(req) {
-        dbg.warn('RPC _connection_closed: reject reqid', req.reqid,
-            'connid', conn.connid);
-        req.rpc_error('DISCONNECTED', 'connection closed ' + conn.connid);
+        req.rpc_error('DISCONNECTED', 'connection closed ' + conn.connid + ' reqid ' + req.reqid, {
+            level: 'warn',
+            nostack: true
+        });
     });
 
     if (conn._ping_interval) {

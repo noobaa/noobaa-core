@@ -193,11 +193,13 @@ RpcRequest.prototype.import_response_message = function(msg) {
  * mark this response with error.
  * @return error object to be thrown by the caller as in: throw req.rpc_error(...)
  */
-RpcRequest.prototype.rpc_error = function(rpc_code, message, reason) {
+RpcRequest.prototype.rpc_error = function(rpc_code, message, info) {
     var err = new Error('RPC ERROR');
     err.rpc_code = (rpc_code || 'INTERNAL').toString();
     err.message = (message || '').toString();
-    dbg.error('RPC ERROR', this.srv, reason || '', err.rpc_code, err.message, err.stack);
+    var logger = info && info.level ? dbg[info.level] : dbg.error;
+    logger.call(dbg, 'RPC ERROR', this.srv, err.rpc_code, err.message,
+        info && info.reason || '', info && info.nostack ? '' : err.stack);
     if (this.error) {
         dbg.error('RPC MULTIPLE ERRORS, existing error', this.error);
     } else {

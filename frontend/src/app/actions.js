@@ -318,7 +318,7 @@ export function loadServerInfo() {
 	api.account.accounts_status()
 		.then(
 			reply => model.serverInfo({
-				endpoint: endpoint
+				endpoint: endpoint,
 				initialized: reply.has_accounts
 			})
 		)
@@ -335,7 +335,7 @@ export function loadSystemOverview() {
 				let { access_key, secret_key } = reply.access_keys[0];
 
 				systemOverview({
-					endpoint: new URL(reply.base_address).hostname,
+					endpoint: endpoint,
 					accessKey: access_key,
 					secretKey: secret_key, 
 					capacity: reply.storage.total,

@@ -44,6 +44,7 @@ var P = require('../util/promise');
 
 function new_bucket_defaults(name, system_id, tiering_policy_id) {
     return {
+        _id: system_store.generate_id(),
         name: name,
         system: system_id,
         tiering: tiering_policy_id,

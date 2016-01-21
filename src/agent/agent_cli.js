@@ -48,7 +48,22 @@ function AgentCLI(params) {
     this.agents = {};
 }
 
+function deleteFolderRecursive(path) {
+    if (fs.existsSync(path)) {
+        fs.readdirSync(path).forEach(function(file, index) {
+            var curPath = path + "/" + file;
+            dbg.log0('deleting0', curPath);
 
+            if (fs.lstatSync(curPath).isDirectory()) { // recurse
+                deleteFolderRecursive(curPath);
+            } else { // delete file
+                dbg.log0('deleting', curPath);
+                fs.unlinkSync(curPath);
+            }
+        });
+        fs.rmdirSync(path);
+    }
+}
 /**
  *
  * INIT
@@ -140,11 +155,18 @@ AgentCLI.prototype.init = function() {
             self.params.all_storage_paths = mount_points;
 
         }).then(function() {
-
-            return self.load()
-                .then(function() {
-                    dbg.log0('COMPLETED: load');
-                });
+            if (self.params.cleanup) {
+                return P.all(_.map(self.params.all_storage_paths, function(storage_path_info) {
+                    var storage_path = storage_path_info.mount;
+                    var path_modification = storage_path.replace('/agent_storage/', '').replace('/', '').replace('.', '');
+                    deleteFolderRecursive(path_modification);
+                }));
+            } else {
+                return self.load()
+                    .then(function() {
+                        dbg.log0('COMPLETED: load');
+                    });
+            }
         }).then(null, function(err) {
             dbg.error('ERROR: load', self.params, err.stack);
             throw new Error(err);
@@ -196,9 +218,11 @@ AgentCLI.prototype.load = function() {
             var number_of_new_paths = 0;
             var existing_nodes_count = 0;
             _.each(storage_path_nodes, function(nodes) {
-                existing_nodes_count += nodes.length;
+                //assumes same amount of nodes per each HD. we will take the last one.
                 if (!nodes.length) {
                     number_of_new_paths += 1;
+                } else {
+                    existing_nodes_count = nodes.length;
                 }
             });
             // we create a new node for every new drive (detects as a storage path without nodes)
@@ -206,16 +230,20 @@ AgentCLI.prototype.load = function() {
             // which asks to create at least that number of total nodes.
             // Please note that the sacle is per storage path. if the scale is 2 and there are two HD
             // we will have 4 nodes. In addition, we will always scale to at least 1 node
-
-            var nodes_to_add = Math.max(nodes_scale,1) - existing_nodes_count;
+            var nodes_to_add = 0;
             dbg.log0('AGENTS SCALE TO', nodes_scale);
             dbg.log0('AGENTS EXISTING', existing_nodes_count);
             dbg.log0('AGENTS NEW PATHS', number_of_new_paths);
-            dbg.log0('AGENTS TO ADD', nodes_to_add);
-            if (nodes_scale < existing_nodes_count) {
-                dbg.warn('NODES SCALE DOWN IS NOT YET SUPPORTED ...');
+            if (number_of_new_paths > 0 &&
+                self.params.all_storage_paths.length > number_of_new_paths) {
+                dbg.log0('Introducing new HD, while other exist. Adding only one node for these new drives');
+                nodes_to_add = 0; //special case, the create_some will add only to new HD
+            } else {
+                nodes_to_add = Math.max(nodes_scale, 1) - existing_nodes_count;
             }
-            if (nodes_to_add > 0) {
+            if (nodes_to_add < 0) {
+                dbg.warn('NODES SCALE DOWN IS NOT YET SUPPORTED ...');
+            } else {
                 return self.create_some(nodes_to_add);
             }
         })
@@ -332,14 +360,14 @@ AgentCLI.prototype.create_node_helper = function(current_node_path_info) {
  * create new node agent
  *
  */
-AgentCLI.prototype.create = function() {
+AgentCLI.prototype.create = function(number_of_nodes) {
     var self = this;
     //create root path last
     return P.all(_.map(_.drop(self.params.all_storage_paths, 1), function(current_storage_path) {
             return fs_utils.list_directory(current_storage_path.mount)
                 .then(function(files) {
-                    if (files.length > 0) {
-                        //multi drive path includes nodes data, no need to recreate a node, skip.
+                    if (files.length > 0 && number_of_nodes === 0) {
+                        //if new HD introduced,  skip existing HD.
                         return;
                     } else {
                         return self.create_node_helper(current_storage_path);
@@ -347,12 +375,11 @@ AgentCLI.prototype.create = function() {
                 });
         }))
         .then(function() {
-            //if multi drive, don't allow create more than one agent per drive
             if (self.params.all_storage_paths.length > 1) {
                 return fs_utils.list_directory(self.params.all_storage_paths[0].mount)
                     .then(function(files) {
-                        if (files.length > 0) {
-                            //In case we have multiple drives, we will allow only one node
+                        if (files.length > 0 && number_of_nodes === 0) {
+                            //if new HD introduced,  skip existing HD.
                             return;
                         } else {
                             return self.create_node_helper(self.params.all_storage_paths[0]);
@@ -380,12 +407,17 @@ AgentCLI.prototype.create.helper = function() {
  */
 AgentCLI.prototype.create_some = function(n) {
     var self = this;
-    var sem = new Semaphore(5);
-    return P.all(_.times(n, function() {
-        return sem.surround(function() {
-            return self.create();
-        });
-    }));
+    //special case, new HD introduction to the system. adding only these new HD nodes
+    if (n === 0) {
+        return self.create(0);
+    } else {
+        var sem = new Semaphore(5);
+        return P.all(_.times(n, function() {
+            return sem.surround(function() {
+                return self.create(n);
+            });
+        }));
+    }
 };
 
 AgentCLI.prototype.create_some.helper = function() {

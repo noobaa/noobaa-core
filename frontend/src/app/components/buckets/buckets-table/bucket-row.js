@@ -24,49 +24,52 @@ export default class BucketRowViewModel {
 			() => !!bucket()
 		);
 
-		this.isDisabled = ko.pureComputed(
-			() => isDefined(bucket().placeholder)
-		);
-
 		this.stateIcon = ko.pureComputed(
-			() => stateIconMapping[bucket().state || true]
+			() => this.isVisible() && stateIconMapping[bucket().state || true]
 		);
 
 		this.name = ko.pureComputed(
-			() => bucket().name
+			() => this.isVisible() && bucket().name
 		);
 
 		this.href = ko.pureComputed(
-			() => this.isDisabled() ? '' : `/fe/systems/:system/buckets/${bucket().name}`
+			() => this.isVisible() && `/fe/systems/:system/buckets/${bucket().name}`
 		);
 
 		this.fileCount = ko.pureComputed(
 			() => {
-				let count = bucket().num_objects;
-				return isDefined(count) ? numeral(count).format('0,0') : 'N/A';
+				if (this.isVisible()) {
+					let count = bucket().num_objects;
+					return isDefined(count) ? numeral(count).format('0,0') : 'N/A';					
+				}
+
 			}
 		);
 
 		this.totalSize = ko.pureComputed(
 			() => {
-				let storage = bucket().storage;
-				return isDefined(storage) ? formatSize(storage.total) : 'N/A';
+				if (this.isVisible()) {				
+					let storage = bucket().storage;
+					return isDefined(storage) ? formatSize(storage.total) : 'N/A';
+				}
 			}
 		);
 
 		this.freeSize = ko.pureComputed(
 			() => {
-				let storage = bucket().storage;
-				return isDefined(storage) ? formatSize(storage.free) : 'N/A';
+				if (this.isVisible()) {
+					let storage = bucket().storage;
+					return isDefined(storage) ? formatSize(storage.free) : 'N/A';
+				}
 			}
 		);
 
 		this.cloudSyncStatus = ko.pureComputed(
-			() => cloudSyncStatusMapping[bucket().cloud_sync_status]
+			() => this.isVisible() && cloudSyncStatusMapping[bucket().cloud_sync_status]
 		);
 
 		this.allowDelete = ko.pureComputed(
-			() => !this.isDisabled() && bucket().num_objects === 0
+			() => this.isVisible() && bucket().num_objects === 0
 		);
 
 		this.isDeleteCandidate = ko.pureComputed({

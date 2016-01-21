@@ -7,6 +7,7 @@ module.exports = {
     array_push_all: array_push_all,
     named_array_push: named_array_push,
     append_buffer_or_array: append_buffer_or_array,
+    deep_freeze: deep_freeze,
 };
 
 
@@ -77,8 +78,7 @@ function named_array_push(obj, arr_name, item) {
 }
 
 
-function append_buffer_or_array(buffer_or_array, item)
-{
+function append_buffer_or_array(buffer_or_array, item) {
     if (_.isArray(buffer_or_array)) {
         if (_.isArray(item)) {
             return array_push_all(buffer_or_array, item);
@@ -93,4 +93,14 @@ function append_buffer_or_array(buffer_or_array, item)
         }
     }
     return buffer_or_array;
+}
+
+function deep_freeze(obj) {
+    Object.freeze(obj);
+    _.each(obj, val => {
+        if (typeof(val) === 'object' && val !== null && !Object.isFrozen(val)) {
+            deep_freeze(val);
+        }
+    });
+    return obj;
 }

@@ -23,6 +23,7 @@ var dbg = require('../util/debug_module')(__filename);
 var pkg = require('../../package.json');
 var current_pkg_version = pkg.version;
 
+var BG_BASE_ADDR = server_rpc.get_default_base_address('background');
 server_rpc.on('reconnect', _on_reconnect);
 
 /**
@@ -96,15 +97,15 @@ var heartbeat_update_node_timestamp_barrier = new Barrier({
     process: function(node_ids) {
         dbg.log2('heartbeat_update_node_timestamp_barrier', node_ids.length);
         return P.when(db.Node.collection.updateMany({
-                    deleted: null,
-                    _id: {
-                        $in: node_ids
-                    },
-                }, {
-                    $set: {
-                        heartbeat: new Date()
-                    }
-                }))
+                deleted: null,
+                _id: {
+                    $in: node_ids
+                },
+            }, {
+                $set: {
+                    heartbeat: new Date()
+                }
+            }))
             .thenResolve();
     }
 });
@@ -465,7 +466,7 @@ function set_debug_node(req) {
             return '';
         })
         .then(function() {
-          dbg.log1('set_debug_node for agent', target, 'was successful');
+            dbg.log1('set_debug_node for agent', target, 'was successful');
         });
 }
 
@@ -480,8 +481,8 @@ function _unregister_agent(connection, peer_id) {
 }
 
 function _on_reconnect(conn) {
-    dbg.log2('_on_reconnect called', conn.url.href, server_rpc.get_default_base_address('backgroubd'));
-    if (_.startsWith(server_rpc.get_default_base_address('background'), conn.url.href)) {
+    if (_.startsWith(conn.url.href, BG_BASE_ADDR)) {
+        dbg.log0('_on_reconnect:', conn.url.href);
         _resync_agents();
     }
 }

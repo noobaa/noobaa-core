@@ -1,21 +1,19 @@
 'use strict';
 
-var _ = require('lodash');
-var P = require('../../util/promise');
-var util = require('util');
-var mongodb = require('mongodb');
-var mongo_client = require('./mongo_client');
-var time_utils = require('../../util/time_utils');
-var size_utils = require('../../util/size_utils');
-var bg_worker = require('../server_rpc').bg_worker;
-var dbg = require('../../util/debug_module')(__filename);
-// var promise_utils = require('../../util/promise_utils');
+let _ = require('lodash');
+let P = require('../../util/promise');
+let util = require('util');
+let mongodb = require('mongodb');
+let mongo_client = require('./mongo_client');
+let js_utils = require('../../util/js_utils');
+let time_utils = require('../../util/time_utils');
+let size_utils = require('../../util/size_utils');
+let bg_worker = require('../server_rpc').bg_worker;
+let server_rpc = require('../server_rpc').server_rpc;
+let dbg = require('../../util/debug_module')(__filename);
+// let promise_utils = require('../../util/promise_utils');
 
-// a singleton
-module.exports = new SystemStore();
-
-
-var COLLECTIONS = {
+const COLLECTIONS = js_utils.deep_freeze({
     clusters: {},
     systems: {},
     roles: {},
@@ -24,9 +22,9 @@ var COLLECTIONS = {
     tieringpolicies: {},
     tiers: {},
     pools: {},
-};
+});
 
-var INDEXES = [{
+const INDEXES = js_utils.deep_freeze([{
     name: 'systems_by_name',
     collection: 'systems',
     key: 'name'
@@ -68,7 +66,99 @@ var INDEXES = [{
     key: 'system._id',
     val: 'role',
     val_array: true,
-}];
+}]);
+
+const BG_BASE_ADDR = server_rpc.get_default_base_address('background');
+
+
+/**
+ *
+ * SystemStoreData
+ *
+ */
+class SystemStoreData {
+
+    constructor(data) {
+        this.time = Date.now();
+    }
+
+    get_by_id(id) {
+        return id ? this.idmap[id.toString()] : null;
+    }
+
+    rebuild() {
+        this.rebuild_idmap();
+        this.rebuild_object_links();
+        this.rebuild_indexes();
+    }
+
+    rebuild_idmap() {
+        this.idmap = {};
+        _.each(COLLECTIONS, (schema, collection) => {
+            let items = this[collection];
+            _.each(items, item => {
+                let idstr = item._id.toString();
+                let existing = this.idmap[idstr];
+                if (existing) {
+                    dbg.error('SystemStoreData: id collision', item, existing);
+                } else {
+                    this.idmap[idstr] = item;
+                }
+                // keep backward compatible since mongoose exposes 'id'
+                // for the sake of existing code that uses it
+                // item.id = item._id;
+            });
+        });
+    }
+
+    rebuild_object_links() {
+        _.each(COLLECTIONS, (schema, collection) => {
+            let items = this[collection];
+            _.each(items, item => resolve_object_ids_recursive(item, this.idmap));
+        });
+    }
+
+    rebuild_indexes() {
+        _.each(INDEXES, index => {
+            _.each(this[index.collection], item => {
+                let key = _.get(item, index.key || '_id');
+                let val = index.val ? _.get(item, index.val) : item;
+                let context = index.context ? _.get(item, index.context) : this;
+                let map = context[index.name] = context[index.name] || {};
+                if (index.val_array) {
+                    map[key] = map[key] || [];
+                    map[key].push(val);
+                } else {
+                    if (key in map) {
+                        dbg.error('SystemStoreData:', index.name,
+                            'collision on key', key, val, map[key]);
+                    } else {
+                        map[key] = val;
+                    }
+                }
+            });
+        });
+    }
+
+    check_indexes(collection, item) {
+        _.each(INDEXES, index => {
+            if (index.collection !== collection) return;
+            let key = _.get(item, index.key || '_id');
+            let context = index.context ? _.get(item, index.context) : this;
+            if (!context) return;
+            let map = context[index.name] = context[index.name] || {};
+            if (!index.val_array) {
+                let existing = map[key];
+                if (existing && String(existing._id) !== String(item._id)) {
+                    let err = new Error(index.name + ' collision on key ' + key);
+                    err.rpc_code = 'CONFLICT';
+                    throw err;
+                }
+            }
+        });
+    }
+
+}
 
 
 /**
@@ -78,316 +168,233 @@ var INDEXES = [{
  * loads date from the database and keeps in memory optimized way.
  *
  */
-function SystemStore() {
-    var self = this;
-    self.START_REFRESH_THRESHOLD = 10 * 60 * 1000;
-    self.FORCE_REFRESH_THRESHOLD = 60 * 60 * 1000;
-}
+class SystemStore {
 
-
-SystemStore.prototype.refresh = function() {
-    var self = this;
-    return P.fcall(function() {
-        var load_time = 0;
-        if (self.data) {
-            load_time = self.data.time;
-        }
-        var since_load = Date.now() - load_time;
-        if (since_load < self.START_REFRESH_THRESHOLD) {
-            return self.data;
-        } else if (since_load < self.FORCE_REFRESH_THRESHOLD) {
-            self.load();
-            return self.data;
-        } else {
-            return self.load();
-        }
-    });
-};
-
-
-SystemStore.prototype.load = function() {
-    var self = this;
-    if (self._load_promise) return self._load_promise;
-    dbg.log0('SystemStore: fetching ...');
-    var new_data = new SystemStoreData();
-    var millistamp = time_utils.millistamp();
-    self._load_promise = P.fcall(function() {
-            return self.register_for_changes();
-        })
-        .then(function() {
-            return self.read_data_from_db(new_data);
-        })
-        .then(function() {
-            dbg.log0('SystemStore: fetch took', time_utils.millitook(millistamp));
-            dbg.log0('SystemStore: fetch size', size_utils.human_size(JSON.stringify(new_data).length));
-            millistamp = time_utils.millistamp();
-            dbg.log0('SystemStore: fetch data', util.inspect(new_data, {
-                depth: 4
-            }));
-            new_data.rebuild();
-            dbg.log0('SystemStore: rebuild took', time_utils.millitook(millistamp));
-            self.data = new_data;
-            return self.data;
-        })
-        .catch(function(err) {
-            dbg.error('SystemStore: load failed', err.stack || err);
-            // TODO submit retry?
-            throw err;
-        })
-        .finally(function() {
-            self._load_promise = null;
-        });
-    return self._load_promise;
-};
-
-
-SystemStore.prototype.register_for_changes = function() {
-    return bg_worker.redirector.register_to_cluster();
-};
-
-SystemStore.prototype.read_data_from_db = function(target) {
-    // var self = this;
-    var non_deleted_query = {
-        deleted: null
-    };
-    return P.all(_.map(COLLECTIONS, function(schema, collection) {
-        return mongo_client.db.collection(collection).find(non_deleted_query).toArray()
-            .then(function(res) {
-                target[collection] = res;
-            });
-    }));
-};
-
-SystemStore.prototype.generate_id = function() {
-    return new mongodb.ObjectId();
-};
-
-
-/**
- *
- * make_changes
- *
- * send batch of changes to the system db. example:
- *
- * make_changes({
- *   insert: {
- *      systems: [{...}],
- *      buckets: [{...}],
- *   },
- *   update: {
- *      systems: [{_id:123, ...}],
- *      buckets: [{_id:456, ...}],
- *   },
- *   remove: {
- *      systems: [123, 789],
- *   }
- * })
- *
- */
-SystemStore.prototype.make_changes = function(changes) {
-    var self = this;
-    var bulk_per_collection = {};
-    var now = new Date();
-    dbg.log0('SystemStore.make_changes:', util.inspect(changes, {
-        depth: 4
-    }));
-
-    function get_bulk(collection) {
-        if (!(collection in COLLECTIONS)) {
-            throw new Error('SystemStore: make_changes bad collection name - ' + collection);
-        }
-        var bulk =
-            bulk_per_collection[collection] =
-            bulk_per_collection[collection] ||
-            mongo_client.db.collection(collection).initializeUnorderedBulkOp();
-        return bulk;
+    constructor() {
+        this.START_REFRESH_THRESHOLD = 10 * 60 * 1000;
+        this.FORCE_REFRESH_THRESHOLD = 60 * 60 * 1000;
     }
 
-    return P.when(self.refresh())
-        .then(function(data) {
-
-            _.each(changes.insert, function(list, collection) {
-                var bulk = get_bulk(collection);
-                _.each(list, function(item) {
-                    self.check_schema(collection, item);
-                    data.check_indexes(collection, item);
-                    bulk.insert(item);
-                });
-            });
-            _.each(changes.update, function(list, collection) {
-                var bulk = get_bulk(collection);
-                _.each(list, function(item) {
-                    self.check_schema(collection, item);
-                    data.check_indexes(collection, item);
-                    var updates = _.omit(item, '_id');
-                    var first_key;
-                    _.forOwn(updates, function(val, key) {
-                        first_key = key;
-                        return false; // break loop immediately
-                    });
-                    if (first_key[0] !== '$') {
-                        updates = {
-                            $set: updates
-                        };
-                    }
-                    bulk.find({
-                        _id: item._id
-                    }).updateOne(updates);
-                });
-            });
-            _.each(changes.remove, function(list, collection) {
-                var bulk = get_bulk(collection);
-                _.each(list, function(id) {
-                    bulk.find({
-                        _id: id
-                    }).updateOne({
-                        $set: {
-                            deleted: now
-                        }
-                    });
-                });
-            });
-
-            return P.all(_.map(bulk_per_collection, function(bulk) {
-                return P.ninvoke(bulk, 'execute');
-            }));
-        })
-        .then(function() {
-            // notify all the cluster (including myself) to reload
-            return bg_worker.redirector.publish_to_cluster({
-                method_api: 'cluster_api',
-                method_name: 'load_system_store',
-                target: ''
-            });
-        });
-};
-
-SystemStore.prototype.make_changes_in_background = function(changes) {
-    var self = this;
-    self.bg_changes = self.bg_changes || {};
-    _.merge(self.bg_changes, changes, function(a, b) {
-        if (_.isArray(a) && _.isArray(b)) {
-            return a.concat(b);
-        }
-    });
-    if (!self.bg_timeout) {
-        self.bg_timeout = setTimeout(function() {
-            var bg_changes = self.bg_changes;
-            self.bg_changes = null;
-            self.bg_timeout = null;
-            self.make_changes(bg_changes);
-        }, 3000);
-    }
-};
-
-SystemStore.prototype.check_schema = function(collection, item) {
-    // TODO SystemStore.check_schema
-};
-
-
-/**
- *
- * SystemStoreData
- *
- */
-function SystemStoreData(data) {
-    this.time = Date.now();
-}
-
-SystemStoreData.prototype.get_by_id = function(id) {
-    return id ? this.idmap[id.toString()] : null;
-};
-
-SystemStoreData.prototype.rebuild = function() {
-    this.rebuild_idmap();
-    this.rebuild_object_links();
-    this.rebuild_indexes();
-};
-
-SystemStoreData.prototype.rebuild_idmap = function() {
-    var self = this;
-    self.idmap = {};
-    _.each(COLLECTIONS, function(schema, collection) {
-        var items = self[collection];
-        _.each(items, function(item) {
-            var idstr = item._id.toString();
-            var existing = self.idmap[idstr];
-            if (existing) {
-                dbg.error('SystemStoreData: id collision', item, existing);
+    refresh() {
+        return P.fcall(() => {
+            let load_time = 0;
+            if (this.data) {
+                load_time = this.data.time;
+            }
+            let since_load = Date.now() - load_time;
+            if (since_load < this.START_REFRESH_THRESHOLD) {
+                return this.data;
+            } else if (since_load < this.FORCE_REFRESH_THRESHOLD) {
+                this.load();
+                return this.data;
             } else {
-                self.idmap[idstr] = item;
-            }
-            // keep backward compatible since mongoose exposes 'id'
-            // for the sake of existing code that uses it
-            // item.id = item._id;
-        });
-    });
-};
-
-SystemStoreData.prototype.rebuild_object_links = function() {
-    var self = this;
-    _.each(COLLECTIONS, function(schema, collection) {
-        var items = self[collection];
-        _.each(items, function(item) {
-            resolve_object_ids_recursive(item, self.idmap);
-        });
-    });
-
-    function resolve_object_ids_recursive(item, idmap) {
-        _.each(item, function(val, key) {
-            if (val instanceof mongodb.ObjectId) {
-                if (key !== '_id' && key !== 'id') {
-                    var obj = idmap[val];
-                    if (obj) {
-                        item[key] = obj;
-                    }
-                }
-            } else if (_.isObject(val) && !_.isString(val)) {
-                resolve_object_ids_recursive(val, idmap);
+                return this.load();
             }
         });
     }
-};
 
-
-SystemStoreData.prototype.rebuild_indexes = function() {
-    var self = this;
-    _.each(INDEXES, function(index) {
-        _.each(self[index.collection], function(item) {
-            var key = _.get(item, index.key || '_id');
-            var val = index.val ? _.get(item, index.val) : item;
-            var context = index.context ? _.get(item, index.context) : self;
-            var map = context[index.name] = context[index.name] || {};
-            if (index.val_array) {
-                map[key] = map[key] || [];
-                map[key].push(val);
-            } else {
-                if (key in map) {
-                    dbg.error('SystemStoreData:', index.name,
-                        'collision on key', key, val, map[key]);
-                } else {
-                    map[key] = val;
-                }
-            }
-        });
-    });
-};
-
-SystemStoreData.prototype.check_indexes = function(collection, item) {
-    var self = this;
-    _.each(INDEXES, function(index) {
-        if (index.collection !== collection) return;
-        var key = _.get(item, index.key || '_id');
-        var context = index.context ? _.get(item, index.context) : self;
-        if (!context) return;
-        var map = context[index.name] = context[index.name] || {};
-        if (!index.val_array) {
-            var existing = map[key];
-            if (existing && String(existing._id) !== String(item._id)) {
-                var err = new Error(index.name + ' collision on key ' + key);
-                err.rpc_code = 'CONFLICT';
+    load() {
+        if (this._load_promise) return this._load_promise;
+        dbg.log0('SystemStore: fetching ...');
+        let new_data = new SystemStoreData();
+        let millistamp = time_utils.millistamp();
+        this._load_promise =
+            P.fcall(() => this.register_for_changes())
+            .then(() => this.read_data_from_db(new_data))
+            .then(() => {
+                dbg.log0('SystemStore: fetch took', time_utils.millitook(millistamp));
+                dbg.log0('SystemStore: fetch size', size_utils.human_size(JSON.stringify(new_data).length));
+                dbg.log0('SystemStore: fetch data', util.inspect(new_data, {
+                    depth: 4
+                }));
+                millistamp = time_utils.millistamp();
+                new_data.rebuild();
+                dbg.log0('SystemStore: rebuild took', time_utils.millitook(millistamp));
+                this.data = new_data;
+                return this.data;
+            })
+            .finally(() => this._load_promise = null)
+            .catch(err => {
+                dbg.error('SystemStore: load failed', err.stack || err);
+                P.delay(1000)
+                    .then(() => this.load())
+                    .catch(() => {});
                 throw err;
+            });
+        return this._load_promise;
+    }
+
+
+    register_for_changes() {
+        if (!this._registered_for_reconnect) {
+            server_rpc.on('reconnect', conn => this._on_reconnect(conn));
+            this._registered_for_reconnect = true;
+        }
+        return bg_worker.redirector.register_to_cluster();
+    }
+
+    _on_reconnect(conn) {
+        if (_.startsWith(conn.url.href, BG_BASE_ADDR)) {
+            dbg.log0('_on_reconnect:', conn.url.href);
+            this.load();
+        }
+    }
+
+    read_data_from_db(target) {
+        let non_deleted_query = {
+            deleted: null
+        };
+        return P.all(_.map(COLLECTIONS, (schema, collection) =>
+            mongo_client.db.collection(collection).find(non_deleted_query).toArray()
+            .then(res => target[collection] = res)
+        ));
+    }
+
+    generate_id() {
+        return new mongodb.ObjectId();
+    }
+
+    /**
+     *
+     * make_changes
+     *
+     * send batch of changes to the system db. example:
+     *
+     * make_changes({
+     *   insert: {
+     *      systems: [{...}],
+     *      buckets: [{...}],
+     *   },
+     *   update: {
+     *      systems: [{_id:123, ...}],
+     *      buckets: [{_id:456, ...}],
+     *   },
+     *   remove: {
+     *      systems: [123, 789],
+     *   }
+     * })
+     *
+     */
+    make_changes(changes) {
+        let bulk_per_collection = {};
+        let now = new Date();
+        dbg.log0('SystemStore.make_changes:', util.inspect(changes, {
+            depth: 4
+        }));
+
+        let get_bulk = collection => {
+            if (!(collection in COLLECTIONS)) {
+                throw new Error('SystemStore: make_changes bad collection name - ' + collection);
             }
+            let bulk =
+                bulk_per_collection[collection] =
+                bulk_per_collection[collection] ||
+                mongo_client.db.collection(collection).initializeUnorderedBulkOp();
+            return bulk;
+        };
+
+        return P.when(this.refresh())
+            .then(data => {
+
+                _.each(changes.insert, (list, collection) => {
+                    let bulk = get_bulk(collection);
+                    _.each(list, item => {
+                        this.check_schema(collection, item);
+                        data.check_indexes(collection, item);
+                        bulk.insert(item);
+                    });
+                });
+                _.each(changes.update, (list, collection) => {
+                    let bulk = get_bulk(collection);
+                    _.each(list, item => {
+                        this.check_schema(collection, item);
+                        data.check_indexes(collection, item);
+                        let updates = _.omit(item, '_id');
+                        let first_key;
+                        _.forOwn(updates, (val, key) => {
+                            first_key = key;
+                            return false; // break loop immediately
+                        });
+                        if (first_key[0] !== '$') {
+                            updates = {
+                                $set: updates
+                            };
+                        }
+                        bulk.find({
+                            _id: item._id
+                        }).updateOne(updates);
+                    });
+                });
+                _.each(changes.remove, (list, collection) => {
+                    let bulk = get_bulk(collection);
+                    _.each(list, id => {
+                        bulk.find({
+                            _id: id
+                        }).updateOne({
+                            $set: {
+                                deleted: now
+                            }
+                        });
+                    });
+                });
+
+                return P.all(_.map(bulk_per_collection, bulk => P.ninvoke(bulk, 'execute')));
+            })
+            .then(() =>
+                // notify all the cluster (including myself) to reload
+                bg_worker.redirector.publish_to_cluster({
+                    method_api: 'cluster_api',
+                    method_name: 'load_system_store',
+                    target: ''
+                })
+            );
+    }
+
+    make_changes_in_background(changes) {
+        this.bg_changes = this.bg_changes || {};
+        _.merge(this.bg_changes, changes, (a, b) => {
+            if (_.isArray(a) && _.isArray(b)) {
+                return a.concat(b);
+            }
+        });
+        if (!this.bg_timeout) {
+            this.bg_timeout = setTimeout(() => {
+                let bg_changes = this.bg_changes;
+                this.bg_changes = null;
+                this.bg_timeout = null;
+                this.make_changes(bg_changes);
+            }, 3000);
+        }
+    }
+
+    check_schema(collection, item) {
+        // TODO SystemStore.check_schema
+    }
+
+}
+
+
+
+
+
+
+
+
+function resolve_object_ids_recursive(item, idmap) {
+    _.each(item, (val, key) => {
+        if (val instanceof mongodb.ObjectId) {
+            if (key !== '_id' && key !== 'id') {
+                let obj = idmap[val];
+                if (obj) {
+                    item[key] = obj;
+                }
+            }
+        } else if (_.isObject(val) && !_.isString(val)) {
+            resolve_object_ids_recursive(val, idmap);
         }
     });
-};
+}
+
+
+// export a singleton
+module.exports = new SystemStore();

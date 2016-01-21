@@ -271,7 +271,7 @@ function read_http_response_data(res) {
 
     function decode_response(headers, data) {
         var content_type = headers && headers['content-type'];
-        var is_json = _.contains(content_type, 'application/json');
+        var is_json = _.includes(content_type, 'application/json');
         return is_json && data && JSON.parse(data.toString()) || data;
     }
 

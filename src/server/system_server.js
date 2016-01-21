@@ -207,7 +207,7 @@ function read_system(req) {
         // var stun_address = 'stun://' + ip_address + ':' + stun.PORT;
         // var stun_address = 'stun://64.233.184.127:19302'; // === 'stun://stun.l.google.com:19302'
         // n2n_config.stun_servers = n2n_config.stun_servers || [];
-        // if (!_.contains(n2n_config.stun_servers, stun_address)) {
+        // if (!_.includes(n2n_config.stun_servers, stun_address)) {
         //     n2n_config.stun_servers.unshift(stun_address);
         //     dbg.log0('read_system: n2n_config.stun_servers', n2n_config.stun_servers);
         // }

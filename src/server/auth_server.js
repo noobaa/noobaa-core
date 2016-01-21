@@ -123,9 +123,9 @@ function create_auth(req) {
                 // system owner can do anything
                 String(system.owner) === String(authenticated_account._id) ||
                 // system admin can do anything
-                _.contains(roles, 'admin') ||
+                _.includes(roles, 'admin') ||
                 // non admin is not allowed to delegate roles to other accounts
-                (role_name && _.contains(roles, role_name) &&
+                (role_name && _.includes(roles, role_name) &&
                     String(target_account._id) === String(authenticated_account._id))) {
                 // "system admin" can use any role
                 role_name = role_name || 'admin';
@@ -351,7 +351,7 @@ function _prepare_auth_request(req) {
             }
 
             // check that auth contains valid system role
-            if (!_.contains(options.system, req.auth.role)) {
+            if (!_.includes(options.system, req.auth.role)) {
                 throw req.unauthorized('auth role not allowed in system');
             }
         }

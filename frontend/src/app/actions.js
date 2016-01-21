@@ -301,8 +301,6 @@ export function signIn(email, password, redirectUrl) {
 }
 
 export function signOut() {
-	session.kill();
-
 	localStorage.removeItem('sessionToken');
 	model.sessionInfo(null);
 	refresh();

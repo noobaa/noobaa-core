@@ -29,7 +29,7 @@ module.exports = {
  */
 function self_bind(object, method_desc) {
     if (!_.isString(method_desc)) {
-        method_desc = method_desc || _.functions(object);
+        method_desc = method_desc || _.functionsIn(object);
         _.each(method_desc, function(method) {
             self_bind(object, method);
         });

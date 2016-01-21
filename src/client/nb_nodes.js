@@ -44,7 +44,7 @@ nb_api.factory('nbNodes', [
                 .then(function(res) {
                     console.log('NODE GROUPS', res);
                     $scope.node_groups = res.groups;
-                    $scope.node_groups_by_geo = _.indexBy(res.groups, 'geolocation');
+                    $scope.node_groups_by_geo = _.keyBy(res.groups, 'geolocation');
                     $scope.nodes_count = _.reduce(res.groups, function(sum, g) {
                         return sum + g.count;
                     }, 0);

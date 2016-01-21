@@ -48,7 +48,7 @@ function allocate_block(chunk, avoid_nodes, pools) {
 function remove_blocks(blocks) {
     return db.DataBlock.update({
         _id: {
-            $in: _.pluck(blocks, '_id')
+            $in: _.map(blocks, '_id')
         }
     }, {
         deleted: new Date()

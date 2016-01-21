@@ -198,7 +198,7 @@ function read_system(req) {
         blocks,
         cloud_sync_by_bucket) {
 
-        blocks = _.mapValues(_.indexBy(blocks, '_id'), 'value');
+        blocks = _.mapValues(_.keyBy(blocks, '_id'), 'value');
         var nodes_sys = nodes_aggregate_tier[''] || {};
         var objects_sys = objects_aggregate[''] || {};
         var ip_address = ip_module.address();
@@ -400,7 +400,7 @@ function get_system_web_links(system) {
         // }
     });
     // remove keys with undefined values
-    return _.omit(reply, _.isUndefined);
+    return _.omitBy(reply, _.isUndefined);
 }
 
 

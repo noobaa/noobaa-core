@@ -136,7 +136,7 @@ function build_chunks(chunks) {
 }
 
 function build_chunks_analysis(chunks) {
-    var chunk_ids = _.pluck(chunks, '_id');
+    var chunk_ids = _.map(chunks, '_id');
     var chunk_ids_need_update_to_building = _.compact(_.map(chunks, function(chunk) {
         return chunk.building ? null : chunk._id;
     }));

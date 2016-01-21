@@ -377,7 +377,7 @@ function _prepare_auth_request(req) {
         var auth = _.pick(options, 'account_id', 'system_id', 'role', 'extra');
 
         // don't incude keys if value is falsy, to minimize the token size
-        auth = _.omit(auth, function(value) {
+        auth = _.omitBy(auth, function(value) {
             return !value;
         });
 

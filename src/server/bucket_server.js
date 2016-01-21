@@ -42,11 +42,11 @@ var dbg = require('../util/debug_module')(__filename);
 var P = require('../util/promise');
 
 
-function new_bucket_defaults(name, system_id, tiering_policy_id) {
+function new_bucket_defaults(name, system_id, tiering) {
     return {
         name: name,
         system: system_id,
-        tiering: tiering_policy_id,
+        tiering: tiering,
         stats: {
             reads: 0,
             writes: 0,
@@ -61,11 +61,10 @@ function new_bucket_defaults(name, system_id, tiering_policy_id) {
  *
  */
 function create_bucket(req) {
-    var tiering_policy = resolve_tiering_policy(req, req.rpc_params.tiering);
     var bucket = new_bucket_defaults(
         req.rpc_params.name,
         req.system._id,
-        tiering_policy._id);
+        resolve_tiering(req, req.rpc_params.tiering));
     db.ActivityLog.create({
         event: 'bucket.create',
         level: 'info',
@@ -90,9 +89,7 @@ function create_bucket(req) {
  */
 function read_bucket(req) {
     var bucket = find_bucket(req);
-    var pools = _.flatten(_.map(bucket.tiering.tiers,
-        tier_and_order => tier_and_order.tier.pools
-    ));
+    var pools = _.flatten(_.map(bucket.tiering, level => level.tier.pools));
     var pool_ids = mongo_utils.uniq_ids(pools, '_id');
     return P.join(
         // objects - size, count
@@ -123,16 +120,14 @@ function read_bucket(req) {
  */
 function update_bucket(req) {
     var bucket = find_bucket(req);
-    var tiering_policy = req.rpc_params.tiering &&
-        resolve_tiering_policy(req, req.rpc_params.tiering);
     var updates = {
         _id: bucket._id
     };
     if (req.rpc_params.new_name) {
         updates.name = req.rpc_params.new_name;
     }
-    if (tiering_policy) {
-        updates.tiering_policy = tiering_policy._id;
+    if (req.rpc_params.tiering) {
+        updates.tiering = resolve_tiering(req, req.rpc_params.tiering);
     }
     return system_store.make_changes({
         update: {
@@ -387,24 +382,33 @@ function find_bucket(req) {
 function get_bucket_info(bucket, objects_aggregate, nodes_aggregate_pool, cloud_sync_policy) {
     var info = _.pick(bucket, 'name');
     var objects_aggregate_bucket = objects_aggregate[bucket._id] || {};
-    if (bucket.tiering) {
-        info.tiering = tier_server.get_tiering_policy_info(bucket.tiering, nodes_aggregate_pool);
-    }
+    info.tiering = _.map(bucket.tiering, level => ({
+        tier: level.tier.name
+    }));
     info.num_objects = objects_aggregate_bucket.count || 0;
+    var tiers_storage = _.map(bucket.tiering, level => {
+        var tier_info = tier_server.get_tier_info(level.tier, nodes_aggregate_pool);
+        return tier_info.storage;
+    });
+    var tiering_storage = size_utils.reduce_storage(size_utils.reduce_sum, tiers_storage, 1, 1);
     info.storage = size_utils.to_bigint_storage({
         used: objects_aggregate_bucket.size || 0,
-        total: info.tiering && info.tiering.storage && info.tiering.storage.total || 0,
-        free: info.tiering && info.tiering.storage && info.tiering.storage.free || 0,
+        total: tiering_storage.total || 0,
+        free: tiering_storage.free || 0,
     });
     cs_utils.resolve_cloud_sync_info(cloud_sync_policy, info);
     return info;
 }
 
-function resolve_tiering_policy(req, policy_name) {
-    var tiering_policy = req.system.tiering_policies_by_name[policy_name];
-    if (!tiering_policy) {
-        dbg.error('TIER POLICY NOT FOUND', policy_name);
-        throw req.rpc_error('NOT_FOUND', 'missing tiering policy');
-    }
-    return tiering_policy;
+function resolve_tiering(req, tiering) {
+    return _.map(tiering, level => {
+        var tier = req.system.tiers_by_name[level.tier];
+        if (!tier) {
+            dbg.error('TIER NOT FOUND', level.tier);
+            throw req.rpc_error('NOT_FOUND', 'missing tier');
+        }
+        return {
+            tier: tier._id
+        };
+    });
 }

@@ -20,11 +20,12 @@ dbg.set_level(5, 'core');
 
 describe('object', function() {
 
+    const SYS = 'test_object_system';
+    const TIER = 'test_object_tier';
+    const BKT = 'test_object_bucket';
+    const KEY = 'test_object_key';
+
     var client = coretest.new_client();
-    var SYS = 'test-object-system';
-    var TIER = 'edge';
-    var BKT = 'test_object_bucket';
-    var KEY = 'test_object_key';
 
     before(function(done) {
         this.timeout(30000);
@@ -39,12 +40,14 @@ describe('object', function() {
             });
         }).then(function() {
             return client.tier.create_tier({
-                name: TIER,                
+                name: TIER,
             });
         }).then(function() {
             return client.bucket.create_bucket({
                 name: BKT,
-                tiering: 'default_tiering',
+                tiering: [{
+                    tier: TIER
+                }],
             });
         }).then(function() {
             return coretest.init_test_nodes(10, SYS, TIER);

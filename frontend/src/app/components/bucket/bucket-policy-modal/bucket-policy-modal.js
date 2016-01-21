@@ -39,8 +39,7 @@ class BucketPolicyModalViewModel {
 	}
 
 	clearAllPools() {
-		this.selectedPools
-			.removeAll();
+		this.selectedPools([]);
 	}
 
 	save() {

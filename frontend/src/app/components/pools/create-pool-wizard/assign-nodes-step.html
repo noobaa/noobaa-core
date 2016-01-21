@@ -7,6 +7,7 @@
 					<th class="name-col text-left">name</th>
 					<th class="ip-col">ip</th>
 					<th class="capacity-col">capacity</th>
+					<th class="pool-col">pool</th>
 				</tr>
 			</thead>
 			<tbody data-bind="
@@ -25,6 +26,9 @@
 					<td class="ip-col" data-bind="text: ip"></td>
 					
 					<td class="capacity-col" data-bind="text: capacity"></td>
+
+					<td class="pool-col no-wrap" data-bind="text: currPool, attr: { title: currPool }">
+					</td>
 				</tr>
 				<!-- /ko -->
 			</tbody>

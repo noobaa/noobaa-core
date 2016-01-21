@@ -106,7 +106,7 @@ function reduce_storage(reducer, storage_items, mult_factor, div_factor) {
     let accumulator = _.reduce(
         storage_items, 
         (accumulator, item) => {
-            _.each(SOTRAGE_OBJ_KEYS, key => item[key] && accumulator[key].push(item[key]));
+            _.each(SOTRAGE_OBJ_KEYS, key => item && item[key] && accumulator[key].push(item[key]));
             return accumulator;
         },
         make_object(SOTRAGE_OBJ_KEYS, key => [])

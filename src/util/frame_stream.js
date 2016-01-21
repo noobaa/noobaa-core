@@ -40,7 +40,7 @@ function FrameStream(stream, msg_handler, config) {
  */
 FrameStream.prototype.send_message = function(buffer_or_buffers, message_type_code_16bit) {
     var is_iovecs = _.isArray(buffer_or_buffers);
-    var msg_len = is_iovecs ? _.sum(buffer_or_buffers, 'length') : buffer_or_buffers.length;
+    var msg_len = is_iovecs ? _.sumBy(buffer_or_buffers, 'length') : buffer_or_buffers.length;
     if (msg_len > this._max_len) {
         throw new Error('message too big' + msg_len);
     }

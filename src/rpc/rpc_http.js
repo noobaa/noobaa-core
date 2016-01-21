@@ -139,7 +139,7 @@ RpcHttpConnection.prototype.send_http_request = function(msg, rpc_req) {
     // use POST for all requests (used to be req.method_api.method but unneeded),
     // and send the body as binary buffer
     var http_method = 'POST';
-    var content_length = _.sum(msg, 'length');
+    var content_length = _.isArray(msg) ? _.sumBy(msg, 'length') : msg.length;
     headers['content-length'] = content_length;
     headers['content-type'] = 'application/octet-stream';
 

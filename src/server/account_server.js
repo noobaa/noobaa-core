@@ -72,8 +72,20 @@ function create_account(req) {
             return system_store.make_changes(changes);
         })
         .then(function() {
+            var created_account = system_store.data.get_by_id(account._id);
+            var auth = {
+                account_id: created_account._id
+            };
+            if (!req.system) {
+                // since we created the first system for this account
+                // we expect just one system, but use _.each to get it from the map
+                _.each(created_account.roles_by_system, (roles, system_id) => {
+                    auth.system_id = system_id;
+                    auth.role = roles[0];
+                });
+            }
             return {
-                token: ''
+                token: req.make_auth_token(auth),
             };
         });
 

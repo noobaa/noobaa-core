@@ -2,7 +2,7 @@ import * as model from 'model';
 import page from 'page';
 import api from 'services/api';
 import config from 'config';
-import { hostname as endpoint } from 'server-conf';
+import { hostname } from 'server-conf';
 import { isDefined, isUndefined, encodeBase64, cmpStrings, cmpInts, cmpBools, 
 	randomString, last, stringifyQueryString, clamp } from 'utils';
 
@@ -10,6 +10,9 @@ import { isDefined, isUndefined, encodeBase64, cmpStrings, cmpInts, cmpBools,
 // The current workaround use the AWS that is set on the global window object.
 import 'aws-sdk';
 AWS = window.AWS;
+
+// Use preconfigured hostname or the address of the serving computer.
+let endpoint = hostname || window.location.hostname;
 
 // -----------------------------------------------------
 // Utility function to log actions.
@@ -315,7 +318,7 @@ export function loadServerInfo() {
 	api.account.accounts_status()
 		.then(
 			reply => model.serverInfo({
-				endpoint: endpoint || window.location.hostname,
+				endpoint: endpoint
 				initialized: reply.has_accounts
 			})
 		)
@@ -332,7 +335,7 @@ export function loadSystemOverview() {
 				let { access_key, secret_key } = reply.access_keys[0];
 
 				systemOverview({
-					endpoint: endpoint,
+					endpoint: new URL(reply.base_address).hostname,
 					accessKey: access_key,
 					secretKey: secret_key, 
 					capacity: reply.storage.total,
@@ -506,7 +509,7 @@ export function loadObjectMetadata(bucketName, objectName) {
 				let { access_key, secret_key } = reply.access_keys[0];
 
 				return new AWS.S3({
-				    endpoint: reply.ip_address,
+				    endpoint: endpoint,
 				    credentials: {
 				    	accessKeyId:  access_key,
 				    	secretAccessKey:  secret_key
@@ -866,7 +869,7 @@ export function uploadFiles(bucketName, files) {
 				let { access_key, secret_key } = reply.access_keys[0];
 
 				return new AWS.S3({
-				    endpoint: reply.ip_address,
+				    endpoint: endpoint,
 				    credentials: {
 				    	accessKeyId:  access_key,
 				    	secretAccessKey:  secret_key

@@ -33,15 +33,12 @@ nb_api.factory('nbNodes', [
         $scope.set_debug_node = set_debug_node;
 
         function create_pool(name) {
-            return $q.when()
-                .then(function() {
-                    return nbClient.client.pool.create_pool({
-                        name: name
-                    });
-                })
-                .then(function(res) {
-                    console.log('CREATED POOL', res);
+            return $q.when().then(function() {
+                return nbClient.client.pool.create_pool({
+                    name: name,
+                    nodes: []
                 });
+            });
         }
 
         function refresh_node_groups(selected_geo) {

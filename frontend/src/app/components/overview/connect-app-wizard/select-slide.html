@@ -25,7 +25,10 @@
 	<div class="box">
 		<ul class="list-no-style clear bucket-list" data-bind="foreach: buckets">
 			<li class="pull-left">
-				<button class="btn-flat bucket" data-bind="css: { selected: selected }, click: selected">
+				<button class="btn-flat bucket" data-bind="
+					css: { selected: selected }, 
+					click: () => selected(true)
+				">
 					<svg-icon params="uri: icon"></svg-icon>
 					<div class="bucket-name" data-bind="text: name"></div>
 				</button>

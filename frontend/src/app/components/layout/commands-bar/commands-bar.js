@@ -18,9 +18,6 @@ class CommandBarViewModel {
 		this.isTrayOpen() ? closeTray() : openAuditLog();
 	}
 
-	showManagement() {
-	}	
-
 	signOut() {
 		signOut();
 	}	

@@ -1,6 +1,7 @@
 import ko from 'knockout';
 import 'knockout-projections';
 import 'knockout-validation';
+import 'knockout-extensions';
 import registerExtenders from 'extenders/register';
 import registerValidationRules from 'validations';
 import registerBindings from 'bindings/register';
@@ -33,7 +34,8 @@ routing(page);
 
 // Bind the ui to the 
 ko.applyBindings({ 
-	layout: ko.pureComputed( () => uiState().layout ) 
+	layout: ko.pureComputed( () => uiState().layout ),
+	modal: ko.pureComputed( () => uiState().modal )
 });
 
 // start the application.

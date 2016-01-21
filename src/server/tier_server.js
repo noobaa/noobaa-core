@@ -85,7 +85,9 @@ function create_tier(req) {
             }
         })
         .then(function() {
-            return get_tier_info(tier);
+            req.load_auth();
+            var create_tier = find_tier_by_name(req);
+            return get_tier_info(create_tier);
         });
 }
 
@@ -161,9 +163,9 @@ function delete_tier(req) {
 
 function create_policy(req) {
     var policy = new_policy_defaults(
-        req.rpc_params.policy.name,
+        req.rpc_params.name,
         req.system._id,
-        _.map(req.rpc_params.policy.tiers, function(t) {
+        _.map(req.rpc_params.tiers, function(t) {
             return {
                 order: t.order,
                 tier: req.system.tiers_by_name[t.tier]._id,
@@ -176,7 +178,9 @@ function create_policy(req) {
             }
         })
         .then(function() {
-            return get_tiering_policy_info(req);
+            req.load_auth();
+            var created_policy = find_policy_by_name(req);
+            return get_tiering_policy_info(created_policy);
         });
 }
 
@@ -271,7 +275,7 @@ function get_tiering_policy_info(tiering_policy, nodes_aggregate_pool) {
         tiers_storage.push(tier_info.storage);
         return {
             order: tier_and_order.order,
-            tier: tier_info
+            tier: tier_and_order.tier.name
         };
     });
     info.storage = size_utils.reduce_storage(size_utils.reduce_sum, tiers_storage, 1, 1);

@@ -32,7 +32,7 @@ function allocate_block(chunk, avoid_nodes, pools) {
             var block_size = (chunk.size / chunk.kfrag) | 0;
             for (var i = 0; i < alloc_nodes.length; ++i) {
                 var node = get_round_robin(alloc_nodes);
-                if (!_.contains(avoid_nodes, node._id.toString())) {
+                if (!_.includes(avoid_nodes, node._id.toString())) {
                     dbg.log1('allocate_block: allocate node', node.name,
                         'for chunk', chunk._id, 'avoid_nodes', avoid_nodes);
                     return new_block(chunk, node, block_size);
@@ -48,7 +48,7 @@ function allocate_block(chunk, avoid_nodes, pools) {
 function remove_blocks(blocks) {
     return db.DataBlock.update({
         _id: {
-            $in: _.pluck(blocks, '_id')
+            $in: _.map(blocks, '_id')
         }
     }, {
         deleted: new Date()

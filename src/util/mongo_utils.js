@@ -56,7 +56,7 @@ function populate(doc_path, collection) {
                 }
             }).toArray())
             .then(function(items) {
-                var items_by_idstr = _.indexBy(items, '_id');
+                var items_by_idstr = _.keyBy(items, '_id');
                 _.each(docs, function(doc) {
                     var item;
                     var id = _.get(doc, doc_path);

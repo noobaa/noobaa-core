@@ -392,7 +392,7 @@ ObjectDriver.prototype._write_fragments = function(part) {
         return;
     }
 
-    var frags_map = _.indexBy(part.chunk.frags, get_frag_key);
+    var frags_map = _.keyBy(part.chunk.frags, get_frag_key);
     dbg.log1('_write_fragments: part', part, part.alloc_part.frags[0].blocks);
 
     return P.map(part.alloc_part.frags, function(fragment) {

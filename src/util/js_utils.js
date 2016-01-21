@@ -7,6 +7,7 @@ module.exports = {
     array_push_all: array_push_all,
     named_array_push: named_array_push,
     append_buffer_or_array: append_buffer_or_array,
+    make_object: make_object
 };
 
 
@@ -28,7 +29,7 @@ module.exports = {
  */
 function self_bind(object, method_desc) {
     if (!_.isString(method_desc)) {
-        method_desc = method_desc || _.functions(object);
+        method_desc = method_desc || _.functionsIn(object);
         _.each(method_desc, function(method) {
             self_bind(object, method);
         });
@@ -93,4 +94,20 @@ function append_buffer_or_array(buffer_or_array, item)
         }
     }
     return buffer_or_array;
+}
+
+/**
+ * Creates an object from a list of keys, intializing each key using the given value provider.
+ */
+ function make_object(keys, valueProvider) {
+    valueProvider = _.isFunction(valueProvider) ? valueProvider : _.noop;
+
+    return _.reduce(
+        keys,
+        (obj, key) => {
+            obj[key] = valueProvider(key);
+            return obj;
+        },
+        {}
+    );
 }

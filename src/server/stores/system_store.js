@@ -265,7 +265,7 @@ SystemStore.prototype.make_changes = function(changes) {
 SystemStore.prototype.make_changes_in_background = function(changes) {
     var self = this;
     self.bg_changes = self.bg_changes || {};
-    _.merge(self.bg_changes, changes, function(a, b) {
+    _.mergeWith(self.bg_changes, changes, function(a, b) {
         if (_.isArray(a) && _.isArray(b)) {
             return a.concat(b);
         }

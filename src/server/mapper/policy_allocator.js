@@ -213,7 +213,7 @@ function classify_block(fragment, block, now) {
  */
 function get_tiering_info(bucket_id) {
     var bucket = system_store.data.get_by_id(bucket_id);
-    var tiers = _.pluck(bucket.tiering.tiers, 'tier');
+    var tiers = _.map(bucket.tiering.tiers, 'tier');
     return tiers;
 }
 

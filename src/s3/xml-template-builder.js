@@ -74,7 +74,7 @@ var xml = function() {
                 DisplayName: 'admin'
             },
             StorageClass: 'STANDARD',
-            PartNumberMarker: (_.first(items)).part_number,
+            PartNumberMarker: (_.head(items)).part_number,
             NextPartNumberMarker: options.NextPartNumberMarker,
             MaxParts: options.MaxParts,
             IsTruncated: options.IsTruncated,

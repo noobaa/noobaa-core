@@ -4,7 +4,7 @@ import setPolicyStepTempalte from './set-policy-step.html'
 import ko from 'knockout';
 import bucketNameValidationRules from './bucket-name-validation-rules';
 import { poolList } from 'model';
-import { createBucket } from 'actions';
+import { loadPoolList, createBucket } from 'actions';
 import { defaultPoolName } from 'config';
 import { cloneArray } from 'utils';
 
@@ -33,6 +33,8 @@ class CreateBucketWizardViewModel {
 		this.setPolicyErrors = ko.validation.group({
 			selectedPools: this.selectedPools
 		})
+
+		loadPoolList();
 	}
 
 	validateStep(step) {

@@ -102,7 +102,7 @@ function describe_instances(params, filter, verbose) {
                     return _.filter(instances, function(instance) {
                         instance.region = region;
                         instance.region_name = region.RegionName;
-                        instance.tags_map = _.mapValues(_.indexBy(instance.Tags, 'Key'), 'Value');
+                        instance.tags_map = _.mapValues(_.keyBy(instance.Tags, 'Key'), 'Value');
                         if (typeof filter !== 'undefined') {
                             if (filter.filter_tags &&
                                 (typeof instance.tags_map.Name !== 'undefined')) {
@@ -471,7 +471,7 @@ function scale_agent_instances(count, allow_terminate, is_docker_host, number_of
         match: app_name,
     }).then(function(instances) {
         var instances_per_region = _.groupBy(instances, 'region_name');
-        var region_names = _.pluck(instances.regions, 'RegionName');
+        var region_names = _.map(instances.regions, 'RegionName');
         var target_region_count = 0;
         var first_region_extra_count = 0;
 
@@ -722,7 +722,7 @@ function scale_region(region_name, count, instances, allow_terminate, is_docker_
                     ' --- removing', instances.length - count);
                 var death_row = _.slice(instances, 0, instances.length - count);
                 console.log('death:', death_row.length);
-                var ids = _.pluck(death_row, 'InstanceId');
+                var ids = _.map(death_row, 'InstanceId');
                 return terminate_instances(region_name, ids);
             }
 

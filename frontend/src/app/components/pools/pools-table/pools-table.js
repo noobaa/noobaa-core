@@ -1,8 +1,8 @@
 import template from './pools-table.html';
 import ko from 'knockout';
-import page from 'page';
 import PoolRowViewModel from './pool-row';
-import { stringifyQueryString, makeArray } from 'utils';
+import { makeArray } from 'utils';
+import { redirectTo } from 'actions';
 
 const maxRows = 100;
 
@@ -22,12 +22,10 @@ class PoolsTableViewModel {
 	}
 
 	orderBy(colName) {
-		let query = stringifyQueryString({
+		redirectTo(undefined, {
 			sortBy: colName,
 			order: this.sortedBy() === colName ? 0 - this.order() : 1
 		});
-
-		page.show(`${window.location.pathname}?${query}`);
 	}
 
 	orderClassFor(colName) {

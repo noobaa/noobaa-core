@@ -71,12 +71,16 @@ hr {
 	height: 10px;
 }
 
-::-webkit-scrollbar-track  {
+::-webkit-scrollbar-track {
 	background-color: @bg-color3;
 }
 
 ::-webkit-scrollbar-thumb  {
 	background-color: @bg-color6;
+}
+
+::-webkit-scrollbar-corner {
+	border-color: transparent;
 }
 
 input[type="text"] {
@@ -148,6 +152,8 @@ input[type="search"] {
 
 .fill {
 	position: absolute;
+	height: auto;
+	width: auto;
 	top: 0;
 	left: 0;
 	right: 0;
@@ -421,7 +427,7 @@ input[type="search"] {
 		text-align: center;	
 		height: inherit;
 		display: block;
-		overflow-y: auto;
+		overflow: auto;
 		
 		.text(
 			@font-type2, 

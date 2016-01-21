@@ -2,6 +2,7 @@
 'use strict';
 
 var _ = require('lodash');
+var make_object = require('./js_utils').make_object;
 
 /**
  * functions to handle storage sizes that might not fit into single integer
@@ -31,6 +32,7 @@ var MAX_UINT32 = (1 << 16) * (1 << 16);
 
 var SIZE_UNITS = ['', 'K', 'M', 'G', 'T', 'P', 'E', 'Z', 'Y'];
 
+const SOTRAGE_OBJ_KEYS = [ 'used', 'total', 'free', 'alloc', 'real' ]; 
 
 module.exports = {
     to_bigint: to_bigint,
@@ -50,7 +52,6 @@ module.exports = {
     YOTABYTE: YOTABYTE,
     MAX_UINT32: MAX_UINT32,
 };
-
 
 function to_bigint(x) {
     var n;
@@ -102,17 +103,26 @@ function bigint_factor(bigint, mult_factor, div_factor) {
 }
 
 function reduce_storage(reducer, storage_items, mult_factor, div_factor) {
-    var storage = {};
-    _.each(storage_items, item => {
-        _.each(item, (val, key) => {
-            storage[key] = storage[key] || [];
-            storage[key].push(val);
-        });
-    });
-    _.each(storage, (val, key) => {
-        storage[key] = bigint_factor(reducer(key, val), mult_factor, div_factor);
-    });
-    return storage;
+    let accumulator = _.reduce(
+        storage_items, 
+        (accumulator, item) => {
+            _.each(SOTRAGE_OBJ_KEYS, key => item[key] && accumulator[key].push(item[key]));
+            return accumulator;
+        },
+        make_object(SOTRAGE_OBJ_KEYS, key => [])
+    );
+
+    return _.reduce(
+        accumulator, 
+        (storage, val, key) => {
+            if (!_.isEmpty(val)) {
+                storage[key] = bigint_factor(reducer(key, val), mult_factor, div_factor);    
+            }
+            
+            return storage;
+        },
+        {}
+    );
 }
 
 

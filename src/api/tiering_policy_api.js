@@ -7,17 +7,18 @@
  *
  */
 module.exports = {
-    name: 'tiering_policy_api',
+
+    id: 'tiering_policy_api',
 
     methods: {
         create_policy: {
             doc: 'Create Tiering Policy',
             method: 'POST',
             params: {
-                $ref: '/tiering_policy_api/definitions/tiering_policy'
+                $ref: '#/definitions/tiering_policy'
             },
             reply: {
-                $ref: '/tiering_policy_api/definitions/tiering_policy'
+                $ref: '#/definitions/tiering_policy'
             },
             auth: {
                 system: 'admin'
@@ -28,10 +29,10 @@ module.exports = {
             doc: 'Update Tiering Policy',
             method: 'POST',
             params: {
-                $ref: '/tiering_policy_api/definitions/tiering_policy'
+                $ref: '#/definitions/tiering_policy'
             },
             reply: {
-                $ref: '/tiering_policy_api/definitions/tiering_policy'
+                $ref: '#/definitions/tiering_policy'
             },
             auth: {
                 system: 'admin'
@@ -51,7 +52,7 @@ module.exports = {
                 }
             },
             reply: {
-                $ref: '/tiering_policy_api/definitions/tiering_policy'
+                $ref: '#/definitions/tiering_policy'
             },
             auth: {
                 system: 'admin'
@@ -71,7 +72,7 @@ module.exports = {
                 }
             },
             reply: {
-                $ref: '/tiering_policy_api/definitions/tiering_policy'
+                $ref: '#/definitions/tiering_policy'
             },
             auth: {
                 system: 'admin'
@@ -106,8 +107,8 @@ module.exports = {
                     type: 'string',
                 },
                 storage: {
-                    $ref: '/common_api/definitions/storage_info'
-                },                
+                    $ref: 'common_api#/definitions/storage_info'
+                },
                 tiers: {
                     type: 'array',
                     items: {

@@ -83,10 +83,10 @@ RPC.prototype.register_service = function(api, server, options) {
     var self = this;
     options = options || {};
 
-    dbg.log0('RPC register_service', api.name);
+    dbg.log0('RPC register_service', api.id);
 
     _.each(api.methods, function(method_api, method_name) {
-        var srv = api.name + '.' + method_name;
+        var srv = api.id + '.' + method_name;
         assert(!self._services[srv],
             'RPC register_service: service already registered ' + srv);
         var func = server[method_name];
@@ -114,10 +114,10 @@ RPC.prototype.register_service = function(api, server, options) {
 
     //Service was registered, call _init (if exists)
     if (typeof(server._init) !== 'undefined') {
-        dbg.log0('RPC register_service: calling _int() for', api.name);
+        dbg.log0('RPC register_service: calling _init() for', api.id);
         server._init();
     } else {
-        dbg.log2('RPC register_service:', api.name, 'does not supply an _init() function');
+        dbg.log2('RPC register_service:', api.id, 'does not supply an _init() function');
     }
 };
 
@@ -151,7 +151,7 @@ RPC.prototype.create_client = function(api, default_options) {
     var client = {
         options: _.create(default_options)
     };
-    if (!api || !api.name || !api.methods) {
+    if (!api || !api.id) {
         throw new Error('RPC create_client: BAD API');
     }
 
@@ -771,7 +771,7 @@ RPC.prototype._connection_receive = function(conn, msg_buffer) {
 RPC.prototype._redirect = function(api, method, params, options) {
     var self = this;
     var req = {
-        method_api: api.name,
+        method_api: api.id,
         method_name: method.name,
         target: options.address,
         request_params: params

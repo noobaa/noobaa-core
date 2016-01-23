@@ -7,14 +7,15 @@
  *
  */
 module.exports = {
-    name: 'pool_api',
+
+    id: 'pool_api',
 
     methods: {
         create_pool: {
             doc: 'Create Pool',
             method: 'POST',
             params: {
-                $ref: '/pool_api/definitions/pool_definition'
+                $ref: '#/definitions/pool_definition'
             },
             auth: {
                 system: 'admin'
@@ -54,7 +55,7 @@ module.exports = {
                 }
             },
             reply: {
-                $ref: '/pool_api/definitions/pool_definition'
+                $ref: '#/definitions/pool_definition'
             },
             auth: {
                 system: 'admin'
@@ -74,7 +75,7 @@ module.exports = {
                 }
             },
             reply: {
-                $ref: '/pool_api/definitions/pool_extended_info'
+                $ref: '#/definitions/pool_extended_info'
             },
             auth: {
                 system: 'admin'
@@ -193,10 +194,10 @@ module.exports = {
                     type: 'string'
                 },
                 nodes: {
-                    $ref: '/system_api/definitions/nodes_info'
+                    $ref: 'system_api#/definitions/nodes_info'
                 },
                 storage: {
-                    $ref: '/common_api/definitions/storage_info'
+                    $ref: 'common_api#/definitions/storage_info'
                 },
             },
         },

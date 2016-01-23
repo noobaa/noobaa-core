@@ -10,7 +10,7 @@
  */
 module.exports = {
 
-    name: 'system_api',
+    id: 'system_api',
 
     methods: {
 
@@ -33,7 +33,7 @@ module.exports = {
                         type: 'string',
                     },
                     info: {
-                        $ref: '/system_api/definitions/system_info'
+                        $ref: '#/definitions/system_info'
                     },
                 }
             },
@@ -46,7 +46,7 @@ module.exports = {
             doc: 'Read the info of the authorized system',
             method: 'GET',
             reply: {
-                $ref: '/system_api/definitions/system_full_info'
+                $ref: '#/definitions/system_full_info'
             },
             auth: {
                 system: 'admin',
@@ -89,7 +89,7 @@ module.exports = {
                     systems: {
                         type: 'array',
                         items: {
-                            $ref: '/system_api/definitions/system_info'
+                            $ref: '#/definitions/system_info'
                         }
                     }
                 }
@@ -111,7 +111,7 @@ module.exports = {
                         type: 'string',
                     },
                     role: {
-                        $ref: '/system_api/definitions/role_enum'
+                        $ref: '#/definitions/role_enum'
                     },
                 }
             },
@@ -276,10 +276,10 @@ module.exports = {
         update_n2n_config: {
             method: 'POST',
             params: {
-                $ref: '/common_api/definitions/n2n_config'
+                $ref: 'common_api#/definitions/n2n_config'
             },
             reply: {
-                $ref: '/system_api/definitions/system_nodes_update_reply'
+                $ref: '#/definitions/system_nodes_update_reply'
             },
             auth: {
                 system: 'admin',
@@ -298,7 +298,7 @@ module.exports = {
                 }
             },
             reply: {
-                $ref: '/system_api/definitions/system_nodes_update_reply'
+                $ref: '#/definitions/system_nodes_update_reply'
             },
             auth: {
                 system: 'admin',
@@ -347,31 +347,31 @@ module.exports = {
                 roles: {
                     type: 'array',
                     items: {
-                        $ref: '/system_api/definitions/role_info'
+                        $ref: '#/definitions/role_info'
                     }
                 },
                 tiers: {
                     type: 'array',
                     items: {
-                        $ref: '/tier_api/definitions/tier_info'
+                        $ref: 'tier_api#/definitions/tier_info'
                     }
                 },
                 storage: {
-                    $ref: '/common_api/definitions/storage_info'
+                    $ref: 'common_api#/definitions/storage_info'
                 },
                 nodes: {
-                    $ref: '/system_api/definitions/nodes_info'
+                    $ref: '#/definitions/nodes_info'
                 },
                 buckets: {
                     type: 'array',
                     items: {
-                        $ref: '/bucket_api/definitions/bucket_info'
+                        $ref: 'bucket_api#/definitions/bucket_info'
                     }
                 },
                 pools: {
                     type: 'array',
                     items: {
-                        $ref: '/pool_api/definitions/pool_extended_info'
+                        $ref: 'pool_api#/definitions/pool_extended_info'
                     },
                 },
                 objects: {
@@ -380,7 +380,7 @@ module.exports = {
                 access_keys: {
                     type: 'array',
                     item: {
-                        $ref: '/system_api/definitions/access_keys'
+                        $ref: '#/definitions/access_keys'
                     }
                 },
                 ssl_port: {
@@ -404,7 +404,7 @@ module.exports = {
                     }
                 },
                 n2n_config: {
-                    $ref: '/common_api/definitions/n2n_config'
+                    $ref: 'common_api#/definitions/n2n_config'
                 },
                 ip_address: {
                     type: 'string'
@@ -426,7 +426,7 @@ module.exports = {
                 roles: {
                     type: 'array',
                     items: {
-                        $ref: '/system_api/definitions/role_enum'
+                        $ref: '#/definitions/role_enum'
                     }
                 },
                 account: {

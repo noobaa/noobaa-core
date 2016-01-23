@@ -12,14 +12,14 @@
  */
 module.exports = {
 
-    name: 'node_api',
+    id: 'node_api',
 
     methods: {
 
         create_node: {
             method: 'POST',
             params: {
-                $ref: '/node_api/definitions/node_config'
+                $ref: '#/definitions/node_config'
             },
             reply: {
                 type: 'object',
@@ -53,7 +53,7 @@ module.exports = {
                 }
             },
             reply: {
-                $ref: '/node_api/definitions/node_full_info'
+                $ref: '#/definitions/node_full_info'
             },
             auth: {
                 system: 'admin'
@@ -63,7 +63,7 @@ module.exports = {
         update_node: {
             method: 'PUT',
             params: {
-                $ref: '/node_api/definitions/node_config'
+                $ref: '#/definitions/node_config'
             },
             auth: {
                 system: 'admin'
@@ -108,7 +108,7 @@ module.exports = {
                 required: ['node', 'objects'],
                 properties: {
                     node: {
-                        $ref: '/node_api/definitions/node_full_info'
+                        $ref: '#/definitions/node_full_info'
                     },
                     objects: {
                         type: 'array',
@@ -125,7 +125,7 @@ module.exports = {
                                 parts: {
                                     type: 'array',
                                     items: {
-                                        $ref: '/object_api/definitions/object_part_info'
+                                        $ref: 'object_api#/definitions/object_part_info'
                                     }
                                 }
                             }
@@ -196,7 +196,7 @@ module.exports = {
                     nodes: {
                         type: 'array',
                         items: {
-                            $ref: '/node_api/definitions/node_full_info'
+                            $ref: '#/definitions/node_full_info'
                         }
                     }
                 }
@@ -249,7 +249,7 @@ module.exports = {
                                     type: 'integer'
                                 },
                                 storage: {
-                                    $ref: '/common_api/definitions/storage_info'
+                                    $ref: 'common_api#/definitions/storage_info'
                                 },
                             }
                         }
@@ -305,25 +305,25 @@ module.exports = {
                         type: 'boolean'
                     },
                     storage: {
-                        $ref: '/common_api/definitions/storage_info'
+                        $ref: 'common_api#/definitions/storage_info'
                     },
                     drives: {
                         type: 'array',
                         items: {
-                            $ref: '/common_api/definitions/drive_info'
+                            $ref: 'common_api#/definitions/drive_info'
                         }
                     },
                     os_info: {
-                        $ref: '/common_api/definitions/os_info'
+                        $ref: 'common_api#/definitions/os_info'
                     },
                     latency_to_server: {
-                        $ref: '/node_api/definitions/latency_array'
+                        $ref: '#/definitions/latency_array'
                     },
                     latency_of_disk_write: {
-                        $ref: '/node_api/definitions/latency_array'
+                        $ref: '#/definitions/latency_array'
                     },
                     latency_of_disk_read: {
-                        $ref: '/node_api/definitions/latency_array'
+                        $ref: '#/definitions/latency_array'
                     },
                     debug_level: {
                         type: 'integer',
@@ -349,7 +349,7 @@ module.exports = {
                         type: 'string'
                     },
                     n2n_config: {
-                        $ref: '/common_api/definitions/n2n_config'
+                        $ref: 'common_api#/definitions/n2n_config'
                     },
                     version: {
                         type: 'string'
@@ -358,7 +358,7 @@ module.exports = {
                         type: 'integer'
                     },
                     storage: {
-                        $ref: '/common_api/definitions/storage_info'
+                        $ref: 'common_api#/definitions/storage_info'
                     },
                 }
             },
@@ -370,10 +370,10 @@ module.exports = {
         n2n_signal: {
             method: 'POST',
             params: {
-                $ref: '/node_api/definitions/signal_params'
+                $ref: '#/definitions/signal_params'
             },
             reply: {
-                $ref: '/node_api/definitions/signal_reply'
+                $ref: '#/definitions/signal_reply'
             },
             auth: {
                 system: false
@@ -383,10 +383,10 @@ module.exports = {
         redirect: {
             method: 'POST',
             params: {
-                $ref: '/node_api/definitions/signal_params'
+                $ref: '#/definitions/signal_params'
             },
             reply: {
-                $ref: '/node_api/definitions/signal_reply'
+                $ref: '#/definitions/signal_reply'
             },
             auth: {
                 system: false
@@ -396,10 +396,10 @@ module.exports = {
         self_test_to_node_via_web: {
             method: 'POST',
             params: {
-                $ref: '/agent_api/definitions/self_test_params'
+                $ref: 'agent_api#/definitions/self_test_params'
             },
             reply: {
-                $ref: '/agent_api/definitions/self_test_reply'
+                $ref: 'agent_api#/definitions/self_test_reply'
             },
             auth: {
                 system: ['admin', 'user']
@@ -499,7 +499,7 @@ module.exports = {
                     type: 'string',
                 },
                 srvmode: {
-                    $ref: '/node_api/definitions/srvmode'
+                    $ref: '#/definitions/srvmode'
                 }
             }
         },
@@ -538,7 +538,7 @@ module.exports = {
                     type: 'string'
                 },
                 srvmode: {
-                    $ref: '/node_api/definitions/srvmode'
+                    $ref: '#/definitions/srvmode'
                 },
                 rpc_address: {
                     type: 'string'
@@ -563,25 +563,25 @@ module.exports = {
                     type: 'string'
                 },
                 storage: {
-                    $ref: '/common_api/definitions/storage_info'
+                    $ref: 'common_api#/definitions/storage_info'
                 },
                 drives: {
                     type: 'array',
                     items: {
-                        $ref: '/common_api/definitions/drive_info'
+                        $ref: 'common_api#/definitions/drive_info'
                     }
                 },
                 os_info: {
-                    $ref: '/common_api/definitions/os_info'
+                    $ref: 'common_api#/definitions/os_info'
                 },
                 latency_to_server: {
-                    $ref: '/node_api/definitions/latency_array'
+                    $ref: '#/definitions/latency_array'
                 },
                 latency_of_disk_write: {
-                    $ref: '/node_api/definitions/latency_array'
+                    $ref: '#/definitions/latency_array'
                 },
                 latency_of_disk_read: {
-                    $ref: '/node_api/definitions/latency_array'
+                    $ref: '#/definitions/latency_array'
                 },
                 debug_level: {
                     type: 'integer',

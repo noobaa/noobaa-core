@@ -9,7 +9,7 @@
  */
 module.exports = {
 
-    name: 'object_api',
+    id: 'object_api',
 
     methods: {
 
@@ -32,7 +32,7 @@ module.exports = {
                         type: 'string',
                     },
                     xattr: {
-                        $ref: '/object_api/definitions/xattr',
+                        $ref: '#/definitions/xattr',
                     },
                 }
             },
@@ -217,12 +217,12 @@ module.exports = {
                                     type: 'integer',
                                 },
                                 chunk: {
-                                    $ref: '/object_api/definitions/chunk_info',
+                                    $ref: '#/definitions/chunk_info',
                                 },
                                 frags: {
                                     type: 'array',
                                     items: {
-                                        $ref: '/object_api/definitions/frag_info',
+                                        $ref: '#/definitions/frag_info',
                                     }
                                 },
                             }
@@ -244,7 +244,7 @@ module.exports = {
                                     type: 'boolean'
                                 },
                                 part: {
-                                    $ref: '/object_api/definitions/object_part_info'
+                                    $ref: '#/definitions/object_part_info'
                                 }
                             }
                         }
@@ -346,7 +346,7 @@ module.exports = {
                 // required: [],
                 properties: {
                     new_block: {
-                        $ref: '/agent_api/definitions/block_md'
+                        $ref: 'agent_api#/definitions/block_md'
                     }
                 }
             },
@@ -394,7 +394,7 @@ module.exports = {
                     parts: {
                         type: 'array',
                         items: {
-                            $ref: '/object_api/definitions/object_part_info'
+                            $ref: '#/definitions/object_part_info'
                         },
                     },
                 }
@@ -422,7 +422,7 @@ module.exports = {
                 }
             },
             reply: {
-                $ref: '/object_api/definitions/object_info'
+                $ref: '#/definitions/object_info'
             },
             auth: {
                 system: ['admin', 'user', 'viewer']
@@ -445,7 +445,7 @@ module.exports = {
                         type: 'string',
                     },
                     xattr: {
-                        $ref: '/object_api/definitions/xattr',
+                        $ref: '#/definitions/xattr',
                     }
 
                 }
@@ -458,7 +458,7 @@ module.exports = {
         delete_object: {
             method: 'DELETE',
             params: {
-                $ref: '/object_api/definitions/object_path'
+                $ref: '#/definitions/object_path'
             },
             auth: {
                 system: ['admin', 'user']
@@ -525,7 +525,7 @@ module.exports = {
                                     type: 'string',
                                 },
                                 info: {
-                                    $ref: '/object_api/definitions/object_info'
+                                    $ref: '#/definitions/object_info'
                                 }
                             }
                         }
@@ -583,7 +583,7 @@ module.exports = {
                     type: 'string',
                 },
                 xattr: {
-                    $ref: '/object_api/definitions/xattr',
+                    $ref: '#/definitions/xattr',
                 },
                 stats: {
                     type: 'object',
@@ -624,13 +624,13 @@ module.exports = {
                     type: 'integer',
                 },
                 chunk: {
-                    $ref: '/object_api/definitions/chunk_info',
+                    $ref: '#/definitions/chunk_info',
                 },
                 // the fragments composing the data chunk
                 frags: {
                     type: 'array',
                     items: {
-                        $ref: '/object_api/definitions/frag_info',
+                        $ref: '#/definitions/frag_info',
                     }
                 }
             }
@@ -737,7 +737,7 @@ module.exports = {
                         required: ['block_md'],
                         properties: {
                             block_md: {
-                                $ref: '/agent_api/definitions/block_md'
+                                $ref: 'agent_api#/definitions/block_md'
                             },
                             adminfo: {
                                 type: 'object',
@@ -756,7 +756,7 @@ module.exports = {
                                         type: 'boolean'
                                     },
                                     srvmode: {
-                                        $ref: '/node_api/definitions/srvmode'
+                                        $ref: 'node_api#/definitions/srvmode'
                                     },
                                     building: {
                                         type: 'boolean',

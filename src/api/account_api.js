@@ -9,7 +9,7 @@
  */
 module.exports = {
 
-    name: 'account_api',
+    id: 'account_api',
 
     methods: {
 
@@ -50,7 +50,7 @@ module.exports = {
             doc: 'Read the info of the authorized account',
             method: 'GET',
             reply: {
-                $ref: '/account_api/definitions/account_info'
+                $ref: '#/definitions/account_info'
             },
             auth: {
                 system: false,
@@ -101,7 +101,7 @@ module.exports = {
                     accounts: {
                         type: 'array',
                         items: {
-                            $ref: '/account_api/definitions/account_info'
+                            $ref: '#/definitions/account_info'
                         }
                     }
                 }
@@ -122,7 +122,7 @@ module.exports = {
                     accounts: {
                         type: 'array',
                         items: {
-                            $ref: '/account_api/definitions/account_info'
+                            $ref: '#/definitions/account_info'
                         }
                     }
                 }

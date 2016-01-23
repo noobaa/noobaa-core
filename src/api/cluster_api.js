@@ -9,7 +9,7 @@
  */
 module.exports = {
 
-    name: 'cluster_api',
+    id: 'cluster_api',
 
     methods: {
 

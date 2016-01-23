@@ -112,6 +112,7 @@ describe('RPC', function() {
     var ERROR_CODE = 'FORBIDDEN';
     var schema = new RpcSchema();
     schema.register_api(test_api);
+    schema.compile();
 
     describe('schema.register_api', function() {
 

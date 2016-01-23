@@ -643,9 +643,11 @@ nb_console.controller('PoolsViewCtrl', [
                 .then(function(str) {
                     if (!str) return;
                     return nbNodes.create_pool(str)
-                        .then(function() {
+                        .then(() => {
+                            nbAlertify.log('Pool created.');
                             return reload_view();
-                        });
+                        })
+                        .catch(err => nbAlertify.error(err.message));
                 });
         }
     }

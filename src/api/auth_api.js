@@ -9,7 +9,7 @@
  */
 module.exports = {
 
-    name: 'auth_api',
+    id: 'auth_api',
 
     methods: {
 

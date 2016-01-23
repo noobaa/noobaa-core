@@ -9,7 +9,7 @@
  */
 module.exports = {
 
-    name: 'agent_api',
+    id: 'agent_api',
 
     methods: {
 
@@ -21,7 +21,7 @@ module.exports = {
                 required: ['block_md', 'data'],
                 properties: {
                     block_md: {
-                        $ref: '/agent_api/definitions/block_md'
+                        $ref: '#/definitions/block_md'
                     },
                     data: {
                         type: 'buffer'
@@ -37,7 +37,7 @@ module.exports = {
                 required: ['block_md'],
                 properties: {
                     block_md: {
-                        $ref: '/agent_api/definitions/block_md'
+                        $ref: '#/definitions/block_md'
                     },
                 },
             },
@@ -46,7 +46,7 @@ module.exports = {
                 required: ['block_md', 'data'],
                 properties: {
                     block_md: {
-                        $ref: '/agent_api/definitions/block_md'
+                        $ref: '#/definitions/block_md'
                     },
                     data: {
                         type: 'buffer'
@@ -63,10 +63,10 @@ module.exports = {
                 required: ['target', 'source'],
                 properties: {
                     target: {
-                        $ref: '/agent_api/definitions/block_md'
+                        $ref: '#/definitions/block_md'
                     },
                     source: {
-                        $ref: '/agent_api/definitions/block_md'
+                        $ref: '#/definitions/block_md'
                     }
                 },
             },
@@ -91,10 +91,10 @@ module.exports = {
         n2n_signal: {
             method: 'POST',
             params: {
-                $ref: '/node_api/definitions/signal_params'
+                $ref: 'node_api#/definitions/signal_params'
             },
             reply: {
-                $ref: '/node_api/definitions/signal_reply'
+                $ref: 'node_api#/definitions/signal_reply'
             },
         },
 
@@ -133,10 +133,10 @@ module.exports = {
         self_test_peer: {
             method: 'POST',
             params: {
-                $ref: '/agent_api/definitions/self_test_params'
+                $ref: '#/definitions/self_test_params'
             },
             reply: {
-                $ref: '/agent_api/definitions/self_test_reply'
+                $ref: '#/definitions/self_test_reply'
             },
         },
 
@@ -164,7 +164,7 @@ module.exports = {
         update_n2n_config: {
             method: 'POST',
             params: {
-                $ref: '/common_api/definitions/n2n_config'
+                $ref: 'common_api#/definitions/n2n_config'
             }
         },
 

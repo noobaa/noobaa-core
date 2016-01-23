@@ -7,17 +7,17 @@
  */
 module.exports = {
 
-    name: 'redirector_api',
+    id: 'redirector_api',
 
     methods: {
 
         redirect: {
             method: 'POST',
             params: {
-                $ref: '/node_api/definitions/redirect_params'
+                $ref: '#/definitions/redirect_params'
             },
             reply: {
-                $ref: '/node_api/definitions/redirect_reply'
+                $ref: '#/definitions/redirect_reply'
             },
             auth: {
                 system: false
@@ -27,7 +27,7 @@ module.exports = {
         register_agent: {
             method: 'POST',
             params: {
-                $ref: '/redirector_api/definitions/basic_registration_info'
+                $ref: '#/definitions/basic_registration_info'
             },
             auth: {
                 system: false
@@ -37,7 +37,7 @@ module.exports = {
         unregister_agent: {
             method: 'POST',
             params: {
-                $ref: '/redirector_api/definitions/basic_registration_info'
+                $ref: '#/definitions/basic_registration_info'
             },
             auth: {
                 system: false
@@ -86,10 +86,10 @@ module.exports = {
         publish_to_cluster: {
             method: 'POST',
             params: {
-                $ref: '/node_api/definitions/redirect_params'
+                $ref: '#/definitions/redirect_params'
             },
             reply: {
-                $ref: '/node_api/definitions/redirect_reply'
+                $ref: '#/definitions/redirect_reply'
             },
             auth: {
                 system: false

@@ -112,18 +112,31 @@ function upgrade_system(system) {
         });
     }
 
-    print('\n*** update buckets to default tier ...');
-    db.buckets.update({
+    print('\n*** update buckets to tiering policy ...');
+    db.buckets.find({
         system: system._id,
         tiering: null
-    }, {
-        $set: {
-            tiering: [{
+    }).forEach(function(bucket) {
+        var policy_name = bucket.name + '_tiering_' + (Date.now().toString(36));
+        db.tieringpolicies.insert({
+            system: system._id,
+            name: policy_name,
+            tiers: [{
+                order: 0,
                 tier: default_tier._id
             }]
-        }
-    }, {
-        multi: true
+        });
+        var tiering_policy = db.tieringpolicies.findOne({
+            system: system._id,
+            name: policy_name
+        });
+        db.buckets.update({
+            _id: bucket._id
+        }, {
+            $set: {
+                tiering: tiering_policy._id
+            }
+        });
     });
 
 }

@@ -68,6 +68,7 @@ export default function register(ko) {
 	ko.components.register('pool-panel', 		require('./pool/pool-panel/pool-panel'));
 	ko.components.register('pool-summary', 		require('./pool/pool-summary/pool-summary'));
 	ko.components.register('pool-nodes-table', 	require('./pool/pool-nodes-table/pool-nodes-table'));
+	ko.components.register('assign-nodes-modal', 	require('./pool/assign-nodes-modal/assign-nodes-modal'));
 
 	// -------------------------------
 	// Node

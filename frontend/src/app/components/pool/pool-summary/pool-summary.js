@@ -10,6 +10,10 @@ class PoolSummaryViewModel {
 			() => !!pool()
 		);
 
+		this.poolName = ko.computed(
+			() => !!pool() && pool().name
+		);
+
 		this.onlineCount = ko.pureComputed(
 			() => {
 				let count = pool().nodes.online;
@@ -52,6 +56,8 @@ class PoolSummaryViewModel {
 			{ value: this.used, color: style['text-color6'], emphasize: true },
 			{ value: this.free, color: style['text-color4'], emphasize: false },
 		];
+
+		this.isAssignNodeModalVisible = ko.observable(true);
 	}
 }
 

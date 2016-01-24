@@ -573,7 +573,7 @@ export function loadPoolNodeList(poolName, filter, sortBy, order, page) {
 	
 	api.node.list_nodes({  
 		query: {
-			pool: [ poolName ],
+			pools: [ poolName ],
 			name: filter
 		},
 		sort: sortBy,
@@ -948,3 +948,4 @@ export function uploadFiles(bucketName, files) {
 			}
 		);
 }
+

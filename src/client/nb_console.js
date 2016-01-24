@@ -1168,7 +1168,7 @@ nb_console.controller('PoolViewCtrl', [
         function reload_nodes(hash_query) {
             $scope.nodes_query = _.clone(hash_query);
             var query = {
-                pool: [$scope.pool.name]
+                pools: [$scope.pool.name]
             };
             if ($scope.nodes_query.search) {
                 query.name = $scope.nodes_query.search;

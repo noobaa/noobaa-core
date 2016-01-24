@@ -20,13 +20,13 @@ Tools contains various tools which are not part of the working flows but can be 
       The equivalent for a js call for
       ___node.list_nodes({
         query: {
-          pool: 'default_pool',
+          pools: 'default_pool',
         }
       })___
 
       Is done in the following way:
 
-      ___.call node list_nodes query={pool='default_pool'}___
+      ___.call node list_nodes query={pools='default_pool'}___
 
   Currently rpc_shell does not support argument execution mode (i.e. node rpc_shell.js .call system read_system),
   but can be added should the need arise (in testing scenarios for example).

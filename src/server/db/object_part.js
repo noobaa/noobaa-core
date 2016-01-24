@@ -16,7 +16,7 @@ var types = mongoose.Schema.Types;
 var object_part_schema = new Schema({
 
     system: {
-        ref: 'System',
+        // ref: 'System',
         type: types.ObjectId,
         required: true,
     },

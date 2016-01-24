@@ -18,14 +18,14 @@ var size_utils = require('../../util/size_utils');
 var objmd_schema = new Schema({
 
     system: {
-        ref: 'System',
+        // ref: 'System',
         type: types.ObjectId,
         required: true,
     },
 
     // every object belongs to a single bucket
     bucket: {
-        ref: 'Bucket',
+        // ref: 'Bucket',
         type: types.ObjectId,
         required: true,
     },

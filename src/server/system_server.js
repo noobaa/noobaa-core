@@ -97,6 +97,7 @@ function new_system_changes(name, owner_account_id) {
     }]);
     var bucket = bucket_server.new_bucket_defaults('files', system._id, policy._id);
     var role = {
+        _id: system_store.generate_id(),
         account: owner_account_id,
         system: system._id,
         role: 'admin'
@@ -441,34 +442,30 @@ function read_activity_log(req) {
     }
     if (req.rpc_params.skip) q.skip(req.rpc_params.skip);
     q.limit(req.rpc_params.limit || 10);
-    q.populate('tier', 'name');
     q.populate('node', 'name');
-    q.populate('bucket', 'name');
     q.populate('obj', 'key');
-    q.populate('account', 'email');
-    q.populate('actor', 'email');
     return P.when(q.exec())
         .then(function(logs) {
             logs = _.map(logs, function(log_item) {
                 var l = _.pick(log_item, 'id', 'level', 'event');
                 l.time = log_item.time.getTime();
                 if (log_item.tier) {
-                    l.tier = _.pick(log_item.tier, 'name');
+                    l.tier = _.pick(system_store.data.get_by_id(log_item.tier), 'name');
                 }
                 if (log_item.node) {
                     l.node = _.pick(log_item.node, 'name');
                 }
                 if (log_item.bucket) {
-                    l.bucket = _.pick(log_item.bucket, 'name');
+                    l.bucket = _.pick(system_store.data.get_by_id(log_item.bucket), 'name');
                 }
                 if (log_item.obj) {
                     l.obj = _.pick(log_item.obj, 'key');
                 }
                 if (log_item.account) {
-                    l.account = _.pick(log_item.account, 'email');
+                    l.account = _.pick(system_store.data.get_by_id(log_item.account), 'email');
                 }
                 if (log_item.actor) {
-                    l.actor = _.pick(log_item.actor, 'email');
+                    l.actor = _.pick(system_store.data.get_by_id(log_item.actor), 'email');
                 }
                 return l;
             });

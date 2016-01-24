@@ -3,26 +3,28 @@
 let _ = require('lodash');
 let P = require('../../util/promise');
 let util = require('util');
+let Ajv = require('ajv');
 let EventEmitter = require('events').EventEmitter;
 let mongodb = require('mongodb');
 let mongo_client = require('./mongo_client');
 let js_utils = require('../../util/js_utils');
 let time_utils = require('../../util/time_utils');
 let size_utils = require('../../util/size_utils');
+let schema_utils = require('../../util/schema_utils');
 let bg_worker = require('../server_rpc').bg_worker;
 let server_rpc = require('../server_rpc').server_rpc;
 let dbg = require('../../util/debug_module')(__filename);
 // let promise_utils = require('../../util/promise_utils');
 
-const COLLECTIONS = js_utils.deep_freeze({
-    clusters: {},
-    systems: {},
-    roles: {},
-    accounts: {},
-    buckets: {},
-    tieringpolicies: {},
-    tiers: {},
-    pools: {},
+const COLLECTIONS = Object.freeze({
+    clusters: require('./schemas/cluster_schema'),
+    systems: require('./schemas/system_schema'),
+    roles: require('./schemas/role_schema'),
+    accounts: require('./schemas/account_schema'),
+    buckets: require('./schemas/bucket_schema'),
+    tieringpolicies: require('./schemas/tiering_policy_schema'),
+    tiers: require('./schemas/tier_schema'),
+    pools: require('./schemas/pool_schema'),
 });
 
 const INDEXES = js_utils.deep_freeze([{
@@ -67,6 +69,54 @@ const INDEXES = js_utils.deep_freeze([{
     key: 'system._id',
     val: 'role',
     val_array: true,
+}]);
+
+const DB_INDEXES = js_utils.deep_freeze([{
+    collection: 'systems',
+    unique: true,
+    fields: {
+        name: 1,
+        deleted: 1
+    }
+}, {
+    collection: 'accounts',
+    unique: true,
+    fields: {
+        email: 1,
+        deleted: 1
+    }
+}, {
+    collection: 'buckets',
+    unique: true,
+    fields: {
+        system: 1,
+        name: 1,
+        deleted: 1
+    }
+}, {
+    collection: 'tieringpolicies',
+    unique: true,
+    fields: {
+        system: 1,
+        name: 1,
+        deleted: 1
+    }
+}, {
+    collection: 'tiers',
+    unique: true,
+    fields: {
+        system: 1,
+        name: 1,
+        deleted: 1
+    }
+}, {
+    collection: 'pools',
+    unique: true,
+    fields: {
+        system: 1,
+        name: 1,
+        deleted: 1
+    }
 }]);
 
 const BG_BASE_ADDR = server_rpc.get_default_base_address('background');
@@ -176,6 +226,15 @@ class SystemStore extends EventEmitter {
         this.START_REFRESH_THRESHOLD = 10 * 60 * 1000;
         this.FORCE_REFRESH_THRESHOLD = 60 * 60 * 1000;
         setTimeout(() => this.refresh(), 1000);
+        this._ajv = new Ajv({
+            formats: {
+                objectid: val => val instanceof mongodb.ObjectId
+            }
+        });
+        _.each(COLLECTIONS, (schema, collection) => {
+            schema_utils.make_strict_schema(schema);
+            this._ajv.addSchema(schema, collection);
+        });
     }
 
     refresh() {
@@ -202,8 +261,8 @@ class SystemStore extends EventEmitter {
         let new_data = new SystemStoreData();
         let millistamp = time_utils.millistamp();
         this._load_promise =
-            P.fcall(() => this.register_for_changes())
-            .then(() => this.read_data_from_db(new_data))
+            P.fcall(() => this._register_for_changes())
+            .then(() => this._read_data_from_db(new_data))
             .then(() => {
                 dbg.log0('SystemStore: fetch took', time_utils.millitook(millistamp));
                 dbg.log0('SystemStore: fetch size', size_utils.human_size(JSON.stringify(new_data).length));
@@ -226,7 +285,7 @@ class SystemStore extends EventEmitter {
     }
 
 
-    register_for_changes() {
+    _register_for_changes() {
         if (!this._registered_for_reconnect) {
             server_rpc.on('reconnect', conn => this._on_reconnect(conn));
             this._registered_for_reconnect = true;
@@ -241,14 +300,57 @@ class SystemStore extends EventEmitter {
         }
     }
 
-    read_data_from_db(target) {
+    _read_data_from_db(target) {
         let non_deleted_query = {
             deleted: null
         };
+        return this._init_db()
+            .then(() => {
+                return P.all(_.map(COLLECTIONS, (schema, collection) =>
+                    mongo_client.db.collection(collection).find(non_deleted_query).toArray()
+                    .then(res => target[collection] = res)
+                    .then(res => _.each(res, item => this._check_schema(collection, item, 'read')))
+                ));
+            });
+    }
+
+    _init_db() {
+        if (this._db_inited) return P.resolve();
         return P.all(_.map(COLLECTIONS, (schema, collection) =>
-            mongo_client.db.collection(collection).find(non_deleted_query).toArray()
-            .then(res => target[collection] = res)
-        ));
+                mongo_client.db.createCollection(collection)))
+            .then(() => {
+                return P.all(_.map(DB_INDEXES, index =>
+                    mongo_client.db.collection(index.collection).createIndex(index.fields, {
+                        unique: index.unique,
+                        background: true
+                    })
+                    .then(res => dbg.log0('SystemStore index created',
+                        index.collection, res))
+                    .catch(err => dbg.error('SystemStore index FAILED',
+                        index.collection, index, err))
+                ));
+            })
+            .then(() => {
+                this._db_inited = true;
+                // now print the indexes just for fun
+                return P.all(_.map(COLLECTIONS, (schema, collection) =>
+                    mongo_client.db.collection(collection).indexes()
+                    .then(res => dbg.log0('SystemStore indexes of',
+                        collection, _.map(res, 'name')))
+                ));
+            });
+    }
+
+    _check_schema(collection, item, caller) {
+        let validator = this._ajv.getSchema(collection);
+        let is_valid = validator(item);
+        if (!is_valid) {
+            dbg.error('SystemStore: item not valid in collection',
+                collection, validator.errors, item);
+            if (caller === 'insert') {
+                throw new Error('SystemStore: item not valid');
+            }
+        }
     }
 
     generate_id() {
@@ -300,7 +402,7 @@ class SystemStore extends EventEmitter {
                 _.each(changes.insert, (list, collection) => {
                     let bulk = get_bulk(collection);
                     _.each(list, item => {
-                        this.check_schema(collection, item);
+                        this._check_schema(collection, item, 'insert');
                         data.check_indexes(collection, item);
                         bulk.insert(item);
                     });
@@ -308,7 +410,6 @@ class SystemStore extends EventEmitter {
                 _.each(changes.update, (list, collection) => {
                     let bulk = get_bulk(collection);
                     _.each(list, item => {
-                        this.check_schema(collection, item);
                         data.check_indexes(collection, item);
                         let updates = _.omit(item, '_id');
                         let first_key;
@@ -321,6 +422,10 @@ class SystemStore extends EventEmitter {
                                 $set: updates
                             };
                         }
+                        // TODO how to _check_schema on update?
+                        // if (updates.$set) {
+                        //     this._check_schema(collection, updates.$set, 'update');
+                        // }
                         bulk.find({
                             _id: item._id
                         }).updateOne(updates);
@@ -368,16 +473,7 @@ class SystemStore extends EventEmitter {
         }
     }
 
-    check_schema(collection, item) {
-        // TODO SystemStore.check_schema
-    }
-
 }
-
-
-
-
-
 
 
 

@@ -148,7 +148,7 @@ module.exports = {
                         type: 'object',
                         // required: [],
                         properties: {
-                            pool: {
+                            pools: {
                                 type: 'array',
                                 items: {
                                     type: 'string',

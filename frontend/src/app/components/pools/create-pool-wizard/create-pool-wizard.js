@@ -4,8 +4,8 @@ import assignNodesStepTemplate from './assign-nodes-step.html';
 import ko from 'knockout'; 
 import NodeRowViewModel from './node-row';
 import { makeArray } from 'utils';
-import { fullNodeList } from 'model';
-import { loadFullNodeList, createPool } from 'actions';
+import { nodeList } from 'model';
+import { loadNodeList, createPool } from 'actions';
 
 
 class CreatePoolWizardViewModel {
@@ -28,7 +28,7 @@ class CreatePoolWizardViewModel {
 
 		this.rows = makeArray(
 			500, 
-			i => new NodeRowViewModel(() => fullNodeList()[i])
+			i => new NodeRowViewModel(() => nodeList()[i])
 		);
 
 		this.selectedNodes = ko.observableArray()
@@ -47,7 +47,7 @@ class CreatePoolWizardViewModel {
 			selectedNodes: this.selectedNodes
 		})
 
-		loadFullNodeList();
+		loadNodeList();
 	}
 
 	validateStep(step) {

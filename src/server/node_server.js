@@ -7,6 +7,7 @@ var size_utils = require('../util/size_utils');
 var string_utils = require('../util/string_utils');
 var object_mapper = require('./mapper/object_mapper');
 var node_monitor = require('./node_monitor');
+var system_store = require('./stores/system_store');
 var db = require('./db');
 var dbg = require('../util/debug_module')(__filename);
 
@@ -281,8 +282,7 @@ function list_nodes_int(system_id, query, skip, limit, pagination, sort, order, 
                 };
             }
             var find = db.Node.find(info)
-                .sort(sort_opt)
-                .populate('pool', 'name');
+                .sort(sort_opt);
             if (skip) {
                 find.skip(skip);
             }
@@ -514,7 +514,7 @@ function get_node_full_info(node) {
     if (node.srvmode) {
         info.srvmode = node.srvmode;
     }
-    info.pool = node.pool.name;
+    info.pool = system_store.data.get_by_id(node.pool).name;
     info.heartbeat = node.heartbeat.getTime();
     info.storage = get_storage_info(node.storage);
     info.drives = _.map(node.drives, function(drive) {
@@ -545,9 +545,12 @@ function get_storage_info(storage) {
 function find_node_by_name(req) {
     return P.when(
             db.Node.findOne(get_node_query(req))
-            .populate('pool', 'name')
             .exec())
-        .then(db.check_not_deleted(req, 'node'));
+        .then(db.check_not_deleted(req, 'node'))
+        .then(function(node) {
+            node.pool = system_store.data.get_by_id(node.pool).name;
+            return node;
+        });
 }
 
 function get_node_query(req) {

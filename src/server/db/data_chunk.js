@@ -18,14 +18,14 @@ var data_chunk_schema = new Schema({
 
     // system is copied from the tier
     system: {
-        ref: 'System',
+        // ref: 'System',
         type: types.ObjectId,
         required: true,
     },
 
     //the bucket of this chunk
     bucket: {
-        ref: 'Bucket',
+        // ref: 'Bucket',
         type: types.ObjectId,
     },
 

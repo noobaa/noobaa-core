@@ -56,6 +56,7 @@ function create_account(req) {
                     insert: {
                         accounts: [account],
                         roles: [{
+                            _id: system_store.generate_id(),
                             account: account._id,
                             system: req.system._id,
                             role: 'admin',
@@ -290,6 +291,7 @@ function ensure_support_account() {
                 return;
             }
             support_account = {
+                _id: system_store.generate_id(),
                 name: 'Support',
                 email: 'support@noobaa.com',
                 password: process.env.SUPPORT_DEFAULT_PASSWORD || 'help',

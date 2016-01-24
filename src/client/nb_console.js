@@ -1016,9 +1016,7 @@ nb_console.controller('BucketsViewCtrl', [
                 if (return_value === "ok") {
                     $q.when(nbClient.client.bucket.create_bucket({
                         name: bucket_name,
-                        tiering: [{
-                            tier: 'default_tier'
-                        }]
+                        tiering: 'default_tiering'
                     })).then(function() {
                         console.log('created new bucket');
                         scope.modal.modal('hide');

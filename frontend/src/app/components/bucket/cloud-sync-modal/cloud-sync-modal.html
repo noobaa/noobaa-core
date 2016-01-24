@@ -4,7 +4,7 @@
 	</h1>
 
 	<section class="container">
-		<h2 class="heading3">Connect AWS Bucket</h2>
+		<h2 class="heading3">AWS Bucket Credentials</h2>
 		
 		<label>
 			<span class="field-name">Access Key:</span>
@@ -17,6 +17,11 @@
 		</label>
 	</section>
 	
+	<div class="container">
+		<h2 class="heading3">Select the bucket you want to connect to</h2>
+		<tiled-select></tiled-select>
+	</div>
+
 	<section class="container">
 		<h2 class="heading3">Additional Setting</h2>
 		
@@ -82,4 +87,38 @@
 		<button class="action link" data-bind="click: cancel">Cancel</button>	
 		<button class="action btn2" data-bind="click: save">Save</button>		
 	</div>	
-</modal>
+</modal> 
+
+
+<!-- <wizard params="
+	heading: 'Cloud Sync for ' + bucketName(), 
+	steps: ['Select AWS Bucket', 'Configure Connection'], 
+	actionLabel: 'save',
+	onClose: onClose
+">
+	<section class="text-left">
+		<div class="container">
+			<h2 class="heading3">Enter credentials for your AWS bucket</h2>
+			
+			<label>
+				<span class="field-name">Access Key:</span>
+				<input type="text" placeholder="" />
+			</label>
+
+			<label>
+				<span class="field-name">Secret Key: </span>
+				<input type="password" placeholder="" />
+			</label>
+		</div>
+
+		<div class="container">
+			<h2 class="heading3">Select the bucket you want to connect to</h2>
+			<tiled-select></tiled-select>
+		</div>
+	</section>
+
+
+
+	<section ></section>
+</wizard>
+-->

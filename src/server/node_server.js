@@ -515,7 +515,6 @@ function get_node_full_info(node) {
         info.srvmode = node.srvmode;
     }
     info.pool = system_store.data.get_by_id(node.pool).name;
-    console.warn('NBNB:: pool is', info.pool);
     info.heartbeat = node.heartbeat.getTime();
     info.storage = get_storage_info(node.storage);
     info.drives = _.map(node.drives, function(drive) {

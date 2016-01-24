@@ -225,7 +225,6 @@ class SystemStore extends EventEmitter {
         super();
         this.START_REFRESH_THRESHOLD = 10 * 60 * 1000;
         this.FORCE_REFRESH_THRESHOLD = 60 * 60 * 1000;
-        setTimeout(() => this.refresh(), 1000);
         this._ajv = new Ajv({
             formats: {
                 objectid: val => val instanceof mongodb.ObjectId
@@ -235,6 +234,11 @@ class SystemStore extends EventEmitter {
             schema_utils.make_strict_schema(schema);
             this._ajv.addSchema(schema, collection);
         });
+        mongo_client.on('reconnect', () => {
+            this._init_db_promise = null;
+            this.load();
+        });
+        setTimeout(() => this.refresh(), 1000);
     }
 
     refresh() {
@@ -315,8 +319,8 @@ class SystemStore extends EventEmitter {
     }
 
     _init_db() {
-        if (this._db_inited) return P.resolve();
-        return P.all(_.map(COLLECTIONS, (schema, collection) =>
+        if (this._init_db_promise) return this._init_db_promise;
+        this._init_db_promise = P.all(_.map(COLLECTIONS, (schema, collection) =>
                 mongo_client.db.createCollection(collection)))
             .then(() => {
                 return P.all(_.map(DB_INDEXES, index =>
@@ -339,6 +343,7 @@ class SystemStore extends EventEmitter {
                         collection, _.map(res, 'name')))
                 ));
             });
+        return this._init_db_promise;
     }
 
     _check_schema(collection, item, caller) {

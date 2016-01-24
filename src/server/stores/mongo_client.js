@@ -3,10 +3,12 @@
 // var _ = require('lodash');
 var P = require('../../util/promise');
 var mongodb = require('mongodb');
+var EventEmitter = require('events').EventEmitter;
 
-class MongoClient {
+class MongoClient extends EventEmitter {
 
     constructor() {
+        super();
         this.db = null; // will be set once connected
         this.url =
             process.env.MONGODB_URL ||
@@ -31,21 +33,31 @@ class MongoClient {
         };
     }
 
+    set_url(url) {
+        if (this.db || this.promise) {
+            throw new Error('MongoClient: trying to set url after already connected...' +
+                ' late for the party? ' + url +
+                ' existing url ' + this.url);
+        }
+        this.url = url;
+    }
+
     /**
      * connect and return the db instance which will handle reconnections.
      * mongodb_url is optional and by default takes from env or local db.
      */
-    connect(url) {
+    connect() {
         if (this.promise) return this.promise;
-        if (url) this.url = url;
         this.promise = this._connect();
         return this.promise;
     }
 
     _connect() {
+        if (this.db) return this.db;
         return mongodb.MongoClient.connect(this.url, this.config)
             .then(db => {
                 console.log('MongoClient: connected', this.url);
+                db.on('reconnect', () => this.emit('reconnect'));
                 this.db = db;
                 return db;
             }, err => {

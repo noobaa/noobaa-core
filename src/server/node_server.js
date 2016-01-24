@@ -545,9 +545,12 @@ function get_storage_info(storage) {
 function find_node_by_name(req) {
     return P.when(
             db.Node.findOne(get_node_query(req))
-            .populate('pool', 'name')
             .exec())
-        .then(db.check_not_deleted(req, 'node'));
+        .then(db.check_not_deleted(req, 'node'))
+        .then(function(node) {
+            node.pool = system_store.data.get_by_id(node.pool).name;
+            return node;
+        });
 }
 
 function get_node_query(req) {

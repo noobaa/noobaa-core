@@ -25,8 +25,6 @@ module.exports = {
     set_multipart_part_md5: set_multipart_part_md5,
     delete_object_mappings: delete_object_mappings,
     report_bad_block: report_bad_block,
-    chunks_and_objects_count: chunks_and_objects_count
-
 };
 
 var _ = require('lodash');
@@ -731,29 +729,6 @@ function report_bad_block(params) {
         });
 }
 
-/**
- *
- * chunks_and_objects_count
- *
- */
-function chunks_and_objects_count(systemid) {
-    return P.join(
-            db.DataChunk.collection.count({
-                system: systemid,
-                deleted: null,
-            }),
-            db.ObjectMD.collection.count({
-                system: systemid,
-                deleted: null,
-            })
-        )
-        .spread(function(chunks_num, objects_num) {
-            return {
-                chunks_num: chunks_num,
-                objects_num: objects_num,
-            };
-        });
-}
 
 // UTILS //////////////////////////////////////////////////////////
 

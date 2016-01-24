@@ -191,11 +191,36 @@ function list_accounts(req, system_id) {
 
 /**
  *
- * LIST_ACCOUNTS
+ * LIST_SYSTEM_ACCOUNTS
  *
  */
 function list_system_accounts(req) {
-    return list_accounts(req, req.system._id);
+    let is_admin = req.account.is_support || 
+        req.account.roles_by_system[req.system._id]
+            .some(
+                rule => rule === 'admin'
+            );
+
+    let accounts;
+    if (is_admin) {
+        accounts = _.filter(
+            system_store.data.accounts,
+            account => {
+                if (account.is_support) {
+                    return false;
+                } else {
+                    let rules = account.roles_by_system[req.system._id];
+                    return rules && rules.length > 0;
+                }
+            }
+        )
+    } else {
+        account = [req.account]
+    }
+
+    return {
+        accounts: _.map(accounts, get_account_info)
+    };
 }
 
 

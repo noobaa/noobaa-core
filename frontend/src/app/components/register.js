@@ -109,4 +109,5 @@ export default function register(ko) {
 	ko.components.register('wizard',			require('./shared/wizard/wizard'));
 	ko.components.register('paginator',			require('./shared/paginator/paginator'));
 	ko.components.register('tray',				require('./shared/tray/tray'));	
+	ko.components.register('tiled-select',		require('./shared/tiled-select/tiled-select'));	
 }

@@ -1,0 +1,13 @@
+<div class="box">
+	<ul class="list-no-style clear tiles" data-bind="foreach: tiles">
+		<li class="pull-left">
+			<button class="btn-flat tile" data-bind="
+				css: { selected: selected }, 
+				click: () => selected(true)
+			">
+				<svg-icon class="tile-icon" params="uri: icon"></svg-icon>
+				<div class="tile-label" data-bind="text: label"></div>
+			</button>
+		</li>
+	</ul>
+</div>

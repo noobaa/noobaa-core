@@ -166,7 +166,7 @@ function delete_bucket(req) {
         })
         .then(function() {
             return P.when(bg_worker.cloud_sync.refresh_policy({
-                sysid: req.system._id,
+                sysid: req.system._id.toString(),
                 bucketid: bucket._id.toString(),
                 force_stop: true,
             }));
@@ -201,8 +201,8 @@ function get_cloud_sync_policy(req, bucket) {
         return {};
     }
     return P.when(bg_worker.cloud_sync.get_policy_status({
-            sysid: bucket.system._id,
-            bucketid: bucket._id
+            sysid: bucket.system._id.toString(),
+            bucketid: bucket._id.toString()
         }))
         .then(function(stat) {
             return {
@@ -234,8 +234,8 @@ function get_all_cloud_sync_policies(req) {
     return P.all(_.map(req.system.buckets_by_name, function(bucket) {
         if (!bucket.cloud_sync.endpoint) return;
         return bg_worker.cloud_sync.get_policy_status({
-                sysid: req.system._id,
-                bucketid: bucket._id
+                sysid: req.system._id.toString(),
+                bucketid: bucket._id.toString()
             })
             .then(function(stat) {
                 reply.push({
@@ -276,8 +276,8 @@ function delete_cloud_sync(req) {
         })
         .then(function() {
             return bg_worker.cloud_sync.refresh_policy({
-                sysid: req.system._id,
-                bucketid: bucket._id,
+                sysid: req.system._id.toString(),
+                bucketid: bucket._id.toString(),
                 force_stop: true,
             });
         })
@@ -335,8 +335,8 @@ function set_cloud_sync(req) {
         })
         .then(function() {
             return bg_worker.cloud_sync.refresh_policy({
-                sysid: req.system._id,
-                bucketid: bucket._id,
+                sysid: req.system._id.toString(),
+                bucketid: bucket._id.toString(),
                 force_stop: force_stop,
             });
         })

@@ -2,6 +2,14 @@ pools-table {
 	display: block;
 	padding: 2em 3.5em;
 
+	.delete-btn {
+		padding: 0;
+
+		&[disabled] {
+			cursor: default;
+		}
+	}
+
 	.state-col,
 	.nodes-col,
 	.online-nodes-col,
@@ -9,6 +17,7 @@ pools-table {
 		min-width: 4em;
 	}
 
+	.delete-col,
 	.capacity-col,
 	.offline-nodes-col, {
 		min-width: 6em;

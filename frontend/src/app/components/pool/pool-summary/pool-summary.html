@@ -32,10 +32,17 @@
 	<quantity-gauge params="values: gaugeValues"></quantity-gauge>
 
 	<section class="action-list">
-		<button class="action btn2">
+		<button class="action btn2" data-bind="click: () => isAssignNodeModalVisible(true)">
 			<svg-icon params="uri: '/fe/assets/icons.svg#move-nodes'"></svg-icon>
 			Assign Nodes
 		</button> 	
 	</section>
 </div>
+<!-- /ko -->
+
+<!-- ko if: isAssignNodeModalVisible -->
+	<assign-nodes-modal params="
+		poolName: poolName,
+		onClose: () => isAssignNodeModalVisible(false)
+	"></assign-nodes-modal>
 <!-- /ko -->

@@ -595,12 +595,14 @@ export function loadPoolNodeList(poolName, filter, sortBy, order, page) {
 		.done();
 }
 
-export function loadFullNodeList() {
-	logAction('loadFullNodeList');
+export function loadNodeList() {
+	logAction('loadNodeList');
+
+	model.nodeList(null);
 
 	api.node.list_nodes({})
 		.then(
-			reply => model.fullNodeList(reply.nodes)
+			reply => model.nodeList(reply.nodes)
 		)
 		.done();
 }
@@ -856,6 +858,17 @@ export function deletePool(name) {
 
 	api.pool.delete_pool({ name })
 		.then(refresh)
+		.done();
+}
+
+export function assignNodes(name, nodes) {
+	logAction('assignNodes', { name, nodes });
+
+	api.pool.add_nodes_to_pool({
+		name: name,
+		nodes: nodes
+	})
+		.then(refresh) 
 		.done();
 }
 

@@ -83,12 +83,29 @@ module.exports = {
             }
         },
 
-        delete_account: {
+        delete_curr_account: {
             doc: 'Delete the authorized account',
             method: 'DELETE',
             auth: {
                 system: false,
             }
+        },
+
+        delete_curr_account: {
+          doc: 'Delete the authorized account',
+            method: 'DELETE',
+            params: {
+                type: 'object',
+                required: ['email'],
+                properties: {
+                    email: {
+                        type: 'string',
+                    },
+                }
+            },
+            auth: {
+                system: false,
+            }  
         },
 
         list_accounts: {

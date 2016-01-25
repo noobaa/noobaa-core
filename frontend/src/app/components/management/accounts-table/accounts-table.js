@@ -9,9 +9,7 @@ const maxRows = 100;
 
 class AccountsTableViewModel {
 	constructor() {
-		loadAccountList();
-
-		this.deleteCandidate = ko.observable();
+		this.deleteGroup = ko.observable();
 
 		this.rows = makeArray(
 			maxRows, 
@@ -19,6 +17,16 @@ class AccountsTableViewModel {
 				() => accountList()[i], this.deleteCandidate
 			)
 		);
+
+		this.isCreateAccountModalVisible = ko.observable(false);
+
+
+		loadAccountList();
+		
+		// this is leaking, find another solution.
+		// refreshCounter.subscribe(
+		// 	() => loadAccountList()
+		// )
 	}
 }
 

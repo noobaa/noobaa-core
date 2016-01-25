@@ -1,5 +1,9 @@
 <div class="clear">
-	<button class="btn2 pull-right">Create Account</button>
+	<button class="btn2 pull-right" data-bind="
+		click: () => isCreateAccountModalVisible(true)
+	">
+		Create Account
+	</button>
 </div>
 
 <div class="data-table">
@@ -7,7 +11,7 @@
 		<thead>
 			<tr>
 				<th class="user-col text-left">User</th>
-				<th class="role-col">Role</th>
+				<th class="role-col">Roles</th>
 				<th class="status-col">Status</th>
 				<th class="delete-col"></th>	
 			</tr>
@@ -20,17 +24,24 @@
 					<span data-bind="text: user"></span>
 				</td>
 
-				<td class="role-col" data-bind="text: role"></td>
+				<td class="role-col" data-bind="text: roles"></td>
 				
 				<td class="status-col" data-bind="text: status"></td>
 				
 				<td class="delete-col">
-					<button class="delete-btn btn-flat">
-						<svg-icon params="uri: '/fe/assets/icons.svg#trash-closed'"></svg-icon>
-					</button>
+					<delete-button params="
+						group: $component.deleteGroup,
+						onDelete: () => del()
+					"><delete-button>
 				</td>
 			</tr>
 			<!-- /ko -->
 		</tbody>
 	</table>
 </div>
+
+<!-- ko if: isCreateAccountModalVisible -->
+<create-account-modal params="
+	onClose: () => isCreateAccountModalVisible(false)
+"></create-account-modal>
+<!-- /ko -->

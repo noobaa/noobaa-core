@@ -69,6 +69,9 @@ export function refresh() {
 	
 	// Reload the current path
 	page.redirect(pathname + search);
+
+
+	model.refreshCounter(model.refreshCounter() + 1);
 }
 
 // -----------------------------------------------------
@@ -103,7 +106,7 @@ export function showOverview() {
 		panel: 'overview'	
 	});
 
-	loadSystemOverview();
+	loadSystemSummary();
 }
 
 export function showBuckets() {
@@ -318,36 +321,48 @@ export function loadServerInfo() {
 	api.account.accounts_status()
 		.then(
 			reply => model.serverInfo({
-				endpoint: endpoint,
 				initialized: reply.has_accounts
 			})
 		)
 		.done();
 }
 
-export function loadSystemOverview() {
-	logAction('loadSystemOverview');
+export function loadSystemInfo() {
+	logAction('loadSystemInfo');
 
-	let systemOverview = model.systemOverview;
 	api.system.read_system()
 		.then(
 			reply => {
 				let { access_key, secret_key } = reply.access_keys[0];
 
-				systemOverview({
+				model.systemInfo({
+					name: reply.name,
 					endpoint: endpoint,
+					port: reply.web_port,
+					sslPort: reply.ssl_port,
 					accessKey: access_key,
-					secretKey: secret_key, 
-					capacity: reply.storage.total,
-					bucketCount: reply.buckets.length,
-					objectCount: reply.objects,
-					poolCount: reply.pools.length,
-					nodeCount: reply.nodes.count,
-					onlineNodeCount: reply.nodes.online,
-					offlineNodeCount: reply.nodes.count - reply.nodes.online
-				})	
+					secretKey: secret_key
+				});
 			}
-		)	
+		)
+		.done();
+}
+
+export function loadSystemSummary() {
+	logAction('loadSystemSummary');
+
+	api.system.read_system() 
+		.then(
+			reply => model.systemSummary({
+				capacity: reply.storage.total,
+				bucketCount: reply.buckets.length,
+				objectCount: reply.objects,
+				poolCount: reply.pools.length,
+				nodeCount: reply.nodes.count,
+				onlineNodeCount: reply.nodes.online,
+				offlineNodeCount: reply.nodes.count - reply.nodes.online
+			})
+		)
 		.done();
 }
 
@@ -598,11 +613,10 @@ export function loadPoolNodeList(poolName, filter, sortBy, order, page) {
 export function loadNodeList() {
 	logAction('loadNodeList');
 
-	model.nodeList(null);
-
+	model.nodeList([]);
 	api.node.list_nodes({})
 		.then(
-			reply => model.nodeList(reply.nodes)
+			({nodes}) => model.nodeList(nodes)
 		)
 		.done();
 }
@@ -751,8 +765,6 @@ export function createSystemAccount(systemName, email, password, dnsName) {
 						base_address: dnsName
 					});
 
-				} else {
-					return Promise.resolve(true);
 				}
 			}
 		)
@@ -766,26 +778,16 @@ export function createAccount(name, email, password) {
 	logAction('createAccount', { name, email, password });
 
 	api.account.create_account({ name, email, password })
-		.then(
-			({ token }) => {
-				api.options.auth_token = token;
-				localStorage.setItem('sessionToken', token);
-				model.sessionInfo({ user: email, system: system});
-			}
-		)
-		.then(
-			() => {
-				if (dnsName) {
-					return api.system.update_base_address({
-						base_address: dnsName
-					});
-
-				} else {
-					return Promise.when(true);
-				}
-			}
-		)
+		.then(refresh)
 		.done();	
+}
+
+export function deleteAccount(email) {
+	logAction('deleteAccount', { email });	
+
+	api.account.delete_account({ email })
+		.then(refresh)
+		.done();
 }
 
 export function createBucket(name, dataPlacement, pools) {

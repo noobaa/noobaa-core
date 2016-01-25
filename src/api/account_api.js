@@ -91,8 +91,8 @@ module.exports = {
             }
         },
 
-        delete_curr_account: {
-          doc: 'Delete the authorized account',
+        delete_account: {
+          doc: 'Delete a given account',
             method: 'DELETE',
             params: {
                 type: 'object',

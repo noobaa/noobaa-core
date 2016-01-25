@@ -377,7 +377,7 @@ function is_support_or_admin(system, account) {
 }
 
 function create_activity_log_entry(req, event, account, level) {
-    req.db.ActivityLog.create({
+    db.ActivityLog.create({
         event: 'account.' + 'delete',
         level: level || 'info',
         system: req.system && req.system._id,

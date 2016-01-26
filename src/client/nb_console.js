@@ -463,7 +463,7 @@ nb_console.controller('UserManagementViewCtrl', [
                             .then(function(result) {
                                 console.log('in confirm user deletion');
 
-                                return $q.when(nbClient.client.account.delete_account(user_email))
+                                return $q.when(nbClient.client.account.delete_curr_account(user_email))
                                     .then(function() {
                                         nbAlertify.success('User ' + user_email + ' has been deleted');
                                         reload_accounts();

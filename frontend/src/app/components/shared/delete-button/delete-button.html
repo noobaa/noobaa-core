@@ -1,0 +1,13 @@
+<button class="btn-flat" data-bind="
+	enable: !ko.unwrap(disabled),
+	attr: { title: toolTip },
+	click: select
+">
+	<svg-icon params="uri: deleteIcon"></svg-icon>
+</button>
+
+<span data-bind="visible: isSelected">
+	<a class="link" href data-bind="click: confirm">yes</a>
+	/
+	<a class="link" href data-bind="click: cancel">no</a>
+</span>

@@ -39,30 +39,16 @@ export default class PoolRowViewModel {
 			() => this.isVisible() && (pool().storage ? formatSize(pool().storage.total) : 'N/A')
 		);
 
-		this.allowDelete = ko.pureComputed(
+		this.isDeletable = ko.pureComputed(
 			() => this.isVisible() && (pool().nodes.count === 0)
 		);
 
-		this.isDeleteCandidate = ko.pureComputed({
-			read: () => deleteCandidate() === this,
-			write: value => value ? deleteCandidate(this) : deleteCandidate(null)
-		});
-
-		this.deleteIcon = ko.pureComputed(
-			() => `/fe/assets/icons.svg#trash-${
-				this.allowDelete() ? 
-					(this.isDeleteCandidate() ? 'opened' : 'closed') : 
-					'disabled'
-			}`
-		);
-
-		this.deleteTooltip = ko.pureComputed( 
-			() => this.allowDelete() ? 'delete pool' : 'pool has nodes'
+		this.deleteToolTip = ko.pureComputed( 
+			() => this.isDeletable() ? 'delete pool' : 'pool has nodes'
 		);
 	}
 
-	delete() {
+	del() {
 		deletePool(this.name());
-		this.isDeleteCandidate(false);
 	}	
 }

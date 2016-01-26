@@ -1,5 +1,5 @@
 import { parseQueryString } from 'utils';
-import { sessionInfo, routeContext } from 'model';
+import { sessionInfo, routeContext, systemInfo } from 'model';
 import * as actions from 'actions';
 
 export default function routing(page) {
@@ -24,6 +24,14 @@ export default function routing(page) {
 		}
 	}
 
+	function ensureSystemInfo(cxt, next) {
+		if (!systemInfo()) {
+			actions.loadSystemInfo();
+		}
+		
+		next();
+	}
+
 	// General midlleware that saves the current route contexts. 
 	function saveContext(ctx, next) {
 		routeContext(ctx);
@@ -34,8 +42,8 @@ export default function routing(page) {
 	page('*', parseQuery)
 
 	// Check authentication and authorization for the following paths.
-	page('/fe/systems/:system', authorize);
-	page('/fe/systems/:system/*', authorize);
+	page('/fe/systems/:system', authorize, ensureSystemInfo);
+	page('/fe/systems/:system/*', authorize, ensureSystemInfo);
 
 	// Screens handlers.
 	page('/fe/login', saveContext, actions.showLogin)

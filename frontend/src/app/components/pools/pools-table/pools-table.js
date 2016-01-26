@@ -8,10 +8,9 @@ const maxRows = 100;
 
 class PoolsTableViewModel {
 	constructor({ pools }) {
-		let deleteCandidate = ko.observable();			
 		let rows = makeArray(
 			maxRows, 
-			i => new PoolRowViewModel(() => pools()[i], deleteCandidate)
+			i => new PoolRowViewModel(() => pools()[i])
 		);
 
 		this.sortedBy = pools.sortedBy;
@@ -19,6 +18,8 @@ class PoolsTableViewModel {
 		this.visibleRows = ko.pureComputed(
 			() => rows.filter(row => row.isVisible())
 		);
+
+		this.deleteGroup = ko.observable();
 	}
 
 	orderBy(colName) {

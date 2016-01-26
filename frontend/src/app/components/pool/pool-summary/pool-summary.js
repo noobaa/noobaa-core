@@ -57,7 +57,7 @@ class PoolSummaryViewModel {
 			{ value: this.free, color: style['text-color4'], emphasize: false },
 		];
 
-		this.isAssignNodeModalVisible = ko.observable(true);
+		this.isAssignNodeModalVisible = ko.observable(false);
 	}
 }
 

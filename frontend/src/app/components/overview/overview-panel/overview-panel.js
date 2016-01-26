@@ -2,40 +2,40 @@ import template from './overview-panel.html';
 import ko from 'knockout';
 import { formatSize } from 'utils';
 import numeral from 'numeral';
-import { systemOverview } from 'model';
+import { systemSummary } from 'model';
 
 class OverviewPanelViewModel {
 	constructor() {
 		this.isReady = ko.pureComputed(
-			() => !!systemOverview()
+			() => !!systemSummary()
 		);
 
 		this.systemCapacity = ko.pureComputed(
-			() => formatSize(systemOverview().capacity)
+			() => formatSize(systemSummary().capacity)
 		);
 
 		this.onlineNodeCount = ko.pureComputed(
-			() => numeral(systemOverview().onlineNodeCount).format('0,0')
+			() => numeral(systemSummary().onlineNodeCount).format('0,0')
 		);
 
 		this.offlineNodeCount = ko.pureComputed(
-			() => numeral(systemOverview().offlineNodeCount).format('0,0')
+			() => numeral(systemSummary().offlineNodeCount).format('0,0')
 		);
 
 		this.poolCount = ko.pureComputed(
-			() => numeral(systemOverview().poolCount).format('0,0')
+			() => numeral(systemSummary().poolCount).format('0,0')
 		);
 
 		this.nodeCount = ko.pureComputed(
-			() => numeral(systemOverview().nodeCount).format('0,0')
+			() => numeral(systemSummary().nodeCount).format('0,0')
 		);
 
 		this.bucketCount = ko.pureComputed(
-			() => numeral(systemOverview().bucketCount).format('0,0')
+			() => numeral(systemSummary().bucketCount).format('0,0')
 		);
 
 		this.objectCount = ko.pureComputed(
-			() => numeral(systemOverview().objectCount).format('0,0')
+			() => numeral(systemSummary().objectCount).format('0,0')
 		);
 
 		this.isInstallNodeWizardlVisible = ko.observable(false);

@@ -424,7 +424,7 @@ function get_test_nodes(req) {
         })
         .then(nodes_count => {
             var rand_start = Math.floor(Math.random() *
-                (nodes_count - count > 0 ? nodes_count - count : nodes_count));
+                (nodes_count - count > 0 ? nodes_count - count : 0));
             return nodes_store.find_nodes({
                 system: req.system._id,
                 heartbeat: {

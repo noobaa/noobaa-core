@@ -75,23 +75,6 @@ export default class BucketRowViewModel {
 		this.deleteToolTip = ko.pureComputed(
 			() => this.isDeletable() ? 'delete bucket' : 'bucket not empty'
 		);
-
-		// this.isDeleteCandidate = ko.pureComputed({
-		// 	read: () => deleteCandidate() === this,
-		// 	write: value => value ? deleteCandidate(this) : deleteCandidate(null)
-		// });
-
-		// this.deleteIcon = ko.pureComputed(
-		// 	() => `/fe/assets/icons.svg#trash-${
-		// 		this.allowDelete() ? 
-		// 			(this.isDeleteCandidate() ? 'opened' : 'closed') : 
-		// 			'disabled'
-		// 	}`
-		// );
-
-		// this.deleteTooltip = ko.pureComputed( 
-		// 	() => this.allowDelete() ? 'delete bucket' : 'bucket is not empty'
-		// );
 	}
 
 	del() {

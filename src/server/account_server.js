@@ -154,22 +154,28 @@ function delete_account(req) {
         throw req.unauthorized('Action not allowed');
     }
 
-    let account_to_delete = system_store.data.accounts
-        .find(
-            account => account.email === req.rpc_params.email
-        );
+    let account_to_delete = system_store.data.accounts_by_email[req.rpc_params.email];
 
     if (account_to_delete.is_support) {
         throw new Error('Invalid account, cannot delete support account');
     }
 
     if (account_to_delete.email === req.system.owner.email) {
-        throw new Error('Invalid account, cannot delete system owner');   
+        throw new Error('Invalid account, cannot delete system owner account');   
     }
+
+    let roles_to_delete = system_store.data.roles
+        .filter(
+            role => String(role.account._id) === String(account_to_delete._id)
+        )
+        .map(
+            role => role._id
+        );
 
     return system_store.make_changes({
             remove: {
-                accounts: [req.rpc_params.name]
+                accounts: [account_to_delete._id],
+                roles: roles_to_delete
             }
         })
         .then(
@@ -217,27 +223,21 @@ function list_accounts(req, system_id) {
  *
  */
 function list_system_accounts(req) {
-    let is_admin = req.account.is_support || 
-        req.account.roles_by_system[req.system._id]
-            .some(
-                rule => rule === 'admin'
-            );
-
     let accounts;
-    if (is_admin) {
+    if (is_support_or_admin(req.system, req.account)) {
         accounts = _.filter(
             system_store.data.accounts,
             account => {
                 if (account.is_support) {
                     return false;
                 } else {
-                    let rules = account.roles_by_system[req.system._id];
-                    return rules && rules.length > 0;
+                    let roles = account.roles_by_system[req.system._id];
+                    return roles && roles.length > 0;
                 }
             }
         )
     } else {
-        account = [req.account]
+        accounts = [req.account]
     }
 
     return {
@@ -373,15 +373,19 @@ function bcrypt_password(account) {
 
 
 function is_support_or_admin(system, account) {
-    return account.is_support || (account.roles_by_system[system.name] !== 'admin');
+    return account.is_support || 
+        account.roles_by_system[system._id]
+            .some(
+                role => role === 'admin'
+            );
 }
 
 function create_activity_log_entry(req, event, account, level) {
     db.ActivityLog.create({
-        event: 'account.' + 'delete',
+        event: 'account.' + event,
         level: level || 'info',
-        system: req.system && req.system._id,
-        actor: req.account._id,
+        system: req.system ? req.system._id : undefined,
+        actor: req.account ? req.account._id : undefined,
         account: account._id,
     });
 }

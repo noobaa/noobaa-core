@@ -445,7 +445,7 @@ function get_test_nodes(req) {
             }))
         .then(function(total_nodes) {
             var rand_start = Math.floor(Math.random() *
-                (total_nodes - count > 0 ? total_nodes - count : total_nodes));
+                (total_nodes - count > 0 ? total_nodes - count : 0));
             return P.when(db.Node
                 .find({
                     system: req.system._id,

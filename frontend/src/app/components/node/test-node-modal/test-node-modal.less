@@ -8,9 +8,43 @@ test-node-modal {
 		}
 	}
 
+	.container + .container {
+		margin-top: 1.5em;
+	}
+
 	.results {
 		margin-top: 1em;
-		width: 600px;
-		height: 300px;
+		width: 60em;
+		height: 25em;
+	}
+
+	.result {
+		&.completed > .progress-col {
+			color: @text-color7;
+		}
+
+		&.failed {
+			color: @text-color8;
+		}
+	}
+
+	.test-col {
+		min-width: 6em;
+	}
+
+	.target-col {
+		width: 100%;
+	}
+
+	.time-col {
+		min-width: 7em;
+	}
+
+	.speed-col {
+		min-width: 6em;
+	}
+
+	.progress-col {
+		min-width: 6em;
 	}
 }

@@ -6,14 +6,16 @@
 		"targetCount": 20,
 		"testSettings": {
 			"connectivity": {
-				"request_length": 0, 
-				"response_length": 0, 
+				"repeats": 1,
+				"requestLength": 0, 
+				"responseLength": 0, 
 				"count": 1,
 				"concur": 1
 			},
 			"bandwidth": {
-				"request_length": 524288, 
-				"response_length": 524288, 
+				"repeats": 8,
+				"requestLength": 524288, 
+				"responseLength": 524288, 
 				"count": 64, 
 				"concur": 16
 			}

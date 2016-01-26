@@ -3,8 +3,12 @@ import page from 'page';
 import api from 'services/api';
 import config from 'config';
 import { hostname } from 'server-conf';
-import { isDefined, isUndefined, encodeBase64, cmpStrings, cmpInts, cmpBools, 
-	randomString, last, stringifyQueryString, clamp } from 'utils';
+
+import { 
+	isDefined, isUndefined, encodeBase64, cmpStrings, cmpInts, cmpBools, 
+	randomString, last, stringifyQueryString, clamp,  makeArray, 
+	execInOrder 
+} from 'utils';
 
 // TODO: resolve browserify issue with export of the aws-sdk module.
 // The current workaround use the AWS that is set on the global window object.
@@ -964,40 +968,97 @@ export function uploadFiles(bucketName, files) {
 		);
 }
 
-export function testNode(sourceRpcAddress, testSet) {
-	logAction('testNode', { sourceRpcAddress, testSet });
+export function testNode(source, testSet) {
+	logAction('testNode', { source, testSet });
+
+	let { nodeTestResults } = model;
+	nodeTestResults([]);
+	nodeTestResults.timestemp(Date.now());
 
 	let { targetCount, testSettings } = config.nodeTest;
-
 	api.node.get_test_nodes({
 		count: targetCount
 	})
 		.then(
-			targets => testSet.reduce(
-				(tests, testName) => {
-					let moreTests = targets.map(
-						targetRpcAddress => Object.assign(
-							{},
-							testSettings[testName],
-							{ source: sourceRpcAddress, target: targetRpcAddress }	
-						)
-					);
+			// Aggregate selected tests.
+			targets => [].concat(
+				...testSet.map(
+					testType => targets.map(
+						target => {
+							let result = {
+								testType: testType,
+								target: target,
+								state: 'WAITING',
+								time: 0,
+								position: 0,
+								speed: 0,
+								progress: 0,
+								session: ''
+							}
+							nodeTestResults.push(result);
 
-					tests.push(...moreTests);
-					return tests;
-				},
-				[]
+							return { testType,  source, target, result }
+						}
+					)
+				)
 			)
 		)
 		.then(
-			tests => tests.forEach(
-				testParams => api.node.self_test_to_node_via_web(testParams)
-					.then(
-						// TODO: something with the reply.session.
-						reply => console.log(testParams, reply)
+			// Execute the tests in order.
+			tests => execInOrder(
+				tests,
+				({ source, target, testType, result }) => {
+					let { repeats, requestLength, responseLength, count, concur } = testSettings[testType];
+					let requestSize = count * (requestLength + responseLength);
+					let testSize = requestSize * repeats;
+
+					// Create a request list for the test.
+					let requests = makeArray(
+						repeats, 
+						{
+							source: source,
+							target: target,
+							request_length: requestLength,
+							response_length: responseLength,
+							count: count,
+							concur: concur
+						}
+					);
+
+					// Set start time.
+					let start = Date.now();
+					result.state = 'RUNNING';
+
+					// Execute the requests in order.
+					return execInOrder(
+						requests,
+						request => api.node.self_test_to_node_via_web(request)
+							.then(
+								({ session }) => {
+									result.session = session;
+									result.time = Date.now() - start;
+									result.position = result.position + requestSize;
+									result.speed = result.position / result.time; 
+									result.progress = testSize > 0 ? result.position / testSize : 1;
+
+									// Use replace to trigger change event.
+									nodeTestResults.replace(result, result);
+								}
+							)
 					)
-					.done()
+					.then(
+						() => 'COMPLETED',
+						() => 'FAILED'
+					)
+					.then(
+						state => {
+							// Use replace to trigger change event.
+							result.state = state
+							nodeTestResults.replace(result, result);
+						}
+					)
+				}
 			)
 		)
-		.done()
+		.done();
 }

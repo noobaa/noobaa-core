@@ -1008,13 +1008,13 @@ export function testNode(source, testSet) {
 			tests => execInOrder(
 				tests,
 				({ source, target, testType, result }) => {
-					let { repeats, requestLength, responseLength, count, concur } = testSettings[testType];
-					let requestSize = count * (requestLength + responseLength);
-					let testSize = requestSize * repeats;
+					let { stepCount, requestLength, responseLength, count, concur } = testSettings[testType];
+					let stepSize = count * (requestLength + responseLength);
+					let totalTestSize = stepSize * stepCount;
 
-					// Create a request list for the test.
-					let requests = makeArray(
-						repeats, 
+					// Create a step list for the test.
+					let steps = makeArray(
+						stepCount, 
 						{
 							source: source,
 							target: target,
@@ -1029,17 +1029,19 @@ export function testNode(source, testSet) {
 					let start = Date.now();
 					result.state = 'RUNNING';
 
-					// Execute the requests in order.
+					// Execute the steps in order.
 					return execInOrder(
-						requests,
-						request => api.node.self_test_to_node_via_web(request)
+						steps,
+						stepRequest => api.node.self_test_to_node_via_web(stepRequest)
 							.then(
 								({ session }) => {
 									result.session = session;
 									result.time = Date.now() - start;
-									result.position = result.position + requestSize;
+									result.position = result.position + stepSize;
 									result.speed = result.position / result.time; 
-									result.progress = testSize > 0 ? result.position / testSize : 1;
+									result.progress = totalTestSize > 0 ? 
+										result.position / totalTestSize : 
+										1;
 
 									// Use replace to trigger change event.
 									nodeTestResults.replace(result, result);

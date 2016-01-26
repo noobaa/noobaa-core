@@ -778,7 +778,7 @@ export function createAccount(name, email, password) {
 	logAction('createAccount', { name, email, password });
 
 	api.account.create_account({ name, email, password })
-		.then(refresh)
+		.then(loadAccountList)
 		.done();	
 }
 
@@ -786,7 +786,7 @@ export function deleteAccount(email) {
 	logAction('deleteAccount', { email });	
 
 	api.account.delete_account({ email })
-		.then(refresh)
+		.then(loadAccountList)
 		.done();
 }
 
@@ -958,8 +958,46 @@ export function uploadFiles(bucketName, files) {
 		)
 		.then(
 			completedCount => {
-				console.log('herer', completedCount);
 				completedCount > 0 && refresh()
 			}
 		);
+}
+
+export function testNode(sourceRpcAddress, testSet) {
+	logAction('testNode', { sourceRpcAddress, testSet });
+
+	let { targetCount, testSettings } = config.nodeTest;
+
+	api.node.get_test_nodes({
+		count: targetCount
+	})
+		.then(
+			targets => testSet.reduce(
+				(tests, testName) => {
+					let moreTests = targets.map(
+						targetRpcAddress => Object.assign(
+							{},
+							testSettings[testName],
+							{ source: sourceRpcAddress, target: targetRpcAddress }	
+						)
+					);
+
+					tests.push(...moreTests);
+					return tests;
+				},
+				[]
+			)
+		)
+		.then(
+			tests => tests.forEach(
+				testParams => api.node.self_test_to_node_via_web(testParams)
+					.then(
+						// TODO: something with the reply.session.
+						reply => console.log(testParams, reply)
+					)
+					.done()
+			)
+		)
+		.done()
+
 }

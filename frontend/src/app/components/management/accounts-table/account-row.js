@@ -18,7 +18,7 @@ export default class AccountRowViewModel {
 
 		this.roles = ko.pureComputed(
 			() => {
-				if (!systemName()) {
+				if (!account() || !systemName()) {
 					return '';
 				}
 

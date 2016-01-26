@@ -1,23 +1,32 @@
 import template from './test-node-modal.html';
 import ko from 'knockout';
+import { testNode } from 'actions';
 
 const testTypes = Object.freeze([
-	{ label: 'Full', value: 'FULL' },
-	{ label: 'Connectivity', value: 'CONNECTIVITY' },
-	{ label: 'Data Transfer', value: 'DATA_TRANSFER' },
-	{ label: 'Load', value: 'LOAD'  }
+	{ 
+		label: 'Full', 
+		testSet: ['connectivity', 'bandwidth'] 
+	},
+	{ 
+		label: 'Connectivity', 
+		testSet: ['connectivity'] 
+	},
+	{ 
+		label: 'Bandwidth', 
+		testSet: ['bandwidth'] 
+	}
 ]);
 
 class TestNodeModalViewModel {
-	constructor({ onClose }) {
+	constructor({ sourceRpcAddress, onClose }) {
 		this.testTypes = testTypes;
 		this.onClose = onClose;
-
-		this.testType = ko.observable(testTypes[0].value);
+		this.sourceRpcAddress = sourceRpcAddress;
+		this.testSet = ko.observable(testTypes[0].testSet);
 	}
 
 	runTest() {
-
+		testNode(ko.unwrap(this.sourceRpcAddress), this.testSet())
 	}
 
 	close() {

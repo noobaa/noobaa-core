@@ -73,6 +73,10 @@ class NodeSummaryViewModel {
 			{ value: this.free, color: style['text-color5'] }
 		]
 
+		this.rpcAddress = ko.pureComputed(
+			() => !!node() && node().rpc_address
+		);
+
 		this.isTestModalVisible = ko.observable(false);
 		this.isDiagnoseModalVisible = ko.observable(false);		
 	}		

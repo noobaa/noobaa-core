@@ -58,14 +58,14 @@ var node_schema = new Schema({
     },
 
     pool: {
-        ref: 'Pool',
+        // ref: 'Pool',
         type: types.ObjectId,
         required: true,
     },
 
     // system - pulled from the tier
     system: {
-        ref: 'System',
+        // ref: 'System',
         type: types.ObjectId,
         required: true,
     },

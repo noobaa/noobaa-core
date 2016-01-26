@@ -1016,9 +1016,7 @@ nb_console.controller('BucketsViewCtrl', [
                 if (return_value === "ok") {
                     $q.when(nbClient.client.bucket.create_bucket({
                         name: bucket_name,
-                        tiering: [{
-                            tier: 'default_tier'
-                        }]
+                        tiering: 'default_tiering'
                     })).then(function() {
                         console.log('created new bucket');
                         scope.modal.modal('hide');
@@ -1170,7 +1168,7 @@ nb_console.controller('PoolViewCtrl', [
         function reload_nodes(hash_query) {
             $scope.nodes_query = _.clone(hash_query);
             var query = {
-                pool: [$scope.pool.name]
+                pools: [$scope.pool.name]
             };
             if ($scope.nodes_query.search) {
                 query.name = $scope.nodes_query.search;

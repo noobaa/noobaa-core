@@ -34,14 +34,18 @@ function make_strict_schema(schema, base) {
         } else if (schema.type === 'array') {
             make_strict_schema(schema.items, base);
         }
-    } else if (schema.$ref) {
-        // noop
     } else if (schema.oneOf) {
         _.each(schema.oneOf, val => make_strict_schema(val, base));
     } else if (schema.anyOf) {
         _.each(schema.anyOf, val => make_strict_schema(val, base));
     } else if (schema.allOf) {
         _.each(schema.allOf, val => make_strict_schema(val, base));
+    } else if (schema.$ref) {
+        // noop
+    } else if (schema.format) {
+        // noop
+    } else if (schema.enum) {
+        // noop
     } else {
         console.error('ILLEGAL JSON SCHEMA, missing type/$ref/oneOf/allOf/anyOf',
             'schema', schema, 'base', base);

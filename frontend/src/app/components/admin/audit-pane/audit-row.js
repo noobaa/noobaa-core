@@ -11,5 +11,6 @@ export default class AuditRowViewModel {
 		this.category = categoryInfo.displayName;
 		this.event = eventInfo.message;
 		this.entity = eventInfo.entityId(entry);
+		this.level = entry.level;
 	}
 }

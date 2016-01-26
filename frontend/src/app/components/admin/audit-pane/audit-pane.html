@@ -26,7 +26,7 @@
 					</tr>
 				</thead>
 				<tbody data-bind="foreach: rows">
-					<tr>
+					<tr class="log-entry" data-bind="css: level">
 						<td class="time-col text-left" data-bind="text: date"></td>
 						<td class="category-col" data-bind="text: category"></td>
 						<td class="event-col" data-bind="text: event"></td>

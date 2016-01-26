@@ -337,6 +337,7 @@ export function loadSystemInfo() {
 
 				model.systemInfo({
 					name: reply.name,
+					version: reply.version,
 					endpoint: endpoint,
 					port: reply.web_port,
 					sslPort: reply.ssl_port,
@@ -999,5 +1000,4 @@ export function testNode(sourceRpcAddress, testSet) {
 			)
 		)
 		.done()
-
 }

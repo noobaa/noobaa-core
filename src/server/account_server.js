@@ -185,7 +185,7 @@ function delete_account(req) {
                 return val;
             },
             err => {
-                create_activity_log_entry(req, 'delete', account_to_delete, 'error');
+                create_activity_log_entry(req, 'delete', account_to_delete, 'alert');
                 throw err;
             }
         )
@@ -238,7 +238,7 @@ function list_system_accounts(req) {
             }
         )
     } else {
-        accounts = [req.account]
+        accounts = [req.account];
     }
 
     return {

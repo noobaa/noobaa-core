@@ -19,7 +19,7 @@ const cloudSyncStatusMapping = Object.freeze({
 });
 
 export default class BucketRowViewModel {
-	constructor(bucket, deleteCandidate) {
+	constructor(bucket) {
 		this.isVisible = ko.pureComputed( 
 			() => !!bucket()
 		);
@@ -68,30 +68,33 @@ export default class BucketRowViewModel {
 			() => this.isVisible() && cloudSyncStatusMapping[bucket().cloud_sync_status]
 		);
 
-		this.allowDelete = ko.pureComputed(
+		this.isDeletable = ko.pureComputed(
 			() => this.isVisible() && bucket().num_objects === 0
 		);
 
-		this.isDeleteCandidate = ko.pureComputed({
-			read: () => deleteCandidate() === this,
-			write: value => value ? deleteCandidate(this) : deleteCandidate(null)
-		});
-
-		this.deleteIcon = ko.pureComputed(
-			() => `/fe/assets/icons.svg#trash-${
-				this.allowDelete() ? 
-					(this.isDeleteCandidate() ? 'opened' : 'closed') : 
-					'disabled'
-			}`
+		this.deleteToolTip = ko.pureComputed(
+			() => this.isDeletable() ? 'delete bucket' : 'bucket not empty'
 		);
 
-		this.deleteTooltip = ko.pureComputed( 
-			() => this.allowDelete() ? 'delete bucket' : 'bucket is not empty'
-		);
+		// this.isDeleteCandidate = ko.pureComputed({
+		// 	read: () => deleteCandidate() === this,
+		// 	write: value => value ? deleteCandidate(this) : deleteCandidate(null)
+		// });
+
+		// this.deleteIcon = ko.pureComputed(
+		// 	() => `/fe/assets/icons.svg#trash-${
+		// 		this.allowDelete() ? 
+		// 			(this.isDeleteCandidate() ? 'opened' : 'closed') : 
+		// 			'disabled'
+		// 	}`
+		// );
+
+		// this.deleteTooltip = ko.pureComputed( 
+		// 	() => this.allowDelete() ? 'delete bucket' : 'bucket is not empty'
+		// );
 	}
 
-	delete() {
+	del() {
 		deleteBucket(this.name());
-		this.isDeleteCandidate(false);
 	}
 }

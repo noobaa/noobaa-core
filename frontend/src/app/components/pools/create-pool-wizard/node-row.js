@@ -8,19 +8,19 @@ export default class NodeRowViewModel {
 		);
 
 		this.name = ko.pureComputed(
-			() => node().name
+			() => !!node() && node().name
 		);
 
 		this.ip = ko.pureComputed(
-			() => node().ip
+			() => !!node() && node().ip
 		);
 
 		this.capacity = ko.pureComputed(
-			() => node().storage ? formatSize(node().storage.total) : 'N/A'
+			() => !!node() && (node().storage ? formatSize(node().storage.total) : 'N/A')
 		);
 
 		this.currPool = ko.pureComputed(
-			() => node().pool
+			() => !!node() && node().pool
 		);
 	}
 }

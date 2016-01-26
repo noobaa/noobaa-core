@@ -8,10 +8,9 @@ const maxRows = 100;
 
 class BucketsTableViewModel {
 	constructor({ buckets }) {
-		let deleteCandidate = ko.observable();			
 		let rows = makeArray(
 			maxRows, 
-			i => new BucketRowViewModel(() => buckets()[i], deleteCandidate)
+			i => new BucketRowViewModel(() => buckets()[i])
 		);
 
 		this.sortedBy = buckets.sortedBy;
@@ -19,6 +18,8 @@ class BucketsTableViewModel {
 		this.visibleRows = ko.pureComputed(
 			() => rows.filter(row => row.isVisible())
 		)
+
+		this.deleteGroup = ko.observable();
 	}
 
 	orderBy(colName) {

@@ -75,7 +75,7 @@ describe('account', function() {
                     assert.strictEqual(res.email, EMAIL + '123');
                 });
             }).then(function() {
-                return client.account.delete_account();
+                return client.account.delete_curr_account();
             }).nodeify(done);
         });
 

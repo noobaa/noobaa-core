@@ -60,20 +60,12 @@
 				></td>				
 
 				<td class="delete-col">
-					<button class="delete-btn btn-flat" data-bind="
-						enable: allowDelete,
-						attr: { title: deleteTooltip },
-						click: () => isDeleteCandidate(true)
-					">
-						<svg-icon params="uri: deleteIcon"></svg-icon>
-					</button>
-
-					<span data-bind="visible: isDeleteCandidate">
-						<a class="link" href data-bind="click: $data.delete">yes</a>
-						/
-						<a class="link" href 
-							data-bind="click: () => isDeleteCandidate(false)">no</a>
-					</span> 
+					<delete-button params="
+						group: $component.deleteGroup,
+						disabled: !isDeletable(),
+						onDelete: () => del(),
+						toolTip: deleteToolTip
+					"></delete-button>
 				</td>
 			</tr>
 		</tbody>

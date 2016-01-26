@@ -2,7 +2,7 @@ import template from './connect-app-wizard.html';
 import selectSlideTemplate from './select-slide.html';
 import connecSlideTemplate from './connect-slide.html';
 import ko from 'knockout';
-import { bucketList, systemOverview } from 'model';
+import { bucketList, systemInfo } from 'model';
 import { copyTextToClipboard } from 'utils';
 import { loadBucketList } from 'actions';
 
@@ -64,15 +64,15 @@ class ConnectApplicationWizard {
 		);
 	
 	 	this.endpoint = ko.pureComputed(
-	 		() => systemOverview().endpoint
+	 		() => systemInfo().endpoint
  		);
 
 	 	this.accessKey = ko.pureComputed(
-	 		() => systemOverview().accessKey
+	 		() => systemInfo().accessKey
  		);
 
  		this.secretKey = ko.pureComputed(
-	 		() => systemOverview().secretKey
+	 		() => systemInfo().secretKey
  		);
 
  		loadBucketList();

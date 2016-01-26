@@ -449,24 +449,35 @@ function read_activity_log(req) {
             logs = _.map(logs, function(log_item) {
                 var l = _.pick(log_item, 'id', 'level', 'event');
                 l.time = log_item.time.getTime();
-                if (log_item.tier) {
-                    l.tier = _.pick(system_store.data.get_by_id(log_item.tier), 'name');
+                
+                let tier = log_item.tier && system_store.data.get_by_id(log_item.tier);
+                if (tier) {
+                    l.tier = _.pick(tier, 'name');
                 }
+                
                 if (log_item.node) {
                     l.node = _.pick(log_item.node, 'name');
                 }
-                if (log_item.bucket) {
-                    l.bucket = _.pick(system_store.data.get_by_id(log_item.bucket), 'name');
+
+                let bucket = log_item.bucket && system_store.data.get_by_id(log_item.bucket);
+                if (bucket) {
+                    l.bucket = _.pick(bucket, 'name');
                 }
+
                 if (log_item.obj) {
                     l.obj = _.pick(log_item.obj, 'key');
                 }
-                if (log_item.account) {
-                    l.account = _.pick(system_store.data.get_by_id(log_item.account), 'email');
+
+                let account = log_item.account && system_store.data.get_by_id(log_item.account);
+                if (account) {
+                    l.account = _.pick(account, 'email');
                 }
-                if (log_item.actor) {
-                    l.actor = _.pick(system_store.data.get_by_id(log_item.actor), 'email');
+
+                let actor = log_item.actor && system_store.data.get_by_id(log_item.actor);
+                if (actor) {
+                    l.actor = _.pick(actor, 'email');
                 }
+
                 return l;
             });
             if (reverse) {

@@ -21,6 +21,7 @@ var account_server = {
     create_account: create_account,
     read_account: read_account,
     update_account: update_account,
+    delete_curr_account: delete_curr_account,
     delete_account: delete_account,
     list_accounts: list_accounts,
     list_system_accounts: list_system_accounts,
@@ -64,13 +65,7 @@ function create_account(req) {
                     }
                 };
             }
-            db.ActivityLog.create({
-                event: 'account.create',
-                level: 'info',
-                system: req.system && req.system._id,
-                actor: req.account && req.account._id,
-                account: account._id,
-            });
+            create_activity_log_entry(req, 'create', account);
             return system_store.make_changes(changes);
         })
         .then(function() {
@@ -124,13 +119,8 @@ function update_account(req) {
             } else {
                 updates._id = req.account._id;
             }
-            db.ActivityLog.create({
-                event: 'account.update',
-                level: 'info',
-                system: req.system && req.system._id,
-                actor: req.account._id,
-                account: updates._id,
-            });
+
+            create_activity_log_entry(req, 'update', updates);
             return system_store.make_changes({
                 update: {
                     accounts: [updates]
@@ -147,14 +137,11 @@ function update_account(req) {
  * DELETE_ACCOUNT
  *
  */
-function delete_account(req) {
-    db.ActivityLog.create({
-        event: 'account.delete',
-        level: 'info',
-        system: req.system && req.system._id,
-        actor: req.account._id,
-        account: req.account._id,
-    });
+
+ // TODO: Remove after retiring the old menegment console.
+function delete_curr_account(req) {
+    create_activity_log_entry(req, 'delete', req.account);
+
     return system_store.make_changes({
             remove: {
                 accounts: [req.account._id]
@@ -163,6 +150,47 @@ function delete_account(req) {
         .return();
 }
 
+function delete_account(req) {
+    if (!is_support_or_admin(req.system, req.account)) {
+        throw req.unauthorized('Action not allowed');
+    }
+
+    let account_to_delete = system_store.data.accounts_by_email[req.rpc_params.email];
+
+    if (account_to_delete.is_support) {
+        throw new Error('Invalid account, cannot delete support account');
+    }
+
+    if (account_to_delete.email === req.system.owner.email) {
+        throw new Error('Invalid account, cannot delete system owner account');   
+    }
+
+    let roles_to_delete = system_store.data.roles
+        .filter(
+            role => String(role.account._id) === String(account_to_delete._id)
+        )
+        .map(
+            role => role._id
+        );
+
+    return system_store.make_changes({
+            remove: {
+                accounts: [account_to_delete._id],
+                roles: roles_to_delete
+            }
+        })
+        .then(
+            val => {
+                create_activity_log_entry(req, 'delete', account_to_delete);
+                return val;
+            },
+            err => {
+                create_activity_log_entry(req, 'delete', account_to_delete, 'alert');
+                throw err;
+            }
+        )
+        .return();
+}
 
 /**
  *
@@ -192,11 +220,30 @@ function list_accounts(req, system_id) {
 
 /**
  *
- * LIST_ACCOUNTS
+ * LIST_SYSTEM_ACCOUNTS
  *
  */
 function list_system_accounts(req) {
-    return list_accounts(req, req.system._id);
+    let accounts;
+    if (is_support_or_admin(req.system, req.account)) {
+        accounts = _.filter(
+            system_store.data.accounts,
+            account => {
+                if (account.is_support) {
+                    return false;
+                } else {
+                    let roles = account.roles_by_system[req.system._id];
+                    return roles && roles.length > 0;
+                }
+            }
+        )
+    } else {
+        accounts = [req.account];
+    }
+
+    return {
+        accounts: _.map(accounts, get_account_info)
+    };
 }
 
 
@@ -324,4 +371,23 @@ function bcrypt_password(account) {
         .then(function(password_hash) {
             account.password = password_hash;
         });
+}
+
+
+function is_support_or_admin(system, account) {
+    return account.is_support || 
+        account.roles_by_system[system._id]
+            .some(
+                role => role === 'admin'
+            );
+}
+
+function create_activity_log_entry(req, event, account, level) {
+    db.ActivityLog.create({
+        event: 'account.' + event,
+        level: level || 'info',
+        system: req.system ? req.system._id : undefined,
+        actor: req.account ? req.account._id : undefined,
+        account: account._id,
+    });
 }

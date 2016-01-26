@@ -5,6 +5,10 @@ export let uiState = ko.observable({
 	layout: 'empty'
 });
 
+// Hold a refresh counter that allows view models to act when it
+// changes.
+export let refreshCounter = ko.observable(0);
+
 // Hold the current route context.
 export let routeContext = ko.observable();
 
@@ -19,8 +23,11 @@ export let sessionInfo = ko.observable();
 // Hold the state of the server.
 export let serverInfo = ko.observable();
 
-// Hold a overview information of a system.
-export let systemOverview = ko.observable();
+// Hold current system information.
+export let systemInfo = ko.observable();
+
+// Hold summary information on the current system.
+export let systemSummary = ko.observable();
 
 // Hold agent installation information.
 export let agentInstallationInfo = ko.observable();

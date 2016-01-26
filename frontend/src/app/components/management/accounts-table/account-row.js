@@ -1,7 +1,13 @@
 import ko from 'knockout';
+import { systemInfo } from 'model';
+import { deleteAccount } from 'actions';
 
 export default class AccountRowViewModel {
 	constructor(account, deleteCandidate) {
+		let systemName = ko.pureComputed(
+			() => systemInfo() ? systemInfo().name : ''
+		);
+
 		this.isVisible = ko.pureComputed(
 			() => !!account()
 		);
@@ -10,35 +16,28 @@ export default class AccountRowViewModel {
 			() => !!account() && account().email
 		);
 
-		// TODO: return real role when avaliable
-		this.role = ko.pureComputed(
-			() => 'Admin'
+		this.roles = ko.pureComputed(
+			() => {
+				if (!account() || !systemName()) {
+					return '';
+				}
+
+				return account().systems
+					.find(
+						({ name }) => name === systemName()
+					)
+					.roles
+					.join(' | ')
+			}
 		);
 
 		// TODO: return real status when avaliable
 		this.status = ko.pureComputed(
-			() => 'Active' 
-		);
+			() => 'active' 
+		);	
+	}
 
-		this.allowDelete = ko.pureComputed(
-			() => !this.isDisabled() && bucket().num_objects === 0
-		);
-
-		this.isDeleteCandidate = ko.pureComputed({
-			read: () => deleteCandidate() === this,
-			write: value => value ? deleteCandidate(this) : deleteCandidate(null)
-		});		
-
-		this.deleteIcon = ko.pureComputed(
-			() => `/fe/assets/icons.svg#trash-${
-				this.allowDelete() ? 
-					(this.isDeleteCandidate() ? 'opened' : 'closed') : 
-					'disabled'
-			}`
-		);
-
-		this.deleteTooltip = ko.pureComputed( 
-			() => this.allowDelete() ? 'delete bucket' : 'bucket is not empty'
-		);		
+	del() {
+		deleteAccount(this.user())
 	}
 }

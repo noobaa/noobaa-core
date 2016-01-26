@@ -1,5 +1,22 @@
 {
 	"inputThrottle": 400,
 	"paginationPageSize": 25,
-	"defaultPoolName": "default_pool"
+	"defaultPoolName": "default_pool",
+	"nodeTest": {
+		"targetCount": 20,
+		"testSettings": {
+			"connectivity": {
+				"request_length": 0, 
+				"response_length": 0, 
+				"count": 1,
+				"concur": 1
+			},
+			"bandwidth": {
+				"request_length": 524288, 
+				"response_length": 524288, 
+				"count": 64, 
+				"concur": 16
+			}
+		}
+	}
 }

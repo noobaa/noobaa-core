@@ -4,7 +4,7 @@ export default {
 		events: {
 			create: {
 				message: 'Node Added',
-				entityId: evt => evt.node.name
+				entityId: ({ node }) => node && node.name
 			}
 		}
 	},
@@ -14,7 +14,7 @@ export default {
 		events: {
 			uploaded: {
 				message: 'Upload Completed', 	
-				entityId: evt => evt.obj.key 		
+				entityId: ({ obj }) => obj && obj.key 		
 			}
 		}
 	},
@@ -24,12 +24,12 @@ export default {
 		events: {
 			create: { 
 				message: 'Bucket Created',
-				entityId: evt => evt.bucket.name 
+				entityId: ({ bucket }) => bucket && bucket.name 
 			},
 
 			delete: {
-				event: 'Bucket Deleted',
-				entityId: evt => evt.bucket.name 	
+				message: 'Bucket Deleted',
+				entityId: ({ bucket }) => bucket && bucket.name 	
 			}
 		}
 	},
@@ -38,13 +38,13 @@ export default {
 		displayName: 'Accounts',
 		events: {
 			create: {
-				event: 'Account Created',
-				entityId: evt => evt.bucket.email 
+				message: 'Account Created',
+				entityId: ({ bucket }) => bucket && bucket.email 
 			},
 
-			deleted: {
-				event: 'Account Deleted',
-				entityId: evt => evt.bucket.email 
+			delete: {
+				message: 'Account Deleted',
+				entityId: ({ bucket }) => bucket && bucket.email 
 			}
 		}
 	},

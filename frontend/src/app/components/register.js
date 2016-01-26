@@ -82,8 +82,9 @@ export default function register(ko) {
 	// -------------------------------
 	// Management
 	// -------------------------------
-	ko.components.register('management-panel',	require('./management/management-panel/management-panel'));
-	ko.components.register('accounts-table',	require('./management/accounts-table/accounts-table'));
+	ko.components.register('management-panel',		require('./management/management-panel/management-panel'));
+	ko.components.register('accounts-table',		require('./management/accounts-table/accounts-table'));
+	ko.components.register('create-account-modal',	require('./management/create-account-modal/create-account-modal'));
 
 	// -------------------------------
 	// Admin
@@ -111,4 +112,5 @@ export default function register(ko) {
 	ko.components.register('paginator',			require('./shared/paginator/paginator'));
 	ko.components.register('tray',				require('./shared/tray/tray'));	
 	ko.components.register('tiled-select',		require('./shared/tiled-select/tiled-select'));	
+	ko.components.register('delete-button',		require('./shared/delete-button/delete-button'));	
 }

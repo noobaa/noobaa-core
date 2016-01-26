@@ -59,6 +59,10 @@ module.exports = {
             type: 'object',
             // required: [],
             properties: {
+                last_update: {
+                    type: 'integer',
+                    format: 'idate',
+                },
                 hostname: {
                     type: 'string'
                 },

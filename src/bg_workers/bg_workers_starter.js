@@ -26,6 +26,7 @@ var bg_workers_rpc;
 var http_server;
 
 function register_rpc() {
+    require('./bg_workers_rpc').register_servers();
     bg_workers_rpc = require('./bg_workers_rpc').bg_workers_rpc;
 
     http_server = http.createServer();

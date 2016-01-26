@@ -44,24 +44,22 @@
 
   Using the module for local agents require initializing it with the use_local_agents() API.
   This API expects to receive the following parameters:
-    utilitest - Reference to the utilitest module, auth_token - The auth token for the agents to be crated with
+    auth_token - The auth token for the agents to be created with
 
 * ###coretest
   This module will function as somewhat of a proxy to the different components control modules
   (agents, clients etc.). It provides its own API:
 
-    1) account_credentials - Return the account credentials for the test
+    1) client - Return the rpc client
 
-    2) client - Return the allocated client (currently only 1 can be allocated)
+    2) new_client - Allocate and return a new client
 
-    3) new_client - Allocate and return a new client
-
-    4) init_test_nodes(count, system, tier) - Performs the following
+    3) init_test_nodes(count, system, tier) - Performs the following
         1. Creates Auth Token for system & tier,
         2. Sets the agent control to work locally (will be removed once we support remote),
         3. Starts all stopped agents
 
-    5) clear_test_nodes - Stops all agents and then clears them
+    4) clear_test_nodes - Stops all agents and then clears them
 
   In addition, it exposes all the core_agent_control API.
 

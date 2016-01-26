@@ -125,10 +125,13 @@ module.exports = {
             method: 'DELETE',
             params: {
                 type: 'object',
-                requires: ['email'],
+                requires: ['role', 'email'],
                 properties: {
                     email: {
                         type: 'string',
+                    },
+                    role: {
+                        $ref: '#/definitions/role_enum'
                     },
                 }
             },

@@ -3,65 +3,53 @@
 /* exported describe, it, before, after, beforeEach, afterEach */
 'use strict';
 
+var CORETEST_MONGODB_URL = 'mongodb://localhost/coretest';
+process.env.MONGODB_URL = CORETEST_MONGODB_URL;
+process.env.DEBUG_MODE === 'true';
+process.env.JWT_SECRET = 'coretest';
+
 var _ = require('lodash');
 var P = require('../util/promise');
 var mongoose = require('mongoose');
 var Semaphore = require('../util/semaphore');
 var api = require('../api');
-var db = require('../server/db');
+var server_rpc = require('../server/server_rpc');
+var bg_workers_rpc = require('../bg_workers/bg_workers_rpc');
+var mongo_client = require('../server/stores/mongo_client');
+var nodes_store = require('../server/stores/nodes_store');
 var config = require('../../config.js');
+var db = require('../server/db');
 // var dbg = require('../util/debug_module')(__filename);
-
 var agentctl = require('./core_agent_control');
 
-process.env.JWT_SECRET = 'coretest';
 
-var account_credentials = {
-    email: 'coretest@core.test',
-    password: 'coretest',
-};
+config.test_mode = true;
+// register api servers and bg_worker servers locally too
+server_rpc.register_servers();
+bg_workers_rpc.register_own_servers();
 
-var client = new api.Client();
+// redirect all rpc calls using local function calls
+bg_workers_rpc.server_rpc.base_address =
+    api.bg_workers_client.options.address =
+    api.rpc.base_address =
+    'fcall://fcall';
 
-// register api servers
-var server_rpc = require('../server/server_rpc').server_rpc;
-require('../server/server_rpc').register_servers();
-
-_.each(mongoose.modelNames(), function(model_name) {
-    mongoose.model(model_name).schema.set('autoIndex', false);
-});
-
-var utilitest = require('../util/utilitest');
-
+api.rpc.set_request_logger(console.info);
+api.rpc.set_reply_logger(console.info);
 
 before(function(done) {
-    P.fcall(function() {
-        // after dropDatabase() we need to recreate the indexes
-        // otherwise we get "MongoError: ns doesn't exist"
-        // see https://github.com/LearnBoost/mongoose/issues/2671
-        // TODO move this to utilitest
-        return P.all(_.map(mongoose.modelNames(), function(model_name) {
-            return P.npost(mongoose.model(model_name), 'ensureIndexes');
-        }));
-    }).then(function() {
-        server_rpc.register_http_transport(utilitest.app);
-        server_rpc.register_ws_transport(utilitest.http_server);
-
-        config.test_mode = true;
-
-        var account_params = _.clone(account_credentials);
-        account_params.name = 'coretest';
-        return client.account.create_account(account_params);
-    }).then(function() {
-        var cred_with_system = _.extend({
-            system: 'coretest'
-        }, account_credentials);
-        return client.create_auth_token(cred_with_system);
-    }).nodeify(done);
+    P.fcall(() => db.mongoose_connect())
+        .then(() => db.mongoose_wait_connected())
+        .then(() => P.npost(mongoose.connection.db, 'dropDatabase'))
+        .then(() => db.mongoose_ensure_indexes())
+        .then(() => mongo_client.connect())
+        .nodeify(done);
 });
 
 after(function() {
     // place for cleanups
+    console.log('Database', CORETEST_MONGODB_URL, 'is intentionally',
+        'left for debugging and will be deleted before next test run');
 });
 
 
@@ -69,7 +57,7 @@ after(function() {
 function init_test_nodes(count, system, tier) {
     return clear_test_nodes()
         .then(function() {
-            return client.auth.create_auth({
+            return api.rpc.client.auth.create_auth({
                 role: 'create_node',
                 system: system,
                 extra: {
@@ -79,7 +67,7 @@ function init_test_nodes(count, system, tier) {
         })
         .then(function(res) {
             var create_node_token = res.token;
-            agentctl.use_local_agents(utilitest, create_node_token);
+            agentctl.use_local_agents(api.rpc.base_address, create_node_token);
             var sem = new Semaphore(3);
             return P.all(_.times(count, function(i) {
                     return sem.surround(function() {
@@ -99,14 +87,15 @@ function clear_test_nodes() {
             var warning_timeout = setTimeout(function() {
                 console.log(
                     '\n\n\nWaiting too long?\n\n',
-                    'the test got stuck on db.Node.remove().',
+                    'the test got stuck on deleting nodes.',
                     'this is known when running in mocha standalone (root cause unknown).',
                     'it does work fine when running with gulp, so we let it be.\n\n');
                 process.exit(1);
             }, 3000);
-            return P.when(db.Node.remove().exec())['finally'](function() {
-                clearTimeout(warning_timeout);
-            });
+            return nodes_store.test_code_delete_all_nodes()
+                .finally(function() {
+                    clearTimeout(warning_timeout);
+                });
         }).then(function() {
             console.log('STOPING AGENTS');
             return P.fcall(function() {
@@ -123,11 +112,10 @@ function clear_test_nodes() {
 
 module.exports = {
     //Own API
-    account_credentials: account_credentials,
-    client: client,
+    client: api.client,
 
     new_client: function() {
-        return new api.Client(client.options);
+        return new api.Client(api.rpc.client.options);
     },
 
     init_test_nodes: init_test_nodes,

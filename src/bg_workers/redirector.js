@@ -148,6 +148,7 @@ function publish_to_cluster(req) {
     cluster_connections.forEach(function(conn) {
         addresses.push(conn.url.href);
     });
+    addresses = _.uniq(addresses);
     dbg.log0('publish_to_cluster:', addresses);
     return P.map(addresses, function(address) {
         return bg_workers_rpc.client[api][method](req.rpc_params.request_params, {

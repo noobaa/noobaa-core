@@ -7,6 +7,8 @@ var server_rpc = api.new_rpc();
 module.exports = {
     server_rpc: server_rpc,
     bg_workers_rpc: bg_workers_rpc,
+    register_servers: register_servers,
+    register_own_servers: register_own_servers,
 };
 
 // base rpc address for bg server is redirected locally
@@ -16,7 +18,17 @@ bg_workers_rpc.base_address = 'fcall://fcall';
 server_rpc.register_redirector_transport();
 bg_workers_rpc.register_redirector_transport();
 
-bg_workers_rpc.register_service(api.schema.cloud_sync_api, require('./cloud_sync_rpc'));
-bg_workers_rpc.register_service(api.schema.redirector_api, require('./redirector'));
-bg_workers_rpc.register_service(api.schema.debug_api, require('../server/debug_server'));
-bg_workers_rpc.register_service(api.schema.cluster_api, require('../server/cluster_server'));
+function register_servers() {
+    register_own_servers();
+    register_other_servers();
+}
+
+function register_own_servers() {
+    bg_workers_rpc.register_service(api.schema.cloud_sync_api, require('./cloud_sync_rpc'));
+    bg_workers_rpc.register_service(api.schema.redirector_api, require('./redirector'));
+}
+
+function register_other_servers() {
+    bg_workers_rpc.register_service(api.schema.debug_api, require('../server/debug_server'));
+    bg_workers_rpc.register_service(api.schema.cluster_api, require('../server/cluster_server'));
+}

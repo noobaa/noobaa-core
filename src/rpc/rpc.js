@@ -188,6 +188,10 @@ RPC.prototype.client_request = function(api, method_api, params, options) {
     req.response_defer = P.defer();
     req.response_defer.promise.catch(_.noop); // to prevent error log of unhandled rejection
 
+    if (self._request_logger) {
+        self._request_logger('RPC REQUEST', req.srv, '==>', params);
+    }
+
     // assign a connection to the request
     var conn = self._assign_connection(req, options);
     if (!conn) { //redirection
@@ -429,6 +433,9 @@ RPC.prototype.handle_response = function(conn, msg) {
 };
 
 
+RPC.prototype.set_request_logger = function(request_logger) {
+    this._request_logger = request_logger;
+};
 RPC.prototype.set_reply_logger = function(reply_logger) {
     this._reply_logger = reply_logger;
 };

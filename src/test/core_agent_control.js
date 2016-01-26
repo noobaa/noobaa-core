@@ -13,7 +13,7 @@ var agntCtlConfig = {
     num_allocated: 0,
     allocated_agents: {},
     local_conf: {
-        utilitest: null,
+        base_address: null,
         auth: null,
     },
     remote_conf: {},
@@ -51,15 +51,16 @@ function show_ctl() {
     return agntCtlConfig;
 }
 
-function use_local_agents(utilitest, auth_token) {
-    if (!utilitest) {
-        throw Error('Must supply utilitest for local agents test run');
-    } else if (!auth_token) {
+function use_local_agents(base_address, auth_token) {
+    if (!base_address) {
+        throw Error('Must supply base_address for local agents test run');
+    }
+    if (!auth_token) {
         throw Error('Must supply auth_token for local agents test run');
     }
 
     agntCtlConfig.use_local = true;
-    agntCtlConfig.local_conf.utilitest = utilitest;
+    agntCtlConfig.local_conf.base_address = base_address;
     agntCtlConfig.local_conf.auth = _.clone(auth_token);
 }
 
@@ -79,7 +80,7 @@ function create_agent(howmany) {
     return P.all(_.times(count, function(i) {
         return P.fcall(function() {
                 var agent = new Agent({
-                    address: 'ws://localhost:' + agntCtlConfig.local_conf.utilitest.http_port(),
+                    address: agntCtlConfig.local_conf.base_address,
                     node_name: 'node' + (_num_allocated() + 1) + '_' + (Date.now() % 100000),
                     // passing token instead of storage_path to use memory storage
                     token: agntCtlConfig.local_conf.auth,

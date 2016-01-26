@@ -7,7 +7,7 @@ var moment = require('moment');
 var db = require('../db');
 var config = require('../../../config.js');
 var dbg = require('../../util/debug_module')(__filename);
-
+var nodes_store = require('../stores/nodes_store');
 
 module.exports = {
     allocate_block: allocate_block,
@@ -108,8 +108,8 @@ function update_tier_alloc_nodes(system, tier, pools) {
 
 function get_associated_nodes(system, pools) {
     pools = _.flatten(pools);
-    var min_heartbeat = db.Node.get_minimum_alloc_heartbeat();
-    return P.when(db.Node.collection.find({
+    var min_heartbeat = nodes_store.get_minimum_alloc_heartbeat();
+    return nodes_store.find_nodes({
         system: system,
         deleted: null,
         pool: {
@@ -125,7 +125,7 @@ function get_associated_nodes(system, pools) {
             'storage.used': 1
         },
         limit: 100
-    }).toArray());
+    });
 }
 
 

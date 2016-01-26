@@ -1,10 +1,10 @@
 'use strict';
 
 var _ = require('lodash');
-var P = require('../util/promise');
-var db = require('./db');
+// var P = require('../util/promise');
 var dbg = require('../util/debug_module')(__filename);
 var system_store = require('./stores/system_store');
+var nodes_store = require('./stores/nodes_store');
 var size_utils = require('../util/size_utils');
 
 /**
@@ -75,7 +75,7 @@ function update_pool(req) {
 
 function list_pool_nodes(req) {
     var pool = find_pool_by_name(req);
-    return P.when(db.Node.collection.find({
+    return nodes_store.find_nodes({
             system: req.system._id,
             pool: pool._id,
             deleted: null
@@ -84,22 +84,20 @@ function list_pool_nodes(req) {
                 _id: 0,
                 name: 1,
             }
-        }).toArray())
-        .then(function(nodes) {
-            return {
-                name: pool.name,
-                nodes: nodes
-            };
-        });
+        })
+        .then(nodes => ({
+            name: pool.name,
+            nodes: nodes
+        }));
 }
 
 function read_pool(req) {
     var pool = find_pool_by_name(req);
-    return P.when(db.Node.aggregate_nodes({
+    return nodes_store.aggregate_nodes_by_pool({
             system: req.system._id,
             pool: pool._id,
             deleted: null,
-        }, 'pool'))
+        })
         .then(function(nodes_aggregate_pool) {
             return get_pool_info(pool, nodes_aggregate_pool);
         });
@@ -116,7 +114,7 @@ function delete_pool(req) {
 }
 
 function assign_nodes_to_pool(system_id, pool_id, nodes_names) {
-    return P.when(db.Node.collection.updateMany({
+    return nodes_store.update_nodes({
         system: system_id,
         name: {
             $in: nodes_names
@@ -125,11 +123,11 @@ function assign_nodes_to_pool(system_id, pool_id, nodes_names) {
         $set: {
             pool: pool_id,
         }
-    })).return();
+    }).return();
 }
 
 function unassign_nodes_from_pool(system_id, pool_id, nodes_names) {
-    return P.when(db.Node.collection.updateMany({
+    return nodes_store.update_nodes({
         system: system_id,
         name: {
             $in: nodes_names
@@ -139,7 +137,7 @@ function unassign_nodes_from_pool(system_id, pool_id, nodes_names) {
         $unset: {
             pool: 1,
         }
-    })).return();
+    }).return();
 }
 
 

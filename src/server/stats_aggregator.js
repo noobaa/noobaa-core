@@ -26,7 +26,6 @@ var P = require('../util/promise');
 var request = require('request');
 var FormData = require('form-data');
 // var util = require('util');
-var db = require('./db');
 var promise_utils = require('../util/promise_utils');
 var Histogram = require('../util/histogram');
 var dbg = require('../util/debug_module')(__filename);
@@ -34,6 +33,7 @@ var config = require('../../config.js');
 var system_server = require('./system_server');
 var node_server = require('./node_server');
 var system_store = require('./stores/system_store');
+var nodes_store = require('./stores/nodes_store');
 
 
 var ops_aggregation = {};
@@ -169,16 +169,12 @@ function get_ops_stats(req) {
 }
 
 function get_pool_stats(req) {
-    return db.Node.collection.group(['pool'], {
+    return nodes_store.aggregate_nodes_by_pool({
         deleted: null
-    }, {
-        count: 0
-    }, function reduce(node, group) {
-        group.count += 1;
-    }).then(function(res) {
-        var node_count_by_pool = _.mapValues(_.keyBy(res, 'pool'), 'count');
+    }).then(function(nodes_aggregate_pool) {
         return _.map(system_store.data.pools, function(pool) {
-            return node_count_by_pool[pool._id] || 0;
+            var a = nodes_aggregate_pool[pool._id] || {};
+            return a.count || 0;
         });
     });
 }

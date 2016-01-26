@@ -2,12 +2,12 @@
 'use strict';
 
 var _ = require('lodash');
-var P = require('../util/promise');
+// var P = require('../util/promise');
 var dbg = require('../util/debug_module')(__filename);
 var system_store = require('./stores/system_store');
+var nodes_store = require('./stores/nodes_store');
 var size_utils = require('../util/size_utils');
 var mongo_utils = require('../util/mongo_utils');
-var db = require('./db');
 
 /**
  *
@@ -101,13 +101,13 @@ function create_tier(req) {
 function read_tier(req) {
     var tier = find_tier_by_name(req);
     var pool_ids = mongo_utils.uniq_ids(tier.pools, '_id');
-    return P.when(db.Node.aggregate_nodes({
+    return nodes_store.aggregate_nodes_by_pool({
             system: req.system._id,
             pool: {
                 $in: pool_ids
             },
             deleted: null,
-        }, 'pool'))
+        })
         .then(function(nodes_aggregate_pool) {
             return get_tier_info(tier, nodes_aggregate_pool);
         });
@@ -200,13 +200,13 @@ function read_policy(req) {
         tier_and_order => tier_and_order.tier.pools
     ));
     var pool_ids = mongo_utils.uniq_ids(pools, '_id');
-    return P.when(db.Node.aggregate_nodes({
+    return nodes_store.aggregate_nodes_by_pool({
             system: req.system._id,
             pool: {
                 $in: pool_ids
             },
             deleted: null,
-        }, 'pool'))
+        })
         .then(function(nodes_aggregate_pool) {
             return get_tiering_policy_info(policy, nodes_aggregate_pool);
         });

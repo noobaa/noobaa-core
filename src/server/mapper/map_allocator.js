@@ -12,6 +12,7 @@ var mongo_utils = require('../../util/mongo_utils');
 // var chunk_builder = require('./chunk_builder');
 var policy_allocator = require('./policy_allocator');
 var block_allocator = require('./block_allocator');
+var nodes_store = require('../stores/nodes_store');
 
 
 module.exports = MappingAllocator;
@@ -119,7 +120,7 @@ MappingAllocator.prototype.load_blocks_for_existing_chunks = function() {
             },
             deleted: null,
         }).toArray())
-        .then(mongo_utils.populate('node', db.Node))
+        .then(nodes_store.populate_nodes('node'))
         .then(function(blocks) {
             dbg.log0('load_blocks_for_existing_chunks', blocks.length);
             self.blocks_by_chunk_id = _.groupBy(blocks, 'chunk');

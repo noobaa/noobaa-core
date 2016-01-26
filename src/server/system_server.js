@@ -48,6 +48,7 @@ var bucket_server = require('./bucket_server');
 var pool_server = require('./pool_server');
 var tier_server = require('./tier_server');
 var system_store = require('./stores/system_store');
+var nodes_store = require('./stores/nodes_store');
 var size_utils = require('../util/size_utils');
 // var stun = require('../rpc/stun');
 var promise_utils = require('../util/promise_utils');
@@ -163,12 +164,8 @@ function read_system(req) {
         deleted: null,
     };
     return P.join(
-        // nodes - count, online count, allocated/used storage aggregate by tier
-        db.Node.aggregate_nodes(by_system_id_undeleted, 'tier'),
-
-        //TODO:: merge this and the previous call into one query, two memory ops
         // nodes - count, online count, allocated/used storage aggregate by pool
-        db.Node.aggregate_nodes(by_system_id_undeleted, 'pool'),
+        nodes_store.aggregate_nodes_by_pool(by_system_id_undeleted),
 
         // objects - size, count
         db.ObjectMD.aggregate_objects(by_system_id_undeleted),
@@ -193,14 +190,13 @@ function read_system(req) {
         })
 
     ).spread(function(
-        nodes_aggregate_tier,
         nodes_aggregate_pool,
         objects_aggregate,
         blocks,
         cloud_sync_by_bucket) {
 
         blocks = _.mapValues(_.keyBy(blocks, '_id'), 'value');
-        var nodes_sys = nodes_aggregate_tier[''] || {};
+        var nodes_sys = nodes_aggregate_pool[''] || {};
         var objects_sys = objects_aggregate[''] || {};
         var ip_address = ip_module.address();
         var n2n_config = system.n2n_config;
@@ -355,11 +351,12 @@ function add_role(req) {
  */
 function remove_role(req) {
     var account = find_account_by_email(req);
-    var roles = _.filter(system_store.data.roles, function(role) {
-        return String(role.system._id) === String(req.system._id) &&
-            String(role.account._id) === String(account._id) &&
-            role.role === req.rpc_params.role;
-    });
+    var roles = _.filter(system_store.data.roles,
+        role =>
+        String(role.system._id) === String(req.system._id) &&
+        String(role.account._id) === String(account._id) &&
+        role.role === req.rpc_params.role);
+    if (!roles.length) return;
     var roles_ids = _.map(roles, '_id');
     return system_store.make_changes({
         remove: {
@@ -515,7 +512,7 @@ function diagnose_with_agent(data) {
         })
         .then(null, function(err) {
             dbg.log0('Error while collecting diagnostics with agent', err, err.stack);
-            return;
+            return '';
         });
 }
 
@@ -562,13 +559,16 @@ function update_n2n_config(req) {
             }
         })
         .then(function() {
-            return db.Node.find({
-                system: req.system._id
+            return nodes_store.find_nodes({
+                system: req.system._id,
+                deleted: null
             }, {
                 // select just what we need
-                name: 1,
-                rpc_address: 1
-            }).exec();
+                fields: {
+                    name: 1,
+                    rpc_address: 1
+                }
+            });
         })
         .then(function(nodes) {
             var reply = {
@@ -601,13 +601,16 @@ function update_base_address(req) {
             }
         })
         .then(function() {
-            return db.Node.find({
-                system: req.system._id
+            return nodes_store.find_nodes({
+                system: req.system._id,
+                deleted: null
             }, {
                 // select just what we need
-                name: 1,
-                rpc_address: 1
-            }).exec();
+                fields: {
+                    name: 1,
+                    rpc_address: 1
+                }
+            });
         })
         .then(function(nodes) {
             var reply = {

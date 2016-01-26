@@ -7,6 +7,7 @@ let Ajv = require('ajv');
 let EventEmitter = require('events').EventEmitter;
 let mongodb = require('mongodb');
 let mongo_client = require('./mongo_client');
+let mongo_utils = require('../../util/mongo_utils');
 let js_utils = require('../../util/js_utils');
 let time_utils = require('../../util/time_utils');
 let size_utils = require('../../util/size_utils');
@@ -137,6 +138,14 @@ class SystemStoreData {
         return id ? this.idmap[id.toString()] : null;
     }
 
+    resolve_object_ids_paths(item, paths, allow_missing) {
+        return mongo_utils.resolve_object_ids_paths(this.idmap, item, paths, allow_missing);
+    }
+
+    resolve_object_ids_recursive(item) {
+        return mongo_utils.resolve_object_ids_recursive(this.idmap, item);
+    }
+
     rebuild() {
         this.rebuild_idmap();
         this.rebuild_object_links();
@@ -165,7 +174,7 @@ class SystemStoreData {
     rebuild_object_links() {
         _.each(COLLECTIONS, (schema, collection) => {
             let items = this[collection];
-            _.each(items, item => resolve_object_ids_recursive(item, this.idmap));
+            _.each(items, item => this.resolve_object_ids_recursive(item));
         });
     }
 
@@ -320,8 +329,9 @@ class SystemStore extends EventEmitter {
 
     _init_db() {
         if (this._init_db_promise) return this._init_db_promise;
-        this._init_db_promise = P.all(_.map(COLLECTIONS, (schema, collection) =>
-                mongo_client.db.createCollection(collection)))
+        this._init_db_promise = mongo_client.connect()
+            .then(() => P.all(_.map(COLLECTIONS, (schema, collection) =>
+                mongo_client.db.createCollection(collection))))
             .then(() => {
                 return P.all(_.map(DB_INDEXES, index =>
                     mongo_client.db.collection(index.collection).createIndex(index.fields, {
@@ -478,23 +488,6 @@ class SystemStore extends EventEmitter {
         }
     }
 
-}
-
-
-
-function resolve_object_ids_recursive(item, idmap) {
-    _.each(item, (val, key) => {
-        if (val instanceof mongodb.ObjectId) {
-            if (key !== '_id' && key !== 'id') {
-                let obj = idmap[val];
-                if (obj) {
-                    item[key] = obj;
-                }
-            }
-        } else if (_.isObject(val) && !_.isString(val)) {
-            resolve_object_ids_recursive(val, idmap);
-        }
-    });
 }
 
 

@@ -37,6 +37,7 @@ var block_allocator = require('./block_allocator');
 var MappingAllocator = require('./map_allocator');
 var server_rpc = require('../server_rpc').server_rpc;
 var system_store = require('../stores/system_store');
+var nodes_store = require('../stores/nodes_store');
 // var time_utils = require('../../util/time_utils');
 var mongo_utils = require('../../util/mongo_utils');
 var range_utils = require('../../util/range_utils');
@@ -287,7 +288,7 @@ function read_parts_mappings(params) {
         }, {
             sort: 'frag'
         }).toArray())
-        .then(mongo_utils.populate('node', db.Node))
+        .then(nodes_store.populate_nodes('node'))
         .then(function(blocks) {
             var blocks_by_chunk = _.groupBy(blocks, 'chunk');
             return P.all(_.map(params.parts, function(part) {
@@ -556,7 +557,7 @@ function delete_objects_from_agents(deleted_chunk_ids) {
             //delete_object_mappings with P.all along with the DataBlocks
             //deletion update
         }).toArray())
-        .then(mongo_utils.populate('node', db.Node))
+        .then(nodes_store.populate_nodes('node'))
         .then(function(deleted_blocks) {
             //TODO: If the overload of these calls is too big, we should protect
             //ourselves in a similar manner to the replication
@@ -689,7 +690,7 @@ function report_bad_block(params) {
                         chunk: chunk,
                         deleted: null,
                     }).toArray())
-                    .then(mongo_utils.populate('node', db.Node))
+                    .then(nodes_store.populate_nodes('node'))
                     .then(function(all_blocks) {
                         var avoid_nodes = _.map(all_blocks, function(block) {
                             return block.node._id.toString();
@@ -804,7 +805,7 @@ function get_part_info(params) {
                                     pool_name: pool.name,
                                     node_name: node.name,
                                     node_ip: node.ip,
-                                    online: db.Node.is_online(node),
+                                    online: nodes_store.is_online_node(node),
                                 };
                                 if (node.srvmode) {
                                     adminfo.srvmode = node.srvmode;

@@ -35,6 +35,7 @@ var object_server = require('./object_server');
 var tier_server = require('./tier_server');
 var bg_worker = require('./server_rpc').bg_worker;
 var system_store = require('./stores/system_store');
+var nodes_store = require('./stores/nodes_store');
 var cs_utils = require('./utils/cloud_sync_utils');
 var size_utils = require('../util/size_utils');
 var mongo_utils = require('../util/mongo_utils');
@@ -103,13 +104,13 @@ function read_bucket(req) {
             bucket: bucket._id,
             deleted: null,
         }),
-        db.Node.aggregate_nodes({
+        nodes_store.aggregate_nodes_by_pool({
             system: req.system._id,
             pool: {
                 $in: pool_ids
             },
             deleted: null,
-        }, 'pool'),
+        }),
         get_cloud_sync_policy(req, bucket)
     ).spread(function(objects_aggregate, nodes_aggregate_pool, cloud_sync_policy) {
         return get_bucket_info(bucket, objects_aggregate, nodes_aggregate_pool, cloud_sync_policy);

@@ -19,6 +19,8 @@ var promise_utils = require('../util/promise_utils');
 var server_rpc = require('./server_rpc').server_rpc;
 var bg_worker = require('./server_rpc').bg_worker;
 var system_server = require('./system_server');
+var nodes_store = require('./stores/nodes_store');
+var mongodb = require('mongodb');
 var dbg = require('../util/debug_module')(__filename);
 var pkg = require('../../package.json');
 var current_pkg_version = pkg.version;
@@ -35,15 +37,26 @@ var heartbeat_find_node_by_id_barrier = new Barrier({
     expiry_ms: 500, // milliseconds to wait for others to join
     process: function(node_ids) {
         dbg.log2('heartbeat_find_node_by_id_barrier', node_ids.length);
-        return P.when(db.Node.find({
-                    deleted: null,
-                    _id: {
-                        $in: node_ids
-                    },
-                })
-                // we are very selective to reduce overhead
-                .select('ip port peer_id storage geolocation')
-                .exec())
+        return nodes_store.find_nodes({
+                deleted: null,
+                _id: {
+                    $in: _.map(node_ids, mongodb.ObjectId)
+                },
+            }, {
+                // we are selective to reduce overhead
+                fields: {
+                    _id: 1,
+                    ip: 1,
+                    port: 1,
+                    peer_id: 1,
+                    storage: 1,
+                    geolocation: 1,
+                    rpc_address: 1,
+                    base_address: 1,
+                    version: 1,
+                    debug_level: 1,
+                }
+            })
             .then(function(res) {
                 var nodes_by_id = _.keyBy(res, '_id');
                 return _.map(node_ids, function(node_id) {
@@ -96,17 +109,16 @@ var heartbeat_update_node_timestamp_barrier = new Barrier({
     expiry_ms: 500, // milliseconds to wait for others to join
     process: function(node_ids) {
         dbg.log2('heartbeat_update_node_timestamp_barrier', node_ids.length);
-        return P.when(db.Node.collection.updateMany({
-                deleted: null,
-                _id: {
-                    $in: node_ids
-                },
-            }, {
-                $set: {
-                    heartbeat: new Date()
-                }
-            }))
-            .thenResolve();
+        return nodes_store.update_nodes({
+            deleted: null,
+            _id: {
+                $in: node_ids
+            },
+        }, {
+            $set: {
+                heartbeat: new Date()
+            }
+        }).return();
     }
 });
 
@@ -262,26 +274,27 @@ function update_heartbeat(req, reply_token) {
                 return;
             }
 
-            var updates = {};
+            var set_updates = {};
+            var push_updates = {};
 
             // TODO detect nodes that try to change ip, port too rapidly
             if (params.geolocation &&
                 params.geolocation !== node.geolocation) {
-                updates.geolocation = params.geolocation;
+                set_updates.geolocation = params.geolocation;
             }
             if (params.ip && params.ip !== node.ip) {
-                updates.ip = params.ip;
+                set_updates.ip = params.ip;
             }
             if (params.rpc_address &&
                 params.rpc_address !== node.rpc_address) {
-                updates.rpc_address = params.rpc_address;
+                set_updates.rpc_address = params.rpc_address;
             }
             if (params.base_address &&
                 params.base_address !== node.base_address) {
-                updates.base_address = params.base_address;
+                set_updates.base_address = params.base_address;
             }
             if (params.version && params.version !== node.version) {
-                updates.version = params.version;
+                set_updates.version = params.version;
             }
 
             // verify the agent's reported usage
@@ -294,74 +307,75 @@ function update_heartbeat(req, reply_token) {
 
             // check if need to update the node used storage count
             if (node.storage.used !== storage_used) {
-                updates['storage.used'] = storage_used;
+                set_updates['storage.used'] = storage_used;
             }
 
             // to avoid frequest updates of the node it will only send
             // extended info on longer period. this will allow more batching by
             // heartbeat_update_node_timestamp_barrier.
             if (params.drives) {
-                updates.drives = params.drives;
+                set_updates.drives = params.drives;
                 var drives_total = 0;
                 var drives_free = 0;
                 _.each(params.drives, function(drive) {
                     drives_total += drive.storage.total;
                     drives_free += drive.storage.free;
                 });
-                updates['storage.total'] = drives_total;
-                updates['storage.free'] = drives_free;
+                set_updates['storage.total'] = drives_total;
+                set_updates['storage.free'] = drives_free;
             }
             if (params.os_info) {
-                updates.os_info = params.os_info;
-                updates.os_info.last_update = new Date();
+                set_updates.os_info = params.os_info;
+                set_updates.os_info.last_update = new Date();
             }
 
             // push latency measurements to arrays
             // limit the size of the array to keep the last ones using negative $slice
             var MAX_NUM_LATENCIES = 20;
             if (params.latency_to_server) {
-                _.merge(updates, {
-                    $push: {
-                        latency_to_server: {
-                            $each: params.latency_to_server,
-                            $slice: -MAX_NUM_LATENCIES
-                        }
+                _.merge(push_updates, {
+                    latency_to_server: {
+                        $each: params.latency_to_server,
+                        $slice: -MAX_NUM_LATENCIES
                     }
                 });
             }
             if (params.latency_of_disk_read) {
-                _.merge(updates, {
-                    $push: {
-                        latency_of_disk_read: {
-                            $each: params.latency_of_disk_read,
-                            $slice: -MAX_NUM_LATENCIES
-                        }
+                _.merge(push_updates, {
+                    latency_of_disk_read: {
+                        $each: params.latency_of_disk_read,
+                        $slice: -MAX_NUM_LATENCIES
                     }
                 });
             }
             if (params.latency_of_disk_write) {
-                _.merge(updates, {
-                    $push: {
-                        latency_of_disk_write: {
-                            $each: params.latency_of_disk_write,
-                            $slice: -MAX_NUM_LATENCIES
-                        }
+                _.merge(push_updates, {
+                    latency_of_disk_write: {
+                        $each: params.latency_of_disk_write,
+                        $slice: -MAX_NUM_LATENCIES
                     }
                 });
             }
 
-            updates.debug_level = params.debug_level || 0;
+            if (!_.isUndefined(params.debug_level) &&
+                params.debug_level !== node.debug_level) {
+                set_updates.debug_level = params.debug_level || 0;
+            }
 
-            dbg.log2('NODE heartbeat', node_id, params.ip + ':' + params.port);
+            // make the update object hold only updates that are not empty
+            var updates = _.omitBy({
+                $set: set_updates,
+                $push: push_updates
+            }, _.isEmpty);
+
+            dbg.log0('NODE HEARTBEAT UPDATES', node_id, updates);
 
             if (_.isEmpty(updates)) {
                 // when only timestamp is updated we optimize by merging DB calls with a barrier
                 return heartbeat_update_node_timestamp_barrier.call(node_id);
             } else {
-                updates.heartbeat = new Date();
-                return db.Node.update({
-                    _id: node_id
-                }, updates).exec();
+                updates.$set.heartbeat = new Date();
+                return nodes_store.update_node_by_id(node_id, updates);
             }
         }).then(function() {
             var storage = node && node.storage || {};

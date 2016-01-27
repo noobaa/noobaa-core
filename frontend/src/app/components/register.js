@@ -99,6 +99,7 @@ export default function register(ko) {
 	ko.components.register('modal', 			require('./shared/modal/modal'));
 	ko.components.register('dropdown', 			require('./shared/dropdown/dropdown'));
 	ko.components.register('radio-btn', 		require('./shared/radio-btn/radio-btn'));
+	ko.components.register('radio-group', 		require('./shared/radio-group/radio-group'));
 	ko.components.register('checkbox', 			require('./shared/checkbox/checkbox'));
 	ko.components.register('quantity-gauge',	require('./shared/quantity-gauge/quantity-gauge'));	
 	ko.components.register('needle-gauge',		require('./shared/needle-gauge/needle-gauge'));	

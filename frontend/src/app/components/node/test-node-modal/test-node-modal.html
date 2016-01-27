@@ -6,14 +6,7 @@
 		
 		<button class="btn3 pull-right" data-bind="click: runTest">Run Test</button>
 
-		<div class="test-type" data-bind="foreach: testTypes">
-			<radio-btn class="test-type" params="
-				group: 'test-type', 
-				label: label,
-				value: testSet,
-				checked: $parent.testSet
-			"></radio-btn>
-		</div>
+		<radio-group params="selected: selectedTests, options: testTypeOptions"></radio-group>
 	</div>
 
 	<section class="container text-left">

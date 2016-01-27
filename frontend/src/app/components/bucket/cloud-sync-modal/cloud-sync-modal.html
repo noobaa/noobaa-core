@@ -28,26 +28,14 @@
 		<div class="sync-dir line">
 			Sync Type: 	
 			
-			<radio-btn params="
-				name: 'sync-type', 
-				value: 'BI', 
-				label: 'Bi-Direcitonal',
-				checked: syncType
-			"></radio-btn>
-
-			<radio-btn params="
-				name: 'sync-type', 
-				value: 'NB2AWS', 
-				label: 'NooBaa To AWS',
-				checked: syncType
-			"></radio-btn>
-
-			<radio-btn params="
-				name: 'sync-type', 
-				value: 'AWS2NB', 
-				label: 'AWS To NooBaa',
-				checked: syncType
-			"></radio-btn>
+			<radio-group params="
+				selected: syncType,
+				options: [
+					{ value: 'BI', label: 'Bi-Direcitonal' },
+					{ value: 'NB2AWS', label: 'NooBaa to AWS' },
+					{ value: 'AWS2NB', label: 'AWS to NooBaa' }
+				]
+			"></radio-group>
 		</div>
 
 		<checkbox class="line" params="
@@ -60,26 +48,14 @@
 
 			<input type="Number" data-bind="value: syncCycle"/>
 
-			<radio-btn params="
-				name: 'time-unit', 
-				value: 'MIN', 
-				label: 'Minuets', 
-				checked: syncCycleUnit
-			"></radio-btn>
-
-			<radio-btn params="
-				name: 'time-unit', 
-				value: 'HUR', 
-				label: 'Hours',
-				checked: syncCycleUnit
-			"></radio-btn>
-
-			<radio-btn params="
-				name: 'time-unit', 
-				value: 'DAY', 
-				label: 'Days',
-				checked: syncCycleUnit
-			"></radio-btn>
+			<radio-group params="
+				selected: syncCycleUnit,
+				options: [
+					{ value: 'MINUTES', label: 'Minutes' },
+					{ value: 'HOURS', label: 'Hours' },
+					{ value: 'DAYS', label: 'Days' }
+				]
+			"></radio-group>
 		</div>
 	</section>
 

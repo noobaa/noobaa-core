@@ -160,18 +160,28 @@ function delete_bucket(req) {
         actor: req.account._id,
         bucket: bucket._id,
     });
-    return system_store.make_changes({
-            remove: {
-                buckets: [bucket._id]
+    return P.when(db.ObjectMD.aggregate_objects({
+            system: req.system._id,
+            bucket: bucket._id,
+            deleted: null,
+        }))
+        .then(objects_aggregate => {
+            objects_aggregate = objects_aggregate || {};
+            var objects_aggregate_bucket = objects_aggregate[bucket._id] || {};
+            if (objects_aggregate_bucket.count) {
+                throw req.rpc_error('NOT_EMPTY', 'bucket not empty');
             }
+            return system_store.make_changes({
+                remove: {
+                    buckets: [bucket._id]
+                }
+            });
         })
-        .then(function() {
-            return P.when(bg_worker.cloud_sync.refresh_policy({
-                sysid: req.system._id.toString(),
-                bucketid: bucket._id.toString(),
-                force_stop: true,
-            }));
-        })
+        .then(() => bg_worker.cloud_sync.refresh_policy({
+            sysid: req.system._id.toString(),
+            bucketid: bucket._id.toString(),
+            force_stop: true,
+        }))
         .return();
 }
 

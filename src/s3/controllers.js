@@ -902,10 +902,10 @@ module.exports = function(params) {
                         } else {
                             dbg.log3('Creating new tiering_policy for bucket', bucketName);
                             return clients[access_key].client.tiering_policy.create_policy({
-                                    name: bucketName + '_tiering',
+                                    name: bucketName + '_tiering_' + Date.now(),
                                     tiers: [{
                                         order: 0,
-                                        tier: 'nodes'
+                                        tier: 'default_tier'
                                     }]
                                 })
                                 .then(function() {
@@ -1243,8 +1243,8 @@ module.exports = function(params) {
                         };
                         set_xattr(req, create_params);
 
-                        dbg.log0('Init Multipart, buckets', clients[access_key].buckets, '::::', 
-                            _.filter(clients[access_key].buckets, {                           
+                        dbg.log0('Init Multipart, buckets', clients[access_key].buckets, '::::',
+                            _.filter(clients[access_key].buckets, {
                                 bucket: req.bucket
                         }));
                         if (!_.has(clients[access_key].buckets, req.bucket)) {

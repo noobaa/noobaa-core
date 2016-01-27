@@ -153,6 +153,11 @@ export function copyTextToClipboard(text) {
 }
 
 export function makeArray(size, initializer) {
+	if (typeof initializer !== 'function') {
+		let val = initializer;
+		initializer = () => val;
+	}
+
 	let array = [];
 	for (let i = 0; i < size; ++i) {
 		array.push(initializer(i));
@@ -180,4 +185,16 @@ export function last(arr) {
 
 export function clamp(num, min, max) {
 	return Math.max(min, Math.min(num, max));
+}
+
+export function execInOrder(list, executer) {
+	let result = Promise.resolve();
+
+	for (let i = 0; i < list.length; ++i) {
+		result = result.then(
+			() => executer(list[i], i)
+		);
+	}
+
+	return result;
 }

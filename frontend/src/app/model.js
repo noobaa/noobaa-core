@@ -97,3 +97,7 @@ auditLog.loadedCategories = ko.observable();
 
 // Hold the current account list
 export let accountList = ko.observableArray();
+
+
+export let nodeTestResults = ko.observableArray();
+nodeTestResults.timestemp = ko.observable();

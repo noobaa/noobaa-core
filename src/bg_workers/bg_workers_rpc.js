@@ -20,7 +20,7 @@ bg_workers_rpc.register_redirector_transport();
 
 function register_servers() {
     register_own_servers();
-    register_other_servers();
+    register_common_servers();
 }
 
 function register_own_servers() {
@@ -28,7 +28,7 @@ function register_own_servers() {
     bg_workers_rpc.register_service(api.schema.redirector_api, require('./redirector'));
 }
 
-function register_other_servers() {
+function register_common_servers() {
     bg_workers_rpc.register_service(api.schema.debug_api, require('../server/debug_server'));
     bg_workers_rpc.register_service(api.schema.cluster_api, require('../server/cluster_server'));
 }

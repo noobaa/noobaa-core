@@ -343,6 +343,8 @@ export function loadSystemInfo() {
 					name: reply.name,
 					version: reply.version,
 					endpoint: endpoint,
+					ipAddress: reply.ip_address,
+					dnsName: reply.dns_name,
 					port: reply.web_port,
 					sslPort: reply.ssl_port,
 					accessKey: access_key,

@@ -409,6 +409,9 @@ module.exports = {
                 ip_address: {
                     type: 'string'
                 },
+                dns_name: {
+                    type: 'string'
+                },
                 base_address: {
                     type: 'string'
                 },

@@ -20,8 +20,7 @@ var pool_server = {
     list_pool_nodes: list_pool_nodes,
     read_pool: read_pool,
     delete_pool: delete_pool,
-    add_nodes_to_pool: add_nodes_to_pool,
-    remove_nodes_from_pool: remove_nodes_from_pool,
+    assign_nodes_to_pool: assign_nodes_to_pool,
     get_associated_buckets: get_associated_buckets,
 };
 
@@ -51,7 +50,7 @@ function create_pool(req) {
             }
         })
         .then(function() {
-            return assign_nodes_to_pool(req.system._id, pool._id, nodes);
+            return _assign_nodes_to_pool(req.system._id, pool._id, nodes);
         });
 }
 
@@ -113,7 +112,7 @@ function delete_pool(req) {
     }).return();
 }
 
-function assign_nodes_to_pool(system_id, pool_id, nodes_names) {
+function _assign_nodes_to_pool(system_id, pool_id, nodes_names) {
     return nodes_store.update_nodes({
         system: system_id,
         name: {
@@ -126,32 +125,13 @@ function assign_nodes_to_pool(system_id, pool_id, nodes_names) {
     }).return();
 }
 
-function unassign_nodes_from_pool(system_id, pool_id, nodes_names) {
-    return nodes_store.update_nodes({
-        system: system_id,
-        name: {
-            $in: nodes_names
-        },
-        pool: pool_id,
-    }, {
-        $unset: {
-            pool: 1,
-        }
-    }).return();
-}
 
-
-function add_nodes_to_pool(req) {
+function assign_nodes_to_pool(req) {
     dbg.log0('Adding nodes to pool', req.rpc_params.name, 'nodes', req.rpc_params.nodes);
     var pool = find_pool_by_name(req);
-    return assign_nodes_to_pool(req.system._id, pool._id, req.rpc_params.nodes);
+    return _assign_nodes_to_pool(req.system._id, pool._id, req.rpc_params.nodes);
 }
 
-function remove_nodes_from_pool(req) {
-    dbg.log0('Removing nodes from pool', req.rpc_params.name, 'nodes', req.rpc_params.nodes);
-    var pool = find_pool_by_name(req);
-    return unassign_nodes_from_pool(req.system._id, pool._id, req.rpc_params.nodes);
-}
 
 function get_associated_buckets(req) {
     var pool = find_pool_by_name(req);

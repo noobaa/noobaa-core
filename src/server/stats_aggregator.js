@@ -60,8 +60,7 @@ var SINGLE_SYS_DEFAULTS = {
     allocated_space: 0,
     used_space: 0,
     total_space: 0,
-    associated_nodes: 0,
-    properties: {
+    associated_nodes: {
         on: 0,
         off: 0,
     },
@@ -72,36 +71,37 @@ function get_systems_stats(req) {
     var sys_stats = _.cloneDeep(SYSTEM_STATS_DEFAULTS);
     sys_stats.version = process.env.CURRENT_VERSION || 'Unknown';
     sys_stats.agent_version = process.env.AGENT_VERSION || 'Unknown';
-    sys_stats.clusterid = system_store.data.clusters[0]._id;
     sys_stats.count = system_store.data.systems.length;
-    P.all(_.map(system_store.data.systems, function(system) {
+    var cluster = system_store.data.clusters[0];
+    if (cluster && cluster.cluster_id) {
+        sys_stats.clusterid = cluster.cluster_id;
+    }
+    return P.all(_.map(system_store.data.systems, system => {
             return system_server.read_system({
                     system: system
                 })
-                .then(function(res) {
-                    return _.defaults({
-                        roles: res.roles.length,
-                        tiers: res.tiers.length,
-                        buckets: res.buckets.length,
-                        objects: res.objects,
-                        allocated_space: res.storage.alloc,
-                        used_space: res.storage.used,
-                        total_space: res.storage.total,
-                        associated_nodes: res.nodes.count,
-                        properties: {
-                            on: res.nodes.online,
-                            off: res.nodes.count - res.nodes.online,
-                        }
-                    }, SINGLE_SYS_DEFAULTS);
-                });
+                .then(res => _.defaults({
+                    roles: res.roles.length,
+                    tiers: res.tiers.length,
+                    buckets: res.buckets.length,
+                    objects: res.objects,
+                    allocated_space: res.storage.alloc,
+                    used_space: res.storage.used,
+                    total_space: res.storage.total,
+                    associated_nodes: {
+                        on: res.nodes.online,
+                        off: res.nodes.count - res.nodes.online,
+                    }
+                }, SINGLE_SYS_DEFAULTS));
         }))
-        .then(function(systems) {
+        .then(systems => {
             sys_stats.systems = systems;
             return sys_stats;
         })
-        .catch(function(err) {
-            dbg.log0('Error in collecting systems stats, skipping current sampling point', err);
-            throw new Error('Error in collecting systems stats');
+        .catch(err => {
+            dbg.warn('Error in collecting systems stats,',
+                'skipping current sampling point', err.stack || err);
+            throw err;
         });
 }
 
@@ -121,10 +121,9 @@ function get_nodes_stats(req) {
     var nodes_stats = _.cloneDeep(NODES_STATS_DEFAULTS);
     var nodes_histo = get_empty_nodes_histo();
     //Per each system fill out the needed info
-    return P.all(_.map(system_store.data.systems, function(system) {
-            return node_server.list_nodes_int(system._id);
-        }))
-        .then(function(results) {
+    return P.all(_.map(system_store.data.systems,
+            system => node_server.list_nodes_int(system._id)))
+        .then(results => {
             for (var isys = 0; isys < results.length; ++isys) {
                 for (var inode = 0; inode < results[isys].nodes.length; ++inode) {
                     nodes_stats.count++;
@@ -145,92 +144,86 @@ function get_nodes_stats(req) {
                     }
                 }
             }
-            for (var h in nodes_histo) {
-                if (nodes_histo.hasOwnProperty(h)) {
-                    nodes_stats[nodes_histo[h].get_master_label()] = nodes_histo[h].get_object_data(false);
-                }
-            }
+            nodes_stats.histograms = _.mapValues(nodes_histo,
+                histo => histo.get_object_data(false));
             return nodes_stats;
         })
-        .then(null, function(err) {
-            dbg.log0('Error in collecting nodes stats, skipping current sampling point', err);
-            throw new Error('Error in collecting nodes stats');
+        .catch(err => {
+            dbg.warn('Error in collecting nodes stats,',
+                'skipping current sampling point', err.stack || err);
+            throw err;
         });
 }
 
 function get_ops_stats(req) {
-    var ops_stats = {};
-    for (var op in ops_aggregation) {
-        if (ops_aggregation.hasOwnProperty(op)) {
-            ops_stats[op] = ops_aggregation[op].get_string_data();
-        }
-    }
-    return ops_stats;
+    return _.mapValues(ops_aggregation, val => val.get_string_data());
 }
 
 function get_pool_stats(req) {
     return nodes_store.aggregate_nodes_by_pool({
-        deleted: null
-    }).then(function(nodes_aggregate_pool) {
-        return _.map(system_store.data.pools, function(pool) {
-            var a = nodes_aggregate_pool[pool._id] || {};
-            return a.count || 0;
+            deleted: null
+        })
+        .then(nodes_aggregate_pool => {
+            return _.map(system_store.data.pools, pool => {
+                var a = nodes_aggregate_pool[pool._id] || {};
+                return a.count || 0;
+            });
         });
-    });
 }
 
 function get_tier_stats(req) {
-    return _.map(system_store.data.tiers, function(t) {
-        return {
-            pools_num: t.pools.length,
-            data_placement: t.data_placement,
-        };
-    });
+    return _.map(system_store.data.tiers, tier => ({
+        pools_num: tier.pools.length,
+        data_placement: tier.data_placement,
+    }));
 }
 
 //Collect operations related stats and usage
 function get_all_stats(req) {
     //var self = this;
     var stats_payload = {
-        sys_stats: null,
+        systems_stats: null,
         nodes_stats: null,
         ops_stats: null,
+        pools_stats: null,
+        tier_stats: null,
     };
 
     dbg.log2('SYSTEM_SERVER_STATS_AGGREGATOR:', 'BEGIN');
-    return P.fcall(function() {
+    return P.fcall(() => {
             dbg.log2('SYSTEM_SERVER_STATS_AGGREGATOR:', '  Collecting Systems');
             return get_systems_stats(req);
         })
-        .then(function(sys_stats) {
-            stats_payload.sys_stats = sys_stats;
+        .then(systems_stats => {
+            stats_payload.systems_stats = systems_stats;
             dbg.log2('SYSTEM_SERVER_STATS_AGGREGATOR:', '  Collecting Nodes');
             return get_nodes_stats(req);
         })
-        .then(function(node_stats) {
-            stats_payload.node_stats = node_stats;
+        .then(nodes_stats => {
+            stats_payload.nodes_stats = nodes_stats;
             dbg.log2('SYSTEM_SERVER_STATS_AGGREGATOR:', '  Collecting Pools');
             return get_pool_stats(req);
         })
-        .then(function(pools_stats) {
+        .then(pools_stats => {
             stats_payload.pools_stats = pools_stats;
             dbg.log2('SYSTEM_SERVER_STATS_AGGREGATOR:', '  Collecting Tiers');
             return get_tier_stats(req);
         })
-        .then(function(tier_stats) {
+        .then(tier_stats => {
             stats_payload.tier_stats = tier_stats;
             dbg.log2('SYSTEM_SERVER_STATS_AGGREGATOR:', '  Collecting Ops (STUB)'); //TODO
             return get_ops_stats(req);
         })
-        .then(function(ops_stats) {
+        .then(ops_stats => {
             stats_payload.ops_stats = ops_stats;
             dbg.log2('SYSTEM_SERVER_STATS_AGGREGATOR:', 'SENDING (STUB)'); //TODO
         })
-        .then(function() {
+        .then(() => {
             dbg.log2('SYSTEM_SERVER_STATS_AGGREGATOR:', 'END');
             return stats_payload;
         })
-        .then(null, function(err) {
+        .catch(err => {
+            dbg.warn('SYSTEM_SERVER_STATS_AGGREGATOR:', 'ERROR', err);
             return {};
         });
 }
@@ -276,12 +269,12 @@ function send_stats_payload(payload) {
             formData: form,
             rejectUnauthorized: false,
         })
-        .then(function(httpResponse, body) {
+        .then((httpResponse, body) => {
             dbg.log2('Phone Home data sent successfully');
             return;
         })
-        .then(null, function(err) {
-            dbg.log0('Phone Home data send failed', err, err.stack);
+        .catch(err => {
+            dbg.warn('Phone Home data send failed', err.stack || err);
         });
 }
 
@@ -351,13 +344,11 @@ if ((config.central_stats.send_stats !== 'true') &&
 
         //Run the system statistics gatheting
         run_batch: function() {
-            P.fcall(function() {
-                    return get_all_stats({});
-                })
-                .then(function(payload) {
+            return P.fcall(() => get_all_stats({}))
+                .then(payload => {
                     //  return send_stats_payload(payload);
                 })
-                .then(null, function(err) {
+                .catch(err => {
 
                 });
         }

@@ -99,31 +99,8 @@ module.exports = {
             }
         },
 
-        add_nodes_to_pool: {
+        assign_nodes_to_pool: {
             doc: 'Add nodes to Pool',
-            method: 'POST',
-            params: {
-                type: 'object',
-                required: ['name'],
-                properties: {
-                    name: {
-                        type: 'string',
-                    },
-                    nodes: {
-                        type: 'array',
-                        items: {
-                            type: 'string',
-                        }
-                    }
-                }
-            },
-            auth: {
-                system: 'admin'
-            }
-        },
-
-        remove_nodes_from_pool: {
-            doc: 'Remove nodes to Pool',
             method: 'POST',
             params: {
                 type: 'object',

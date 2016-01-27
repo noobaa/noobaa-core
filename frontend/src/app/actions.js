@@ -870,7 +870,7 @@ export function deletePool(name) {
 export function assignNodes(name, nodes) {
 	logAction('assignNodes', { name, nodes });
 
-	api.pool.add_nodes_to_pool({
+	api.pool.assign_nodes_to_pool({
 		name: name,
 		nodes: nodes
 	})
@@ -1000,7 +1000,7 @@ export function testNode(source, testSet) {
 							return {
 								testType: testType,
 								source: source,
-								target: rpc_address, 
+								target: rpc_address,
 								result: result
 							};
 						}

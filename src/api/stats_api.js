@@ -57,9 +57,9 @@ module.exports = {
 
         systems_stats: {
             type: 'object',
-            required: ['installid', 'version', 'agent_version', 'count'],
+            required: ['version', 'agent_version', 'count'],
             properties: {
-                installid: {
+                clusterid: {
                     type: 'string',
                 },
                 version: {
@@ -120,21 +120,9 @@ module.exports = {
 
         nodes_stats: {
             type: 'object',
-            required: ['count', 'avg_allocation', 'avg_usage', 'avg_uptime'],
+            required: ['count', 'os'],
             properties: {
                 count: {
-                    type: 'integer'
-                },
-                avg_allocation: {
-                    type: 'integer'
-                },
-                avg_usage: {
-                    type: 'integer'
-                },
-                avg_free: {
-                    type: 'integer'
-                },
-                avg_uptime: {
                     type: 'integer'
                 },
                 os: {
@@ -145,15 +133,24 @@ module.exports = {
                         },
                         osx: {
                             type: 'integer'
+                        },
+                        linux: {
+                            type: 'integer'
+                        },
+                        other: {
+                            type: 'integer'
                         }
                     }
+                },
+                histograms: {
+                    type: 'object',
+                    additionalProperties: true
                 }
             }
         },
 
         ops_stats: {
             type: 'object',
-            required: ['deletes', 'writes', 'reads', 'list_objects'],
             properties: {
                 deletes: {
                     type: 'integer'
@@ -195,7 +192,7 @@ module.exports = {
 
         all_stats: {
             type: 'object',
-            equired: ['systems_stats', 'nodes_stats', 'ops_stats'],
+            required: ['systems_stats', 'nodes_stats', 'ops_stats'],
             properties: {
                 systems_stats: {
                     $ref: '#/definitions/systems_stats'

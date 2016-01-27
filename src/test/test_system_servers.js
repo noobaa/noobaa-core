@@ -107,6 +107,20 @@ describe('system servers', function() {
             )
             .then(() => client.system.start_debug())
             .then(() => client.system.diagnose())
+            .then(() => client.system.create_system({
+                name: SYS1
+            }))
+            .then(() => client.create_auth_token({
+                email: EMAIL,
+                password: PASSWORD,
+                system: SYS1,
+            }))
+            .then(() => client.system.delete_system())
+            .then(() => client.create_auth_token({
+                email: EMAIL,
+                password: PASSWORD,
+                system: SYS,
+            }))
             ////////////
             //  POOL  //
             ////////////
@@ -125,7 +139,7 @@ describe('system servers', function() {
                 name: POOL,
                 new_name: POOL + 1,
             }))
-            .then(() => client.pool.add_nodes_to_pool({
+            .then(() => client.pool.assign_nodes_to_pool({
                 name: POOL + 1,
                 nodes: ['node3', 'node4', 'node5'],
             }))
@@ -133,8 +147,8 @@ describe('system servers', function() {
                 name: POOL + 1,
                 new_name: POOL,
             }))
-            .then(() => client.pool.remove_nodes_from_pool({
-                name: POOL,
+            .then(() => client.pool.assign_nodes_to_pool({
+                name: 'default_pool',
                 nodes: ['node1', 'node3', 'node5'],
             }))
             .then(() => client.system.read_system())
@@ -240,6 +254,13 @@ describe('system servers', function() {
             }))
             .then(() => client.bucket.get_all_cloud_sync_policies())
             .then(() => client.system.read_system())
+            /////////////
+            //  STATS  //
+            /////////////
+            .then(() => client.stats.get_systems_stats())
+            .then(() => client.stats.get_nodes_stats())
+            .then(() => client.stats.get_ops_stats())
+            .then(() => client.stats.get_all_stats())
             ////////////
             //  MISC  //
             ////////////

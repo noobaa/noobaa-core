@@ -446,12 +446,12 @@ function read_activity_log(req) {
             logs = _.map(logs, function(log_item) {
                 var l = _.pick(log_item, 'id', 'level', 'event');
                 l.time = log_item.time.getTime();
-                
+
                 let tier = log_item.tier && system_store.data.get_by_id(log_item.tier);
                 if (tier) {
                     l.tier = _.pick(tier, 'name');
                 }
-                
+
                 if (log_item.node) {
                     l.node = _.pick(log_item.node, 'name');
                 }
@@ -501,7 +501,7 @@ function diagnose(req) {
         })
         .then(null, function(err) {
             dbg.log0('Error while collecting diagnostics', err, err.stack);
-            return;
+            return '';
         });
 }
 
@@ -532,11 +532,15 @@ function start_debug(req) {
     return P.when(server_rpc.client.debug.set_debug_level({
             level: 5,
             module: 'core'
+        }, {
+            auth_token: req.auth_token
         }))
         .then(function() {
             return P.when(bg_worker.debug.set_debug_level({
                 level: 5,
                 module: 'core'
+            }, {
+                auth_token: req.auth_token
             }));
         })
         .then(function() {

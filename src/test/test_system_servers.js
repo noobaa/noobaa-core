@@ -9,9 +9,8 @@ let assert = require('assert');
 let coretest = require('./coretest');
 let promise_utils = require('../util/promise_utils');
 
-describe('system', function() {
+describe('system servers', function() {
 
-    let client = coretest.new_client();
     const PREFIX = 'coretest';
     const SYS = PREFIX + '-system';
     const POOL = PREFIX + '-pool';
@@ -24,7 +23,9 @@ describe('system', function() {
     const EMAIL1 = SYS1 + EMAIL_DOMAIN;
     const PASSWORD = SYS + '-password';
 
-    it('account_api', function(done) {
+    let client = coretest.new_client();
+
+    it('works', function(done) {
         this.timeout(60000);
         P.resolve()
             ///////////////
@@ -42,7 +43,6 @@ describe('system', function() {
             .then(res => assert(res.has_accounts, 'has_accounts'))
             .then(() => client.account.read_account())
             .then(() => client.account.list_accounts())
-            .then(() => client.account.list_system_accounts())
             .then(() => client.account.get_account_sync_credentials_cache())
             .then(() => client.system.read_system())
             .then(() => client.account.update_account({
@@ -52,6 +52,9 @@ describe('system', function() {
                 name: SYS1,
             }))
             .then(() => client.system.read_system())
+            .then(() => client.system.update_system({
+                name: SYS,
+            }))
             .then(() => client.account.create_account({
                 name: EMAIL1,
                 email: EMAIL1,
@@ -59,12 +62,12 @@ describe('system', function() {
             }))
             .then(() => client.system.read_system())
             .then(() => client.system.add_role({
-                email: EMAIL,
+                email: EMAIL1,
                 role: 'admin',
             }))
             .then(() => client.system.read_system())
             .then(() => client.system.remove_role({
-                email: EMAIL,
+                email: EMAIL1,
                 role: 'admin',
             }))
             .then(() => client.system.read_system())
@@ -73,7 +76,37 @@ describe('system', function() {
             }))
             .then(() => client.system.read_system())
             .then(() => client.system.list_systems())
-            .then(() => client.system.read_activity_log())
+            .then(() => client.system.read_activity_log({
+                limit: 2016
+            }))
+            ////////////
+            //  AUTH  //
+            ////////////
+            .then(() => client.auth.read_auth())
+            .then(() => client.auth.create_auth({
+                email: EMAIL,
+                password: PASSWORD,
+                system: SYS,
+            }))
+            .then(() => client.auth.create_access_key_auth({
+                access_key: '123',
+                string_to_sign: '',
+                signature: ''
+            }))
+            //////////////
+            //  SYSTEM  //
+            //////////////
+            .then(() => client.system.update_base_address({
+                base_address: 'fcall://fcall'
+            }))
+            .then(() => client.system.update_n2n_config({
+                tcp_active: true
+            }))
+            .then(() => client.system.update_system_certificate()
+                .catch(err => assert.deepEqual(err.rpc_code, 'TODO'))
+            )
+            .then(() => client.system.start_debug())
+            .then(() => client.system.diagnose())
             ////////////
             //  POOL  //
             ////////////
@@ -88,15 +121,29 @@ describe('system', function() {
             .then(() => client.pool.read_pool({
                 name: POOL,
             }))
-            .then(() => client.pool.add_nodes_to_pool({
+            .then(() => client.pool.update_pool({
                 name: POOL,
+                new_name: POOL + 1,
+            }))
+            .then(() => client.pool.add_nodes_to_pool({
+                name: POOL + 1,
                 nodes: ['node3', 'node4', 'node5'],
+            }))
+            .then(() => client.pool.update_pool({
+                name: POOL + 1,
+                new_name: POOL,
             }))
             .then(() => client.pool.remove_nodes_from_pool({
                 name: POOL,
                 nodes: ['node1', 'node3', 'node5'],
             }))
             .then(() => client.system.read_system())
+            .then(() => client.pool.list_pool_nodes({
+                name: POOL
+            }))
+            .then(() => client.pool.get_associated_buckets({
+                name: POOL
+            }))
             ////////////
             //  TIER  //
             ////////////
@@ -109,8 +156,11 @@ describe('system', function() {
                 parity_fragments: 42,
             }))
             .then(() => client.tier.read_tier({
-                name: 'cloud',
-                new_name: 'cloudy',
+                name: TIER,
+            }))
+            .then(() => client.tier.update_tier({
+                name: TIER,
+                replicas: 980
             }))
             .then(() => client.system.read_system())
             //////////////////////
@@ -124,6 +174,21 @@ describe('system', function() {
                 }]
             }))
             .then(() => client.tiering_policy.read_policy({
+                name: TIERING_POLICY
+            }))
+            .then(() => client.tiering_policy.update_policy({
+                    name: TIERING_POLICY,
+                    tiers: [{
+                        order: 0,
+                        tier: TIER
+                    }, {
+                        order: 1,
+                        tier: TIER
+                    }]
+                })
+                .catch(err => assert.deepEqual(err.rpc_code, 'TODO'))
+            )
+            .then(() => client.tiering_policy.get_policy_pools({
                 name: TIERING_POLICY
             }))
             .then(() => client.system.read_system())
@@ -150,7 +215,39 @@ describe('system', function() {
                 name: BUCKET + 1,
                 new_name: BUCKET,
             }))
+            .then(() => client.bucket.set_cloud_sync({
+                name: BUCKET,
+                policy: {
+                    endpoint: 'localhost',
+                    access_keys: [{
+                        access_key: '123',
+                        secret_key: 'abc'
+                    }],
+                    schedule: 11
+                }
+            }))
+            /*
+            .then(() => client.bucket.get_cloud_buckets({
+                access_key: '123',
+                secret_key: 'abc'
+            }))
+            */
+            .then(() => client.bucket.get_cloud_sync_policy({
+                name: BUCKET,
+            }))
+            .then(() => client.bucket.delete_cloud_sync({
+                name: BUCKET,
+            }))
+            .then(() => client.bucket.get_all_cloud_sync_policies())
             .then(() => client.system.read_system())
+            ////////////
+            //  MISC  //
+            ////////////
+            .then(() => client.cluster.get_cluster_id())
+            .then(() => client.debug.set_debug_level({
+                module: 'rpc',
+                level: 0
+            }))
             /////////////////
             //  deletions  //
             /////////////////
@@ -166,7 +263,7 @@ describe('system', function() {
             .then(() => client.pool.delete_pool({
                 name: POOL,
             }))
-            .then(() => client.system.read_systems())
+            .then(() => client.system.read_system())
             .then(() => client.system.delete_system())
             .nodeify(done);
     });

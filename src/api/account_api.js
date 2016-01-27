@@ -53,7 +53,7 @@ module.exports = {
                 $ref: '#/definitions/account_info'
             },
             auth: {
-                system: false,
+                system: false
             }
         },
 
@@ -79,15 +79,7 @@ module.exports = {
                 }
             },
             auth: {
-                system: false,
-            }
-        },
-
-        delete_curr_account: {
-            doc: 'Delete the authorized account',
-            method: 'DELETE',
-            auth: {
-                system: false,
+                system: false
             }
         },
 
@@ -104,8 +96,8 @@ module.exports = {
                 }
             },
             auth: {
-                system: false,
-            }  
+                system: 'admin'
+            }
         },
 
         list_accounts: {
@@ -124,28 +116,7 @@ module.exports = {
                 }
             },
             auth: {
-                system: false,
-            }
-        },
-
-        //currently the same as list_accounts.
-        list_system_accounts: {
-            doc: 'List accounts',
-            method: 'GET',
-            reply: {
-                type: 'object',
-                require: 'accounts',
-                properties: {
-                    accounts: {
-                        type: 'array',
-                        items: {
-                            $ref: '#/definitions/account_info'
-                        }
-                    }
-                }
-            },
-            auth: {
-                system: false,
+                system: 'admin'
             }
         },
 
@@ -182,7 +153,7 @@ module.exports = {
                 }
             },
             auth: {
-                system: false,
+                system: 'admin'
             }
         },
 
@@ -203,8 +174,7 @@ module.exports = {
                 }
             },
             auth: {
-                account: false,
-                system: false,
+                system: 'admin'
             }
         },
 

@@ -36,7 +36,7 @@ var tier_server = require('./tier_server');
 var bg_worker = require('./server_rpc').bg_worker;
 var system_store = require('./stores/system_store');
 var nodes_store = require('./stores/nodes_store');
-var cs_utils = require('./utils/cloud_sync_utils');
+var cloud_sync_utils = require('./utils/cloud_sync_utils');
 var size_utils = require('../util/size_utils');
 var mongo_utils = require('../util/mongo_utils');
 var dbg = require('../util/debug_module')(__filename);
@@ -135,7 +135,7 @@ function update_bucket(req) {
         updates.name = req.rpc_params.new_name;
     }
     if (tiering_policy) {
-        updates.tiering_policy = tiering_policy._id;
+        updates.tiering = tiering_policy._id;
     }
     return system_store.make_changes({
         update: {
@@ -205,23 +205,21 @@ function get_cloud_sync_policy(req, bucket) {
             sysid: bucket.system._id.toString(),
             bucketid: bucket._id.toString()
         }))
-        .then(function(stat) {
-            return {
-                name: bucket.name,
-                policy: {
-                    endpoint: bucket.cloud_sync.endpoint,
-                    access_keys: [bucket.cloud_sync.access_keys],
-                    schedule: bucket.cloud_sync.schedule_min,
-                    last_sync: bucket.cloud_sync.last_sync.getTime(),
-                    paused: bucket.cloud_sync.paused,
-                    c2n_enabled: bucket.cloud_sync.c2n_enabled,
-                    n2c_enabled: bucket.cloud_sync.n2c_enabled,
-                    additions_only: bucket.cloud_sync.additions_only
-                },
-                health: stat.health,
-                status: stat.status,
-            };
-        });
+        .then(status => ({
+            name: bucket.name,
+            health: status.health,
+            status: status.status,
+            policy: {
+                endpoint: bucket.cloud_sync.endpoint,
+                access_keys: [bucket.cloud_sync.access_keys],
+                schedule: bucket.cloud_sync.schedule_min,
+                last_sync: bucket.cloud_sync.last_sync.getTime(),
+                paused: bucket.cloud_sync.paused,
+                c2n_enabled: bucket.cloud_sync.c2n_enabled,
+                n2c_enabled: bucket.cloud_sync.n2c_enabled,
+                additions_only: bucket.cloud_sync.additions_only
+            }
+        }));
 }
 
 /**
@@ -230,32 +228,8 @@ function get_cloud_sync_policy(req, bucket) {
  *
  */
 function get_all_cloud_sync_policies(req) {
-    dbg.log3('get_all_cloud_sync_policies');
-    var reply = [];
-    return P.all(_.map(req.system.buckets_by_name, function(bucket) {
-        if (!bucket.cloud_sync.endpoint) return;
-        return bg_worker.cloud_sync.get_policy_status({
-                sysid: req.system._id.toString(),
-                bucketid: bucket._id.toString()
-            })
-            .then(function(stat) {
-                reply.push({
-                    name: bucket.name,
-                    health: stat.health,
-                    status: stat.status,
-                    policy: {
-                        endpoint: bucket.cloud_sync.endpoint,
-                        access_keys: [bucket.cloud_sync.access_keys],
-                        schedule: bucket.cloud_sync.schedule_min,
-                        last_sync: bucket.cloud_sync.last_sync.getTime(),
-                        paused: bucket.cloud_sync.paused,
-                        c2n_enabled: bucket.cloud_sync.c2n_enabled,
-                        n2c_enabled: bucket.cloud_sync.n2c_enabled,
-                        additions_only: bucket.cloud_sync.additions_only
-                    }
-                });
-            });
-    })).return(reply);
+    return P.all(_.map(req.system.buckets_by_name,
+        bucket => get_cloud_sync_policy(req, bucket)));
 }
 
 /**
@@ -271,7 +245,9 @@ function delete_cloud_sync(req) {
             update: {
                 buckets: [{
                     _id: bucket._id,
-                    cloud_sync: {}
+                    $unset: {
+                        cloud_sync: 1
+                    }
                 }]
             }
         })
@@ -307,16 +283,17 @@ function set_cloud_sync(req) {
             access_key: req.rpc_params.policy.access_keys[0].access_key,
             secret_key: req.rpc_params.policy.access_keys[0].secret_key
         },
-        schedule_min: req.rpc_params.policy.schedule,
-        last_sync: 0,
-        paused: req.rpc_params.policy.paused,
-        c2n_enabled: req.rpc_params.policy.c2n_enabled,
-        n2c_enabled: req.rpc_params.policy.n2c_enabled,
-        additions_only: req.rpc_params.policy.additions_only
+        schedule_min: req.rpc_params.policy.schedule || 60,
+        last_sync: new Date(0),
+        paused: req.rpc_params.policy.paused || false,
+        c2n_enabled: req.rpc_params.policy.c2n_enabled || true,
+        n2c_enabled: req.rpc_params.policy.n2c_enabled || true,
+        additions_only: req.rpc_params.policy.additions_only || false
     };
 
     //If either of the following is changed, signal the cloud sync worker to force stop and reload
-    if (bucket.cloud_sync.endpoint !== cloud_sync.endpoint ||
+    if (!bucket.cloud_sync ||
+        bucket.cloud_sync.endpoint !== cloud_sync.endpoint ||
         bucket.cloud_sync.access_keys.access_key !== cloud_sync.access_keys.access_key ||
         bucket.cloud_sync.access_keys.secret_key !== cloud_sync.access_keys.secret_key ||
         cloud_sync.paused) {
@@ -401,7 +378,7 @@ function get_bucket_info(bucket, objects_aggregate, nodes_aggregate_pool, cloud_
         total: info.tiering && info.tiering.storage && info.tiering.storage.total || 0,
         free: info.tiering && info.tiering.storage && info.tiering.storage.free || 0,
     });
-    cs_utils.resolve_cloud_sync_info(cloud_sync_policy, info);
+    cloud_sync_utils.resolve_cloud_sync_info(cloud_sync_policy, info);
     return info;
 }
 

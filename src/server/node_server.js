@@ -432,11 +432,15 @@ function get_test_nodes(req) {
                 },
                 deleted: null,
             }, {
+                fields: {
+                    _id: 0,
+                    name: 1,
+                    rpc_address: 1
+                },
                 skip: rand_start,
                 limit: count
             });
-        })
-        .then(nodes => _.map(nodes, 'rpc_address'));
+        });
 }
 
 // UTILS //////////////////////////////////////////////////////////

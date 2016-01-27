@@ -7,7 +7,7 @@ rpc.base_address = `ws://${
 		port || window.location.port
 	}`;
 
-rpc.set_reply_logger(
+rpc.set_request_logger(
 	(...args) => console.info(...args)
 );
 

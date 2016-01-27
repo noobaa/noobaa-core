@@ -472,7 +472,16 @@ module.exports = {
             reply: {
                 type: 'array',
                 items: {
-                    type: 'string'
+                    type: 'object',
+                    required: ['name', 'rpc_address'],
+                    properties: {
+                        name: {
+                            type: 'string'
+                        },
+                        rpc_address: {
+                            type: 'string'
+                        }
+                    }
                 }
             },
             auth: {
@@ -515,7 +524,6 @@ module.exports = {
                 'id',
                 'name',
                 'pool',
-                'geolocation',
                 'rpc_address',
                 'peer_id',
                 'ip',

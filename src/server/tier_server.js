@@ -185,13 +185,12 @@ function create_policy(req) {
 }
 
 function update_policy(req) {
-    throw req.rpc_error('TODO', 'Update tiering policy?');
+    throw req.rpc_error('TODO', 'TODO is update tiering policy needed?');
 }
 
 function get_policy_pools(req) {
     var policy = find_policy_by_name(req);
-    var reply = _.pick(policy, 'name', 'tiers');
-    return reply;
+    return get_tiering_policy_info(policy);
 }
 
 function read_policy(req) {
@@ -269,15 +268,19 @@ function get_tier_info(tier, nodes_aggregate_pool) {
 
 function get_tiering_policy_info(tiering_policy, nodes_aggregate_pool) {
     var info = _.pick(tiering_policy, 'name');
-    var tiers_storage = [];
+    var tiers_storage = nodes_aggregate_pool ? [] : null;
     info.tiers = _.map(tiering_policy.tiers, function(tier_and_order) {
-        var tier_info = get_tier_info(tier_and_order.tier, nodes_aggregate_pool);
-        tiers_storage.push(tier_info.storage);
+        if (tiers_storage) {
+            var tier_info = get_tier_info(tier_and_order.tier, nodes_aggregate_pool);
+            tiers_storage.push(tier_info.storage);
+        }
         return {
             order: tier_and_order.order,
             tier: tier_and_order.tier.name
         };
     });
-    info.storage = size_utils.reduce_storage(size_utils.reduce_sum, tiers_storage, 1, 1);
+    if (tiers_storage) {
+        info.storage = size_utils.reduce_storage(size_utils.reduce_sum, tiers_storage, 1, 1);
+    }
     return info;
 }

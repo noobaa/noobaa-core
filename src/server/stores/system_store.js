@@ -400,10 +400,12 @@ class SystemStore extends EventEmitter {
             depth: 4
         }));
 
-        let get_bulk = collection => {
+        let check_collection = collection => {
             if (!(collection in COLLECTIONS)) {
                 throw new Error('SystemStore: make_changes bad collection name - ' + collection);
             }
+        };
+        let get_bulk = collection => {
             let bulk =
                 bulk_per_collection[collection] =
                 bulk_per_collection[collection] ||
@@ -415,15 +417,15 @@ class SystemStore extends EventEmitter {
             .then(data => {
 
                 _.each(changes.insert, (list, collection) => {
-                    let bulk = get_bulk(collection);
+                    check_collection(collection);
                     _.each(list, item => {
                         this._check_schema(collection, item, 'insert');
                         data.check_indexes(collection, item);
-                        bulk.insert(item);
+                        get_bulk(collection).insert(item);
                     });
                 });
                 _.each(changes.update, (list, collection) => {
-                    let bulk = get_bulk(collection);
+                    check_collection(collection);
                     _.each(list, item => {
                         data.check_indexes(collection, item);
                         let updates = _.omit(item, '_id');
@@ -441,15 +443,15 @@ class SystemStore extends EventEmitter {
                         // if (updates.$set) {
                         //     this._check_schema(collection, updates.$set, 'update');
                         // }
-                        bulk.find({
+                        get_bulk(collection).find({
                             _id: item._id
                         }).updateOne(updates);
                     });
                 });
                 _.each(changes.remove, (list, collection) => {
-                    let bulk = get_bulk(collection);
+                    check_collection(collection);
                     _.each(list, id => {
-                        bulk.find({
+                        get_bulk(collection).find({
                             _id: id
                         }).updateOne({
                             $set: {

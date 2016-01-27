@@ -3,7 +3,7 @@ import page from 'page';
 import api from 'services/api';
 import config from 'config';
 import { hostname } from 'server-conf';
-import { isDefined, isUndefined, encodeBase64, cmpStrings, cmpInts, cmpBools, 
+import { isDefined, isUndefined, encodeBase64, cmpStrings, cmpInts, cmpBools,
 	randomString, last, stringifyQueryString, clamp } from 'utils';
 
 // TODO: resolve browserify issue with export of the aws-sdk module.
@@ -30,17 +30,17 @@ function logAction(action, payload) {
 // -----------------------------------------------------
 export function start() {
 	logAction('start');
-	
+
 	api.options.auth_token = localStorage.getItem('sessionToken');
 	return api.auth.read_auth()
 		// Try to restore the last session
 		.then(({account, system}) => {
 			if (isDefined(account)) {
-				model.sessionInfo({ 
-					user: account.email, 
-					system: system.name 
+				model.sessionInfo({
+					user: account.email,
+					system: system.name
 				});
-			} 
+			}
 		})
 		// Start the router.
 		.then(() => page.start())
@@ -66,7 +66,7 @@ export function refresh() {
 	logAction('refresh');
 
 	let { pathname, search } = window.location;
-	
+
 	// Reload the current path
 	page.redirect(pathname + search);
 
@@ -75,7 +75,7 @@ export function refresh() {
 }
 
 // -----------------------------------------------------
-// High level UI update actions. 
+// High level UI update actions.
 // -----------------------------------------------------
 export function showLogin() {
 	logAction('showLogin');
@@ -87,14 +87,14 @@ export function showLogin() {
 		redirectTo(`/fe/systems/${session.system}`);
 
 	} else {
-		model.uiState({ 
-			layout: 'login-layout', 
+		model.uiState({
+			layout: 'login-layout',
 			returnUrl: ctx.query.returnUrl,
 		});
 
 		loadServerInfo();
 	}
-}	
+}
 
 export function showOverview() {
 	logAction('showOverview');
@@ -102,15 +102,15 @@ export function showOverview() {
 	model.uiState({
 		layout: 'main-layout',
 		title: 'OVERVIEW',
-		breadcrumbs: [], 
-		panel: 'overview'	
+		breadcrumbs: [],
+		panel: 'overview'
 	});
 
 	loadSystemSummary();
 }
 
 export function showBuckets() {
-	logAction('showBuckets');	
+	logAction('showBuckets');
 
 	model.uiState({
 		layout: 'main-layout',
@@ -142,12 +142,12 @@ export function showBucket() {
 	});
 
 	loadBucketInfo(bucket);
-	loadBucketObjectList(bucket, filter, sortBy, parseInt(order), parseInt(page));		
+	loadBucketObjectList(bucket, filter, sortBy, parseInt(order), parseInt(page));
 }
 
 export function showObject() {
 	logAction('showObject');
-	
+
 	let ctx = model.routeContext();
 	let { object, bucket, tab = 'parts' } = ctx.params;
 	let { page = 0 } = ctx.query;
@@ -159,7 +159,7 @@ export function showObject() {
 			{ href: "fe/systems/:system" },
 			{ href: "buckets", label: "BUCKETS" },
 			{ href: ":bucket", label: bucket },
-		],			
+		],
 		panel: 'object',
 		tab: tab
 	});
@@ -189,11 +189,11 @@ export function showPool() {
 	let { pool, tab = 'nodes' } = ctx.params;
 	let { filter, sortBy = 'name', order = 1, page = 0 } = ctx.query;
 
-	
+
 	model.uiState({
 		layout: 'main-layout',
 		title: pool,
-		breadcrumbs: [ 
+		breadcrumbs: [
 			{ href: "fe/systems/:system" },
 			{ href: "pools", label: "POOLS"}
 		],
@@ -225,8 +225,8 @@ export function showNode() {
 	});
 
 	loadNodeInfo(node);
-	loadNodeStoredPartsList(node, parseInt(page));		
-}	
+	loadNodeStoredPartsList(node, parseInt(page));
+}
 
 export function showManagement() {
 	logAction('showManagement');
@@ -250,7 +250,7 @@ export function openAuditLog() {
 	logAction('openAuditLog');
 
 	model.uiState(
-		Object.assign(model.uiState(), { 
+		Object.assign(model.uiState(), {
 			tray: { componentName: 'audit-pane' }
 		})
 	);
@@ -279,7 +279,7 @@ export function signIn(email, password, redirectUrl) {
 				return api.create_auth_token({ system, email, password })
 					.then(({ token }) => {
 						localStorage.setItem('sessionToken', token);
-						
+
 						model.sessionInfo({ user: email, system: system })
 						model.loginInfo({ retryCount: 0 });
 
@@ -352,7 +352,7 @@ export function loadSystemInfo() {
 export function loadSystemSummary() {
 	logAction('loadSystemSummary');
 
-	api.system.read_system() 
+	api.system.read_system()
 		.then(
 			reply => model.systemSummary({
 				capacity: reply.storage.total,
@@ -404,8 +404,8 @@ const poolCmpFuncs = Object.freeze({
 	nodecount: (p1, p2) => cmpInts(p1.nodes.count, p2.nodes.count),
 	onlinecount: (p1, p2) => cmpInts(p1.nodes.online, p2.nodes.online),
 	offlinecount: (p1, p2) => cmpInts(
-		p1.nodes.count - p1.nodes.online, 
-		p2.nodes.count - p2.nodes.online, 
+		p1.nodes.count - p1.nodes.online,
+		p2.nodes.count - p2.nodes.online,
 	),
 	usage: (p1, p2) => cmpInts(p1.storage.used, p2.storage.used),
 	capacity: (p1, p2) => cmpInts(p1.storage.total, p2.storage.total),
@@ -483,7 +483,7 @@ export function loadBucketObjectList(bucketName, filter, sortBy, order, page) {
 
 	let bucketObjectList = model.bucketObjectList;
 
-	api.object.list_objects({ 
+	api.object.list_objects({
 			bucket: bucketName,
 			key_query: filter,
 			sort: sortBy,
@@ -501,7 +501,7 @@ export function loadBucketObjectList(bucketName, filter, sortBy, order, page) {
 				bucketObjectList.page(page);
 				bucketObjectList.count(reply.total_count);
 			}
-		) 
+		)
 		.done();
 }
 
@@ -514,7 +514,7 @@ export function loadObjectMetadata(bucketName, objectName) {
 	}
 
 	let objInfoPromise = api.object.read_object_md({
-		 bucket: bucketName, 
+		 bucket: bucketName,
 		 key: objectName,
 		 get_parts_count: true
 	});
@@ -538,12 +538,12 @@ export function loadObjectMetadata(bucketName, objectName) {
 
 	Promise.all([objInfoPromise, S3Promise])
 		.then(
-			([objInfo, s3]) => model.objectInfo({ 
-				name: objectName, 
+			([objInfo, s3]) => model.objectInfo({
+				name: objectName,
 				bucket: bucketName,
-				info: objInfo,				
+				info: objInfo,
 				s3Url: s3.getSignedUrl(
-					'getObject', 
+					'getObject',
 					{ Bucket: bucketName, Key: objectName }
 				)
 			})
@@ -553,12 +553,12 @@ export function loadObjectMetadata(bucketName, objectName) {
 export function loadObjectPartList(bucketName, objectName, page) {
 	logAction('loadObjectPartList', { bucketName, objectName, page });
 
-	api.object.read_object_mappings({ 
-		bucket: bucketName, 
-		key: objectName, 
+	api.object.read_object_mappings({
+		bucket: bucketName,
+		key: objectName,
 		skip: config.paginationPageSize * page,
 		limit: config.paginationPageSize,
-		adminfo: true 
+		adminfo: true
 	})
 		.then(
 			({ parts }) => {
@@ -566,7 +566,7 @@ export function loadObjectPartList(bucketName, objectName, page) {
 				model.objectPartList.page(page);
 
 				// TODO: change to real count when avaliable.
-				model.objectPartList.count(1000);				
+				model.objectPartList.count(1000);
 			}
 		)
 		.done();
@@ -586,8 +586,8 @@ export function loadPoolInfo(name) {
 
 export function loadPoolNodeList(poolName, filter, sortBy, order, page) {
 	logAction('loadPoolNodeList', { poolName, filter, sortBy, order, page });
-	
-	api.node.list_nodes({  
+
+	api.node.list_nodes({
 		query: {
 			pools: [ poolName ],
 			name: filter
@@ -601,7 +601,7 @@ export function loadPoolNodeList(poolName, filter, sortBy, order, page) {
 		.then(
 			reply => {
 				model.poolNodeList(reply.nodes);
-				model.poolNodeList.count(reply.total_count);				
+				model.poolNodeList.count(reply.total_count);
 				model.poolNodeList.filter(filter);
 				model.poolNodeList.sortedBy(sortBy);
 				model.poolNodeList.order(order);
@@ -710,7 +710,7 @@ export function loadMoreAuditEntries(count) {
 	let lastEntryTime = last(auditLog()).time;
 	let filter = model.auditLog.loadedCategories()
 		.map(
-			category => `(^${category}.)` 
+			category => `(^${category}.)`
 		)
 		.join('|');
 
@@ -718,7 +718,7 @@ export function loadMoreAuditEntries(count) {
 		api.system.read_activity_log({
 			event: filter,
 			till: lastEntryTime,
-			limit: count 
+			limit: count
 		})
 			.then(
 				({ logs }) => auditLog.push(...logs.reverse())
@@ -730,7 +730,7 @@ export function loadMoreAuditEntries(count) {
 export function loadAccountList() {
 	logAction('loadAccountList');
 
-	api.account.list_system_accounts()
+	api.account.list_accounts()
 		.then(
 			({ accounts }) => model.accountList(accounts)
 		)
@@ -780,11 +780,11 @@ export function createAccount(name, email, password) {
 
 	api.account.create_account({ name, email, password })
 		.then(loadAccountList)
-		.done();	
+		.done();
 }
 
 export function deleteAccount(email) {
-	logAction('deleteAccount', { email });	
+	logAction('deleteAccount', { email });
 
 	api.account.delete_account({ email })
 		.then(loadAccountList)
@@ -796,7 +796,7 @@ export function createBucket(name, dataPlacement, pools) {
 
 	let { bucketList } = model;
 
-	api.tier.create_tier({ 
+	api.tier.create_tier({
 		name: randomString(8),
 		data_placement: dataPlacement,
 		pools: pools
@@ -815,9 +815,9 @@ export function createBucket(name, dataPlacement, pools) {
 			}
 		)
 		.then(
-			policy => api.bucket.create_bucket({ 
-				name: name, 
-				tiering: policy.name  
+			policy => api.bucket.create_bucket({
+				name: name,
+				tiering: policy.name
 			})
 		)
 		.then(
@@ -837,7 +837,7 @@ export function deleteBucket(name) {
 export function updateTier(name, dataPlacement, pools) {
 	logAction('updateTier', { name, dataPlacement, pools });
 
-	api.tier.update_tier({ 
+	api.tier.update_tier({
 		name: name,
 		data_placement: dataPlacement,
 		pools: pools
@@ -871,13 +871,13 @@ export function assignNodes(name, nodes) {
 		name: name,
 		nodes: nodes
 	})
-		.then(refresh) 
+		.then(refresh)
 		.done();
 }
 
 export function uploadFiles(bucketName, files) {
 	logAction('uploadFiles', { bucketName, files });
-	
+
 	let recentUploads = model.recentUploads;
 	api.system.read_system()
 		.then(
@@ -916,7 +916,7 @@ export function uploadFiles(bucketName, files) {
 									Bucket: bucketName,
 									Body: file,
 									ContentType: file.type
-								}, 
+								},
 								error => {
 									if (!error) {
 										entry.state = 'COMPLETED';
@@ -926,7 +926,7 @@ export function uploadFiles(bucketName, files) {
 									} else {
 										entry.state = 'FAILED';
 										entry.error = error;
-										
+
 										// This is not a bug we want to resolve failed uploads
 										// in order to finalize the entire upload process.
 										resolve(0);
@@ -937,7 +937,7 @@ export function uploadFiles(bucketName, files) {
 								}
 							)
 							//	Report on progress.
-							.on('httpUploadProgress', 
+							.on('httpUploadProgress',
 								({ loaded, total }) => {
 									entry.progress = loaded / total;
 
@@ -979,7 +979,7 @@ export function testNode(sourceRpcAddress, testSet) {
 						targetRpcAddress => Object.assign(
 							{},
 							testSettings[testName],
-							{ source: sourceRpcAddress, target: targetRpcAddress }	
+							{ source: sourceRpcAddress, target: targetRpcAddress }
 						)
 					);
 

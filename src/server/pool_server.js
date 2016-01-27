@@ -87,7 +87,7 @@ function list_pool_nodes(req) {
         })
         .then(nodes => ({
             name: pool.name,
-            nodes: nodes
+            nodes: _.map(nodes, 'name')
         }));
 }
 

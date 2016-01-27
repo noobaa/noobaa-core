@@ -130,7 +130,7 @@ RPC.prototype.register_service = function(api, server, options) {
 RPC.prototype.create_schema_client = function(schema, default_options) {
     var self = this;
     var client = {
-        options: _.create(default_options)
+        options: _.create(default_options),
     };
     _.each(schema, function(api, api_name) {
         if (api_name && api_name[0] !== '_') {
@@ -188,8 +188,8 @@ RPC.prototype.client_request = function(api, method_api, params, options) {
     req.response_defer = P.defer();
     req.response_defer.promise.catch(_.noop); // to prevent error log of unhandled rejection
 
-    if (self._request_logger) {
-        self._request_logger('RPC REQUEST', req.srv, '==>', params);
+    if (options.tracker) {
+        options.tracker(req);
     }
 
     // assign a connection to the request
@@ -253,8 +253,8 @@ RPC.prototype.client_request = function(api, method_api, params, options) {
                 'srv', req.srv,
                 'reqid', req.reqid);
 
-            if (self._reply_logger) {
-                self._reply_logger('RPC REPLY', req.srv, '==>', reply);
+            if (self._request_logger) {
+                self._request_logger('RPC REQUEST', req.srv, params, '==>', reply);
             }
 
             self.emit_stats('stats.client_request.done', req);
@@ -435,9 +435,6 @@ RPC.prototype.handle_response = function(conn, msg) {
 
 RPC.prototype.set_request_logger = function(request_logger) {
     this._request_logger = request_logger;
-};
-RPC.prototype.set_reply_logger = function(reply_logger) {
-    this._reply_logger = reply_logger;
 };
 
 /**

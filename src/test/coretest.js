@@ -34,10 +34,14 @@ bg_workers_rpc.server_rpc.base_address =
     api.rpc.base_address =
     'fcall://fcall';
 
+let client = api.rpc.client;
+let api_coverage = new Set();
+client.options = client.options || {};
 api.rpc.set_request_logger(console.info);
-api.rpc.set_reply_logger(console.info);
 
 before(function(done) {
+    _.each(api.rpc._services, (service, srv) => api_coverage.add(srv));
+    client.options.tracker = req => api_coverage.delete(req.srv);
     P.fcall(() => db.mongoose_connect())
         .then(() => db.mongoose_wait_connected())
         .then(() => P.npost(mongoose.connection.db, 'dropDatabase'))
@@ -47,7 +51,9 @@ before(function(done) {
 });
 
 after(function() {
-    // place for cleanups
+    for (let srv of api_coverage) {
+        console.warn('API was not covered:', srv);
+    }
     console.log('Database', CORETEST_MONGODB_URL, 'is intentionally',
         'left for debugging and will be deleted before next test run');
 });
@@ -57,7 +63,7 @@ after(function() {
 function init_test_nodes(count, system, tier) {
     return clear_test_nodes()
         .then(function() {
-            return api.rpc.client.auth.create_auth({
+            return client.auth.create_auth({
                 role: 'create_node',
                 system: system,
                 extra: {
@@ -111,11 +117,10 @@ function clear_test_nodes() {
 }
 
 module.exports = {
-    //Own API
-    client: api.client,
+    client: client,
 
     new_client: function() {
-        return new api.Client(api.rpc.client.options);
+        return new api.Client(client.options);
     },
 
     init_test_nodes: init_test_nodes,

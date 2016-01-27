@@ -472,7 +472,16 @@ module.exports = {
             reply: {
                 type: 'array',
                 items: {
-                    type: 'string'
+                    type: 'object',
+                    required: ['node', 'type'],
+                    properties: {
+                        name: {
+                            type: 'string'
+                        },
+                        address: {
+                            type: 'string'        
+                        }
+                    }
                 }
             },
             auth: {

@@ -1000,7 +1000,7 @@ export function testNode(source, testSet) {
 
 							return { 
 								testType: testType,  
-								source: sourceType, 
+								source: source, 
 								target: address, 
 								result: result
 							};

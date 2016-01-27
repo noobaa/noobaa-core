@@ -473,7 +473,7 @@ module.exports = {
                 type: 'array',
                 items: {
                     type: 'object',
-                    required: ['node', 'type'],
+                    required: ['name', 'address'],
                     properties: {
                         name: {
                             type: 'string'

@@ -984,10 +984,11 @@ export function testNode(source, testSet) {
 			targets => [].concat(
 				...testSet.map(
 					testType => targets.map(
-						target => {
+						({ name, address }) => {
 							let result = {
 								testType: testType,
-								target: target,
+								targetName: name,
+								targetAddress: address,
 								state: 'WAITING',
 								time: 0,
 								position: 0,
@@ -997,7 +998,12 @@ export function testNode(source, testSet) {
 							}
 							nodeTestResults.push(result);
 
-							return { testType,  source, target, result }
+							return { 
+								testType: testType,  
+								source: source, 
+								target: address, 
+								result: result
+							};
 						}
 					)
 				)

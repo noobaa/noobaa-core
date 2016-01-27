@@ -459,7 +459,10 @@ function get_test_nodes(req) {
         })
         .then(function(nodes) {
             var targets = _.map(nodes, function(n) {
-                return 'n2n://' + n.peer_id;
+                return {
+                    name: n.name,
+                    address: 'n2n://' + n.peer_id,
+                }
             });
             return targets;
         });

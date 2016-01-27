@@ -12,7 +12,7 @@ export default class TestRowViewModel {
 		);
 
 		this.target = ko.pureComputed(
-			() => result() && result().target
+			() => result() && result().targetName
 		);
 
 		this.time = ko.pureComputed(

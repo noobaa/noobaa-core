@@ -1,6 +1,3 @@
-// make jshint ignore mocha globals
-/* global describe, it, before, after, beforeEach, afterEach */
-/* exported describe, it, before, after, beforeEach, afterEach */
 'use strict';
 
 var _ = require('lodash');

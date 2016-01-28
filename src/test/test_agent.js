@@ -1,19 +1,17 @@
-// make jshint ignore mocha globals
-/* global describe, it, before, after, beforeEach, afterEach */
-/* exported describe, it, before, after, beforeEach, afterEach */
 'use strict';
 
 // var _ = require('lodash');
 var P = require('../util/promise');
+var mocha = require('mocha');
 // var assert = require('assert');
 var coretest = require('./coretest');
 
-describe('agent', function() {
+mocha.describe('agent', function() {
 
     var client = coretest.new_client();
     var SYS = 'test-agent-system';
 
-    before(function(done) {
+    mocha.before(function() {
         this.timeout(20000);
         P.fcall(function() {
             return client.system.create_system({
@@ -26,23 +24,20 @@ describe('agent', function() {
             });
         }).then(function() {
             return client.tier.create_tier({
-                name: 'edge',                
+                name: 'edge',
             });
         }).then(function() {
             return coretest.init_test_nodes(10, SYS, 'edge');
-        }).nodeify(done);
+        });
     });
 
-    after(function(done) {
+    mocha.after(function() {
         this.timeout(20000);
-        P.fcall(function() {
-            return coretest.clear_test_nodes();
-        }).nodeify(done);
+        return coretest.clear_test_nodes();
     });
 
-    it('should run agents', function(done) {
+    mocha.it('should run agents', function() {
         // TODO
-        done();
     });
 
 });

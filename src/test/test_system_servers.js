@@ -1,15 +1,13 @@
-// make jshint ignore mocha globals
-/* global describe, it, before, after, beforeEach, afterEach */
-/* exported describe, it, before, after, beforeEach, afterEach */
 'use strict';
 
 // let _ = require('lodash');
 let P = require('../util/promise');
+var mocha = require('mocha');
 let assert = require('assert');
 let coretest = require('./coretest');
 let promise_utils = require('../util/promise_utils');
 
-describe('system servers', function() {
+mocha.describe('system_servers', function() {
 
     const PREFIX = 'coretest';
     const SYS = PREFIX + '-system';
@@ -25,9 +23,9 @@ describe('system servers', function() {
 
     let client = coretest.new_client();
 
-    it('works', function(done) {
+    mocha.it('works', function() {
         this.timeout(60000);
-        P.resolve()
+        return P.resolve()
             ///////////////
             //  ACCOUNT  //
             ///////////////
@@ -285,7 +283,6 @@ describe('system servers', function() {
                 name: POOL,
             }))
             .then(() => client.system.read_system())
-            .then(() => client.system.delete_system())
-            .nodeify(done);
+            .then(() => client.system.delete_system());
     });
 });

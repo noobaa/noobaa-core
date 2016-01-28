@@ -1,7 +1,7 @@
 'use strict';
 
-var api = require('../api');
-var dbg = require('../util/debug_module')(__filename);
+var api = require('../src/api');
+var dbg = require('../src/util/debug_module')(__filename);
 dbg.set_level(5);
 
 var bkt = process.argv[2];

@@ -1,44 +1,42 @@
-// make jshint ignore mocha globals
-/* global describe, it, before, after, beforeEach, afterEach */
-/* exported describe, it, before, after, beforeEach, afterEach */
 'use strict';
 
 // var _ = require('lodash');
 var P = require('../src/util/promise');
 var fs = require('fs');
 var path = require('path');
+var mocha = require('mocha');
 var rabin = require('./rabin');
 var Poly = require('./poly');
 var size_utils = require('../src/util/size_utils');
 var RandStream = require('../src/util/rand_stream');
 
 
-describe('rabin', function() {
+mocha.describe('rabin', function() {
 
     var PERF = process.env.RABIN_TEST_PERF;
 
-    it('rabin deg=16 on random stream', function(done) {
+    mocha.it('rabin deg=16 on random stream', function(done) {
         this.timeout(1000000);
         test_chunking(16).nodeify(done);
     });
 
-    it('rabin deg=31 on random stream', function(done) {
+    mocha.it('rabin deg=31 on random stream', function(done) {
         this.timeout(1000000);
         test_chunking(31).nodeify(done);
     });
 
     // TODO degree 32 still fails on bad calculations (overflowing single word)
-    it.skip('rabin deg=32 on random stream', function(done) {
+    mocha.it.skip('rabin deg=32 on random stream', function(done) {
         this.timeout(1000000);
         test_chunking(32).nodeify(done);
     });
 
-    it('rabin deg=63 on random stream', function(done) {
+    mocha.it('rabin deg=63 on random stream', function(done) {
         this.timeout(1000000);
         test_chunking(63).nodeify(done);
     });
 
-    it('test_rabin_file1', function(done) {
+    mocha.it('test_rabin_file1', function(done) {
         this.timeout(1000000);
         test_file('test_rabin_file1.txt').nodeify(done);
     });

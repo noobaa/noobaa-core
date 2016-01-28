@@ -1,19 +1,17 @@
-// make jshint ignore mocha globals
-/* global describe, it, before, after, beforeEach, afterEach */
-/* exported describe, it, before, after, beforeEach, afterEach */
 'use strict';
 
 var _ = require('lodash');
 var P = require('../util/promise');
+var mocha = require('mocha');
 // var assert = require('assert');
 var Prefetch = require('../util/prefetch');
 
 
-describe('prefetch', function() {
+mocha.describe('prefetch', function() {
 
-    it('should work', function(done) {
+    mocha.it('should work', function() {
         var pr;
-        P.fcall(function() {
+        return P.fcall(function() {
                 var id = 0;
                 pr = new Prefetch({
                     low_length: 30,
@@ -56,8 +54,7 @@ describe('prefetch', function() {
             .delay(10)
             .then(function() {
                 console.log('length', pr.length);
-            })
-            .nodeify(done);
+            });
     });
 
 });

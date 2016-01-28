@@ -1,22 +1,20 @@
-// make jshint ignore mocha globals
-/* global describe, it, before, after, beforeEach, afterEach */
-/* exported describe, it, before, after, beforeEach, afterEach */
 'use strict';
 
 // var _ = require('lodash');
 var P = require('../util/promise');
+var mocha = require('mocha');
 // var assert = require('assert');
 var size_utils = require('../util/size_utils');
 var coretest = require('./coretest');
 var os_util = require('../util/os_util');
 
-describe('node', function() {
+mocha.describe('node_server', function() {
 
     var client = coretest.new_client();
 
-    it('works', function(done) {
+    mocha.it('works', function() {
         this.timeout(20000);
-        P.resolve()
+        return P.resolve()
             .then(() => client.account.create_account({
                 name: 'test-node-system',
                 email: 'test-node-system@coretest.coretest',
@@ -38,12 +36,10 @@ describe('node', function() {
             // .then(() => client.node.read_node({
                 // name: 'haha'
             // }))
-            .then(() => client.node.list_nodes())
+            .then(() => client.node.list_nodes({}))
             .then(() => client.node.delete_node({
                 name: 'haha'
-            }))
-            .nodeify(done);
+            }));
     });
-
 
 });

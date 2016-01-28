@@ -1,6 +1,4 @@
 // make jshint ignore mocha globals
-/* global describe, it, before, after, beforeEach, afterEach */
-/* exported describe, it, before, after, beforeEach, afterEach */
 'use strict';
 
 var CORETEST_MONGODB_URL = 'mongodb://localhost/coretest';
@@ -10,6 +8,7 @@ process.env.JWT_SECRET = 'coretest';
 
 var _ = require('lodash');
 var P = require('../util/promise');
+var mocha = require('mocha');
 var mongoose = require('mongoose');
 var Semaphore = require('../util/semaphore');
 var api = require('../api');
@@ -39,7 +38,7 @@ let api_coverage = new Set();
 client.options = client.options || {};
 api.rpc.set_request_logger(console.info);
 
-before(function(done) {
+mocha.before('coretest-before', function(done) {
     _.each(api.rpc._services, (service, srv) => api_coverage.add(srv));
     client.options.tracker = req => api_coverage.delete(req.srv);
     P.fcall(() => db.mongoose_connect())
@@ -50,13 +49,25 @@ before(function(done) {
         .nodeify(done);
 });
 
-after(function() {
+var fail_on_incomplete_rpc_coverage = false;
+
+mocha.after('coretest-after', function() {
+    console.log('Database', CORETEST_MONGODB_URL, 'is intentionally',
+    'left for debugging and will be deleted before next test run');
+
+    var had_missing = false;
     for (let srv of api_coverage) {
         console.warn('API was not covered:', srv);
+        had_missing = true;
     }
-    console.log('Database', CORETEST_MONGODB_URL, 'is intentionally',
-        'left for debugging and will be deleted before next test run');
+    if (had_missing && fail_on_incomplete_rpc_coverage) {
+        throw new Error('INCOMPLETE RPC COVERAGE');
+    }
 });
+
+function check_incomplete_rpc_coverage() {
+    fail_on_incomplete_rpc_coverage = true;
+}
 
 
 // create some test nodes named 0, 1, 2, ..., count
@@ -125,6 +136,8 @@ module.exports = {
 
     init_test_nodes: init_test_nodes,
     clear_test_nodes: clear_test_nodes,
+
+    check_incomplete_rpc_coverage: check_incomplete_rpc_coverage,
 };
 
 //Expose Agent Control API via coretest

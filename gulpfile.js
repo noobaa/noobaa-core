@@ -115,7 +115,7 @@ var PATHS = {
 
     ngview: 'src/ngview/**/*',
     scripts: ['src/**/*.js', '*.js'],
-    test_scripts: 'src/**/test*.js',
+    test_all: 'src/test/all.js',
     html_scripts: [
         // 'src/views/adminoobaa.html'
     ],
@@ -749,7 +749,7 @@ gulp.task('mocha', function() {
         .pipe(gulp_istanbul())
         .pipe(gulp_istanbul.hookRequire()) // Force `require` to return covered files
         .on('finish', function() {
-            return gulp.src(PATHS.test_scripts, SRC_DONT_READ)
+            return gulp.src(PATHS.test_all, SRC_DONT_READ)
                 .pipe(gulp_mocha(mocha_options))
                 .pipe(gulp_istanbul.writeReports());
         });

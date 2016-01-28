@@ -1,15 +1,13 @@
-// make jshint ignore mocha globals
-/* global describe, it, before, after, beforeEach, afterEach */
-/* exported describe, it, before, after, beforeEach, afterEach */
 'use strict';
 
 var _ = require('lodash');
 var P = require('../util/promise');
+var mocha = require('mocha');
 var assert = require('assert');
 var RPC = require('../rpc/rpc');
 var RpcSchema = require('../rpc/rpc_schema');
 
-describe('RPC', function() {
+mocha.describe('RPC', function() {
 
     // init the test api
     var test_api = {
@@ -114,9 +112,9 @@ describe('RPC', function() {
     schema.register_api(test_api);
     schema.compile();
 
-    describe('schema.register_api', function() {
+    mocha.describe('schema.register_api', function() {
 
-        it('should detect api with bad method', function() {
+        mocha.it('should detect api with bad method', function() {
             assert.throws(function() {
                 var bad_schema = new RpcSchema();
                 bad_schema.register_api({
@@ -131,16 +129,16 @@ describe('RPC', function() {
 
     });
 
-    describe('register_service', function() {
+    mocha.describe('register_service', function() {
 
-        it('should work on empty server with allow_missing_methods', function() {
+        mocha.it('should work on empty server with allow_missing_methods', function() {
             var rpc = new RPC();
             rpc.register_service(test_api, {},  {
                 allow_missing_methods: true
             });
         });
 
-        it('should detect missing api func', function() {
+        mocha.it('should detect missing api func', function() {
             // check that missing functions are detected
             var rpc = new RPC();
             assert.throws(function() {
@@ -148,7 +146,7 @@ describe('RPC', function() {
             }, Error);
         });
 
-        it('should throw on duplicate service', function() {
+        mocha.it('should throw on duplicate service', function() {
             var rpc = new RPC();
             rpc.register_service(test_api, {}, {
                 peer: 17,
@@ -162,7 +160,7 @@ describe('RPC', function() {
             }, Error);
         });
 
-        it('should work on mock server', function() {
+        mocha.it('should work on mock server', function() {
             var rpc = new RPC();
             var server = {
                 get: function() {},
@@ -177,7 +175,7 @@ describe('RPC', function() {
     });
 
 
-    describe('test_api round trip', function() {
+    mocha.describe('test_api round trip', function() {
 
         // create a test for every api function
         _.each(test_api.methods, function(method_api, method_name) {
@@ -186,12 +184,12 @@ describe('RPC', function() {
                 base_address: 'fcall://fcall'
             });
 
-            describe(method_name, function() {
+            mocha.describe(method_name, function() {
 
                 var reply_error = false;
                 var client;
 
-                before(function() {
+                mocha.before(function() {
                     // init a server for the currently tested func.
                     // we use a dedicated server per func so that all the other funcs
                     // of the server return error in order to detect calling confusions.
@@ -213,25 +211,25 @@ describe('RPC', function() {
                     client = rpc.create_client(test_api);
                 });
 
-                it('should call and get reply', function(done) {
+                mocha.it('should call and get reply', function() {
                     reply_error = false;
-                    client[method_name](PARAMS).then(function(res) {
+                    return client[method_name](PARAMS).then(function(res) {
                         assert.deepEqual(res, REPLY);
                     }, function(err) {
                         console.log('UNEXPECTED ERROR', err, err.stack);
                         throw 'UNEXPECTED ERROR';
-                    }).nodeify(done);
+                    });
                 });
 
-                it('should call and get error', function(done) {
+                mocha.it('should call and get error', function() {
                     reply_error = true;
-                    client[method_name](PARAMS).then(function(res) {
+                    return client[method_name](PARAMS).then(function(res) {
                         console.log('UNEXPECTED REPLY', res);
                         throw 'UNEXPECTED REPLY';
                     }, function(err) {
                         assert.deepEqual(err.rpc_code, ERROR_CODE);
                         assert.deepEqual(err.message, ERROR_MESSAGE);
-                    }).nodeify(done);
+                    });
                 });
 
             });

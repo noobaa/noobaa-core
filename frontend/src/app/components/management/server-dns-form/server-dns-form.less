@@ -1,18 +1,6 @@
 server-dns-form {
 	display: block;
 
-	.collapsible {
-		overflow: hidden;
-		max-height: 1000px;
-		opacity: 1;
-		transition: all 350ms ease-in-out;		
-
-		&.collapsed {
-			opacity: .5;
-			max-height: 0;
-		}
-	}
-
 	.config {
 		display: inline-block;
 		background-color: @bg-color1;
@@ -25,4 +13,8 @@ server-dns-form {
 			vertical-align: middle;
 		}
 	}	
+
+	.summary {
+		margin-bottom: 0;
+	}
 }

@@ -56,7 +56,7 @@ class P2PFormViewModel {
 			this.errors.showAllMessages();
 
 		} else {
-			updateP2PConfig(
+			updateP2PSettings(
 				parseInt(this.rangeMin()), 
 				parseInt(this.rangeMax())
 			);

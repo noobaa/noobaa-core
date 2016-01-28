@@ -344,11 +344,11 @@ export function loadSystemInfo() {
 					version: reply.version,
 					endpoint: endpoint,
 					ipAddress: reply.ip_address,
-					dnsName: reply.dns_name,
 					port: reply.web_port,
 					sslPort: reply.ssl_port,
 					accessKey: access_key,
-					secretKey: secret_key
+					secretKey: secret_key,
+					P2PConfig: reply.n2n_config
 				});
 			}
 		)
@@ -1070,5 +1070,29 @@ export function testNode(source, testSet) {
 				}
 			)
 		)
+		.done();
+}
+
+export function updateP2PSettings(minPort, maxPort) {
+	logAction('updateP2PSettings', { minPort, maxPort });
+
+	let tcpPermanentPassive = minPort !== maxPort ? 
+		{ min: minPort, max: maxPort } :
+		{ port: minPort };
+
+	api.system.update_n2n_config({
+		tcp_permanent_passive: tcpPermanentPassive
+	})
+		.then(loadSystemInfo)
+		.done();
+}
+
+export function updateBaseAddress(baseAddress) {
+	logAction('updateDNSSettings', { useDNSResolution });
+
+	api.system.update_base_address({
+		base_address: baseAddress
+	})
+		.then(loadSystemInfo)
 		.done();
 }

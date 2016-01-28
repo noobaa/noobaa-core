@@ -61,10 +61,24 @@ hr {
 	border-top: 1px solid @bg-color3;
 }
 
+output {
+	margin-bottom: .5em;
+	margin-right: 1em;
+	line-height: 1.4;
+	padding: 1px 0;
+	border-bottom: 1px solid transparent;
+}
+
 :focus {
 	outline: @outline;
 	outline-offset: -1px;
 }	
+
+.no-outline {
+	&, &:focus {
+		outline: none;
+	}
+}
 
 ::-webkit-scrollbar  {
 	width: 10px;
@@ -257,7 +271,7 @@ input[type="search"] {
 	display: block;
 
 	+ .container {
-		margin-top: 3em;
+		margin-top: 2em;
 	}
 }
 
@@ -313,7 +327,7 @@ input[type="search"] {
 	padding: .75em 1em;
 
 	svg-icon {
-		margin-right: .5em;
+		//margin-right: .5em;
 	}
 
 	&[disabled] {
@@ -620,6 +634,10 @@ input[type="search"] {
 .bullet-list {
 	padding: 0 1em;	
 	line-height: 1.8;
+
+	ol& > li {
+		text-indent: .5em;
+	}
 }
 
 .action-line {
@@ -693,4 +711,45 @@ input[type="search"] {
 			}
 		}
 	}	
+}
+
+.labeled-field {
+	display: block;
+
+	.field {
+		display: inline-block;
+		margin-left: 1em;
+	}
+}
+
+.rotate {
+	transition: transform 250ms ease-out;
+	
+	&.deg0, &.deg360, &.deg-360 {
+		transform: rotate(0deg)	
+	}
+
+	&.deg90 {
+		transform: rotate(90deg)
+	}
+
+	&.deg180 {
+		transform: rotate(180deg)
+	}
+
+	&.deg270 {
+		transform: rotate(270deg)
+	}
+
+	&.deg-90 {
+		transform: rotate(-90deg)
+	}
+
+	&.deg-180 {
+		transform: rotate(-180deg)
+	}
+
+	&.deg-270 {
+		transform: rotate(-270deg)
+	}
 }

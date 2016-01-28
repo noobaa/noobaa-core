@@ -10,6 +10,30 @@
 			</section>
 		</li>
 
+		<li data-bind="css: { selected: isTabSelected('network') }">
+			<a class="tab-header" data-bind="href: '/fe/systems/:system/management/network'">
+				Network
+			</a>
+
+			<section class="tab-content">
+				<p2p-form class="container"></p2p-form>
+				
+				<hr class="seperator"/>
+
+				<server-dns-form class="container"></server-dns-form>
+			</section>
+		</li>		
+
+		<li data-bind="css: { selected: isTabSelected('versioning') }">
+			<a class="tab-header" data-bind="href: '/fe/systems/:system/management/versioning'">
+				Version &amp; Upgrade
+			</a>
+
+			<section class="tab-content">
+				this is the version tab
+			</section>
+		</li>
+
 		<!-- <li data-bind="css: { selected: isTabSelected('alerts') }">
 			<a class="tab-header" data-bind="href: '/fe/systems/:system/management/alerts'">
 				Alerts
@@ -19,16 +43,6 @@
 				this is the alerting tab
 			</section>
 		</li> -->
-
-		<li data-bind="css: { selected: isTabSelected('network') }">
-			<a class="tab-header" data-bind="href: '/fe/systems/:system/management/network'">
-				Network &amp; Security
-			</a>
-
-			<section class="tab-content">
-				this is the network tab
-			</section>
-		</li>		
 
 <!-- 		<li data-bind="css: { selected: isTabSelected('cluster') }">
 			<a class="tab-header" data-bind="href: '/fe/systems/:system/management/cluster'">

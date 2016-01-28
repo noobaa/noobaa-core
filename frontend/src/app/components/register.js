@@ -85,6 +85,8 @@ export default function register(ko) {
 	ko.components.register('management-panel',		require('./management/management-panel/management-panel'));
 	ko.components.register('accounts-table',		require('./management/accounts-table/accounts-table'));
 	ko.components.register('create-account-modal',	require('./management/create-account-modal/create-account-modal'));
+	ko.components.register('p2p-form',				require('./management/p2p-form/p2p-form'));
+	ko.components.register('server-dns-form',		require('./management/server-dns-form/server-dns-form'));	
 
 	// -------------------------------
 	// Admin

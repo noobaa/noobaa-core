@@ -165,8 +165,15 @@ export function makeArray(size, initializer) {
 	return array;
 }
 
-export function cloneArray(source) {
-	return new Array(...source);
+export function makeRange(start, count) {
+	if (!isDefined(count)) {
+		count = start;
+		start = 0;
+	}
+
+	let arr = makeArray(count);
+	for (let i = 0; i < count; arr[start + i++] = i);
+	return arr;
 }
 
 export function domFromHtml(html) {
@@ -197,4 +204,16 @@ export function execInOrder(list, executer) {
 	}
 
 	return result;
+}
+
+export function defineEnum(...values) {
+	return Object.freeze(
+		values.reduce(
+			(enm, val) => {
+				enm[val.toString()] = val;
+				return val;
+			},
+			{}
+		)
+	);
 }

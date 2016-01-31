@@ -1,17 +1,40 @@
 <h1 class="heading2">Noobaa Storage Solution</h1>
 
-<label class="labeled-field container">
+<p class="container">
 	Current Version: 
-	<output data-bind="value: version"></output>
-</label>
+	<output class="text-tech emphasized" data-bind="value: version"></output>
+</p>
 
 
 
 <section class="container">
-	<!-- <h2 class="heading3">Upgrade Version</h2> -->
-	<file-selector params="message: 'Drag Update Package Here'"></file-selector>	
+	<h2 class="heading3">Upgrade Version</h2>
+	<p class="paragraph">The uprgading process may take a few minuets to complete.</p>
+	<file-selector params="
+		message: 'Drag an upgrade package here',
+		onFilesReady: files => upgrade(files)
+	"></file-selector>
 </section>
 
 <div class="remark container">
 	&copy; 2016 NooBaa Ltd, All rights reserved. 
 </div>
+
+<!-- ko if: isUpgradingModalVisible -->
+<modal class="upgrading-modal">
+	<h1 class="heading2">
+		Upgrade In Progress 
+	</h1>
+	
+	<p class="container text-center heading3">
+		Hold your horses! We are upgrading your system.
+	</p>
+	
+	<div class="progress-bar container" data-bind="foreach: progressSteps">
+		<!-- ko if: $data -->
+		<svg-icon params="uri: '/fe/assets/icons.svg#logo'"></svg-icon>
+		<!-- /ko -->
+	</div>
+	<div class="text-center heading3" data-bind="text: progressText"></div>
+</modal>
+<!-- /ko -->

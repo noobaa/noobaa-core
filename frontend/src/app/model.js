@@ -98,6 +98,9 @@ auditLog.loadedCategories = ko.observable();
 // Hold the current account list
 export let accountList = ko.observableArray();
 
-
+// Hold node test results.
 export let nodeTestResults = ko.observableArray();
 nodeTestResults.timestemp = ko.observable();
+
+// hold system upgrade progress.
+export let upgradeProgress = ko.observable();

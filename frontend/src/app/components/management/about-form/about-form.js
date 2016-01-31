@@ -1,6 +1,9 @@
 import template from './about-form.html';
 import ko from 'knockout';
-import { systemInfo } from 'model';
+import numeral from 'numeral';
+import { makeArray } from 'utils';
+import { systemInfo, upgradeProgress } from 'model';
+import { upgradeSystem } from 'actions';
 
 
 class AboutFormViewModel {
@@ -8,10 +11,24 @@ class AboutFormViewModel {
 		this.version = ko.pureComputed(
 			() => systemInfo() && systemInfo().version 
 		);
+
+		this.isUpgradingModalVisible = ko.observable(false)
+
+		this.progressText = ko.pureComputed(
+			() => numeral(upgradeProgress()).format('0%')
+		);
+
+		this.progressSteps = makeArray(
+			10, 
+			i => ko.pureComputed(
+				() =>  i === 0 ? true : !!(upgradeProgress() * 10 / (i) | 0)
+			)
+		);
 	}
 
-	upgrade() {
-		
+	upgrade(upgradePackage) {
+		this.isUpgradingModalVisible(true);
+		upgradeSystem(upgradePackage);
 	}
 }
 

@@ -71,11 +71,18 @@ export function refresh() {
 
 	let { pathname, search } = window.location;
 	
-	// Reload the current path
+	// Refresh the current path
 	page.redirect(pathname + search);
 
 
 	model.refreshCounter(model.refreshCounter() + 1);
+}
+
+export function reload() {
+	logAction('reload');
+
+	// Force a full page reload on the browser.
+	window.location.reload(true);
 }
 
 // -----------------------------------------------------
@@ -340,6 +347,7 @@ export function loadSystemInfo() {
 				let { access_key, secret_key } = reply.access_keys[0];
 
 				model.systemInfo({
+					status: 'active',
 					name: reply.name,
 					version: reply.version,
 					endpoint: endpoint,
@@ -1095,4 +1103,46 @@ export function updateBaseAddress(baseAddress) {
 	})
 		.then(loadSystemInfo)
 		.done();
+}
+
+export function upgradeSystem(upgradePackage) {
+	logAction('upgradeSystem', { upgradePackage });
+
+	console.log('here 1');
+
+	let { upgradeProgress } = model;
+
+	upgradeProgress(0);
+
+	let formData = new FormData();
+	formData.append('upgradePackage', upgradePackage);
+
+	let request = new XMLHttpRequest();
+	request.open('POST', '/upgrade', true);
+
+	request.addEventListener(
+		'progress',
+		evt => upgradeProgress(
+			evt.lengthComputable && evt.loaded / evt.total
+		)
+	);
+
+	request.addEventListener(
+		'load',
+		() => req.status === 200 ? 
+			reload() : 
+			console.error('failure')
+	);
+
+	request.addEventListener(
+		'error',
+		() => console.error('error')
+	);
+
+	request.addEventListener(
+		'abort',
+		() => console.warn('canceled')
+	);
+	
+	request.send(formData);
 }

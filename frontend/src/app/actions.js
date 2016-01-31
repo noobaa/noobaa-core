@@ -1108,14 +1108,11 @@ export function updateBaseAddress(baseAddress) {
 export function upgradeSystem(upgradePackage) {
 	logAction('upgradeSystem', { upgradePackage });
 
-	console.log('here 1');
-
 	let { upgradeProgress } = model;
-
 	upgradeProgress(0);
 
 	let formData = new FormData();
-	formData.append('upgradePackage', upgradePackage);
+	formData.append('upgrade_file', upgradePackage);
 
 	let request = new XMLHttpRequest();
 	request.open('POST', '/upgrade', true);
@@ -1129,19 +1126,19 @@ export function upgradeSystem(upgradePackage) {
 
 	request.addEventListener(
 		'load',
-		() => req.status === 200 ? 
+		evt => request.status === 200 ? 
 			reload() : 
-			console.error('failure')
+			console.error('upload failure', evt.target)
 	);
 
 	request.addEventListener(
 		'error',
-		() => console.error('error')
+		evt => console.error('upload error', evt)
 	);
 
 	request.addEventListener(
 		'abort',
-		() => console.warn('canceled')
+		evt => console.warn('upload canceled', evt)
 	);
 	
 	request.send(formData);

@@ -87,6 +87,7 @@ export default function register(ko) {
 	ko.components.register('create-account-modal',	require('./management/create-account-modal/create-account-modal'));
 	ko.components.register('p2p-form',				require('./management/p2p-form/p2p-form'));
 	ko.components.register('server-dns-form',		require('./management/server-dns-form/server-dns-form'));	
+	ko.components.register('about-form',			require('./management/about-form/about-form'));	
 
 	// -------------------------------
 	// Admin
@@ -116,4 +117,5 @@ export default function register(ko) {
 	ko.components.register('tray',				require('./shared/tray/tray'));	
 	ko.components.register('tiled-select',		require('./shared/tiled-select/tiled-select'));	
 	ko.components.register('delete-button',		require('./shared/delete-button/delete-button'));	
+	ko.components.register('file-selector',		require('./shared/file-selector/file-selector'));	
 }

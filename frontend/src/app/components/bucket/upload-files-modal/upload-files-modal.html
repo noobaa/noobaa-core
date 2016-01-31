@@ -1,27 +1,8 @@
 <modal>
 	<h1 class="heading2">Upload Files</h1>
 
-	<section class="file-drop-area container text-center" data-bind="
-		css: { dragover: !!dragCounter() },
-		event: { 
-			dragenter: dragEnter,
-			dragleave: dragLeave,
-			dragover: () => false,
-			drop: (_, evt) => drop(evt.dataTransfer.files)
-		}
-	">
-		<p class="dnd-msg paragraph">Drag Here</p>
-		
-		<div class="method-seperator">OR</div>
-
-		<label class="browse-btn btn3">
-			Browse
-
-			<input type="file" multiple data-bind="event: { 
-				change: (_, evt) => upload(evt.target.files) 
-			}"/>
-		</label>
-	</section>
+	<file-selector class="container" params="onFilesReady: files => upload(files)">
+	</file-selector>
 
 	<section class="container">
 		<h2 class="heading3 text-left">Recently Uploaded</h2>	

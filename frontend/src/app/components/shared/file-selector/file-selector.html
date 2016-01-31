@@ -1,0 +1,22 @@
+<div class="drop-area text-center" data-bind="
+		css: { dragover: !!dragCounter() },
+		event: { 
+			dragenter: dragEnter,
+			dragleave: dragLeave,
+			dragover: () => false,
+			drop: (_, evt) => drop(evt)
+		}
+	">
+
+	<p class="drop-message paragraph" data-bind="text: message"></p>
+	
+	<div class="method-seperator">OR</div>
+	
+	<label class="browse-btn btn3">
+		Browse
+
+		<input type="file" multiple data-bind="event: { 
+			change: (_, evt) => onFilesReady(evt.target.files) 
+		}"/>
+	</label>
+</div>

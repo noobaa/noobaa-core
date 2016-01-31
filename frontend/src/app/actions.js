@@ -1108,38 +1108,58 @@ export function updateBaseAddress(baseAddress) {
 export function upgradeSystem(upgradePackage) {
 	logAction('upgradeSystem', { upgradePackage });
 
-	let { upgradeProgress } = model;
-	upgradeProgress(0);
+	let { upgradeStatus } = model;
+	upgradeStatus({
+		state: 'UPLOADING',
+		uploadProgress: 0
+	});
+
+	let xhr = new XMLHttpRequest();
+	//xhr.open('POST', `http://${endpoint}:5001/upgrade`, true);
+	xhr.open('POST', '/upgrade', true);
+
+	xhr.upload.onprogress = function(evt) {
+		upgradeStatus({
+			state: 'UPLOADING',
+			uploadProgress: evt.lengthComputable && evt.loaded / evt.total
+		})
+	};
+
+	xhr.onload = function(evt) {
+		if (xhr.status === 200) {
+			upgradeStatus({
+				state: 'UPGRADING',
+				uploadProgress: 1
+			});
+
+			setTimeout(reload, 2500);
+
+		} else {
+			upgradeStatus({
+				state: 'UPLOAD_FAILD',
+			});
+
+			console.error('Uploading upgrade package failed', evt.target)
+		}		
+	};
+
+	xhr.onerror = function(evt) {
+		upgradeStatus({
+			state: 'UPLOAD_FAILD',
+		});
+
+		console.error('Uploading upgrade package failed', evt.target)
+	};
+
+	xhr.onabort = function(evt) {
+		upgradeStatus({
+			state: 'UPLOAD_FAILD',
+		});
+
+		console.warn('Uploading upgrade package aborted', evt)
+	};
 
 	let formData = new FormData();
 	formData.append('upgrade_file', upgradePackage);
-
-	let request = new XMLHttpRequest();
-	request.open('POST', '/upgrade', true);
-
-	request.addEventListener(
-		'progress',
-		evt => upgradeProgress(
-			evt.lengthComputable && evt.loaded / evt.total
-		)
-	);
-
-	request.addEventListener(
-		'load',
-		evt => request.status === 200 ? 
-			reload() : 
-			console.error('upload failure', evt.target)
-	);
-
-	request.addEventListener(
-		'error',
-		evt => console.error('upload error', evt)
-	);
-
-	request.addEventListener(
-		'abort',
-		evt => console.warn('upload canceled', evt)
-	);
-	
-	request.send(formData);
-}
+	xhr.send(formData);
+}	

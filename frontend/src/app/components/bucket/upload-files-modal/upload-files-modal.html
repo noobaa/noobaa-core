@@ -1,8 +1,10 @@
 <modal>
 	<h1 class="heading2 container">Upload Files</h1>
 
-	<file-selector class="container" params="onFilesReady: files => upload(files)">
-	</file-selector>
+	<file-selector class="container" params="
+		allowMultiSelect: true,
+		onFilesReady: files => upload(files)
+	"></file-selector>
 
 	<section class="container">
 		<h2 class="heading3 text-left">Recently Uploaded</h2>	

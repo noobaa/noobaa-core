@@ -102,5 +102,5 @@ export let accountList = ko.observableArray();
 export let nodeTestResults = ko.observableArray();
 nodeTestResults.timestemp = ko.observable();
 
-// hold system upgrade progress.
-export let upgradeProgress = ko.observable();
+// hold system upgrade status.
+export let upgradeStatus = ko.observable();

@@ -3,10 +3,11 @@ import ko from 'knockout';
 import { noop } from 'utils';
 
 class FileSelectorViewModel {
-	constructor({ onFilesReady = noop, message = 'Drag Here' }) {
-		this.dragCounter = ko.observable(0);
+	constructor({ onFilesReady = noop, allowMultiSelect = false, message = 'Drag Here' }) {
 		this.onFilesReady = onFilesReady;
+		this.allowMultiSelect = allowMultiSelect
 		this.message = message;
+		this.dragCounter = ko.observable(0);		
 	}
 
 	dragEnter() {
@@ -23,9 +24,17 @@ class FileSelectorViewModel {
 		return false;
 	}
 
-	drop({ dataTransfer }) {
+	drop(files) {
 		this.dragCounter(0);
-		this.onFilesReady(dataTransfer.files);
+		this.onFilesReady(
+			ko.unwrap(this.allowMultiSelect) ? files : files[0]
+		);
+	}
+
+	select(files) {
+		this.onFilesReady(
+			ko.unwrap(this.allowMultiSelect) ? files : files[0]
+		);
 	}
 }
 

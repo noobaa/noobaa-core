@@ -2,7 +2,7 @@ import template from './about-form.html';
 import ko from 'knockout';
 import numeral from 'numeral';
 import { makeArray } from 'utils';
-import { systemInfo, upgradeProgress } from 'model';
+import { systemInfo, upgradeStatus } from 'model';
 import { upgradeSystem } from 'actions';
 
 
@@ -13,6 +13,10 @@ class AboutFormViewModel {
 		);
 
 		this.isUpgradingModalVisible = ko.observable(false)
+
+		let upgradeProgress = ko.pureComputed(
+			() => upgradeStatus() ? upgradeStatus().uploadProgress : 0
+		);
 
 		this.progressText = ko.pureComputed(
 			() => numeral(upgradeProgress()).format('0%')

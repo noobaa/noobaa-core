@@ -23,7 +23,7 @@ Clazz.prototype.measure = function() {
         }
         process.stdout.write('.');
         now = Date.now();
-        if (now - start > 5000) {
+        if (now - start > 2000) {
             process.stdout.write('\n');
             break;
         }
@@ -31,24 +31,24 @@ Clazz.prototype.measure = function() {
     console.log('Calls per second', (count * 1000 / (now - start)).toFixed(1));
 };
 
-console.log('BIND');
+console.log('\nBIND');
 var binded = new Clazz();
 binded.func = binded.func.bind(binded);
 binded.measure();
 
-console.log('LODASH');
+console.log('\nLODASH (_.bindAll)');
 var lodasher = new Clazz();
 _.bindAll(lodasher);
 binded.measure();
 
-console.log('CLOSURE');
+console.log('\nCLOSURE');
 var closure = new Clazz();
 closure.func = function() {
     return Clazz.prototype.func.apply(closure, arguments);
 };
 closure.measure();
 
-console.log('SELF BIND');
+console.log('\nSELF BIND (js_utils.self_bind)');
 var selfbind = new Clazz();
 js_utils.self_bind(selfbind);
 selfbind.measure();

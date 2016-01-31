@@ -44,6 +44,7 @@ var P = require('../util/promise');
 
 function new_bucket_defaults(name, system_id, tiering_policy_id) {
     return {
+        _id: system_store.generate_id(),
         name: name,
         system: system_id,
         tiering: tiering_policy_id,
@@ -78,6 +79,7 @@ function create_bucket(req) {
             buckets: [bucket]
         }
     }).then(function() {
+        req.load_auth();
         var created_bucket = find_bucket(req);
         return get_bucket_info(created_bucket);
     });
@@ -164,7 +166,7 @@ function delete_bucket(req) {
         })
         .then(function() {
             return P.when(bg_worker.cloud_sync.refresh_policy({
-                sysid: req.system._id,
+                sysid: req.system._id.toString(),
                 bucketid: bucket._id.toString(),
                 force_stop: true,
             }));
@@ -199,8 +201,8 @@ function get_cloud_sync_policy(req, bucket) {
         return {};
     }
     return P.when(bg_worker.cloud_sync.get_policy_status({
-            sysid: bucket.system._id,
-            bucketid: bucket._id
+            sysid: bucket.system._id.toString(),
+            bucketid: bucket._id.toString()
         }))
         .then(function(stat) {
             return {
@@ -232,8 +234,8 @@ function get_all_cloud_sync_policies(req) {
     return P.all(_.map(req.system.buckets_by_name, function(bucket) {
         if (!bucket.cloud_sync.endpoint) return;
         return bg_worker.cloud_sync.get_policy_status({
-                sysid: req.system._id,
-                bucketid: bucket._id
+                sysid: req.system._id.toString(),
+                bucketid: bucket._id.toString()
             })
             .then(function(stat) {
                 reply.push({
@@ -274,8 +276,8 @@ function delete_cloud_sync(req) {
         })
         .then(function() {
             return bg_worker.cloud_sync.refresh_policy({
-                sysid: req.system._id,
-                bucketid: bucket._id,
+                sysid: req.system._id.toString(),
+                bucketid: bucket._id.toString(),
                 force_stop: true,
             });
         })
@@ -333,8 +335,8 @@ function set_cloud_sync(req) {
         })
         .then(function() {
             return bg_worker.cloud_sync.refresh_policy({
-                sysid: req.system._id,
-                bucketid: bucket._id,
+                sysid: req.system._id.toString(),
+                bucketid: bucket._id.toString(),
                 force_stop: force_stop,
             });
         })
@@ -386,10 +388,12 @@ function find_bucket(req) {
 
 function get_bucket_info(bucket, objects_aggregate, nodes_aggregate_pool, cloud_sync_policy) {
     var info = _.pick(bucket, 'name');
+    objects_aggregate = objects_aggregate || {};
     var objects_aggregate_bucket = objects_aggregate[bucket._id] || {};
     if (bucket.tiering) {
         info.tiering = tier_server.get_tiering_policy_info(bucket.tiering, nodes_aggregate_pool);
     }
+
     info.num_objects = objects_aggregate_bucket.count || 0;
     info.storage = size_utils.to_bigint_storage({
         used: objects_aggregate_bucket.size || 0,

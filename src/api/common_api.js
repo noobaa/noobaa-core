@@ -9,9 +9,7 @@
  */
 module.exports = {
 
-    name: 'common_api',
-
-    methods: {},
+    id: 'common_api',
 
     definitions: {
 
@@ -20,23 +18,23 @@ module.exports = {
             // required: [],
             properties: {
                 total: {
-                    $ref: '/common_api/definitions/bigint'
+                    $ref: '#/definitions/bigint'
                 },
                 free: {
-                    $ref: '/common_api/definitions/bigint'
+                    $ref: '#/definitions/bigint'
                 },
                 used: {
-                    $ref: '/common_api/definitions/bigint'
+                    $ref: '#/definitions/bigint'
                 },
                 alloc: {
-                    $ref: '/common_api/definitions/bigint'
+                    $ref: '#/definitions/bigint'
                 },
                 limit: {
-                    $ref: '/common_api/definitions/bigint'
+                    $ref: '#/definitions/bigint'
                 },
                 // real - after calculating dedup reduction or redundancy overheads
                 real: {
-                    $ref: '/common_api/definitions/bigint'
+                    $ref: '#/definitions/bigint'
                 },
             }
         },
@@ -52,7 +50,7 @@ module.exports = {
                     type: 'string'
                 },
                 storage: {
-                    $ref: '/common_api/definitions/storage_info'
+                    $ref: '#/definitions/storage_info'
                 },
             }
         },
@@ -153,13 +151,13 @@ module.exports = {
                     type: 'boolean'
                 },
                 tcp_permanent_passive: {
-                    $ref: '/common_api/definitions/port_range_config'
+                    $ref: '#/definitions/port_range_config'
                 },
                 tcp_transient_passive: {
-                    $ref: '/common_api/definitions/port_range_config'
+                    $ref: '#/definitions/port_range_config'
                 },
                 tcp_simultaneous_open: {
-                    $ref: '/common_api/definitions/port_range_config'
+                    $ref: '#/definitions/port_range_config'
                 },
                 tcp_tls: {
                     type: 'boolean'

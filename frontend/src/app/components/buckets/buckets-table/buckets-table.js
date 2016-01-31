@@ -1,17 +1,16 @@
 import template from './buckets-table.html'
 import BucketRowViewModel from './bucket-row';
 import ko from 'knockout';
-import { stringifyQueryString, makeArray } from 'utils';
-import page from 'page';
+import { makeArray } from 'utils';
+import { redirectTo } from 'actions';
 
 const maxRows = 100;
 
 class BucketsTableViewModel {
 	constructor({ buckets }) {
-		let deleteCandidate = ko.observable();			
 		let rows = makeArray(
 			maxRows, 
-			i => new BucketRowViewModel(() => buckets()[i], deleteCandidate)
+			i => new BucketRowViewModel(() => buckets()[i])
 		);
 
 		this.sortedBy = buckets.sortedBy;
@@ -19,15 +18,15 @@ class BucketsTableViewModel {
 		this.visibleRows = ko.pureComputed(
 			() => rows.filter(row => row.isVisible())
 		)
+
+		this.deleteGroup = ko.observable();
 	}
 
 	orderBy(colName) {
-		let query = stringifyQueryString({
+		redirectTo(undefined, {
 			sortBy: colName,
 			order: this.sortedBy() === colName ? 0 - this.order() : 1
 		});
-
-		page.show(`${window.location.pathname}?${query}`);
 	}
 
 	orderClassFor(colName) {

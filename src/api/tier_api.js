@@ -9,7 +9,7 @@
  */
 module.exports = {
 
-    name: 'tier_api',
+    id: 'tier_api',
 
     methods: {
 
@@ -24,10 +24,10 @@ module.exports = {
                         type: 'string',
                     },
                     pools: {
-                        $ref: '/tier_api/definitions/pool_info'
+                        $ref: '#/definitions/pool_info'
                     },
                     data_placement: {
-                        $ref: '/tier_api/definitions/data_placement_enum'
+                        $ref: '#/definitions/data_placement_enum'
                     },
                     replicas: {
                         type: 'integer',
@@ -41,7 +41,7 @@ module.exports = {
                 }
             },
             reply: {
-                $ref: '/tier_api/definitions/tier_info'
+                $ref: '#/definitions/tier_info'
             },
             auth: {
                 system: 'admin'
@@ -61,7 +61,7 @@ module.exports = {
                 }
             },
             reply: {
-                $ref: '/tier_api/definitions/tier_info'
+                $ref: '#/definitions/tier_info'
             },
             auth: {
                 system: 'admin'
@@ -82,10 +82,10 @@ module.exports = {
                         type: 'string',
                     },
                     pools: {
-                        $ref: '/tier_api/definitions/pool_info'
+                        $ref: '#/definitions/pool_info'
                     },
                     data_placement: {
-                        $ref: '/tier_api/definitions/data_placement_enum'
+                        $ref: '#/definitions/data_placement_enum'
                     },
                     replicas: {
                         type: 'integer',
@@ -140,10 +140,10 @@ module.exports = {
                     type: 'string',
                 },
                 pools: {
-                    $ref: '/tier_api/definitions/pool_info'
+                    $ref: '#/definitions/pool_info'
                 },
                 data_placement: {
-                    $ref: '/tier_api/definitions/data_placement_enum'
+                    $ref: '#/definitions/data_placement_enum'
                 },
                 replicas: {
                     type: 'integer',
@@ -155,7 +155,7 @@ module.exports = {
                     type: 'integer',
                 },
                 storage: {
-                    $ref: '/common_api/definitions/storage_info'
+                    $ref: 'common_api#/definitions/storage_info'
                 },
             }
         },

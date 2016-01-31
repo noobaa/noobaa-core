@@ -8,13 +8,13 @@ export default [
 	},
 	{
 		validator: ko.validation.rules.minLength.validator,
-		message: 'Name must be between 3 and 36 characters',
+		message: 'Name must be between 3 and 63 characters',
 		params: 3
 	},
 	{
 		validator: ko.validation.rules.maxLength.validator,
-		message: 'Name must be between 3 and 36 characters',
-		params: 36
+		message: 'Name must be between 3 and 63 characters',
+		params: 63
 	},
 	{ 
 		validator: name => !name.includes('..'),
@@ -23,10 +23,6 @@ export default [
 	{
 		validator: name => !name.includes('.-') && !name.includes('-.'),
 		message: 'Name cannot contain dashes next to periods'
-	},
-	{
-		validator: name => name === name.toLowerCase(),
-		message: 'Name cannot contain uppercase characters'
 	},
 	{
 		validator: name => !/\s/.test(name),
@@ -40,6 +36,10 @@ export default [
 		validator: name => !/^\d+\.\d+\.\d+\.\d+$/.test(name),
 		message: 'Name cannot be in the form of an IP address'
 	},
+	{
+		validator: name => /^[a-z0-9.-]*$/.test(name),
+		message: 'Name can contain only lowercase letters, numbers, dashes and dots'
+	},	
 	{
 		validator: name => bucketList().every(bucket => bucket.name !== name),
 		message: 'A bucket with the same name already exist'

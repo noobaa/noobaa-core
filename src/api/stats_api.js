@@ -8,14 +8,14 @@
  */
 module.exports = {
 
-    name: 'stats_api',
+    id: 'stats_api',
 
     methods: {
 
         get_systems_stats: {
             method: 'GET',
             reply: {
-                $ref: '/stats_api/definitions/systems_stats'
+                $ref: '#/definitions/systems_stats'
             },
             auth: {
                 system: 'admin'
@@ -25,7 +25,7 @@ module.exports = {
         get_nodes_stats: {
             method: 'GET',
             reply: {
-                $ref: '/stats_api/definitions/nodes_stats'
+                $ref: '#/definitions/nodes_stats'
             },
             auth: {
                 system: 'admin'
@@ -35,7 +35,7 @@ module.exports = {
         get_ops_stats: {
             method: 'GET',
             reply: {
-                $ref: '/stats_api/definitions/ops_stats'
+                $ref: '#/definitions/ops_stats'
             },
             auth: {
                 system: 'admin'
@@ -45,7 +45,7 @@ module.exports = {
         get_all_stats: {
             method: 'GET',
             reply: {
-                $ref: '/stats_api/definitions/all_stats'
+                $ref: '#/definitions/all_stats'
             },
             auth: {
                 system: 'admin'
@@ -198,19 +198,19 @@ module.exports = {
             equired: ['systems_stats', 'nodes_stats', 'ops_stats'],
             properties: {
                 systems_stats: {
-                    $ref: '/stats_api/definitions/systems_stats'
+                    $ref: '#/definitions/systems_stats'
                 },
                 nodes_stats: {
-                    $ref: '/stats_api/definitions/nodes_stats'
+                    $ref: '#/definitions/nodes_stats'
                 },
                 ops_stats: {
-                    $ref: '/stats_api/definitions/ops_stats'
+                    $ref: '#/definitions/ops_stats'
                 },
                 pools_stats: {
-                    $ref: '/stats_api/definitions/pools_stats'
+                    $ref: '#/definitions/pools_stats'
                 },
                 tier_stats: {
-                    $ref: '/stats_api/definitions/tier_stats'
+                    $ref: '#/definitions/tier_stats'
                 },
             }
         },

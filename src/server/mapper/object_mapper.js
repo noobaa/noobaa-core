@@ -25,8 +25,6 @@ module.exports = {
     set_multipart_part_md5: set_multipart_part_md5,
     delete_object_mappings: delete_object_mappings,
     report_bad_block: report_bad_block,
-    chunks_and_objects_count: chunks_and_objects_count
-
 };
 
 var _ = require('lodash');
@@ -96,7 +94,7 @@ function finalize_object_parts(bucket, obj, parts) {
                     return p.chunk;
                 });
             }));
-            var chunk_by_id = _.indexBy(chunks, '_id');
+            var chunk_by_id = _.keyBy(chunks, '_id');
             _.each(blocks, function(block) {
                 if (!block.building) {
                     dbg.warn("ERROR block not in building mode ", block);
@@ -591,7 +589,7 @@ function delete_object_mappings(obj) {
             //Mark parts as deleted
             return db.ObjectPart.collection.updateMany({
                 _id: {
-                    $in: _.pluck(parts, '_id')
+                    $in: _.map(parts, '_id')
                 }
             }, {
                 $set: {
@@ -601,7 +599,7 @@ function delete_object_mappings(obj) {
         })
         .then(function() {
             var chunks = _.map(deleted_parts, 'chunk');
-            all_chunk_ids = _.pluck(chunks, '_id');
+            all_chunk_ids = _.map(chunks, '_id');
             //For every chunk, verify if its no longer referenced
             return db.ObjectPart.collection.find({
                 chunk: {
@@ -731,29 +729,6 @@ function report_bad_block(params) {
         });
 }
 
-/**
- *
- * chunks_and_objects_count
- *
- */
-function chunks_and_objects_count(systemid) {
-    return P.join(
-            db.DataChunk.collection.count({
-                system: systemid,
-                deleted: null,
-            }),
-            db.ObjectMD.collection.count({
-                system: systemid,
-                deleted: null,
-            })
-        )
-        .spread(function(chunks_num, objects_num) {
-            return {
-                chunks_num: chunks_num,
-                objects_num: objects_num,
-            };
-        });
-}
 
 // UTILS //////////////////////////////////////////////////////////
 

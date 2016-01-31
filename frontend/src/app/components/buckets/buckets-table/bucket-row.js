@@ -19,76 +19,65 @@ const cloudSyncStatusMapping = Object.freeze({
 });
 
 export default class BucketRowViewModel {
-	constructor(bucket, deleteCandidate) {
+	constructor(bucket) {
 		this.isVisible = ko.pureComputed( 
 			() => !!bucket()
 		);
 
-		this.isDisabled = ko.pureComputed(
-			() => isDefined(bucket().placeholder)
-		);
-
 		this.stateIcon = ko.pureComputed(
-			() => stateIconMapping[bucket().state || true]
+			() => this.isVisible() && stateIconMapping[bucket().state || true]
 		);
 
 		this.name = ko.pureComputed(
-			() => bucket().name
+			() => this.isVisible() && bucket().name
 		);
 
 		this.href = ko.pureComputed(
-			() => this.isDisabled() ? '' : `/fe/systems/:system/buckets/${bucket().name}`
+			() => this.isVisible() && `/fe/systems/:system/buckets/${bucket().name}`
 		);
 
 		this.fileCount = ko.pureComputed(
 			() => {
-				let count = bucket().num_objects;
-				return isDefined(count) ? numeral(count).format('0,0') : 'N/A';
+				if (this.isVisible()) {
+					let count = bucket().num_objects;
+					return isDefined(count) ? numeral(count).format('0,0') : 'N/A';					
+				}
+
 			}
 		);
 
 		this.totalSize = ko.pureComputed(
 			() => {
-				let storage = bucket().storage;
-				return isDefined(storage) ? formatSize(storage.total) : 'N/A';
+				if (this.isVisible()) {				
+					let storage = bucket().storage;
+					return isDefined(storage) ? formatSize(storage.total) : 'N/A';
+				}
 			}
 		);
 
 		this.freeSize = ko.pureComputed(
 			() => {
-				let storage = bucket().storage;
-				return isDefined(storage) ? formatSize(storage.free) : 'N/A';
+				if (this.isVisible()) {
+					let storage = bucket().storage;
+					return isDefined(storage) ? formatSize(storage.free) : 'N/A';
+				}
 			}
 		);
 
 		this.cloudSyncStatus = ko.pureComputed(
-			() => cloudSyncStatusMapping[bucket().cloud_sync_status]
+			() => this.isVisible() && cloudSyncStatusMapping[bucket().cloud_sync_status]
 		);
 
-		this.allowDelete = ko.pureComputed(
-			() => !this.isDisabled() && bucket().num_objects === 0
+		this.isDeletable = ko.pureComputed(
+			() => this.isVisible() && bucket().num_objects === 0
 		);
 
-		this.isDeleteCandidate = ko.pureComputed({
-			read: () => deleteCandidate() === this,
-			write: value => value ? deleteCandidate(this) : deleteCandidate(null)
-		});
-
-		this.deleteIcon = ko.pureComputed(
-			() => `/fe/assets/icons.svg#trash-${
-				this.allowDelete() ? 
-					(this.isDeleteCandidate() ? 'opened' : 'closed') : 
-					'disabled'
-			}`
-		);
-
-		this.deleteTooltip = ko.pureComputed( 
-			() => this.allowDelete() ? 'delete bucket' : 'bucket is not empty'
+		this.deleteToolTip = ko.pureComputed(
+			() => this.isDeletable() ? 'delete bucket' : 'bucket not empty'
 		);
 	}
 
-	delete() {
+	del() {
 		deleteBucket(this.name());
-		this.isDeleteCandidate(false);
 	}
 }

@@ -52,7 +52,7 @@ class BucketSummrayViewModel {
 		]
 
 		this.policy = ko.pureComputed(
-			() => bucket().tiering[0].name
+			() => bucket().tiering
 		);
 
 		this.isPolicyModalVisible = ko.observable(false);

@@ -24,6 +24,7 @@ api_schema.register_api(require('./redirector_api'));
 api_schema.register_api(require('./tiering_policy_api'));
 api_schema.register_api(require('./pool_api'));
 api_schema.register_api(require('./cluster_api'));
+api_schema.compile();
 
 function new_rpc(options) {
     options = options || {};

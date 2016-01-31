@@ -54,7 +54,15 @@
 				<td class="offline-nodes-col" data-bind="text: offlineCount"></td>
 				<td class="usage-col" data-bind="text: usage"></td>
 				<td class="capacity-col" data-bind="text: capacity"></td>
-				<td></td>
+				
+				<td class="delete-col">
+					<delete-button params="
+						group: $component.deleteGroup,
+						disabled: !isDeletable(),
+						onDelete: () => del(),
+						toolTip: deleteToolTip
+					"></delete-button>
+				</td>
 			</tr>
 		</tbody>
 	</table>

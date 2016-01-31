@@ -68,6 +68,7 @@ export default function register(ko) {
 	ko.components.register('pool-panel', 		require('./pool/pool-panel/pool-panel'));
 	ko.components.register('pool-summary', 		require('./pool/pool-summary/pool-summary'));
 	ko.components.register('pool-nodes-table', 	require('./pool/pool-nodes-table/pool-nodes-table'));
+	ko.components.register('assign-nodes-modal', 	require('./pool/assign-nodes-modal/assign-nodes-modal'));
 
 	// -------------------------------
 	// Node
@@ -77,6 +78,13 @@ export default function register(ko) {
 	ko.components.register('node-parts-table', 	require('./node/node-parts-table/node-parts-table'));
 	ko.components.register('node-info', 		require('./node/node-info/node-info'));
 	ko.components.register('test-node-modal',	require('./node/test-node-modal/test-node-modal'));
+
+	// -------------------------------
+	// Management
+	// -------------------------------
+	ko.components.register('management-panel',		require('./management/management-panel/management-panel'));
+	ko.components.register('accounts-table',		require('./management/accounts-table/accounts-table'));
+	ko.components.register('create-account-modal',	require('./management/create-account-modal/create-account-modal'));
 
 	// -------------------------------
 	// Admin
@@ -103,4 +111,6 @@ export default function register(ko) {
 	ko.components.register('wizard',			require('./shared/wizard/wizard'));
 	ko.components.register('paginator',			require('./shared/paginator/paginator'));
 	ko.components.register('tray',				require('./shared/tray/tray'));	
+	ko.components.register('tiled-select',		require('./shared/tiled-select/tiled-select'));	
+	ko.components.register('delete-button',		require('./shared/delete-button/delete-button'));	
 }

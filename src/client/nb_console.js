@@ -41,15 +41,19 @@ nb_console.config(['$routeProvider', '$locationProvider', '$compileProvider',
             //     templateUrl: 'console/resource_view.html',
             //     reloadOnSearch: false,
             // })
-            .when('/data', {
-                templateUrl: 'console/data_view.html',
+            .when('/buckets', {
+                templateUrl: 'console/buckets_view.html',
                 reloadOnSearch: false,
             })
-            .when('/tier/:tier_name', {
-                templateUrl: 'console/tier_view.html',
+            .when('/pools', {
+                templateUrl: 'console/pools_view.html',
                 reloadOnSearch: false,
             })
-            .when('/tier/:tier_name/:node_name*', {
+            .when('/pool/:pool_name', {
+                templateUrl: 'console/pool_view.html',
+                reloadOnSearch: false,
+            })
+            .when('/pool/:pool_name/:node_name*', {
                 templateUrl: 'console/node_view.html',
                 reloadOnSearch: false,
             })
@@ -105,7 +109,7 @@ nb_console.controller('ConfigViewCtrl', [
         $scope.nav.active = 'cog';
         $scope.nav.reload_view = reload_view;
         $scope.apply_n2n_config = apply_n2n_config;
-        $scope.apply_dns_config= apply_dns_config;
+        $scope.apply_dns_config = apply_dns_config;
         $scope.apply_system_certificate = apply_system_certificate;
 
         reload_view(true);
@@ -459,7 +463,7 @@ nb_console.controller('UserManagementViewCtrl', [
                             .then(function(result) {
                                 console.log('in confirm user deletion');
 
-                                return $q.when(nbClient.client.account.delete_account(user_email))
+                                return $q.when(nbClient.client.account.delete_curr_account(user_email))
                                     .then(function() {
                                         nbAlertify.success('User ' + user_email + ' has been deleted');
                                         reload_accounts();
@@ -621,27 +625,41 @@ nb_console.controller('OverviewCtrl', [
 
 
 
-nb_console.controller('SystemResourceCtrl', [
-    '$scope', '$q', 'nbSystem',
-    function($scope, $q, nbSystem) {
-        $scope.nav.active = 'resource';
+nb_console.controller('PoolsViewCtrl', [
+    '$scope', '$q', 'nbSystem', 'nbAlertify', 'nbNodes',
+    function($scope, $q, nbSystem, nbAlertify, nbNodes) {
+        $scope.nav.active = 'pool';
         $scope.nav.reload_view = reload_view;
+        $scope.add_new_pool = add_new_pool;
 
         reload_view(true);
 
         function reload_view(init_only) {
             return init_only ? nbSystem.init_system : nbSystem.reload_system();
         }
+
+        function add_new_pool() {
+            return nbAlertify.prompt('Enter name for the new pool')
+                .then(function(str) {
+                    if (!str) return;
+                    return nbNodes.create_pool(str)
+                        .then(() => {
+                            nbAlertify.log('Pool created.');
+                            return reload_view();
+                        })
+                        .catch(err => nbAlertify.error(err.message));
+                });
+        }
     }
 ]);
 
 
 
-nb_console.controller('SystemDataCtrl', [
+nb_console.controller('BucketsViewCtrl', [
     '$scope', '$q', 'nbSystem', '$rootScope', '$location', 'nbModal', 'nbClient', 'nbAlertify',
     function($scope, $q, nbSystem, $rootScope, $location, nbModal, nbClient, nbAlertify) {
 
-        $scope.nav.active = 'data';
+        $scope.nav.active = 'bucket';
         $scope.nav.reload_view = reload_view;
         $scope.add_new_bucket = add_new_bucket;
         $scope.delete_bucket = delete_bucket;
@@ -1096,32 +1114,32 @@ nb_console.controller('SystemDataCtrl', [
 
 
 
-nb_console.controller('TierViewCtrl', [
+nb_console.controller('PoolViewCtrl', [
     '$scope', '$q', '$timeout', '$window', '$location', '$routeParams',
     'nbSystem', 'nbNodes', 'nbHashRouter', 'nbModal',
     function($scope, $q, $timeout, $window, $location, $routeParams,
         nbSystem, nbNodes, nbHashRouter, nbModal) {
-        $scope.nav.active = 'tier';
+        $scope.nav.active = 'pool';
         $scope.nav.reload_view = reload_view;
         $scope.nodes_num_pages = 0;
         $scope.nodes_page_size = 10;
         $scope.nodes_query = {};
 
-        var tier_router = $scope.tier_router =
+        var pool_router = $scope.pool_router =
             nbHashRouter($scope)
             .when('overview', {
-                templateUrl: 'console/tier_overview.html',
+                templateUrl: 'console/pool_overview.html',
             })
             .when('nodes', {
-                templateUrl: 'console/tier_nodes.html',
+                templateUrl: 'console/pool_nodes.html',
                 pagination: true,
                 reload: reload_nodes
             })
             .when('stats', {
-                templateUrl: 'console/tier_stats.html',
+                templateUrl: 'console/pool_stats.html',
             })
             .when('settings', {
-                templateUrl: 'console/tier_settings.html',
+                templateUrl: 'console/pool_settings.html',
             })
             .otherwise({
                 redirectTo: 'overview'
@@ -1135,22 +1153,22 @@ nb_console.controller('TierViewCtrl', [
                     return init_only ? nbSystem.init_system : nbSystem.reload_system();
                 })
                 .then(function() {
-                    $scope.tier = _.find(nbSystem.system.tiers, function(tier) {
-                        return tier.name === $routeParams.tier_name;
+                    $scope.pool = _.find(nbSystem.system.pools, function(pool) {
+                        return pool.name === $routeParams.pool_name;
                     });
-                    if (!$scope.tier) {
-                        $location.path('/tier/');
+                    if (!$scope.pool) {
+                        $location.path('/pools/');
                         return;
                     }
-                    $scope.pie_chart = storage_pie_chart($scope, $scope.tier.storage);
-                    tier_router.done();
+                    $scope.pie_chart = storage_pie_chart($scope, $scope.pool.storage);
+                    pool_router.done();
                 });
         }
 
         function reload_nodes(hash_query) {
             $scope.nodes_query = _.clone(hash_query);
             var query = {
-                pool: $scope.tier.pools
+                pools: [$scope.pool.name]
             };
             if ($scope.nodes_query.search) {
                 query.name = $scope.nodes_query.search;
@@ -1177,7 +1195,7 @@ nb_console.controller('TierViewCtrl', [
             $scope.nodes_num_pages = Math.ceil(
                 count / $scope.nodes_page_size);
             $scope.nodes_pages = _.times(Math.min(15, $scope.nodes_num_pages), _.identity);
-            tier_router.set_num_pages('nodes', $scope.nodes_num_pages);
+            pool_router.set_num_pages('nodes', $scope.nodes_num_pages);
         }
 
     }
@@ -1190,7 +1208,7 @@ nb_console.controller('NodeViewCtrl', [
     'nbClient', 'nbSystem', 'nbNodes', 'nbHashRouter',
     function($scope, $q, $timeout, $window, $location, $routeParams,
         nbClient, nbSystem, nbNodes, nbHashRouter) {
-        $scope.nav.active = 'tier';
+        $scope.nav.active = 'pool';
         $scope.nav.reload_view = reload_view;
         $scope.parts_num_pages = 0;
         $scope.parts_page_size = 10;
@@ -1227,11 +1245,11 @@ nb_console.controller('NodeViewCtrl', [
                     return init_only ? nbSystem.init_system : nbSystem.reload_system();
                 })
                 .then(function() {
-                    $scope.tier = _.find(nbSystem.system.tiers, function(tier) {
-                        return tier.name === $routeParams.tier_name;
+                    $scope.pool = _.find(nbSystem.system.pools, function(pool) {
+                        return pool.name === $routeParams.pool_name;
                     });
-                    if (!$scope.tier) {
-                        $location.path('/tier/');
+                    if (!$scope.pool) {
+                        $location.path('/pools/');
                         return;
                     }
                     return nbNodes.read_node($routeParams.node_name);

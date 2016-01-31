@@ -1,0 +1,23 @@
+<div ng-controller="PoolViewCtrl">
+
+    <div class="page-header page-tier">
+
+        <h1 class="uppercase">
+            {{pool.name}} &nbsp;
+            <small><i class="fa fa-question-circle fa-fw text-muted" rel="tooltip" title="This is a resource pool composed from nodes added to the system. It aggregates storage resources from nodes to provide a persistent storage tier that can be used as object storage." data-placement="right" data-container="body"></i></small>
+        </h1>
+
+        <ol class="breadcrumb capitalize">
+            <li>
+                <a href="/console/">Overview</a>
+            </li>
+            <li>
+                <a href="/console/pools/">Pools</a>
+            </li>
+            <li class="active">{{pool.name}}</li>
+        </ol>
+    </div>
+
+    <div nb-hash-router-view="pool_router"></div>
+
+</div>

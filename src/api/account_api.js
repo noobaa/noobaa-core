@@ -9,7 +9,7 @@
  */
 module.exports = {
 
-    name: 'account_api',
+    id: 'account_api',
 
     methods: {
 
@@ -50,7 +50,7 @@ module.exports = {
             doc: 'Read the info of the authorized account',
             method: 'GET',
             reply: {
-                $ref: '/account_api/definitions/account_info'
+                $ref: '#/definitions/account_info'
             },
             auth: {
                 system: false,
@@ -83,12 +83,29 @@ module.exports = {
             }
         },
 
-        delete_account: {
+        delete_curr_account: {
             doc: 'Delete the authorized account',
             method: 'DELETE',
             auth: {
                 system: false,
             }
+        },
+
+        delete_account: {
+          doc: 'Delete a given account',
+            method: 'DELETE',
+            params: {
+                type: 'object',
+                required: ['email'],
+                properties: {
+                    email: {
+                        type: 'string',
+                    },
+                }
+            },
+            auth: {
+                system: false,
+            }  
         },
 
         list_accounts: {
@@ -101,7 +118,7 @@ module.exports = {
                     accounts: {
                         type: 'array',
                         items: {
-                            $ref: '/account_api/definitions/account_info'
+                            $ref: '#/definitions/account_info'
                         }
                     }
                 }
@@ -122,7 +139,7 @@ module.exports = {
                     accounts: {
                         type: 'array',
                         items: {
-                            $ref: '/account_api/definitions/account_info'
+                            $ref: '#/definitions/account_info'
                         }
                     }
                 }

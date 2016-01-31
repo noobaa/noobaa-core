@@ -1,5 +1,9 @@
+'use strict';
+
+var js_utils = require('../util/js_utils');
+
 // DO NOT CHANGE UNLESS YOU *KNOW* RABIN CHUNKING
-var dedup_config = {
+var dedup_config = js_utils.deep_freeze({
 
     // min_chunk bytes are skipped before looking for new boundary.
     // max_chunk is the length which will be chunked if not chunked by context.
@@ -19,9 +23,10 @@ var dedup_config = {
     window_len: 64,
 
     // using high gf_degree to allow high values of AVG_CHUNK_BITS
-    // gf_poly 0x3 is a representation of a primitive polynom in GF(2^63).
+    // gf_poly 0x3 is a representation of a primitive polynom in GF(2^63) - x^63 + x^1 + x^0
+    // http://web.eecs.utk.edu/~plank/plank/papers/CS-07-593/primitive-polynomial-table.txt
     gf_degree: 63,
     gf_poly: 0x3,
-};
+});
 
 module.exports = dedup_config;

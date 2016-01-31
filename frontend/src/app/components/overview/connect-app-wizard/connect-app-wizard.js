@@ -2,9 +2,9 @@ import template from './connect-app-wizard.html';
 import selectSlideTemplate from './select-slide.html';
 import connecSlideTemplate from './connect-slide.html';
 import ko from 'knockout';
-import { bucketList, systemOverview } from 'model';
-import { serverAddress } from 'config';
+import { bucketList, systemInfo } from 'model';
 import { copyTextToClipboard } from 'utils';
+import { loadBucketList } from 'actions';
 
 const connectionTypes = Object.freeze([
 	{
@@ -41,12 +41,12 @@ class ConnectApplicationWizard {
 
 		this.selectedBucket = ko.observable();
 		this.buckets = buckets.map(
-			name => {
+			(name, i) => {
 				let item = {
 					name: name,
 					selected: ko.pureComputed({
 						read: () => this.selectedBucket() === item,
-						write: this.selectedBucket
+						write: val => val === true && this.selectedBucket(item)
 					}),
 					icon: ko.pureComputed(
 						() => `/fe/assets/icons.svg#bucket-${
@@ -55,18 +55,27 @@ class ConnectApplicationWizard {
 					)
 				}
 
+				if (i() === 0) {
+					item.selected(true);
+				}
+
 				return item;
 			}
 		);
-	 	this.selectedBucket(this.buckets()[0]);
 	
-	 	this.endpoint = serverAddress;
+	 	this.endpoint = ko.pureComputed(
+	 		() => systemInfo().endpoint
+ 		);
+
 	 	this.accessKey = ko.pureComputed(
-	 		() => systemOverview().keys.access
+	 		() => systemInfo().accessKey
  		);
+
  		this.secretKey = ko.pureComputed(
-	 		() => systemOverview().keys.secret
+	 		() => systemInfo().secretKey
  		);
+
+ 		loadBucketList();
 	}
 
 	copyToClipboard(text) {

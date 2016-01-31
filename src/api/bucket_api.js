@@ -9,7 +9,7 @@
  */
 module.exports = {
 
-    name: 'bucket_api',
+    id: 'bucket_api',
 
     methods: {
 
@@ -28,7 +28,7 @@ module.exports = {
                 }
             },
             reply: {
-                $ref: '/bucket_api/definitions/bucket_info'
+                $ref: '#/definitions/bucket_info'
             },
             auth: {
                 system: 'admin'
@@ -47,7 +47,7 @@ module.exports = {
                 }
             },
             reply: {
-                $ref: '/bucket_api/definitions/bucket_info'
+                $ref: '#/definitions/bucket_info'
             },
             auth: {
                 system: 'admin'
@@ -67,7 +67,7 @@ module.exports = {
                         type: 'string',
                     },
                     tiering: {
-                        $ref: '/tiering_policy_api/definitions/tiering_policy'
+                        type: 'string',
                     }
                 }
             },
@@ -136,13 +136,13 @@ module.exports = {
                         type: 'string',
                     },
                     policy: {
-                        $ref: '/bucket_api/definitions/cloud_sync'
+                        $ref: '#/definitions/cloud_sync'
                     },
                     health: {
                         type: 'boolean'
                     },
                     status: {
-                        $ref: '/bucket_api/definitions/sync_status_enum'
+                        $ref: '#/definitions/sync_status_enum'
                     }
                 }
             },
@@ -163,13 +163,13 @@ module.exports = {
                             type: 'string',
                         },
                         policy: {
-                            $ref: '/bucket_api/definitions/cloud_sync'
+                            $ref: '#/definitions/cloud_sync'
                         },
                         health: {
                             type: 'boolean'
                         },
                         status: {
-                            $ref: '/bucket_api/definitions/sync_status_enum'
+                            $ref: '#/definitions/sync_status_enum'
                         }
                     }
                 }
@@ -205,7 +205,7 @@ module.exports = {
                         type: 'string',
                     },
                     policy: {
-                        $ref: '/bucket_api/definitions/cloud_sync'
+                        $ref: '#/definitions/cloud_sync'
                     }
                 }
             },
@@ -251,10 +251,10 @@ module.exports = {
                     type: 'string',
                 },
                 tiering: {
-                    $ref: '/tiering_policy_api/definitions/tiering_policy'
+                    $ref: 'tiering_policy_api#/definitions/tiering_policy'
                 },
                 storage: {
-                    $ref: '/common_api/definitions/storage_info'
+                    $ref: 'common_api#/definitions/storage_info'
                 },
                 num_objects: {
                     type: 'integer'
@@ -276,7 +276,7 @@ module.exports = {
                 access_keys: {
                     type: 'array',
                     item: {
-                        $ref: '/system_api/definitions/access_keys'
+                        $ref: 'system_api#/definitions/access_keys'
                     }
                 },
                 schedule: {

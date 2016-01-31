@@ -1,40 +1,26 @@
 import * as model from 'model';
-import { isDefined, isUndefined } from 'utils';
 import page from 'page';
 import api from 'services/api';
 import config from 'config';
-import { hostname as endpoint } from 'server-conf';
-import { encodeBase64, cmpStrings, cmpInts, cmpBools, randomString, last } from 'utils';
+import { hostname } from 'server-conf';
+
+import { 
+	isDefined, isUndefined, encodeBase64, cmpStrings, cmpInts, cmpBools, 
+	randomString, last, stringifyQueryString, clamp,  makeArray, 
+	execInOrder 
+} from 'utils';
 
 // TODO: resolve browserify issue with export of the aws-sdk module.
 // The current workaround use the AWS that is set on the global window object.
 import 'aws-sdk';
 AWS = window.AWS;
 
-// Compare functions for entities.
-const bucketCmpFuncs = Object.freeze({
-	state: (b1, b2) => cmpBools(b1.state, b2.state),
-	name: (b1, b2) => cmpStrings(b1.name, b2.name),
-	filecount: (b1, b2) => cmpInts(b1.num_objects, b2.num_objects),
-	totalsize: (b1, b2) => cmpInts(b1.storage.total, b2.storage.total),
-	freesize: (b1, b2) => cmpInts(b1.storage.free, b2.storage.free),
-	cloudsync: (b1, b2) => cmpStrings(b1.cloud_sync_status, b2.cloud_sync_status)
-});
+// Use preconfigured hostname or the address of the serving computer.
+let endpoint = hostname || window.location.hostname;
 
-const poolCmpFuncs = Object.freeze({
-	state: (p1, p2) => cmpBools(true, true),
-	name: (p1, p2) => cmpStrings(p1.name, p2.name),
-	nodecount: (p1, p2) => cmpInts(p1.total_nodes, p2.total_nodes),
-	onlinecount: (p1, p2) => cmpInts(p1.online_nodes, p2.online_nodes),
-	offlinecount: (p1, p2) => cmpInts(
-		p1.total_nodes - p1.online_nodes, 
-		p2.total_nodes - p2.online_nodes, 
-	),
-	usage: (p1, p2) => cmpInts(p1.storage.used, p2.storage.used),
-	capacity: (p1, p2) => cmpInts(p1.storage.total, p2.storage.total),
-});
-
+// -----------------------------------------------------
 // Utility function to log actions.
+// -----------------------------------------------------
 function logAction(action, payload) {
 	if (typeof payload !== 'undefined') {
 		console.info(`action dispatched: ${action} with`, payload);
@@ -50,7 +36,7 @@ export function start() {
 	logAction('start');
 	
 	api.options.auth_token = localStorage.getItem('sessionToken');
-	api.auth.read_auth()
+	return api.auth.read_auth()
 		// Try to restore the last session
 		.then(({account, system}) => {
 			if (isDefined(account)) {
@@ -62,7 +48,34 @@ export function start() {
 		})
 		// Start the router.
 		.then(() => page.start())
-		.done();
+		.done()
+}
+
+// -----------------------------------------------------
+// Navigation actions
+// -----------------------------------------------------
+export function navigateTo(path = window.location.pathname, query = {}) {
+	logAction('navigateTo', { path, query });
+
+	page.show(`${path}?${stringifyQueryString(query)}`);
+}
+
+export function redirectTo(path = window.location.pathname, query = {}) {
+	logAction('navigateTo', { path, query });
+
+	page.redirect(`${path}?${stringifyQueryString(query)}`);
+}
+
+export function refresh() {
+	logAction('refresh');
+
+	let { pathname, search } = window.location;
+	
+	// Reload the current path
+	page.redirect(pathname + search);
+
+
+	model.refreshCounter(model.refreshCounter() + 1);
 }
 
 // -----------------------------------------------------
@@ -75,7 +88,7 @@ export function showLogin() {
 	let ctx = model.routeContext();
 
 	if (!!session) {
-		page.redirect(`/fe/systems/${session.system}`);
+		redirectTo(`/fe/systems/${session.system}`);
 
 	} else {
 		model.uiState({ 
@@ -83,7 +96,7 @@ export function showLogin() {
 			returnUrl: ctx.query.returnUrl,
 		});
 
-		readServerInfo();
+		loadServerInfo();
 	}
 }	
 
@@ -97,7 +110,7 @@ export function showOverview() {
 		panel: 'overview'	
 	});
 
-	readSystemInfo();
+	loadSystemSummary();
 }
 
 export function showBuckets() {
@@ -110,18 +123,15 @@ export function showBuckets() {
 		panel: 'buckets',
 	});
 
-	let query = model.routeContext().query;
-	model.bucketList.sortedBy(query.sortBy || 'name');
-	model.bucketList.order(query.order < 0 ? -1 : 1);
-	
-	readSystemInfo();
+	let { sortBy, order } = model.routeContext().query;
+	loadBucketList(sortBy, order);
 }
 
 export function showBucket() {
 	logAction('showBucket');
 
 	let ctx = model.routeContext();
-	let { bucket, tab } = ctx.params;
+	let { bucket, tab = 'objects' } = ctx.params;
 	let { filter, sortBy = 'name', order = 1, page = 0 } = ctx.query;
 
 	model.uiState({
@@ -132,18 +142,18 @@ export function showBucket() {
 			{ href: "buckets", label: "BUCKETS" },
 		],
 		panel: 'bucket',
-		tab: tab || 'objects'
+		tab: tab
 	});
 
-	readBucket(bucket);
-	listBucketObjects(bucket, filter, sortBy, parseInt(order), parseInt(page));		
+	loadBucketInfo(bucket);
+	loadBucketObjectList(bucket, filter, sortBy, parseInt(order), parseInt(page));		
 }
 
 export function showObject() {
 	logAction('showObject');
 	
 	let ctx = model.routeContext();
-	let { object, bucket, tab } = ctx.params;
+	let { object, bucket, tab = 'parts' } = ctx.params;
 	let { page = 0 } = ctx.query;
 
 	model.uiState({
@@ -155,11 +165,11 @@ export function showObject() {
 			{ href: ":bucket", label: bucket },
 		],			
 		panel: 'object',
-		tab: tab || 'parts'
+		tab: tab
 	});
 
-	readObjectMetadata(bucket, object)
-	listObjectParts(bucket, object, parseInt(page));
+	loadObjectMetadata(bucket, object)
+	loadObjectPartList(bucket, object, parseInt(page));
 }
 
 export function showPools() {
@@ -172,19 +182,15 @@ export function showPools() {
 		panel: 'pools'
 	});
 
-	let query = model.routeContext().query;
-	model.poolList.sortedBy(query.sortBy || 'name');
-	model.poolList.order(query.order < 0 ? -1 : 1);
-
-	readSystemInfo();
-	listAllNodes();
+	let { sortBy, order } = model.routeContext().query;
+	loadPoolList(sortBy, order);
 }
 
 export function showPool() {
 	logAction('showPool');
 
 	let ctx = model.routeContext();
-	let { pool, tab } = ctx.params;
+	let { pool, tab = 'nodes' } = ctx.params;
 	let { filter, sortBy = 'name', order = 1, page = 0 } = ctx.query;
 
 	
@@ -196,18 +202,18 @@ export function showPool() {
 			{ href: "pools", label: "POOLS"}
 		],
 		panel: 'pool',
-		tab: tab || 'nodes'	
+		tab: tab
 	});
 
-	readPool(pool);
-	listPoolNodes(pool, filter, sortBy, parseInt(order), parseInt(page));
+	loadPoolInfo(pool);
+	loadPoolNodeList(pool, filter, sortBy, parseInt(order), parseInt(page));
 }
 
 export function showNode() {
 	logAction('showNode');
 
-	let ctx= model.routeContext();
-	let { pool, node, tab } = ctx.params;
+	let ctx = model.routeContext();
+	let { pool, node, tab = 'parts' } = ctx.params;
 	let { page = 0 } = ctx.query;
 
 	model.uiState({
@@ -219,18 +225,29 @@ export function showNode() {
 			{ href: ":pool", label: pool}
 		],
 		panel: 'node',
-		tab: tab || 'parts'
+		tab: tab
 	});
 
-	readNode(node);
-	listNodeStoredParts(node, parseInt(page));		
+	loadNodeInfo(node);
+	loadNodeStoredPartsList(node, parseInt(page));		
 }	
 
-export function refresh() {
-	logAction('refresh');
+export function showManagement() {
+	logAction('showManagement');
 
-	let { pathname, search } = window.location;
-	page.redirect(pathname + search);
+	let { tab = 'accounts' } = model.routeContext().params;
+
+	model.uiState({
+		layout: 'main-layout',
+		title: 'SYSTEM MANAGEMENT',
+		breadcrumbs: [ { href: "fe/systems/:system" } ],
+		panel: 'management',
+		tab: tab
+	});
+}
+
+export function showCreateBucketWizard() {
+	loadAction('showCreateBucketModal')
 }
 
 export function openAuditLog() {
@@ -254,8 +271,8 @@ export function closeTray() {
 // -----------------------------------------------------
 // Sign In/Out actions.
 // -----------------------------------------------------
-export function signIn(email, password, redirectTo) {
-	logAction('signIn', { email, password, redirectTo });
+export function signIn(email, password, redirectUrl) {
+	logAction('signIn', { email, password, redirectUrl });
 
 	api.create_auth_token({ email, password })
 		.then(() => api.system.list_systems())
@@ -270,11 +287,11 @@ export function signIn(email, password, redirectTo) {
 						model.sessionInfo({ user: email, system: system })
 						model.loginInfo({ retryCount: 0 });
 
-						if (isUndefined(redirectTo)) {
-							redirectTo = `/fe/systems/${system}`;
+						if (isUndefined(redirectUrl)) {
+							redirectUrl = `/fe/systems/${system}`;
 						}
 
-						page.redirect(decodeURIComponent(redirectTo));
+						redirectTo(decodeURIComponent(redirectUrl));
 					})
 			}
 		)
@@ -302,7 +319,9 @@ export function signOut() {
 // -----------------------------------------------------
 // Information retrieval actions.
 // -----------------------------------------------------
-export function readServerInfo() {
+export function loadServerInfo() {
+	logAction('loadServerInfo');
+
 	api.account.accounts_status()
 		.then(
 			reply => model.serverInfo({
@@ -312,35 +331,120 @@ export function readServerInfo() {
 		.done();
 }
 
-export function readSystemInfo() {
-	logAction('readSystemInfo');
+export function loadSystemInfo() {
+	logAction('loadSystemInfo');
 
-	let { systemOverview, agentInstallationInfo, bucketList, poolList } = model;
+	api.system.read_system()
+		.then(
+			reply => {
+				let { access_key, secret_key } = reply.access_keys[0];
+
+				model.systemInfo({
+					name: reply.name,
+					version: reply.version,
+					endpoint: endpoint,
+					port: reply.web_port,
+					sslPort: reply.ssl_port,
+					accessKey: access_key,
+					secretKey: secret_key
+				});
+			}
+		)
+		.done();
+}
+
+export function loadSystemSummary() {
+	logAction('loadSystemSummary');
+
+	api.system.read_system() 
+		.then(
+			reply => model.systemSummary({
+				capacity: reply.storage.total,
+				bucketCount: reply.buckets.length,
+				objectCount: reply.objects,
+				poolCount: reply.pools.length,
+				nodeCount: reply.nodes.count,
+				onlineNodeCount: reply.nodes.online,
+				offlineNodeCount: reply.nodes.count - reply.nodes.online
+			})
+		)
+		.done();
+}
+
+const bucketCmpFuncs = Object.freeze({
+	state: (b1, b2) => cmpBools(b1.state, b2.state),
+	name: (b1, b2) => cmpStrings(b1.name, b2.name),
+	filecount: (b1, b2) => cmpInts(b1.num_objects, b2.num_objects),
+	totalsize: (b1, b2) => cmpInts(b1.storage.total, b2.storage.total),
+	freesize: (b1, b2) => cmpInts(b1.storage.free, b2.storage.free),
+	cloudsync: (b1, b2) => cmpStrings(b1.cloud_sync_status, b2.cloud_sync_status)
+});
+
+export function loadBucketList(sortBy = 'name', order = 1) {
+	logAction('loadBucketList', { sortBy, order });
+
+	// Normalize the order.
+	order = clamp(order, -1, 1);
+
+	let bucketList = model.bucketList;
+	api.system.read_system()
+		.then(
+			({ buckets }) => {
+				bucketList(
+					buckets.sort(
+						(b1, b2) => order * bucketCmpFuncs[sortBy](b1, b2)
+					)
+				);
+				bucketList.sortedBy(sortBy);
+				bucketList.order(order);
+			}
+		)
+		.done();
+}
+
+const poolCmpFuncs = Object.freeze({
+	state: (p1, p2) => cmpBools(true, true),
+	name: (p1, p2) => cmpStrings(p1.name, p2.name),
+	nodecount: (p1, p2) => cmpInts(p1.nodes.count, p2.nodes.count),
+	onlinecount: (p1, p2) => cmpInts(p1.nodes.online, p2.nodes.online),
+	offlinecount: (p1, p2) => cmpInts(
+		p1.nodes.count - p1.nodes.online, 
+		p2.nodes.count - p2.nodes.online, 
+	),
+	usage: (p1, p2) => cmpInts(p1.storage.used, p2.storage.used),
+	capacity: (p1, p2) => cmpInts(p1.storage.total, p2.storage.total),
+});
+
+export function loadPoolList(sortBy = 'name', order = 1) {
+	logAction('loadPoolList', { sortBy, order });
+
+	// Normalize the order.
+	order = clamp(order, -1, 1);
+
+	let poolList = model.poolList;
+	api.system.read_system()
+		.then(
+			({ pools }) => {
+				poolList(
+					pools.sort(
+						(b1, b2) => order * poolCmpFuncs[sortBy](b1, b2)
+					)
+				);
+				poolList.sortedBy(sortBy);
+				poolList.order(order);
+			}
+		)
+		.done();
+}
+
+export function loadAgentInstallationInfo() {
+	logAction('loadAgentInstallationInfo');
+
+	let { agentInstallationInfo } = model;
 	api.system.read_system()
 		.then(
 			reply => {
 				let keys = reply.access_keys[0];
-
-				AWS.config.update({
-					accessKeyId: keys.access_key,
-	                secretAccessKey: keys.secret_key,
-	                sslEnabled: false
-				});
-
-				systemOverview({
-					endpoint: endpoint,
-					keys: {
-						access: keys.access_key,
-						secret: keys.secret_key,
-					},
-					capacity: reply.storage.total,
-					bucketCount: reply.buckets.length,
-					objectCount: reply.objects,
-					poolCount: reply.pools.length,
-					nodeCount: reply.nodes.count,
-					onlineNodeCount: reply.nodes.online,
-					offlineNodeCount: reply.nodes.count - reply.nodes.online
-				});
 
 				agentInstallationInfo({
 					agentConf: encodeBase64({
@@ -356,31 +460,21 @@ export function readSystemInfo() {
 						linux: reply.web_links.linux_agent_installer
 					}
 				});
-
-				bucketList(reply.buckets);
-				bucketList.sort(
-					(b1, b2) => bucketList.order() * bucketCmpFuncs[bucketList.sortedBy()](b1, b2)
-				);
-
-				poolList(reply.pools);
-				poolList.sort(
-					(p1, p2) => poolList.order() * poolCmpFuncs[poolList.sortedBy()](p1, p2)
-				);
 			}
 		)
 		.done();
 }
 
-export function readBucket(name) {
-	logAction('readBucket', { name });
+export function loadBucketInfo(name) {
+	logAction('loadBucketInfo', { name });
 
 	api.bucket.read_bucket({ name })
 		.then(model.bucketInfo)
 		.done();
 }
 
-export function readBucketPolicy(name) {
-	logAction('readBucketPolicy', { name });
+export function loadBucketPolicy(name) {
+	logAction('loadBucketPolicy', { name });
 
 	model.bucketPolicy(null);
 	api.tiering_policy.read_policy({ name })
@@ -388,8 +482,8 @@ export function readBucketPolicy(name) {
 		.done();
 }
 
-export function listBucketObjects(bucketName, filter, sortBy, order, page) {
-	logAction('listBucketObjects', { bucketName, filter, sortBy, order, page });
+export function loadBucketObjectList(bucketName, filter, sortBy, order, page) {
+	logAction('loadBucketObjectList', { bucketName, filter, sortBy, order, page });
 
 	let bucketObjectList = model.bucketObjectList;
 
@@ -404,67 +498,64 @@ export function listBucketObjects(bucketName, filter, sortBy, order, page) {
 		})
 		.then(
 			reply => {
+				bucketObjectList(reply.objects);
 				bucketObjectList.sortedBy(sortBy);
 				bucketObjectList.filter(filter);
 				bucketObjectList.order(order);
 				bucketObjectList.page(page);
 				bucketObjectList.count(reply.total_count);
-				bucketObjectList(reply.objects);
 			}
 		) 
 		.done();
 }
 
-export function readObjectMetadata(bucketName, objectName) {
-	logAction('readObjectMetadata', { bucketName, objectName });
+export function loadObjectMetadata(bucketName, objectName) {
+	logAction('loadObjectMetadata', { bucketName, objectName });
 
 	// Drop previous data if of diffrent object.
 	if (!!model.objectInfo() && model.objectInfo().name !== objectName) {
 		model.objectInfo(null);
 	}
 
-	api.system.read_system()
-		.then(
-			reply => {
-				let keys = reply.access_keys[0];
+	let objInfoPromise = api.object.read_object_md({
+		 bucket: bucketName, 
+		 key: objectName,
+		 get_parts_count: true
+	});
 
-				AWS.config.update({
-					accessKeyId: keys.access_key,
-	                secretAccessKey: keys.secret_key,
-	                sslEnabled: false
-				});
-			}
-		)
+	let S3Promise = api.system.read_system()
 		.then(
-			() => 	api.object.read_object_md({
-				 bucket: bucketName, 
-				 key: objectName,
-				 get_parts_count: true
-			})
-		).then(
 			reply => {
-				let s3 = new AWS.S3({
+				let { access_key, secret_key } = reply.access_keys[0];
+
+				return new AWS.S3({
 				    endpoint: endpoint,
+				    credentials: {
+				    	accessKeyId:  access_key,
+				    	secretAccessKey:  secret_key
+				    },
 				    s3ForcePathStyle: true,
-				    sslEnabled: false,	
-				});
-
-				model.objectInfo({ 
-					name: objectName, 
-					bucket: bucketName,
-					info: reply,				
-					s3Url: s3.getSignedUrl(
-						'getObject', 
-						{ Bucket: bucketName, Key: objectName }
-					)
-				});
+				    sslEnabled: false,
+				})
 			}
-		)
-		.done();
+		);
+
+	Promise.all([objInfoPromise, S3Promise])
+		.then(
+			([objInfo, s3]) => model.objectInfo({ 
+				name: objectName, 
+				bucket: bucketName,
+				info: objInfo,				
+				s3Url: s3.getSignedUrl(
+					'getObject', 
+					{ Bucket: bucketName, Key: objectName }
+				)
+			})
+		);
 }
 
-export function listObjectParts(bucketName, objectName, page) {
-	logAction('listObjectParts', { bucketName, objectName, page });
+export function loadObjectPartList(bucketName, objectName, page) {
+	logAction('loadObjectPartList', { bucketName, objectName, page });
 
 	api.object.read_object_mappings({ 
 		bucket: bucketName, 
@@ -474,8 +565,8 @@ export function listObjectParts(bucketName, objectName, page) {
 		adminfo: true 
 	})
 		.then(
-			reply => {
-				model.objectPartList(reply.parts);
+			({ parts }) => {
+				model.objectPartList(parts);
 				model.objectPartList.page(page);
 
 				// TODO: change to real count when avaliable.
@@ -485,8 +576,8 @@ export function listObjectParts(bucketName, objectName, page) {
 		.done();
 }
 
-export function readPool(name) {
-	logAction('readPool', { name });
+export function loadPoolInfo(name) {
+	logAction('loadPoolInfo', { name });
 
 	if (model.poolInfo() && model.poolInfo().name !== name) {
 		model.poolInfo(null);
@@ -497,12 +588,12 @@ export function readPool(name) {
 		.done();
 }
 
-export function listPoolNodes(poolName, filter, sortBy, order, page) {
-	logAction('listPoolNodes', { poolName, filter, sortBy, order, page });
+export function loadPoolNodeList(poolName, filter, sortBy, order, page) {
+	logAction('loadPoolNodeList', { poolName, filter, sortBy, order, page });
 	
 	api.node.list_nodes({  
 		query: {
-			pool: [ poolName ],
+			pools: [ poolName ],
 			name: filter
 		},
 		sort: sortBy,
@@ -524,31 +615,31 @@ export function listPoolNodes(poolName, filter, sortBy, order, page) {
 		.done();
 }
 
-export function listAllNodes() {
-	logAction('listAllNodes');
+export function loadNodeList() {
+	logAction('loadNodeList');
 
+	model.nodeList([]);
 	api.node.list_nodes({})
 		.then(
-			reply => model.nodeList(reply.nodes)
+			({nodes}) => model.nodeList(nodes)
 		)
 		.done();
 }
 
-export function readNode(nodeName) {
-	logAction('readNode', { nodeName });
+export function loadNodeInfo(nodeName) {
+	logAction('loadNodeInfo', { nodeName });
 
 	if (model.nodeInfo() && model.nodeInfo().name !== nodeName) {
 		model.nodeInfo(null);
 	}
-
 
 	api.node.read_node({ name: nodeName })
 		.then(model.nodeInfo)
 		.done();
 }
 
-export function listNodeStoredParts(nodeName, page) {
-	logAction('listNodeStoredParts', { nodeName, page });
+export function loadNodeStoredPartsList(nodeName, page) {
+	logAction('loadNodeStoredPartsList', { nodeName, page });
 
 	api.node.read_node_maps({ name: nodeName })
 		.then(
@@ -574,190 +665,17 @@ export function listNodeStoredParts(nodeName, page) {
 					);
 
 				// TODO: change to server side paganation when avaliable.
-
 				let pageParts = parts.slice(
 					config.paginationPageSize * page,
 					config.paginationPageSize * (page + 1),
 				);
 
-				let partsCount = parts.length;
-
 				model.nodeStoredPartList(pageParts);
 				model.nodeStoredPartList.page(page);
-				model.nodeStoredPartList.count(partsCount);
+				model.nodeStoredPartList.count(parts.length);
 			}
 		)
 		.done();
-}
-
-// -----------------------------------------------------
-// Managment actions.
-// -----------------------------------------------------
-export function createAccount(system, email, password, dnsName) {
-	logAction('createAccount', { system, email, password, dnsName });
-
-	api.account.create_account({ name: system, email: email, password: password })
-		.then(
-			({ token }) => {
-				api.options.auth_token = token;
-				localStorage.setItem('sessionToken', token);
-				model.sessionInfo({ user: email, system: system});
-
-				page.redirect(`/fe/systems/${system}`);
-			}
-		)
-		.then(
-			() => {
-				if (dnsName) {
-					return api.system.update_base_address({
-						base_address: dnsName
-					});
-
-				} else {
-					return Promise.when(true);
-				}
-			}
-		)
-		.done();
-}
-
-export function createBucket(name, dataPlacement, pools) {
-	logAction('createBucket', { name, dataPlacement, pools });
-
-	let placeholder = { name: name, placeholder: true };
-	model.bucketList.unshift(placeholder);
-
-	api.tier.create_tier({ 
-		name: randomString(8),
-		data_placement: dataPlacement,
-		pools: pools
-	})
-		.then(
-			tier => {
-				let policy = {
-					// TODO: remove the random string after patching the server
-					// with a delete bucket that deletes also the policy
-					name: `${name}_tiering_${randomString(5)}`,
-					tiers: [ { order: 0, tier: tier.name } ]
-				};
-
-				return api.tiering_policy.create_policy({ policy })
-					.then(() => policy)
-			}
-		)
-		.then(
-			policy => api.bucket.create_bucket({ 
-				name: name, 
-				tiering: policy.name  
-			})
-		)
-		.then(
-			bucket => model.bucketList.replace(placeholder, bucket)
-		)
-		.done();
-}
-
-export function deleteBucket(name) {
-	logAction('deleteBucket', { name });
-
-	api.bucket.delete_bucket({ name })
-		.then(readSystemInfo)
-		.done();
-}
-
-export function updateTier(name, dataPlacement, pools) {
-	logAction('updateTier', { name, dataPlacement, pools });
-
-	api.tier.update_tier({ 
-		name: name,
-		data_placement: dataPlacement,
-		pools: pools
-	})
-		.done();
-}
-
-export function createPool(name, nodes) {
-	logAction('createPool', { name, nodes });
-
-	let placeholder = { name: name, placeholder: true };
-	model.poolList.unshift(placeholder);
-
-	api.pool.create_pool({
-		pool: { name, nodes }
-	})
-		.then(
-			() => readSystemInfo()
-		)
-		.done();
-}
-
-export function uploadFiles(bucketName, files) {
-	logAction('uploadFiles', { bucketName, files });
-
-	let recentUploads = model.recentUploads;
-	let s3 = new AWS.S3({
-	    endpoint: endpoint,
-	    s3ForcePathStyle: true,
-	    sslEnabled: false,	
-	});
-
-	let requests = Array.from(files).map(
-		file => new Promise((resolve, reject) => {
-			// Create an entry in the recent uploaded list.
-			let entry = {
-				name: file.name,
-				state: 'UPLOADING',
-				progress: 0,
-				error: null
-			};
-			recentUploads.unshift(entry);
-
-			// Start the upload.
-			s3.upload(
-				{
-					Key: file.name,
-					Bucket: bucketName,
-					Body: file,
-					ContentType: file.type
-				}, 
-				error => {
-					if (!error) {
-						entry.state = 'COMPLETED';
-						entry.progress = 1;
-						resolve(1);
-					} else {
-						entry.state = 'FAILED';
-						entry.error = error;
-						
-						// This is not a bug we want to resolve failed uploads
-						// in order to finalize the entire upload process.
-						resolve(0);
-					}
-
-					// Use replace to trigger change event.
-					recentUploads.replace(entry, entry);
-				}
-			)
-			.on('httpUploadProgress', 
-				({ loaded, total }) => {
-					entry.progress = loaded / total;
-
-					// Use replace to trigger change event.
-					recentUploads.replace(entry, entry);
-				}
-			);
-		})
-	);
-
-	Promise.all(requests)
-		.then(
-			results => results.reduce(
-				(sum, result) => sum += result
-			)
-		)
-		.then(
-			completedCount => completedCount > 0 && refresh()
-		);
 }
 
 export function loadAuditEntries(categories, count) {
@@ -776,8 +694,8 @@ export function loadAuditEntries(categories, count) {
 			limit: count
 		})
 			.then(
-				reply => {
-					auditLog(reply.logs.reverse());
+				({ logs }) => {
+					auditLog(logs.reverse());
 					auditLog.loadedCategories(categories);
 				}
 			)
@@ -807,8 +725,348 @@ export function loadMoreAuditEntries(count) {
 			limit: count 
 		})
 			.then(
-				reply => auditLog.push(...reply.logs.reverse())
+				({ logs }) => auditLog.push(...logs.reverse())
 			)
 			.done()
 	}
+}
+
+export function loadAccountList() {
+	logAction('loadAccountList');
+
+	api.account.list_system_accounts()
+		.then(
+			({ accounts }) => model.accountList(accounts)
+		)
+		.done()
+}
+
+export function loadTier(name) {
+	logAction('loadTier', { name });
+
+	api.tier.read_tier({ name })
+		.then(model.tierInfo)
+		.done();
+}
+
+// -----------------------------------------------------
+// Managment actions.
+// -----------------------------------------------------
+export function createSystemAccount(systemName, email, password, dnsName) {
+	logAction('createSystemAccount', { systemName, email, password, dnsName });
+
+	api.account.create_account({ name: systemName, email: email, password: password })
+		.then(
+			({ token }) => {
+				api.options.auth_token = token;
+				localStorage.setItem('sessionToken', token);
+				model.sessionInfo({ user: email, system: systemName});
+			}
+		)
+		.then(
+			() => {
+				if (dnsName) {
+					return api.system.update_base_address({
+						base_address: dnsName
+					});
+
+				}
+			}
+		)
+		.then(
+			() => redirectTo(`/fe/systems/${systemName}`)
+		)
+		.done();
+}
+
+export function createAccount(name, email, password) {
+	logAction('createAccount', { name, email, password });
+
+	api.account.create_account({ name, email, password })
+		.then(loadAccountList)
+		.done();	
+}
+
+export function deleteAccount(email) {
+	logAction('deleteAccount', { email });	
+
+	api.account.delete_account({ email })
+		.then(loadAccountList)
+		.done();
+}
+
+export function createBucket(name, dataPlacement, pools) {
+	logAction('createBucket', { name, dataPlacement, pools });
+
+	let { bucketList } = model;
+
+	api.tier.create_tier({ 
+		name: randomString(8),
+		data_placement: dataPlacement,
+		pools: pools
+	})
+		.then(
+			tier => {
+				let policy = {
+					// TODO: remove the random string after patching the server
+					// with a delete bucket that deletes also the policy
+					name: `${name}_tiering_${randomString(5)}`,
+					tiers: [ { order: 0, tier: tier.name } ]
+				};
+
+				return api.tiering_policy.create_policy(policy)
+					.then(() => policy)
+			}
+		)
+		.then(
+			policy => api.bucket.create_bucket({ 
+				name: name, 
+				tiering: policy.name  
+			})
+		)
+		.then(
+			() => loadBucketList(bucketList.sortedBy(), bucketList.order())
+		)
+		.done();
+}
+
+export function deleteBucket(name) {
+	logAction('deleteBucket', { name });
+
+	api.bucket.delete_bucket({ name })
+		.then(refresh)
+		.done();
+}
+
+export function updateTier(name, dataPlacement, pools) {
+	logAction('updateTier', { name, dataPlacement, pools });
+
+	api.tier.update_tier({ 
+		name: name,
+		data_placement: dataPlacement,
+		pools: pools
+	})
+		.done();
+}
+
+export function createPool(name, nodes) {
+	logAction('createPool', { name, nodes });
+
+	let { poolList } = model;
+	api.pool.create_pool({ name, nodes })
+		.then(
+			() => loadPoolList(poolList.sortedBy(), poolList.order())
+		)
+		.done();
+}
+
+export function deletePool(name) {
+	logAction('deletePool', { name });
+
+	api.pool.delete_pool({ name })
+		.then(refresh)
+		.done();
+}
+
+export function assignNodes(name, nodes) {
+	logAction('assignNodes', { name, nodes });
+
+	api.pool.add_nodes_to_pool({
+		name: name,
+		nodes: nodes
+	})
+		.then(refresh) 
+		.done();
+}
+
+export function uploadFiles(bucketName, files) {
+	logAction('uploadFiles', { bucketName, files });
+	
+	let recentUploads = model.recentUploads;
+	api.system.read_system()
+		.then(
+			reply => {
+				let { access_key, secret_key } = reply.access_keys[0];
+
+				return new AWS.S3({
+				    endpoint: endpoint,
+				    credentials: {
+				    	accessKeyId:  access_key,
+				    	secretAccessKey:  secret_key
+				    },
+				    s3ForcePathStyle: true,
+				    sslEnabled: false,
+				})
+			}
+		)
+		.then(
+			s3 => {
+				let uploadRequests = Array.from(files).map(
+					file => new Promise(
+						(resolve, reject) => {
+							// Create an entry in the recent uploaded list.
+							let entry = {
+								name: file.name,
+								state: 'UPLOADING',
+								progress: 0,
+								error: null
+							};
+							recentUploads.unshift(entry);
+
+							// Start the upload.
+							s3.upload(
+								{
+									Key: file.name,
+									Bucket: bucketName,
+									Body: file,
+									ContentType: file.type
+								}, 
+								error => {
+									if (!error) {
+										entry.state = 'COMPLETED';
+										entry.progress = 1;
+										resolve(1);
+
+									} else {
+										entry.state = 'FAILED';
+										entry.error = error;
+										
+										// This is not a bug we want to resolve failed uploads
+										// in order to finalize the entire upload process.
+										resolve(0);
+									}
+
+									// Use replace to trigger change event.
+									recentUploads.replace(entry, entry);
+								}
+							)
+							//	Report on progress.
+							.on('httpUploadProgress', 
+								({ loaded, total }) => {
+									entry.progress = loaded / total;
+
+									// Use replace to trigger change event.
+									recentUploads.replace(entry, entry);
+								}
+							);
+						}
+					)
+				);
+
+				return Promise.all(uploadRequests);
+			}
+		)
+		.then(
+			results => results.reduce(
+				(sum, result) => sum += result
+			)
+		)
+		.then(
+			completedCount => {
+				completedCount > 0 && refresh()
+			}
+		);
+}
+
+export function testNode(source, testSet) {
+	logAction('testNode', { source, testSet });
+
+	let { nodeTestResults } = model;
+	nodeTestResults([]);
+	nodeTestResults.timestemp(Date.now());
+
+	let { targetCount, testSettings } = config.nodeTest;
+	api.node.get_test_nodes({
+		count: targetCount
+	})
+		.then(
+			// Aggregate selected tests.
+			targets => [].concat(
+				...testSet.map(
+					testType => targets.map(
+						({ name, address }) => {
+							let result = {
+								testType: testType,
+								targetName: name,
+								targetAddress: address,
+								state: 'WAITING',
+								time: 0,
+								position: 0,
+								speed: 0,
+								progress: 0,
+								session: ''
+							}
+							nodeTestResults.push(result);
+
+							return { 
+								testType: testType,  
+								source: source, 
+								target: address, 
+								result: result
+							};
+						}
+					)
+				)
+			)
+		)
+		.then(
+			// Execute the tests in order.
+			tests => execInOrder(
+				tests,
+				({ source, target, testType, result }) => {
+					let { stepCount, requestLength, responseLength, count, concur } = testSettings[testType];
+					let stepSize = count * (requestLength + responseLength);
+					let totalTestSize = stepSize * stepCount;
+
+					// Create a step list for the test.
+					let steps = makeArray(
+						stepCount, 
+						{
+							source: source,
+							target: target,
+							request_length: requestLength,
+							response_length: responseLength,
+							count: count,
+							concur: concur
+						}
+					);
+
+					// Set start time.
+					let start = Date.now();
+					result.state = 'RUNNING';
+
+					// Execute the steps in order.
+					return execInOrder(
+						steps,
+						stepRequest => api.node.self_test_to_node_via_web(stepRequest)
+							.then(
+								({ session }) => {
+									result.session = session;
+									result.time = Date.now() - start;
+									result.position = result.position + stepSize;
+									result.speed = result.position / result.time; 
+									result.progress = totalTestSize > 0 ? 
+										result.position / totalTestSize : 
+										1;
+
+									// Use replace to trigger change event.
+									nodeTestResults.replace(result, result);
+								}
+							)
+					)
+					.then(
+						() => 'COMPLETED',
+						() => 'FAILED'
+					)
+					.then(
+						state => {
+							// Use replace to trigger change event.
+							result.state = state
+							nodeTestResults.replace(result, result);
+						}
+					)
+				}
+			)
+		)
+		.done();
 }

@@ -97,6 +97,7 @@ function new_system_changes(name, owner_account_id) {
     }]);
     var bucket = bucket_server.new_bucket_defaults('files', system._id, policy._id);
     var role = {
+        _id: system_store.generate_id(),
         account: owner_account_id,
         system: system._id,
         role: 'admin'
@@ -198,7 +199,7 @@ function read_system(req) {
         blocks,
         cloud_sync_by_bucket) {
 
-        blocks = _.mapValues(_.indexBy(blocks, '_id'), 'value');
+        blocks = _.mapValues(_.keyBy(blocks, '_id'), 'value');
         var nodes_sys = nodes_aggregate_tier[''] || {};
         var objects_sys = objects_aggregate[''] || {};
         var ip_address = ip_module.address();
@@ -207,7 +208,7 @@ function read_system(req) {
         // var stun_address = 'stun://' + ip_address + ':' + stun.PORT;
         // var stun_address = 'stun://64.233.184.127:19302'; // === 'stun://stun.l.google.com:19302'
         // n2n_config.stun_servers = n2n_config.stun_servers || [];
-        // if (!_.contains(n2n_config.stun_servers, stun_address)) {
+        // if (!_.includes(n2n_config.stun_servers, stun_address)) {
         //     n2n_config.stun_servers.unshift(stun_address);
         //     dbg.log0('read_system: n2n_config.stun_servers', n2n_config.stun_servers);
         // }
@@ -400,7 +401,7 @@ function get_system_web_links(system) {
         // }
     });
     // remove keys with undefined values
-    return _.omit(reply, _.isUndefined);
+    return _.omitBy(reply, _.isUndefined);
 }
 
 
@@ -441,35 +442,42 @@ function read_activity_log(req) {
     }
     if (req.rpc_params.skip) q.skip(req.rpc_params.skip);
     q.limit(req.rpc_params.limit || 10);
-    q.populate('tier', 'name');
     q.populate('node', 'name');
-    q.populate('bucket', 'name');
     q.populate('obj', 'key');
-    q.populate('account', 'email');
-    q.populate('actor', 'email');
     return P.when(q.exec())
         .then(function(logs) {
             logs = _.map(logs, function(log_item) {
                 var l = _.pick(log_item, 'id', 'level', 'event');
                 l.time = log_item.time.getTime();
-                if (log_item.tier) {
-                    l.tier = _.pick(log_item.tier, 'name');
+                
+                let tier = log_item.tier && system_store.data.get_by_id(log_item.tier);
+                if (tier) {
+                    l.tier = _.pick(tier, 'name');
                 }
+                
                 if (log_item.node) {
                     l.node = _.pick(log_item.node, 'name');
                 }
-                if (log_item.bucket) {
-                    l.bucket = _.pick(log_item.bucket, 'name');
+
+                let bucket = log_item.bucket && system_store.data.get_by_id(log_item.bucket);
+                if (bucket) {
+                    l.bucket = _.pick(bucket, 'name');
                 }
+
                 if (log_item.obj) {
                     l.obj = _.pick(log_item.obj, 'key');
                 }
-                if (log_item.account) {
-                    l.account = _.pick(log_item.account, 'email');
+
+                let account = log_item.account && system_store.data.get_by_id(log_item.account);
+                if (account) {
+                    l.account = _.pick(account, 'email');
                 }
-                if (log_item.actor) {
-                    l.actor = _.pick(log_item.actor, 'email');
+
+                let actor = log_item.actor && system_store.data.get_by_id(log_item.actor);
+                if (actor) {
+                    l.actor = _.pick(actor, 'email');
                 }
+
                 return l;
             });
             if (reverse) {

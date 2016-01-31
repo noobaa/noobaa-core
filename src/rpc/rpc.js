@@ -83,10 +83,10 @@ RPC.prototype.register_service = function(api, server, options) {
     var self = this;
     options = options || {};
 
-    dbg.log0('RPC register_service', api.name);
+    dbg.log0('RPC register_service', api.id);
 
     _.each(api.methods, function(method_api, method_name) {
-        var srv = api.name + '.' + method_name;
+        var srv = api.id + '.' + method_name;
         assert(!self._services[srv],
             'RPC register_service: service already registered ' + srv);
         var func = server[method_name];
@@ -114,10 +114,10 @@ RPC.prototype.register_service = function(api, server, options) {
 
     //Service was registered, call _init (if exists)
     if (typeof(server._init) !== 'undefined') {
-        dbg.log0('RPC register_service: calling _int() for', api.name);
+        dbg.log0('RPC register_service: calling _init() for', api.id);
         server._init();
     } else {
-        dbg.log2('RPC register_service:', api.name, 'does not supply an _init() function');
+        dbg.log2('RPC register_service:', api.id, 'does not supply an _init() function');
     }
 };
 
@@ -151,7 +151,7 @@ RPC.prototype.create_client = function(api, default_options) {
     var client = {
         options: _.create(default_options)
     };
-    if (!api || !api.name || !api.methods) {
+    if (!api || !api.id) {
         throw new Error('RPC create_client: BAD API');
     }
 
@@ -186,6 +186,7 @@ RPC.prototype.client_request = function(api, method_api, params, options) {
     var req = new RpcRequest();
     req.new_request(api, method_api, params, options.auth_token);
     req.response_defer = P.defer();
+    req.response_defer.promise.catch(_.noop); // to prevent error log of unhandled rejection
 
     // assign a connection to the request
     var conn = self._assign_connection(req, options);
@@ -613,50 +614,36 @@ RPC.prototype._accept_new_connection = function(conn) {
  *
  */
 RPC.prototype._reconnect = function(addr_url, reconn_backoff) {
-    var self = this;
-    var conn;
-
     // use the previous backoff for delay
     reconn_backoff = reconn_backoff || RECONN_BACKOFF_BASE;
 
-    P.delay(reconn_backoff)
-        .then(function() {
-
-            // create new connection (if not present)
-            return self._get_connection(addr_url, 'reconnect');
-
-        })
-        .then(function(conn_arg) {
-            conn = conn_arg;
-
-            // increase the backoff for the new connection,
-            // so that if it closes the backoff will keep increasing up to max.
-            conn._reconn_backoff = Math.min(
-                reconn_backoff * RECONN_BACKOFF_FACTOR, RECONN_BACKOFF_MAX);
-
-            return conn.connect();
-
-        })
-        .then(function() {
-
-            // remove the backoff once connected
-            delete conn._reconn_backoff;
-
-            dbg.log1('RPC RECONNECTED', addr_url.href,
-                'reconn_backoff', reconn_backoff);
-
-            self.emit('reconnect', conn);
-
-        }, function(err) {
-
-            // since the new connection should already listen for close events,
-            // then this path will be called again from there,
-            // so no need to loop and retry from here.
-            dbg.warn('RPC RECONNECT FAILED', addr_url.href,
-                'reconn_backoff', reconn_backoff,
-                err.stack || err);
-
-        });
+    var conn = this._get_connection(addr_url, 'called from reconnect');
+    // increase the backoff for the new connection,
+    // so that if it closes the backoff will keep increasing up to max.
+    if (conn._reconnect_timeout) return;
+    conn._reconn_backoff = Math.min(
+        reconn_backoff * RECONN_BACKOFF_FACTOR, RECONN_BACKOFF_MAX);
+    conn._reconnect_timeout = setTimeout(() => {
+        conn._reconnect_timeout = undefined;
+        var conn2 = this._get_connection(addr_url, 'called from reconnect2');
+        if (conn2 !== conn) return;
+        P.fcall(() => conn.connect())
+            .then(() => {
+                // remove the backoff once connected
+                conn._reconn_backoff = undefined;
+                dbg.log1('RPC RECONNECTED', addr_url.href,
+                    'reconn_backoff', reconn_backoff);
+                this.emit('reconnect', conn);
+            })
+            .catch(err => {
+                // since the new connection should already listen for close events,
+                // then this path will be called again from there,
+                // so no need to loop and retry from here.
+                dbg.warn('RPC RECONNECT FAILED', addr_url.href,
+                    'reconn_backoff', reconn_backoff,
+                    err.stack || err);
+            });
+    }, reconn_backoff);
 };
 
 
@@ -697,15 +684,21 @@ RPC.prototype._connection_closed = function(conn) {
 
     // reject pending requests
     _.each(conn._sent_requests, function(req) {
-        dbg.warn('RPC _connection_closed: reject reqid', req.reqid,
-            'connid', conn.connid);
-        req.rpc_error('DISCONNECTED', 'connection closed ' + conn.connid);
+        req.rpc_error('DISCONNECTED', 'connection closed ' + conn.connid + ' reqid ' + req.reqid, {
+            level: 'warn',
+            nostack: true
+        });
     });
 
     if (conn._ping_interval) {
         clearInterval(conn._ping_interval);
         conn._ping_interval = null;
     }
+
+    // clear the reconnect timeout if was set before on this connection
+    // to handle the actual reconnect we make a new connection object
+    clearTimeout(conn._reconnect_timeout);
+    conn._reconnect_timeout = undefined;
 
     // for base_address try to reconnect after small delay.
     if (!conn._no_reconnect && self._should_reconnect(conn.url.href)) {
@@ -778,7 +771,7 @@ RPC.prototype._connection_receive = function(conn, msg_buffer) {
 RPC.prototype._redirect = function(api, method, params, options) {
     var self = this;
     var req = {
-        method_api: api.name,
+        method_api: api.id,
         method_name: method.name,
         target: options.address,
         request_params: params

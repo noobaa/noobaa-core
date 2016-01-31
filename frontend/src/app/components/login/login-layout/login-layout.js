@@ -1,7 +1,7 @@
 import template from './login-layout.html';
 import ko from 'knockout';
 import { isDefined } from 'utils';
-import { serverInfo,  } from 'model';
+import { serverInfo } from 'model';
 
 class LoginLayoutViewModel {
 	constructor() {

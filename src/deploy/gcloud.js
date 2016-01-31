@@ -246,7 +246,7 @@ function scale_region(region_name, count, instances, allow_terminate, is_docker_
         console.log('ScaleRegion:', region_name, 'has', instances.length,
             ' --- removing', instances.length - count);
         var death_row = _.slice(instances, 0, instances.length - count);
-        var ids = _.pluck(death_row, 'name');
+        var ids = _.map(death_row, 'name');
         console.log('death row (ids):', ids);
         //in this case, the id is the instance name.
         return terminate_instances(region_name, ids);
@@ -290,7 +290,7 @@ function print_instances(instances) {
             //console.log('current_instance:'+current_instance);
             var pieces_array = current_instance.zone.split('/');
             var zone_name = pieces_array[pieces_array.length - 1];
-            current_instance.tags_map = _.mapValues(_.indexBy(current_instance.metadata.items, 'key'), 'value');
+            current_instance.tags_map = _.mapValues(_.keyBy(current_instance.metadata.items, 'key'), 'value');
 
             console.log('Instance:',
                 current_instance.id,
@@ -381,7 +381,7 @@ function describe_instances(params, filter) {
         var instances = _.flatten(created_instance_data);
         // also put the regions list as a "secret" property of the array
         return _.filter(instances, function(instance) {
-            instance.tags_map = _.mapValues(_.indexBy(instance.metadata.items, 'key'), 'value');
+            instance.tags_map = _.mapValues(_.keyBy(instance.metadata.items, 'key'), 'value');
 
             //console.log('filter instance:',instance.name,instance.tags_map.Name,instances.zones);
             if (typeof filter !== 'undefined') {

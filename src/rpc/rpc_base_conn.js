@@ -56,7 +56,7 @@ function RpcBaseConnection(addr_url) {
 
     // connections are closed on error, and once closed will not be reopened again.
     self.on('error', function on_error(err) {
-        dbg.error('RPC CONN CLOSE ON ERROR', self.connid, err.stack || err);
+        dbg.warn('RPC CONN CLOSE ON ERROR', self.connid, err.message);
         self.close();
     });
 

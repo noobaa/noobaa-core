@@ -16,7 +16,7 @@ var data_block_schema = new Schema({
 
     // system is copied from the chunk/node to allow filtering
     system: {
-        ref: 'System',
+        // ref: 'System',
         type: types.ObjectId,
         required: true,
     },

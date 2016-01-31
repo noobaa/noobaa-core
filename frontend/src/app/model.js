@@ -5,6 +5,10 @@ export let uiState = ko.observable({
 	layout: 'empty'
 });
 
+// Hold a refresh counter that allows view models to act when it
+// changes.
+export let refreshCounter = ko.observable(0);
+
 // Hold the current route context.
 export let routeContext = ko.observable();
 
@@ -19,13 +23,16 @@ export let sessionInfo = ko.observable();
 // Hold the state of the server.
 export let serverInfo = ko.observable();
 
-// Hold a overview information of a system.
-export let systemOverview = ko.observable();
+// Hold current system information.
+export let systemInfo = ko.observable();
+
+// Hold summary information on the current system.
+export let systemSummary = ko.observable();
 
 // Hold agent installation information.
 export let agentInstallationInfo = ko.observable();
 
-// Hold the current bucket list. derived from system info.
+// Hold the current bucket list. deriv`ed` from system info.
 export let bucketList = ko.observableArray(); 
 bucketList.sortedBy = ko.observable('name')
 bucketList.order = ko.observable(1);
@@ -41,8 +48,8 @@ bucketObjectList.order = ko.observable(1);
 bucketObjectList.filter = ko.observable();
 bucketObjectList.page = ko.observable(0);
 
-// Hold the current bucket policy.
-export let bucketPolicy = ko.observable();
+// Hold the current tier information.
+export let tierInfo = ko.observable();
 
 // Hold the current pool list. derived from system info.
 export let poolList = ko.observableArray();
@@ -86,5 +93,11 @@ export let recentUploads = ko.observableArray();
 
 // Hold the audit log 
 export let auditLog = ko.observableArray();
-auditLog.loadedCategories = ko.observableArray();
-auditLog.scrollPop = ko.observable();
+auditLog.loadedCategories = ko.observable();
+
+// Hold the current account list
+export let accountList = ko.observableArray();
+
+
+export let nodeTestResults = ko.observableArray();
+nodeTestResults.timestemp = ko.observable();

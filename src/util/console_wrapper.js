@@ -76,7 +76,7 @@ exports.wrapper_console = function() {
     //See above
     try {
         if (typeof window !== 'undefined') {
-            //global.console = wrapperConsole;
+            global.console = wrapperConsole;
             return;
         } 
     } catch (ex) {
@@ -85,9 +85,9 @@ exports.wrapper_console = function() {
         }
         log_once_exception = true;
     }
-    // for (var i = 0; i < syslog_levels.length; ++i) {
-    //     console[syslog_levels[i]] = wrapperConsole[syslog_levels[i]];
-    // }
+    for (var i = 0; i < syslog_levels.length; ++i) {
+        console[syslog_levels[i]] = wrapperConsole[syslog_levels[i]];
+    }
 };
 
 exports.register_logger = function(dbg) {

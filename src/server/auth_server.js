@@ -123,9 +123,9 @@ function create_auth(req) {
                 // system owner can do anything
                 String(system.owner) === String(authenticated_account._id) ||
                 // system admin can do anything
-                _.contains(roles, 'admin') ||
+                _.includes(roles, 'admin') ||
                 // non admin is not allowed to delegate roles to other accounts
-                (role_name && _.contains(roles, role_name) &&
+                (role_name && _.includes(roles, role_name) &&
                     String(target_account._id) === String(authenticated_account._id))) {
                 // "system admin" can use any role
                 role_name = role_name || 'admin';
@@ -276,7 +276,7 @@ function authorize(req) {
 
     if (req.method_api.auth !== false) {
         dbg.log3('authorize:', req.method_api.auth, req.srv);
-        req.load_auth(req.method_api.auth);
+        req.load_auth();
 
         //if request request has access signature, validate the signature
         if (auth_token_obj) {
@@ -327,8 +327,8 @@ function _prepare_auth_request(req) {
      *      - <Boolean> system: if false don't fail if there is no system in req.auth
      *      - <Array> roles: acceptable roles
      */
-    req.load_auth = function(options) {
-        options = options || {};
+    req.load_auth = function() {
+        var options = this.method_api.auth || {};
 
         dbg.log1('load_auth:', options, req.auth);
         if (req.auth) {
@@ -341,17 +341,17 @@ function _prepare_auth_request(req) {
         if (!ignore_missing_account) {
             // check that auth has account
             if (!req.account) {
-                throw req.unauthorized('auth account not found');
+                throw req.unauthorized('auth account not found ' + (req.auth && req.auth.account_id));
             }
         }
         if (!ignore_missing_system) {
             // check that auth contains system
             if (!req.system) {
-                throw req.unauthorized('auth system not found');
+                throw req.unauthorized('auth system not found ' + (req.auth && req.auth.system_id));
             }
 
             // check that auth contains valid system role
-            if (!_.contains(options.system, req.auth.role)) {
+            if (!_.includes(options.system, req.auth.role)) {
                 throw req.unauthorized('auth role not allowed in system');
             }
         }
@@ -377,7 +377,7 @@ function _prepare_auth_request(req) {
         var auth = _.pick(options, 'account_id', 'system_id', 'role', 'extra');
 
         // don't incude keys if value is falsy, to minimize the token size
-        auth = _.omit(auth, function(value) {
+        auth = _.omitBy(auth, function(value) {
             return !value;
         });
 
@@ -401,7 +401,9 @@ function _prepare_auth_request(req) {
      *
      */
     req.unauthorized = function(reason) {
-        return req.rpc_error('UNAUTHORIZED', null, reason);
+        return req.rpc_error('UNAUTHORIZED', '', {
+            reason: reason
+        });
     };
 
 
@@ -413,7 +415,9 @@ function _prepare_auth_request(req) {
      *
      */
     req.forbidden = function(reason) {
-        return req.rpc_error('FORBIDDEN', null, reason);
+        return req.rpc_error('FORBIDDEN', '', {
+            reason: reason
+        });
     };
 
 }

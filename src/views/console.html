@@ -86,11 +86,11 @@
                 </li>
                 -->
 
-                <li ng-if="nbSystem.system" class="text-center" ng-repeat="tier in nbSystem.system.tiers" ng-class="{active: nav.active=='tier'}">
-                    <a ng-href="/console/tier/{{tier.name}}">
+                <li ng-if="nbSystem.system" class="text-center" ng-class="{active: nav.active=='pool'}">
+                    <a ng-href="/console/pools">
                         <i class="fa fa-spinner fa-fw fa-3x"></i>
                         <br/>
-                        <span class="uppercase">{{tier.name}}</span>
+                        <span class="uppercase">Pools</span>
                     </a>
                 </li>
 
@@ -101,8 +101,8 @@
                         <span class="uppercase">{{bucket.name}}</span>
                     </a>
                 </li> -->
-                <li ng-if="nbSystem.system" class="text-center" ng-class="{active: nav.active=='data'}">
-                    <a ng-href="/console/data">
+                <li ng-if="nbSystem.system" class="text-center" ng-class="{active: nav.active=='bucket'}">
+                    <a ng-href="/console/buckets">
                         <i class="fa fa-folder-o fa-fw fa-3x"></i>
                         <br/>
                         <span class="uppercase">Buckets</span>

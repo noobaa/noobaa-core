@@ -10,16 +10,20 @@ class PoolSummaryViewModel {
 			() => !!pool()
 		);
 
+		this.poolName = ko.computed(
+			() => !!pool() && pool().name
+		);
+
 		this.onlineCount = ko.pureComputed(
 			() => {
-				let count = pool().online_nodes;
+				let count = pool().nodes.online;
 				return `${count > 0 ? numeral(count).format('0,0') : 'No'} Online Nodes`;
 			}
 		);
 
 		this.offlineCount = ko.pureComputed(
 			() => {
-				let count = pool().total_nodes - pool().online_nodes;
+				let count = pool().nodes.count - pool().nodes.online;
 				return `${count > 0 ? numeral(count).format('0,0') : 'No'} Offline Nodes`;
 			}
 		);
@@ -52,6 +56,8 @@ class PoolSummaryViewModel {
 			{ value: this.used, color: style['text-color6'], emphasize: true },
 			{ value: this.free, color: style['text-color4'], emphasize: false },
 		];
+
+		this.isAssignNodeModalVisible = ko.observable(false);
 	}
 }
 

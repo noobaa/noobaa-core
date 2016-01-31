@@ -82,7 +82,7 @@ function archive_diagnostics_pack(dst) {
             //Check if current number of archived packs exceeds the max
             if (files.length === config.central_stats.previous_diag_packs_count) {
                 //Delete the oldest pack
-                var sorted_files = _.sortByOrder(files);
+                var sorted_files = _.orderBy(files);
                 return P.nfcall(fs.unlink, config.central_stats.previous_diag_packs_dir + '/' + sorted_files[0]);
             } else {
                 return;

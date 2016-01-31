@@ -7,23 +7,18 @@
  *
  */
 module.exports = {
-    name: 'tiering_policy_api',
+
+    id: 'tiering_policy_api',
 
     methods: {
         create_policy: {
             doc: 'Create Tiering Policy',
             method: 'POST',
             params: {
-                type: 'object',
-                required: ['policy'],
-                properties: {
-                    policy: {
-                        $ref: '/tiering_policy_api/definitions/tiering_policy'
-                    }
-                }
+                $ref: '#/definitions/tiering_policy'
             },
             reply: {
-                $ref: '/tiering_policy_api/definitions/tiering_policy_extended'
+                $ref: '#/definitions/tiering_policy'
             },
             auth: {
                 system: 'admin'
@@ -34,16 +29,10 @@ module.exports = {
             doc: 'Update Tiering Policy',
             method: 'POST',
             params: {
-                type: 'object',
-                required: ['policy'],
-                properties: {
-                    policy: {
-                        $ref: '/tiering_policy_api/definitions/tiering_policy'
-                    }
-                }
+                $ref: '#/definitions/tiering_policy'
             },
             reply: {
-                $ref: '/tiering_policy_api/definitions/tiering_policy'
+                $ref: '#/definitions/tiering_policy'
             },
             auth: {
                 system: 'admin'
@@ -63,7 +52,7 @@ module.exports = {
                 }
             },
             reply: {
-                $ref: '/tiering_policy_api/definitions/tiering_policy_extended'
+                $ref: '#/definitions/tiering_policy'
             },
             auth: {
                 system: 'admin'
@@ -83,7 +72,7 @@ module.exports = {
                 }
             },
             reply: {
-                $ref: '/tiering_policy_api/definitions/tiering_policy'
+                $ref: '#/definitions/tiering_policy'
             },
             auth: {
                 system: 'admin'
@@ -117,6 +106,9 @@ module.exports = {
                 name: {
                     type: 'string',
                 },
+                storage: {
+                    $ref: 'common_api#/definitions/storage_info'
+                },
                 tiers: {
                     type: 'array',
                     items: {
@@ -133,53 +125,6 @@ module.exports = {
                     }
                 }
             }
-        },
-
-        tiering_policy_extended: {
-            type: 'object',
-            required: ['name', 'tiers'],
-            properties: {
-                name: {
-                    type: 'string',
-                },
-                tiers: {
-                    type: 'array',
-                    items: {
-                        type: 'object',
-                        required: ['order', 'tier'],
-                        properties: {
-                            order: {
-                                type: 'integer',
-                            },
-                            tier: {
-                                type: 'object',
-                                required: ['name', 'tiers'],
-                                properties: {
-                                    name: {
-                                        type: 'string',
-                                    },
-                                    data_placement: {
-                                        type: 'string',
-                                        enum: ['MIRROR', 'SPREAD'],
-                                    },
-                                    pools: {
-                                        type: 'array',
-                                        items: {
-                                            type: 'object',
-                                            required: ['name'],
-                                            properties: {
-                                                name: {
-                                                    type: 'string',
-                                                },
-                                            }
-                                        }
-                                    },
-                                }
-                            },
-                        }
-                    }
-                },
-            },
-        },
+        }
     },
 };

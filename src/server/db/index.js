@@ -8,20 +8,12 @@ var dbg = require('../../util/debug_module')(__filename);
 
 
 var LRUCache = require('../../util/lru_cache');
-var Account = require('./account');
-var Role = require('./role');
-var System = require('./system');
-var Tier = require('./tier');
 var Node = require('./node');
-var Bucket = require('./bucket');
-var Cluster = require('./cluster');
 var ObjectMD = require('./object_md');
 var ObjectPart = require('./object_part');
 var DataChunk = require('./data_chunk');
 var DataBlock = require('./data_block');
 var ActivityLog = require('./activity_log');
-var Pool = require('./pool');
-var TieringPolicy = require('./tiering_policy');
 // var dbg = require('../util/debug_module')(__filename);
 var debug_mode = (process.env.DEBUG_MODE === 'true');
 var mongoose_connected = false;

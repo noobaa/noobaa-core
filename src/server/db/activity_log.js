@@ -38,7 +38,7 @@ var activity_log_schema = new Schema({
     },
 
     tier: {
-        ref: 'Tier',
+        // ref: 'Tier',
         type: types.ObjectId,
     },
     node: {
@@ -46,7 +46,7 @@ var activity_log_schema = new Schema({
         type: types.ObjectId,
     },
     bucket: {
-        ref: 'Bucket',
+        // ref: 'Bucket',
         type: types.ObjectId,
     },
     obj: {
@@ -54,12 +54,12 @@ var activity_log_schema = new Schema({
         type: types.ObjectId,
     },
     account: {
-        ref: 'Account',
+        // ref: 'Account',
         type: types.ObjectId,
     },
     //The User that performed the action
     actor: {
-        ref: 'Account',
+        // ref: 'Account',
         type: types.ObjectId
     }
 }, {

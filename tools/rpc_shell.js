@@ -10,6 +10,7 @@ var repl_srv;
 
 function RPCShell() {
     this.client = new api.Client();
+    this.bg_client = api.bg_workers_client;
 }
 
 function construct_rpc_arguments(str_args) {
@@ -112,7 +113,11 @@ RPCShell.prototype.call = function(str_args) {
 
     console.log('Invoking RPC', apiname + '.' + func + '(' + util.inspect(rpc_args) + ')');
     return P.fcall(function() {
-            return self.client[apiname][func](rpc_args);
+            if (apiname === 'redirector' || apiname === 'cloud_sync') {
+                return self.bg_client[apiname][func](rpc_args);
+            } else {
+                return self.client[apiname][func](rpc_args);
+            }
         })
         .fail(function(error) {
             if (error.rpc_code === 'BAD_REQUEST') {

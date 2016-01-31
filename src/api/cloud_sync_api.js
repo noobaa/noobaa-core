@@ -8,7 +8,7 @@
  */
 module.exports = {
 
-    name: 'cloud_sync_api',
+    id: 'cloud_sync_api',
 
     methods: {
         get_policy_status: {
@@ -30,7 +30,7 @@ module.exports = {
                 required: ['status', 'health'],
                 properties: {
                     status: {
-                        $ref: '/bucket_api/definitions/sync_status_enum'
+                        $ref: 'bucket_api#/definitions/sync_status_enum'
                     },
                     health: {
                         type: 'boolean'

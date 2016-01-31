@@ -1,0 +1,61 @@
+<div ng-controller="PoolsViewCtrl">
+
+    <div class="page-header page-resources">
+
+
+        <h1 class="capitalize">Pools</h1>
+
+        <ol class="breadcrumb capitalize">
+            <li>
+                <a href="/console/">Overview</a>
+            </li>
+            <li class="active">Pools</li>
+        </ol>
+
+        <br/>
+
+    </div>
+
+    <div class="row">
+        <button class="btn btn-primary btn-lg" style="float: right;padding: 10px ;margin-right: 40px" nb-click-ladda="add_new_pool()">
+            Add New Pool
+        </button>
+    </div>
+    <hr>
+    <div class="row">
+
+        <div class="heading-col col-sm-3">
+            <h4 class="text-primary">
+                Pools
+            </h4>
+            <p class="text-muted">
+                Node Pools are composed of devices, and aggregate their storage resources to provide a persistent storage tier that can be used by data buckets.
+            </p>
+        </div>
+
+        <div class="content-col col-sm-9">
+            <div class="table-responsive">
+                <table class="table table-no-borders">
+                    <tr>
+                        <th>Pool Name</th>
+                        <th>Nodes</th>
+                        <th>Raw Storage</th>
+                        <th>Status</th>
+                    </tr>
+                    <tr ng-repeat="pool in nbSystem.system.pools">
+                        <td class="table-btn text-left">
+                            <a ng-href="pool/{{pool.name}}" class="btn btn-link btn-block">
+                                <i class="fa fa-spinner fa-lg fa-fw text-muted"></i>
+                                <span class="text-primary" style="text-transform: lowercase">{{pool.name}}</span>
+                            </a>
+                        </td>
+                        <td>{{pool.nodes.online}}</td>
+                        <td>{{human_size(pool.storage.used)}} of {{human_size(pool.storage.total)}}</td>
+                        <td style="vertical-align: middle;" class="text-success">Healthy</td>
+                    </tr>
+                </table>
+            </div>
+        </div>
+    </div>
+
+</div>

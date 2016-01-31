@@ -5,7 +5,7 @@ import ko from 'knockout';
 import NodeRowViewModel from './node-row';
 import { makeArray } from 'utils';
 import { nodeList } from 'model';
-import { createPool } from 'actions';
+import { loadNodeList, createPool } from 'actions';
 
 
 class CreatePoolWizardViewModel {
@@ -46,6 +46,8 @@ class CreatePoolWizardViewModel {
 		this.assignNodesErrors = ko.validation.group({
 			selectedNodes: this.selectedNodes
 		})
+
+		loadNodeList();
 	}
 
 	validateStep(step) {

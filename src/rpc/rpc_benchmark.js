@@ -110,6 +110,7 @@ schema.register_api({
         }
     }
 });
+schema.compile();
 
 // create rpc
 var rpc = new RPC({

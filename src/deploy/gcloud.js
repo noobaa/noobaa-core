@@ -482,7 +482,7 @@ function add_region_instances(region_name, count, is_docker_host, number_of_dock
                 })
                 .then(function(network_counter) {
                     var noobaa_env_name = app_name;
-                    var machine_type = 'https://www.googleapis.com/compute/v1/projects/' + NooBaaProject + '/zones/' + region_name + '/machineTypes/n1-standard-1';
+                    var machine_type = 'https://www.googleapis.com/compute/v1/projects/' + NooBaaProject + '/zones/' + region_name + '/machineTypes/n1-standard-2';
                     var startup_script = 'http://noobaa-download.s3.amazonaws.com/init_agent.sh';
                     var source_image = 'https://www.googleapis.com/compute/v1/projects/ubuntu-os-cloud/global/images/ubuntu-1404-trusty-v20141031a';
 
@@ -527,7 +527,7 @@ function add_region_instances(region_name, count, is_docker_host, number_of_dock
                             machineType: machine_type,
                             disks: [{
                                 initializeParams: {
-                                    diskSizeGb: 50,
+                                    diskSizeGb: 2048,
                                     //sourceImage:'https://www.googleapis.com/compute/v1/projects/ubuntu-os-cloud/global/images/ubuntu-trusty-14.04-amd64-server-20140927'
                                     sourceImage: source_image
                                 },

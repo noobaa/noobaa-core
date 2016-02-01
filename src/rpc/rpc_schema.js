@@ -1,11 +1,11 @@
 'use strict';
 
 
-var _ = require('lodash');
-var assert = require('assert');
-var Ajv = require('ajv');
-var dbg = require('../util/debug_module')(__filename);
-var schema_utils = require('../util/schema_utils');
+let _ = require('lodash');
+let assert = require('assert');
+let Ajv = require('ajv');
+let dbg = require('../util/debug_module')(__filename);
+let schema_utils = require('../util/schema_utils');
 
 const VALID_HTTP_METHODS = {
     GET: 1,
@@ -82,7 +82,7 @@ class RpcSchema {
                 }
 
                 method_api.validate_params = (params, desc) => {
-                    var result = method_api.params_validator(params);
+                    let result = method_api.params_validator(params);
                     if (!result) {
                         dbg.error('INVALID PARAMS SCHEMA', desc, method_api.fullname,
                             'ERRORS:', method_api.params_validator.errors,
@@ -92,7 +92,7 @@ class RpcSchema {
                 };
 
                 method_api.validate_reply = (reply, desc) => {
-                    var result = method_api.reply_validator(reply);
+                    let result = method_api.reply_validator(reply);
                     if (!result) {
                         dbg.error('INVALID REPLY SCHEMA', desc, method_api.fullname,
                             'ERRORS:', method_api.reply_validator.errors,

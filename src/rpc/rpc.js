@@ -13,10 +13,14 @@ var url_utils = require('../util/url_utils');
 var dbg = require('../util/debug_module')(__filename);
 var RpcRequest = require('./rpc_request');
 var RpcWsConnection = require('./rpc_ws');
+var RpcWsServer = require('./rpc_ws_server');
 var RpcHttpConnection = require('./rpc_http');
+var RpcHttpServer = require('./rpc_http_server');
 var RpcTcpConnection = require('./rpc_tcp');
+var RpcTcpServer = require('./rpc_tcp_server');
 var RpcNudpConnection = require('./rpc_nudp');
 var RpcN2NConnection = require('./rpc_n2n');
+var RpcN2NAgent = require('./rpc_n2n_agent');
 var RpcFcallConnection = require('./rpc_fcall');
 var EventEmitter = require('events').EventEmitter;
 
@@ -816,8 +820,8 @@ RPC.prototype.emit_stats = function(name, data) {
  */
 RPC.prototype.start_http_server = function(port, secure, logging) {
     dbg.log0('RPC start_http_server port', port, secure ? 'secure' : '');
-    var http_server = new RpcHttpConnection.Server();
-    http_server.on('connection', this._accept_new_connection.bind(this));
+    var http_server = new RpcHttpServer();
+    http_server.on('connection', conn => this._accept_new_connection(conn));
     return http_server.start(port, secure, logging);
 };
 
@@ -829,8 +833,8 @@ RPC.prototype.start_http_server = function(port, secure, logging) {
  */
 RPC.prototype.register_http_transport = function(express_app) {
     dbg.log0('RPC register_http_transport');
-    var http_server = new RpcHttpConnection.Server();
-    http_server.on('connection', this._accept_new_connection.bind(this));
+    var http_server = new RpcHttpServer();
+    http_server.on('connection', conn => this._accept_new_connection(conn));
     http_server.install(express_app);
     return http_server;
 };
@@ -843,8 +847,8 @@ RPC.prototype.register_http_transport = function(express_app) {
  */
 RPC.prototype.register_ws_transport = function(http_server) {
     dbg.log0('RPC register_ws_transport');
-    var ws_server = new RpcWsConnection.Server(http_server);
-    ws_server.on('connection', this._accept_new_connection.bind(this));
+    var ws_server = new RpcWsServer(http_server);
+    ws_server.on('connection', conn => this._accept_new_connection(conn));
     return ws_server;
 };
 
@@ -856,8 +860,8 @@ RPC.prototype.register_ws_transport = function(http_server) {
  */
 RPC.prototype.register_tcp_transport = function(port, tls_options) {
     dbg.log0('RPC register_tcp_transport');
-    var tcp_server = new RpcTcpConnection.Server(tls_options);
-    tcp_server.on('connection', this._accept_new_connection.bind(this));
+    var tcp_server = new RpcTcpServer(tls_options);
+    tcp_server.on('connection', conn => this._accept_new_connection(conn));
     tcp_server.listen(port);
     return tcp_server;
 };
@@ -877,9 +881,7 @@ RPC.prototype.register_nudp_transport = function(port) {
     var self = this;
     dbg.log0('RPC register_tcp_transport');
     var conn = new RpcNudpConnection(url_utils.quick_parse('nudp://0.0.0.0:0'));
-    conn.on('connect', function() {
-        self._accept_new_connection(conn);
-    });
+    conn.on('connect', () => self._accept_new_connection(conn));
     return conn.accept(port);
 };
 
@@ -894,10 +896,10 @@ RPC.prototype.register_n2n_transport = function() {
         return this.n2n_agent;
     }
     dbg.log0('RPC register_n2n_transport');
-    var n2n_agent = new RpcN2NConnection.Agent({
+    var n2n_agent = new RpcN2NAgent({
         signaller: this.n2n_signaller,
     });
-    n2n_agent.on('connection', this._accept_new_connection.bind(this));
+    n2n_agent.on('connection', conn => this._accept_new_connection(conn));
     this.n2n_agent = n2n_agent;
     return n2n_agent;
 };

@@ -1,25 +1,18 @@
 'use strict';
 
-module.exports = RpcWsConnection;
+let _ = require('lodash');
+// let P = require('../util/promise');
+let RpcBaseConnection = require('./rpc_base_conn');
+let buffer_utils = require('../util/buffer_utils');
+let dbg = require('../util/debug_module')(__filename);
+let WS = require('ws');
 
-var _ = require('lodash');
-// var P = require('../util/promise');
-var url = require('url');
-var util = require('util');
-var EventEmitter = require('events').EventEmitter;
-var RpcBaseConnection = require('./rpc_base_conn');
-var buffer_utils = require('../util/buffer_utils');
-var dbg = require('../util/debug_module')(__filename);
-var WS = require('ws');
-
-util.inherits(RpcWsConnection, RpcBaseConnection);
-
-var WS_CONNECT_OPTIONS = {
+let WS_CONNECT_OPTIONS = {
     // accept self signed ssl certificates
     rejectUnauthorized: false
 };
 
-var WS_SEND_OPTIONS = {
+let WS_SEND_OPTIONS = {
     // rpc throughput with these options is ~200 MB/s (no ssl)
     binary: true,
     // masking (http://tools.ietf.org/html/rfc6455#section-10.3)
@@ -38,119 +31,51 @@ var WS_SEND_OPTIONS = {
  * RpcWsConnection
  *
  */
-function RpcWsConnection(addr_url) {
-    RpcBaseConnection.call(this, addr_url);
-}
+class RpcWsConnection extends RpcBaseConnection {
 
-/**
- *
- * connect
- *
- */
-RpcWsConnection.prototype._connect = function() {
-    var self = this;
-    var ws = new WS(self.url.href, null, WS_CONNECT_OPTIONS);
-    self._init_ws(ws);
-    ws.onopen = function() {
-        self.emit('connect');
-    };
-};
+    constructor(addr_url) {
+        super(addr_url);
+    }
 
-/**
- *
- * close
- *
- */
-RpcWsConnection.prototype._close = function() {
-    close_ws(this.ws);
-};
+    _connect() {
+        let ws = new WS(this.url.href, null, WS_CONNECT_OPTIONS);
+        this._init_ws(ws);
+        ws.onopen = () => this.emit('connect');
+    }
 
-/**
- *
- * send
- *
- */
-RpcWsConnection.prototype._send = function(msg) {
-    msg = _.isArray(msg) ? Buffer.concat(msg) : msg;
-    this.ws.send(msg, WS_SEND_OPTIONS);
-};
+    _close() {
+        close_ws(this.ws);
+    }
 
+    _send(msg) {
+        msg = _.isArray(msg) ? Buffer.concat(msg) : msg;
+        this.ws.send(msg, WS_SEND_OPTIONS);
+    }
 
-RpcWsConnection.prototype._init_ws = function(ws) {
-    var self = this;
-    self.ws = ws;
-    ws.binaryType = 'arraybuffer';
+    _init_ws(ws) {
+        this.ws = ws;
+        ws.binaryType = 'arraybuffer';
 
-    ws.onclose = function onclose() {
-        var closed_err = new Error('WS CLOSED');
-        closed_err.stack = '';
-        self.emit('error', closed_err);
-    };
+        ws.onclose = () => {
+            let closed_err = new Error('WS CLOSED');
+            closed_err.stack = '';
+            this.emit('error', closed_err);
+        };
 
-    ws.onerror = function onerror(err) {
-        self.emit('error', err);
-    };
+        ws.onerror = err => this.emit('error', err);
 
-    ws.onmessage = function onmessage(msg) {
-        try {
-            var buffer = buffer_utils.toBuffer(msg.data);
-            self.emit('message', buffer);
-        } catch (err) {
-            dbg.error('WS MESSAGE ERROR', self.connid, err.stack || err);
-            self.emit('error', err);
-        }
-    };
-};
-
-
-/**
- *
- * RpcWsServer
- *
- */
-RpcWsConnection.Server = RpcWsServer;
-
-util.inherits(RpcWsServer, EventEmitter);
-
-function RpcWsServer(http_server) {
-    var self = this;
-    EventEmitter.call(self);
-
-    var ws_server = new WS.Server({
-        server: http_server
-    });
-
-    ws_server.on('connection', function(ws) {
-        var conn;
-        try {
-            // using url.format and then url.parse in order to handle ipv4/ipv6 correctly
-            var address = url.format({
-                // TODO how to find out if ws is secure and use wss:// address instead
-                protocol: 'ws:',
-                slashes: true,
-                hostname: ws._socket.remoteAddress,
-                port: ws._socket.remotePort
-            });
-            var addr_url = url.parse(address);
-            conn = new RpcWsConnection(addr_url);
-            dbg.log0('WS ACCEPT CONNECTION', conn.connid);
-            conn.emit('connect');
-            conn._init_ws(ws);
-            self.emit('connection', conn);
-        } catch (err) {
-            dbg.log0('WS ACCEPT ERROR', address, err.stack || err);
-            close_ws(ws);
-            if (conn) {
-                conn.emit('error', err);
+        ws.onmessage = msg => {
+            try {
+                let buffer = buffer_utils.toBuffer(msg.data);
+                this.emit('message', buffer);
+            } catch (err) {
+                dbg.error('WS MESSAGE ERROR', this.connid, err.stack || err);
+                this.emit('error', err);
             }
-        }
-    });
+        };
+    }
 
-    ws_server.on('error', function(err) {
-        dbg.error('WS SERVER ERROR', err.stack || err);
-    });
 }
-
 
 function close_ws(ws) {
     if (ws &&
@@ -159,3 +84,6 @@ function close_ws(ws) {
         ws.close();
     }
 }
+
+
+module.exports = RpcWsConnection;

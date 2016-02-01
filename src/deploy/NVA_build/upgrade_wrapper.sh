@@ -51,6 +51,7 @@ function fix_bashrc {
 
     #helper aliases
     echo "alias services_status='/usr/bin/supervisorctl status'" >> ~/.bashrc
+		echo "alias reload_services='/usr/bin/supervisorctl reread && /usr/bin/supervisorctl reload'" >> ~/.bashrc
     echo "alias ll='ls -lha'" >> ~/.bashrc
     echo "alias less='less -R'" >> ~/.bashrc
     echo "alias zless='zless -R'" >> ~/.bashrc

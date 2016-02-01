@@ -10,4 +10,5 @@ export default function register(ko) {
 	ko.bindingHandlers.canvas 		= require('./canvas');	
 	ko.bindingHandlers.transition	= require('./transition');
 	ko.bindingHandlers.animation	= require('./animation');
+	ko.bindingHandlers.expand		= require('./expand');
 }

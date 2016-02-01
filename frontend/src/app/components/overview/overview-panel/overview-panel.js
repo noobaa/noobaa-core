@@ -2,7 +2,8 @@ import template from './overview-panel.html';
 import ko from 'knockout';
 import { formatSize } from 'utils';
 import numeral from 'numeral';
-import { systemSummary } from 'model';
+import { systemSummary, routeContext } from 'model';
+import { redirectTo } from 'actions';
 
 class OverviewPanelViewModel {
 	constructor() {
@@ -40,7 +41,16 @@ class OverviewPanelViewModel {
 
 		this.isInstallNodeWizardlVisible = ko.observable(false);
 		this.isConnectAppWizardVisible = ko.observable(false);
+		
+		this.isAfterUpgradeModalVisible = ko.pureComputed(
+			() => !!routeContext().query.afterupgrade
+		);
 	}
+
+	closeAfterUpgradeModal() {
+		redirectTo('/fe/systems/:system')
+	}
+	
 }
 
 export default { 

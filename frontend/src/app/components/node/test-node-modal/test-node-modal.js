@@ -8,25 +8,33 @@ import moment from 'moment';
 
 const testTypes = Object.freeze([
 	{ 
-		label: 'Full', 
-		testSet: ['connectivity', 'bandwidth'] 
+		name: 'Full', 
+		tests: ['connectivity', 'bandwidth'] 
 	},
 	{ 
-		label: 'Connectivity', 
-		testSet: ['connectivity'] 
+		name: 'Connectivity', 
+		tests: ['connectivity'] 
 	},
 	{ 
-		label: 'Bandwidth', 
-		testSet: ['bandwidth'] 
+		name: 'Bandwidth', 
+		tests: ['bandwidth'] 
 	}
 ]);
 
 class TestNodeModalViewModel {
 	constructor({ sourceRpcAddress, onClose }) {
-		this.testTypes = testTypes;
 		this.onClose = onClose;
+
+		this.testTypeOptions = testTypes.map(
+			({ name, tests }) => { 
+				return { label: name, value: tests }
+			}
+		);
+
 		this.sourceRpcAddress = sourceRpcAddress;
-		this.testSet = ko.observable(testTypes[0].testSet);
+
+		this.selectedTests = ko.observable(testTypes[0].tests);
+
 		this.hasResults = ko.pureComputed(
 			() => !!nodeTestResults() && nodeTestResults().length > 0
 		);
@@ -43,7 +51,7 @@ class TestNodeModalViewModel {
 	}
 
 	runTest() {
-		testNode(ko.unwrap(this.sourceRpcAddress), this.testSet())
+		testNode(ko.unwrap(this.sourceRpcAddress), this.selectedTests())
 	}
 
 	close() {

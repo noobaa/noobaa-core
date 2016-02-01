@@ -1,12 +1,19 @@
 import ko from 'knockout';
 
-ko.subscribable.fn.waitFor = function(cb) {
-	let sub = this.subscribe(
-		() => {
-			sub.dispose();
-			cb()
-		}
-	)
+ko.subscribable.fn.is = function(value) {
+	return ko.pureComputed(
+		() => ko.unwrap(this()) === value
+	);
+}
+
+ko.subscribable.fn.toggle = function () {
+	this(!this());
+	return this;
+}
+
+ko.subscribable.fn.assign = function(data) {
+	this(Object.assign(this(), ko.unwrap(data)));
+	return this;
 }
 
 ko.observableWithDefault = function(valueAccessor) {

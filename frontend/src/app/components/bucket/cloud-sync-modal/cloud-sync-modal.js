@@ -12,7 +12,7 @@ class CloudSyncModalViewModel {
 		this.syncType = ko.observable('BI');
 		this.syncDeletions = ko.observable(false);
 		this.syncCycle = ko.observable('1');
-		this.syncCycleUnit = ko.observable('HUR')
+		this.syncCycleUnit = ko.observable('HOURS')
 	}
 
 	cancel() {

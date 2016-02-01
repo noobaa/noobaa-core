@@ -24,6 +24,14 @@
 	    </g>
 	</symbol>
 
+	<symbol id="logo-silhouette" viewBox="0 0 25 25">
+	    <g stroke="none" stroke-width="1" fill="none" fill-rule="evenodd">
+	        <g fill="#161D22">
+	            <path d="M7.96969697,0 L1,3.87323944 L1,12.6760563 L3.43939394,11.2676056 L7.96969697,14.084507 L7.96969697,19.3661972 L5.53030303,20.7746479 L12.5,25 L19.469697,21.1267606 L17.3787879,19.3661972 L17.3787879,14.084507 L21.9090909,11.6197183 L24,12.6760563 L24,3.87323944 L17.3787879,0 L17.3787879,3.16901408 L12.8484848,5.63380282 L8.31818182,3.16901408 L7.96969697,0 Z"></path>
+	        </g>
+	    </g>
+	</symbol>
+
 	<symbol id="menu-toggle" viewBox="0 0 25 25">
 		<title>Menu Toggle</title>
 	    <g stroke="none" stroke-width="1" fill="none" fill-rule="evenodd">
@@ -785,7 +793,13 @@
 	    </g>
 	</symbol>
 
-
+	<symbol id="expand" viewBox="0 0 25 25">
+	    <g stroke="none" stroke-width="1" fill="none" fill-rule="evenodd">
+	        <g fill="#607D8B">
+	            <path d="M6.08775175,6.47859107 L1.02140518e-12,6.63264698 L12.1822034,18.7583808 L25,6 L18.8066054,6.1567293 L12.2854982,12.6476084 L6.08775175,6.47859107 Z"></path>
+	        </g>
+	    </g>
+	</symbol>
 
     <!-- <symbol id="<name>" viewBox="0 0 25 25">
     </symbol>    

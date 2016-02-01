@@ -44,6 +44,42 @@
 	}	
 }
 
+@keyframes roll-in {
+	0% {
+		transform: translateX(28em) rotate(720deg);
+
+	}
+
+	85% {
+		transform: translateX(0) rotate(0);
+		opacity: 1;
+	}
+
+	92% {
+		transform: scale(1.3);
+		opacity: .5;
+	}
+
+	100% {
+		trasform: scale(1);
+		opacity: 1;
+	}
+}
+
+@keyframes bounce {
+	0% {
+		transform: translateY(0);
+	}
+
+	15% {
+		transform: translateY(-1.5em)
+	}
+
+	30% {
+		transform: translateY(0);
+	}
+}
+
 .shake {
 	animation: shake 750ms ease-in-out;
 }
@@ -59,4 +95,3 @@
 .pop-centered {
 	animation: pop-centered 300ms;
 }
-

@@ -1,26 +1,15 @@
 <div class="container">
 	<h2 class="heading3"/>Choose your Installation Type</h2>
 
-	<radio-btn class="line" params="
-		group: 'inst-type',
-		value: 'DIST_TOOL',
-		label: 'Distribution (recommended)',
-		checked: installationType
-	"></radio-btn>
-
-	<radio-btn class="line" params="
-		group: 'inst-type',
-		value: 'MANUAL_WIN',
-		label: 'Manual Installation - Windows',
-		checked: installationType
-	"></radio-btn>
-	
-	<radio-btn class="line" params="
-		group: 'inst-type',
-		value: 'MANUAL_LINUX',
-		label: 'Manual Installation - Linux',
-		checked: installationType
-	"></radio-btn>	
+	<radio-group params="
+		seperateLines: true,
+		selected: installationType,
+		options: [
+			{ value: 'DIST_TOOL', label: 'Distribution (recommended)' },
+			{ value: 'MANUAL_WIN', label: 'Manual Installation - Windows' },
+			{ value: 'MANUAL_LINUX', label: 'Manual Installation - Linux' }
+		]
+	"></radio-group>
 </div>
 
 

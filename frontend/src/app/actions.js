@@ -6,8 +6,7 @@ import { hostname } from 'server-conf';
 
 import { 
 	isDefined, isUndefined, encodeBase64, cmpStrings, cmpInts, cmpBools, 
-	randomString, last, stringifyQueryString, clamp,  makeArray, 
-	execInOrder 
+	randomString, last, clamp,  makeArray, execInOrder, realizeUri
 } from 'utils';
 
 // TODO: resolve browserify issue with export of the aws-sdk module.
@@ -57,13 +56,24 @@ export function start() {
 export function navigateTo(path = window.location.pathname, query = {}) {
 	logAction('navigateTo', { path, query });
 
-	page.show(`${path}?${stringifyQueryString(query)}`);
+	page.show(
+		realizeUri(path, model.routeContext().params, query)
+	);
 }
 
 export function redirectTo(path = window.location.pathname, query = {}) {
-	logAction('navigateTo', { path, query });
+	logAction('redirectTo', { path, query });
 
-	page.redirect(`${path}?${stringifyQueryString(query)}`);
+	page.redirect(
+		realizeUri(path, model.routeContext().params, query)
+	);
+}
+
+export function reloadTo(path = window.location.pathname, query = {}) {
+	logAction('reloadTo', { path, query });
+
+	// Force full browser refresh
+	window.location.href = realizeUri(path, model.routeContext().params, query)
 }
 
 export function refresh() {
@@ -71,9 +81,8 @@ export function refresh() {
 
 	let { pathname, search } = window.location;
 	
-	// Reload the current path
+	// Refresh the current path
 	page.redirect(pathname + search);
-
 
 	model.refreshCounter(model.refreshCounter() + 1);
 }
@@ -340,13 +349,16 @@ export function loadSystemInfo() {
 				let { access_key, secret_key } = reply.access_keys[0];
 
 				model.systemInfo({
+					status: 'active',
 					name: reply.name,
 					version: reply.version,
 					endpoint: endpoint,
+					ipAddress: reply.ip_address,
 					port: reply.web_port,
 					sslPort: reply.ssl_port,
 					accessKey: access_key,
-					secretKey: secret_key
+					secretKey: secret_key,
+					P2PConfig: reply.n2n_config
 				});
 			}
 		)
@@ -1069,4 +1081,99 @@ export function testNode(source, testSet) {
 			)
 		)
 		.done();
+}
+
+export function updateP2PSettings(minPort, maxPort) {
+	logAction('updateP2PSettings', { minPort, maxPort });
+
+	let tcpPermanentPassive = minPort !== maxPort ? 
+		{ min: minPort, max: maxPort } :
+		{ port: minPort };
+
+	api.system.update_n2n_config({
+		tcp_permanent_passive: tcpPermanentPassive
+	})
+		.then(loadSystemInfo)
+		.done();
+}
+
+export function updateBaseAddress(baseAddress) {
+	logAction('updateDNSSettings', { useDNSResolution });
+
+	api.system.update_base_address({
+		base_address: baseAddress
+	})
+		.then(loadSystemInfo)
+		.done();
+}
+
+export function upgradeSystem(upgradePackage) {
+	logAction('upgradeSystem', { upgradePackage });
+
+	function ping() {
+		let xhr = new XMLHttpRequest();
+		xhr.open('GET', '/version', true);
+		xhr.onload = () => reloadTo('/fe/systems/:system', { afterupgrade: true });
+		xhr.onerror = evt => setTimeout(ping, 10000);
+		xhr.send()	
+	}
+
+	let { upgradeStatus } = model;
+	upgradeStatus({
+		step: 'UPLOAD',
+		progress: 0,
+		state: 'IN_PROGRESS'
+	});
+
+	let xhr = new XMLHttpRequest();
+	xhr.open('POST', '/upgrade', true);
+
+	xhr.upload.onprogress = function(evt) {
+		upgradeStatus.assign({
+			progress: evt.lengthComputable && evt.loaded / evt.total
+		})
+	};
+
+	xhr.onload = function(evt) {
+		if (xhr.status === 200) {
+			setTimeout(
+				() => {
+					upgradeStatus({
+						step: 'INSTALL',
+						progress: 0,
+						state: 'IN_PROGRESS'
+					});
+
+					setTimeout(ping, 7000);
+				},
+				3000
+			);
+		} else {
+			upgradeStatus.assign({
+				state: 'FAILED',
+			});
+
+			console.error('Uploading upgrade package failed', evt.target)
+		}		
+	};
+
+	xhr.onerror = function(evt) {
+		upgradeStatus.assign({
+			state: 'FAILED'
+		});
+
+		console.error('Uploading upgrade package failed', evt.target)
+	};
+
+	xhr.onabort = function(evt) {
+		upgradeStatus.assign({
+			state: 'CANCELED'
+		});
+
+		console.warn('Uploading upgrade package canceled', evt)
+	};
+
+	let formData = new FormData();
+	formData.append('upgrade_file', upgradePackage);
+	xhr.send(formData);
 }

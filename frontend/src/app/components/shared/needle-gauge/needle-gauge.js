@@ -19,7 +19,7 @@ const needleThickness = lineWidth;
 const needlelength = radius - 11;
 const needleColor = style['gray-lv6'];
 
-const textFont = `${style['font-size-large']} ${style['font-type2']} Arial`;
+const textFont = `${style['font-size-large']} ${style['font-type2']}`;
 const textColor = style['gray-lv6'];
 
 class NeedleGaugeViewModel {

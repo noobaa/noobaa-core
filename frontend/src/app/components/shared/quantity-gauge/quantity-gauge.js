@@ -11,7 +11,7 @@ const emphasiseWidth = 19;
 const lineMargin = 3;
 const emptyColor = style['text-color5'];
 
-const textFont = `${style['font-size-large']} ${style['font-type2']} Arial`;
+const textFont = `${style['font-size-large']} ${style['font-type2']}`;
 const textColor = style['gray-lv6'];
 
 class CapacityGaugeViewModel {

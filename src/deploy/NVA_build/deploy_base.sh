@@ -163,7 +163,8 @@ function general_settings {
 
 	service iptables save
 	echo "export LC_ALL=C" >> ~/.bashrc
-	echo "alias services_status='/usr/bin/supervisorctl status'" >> ~/.bashrc
+	echo "alias servicesstatus='/usr/bin/supervisorctl status'" >> ~/.bashrc
+	echo "alias reloadservices='/usr/bin/supervisorctl reread && /usr/bin/supervisorctl reload'" >> ~/.bashrc
 	echo "alias ll='ls -lha'" >> ~/.bashrc
 	echo "alias less='less -R'" >> ~/.bashrc
 	echo "alias zless='zless -R'" >> ~/.bashrc

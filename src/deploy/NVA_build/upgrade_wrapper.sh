@@ -43,14 +43,15 @@ function fix_iptables {
 }
 
 function fix_bashrc {
-  fixbashrc=$(grep services_status ~/.bashrc | wc -l)
+  fixbashrc=$(grep servicesstatus ~/.bashrc | wc -l)
   if [ ${fixbashrc} -eq 0 ]; then
     deploy_log "Fixing .bashrc"
     #set locale
     echo "export LC_ALL=C" >> ~/.bashrc
 
     #helper aliases
-    echo "alias services_status='/usr/bin/supervisorctl status'" >> ~/.bashrc
+    echo "alias servicesstatus='/usr/bin/supervisorctl status'" >> ~/.bashrc
+		echo "alias reloadservices='/usr/bin/supervisorctl reread && /usr/bin/supervisorctl reload'" >> ~/.bashrc
     echo "alias ll='ls -lha'" >> ~/.bashrc
     echo "alias less='less -R'" >> ~/.bashrc
     echo "alias zless='zless -R'" >> ~/.bashrc

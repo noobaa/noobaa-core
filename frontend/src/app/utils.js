@@ -97,11 +97,13 @@ export function stringifyQueryString(query) {
 		.join('&');
 }
 
-export function realizeUri(uri, params = {}) {
-	return uri
+export function realizeUri(uri, params = {}, query = {}) {
+	let base = uri
 		.split('/')
 		.map(part => part[0] === ':' ? params[part.substr(1)] : part)
 		.join('/');
+
+	return base + '?' + stringifyQueryString(query);
 }
 
 export function createCompareFunc(accessor, descending = false) {

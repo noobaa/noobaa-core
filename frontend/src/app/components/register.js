@@ -29,6 +29,7 @@ export default function register(ko) {
 	ko.components.register('buckets-overview',		require('./overview/buckets-overview/buckets-overview'));	
 	ko.components.register('install-node-wizard',	require('./overview/install-node-wizard/install-node-wizard'));
 	ko.components.register('connect-app-wizard',	require('./overview/connect-app-wizard/connect-app-wizard'));
+	ko.components.register('after-upgrade-modal',	require('./overview/after-upgrade-modal/after-upgrade-modal'));
 
 	// -------------------------------
 	// Buckets
@@ -88,6 +89,7 @@ export default function register(ko) {
 	ko.components.register('p2p-form',				require('./management/p2p-form/p2p-form'));
 	ko.components.register('server-dns-form',		require('./management/server-dns-form/server-dns-form'));	
 	ko.components.register('about-form',			require('./management/about-form/about-form'));	
+	ko.components.register('upgrade-modal',			require('./management/upgrade-modal/upgrade-modal'));	
 
 	// -------------------------------
 	// Admin

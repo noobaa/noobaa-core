@@ -5,6 +5,10 @@ class ObjectPreviewModalViewModel {
 		this.uri = uri;
 		this.onClose = onClose;
 	}
+
+	close() {
+		this.onClose();
+	}
 }
 
 export default {

@@ -97,3 +97,12 @@
 	top: -9999px;
 	z-index: -1;
 }
+
+.anim-delay(@count; @delay) when (@count > 0) {
+
+	&:nth-child(@{count}) {
+		animation-delay: unit(@count * @delay, ms);
+	}
+
+	.anim-delay(@count - 1, @delay);
+}

@@ -1,47 +1,5 @@
-@keyframes roll-in {
-	0% {
-		transform: translateX(28em) rotate(720deg);
-
-	}
-
-	85% {
-		transform: translateX(0) rotate(0);
-		opacity: 1;
-	}
-
-	92% {
-		transform: scale(1.3);
-		opacity: .5;
-	}
-
-	100% {
-		trasform: scale(1);
-		opacity: 1;
-	}
-}
-
 about-form {
-
 	file-selector {
 		width: 30em;
-	}
-
-	.upgrading-modal > .modal-content {
-		padding: 5em;
-	}
-
-	.progress-bar {
-		box-sizing: content-box;
-		height: @font-size-xlarge;
-		overflow: hidden;
-		padding: .5em;
-
-		svg-icon {
-			width: @font-size-xlarge;
-			height: @font-size-xlarge;
-			animation: roll-in 2s ease-out;
-			animation-delay: 500ms;
-			animation-fill-mode: backwards;
-		}
 	}
 }

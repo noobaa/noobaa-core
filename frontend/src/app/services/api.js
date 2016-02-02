@@ -11,4 +11,4 @@ rpc.set_reply_logger(
 	(...args) => console.info(...args)
 );
 
-export default window.api = Object.assign(new Client(), { rpc });
+export default Object.assign(new Client(), { rpc });

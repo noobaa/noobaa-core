@@ -104,3 +104,6 @@ nodeTestResults.timestemp = ko.observable();
 
 // hold system upgrade status.
 export let upgradeStatus = ko.observable();
+
+// Hold debug collection info.
+export let debugCollectionInfo = ko.observable();

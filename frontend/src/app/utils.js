@@ -103,7 +103,8 @@ export function realizeUri(uri, params = {}, query = {}) {
 		.map(part => part[0] === ':' ? params[part.substr(1)] : part)
 		.join('/');
 
-	return base + '?' + stringifyQueryString(query);
+	let search = stringifyQueryString(query);
+	return search ? `${base}?${search}` : base;
 }
 
 export function createCompareFunc(accessor, descending = false) {
@@ -152,6 +153,20 @@ export function copyTextToClipboard(text) {
     input.select();
     document.execCommand('Copy');
     input.remove();
+}
+
+export function downloadFile(url) {
+	let body = window.document.body;
+
+	let link = window.document.createElement(url);
+	link.download = '';
+	link.href = url;
+	body.appendChild(link);
+	link.click();
+	
+	setImmediate(
+		() => body.removeChild(link)
+	);
 }
 
 export function makeArray(size, initializer) {

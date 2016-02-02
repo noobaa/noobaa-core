@@ -6,7 +6,7 @@ import { hostname } from 'server-conf';
 
 import { 
 	isDefined, isUndefined, encodeBase64, cmpStrings, cmpInts, cmpBools, 
-	randomString, last, clamp,  makeArray, execInOrder, realizeUri
+	randomString, last, clamp,  makeArray, execInOrder, realizeUri, downloadFile
 } from 'utils';
 
 // TODO: resolve browserify issue with export of the aws-sdk module.
@@ -1176,4 +1176,44 @@ export function upgradeSystem(upgradePackage) {
 	let formData = new FormData();
 	formData.append('upgrade_file', upgradePackage);
 	xhr.send(formData);
+}
+
+export function downloadDiagnosticPack(nodeName) {
+	logAction('downloadDiagnosticFile', { nodeName });
+
+	api.node.read_node({ name: nodeName })
+		.then(
+			node => api.node.collect_agent_diagnostics({ target: node.rpc_address })
+		)
+		.then(
+			url => downloadFile(url)
+		)
+		.done();
+}
+
+export function startDebugCollection(nodeName, nodeHref) {
+	logAction('startDebugCollection', { nodeName, nodeHref });
+
+	api.node.read_node({ name: nodeName })
+		.then(
+			node => api.node.set_debug_node({ target: node.rpc_address })
+		)
+		.then(
+			() => {
+				model.debugCollectionInfo({
+					targetName: nodeName,
+					targetHref: nodeHref,
+					timeLeft: 5 * 60
+				});
+
+				(function countdown() {
+					let timeLeft = model.debugCollectionInfo().timeLeft;
+					if ( timeLeft > 0) {
+						
+						model.debugCollectionInfo.assign({ timeLeft: --timeLeft });
+						setTimeout(countdown, 1000);
+					}
+				})();			
+			}
+		);
 }

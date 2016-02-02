@@ -1,6 +1,7 @@
 import template from './node-summary.html';
 import ko from 'knockout';
 import moment from 'moment';
+import { startDebugCollection, downloadDiagnosticPack } from 'actions';
 import { formatSize } from 'utils';
 import style from 'style';
 
@@ -9,6 +10,10 @@ class NodeSummaryViewModel {
 		
 		this.dataReady = ko.pureComputed(
 			() => !!node()
+		);
+
+		this.name = ko.pureComputed(
+			() => node().name
 		);
 
 		this.ip = ko.pureComputed(
@@ -78,8 +83,18 @@ class NodeSummaryViewModel {
 		);
 
 		this.isTestModalVisible = ko.observable(false);
-		this.isDiagnoseModalVisible = ko.observable(false);		
-	}		
+	}
+
+	diagnose() {
+		startDebugCollection(
+			this.name(), 
+			relaizeUri('/fe/system/:system/pools/:pool/nodes/:node')
+		);
+	}
+
+	downloadDiagnosticPack() {
+		downloadDiagnosticPack(this.name());
+	}
 }
 
 export default {

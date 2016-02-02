@@ -109,7 +109,7 @@ function complete_part_upload(req) {
  */
 function complete_multipart_upload(req) {
     var obj;
-    var obj_etag = req.rpc_params.etag;
+    var obj_etag = req.rpc_params.etag || '';
 
     return find_object_md(req)
         .then(function(obj_arg) {
@@ -503,7 +503,11 @@ function get_object_info(md) {
 }
 
 function load_bucket(req) {
-    req.bucket = req.system.buckets_by_name[req.rpc_params.bucket];
+    var bucket = req.system.buckets_by_name[req.rpc_params.bucket];
+    if (!bucket) {
+        throw req.rpc_error('NOT_FOUND', 'bucket not found ' + req.rpc_params.bucket);
+    }
+    req.bucket = bucket;
 }
 
 function object_md_query(req) {

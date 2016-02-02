@@ -10,6 +10,11 @@ ${StrRep}
 !include "LogicLib.nsh"
 !include "Base64.nsh"
 
+!include x64.nsh
+
+!define MAX_PATH 2600
+!define NSIS_MAX_STRLEN=8192
+
 
 ; Usage example:
 ; noobaa-setup.exe /address "wss://noobaa-alpha.herokuapp.com" /S /system_name demo /access_key 123 /secret_key abc
@@ -63,9 +68,26 @@ Function .onInit
 	Var /global config
 	Var /global UPGRADE
 	Var /global AUTO_UPGRADE
+	;check first if there is an old installation on program files (x86)
+
+	;if so, just upgrade with x64 binaries
+
+	StrCpy $InstDir "$PROGRAMFILES\${NB}"
+	IfFileExists $INSTDIR\agent_conf.json IgnoreError SetRunningFolder
+		SetRunningFolder:
+			${If} ${RunningX64}
+				# 64 bit code
+				StrCpy $InstDir "$PROGRAMFILES64\${NB}"
+			${Else}
+				# 32 bit code
+				StrCpy $InstDir "$PROGRAMFILES\${NB}"
+			${EndIf}
+		IgnoreError:
+			ClearErrors
+
+
 	;Install or upgrade?
 	StrCpy $UPGRADE "false"
-
 
 	ClearErrors
 	${GetOptions} $CMDLINE "/config" $config
@@ -203,11 +225,20 @@ Section "Noobaa Local Service"
 	File "${ICON}"
 	File "NooBaa_Agent_wd.exe"
 	File "7za.exe"
+
+	${If} ${RunningX64}
+    	# 64 bit code
+		File "node_64.exe"
+		Rename $INSTDIR\node_64.exe $INSTDIR\node.exe
+	${Else}
+    	# 32 bit code
+		File "node.exe"
+	${EndIf}
+
 	File "openssl.exe"
 	File "package.json"
 	File "wget.exe"
 	file "config.js"
-	file "node.exe"
 	File /r "ssl"
 	File /r "src"
 	File /r "node_modules"

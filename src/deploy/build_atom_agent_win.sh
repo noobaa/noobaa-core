@@ -104,8 +104,10 @@ else
                 sed -i '' '/newrelic/d' package.json
                 npm install -dd
                 curl -L http://nodejs.org/dist/v0.10.32/node.exe > node.exe
+                curl -L http://nodejs.org/dist/v0.10.32/x64/node.exe > node_64.exe
                 curl -L http://nodejs.org/dist/v0.10.33/openssl-cli.exe > openssl.exe
                 cp node.exe ../public/node.exe
+                cp node_64.exe ../public/node_64.exe
                 cp openssl.exe ../public/openssl.exe
         fi
         #No need for atom for now. Keep it for future use?!

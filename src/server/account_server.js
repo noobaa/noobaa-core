@@ -7,7 +7,6 @@ var db = require('./db');
 var bcrypt = require('bcrypt');
 var system_store = require('./stores/system_store');
 var system_server = require('./system_server');
-// var server_rpc = require('./server_rpc').server_rpc;
 // var dbg = require('../util/debug_module')(__filename);
 
 
@@ -141,13 +140,13 @@ function delete_account(req) {
         throw req.rpc_error('NOT_FOUND', 'account not found');
     }
     if (account_to_delete.is_support) {
-        throw req.rpc_error('LOCKED', 'Cannot delete support account');
+        throw req.rpc_error('BAD_REQUEST', 'Cannot delete support account');
     }
     if (String(account_to_delete._id) === String(req.system.owner._id)) {
-        throw req.rpc_error('LOCKED', 'Cannot delete system owner account');
+        throw req.rpc_error('BAD_REQUEST', 'Cannot delete system owner account');
     }
     if (req.account && String(req.account._id) === String(account_to_delete._id)) {
-        throw req.rpc_error('LOCKED', 'Cannot delete account while logged in');
+        throw req.rpc_error('BAD_REQUEST', 'Cannot delete account while logged in');
     }
 
     let roles_to_delete = system_store.data.roles

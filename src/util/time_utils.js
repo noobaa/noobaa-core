@@ -35,3 +35,10 @@ function time_suffix() {
     var d = new Date();
     return d.toISOString().replace(/T/, '-').substr(5, 11);
 }
+
+//UTC is RFC822 + full year presentation (4 digits).
+//This function convert it to 2 digits year, required by S3 (and specifically enforced by hadoop)
+
+function toRFC822(in_date) {
+     return in_date.toUTCString().replace(' '+in_date.getFullYear()+' ',' '+(in_date.getFullYear().toString()).substr(2)+' ');
+}

@@ -1,6 +1,5 @@
 #!/bin/bash
 
-NODE_DL="http://nodejs.org/dist/v0.10.33/node-v0.10.33.tar.gz"
 TURN_DL="http://turnserver.open-sys.org/downloads/v4.3.1.3/turnserver-4.3.1.3-CentOS6.6-x86_64.tar.gz"
 CORE_DIR="/root/node_modules/noobaa-core"
 CONFIG_JS="${CORE_DIR}/config.js"
@@ -17,17 +16,16 @@ function deploy_log {
 }
 
 function add_sudoers {
-	sudo grep noobaa /etc/sudoers
-  if [ $? -ne 0 ]; then
+	t=$(eval 'sudo grep -q noobaa /etc/sudoers; echo $? ')
+	if [ $t -ne 0 ]; then
       deploy_log "adding noobaa to sudoers"
 	  sudo echo "noobaa ALL=(ALL)	NOPASSWD:ALL" >> /etc/sudoers
-	  sudo grep noobaa /etc/sudoers
-	  if [ $? -ne 0 ]; then
+	  tt=$(eval 'sudo grep –q noobaa /etc/sudoers; echo $? ')
+      if [ $tt -ne 0 ]; then
 	      deploy_log "failed to add noobaa to sudoers"
    	  fi
   fi
-
-	unalias cp
+  #unalias cp
 }
 
 function build_node {
@@ -36,12 +34,10 @@ function build_node {
 	export PATH=$PATH:/usr/local/bin
 	#Install Node.js / NPM
 	cd /usr/src
-	curl ${NODE_DL} > node-v0.10.33.tar.gz || true
-	tar zxf node-v0.10.33.tar.gz
-	cd node-v0.10.33
-	./configure
-	make
-	make install
+	#install nvm use v4.2.2
+    curl -o- https://raw.githubusercontent.com/creationix/nvm/v0.30.2/install.sh | bash
+    nvm alias default 4.2.2
+	nvm use 4.2.2
 	cd ~
 	deploy_log "build_node done"
 }

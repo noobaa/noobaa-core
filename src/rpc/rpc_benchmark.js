@@ -15,6 +15,16 @@ var MB = 1024 * 1024;
 
 // test arguments
 
+
+// Usage
+
+// Server:  rpc_benchmark --server --addr tcp://server:5656
+// Client: rpc_benchmark --client --addr tcp://server:5656 --concur 16
+
+// Server:  rpc_benchmark --server --addr tcp://server:5656 --n2n
+// Client: rpc_benchmark --client --addr tcp://server:5656 --concur 16 --n2n
+
+
 // time to run in seconds
 argv.time = argv.time || undefined;
 

@@ -91,6 +91,7 @@ else
                 rm -rf ./node_modules/nodetime*
                 rm -rf ./node_modules/newrelic*
                 cp ../public/node.exe ./
+                cp ../public/node_64.exe ./
                 cp ../public/openssl.exe ./
         else
                 echo "npm install"
@@ -103,8 +104,8 @@ else
                 sed -i '' '/nodetime/d' package.json
                 sed -i '' '/newrelic/d' package.json
                 npm install -dd
-                curl -L http://nodejs.org/dist/v0.10.32/node.exe > node.exe
-                curl -L http://nodejs.org/dist/v0.10.32/x64/node.exe > node_64.exe
+                curl -L http://nodejs.org/dist/v0.10.33/node.exe > node.exe
+                curl -L http://nodejs.org/dist/v0.10.33/x64/node.exe > node_64.exe
                 curl -L http://nodejs.org/dist/v0.10.33/openssl-cli.exe > openssl.exe
                 cp node.exe ../public/node.exe
                 cp node_64.exe ../public/node_64.exe
@@ -126,10 +127,6 @@ else
 
     echo "noobaa-setup.exe installer available under build/public/windows/"
 
-    if [ ${UPLOAD_TO_S3} -eq 1 ]; then
-        echo "uploading to S3"
-        s3cmd -P put noobaa-setup.exe s3://noobaa-core/noobaa-setup.exe
-    fi
 fi
 
 exit 0

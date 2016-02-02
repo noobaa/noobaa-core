@@ -8,7 +8,8 @@ module.exports = {
     secstamp: secstamp,
     millitook: millitook,
     sectook: sectook,
-    time_suffix: time_suffix
+    time_suffix: time_suffix,
+    toRFC822: toRFC822
 };
 
 function millistamp() {

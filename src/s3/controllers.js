@@ -1051,7 +1051,7 @@ module.exports = function(params) {
                                     var create_date = new Date(object_md.create_time);
                                     create_date.setMilliseconds(0);
 
-                                    res.header('Last-Modified', create_date);
+                                    res.header('Last-Modified', time_util.toRFC822(create_date));
                                     res.header('Content-Type', object_md.content_type);
                                     res.header('Content-Length', object_md.size);
                                     res.header('x-amz-meta-cb-modifiedtime', req.headers['x-amz-date']);

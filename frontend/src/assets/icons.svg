@@ -794,8 +794,8 @@
 	</symbol>
 
 	<symbol id="expand" viewBox="0 0 25 25">
-	    <g stroke="none" stroke-width="1" fill="none" fill-rule="evenodd">
-	        <g fill="#607D8B">
+	    <g stroke="none" stroke-width="1" fill-rule="evenodd">
+	        <g>
 	            <path d="M6.08775175,6.47859107 L1.02140518e-12,6.63264698 L12.1822034,18.7583808 L25,6 L18.8066054,6.1567293 L12.2854982,12.6476084 L6.08775175,6.47859107 Z"></path>
 	        </g>
 	    </g>

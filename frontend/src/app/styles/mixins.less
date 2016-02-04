@@ -57,7 +57,7 @@
 	}
 
 	&::placholder {
-		color: @bg-color7;
+		color: @color;
 	}
 }
 
@@ -76,14 +76,19 @@
 		@font-type2,
 		@font-weight-light,
 		@font-size-normal,
-		@text-color4
+		@text-color2
 	);
 
 	.placeholder(@text-color5);	
 
 	&:focus, &.invalid:focus {
 		color: @text-color2;
-		border-color: @text-color2;
+		border-color: @text-color6;
+	}
+
+	&[disabled] {
+		border-color: @text-color5;
+		border-bottom-style: dotted;
 	}
 
 	&.invalid {

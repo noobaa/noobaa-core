@@ -1,3 +1,4 @@
+
 // Register the components with knockout component container.
 export default function register(ko) {
 

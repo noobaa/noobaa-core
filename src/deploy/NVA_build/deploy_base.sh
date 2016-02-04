@@ -137,10 +137,10 @@ function setup_makensis {
 function install_mongo {
 	deploy_log "install_mongo start"
 	# create a Mongo 2.4 Repo file
-		cp -f ${CORE_DIR}/src/deploy/NVA_build/mongo.repo /etc/yum.repos.d/mongodb-org-2.4.repo
+		cp -f ${CORE_DIR}/src/deploy/NVA_build/mongo.repo /etc/yum.repos.d/mongodb-org-3.2.repo
 
 	# install the needed RPM
-	yum install -y mongo-10gen.x86_64 mongo-10gen-server.x86_64
+	yum install -y mongodb-org-3.2.1 mongodb-org-server-3.2.1 mongodb-org-shell-3.2.1 mongodb-org-mongos-3.2.1 mongodb-org-tools-3.2.1
 
 	# pin mongo version in yum, so it won't auto update
 	echo "exclude=mongodb-org,mongodb-org-server,mongodb-org-shell,mongodb-org-mongos,mongodb-org-tools" >> /etc/yum.conf
@@ -184,13 +184,13 @@ function general_settings {
 	chmod 4755 /etc/profile.d/first_install_diaglog.sh
 
 	#Fix login message
-	echo  " _   _            ______ "   > /etc/issue
-	echo  "| \\ | |           | ___ \\"    >> /etc/issue
-	echo  "|  \\| | ___   ___ | |_/ / __ _  __ _ " >> /etc/issue
-	echo  "| . \` |/ _ \\ / _ \\| ___ \\/ _\` |/ _\` |" >> /etc/issue
-	echo  "| |\\  | (_) | (_) | |_/ / (_| | (_| |" >> /etc/issue
-	echo  "\\_| \\_/\\___/ \\___/\\____/ \\__,_|\\__,_|" >> /etc/issue
-	echo -e "\nWelcome to your \x1b[0;35;40mNooBaa\x1b[0m server.\n" >> /etc/issue
+	echo  " _   _            ______    "   > /etc/issue
+	echo  "| \\ | |           | ___ \\   "    >> /etc/issue
+	echo  "|  \\| | ___   ___ | |_/ / __ _  __ _    " >> /etc/issue
+	echo  "| . \` |/ _ \\ / _ \\| ___ \\/ _\` |/ _\` |   " >> /etc/issue
+	echo  "| |\\  | (_) | (_) | |_/ / (_| | (_| |   " >> /etc/issue
+	echo  "\\_| \\_/\\___/ \\___/\\____/ \\__,_|\\__,_|   " >> /etc/issue
+	echo -e "\n\nWelcome to your \x1b[0;35;40mNooBaa\x1b[0m server.\n" >> /etc/issue
 	echo -e "You can configure IP, DNS, GW and Hostname by logging in using \x1b[0;32;40mnoobaa/Passw0rd\x1b[0m" >> /etc/issue
 }
 

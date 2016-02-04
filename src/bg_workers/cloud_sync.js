@@ -267,7 +267,13 @@ function diff_worklists(wl1, wl2, sync_time) {
         pos2 = 0;
 
     var comp = function(a, b, sync_time) {
-        if (a.key < b.key) {
+        //handle empty array cell comparison
+        dbg.log0('a:', a, 'b', b);
+        if (_.isUndefined(a) && !_.isUndefined(b)) {
+            return -1;
+        } else if (_.isUndefined(b) && !_.isUndefined(a)) {
+            return 1;
+        } else if (a.key < b.key) {
             return -1;
         } else if (a.key > b.key) {
             return 1;
@@ -295,8 +301,9 @@ function diff_worklists(wl1, wl2, sync_time) {
             uniq_b: wl2
         };
     }
-
-    while (comp(wl1[pos1], wl2[pos2]) === -1) {
+    
+   //avoid endless loop
+    while (comp(wl1[pos1], wl2[pos2]) === -1  && pos1 < wl1.length ) {
         uniq_1.push(wl1[pos1]);
         pos1++;
     }
@@ -392,7 +399,6 @@ function load_configured_policies() {
                     policy.s3cloud = new AWS.S3({
                         accessKeyId: policy.access_keys.access_key,
                         secretAccessKey: policy.access_keys.secret_key,
-                        region: 'eu-west-1', //TODO:: WA for AWS poorly developed SDK :-/
                     });
 
                     CLOUD_SYNC.configured_policies.push(policy);
@@ -474,11 +480,25 @@ function update_c2n_worklist(policy) {
     var cloud_object_list, bucket_object_list;
     return P.ninvoke(policy.s3cloud, 'listObjects', params)
         .fail(function(error) {
-            dbg.error('update_c2n_worklist failed to list files from cloud: sys', policy.system._id, 'bucket',
-                policy.bucket.id, error, error.stack);
-            throw new Error('update_c2n_worklist failed to list files from cloud');
+            // change default region from US to EU due to restricted signature of v4 and end point
+            if (error.statusCode === 400) {
+                dbg.log0('setting signature');
+                policy.s3cloud = new AWS.S3({
+                    accessKeyId: "AKIAJOP7ZFXOOPGL5BOA",
+                    secretAccessKey: "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",
+                    signatureVersion: 'v4',
+                    region: 'eu-central-1'
+                        //	maxRedirects: 10
+                });
+                return P.ninvoke(policy.s3cloud, 'listObjects', params);
+            } else {
+                dbg.error('update_c2n_worklist failed to list files from cloud: sys', policy.system._id, 'bucket',
+                    policy.bucket.id, error, error.stack);
+                throw new Error('update_c2n_worklist failed to list files from cloud');
+            }
         })
         .then(function(cloud_obj) {
+            dbg.log0('cloud_obj', cloud_obj);
             cloud_object_list = _.map(cloud_obj.Contents, function(obj) {
                 return {
                     create_time: obj.LastModified,

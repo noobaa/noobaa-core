@@ -132,20 +132,19 @@ function refresh_policy(req) {
     });
     if (!policy) {
         dbg.log0('refresh policy stop. will try to reload');
-        return P.fcall(function() {
-            load_configured_policies();
-        }).then(function() {
-            policy = _.find(CLOUD_SYNC.configured_policies, function(p) {
-                return (p.system._id.toString() === req.rpc_params.sysid &&
-                    p.bucket.id.toString() === req.rpc_params.bucketid.toString());
+        return load_configured_policies()
+            .then(function() {
+                policy = _.find(CLOUD_SYNC.configured_policies, function(p) {
+                    return (p.system._id.toString() === req.rpc_params.sysid &&
+                        p.bucket.id.toString() === req.rpc_params.bucketid.toString());
+                });
+                if (!policy) {
+                    dbg.log0('refresh policy stop');
+                    return;
+                } else {
+                    dbg.log0('refresh policy will continue due to reload of configured policies');
+                }
             });
-            if (!policy) {
-                dbg.log0('refresh policy stop');
-                return;
-            } else {
-                dbg.log0('refresh policy will continue due to reload of configured policies');
-            }
-        });
 
 
     }
@@ -384,7 +383,7 @@ function load_configured_policies() {
         .then(function(buckets) {
             _.each(buckets, function(bucket, i) {
                 if (bucket.cloud_sync.endpoint) {
-                    dbg.log0('adding sysid', bucket.system._id, 'bucket', bucket.name, bucket._id, 'bucket', bucket, 'to configured policies');
+                    dbg.log3('adding sysid', bucket.system._id, 'bucket', bucket.name, bucket._id, 'bucket', bucket, 'to configured policies');
                     //Cache Configuration, S3 Objects and empty work lists
                     var policy = {
                         bucket: {
@@ -420,7 +419,6 @@ function load_configured_policies() {
                         accessKeyId: policy.access_keys.access_key,
                         secretAccessKey: policy.access_keys.secret_key,
                     });
-                    dbg.log0('configured_policies.push',policy);
                     CLOUD_SYNC.configured_policies.push(policy);
 
                     //Init empty work lists for current policy
@@ -502,13 +500,12 @@ function update_c2n_worklist(policy) {
         .fail(function(error) {
             // change default region from US to EU due to restricted signature of v4 and end point
             if (error.statusCode === 400) {
-                dbg.log0('setting signature');
+                dbg.log0('Resetting (lis objects) signature type and region to eu-central-1 and v4');
                 policy.s3cloud = new AWS.S3({
-                    accessKeyId: "AKIAJOP7ZFXOOPGL5BOA",
-                    secretAccessKey: "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",
+                    accessKeyId: policy.access_keys.access_key,
+                    secretAccessKey: policy.access_keys.secret_key,
                     signatureVersion: 'v4',
                     region: 'eu-central-1'
-                        //	maxRedirects: 10
                 });
                 return P.ninvoke(policy.s3cloud, 'listObjects', params);
             } else {
@@ -595,9 +592,22 @@ function sync_single_file_to_cloud(policy, object, target) {
 
     return P.ninvoke(policy.s3cloud, 'upload', params)
         .fail(function(err) {
-            dbg.error('Error sync_single_file_to_cloud', object.key, '->', target + '/' + object.key,
-                err, err.stack);
-            throw new Error('Error sync_single_file_to_cloud ' + object.key + ' -> ' + target);
+            // change default region from US to EU due to restricted signature of v4 and end point
+            if (err.statusCode === 400) {
+                dbg.log0('Resetting (upload) signature type and region to eu-central-1 and v4');
+                policy.s3cloud = new AWS.S3({
+                    accessKeyId: policy.access_keys.access_key,
+                    secretAccessKey: policy.access_keys.secret_key,
+                    signatureVersion: 'v4',
+                    region: 'eu-central-1'
+                });
+                return P.ninvoke(policy.s3cloud, 'upload', params);
+            }else{
+                dbg.error('Error sync_single_file_to_cloud', object.key, '->', target + '/' + object.key,
+                    err, err.stack);
+                throw new Error('Error sync_single_file_to_cloud ' + object.key + ' -> ' + target);
+            }
+
         })
         .then(function() {
             return mark_cloud_synced(object);

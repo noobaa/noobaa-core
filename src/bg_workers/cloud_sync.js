@@ -125,14 +125,31 @@ function get_policy_status(req) {
 }
 
 function refresh_policy(req) {
-    dbg.log2('refresh policy', req.rpc_params.bucketid, req.rpc_params.sysid, req.rpc_params.force_stop);
+    dbg.log0('refresh policy', req.rpc_params.bucketid, req.rpc_params.sysid, req.rpc_params.force_stop);
     var policy = _.find(CLOUD_SYNC.configured_policies, function(p) {
         return (p.system._id.toString() === req.rpc_params.sysid &&
             p.bucket.id.toString() === req.rpc_params.bucketid.toString());
     });
     if (!policy) {
-        return;
+        dbg.log0('refresh policy stop. will try to reload');
+        return P.fcall(function() {
+            load_configured_policies();
+        }).then(function() {
+            policy = _.find(CLOUD_SYNC.configured_policies, function(p) {
+                return (p.system._id.toString() === req.rpc_params.sysid &&
+                    p.bucket.id.toString() === req.rpc_params.bucketid.toString());
+            });
+            if (!policy) {
+                dbg.log0('refresh policy stop');
+                return;
+            } else {
+                dbg.log0('refresh policy will continue due to reload of configured policies');
+            }
+        });
+
+
     }
+    dbg.log0('refresh policy1');
 
     if (req.rpc_params.force_stop) {
         var cur_work_list = _.find(CLOUD_SYNC.work_lists, function(wl) {
@@ -140,6 +157,8 @@ function refresh_policy(req) {
                 wl.bucketid.toString() === req.rpc_params.bucketid;
         });
         if (!is_empty_sync_worklist(cur_work_list)) {
+            dbg.log0('refresh policy2');
+
             while (cur_work_list.n2c_deleted.length > 0) {
                 cur_work_list.n2c_deleted.pop();
             }
@@ -154,8 +173,10 @@ function refresh_policy(req) {
             }
         }
     }
+    dbg.log0('refresh policy3');
 
     CLOUD_SYNC.refresh_list = true;
+    dbg.log0('CLOUD_SYNC.refresh_list', CLOUD_SYNC.refresh_list);
 }
 
 /*
@@ -268,7 +289,6 @@ function diff_worklists(wl1, wl2, sync_time) {
 
     var comp = function(a, b, sync_time) {
         //handle empty array cell comparison
-        dbg.log0('a:', a, 'b', b);
         if (_.isUndefined(a) && !_.isUndefined(b)) {
             return -1;
         } else if (_.isUndefined(b) && !_.isUndefined(a)) {
@@ -301,9 +321,9 @@ function diff_worklists(wl1, wl2, sync_time) {
             uniq_b: wl2
         };
     }
-    
-   //avoid endless loop
-    while (comp(wl1[pos1], wl2[pos2]) === -1  && pos1 < wl1.length ) {
+
+    //avoid endless loop
+    while (comp(wl1[pos1], wl2[pos2]) === -1 && pos1 < wl1.length) {
         uniq_1.push(wl1[pos1]);
         pos1++;
     }
@@ -364,7 +384,7 @@ function load_configured_policies() {
         .then(function(buckets) {
             _.each(buckets, function(bucket, i) {
                 if (bucket.cloud_sync.endpoint) {
-                    dbg.log3('adding sysid', bucket.system._id, 'bucket', bucket.name, bucket._id, 'bucket', bucket, 'to configured policies');
+                    dbg.log0('adding sysid', bucket.system._id, 'bucket', bucket.name, bucket._id, 'bucket', bucket, 'to configured policies');
                     //Cache Configuration, S3 Objects and empty work lists
                     var policy = {
                         bucket: {
@@ -400,7 +420,7 @@ function load_configured_policies() {
                         accessKeyId: policy.access_keys.access_key,
                         secretAccessKey: policy.access_keys.secret_key,
                     });
-
+                    dbg.log0('configured_policies.push',policy);
                     CLOUD_SYNC.configured_policies.push(policy);
 
                     //Init empty work lists for current policy

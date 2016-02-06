@@ -418,6 +418,7 @@ function load_configured_policies() {
                     policy.s3cloud = new AWS.S3({
                         accessKeyId: policy.access_keys.access_key,
                         secretAccessKey: policy.access_keys.secret_key,
+                        maxRedirects: 10
                     });
                     CLOUD_SYNC.configured_policies.push(policy);
 
@@ -498,9 +499,12 @@ function update_c2n_worklist(policy) {
     var cloud_object_list, bucket_object_list;
     return P.ninvoke(policy.s3cloud, 'listObjects', params)
         .fail(function(error) {
+            dbg.error('ERROR statusCode', error.statusCode, error.statusCode === 400, error.statusCode === 301);
+
             // change default region from US to EU due to restricted signature of v4 and end point
-            if (error.statusCode === 400) {
-                dbg.log0('Resetting (lis objects) signature type and region to eu-central-1 and v4');
+            if (error.statusCode === 400 ||
+                error.statusCode === 301) {
+                dbg.log0('Resetting (list objects) signature type and region to eu-central-1 and v4');
                 policy.s3cloud = new AWS.S3({
                     accessKeyId: policy.access_keys.access_key,
                     secretAccessKey: policy.access_keys.secret_key,
@@ -593,7 +597,8 @@ function sync_single_file_to_cloud(policy, object, target) {
     return P.ninvoke(policy.s3cloud, 'upload', params)
         .fail(function(err) {
             // change default region from US to EU due to restricted signature of v4 and end point
-            if (err.statusCode === 400) {
+            if (err.statusCode === 400 ||
+                err.statusCode === 301) {
                 dbg.log0('Resetting (upload) signature type and region to eu-central-1 and v4');
                 policy.s3cloud = new AWS.S3({
                     accessKeyId: policy.access_keys.access_key,
@@ -602,7 +607,7 @@ function sync_single_file_to_cloud(policy, object, target) {
                     region: 'eu-central-1'
                 });
                 return P.ninvoke(policy.s3cloud, 'upload', params);
-            }else{
+            } else {
                 dbg.error('Error sync_single_file_to_cloud', object.key, '->', target + '/' + object.key,
                     err, err.stack);
                 throw new Error('Error sync_single_file_to_cloud ' + object.key + ' -> ' + target);
@@ -665,7 +670,26 @@ function sync_to_cloud_single_bucket(bucket_work_lists, policy) {
                     });
                 });
                 dbg.log2('sync_to_cloud_single_bucket syncing', bucket_work_lists.n2c_deleted.length, 'deletions n2c');
-                return P.ninvoke(policy.s3cloud, 'deleteObjects', params);
+                return P.ninvoke(policy.s3cloud, 'deleteObjects', params)
+                    .fail(function(err) {
+                        // change default region from US to EU due to restricted signature of v4 and end point
+                        if (err.statusCode === 400 ||
+                            err.statusCode === 301) {
+                            dbg.log0('Resetting (delete) signature type and region to eu-central-1 and v4');
+                            policy.s3cloud = new AWS.S3({
+                                accessKeyId: policy.access_keys.access_key,
+                                secretAccessKey: policy.access_keys.secret_key,
+                                signatureVersion: 'v4',
+                                region: 'eu-central-1'
+                            });
+                            return P.ninvoke(policy.s3cloud, 'deleteObjects', params);
+                        } else {
+                            dbg.error('Failed to delete files from cloud: sys', policy.system._id, 'bucket',
+                                policy.bucket.id, err, err.stack);
+                        }
+                    }).then(function() {
+                        dbg.log2('sync_to_cloud_single_bucket syncing deletions n2c');
+                    });
             } else {
                 dbg.log2('sync_to_cloud_single_bucket syncing deletions n2c, nothing to sync');
                 return;

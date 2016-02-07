@@ -459,7 +459,8 @@ class SystemStore extends EventEmitter {
                     });
                 });
 
-                return P.all(_.map(bulk_per_collection, bulk => P.ninvoke(bulk, 'execute')));
+                return P.all(_.map(bulk_per_collection,
+                    bulk => bulk.length && P.ninvoke(bulk, 'execute')));
             })
             .then(() =>
                 // notify all the cluster (including myself) to reload

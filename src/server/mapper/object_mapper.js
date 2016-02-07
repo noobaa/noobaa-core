@@ -514,7 +514,9 @@ function fix_multipart_parts(obj) {
                 }
             });
             // calling execute on bulk and handling node callbacks
-            return P.ninvoke(bulk_update, 'execute').thenResolve(last_end);
+            if (bulk_update.length) {
+                return P.ninvoke(bulk_update, 'execute').thenResolve(last_end);
+            }
         });
 }
 

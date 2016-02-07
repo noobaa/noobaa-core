@@ -4,16 +4,16 @@ import { routeContext } from 'model';
 
 export default {
     update: function(element, valueAccessor, allBindings, viewModel, bindingContext) {
-    	let value = ko.unwrap(valueAccessor());
+        let value = ko.unwrap(valueAccessor());
         let params = routeContext().params;
         let href = realizeUri(value, params);
 
         return ko.bindingHandlers.attr.update(
-        	element, 
-        	() => (href ? { href } : {}),
-        	allBindings, 
-        	viewModel, 
-        	bindingContext
-    	);
+            element, 
+            () => (href ? { href } : {}),
+            allBindings, 
+            viewModel, 
+            bindingContext
+        );
     }
 }

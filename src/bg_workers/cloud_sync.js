@@ -470,7 +470,8 @@ function update_c2n_worklist(policy) {
     return P.ninvoke(policy.s3cloud, 'listObjects', params)
         .fail(function(error) {
             dbg.error('ERROR statusCode', error.statusCode, error.statusCode === 400, error.statusCode === 301);
-            if (error.statusCode === 400) {
+            if (error.statusCode === 400 ||
+                error.statusCode === 301) {
                 dbg.log0('Resetting (list objects) signature type and region to eu-central-1 and v4');
                 // change default region from US to EU due to restricted signature of v4 and end point
                 policy.s3cloud = new AWS.S3({
@@ -596,7 +597,8 @@ function sync_single_file_to_noobaa(policy, object) {
     return P.ninvoke(policy.s3rver, 'upload', params)
         .fail(function(err) {
             dbg.error('ERROR statusCode', err.statusCode, err.statusCode === 400, err.statusCode === 301);
-            if (err.statusCode === 400) {
+            if (err.statusCode === 400 ||
+                err.statusCode === 301) {
                 dbg.log0('Resetting (upload) signature type and region to eu-central-1 and v4');
                 policy.s3cloud = new AWS.S3({
                     accessKeyId: policy.access_keys.access_key,
@@ -671,7 +673,7 @@ function sync_to_cloud_single_bucket(bucket_work_lists, policy) {
                 dbg.log2('sync_to_cloud_single_bucket syncing deletions n2c, nothing to sync');
                 return;
             }
-        }
+        })
         .then(function() {
             //marked deleted objects as cloud synced
             return P.all(_.map(bucket_work_lists.n2c_deleted, function(object) {
@@ -700,87 +702,87 @@ function sync_to_cloud_single_bucket(bucket_work_lists, policy) {
             dbg.log1('Done sync_to_cloud_single_bucket on {', policy.bucket.name, policy.system._id, policy.endpoint, '}');
         })
         .thenResolve();
+}
+
+//Perform c2n cloud sync for a specific policy with a given work list
+function sync_from_cloud_single_bucket(bucket_work_lists, policy) {
+    dbg.log2('Start sync_from_cloud_single_bucket on work list for policy', pretty_policy(policy));
+    if (!bucket_work_lists || !policy) {
+        throw new Error('bucket_work_list and bucket_work_list must be provided');
     }
 
-    //Perform c2n cloud sync for a specific policy with a given work list
-    function sync_from_cloud_single_bucket(bucket_work_lists, policy) {
-        dbg.log2('Start sync_from_cloud_single_bucket on work list for policy', pretty_policy(policy));
-        if (!bucket_work_lists || !policy) {
-            throw new Error('bucket_work_list and bucket_work_list must be provided');
-        }
+    //TODO:: move to a function which is called both by sync_from_cloud_single_bucket and from sync_to_cloud_single_bucket
+    return P.fcall(function() {
+            if (bucket_work_lists.c2n_deleted.length) {
+                var params = {
+                    Bucket: policy.bucket.name,
+                    Delete: {
+                        Objects: [],
+                    },
+                };
 
-        //TODO:: move to a function which is called both by sync_from_cloud_single_bucket and from sync_to_cloud_single_bucket
-        return P.fcall(function() {
-                if (bucket_work_lists.c2n_deleted.length) {
-                    var params = {
-                        Bucket: policy.bucket.name,
-                        Delete: {
-                            Objects: [],
-                        },
-                    };
-
-                    _.each(bucket_work_lists.c2n_deleted, function(obj) {
-                        params.Delete.Objects.push({
-                            Key: obj.key
-                        });
+                _.each(bucket_work_lists.c2n_deleted, function(obj) {
+                    params.Delete.Objects.push({
+                        Key: obj.key
                     });
-                    dbg.log2('sync_from_cloud_single_bucket syncing', bucket_work_lists.c2n_deleted.length, 'deletions c2n', params);
-                    return P.ninvoke(policy.s3rver, 'deleteObjects', params);
-                } else {
-                    dbg.log2('sync_to_cloud_single_bucket syncing deletions c2n, nothing to sync');
-                    return;
-                }
-            })
-            .fail(function(err) {
-                dbg.error('sync_from_cloud_single_bucket failed on syncing deletions', err, err.stack);
-            })
-            .then(function() {
-                //empty deleted work list jsperf http://jsperf.com/empty-javascript-array
-                while (bucket_work_lists.c2n_deleted.length > 0) {
-                    bucket_work_lists.c2n_deleted.pop();
-                }
-                //now handle c2n additions
-                if (bucket_work_lists.c2n_added.length) {
-                    //Now upload the new objects to NooBaa
-                    return P.all(_.map(bucket_work_lists.c2n_added, function(object) {
-                        return sync_single_file_to_noobaa(policy, object);
-                    }));
-                } else {
-                    dbg.log1('sync_from_cloud_single_bucket syncing additions c2n, nothing to sync');
-                }
-            })
-            .fail(function(error) {
-                dbg.error('sync_from_cloud_single_bucket Failed syncing added objects c2n', error, error.stack);
-            })
-            .then(function() {
-                //TODO:: pop per file
-                while (bucket_work_lists.c2n_added.length > 0) {
-                    bucket_work_lists.c2n_added.pop();
-                }
-                dbg.log1('Done sync_from_cloud_single_bucket on {', policy.bucket.name, policy.system._id, policy.endpoint, '}');
-            })
-            .thenResolve();
-    }
-
-    function update_bucket_last_sync(bucket) {
-        return system_store.make_changes({
-            update: {
-                buckets: [{
-                    _id: bucket._id,
-                    //Fill the entire cloud_sync object, otherwise its being overwriten
-                    cloud_sync: {
-                        endpoint: bucket.cloud_sync.endpoint,
-                        access_keys: {
-                            access_key: bucket.cloud_sync.access_keys.access_key,
-                            secret_key: bucket.cloud_sync.access_keys.secret_key
-                        },
-                        schedule_min: bucket.cloud_sync.schedule_min,
-                        last_sync: new Date(),
-                        paused: bucket.cloud_sync.paused,
-                        c2n_enabled: bucket.cloud_sync.c2n_enabled,
-                        n2c_enabled: bucket.cloud_sync.n2c_enabled,
-                    }
-                }]
+                });
+                dbg.log2('sync_from_cloud_single_bucket syncing', bucket_work_lists.c2n_deleted.length, 'deletions c2n', params);
+                return P.ninvoke(policy.s3rver, 'deleteObjects', params);
+            } else {
+                dbg.log2('sync_to_cloud_single_bucket syncing deletions c2n, nothing to sync');
+                return;
             }
-        });
-    }
+        })
+        .fail(function(err) {
+            dbg.error('sync_from_cloud_single_bucket failed on syncing deletions', err, err.stack);
+        })
+        .then(function() {
+            //empty deleted work list jsperf http://jsperf.com/empty-javascript-array
+            while (bucket_work_lists.c2n_deleted.length > 0) {
+                bucket_work_lists.c2n_deleted.pop();
+            }
+            //now handle c2n additions
+            if (bucket_work_lists.c2n_added.length) {
+                //Now upload the new objects to NooBaa
+                return P.all(_.map(bucket_work_lists.c2n_added, function(object) {
+                    return sync_single_file_to_noobaa(policy, object);
+                }));
+            } else {
+                dbg.log1('sync_from_cloud_single_bucket syncing additions c2n, nothing to sync');
+            }
+        })
+        .fail(function(error) {
+            dbg.error('sync_from_cloud_single_bucket Failed syncing added objects c2n', error, error.stack);
+        })
+        .then(function() {
+            //TODO:: pop per file
+            while (bucket_work_lists.c2n_added.length > 0) {
+                bucket_work_lists.c2n_added.pop();
+            }
+            dbg.log1('Done sync_from_cloud_single_bucket on {', policy.bucket.name, policy.system._id, policy.endpoint, '}');
+        })
+        .thenResolve();
+}
+
+function update_bucket_last_sync(bucket) {
+    return system_store.make_changes({
+        update: {
+            buckets: [{
+                _id: bucket._id,
+                //Fill the entire cloud_sync object, otherwise its being overwriten
+                cloud_sync: {
+                    endpoint: bucket.cloud_sync.endpoint,
+                    access_keys: {
+                        access_key: bucket.cloud_sync.access_keys.access_key,
+                        secret_key: bucket.cloud_sync.access_keys.secret_key
+                    },
+                    schedule_min: bucket.cloud_sync.schedule_min,
+                    last_sync: new Date(),
+                    paused: bucket.cloud_sync.paused,
+                    c2n_enabled: bucket.cloud_sync.c2n_enabled,
+                    n2c_enabled: bucket.cloud_sync.n2c_enabled,
+                }
+            }]
+        }
+    });
+}

@@ -1,11 +1,9 @@
-<button class="btn-flat pull-right rotate no-outline" data-bind="
-	css: { 'deg-180': expanded },
-	click: () => expanded.toggle()
-">
-	<svg-icon class="expand-icon" params="uri: '/fe/assets/icons.svg#expand'" ></svg-icon>
-</button>
-
-<h2 class="heading2">Server DNS Address</h2>
+<h2 class="heading2" data-bind="click: () => expanded.toggle()">
+	<button class="btn-flat pull-right rotate no-outline" data-bind="css: { 'deg-180': expanded }">
+		<svg-icon class="expand-icon" params="uri: '/fe/assets/icons.svg#expand'" ></svg-icon>
+	</button>
+	Server DNS Address
+</h2>
 
 <p class="summary" data-bind="visible: !expanded()">
 	Server Address: 

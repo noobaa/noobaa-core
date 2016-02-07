@@ -11,11 +11,11 @@ class BucketSummrayViewModel {
 		);
 
 		this.name  = ko.pureComputed(
-			() => bucket().name
+			() => bucket() && bucket().name
 		);
 
 		this.fileCount = ko.pureComputed(
-			() => bucket().num_objects
+			() => bucket() && bucket().num_objects
 		);
 
 		this.fileCountText = ko.pureComputed(
@@ -23,15 +23,15 @@ class BucketSummrayViewModel {
 		)		
 		
 		this.total = ko.pureComputed(
-			() => bucket().storage.used
+			() => bucket() && bucket().storage.used
 		);
 
 		this.totalText = ko.pureComputed(
-			() => formatSize(bucket().storage.total)
+			() => bucket() && formatSize(bucket().storage.total)
 		);
 
 		this.free = ko.pureComputed(
-			() => bucket().storage.free
+			() => bucket() && bucket().storage.free
 		);
 
 		this.freeText = ko.pureComputed(
@@ -39,11 +39,11 @@ class BucketSummrayViewModel {
 		);
 
 		this.used = ko.pureComputed(
-			() => bucket().storage.used
+			() => bucket() && bucket().storage.used
 		);
 
 		this.usedText = ko.pureComputed(
-			() => formatSize(this.used())
+			() => bucket() && formatSize(this.used())
 		);
 
 		this.gaugeValues = [ 
@@ -52,12 +52,12 @@ class BucketSummrayViewModel {
 		]
 
 		this.policy = ko.pureComputed(
-			() => bucket().tiering
+			() => bucket() && bucket().tiering
 		);
 
 		this.isPolicyModalVisible = ko.observable(false);
 		this.isUploadFilesModalVisible = ko.observable(false);
-		this.isCloudSyncModalVisible = ko.observable(false);
+		this.isCloudSyncModalVisible = ko.observable(true);
 	}
 }
 

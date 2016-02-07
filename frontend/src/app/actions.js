@@ -761,6 +761,14 @@ export function loadTier(name) {
 		.done();
 }
 
+export function loadCloudSyncPolicy(bucketName) {
+	logAction('loadCloudSyncPolicy', { bucketName });
+
+	api.bucket.get_cloud_sync_policy({ name: bucketName })
+		.then(model.cloudSyncInfo)
+		.done();
+}
+
 // -----------------------------------------------------
 // Managment actions.
 // -----------------------------------------------------
@@ -1191,8 +1199,8 @@ export function downloadDiagnosticPack(nodeName) {
 		.done();
 }
 
-export function startDebugCollection(nodeName, nodeHref) {
-	logAction('startDebugCollection', { nodeName, nodeHref });
+export function startDebugCollection(nodeName) {
+	logAction('startDebugCollection', { nodeName });
 
 	api.node.read_node({ name: nodeName })
 		.then(
@@ -1202,7 +1210,6 @@ export function startDebugCollection(nodeName, nodeHref) {
 			() => {
 				model.debugCollectionInfo({
 					targetName: nodeName,
-					targetHref: nodeHref,
 					timeLeft: 5 * 60
 				});
 

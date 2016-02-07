@@ -86,10 +86,7 @@ class NodeSummaryViewModel {
 	}
 
 	diagnose() {
-		startDebugCollection(
-			this.name(), 
-			relaizeUri('/fe/system/:system/pools/:pool/nodes/:node')
-		);
+		startDebugCollection(this.name());
 	}
 
 	downloadDiagnosticPack() {

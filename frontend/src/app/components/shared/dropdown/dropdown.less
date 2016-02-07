@@ -3,6 +3,7 @@ dropdown {
 	min-width: 7em;
 	display: inline-block;
 	cursor: @cursor-pointer;
+	vertical-align: middle;
 
 	.dropdown-wrapper {
 		vertical-align: middle;
@@ -28,14 +29,14 @@ dropdown {
 
 	.value {
 		border-bottom: 1px solid @bg-color7;			
+		padding: 1px 0;
+		padding-right: 3em;
+		line-height: 1.4;
 	}
 
 	.value, .option-label {
 		display: block;
 		margin: 0;
-		height: 2em;
-		line-height: 2;
-		padding-right: 3em;
 		vertical-align: middle;		
 
 		&.placeholder {
@@ -47,8 +48,8 @@ dropdown {
 		box-sizing: content-box;
 		position: absolute;
 		padding: .25em .5em;
-		height: 1.5em;
-		width: 1.5em;
+		height: 1em;
+		width: 1em;
 		top: 0;
 		right: 0;
 	}
@@ -75,6 +76,8 @@ dropdown {
 		.option-label {
 			color: @text-color1;
 			padding-left: .5em;
+			height: 2em;
+			line-height: 2;		
 		}
 
 		:checked + .option-label {

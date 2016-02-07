@@ -3,8 +3,12 @@
 		Cloud Sync for <span data-bind="text: bucketName"></span>
 	</h1>
 
+	<div class="container box text-center">
+		Cloud synchronization not set
+	</div>
+
 	<section class="container">
-		<h2 class="heading3">AWS Bucket Credentials</h2>
+		<h2 class="heading3">Select an AWS Bucket</h2>
 		
 		<label>
 			<span class="field-name">Access Key:</span>
@@ -15,12 +19,15 @@
 			<span class="field-name">Secret Key: </span>
 			<input type="password" placeholder="password" />
 		</label>
+
+		<div>
+			<span class="field-name">Bucket: </span>
+			<dropdown class="aws-buckets" params="
+				placeholder: 'Choose Bucket',
+				options: []
+			"></dropdown>			
+		</div>		
 	</section>
-	
-	<div class="container">
-		<h2 class="heading3">Select the bucket you want to connect to</h2>
-		<tiled-select></tiled-select>
-	</div>
 
 	<section class="container">
 		<h2 class="heading3">Additional Setting</h2>
@@ -28,14 +35,7 @@
 		<div class="sync-dir line">
 			Sync Type: 	
 			
-			<radio-group params="
-				selected: syncType,
-				options: [
-					{ value: 'BI', label: 'Bi-Direcitonal' },
-					{ value: 'NB2AWS', label: 'NooBaa to AWS' },
-					{ value: 'AWS2NB', label: 'AWS to NooBaa' }
-				]
-			"></radio-group>
+			<radio-group params="selected: syncType, options: syncUnitsOptions"></radio-group>
 		</div>
 
 		<checkbox class="line" params="
@@ -48,14 +48,14 @@
 
 			<input type="Number" data-bind="value: syncCycle"/>
 
-			<radio-group params="
+			<dropdown params="
 				selected: syncCycleUnit,
 				options: [
 					{ value: 'MINUTES', label: 'Minutes' },
 					{ value: 'HOURS', label: 'Hours' },
 					{ value: 'DAYS', label: 'Days' }
 				]
-			"></radio-group>
+			"></dropdown>
 		</div>
 	</section>
 

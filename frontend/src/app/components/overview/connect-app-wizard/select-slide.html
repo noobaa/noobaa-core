@@ -1,38 +1,38 @@
 <section>
-	<h2 class="heading3">Select the type of connection your application uses</h2>
+    <h2 class="heading3">Select the type of connection your application uses</h2>
 
-	<ul class="list-no-style clear" data-bind="foreach: conTypes">
-		<li class="con-type">		
-			<radio-btn params="
-				group: 'app-type', 
-				value: $data, 
-				label: label, 
-				selected: $parent.selectedConType,
-				disabled: $data.disabled
-			"></radio-btn>
-			
-			<p class="con-desc paragraph" data-bind="
-				text: description, 
-				css: $data.disabled ? 'disabeld' : ''
-			">
-		</li>
-	</ul>
+    <ul class="list-no-style clear" data-bind="foreach: conTypes">
+        <li class="con-type">        
+            <radio-btn params="
+                group: 'app-type', 
+                value: $data, 
+                label: label, 
+                selected: $parent.selectedConType,
+                disabled: $data.disabled
+            "></radio-btn>
+            
+            <p class="con-desc paragraph" data-bind="
+                text: description, 
+                css: $data.disabled ? 'disabeld' : ''
+            ">
+        </li>
+    </ul>
 </section>
 
 <section>
-	<h2 class="heading3">Select the bucket you want to connect to</h2>
+    <h2 class="heading3">Select the bucket you want to connect to</h2>
 
-	<div class="box">
-		<ul class="list-no-style clear bucket-list" data-bind="foreach: buckets">
-			<li class="pull-left">
-				<button class="btn-flat bucket" data-bind="
-					css: { selected: selected }, 
-					click: () => selected(true)
-				">
-					<svg-icon params="uri: icon"></svg-icon>
-					<div class="bucket-name" data-bind="text: name"></div>
-				</button>
-			</li>
-		</ul>
-	</div>
+    <div class="box">
+        <ul class="list-no-style clear bucket-list" data-bind="foreach: buckets">
+            <li class="pull-left">
+                <button class="btn-flat bucket" data-bind="
+                    css: { selected: selected }, 
+                    click: () => selected(true)
+                ">
+                    <svg-icon params="uri: icon"></svg-icon>
+                    <div class="bucket-name" data-bind="text: name"></div>
+                </button>
+            </li>
+        </ul>
+    </div>
 </section>

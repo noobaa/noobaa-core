@@ -1,73 +1,73 @@
 <!-- <input type="search" class="obj-filter" placeholder="Filter Files" 
-					data-bind="textInput: filter" /> -->
+                    data-bind="textInput: filter" /> -->
 <section class="data-table">
-	<table>
-		<thead>
- 			<tr>
-				<th class="state-col" data-bind="css: orderClassFor('state')">
-					<a href data-bind="click: () => orderBy('state')">
-						state
-					</a>
-				</th>
-				<th class="name-col text-left" data-bind="css: orderClassFor('name')">
-					<a href data-bind="click: () => orderBy('name')">
-						bucket name
-					</a>
-				</th>
-				<th class="filecount-col" data-bind="css: orderClassFor('filecount')">
-					<a href data-bind="click: () => orderBy('filecount')">
-						files
-					</a>
-				</th>
-				<th class="totalsize-col" data-bind="css: orderClassFor('totalsize')">
-					<a href data-bind="click: () => orderBy('totalsize')">
-						total
-					</a>
-				</th>
-				<th class="freesize-col" data-bind="css: orderClassFor('freesize')">
-					<a href data-bind="click: () => orderBy('freesize')">
-						free
-					</a>
-				</th>
-				<th class="cloudsync-col" data-bind="css: orderClassFor('cloudsync')">
-					<a href data-bind="click: () => orderBy('cloudsync')">
-						Cloud Sync
-					</a>
-				</th>
-				<th class="delete-col"></th>
-			</tr>
-		</thead>
+    <table>
+        <thead>
+             <tr>
+                <th class="state-col" data-bind="css: orderClassFor('state')">
+                    <a href data-bind="click: () => orderBy('state')">
+                        state
+                    </a>
+                </th>
+                <th class="name-col text-left" data-bind="css: orderClassFor('name')">
+                    <a href data-bind="click: () => orderBy('name')">
+                        bucket name
+                    </a>
+                </th>
+                <th class="filecount-col" data-bind="css: orderClassFor('filecount')">
+                    <a href data-bind="click: () => orderBy('filecount')">
+                        files
+                    </a>
+                </th>
+                <th class="totalsize-col" data-bind="css: orderClassFor('totalsize')">
+                    <a href data-bind="click: () => orderBy('totalsize')">
+                        total
+                    </a>
+                </th>
+                <th class="freesize-col" data-bind="css: orderClassFor('freesize')">
+                    <a href data-bind="click: () => orderBy('freesize')">
+                        free
+                    </a>
+                </th>
+                <th class="cloudsync-col" data-bind="css: orderClassFor('cloudsync')">
+                    <a href data-bind="click: () => orderBy('cloudsync')">
+                        Cloud Sync
+                    </a>
+                </th>
+                <th class="delete-col"></th>
+            </tr>
+        </thead>
 
-		<tbody data-bind="foreach: visibleRows">
-			<tr>
-				<td class="state-col">
-					<svg-icon params="uri: stateIcon"></svg-icon>
-				</td>
+        <tbody data-bind="foreach: visibleRows">
+            <tr>
+                <td class="state-col">
+                    <svg-icon params="uri: stateIcon"></svg-icon>
+                </td>
 
-				<td class="name-col text-left">
-					<a class="link" data-bind="text: name, href: href"></a>
-				</td>
+                <td class="name-col text-left">
+                    <a class="link" data-bind="text: name, href: href"></a>
+                </td>
 
-				<td class="filecount-col" data-bind="text: fileCount"></td>
+                <td class="filecount-col" data-bind="text: fileCount"></td>
 
-				<td class="totalsize-col" data-bind="text: totalSize"></td>
+                <td class="totalsize-col" data-bind="text: totalSize"></td>
 
-				<td class="freesize-col" data-bind="text: freeSize"></td>
-				
-				<td class="cloudsync-col" data-bind="
-					text: cloudSyncStatus().label, 
-					css: cloudSyncStatus().css"
-				></td>				
+                <td class="freesize-col" data-bind="text: freeSize"></td>
+                
+                <td class="cloudsync-col" data-bind="
+                    text: cloudSyncStatus().label, 
+                    css: cloudSyncStatus().css"
+                ></td>                
 
-				<td class="delete-col">
-					<delete-button params="
-						group: $component.deleteGroup,
-						disabled: !isDeletable(),
-						onDelete: () => del(),
-						toolTip: deleteToolTip
-					"></delete-button>
-				</td>
-			</tr>
-		</tbody>
-	</table>
+                <td class="delete-col">
+                    <delete-button params="
+                        group: $component.deleteGroup,
+                        disabled: !isDeletable(),
+                        onDelete: () => del(),
+                        toolTip: deleteToolTip
+                    "></delete-button>
+                </td>
+            </tr>
+        </tbody>
+    </table>
 </section>

@@ -5,45 +5,45 @@ import numeral from 'numeral';
 import { systemSummary } from 'model';
 
 class OverviewPanelViewModel {
-	constructor() {
-		this.isReady = ko.pureComputed(
-			() => !!systemSummary()
-		);
+    constructor() {
+        this.isReady = ko.pureComputed(
+            () => !!systemSummary()
+        );
 
-		this.systemCapacity = ko.pureComputed(
-			() => formatSize(systemSummary().capacity)
-		);
+        this.systemCapacity = ko.pureComputed(
+            () => formatSize(systemSummary().capacity)
+        );
 
-		this.onlineNodeCount = ko.pureComputed(
-			() => numeral(systemSummary().onlineNodeCount).format('0,0')
-		);
+        this.onlineNodeCount = ko.pureComputed(
+            () => numeral(systemSummary().onlineNodeCount).format('0,0')
+        );
 
-		this.offlineNodeCount = ko.pureComputed(
-			() => numeral(systemSummary().offlineNodeCount).format('0,0')
-		);
+        this.offlineNodeCount = ko.pureComputed(
+            () => numeral(systemSummary().offlineNodeCount).format('0,0')
+        );
 
-		this.poolCount = ko.pureComputed(
-			() => numeral(systemSummary().poolCount).format('0,0')
-		);
+        this.poolCount = ko.pureComputed(
+            () => numeral(systemSummary().poolCount).format('0,0')
+        );
 
-		this.nodeCount = ko.pureComputed(
-			() => numeral(systemSummary().nodeCount).format('0,0')
-		);
+        this.nodeCount = ko.pureComputed(
+            () => numeral(systemSummary().nodeCount).format('0,0')
+        );
 
-		this.bucketCount = ko.pureComputed(
-			() => numeral(systemSummary().bucketCount).format('0,0')
-		);
+        this.bucketCount = ko.pureComputed(
+            () => numeral(systemSummary().bucketCount).format('0,0')
+        );
 
-		this.objectCount = ko.pureComputed(
-			() => numeral(systemSummary().objectCount).format('0,0')
-		);
+        this.objectCount = ko.pureComputed(
+            () => numeral(systemSummary().objectCount).format('0,0')
+        );
 
-		this.isInstallNodeWizardlVisible = ko.observable(false);
-		this.isConnectAppWizardVisible = ko.observable(false);
-	}
+        this.isInstallNodeWizardlVisible = ko.observable(false);
+        this.isConnectAppWizardVisible = ko.observable(false);
+    }
 }
 
 export default { 
-	viewModel: OverviewPanelViewModel,
-	template: template
+    viewModel: OverviewPanelViewModel,
+    template: template
 }

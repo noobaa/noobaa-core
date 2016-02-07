@@ -8,26 +8,26 @@ import { uploadFiles } from 'actions';
 
 
 class UploadFilesModalViewModel {
-	constructor({ bucketName, onClose }){
-		this.bucketName = bucketName;
-		this.onClose = onClose;
-		
-		this.files = makeArray(
-			paginationPageSize,
-			i => new UploadRowViewModel(() => recentUploads()[i])
-		);
-	}
+    constructor({ bucketName, onClose }){
+        this.bucketName = bucketName;
+        this.onClose = onClose;
+        
+        this.files = makeArray(
+            paginationPageSize,
+            i => new UploadRowViewModel(() => recentUploads()[i])
+        );
+    }
 
-	upload(files) {
-		uploadFiles(this.bucketName(), files);
-	}
+    upload(files) {
+        uploadFiles(this.bucketName(), files);
+    }
 
-	close() {
-		this.onClose();
-	}
+    close() {
+        this.onClose();
+    }
 }
 
 export default {
-	viewModel: UploadFilesModalViewModel,
-	template: template
+    viewModel: UploadFilesModalViewModel,
+    template: template
 };

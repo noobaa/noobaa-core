@@ -1,59 +1,59 @@
 <!-- ko if: dataReady -->
 <section class="gauge-legend">
-	<h3 class="heading3 underline">
-		Potential Capacity: 
-		<span data-bind="text: totalText"></span>
-	</h3>
+    <h3 class="heading3 underline">
+        Potential Capacity: 
+        <span data-bind="text: totalText"></span>
+    </h3>
 
-	<ul class="list-no-style">
-		<li class="used-legend">
-			Used: 
-			<span class="emphasized" data-bind="text: usedText"></span>
-		</li>
-		<li class="free-legend">
-			Free: 
-			<span class="emphasized" data-bind="text: freeText"></span>
-		</li>
-	</ul>		
+    <ul class="list-no-style">
+        <li class="used-legend">
+            Used: 
+            <span class="emphasized" data-bind="text: usedText"></span>
+        </li>
+        <li class="free-legend">
+            Free: 
+            <span class="emphasized" data-bind="text: freeText"></span>
+        </li>
+    </ul>        
 </section>
 
 <quantity-gauge params="values: gaugeValues"></quantity-gauge>
 
 <section class="action-list">
-	<button class="action btn2" data-bind="click: () => isUploadFilesModalVisible(true)">
-		<svg-icon params="uri: '/fe/assets/icons.svg#upload'"></svg-icon>		
-		Upload File
-	</button>
+    <button class="action btn2" data-bind="click: () => isUploadFilesModalVisible(true)">
+        <svg-icon params="uri: '/fe/assets/icons.svg#upload'"></svg-icon>        
+        Upload File
+    </button>
 
-	<button class="action btn3" data-bind="click: () => isCloudSyncModalVisible(true)">
-		<svg-icon params="uri: '/fe/assets/icons.svg#cloud'"></svg-icon>		
-		Set Cloud Sync
-	</button>
+    <button class="action btn3" data-bind="click: () => isCloudSyncModalVisible(true)">
+        <svg-icon params="uri: '/fe/assets/icons.svg#cloud'"></svg-icon>        
+        Set Cloud Sync
+    </button>
 
-	<button class="action btn3" data-bind="click: () => isPolicyModalVisible(true)">
-		<svg-icon params="uri: '/fe/assets/icons.svg#policy'"></svg-icon>		
-		Edit Policy
-	</button>
+    <button class="action btn3" data-bind="click: () => isPolicyModalVisible(true)">
+        <svg-icon params="uri: '/fe/assets/icons.svg#policy'"></svg-icon>        
+        Edit Policy
+    </button>
 </section>
 <!-- /ko -->
 
 <!-- ko if: isPolicyModalVisible -->
 <bucket-policy-modal params="
-	policy: policy, 
-	onClose: () => isPolicyModalVisible(false)
+    policy: policy, 
+    onClose: () => isPolicyModalVisible(false)
 "></bucket-policy-modal>
-<!-- /ko -->		
+<!-- /ko -->        
 
 <!-- ko if:isUploadFilesModalVisible -->
 <upload-files-modal params="
-	bucketName: name, 
-	onClose: () => isUploadFilesModalVisible(false)
+    bucketName: name, 
+    onClose: () => isUploadFilesModalVisible(false)
 "></upload-files-modal>
-<!-- /ko -->	
+<!-- /ko -->    
 
 <!-- ko if:isCloudSyncModalVisible -->
 <cloud-sync-modal params="
-	bucketName: name, 
-	onClose: () => isCloudSyncModalVisible(false)
+    bucketName: name, 
+    onClose: () => isCloudSyncModalVisible(false)
 "></cloud-sync-modal>
-<!-- /ko -->	
+<!-- /ko -->    

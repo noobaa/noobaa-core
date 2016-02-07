@@ -1,56 +1,56 @@
 <modal>
-	<h1 class="heading1">Test Node</h1>
+    <h1 class="heading1">Test Node</h1>
 
-	<div class="text-left container">
-		<h2 class="heading3">Test Type</h2>
-		
-		<button class="btn3 pull-right" data-bind="click: runTest">Run Test</button>
+    <div class="text-left container">
+        <h2 class="heading3">Test Type</h2>
+        
+        <button class="btn3 pull-right" data-bind="click: runTest">Run Test</button>
 
-		<radio-group params="selected: selectedTests, options: testTypeOptions"></radio-group>
-	</div>
+        <radio-group params="selected: selectedTests, options: testTypeOptions"></radio-group>
+    </div>
 
-	<section class="container text-left">
-		<h2 class="heading3">
-			Test Results
-			<span class="remark" data-bind="text: lastTestTime"></span>
-		</h2>
+    <section class="container text-left">
+        <h2 class="heading3">
+            Test Results
+            <span class="remark" data-bind="text: lastTestTime"></span>
+        </h2>
 
-		<div class="results box">
-			<!-- ko ifnot: hasResults -->
-			Click on the Run Test button to start the test
-			<!-- /ko -->
+        <div class="results box">
+            <!-- ko ifnot: hasResults -->
+            Click on the Run Test button to start the test
+            <!-- /ko -->
 
-			<!-- ko if: hasResults -->
-			<div class="data-table">
-				<table>
-					<thead>
-						<tr>
-							<th class="test-col">Test</th>
-							<th class="target-col text-left">Target</th>
-							<th class="time-col">Time</th>
-							<th class="speed-col">Speed</th>
-							<th class="progress-col">Progress</th>
-						</tr>
-					</thead>
+            <!-- ko if: hasResults -->
+            <div class="data-table">
+                <table>
+                    <thead>
+                        <tr>
+                            <th class="test-col">Test</th>
+                            <th class="target-col text-left">Target</th>
+                            <th class="time-col">Time</th>
+                            <th class="speed-col">Speed</th>
+                            <th class="progress-col">Progress</th>
+                        </tr>
+                    </thead>
 
-					<tbody data-bind="foreach: rows">
-						<!-- ko if: isVisible -->
-						<tr class="result" data-bind="css: stateClass">
-							<td class="test-col" data-bind="text: test"></td>
-							<td class="target-col text-left" data-bind="text: target"></td>
-							<td class="time-col" data-bind="text: time"></td>
-							<td class="speed-col" data-bind="text: speed"></td>
-							<td class="progress-col" data-bind="text: progress"></td>
-						</tr>
-						<!-- /ko -->
-					</tbody>
-				</table>
-			</div>
-			<!-- /ko -->
-		</div>
-	</section>
+                    <tbody data-bind="foreach: rows">
+                        <!-- ko if: isVisible -->
+                        <tr class="result" data-bind="css: stateClass">
+                            <td class="test-col" data-bind="text: test"></td>
+                            <td class="target-col text-left" data-bind="text: target"></td>
+                            <td class="time-col" data-bind="text: time"></td>
+                            <td class="speed-col" data-bind="text: speed"></td>
+                            <td class="progress-col" data-bind="text: progress"></td>
+                        </tr>
+                        <!-- /ko -->
+                    </tbody>
+                </table>
+            </div>
+            <!-- /ko -->
+        </div>
+    </section>
 
-	<div class="action-line pull-right">
-		<button class="action btn2" data-bind="click: close">Close</button>		
-	</div>	
+    <div class="action-line pull-right">
+        <button class="action btn2" data-bind="click: close">Close</button>        
+    </div>    
 </modal>

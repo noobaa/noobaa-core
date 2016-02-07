@@ -1,42 +1,42 @@
 tray {
 
-	.tray-backdrop {
-		.fixed();
-		background-color: @shadow-color;	
-		transition: opacity 300ms linear;
-	}
+    .tray-backdrop {
+        .fixed();
+        background-color: @shadow-color;    
+        transition: opacity 300ms linear;
+    }
 
-	.tray-content {
-		.fixed();
-		background: @bg-color3;		
-		left: auto;
-		width: 50em;
-		box-shadow: 0 0 20px black;
-		transition: transform 300ms ease-out;
+    .tray-content {
+        .fixed();
+        background: @bg-color3;        
+        left: auto;
+        width: 50em;
+        box-shadow: 0 0 20px black;
+        transition: transform 300ms ease-out;
 
-		> div {
-			.fill();
-			top: 5em;
-		}
-	}
+        > div {
+            .fill();
+            top: 5em;
+        }
+    }
 
-	> .closed {
-		.tray-backdrop {
-			opacity: 0;
-		}
+    > .closed {
+        .tray-backdrop {
+            opacity: 0;
+        }
 
-		.tray-content {
-			transform: translateX(100%);
-		}
-	}
+        .tray-content {
+            transform: translateX(100%);
+        }
+    }
 
-	> .opened {
-		.tray-backdrop {
-			opacity: 1;
-		}
+    > .opened {
+        .tray-backdrop {
+            opacity: 1;
+        }
 
-		.tray-content {
-			transform: translateX(0);
-		}
-	}
+        .tray-content {
+            transform: translateX(0);
+        }
+    }
 }

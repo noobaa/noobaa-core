@@ -1,41 +1,41 @@
 <section class="audit-pane">
 
-	<div class="pull-right">
-		<button class="link" data-bind="click: selectAllCategories">
-			Select all
-		</button>
-		|
-		<button class="link" data-bind="click: clearAllCategories">
-			Clear
-		</button>
-	</div>
+    <div class="pull-right">
+        <button class="link" data-bind="click: selectAllCategories">
+            Select all
+        </button>
+        |
+        <button class="link" data-bind="click: clearAllCategories">
+            Clear
+        </button>
+    </div>
 
-	<h2 class="heading3">Choose Categories</h2>
+    <h2 class="heading3">Choose Categories</h2>
 
-	<multiselect params="options: categories, selected: selectedCategories" class="cols4"></multiselect>
+    <multiselect params="options: categories, selected: selectedCategories" class="cols4"></multiselect>
 
-	<div class="log box">
-		<div class="data-table">
-			<table data-bind="scroll: scroll">
-				<thead>
-					<tr>
-						<th class="time-col">Time</th>
-						<th class="category-col">Category</th>
-						<th class="event-col">Event</th>
-						<th class="entity-col text-left">Entity</th>
-					</tr>
-				</thead>
-				<tbody data-bind="foreach: rows">
-					<tr class="log-entry" data-bind="css: level">
-						<td class="time-col text-left" data-bind="text: date"></td>
-						<td class="category-col" data-bind="text: category"></td>
-						<td class="event-col" data-bind="text: event"></td>
-						<td class="entity-col text-left">
-							<a href class="link" data-bind="text: entity"></a>
-						</td>
-					</tr>
-				</tbody>
-			</table>
-		</div>
-	</div>
+    <div class="log box">
+        <div class="data-table">
+            <table data-bind="scroll: scroll">
+                <thead>
+                    <tr>
+                        <th class="time-col">Time</th>
+                        <th class="category-col">Category</th>
+                        <th class="event-col">Event</th>
+                        <th class="entity-col text-left">Entity</th>
+                    </tr>
+                </thead>
+                <tbody data-bind="foreach: rows">
+                    <tr class="log-entry" data-bind="css: level">
+                        <td class="time-col text-left" data-bind="text: date"></td>
+                        <td class="category-col" data-bind="text: category"></td>
+                        <td class="event-col" data-bind="text: event"></td>
+                        <td class="entity-col text-left">
+                            <a href class="link" data-bind="text: entity"></a>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
 </section>

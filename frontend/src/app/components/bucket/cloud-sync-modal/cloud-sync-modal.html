@@ -1,100 +1,100 @@
 <modal class="text-left">
-	<h1 class="heading2">
-		Cloud Sync for <span data-bind="text: bucketName"></span>
-	</h1>
+    <h1 class="heading2">
+        Cloud Sync for <span data-bind="text: bucketName"></span>
+    </h1>
 
-	<section class="container">
-		<h2 class="heading3">AWS Bucket Credentials</h2>
-		
-		<label>
-			<span class="field-name">Access Key:</span>
-			<input type="text" placeholder="Choose Key" />
-		</label>
+    <section class="container">
+        <h2 class="heading3">AWS Bucket Credentials</h2>
+        
+        <label>
+            <span class="field-name">Access Key:</span>
+            <input type="text" placeholder="Choose Key" />
+        </label>
 
-		<label>
-			<span class="field-name">Secret Key: </span>
-			<input type="password" placeholder="password" />
-		</label>
-	</section>
-	
-	<div class="container">
-		<h2 class="heading3">Select the bucket you want to connect to</h2>
-		<tiled-select></tiled-select>
-	</div>
+        <label>
+            <span class="field-name">Secret Key: </span>
+            <input type="password" placeholder="password" />
+        </label>
+    </section>
+    
+    <div class="container">
+        <h2 class="heading3">Select the bucket you want to connect to</h2>
+        <tiled-select></tiled-select>
+    </div>
 
-	<section class="container">
-		<h2 class="heading3">Additional Setting</h2>
-		
-		<div class="sync-dir line">
-			Sync Type: 	
-			
-			<radio-group params="
-				selected: syncType,
-				options: [
-					{ value: 'BI', label: 'Bi-Direcitonal' },
-					{ value: 'NB2AWS', label: 'NooBaa to AWS' },
-					{ value: 'AWS2NB', label: 'AWS to NooBaa' }
-				]
-			"></radio-group>
-		</div>
+    <section class="container">
+        <h2 class="heading3">Additional Setting</h2>
+        
+        <div class="sync-dir line">
+            Sync Type:     
+            
+            <radio-group params="
+                selected: syncType,
+                options: [
+                    { value: 'BI', label: 'Bi-Direcitonal' },
+                    { value: 'NB2AWS', label: 'NooBaa to AWS' },
+                    { value: 'AWS2NB', label: 'AWS to NooBaa' }
+                ]
+            "></radio-group>
+        </div>
 
-		<checkbox class="line" params="
-			label: 'Synchronize File Deletions', 
-			checked: syncDeletions
-		"></checkbox>
+        <checkbox class="line" params="
+            label: 'Synchronize File Deletions', 
+            checked: syncDeletions
+        "></checkbox>
 
-		<div class="line">
-			Sync Bucket Every:
+        <div class="line">
+            Sync Bucket Every:
 
-			<input type="Number" data-bind="value: syncCycle"/>
+            <input type="Number" data-bind="value: syncCycle"/>
 
-			<radio-group params="
-				selected: syncCycleUnit,
-				options: [
-					{ value: 'MINUTES', label: 'Minutes' },
-					{ value: 'HOURS', label: 'Hours' },
-					{ value: 'DAYS', label: 'Days' }
-				]
-			"></radio-group>
-		</div>
-	</section>
+            <radio-group params="
+                selected: syncCycleUnit,
+                options: [
+                    { value: 'MINUTES', label: 'Minutes' },
+                    { value: 'HOURS', label: 'Hours' },
+                    { value: 'DAYS', label: 'Days' }
+                ]
+            "></radio-group>
+        </div>
+    </section>
 
-	<div class="action-line pull-right">
-		<button class="action link" data-bind="click: cancel">Cancel</button>	
-		<button class="action btn2" data-bind="click: save">Save</button>		
-	</div>	
+    <div class="action-line pull-right">
+        <button class="action link" data-bind="click: cancel">Cancel</button>    
+        <button class="action btn2" data-bind="click: save">Save</button>        
+    </div>    
 </modal> 
 
 
 <!-- <wizard params="
-	heading: 'Cloud Sync for ' + bucketName(), 
-	steps: ['Select AWS Bucket', 'Configure Connection'], 
-	actionLabel: 'save',
-	onClose: onClose
+    heading: 'Cloud Sync for ' + bucketName(), 
+    steps: ['Select AWS Bucket', 'Configure Connection'], 
+    actionLabel: 'save',
+    onClose: onClose
 ">
-	<section class="text-left">
-		<div class="container">
-			<h2 class="heading3">Enter credentials for your AWS bucket</h2>
-			
-			<label>
-				<span class="field-name">Access Key:</span>
-				<input type="text" placeholder="" />
-			</label>
+    <section class="text-left">
+        <div class="container">
+            <h2 class="heading3">Enter credentials for your AWS bucket</h2>
+            
+            <label>
+                <span class="field-name">Access Key:</span>
+                <input type="text" placeholder="" />
+            </label>
 
-			<label>
-				<span class="field-name">Secret Key: </span>
-				<input type="password" placeholder="" />
-			</label>
-		</div>
+            <label>
+                <span class="field-name">Secret Key: </span>
+                <input type="password" placeholder="" />
+            </label>
+        </div>
 
-		<div class="container">
-			<h2 class="heading3">Select the bucket you want to connect to</h2>
-			<tiled-select></tiled-select>
-		</div>
-	</section>
+        <div class="container">
+            <h2 class="heading3">Select the bucket you want to connect to</h2>
+            <tiled-select></tiled-select>
+        </div>
+    </section>
 
 
 
-	<section ></section>
+    <section ></section>
 </wizard>
 -->

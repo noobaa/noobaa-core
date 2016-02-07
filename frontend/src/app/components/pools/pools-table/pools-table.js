@@ -7,36 +7,36 @@ import { redirectTo } from 'actions';
 const maxRows = 100;
 
 class PoolsTableViewModel {
-	constructor({ pools }) {
-		let rows = makeArray(
-			maxRows, 
-			i => new PoolRowViewModel(() => pools()[i])
-		);
+    constructor({ pools }) {
+        let rows = makeArray(
+            maxRows, 
+            i => new PoolRowViewModel(() => pools()[i])
+        );
 
-		this.sortedBy = pools.sortedBy;
-		this.order = pools.order;
-		this.visibleRows = ko.pureComputed(
-			() => rows.filter(row => row.isVisible())
-		);
+        this.sortedBy = pools.sortedBy;
+        this.order = pools.order;
+        this.visibleRows = ko.pureComputed(
+            () => rows.filter(row => row.isVisible())
+        );
 
-		this.deleteGroup = ko.observable();
-	}
+        this.deleteGroup = ko.observable();
+    }
 
-	orderBy(colName) {
-		redirectTo(undefined, {
-			sortBy: colName,
-			order: this.sortedBy() === colName ? 0 - this.order() : 1
-		});
-	}
+    orderBy(colName) {
+        redirectTo(undefined, {
+            sortBy: colName,
+            order: this.sortedBy() === colName ? 0 - this.order() : 1
+        });
+    }
 
-	orderClassFor(colName) {
-		if (this.sortedBy() === colName) {
-			return this.order() === 1 ? 'des' : 'asc' ;
-		} 
-	}	
+    orderClassFor(colName) {
+        if (this.sortedBy() === colName) {
+            return this.order() === 1 ? 'des' : 'asc' ;
+        } 
+    }    
 }
 
 export default {
-	viewModel: PoolsTableViewModel,
-	template: template
+    viewModel: PoolsTableViewModel,
+    template: template
 } 

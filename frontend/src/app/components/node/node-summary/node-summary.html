@@ -1,63 +1,63 @@
 <ul class="list-no-style status-line">
-	<li title="ip">
-		<svg-icon params="uri: '/fe/assets/icons.svg#location'"></svg-icon>
-		<span data-bind="text: ip"></span>
-	</li>
-	<li title="heartbeat">
-		<svg-icon params="uri: '/fe/assets/icons.svg#heartbeat'"></svg-icon>
-		<span data-bind="text: heartbeat"></span>
-	</li>
-	<li title="state">
-		<svg-icon params="uri: stateIcon"></svg-icon>
-		<span data-bind="text: state"></span>
-	</li>	
-	<li title="trust">
-		<svg-icon params="uri: trustIcon"></svg-icon>
-		<span data-bind="text: trust"></span>
-	</li>
+    <li title="ip">
+        <svg-icon params="uri: '/fe/assets/icons.svg#location'"></svg-icon>
+        <span data-bind="text: ip"></span>
+    </li>
+    <li title="heartbeat">
+        <svg-icon params="uri: '/fe/assets/icons.svg#heartbeat'"></svg-icon>
+        <span data-bind="text: heartbeat"></span>
+    </li>
+    <li title="state">
+        <svg-icon params="uri: stateIcon"></svg-icon>
+        <span data-bind="text: state"></span>
+    </li>    
+    <li title="trust">
+        <svg-icon params="uri: trustIcon"></svg-icon>
+        <span data-bind="text: trust"></span>
+    </li>
 </ul>
 
 <div class="text-center">
-	<section class="gauge-legend">
-		<h3 class="heading3 underline">
-			Capacity: 
-			<span data-bind="text: totalText"></span>
-		</h3>
+    <section class="gauge-legend">
+        <h3 class="heading3 underline">
+            Capacity: 
+            <span data-bind="text: totalText"></span>
+        </h3>
 
-		<ul class="list-no-style">
-			<li class="used-legend">
-				Used: 
-				<span class="emphasized" data-bind="text: usedText"></span>
-			</li>
-			<li class="os-legend">
-				OS: 
-				<span class="emphasized" data-bind="text: osText"></span>
-			</li>
-			<li class="free-legend">
-				Free: 
-				<span class="emphasized" data-bind="text: freeText"></span>
-			</li>
-		</ul>		
-	</section>
+        <ul class="list-no-style">
+            <li class="used-legend">
+                Used: 
+                <span class="emphasized" data-bind="text: usedText"></span>
+            </li>
+            <li class="os-legend">
+                OS: 
+                <span class="emphasized" data-bind="text: osText"></span>
+            </li>
+            <li class="free-legend">
+                Free: 
+                <span class="emphasized" data-bind="text: freeText"></span>
+            </li>
+        </ul>        
+    </section>
 
-	<quantity-gauge params="values: gaugeValues"></quantity-gauge>	
+    <quantity-gauge params="values: gaugeValues"></quantity-gauge>    
 
-	<section class="action-list">
-		<button class="action btn2" data-bind="click: () => isTestModalVisible(true)">
-			<svg-icon params="uri: '/fe/assets/icons.svg#node-test'"></svg-icon>
-			Test Node
-		</button> 		
+    <section class="action-list">
+        <button class="action btn2" data-bind="click: () => isTestModalVisible(true)">
+            <svg-icon params="uri: '/fe/assets/icons.svg#node-test'"></svg-icon>
+            Test Node
+        </button>         
 
-		<button class="action btn3">
-			<svg-icon params="uri: '/fe/assets/icons.svg#node-diagnose'"></svg-icon>
-			Diagnose
-		</button> 	
-	</section>
+        <button class="action btn3">
+            <svg-icon params="uri: '/fe/assets/icons.svg#node-diagnose'"></svg-icon>
+            Diagnose
+        </button>     
+    </section>
 </div>
 
 <!-- ko if: isTestModalVisible -->
 <test-node-modal params="
-	sourceRpcAddress: rpcAddress,
-	onClose: () => isTestModalVisible(false)
+    sourceRpcAddress: rpcAddress,
+    onClose: () => isTestModalVisible(false)
 "></test-node-modal>
 <!-- /ko -->

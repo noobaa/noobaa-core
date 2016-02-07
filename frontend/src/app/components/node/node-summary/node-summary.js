@@ -5,84 +5,84 @@ import { formatSize } from 'utils';
 import style from 'style';
 
 class NodeSummaryViewModel {
-	constructor({ node }) {
-		
-		this.dataReady = ko.pureComputed(
-			() => !!node()
-		);
+    constructor({ node }) {
+        
+        this.dataReady = ko.pureComputed(
+            () => !!node()
+        );
 
-		this.ip = ko.pureComputed(
-			() => node().ip
-		);
+        this.ip = ko.pureComputed(
+            () => node().ip
+        );
 
-		this.stateIcon = ko.pureComputed(
-			() => `/fe/assets/icons.svg#node-${node().online ? 'online' : 'offline'}`
-		)
+        this.stateIcon = ko.pureComputed(
+            () => `/fe/assets/icons.svg#node-${node().online ? 'online' : 'offline'}`
+        )
 
-		this.state = ko.pureComputed(
-			() => node().online ? 'Online' : 'Offline'
-		);
+        this.state = ko.pureComputed(
+            () => node().online ? 'Online' : 'Offline'
+        );
 
-		this.heartbeat = ko.pureComputed(
-			() => moment(node().heartbeat).fromNow()
-		);
+        this.heartbeat = ko.pureComputed(
+            () => moment(node().heartbeat).fromNow()
+        );
 
-		this.trustIcon = ko.pureComputed(
-			() => `/fe/assets/icons.svg#${node().trusted ? 'trusted' : 'untrusted'}`
-		);
+        this.trustIcon = ko.pureComputed(
+            () => `/fe/assets/icons.svg#${node().trusted ? 'trusted' : 'untrusted'}`
+        );
 
-		this.trust = ko.pureComputed(
-			() => node().trusted ? 'Trusted' : 'Untrusted'
-		);
+        this.trust = ko.pureComputed(
+            () => node().trusted ? 'Trusted' : 'Untrusted'
+        );
 
-		this.total = ko.pureComputed(
-			() => node().storage.total
-		);
+        this.total = ko.pureComputed(
+            () => node().storage.total
+        );
 
-		this.totalText = ko.pureComputed(
-			() => formatSize(this.total())
-		);		
+        this.totalText = ko.pureComputed(
+            () => formatSize(this.total())
+        );        
 
-		this.used = ko.pureComputed(
-			() => node().storage.used
-		);
+        this.used = ko.pureComputed(
+            () => node().storage.used
+        );
 
-		this.usedText = ko.pureComputed(
-			() => formatSize(this.used())
-		);		
+        this.usedText = ko.pureComputed(
+            () => formatSize(this.used())
+        );        
 
-		this.free = ko.pureComputed(
-			() => node().storage.free
-		);		
+        this.free = ko.pureComputed(
+            () => node().storage.free
+        );        
 
-		this.freeText = ko.pureComputed(
-			() => formatSize(this.free())
-		);
+        this.freeText = ko.pureComputed(
+            () => formatSize(this.free())
+        );
 
-		this.os = ko.pureComputed(
-			() => this.total() - (this.used() + this.free())
-		);		
+        this.os = ko.pureComputed(
+            () => this.total() - (this.used() + this.free())
+        );        
 
-		this.osText = ko.pureComputed(
-			() => formatSize(this.os())
-		);		
+        this.osText = ko.pureComputed(
+            () => formatSize(this.os())
+        );        
 
-		this.gaugeValues = [
-			{ value: this.used, color: style['text-color6'], emphasize: true },
-			{ value: this.os, color: style['text-color2'] },
-			{ value: this.free, color: style['text-color5'] }
-		]
+        this.gaugeValues = [
+            { value: this.used, color: style['text-color6'], emphasize: true },
+            { value: this.os, color: style['text-color2'] },
+            { value: this.free, color: style['text-color5'] }
+        ]
 
-		this.rpcAddress = ko.pureComputed(
-			() => !!node() && node().rpc_address
-		);
+        this.rpcAddress = ko.pureComputed(
+            () => !!node() && node().rpc_address
+        );
 
-		this.isTestModalVisible = ko.observable(false);
-		this.isDiagnoseModalVisible = ko.observable(false);		
-	}		
+        this.isTestModalVisible = ko.observable(false);
+        this.isDiagnoseModalVisible = ko.observable(false);        
+    }        
 }
 
 export default {
-	viewModel: NodeSummaryViewModel,
-	template: template
+    viewModel: NodeSummaryViewModel,
+    template: template
 }

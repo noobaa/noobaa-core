@@ -6,23 +6,23 @@ import { paginationPageSize } from 'config';
 import { redirectTo } from 'actions';
 
 class NodePartsViewModel {
-	constructor({ parts }) {
-		this.pageSize = paginationPageSize;
-		this.count = parts.count;
+    constructor({ parts }) {
+        this.pageSize = paginationPageSize;
+        this.count = parts.count;
 
-		this.page = ko.pureComputed({
-			read: parts.page,
-			write: page => redirectTo(undefined, { page })
-		});
+        this.page = ko.pureComputed({
+            read: parts.page,
+            write: page => redirectTo(undefined, { page })
+        });
 
-		this.rows = makeArray(
-			this.pageSize,
-			i => new PartRowViewModel(() => parts()[i])
-		);
-	}
+        this.rows = makeArray(
+            this.pageSize,
+            i => new PartRowViewModel(() => parts()[i])
+        );
+    }
 }
 
 export default {
-	viewModel: NodePartsViewModel,
-	template: template
+    viewModel: NodePartsViewModel,
+    template: template
 }

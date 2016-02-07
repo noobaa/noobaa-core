@@ -4,18 +4,18 @@ import { systemInfo } from 'model';
 
 
 class AboutFormViewModel {
-	constructor() {
-		this.version = ko.pureComputed(
-			() => systemInfo() && systemInfo().version 
-		);
-	}
+    constructor() {
+        this.version = ko.pureComputed(
+            () => systemInfo() && systemInfo().version 
+        );
+    }
 
-	upgrade() {
-		
-	}
+    upgrade() {
+        
+    }
 }
 
 export default {
-	viewModel: AboutFormViewModel,
-	template: template
+    viewModel: AboutFormViewModel,
+    template: template
 }

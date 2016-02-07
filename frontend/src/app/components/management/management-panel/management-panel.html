@@ -1,67 +1,67 @@
 <div class="management-panel">
-	<ul class="tabs">
-		<li data-bind="css: { selected: isTabSelected('accounts') }">
-			<a class="tab-header" data-bind="href: '/fe/systems/:system/management/accounts'">
-				Accounts
-			</a>
+    <ul class="tabs">
+        <li data-bind="css: { selected: isTabSelected('accounts') }">
+            <a class="tab-header" data-bind="href: '/fe/systems/:system/management/accounts'">
+                Accounts
+            </a>
 
-			<section class="tab-content">
-				<accounts-table></accounts-table>
-			</section>
-		</li>
+            <section class="tab-content">
+                <accounts-table></accounts-table>
+            </section>
+        </li>
 
-		<li data-bind="css: { selected: isTabSelected('network') }">
-			<a class="tab-header" data-bind="href: '/fe/systems/:system/management/network'">
-				Network
-			</a>
+        <li data-bind="css: { selected: isTabSelected('network') }">
+            <a class="tab-header" data-bind="href: '/fe/systems/:system/management/network'">
+                Network
+            </a>
 
-			<section class="tab-content">
-				<p2p-form class="container"></p2p-form>
-				
-				<hr class="seperator"/>
+            <section class="tab-content">
+                <p2p-form class="container"></p2p-form>
+                
+                <hr class="seperator"/>
 
-				<server-dns-form class="container"></server-dns-form>
-			</section>
-		</li>		
+                <server-dns-form class="container"></server-dns-form>
+            </section>
+        </li>        
 
-		<li data-bind="css: { selected: isTabSelected('versioning') }">
-			<a class="tab-header" data-bind="href: '/fe/systems/:system/management/versioning'">
-				About
-			</a>
+        <li data-bind="css: { selected: isTabSelected('versioning') }">
+            <a class="tab-header" data-bind="href: '/fe/systems/:system/management/versioning'">
+                About
+            </a>
 
-			<section class="tab-content">
-				<about-form></about-form>
-			</section>
-		</li>
+            <section class="tab-content">
+                <about-form></about-form>
+            </section>
+        </li>
 
-		<!-- <li data-bind="css: { selected: isTabSelected('alerts') }">
-			<a class="tab-header" data-bind="href: '/fe/systems/:system/management/alerts'">
-				Alerts
-			</a>
+        <!-- <li data-bind="css: { selected: isTabSelected('alerts') }">
+            <a class="tab-header" data-bind="href: '/fe/systems/:system/management/alerts'">
+                Alerts
+            </a>
 
-			<section class="tab-content">
-				this is the alerting tab
-			</section>
-		</li> -->
+            <section class="tab-content">
+                this is the alerting tab
+            </section>
+        </li> -->
 
-<!-- 		<li data-bind="css: { selected: isTabSelected('cluster') }">
-			<a class="tab-header" data-bind="href: '/fe/systems/:system/management/cluster'">
-				Cluster
-			</a>
+<!--         <li data-bind="css: { selected: isTabSelected('cluster') }">
+            <a class="tab-header" data-bind="href: '/fe/systems/:system/management/cluster'">
+                Cluster
+            </a>
 
-			<section class="tab-content">
-				this is the cluster tab
-			</section>
-		</li>	 -->			
+            <section class="tab-content">
+                this is the cluster tab
+            </section>
+        </li>     -->            
 
-<!-- 		<li data-bind="css: { selected: isTabSelected('policies') }">
-			<a class="tab-header" data-bind="href: '/fe/systems/:system/management/policies'">
-				Policies
-			</a>
+<!--         <li data-bind="css: { selected: isTabSelected('policies') }">
+            <a class="tab-header" data-bind="href: '/fe/systems/:system/management/policies'">
+                Policies
+            </a>
 
-			<section class="tab-content">
-				this is the policies tab
-			</section>
-		</li>				 -->
-	</ul>
+            <section class="tab-content">
+                this is the policies tab
+            </section>
+        </li>                 -->
+    </ul>
 </div>

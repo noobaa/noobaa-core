@@ -6,36 +6,36 @@ import { nodeList } from 'model';
 import { loadNodeList, assignNodes } from 'actions';
 
 class AssignNodeModalViewModel {
-	constructor({ poolName, onClose = noop }) {
-		this.poolName = poolName;
-		this.onClose = onClose;
+    constructor({ poolName, onClose = noop }) {
+        this.poolName = poolName;
+        this.onClose = onClose;
 
-		let nodes = nodeList.filter(
-			node => node.pool !== ko.unwrap(this.poolName)
-		);
+        let nodes = nodeList.filter(
+            node => node.pool !== ko.unwrap(this.poolName)
+        );
 
-		this.rows = makeArray(
-			500, 
-			i => new NodeRowViewModel(() => nodes()[i])
-		);
+        this.rows = makeArray(
+            500, 
+            i => new NodeRowViewModel(() => nodes()[i])
+        );
 
-		this.selectedNodes = ko.observableArray();
+        this.selectedNodes = ko.observableArray();
 
-		// Need to load the pool list
-		loadNodeList();
-	}
+        // Need to load the pool list
+        loadNodeList();
+    }
 
-	assign() {
-		assignNodes(ko.unwrap(this.poolName), this.selectedNodes());
-		this.onClose();
-	}
+    assign() {
+        assignNodes(ko.unwrap(this.poolName), this.selectedNodes());
+        this.onClose();
+    }
 
-	cancel() {
-		this.onClose();
-	}
+    cancel() {
+        this.onClose();
+    }
 }
 
 export default {
-	viewModel: AssignNodeModalViewModel,
-	template: template
+    viewModel: AssignNodeModalViewModel,
+    template: template
 }

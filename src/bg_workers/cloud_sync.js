@@ -130,7 +130,10 @@ function refresh_policy(req) {
             p.bucket._id.toString() === req.rpc_params.bucketid.toString());
     });
     if (!policy) {
-        return;
+        dbg.log0('policy not found, loading it');
+        return system_store.refresh().then(function() {
+            load_single_policy(system_store.data.get_by_id(req.rpc_params.bucketid));
+        });
     }
 
     if (req.rpc_params.force_stop) {
@@ -356,55 +359,59 @@ function load_configured_policies() {
             if (!bucket.cloud_sync || !bucket.cloud_sync.endpoint) {
                 return;
             }
-            dbg.log3('adding sysid', bucket.system._id, 'bucket', bucket.name, bucket._id, 'bucket', bucket, 'to configured policies');
-            //Cache Configuration, S3 Objects and empty work lists
-            var policy = {
-                bucket: bucket,
-                system: bucket.system,
-                endpoint: bucket.cloud_sync.endpoint,
-                access_keys: {
-                    access_key: bucket.cloud_sync.access_keys.access_key,
-                    secret_key: bucket.cloud_sync.access_keys.secret_key
-                },
-                schedule_min: bucket.cloud_sync.schedule_min,
-                paused: bucket.cloud_sync.paused,
-                c2n_enabled: bucket.cloud_sync.c2n_enabled,
-                n2c_enabled: bucket.cloud_sync.n2c_enabled,
-                last_sync: (bucket.cloud_sync.last_sync) ? bucket.cloud_sync.last_sync : 0,
-                additions_only: bucket.cloud_sync.additions_only,
-                health: true,
-                s3rver: null,
-                s3cloud: null,
-            };
-            //Create a corresponding local bucket s3 object and a cloud bucket object
-            policy.s3rver = new AWS.S3({
-                endpoint: 'http://127.0.0.1',
-                s3ForcePathStyle: true,
-                sslEnabled: false,
-                accessKeyId: policy.system.access_keys[0].access_key,
-                secretAccessKey: policy.system.access_keys[0].secret_key,
-                maxRedirects: 10,
-            });
-
-            policy.s3cloud = new AWS.S3({
-                accessKeyId: policy.access_keys.access_key,
-                secretAccessKey: policy.access_keys.secret_key,
-                region: 'eu-west-1', //TODO:: WA for AWS poorly developed SDK :-/
-            });
-
-            CLOUD_SYNC.configured_policies.push(policy);
-
-            //Init empty work lists for current policy
-            CLOUD_SYNC.work_lists.push({
-                sysid: bucket.system._id,
-                bucketid: bucket._id,
-                n2c_added: [],
-                n2c_deleted: [],
-                c2n_added: [],
-                c2n_deleted: []
-            });
+            load_single_policy(bucket);
         });
         CLOUD_SYNC.refresh_list = false;
+    });
+}
+
+function load_single_policy(bucket) {
+    dbg.log3('adding sysid', bucket.system._id, 'bucket', bucket.name, bucket._id, 'bucket', bucket, 'to configured policies');
+    //Cache Configuration, S3 Objects and empty work lists
+    var policy = {
+        bucket: bucket,
+        system: bucket.system,
+        endpoint: bucket.cloud_sync.endpoint,
+        access_keys: {
+            access_key: bucket.cloud_sync.access_keys.access_key,
+            secret_key: bucket.cloud_sync.access_keys.secret_key
+        },
+        schedule_min: bucket.cloud_sync.schedule_min,
+        paused: bucket.cloud_sync.paused,
+        c2n_enabled: bucket.cloud_sync.c2n_enabled,
+        n2c_enabled: bucket.cloud_sync.n2c_enabled,
+        last_sync: (bucket.cloud_sync.last_sync) ? bucket.cloud_sync.last_sync : 0,
+        additions_only: bucket.cloud_sync.additions_only,
+        health: true,
+        s3rver: null,
+        s3cloud: null,
+    };
+    //Create a corresponding local bucket s3 object and a cloud bucket object
+    policy.s3rver = new AWS.S3({
+        endpoint: 'http://127.0.0.1',
+        s3ForcePathStyle: true,
+        sslEnabled: false,
+        accessKeyId: policy.system.access_keys[0].access_key,
+        secretAccessKey: policy.system.access_keys[0].secret_key,
+        maxRedirects: 10,
+    });
+
+    policy.s3cloud = new AWS.S3({
+        accessKeyId: policy.access_keys.access_key,
+        secretAccessKey: policy.access_keys.secret_key,
+        region: 'eu-west-1', //TODO:: WA for AWS poorly developed SDK :-/
+    });
+
+    CLOUD_SYNC.configured_policies.push(policy);
+
+    //Init empty work lists for current policy
+    CLOUD_SYNC.work_lists.push({
+        sysid: bucket.system._id,
+        bucketid: bucket._id,
+        n2c_added: [],
+        n2c_deleted: [],
+        c2n_added: [],
+        c2n_deleted: []
     });
 }
 

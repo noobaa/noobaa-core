@@ -142,7 +142,7 @@ module.exports = {
                         type: 'boolean'
                     },
                     status: {
-                        $ref: '#/definitions/sync_status_enum'
+                        $ref: '#/definitions/api_cloud_sync_status'
                     }
                 }
             },
@@ -169,7 +169,7 @@ module.exports = {
                             type: 'boolean'
                         },
                         status: {
-                            $ref: '#/definitions/sync_status_enum'
+                            $ref: '#/definitions/api_cloud_sync_status'
                         }
                     }
                 }
@@ -260,8 +260,7 @@ module.exports = {
                     type: 'integer'
                 },
                 cloud_sync_status: {
-                    enum: ['UNSYNCED', 'SYNCING', 'PASUED', 'UNABLE', 'SYNCED', 'NOTSET'],
-                    type: 'string',
+                    $ref: '#/definitions/api_cloud_sync_status'
                 }
             }
         },
@@ -299,6 +298,11 @@ module.exports = {
                     type: 'boolean',
                 }
             }
+        },
+
+        api_cloud_sync_status: {
+            enum: ['UNSYNCED', 'SYNCING', 'PASUED', 'UNABLE', 'SYNCED', 'NOTSET'],
+            type: 'string',
         },
 
         sync_status_enum: {

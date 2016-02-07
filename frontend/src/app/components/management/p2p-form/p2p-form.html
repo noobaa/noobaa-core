@@ -1,11 +1,19 @@
+<<<<<<< HEAD
 <button class="btn-flat pull-right rotate no-outline" data-bind="
     css: { 'deg-180': expanded },
     click: () => expanded.toggle()
 ">
     <svg-icon params="uri: '/fe/assets/icons.svg#expand'" ></svg-icon>
 </button>
+=======
+<h2 class="heading2" data-bind="click: () => expanded.toggle()">
+	<button class="btn-flat pull-right rotate no-outline" data-bind="css: { 'deg-180': expanded }">
+		<svg-icon class="expand-icon" params="uri: '/fe/assets/icons.svg#expand'" ></svg-icon>
+	</button>
+>>>>>>> 5899a610afcb3d598d4507eb1f86f1bfdcc9a9cb
 
-<h2 class="heading2">Peer to Peer</h2>
+	Peer to Peer
+</h2>
 
 <p class="summary" data-bind="visible: !expanded()">
     TCP ports: 

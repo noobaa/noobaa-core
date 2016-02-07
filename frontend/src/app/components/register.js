@@ -1,3 +1,4 @@
+
 // Register the components with knockout component container.
 export default function register(ko) {
 
@@ -6,6 +7,7 @@ export default function register(ko) {
     // -------------------------------
     ko.components.register('empty', { template: ' ' });
 
+<<<<<<< HEAD
     // -------------------------------
     // Layout
     // -------------------------------
@@ -29,6 +31,33 @@ export default function register(ko) {
     ko.components.register('buckets-overview',        require('./overview/buckets-overview/buckets-overview'));    
     ko.components.register('install-node-wizard',    require('./overview/install-node-wizard/install-node-wizard'));
     ko.components.register('connect-app-wizard',    require('./overview/connect-app-wizard/connect-app-wizard'));
+=======
+	// -------------------------------
+	// Layout
+	// -------------------------------
+	ko.components.register('main-layout', 	require('./layout/main-layout/main-layout'));	
+	ko.components.register('main-header', 		require('./layout/main-header/main-header'));
+	ko.components.register('commands-bar', 	require('./layout/commands-bar/commands-bar'));
+	ko.components.register('breadcrumbs', 	require('./layout/breadcrumbs/breadcrumbs'));
+	ko.components.register('debug-status-bar', 	require('./layout/debug-status-bar/debug-status-bar'));
+	
+	// -------------------------------
+	// Login
+	// -------------------------------
+	ko.components.register('login-layout', 			require('./login/login-layout/login-layout'));		
+	ko.components.register('signin-form', 			require('./login/signin-form/signin-form'));	
+	ko.components.register('create-system-form', 	require('./login/create-system-form/create-system-form'));	
+
+	// -------------------------------
+	// Overview
+	// -------------------------------
+	ko.components.register('overview-panel', 		require('./overview/overview-panel/overview-panel'));
+	ko.components.register('pools-overview', 		require('./overview/pools-overview/pools-overview'));
+	ko.components.register('buckets-overview',		require('./overview/buckets-overview/buckets-overview'));	
+	ko.components.register('install-node-wizard',	require('./overview/install-node-wizard/install-node-wizard'));
+	ko.components.register('connect-app-wizard',	require('./overview/connect-app-wizard/connect-app-wizard'));
+	ko.components.register('after-upgrade-modal',	require('./overview/after-upgrade-modal/after-upgrade-modal'));
+>>>>>>> 5899a610afcb3d598d4507eb1f86f1bfdcc9a9cb
 
     // -------------------------------
     // Buckets
@@ -70,6 +99,7 @@ export default function register(ko) {
     ko.components.register('pool-nodes-table',     require('./pool/pool-nodes-table/pool-nodes-table'));
     ko.components.register('assign-nodes-modal',     require('./pool/assign-nodes-modal/assign-nodes-modal'));
 
+<<<<<<< HEAD
     // -------------------------------
     // Node
     // -------------------------------
@@ -88,6 +118,28 @@ export default function register(ko) {
     ko.components.register('p2p-form',                require('./management/p2p-form/p2p-form'));
     ko.components.register('server-dns-form',        require('./management/server-dns-form/server-dns-form'));    
     ko.components.register('about-form',            require('./management/about-form/about-form'));    
+=======
+	// -------------------------------
+	// Node
+	// -------------------------------
+	ko.components.register('node-panel', 		require('./node/node-panel/node-panel'));
+	ko.components.register('node-summary', 		require('./node/node-summary/node-summary'));
+	ko.components.register('node-parts-table', 	require('./node/node-parts-table/node-parts-table'));
+	ko.components.register('node-info', 		require('./node/node-info/node-info'));
+	ko.components.register('test-node-modal',	require('./node/test-node-modal/test-node-modal'));
+	ko.components.register('diagnose-modal',	require('./node/diagnose-modal/diagnose-modal'));
+
+	// -------------------------------
+	// Management
+	// -------------------------------
+	ko.components.register('management-panel',		require('./management/management-panel/management-panel'));
+	ko.components.register('accounts-table',		require('./management/accounts-table/accounts-table'));
+	ko.components.register('create-account-modal',	require('./management/create-account-modal/create-account-modal'));
+	ko.components.register('p2p-form',				require('./management/p2p-form/p2p-form'));
+	ko.components.register('server-dns-form',		require('./management/server-dns-form/server-dns-form'));	
+	ko.components.register('about-form',			require('./management/about-form/about-form'));	
+	ko.components.register('upgrade-modal',			require('./management/upgrade-modal/upgrade-modal'));	
+>>>>>>> 5899a610afcb3d598d4507eb1f86f1bfdcc9a9cb
 
     // -------------------------------
     // Admin

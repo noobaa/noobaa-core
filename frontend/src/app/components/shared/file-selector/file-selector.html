@@ -1,4 +1,5 @@
 <div class="drop-area text-center" data-bind="
+<<<<<<< HEAD
         css: { dragover: !!dragCounter() },
         event: { 
             dragenter: dragEnter,
@@ -7,6 +8,16 @@
             drop: (_, evt) => drop(evt)
         }
     ">
+=======
+		css: { dragover: !!dragCounter() },
+		event: { 
+			dragenter: dragEnter,
+			dragleave: dragLeave,
+			dragover: () => false,
+			drop: (_, evt) => drop(evt.dataTransfer.files)
+		}
+	">
+>>>>>>> 5899a610afcb3d598d4507eb1f86f1bfdcc9a9cb
 
     <p class="drop-message paragraph" data-bind="text: message"></p>
     
@@ -15,8 +26,16 @@
     <label class="browse-btn btn3">
         Browse
 
+<<<<<<< HEAD
         <input type="file" multiple data-bind="event: { 
             change: (_, evt) => onFilesReady(evt.target.files) 
         }"/>
     </label>
+=======
+		<input type="file" data-bind="
+			attr: { multiple: allowMultiSelect },
+			event: { change: (_, evt) => select(evt.target.files) }
+		"/>
+	</label>
+>>>>>>> 5899a610afcb3d598d4507eb1f86f1bfdcc9a9cb
 </div>

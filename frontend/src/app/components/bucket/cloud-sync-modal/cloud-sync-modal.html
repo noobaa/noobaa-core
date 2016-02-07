@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 <modal class="text-left">
     <h1 class="heading2">
         Cloud Sync for <span data-bind="text: bucketName"></span>
@@ -37,6 +38,47 @@
                 ]
             "></radio-group>
         </div>
+=======
+<modal params="onClose: () => cancel()" class="text-left">
+	<h1 class="heading2">
+		Cloud Sync for <span data-bind="text: bucketName"></span>
+	</h1>
+
+	<div class="container box text-center">
+		Cloud synchronization not set
+	</div>
+
+	<section class="container">
+		<h2 class="heading3">Select an AWS Bucket</h2>
+		
+		<label>
+			<span class="field-name">Access Key:</span>
+			<input type="text" placeholder="Choose Key" />
+		</label>
+
+		<label>
+			<span class="field-name">Secret Key: </span>
+			<input type="password" placeholder="password" />
+		</label>
+
+		<div>
+			<span class="field-name">Bucket: </span>
+			<dropdown class="aws-buckets" params="
+				placeholder: 'Choose Bucket',
+				options: []
+			"></dropdown>			
+		</div>		
+	</section>
+
+	<section class="container">
+		<h2 class="heading3">Additional Setting</h2>
+		
+		<div class="sync-dir line">
+			Sync Type: 	
+			
+			<radio-group params="selected: syncType, options: syncUnitsOptions"></radio-group>
+		</div>
+>>>>>>> 5899a610afcb3d598d4507eb1f86f1bfdcc9a9cb
 
         <checkbox class="line" params="
             label: 'Synchronize File Deletions', 
@@ -48,6 +90,7 @@
 
             <input type="Number" data-bind="value: syncCycle"/>
 
+<<<<<<< HEAD
             <radio-group params="
                 selected: syncCycleUnit,
                 options: [
@@ -58,6 +101,18 @@
             "></radio-group>
         </div>
     </section>
+=======
+			<dropdown params="
+				selected: syncCycleUnit,
+				options: [
+					{ value: 'MINUTES', label: 'Minutes' },
+					{ value: 'HOURS', label: 'Hours' },
+					{ value: 'DAYS', label: 'Days' }
+				]
+			"></dropdown>
+		</div>
+	</section>
+>>>>>>> 5899a610afcb3d598d4507eb1f86f1bfdcc9a9cb
 
     <div class="action-line pull-right">
         <button class="action link" data-bind="click: cancel">Cancel</button>    

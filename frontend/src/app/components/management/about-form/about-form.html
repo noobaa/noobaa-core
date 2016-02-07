@@ -1,13 +1,21 @@
 <h1 class="heading2">Noobaa Storage Solution</h1>
 
+<<<<<<< HEAD
 <label class="labeled-field container">
     Current Version: 
     <output data-bind="value: version"></output>
 </label>
+=======
+<p class="container">
+	Current Version: 
+	<output class="text-tech emphasized" data-bind="value: version"></output>
+</p>
+>>>>>>> 5899a610afcb3d598d4507eb1f86f1bfdcc9a9cb
 
 
 
 <section class="container">
+<<<<<<< HEAD
     <!-- <h2 class="heading3">Upgrade Version</h2> -->
     <file-selector params="message: 'Drag Update Package Here'"></file-selector>    
 </section>
@@ -15,3 +23,20 @@
 <div class="remark container">
     &copy; 2016 NooBaa Ltd, All rights reserved. 
 </div>
+=======
+	<h2 class="heading3">Upgrade Version</h2>
+	<p class="paragraph">The uprgading process may take a few minuets to complete.</p>
+	<file-selector params="
+		message: 'Drag an upgrade package here',
+		onFilesReady: files => upgrade(files)
+	"></file-selector>
+</section>
+
+<div class="remark container">
+	&copy; 2016 NooBaa Ltd, All rights reserved. 
+</div>
+
+<!-- ko if: isUpgradingModalVisible -->
+<upgrade-modal params="onClose: () => isUpgradingModalVisible(false)"></upgrade-modal>
+<!-- /ko -->
+>>>>>>> 5899a610afcb3d598d4507eb1f86f1bfdcc9a9cb

@@ -11,6 +11,11 @@ ko.subscribable.fn.toggle = function () {
 	return this;
 }
 
+ko.subscribable.fn.assign = function(data) {
+	this(Object.assign(this(), ko.unwrap(data)));
+	return this;
+}
+
 ko.observableWithDefault = function(valueAccessor) {
 	let storage = ko.observable();
  	return ko.pureComputed({

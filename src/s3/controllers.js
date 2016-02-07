@@ -10,6 +10,7 @@ var api = require('../api');
 var dbg = require('../util/debug_module')(__filename);
 var string_utils = require('../util/string_utils');
 var promise_utils = require('../util/promise_utils');
+var time_util = require('../util/time_utils');
 
 var xml2js = require('xml2js');
 var FileStore = require('./file-store');
@@ -110,7 +111,7 @@ module.exports = function(params) {
     };
     var buildResponse = function(req, res, status, object, data) {
         res.header('Etag', '"' + object.md5 + '"');
-        res.header('Last-Modified', new Date(object.modifiedDate).toUTCString());
+        res.header('Last-Modified', time_utils.toRFC822(new Date(object.modifiedDate)));
         res.header('Content-Type', object.contentType);
 
         if (object.contentEncoding)
@@ -494,7 +495,7 @@ module.exports = function(params) {
                     try {
                         var date = new Date(obj.info.create_time);
                         date.setMilliseconds(0);
-                        obj.modifiedDate = date.toISOString(); //toUTCString();//.toISOString();
+                        obj.modifiedDate = date.toISOString();
                         obj.md5 = 100;
                         obj.size = obj.info.size;
 
@@ -1007,7 +1008,7 @@ module.exports = function(params) {
                             create_date.setMilliseconds(0);
 
                             res.header('ETag', '"' + object_md.etag + '"');
-                            res.header('Last-Modified', create_date.toUTCString());
+                            res.header('Last-Modified', time_utils.toRFC822(create_date));
                             res.header('Content-Type', object_md.content_type);
                             res.header('Content-Length', object_md.size);
                             res.header('x-amz-meta-cb-modifiedtime', req.headers['x-amz-date'] || create_date);
@@ -1051,7 +1052,7 @@ module.exports = function(params) {
                                     var create_date = new Date(object_md.create_time);
                                     create_date.setMilliseconds(0);
 
-                                    res.header('Last-Modified', create_date);
+                                    res.header('Last-Modified', time_util.toRFC822(create_date));
                                     res.header('Content-Type', object_md.content_type);
                                     res.header('Content-Length', object_md.size);
                                     res.header('x-amz-meta-cb-modifiedtime', req.headers['x-amz-date']);
@@ -1243,8 +1244,8 @@ module.exports = function(params) {
                         };
                         set_xattr(req, create_params);
 
-                        dbg.log0('Init Multipart, buckets', clients[access_key].buckets, '::::', 
-                            _.filter(clients[access_key].buckets, {                           
+                        dbg.log0('Init Multipart, buckets', clients[access_key].buckets, '::::',
+                            _.filter(clients[access_key].buckets, {
                                 bucket: req.bucket
                         }));
                         if (!_.has(clients[access_key].buckets, req.bucket)) {

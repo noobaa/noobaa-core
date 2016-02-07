@@ -51,6 +51,9 @@ bucketObjectList.page = ko.observable(0);
 // Hold the current tier information.
 export let tierInfo = ko.observable();
 
+// Hold the current cloud sync information.
+export let cloudSyncInfo = ko.observable();
+
 // Hold the current pool list. derived from system info.
 export let poolList = ko.observableArray();
 poolList.sortedBy = ko.observable('name');
@@ -61,7 +64,6 @@ export let poolInfo = ko.observable();
 
 // Hold a list of all the nodes in the system.
 export let nodeList = ko.observableArray();
-
 
 // Hold the current pool node list.
 export let poolNodeList = ko.observableArray();
@@ -98,6 +100,12 @@ auditLog.loadedCategories = ko.observable();
 // Hold the current account list
 export let accountList = ko.observableArray();
 
-
+// Hold node test results.
 export let nodeTestResults = ko.observableArray();
 nodeTestResults.timestemp = ko.observable();
+
+// hold system upgrade status.
+export let upgradeStatus = ko.observable();
+
+// Hold debug collection info.
+export let debugCollectionInfo = ko.observable();

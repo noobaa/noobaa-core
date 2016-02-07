@@ -123,9 +123,10 @@ function RpcTcpServer(tls_options) {
     });
 
     function conn_handler(tcp_conn) {
+        var address;
         try {
             // using url.format and then url.parse in order to handle ipv4/ipv6 correctly
-            var address = url.format({
+            address = url.format({
                 protocol: protocol,
                 hostname: tcp_conn.remoteAddress,
                 port: tcp_conn.remotePort

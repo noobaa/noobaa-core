@@ -6,8 +6,7 @@ import { hostname } from 'server-conf';
 
 import { 
 	isDefined, isUndefined, encodeBase64, cmpStrings, cmpInts, cmpBools, 
-	randomString, last, stringifyQueryString, clamp,  makeArray, 
-	execInOrder 
+	randomString, last, clamp,  makeArray, execInOrder, realizeUri, downloadFile
 } from 'utils';
 
 // TODO: resolve browserify issue with export of the aws-sdk module.
@@ -57,13 +56,24 @@ export function start() {
 export function navigateTo(path = window.location.pathname, query = {}) {
 	logAction('navigateTo', { path, query });
 
-	page.show(`${path}?${stringifyQueryString(query)}`);
+	page.show(
+		realizeUri(path, model.routeContext().params, query)
+	);
 }
 
 export function redirectTo(path = window.location.pathname, query = {}) {
-	logAction('navigateTo', { path, query });
+	logAction('redirectTo', { path, query });
 
-	page.redirect(`${path}?${stringifyQueryString(query)}`);
+	page.redirect(
+		realizeUri(path, model.routeContext().params, query)
+	);
+}
+
+export function reloadTo(path = window.location.pathname, query = {}) {
+	logAction('reloadTo', { path, query });
+
+	// Force full browser refresh
+	window.location.href = realizeUri(path, model.routeContext().params, query)
 }
 
 export function refresh() {
@@ -71,9 +81,8 @@ export function refresh() {
 
 	let { pathname, search } = window.location;
 	
-	// Reload the current path
+	// Refresh the current path
 	page.redirect(pathname + search);
-
 
 	model.refreshCounter(model.refreshCounter() + 1);
 }
@@ -340,6 +349,7 @@ export function loadSystemInfo() {
 				let { access_key, secret_key } = reply.access_keys[0];
 
 				model.systemInfo({
+					status: 'active',
 					name: reply.name,
 					version: reply.version,
 					endpoint: endpoint,
@@ -751,6 +761,14 @@ export function loadTier(name) {
 		.done();
 }
 
+export function loadCloudSyncPolicy(bucketName) {
+	logAction('loadCloudSyncPolicy', { bucketName });
+
+	api.bucket.get_cloud_sync_policy({ name: bucketName })
+		.then(model.cloudSyncInfo)
+		.done();
+}
+
 // -----------------------------------------------------
 // Managment actions.
 // -----------------------------------------------------
@@ -1095,4 +1113,114 @@ export function updateBaseAddress(baseAddress) {
 	})
 		.then(loadSystemInfo)
 		.done();
+}
+
+export function upgradeSystem(upgradePackage) {
+	logAction('upgradeSystem', { upgradePackage });
+
+	function ping() {
+		let xhr = new XMLHttpRequest();
+		xhr.open('GET', '/version', true);
+		xhr.onload = () => reloadTo('/fe/systems/:system', { afterupgrade: true });
+		xhr.onerror = evt => setTimeout(ping, 10000);
+		xhr.send()	
+	}
+
+	let { upgradeStatus } = model;
+	upgradeStatus({
+		step: 'UPLOAD',
+		progress: 0,
+		state: 'IN_PROGRESS'
+	});
+
+	let xhr = new XMLHttpRequest();
+	xhr.open('POST', '/upgrade', true);
+
+	xhr.upload.onprogress = function(evt) {
+		upgradeStatus.assign({
+			progress: evt.lengthComputable && evt.loaded / evt.total
+		})
+	};
+
+	xhr.onload = function(evt) {
+		if (xhr.status === 200) {
+			setTimeout(
+				() => {
+					upgradeStatus({
+						step: 'INSTALL',
+						progress: 0,
+						state: 'IN_PROGRESS'
+					});
+
+					setTimeout(ping, 7000);
+				},
+				3000
+			);
+		} else {
+			upgradeStatus.assign({
+				state: 'FAILED',
+			});
+
+			console.error('Uploading upgrade package failed', evt.target)
+		}		
+	};
+
+	xhr.onerror = function(evt) {
+		upgradeStatus.assign({
+			state: 'FAILED'
+		});
+
+		console.error('Uploading upgrade package failed', evt.target)
+	};
+
+	xhr.onabort = function(evt) {
+		upgradeStatus.assign({
+			state: 'CANCELED'
+		});
+
+		console.warn('Uploading upgrade package canceled', evt)
+	};
+
+	let formData = new FormData();
+	formData.append('upgrade_file', upgradePackage);
+	xhr.send(formData);
+}
+
+export function downloadDiagnosticPack(nodeName) {
+	logAction('downloadDiagnosticFile', { nodeName });
+
+	api.node.read_node({ name: nodeName })
+		.then(
+			node => api.node.collect_agent_diagnostics({ target: node.rpc_address })
+		)
+		.then(
+			url => downloadFile(url)
+		)
+		.done();
+}
+
+export function startDebugCollection(nodeName) {
+	logAction('startDebugCollection', { nodeName });
+
+	api.node.read_node({ name: nodeName })
+		.then(
+			node => api.node.set_debug_node({ target: node.rpc_address })
+		)
+		.then(
+			() => {
+				model.debugCollectionInfo({
+					targetName: nodeName,
+					timeLeft: 5 * 60
+				});
+
+				(function countdown() {
+					let timeLeft = model.debugCollectionInfo().timeLeft;
+					if ( timeLeft > 0) {
+						
+						model.debugCollectionInfo.assign({ timeLeft: --timeLeft });
+						setTimeout(countdown, 1000);
+					}
+				})();			
+			}
+		);
 }

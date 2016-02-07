@@ -211,7 +211,7 @@ function get_cloud_sync_policy(req, bucket) {
                     endpoint: bucket.cloud_sync.endpoint,
                     access_keys: [bucket.cloud_sync.access_keys],
                     schedule: bucket.cloud_sync.schedule_min,
-                    last_sync: bucket.cloud_sync.last_sync.getTime(),
+                    last_sync: (new Date(bucket.cloud_sync.last_sync)).getTime(),
                     paused: bucket.cloud_sync.paused,
                     c2n_enabled: bucket.cloud_sync.c2n_enabled,
                     n2c_enabled: bucket.cloud_sync.n2c_enabled,
@@ -314,13 +314,16 @@ function set_cloud_sync(req) {
         additions_only: req.rpc_params.policy.additions_only
     };
 
-    //If either of the following is changed, signal the cloud sync worker to force stop and reload
-    if (bucket.cloud_sync.endpoint !== cloud_sync.endpoint ||
-        bucket.cloud_sync.access_keys.access_key !== cloud_sync.access_keys.access_key ||
-        bucket.cloud_sync.access_keys.secret_key !== cloud_sync.access_keys.secret_key ||
-        cloud_sync.paused) {
-        force_stop = true;
+    if (bucket.cloud_sync) {
+        //If either of the following is changed, signal the cloud sync worker to force stop and reload
+        if (bucket.cloud_sync.endpoint !== cloud_sync.endpoint ||
+            bucket.cloud_sync.access_keys.access_key !== cloud_sync.access_keys.access_key ||
+            bucket.cloud_sync.access_keys.secret_key !== cloud_sync.access_keys.secret_key ||
+            cloud_sync.paused) {
+            force_stop = true;
+        }
     }
+
     return system_store.make_changes({
             update: {
                 buckets: [{

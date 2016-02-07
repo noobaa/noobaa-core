@@ -48,24 +48,16 @@
             Test Node
         </button>         
 
-<<<<<<< HEAD
-        <button class="action btn3">
+        <button class="action btn3" data-bind="click: () => diagnose()">
             <svg-icon params="uri: '/fe/assets/icons.svg#node-diagnose'"></svg-icon>
             Diagnose
-        </button>     
-    </section>
-=======
-		<button class="action btn3" data-bind="click: () => diagnose()">
-			<svg-icon params="uri: '/fe/assets/icons.svg#node-diagnose'"></svg-icon>
-			Diagnose
-		</button> 
+        </button> 
 
-		<a class="action btn3" data-bind="click: () => downloadDiagnosticPack()" target="_blank">
-			<svg-icon params="uri: '/fe/assets/icons.svg#download'"></svg-icon>
-			Export Diag Pack
-		</a> 	
-	</section>
->>>>>>> 5899a610afcb3d598d4507eb1f86f1bfdcc9a9cb
+        <a class="action btn3" data-bind="click: () => downloadDiagnosticPack()" target="_blank">
+            <svg-icon params="uri: '/fe/assets/icons.svg#download'"></svg-icon>
+            Export Diag Pack
+        </a>    
+    </section>
 </div>
 
 <!-- ko if: isTestModalVisible -->

@@ -1,63 +1,26 @@
-<<<<<<< HEAD
-<div class="wrapper" tabindex="0">
-    <output data-bind="value: selected().label"></output>
+<div class="dropdown-wrapper no-outline" data-bind="
+    hasFocus: focused,
+    attr: { tabindex: !ko.unwrap(disabled) && '0' },
+    css: { disabled: disabled }
+">
+    <svg-icon class="pull-right" params="uri: '/fe/assets/icons.svg#expand'">
+    </svg-icon>
+    
+    <div class="value" data-bind="
+        text: $component.selectedLabel,
+        css: { placeholder: !selected() }
+    "></div>
 
-    <ul class="options" data-bind="foreach: options">
-        <li data-bind="
-            template: $componentTemplateNodes.length ? { nodes componentTemplateNodes } : {}
-        ">
-            <span data-bind="text: label, action: " 
+    <ul class="options list-no-style" data-bind="foreach: options, visible: focused">
+        <li>
+            <label class="option">
+                <input type="radio" data-bind="
+                    attr: { name: $component.name },
+                    checked: $component.selected, 
+                    checkedValue: value
+                " />        
+                <span class="option-label" data-bind="text: label"></span>
+            </label>
         </li>
     </ul>
 </div>
-
-
-<dropdown params="options: [1,2,3], action: value => console.log(value)"></dropdown>
-
-<select data-bind="pretty-select">
-    <option data-bind="value: 3">GB</option>
-    <option data-bind="value: 4">TB</option>
-    <option data-bind="value: 5">PB</option>
-</select>
-
-
-
-<action-list>
-    <action></action>
-    <action></action>
-    <action></action>
-</action-list>
-
-<select-list>
-    <opt></opt>
-    <opt></opt>
-    <opt></opt>
-</select-list>
-=======
-<div class="dropdown-wrapper no-outline" data-bind="
-	hasFocus: focused,
-	attr: { tabindex: !ko.unwrap(disabled) && '0' },
-	css: { disabled: disabled }
-">
-	<svg-icon class="pull-right" params="uri: '/fe/assets/icons.svg#expand'">
-	</svg-icon>
-	
-	<div class="value" data-bind="
-		text: $component.selectedLabel,
-		css: { placeholder: !selected() }
-	"></div>
-
-	<ul class="options list-no-style" data-bind="foreach: options, visible: focused">
-		<li>
-			<label class="option">
-				<input type="radio" data-bind="
-					attr: { name: $component.name },
-					checked: $component.selected, 
-					checkedValue: value
-				" />		
-				<span class="option-label" data-bind="text: label"></span>
-			</label>
-		</li>
-	</ul>
-</div>
->>>>>>> 5899a610afcb3d598d4507eb1f86f1bfdcc9a9cb

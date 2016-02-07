@@ -1,161 +1,92 @@
-<<<<<<< HEAD
-dropdown123 {
+dropdown {
     position: relative;
-    display: inline-block;    
-    background-color: @bg-color4;
+    min-width: 7em;
+    display: inline-block;
     cursor: @cursor-pointer;
-    width: 150px;    
+    vertical-align: middle;
 
-    .text(
-        @font-type2,
-        @font-weight-normal,
-        @font-size-normal,
-        @text-color1
-    );    
+    .dropdown-wrapper {
+        vertical-align: middle;
+        fill: @text-color4;             
 
-    output {
-        display: block;
-        background: @bg-color2;    
-        padding: .5em;
-        vertical-align: middle;    
+        &:focus {
+            fill: @text-color2;             
+
+            svg-icon {
+                background-color: @bg-color5;
+                box-shadow: 1px 1px 1px @bg-color2;
+            }
+        }
+
+        &.disabled {
+            fill: @text-color5;
+
+            .value {
+                border-bottom: 1px dotted @text-color5;
+            }
+        }   
     }
 
-    .wrapper {
-        outline: none;
-        
-        &:focus .options {
-            display: block;
-        }
+    .value {
+        border-bottom: 1px solid @bg-color7;            
+        padding: 1px 0;
+        padding-right: 3em;
+        line-height: 1.4;
+    }
 
-        &::before {
-            content: '';
-            display: inline-block;
-            float: right;        
-            border: 10px solid transparent;
-            border-bottom: none;
-            border-top-color: @text-color1;
-            margin: 11px 5px 0 5px ;
-        }
+    .value, .option-label {
+        display: block;
+        margin: 0;
+        vertical-align: middle;     
 
-        &:after {
-            content: '';
-            position: absolute;
-            display: inline-block;
-            right: 9px;
-            top: 10px;
-            border: 6px solid transparent;
-            border-top-color: @bg-color4;
-        }        
-    }    
+        &.placeholder {
+            color: @text-color5;
+        }
+    }
+
+    svg-icon {
+        box-sizing: content-box;
+        position: absolute;
+        padding: .25em .5em;
+        height: 1em;
+        width: 1em;
+        top: 0;
+        right: 0;
+    }
 
     .options {
         position: absolute;
         width: 100%;
-        display: none;
-        list-style-type: none;
-        text-align: center;
-        line-height: 2.5em;
-        padding: 0;
-        margin: 0;
-        background-color: @bg-color4;
-        color: @text-color3;
+        min-height: 2em;
+        background-color: @bg-color5;
+        padding: 2px;
+        margin-top: -1px;
+        z-index: 1;
+        box-shadow: 1px 1px 1px @bg-color2;
+    }
 
-        > .selected {
-            background-color: @bg-color7;
-            color: @text-color1
+    .option {
+        display: block;
+        padding: 1px 0;
+
+        > input {
+            display: none;
+        }
+
+        .option-label {
+            color: @text-color1;
+            padding-left: .5em;
+            height: 2em;
+            line-height: 2;
+        }
+
+        :checked + .option-label {
+            color: @text-color6;
+            background-color: @bg-color3;
+        }
+
+        .option-label:hover {
+            background-color: @bg-color4;
         }
     }
-=======
-dropdown {
-	position: relative;
-	min-width: 7em;
-	display: inline-block;
-	cursor: @cursor-pointer;
-	vertical-align: middle;
-
-	.dropdown-wrapper {
-		vertical-align: middle;
-		fill: @text-color4;				
-
-		&:focus {
-			fill: @text-color2;				
-
-			svg-icon {
-				background-color: @bg-color5;
-				box-shadow: 1px 1px 1px @bg-color2;
-			}
-		}
-
-		&.disabled {
-			fill: @text-color5;
-
-			.value {
-				border-bottom: 1px dotted @text-color5;
-			}
-		}	
-	}
-
-	.value {
-		border-bottom: 1px solid @bg-color7;			
-		padding: 1px 0;
-		padding-right: 3em;
-		line-height: 1.4;
-	}
-
-	.value, .option-label {
-		display: block;
-		margin: 0;
-		vertical-align: middle;		
-
-		&.placeholder {
-			color: @text-color5;
-		}
-	}
-
-	svg-icon {
-		box-sizing: content-box;
-		position: absolute;
-		padding: .25em .5em;
-		height: 1em;
-		width: 1em;
-		top: 0;
-		right: 0;
-	}
-
-	.options {
-		position: absolute;
-		width: 100%;
-		min-height: 2em;
-		background-color: @bg-color5;
-		padding: 2px;
-		margin-top: -1px;
-		z-index: 1;
-		box-shadow: 1px 1px 1px @bg-color2;
-	}
-
-	.option {
-		display: block;
-		padding: 1px 0;
-
-		> input {
-			display: none;
-		}
-
-		.option-label {
-			color: @text-color1;
-			padding-left: .5em;
-			height: 2em;
-			line-height: 2;		
-		}
-
-		:checked + .option-label {
-			color: @text-color6;
-			background-color: @bg-color3;			
-		}
-
-		.option-label:hover {
-			background-color: @bg-color4;
-		}
-	}
->>>>>>> 5899a610afcb3d598d4507eb1f86f1bfdcc9a9cb
 }

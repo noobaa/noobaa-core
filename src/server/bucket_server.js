@@ -205,6 +205,7 @@ function get_cloud_sync_policy(req, bucket) {
             bucketid: bucket._id.toString()
         }))
         .then(function(stat) {
+            bucket.cloud_sync.status = stat.status;            
             return {
                 name: bucket.name,
                 policy: {
@@ -218,7 +219,7 @@ function get_cloud_sync_policy(req, bucket) {
                     additions_only: bucket.cloud_sync.additions_only
                 },
                 health: stat.health,
-                status: stat.status,
+                status: cs_utils.resolve_cloud_sync_info(bucket.cloud_sync),
             };
         });
 }
@@ -232,16 +233,17 @@ function get_all_cloud_sync_policies(req) {
     dbg.log3('get_all_cloud_sync_policies');
     var reply = [];
     return P.all(_.map(req.system.buckets_by_name, function(bucket) {
-        if (!bucket.cloud_sync.endpoint) return;
+        if (!bucket.cloud_sync || !bucket.cloud_sync.endpoint) return;
         return bg_worker.cloud_sync.get_policy_status({
                 sysid: req.system._id.toString(),
                 bucketid: bucket._id.toString()
             })
             .then(function(stat) {
+                bucket.cloud_sync.status = stat.status;
                 reply.push({
                     name: bucket.name,
                     health: stat.health,
-                    status: stat.status,
+                    status: cs_utils.resolve_cloud_sync_info(bucket.cloud_sync),
                     policy: {
                         endpoint: bucket.cloud_sync.endpoint,
                         access_keys: [bucket.cloud_sync.access_keys],
@@ -403,7 +405,7 @@ function get_bucket_info(bucket, objects_aggregate, nodes_aggregate_pool, cloud_
         total: info.tiering && info.tiering.storage && info.tiering.storage.total || 0,
         free: info.tiering && info.tiering.storage && info.tiering.storage.free || 0,
     });
-    cs_utils.resolve_cloud_sync_info(cloud_sync_policy, info);
+    info.cloud_sync_status = cs_utils.resolve_cloud_sync_info(cloud_sync_policy);
     return info;
 }
 

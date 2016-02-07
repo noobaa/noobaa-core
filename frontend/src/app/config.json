@@ -1,24 +1,24 @@
 {
-	"inputThrottle": 400,
-	"paginationPageSize": 25,
-	"defaultPoolName": "default_pool",
-	"nodeTest": {
-		"targetCount": 20,
-		"testSettings": {
-			"connectivity": {
-				"stepCount": 1,
-				"requestLength": 0, 
-				"responseLength": 0, 
-				"count": 1,
-				"concur": 1
-			},
-			"bandwidth": {
-				"stepCount": 8,
-				"requestLength": 524288, 
-				"responseLength": 524288, 
-				"count": 64, 
-				"concur": 16
-			}
-		}
-	}
+    "inputThrottle": 400,
+    "paginationPageSize": 25,
+    "defaultPoolName": "default_pool",
+    "nodeTest": {
+        "targetCount": 20,
+        "testSettings": {
+            "connectivity": {
+                "stepCount": 1,
+                "requestLength": 0, 
+                "responseLength": 0, 
+                "count": 1,
+                "concur": 1
+            },
+            "bandwidth": {
+                "stepCount": 8,
+                "requestLength": 524288, 
+                "responseLength": 524288, 
+                "count": 64, 
+                "concur": 16
+            }
+        }
+    }
 }

@@ -18,35 +18,23 @@ dbg.set_level(5, 'core');
 
 mocha.describe('object_driver', function() {
 
-    var client = coretest.new_client();
+    var client = coretest.new_test_client();
     var SYS = 'test-object-system';
-    var TIER = 'edge';
-    var BKT = 'test_object_bucket';
-    var KEY = 'test_object_key';
+    var BKT = 'files'; // the default bucket name
+    var KEY = 'test-object-key';
+    var EMAIL = 'test-object-email@mail.mail';
+    var PASSWORD = 'test-object-password';
 
     mocha.before(function() {
         this.timeout(30000);
-        return P.fcall(function() {
-            return client.system.create_system({
-                name: SYS
-            });
-        }).then(function() {
-            // authenticate now with the new system
-            return client.create_auth_token({
-                system: SYS
-            });
-        }).then(function() {
-            return client.tier.create_tier({
-                name: TIER,
-            });
-        }).then(function() {
-            return client.bucket.create_bucket({
-                name: BKT,
-                tiering: 'default_tiering',
-            });
-        }).then(function() {
-            return coretest.init_test_nodes(10, SYS, TIER);
-        });
+        return P.resolve()
+            .then(() => client.account.create_account({
+                name: SYS,
+                email: EMAIL,
+                password: PASSWORD,
+            }))
+            .then(res => client.options.auth_token = res.token)
+            .then(() => coretest.init_test_nodes(client, SYS, 5));
     });
 
     mocha.after(function() {
@@ -69,6 +57,7 @@ mocha.describe('object_driver', function() {
             return client.object.complete_multipart_upload({
                 bucket: BKT,
                 key: key,
+                fix_parts_size: true
             });
         }).then(function() {
             return client.object.read_object_md({

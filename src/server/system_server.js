@@ -42,8 +42,7 @@ var ip_module = require('ip');
 // var AWS = require('aws-sdk');
 var diag = require('./utils/server_diagnostics');
 var db = require('./db');
-var server_rpc = require('./server_rpc').server_rpc;
-var bg_worker = require('./server_rpc').bg_worker;
+var server_rpc = require('./server_rpc');
 var bucket_server = require('./bucket_server');
 var pool_server = require('./pool_server');
 var tier_server = require('./tier_server');
@@ -528,7 +527,7 @@ function diagnose_with_agent(data) {
 }
 
 function start_debug(req) {
-    dbg.log0('Recieved start_debug req', server_rpc.client.debug);
+    dbg.log0('Recieved start_debug req');
     return P.when(server_rpc.client.debug.set_debug_level({
             level: 5,
             module: 'core'
@@ -536,7 +535,7 @@ function start_debug(req) {
             auth_token: req.auth_token
         }))
         .then(function() {
-            return P.when(bg_worker.debug.set_debug_level({
+            return P.when(server_rpc.bg_client.debug.set_debug_level({
                 level: 5,
                 module: 'core'
             }, {
@@ -552,7 +551,7 @@ function start_debug(req) {
                     }));
                 })
                 .then(function() {
-                    return P.when(bg_worker.debug.set_debug_level({
+                    return P.when(server_rpc.bg_client.debug.set_debug_level({
                         level: 0,
                         module: 'core'
                     }));

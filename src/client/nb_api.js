@@ -22,8 +22,11 @@ nb_api.factory('nbClient', [
         var $scope = {};
 
         var win_storage = $window.localStorage; // or sessionStorage ?
-        $scope.client = new api.Client();
-        $scope.new_client = new_client;
+        var rpc_proto = $window.WebSocket ?
+            ($window.location.protocol === 'https:' ? 'wss:' : 'ws:') :
+            $window.location.protocol;
+        $scope.rpc = api.new_rpc(rpc_proto + '//' + $window.location.host);
+        $scope.client = $scope.rpc.new_client();
         $scope.refresh = refresh;
         $scope.save_token = save_token;
         $scope.init_token = init_token;
@@ -51,11 +54,6 @@ nb_api.factory('nbClient', [
             });
         }, 1000);
 
-
-        // return a new client based on mine - inherits auth token unless overriden
-        function new_client() {
-            return new api.Client($scope.client.options);
-        }
 
         function refresh() {
             return $q.when()

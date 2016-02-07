@@ -16,8 +16,7 @@ var db = require('./db');
 var Barrier = require('../util/barrier');
 var size_utils = require('../util/size_utils');
 var promise_utils = require('../util/promise_utils');
-var server_rpc = require('./server_rpc').server_rpc;
-var bg_worker = require('./server_rpc').bg_worker;
+var server_rpc = require('./server_rpc');
 var system_server = require('./system_server');
 var nodes_store = require('./stores/nodes_store');
 var mongodb = require('mongodb');
@@ -25,8 +24,7 @@ var dbg = require('../util/debug_module')(__filename);
 var pkg = require('../../package.json');
 var current_pkg_version = pkg.version;
 
-var BG_BASE_ADDR = server_rpc.get_default_base_address('background');
-server_rpc.on('reconnect', _on_reconnect);
+server_rpc.rpc.on('reconnect', _on_reconnect);
 
 /**
  * finding node by id for heatbeat requests uses a barrier for merging DB calls.
@@ -202,11 +200,11 @@ function update_heartbeat(req, reply_token) {
         rpc_address = 'n2n://' + peer_id;
         dbg.log0('PEER REVERSE ADDRESS', rpc_address, conn.url.href);
         // Add node to RPC map and notify redirector if needed
-        var notify_redirector = server_rpc.map_address_to_connection(rpc_address, conn);
+        var notify_redirector = server_rpc.rpc.map_address_to_connection(rpc_address, conn);
         if (notify_redirector) {
             conn.on('close', _unregister_agent.bind(null, conn, peer_id));
             P.fcall(function() {
-                    return bg_worker.redirector.register_agent({
+                    return server_rpc.bg_client.redirector.register_agent({
                         peer_id: peer_id,
                     });
                 })
@@ -485,7 +483,7 @@ function set_debug_node(req) {
 }
 
 function _unregister_agent(connection, peer_id) {
-    return P.when(bg_worker.redirector.unregister_agent({
+    return P.when(server_rpc.bg_client.redirector.unregister_agent({
             peer_id: peer_id,
         }))
         .fail(function(error) {
@@ -495,7 +493,7 @@ function _unregister_agent(connection, peer_id) {
 }
 
 function _on_reconnect(conn) {
-    if (_.startsWith(conn.url.href, BG_BASE_ADDR)) {
+    if (conn.url.href === server_rpc.rpc.router.bg) {
         dbg.log0('_on_reconnect:', conn.url.href);
         _resync_agents();
     }
@@ -506,9 +504,9 @@ function _resync_agents() {
 
     //Retry to resync redirector
     return promise_utils.retry(Infinity, 1000, 0, function(attempt) {
-        var agents = server_rpc.get_n2n_addresses();
+        var agents = server_rpc.rpc.get_n2n_addresses();
         var ts = Date.now();
-        return bg_worker.redirector.resync_agents({
+        return server_rpc.bg_client.redirector.resync_agents({
                 agents: agents,
                 timestamp: ts,
             })

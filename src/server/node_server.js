@@ -277,7 +277,7 @@ function list_nodes_int(system_id, query, skip, limit, pagination, sort, order, 
                 pagination && nodes_store.count_nodes(info));
         })
         .spread(function(nodes, total_count) {
-            console.log('list_nodes', nodes, total_count);
+            console.log('list_nodes', nodes.length, '/', total_count);
             var res = {
                 nodes: _.map(nodes, node => {
                     nodes_store.resolve_node_object_ids(node);
@@ -371,7 +371,7 @@ function group_nodes(req) {
                         }
                     };
                     if (r._id.p) {
-                        group.pool = r._id.p;
+                        group.pool = String(r._id.p);
                     }
                     if (r._id.g) {
                         group.geolocation = r._id.g;
@@ -482,6 +482,8 @@ const NODE_INFO_DEFAULT_FIELDS = {
     ip: '0.0.0.0',
     version: '',
     peer_id: '',
+    rpc_address: '',
+    base_address: '',
 };
 
 function get_node_full_info(node) {

@@ -1051,7 +1051,6 @@ Ice.prototype._handle_stun_request = function(buffer, info) {
             port: info.port,
             type: CAND_TYPE_PEER_REFLEX,
         }));
-        // dbg.log0('GGG session', info.session, attr_map.address, info);
     }
     if (info.session) {
         if (info.tcp && !info.tcp.destroyed &&

@@ -40,13 +40,6 @@ class RpcRequest {
         this.params = params;
         this.auth_token = auth_token;
         this.srv = api.id + '.' + method_api.name;
-        try {
-            this.method_api.validate_params(this.params, 'CLIENT');
-        } catch (err) {
-            throw this.rpc_error('BAD_REQUEST', err, {
-                nostack: true
-            });
-        }
     }
 
     static encode_message(header, buffers) {
@@ -100,20 +93,13 @@ class RpcRequest {
         this.method_api = method_api;
         this.params = msg.header.params;
         this.auth_token = msg.header.auth_token;
+        this.srv = (api ? api.id : '?') +
+            '.' + (method_api ? method_api.name : '?');
         if (method_api) {
             if (method_api.params) {
                 method_api.params.import_buffers(this.params, msg.buffer);
             }
-            try {
-                method_api.validate_params(this.params, 'SERVER');
-            } catch (err) {
-                throw this.rpc_error('BAD_REQUEST', err, {
-                    nostack: true
-                });
-            }
         }
-        this.srv = (api ? api.id : '?') +
-            '.' + (method_api ? method_api.name : '?');
     }
 
     export_response_buffer() {
@@ -122,16 +108,6 @@ class RpcRequest {
             reqid: this.reqid
         };
         let buffers;
-        // check reply schema and set error if needed
-        if (!this.error) {
-            try {
-                this.method_api.validate_reply(this.reply, 'SERVER');
-            } catch (err) {
-                this.rpc_error('BAD_REPLY', err, {
-                    nostack: true
-                });
-            }
-        }
         if (this.error) {
             // copy the error to a plain object because otherwise
             // the message is not encoded by
@@ -160,12 +136,7 @@ class RpcRequest {
             if (this.method_api.reply) {
                 this.method_api.reply.import_buffers(this.reply, msg.buffer);
             }
-            try {
-                this.method_api.validate_reply(this.reply, 'CLIENT');
-                this.response_defer.resolve(this.reply);
-            } catch (err) {
-                this.response_defer.reject(err);
-            }
+            this.response_defer.resolve(this.reply);
         }
         return is_pending;
     }

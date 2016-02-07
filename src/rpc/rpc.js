@@ -4,7 +4,6 @@ module.exports = RPC;
 
 var _ = require('lodash');
 var P = require('../util/promise');
-var url = require('url');
 var util = require('util');
 var assert = require('assert');
 // var ip_module = require('ip');
@@ -26,32 +25,30 @@ var EventEmitter = require('events').EventEmitter;
 
 // dbg.set_level(5, __dirname);
 
-var browser_location = global.window && global.window.location;
-var is_browser_secure = browser_location && browser_location.protocol === 'https:';
-var browser_ws = global.window && global.window.WebSocket;
-
-// default base address -
-// in the browser we take the address as the host of the web page
-// just like any ajax request. for development we take localhost.
-// for any other case the RPC objects can set the base_address property.
-var DEFAULT_BASE_ADDRESS = 'ws://127.0.0.1:' + get_default_base_port();
-var DEFAULT_BACKGROUND_ADDRESS = 'ws://127.0.0.1:' + get_default_base_port('background');
-if (browser_location) {
-    if (browser_ws) {
-        // use ws/s address
-        DEFAULT_BASE_ADDRESS =
-            (is_browser_secure ? 'wss://' : 'ws://') + browser_location.host;
-    } else {
-        // fallback to http/s address
-        DEFAULT_BASE_ADDRESS =
-            browser_location.protocol + '//' + browser_location.host;
-    }
-}
-
 var RPC_PING_INTERVAL_MS = 20000;
 var RECONN_BACKOFF_BASE = 1000;
-var RECONN_BACKOFF_MAX = 15000;
+var RECONN_BACKOFF_MAX = 10000;
 var RECONN_BACKOFF_FACTOR = 1.2;
+
+
+class Client {
+    constructor(rpc, default_options) {
+        this.rpc = rpc;
+        this.options = _.create(default_options);
+        _.each(rpc.schema, api => {
+            if (!api || !api.id || api.id[0] === '_') return;
+            var name = api.id.replace(/_api$/, '');
+            if (name === 'rpc' || name === 'options') throw new Error('ILLEGAL API ID');
+            this[name] = {};
+            _.each(api.methods, (method_api, method_name) => {
+                this[name][method_name] = (params, options) => {
+                    options = _.create(this.options, options);
+                    return rpc.client_request(api, method_api, params, options);
+                };
+            });
+        });
+    }
+}
 
 util.inherits(RPC, EventEmitter);
 
@@ -61,22 +58,18 @@ util.inherits(RPC, EventEmitter);
  *
  */
 function RPC(options) {
+    options = options || {};
     EventEmitter.call(this);
     this._services = {};
     this._connection_by_id = {};
     this._connection_by_address = {};
     this._address_to_url_cache = {};
-
-    options = options || {};
-
-    this.base_address = options.base_address || DEFAULT_BASE_ADDRESS;
-
-    // setup default client
-    if (options.schema) {
-        this.client = this.create_schema_client(options.schema, options);
-    }
+    // public properties
+    this.schema = options.schema;
+    this.router = options.router;
 }
 
+RPC.Client = Client;
 
 /**
  *
@@ -112,7 +105,9 @@ RPC.prototype.register_service = function(api, server, options) {
             server: server,
             options: options,
             method_api: method_api,
-            server_func: func.bind(server)
+            server_func: function() {
+                return func.apply(server, arguments);
+            }
         };
     });
 
@@ -125,51 +120,9 @@ RPC.prototype.register_service = function(api, server, options) {
     }
 };
 
-
-/**
- *
- * create_schema_client
- *
- */
-RPC.prototype.create_schema_client = function(schema, default_options) {
-    var self = this;
-    var client = {
-        options: _.create(default_options),
-    };
-    _.each(schema, function(api, api_name) {
-        if (api_name && api_name[0] !== '_') {
-            var name = api_name.replace(/_api$/, '');
-            client[name] = self.create_client(api, client.options);
-        }
-    });
-    return client;
+RPC.prototype.new_client = function(options) {
+    return new Client(this, options);
 };
-
-/**
- *
- * create_client
- *
- */
-RPC.prototype.create_client = function(api, default_options) {
-    var self = this;
-    var client = {
-        options: _.create(default_options)
-    };
-    if (!api || !api.id) {
-        throw new Error('RPC create_client: BAD API');
-    }
-
-    // create client methods
-    _.each(api.methods, function(method_api, method_name) {
-        client[method_name] = function(params, options) {
-            options = _.create(client.options, options);
-            return self.client_request(api, method_api, params, options);
-        };
-    });
-
-    return client;
-};
-
 
 
 /**
@@ -191,9 +144,18 @@ RPC.prototype.client_request = function(api, method_api, params, options) {
     req.new_request(api, method_api, params, options.auth_token);
     req.response_defer = P.defer();
     req.response_defer.promise.catch(_.noop); // to prevent error log of unhandled rejection
-
     if (options.tracker) {
         options.tracker(req);
+    }
+
+    if (!self._disable_validation) {
+        try {
+            req.method_api.validate_params(req.params, 'CLIENT');
+        } catch (err) {
+            throw req.rpc_error('BAD_REQUEST', err, {
+                nostack: true
+            });
+        }
     }
 
     // assign a connection to the request
@@ -253,13 +215,23 @@ RPC.prototype.client_request = function(api, method_api, params, options) {
         })
         .then(function(reply) {
 
-            dbg.log1('RPC client_request: DONE',
-                'srv', req.srv,
-                'reqid', req.reqid);
+            if (!self._disable_validation) {
+                try {
+                    req.method_api.validate_reply(reply, 'CLIENT');
+                } catch (err) {
+                    throw req.rpc_error('BAD_REPLY', err, {
+                        nostack: true
+                    });
+                }
+            }
 
             if (self._request_logger) {
                 self._request_logger('RPC REQUEST', req.srv, params, '==>', reply);
             }
+
+            dbg.log1('RPC client_request: DONE',
+                'srv', req.srv,
+                'reqid', req.reqid);
 
             self.emit_stats('stats.client_request.done', req);
 
@@ -319,7 +291,9 @@ RPC.prototype.handle_request = function(conn, msg) {
         dbg.warn('RPC handle_request: NOT FOUND', srv,
             'reqid', msg.header.reqid,
             'connid', conn.connid);
-        req.rpc_error('NOT_FOUND', srv + ' not found');
+        req.rpc_error('NOT_FOUND', srv + ' not found', {
+            nostack: true
+        });
         return conn.send(req.export_response_buffer(), 'res', req);
     }
 
@@ -327,6 +301,16 @@ RPC.prototype.handle_request = function(conn, msg) {
 
             // set api info to the request
             req.import_request_message(msg, service.api, service.method_api);
+
+            if (!self._disable_validation) {
+                try {
+                    req.method_api.validate_params(req.params, 'SERVER');
+                } catch (err) {
+                    throw req.rpc_error('BAD_REQUEST', err, {
+                        nostack: true
+                    });
+                }
+            }
 
             dbg.log3('RPC handle_request: ENTER',
                 'srv', req.srv,
@@ -336,16 +320,9 @@ RPC.prototype.handle_request = function(conn, msg) {
             self.emit_stats('stats.handle_request.start', req);
 
             // call service middlewares if provided
-            if (_.isArray(service.options.middleware)) {
-                return _.reduce(service.options.middleware, function(promise, middleware) {
-                    return promise.then(function() {
-                        return middleware(req);
-                    });
-                }, P.resolve());
-            } else if (_.isFunction(service.options.middleware)) {
-                return service.options.middleware(req);
-            }
-
+            return _.reduce(service.options.middleware,
+                (promise, middleware) => promise.then(() => middleware(req)),
+                P.resolve());
         })
         .then(function() {
 
@@ -369,6 +346,16 @@ RPC.prototype.handle_request = function(conn, msg) {
 
         })
         .then(function(reply) {
+
+            if (!self._disable_validation) {
+                try {
+                    req.method_api.validate_reply(reply, 'SERVER');
+                } catch (err) {
+                    throw req.rpc_error('BAD_REPLY', err, {
+                        nostack: true
+                    });
+                }
+            }
 
             req.reply = reply;
 
@@ -395,7 +382,9 @@ RPC.prototype.handle_request = function(conn, msg) {
             // propagate rpc errors from inner rpc client calls (using err.rpc_code)
             // set default internal error if no other error was specified
             if (!req.error) {
-                req.rpc_error(err.rpc_code, err.message);
+                req.rpc_error(err.rpc_code, err.message, {
+                    quiet: true
+                });
             }
 
             return conn.send(req.export_response_buffer(), 'res', req);
@@ -437,46 +426,17 @@ RPC.prototype.handle_response = function(conn, msg) {
 };
 
 
-RPC.prototype.set_request_logger = function(request_logger) {
-    this._request_logger = request_logger;
-};
-
-/**
- *
- * map_address_to_connection
- * return true if address was associated to same conn
- * false otherwise
- */
-RPC.prototype.map_address_to_connection = function(address, conn) {
-    if (_.has(this._connection_by_address, address) &&
-        _.isEqual(this._connection_by_address[address], conn)) {
-        return false;
-    }
-    this._connection_by_address[address] = conn;
-    return true;
-};
-
-/**
- *
- * return all n2n registered connections
- */
-RPC.prototype.get_n2n_addresses = function() {
-    var addresses = [];
-    _.each(this._connection_by_address, function(conn, address) {
-        if (address.indexOf('n2n://') !== -1) {
-            addresses.push(address.slice(6));
-        }
-    });
-    return addresses;
-};
-
 /**
  *
  * _assign_connection
  *
  */
 RPC.prototype._assign_connection = function(req, options) {
-    var address = options.address || this.base_address;
+    var address = options.address;
+    if (!address) {
+        address = this.router[options.domain || 'default'];
+    }
+    assert(address, 'No RPC Address/Domain');
     var addr_url = this._address_to_url_cache[address];
     if (!addr_url) {
         addr_url = url_utils.quick_parse(address, true);
@@ -513,14 +473,14 @@ RPC.prototype._get_connection = function(addr_url, srv, force_redirect) {
 
     if (conn && !force_redirect) {
         if (conn.is_closed()) {
-            dbg.log0('RPC _assign_connection: remove stale connection',
+            dbg.log0('RPC _get_connection: remove stale connection',
                 'address', addr_url.href,
                 'srv', srv,
                 'connid', conn.connid);
             delete this._connection_by_address[addr_url.href];
             conn = null;
         } else {
-            dbg.log2('RPC _assign_connection: existing',
+            dbg.log2('RPC _get_connection: existing',
                 'address', addr_url.href,
                 'srv', srv,
                 'connid', conn.connid);
@@ -528,7 +488,7 @@ RPC.prototype._get_connection = function(addr_url, srv, force_redirect) {
     }
 
     if (!conn || force_redirect) {
-        if (this.redirector_transport &&
+        if (this._send_redirection &&
             addr_url.protocol === 'n2n:') {
             dbg.log2('RPC redirecting',
                 'address', addr_url.href,
@@ -536,7 +496,7 @@ RPC.prototype._get_connection = function(addr_url, srv, force_redirect) {
             return null;
         } else {
             conn = this._new_connection(addr_url);
-            dbg.log2('RPC _assign_connection: new',
+            dbg.log2('RPC _get_connection: new',
                 'address', addr_url.href,
                 'srv', srv,
                 'connid', conn.connid);
@@ -553,26 +513,27 @@ RPC.prototype._get_connection = function(addr_url, srv, force_redirect) {
 RPC.prototype._new_connection = function(addr_url) {
     var conn;
     switch (addr_url.protocol) {
+        // order protocols by popularity
         case 'n2n:':
             conn = new RpcN2NConnection(addr_url, this.n2n_agent);
-            break;
-        case 'tls:':
-        case 'tcp:':
-            conn = new RpcTcpConnection(addr_url);
-            break;
-        case 'nudp:':
-            conn = new RpcNudpConnection(addr_url);
             break;
         case 'ws:':
         case 'wss:':
             conn = new RpcWsConnection(addr_url);
             break;
+        case 'fcall:':
+            conn = new RpcFcallConnection(addr_url);
+            break;
+        case 'tls:':
+        case 'tcp:':
+            conn = new RpcTcpConnection(addr_url);
+            break;
         case 'http:':
         case 'https:':
             conn = new RpcHttpConnection(addr_url);
             break;
-        case 'fcall:':
-            conn = new RpcFcallConnection(addr_url);
+        case 'nudp:':
+            conn = new RpcNudpConnection(addr_url);
             break;
         default:
             throw new Error('RPC new_connection: bad protocol ' + addr_url.href);
@@ -640,7 +601,7 @@ RPC.prototype._reconnect = function(addr_url, reconn_backoff) {
                 // remove the backoff once connected
                 conn._reconn_backoff = undefined;
                 dbg.log1('RPC RECONNECTED', addr_url.href,
-                    'reconn_backoff', reconn_backoff);
+                    'reconn_backoff', reconn_backoff.toFixed(0));
                 this.emit('reconnect', conn);
             })
             .catch(err => {
@@ -648,7 +609,7 @@ RPC.prototype._reconnect = function(addr_url, reconn_backoff) {
                 // then this path will be called again from there,
                 // so no need to loop and retry from here.
                 dbg.warn('RPC RECONNECT FAILED', addr_url.href,
-                    'reconn_backoff', reconn_backoff,
+                    'reconn_backoff', reconn_backoff.toFixed(0),
                     err.stack || err);
             });
     }, reconn_backoff);
@@ -708,8 +669,11 @@ RPC.prototype._connection_closed = function(conn) {
     clearTimeout(conn._reconnect_timeout);
     conn._reconnect_timeout = undefined;
 
-    // for base_address try to reconnect after small delay.
-    if (!conn._no_reconnect && self._should_reconnect(conn.url.href)) {
+    // using _.startsWith() since in some cases url.parse will add a trailing /
+    // specifically in http urls for some strange reason...
+    if (!conn._no_reconnect && (
+            _.startsWith(conn.url.href, this.router.default) ||
+            _.startsWith(conn.url.href, this.router.bg))) {
         self._reconnect(conn.url, conn._reconn_backoff);
     }
 };
@@ -777,30 +741,16 @@ RPC.prototype._connection_receive = function(conn, msg_buffer) {
 };
 
 RPC.prototype._redirect = function(api, method, params, options) {
-    var self = this;
     var req = {
         method_api: api.id,
         method_name: method.name,
         target: options.address,
         request_params: params
     };
-    dbg.log3('redirecting ', req, 'to', self.redirector_transport.href);
-
-    return P.when(self.redirection(req, {
-        address: self.redirector_transport.href,
-    }));
+    dbg.log3('redirecting ', req);
+    return P.fcall(this._send_redirection, req);
 };
 
-RPC.prototype._should_reconnect = function(href) {
-    var self = this;
-    // using _.startsWith() since in some cases url.parse will add a trailing /
-    // specifically in http urls for some strange reason...
-    if (_.startsWith(href, self.get_default_base_address()) ||
-        _.startsWith(href, self.get_default_base_address('background'))) {
-        return true;
-    }
-    return false;
-};
 
 
 RPC.prototype.emit_stats = function(name, data) {
@@ -818,11 +768,17 @@ RPC.prototype.emit_stats = function(name, data) {
  * start_http_server
  *
  */
-RPC.prototype.start_http_server = function(port, secure, logging) {
-    dbg.log0('RPC start_http_server port', port, secure ? 'secure' : '');
+RPC.prototype.start_http_server = function(options) {
+    dbg.log0('RPC start_http_server', options);
     var http_server = new RpcHttpServer();
     http_server.on('connection', conn => this._accept_new_connection(conn));
-    return http_server.start(port, secure, logging);
+    return http_server.start(options)
+        .then(http_server => {
+            if (options.ws) {
+                this.register_ws_transport(http_server);
+            }
+            return http_server;
+        });
 };
 
 
@@ -862,8 +818,7 @@ RPC.prototype.register_tcp_transport = function(port, tls_options) {
     dbg.log0('RPC register_tcp_transport');
     var tcp_server = new RpcTcpServer(tls_options);
     tcp_server.on('connection', conn => this._accept_new_connection(conn));
-    tcp_server.listen(port);
-    return tcp_server;
+    return P.when(tcp_server.listen(port)).return(tcp_server);
 };
 
 
@@ -891,13 +846,13 @@ RPC.prototype.register_nudp_transport = function(port) {
  * register_n2n_transport
  *
  */
-RPC.prototype.register_n2n_transport = function() {
+RPC.prototype.register_n2n_transport = function(send_signal_func) {
     if (this.n2n_agent) {
-        return this.n2n_agent;
+        throw new Error('RPC N2N already registered');
     }
     dbg.log0('RPC register_n2n_transport');
     var n2n_agent = new RpcN2NAgent({
-        signaller: this.n2n_signaller,
+        send_signal: send_signal_func
     });
     n2n_agent.on('connection', conn => this._accept_new_connection(conn));
     this.n2n_agent = n2n_agent;
@@ -908,8 +863,8 @@ RPC.prototype.register_n2n_transport = function() {
  * this function allows the n2n protocol to accept connections.
  * it should called when a signal is accepted in order to process it by the n2n_agent.
  */
-RPC.prototype.n2n_signal = function(params) {
-    return this.n2n_agent.signal(params);
+RPC.prototype.accept_n2n_signal = function(params) {
+    return this.n2n_agent.accept_signal(params);
 };
 
 
@@ -918,28 +873,44 @@ RPC.prototype.n2n_signal = function(params) {
  * register_redirector_transport
  *
  */
-RPC.prototype.register_redirector_transport = function() {
+RPC.prototype.register_redirector_transport = function(send_redirection_func) {
     dbg.log0('RPC register_redirector_transport');
-    this.redirector_transport = url.parse(this.get_default_base_address('background'));
-    return;
+    this._send_redirection = send_redirection_func;
 };
 
-RPC.prototype.get_default_base_address = function(server) {
-    if (server === 'background') {
-        return DEFAULT_BACKGROUND_ADDRESS;
+RPC.prototype.disable_validation = function() {
+    this._disable_validation = true;
+};
+
+RPC.prototype.set_request_logger = function(request_logger) {
+    this._request_logger = request_logger;
+};
+
+/**
+ *
+ * map_address_to_connection
+ * return true if address was associated to same conn
+ * false otherwise
+ */
+RPC.prototype.map_address_to_connection = function(address, conn) {
+    if (_.has(this._connection_by_address, address) &&
+        _.isEqual(this._connection_by_address[address], conn)) {
+        return false;
     }
-    return DEFAULT_BASE_ADDRESS;
+    this._connection_by_address[address] = conn;
+    return true;
 };
 
-RPC.prototype.get_default_base_port = function(server) {
-    return get_default_base_port(server);
+/**
+ *
+ * return all n2n registered connections
+ */
+RPC.prototype.get_n2n_addresses = function() {
+    var addresses = [];
+    _.each(this._connection_by_address, function(conn, address) {
+        if (address.indexOf('n2n://') !== -1) {
+            addresses.push(address.slice(6));
+        }
+    });
+    return addresses;
 };
-
-function get_default_base_port(server) {
-    // the default 5001 port is for development
-    var base_port = parseInt(process.env.PORT, 10) || 5001;
-    if (server === 'background') {
-        base_port += 1;
-    }
-    return base_port;
-}

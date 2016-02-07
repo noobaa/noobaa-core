@@ -21,7 +21,7 @@ mocha.describe('system_servers', function() {
     const EMAIL1 = SYS1 + EMAIL_DOMAIN;
     const PASSWORD = SYS + '-password';
 
-    let client = coretest.new_client();
+    let client = coretest.new_test_client();
 
     mocha.it('works', function() {
         this.timeout(60000);

@@ -11,6 +11,7 @@ var promise_utils = require('../../util/promise_utils');
 var api = require('../../api');
 
 var test_file = '/tmp/test_upgrade';
+var rpc = api.new_rpc();
 
 module.exports = {
     upload_and_upgrade: upload_and_upgrade,
@@ -210,8 +211,9 @@ function generate_random_file(size_mb) {
 }
 
 function wait_on_agents_upgrade(ip) {
-    api.client = new api.Client();
-    api.rpc.base_address = 'ws://' + ip + ':8080';
+    var client = rpc.new_client({
+        address: 'ws://' + ip + ':8080'
+    });
     var sys_ver;
 
     return P.fcall(function() {
@@ -220,10 +222,10 @@ function wait_on_agents_upgrade(ip) {
                 password: 'DeMo',
                 system: 'demo'
             };
-            return api.client.create_auth_token(auth_params);
+            return client.create_auth_token(auth_params);
         })
         .then(function() {
-            return P.when(api.client.system.read_system({}))
+            return P.when(client.system.read_system({}))
                 .then(function(res) {
                     sys_ver = res.version;
                 });
@@ -243,7 +245,7 @@ function wait_on_agents_upgrade(ip) {
                         return old_agents;
                     },
                     function() {
-                        return P.when(api.client.node.list_nodes({
+                        return P.when(client.node.list_nodes({
                                 query: {
                                     state: 'online',
                                 }

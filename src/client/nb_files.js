@@ -97,6 +97,7 @@ nb_api.factory('nbFiles', [
                 endpoint: rest_endpoint,
                 s3ForcePathStyle: true,
                 sslEnabled: false,
+
             });
         }
 
@@ -219,6 +220,9 @@ nb_api.factory('nbFiles', [
                     Bucket: tx.bucket,
                     Body: tx.input_file,
                     ContentType: tx.content_type
+                }, {
+                    partSize: 10 * 1024 * 1024, 
+                    queueSize: 10
                 }, function(err, data) {
                     if (err) {
                         console.error('upload failed (s3)', err, err.stack);

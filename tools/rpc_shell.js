@@ -9,7 +9,8 @@ var P = require('../src/util/promise');
 var repl_srv;
 
 function RPCShell() {
-    this.client = new api.Client();
+    this.rpc = api.new_rpc();
+    this.client = this.rpc.new_client();
 }
 
 function construct_rpc_arguments(str_args) {

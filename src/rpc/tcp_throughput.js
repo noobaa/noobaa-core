@@ -2,28 +2,28 @@
 var fs = require('fs');
 var net = require('net');
 var tls = require('tls');
+var argv = require('minimist')(process.argv);
+argv.mem = argv.mem || 1024 * 1024;
+argv.port = parseInt(argv.port, 10) || 50505;
 main();
 
 function main() {
-    var type = process.argv[2] || false;
-    var port = parseInt(process.argv[3], 10) || 50505;
-    var ip = process.argv[4] || '127.0.0.1';
-    var ssl = process.argv[5] || false;
-    if (/help/.test(type)) {
+    if (argv.help) {
         return usage();
     }
-    if (type === 'client') {
-        run_client(port, ip, ssl);
-    } else if (type === 'server') {
-        run_server(port, ssl);
+    if (argv.server) {
+        run_server(argv.port, argv.ssl);
+    } else if (argv.client) {
+        argv.client = typeof(argv.client) === 'string' && argv.client || '127.0.0.1';
+        run_client(argv.port, argv.client, argv.ssl);
     } else {
-        console.error('Unexpected type:', type);
         return usage();
     }
 }
 
 function usage() {
-    console.log('\nUsage: [client|server] [port] [ip] [ssl]\n');
+    console.log('\nUsage: --server [--port X] [--ssl]\n');
+    console.log('\nUsage: --client <host> [--port X] [--ssl]\n');
 }
 
 function run_server(port, ssl) {
@@ -46,25 +46,26 @@ function run_server(port, ssl) {
     server.listen(port);
 }
 
-function run_client(port, ip, ssl) {
-    console.log('CLIENT', ip + ':' + port);
+function run_client(port, host, ssl) {
+    console.log('CLIENT', host + ':' + port);
     var conn = (ssl ? tls : net).connect({
         port: port,
-        host: ip,
+        host: host,
         // we allow self generated certificates to avoid public CA signing:
         rejectUnauthorized: false,
     }, function() {
-        console.log('client connected', conn.getCipher && conn.getCipher());
-        var buf = new Buffer(64 * 1024 * 1024);
+        console.log('client connected', conn.getCipher && conn.getCipher() || '');
+        var buf = new Buffer(argv.mem);
+        conn.on('drain', send);
         send();
 
         function send() {
-            conn.removeListener('drain', send);
+            conn.cork();
             while (conn.write(buf)) {
                 conn.nb.send_bytes += buf.length;
             }
             conn.nb.send_bytes += buf.length;
-            conn.on('drain', send);
+            conn.uncork();
         }
     });
     setup_conn(conn);
@@ -86,8 +87,16 @@ function setup_conn(conn) {
         start_time: Date.now(),
         last_time: Date.now()
     };
-    conn.on('data', function(data) {
-        nb.recv_bytes += data.length;
+    conn._readableState.highWaterMark = 8 * argv.mem;
+    conn.on('readable', function() {
+        while (true) {
+            var data = conn.read();
+            if (!data) break;
+            if (data.length < argv.mem) {
+                console.log('SMALL BUFFER', data.length);
+            }
+            nb.recv_bytes += data.length;
+        }
     });
     setInterval(function() {
         var now = Date.now();

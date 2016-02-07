@@ -32,14 +32,14 @@ mocha.describe('lru', function() {
 
     mocha.it('should remove expired item', function() {
         var lru = new LRU({
-            expiry_ms: 10
+            expiry_ms: 100
         });
         var item = lru.find_or_add_item(1);
         item.foo = 'bar';
         return P.delay(1).then(function() {
             item = lru.find_or_add_item(1);
             assert.strictEqual(item.foo, 'bar');
-        }).delay(20).then(function() {
+        }).delay(110).then(function() {
             item = lru.find_or_add_item(1);
             assert.strictEqual(item.foo, undefined);
         });

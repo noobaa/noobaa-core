@@ -7,6 +7,7 @@ let https = require('https');
 let dbg = require('../util/debug_module')(__filename);
 let RpcBaseConnection = require('./rpc_base_conn');
 
+// dbg.set_level(5);
 
 let BASE_PATH = '/rpc/';
 let browser_location = global.window && global.window.location;
@@ -31,7 +32,6 @@ class RpcHttpConnection extends RpcBaseConnection {
 
     constructor(addr_url) {
         super(addr_url);
-        this.transient = true;
     }
 
     /**
@@ -104,9 +104,12 @@ class RpcHttpConnection extends RpcBaseConnection {
         if (!res) {
             throw new Error('HTTP RESPONSE ALREADY SENT ' + req.reqid);
         }
-        res.status(200);
+        res.statusCode = 200;
         if (_.isArray(msg)) {
-            _.each(msg, m => res.write(m));
+            _.each(msg, m => {
+                res.write(m);
+                return true; // keep iterating
+            });
             res.end();
         } else {
             res.end(msg);
@@ -162,54 +165,19 @@ class RpcHttpConnection extends RpcBaseConnection {
         http_req.on('error', send_defer.reject);
 
         // once a response arrives read and handle it
-        http_req.on('response', res => {
-
-            // statusCode = 0 means ECONNREFUSED and the response
-            // will not emit events in such case
-            if (!res.statusCode) {
-                send_defer.reject('ECONNREFUSED');
-                return;
-            }
-
-            // sending is done, so resolve the send promise
-            send_defer.resolve();
-
-            // read the response data from the socket
-            read_http_response_data(res)
-                .then(data => {
-
-                    // the connection's req is done so no need to abort it on close no more
-                    this.req = null;
-
-                    if (res.statusCode !== 200) {
-                        throw new Error('HTTP ERROR ' + res.statusCode + ' ' +
-                            data + ' to ' + this.url.href);
-                    }
-                    dbg.log3('HTTP RESPONSE', res.statusCode, 'length', data.length);
-                    this.emit('message', data);
-                })
-                .done(null, err => {
-
-                    // the connection's req is done so no need to abort it on close no more
-                    this.req = null;
-
-                    dbg.error('HTTP RESPONSE ERROR', err.stack || err);
-                    this.emit('message', {
-                        header: {
-                            op: 'res',
-                            reqid: rpc_req.reqid,
-                            error: err
-                        }
-                    });
-                });
-        });
+        http_req.on('response', http_res => this.handle_http_response(
+            http_req, http_res, send_defer, rpc_req.reqid));
 
         // send the request data
         if (msg) {
             if (_.isArray(msg)) {
-                _.each(msg, m => http_req.write(m));
+                _.each(msg, m => {
+                    http_req.write(m);
+                    return true; // keep iterating
+                });
                 http_req.end();
             } else {
+                // dbg.log3('send_http_request: end2', msg.length);
                 http_req.end(msg);
             }
         } else {
@@ -219,64 +187,120 @@ class RpcHttpConnection extends RpcBaseConnection {
         return send_defer.promise;
     }
 
-
-
-}
-
-
-
-/**
- *
- * read_http_response_data
- *
- * @return promise for the response data
- *
- */
-function read_http_response_data(res) {
-    let chunks = [];
-    let chunks_length = 0;
-    dbg.log3('HTTP response headers', res.statusCode, res.headers);
-
-    let defer = P.defer();
-    res.on('error', defer.reject);
-    res.on('data', add_chunk);
-    res.on('end', finish);
-    return defer.promise;
-
-    function add_chunk(chunk) {
-        dbg.log3('HTTP response data', chunk.length, typeof(chunk));
-        chunks.push(chunk);
-        chunks_length += chunk.length;
-    }
-
-    function concat_chunks() {
-        if (typeof(chunks[0]) === 'string') {
-            // if string was already decoded then keep working with strings
-            return String.prototype.concat.apply('', chunks);
+    handle_http_request() {
+        let req = this.req;
+        let res = this.res;
+        if (req.body) {
+            this.emit('message', req.body);
+            return;
         }
-        // binary data buffers for the win!
-        if (!Buffer.isBuffer(chunks[0])) {
-            // in case of xhr arraybuffer just wrap with node buffers
-            chunks = _.map(chunks, Buffer);
-        }
-        return Buffer.concat(chunks, chunks_length);
+        RpcHttpConnection.read_http_data(req)
+            .then(data => this.emit('message', data))
+            .catch(err => {
+                res.statusCode = 500;
+                res.end(err);
+            });
     }
 
-    function decode_response(headers, data) {
-        let content_type = headers && headers['content-type'];
-        let is_json = _.includes(content_type, 'application/json');
-        return is_json && data && JSON.parse(data.toString()) || data;
+    handle_http_response(req, res, send_defer, reqid) {
+        // statusCode = 0 means ECONNREFUSED and the response
+        // will not emit events in such case
+        if (!res.statusCode) {
+            send_defer.reject('ECONNREFUSED');
+            return;
+        }
+
+        // sending is done, so resolve the send promise
+        send_defer.resolve();
+
+        // read the response data from the socket
+        RpcHttpConnection.read_http_data(res)
+            .then(data => {
+
+                // the connection's req is done so no need to abort it on close no more
+                this.req = null;
+
+                if (res.statusCode !== 200) {
+                    throw new Error('HTTP ERROR ' + res.statusCode + ' ' +
+                        data + ' to ' + this.url.href);
+                }
+                dbg.log3('HTTP RESPONSE', res.statusCode, 'length', data.length);
+                this.emit('message', data);
+            })
+            .done(null, err => {
+
+                // the connection's req is done so no need to abort it on close no more
+                this.req = null;
+
+                dbg.error('HTTP RESPONSE ERROR', err.stack || err);
+                this.emit('message', {
+                    header: {
+                        op: 'res',
+                        reqid: reqid,
+                        error: err
+                    }
+                });
+            });
     }
 
-    function finish() {
-        try {
-            let data = concat_chunks();
-            data = decode_response(res.headers, data);
-            defer.resolve(data);
-        } catch (err) {
-            defer.reject(err);
+
+    /**
+     *
+     * read_http_data
+     *
+     * @param r http request or response object
+     * @return promise for the data
+     *
+     */
+    static read_http_data(r) {
+        let chunks = [];
+        let chunks_length = 0;
+        dbg.log3('read_http_data: statusCode', r.statusCode, 'headers', r.headers);
+
+        let defer = P.defer();
+        r.on('error', defer.reject);
+        r.on('data', add_chunk);
+        r.on('end', finish);
+        return defer.promise;
+
+        function add_chunk(chunk) {
+            dbg.log3('read_http_data: add_chunk', chunk.length,
+                Buffer.isBuffer(chunk) ? 'buffer' : 'string');
+            chunks.push(chunk);
+            chunks_length += chunk.length;
+        }
+
+        function concat_chunks() {
+            if (typeof(chunks[0]) === 'string') {
+                // if string was already decoded then keep working with strings
+                return String.prototype.concat.apply('', chunks);
+            }
+            // binary data buffers for the win!
+            if (!Buffer.isBuffer(chunks[0])) {
+                // in case of xhr arraybuffer just wrap with node buffers
+                chunks = _.map(chunks, Buffer);
+            }
+            return Buffer.concat(chunks, chunks_length);
+        }
+
+        function decode_response(headers, data) {
+            let content_type = headers && headers['content-type'];
+            let is_json = _.includes(content_type, 'application/json');
+            return is_json && data && JSON.parse(data.toString()) || data;
+        }
+
+        function finish() {
+            dbg.log3('read_http_data: finish', chunks_length);
+            try {
+                let data = concat_chunks();
+                data = decode_response(r.headers, data);
+                defer.resolve(data);
+            } catch (err) {
+                defer.reject(err);
+            }
         }
     }
+
 }
 
 

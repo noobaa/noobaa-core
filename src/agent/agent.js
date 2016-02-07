@@ -20,6 +20,7 @@ var api = require('../api');
 var dbg = require('../util/debug_module')(__filename);
 var LRUCache = require('../util/lru_cache');
 var size_utils = require('../util/size_utils');
+var js_utils = require('../util/js_utils');
 var url_utils = require('../util/url_utils');
 var time_utils = require('../util/time_utils');
 var promise_utils = require('../util/promise_utils');
@@ -50,72 +51,38 @@ function Agent(params) {
 
     dbg.log0('process.env.DEBUG_MODE=' + process.env.DEBUG_MODE);
 
-    self.rpc = api.new_rpc();
-    if (params.address) {
-        self.rpc.base_address = params.address;
-    }
-    self.client = self.rpc.client;
+    self.rpc = api.new_rpc(params.address);
+    self.client = self.rpc.new_client();
 
-    self.rpc.on('reconnect', self._on_rpc_reconnect.bind(self));
+    self.rpc.on('reconnect', conn => self._on_rpc_reconnect(conn));
     assert(params.node_name, 'missing param: node_name');
     self.node_name = params.node_name;
     self.token = params.token;
     self.storage_path = params.storage_path;
 
-    self.all_storage_paths = params.all_storage_paths;
     if (self.storage_path) {
         assert(!self.token, 'unexpected param: token. ' +
             'with storage_path the token is expected in the file <storage_path>/token');
-        self.store = [];
-        //        self.store_cache = [];
-        dbg.log0('creating storage paths:', self.storage_path);
-        //        self.store[self.storage_path] = new AgentStore(self.storage_path);
-        //        self.store_cache[self.storage_path] = new LRUCache({
-        self.store.push({
-            storage_path: self.storage_path,
-            agent_store: new AgentStore(self.storage_path)
-        });
-        dbg.log0('creating self.store:', self.store);
-
+        self.store = new AgentStore(self.storage_path);
         self.store_cache = new LRUCache({
             name: 'AgentBlocksCache',
             max_length: 200, // ~200 MB
             expiry_ms: 0, // no expiry
-            make_key: function(params) {
-                return params.id;
-            },
-            load: self.store[0].agent_store.read_block.bind(self.store[0].agent_store)
+            make_key: params => params.id,
+            load: key => self.store.read_block(key)
         });
     } else {
         assert(self.token, 'missing param: token. ' +
             'without storage_path the token must be provided as agent param');
-
-        this.store = new AgentStore.MemoryStore();
+        self.store = new AgentStore.MemoryStore();
         self.store_cache = new LRUCache({
             name: 'AgentBlocksCache',
             max_length: 1,
             expiry_ms: 0, // no expiry
-            make_key: function(params) {
-                return params.id;
-            },
-            load: self.store[0].agent_store.read_block.bind(self.store)
+            make_key: params => params.id,
+            load: key => self.store.read_block(key)
         });
     }
-
-    self.agent_server = {
-        write_block: self.write_block.bind(self),
-        read_block: self.read_block.bind(self),
-        replicate_block: self.replicate_block.bind(self),
-        delete_blocks: self.delete_blocks.bind(self),
-        kill_agent: self.kill_agent.bind(self),
-        n2n_signal: self.n2n_signal.bind(self),
-        self_test_io: self.self_test_io.bind(self),
-        self_test_peer: self.self_test_peer.bind(self),
-        collect_diagnostics: self.collect_diagnostics.bind(self),
-        set_debug_node: self.set_debug_node.bind(self),
-        update_n2n_config: self.update_n2n_config.bind(self),
-        update_base_address: self.update_base_address.bind(self),
-    };
 
     self.agent_app = (function() {
         var app = express();
@@ -134,15 +101,33 @@ function Agent(params) {
         return app;
     })();
 
+    const AGENT_RPC_METHODS = [
+        'write_block',
+        'read_block',
+        'replicate_block',
+        'delete_blocks',
+        'kill_agent',
+        'n2n_signal',
+        'self_test_io',
+        'self_test_peer',
+        'collect_diagnostics',
+        'set_debug_node',
+        'update_n2n_config',
+        'update_base_address',
+    ];
+
+    // using self bind for fast bind of the rpc methods to this instance
+    js_utils.self_bind(self, AGENT_RPC_METHODS);
+
     // register rpc to serve the agent_api
-    self.rpc.register_service(api.schema.agent_api, self.agent_server, {
+    self.rpc.register_service(self.rpc.schema.agent_api, self, {
         // TODO should we verify authorized tokens in agent?
-        // middleware: function(req) {}
+        // middleware: [ ... ]
     });
     // register rpc http server
     self.rpc.register_http_transport(self.agent_app);
     // register rpc n2n
-    self.n2n_agent = self.rpc.register_n2n_transport();
+    self.n2n_agent = self.rpc.register_n2n_transport(self.client.node.n2n_signal);
 
     // TODO these sample geolocations are just for testing
     self.geolocation = _.sample([
@@ -216,36 +201,6 @@ Agent.prototype.stop = function() {
  */
 Agent.prototype._init_node = function() {
     var self = this;
-    self.node_storage_mapping = [];
-
-    var root_path = self.all_storage_paths[0].mount.replace('./', '');
-    dbg.log0('starting agent. root_path:' + Object.prototype.toString.call(root_path.substr(0, root_path.length - 1)) + '=?=' + Object.prototype.toString.call(self.storage_path.substr(0, root_path.length - 1)));
-    var waitFor;
-    //substr is required in order to ignore win/linux conventions
-    if (self.storage_path.substr(0, root_path.length - 1) === root_path.substr(0, root_path.length - 1)) {
-        dbg.log0('main agent!!!', root_path, ' all paths:', self.all_storage_paths);
-
-        waitFor = P.all(_.map(self.all_storage_paths, function(storage_path_info) {
-            var storage_path = storage_path_info.mount;
-            dbg.log0('current path is:', storage_path);
-            return P.fcall(function() {
-                    return P.nfcall(fs.readdir, storage_path);
-                })
-                .then(function(node_name) {
-                    if (node_name.length > 0) {
-                        dbg.log0('node_name', node_name[0], 'storage_path', storage_path);
-                        var node_path = path.join(storage_path, node_name[0]);
-                        if (storage_path !== root_path) {
-                            self.store[node_path] = new AgentStore(node_path);
-                        }
-                        self.node_storage_mapping.push({
-                            node_name: node_name[0],
-                            storage_path: node_path
-                        });
-                    }
-                });
-        }));
-    }
 
     return P.fcall(function() {
             if (self.storage_path) {
@@ -397,7 +352,7 @@ Agent.prototype._do_heartbeat = function() {
         name: self.node_name || '',
         geolocation: self.geolocation,
         ip: ip,
-        base_address: self.rpc.base_address,
+        base_address: self.rpc.router.default,
         version: current_pkg_version || '',
         extended_hb: extended_hb,
     };
@@ -411,10 +366,10 @@ Agent.prototype._do_heartbeat = function() {
         params.os_info = os_util.os_info();
     }
 
-    dbg.log0('send heartbeat from node', self.node_name, self.all_storage_paths);
+    dbg.log0('send heartbeat from node', self.node_name);
 
     return P.fcall(function() {
-            return self.store[0].agent_store.get_stats();
+            return self.store.get_stats();
         })
         .then(function(store_stats_arg) {
             store_stats = store_stats_arg;
@@ -515,7 +470,7 @@ Agent.prototype._do_heartbeat = function() {
                 if (store_stats.alloc !== res.storage.alloc) {
                     dbg.log0('update alloc storage from ',
                         store_stats.alloc, ' to ', res.storage.alloc);
-                    self.store[0].agent_store.set_alloc(res.storage.alloc);
+                    self.store.set_alloc(res.storage.alloc);
                 }
             }
 
@@ -603,7 +558,7 @@ Agent.prototype.write_block = function(req) {
     var block_md = req.rpc_params.block_md;
     var data = req.rpc_params.data;
     dbg.log1('write_block', block_md.id, data.length, 'node', self.node_name);
-    return P.when(self.store[0].agent_store.write_block(block_md, data))
+    return P.when(self.store.write_block(block_md, data))
         .then(function() {
             self.store_cache.put(block_md, {
                 block_md: block_md,
@@ -628,7 +583,7 @@ Agent.prototype.replicate_block = function(req) {
         })
         .then(function(res) {
             self.store_cache.invalidate(target);
-            return self.store[0].agent_store.write_block(target, res.data);
+            return self.store.write_block(target, res.data);
         });
 };
 
@@ -637,7 +592,7 @@ Agent.prototype.delete_blocks = function(req) {
     var blocks = req.rpc_params.blocks;
     dbg.log0('delete_blocks', blocks, 'node', self.node_name);
     self.store_cache.multi_invalidate(blocks);
-    return self.store[0].agent_store.delete_blocks(blocks);
+    return self.store.delete_blocks(blocks);
 };
 
 Agent.prototype.kill_agent = function(req) {
@@ -646,7 +601,7 @@ Agent.prototype.kill_agent = function(req) {
 };
 
 Agent.prototype.n2n_signal = function(req) {
-    return this.rpc.n2n_signal(req.rpc_params);
+    return this.rpc.accept_n2n_signal(req.rpc_params);
 };
 
 Agent.prototype.self_test_io = function(req) {
@@ -793,10 +748,10 @@ Agent.prototype._test_latency_of_disk_read = function() {
         digest_type: 'sha1'
     };
     block_md.digest_b64 = crypto.createHash(block_md.digest_type).update(data).digest('base64');
-    return self.store[0].agent_store.write_block(block_md, data)
+    return self.store.write_block(block_md, data)
         .then(function() {
             return test_average_latency(function() {
-                return self.store[0].agent_store.read_block(block_md);
+                return self.store.read_block(block_md);
             });
         });
 };
@@ -810,7 +765,7 @@ Agent.prototype._test_latency_of_disk_write = function() {
             digest_type: 'sha1'
         };
         block_md.digest_b64 = crypto.createHash(block_md.digest_type).update(data).digest('base64');
-        return self.store[0].agent_store.write_block(block_md, data);
+        return self.store.write_block(block_md, data);
     });
 };
 
@@ -842,7 +797,8 @@ Agent.prototype.update_n2n_config = function(req) {
 Agent.prototype.update_base_address = function(req) {
     var self = this;
     var base_address = req.rpc_params.base_address;
-    dbg.log0('update_base_address: to -', base_address, 'was -', self.rpc.base_address);
+    var existing_base_address = self.rpc.router.default;
+    dbg.log0('update_base_address: to -', base_address, 'was -', existing_base_address);
     return P.fcall(function() {
             // test this new address first by pinging it
             return self.client.node.test_latency_to_server(null, {
@@ -871,7 +827,7 @@ Agent.prototype.update_base_address = function(req) {
         })
         .then(function() {
             dbg.log0('update_base_address: done -', base_address);
-            self.rpc.base_address = base_address;
+            self.rpc.router = api.new_router(base_address);
             // self.rpc.disconnect_all();
             self._do_heartbeat();
         });
@@ -887,12 +843,12 @@ Agent.prototype._add_test_APIs = function() {
         var self = this;
         var blocks = req.rpc_params.blocks;
         dbg.log0('TEST API corrupt_blocks', blocks);
-        return self.store[0].agent_store.corrupt_blocks(blocks);
+        return self.store.corrupt_blocks(blocks);
     };
 
     Agent.prototype.list_blocks = function() {
         var self = this;
         dbg.log0('TEST API list_blocks');
-        return self.store[0].agent_store.list_blocks();
+        return self.store.list_blocks();
     };
 };

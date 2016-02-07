@@ -1,13 +1,13 @@
 'use strict';
 
-// let _ = require('lodash');
+let _ = require('lodash');
 let P = require('../util/promise');
-let url = require('url');
 let http = require('http');
 let https = require('https');
 let EventEmitter = require('events').EventEmitter;
 let dbg = require('../util/debug_module')(__filename);
 let pem = require('../util/pem');
+let url_utils = require('../util/url_utils');
 let RpcHttpConnection = require('./rpc_http');
 let express = require('express');
 let express_morgan_logger = require('morgan');
@@ -31,8 +31,18 @@ class RpcHttpServer extends EventEmitter {
      * install
      *
      */
-    install(app) {
-        app.use(RpcHttpConnection.BASE_PATH, (req, res) => this.middleware(req, res));
+    install(app_or_server) {
+        if (_.isFunction(app_or_server.use)) {
+            // install for express app on a route
+            app_or_server.use(RpcHttpConnection.BASE_PATH, (req, res, next) => this.middleware(req, res, next));
+        } else {
+            // install for http server without express app
+            app_or_server.on('request', (req, res) => {
+                if (_.startsWith(req.url, RpcHttpConnection.BASE_PATH)) {
+                    return this.middleware(req, res);
+                }
+            });
+        }
     }
 
 
@@ -41,31 +51,34 @@ class RpcHttpServer extends EventEmitter {
      * middleware
      *
      */
-    middleware(req, res) {
+    middleware(req, res, next) {
         try {
-            res.header('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS');
-            res.header('Access-Control-Allow-Headers', 'Content-Type,Authorization');
-            res.header('Access-Control-Allow-Origin', '*');
+            res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS');
+            res.setHeader('Access-Control-Allow-Headers', 'Content-Type,Authorization');
+            res.setHeader('Access-Control-Allow-Origin', '*');
             // note that browsers will not allow origin=* with credentials
             // but anyway we allow it by the agent server.
-            res.header('Access-Control-Allow-Credentials', true);
+            res.setHeader('Access-Control-Allow-Credentials', true);
             if (req.method === 'OPTIONS') {
-                res.status(200).end();
+                res.statusCode = 200;
+                res.end();
                 return;
             }
 
             let host = req.connection.remoteAddress;
             let port = req.connection.remotePort;
-            let proto = req.get('X-Forwarded-Proto') || req.protocol;
+            let proto = req.connection.ssl ? 'https' : 'http';
             let address = proto + '://' + host + ':' + port;
-            let conn = new RpcHttpConnection(url.parse(address));
+            let conn = new RpcHttpConnection(url_utils.quick_parse(address));
             conn.req = req;
             conn.res = res;
             conn.emit('connect');
             this.emit('connection', conn);
-            conn.emit('message', req.body);
+            conn.handle_http_request();
         } catch (err) {
-            res.status(500).send(err);
+            console.error('HTTP MIDDLEWARE ERROR', err.stack);
+            res.statusCode = 500;
+            res.end(err);
         }
     }
 
@@ -75,10 +88,10 @@ class RpcHttpServer extends EventEmitter {
      * start
      *
      */
-    start(port, secure, logging) {
-        dbg.log0('HTTP SERVER start with port:', port);
+    start(options) {
+        dbg.log0('HTTP SERVER:', options);
         let app = express();
-        if (logging) {
+        if (options.logging) {
             app.use(express_morgan_logger('dev'));
         }
         app.use(express_body_parser.json());
@@ -95,20 +108,20 @@ class RpcHttpServer extends EventEmitter {
         this.install(app);
 
         return P.fcall(() => {
-                return secure && P.nfcall(pem.createCertificate, {
+                return options.secure && P.nfcall(pem.createCertificate, {
                     days: 365 * 100,
                     selfSigned: true
                 });
             })
             .then(cert => {
-                let server = secure ?
+                let http_server = options.secure ?
                     https.createServer({
                         key: cert.serviceKey,
                         cert: cert.certificate
                     }, app) :
                     http.createServer(app);
-                return P.ninvoke(server, 'listen', port)
-                    .thenResolve(server);
+                return P.ninvoke(http_server, 'listen', options.port)
+                    .return(http_server);
             });
     }
 

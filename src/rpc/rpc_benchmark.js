@@ -7,6 +7,7 @@ var url = require('url');
 var util = require('util');
 var argv = require('minimist')(process.argv);
 var RPC = require('./rpc');
+var pem = require('../util/pem');
 var RpcSchema = require('./rpc_schema');
 var chance = require('chance')();
 var memwatch = null; //require('memwatch');
@@ -35,6 +36,7 @@ argv.addr = url.parse(argv.addr || '');
 argv.addr.protocol = (argv.proto && argv.proto + ':') || argv.addr.protocol || 'ws:';
 argv.addr.hostname = argv.host || argv.addr.hostname || '127.0.0.1';
 argv.addr.port = parseInt(argv.port, 10) || argv.addr.port || 5656;
+argv.novalidation = argv.novalidation || false;
 
 // retry delay in seconds on failures
 argv.retry = argv.retry || undefined;
@@ -65,7 +67,7 @@ dbg.set_level(argv.debug, __dirname);
 
 var schema = new RpcSchema();
 schema.register_api({
-    name: 'rpcbench',
+    id: 'rpcbench',
     methods: {
         io: {
             method: 'POST',
@@ -115,16 +117,19 @@ schema.compile();
 // create rpc
 var rpc = new RPC({
     schema: schema,
-    base_address: url.format(argv.addr),
+});
+if (argv.novalidation) {
+    rpc.disable_validation();
+}
+var client = rpc.new_client({
+    address: url.format(argv.addr)
 });
 
 // register the rpc service handler
 rpc.register_service(schema.rpcbench, {
     io: io_service,
-    n2n_signal: function(req) {
-        // when a signal is received, pass it to the n2n agent
-        return rpc.n2n_signal(req.params);
-    }
+    // when a signal is received, pass it to the n2n agent
+    n2n_signal: req => rpc.accept_n2n_signal(req.params)
 });
 
 var io_count = 0;
@@ -152,9 +157,7 @@ function start() {
                 'tcp:': 1,
                 'tls:': 1,
             };
-
             if (tcp) {
-                var pem = require('../util/pem');
                 return P.nfcall(pem.createCertificate, {
                         days: 365 * 100,
                         selfSigned: true
@@ -168,17 +171,36 @@ function start() {
                     });
             }
 
+            var ntcp = argv.addr.protocol in {
+                'ntcp:': 1,
+                'ntls:': 1,
+            };
+            if (ntcp) {
+                return P.nfcall(pem.createCertificate, {
+                        days: 365 * 100,
+                        selfSigned: true
+                    })
+                    .then(function(cert) {
+                        return rpc.register_ntcp_transport(argv.addr.port,
+                            argv.addr.protocol === 'ntls:' && {
+                                key: cert.serviceKey,
+                                cert: cert.certificate
+                            });
+                    });
+            }
+
             var secure = argv.addr.protocol in {
                 'https:': 1,
                 'wss:': 1,
             };
 
             // open http listening port for http based protocols
-            return rpc.start_http_server(argv.addr.port, secure)
-                .then(function(server) {
-                    return rpc.register_ws_transport(server);
-                });
-
+            return rpc.start_http_server({
+                port: argv.addr.port,
+                secure: secure,
+                logging: false,
+                ws: true
+            });
         })
         .then(function() {
 
@@ -187,15 +209,12 @@ function start() {
                 return;
             }
 
-            // setup a signaller callback
-            rpc.n2n_signaller = rpc.client.rpcbench.n2n_signal;
-
             target_addresses = _.times(argv.nconn, function(i) {
                 return 'n2n://conn' + i;
             });
 
             // register n2n and accept any peer_id
-            var n2n_agent = rpc.register_n2n_transport();
+            var n2n_agent = rpc.register_n2n_transport(client.rpcbench.n2n_signal);
             n2n_agent.set_any_rpc_address();
         })
         .then(function() {
@@ -237,7 +256,7 @@ function call_next_io(req) {
     }
     var data = new Buffer(argv.wsize);
     data.fill(0xFA);
-    var promise = rpc.client.rpcbench.io({
+    var promise = client.rpcbench.io({
         kushkush: {
             data: data,
             rsize: argv.rsize

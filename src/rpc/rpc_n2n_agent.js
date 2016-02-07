@@ -30,10 +30,10 @@ class RpcN2NAgent extends EventEmitter {
         super();
         options = options || {};
 
-        // signaller is function(info) that sends over a signal channel
+        // send_signal is function(info) that sends over a signal channel
         // and delivers the info to info.target,
         // and returns back the info that was returned by the peer.
-        this.signaller = options.signaller;
+        let send_signal = options.send_signal;
 
         // lazy loading of native_core to use Nudp
         let Nudp = native_core().Nudp;
@@ -94,7 +94,7 @@ class RpcN2NAgent extends EventEmitter {
             // signaller callback
             // send ice info to the peer over a relayed signal channel
             // in order to coordinate NAT traversal.
-            signaller: (target, info) => this.signaller({
+            signaller: (target, info) => send_signal({
                 source: this.rpc_address,
                 target: target,
                 info: info
@@ -103,7 +103,7 @@ class RpcN2NAgent extends EventEmitter {
     }
 
     reset_rpc_address() {
-        this.rpc_address = undefined;
+        this.rpc_address = '';
     }
 
     set_rpc_address(rpc_address) {
@@ -156,8 +156,8 @@ class RpcN2NAgent extends EventEmitter {
         }
     }
 
-    signal(params) {
-        dbg.log0('N2N AGENT signal:', params, 'my rpc_address', this.rpc_address);
+    accept_signal(params) {
+        dbg.log0('N2N AGENT accept_signal:', params, 'my rpc_address', this.rpc_address);
 
         // target address is me, source is you.
         // the special case if rpc_address='*' allows testing code to accept for any target

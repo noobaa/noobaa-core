@@ -7,11 +7,11 @@ console.log('loading .env file');
 require('dotenv').load();
 
 var _ = require('lodash');
-var P = require('../util/promise');
-var http = require('http');
+var url = require('url');
 var promise_utils = require('../util/promise_utils');
 var cloud_sync = require('./cloud_sync');
 var build_chunks = require('./build_chunks_worker');
+var server_rpc = require('../server/server_rpc');
 var dbg = require('../util/debug_module')(__filename);
 var db = require('../server/db');
 var mongo_client = require('../server/stores/mongo_client');
@@ -22,20 +22,16 @@ dbg.set_process_name('BGWorkers');
 db.mongoose_connect();
 mongo_client.connect();
 
-var bg_workers_rpc;
-var http_server;
-
 function register_rpc() {
-    require('./bg_workers_rpc').register_servers();
-    bg_workers_rpc = require('./bg_workers_rpc').bg_workers_rpc;
-
-    http_server = http.createServer();
-    P.fcall(function() {
-            return P.ninvoke(http_server, 'listen', bg_workers_rpc.get_default_base_port('background'));
-        })
-        .then(function() {
-            bg_workers_rpc.register_ws_transport(http_server);
-        });
+    server_rpc.register_bg_servers();
+    server_rpc.register_common_servers();
+    let http_port = url.parse(server_rpc.rpc.router.bg).port;
+    return server_rpc.rpc.start_http_server({
+        port: http_port,
+        ws: true,
+        logging: true,
+        secure: false,
+    });
 }
 
 register_rpc();

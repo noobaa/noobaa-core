@@ -33,7 +33,7 @@ var AWS = require('aws-sdk');
 var db = require('./db');
 var object_server = require('./object_server');
 var tier_server = require('./tier_server');
-var bg_worker = require('./server_rpc').bg_worker;
+var server_rpc = require('./server_rpc');
 var system_store = require('./stores/system_store');
 var nodes_store = require('./stores/nodes_store');
 var cloud_sync_utils = require('./utils/cloud_sync_utils');
@@ -177,10 +177,12 @@ function delete_bucket(req) {
                 }
             });
         })
-        .then(() => bg_worker.cloud_sync.refresh_policy({
+        .then(() => server_rpc.bg_client.cloud_sync.refresh_policy({
             sysid: req.system._id.toString(),
             bucketid: bucket._id.toString(),
             force_stop: true,
+        }, {
+            auth_token: req.auth_token
         }))
         .return();
 }
@@ -211,9 +213,11 @@ function get_cloud_sync_policy(req, bucket) {
     if (!bucket.cloud_sync || !bucket.cloud_sync.endpoint) {
         return {};
     }
-    return P.when(bg_worker.cloud_sync.get_policy_status({
+    return P.when(server_rpc.bg_client.cloud_sync.get_policy_status({
             sysid: bucket.system._id.toString(),
             bucketid: bucket._id.toString()
+        }, {
+            auth_token: req.auth_token
         }))
         .then(status => ({
             name: bucket.name,
@@ -262,10 +266,12 @@ function delete_cloud_sync(req) {
             }
         })
         .then(function() {
-            return bg_worker.cloud_sync.refresh_policy({
+            return server_rpc.bg_client.cloud_sync.refresh_policy({
                 sysid: req.system._id.toString(),
                 bucketid: bucket._id.toString(),
                 force_stop: true,
+            }, {
+                auth_token: req.auth_token
             });
         })
         .return();
@@ -322,10 +328,12 @@ function set_cloud_sync(req) {
             return object_server.set_all_files_for_sync(req.system._id, bucket._id);
         })
         .then(function() {
-            return bg_worker.cloud_sync.refresh_policy({
+            return server_rpc.bg_client.cloud_sync.refresh_policy({
                 sysid: req.system._id.toString(),
                 bucketid: bucket._id.toString(),
                 force_stop: force_stop,
+            }, {
+                auth_token: req.auth_token
             });
         })
         .catch(function(err) {

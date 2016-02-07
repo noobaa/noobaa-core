@@ -402,7 +402,7 @@ module.exports = {
                 $ref: 'agent_api#/definitions/self_test_reply'
             },
             auth: {
-                system: ['admin', 'user']
+                system: ['admin']
             }
         },
 

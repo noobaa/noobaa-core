@@ -8,36 +8,23 @@ var coretest = require('./coretest');
 
 mocha.describe('agent', function() {
 
-    var client = coretest.new_client();
-    var SYS = 'test-agent-system';
+    var client = coretest.new_test_client();
 
-    mocha.before(function() {
-        this.timeout(20000);
-        P.fcall(function() {
-            return client.system.create_system({
-                name: SYS
-            });
-        }).then(function() {
-            // authenticate now with the new system
-            return client.create_auth_token({
-                system: SYS
-            });
-        }).then(function() {
-            return client.tier.create_tier({
-                name: 'edge',
-            });
-        }).then(function() {
-            return coretest.init_test_nodes(10, SYS, 'edge');
-        });
-    });
-
-    mocha.after(function() {
-        this.timeout(20000);
-        return coretest.clear_test_nodes();
-    });
+    const SYS = 'test-agent-system';
+    const EMAIL = SYS + '@coretest.coretest';
+    const PASSWORD = 'tululu';
 
     mocha.it('should run agents', function() {
-        // TODO
+        this.timeout(20000);
+        return P.resolve()
+            .then(() => client.account.create_account({
+                name: SYS,
+                email: EMAIL,
+                password: PASSWORD,
+            }))
+            .then(res => client.options.auth_token = res.token)
+            .then(() => coretest.init_test_nodes(client, SYS, 5))
+            .then(() => coretest.clear_test_nodes());
     });
 
 });

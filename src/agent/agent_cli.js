@@ -19,7 +19,7 @@ var promise_utils = require('../util/promise_utils');
 // var config = require('../../config.js');
 var dbg = require('../util/debug_module')(__filename);
 var child_process = require('child_process');
-var s3_auth = require('aws-sdk/lib/signers/s3');
+var S3Auth = require('aws-sdk/lib/signers/s3');
 var uuid = require('node-uuid');
 var os = require('os');
 var os_util = require('../util/os_util');
@@ -43,8 +43,9 @@ dbg.set_process_name('Agent');
  */
 function AgentCLI(params) {
     this.params = params;
-    this.client = new api.Client();
-    this.s3 = new s3_auth();
+    var rpc = api.new_rpc();
+    this.client = rpc.new_client();
+    this.s3 = new S3Auth();
     this.agents = {};
 }
 
@@ -442,7 +443,6 @@ AgentCLI.prototype.start = function(node_name, node_path) {
             address: self.params.address,
             node_name: node_name,
             storage_path: node_path,
-            all_storage_paths: self.params.all_storage_paths,
         });
 
         dbg.log0('agent inited', node_name, self.params.addres, self.params.port, self.params.secure_port, node_path);

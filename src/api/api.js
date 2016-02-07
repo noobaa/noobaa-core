@@ -1,13 +1,14 @@
 'use strict';
 
-var _ = require('lodash');
-var RPC = require('../rpc/rpc');
-var RpcSchema = require('../rpc/rpc_schema');
-var ObjectDriver = require('./object_driver');
+let _ = require('lodash');
+let RPC = require('../rpc/rpc');
+let RpcSchema = require('../rpc/rpc_schema');
+let ObjectDriver = require('./object_driver');
+let url = require('url');
 
 // registring all api's on the same RpcSchema object
 // so they share the schema namespace
-var api_schema = new RpcSchema();
+let api_schema = new RpcSchema();
 api_schema.register_api(require('./common_api'));
 api_schema.register_api(require('./auth_api'));
 api_schema.register_api(require('./account_api'));
@@ -26,68 +27,52 @@ api_schema.register_api(require('./pool_api'));
 api_schema.register_api(require('./cluster_api'));
 api_schema.compile();
 
-function new_rpc(options) {
-    options = options || {};
-    options.schema = options.schema || api_schema;
-    var rpc = new RPC(options);
-    // abusing the default rpc client as the n2n_signaller for the rpc
-    rpc.n2n_signaller = rpc.client.node.n2n_signal;
-    // also abusing the default rpc client for the redirection
-    rpc.redirection = rpc.client.redirector.redirect;
+/**
+ * extend the rpc client prototype with convinient methods
+ */
+RPC.Client.prototype.create_auth_token = function(params) {
+    return this.auth.create_auth(params)
+        .tap(res => this.options.auth_token = res.token);
+};
+RPC.Client.prototype.create_access_key_auth = function(params) {
+    return this.auth.create_access_key_auth(params)
+        .tap(res => this.options.auth_token = res.token);
+};
+RPC.Client.prototype.object_driver_lazy = function() {
+    // the object driver is a "heavy" object with caches
+    if (!this.object_driver) {
+        this.object_driver = new ObjectDriver(this);
+    }
+    return this.object_driver;
+};
+
+function new_router(base_address) {
+    if (!base_address) {
+        // the default 5001 port is for development
+        base_address = 'ws://127.0.0.1:' + (parseInt(process.env.PORT, 10) || 5001);
+    }
+    let base_url = _.pick(url.parse(base_address),
+        'protocol', 'hostname', 'port', 'slashes');
+    let base_addr = url.format(base_url);
+    base_url.port = parseInt(base_url.port, 10) + 1;
+    let bg_addr = url.format(base_url);
+    let router = {
+        default: base_addr,
+        bg: bg_addr
+    };
+    console.log('ROUTER', router);
+    return router;
+}
+
+function new_rpc(base_address) {
+    let rpc = new RPC({
+        schema: api_schema,
+        router: new_router(base_address)
+    });
     return rpc;
 }
 
-var api_rpc = new_rpc();
-var bg_workers_client = api_rpc.create_schema_client(api_schema, _.create({
-    address: api_rpc.get_default_base_address('background')
-}));
-
-
 module.exports = {
-    schema: api_schema,
-    rpc: api_rpc,
     new_rpc: new_rpc,
-    Client: Client,
-    bg_workers_client: bg_workers_client
+    new_router: new_router,
 };
-
-/**
- *
- * CLIENT
- *
- * @param default_options - optional client instance to copy options and headers.
- *
- */
-function Client(default_options) {
-
-    // for options use prototype inheritance to create new object but with defaults
-    var self = api_rpc.create_schema_client(api_schema, _.create(default_options));
-
-    /**
-     * authenticate using the provided params,
-     * and save the token in options for next calls.
-     */
-    self.create_auth_token = function(params) {
-        return self.auth.create_auth(params).then(function(res) {
-            self.options.auth_token = res.token;
-            return res;
-        });
-    };
-
-    self.create_access_key_auth = function(params) {
-        return self.auth.create_access_key_auth(params).then(function(res) {
-            self.options.auth_token = res.token;
-            return res;
-        });
-    };
-
-    self.object_driver_lazy = function() {
-        // the object driver is a "heavy" object with caches
-        if (!self.object_driver) {
-            self.object_driver = new ObjectDriver(self);
-        }
-        return self.object_driver;
-    };
-
-    return self;
-}

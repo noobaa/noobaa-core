@@ -54,8 +54,8 @@
 
     2) new_client - Allocate and return a new client
 
-    3) init_test_nodes(count, system, tier) - Performs the following
-        1. Creates Auth Token for system & tier,
+    3) init_test_nodes(client, system, count) - Performs the following
+        1. Creates Auth Token for new agent in the system,
         2. Sets the agent control to work locally (will be removed once we support remote),
         3. Starts all stopped agents
 

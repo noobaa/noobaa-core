@@ -4,7 +4,7 @@ require('../util/panic');
 var _ = require('lodash');
 var P = require('../util/promise');
 var util = require('util');
-var md5_stream = require('../util/md5_stream');
+var MD5Stream = require('../util/md5_stream');
 var mime = require('mime');
 var api = require('../api');
 var dbg = require('../util/debug_module')(__filename);
@@ -27,7 +27,12 @@ module.exports = function(params) {
     var store_locally = false;
     var calculate_md5 = true;
     var buckets_cache;
-    var getBucketLocally = function(req, res) {
+    var rpc = api.new_rpc(params.address);
+    var signal_client = rpc.new_client();
+    var n2n_agent = rpc.register_n2n_transport(signal_client.node.n2n_signal);
+    n2n_agent.set_any_rpc_address();
+
+    function getBucketLocally(req, res) {
         var options = {
             marker: req.query.marker || null,
             prefix: req.query.prefix || null,
@@ -53,8 +58,9 @@ module.exports = function(params) {
                 return buildXmlResponse(res, 200, template);
             });
         }
-    };
-    var putObjectLocally = function(req, res, file_key_name) {
+    }
+
+    function putObjectLocally(req, res, file_key_name) {
         req.params.key = file_key_name;
         P.ninvoke(fileStore, "putObject", req.params.bucket, req)
             .then(function(key) {
@@ -69,8 +75,9 @@ module.exports = function(params) {
                 return buildXmlResponse(res, 500, template);
 
             });
-    };
-    var getObjectLocally = function(req, res) {
+    }
+
+    function getObjectLocally(req, res) {
         var keyName = req.params.key;
         var acl = req.query.acl;
         if (acl !== undefined) {
@@ -106,15 +113,16 @@ module.exports = function(params) {
                     return errorResponse(req, res, keyName);
                 }
             });
+    }
 
-    };
-    var buildResponse = function(req, res, status, object, data) {
+    function buildResponse(req, res, status, object, data) {
         res.header('Etag', '"' + object.md5 + '"');
         res.header('Last-Modified', new Date(object.modifiedDate).toUTCString());
         res.header('Content-Type', object.contentType);
 
-        if (object.contentEncoding)
+        if (object.contentEncoding) {
             res.header('Content-Encoding', object.contentEncoding);
+        }
 
         res.header('Content-Length', object.size);
         if (object.customMetaData.length > 0) {
@@ -131,8 +139,9 @@ module.exports = function(params) {
             return res.end();
         }
         return res.end(data);
-    };
-    var errorResponse = function(req, res, keyName) {
+    }
+
+    function errorResponse(req, res, keyName) {
         dbg.error('Object "%s" in bucket "%s" does not exist', keyName, req.bucket.name);
 
         if (indexDocument) {
@@ -152,8 +161,9 @@ module.exports = function(params) {
             var template = templateBuilder.buildKeyNotFound(keyName);
             return buildXmlResponse(res, 404, template);
         }
-    };
-    var notFoundResponse = function(req, res) {
+    }
+
+    function notFoundResponse(req, res) {
         var ErrorDoc = '<!DOCTYPE html>\n<html><head><title>404 - Resource Not Found</title></head><body><h1>404 - Resource Not Found</h1></body></html>';
 
         return buildResponse(req, res, 404, {
@@ -162,8 +172,9 @@ module.exports = function(params) {
             customMetaData: [],
             size: ErrorDoc.length
         }, ErrorDoc);
-    };
-    var extract_access_key = function(req) {
+    }
+
+    function extract_access_key(req) {
         var req_access_key;
         if (req.headers.authorization) {
             var end_of_aws_key = req.headers.authorization.indexOf(':');
@@ -182,9 +193,9 @@ module.exports = function(params) {
             }
         }
         return req_access_key;
-    };
+    }
 
-    var extract_s3_info = function(req) {
+    function extract_s3_info(req) {
 
         if (!_.has(clients, req.access_key)) {
             return P.fcall(function() {
@@ -219,7 +230,7 @@ module.exports = function(params) {
 
             return new_params;
         }
-    };
+    }
 
     function set_xattr(req, params) {
         params.xattr = params.xattr || {};
@@ -237,12 +248,12 @@ module.exports = function(params) {
     }
 
 
-    var uploadPart = function(req, res) {
+    function uploadPart(req, res) {
 
         if (store_locally) {
             return putObjectLocally(req, res, req.query.uploadId + '___' + req.query.partNumber);
         }
-        var md5_calc = new md5_stream();
+        var md5_calc = new MD5Stream();
         var part_md5 = '0';
         var access_key = extract_access_key(req);
         var upload_part_number = parseInt(req.query.partNumber, 10);
@@ -311,9 +322,9 @@ module.exports = function(params) {
                 dbg.error('ERROR: upload:' + req.query.uploadId + ' err:' + util.inspect(err.stack));
                 return res.status(500).end();
             });
-    };
+    }
 
-    var listPartsResult = function(req, res) {
+    function listPartsResult(req, res) {
         P.fcall(function() {
             var template;
             var upload_id = req.query.uploadId;
@@ -340,17 +351,17 @@ module.exports = function(params) {
                     return buildXmlResponse(res, 200, template);
                 });
         });
-    };
+    }
 
-    var buildXmlResponse = function(res, status, template) {
+    function buildXmlResponse(res, status, template) {
         //dbg.log("build",res);
         res.header('Content-Type', 'application/xml');
         res.status(status);
         dbg.log2('template:', template);
         return res.send(template);
-    };
+    }
 
-    var delete_if_exists = function(target_object, access_key) {
+    function delete_if_exists(target_object, access_key) {
         dbg.log3('listing ', target_object.key, ' in bucket:', target_object.bucket);
         return clients[access_key].client.object.delete_object({
             bucket: target_object.bucket,
@@ -364,11 +375,9 @@ module.exports = function(params) {
                 dbg.error('Failure while trying to delete old version of object "%s"', target_object.key, err);
             }
         });
+    }
 
-
-    };
-
-    var copy_object = function(from_object, to_object, src_bucket, target_bucket, access_key, req) {
+    function copy_object(from_object, to_object, src_bucket, target_bucket, access_key, req) {
         dbg.log0('copy:', from_object, to_object, src_bucket, target_bucket, access_key);
 
         from_object = decodeURIComponent(from_object);
@@ -470,9 +479,9 @@ module.exports = function(params) {
                 dbg.error("Failed to upload", err);
                 return false;
             });
+    }
 
-    };
-    var list_objects_with_prefix = function(prefix, delimiter, bucket_name, access_key) {
+    function list_objects_with_prefix(prefix, delimiter, bucket_name, access_key) {
         var list_params = {
             bucket: bucket_name,
             key_s3_prefix: ''
@@ -539,9 +548,9 @@ module.exports = function(params) {
                     folders: {}
                 };
             });
-    };
+    }
 
-    var uploadObject = function(req, res, file_key_name) {
+    function uploadObject(req, res, file_key_name) {
         var create_params = {};
         var md5 = '0';
         P.fcall(function() {
@@ -552,7 +561,7 @@ module.exports = function(params) {
                     dbg.log3('uploadObject: upload', file_key_name);
 
                     // tranform stream that calculates md5 on-the-fly
-                    var md5_calc = new md5_stream();
+                    var md5_calc = new MD5Stream();
                     if (calculate_md5) {
                         req.pipe(md5_calc);
                     }
@@ -617,10 +626,10 @@ module.exports = function(params) {
                 dbg.error('ERROR: uploadObject:' + file_key_name + ' err:' + util.inspect(err.stack));
                 return res.status(500).end();
             });
-    };
+    }
 
 
-    var isBucketExists = function(bucketName, s3_info) {
+    function isBucketExists(bucketName, s3_info) {
         dbg.log3('isBucketExists', bucketName, ' info:', s3_info, 'key:', s3_info.access_key, 'auth', clients[s3_info.access_key].client.options.auth_token);
 
         var options = {
@@ -639,7 +648,7 @@ module.exports = function(params) {
                     return true;
                 }
             });
-    };
+    }
 
     /**
      * The following methods correspond the S3 api. For more information visit:
@@ -667,7 +676,7 @@ module.exports = function(params) {
                 } else {
                     dbg.log3('Adding new system client.', req.access_key);
                     clients[req.access_key] = {
-                        client: new api.Client(),
+                        client: rpc.new_client(),
                         buckets: []
                     };
                     return clients[req.access_key];

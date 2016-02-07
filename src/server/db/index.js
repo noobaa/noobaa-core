@@ -94,7 +94,7 @@ module.exports = {
             return params.system + ':' + params.bucket + ':' + params.key;
         },
         load: function(params) {
-            console.log('ObjectMDCache: load', params.name);
+            console.log('ObjectMDCache: load', params.key);
             return P.when(ObjectMD.findOne({
                 system: params.system,
                 bucket: params.bucket,

@@ -12,8 +12,7 @@ let js_utils = require('../../util/js_utils');
 let time_utils = require('../../util/time_utils');
 let size_utils = require('../../util/size_utils');
 let schema_utils = require('../../util/schema_utils');
-let bg_worker = require('../server_rpc').bg_worker;
-let server_rpc = require('../server_rpc').server_rpc;
+let server_rpc = require('../server_rpc');
 let dbg = require('../../util/debug_module')(__filename);
 // let promise_utils = require('../../util/promise_utils');
 
@@ -119,8 +118,6 @@ const DB_INDEXES = js_utils.deep_freeze([{
         deleted: 1
     }
 }]);
-
-const BG_BASE_ADDR = server_rpc.get_default_base_address('background');
 
 
 /**
@@ -247,7 +244,8 @@ class SystemStore extends EventEmitter {
             this._init_db_promise = null;
             this.load();
         });
-        setTimeout(() => this.refresh(), 1000);
+        this.refresh_middleware = () => this.refresh();
+        setTimeout(this.refresh_middleware, 1000);
     }
 
     refresh() {
@@ -300,14 +298,14 @@ class SystemStore extends EventEmitter {
 
     _register_for_changes() {
         if (!this._registered_for_reconnect) {
-            server_rpc.on('reconnect', conn => this._on_reconnect(conn));
+            server_rpc.rpc.on('reconnect', conn => this._on_reconnect(conn));
             this._registered_for_reconnect = true;
         }
-        return bg_worker.redirector.register_to_cluster();
+        return server_rpc.bg_client.redirector.register_to_cluster();
     }
 
     _on_reconnect(conn) {
-        if (_.startsWith(conn.url.href, BG_BASE_ADDR)) {
+        if (conn.url.href === server_rpc.rpc.router.bg) {
             dbg.log0('_on_reconnect:', conn.url.href);
             this.load();
         }
@@ -465,7 +463,7 @@ class SystemStore extends EventEmitter {
             })
             .then(() =>
                 // notify all the cluster (including myself) to reload
-                bg_worker.redirector.publish_to_cluster({
+                server_rpc.bg_client.redirector.publish_to_cluster({
                     method_api: 'cluster_api',
                     method_name: 'load_system_store',
                     target: ''

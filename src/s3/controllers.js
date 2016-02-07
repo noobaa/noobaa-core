@@ -117,7 +117,7 @@ module.exports = function(params) {
 
     function buildResponse(req, res, status, object, data) {
         res.header('Etag', '"' + object.md5 + '"');
-        res.header('Last-Modified', new Date(object.modifiedDate).toUTCString());
+        res.header('Last-Modified', time_utils.toRFC822(new Date(object.modifiedDate)));
         res.header('Content-Type', object.contentType);
 
         if (object.contentEncoding) {
@@ -503,7 +503,7 @@ module.exports = function(params) {
                     try {
                         var date = new Date(obj.info.create_time);
                         date.setMilliseconds(0);
-                        obj.modifiedDate = date.toISOString(); //toUTCString();//.toISOString();
+                        obj.modifiedDate = date.toISOString();
                         obj.md5 = 100;
                         obj.size = obj.info.size;
 
@@ -1016,7 +1016,7 @@ module.exports = function(params) {
                             create_date.setMilliseconds(0);
 
                             res.header('ETag', '"' + object_md.etag + '"');
-                            res.header('Last-Modified', create_date.toUTCString());
+                            res.header('Last-Modified', time_utils.toRFC822(create_date));
                             res.header('Content-Type', object_md.content_type);
                             res.header('Content-Length', object_md.size);
                             res.header('x-amz-meta-cb-modifiedtime', req.headers['x-amz-date'] || create_date);
@@ -1060,7 +1060,7 @@ module.exports = function(params) {
                                     var create_date = new Date(object_md.create_time);
                                     create_date.setMilliseconds(0);
 
-                                    res.header('Last-Modified', create_date);
+                                    res.header('Last-Modified', time_util.toRFC822(create_date));
                                     res.header('Content-Type', object_md.content_type);
                                     res.header('Content-Length', object_md.size);
                                     res.header('x-amz-meta-cb-modifiedtime', req.headers['x-amz-date']);

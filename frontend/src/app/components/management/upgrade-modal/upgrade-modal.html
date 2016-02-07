@@ -1,0 +1,30 @@
+<modal params="onClose: () => close()" data-bind="css: stepClass">
+	
+	<section class="wrapper" data-bind="ifnot: upgradeFailed">
+		<h1 class="heading2">Upgrade In Progress </h1>
+			
+		<p class="container text-center heading3">
+			Hold your horses! We are upgrading your system
+		</p>
+		
+		<div class="progress-bar container" data-bind="foreach: noobaas">
+			<!-- ko if: $data -->
+			<svg-icon class="noobaa-logo" params="uri: '/fe/assets/icons.svg#logo'"></svg-icon>
+			<!-- /ko -->
+		</div>
+
+		<div class="text-center heading3" data-bind="text: progressText"></div>		
+	</section>
+
+	<section data-bind="if: upgradeFailed"> 
+		<div class="wrapper">
+			<h1 class="heading2 container">Oh snap! System upgrade has failed</h1>
+
+			<p class="container text-center heading3">
+				Sorry for the hold up. You can download the upgrade package again and restart the upgrading process again or contact support for more information
+			</p>
+		</div>
+
+		<button data-bind="click: close" class="close-btn btn2 pull-right">Close</button>
+	</section>
+</modal>

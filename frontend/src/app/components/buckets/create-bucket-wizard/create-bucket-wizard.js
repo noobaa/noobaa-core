@@ -6,7 +6,6 @@ import bucketNameValidationRules from './bucket-name-validation-rules';
 import { poolList } from 'model';
 import { loadPoolList, createBucket } from 'actions';
 import { defaultPoolName } from 'config';
-import { cloneArray } from 'utils';
 
 class CreateBucketWizardViewModel {
 	constructor({ onClose }) {
@@ -59,7 +58,7 @@ class CreateBucketWizardViewModel {
 
 	selectAllPools() {
 		this.selectedPools(
-			cloneArray(this.pools())
+			Array.from(this.pools())
 		);
 	}
 

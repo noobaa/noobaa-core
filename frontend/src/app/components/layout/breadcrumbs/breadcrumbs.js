@@ -4,14 +4,14 @@ import ko from 'knockout';
 class BreadcrumbsViewModel {
 	constructor({ crumbs }) {
 		this.crumbs = ko.pureComputed(
-			() => crumbs()
+			() => crumbs() && crumbs()
 				.reduce(this._reduceCrumbs, [])
 				.slice(1)
 		);
 
 
 		this.hasBackground = ko.pureComputed(
-			() => crumbs().length > 0
+			() => crumbs() && crumbs().length > 0
 		);
 	}
 

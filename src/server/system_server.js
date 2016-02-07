@@ -207,7 +207,7 @@ function read_system(req) {
         //     n2n_config.stun_servers.unshift(stun_address);
         //     dbg.log0('read_system: n2n_config.stun_servers', n2n_config.stun_servers);
         // }
-        return {
+        let response = {
             name: system.name,
             objects: objects_sys.count || 0,
             roles: _.map(system.roles_by_account, function(roles, account_id) {
@@ -244,10 +244,17 @@ function read_system(req) {
             web_links: get_system_web_links(system),
             n2n_config: n2n_config,
             ip_address: ip_address,
-            base_address: system.base_address ||
-                'wss://' + ip_address + ':' + process.env.SSL_PORT,
+            dns_name: system.base_address,
+            base_address: system.base_address || 'wss://' + ip_address + ':' + process.env.SSL_PORT,
             version: pkg.version,
         };
+
+        if (system.base_address) {
+            response.dns_name = url.parse(system.base_address).hostname;
+
+        }
+
+        return response;
     });
 }
 

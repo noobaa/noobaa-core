@@ -1,6 +1,6 @@
 import template from './bucket-policy-modal.html';
 import ko from 'knockout';
-import { noop, cloneArray } from 'utils';
+import { noop } from 'utils';
 import { poolList, tierInfo } from 'model';
 import { loadPoolList, loadTier, updateTier } from 'actions';
 
@@ -34,7 +34,7 @@ class BucketPolicyModalViewModel {
 
 	selectAllPools() {
 		this.selectedPools(
-			cloneArray(this.pools())
+			Array.from(this.pools())
 		);
 	}
 

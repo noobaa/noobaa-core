@@ -15,20 +15,26 @@ var dbg = require('../util/debug_module')(__filename);
 var MB = 1024 * 1024;
 
 // test arguments
-
-// time to run in seconds
-argv.time = argv.time || undefined;
-
-// io concurrency
-argv.concur = argv.concur || 1;
-
-// io size in bytes
-argv.wsize = !_.isUndefined(argv.wsize) ? argv.wsize : MB;
-argv.rsize = argv.rsize || 0;
-
 // client/server mode
 argv.client = argv.client || false;
 argv.server = argv.server || false;
+
+if (!argv.server && !argv.client) {
+    let script_name = require('path').relative(process.cwd(), process.argv[1]);
+    process.stdout.write('Usage: \n');
+    process.stdout.write('node ' + script_name + ' --server --addr tcp://server:5656 [--n2n] \n');
+    process.stdout.write('node ' + script_name + ' --client --addr tcp://server:5656 [--n2n] \n');
+    process.stdout.write('(more flags are shown when running) \n');
+    process.exit();
+}
+
+// time to run in seconds
+argv.time = argv.time || undefined;
+// io concurrency
+argv.concur = argv.concur || 16;
+// io size in bytes
+argv.wsize = !_.isUndefined(argv.wsize) ? argv.wsize : MB;
+argv.rsize = argv.rsize || 0;
 argv.n2n = argv.n2n || false;
 argv.nconn = argv.nconn || 1;
 argv.closeconn = parseInt(argv.closeconn, 10) || 0;

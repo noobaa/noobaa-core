@@ -307,6 +307,12 @@ app.get('/get_log_level', function(req, res) {
     });
 });
 
+// Get the current version
+app.get('/version', function(req, res) {
+    res.send(pkg.version);
+    res.end();
+});
+
 ////////////
 // STATIC //
 ////////////

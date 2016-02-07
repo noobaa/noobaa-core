@@ -39,6 +39,7 @@ var _ = require('lodash');
 var P = require('../util/promise');
 var crypto = require('crypto');
 var ip_module = require('ip');
+var url = require('url');
 // var AWS = require('aws-sdk');
 var diag = require('./utils/server_diagnostics');
 var db = require('./db');
@@ -256,7 +257,6 @@ function read_system(req) {
 
         if (system.base_address) {
             response.dns_name = url.parse(system.base_address).hostname;
-
         }
 
         return response;
@@ -456,12 +456,12 @@ function read_activity_log(req) {
             logs = _.map(logs, function(log_item) {
                 var l = _.pick(log_item, 'id', 'level', 'event');
                 l.time = log_item.time.getTime();
-                
+
                 let tier = log_item.tier && system_store.data.get_by_id(log_item.tier);
                 if (tier) {
                     l.tier = _.pick(tier, 'name');
                 }
-                
+
                 if (log_item.node) {
                     l.node = _.pick(log_item.node, 'name');
                 }

@@ -33,7 +33,7 @@ function background_worker() {
             dbg.log0('CLOUD_SYNC_REFRESHER:', 'BEGIN');
             ///if policies not loaded, load them now
             if (CLOUD_SYNC.configured_policies.length === 0 || CLOUD_SYNC.refresh_list) {
-                load_configured_policies();
+                return load_configured_policies();
             }
         })
         .then(function() {
@@ -266,7 +266,11 @@ function diff_worklists(wl1, wl2, sync_time) {
         pos2 = 0;
 
     var comp = function(a, b, sync_time) {
-        if (a.key < b.key) {
+        if (_.isUndefined(a) && !_.isUndefined(b)) {
+            return -1;
+        } else if (_.isUndefined(b) && !_.isUndefined(a)) {
+            return 1;
+        } else if (a.key < b.key) {
             return -1;
         } else if (a.key > b.key) {
             return 1;
@@ -295,7 +299,7 @@ function diff_worklists(wl1, wl2, sync_time) {
         };
     }
 
-    while (comp(wl1[pos1], wl2[pos2]) === -1) {
+    while (comp(wl1[pos1], wl2[pos2]) === -1 && pos1 < wl1.length) {
         uniq_1.push(wl1[pos1]);
         pos1++;
     }
@@ -379,6 +383,7 @@ function load_configured_policies() {
                 sslEnabled: false,
                 accessKeyId: policy.system.access_keys[0].access_key,
                 secretAccessKey: policy.system.access_keys[0].secret_key,
+                maxRedirects: 10,
             });
 
             policy.s3cloud = new AWS.S3({
@@ -464,9 +469,28 @@ function update_c2n_worklist(policy) {
     var cloud_object_list, bucket_object_list;
     return P.ninvoke(policy.s3cloud, 'listObjects', params)
         .fail(function(error) {
-            dbg.error('update_c2n_worklist failed to list files from cloud: sys', policy.system._id, 'bucket',
-                policy.bucket._id, error, error.stack);
-            throw new Error('update_c2n_worklist failed to list files from cloud');
+            dbg.error('ERROR statusCode', error.statusCode, error.statusCode === 400, error.statusCode === 301);
+            if (error.statusCode === 400 ||
+                error.statusCode === 301) {
+                dbg.log0('Resetting (list objects) signature type and region to eu-central-1 and v4');
+                // change default region from US to EU due to restricted signature of v4 and end point
+                policy.s3cloud = new AWS.S3({
+                    accessKeyId: policy.access_keys.access_key,
+                    secretAccessKey: policy.access_keys.secret_key,
+                    signatureVersion: 'v4',
+                    region: 'eu-central-1'
+                });
+                return P.ninvoke(policy.s3cloud, 'listObjects', params)
+                    .fail(function(err) {
+                        dbg.error('update_c2n_worklist failed to list files from cloud: sys', policy.system._id, 'bucket',
+                            policy.bucket.id, error, error.stack);
+                        throw new Error('update_c2n_worklist failed to list files from cloud');
+                    });
+            } else {
+                dbg.error('update_c2n_worklist failed to list files from cloud: sys', policy.system._id, 'bucket',
+                    policy.bucket.id, error, error.stack);
+                throw new Error('update_c2n_worklist failed to list files from cloud');
+            }
         })
         .then(function(cloud_obj) {
             cloud_object_list = _.map(cloud_obj.Contents, function(obj) {
@@ -572,9 +596,27 @@ function sync_single_file_to_noobaa(policy, object) {
 
     return P.ninvoke(policy.s3rver, 'upload', params)
         .fail(function(err) {
-            dbg.error('Error sync_single_file_to_noobaa', object.key, '->', policy.bucket.name + '/' + object.key,
-                err, err.stack);
-            throw new Error('Error sync_single_file_to_noobaa ' + object.key, '->', policy.bucket.name);
+            dbg.error('ERROR statusCode', err.statusCode, err.statusCode === 400, err.statusCode === 301);
+            if (err.statusCode === 400 ||
+                err.statusCode === 301) {
+                dbg.log0('Resetting (upload) signature type and region to eu-central-1 and v4');
+                policy.s3cloud = new AWS.S3({
+                    accessKeyId: policy.access_keys.access_key,
+                    secretAccessKey: policy.access_keys.secret_key,
+                    signatureVersion: 'v4',
+                    region: 'eu-central-1'
+                });
+                return P.ninvoke(policy.s3cloud, 'upload', params)
+                    .fail(function(err) {
+                        dbg.error('Error sync_single_file_to_noobaa', object.key, '->', policy.bucket.name + '/' + object.key,
+                            err, err.stack);
+                        throw new Error('Error sync_single_file_to_noobaa ' + object.key, '->', policy.bucket.name);
+                    });
+            } else {
+                dbg.error('Error sync_single_file_to_noobaa', object.key, '->', policy.bucket.name + '/' + object.key,
+                    err, err.stack);
+                throw new Error('Error sync_single_file_to_noobaa ' + object.key, '->', policy.bucket.name);
+            }
         })
         .then(function() {
             return;
@@ -605,15 +647,32 @@ function sync_to_cloud_single_bucket(bucket_work_lists, policy) {
                     });
                 });
                 dbg.log2('sync_to_cloud_single_bucket syncing', bucket_work_lists.n2c_deleted.length, 'deletions n2c');
-                return P.ninvoke(policy.s3cloud, 'deleteObjects', params);
+                return P.ninvoke(policy.s3cloud, 'deleteObjects', params)
+                    .fail(function(err) {
+                        // change default region from US to EU due to restricted signature of v4 and end point
+                        if (err.statusCode === 400 ||
+                            err.statusCode === 301) {
+                            dbg.log0('Resetting (delete) signature type and region to eu-central-1 and v4');
+                            policy.s3cloud = new AWS.S3({
+                                accessKeyId: policy.access_keys.access_key,
+                                secretAccessKey: policy.access_keys.secret_key,
+                                signatureVersion: 'v4',
+                                region: 'eu-central-1'
+                            });
+                            return P.ninvoke(policy.s3cloud, 'deleteObjects', params)
+                                .fail(function(err) {
+                                    dbg.error('sync_to_cloud_single_bucket Failed syncing deleted objects n2c', err, err.stack);
+                                    throw new Error('sync_to_cloud_single_bucket Failed syncing deleted objects n2c ' + err);
+                                });
+                        } else {
+                            dbg.error('sync_to_cloud_single_bucket Failed syncing deleted objects n2c', err, err.stack);
+                            throw new Error('sync_to_cloud_single_bucket Failed syncing deleted objects n2c ' + err);
+                        }
+                    });
             } else {
                 dbg.log2('sync_to_cloud_single_bucket syncing deletions n2c, nothing to sync');
                 return;
             }
-        })
-        .fail(function(error) {
-            dbg.error('sync_to_cloud_single_bucket Failed syncing deleted objects n2c', error, error.stack);
-            throw new Error('sync_to_cloud_single_bucket Failed syncing deleted objects n2c ' + error);
         })
         .then(function() {
             //marked deleted objects as cloud synced

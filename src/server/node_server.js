@@ -462,7 +462,7 @@ function get_test_nodes(req) {
                 return {
                     name: n.name,
                     address: 'n2n://' + n.peer_id,
-                }
+                };
             });
             return targets;
         });

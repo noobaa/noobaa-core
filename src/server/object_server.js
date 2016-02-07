@@ -264,8 +264,16 @@ function read_object_mappings(req) {
             };
             // when called from admin console, we do not update the stats
             // so that viewing the mapping in the ui will not increase read count
+            // We do count the number of parts and return them
             if (req.rpc_params.adminfo) {
-                return;
+                return P.when(db.ObjectPart.count({
+                        obj: obj._id,
+                        deleted: null,
+                    }))
+                    .then(function(c) {
+                        reply.total_mappings = c;
+                        return;
+                    });
             }
             system_store.make_changes_in_background({
                 update: {

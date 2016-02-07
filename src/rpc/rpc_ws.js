@@ -122,9 +122,10 @@ function RpcWsServer(http_server) {
 
     ws_server.on('connection', function(ws) {
         var conn;
+        var address;
         try {
             // using url.format and then url.parse in order to handle ipv4/ipv6 correctly
-            var address = url.format({
+            address = url.format({
                 // TODO how to find out if ws is secure and use wss:// address instead
                 protocol: 'ws:',
                 slashes: true,

@@ -138,7 +138,7 @@ function update_account(req) {
  *
  */
 
- // TODO: Remove after retiring the old menegment console.
+// TODO: Remove after retiring the old menegment console.
 function delete_curr_account(req) {
     create_activity_log_entry(req, 'delete', req.account);
 
@@ -162,7 +162,7 @@ function delete_account(req) {
     }
 
     if (account_to_delete.email === req.system.owner.email) {
-        throw new Error('Invalid account, cannot delete system owner account');   
+        throw new Error('Invalid account, cannot delete system owner account');
     }
 
     let roles_to_delete = system_store.data.roles
@@ -236,7 +236,7 @@ function list_system_accounts(req) {
                     return roles && roles.length > 0;
                 }
             }
-        )
+        );
     } else {
         accounts = [req.account];
     }
@@ -375,11 +375,11 @@ function bcrypt_password(account) {
 
 
 function is_support_or_admin(system, account) {
-    return account.is_support || 
+    return account.is_support ||
         account.roles_by_system[system._id]
-            .some(
-                role => role === 'admin'
-            );
+        .some(
+            role => role === 'admin'
+        );
 }
 
 function create_activity_log_entry(req, event, account, level) {

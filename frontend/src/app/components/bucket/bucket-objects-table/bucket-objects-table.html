@@ -23,7 +23,7 @@
             <tbody data-bind="foreach: rows">
                 <!-- ko if: isVisible -->
                 <tr>
-                    <td class="state-col">
+                    <td class="state-col" data-bind="attr: { title: stateToolTip }">
                         <svg-icon params="uri: stateIcon"></svg-icon>
                     </td>
 

@@ -3,9 +3,18 @@ import ko from 'knockout';
 import { dblEncode } from 'utils';
 
 const statusIconMapping = Object.freeze({
-    AVALIABLE: '/fe/assets/icons.svg#object-healthy',
-    IN_PROCESS: '/fe/assets/icons.svg#object-in-porcess',
-    UNAVALIABLE: '/fe/assets/icons.svg#object-problem'
+    AVALIABLE: {
+        toolTip: 'avaliable',
+        icon: '/fe/assets/icons.svg#object-healthy',
+    },
+    IN_PROCESS: {
+        toolTip: 'in process',
+        icon: '/fe/assets/icons.svg#object-in-porcess'
+    },
+    UNAVALIABLE: {
+        toolTip: 'unavaliable',
+        icon: '/fe/assets/icons.svg#object-problem'
+    }
 });
 
 export default class ObjectRowViewModel {
@@ -15,11 +24,19 @@ export default class ObjectRowViewModel {
         );
 
         this.name = ko.pureComputed(
-            () => !!obj() && obj().key
+            () => obj() && obj().key
+        );
+
+        let stateMap = ko.pureComputed(
+            () => obj() && statusIconMapping[obj().info.state || 'AVALIABLE']
+        );
+
+        this.stateToolTip = ko.pureComputed(
+            () => stateMap() && stateMap().toolTip
         );
 
         this.stateIcon = ko.pureComputed(
-            () => !!obj() && statusIconMapping[obj().info.state || 'AVALIABLE']
+            () => stateMap() && stateMap().icon
         );
 
         this.href = ko.pureComputed(
@@ -29,7 +46,7 @@ export default class ObjectRowViewModel {
         );
 
         this.size = ko.pureComputed(
-            () => !!obj() && formatSize(obj().info.size)
+            () => obj() && formatSize(obj().info.size)
         );
     }
 }

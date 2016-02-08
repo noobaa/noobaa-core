@@ -3,19 +3,26 @@ import numeral from 'numeral';
 import { formatSize, isDefined } from 'utils';
 import { deleteBucket } from'actions';
 
-const stateIconMapping = Object.freeze({
-    true: '/fe/assets/icons.svg#bucket-healthy',
-    false: '/fe/assets/icons.svg#bucket-problam'
+const stateMapping = Object.freeze({
+    true: {
+        toolTip: 'healthy',
+        icon: '/fe/assets/icons.svg#bucket-healthy'
+    },
+
+    false: {
+        toolTip: 'problem',
+        icon: '/fe/assets/icons.svg#bucket-problam'
+    }
 });
 
 const cloudSyncStatusMapping = Object.freeze({
-    [undefined]:    { label: 'N/A',             css: ''                 },
-    NOTSET:         { label: 'not set',          css: 'no-set'            },
-    UNSYNCED:         { label: 'unsynced',         css: 'unsynced'            },
-    SYNCING:         { label: 'syncing',          css: 'syncing'            },
-    PASUED:         { label: 'paused',            css: 'paused'            },
-    SYNCED:         { label: 'synced',             css: 'synced'            },
-    UNABLE:         { label: 'unable to sync',     css: 'unable-to-sync'    }
+    [undefined]:    { label: 'N/A',             css: ''               },
+    NOTSET:         { label: 'not set',         css: 'no-set'         },
+    UNSYNCED:       { label: 'unsynced',        css: 'unsynced'       },
+    SYNCING:        { label: 'syncing',         css: 'syncing'        },
+    PASUED:         { label: 'paused',          css: 'paused'         },
+    SYNCED:         { label: 'synced',          css: 'synced'         },
+    UNABLE:         { label: 'unable to sync',  css: 'unable-to-sync' }
 });
 
 export default class BucketRowViewModel {
@@ -24,21 +31,29 @@ export default class BucketRowViewModel {
             () => !!bucket()
         );
 
+        let stateMap = ko.pureComputed(
+            () => bucket() && stateMapping[bucket().state || true]
+        );
+
+        this.stateToolTip = ko.pureComputed(
+            () => stateMap() && stateMap().toolTip
+        );
+
         this.stateIcon = ko.pureComputed(
-            () => this.isVisible() && stateIconMapping[bucket().state || true]
+            () => stateMap() && stateMap().icon
         );
 
         this.name = ko.pureComputed(
-            () => this.isVisible() && bucket().name
+            () => bucket() && bucket().name
         );
 
         this.href = ko.pureComputed(
-            () => this.isVisible() && `/fe/systems/:system/buckets/${bucket().name}`
+            () => bucket() && `/fe/systems/:system/buckets/${bucket().name}`
         );
 
         this.fileCount = ko.pureComputed(
             () => {
-                if (this.isVisible()) {
+                if (bucket()) {
                     let count = bucket().num_objects;
                     return isDefined(count) ? numeral(count).format('0,0') : 'N/A';                    
                 }
@@ -48,7 +63,7 @@ export default class BucketRowViewModel {
 
         this.totalSize = ko.pureComputed(
             () => {
-                if (this.isVisible()) {                
+                if (bucket()) {                
                     let storage = bucket().storage;
                     return isDefined(storage) ? formatSize(storage.total) : 'N/A';
                 }
@@ -57,7 +72,7 @@ export default class BucketRowViewModel {
 
         this.freeSize = ko.pureComputed(
             () => {
-                if (this.isVisible()) {
+                if (bucket()) {
                     let storage = bucket().storage;
                     return isDefined(storage) ? formatSize(storage.free) : 'N/A';
                 }
@@ -65,11 +80,11 @@ export default class BucketRowViewModel {
         );
 
         this.cloudSyncStatus = ko.pureComputed(
-            () => this.isVisible() && cloudSyncStatusMapping[bucket().cloud_sync_status]
+            () => bucket() && cloudSyncStatusMapping[bucket().cloud_sync_status]
         );
 
         this.isDeletable = ko.pureComputed(
-            () => this.isVisible() && bucket().num_objects === 0
+            () => bucket() && bucket().num_objects === 0
         );
 
         this.deleteToolTip = ko.pureComputed(

@@ -18,7 +18,9 @@ class CreateBucketWizardViewModel {
         );
 
         this.bucketName = ko.observable()
-            .extend({ validation: nameValidationRules('bucket', existingBucketNames) });
+            .extend({ 
+                validation: nameValidationRules('bucket', existingBucketNames) 
+            });
 
         this.dataPlacement = ko.observable('SPREAD');
 

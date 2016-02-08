@@ -10,25 +10,25 @@
                 <tr>
                     <th class="state-col" data-bind="css: orderClassFor('state')">
                         <a href data-bind="click: () => orderBy('state')">state</a>
-                    </th>    
+                    </th>
 
                     <th class="name-col text-left" data-bind="css: orderClassFor('name')">
                         <a href data-bind="click: () => orderBy('name')">node name</a>
-                    </th>    
+                    </th>
 
                     <th class="ip-col" data-bind="css: orderClassFor('ip')">
                         <a href data-bind="click: () => orderBy('ip')">ip</a>
-                    </th>    
+                    </th>
 
                     <th class="capacity-col" data-bind="css: orderClassFor('capacity')">
                         <a href data-bind="click: () => orderBy('capacity')">capacity</a>
-                    </th>                    
+                    </th>
                 </tr>
             </thead>
             <tbody data-bind="foreach: rows">
                 <!-- ko if: isVisible -->
                 <tr>
-                    <td class="state-col">
+                    <td class="state-col" data-bind="attr: { title: stateToolTip }">
                         <svg-icon params="uri: stateIcon"></svg-icon>
                     </td>
                     <td class="name-col text-left" >

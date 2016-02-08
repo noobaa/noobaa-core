@@ -7,24 +7,30 @@ export default class NodeRowViewModel {
             () => !!node()
         );
 
+        this.stateToolTip = ko.pureComputed(
+            () => node() && node().online  ? 'online' : 'offline'
+        )
+
         this.stateIcon = ko.pureComputed(
-            () => !!node() && `/fe/assets/icons.svg#node-${node().online ? 'online' : 'offline'}`
+            () => node() && `/fe/assets/icons.svg#node-${
+                node().online ? 'online' : 'offline'
+            }`
         );
 
         this.name = ko.pureComputed(
-            () => !!node() && node().name
+            () => node() && node().name
         );
 
         this.href = ko.pureComputed(
-            () => !!node() && `/fe/systems/:system/pools/:pool/nodes/${node().name}`
+            () => node() && `/fe/systems/:system/pools/:pool/nodes/${node().name}`
         );
 
         this.ip = ko.pureComputed(
-            () => !!node() && node().ip
+            () => node() && node().ip
         );
 
         this.capacity = ko.pureComputed(
-            () => !!node() && (node().storage ? formatSize(node().storage.total) : 'N/A')
+            () => node() && (node().storage ? formatSize(node().storage.total) : 'N/A')
         );        
     }
 }

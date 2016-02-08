@@ -2,10 +2,19 @@ import ko from 'knockout';
 import numeral from 'numeral';
 import { dblEncode } from 'utils';
 
-const partStateIconMapping = Object.freeze({
-    available:     '/fe/assets/icons.svg#part-available',
-    in_process: '/fe/assets/icons.svg#part-in-process',
-    unavailable:'/fe/assets/icons.svg#part-unavailable' 
+const partStateMapping = Object.freeze({
+    available: {
+        toolTip: 'available',
+        icon: '/fe/assets/icons.svg#part-available',
+    },
+    in_process: {
+        toolTip: 'in process',
+        icon: '/fe/assets/icons.svg#part-in-process',
+    },
+    unavailable: {
+        toolTip: 'unavailable',
+        icon: '/fe/assets/icons.svg#part-unavailable' 
+    }
 });
 
 export default class ObjectRowViewModel {
@@ -14,20 +23,28 @@ export default class ObjectRowViewModel {
             () => !!part()
         );
 
+        let stateMapping = ko.pureComputed(
+            () => part() && partStateMapping[part().info.chunk.adminfo.health]
+        );
+
+        this.stateToolTip = ko.pureComputed(
+            () => stateMapping() && stateMapping().toolTip
+        );
+
         this.stateIcon = ko.pureComputed(
-            () => !!part() && partStateIconMapping[part().info.chunk.adminfo.health] 
+            () => stateMapping() && stateMapping().icon
         );
 
         this.object = ko.pureComputed(
-            () => !!part() && part().object
+            () => part() && part().object
         );
 
         this.bucket = ko.pureComputed(
-            () => !!part() && part().bucket
+            () => part() && part().bucket
         );
 
         this.href = ko.pureComputed(
-            () => !!part() && `/fe/systems/:system/buckets/${
+            () => part() && `/fe/systems/:system/buckets/${
                 part().bucket
             }/objects/${
                 dblEncode(part().object)
@@ -35,15 +52,15 @@ export default class ObjectRowViewModel {
         );
 
         this.startOffset = ko.pureComputed(
-            () => !!part() && numeral(part().info.start).format('0.0b')
+            () => part() && numeral(part().info.start).format('0.0b')
         );
 
         this.endOffset = ko.pureComputed(
-            () => !!part() && numeral(part().info.end).format('0.0b')
+            () => part() && numeral(part().info.end).format('0.0b')
         );
 
         this.size = ko.pureComputed(
-            () => !!part() && numeral(part().info.size).format('0.0b')
+            () => part() && numeral(part().info.size).format('0.0b')
         );
     }
 }

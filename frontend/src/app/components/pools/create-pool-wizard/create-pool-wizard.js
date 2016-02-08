@@ -2,9 +2,10 @@ import template from './create-pool-wizard.html';
 import chooseNameStepTemplate from './choose-name-step.html';
 import assignNodesStepTemplate from './assign-nodes-step.html';
 import ko from 'knockout'; 
+import nameValidationRules from 'name-validation-rules';
 import NodeRowViewModel from './node-row';
 import { makeArray } from 'utils';
-import { nodeList } from 'model';
+import { poolList, nodeList } from 'model';
 import { loadNodeList, createPool } from 'actions';
 
 
@@ -14,16 +15,13 @@ class CreatePoolWizardViewModel {
         this.assignNodesStepTemplate = assignNodesStepTemplate;
         this.onClose = onClose;
 
+        let existingPoolNames = poolList.map(
+            ({ name }) => name
+        );
+
         this.poolName = ko.observable()
-            .extend({
-                required: { 
-                    params: true,
-                    message: 'Please enter a name for the pool'
-                },
-                maxLength: {
-                    params: 63,
-                    message: 'Name cannot be longer then 63 chars'
-                }
+            .extend({ 
+                validation: nameValidationRules('pool', existingPoolNames) 
             });
 
         this.rows = makeArray(

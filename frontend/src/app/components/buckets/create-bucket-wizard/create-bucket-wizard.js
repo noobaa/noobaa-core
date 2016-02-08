@@ -2,8 +2,8 @@ import template from './create-bucket-wizard.html';
 import chooseNameStepTempalte from './choose-name-step.html'
 import setPolicyStepTempalte from './set-policy-step.html'
 import ko from 'knockout';
-import bucketNameValidationRules from './bucket-name-validation-rules';
-import { poolList } from 'model';
+import nameValidationRules from 'name-validation-rules';
+import { poolList, bucketList } from 'model';
 import { loadPoolList, createBucket } from 'actions';
 import { defaultPoolName } from 'config';
 
@@ -13,8 +13,12 @@ class CreateBucketWizardViewModel {
         this.chooseNameStepTemplate = chooseNameStepTempalte;
         this.setPolicyStepTemplate = setPolicyStepTempalte;
 
+        let existingBucketNames = bucketList.map(
+            ({ name }) => name
+        );
+
         this.bucketName = ko.observable()
-            .extend({ validation: bucketNameValidationRules });
+            .extend({ validation: nameValidationRules('bucket', existingBucketNames) });
 
         this.dataPlacement = ko.observable('SPREAD');
 

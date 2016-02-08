@@ -102,24 +102,25 @@ export default function register(ko) {
     // -------------------------------
     // shared
     // -------------------------------
-    ko.components.register('svg-icon',             require('./shared/svg-icon/svg-icon'));
+    ko.components.register('svg-icon',          require('./shared/svg-icon/svg-icon'));
     ko.components.register('modal',             require('./shared/modal/modal'));
-    ko.components.register('dropdown',             require('./shared/dropdown/dropdown'));
+    ko.components.register('dropdown',          require('./shared/dropdown/dropdown'));
     ko.components.register('radio-btn',         require('./shared/radio-btn/radio-btn'));
-    ko.components.register('radio-group',         require('./shared/radio-group/radio-group'));
-    ko.components.register('checkbox',             require('./shared/checkbox/checkbox'));
-    ko.components.register('quantity-gauge',    require('./shared/quantity-gauge/quantity-gauge'));    
-    ko.components.register('needle-gauge',        require('./shared/needle-gauge/needle-gauge'));    
-    ko.components.register('bar',                require('./shared/bar/bar'));    
-    ko.components.register('range-indicator',     require('./shared/range-indicator/range-indicator'));    
-    ko.components.register('action-list',         require('./shared/action-list/action-list'));
-    ko.components.register('stepper',             require('./shared/stepper/stepper'));
-    ko.components.register('multiselect',        require('./shared/multiselect/multiselect'));
+    ko.components.register('radio-group',       require('./shared/radio-group/radio-group'));
+    ko.components.register('checkbox',          require('./shared/checkbox/checkbox'));
+    ko.components.register('quantity-gauge',    require('./shared/quantity-gauge/quantity-gauge'));
+    ko.components.register('needle-gauge',      require('./shared/needle-gauge/needle-gauge'));
+    ko.components.register('bar',               require('./shared/bar/bar'));
+    ko.components.register('range-indicator',   require('./shared/range-indicator/range-indicator'));
+    ko.components.register('action-list',       require('./shared/action-list/action-list'));
+    ko.components.register('stepper',           require('./shared/stepper/stepper'));
+    ko.components.register('multiselect',       require('./shared/multiselect/multiselect'));
     ko.components.register('slider',            require('./shared/slider/slider'));
     ko.components.register('wizard',            require('./shared/wizard/wizard'));
-    ko.components.register('paginator',            require('./shared/paginator/paginator'));
-    ko.components.register('tray',                require('./shared/tray/tray'));    
-    ko.components.register('tiled-select',        require('./shared/tiled-select/tiled-select'));    
-    ko.components.register('delete-button',        require('./shared/delete-button/delete-button'));    
-    ko.components.register('file-selector',        require('./shared/file-selector/file-selector'));    
+    ko.components.register('paginator',         require('./shared/paginator/paginator'));
+    ko.components.register('tray',              require('./shared/tray/tray'));
+    ko.components.register('tiled-select',      require('./shared/tiled-select/tiled-select'));
+    ko.components.register('delete-button',     require('./shared/delete-button/delete-button'));
+    ko.components.register('file-selector',     require('./shared/file-selector/file-selector'));
+    ko.components.register('autocomplete',      require('./shared/autocomplete/autocomplete'));
 }

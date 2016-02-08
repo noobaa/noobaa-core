@@ -12,6 +12,7 @@
 
         <li data-bind="css: { selected: isTabSelected('network') }">
             <a class="tab-header" data-bind="href: '/fe/systems/:system/management/network'">
+                <svg-icon params="uri: '/fe/assets/icons.svg#network'"></svg-icon>
                 Network
             </a>
 
@@ -25,7 +26,8 @@
         </li>        
         <li data-bind="css: { selected: isTabSelected('about') }">
             <a class="tab-header" data-bind="href: '/fe/systems/:system/management/about'">
-                About
+                <svg-icon params="uri: '/fe/assets/icons.svg#upgrade'"></svg-icon>
+                <span>Version</span>
             </a>
             <section class="tab-content">
                 <about-form></about-form>

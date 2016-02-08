@@ -1,5 +1,6 @@
 import ko from 'knockout';
 import numeral from 'numeral';
+import { dblEncode } from 'utils';
 
 const partStateIconMapping = Object.freeze({
     available:     '/fe/assets/icons.svg#part-available',
@@ -26,7 +27,11 @@ export default class ObjectRowViewModel {
         );
 
         this.href = ko.pureComputed(
-            () => !!part() && `/fe/systems/:system/buckets/${part().bucket}/objects/${part().object}`
+            () => !!part() && `/fe/systems/:system/buckets/${
+                part().bucket
+            }/objects/${
+                dblEncode(part().object)
+            }`
         );
 
         this.startOffset = ko.pureComputed(
@@ -39,6 +44,6 @@ export default class ObjectRowViewModel {
 
         this.size = ko.pureComputed(
             () => !!part() && numeral(part().info.size).format('0.0b')
-        )
+        );
     }
 }

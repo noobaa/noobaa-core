@@ -49,7 +49,12 @@ class CapacityGaugeViewModel {
                 }
             );
 
-            this._drawText(ctx, numeral(sum/total).format('0%'));
+            let percentage = sum/total;
+            let text = 0 < percentage && percentage < 1 ?
+                '<1%' :
+                numeral(sum/total).format('0%');
+
+            this._drawText(ctx, text);
 
         } else {
             this._drawSection(ctx, 0, 1, emptyColor);

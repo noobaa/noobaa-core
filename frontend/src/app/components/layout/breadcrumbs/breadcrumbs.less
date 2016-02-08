@@ -43,41 +43,47 @@ breadcrumbs {
         }
 
         &::before {
-            border-color: @bg-color4 @bg-color4 @bg-color4 transparent;
+            border-color: @bg-color4;
+            border-left-color: transparent;
         }
 
         &::after {
             border-left-color: @bg-color4;
         }
-    }
 
-    .root {
-        margin-left: 0;
+        &:first-child {
+            margin-left: 0;
 
-        &::before {
-            display: none;
-        }
-
-        &.no-bg {
-            a {
-                background: none ;
+            > a {
+                width: auto;
             }
 
-            &::after {
+            svg-icon {
+                width: @font-size-xlarge;
+                height: @font-size-xlarge;
+                vertical-align: middle;
+            }
+
+            &::before {
                 display: none;
             }
         }
 
-        > a {
-            padding: 0;
-            padding-left: .5em;
-            width: auto;
-
-            svg-icon {
-                width: 35px;
-                height: 35px;
-                vertical-align: middle;
+        &:last-child {
+            a {
+                background: none;
+                margin-left: .5em;
+                font-size: @font-size-medium;
             }
+
+            &::before, &:after {
+                display: none;    
+            };
+        }
+
+        &:first-child:last-child a {
+            margin-left: 0;
+            font-size: @font-size-normal;
         }
     }
 }

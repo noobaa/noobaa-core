@@ -11,12 +11,13 @@ class BreadcrumbsViewModel {
 
 
         this.hasBackground = ko.pureComputed(
-            () => crumbs() && crumbs().length > 0
+            () => crumbs() && crumbs().length > 1
         );
     }
 
     _reduceCrumbs(list, crumb, i) {
         let base = list[i-1] ? list[i-1].href : '';
+
         list.push({
             label: crumb.label || '',
             href: `${base}/${crumb.href}`

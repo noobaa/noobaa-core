@@ -40,6 +40,7 @@ class DeleteButtonViewModel {
     }
 
     confirm() {
+        this.isSelected(false);
         this.onDelete();
     }
     

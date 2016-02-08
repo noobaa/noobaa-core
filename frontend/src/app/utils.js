@@ -68,6 +68,10 @@ export function randomString(len = 8) {
 	).join('');
 }
 
+export function dblEncode(str) {
+	return encodeURIComponent(encodeURIComponent(str));
+}
+
 export function parseQueryString(str) {
 	return decodeURIComponent(str)
 		.replace(/(^\?)/,'')

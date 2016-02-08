@@ -10,19 +10,38 @@
     <section class="container">
         <h2 class="heading3">AWS Credentials</h2>
         
-        <label>
-            <span class="field-name">Access Key: </span>
-            <autocomplete params="
-                value: accessKey,
-                placeholder: 'Enter Access Key', 
-                suggestions: accessKeySuggestions
-            "></autocomplete>
-        </label>
+        <!-- ko ifnot: newCredentialsFieldsVisible -->
+        <div>
+            <span class="field-name">Access Key:</span>
+            <dropdown class="aws-keys" params="
+                placeholder: 'Choose Key', 
+                options: credentialOptions,
+                selected: selectedCredentials
+            "></dropdown>
+        </div>
+        <!-- /ko -->
 
-        <label>
-            <span class="field-name">Secret Key: </span>
-            <input type="password" placeholder="Enter Secret" data-bind="value: secretKey" />
-        </label>
+        <!-- ko if: newCredentialsFieldsVisible -->
+        <form class="new-credentials-form box clear" data-bind="submit: useNewCredentials">
+            <label>
+                <span class="field-name">Access Key: </span>
+                <input type="text" placeholder="Enter Key"  data-bind="
+                    value: newAccessKey,
+                    hasFocus: () => newCredentialsFieldsVisible()
+                "/>
+            </label>
+
+            <label>
+                <span class="field-name">Secret Key: </span>
+                <input type="password" placeholder="Enter Secret" data-bind="value: newSecretKey" />
+            </label>
+
+            <div class="action-line pull-right">
+                <button class="action link" data-bind="click: () => cancelNewCredentials()">Cancel</button>
+                <button class="action btn3">Save</button>
+            </div>
+        </form>
+        <!-- /ko -->
     </section>
 
     <section class="container">

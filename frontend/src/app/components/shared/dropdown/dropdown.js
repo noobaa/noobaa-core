@@ -16,9 +16,15 @@ class DropdownViewModel {
         this.focused = ko.observable(false)
 
         this.selectedLabel = ko.pureComputed(
-            () => !!selected() ? options.find( 
-                    opt => opt.value === this.selected()
-                ).label : placeholder
+            () => {
+                let selectedOpt = !!selected() ? ko.unwrap(options).find( 
+                    opt => !!opt && opt.value === this.selected()
+                ) : null;
+
+                return !!selectedOpt ? 
+                    (selectedOpt.label || selectedOpt.value) :
+                    placeholder;
+            }
         );
     }
 }

@@ -2,7 +2,7 @@ import ko from 'knockout';
 
 // Hold the current ui state.
 export let uiState = ko.observable({
-	layout: 'empty'
+    layout: 'empty'
 });
 
 // Hold a refresh counter that allows view models to act when it
@@ -14,7 +14,7 @@ export let routeContext = ko.observable();
 
 // Hold login state information.
 export let loginInfo = ko.observable({
-	retryCount: 0
+    retryCount: 0
 });
 
 // Hold current session information.

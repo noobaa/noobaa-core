@@ -1,97 +1,97 @@
 @keyframes shake {
-	0%, 100% {
-		transform: translateX(0);				
-	}
+    0%, 100% {
+        transform: translateX(0);               
+    }
 
-	16.66%, 83.33% {
-		transform: translateX(-1em);
-	}
+    16.66%, 83.33% {
+        transform: translateX(-1em);
+    }
 
-	46.66% {
-		transform: translateX(1em);
-	}
-}	
+    46.66% {
+        transform: translateX(1em);
+    }
+}   
 
 @keyframes slide-left {
-	from {
-		transform: translateX(100%);
-	}
+    from {
+        transform: translateX(100%);
+    }
 
-	to {
-		transform: translateX(0);
-	}
+    to {
+        transform: translateX(0);
+    }
 }
 
 @keyframes fade-in {
-	from {
-		opacity: 0;
-	}
+    from {
+        opacity: 0;
+    }
 
-	to {
-		opacity: 1;
-	}
+    to {
+        opacity: 1;
+    }
 }
 
 @keyframes pop-centered {
-	from {
-		transform: translate(-50%, -50%) scale(.95) ;
-		opacity: 0;
-	}
+    from {
+        transform: translate(-50%, -50%) scale(.95) ;
+        opacity: 0;
+    }
 
-	to {
-		transform:  translate(-50%, -50%) scale(1);	
-		opacity: 1;
-	}	
+    to {
+        transform:  translate(-50%, -50%) scale(1); 
+        opacity: 1;
+    }   
 }
 
 @keyframes roll-in {
-	0% {
-		transform: translateX(28em) rotate(720deg);
+    0% {
+        transform: translateX(28em) rotate(720deg);
 
-	}
+    }
 
-	85% {
-		transform: translateX(0) rotate(0);
-		opacity: 1;
-	}
+    85% {
+        transform: translateX(0) rotate(0);
+        opacity: 1;
+    }
 
-	92% {
-		transform: scale(1.3);
-		opacity: .5;
-	}
+    92% {
+        transform: scale(1.3);
+        opacity: .5;
+    }
 
-	100% {
-		trasform: scale(1);
-		opacity: 1;
-	}
+    100% {
+        trasform: scale(1);
+        opacity: 1;
+    }
 }
 
 @keyframes bounce {
-	0% {
-		transform: translateY(0);
-	}
+    0% {
+        transform: translateY(0);
+    }
 
-	15% {
-		transform: translateY(-1.5em)
-	}
+    15% {
+        transform: translateY(-1.5em)
+    }
 
-	30% {
-		transform: translateY(0);
-	}
+    30% {
+        transform: translateY(0);
+    }
 }
 
 .shake {
-	animation: shake 750ms ease-in-out;
+    animation: shake 750ms ease-in-out;
 }
 
 .slide-left {
-	animation: slide-left 300ms ease-out;
+    animation: slide-left 300ms ease-out;
 }
 
 .fade-in {
-	animation: fade-in 300ms linear;
+    animation: fade-in 300ms linear;
 }
 
 .pop-centered {
-	animation: pop-centered 300ms;
+    animation: pop-centered 300ms;
 }

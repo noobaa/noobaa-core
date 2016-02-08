@@ -594,12 +594,10 @@ export function loadObjectPartList(bucketName, objectName, page) {
         adminfo: true 
     })
         .then(
-            ({ parts }) => {
+            ({ total_mappings, parts }) => {
                 model.objectPartList(parts);
                 model.objectPartList.page(page);
-
-                // TODO: change to real count when avaliable.
-                model.objectPartList.count(1000);               
+                model.objectPartList.count(total_mappings);
             }
         )
         .done();

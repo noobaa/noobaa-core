@@ -41,7 +41,7 @@ class CloudSyncModalViewModel {
         let _secretKey = ko.observable(); 
         this.secretKey = ko.pureComputed(
             () => _secretKey() || awsCredentialsList().find(
-                ({ access_key }) => access_key === this.accessKey() 
+                ({ access_key }) => access_key === this.accessKey()
             )  
         );
 

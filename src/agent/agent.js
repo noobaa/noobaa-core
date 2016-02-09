@@ -735,7 +735,7 @@ Agent.prototype.collect_diagnostics = function(req) {
             return fs.readFileAsync(inner_path)
                 .then(function(data) {
                     return {
-                        data: data,
+                        data: new Buffer(data),
                     };
                 })
                 .then(null, function(err) {

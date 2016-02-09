@@ -36,6 +36,11 @@
                     <!-- /ko -->
                 </tbody>
             </table>
+
+            <div class="empty-message" data-bind="
+                visible: !!emptyMessage(),
+                text: emptyMessage()
+            "></div>
         </div>
     </div>
     <div class="val-msg" data-bind="validationMessage: selectedNodes"></div>

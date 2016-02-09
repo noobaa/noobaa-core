@@ -19,6 +19,10 @@ class NodePartsViewModel {
             this.pageSize,
             i => new PartRowViewModel(() => parts()[i])
         );
+
+        this.hasParts = ko.pureComputed(
+            () => parts().length > 0
+        );
     }
 }
 

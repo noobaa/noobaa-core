@@ -1,5 +1,6 @@
 checkbox {
     @size: 21px;
+    position: relative;
 
     display: inline-block;
     width: 100%;
@@ -9,7 +10,9 @@ checkbox {
     }
 
     input {
-        .hide();
+        position: absolute;
+        z-index: -1;
+        opacity: 0;
 
         &:checked  ~ .checkbox-box {
             background-position-x: -@size;
@@ -32,6 +35,10 @@ checkbox {
                 cursor: default;
              }
         }
+
+        &:focus + .checkbox-box{
+            outline: @outline;
+        }
     }
 
     .checkbox-box {
@@ -39,7 +46,7 @@ checkbox {
         width: @size;
         height: @size;
         margin-right: .5em;
-        background-image: url('/fe/assets/checkbox.png');        
+        background-image: url('/fe/assets/checkbox.png');
     }
 
     .checkbox-box, .checkbox-label {

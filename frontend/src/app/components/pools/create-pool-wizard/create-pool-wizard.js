@@ -39,11 +39,11 @@ class CreatePoolWizardViewModel {
 
         this.chooseNameErrors = ko.validation.group({
             name: this.poolName
-        })
+        });
 
         this.assignNodesErrors = ko.validation.group({
             selectedNodes: this.selectedNodes
-        })
+        });
 
         loadNodeList();
     }

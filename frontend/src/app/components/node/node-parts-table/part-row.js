@@ -19,6 +19,7 @@ const partStateMapping = Object.freeze({
 
 export default class ObjectRowViewModel {
     constructor(part) {
+
         this.isVisible = ko.pureComputed(
             () => !!part()
         );
@@ -52,15 +53,17 @@ export default class ObjectRowViewModel {
         );
 
         this.startOffset = ko.pureComputed(
-            () => part() && numeral(part().info.start).format('0.0b')
+            () => part() && numeral(part().info.start).format('0.0 b')
         );
 
         this.endOffset = ko.pureComputed(
-            () => part() && numeral(part().info.end).format('0.0b')
+            () => part() && numeral(part().info.end).format('0.0 b')
         );
 
         this.size = ko.pureComputed(
-            () => part() && numeral(part().info.size).format('0.0b')
+            () => part() && numeral(
+                part().info.end - part().info.start).format('0.0 b'
+            )
         );
     }
 }

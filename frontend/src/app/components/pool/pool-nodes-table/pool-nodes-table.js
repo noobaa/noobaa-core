@@ -26,6 +26,10 @@ class PoolNodesTableViewModel {
             this.pageSize,
             i => new NodeRowViewModel(() => nodes()[i])
         );
+
+        this.hasNodes = ko.pureComputed(
+            () => nodes().length > 0
+        );        
     }
 
     pageTo(page) {

@@ -618,7 +618,7 @@ export function loadPoolInfo(name) {
 export function loadPoolNodeList(poolName, filter, sortBy, order, page) {
     logAction('loadPoolNodeList', { poolName, filter, sortBy, order, page });
     
-    api.node.list_nodes({  
+    api.node.list_nodes({
         query: {
             pools: [ poolName ],
             name: filter

@@ -159,6 +159,9 @@ function delete_bucket(req) {
         actor: req.account._id,
         bucket: bucket._id,
     });
+    if (_.map(req.system.buckets_by_name).length === 1) { ///don't allow last bucket deletion
+      throw new Error('Cannot delete last bucket');
+    }    
     return system_store.make_changes({
             remove: {
                 buckets: [bucket._id]
@@ -205,7 +208,7 @@ function get_cloud_sync_policy(req, bucket) {
             bucketid: bucket._id.toString()
         }))
         .then(function(stat) {
-            bucket.cloud_sync.status = stat.status;            
+            bucket.cloud_sync.status = stat.status;
             return {
                 name: bucket.name,
                 policy: {

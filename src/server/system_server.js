@@ -213,53 +213,57 @@ function read_system(req) {
         //     n2n_config.stun_servers.unshift(stun_address);
         //     dbg.log0('read_system: n2n_config.stun_servers', n2n_config.stun_servers);
         // }
-        let response = {
-            name: system.name,
-            objects: objects_sys.count || 0,
-            roles: _.map(system.roles_by_account, function(roles, account_id) {
-                var account = system_store.data.get_by_id(account_id);
-                return {
-                    roles: roles,
-                    account: _.pick(account, 'name', 'email')
+        return P.all(_.map(system.pools_by_name, function(p) {
+                return pool_server.get_pool_info(p, nodes_aggregate_pool, true);
+            }))
+            .then(function(pools) {
+                let response = {
+                    name: system.name,
+                    objects: objects_sys.count || 0,
+                    roles: _.map(system.roles_by_account, function(roles, account_id) {
+                        var account = system_store.data.get_by_id(account_id);
+                        return {
+                            roles: roles,
+                            account: _.pick(account, 'name', 'email')
+                        };
+                    }),
+                    buckets: _.map(system.buckets_by_name,
+                        bucket => bucket_server.get_bucket_info(
+                            bucket,
+                            objects_aggregate,
+                            nodes_aggregate_pool,
+                            cloud_sync_by_bucket[bucket.name])),
+                    pools: pools,
+                    tiers: _.map(system.tiers_by_name,
+                        tier => tier_server.get_tier_info(tier, nodes_aggregate_pool)),
+                    storage: size_utils.to_bigint_storage({
+                        total: nodes_sys.total,
+                        free: nodes_sys.free,
+                        alloc: nodes_sys.alloc,
+                        used: objects_sys.size,
+                        real: blocks.size,
+                    }),
+                    nodes: {
+                        count: nodes_sys.count || 0,
+                        online: nodes_sys.online || 0,
+                    },
+                    access_keys: system.access_keys,
+                    ssl_port: process.env.SSL_PORT,
+                    web_port: process.env.PORT,
+                    web_links: get_system_web_links(system),
+                    n2n_config: n2n_config,
+                    ip_address: ip_address,
+                    dns_name: system.base_address,
+                    base_address: system.base_address || 'wss://' + ip_address + ':' + process.env.SSL_PORT,
+                    version: pkg.version,
                 };
-            }),
-            buckets: _.map(system.buckets_by_name,
-                bucket => bucket_server.get_bucket_info(
-                    bucket,
-                    objects_aggregate,
-                    nodes_aggregate_pool,
-                    cloud_sync_by_bucket[bucket.name])),
-            pools: _.map(system.pools_by_name,
-                pool => pool_server.get_pool_info(pool, nodes_aggregate_pool)),
-            tiers: _.map(system.tiers_by_name,
-                tier => tier_server.get_tier_info(tier, nodes_aggregate_pool)),
-            storage: size_utils.to_bigint_storage({
-                total: nodes_sys.total,
-                free: nodes_sys.free,
-                alloc: nodes_sys.alloc,
-                used: objects_sys.size,
-                real: blocks.size,
-            }),
-            nodes: {
-                count: nodes_sys.count || 0,
-                online: nodes_sys.online || 0,
-            },
-            access_keys: system.access_keys,
-            ssl_port: process.env.SSL_PORT,
-            web_port: process.env.PORT,
-            web_links: get_system_web_links(system),
-            n2n_config: n2n_config,
-            ip_address: ip_address,
-            dns_name: system.base_address,
-            base_address: system.base_address || 'wss://' + ip_address + ':' + process.env.SSL_PORT,
-            version: pkg.version,
-        };
 
-        if (system.base_address) {
-            response.dns_name = url.parse(system.base_address).hostname;
-        }
+                if (system.base_address) {
+                    response.dns_name = url.parse(system.base_address).hostname;
+                }
 
-        return response;
+                return response;
+            });
     });
 }
 

@@ -161,7 +161,7 @@ function delete_bucket(req) {
     });
     if (_.map(req.system.buckets_by_name).length === 1) { ///don't allow last bucket deletion
       throw new Error('Cannot delete last bucket');
-    }    
+    }
     return system_store.make_changes({
             remove: {
                 buckets: [bucket._id]
@@ -172,6 +172,7 @@ function delete_bucket(req) {
                 sysid: req.system._id.toString(),
                 bucketid: bucket._id.toString(),
                 force_stop: true,
+                bucket_deleted: true,
             }));
         })
         .return();

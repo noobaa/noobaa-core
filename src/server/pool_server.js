@@ -108,11 +108,18 @@ function read_pool(req) {
 function delete_pool(req) {
     dbg.log0('Deleting pool', req.rpc_params.name);
     var pool = find_pool_by_name(req);
-    return system_store.make_changes({
-        remove: {
-            pools: [pool._id]
-        }
-    }).return();
+    return validate_pool_deletion(req.system._id, pool._id)
+        .fail(function(err) {
+            dbg.log0('Failed on validate pool deletions with', err);
+            throw err;
+        })
+        .then(function() {
+            return system_store.make_changes({
+                remove: {
+                    pools: [pool._id]
+                }
+            });
+        }).return();
 }
 
 function assign_nodes_to_pool(system_id, pool_id, nodes_names) {
@@ -157,19 +164,24 @@ function remove_nodes_from_pool(req) {
 
 function get_associated_buckets(req) {
     var pool = find_pool_by_name(req);
-    var associated_buckets = _.filter(req.system.buckets_by_name, function(bucket) {
+    return get_associated_buckets_int(pool._id, req.system.buckets_by_name);
+}
+
+// UTILS //////////////////////////////////////////////////////////
+
+function get_associated_buckets_int(poolid, buckets_by_name) {
+    var associated_buckets = _.filter(buckets_by_name, function(bucket) {
         return _.find(bucket.tiering.tiers, function(tier_and_order) {
             return _.find(tier_and_order.tier.pools, function(pool2) {
-                return String(pool._id) === String(pool2._id);
+                return String(poolid) === String(pool2._id);
             });
         });
     });
+
     return _.map(associated_buckets, function(bucket) {
         return bucket.name;
     });
 }
-
-// UTILS //////////////////////////////////////////////////////////
 
 function find_pool_by_name(req) {
     var name = req.rpc_params.name;
@@ -196,4 +208,25 @@ function get_pool_info(pool, nodes_aggregate_pool) {
             used: n.used,
         })
     };
+}
+
+function validate_pool_deletion(sysid, poolid) {
+    return P.when(db.Node.collection.count({
+            system: sysid,
+            pool: poolid,
+            deleted: null
+        }))
+        .then(function(c) {
+            if (c) { //There are nodes till associated to this pool
+                throw new Error('Cannot delete pool with nodes associated to it');
+            }
+            var buckets = get_associated_buckets_int(poolid,
+                system_store.data.get_by_id(sysid).buckets_by_name); //Verify pool is not used by any bucket/tier
+
+            if (buckets.length) {
+                throw new Error('Cannot delete pool which is associated to buckets');
+            } else {
+                return;
+            }
+        });
 }

@@ -192,9 +192,11 @@ function find_pool_by_name(req) {
     return pool;
 }
 
-function get_pool_info(pool, nodes_aggregate_pool) {
+function get_pool_info(pool, nodes_aggregate_pool, extended_info) {
     var n = nodes_aggregate_pool[pool._id] || {};
-    return {
+    var info;
+
+    info = {
         name: pool.name,
         nodes: {
             count: n.count || 0,
@@ -208,9 +210,30 @@ function get_pool_info(pool, nodes_aggregate_pool) {
             used: n.used,
         })
     };
+
+    if (extended_info) {
+        if (pool.name === 'default_pool') {
+            info.deletions = {
+                can_be_deleted: false,
+                reason: 'SYSTEM',
+            };
+        } else {
+            return validate_pool_deletion(pool.system._id, pool._id, true)
+                .then(function(r) {
+                    if (r) {
+                        info.deletions = {
+                            can_be_deleted: false,
+                            reason: r,
+                        };
+                    }
+                    return info;
+                });
+        }
+    }
+    return P.resolve(info);
 }
 
-function validate_pool_deletion(sysid, poolid) {
+function validate_pool_deletion(sysid, poolid, reason) {
     return P.when(db.Node.collection.count({
             system: sysid,
             pool: poolid,
@@ -218,12 +241,18 @@ function validate_pool_deletion(sysid, poolid) {
         }))
         .then(function(c) {
             if (c) { //There are nodes till associated to this pool
+                if (reason) {
+                    return 'NOTEMPTY';
+                }
                 throw new Error('Cannot delete pool with nodes associated to it');
             }
             var buckets = get_associated_buckets_int(poolid,
                 system_store.data.get_by_id(sysid).buckets_by_name); //Verify pool is not used by any bucket/tier
 
             if (buckets.length) {
+                if (reason) {
+                    return 'ASSOCIATED';
+                }
                 throw new Error('Cannot delete pool which is associated to buckets');
             } else {
                 return;

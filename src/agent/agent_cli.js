@@ -362,7 +362,7 @@ AgentCLI.prototype.create_node_helper = function(current_node_path_info) {
  */
 AgentCLI.prototype.create = function(number_of_nodes) {
     var self = this;
-    //create root path last
+    //create root path last. First, create all other
     return P.all(_.map(_.drop(self.params.all_storage_paths, 1), function(current_storage_path) {
             return fs_utils.list_directory(current_storage_path.mount)
                 .then(function(files) {
@@ -375,6 +375,7 @@ AgentCLI.prototype.create = function(number_of_nodes) {
                 });
         }))
         .then(function() {
+            //create root folder
             if (self.params.all_storage_paths.length > 1) {
                 return fs_utils.list_directory(self.params.all_storage_paths[0].mount)
                     .then(function(files) {
@@ -386,7 +387,11 @@ AgentCLI.prototype.create = function(number_of_nodes) {
                         }
                     });
             } else {
-                return self.create_node_helper(self.params.all_storage_paths[0]);
+                if (number_of_nodes === 0) {
+                    return;
+                } else {
+                    return self.create_node_helper(self.params.all_storage_paths[0]);
+                }
             }
         })
         .then(null, function(err) {

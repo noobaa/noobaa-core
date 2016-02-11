@@ -184,7 +184,7 @@ function wmic_parse_list(text) {
 }
 
 function top_single(dst) {
-    var file_redirect = dst ? ' >& ' + dst : '';
+    var file_redirect = dst ? ' &> ' + dst : '';
     if (os.type() === 'Darwin') {
         return promise_utils.promised_exec('top -l 1' + file_redirect);
     } else if (os.type() === 'Linux') {
@@ -197,7 +197,7 @@ function top_single(dst) {
 }
 
 function netstat_single(dst) {
-    var file_redirect = dst ? ' >& ' + dst : '';
+    var file_redirect = dst ? ' &> ' + dst : '';
     if (os.type() === 'Darwin' || os.type() === 'Windows_NT') {
         return promise_utils.promised_exec('netstat -na' + file_redirect);
     } else if (os.type() === 'Linux') {

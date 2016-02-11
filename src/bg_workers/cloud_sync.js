@@ -129,7 +129,7 @@ function refresh_policy(req) {
         return (p.system._id.toString() === req.rpc_params.sysid &&
             p.bucket._id.toString() === req.rpc_params.bucketid.toString());
     });
-    if (!policy) {
+    if (!policy && !req.rpc_params.bucket_deleted) {
         dbg.log0('policy not found, loading it');
         return system_store.refresh().then(function() {
             load_single_policy(system_store.data.get_by_id(req.rpc_params.bucketid));

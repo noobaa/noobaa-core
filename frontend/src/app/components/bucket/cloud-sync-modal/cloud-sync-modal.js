@@ -1,72 +1,79 @@
-import template from './cloud-sync-modal.html';
+import template from './cloud-sync-modal.html'
 import ko from 'knockout';
-import { makeRange } from 'utils';
-import { /*awsCredentialsList,*/ awsBucketList } from 'model';
-import { loadCloudSyncPolicy, loadAccountAwsCredentials, loadAwsBucketList } from 'actions';
+import { cloudSyncInfo } from 'model';
+import { loadCloudSyncInfo } from 'actions';
 
-const  [ MINUTES, HOURS, DAYS ] = makeRange(3);
-const syncUnitsOptions = Object.freeze([
-     { value: MINUTES, label: 'Minutes' },
-     { value: HOURS, label: 'Hours' },
-     { value: DAYS, label: 'Days' }
-]);
+const minPerHour = 60;
+const minPerDay = minPerHour * 25;
 
-
-const [ BI, NB2AWS, AWS2NB ] = makeRange(3);
-const syncTypeOptions = Object.freeze([
-    { value: BI, label: 'Bi-Direcitonal' },
-    { value: NB2AWS, label: 'NooBaa to AWS' },
-    { value: AWS2NB, label: 'AWS to NooBaa' }
-]);
-
-
-let awsCredentialsList = ko.observableArray([
-    { access_key: 'AKIAJOP7ZFXOOPGL5BOA', secret_key: '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' },
-    { access_key: 'AKIAIKFRM4EAAO5TAXJA', secret_key: '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' }
-]);
+const syncStatusMapping = Object.freeze({
+    [undefined]:    { label: 'N/A',             css: ''               },
+    NOTSET:         { label: 'Not Set',         css: 'no-set'         },
+    UNSYNCED:       { label: 'Unsynced',        css: 'unsynced'       },
+    SYNCING:        { label: 'Syncing',         css: 'syncing'        },
+    PASUED:         { label: 'Paused',          css: 'paused'         },
+    SYNCED:         { label: 'Synced',          css: 'synced'         },
+    UNABLE:         { label: 'Unable To Sync',  css: 'unable-to-sync' }
+});
 
 class CloudSyncModalViewModel {
     constructor({ bucketName, onClose }) {
-        this.onClose = onClose;
         this.bucketName = bucketName;
+        this.onClose = onClose;
 
-        this.syncUnitsOptions = syncUnitsOptions;
-        this.syncTypeOptions = syncTypeOptions;
-        this.accessKeySuggestions = awsCredentialsList.map(
-            ({ access_key }) => access_key 
-        );
-        
-        this.accessKey = ko.observable();
-
-        let _secretKey = ko.observable(); 
-        this.secretKey = ko.pureComputed(
-            () => _secretKey() || awsCredentialsList().find(
-                ({ access_key }) => access_key === this.accessKey()
-            )  
+        let policy = ko.pureComputed( 
+            () => cloudSyncInfo() && cloudSyncInfo().policy
         );
 
-        this.awsBucketsOptions = ko.observableWithDefault(
-            () => awsBucketList() && awsBucketList().map(
-                bucketName => ({ value: bucketName })
-            )
+        this.syncStatus = ko.pureComputed(
+            () => syncStatusMapping[cloudSyncInfo() && cloudSyncInfo().status]
         );
 
-        this.awsBucket = ko.observable();
-        this.syncType = ko.observable(BI);
-        this.syncDeletions = ko.observable(false);
-        this.syncCycle = ko.observable(1);
-        this.syncCycleUnit = ko.observable(HOURS)
+        this.accessKey = ko.pureComputed(
+            () => policy() && policy().access_keys[0].access_key
+        );
 
-        loadCloudSyncPolicy(ko.unwrap(this.bucketName));
-        loadAccountAwsCredentials();
+        this.awsBucket = ko.pureComputed(
+            () => policy() && policy().endpoint
+        );
+
+        this.syncFrequency = ko.pureComputed(
+            () => {
+                if (!policy()) {
+                    return;
+                }
+
+                let schedule = policy().schedule;
+                let [ factor, unit ] = schedule >= minPerHour ? 
+                    (schedule >= minPerDay ? [ minPerDay, 'Days' ] : [ minPerHour, 'Hours' ]) :
+                    [ 1, 'Minutes' ];
+                    
+               return `Every ${Math.floor(policy().schedule / factor)} ${unit}`;
+            }
+        );
+
+        this.syncDirection = ko.pureComputed(
+            () => {
+                if (!policy()) {
+                    return;
+                }
+
+                let { n2c_enabled, c2n_enabled } = policy();
+                return n2c_enabled ? 
+                    (c2n_enabled ? 'Bi-Direcitonal' : 'AWS to NooBaa') :
+                    'NooBaa to AWS';
+            }
+        );
+
+        this.syncDeletions = ko.pureComputed(
+            () => policy() && !policy().additions_only
+        );
+
+        loadCloudSyncInfo(ko.unwrap(bucketName));
     }
 
-    cancel() {
-        this.onClose();
-    }
-
-    save() {
-        this.onClose();
+    close() {
+        this.onClose()
     }
 }
 

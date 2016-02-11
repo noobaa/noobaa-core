@@ -2,10 +2,17 @@ import template from './radio-group.html';
 import { randomString } from 'utils';
 
 class RadioGroupViewModel {
-    constructor({ selected, name = randomString(5), options, seperateLines = false }) {
+    constructor({ 
+            selected, 
+            name = randomString(5), 
+            options, 
+            seperateLines = false, 
+            disabled = false 
+    }) {
         this.name = name;
         this.selected = selected;
         this.options = options;
+        this.disabled = disabled;
         this.layoutClass = !!seperateLines ? 'block' : 'inline';
     }
 }

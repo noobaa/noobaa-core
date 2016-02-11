@@ -18,16 +18,12 @@
     <div class="container">
         <radio-group params="options: portOptions, selected: portType"></radio-group>
 
-        <label class="labeled-field" data-bind="visible: usingSinglePort">
-            Port Number:
-            <input class="field" type="number" min="0" data-bind="textInput: rangeMin"/>
-        </label>
+        <editor params="label: 'Port Number', visible: usingSinglePort">
+            <input type="number" min="0" data-bind="textInput: rangeMin"/>
+        </editor>
 
-        <label class="labeled-field" data-bind="
-            visible: usingPortRange, 
-            validationOptions: { insertMessages: false }
-        ">
-            Port Range:
+        <editor params="label: 'Port Range', visible: usingPortRange, insertValMessages: false">
+
             <input class="field" type="number" min="1" data-bind="textInput: rangeMin"/>
             -
             <input class="field" type="number" data-bind="
@@ -36,7 +32,7 @@
             "/>
 
             <div class="val-msg" data-bind="text: errorMessage"></div>
-        </label>    
+        </editor>
     </div>
 
     <div class="container">

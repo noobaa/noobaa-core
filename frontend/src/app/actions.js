@@ -776,11 +776,29 @@ export function loadTier(name) {
         .done();
 }
 
-export function loadCloudSyncPolicy(bucketName) {
-    logAction('loadCloudSyncPolicy', { bucketName });
+export function loadCloudSyncInfo(bucket) {
+    logAction('loadCloudSyncInfo', { bucket });
 
-    api.bucket.get_cloud_sync_policy({ name: bucketName })
+    api.bucket.get_cloud_sync_policy({ name: bucket })
         .then(model.cloudSyncInfo)
+        .done();
+}
+
+export function setCloudSyncPolicy(bucket, awsBucket, credentials, direction, frequency, sycDeletions) {
+    logAction('setCloudSyncPolicy', { bucket, awsBucket, credentials, direction, frequency, 
+        sycDeletions });
+
+    api.bucket.set_cloud_sync({
+        name: bucket,
+        policy: {
+            endpoint: awsBucket,
+            access_keys: [ credentials ],
+            c2n_enabled: direction === 'AWS2NB' || direction === 'BI',
+            n2c_enabled: direction === 'NB2AWS' || direction === 'BI',
+            schedule: frequency,
+            additions_only: !sycDeletions
+        }
+    })
         .done();
 }
 
@@ -789,8 +807,23 @@ export function loadAccountAwsCredentials() {
     logAction('loadAccountAwsCredentials');
     
     api.account.get_account_sync_credentials_cache()
-        .then(model.awsCredentialList)
+        .then(model.awsCredentialsList)
+        .then(
+            () => model.awsCredentialsList.push(
+                { access_key: 'AKIAJOP7ZFXOOPGL5BOA', secret_key: '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' },
+                { access_key: 'AKIAIKFRM4EAAO5TAXJA', secret_key: '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' }
+            )
+        )
         .done();
+}
+
+export function addAWSCredentials(accessKey, secretKey) {
+    logAction('addAWSCredentials', { accessKey, secretKey });
+
+    model.awsCredentialsList.push({
+        access_key: accessKey,
+        secret_key: secretKey
+    });
 }
 
 export function loadAwsBucketList(accessKey, secretKey) {

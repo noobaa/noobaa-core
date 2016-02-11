@@ -455,7 +455,6 @@ function collect_agent_diagnostics(req) {
 
 function set_debug_node(req) {
     var target = req.rpc_params.target;
-    dbg.log0('set_debug_node',req);
     return P.fcall(function() {
             return server_rpc.client.agent.set_debug_node({}, {
                 address: target,

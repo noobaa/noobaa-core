@@ -371,6 +371,7 @@ export function loadSystemInfo() {
                     version: reply.version,
                     endpoint: endpoint,
                     ipAddress: reply.ip_address,
+                    dnsName: reply.dns_name,
                     port: reply.web_port,
                     sslPort: reply.ssl_port,
                     accessKey: access_key,
@@ -855,7 +856,7 @@ export function createSystemAccount(systemName, email, password, dnsName) {
             () => {
                 if (dnsName) {
                     return api.system.update_base_address({
-                        base_address: dnsName
+                        base_address: `ws://${dnsName}:5001`
                     });
 
                 }
@@ -1174,10 +1175,10 @@ export function updateP2PSettings(minPort, maxPort) {
 }
 
 export function updateBaseAddress(baseAddress) {
-    logAction('updateDNSSettings', { useDNSResolution });
+    logAction('updateBaseSettings', { baseAddress });
 
     api.system.update_base_address({
-        base_address: baseAddress
+        base_address: `ws://${baseAddress}:5001`
     })
         .then(loadSystemInfo)
         .done();

@@ -1,5 +1,6 @@
 // this module is written for nodejs.
 'use strict';
+var net = require('net');
 
 //Set exports prior to requires to prevent circular dependency issues
 /**
@@ -253,13 +254,18 @@ function read_system(req) {
                     web_links: get_system_web_links(system),
                     n2n_config: n2n_config,
                     ip_address: ip_address,
-                    dns_name: system.base_address,
                     base_address: system.base_address || 'wss://' + ip_address + ':' + process.env.SSL_PORT,
                     version: pkg.version,
                 };
 
                 if (system.base_address) {
-                    response.dns_name = url.parse(system.base_address).hostname;
+                    let hostname = url.parse(system.base_address).hostname;
+
+                    if (net.isIPv4(hostname) || net.isIPv6(hostname)) {
+                        response.ip_address = hostname;
+                    } else {
+                        response.dns_name = hostname;
+                    }
                 }
 
                 return response;
@@ -614,7 +620,7 @@ function update_n2n_config(req) {
 
 function update_base_address(req) {
     dbg.log0('update_base_address', req.rpc_params);
-    return system_store.make_changes({
+    return system_store.make_change s({
             update: {
                 systems: [{
                     _id: req.system._id,

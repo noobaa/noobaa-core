@@ -15,6 +15,10 @@
         <svg-icon params="uri: trustIcon"></svg-icon>
         <span data-bind="text: trust"></span>
     </li>
+    <li title="debug level" class="debug-level">
+        <svg-icon params="uri: '/fe/assets/icons.svg#diagnose'"></svg-icon>
+        <span data-bind="text: debugLevel"></span>
+    </li>    
 </ul>
 
 <div class="text-center">
@@ -48,9 +52,9 @@
             Test Node
         </button>         
 
-        <button class="action btn3" data-bind="click: () => diagnose()">
-            <svg-icon params="uri: '/fe/assets/icons.svg#node-diagnose'"></svg-icon>
-            Diagnose
+        <button class="action btn3" data-bind="click: () => raiseDebugLevel()">
+            <svg-icon params="uri: '/fe/assets/icons.svg#diagnose'"></svg-icon>
+            Raise Debug Level
         </button> 
 
         <a class="action btn3" data-bind="click: () => downloadDiagnosticPack()" target="_blank">

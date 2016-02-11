@@ -653,6 +653,14 @@ input[type="search"] {
 .action-line {
     margin-top: 1.5em;
 
+    .btn2, .btn3, .link {
+        margin-right: .75em;
+
+        &:last-child {
+            margin-right: 0;
+        }
+    }
+
     .link {
         line-height: 2.6em;
         margin-right: .75em;
@@ -670,6 +678,11 @@ input[type="search"] {
         text-align: left;
         display: inline-block;
         width: 13em;
+
+        svg-icon {
+            margin-right: .5em;
+            fill: @white;
+        }
     }   
 }
 

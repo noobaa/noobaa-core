@@ -1,11 +1,7 @@
 <modal params="onClose: () => cancel()" class="text-left">
-    <h1 class="heading2">
-        Cloud Sync for <span data-bind="text: bucketName"></span>
+    <h1 class="heading2 container">
+        Set Cloud Sync Policy
     </h1>
-
-    <div class="container box text-center">
-        Cloud synchronization not set
-    </div>
 
     <section class="container">
         <editor params="label: 'AWS Access Key'">
@@ -16,7 +12,7 @@
             "></dropdown>
         </editor>
 
-        <editor params="label: 'AWS Bucket'">
+         <editor params="label: 'AWS Bucket'">
             <dropdown class="aws-bucket s" params="
                 placeholder: 'Choose Bucket',
                 disabled: !awsBucketsOptions(),
@@ -25,7 +21,7 @@
             "></dropdown>
         </editor>
 
-        <editor params="label: 'Sync Bucket Every'">
+<!--        <editor params="label: 'Sync Bucket Every'">
             <input type="Number" data-bind="value: frequency, enable: awsBucket"/>
             <dropdown params="
                 selected: frequencyUnit, 
@@ -47,7 +43,7 @@
             checked: syncDeletions,
             disabled: !awsBucket()
         "></checkbox>
-    </section>
+    </section> -->
 
     <div class="action-line pull-right">
         <button class="action link" data-bind="click: cancel">Cancel</button>
@@ -55,8 +51,8 @@
     </div>
 </modal> 
 
-<!-- ko if: isAWSCredentialsModalVisible -->
-<aws-credentials-modal params="
+<!-- ko1 if: isAWSCredentialsModalVisible -->
+<!-- <aws-credentials-modal params="
     onClose: () => isAWSCredentialsModalVisible(false)
-"></aws-credentials-modal>
-<!-- /ko -->
+"></aws-credentials-modal> -->
+<!-- /ko1 -->

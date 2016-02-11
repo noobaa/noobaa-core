@@ -55,9 +55,14 @@ class BucketSummrayViewModel {
             () => bucket() && bucket().tiering
         );
 
+        this.hasCloudSyncPolicy = ko.pureComputed(
+            () => bucket() && bucket().cloud_sync_status !== 'NOTSET'
+        );
+
         this.isPolicyModalVisible = ko.observable(false);
         this.isUploadFilesModalVisible = ko.observable(false);
-        this.isCloudSyncModalVisible = ko.observable(false);
+        this.isSetCloudSyncModalVisible = ko.observable(false);
+        this.isViewCloudSyncModalVisible = ko.observable(false);
     }
 }
 

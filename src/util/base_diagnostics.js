@@ -55,7 +55,7 @@ function write_agent_diag_file(data) {
 
 function pack_diagnostics(dst) {
     return P.fcall(function() {
-            return promise_utils.promised_exec('tar -zcvf ' + dst + ' ' + TMP_WORK_DIR + '/*');
+            return promise_utils.promised_exec('tar -zcvf --warning=no-file-changed ' + dst + ' ' + TMP_WORK_DIR + '/*');
         })
         .then(function() {
             return archive_diagnostics_pack(dst);

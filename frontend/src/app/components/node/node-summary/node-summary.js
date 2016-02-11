@@ -1,7 +1,7 @@
 import template from './node-summary.html';
 import ko from 'knockout';
 import moment from 'moment';
-import { startDebugCollection, downloadDiagnosticPack } from 'actions';
+import { raiseNodeDebugLevel, downloadDiagnosticPack } from 'actions';
 import { formatSize } from 'utils';
 import style from 'style';
 
@@ -38,6 +38,10 @@ class NodeSummaryViewModel {
 
         this.trust = ko.pureComputed(
             () => node().trusted ? 'Trusted' : 'Untrusted'
+        );
+
+        this.debugLevel = ko.pureComputed(
+            () => node().debug_level === 0 ? 'Low' : 'High'
         );
 
         this.total = ko.pureComputed(
@@ -85,8 +89,8 @@ class NodeSummaryViewModel {
         this.isTestModalVisible = ko.observable(false);
     }
 
-    diagnose() {
-        startDebugCollection(this.name());
+    raiseDebugLevel() {
+        raiseNodeDebugLevel(this.name());
     }
 
     downloadDiagnosticPack() {

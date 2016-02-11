@@ -35,9 +35,7 @@ class AuditPaneViewModel {
             pos => pos > .9 && loadMoreAuditEntries(pageSize)
         );
 
-        if (!auditLog.loadedCategories()) {
-            this.selectedCategories(Object.keys(categories))
-        }
+        this.selectedCategories(Object.keys(categories))
     }
 
     selectAllCategories() {

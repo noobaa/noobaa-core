@@ -9,12 +9,7 @@ class MultiSelectViewModel {
                 { value: ko.unwrap(option),  label: option.toString() } 
         );
 
-        // Allows the ko checked binding to recognize that we are dealing with
-        // mulipule selection event if the value of selected is null or undefined.
-        this.selected = ko.pureComputed({
-            read: () => selected() || [],
-            write: selected
-        });
+        this.selected = selected;
     }
 }
 

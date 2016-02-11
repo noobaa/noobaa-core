@@ -662,7 +662,12 @@ export function loadNodeInfo(nodeName) {
     }
 
     api.node.read_node({ name: nodeName })
-        .then(model.nodeInfo)
+        .then(
+            // TODO: remove assign after implementing trusted in the server.
+            nodeInfo => model.nodeInfo(
+                Object.assign(nodeInfo, { trusted: true })
+            )
+        )
         .done();
 }
 
@@ -1265,28 +1270,17 @@ export function downloadDiagnosticPack(nodeName) {
         .done();
 }
 
-export function startDebugCollection(nodeName) {
-    logAction('startDebugCollection', { nodeName });
+export function raiseNodeDebugLevel(node) {
+    logAction('raiseNodeDebugLevel', { node });
 
-    api.node.read_node({ name: nodeName })
+    api.node.read_node({ name: node })
         .then(
-            node => api.node.set_debug_node({ target: node.rpc_address })
+            node => api.node.set_debug_node({ 
+                target: node.rpc_address 
+            })
         )
         .then(
-            () => {
-                model.debugCollectionInfo({
-                    targetName: nodeName,
-                    timeLeft: 5 * 60
-                });
-
-                (function countdown() {
-                    let timeLeft = model.debugCollectionInfo().timeLeft;
-                    if ( timeLeft > 0) {
-                        
-                        model.debugCollectionInfo.assign({ timeLeft: --timeLeft });
-                        setTimeout(countdown, 1000);
-                    }
-                })();
-            }
-        );
+            () => loadNodeInfo(node)
+        )
+        .done();
 }

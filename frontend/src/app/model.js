@@ -97,7 +97,7 @@ export let recentUploads = ko.observableArray();
 
 // Hold the audit log 
 export let auditLog = ko.observableArray();
-auditLog.loadedCategories = ko.observable();
+auditLog.loadedCategories = ko.observableArray();
 
 // Hold the current account list
 export let accountList = ko.observableArray();

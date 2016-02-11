@@ -659,9 +659,12 @@ function update_base_address(req) {
 }
 
 function update_hostname(req) {
-    // Helper function used to solve missing infromation on the client (SSL_PORT) 
+    // Helper function used to solve missing infromation on the client (SSL_PORT)
     // during create system process
+    let undef;
     req.rpc_params.base_address = 'wss://' + req.rpc_params.hostname + ':' + process.env.SSL_PORT;
+    req.rpc_params.hostname = undef;
+
     return update_base_address(req);
 }
 

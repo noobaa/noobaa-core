@@ -272,8 +272,8 @@ function list_nodes_int(system_id, query, skip, limit, pagination, sort, order, 
                 sort_opt[sort] = sort_order;
             }
 
-            if (query.pool) { //Keep last in chain due to promise
-                var pools_ids = _.map(query.pool, function(pool_name) {
+            if (query.pools) { //Keep last in chain due to promise
+                var pools_ids = _.map(query.pools, function(pool_name) {
                     var pool = req.system.pools_by_name[pool_name];
                     return pool._id;
                 });

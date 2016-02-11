@@ -1,8 +1,8 @@
 import template from './server-dns-form.html';
 import ko from 'knockout';
 import { systemInfo } from 'model';
-import { makeRange, isDefined } from 'utils';
-import { updateBaseAddress } from 'actions';
+import { makeRange } from 'utils';
+import { updateHostname } from 'actions';
 
 const [ IP, DNS ] = makeRange(2); 
 const addressOptions = [
@@ -16,7 +16,7 @@ class ServerDNSFormViewModel {
         this.addressOptions = addressOptions;
 
         this.addressType = ko.observableWithDefault(
-            () => systemInfo() && (isDefined(systemInfo().dnsName) ? DNS : IP)
+            () => systemInfo() && (!systemInfo().dnsName ? IP : DNS)
         );
 
         this.usingIP = this.addressType.is(IP);
@@ -51,7 +51,7 @@ class ServerDNSFormViewModel {
             this.errors.showAllMessages();
 
         } else {
-            updateBaseAddress(this.baseAddress());
+            updateHostname(this.baseAddress(), systemInfo().sslPort, true);
         }
     }
 }

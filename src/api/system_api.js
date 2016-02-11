@@ -286,7 +286,7 @@ module.exports = {
             }
         },
 
-        update_base_address: {
+        update_base_address: {  
             method: 'POST',
             params: {
                 type: 'object',
@@ -311,8 +311,26 @@ module.exports = {
                 system: 'admin',
             }
         },
-    },
 
+        update_hostname: {  
+            method: 'POST',
+            params: {
+                type: 'object',
+                required: ['hostname'],
+                properties: {
+                    hostname: {
+                        type: 'string'
+                    }
+                }
+            },
+            reply: {
+                $ref: '#/definitions/system_nodes_update_reply'
+            },
+            auth: {
+                system: 'admin',
+            }
+        },        
+    },
 
     definitions: {
 

@@ -1,6 +1,5 @@
 // this module is written for nodejs.
 'use strict';
-var net = require('net');
 
 //Set exports prior to requires to prevent circular dependency issues
 /**
@@ -31,6 +30,7 @@ var system_server = {
 
     update_n2n_config: update_n2n_config,
     update_base_address: update_base_address,
+    update_hostname: update_hostname,
     update_system_certificate: update_system_certificate,
 };
 
@@ -55,6 +55,7 @@ var size_utils = require('../util/size_utils');
 var promise_utils = require('../util/promise_utils');
 var dbg = require('../util/debug_module')(__filename);
 var pkg = require('../../package.json');
+var net = require('net');
 
 
 function new_system_defaults(name, owner_account_id) {
@@ -620,7 +621,7 @@ function update_n2n_config(req) {
 
 function update_base_address(req) {
     dbg.log0('update_base_address', req.rpc_params);
-    return system_store.make_change s({
+    return system_store.make_changes({
             update: {
                 systems: [{
                     _id: req.system._id,
@@ -655,6 +656,13 @@ function update_base_address(req) {
                 })
                 .return(reply);
         });
+}
+
+function update_hostname(req) {
+    // Helper function used to solve missing infromation on the client (SSL_PORT) 
+    // during create system process
+    req.rpc_params.base_address = 'wss://' + req.rpc_params.hostname + ':' + process.env.SSL_PORT;
+    return update_base_address(req);
 }
 
 function update_system_certificate(req) {

@@ -855,10 +855,9 @@ export function createSystemAccount(systemName, email, password, dnsName) {
         .then(
             () => {
                 if (dnsName) {
-                    return api.system.update_base_address({
-                        base_address: `ws://${dnsName}:5001`
+                    return api.system.update_hostname({ 
+                        hostname: dnsName 
                     });
-
                 }
             }
         )
@@ -1174,12 +1173,10 @@ export function updateP2PSettings(minPort, maxPort) {
         .done();
 }
 
-export function updateBaseAddress(baseAddress) {
-    logAction('updateBaseSettings', { baseAddress });
+export function updateHostname(hostname) {
+    logAction('updateHostname', { hostname });
 
-    api.system.update_base_address({
-        base_address: `ws://${baseAddress}:5001`
-    })
+    api.system.update_hostname({ hostname })
         .then(loadSystemInfo)
         .done();
 }

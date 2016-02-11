@@ -14,24 +14,33 @@
             Free: 
             <span class="emphasized" data-bind="text: freeText"></span>
         </li>
-    </ul>        
+    </ul>
 </section>
 
 <quantity-gauge params="values: gaugeValues"></quantity-gauge>
 
 <section class="action-list">
     <button class="action btn2" data-bind="click: () => isUploadFilesModalVisible(true)">
-        <svg-icon params="uri: '/fe/assets/icons.svg#upload'"></svg-icon>        
+        <svg-icon params="uri: '/fe/assets/icons.svg#upload'"></svg-icon>
         Upload File
     </button>
 
-    <button class="action btn3" data-bind="click: () => isCloudSyncModalVisible(true)">
-        <svg-icon params="uri: '/fe/assets/icons.svg#cloud'"></svg-icon>        
+    <!-- ko if: hasCloudSyncPolicy -->
+    <button class="action btn3" data-bind="click: () => isViewCloudSyncModalVisible(true)">
+        <svg-icon params="uri: '/fe/assets/icons.svg#cloud'"></svg-icon>
+        View Cloud Sync
+    </button>
+    <!-- /ko -->
+
+    <!-- ko ifnot: hasCloudSyncPolicy -->
+    <button class="action btn3" data-bind="click: () => isSetCloudSyncModalVisible(true)">
+        <svg-icon params="uri: '/fe/assets/icons.svg#cloud'"></svg-icon>
         Set Cloud Sync
     </button>
+    <!-- /ko -->
 
     <button class="action btn3" data-bind="click: () => isPolicyModalVisible(true)">
-        <svg-icon params="uri: '/fe/assets/icons.svg#policy'"></svg-icon>        
+        <svg-icon params="uri: '/fe/assets/icons.svg#policy'"></svg-icon>
         Edit Policy
     </button>
 </section>
@@ -43,17 +52,24 @@
 "></bucket-policy-modal>
 <!-- /ko -->        
 
-<!-- ko if:isUploadFilesModalVisible -->
+<!-- ko if: isUploadFilesModalVisible -->
 <upload-files-modal params="
     bucketName: name, 
     onClose: () => isUploadFilesModalVisible(false)
 "></upload-files-modal>
 <!-- /ko -->    
 
-<!-- ko if:isCloudSyncModalVisible -->
+<!-- ko if: isSetCloudSyncModalVisible -->
+<set-cloud-sync-modal params="
+    bucketName: name, 
+    onClose: () => isSetCloudSyncModalVisible(false)
+"></set-cloud-sync-modal>
+<!-- /ko -->  
+
+<!-- ko if: isViewCloudSyncModalVisible -->
 <cloud-sync-modal params="
     bucketName: name, 
-    onClose: () => isCloudSyncModalVisible(false)
+    onClose: () => isViewCloudSyncModalVisible(false)
 "></cloud-sync-modal>
 <!-- /ko -->    
 

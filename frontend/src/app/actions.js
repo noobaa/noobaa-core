@@ -180,7 +180,7 @@ export function showObject() {
             { href: 'fe/systems/:system' },
             { href: 'buckets', label: 'BUCKETS' },
             { href: ':bucket', label: bucket },
-            { href: '/objects/:object', label: object }
+            { href: 'objects/:object', label: object }
         ],          
         panel: 'object',
         tab: tab
@@ -245,7 +245,7 @@ export function showNode() {
             { href: 'fe/systems/:system' },
             { href: 'pools', label: 'POOLS' },
             { href: ':pool', label: pool },
-            { href: '/nodes/:node', label: node }
+            { href: 'nodes/:node', label: node }
         ],
         panel: 'node',
         tab: tab
@@ -1286,7 +1286,7 @@ export function startDebugCollection(nodeName) {
                         model.debugCollectionInfo.assign({ timeLeft: --timeLeft });
                         setTimeout(countdown, 1000);
                     }
-                })();           
+                })();
             }
         );
 }

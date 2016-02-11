@@ -28,7 +28,7 @@ export function isDefined(value) {
 
 export function toCammelCase(str) {
     return str.replace(/-\w/g, match => match[1].toUpperCase());
-}
+}   
 
 export function toDashedCase(str) {
     return str.replace(/[A-Z]+/g, match => `-${match.toLowerCase()}`);
@@ -162,7 +162,7 @@ export function copyTextToClipboard(text) {
 export function downloadFile(url) {
     let body = window.document.body;
 
-    let link = window.document.createElement(url);
+    let link = window.document.createElement('a');
     link.download = '';
     link.href = url;
     body.appendChild(link);

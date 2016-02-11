@@ -3,7 +3,11 @@ import numeral from 'numeral';
 import { formatSize } from 'utils';
 import { deletePool } from 'actions';
 
-let defaultPoolName = 'default_pool';
+const cannotDeleteReasons = Object.freeze({
+    NOTEMPTY: 'Cannot delete pool with nodes',
+    SYSTEM : 'Cannot delete system defined pool',
+    ASSOCIATED: 'Cannot delete a pool that assigned to a bucket policy'
+});
 
 export default class PoolRowViewModel {
     constructor(pool, deleteCandidate) {
@@ -41,22 +45,16 @@ export default class PoolRowViewModel {
             () => pool() && (pool().storage ? formatSize(pool().storage.total) : 'N/A')
         );
 
-        let hasNodes = ko.pureComputed(
-            () => pool() && pool().nodes.count > 0
+        this.canBeDeleted = ko.pureComputed(
+            () => pool() && pool().deletions.can_be_deleted
         );
 
-        let isDefaultPool = ko.pureComputed(
-            () => this.name() === defaultPoolName
-        )
-
-        this.isDeletable = ko.pureComputed(
-            () => !isDefaultPool() && !hasNodes()
-        );
-
-        this.deleteToolTip = ko.pureComputed( 
-            () => isDefaultPool() ? 
-                'cannot delete default pool' :
-                (hasNodes() ? 'pool has nodes' : 'delete pool')
+        this.deleteToolTip = ko.pureComputed(
+            () => pool() && (
+                this.canBeDeleted() ? 
+                    'delete pool' : 
+                    cannotDeleteReasons[pool().deletions.reason]
+            )
         );
     }
 

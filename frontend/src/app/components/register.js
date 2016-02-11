@@ -48,6 +48,7 @@ export default function register(ko) {
     ko.components.register('bucket-policy-modal',   require('./bucket/bucket-policy-modal/bucket-policy-modal'));
     ko.components.register('upload-files-modal',    require('./bucket/upload-files-modal/upload-files-modal'));
     ko.components.register('cloud-sync-modal',      require('./bucket/cloud-sync-modal/cloud-sync-modal'));
+    ko.components.register('set-cloud-sync-modal',  require('./bucket/set-cloud-sync-modal/set-cloud-sync-modal'));
     ko.components.register('aws-credentials-modal', require('./bucket/aws-credentials-modal/aws-credentials-modal'));
 
     // -------------------------------

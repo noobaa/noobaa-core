@@ -217,7 +217,7 @@ function get_cloud_sync_policy(req, bucket) {
                     access_keys: [bucket.cloud_sync.access_keys],
                     schedule: bucket.cloud_sync.schedule_min,
                     last_sync: (new Date(bucket.cloud_sync.last_sync)).getTime(),
-                    paused: bucket.cloud_sync.paused,
+                    paused: bucket.cloud_sync.paused || false,
                     c2n_enabled: bucket.cloud_sync.c2n_enabled,
                     n2c_enabled: bucket.cloud_sync.n2c_enabled,
                     additions_only: bucket.cloud_sync.additions_only

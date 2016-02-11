@@ -1,37 +1,39 @@
 <h2 class="heading3">Select nodes to be moved to the pool</h2>
 <div class="table-wrapper box">
-	<div class="data-table">
-		<table>
-			<thead>
-				<tr>
-					<th class="name-col text-left">name</th>
-					<th class="ip-col">ip</th>
-					<th class="capacity-col">capacity</th>
-					<th class="pool-col">pool</th>
-				</tr>
-			</thead>
-			<tbody data-bind="
-				foreach: rows, 
-				validationOptions: { insertMessages: false }
-			">
-				<!-- ko if: isVisible -->
-				<tr>
-					<td class="name-col text-left">
-						<checkbox params="
-							value: name, 
-							checked: $parent.selectedNodes
-						"></checkbox>
-					</td>
+    <div class="data-table">
+        <table>
+            <thead>
+                <tr>
+                    <th class="name-col text-left">name</th>
+                    <th class="ip-col">ip</th>
+                    <th class="capacity-col">capacity</th>
+                    <th class="pool-col">pool</th>
+                </tr>
+            </thead>
+            <tbody data-bind="
+                foreach: rows, 
+                validationOptions: { insertMessages: false }
+            ">
+                <!-- ko if: isVisible -->
+                <tr>
+                    <td class="name-col text-left">
+                        <checkbox params="
+                            value: name, 
+                            checked: $parent.selectedNodes
+                        "></checkbox>
+                    </td>
 
-					<td class="ip-col" data-bind="text: ip"></td>
-					
-					<td class="capacity-col" data-bind="text: capacity"></td>
+                    <td class="ip-col" data-bind="text: ip"></td>
+                    
+                    <td class="capacity-col" data-bind="text: capacity"></td>
 
-					<td class="pool-col no-wrap" data-bind="text: currPool, attr: { title: currPool }">
-					</td>
-				</tr>
-				<!-- /ko -->
-			</tbody>
-		</table>
-	</div>
+                    <td class="pool-col no-wrap" data-bind="
+                        text: currPool, 
+                        attr: { title: currPool }
+                    "></td>
+                </tr>
+                <!-- /ko -->
+            </tbody>
+        </table>
+    </div>
 </div>

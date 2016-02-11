@@ -1,36 +1,36 @@
 <!-- ko if: dataReady -->
 <ul class="status-line">
-	<li>
-		<svg-icon params="uri: '/fe/assets/icons.svg#object-size'"></svg-icon>
-		<span data-bind="text: size"></span>
-	</li>
-	<li>
-		<svg-icon params="uri: '/fe/assets/icons.svg#part-dark'"></svg-icon>
-		<span data-bind="text: partsCount"></span>
-	</li>
-</ul>		
+    <li>
+        <svg-icon params="uri: '/fe/assets/icons.svg#object-size'"></svg-icon>
+        <span data-bind="text: size"></span>
+    </li>
+    <li>
+        <svg-icon params="uri: '/fe/assets/icons.svg#part-dark'"></svg-icon>
+        <span data-bind="text: partsCount"></span>
+    </li>
+</ul>        
 
 <section class="text-left">
-	<h3 class="heading3 underline">Weekly File Reads</h3>
+    <h3 class="heading3 underline">Weekly File Reads</h3>
 </section>
 
 <needle-gauge params="value: reads, threshold: 500, scale: 1.5"></needle-gauge>
 
 <section class="action-list text-right">
-	<button class="action btn2" data-bind="click: () => isPreviewModalVisible(true)">
-		<svg-icon params="uri: '/fe/assets/icons.svg#preview'"></svg-icon>
-		Preview
-	</button>
-	<a class="action btn3" data-bind="href: s3Url" download>
-		<svg-icon params="uri: '/fe/assets/icons.svg#download'"></svg-icon>
-		Download
-	</a>
+    <button class="action btn2" data-bind="click: () => isPreviewModalVisible(true)">
+        <svg-icon params="uri: '/fe/assets/icons.svg#preview'"></svg-icon>
+        Preview
+    </button>
+    <a class="action btn3" data-bind="href: s3Url" download>
+        <svg-icon params="uri: '/fe/assets/icons.svg#download'"></svg-icon>
+        Download
+    </a>
 </section>
 <!-- /ko -->
 
 <!-- ko if: isPreviewModalVisible -->
 <object-preview-modal params="
-	onClose: () => isPreviewModalVisible(false), 
-	uri: s3Url
+    onClose: () => isPreviewModalVisible(false), 
+    uri: s3Url
 "></object-preview-modal>
 <!-- /ko -->

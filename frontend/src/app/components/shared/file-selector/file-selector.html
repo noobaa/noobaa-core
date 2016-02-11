@@ -1,23 +1,21 @@
 <div class="drop-area text-center" data-bind="
-		css: { dragover: !!dragCounter() },
-		event: { 
-			dragenter: dragEnter,
-			dragleave: dragLeave,
-			dragover: () => false,
-			drop: (_, evt) => drop(evt.dataTransfer.files)
-		}
-	">
-
-	<p class="drop-message paragraph" data-bind="text: message"></p>
-	
-	<div class="method-seperator">OR</div>
-	
-	<label class="browse-btn btn3">
-		Browse
-
-		<input type="file" data-bind="
-			attr: { multiple: allowMultiSelect },
-			event: { change: (_, evt) => select(evt.target.files) }
-		"/>
-	</label>
+        css: { dragover: !!dragCounter() },
+        event: { 
+            dragenter: dragEnter,
+            dragleave: dragLeave,
+            dragover: () => false,
+            drop: (_, evt) => drop(evt.dataTransfer.files)
+        }
+    ">
+    <p class="drop-message paragraph" data-bind="text: message"></p>
+    
+    <div class="method-seperator">OR</div>
+    
+    <label class="browse-btn btn3">
+        Browse
+        <input type="file" data-bind="
+            attr: { multiple: allowMultiSelect },
+            event: { change: (_, evt) => select(evt.target.files) }
+        "/>
+    </label>
 </div>

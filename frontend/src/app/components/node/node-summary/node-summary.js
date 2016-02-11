@@ -1,88 +1,100 @@
 import template from './node-summary.html';
 import ko from 'knockout';
 import moment from 'moment';
+import { startDebugCollection, downloadDiagnosticPack } from 'actions';
 import { formatSize } from 'utils';
 import style from 'style';
 
 class NodeSummaryViewModel {
-	constructor({ node }) {
-		
-		this.dataReady = ko.pureComputed(
-			() => !!node()
-		);
+    constructor({ node }) {
+        
+        this.dataReady = ko.pureComputed(
+            () => !!node()
+        );
 
-		this.ip = ko.pureComputed(
-			() => node().ip
-		);
+        this.name = ko.pureComputed(
+            () => node().name
+        );
 
-		this.stateIcon = ko.pureComputed(
-			() => `/fe/assets/icons.svg#node-${node().online ? 'online' : 'offline'}`
-		)
+        this.ip = ko.pureComputed(
+            () => node().ip
+        );
 
-		this.state = ko.pureComputed(
-			() => node().online ? 'Online' : 'Offline'
-		);
+        this.stateIcon = ko.pureComputed(
+            () => `/fe/assets/icons.svg#node-${node().online ? 'online' : 'offline'}`
+        )
 
-		this.heartbeat = ko.pureComputed(
-			() => moment(node().heartbeat).fromNow()
-		);
+        this.state = ko.pureComputed(
+            () => node().online ? 'Online' : 'Offline'
+        );
 
-		this.trustIcon = ko.pureComputed(
-			() => `/fe/assets/icons.svg#${node().trusted ? 'trusted' : 'untrusted'}`
-		);
+        this.heartbeat = ko.pureComputed(
+            () => moment(node().heartbeat).fromNow()
+        );
 
-		this.trust = ko.pureComputed(
-			() => node().trusted ? 'Trusted' : 'Untrusted'
-		);
+        this.trustIcon = ko.pureComputed(
+            () => `/fe/assets/icons.svg#${node().trusted ? 'trusted' : 'untrusted'}`
+        );
 
-		this.total = ko.pureComputed(
-			() => node().storage.total
-		);
+        this.trust = ko.pureComputed(
+            () => node().trusted ? 'Trusted' : 'Untrusted'
+        );
 
-		this.totalText = ko.pureComputed(
-			() => formatSize(this.total())
-		);		
+        this.total = ko.pureComputed(
+            () => node().storage.total
+        );
 
-		this.used = ko.pureComputed(
-			() => node().storage.used
-		);
+        this.totalText = ko.pureComputed(
+            () => formatSize(this.total())
+        );      
 
-		this.usedText = ko.pureComputed(
-			() => formatSize(this.used())
-		);		
+        this.used = ko.pureComputed(
+            () => node().storage.used
+        );
 
-		this.free = ko.pureComputed(
-			() => node().storage.free
-		);		
+        this.usedText = ko.pureComputed(
+            () => formatSize(this.used())
+        );      
 
-		this.freeText = ko.pureComputed(
-			() => formatSize(this.free())
-		);
+        this.free = ko.pureComputed(
+            () => node().storage.free
+        );      
 
-		this.os = ko.pureComputed(
-			() => this.total() - (this.used() + this.free())
-		);		
+        this.freeText = ko.pureComputed(
+            () => formatSize(this.free())
+        );
 
-		this.osText = ko.pureComputed(
-			() => formatSize(this.os())
-		);		
+        this.os = ko.pureComputed(
+            () => this.total() - (this.used() + this.free())
+        );      
 
-		this.gaugeValues = [
-			{ value: this.used, color: style['text-color6'], emphasize: true },
-			{ value: this.os, color: style['text-color2'] },
-			{ value: this.free, color: style['text-color5'] }
-		]
+        this.osText = ko.pureComputed(
+            () => formatSize(this.os())
+        );      
 
-		this.rpcAddress = ko.pureComputed(
-			() => !!node() && node().rpc_address
-		);
+        this.gaugeValues = [
+            { value: this.used, color: style['text-color6'], emphasize: true },
+            { value: this.os, color: style['text-color2'] },
+            { value: this.free, color: style['text-color5'] }
+        ]
 
-		this.isTestModalVisible = ko.observable(false);
-		this.isDiagnoseModalVisible = ko.observable(false);		
-	}		
+        this.rpcAddress = ko.pureComputed(
+            () => !!node() && node().rpc_address
+        );
+
+        this.isTestModalVisible = ko.observable(false);
+    }
+
+    diagnose() {
+        startDebugCollection(this.name());
+    }
+
+    downloadDiagnosticPack() {
+        downloadDiagnosticPack(this.name());
+    }
 }
 
 export default {
-	viewModel: NodeSummaryViewModel,
-	template: template
+    viewModel: NodeSummaryViewModel,
+    template: template
 }

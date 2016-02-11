@@ -1,0 +1,82 @@
+<modal params="onClose: () => cancel()" class="text-left">
+    <h1 class="heading2">
+        Cloud Sync for <span data-bind="text: bucketName"></span>
+    </h1>
+
+    <div class="container box text-center">
+        Cloud synchronization not set
+    </div>
+
+    <section class="container">
+        <h2 class="heading3">AWS Credentials</h2>
+        
+        <!-- ko ifnot: newCredentialsFieldsVisible -->
+        <div>
+            <span class="field-name">Access Key:</span>
+            <dropdown class="aws-keys" params="
+                placeholder: 'Choose Key', 
+                options: credentialOptions,
+                selected: selectedCredentials
+            "></dropdown>
+        </div>
+        <!-- /ko -->
+
+        <!-- ko if: newCredentialsFieldsVisible -->
+        <form class="new-credentials-form box clear" data-bind="submit: useNewCredentials">
+            <label>
+                <span class="field-name">Access Key: </span>
+                <input type="text" placeholder="Enter Key"  data-bind="
+                    value: newAccessKey,
+                    hasFocus: () => newCredentialsFieldsVisible()
+                "/>
+            </label>
+
+            <label>
+                <span class="field-name">Secret Key: </span>
+                <input type="password" placeholder="Enter Secret" data-bind="value: newSecretKey" />
+            </label>
+
+            <div class="action-line pull-right">
+                <button class="action link" data-bind="click: () => cancelNewCredentials()">Cancel</button>
+                <button class="action btn3">Save</button>
+            </div>
+        </form>
+        <!-- /ko -->
+    </section>
+
+    <section class="container">
+        <h2 class="heading3">Sync settings</h2>
+        
+        <div>
+            <span class="field-name">AWS Bucket: </span>
+            <dropdown class="aws-buckets" params="
+                placeholder: 'Choose Bucket',
+                disabled: true,
+                options: awsBucketsOptions
+            "></dropdown>           
+        </div>              
+
+        <div class="sync-dir line">
+            Sync Type:  
+            
+            <radio-group params="selected: syncType, options: syncTypeOptions"></radio-group>
+        </div>
+        <checkbox class="line" params="
+            label: 'Synchronize File Deletions', 
+            checked: syncDeletions
+        "></checkbox>
+
+        <div class="line">
+            Sync Bucket Every:
+
+            <input type="Number" data-bind="value: syncCycle"/>
+
+            <dropdown params="selected: syncCycleUnit, options: syncUnitsOptions"></dropdown>
+        </div>
+    </section>
+
+    <div class="action-line pull-right">
+        <button class="action link" data-bind="click: cancel">Cancel</button>
+        <button class="action btn2" data-bind="click: save">Save</button>
+    </div>    
+</modal> 

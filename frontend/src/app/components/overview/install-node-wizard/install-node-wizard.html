@@ -1,19 +1,19 @@
 <!-- ko if: dataReady -->
 <wizard params="
-	heading: 'Install Node', 
-	steps: ['download', 'run', 'review'],
-	onClose: onClose
+    heading: 'Install Node', 
+    steps: ['download', 'run', 'review'],
+    onClose: onClose
 ">
-	<section class="download-step text-center" data-bind="
-		template: { html: downloadStepTemplate }
-	"></section>
-	
-	<section class="run-step" data-bind="
-		template: { html: runStepTemplate }
-	"></section>
-	
-	<section class="review-step" data-bind="
-		template: { html: reviewStepTemplate }
-	"></section>
+    <section class="download-step text-center" data-bind="
+        template: { html: downloadStepTemplate }
+    "></section>
+    
+    <section class="run-step" data-bind="
+        template: { html: runStepTemplate }
+    "></section>
+    
+    <section class="review-step" data-bind="
+        template: { html: reviewStepTemplate }
+    "></section>
 </wizard>
 <!-- /ko -->

@@ -1,80 +1,80 @@
 stepper {
-	display: block;
-	text-align: center; 
-	margin: 1em 0; 	
-	line-height: 2em;	
+    display: block;
+    text-align: center; 
+    margin: 1em 0;     
+    line-height: 2em;    
 
-	> ol {
-		.list-no-style();
-		counter-reset: step;
-	}
+    > ol {
+        .list-no-style();
+        counter-reset: step;
+    }
 
-	.stepper-step {
-		counter-increment: step;
-		display: inline-block;
-		text-transform: uppercase;		 			
-		font-size: @font-size-small;
+    .stepper-step {
+        counter-increment: step;
+        display: inline-block;
+        text-transform: uppercase;                     
+        font-size: @font-size-small;
 
-		.bullet {
-			position: relative;
-			display: inline-block;
-			width: 2em;
-			height: 2em;
-			line-height: 2em;
-			margin-right: .5em;			
-			vertical-align: middle;
+        .bullet {
+            position: relative;
+            display: inline-block;
+            width: 2em;
+            height: 2em;
+            line-height: 2em;
+            margin-right: .5em;            
+            vertical-align: middle;
 
-			&::before, &::after {
-				position: absolute;
-				top: 0;
-				left: 0;
-				width: 100%;
-				height: 100%;
-				border-radius: 1em;		
-				background-color: @bg-color4;
-				font-weight: @font-weight-medium;
-				transition: transform 500ms linear, background-color 500ms;						
-				backface-visibility: hidden;				
-			}
+            &::before, &::after {
+                position: absolute;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                border-radius: 1em;        
+                background-color: @bg-color4;
+                font-weight: @font-weight-medium;
+                transition: transform 500ms linear, background-color 500ms;                        
+                backface-visibility: hidden;                
+            }
 
-			&::before {		
-				content: counter(step);
-				transform: rotateY(180deg);
-			}
+            &::before {        
+                content: counter(step);
+                transform: rotateY(180deg);
+            }
 
-			&::after {
-				//transform: rotateY(180deg);						
-				content: url('/fe/assets/step-done.png');				
-			}	
-		}
+            &::after {
+                //transform: rotateY(180deg);                        
+                content: url('/fe/assets/step-done.png');                
+            }    
+        }
 
-		&:not(:last-child)::after {
-			content: '';
-			display: inline-block;
-			height: 0;
-			width: 2em;
-			border-top: 1px solid @bg-color4;
-			vertical-align: middle;
-			margin: 0 .5em;
-		}	
+        &:not(:last-child)::after {
+            content: '';
+            display: inline-block;
+            height: 0;
+            width: 2em;
+            border-top: 1px solid @bg-color4;
+            vertical-align: middle;
+            margin: 0 .5em;
+        }    
 
-		&.selected {
-			color: @text-color1;
+        &.selected {
+            color: @text-color1;
 
-			.bullet::before {
-				background-color: @bg-color11;
-			}
+            .bullet::before {
+                background-color: @bg-color11;
+            }
 
-			.bullet, & ~ .stepper-step .bullet {
-				&::before {
-					transform: rotateY(0deg);
-				}
+            .bullet, & ~ .stepper-step .bullet {
+                &::before {
+                    transform: rotateY(0deg);
+                }
 
-				&::after {
-					transform: rotateY(180deg);
-				}
-			}
-		}
+                &::after {
+                    transform: rotateY(180deg);
+                }
+            }
+        }
 
-	}
+    }
 }

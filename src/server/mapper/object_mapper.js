@@ -759,6 +759,7 @@ function get_part_info(params) {
                             health: chunk_status.chunk_health
                         };
                     }
+
                     if (params.part.part_sequence_number) {
                         p.part_sequence_number = params.part.part_sequence_number;
                     }

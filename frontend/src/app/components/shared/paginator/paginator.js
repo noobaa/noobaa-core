@@ -2,60 +2,60 @@ import template from './paginator.html';
 import ko from 'knockout';
 
 class PaginatorViewModel {
-	constructor({ itemCount, pageSize, page }) {
-		this.page = page;
+    constructor({ itemCount, pageSize, page }) {
+        this.page = page;
 
-		this.count = ko.pureComputed(
-			() => ko.unwrap(itemCount)
-		);	
+        this.count = ko.pureComputed(
+            () => ko.unwrap(itemCount)
+        );    
 
-		this.noResults = ko.pureComputed(
-			() => this.count() === 0
-		);
+        this.noResults = ko.pureComputed(
+            () => this.count() === 0
+        );
 
-		this.pageStart = ko.pureComputed(
-			() => this.page() * pageSize + 1
-		);
+        this.pageStart = ko.pureComputed(
+            () => this.page() * pageSize + 1
+        );
 
-		this.pageEnd = ko.pureComputed(
-			() => Math.min(this.pageStart() + pageSize - 1, this.count())
-		);
+        this.pageEnd = ko.pureComputed(
+            () => Math.min(this.pageStart() + pageSize - 1, this.count())
+        );
 
-		this.isFirstPage = ko.pureComputed(
-			() => this.page() === 0
-		);
+        this.isFirstPage = ko.pureComputed(
+            () => this.page() === 0
+        );
 
-		this.isLastPage = ko.pureComputed(
-			() => (this.page() + 1) * pageSize >= this.count()
-		);		
+        this.isLastPage = ko.pureComputed(
+            () => (this.page() + 1) * pageSize >= this.count()
+        );        
 
-		this.backwardIcon = ko.pureComputed(
-			() => `/fe/assets/icons.svg#backward${
-				this.isFirstPage() ? '-disabled' : '' 
-			}`
-		);
+        this.backwardIcon = ko.pureComputed(
+            () => `/fe/assets/icons.svg#backward${
+                this.isFirstPage() ? '-disabled' : '' 
+            }`
+        );
 
-		this.forwardIcon = ko.pureComputed(
-			() => `/fe/assets/icons.svg#forward${
-				this.isLastPage() ? '-disabled' : '' 
-			}`
-		);
-	}
+        this.forwardIcon = ko.pureComputed(
+            () => `/fe/assets/icons.svg#forward${
+                this.isLastPage() ? '-disabled' : '' 
+            }`
+        );
+    }
 
-	pageForward() {
-		if (!this.isLastPage()) {
-			this.page(this.page() + 1);
-		} 
-	}
+    pageForward() {
+        if (!this.isLastPage()) {
+            this.page(this.page() + 1);
+        } 
+    }
 
-	pageBackward() {
-		if (!this.isFirstPage()) {
-			this.page(this.page() - 1);	
-		}
-	}
+    pageBackward() {
+        if (!this.isFirstPage()) {
+            this.page(this.page() - 1);    
+        }
+    }
 }
 
 export default {
-	viewModel: PaginatorViewModel,
-	template: template
+    viewModel: PaginatorViewModel,
+    template: template
 }

@@ -1,0 +1,33 @@
+autocomplete {
+    position: relative;
+    display: inline-block;
+    margin-right: .1em;
+    margin-bottom: .5em;
+
+    .suggestions {
+        display: block;
+        position: absolute;
+        width: 100%;
+        background-color: @bg-color5;
+        margin-top: -1px;
+        padding: 2px;
+        z-index: 1;
+        box-shadow: 1px 1px 1px @bg-color2;
+
+        > li {
+            color: @text-color1;
+            padding: 0 .5em;
+            height: 2em;
+            line-height: 2;
+
+            &:hover {
+                background-color: @bg-color4;
+            }
+        }
+    }
+
+    input[type="text"] {
+        margin: 0;
+    }
+    
+}

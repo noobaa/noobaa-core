@@ -2,7 +2,7 @@ import ko from 'knockout';
 
 // Hold the current ui state.
 export let uiState = ko.observable({
-	layout: 'empty'
+    layout: 'empty'
 });
 
 // Hold a refresh counter that allows view models to act when it
@@ -14,7 +14,7 @@ export let routeContext = ko.observable();
 
 // Hold login state information.
 export let loginInfo = ko.observable({
-	retryCount: 0
+    retryCount: 0
 });
 
 // Hold current session information.
@@ -51,6 +51,11 @@ bucketObjectList.page = ko.observable(0);
 // Hold the current tier information.
 export let tierInfo = ko.observable();
 
+// Hold the current cloud sync information.
+export let cloudSyncInfo = ko.observable();
+export let awsCredentialsList = ko.observableArray();
+export let awsBucketList = ko.observableArray();
+
 // Hold the current pool list. derived from system info.
 export let poolList = ko.observableArray();
 poolList.sortedBy = ko.observable('name');
@@ -60,8 +65,7 @@ poolList.order = ko.observable(1);
 export let poolInfo = ko.observable();
 
 // Hold a list of all the nodes in the system.
-export let nodeList = ko.observableArray();
-
+export let nodeList = ko.observableArray(null);
 
 // Hold the current pool node list.
 export let poolNodeList = ko.observableArray();
@@ -104,3 +108,6 @@ nodeTestResults.timestemp = ko.observable();
 
 // hold system upgrade status.
 export let upgradeStatus = ko.observable();
+
+// Hold debug collection info.
+export let debugCollectionInfo = ko.observable();

@@ -1,15 +1,15 @@
 <div class="buckets-panel">
-	<div class="clear">
-		<button class="pull-right btn add-bucket-btn" 
-			data-bind="click: () => isCreateBucketWizardVisible(true)">
-			create bucket
-		</button>
-	</div>
+    <div class="clear">
+        <button class="pull-right btn add-bucket-btn" 
+            data-bind="click: () => isCreateBucketWizardVisible(true)">
+            create bucket
+        </button>
+    </div>
 
-	<buckets-table params="buckets: buckets"></buckets-table>
+    <buckets-table params="buckets: buckets"></buckets-table>
 
-	<!-- ko if: isCreateBucketWizardVisible -->
-	<create-bucket-wizard params="onClose: () => isCreateBucketWizardVisible(false)">
-	</create-bucket-wizard>
-	<!-- /ko -->
+    <!-- ko if: isCreateBucketWizardVisible -->
+    <create-bucket-wizard params="onClose: () => isCreateBucketWizardVisible(false)">
+    </create-bucket-wizard>
+    <!-- /ko -->
 </div>

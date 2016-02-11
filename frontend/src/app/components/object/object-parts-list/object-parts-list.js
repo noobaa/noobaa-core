@@ -5,25 +5,25 @@ import { paginationPageSize } from 'config';
 import { redirectTo } from 'actions';
 
 class ObjectPartsListViewModel {
-	constructor({ parts }) {
-		this.pageSize = paginationPageSize;
-		this.count = parts.count;
-		
-		this.page = ko.pureComputed({
-			read: parts.page,
-			write: page => redirectTo(undefined, { page })
-		});
+    constructor({ parts }) {
+        this.pageSize = paginationPageSize;
+        this.count = parts.count;
+        
+        this.page = ko.pureComputed({
+            read: parts.page,
+            write: page => redirectTo(undefined, { page })
+        });
 
-		this.rows = parts.map(
-			(part, i) => {
-				let partNumber = this.page() * this.pageSize + i();
-				return new ObjectPartRowViewModel(part, partNumber, this.count());
-			}
-		);
-	}
+        this.rows = parts.map(
+            (part, i) => {
+                let partNumber = this.page() * this.pageSize + i();
+                return new ObjectPartRowViewModel(part, partNumber, this.count());
+            }
+        );
+    }
 }
 
 export default {
-	viewModel: ObjectPartsListViewModel,
-	template: template
+    viewModel: ObjectPartsListViewModel,
+    template: template
 }

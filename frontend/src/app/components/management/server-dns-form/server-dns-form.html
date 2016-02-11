@@ -1,77 +1,73 @@
-<button class="btn-flat pull-right rotate no-outline" data-bind="
-	css: { 'deg-180': expanded },
-	click: () => expanded.toggle()
-">
-	<svg-icon params="uri: '/fe/assets/icons.svg#expand'" ></svg-icon>
-</button>
-
-<h2 class="heading2">Server DNS Address</h2>
+<h2 class="heading2" data-bind="click: () => expanded.toggle()">
+    <button class="btn-flat pull-right rotate no-outline" data-bind="css: { 'deg-180': expanded }">
+        <svg-icon class="expand-icon" params="uri: '/fe/assets/icons.svg#expand'" ></svg-icon>
+    </button>
+    Server DNS Address
+</h2>
 
 <p class="summary" data-bind="visible: !expanded()">
-	Server Address: 
-	<output class="text-tech emphasized" data-bind="text: baseAddress"></output>
+    Server Address: 
+    <output class="text-tech emphasized" data-bind="text: baseAddress"></output>
 </p>
 
-<div data-bind="expand: expanded">	
-	<p class="container">
-		Domain Name System: The Internet's system for converting alphabetic names into numeric 
-		addresses.	
-	</p>
+<div data-bind="expand: expanded">    
+    <p class="container">
+        Domain Name System: The Internet's system for converting alphabetic names into numeric 
+        addresses.    
+    </p>
 
-	<div class="container">
-		<radio-group params="selected: addressType, options: addressOptions"></radio-group>
+    <div class="container">
+        <radio-group params="selected: addressType, options: addressOptions"></radio-group>
 
-		<label class="labeled-field" data-bind="visible: usingIP">
-			IP Addresss:
-			<output class="field" type="text" data-bind="value: ipAddress"></output>
-		</label>
+        <editor params="label: 'IP Address', visible: usingIP">
+            <output type="text" data-bind="value: ipAddress"></output>
+        </editor>
 
-		<label class="labeled-field"data-bind="visible: usingDNS">
-			DNS Name:
-			<input class="field" type="text" data-bind="textInput: dnsName" />
-		</label>
-	</div>
+        <editor params="label: 'DNS Name', visible: usingDNS">
+            <input type="text" data-bind="textInput: dnsName" />
+        </editor>
+    </div>
 
-	<div class="container" data-bind="
-		visible: usingDNS, 
-		validationOptions: { insertMessages: false }
-	">
-		<p class="emphasized">
-			Before you apply changes, add the following entry to your DNS:
-		<p>
+    <div class="container" data-bind="
+        visible: usingDNS, 
+        validationOptions: { insertMessages: false }
+    ">
+        <p class="emphasized">
+            Before you apply changes, add the following entry to your DNS:
+        <p>
 
-		<div class="box config">
-			<span>
-				IP:
-				<output class="text-tech emphasized" data-bind="value: ipAddress"></output>
-			</span>
-			
-			<span>
-				Name:
-				<output class="text-tech emphasized" data-bind="value: dnsName"></output>
-			</span>
-		</div>
-	</div>	
+        <div class="box config">
+            <span>
+                IP:
+                <output class="text-tech emphasized" data-bind="value: ipAddress"></output>
+            </span>
+            
+            <span>
+                Name:
+                <output class="text-tech emphasized" data-bind="value: dnsName"></output>
+            </span>
+        </div>
+    </div>    
 
-	<div class="container">
-		Changing DNS name procedure: 
-		
-		<ol class="remark bullet-list">
-			<li>Add the new name in your DNS to have both old and new names avaliable</li>
-			<li>Apply the changes in the forms above</li>
-			<li>Once all nodes are updated with the new name, the old name can be removed from the DNS</li>
-		</ol>
-		
-		<p class="remark">
-			In any case, reinstalling a node (from the install node wizard) will update the server address used by that node.
-			<br>
-			note: make sure that the server IP was configured Static and not DHCP, otherwise if the IP will suddenly change, the nodes will lose connectivity.
-		</p>
-	</div>
+    <div class="container">
+        Changing DNS name procedure: 
+        
+        <ol class="remark bullet-list">
+            <li>Add the new name in your DNS to have both old and new names avaliable</li>
+            <li>Apply the changes in the forms above</li>
+            <li>Once all nodes are updated with the new name, the old name can be removed from the DNS</li>
+        </ol>
+        
+        <p class="remark">
+            In any case, reinstalling a node (from the install node wizard) will update the server address used by that node.
+            <br>
+            note: make sure that the server IP was configured Static and not DHCP, otherwise if the IP will suddenly change, the nodes will lose connectivity.
+        </p>
+    </div>
 
-	<div class="container text-right">
-		<button class="btn2" data-bind="click: applyChanges">
-			Apply Changes
-		</button>		
-	</div>
+    <div class="container text-right">
+        <button class="btn2" data-bind="click: applyChanges">
+            Apply Changes
+        </button>        
+    </div>
 </div>

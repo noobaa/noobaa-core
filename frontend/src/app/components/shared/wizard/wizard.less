@@ -1,26 +1,26 @@
 wizard {
-	.modal-content {
-		overflow: hidden;	
-	}
+    .modal-content {
+        overflow: hidden;    
+    }
 
-	.steps {
-		.no-wrap();
-		display: block;
-		margin-top : 2em;
-		overflow: visible;
-		transition: transform 500ms;
+    .steps {
+        .no-wrap();
+        display: block;
+        margin-top : 2em;
+        overflow: visible;
+        transition: transform 500ms;
 
-		> .step {
-			vertical-align: top;
-			white-space: normal;
-			width: 100%;
-			display: inline-block;
-			opacity: 0;
-			transition: opacity 450ms;
+        > .step {
+            vertical-align: top;
+            white-space: normal;
+            width: 100%;
+            display: inline-block;
+            opacity: 0;
+            transition: opacity 450ms;
 
-			&.current {
-				opacity: 1;
-			}
-		}
-	}		
+            &.current {
+                opacity: 1;
+            }
+        }
+    }        
 }

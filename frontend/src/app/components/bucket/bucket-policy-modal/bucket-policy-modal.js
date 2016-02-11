@@ -5,59 +5,59 @@ import { poolList, tierInfo } from 'model';
 import { loadPoolList, loadTier, updateTier } from 'actions';
 
 class BucketPolicyModalViewModel {
-	constructor({ policy, onClose = noop }) {
-		this.onClose = onClose;
+    constructor({ policy, onClose = noop }) {
+        this.onClose = onClose;
 
-		this.tierName = ko.pureComputed(
-			() => policy().tiers[0].tier
-		);
+        this.tierName = ko.pureComputed(
+            () => policy().tiers[0].tier
+        );
 
-		this.dataReady = ko.pureComputed(
-			() => !!tierInfo()
-		);
+        this.dataReady = ko.pureComputed(
+            () => !!tierInfo()
+        );
 
-		this.dataPlacement = ko.observableWithDefault(
-			() => !!tierInfo() && tierInfo().data_placement
-		);
+        this.dataPlacement = ko.observableWithDefault(
+            () => !!tierInfo() && tierInfo().data_placement
+        );
 
-		this.selectedPools = ko.observableWithDefault(
-			() => !!tierInfo() && tierInfo().pools
-		);
+        this.selectedPools = ko.observableWithDefault(
+            () => !!tierInfo() && tierInfo().pools
+        );
 
-		this.pools = poolList.map(
-			pool => pool.name
-		);
+        this.pools = poolList.map(
+            pool => pool.name
+        );
 
-		loadTier(this.tierName());
-		loadPoolList();
-	}
+        loadTier(this.tierName());
+        loadPoolList();
+    }
 
-	selectAllPools() {
-		this.selectedPools(
-			Array.from(this.pools())
-		);
-	}
+    selectAllPools() {
+        this.selectedPools(
+            Array.from(this.pools())
+        );
+    }
 
-	clearAllPools() {
-		this.selectedPools([]);
-	}
+    clearAllPools() {
+        this.selectedPools([]);
+    }
 
-	save() {
-		updateTier(
-			this.tierName(),
-			this.dataPlacement(),
-			this.selectedPools()
-		);
+    save() {
+        updateTier(
+            this.tierName(),
+            this.dataPlacement(),
+            this.selectedPools()
+        );
 
-		this.onClose();
-	}
+        this.onClose();
+    }
 
-	cancel() {
-		this.onClose();
-	}
+    cancel() {
+        this.onClose();
+    }
 }
 
 export default {
-	viewModel: BucketPolicyModalViewModel,
-	template: template
+    viewModel: BucketPolicyModalViewModel,
+    template: template
 }

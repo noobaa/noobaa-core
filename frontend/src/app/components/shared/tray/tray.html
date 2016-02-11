@@ -1,9 +1,9 @@
 <div data-bind="css: stateClass">
-	<!-- ko if: !!content() -->
-	<div class="tray-backdrop" data-bind="click: close"></div>
+    <!-- ko if: !!content() -->
+    <div class="tray-backdrop" data-bind="click: close"></div>
 
-	<div class="tray-content" data-bind="with: content, transition: { end: updateMemory }">
-		<div data-bind="component: { name: componentName, data: $data.componentData  }"></div>
-	</div>
-	<!-- /ko -->	
+    <div class="tray-content" data-bind="with: content, transition: { end: updateMemory }">
+        <div data-bind="component: { name: componentName, data: $data.componentData  }"></div>
+    </div>
+    <!-- /ko -->    
 </div>

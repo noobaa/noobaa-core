@@ -22,6 +22,10 @@ class BucketObjectsTableViewModel {
             write: throttle(phrase => this.filterObjects(phrase), 750)
         });
 
+        this.hasObjects = ko.pureComputed(
+            () => objects().length > 0
+        );
+
         this.rows = makeArray(
             this.pageSize,
             i => new ObjectRowViewModel(

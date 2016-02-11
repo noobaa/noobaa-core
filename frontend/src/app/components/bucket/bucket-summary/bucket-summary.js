@@ -57,7 +57,7 @@ class BucketSummrayViewModel {
 
         this.isPolicyModalVisible = ko.observable(false);
         this.isUploadFilesModalVisible = ko.observable(false);
-        this.isCloudSyncModalVisible = ko.observable(true);
+        this.isCloudSyncModalVisible = ko.observable(false);
     }
 }
 

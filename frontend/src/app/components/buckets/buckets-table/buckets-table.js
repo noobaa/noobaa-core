@@ -10,7 +10,10 @@ class BucketsTableViewModel {
     constructor({ buckets }) {
         let rows = makeArray(
             maxRows, 
-            i => new BucketRowViewModel(() => buckets()[i])
+            i => new BucketRowViewModel(
+                () => buckets()[i], 
+                () => buckets().length === 1
+            )
         );
 
         this.sortedBy = buckets.sortedBy;

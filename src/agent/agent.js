@@ -730,12 +730,16 @@ Agent.prototype.collect_diagnostics = function(req) {
         .then(function() {
             return diag.pack_diagnostics(inner_path);
         })
+        .fail(function(err) {
+            dbg.error('DIAGNOSTICS COLLECTION FAILED', err.stack || err);
+            throw new Error('Agent Collect Diag Error on collecting diagnostics');
+        })
         .then(function() {
             dbg.log1('Reading packed file');
             return fs.readFileAsync(inner_path)
                 .then(function(data) {
                     return {
-                        data: data,
+                        data: new Buffer(data),
                     };
                 })
                 .then(null, function(err) {

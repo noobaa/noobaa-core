@@ -1,0 +1,62 @@
+<modal params="onClose: () => cancel()" class="text-left">
+    <h1 class="heading2">
+        Cloud Sync for <span data-bind="text: bucketName"></span>
+    </h1>
+
+    <div class="container box text-center">
+        Cloud synchronization not set
+    </div>
+
+    <section class="container">
+        <editor params="label: 'AWS Access Key'">
+            <dropdown class="aws-buckets" params="
+                placeholder: 'Choose Access Key',
+                options: accessKeyOptions,
+                selected: accessKey
+            "></dropdown>
+        </editor>
+
+        <editor params="label: 'AWS Bucket'">
+            <dropdown class="aws-bucket s" params="
+                placeholder: 'Choose Bucket',
+                disabled: !awsBucketsOptions(),
+                options: awsBucketsOptions,
+                selected: awsBucket
+            "></dropdown>
+        </editor>
+
+        <editor params="label: 'Sync Bucket Every'">
+            <input type="Number" data-bind="value: frequency, enable: awsBucket"/>
+            <dropdown params="
+                selected: frequencyUnit, 
+                options: frequencyUnitOptions, 
+                disabled: !awsBucket()
+            "></dropdown>
+        </editor>
+
+        <editor params="label: 'Sync Type'">
+            <radio-group params="
+                selected: direction, 
+                options: directionOptions, 
+                disabled: !awsBucket()
+            "></radio-group>
+        </editor>
+        
+        <checkbox params="
+            label: 'Synchronize File Deletions', 
+            checked: syncDeletions,
+            disabled: !awsBucket()
+        "></checkbox>
+    </section>
+
+    <div class="action-line pull-right">
+        <button class="action link" data-bind="click: cancel">Cancel</button>
+        <button class="action btn2" data-bind="click: save">Save</button>
+    </div>
+</modal> 
+
+<!-- ko if: isAWSCredentialsModalVisible -->
+<aws-credentials-modal params="
+    onClose: () => isAWSCredentialsModalVisible(false)
+"></aws-credentials-modal>
+<!-- /ko -->

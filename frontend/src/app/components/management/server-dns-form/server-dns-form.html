@@ -19,15 +19,13 @@
     <div class="container">
         <radio-group params="selected: addressType, options: addressOptions"></radio-group>
 
-        <label class="labeled-field" data-bind="visible: usingIP">
-            IP Addresss:
-            <output class="field" type="text" data-bind="value: ipAddress"></output>
-        </label>
+        <editor params="label: 'IP Address', visible: usingIP">
+            <output type="text" data-bind="value: ipAddress"></output>
+        </editor>
 
-        <label class="labeled-field"data-bind="visible: usingDNS">
-            DNS Name:
-            <input class="field" type="text" data-bind="textInput: dnsName" />
-        </label>
+        <editor params="label: 'DNS Name', visible: usingDNS">
+            <input type="text" data-bind="textInput: dnsName" />
+        </editor>
     </div>
 
     <div class="container" data-bind="

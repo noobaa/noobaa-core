@@ -53,7 +53,7 @@ export let tierInfo = ko.observable();
 
 // Hold the current cloud sync information.
 export let cloudSyncInfo = ko.observable();
-export let awsCredentialList = ko.observableArray();
+export let awsCredentialsList = ko.observableArray();
 export let awsBucketList = ko.observableArray();
 
 // Hold the current pool list. derived from system info.
@@ -65,7 +65,7 @@ poolList.order = ko.observable(1);
 export let poolInfo = ko.observable();
 
 // Hold a list of all the nodes in the system.
-export let nodeList = ko.observableArray();
+export let nodeList = ko.observableArray(null);
 
 // Hold the current pool node list.
 export let poolNodeList = ko.observableArray();

@@ -21,6 +21,7 @@ dropdown {
         }
 
         &.disabled {
+            color: @text-color5;
             fill: @text-color5;
 
             .value {
@@ -60,12 +61,17 @@ dropdown {
     .options {
         position: absolute;
         width: 100%;
-        min-height: 2em;
         background-color: @bg-color5;
-        padding: 2px;
+        padding: .25em;
         margin-top: -1px;
         z-index: 1;
         box-shadow: 1px 1px 1px @bg-color2;
+
+        > ul {
+            min-height: 2em;
+            max-height: 17em;
+            overflow-y: auto;
+        }
     }
 
     .seperator {

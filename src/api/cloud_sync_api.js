@@ -57,6 +57,9 @@ module.exports = {
                     force_stop: {
                         type: 'boolean'
                     },
+                    bucket_deleted: {
+                        type: 'boolean'
+                    }
                 }
             },
             auth: {

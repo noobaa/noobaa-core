@@ -11,8 +11,8 @@ const outlineColor = style['gray-lv5'];
 
 const overflowWidth = 19;
 const overflowMargin = 3;
-const overflowOutlineColor = style['red-dark'];
-const overflowBarColor = style['red-dark'];
+const overflowOutlineColor = style['gray-lv5'];
+const overflowBarColor = style['blue-dark'];
 
 const needleBaseRadius = 10;
 const needleThickness = lineWidth;

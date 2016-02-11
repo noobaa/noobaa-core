@@ -9,10 +9,10 @@ export default function register(ko) {
     // -------------------------------
     // Layout
     // -------------------------------
-    ko.components.register('main-layout',   require('./layout/main-layout/main-layout'));   
+    ko.components.register('main-layout',       require('./layout/main-layout/main-layout'));   
     ko.components.register('main-header',       require('./layout/main-header/main-header'));
-    ko.components.register('commands-bar',  require('./layout/commands-bar/commands-bar'));
-    ko.components.register('breadcrumbs',   require('./layout/breadcrumbs/breadcrumbs'));
+    ko.components.register('commands-bar',      require('./layout/commands-bar/commands-bar'));
+    ko.components.register('breadcrumbs',       require('./layout/breadcrumbs/breadcrumbs'));
     ko.components.register('debug-status-bar',  require('./layout/debug-status-bar/debug-status-bar'));
     
     // -------------------------------
@@ -37,40 +37,41 @@ export default function register(ko) {
     // -------------------------------
     ko.components.register('buckets-panel',         require('./buckets/buckets-panel/buckets-panel'));
     ko.components.register('buckets-table',         require('./buckets/buckets-table/buckets-table'));
-    ko.components.register('create-bucket-wizard',    require('./buckets/create-bucket-wizard/create-bucket-wizard'));
+    ko.components.register('create-bucket-wizard',  require('./buckets/create-bucket-wizard/create-bucket-wizard'));
 
     // -------------------------------
     // Bucket
     // -------------------------------
-    ko.components.register('bucket-panel',             require('./bucket/bucket-panel/bucket-panel'));
-    ko.components.register('bucket-summary',         require('./bucket/bucket-summary/bucket-summary'));
-    ko.components.register('bucket-objects-table',    require('./bucket/bucket-objects-table/bucket-objects-table'));
-    ko.components.register('bucket-policy-modal',    require('./bucket/bucket-policy-modal/bucket-policy-modal'));
+    ko.components.register('bucket-panel',          require('./bucket/bucket-panel/bucket-panel'));
+    ko.components.register('bucket-summary',        require('./bucket/bucket-summary/bucket-summary'));
+    ko.components.register('bucket-objects-table',  require('./bucket/bucket-objects-table/bucket-objects-table'));
+    ko.components.register('bucket-policy-modal',   require('./bucket/bucket-policy-modal/bucket-policy-modal'));
     ko.components.register('upload-files-modal',    require('./bucket/upload-files-modal/upload-files-modal'));
-    ko.components.register('cloud-sync-modal',        require('./bucket/cloud-sync-modal/cloud-sync-modal'));
+    ko.components.register('cloud-sync-modal',      require('./bucket/cloud-sync-modal/cloud-sync-modal'));
+    ko.components.register('aws-credentials-modal', require('./bucket/aws-credentials-modal/aws-credentials-modal'));
 
     // -------------------------------
     // Object
     // -------------------------------
-    ko.components.register('object-panel',             require('./object/object-panel/object-panel'));
-    ko.components.register('object-summary',         require('./object/object-summary/object-summary'));
-    ko.components.register('object-parts-list',        require('./object/object-parts-list/object-parts-list'));    
-    ko.components.register('object-preview-modal',    require('./object/object-preview-modal/object-preview-modal'));        
+    ko.components.register('object-panel',          require('./object/object-panel/object-panel'));
+    ko.components.register('object-summary',        require('./object/object-summary/object-summary'));
+    ko.components.register('object-parts-list',     require('./object/object-parts-list/object-parts-list'));    
+    ko.components.register('object-preview-modal',  require('./object/object-preview-modal/object-preview-modal'));        
 
     // -------------------------------
     // Pools
     // -------------------------------
-    ko.components.register('pools-panel',             require('./pools/pools-panel/pools-panel'));
-    ko.components.register('pools-table',             require('./pools/pools-table/pools-table'));
-    ko.components.register('create-pool-wizard',     require('./pools/create-pool-wizard/create-pool-wizard'));
+    ko.components.register('pools-panel',           require('./pools/pools-panel/pools-panel'));
+    ko.components.register('pools-table',           require('./pools/pools-table/pools-table'));
+    ko.components.register('create-pool-wizard',    require('./pools/create-pool-wizard/create-pool-wizard'));
 
     // -------------------------------
     // Pool
     // -------------------------------
-    ko.components.register('pool-panel',         require('./pool/pool-panel/pool-panel'));
-    ko.components.register('pool-summary',         require('./pool/pool-summary/pool-summary'));
-    ko.components.register('pool-nodes-table',     require('./pool/pool-nodes-table/pool-nodes-table'));
-    ko.components.register('assign-nodes-modal',     require('./pool/assign-nodes-modal/assign-nodes-modal'));
+    ko.components.register('pool-panel',            require('./pool/pool-panel/pool-panel'));
+    ko.components.register('pool-summary',          require('./pool/pool-summary/pool-summary'));
+    ko.components.register('pool-nodes-table',      require('./pool/pool-nodes-table/pool-nodes-table'));
+    ko.components.register('assign-nodes-modal',    require('./pool/assign-nodes-modal/assign-nodes-modal'));
 
     // -------------------------------
     // Node
@@ -123,4 +124,5 @@ export default function register(ko) {
     ko.components.register('delete-button',     require('./shared/delete-button/delete-button'));
     ko.components.register('file-selector',     require('./shared/file-selector/file-selector'));
     ko.components.register('autocomplete',      require('./shared/autocomplete/autocomplete'));
+    ko.components.register('editor',            require('./shared/editor/editor'));
 }

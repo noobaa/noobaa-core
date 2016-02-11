@@ -1,63 +1,43 @@
-<modal params="onClose: () => cancel()" class="text-left">
-    <h1 class="heading2">
-        Cloud Sync for <span data-bind="text: bucketName"></span>
+<modal params="onClose: () => close()">
+    <h1 class="heading2 container">
+        Cloud Sync Policy
     </h1>
 
-    <div class="container box text-center">
-        Cloud synchronization not set
-    </div>
+    <section class="container box">
+        <editor params="label: 'AWS Access Key'">
+            <span class="emphasized" data-bind="text: accessKey"></span>
+        </editor>
 
-    <section class="container">
-        <h2 class="heading3">AWS Credentials</h2>
-        
-        <label>
-            <span class="field-name">Access Key: </span>
-            <autocomplete params="
-                value: accessKey,
-                placeholder: 'Enter Access Key', 
-                suggestions: accessKeySuggestions
-            "></autocomplete>
-        </label>
+        <editor params="label: 'AWS Bucket'">
+            <span class="emphasized" data-bind="text: awsBucket"></span>
+        </editor>
 
-        <label>
-            <span class="field-name">Secret Key: </span>
-            <input type="password" placeholder="Enter Secret" data-bind="value: secretKey" />
-        </label>
-    </section>
+        <editor params="label: 'NooBaa Bucket'">
+            <span class="emphasized" data-bind="text: bucketName"></span>
+        </editor>        
 
-    <section class="container">
-        <h2 class="heading3">Sync settings</h2>
-        
-        <div>
-            <span class="field-name">AWS Bucket: </span>
-            <dropdown class="aws-buckets" params="
-                placeholder: 'Choose Bucket',
-                disabled: true,
-                options: awsBucketsOptions
-            "></dropdown>           
-        </div>              
+        <editor params="label: 'Sync Status'">
+            <span class="emphasized" data-bind="
+                css: syncStatus().css,
+                text: syncStatus().label
+            "></span>
+        </editor>
 
-        <div class="sync-dir line">
-            Sync Type:  
-            
-            <radio-group params="selected: syncType, options: syncTypeOptions"></radio-group>
-        </div>
-        <checkbox class="line" params="
-            label: 'Synchronize File Deletions', 
-            checked: syncDeletions
-        "></checkbox>
+        <editor params="label: 'Sync Frequency'">
+            <span class="emphasized" data-bind="text: syncFrequency"></span>
+        </editor>
 
-        <div class="line">
-            Sync Bucket Every:
+        <editor params="label: 'Sync Direction'">
+            <span class="emphasized" data-bind="text: syncDirection"></span>
+        </editor>
 
-            <input type="Number" data-bind="value: syncCycle"/>
-
-            <dropdown params="selected: syncCycleUnit, options: syncUnitsOptions"></dropdown>
-        </div>
+        <editor params="label: 'Sync Deletions'">
+            <span class="emphasized" data-bind="text: syncDeletions() ? 'Yes' : 'No'"></span>
+        </editor>
     </section>
 
     <div class="action-line pull-right">
-        <button class="action link" data-bind="click: cancel">Cancel</button>
-        <button class="action btn2" data-bind="click: save">Save</button>
-    </div>    
-</modal> 
+        <button class="action btn3" data-bind="click: close">Remove Policy</button>
+        <button class="action btn2" data-bind="click: close">Close</button>
+    </div>
+</modal>

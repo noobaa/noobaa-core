@@ -31,6 +31,6 @@ export default class NodeRowViewModel {
 
         this.capacity = ko.pureComputed(
             () => node() && (node().storage ? formatSize(node().storage.total) : 'N/A')
-        );        
+        );
     }
 }

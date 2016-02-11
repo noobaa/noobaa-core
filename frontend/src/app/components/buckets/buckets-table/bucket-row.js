@@ -26,7 +26,7 @@ const cloudSyncStatusMapping = Object.freeze({
 });
 
 export default class BucketRowViewModel {
-    constructor(bucket) {
+    constructor(bucket, isLastBucket) {
         this.isVisible = ko.pureComputed( 
             () => !!bucket()
         );
@@ -83,12 +83,19 @@ export default class BucketRowViewModel {
             () => bucket() && cloudSyncStatusMapping[bucket().cloud_sync_status]
         );
 
+        
+        let hasObjects = ko.pureComputed(
+            () => bucket() && bucket().num_objects > 0
+        );
+
         this.isDeletable = ko.pureComputed(
-            () => bucket() && bucket().num_objects === 0
+            () => !isLastBucket() && !hasObjects()
         );
 
         this.deleteToolTip = ko.pureComputed(
-            () => this.isDeletable() ? 'delete bucket' : 'bucket not empty'
+            () => isLastBucket() ? 
+                 'Cannot delete last bucket' :
+                 (hasObjects() ? 'bucket not empty' : 'delete bucket')
         );
     }
 

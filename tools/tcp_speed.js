@@ -1,10 +1,11 @@
 'use strict';
-var fs = require('fs');
-var net = require('net');
-var tls = require('tls');
-var argv = require('minimist')(process.argv);
-argv.mem = argv.mem || 1024 * 1024;
+let fs = require('fs');
+let net = require('net');
+let tls = require('tls');
+let argv = require('minimist')(process.argv);
+argv.mem = argv.mem || 64 * 1024;
 argv.port = parseInt(argv.port, 10) || 50505;
+argv.frame = argv.frame || false;
 main();
 
 function main() {
@@ -22,13 +23,13 @@ function main() {
 }
 
 function usage() {
-    console.log('\nUsage: --server [--port X] [--ssl]\n');
-    console.log('\nUsage: --client <host> [--port X] [--ssl]\n');
+    console.log('\nUsage: --server [--port X] [--ssl] [--frame] [--mem X]\n');
+    console.log('\nUsage: --client <host> [--port X] [--ssl] [--frame] [--mem X]\n');
 }
 
 function run_server(port, ssl) {
-    console.log('SERVER', port);
-    var server;
+    console.log('SERVER', port, 'mem', argv.mem);
+    let server;
     if (ssl) {
         server = tls.createServer({
             key: fs.readFileSync('guy-key.pem'),
@@ -47,26 +48,42 @@ function run_server(port, ssl) {
 }
 
 function run_client(port, host, ssl) {
-    console.log('CLIENT', host + ':' + port);
-    var conn = (ssl ? tls : net).connect({
+    console.log('CLIENT', host + ':' + port, 'mem', argv.mem);
+    let conn = (ssl ? tls : net).connect({
         port: port,
         host: host,
         // we allow self generated certificates to avoid public CA signing:
         rejectUnauthorized: false,
     }, function() {
         console.log('client connected', conn.getCipher && conn.getCipher() || '');
-        var buf = new Buffer(argv.mem);
+        let buf = new Buffer(argv.mem);
+        let send;
+        if (argv.frame) {
+            send = function() {
+                // conn.cork();
+                let full = false;
+                while (!full) {
+                    let hdr = new Buffer(4);
+                    hdr.writeUInt32BE(buf.length, 0);
+                    full = conn.write(hdr) || full;
+                    full = conn.write(buf) || full;
+                    conn.nb.send_bytes += buf.length;
+                }
+                // conn.uncork();
+            };
+        } else {
+            send = function() {
+                // conn.cork();
+                while (conn.write(buf)) {
+                    conn.nb.send_bytes += buf.length;
+                }
+                conn.nb.send_bytes += buf.length;
+                // conn.uncork();
+            };
+        }
+
         conn.on('drain', send);
         send();
-
-        function send() {
-            conn.cork();
-            while (conn.write(buf)) {
-                conn.nb.send_bytes += buf.length;
-            }
-            conn.nb.send_bytes += buf.length;
-            conn.uncork();
-        }
     });
     setup_conn(conn);
 }
@@ -79,7 +96,7 @@ function setup_conn(conn) {
         console.log('done.');
         process.exit();
     });
-    var nb = conn.nb = {
+    let nb = conn.nb = {
         send_bytes: 0,
         recv_bytes: 0,
         last_send_bytes: 0,
@@ -88,18 +105,35 @@ function setup_conn(conn) {
         last_time: Date.now()
     };
     conn._readableState.highWaterMark = 8 * argv.mem;
-    conn.on('readable', function() {
-        while (true) {
-            var data = conn.read();
-            if (!data) break;
-            if (data.length < argv.mem) {
-                console.log('SMALL BUFFER', data.length);
+    if (argv.frame) {
+        let hdr;
+        conn.on('readable', function() {
+            while (true) {
+                if (!hdr) {
+                    hdr = conn.read(4);
+                    if (!hdr) break;
+                }
+                let len = hdr.readUInt32BE(0);
+                let data = conn.read(len);
+                if (!data) break;
+                hdr = null;
+                nb.recv_bytes += data.length;
             }
-            nb.recv_bytes += data.length;
-        }
-    });
+        });
+    } else {
+        conn.on('readable', function() {
+            while (true) {
+                let data = conn.read();
+                if (!data) break;
+                // if (data.length < argv.mem) {
+                //     console.log('SMALL BUFFER', data.length);
+                // }
+                nb.recv_bytes += data.length;
+            }
+        });
+    }
     setInterval(function() {
-        var now = Date.now();
+        let now = Date.now();
         console.log(
             'Send: ' +
             ((nb.send_bytes - nb.last_send_bytes) / 1024 / 1024 /

@@ -5,6 +5,8 @@
 #include <iostream>
 #include <chrono>
 #include <stdlib.h>
+#include <unistd.h>
+#include <string.h>
 #include <sys/socket.h>
 #include <sys/types.h>
 #include <netinet/in.h>
@@ -17,7 +19,7 @@ using std::string;
 
 #define FATAL(desc) \
     do { \
-        cerr << "FATAL ERROR " \
+        cerr << "FATALITY " \
             << strerror(errno) \
             << " " << desc \
             << endl; \

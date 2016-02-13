@@ -4,9 +4,9 @@ let net = require('net');
 let tls = require('tls');
 let Speedometer = require('../src/util/speedometer');
 let argv = require('minimist')(process.argv);
-argv.size = argv.size || 64 * 1024;
+argv.size = argv.size || 1024 * 1024;
 argv.port = parseInt(argv.port, 10) || 50505;
-argv.frame = argv.frame || false;
+argv.noframe = argv.noframe || false;
 main();
 
 
@@ -26,8 +26,8 @@ function main() {
 
 
 function usage() {
-    console.log('\nUsage: --server [--port X] [--ssl] [--frame] [--size X]\n');
-    console.log('\nUsage: --client <host> [--port X] [--ssl] [--frame] [--size X]\n');
+    console.log('\nUsage: --server [--port X] [--ssl] [--noframe] [--size X]\n');
+    console.log('\nUsage: --client <host> [--port X] [--ssl] [--noframe] [--size X]\n');
 }
 
 
@@ -83,7 +83,7 @@ function setup_conn(conn) {
 function run_sender(conn) {
     let send_speedometer = new Speedometer('Send Speed');
     let send;
-    if (argv.frame) {
+    if (!argv.noframe) {
         send = () => {
             // conn.cork();
             let write_more = true;
@@ -118,7 +118,7 @@ function run_sender(conn) {
 function run_receiver(conn) {
     conn._readableState.highWaterMark = 8 * argv.size;
     let recv_speedometer = new Speedometer('Receive Speed');
-    if (argv.frame) {
+    if (!argv.noframe) {
         let hdr;
         conn.on('readable', () => {
             while (true) {

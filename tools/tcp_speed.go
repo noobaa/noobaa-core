@@ -19,7 +19,7 @@ const hashMarker uint32 = 0xFFFFFFFF
 
 var prof = flag.String("prof", "", "write cpu profile to file")
 var client = flag.Bool("client", false, "run client")
-var memlen = flag.Int("mem", 1024*1024, "memory buffer size")
+var bufsize = flag.Int("size", 1024*1024, "memory buffer size")
 var frame = flag.Bool("frame", false, "send/receive framed messages")
 
 func main() {
@@ -42,7 +42,7 @@ func main() {
 func runSender() {
 	conn, err := net.Dial("tcp", "127.0.0.1"+port)
 	fatal(err)
-	buf := make([]byte, *memlen)
+	buf := make([]byte, *bufsize)
 	var speedometer Speedometer
 	speedometer.Init()
 	for {
@@ -78,8 +78,8 @@ func runReceiver() {
 	fatal(err)
 	listener.Close()
 	// reader := conn
-	reader := bufio.NewReaderSize(conn, *memlen)
-	buf := make([]byte, *memlen)
+	reader := bufio.NewReaderSize(conn, *bufsize)
+	buf := make([]byte, *bufsize)
 	var speedometer Speedometer
 	speedometer.Init()
 	for {

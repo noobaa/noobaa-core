@@ -1,3 +1,7 @@
+/**
+ * compile with: g++ --std=c++11
+ */
+
 #include <iostream>
 #include <chrono>
 #include <stdlib.h>
@@ -184,13 +188,14 @@ void usage()
 
 int main(int ac, char** av)
 {
+    const string client_or_server = ac > 1 ? string(av[1]) : "";
+    const int buf_size = ac > 2 ? atoi(av[2]) : 1024 * 1024;
+
     const int hdr_len = 4;
-    const int buf_len = 1024 * 1024;
     char* hdr = new char[hdr_len];
-    char* buf = new char[buf_len];
+    char* buf = new char[buf_size];
     Speedometer speedometer;
 
-    string client_or_server = ac > 1 ? string(av[1]) : "";
     if (client_or_server == "client") {
         cout << "Runing client ..." << endl;
         Socket client;
@@ -199,7 +204,7 @@ int main(int ac, char** av)
         auto start_time = std::chrono::steady_clock::now();
         auto last_time = start_time;
         while (true) {
-            int msg_len = buf_len;
+            int msg_len = buf_size;
             *reinterpret_cast<int*>(hdr) = htonl(msg_len);
             client.write_all(hdr, hdr_len);
             client.write_all(buf, msg_len);

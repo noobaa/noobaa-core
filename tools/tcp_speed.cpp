@@ -190,6 +190,7 @@ int main(int ac, char** av)
 {
     const string client_or_server = ac > 1 ? string(av[1]) : "";
     const int buf_size = ac > 2 ? atoi(av[2]) : 1024 * 1024;
+    const int port = ac > 3 ? atoi(av[3]) : 50505;
 
     const int hdr_len = 4;
     char* hdr = new char[hdr_len];
@@ -200,7 +201,7 @@ int main(int ac, char** av)
         cout << "Runing client ..." << endl;
         Socket client;
         client.init_tcp();
-        client.connect(13579);
+        client.connect(port);
         auto start_time = std::chrono::steady_clock::now();
         auto last_time = start_time;
         while (true) {
@@ -216,12 +217,15 @@ int main(int ac, char** av)
         Socket server;
         Socket conn;
         server.init_tcp();
-        server.bind(13579);
+        server.bind(port);
         server.listen();
         server.accept(conn);
         while (true) {
             conn.read_all(hdr, hdr_len);
             int msg_len = ntohl(*reinterpret_cast<int*>(hdr));
+            if (msg_len > buf_size) {
+                FATAL("Message size " << msg_len << " exceeds buffer size " << buf_size);
+            }
             conn.read_all(buf, msg_len);
             speedometer.update(msg_len);
         }

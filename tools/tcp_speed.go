@@ -11,12 +11,11 @@ import (
 	"net"
 	"os"
 	"runtime/pprof"
+	"strconv"
 	"time"
 )
 
-const port string = ":4848"
-const hashMarker uint32 = 0xFFFFFFFF
-
+var port = flag.Int("port", 50505, "tcp port to use")
 var prof = flag.String("prof", "", "write cpu profile to file")
 var client = flag.Bool("client", false, "run client")
 var bufsize = flag.Int("size", 1024*1024, "memory buffer size")
@@ -40,7 +39,7 @@ func main() {
 }
 
 func runSender() {
-	conn, err := net.Dial("tcp", "127.0.0.1"+port)
+	conn, err := net.Dial("tcp", "127.0.0.1:"+strconv.Itoa(*port))
 	fatal(err)
 	buf := make([]byte, *bufsize)
 	var speedometer Speedometer
@@ -71,9 +70,9 @@ func runSender() {
 }
 
 func runReceiver() {
-	listener, err := net.Listen("tcp", port)
+	listener, err := net.Listen("tcp", ":"+strconv.Itoa(*port))
 	fatal(err)
-	fmt.Println("Listening on port", port)
+	fmt.Println("Listening on port", *port)
 	conn, err := listener.Accept()
 	fatal(err)
 	listener.Close()

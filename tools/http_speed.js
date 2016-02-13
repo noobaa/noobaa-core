@@ -2,12 +2,25 @@
 let fs = require('fs');
 let http = require('http');
 let https = require('https');
+let cluster = require('cluster');
 let Speedometer = require('../src/util/speedometer');
 let argv = require('minimist')(process.argv);
 argv.size = argv.size || 10 * 1024 * 1024;
 argv.port = parseInt(argv.port, 10) || 50505;
 argv.concur = argv.concur || 1;
-main();
+argv.forks = argv.forks || 1;
+
+if (argv.forks > 1 && cluster.isMaster) {
+    for (let i = 0; i < argv.forks; i++) {
+        console.warn('Forking', i + 1);
+        cluster.fork();
+    }
+    cluster.on('exit', function(worker, code, signal) {
+        console.warn('Fork pid ' + worker.process.pid + ' died');
+    });
+} else {
+    main();
+}
 
 
 function main() {

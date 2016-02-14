@@ -1,49 +1,56 @@
 checkbox {
-	@size: 21px;
+    @size: 21px;
+    position: relative;
 
-	display: inline-block;
-	width: 100%;
+    display: inline-block;
+    width: 100%;
 
-	label {
-		cursor: default;
-	}
+    label {
+        cursor: default;
+    }
 
-	input {
-		.hide();
+    input {
+        position: absolute;
+        z-index: -1;
+        opacity: 0;
 
-		&:checked  ~ .checkbox-box {
-			background-position-x: -@size;
-		}
+        &:checked  ~ .checkbox-box {
+            background-position-x: -@size;
+        }
 
-		&[disabled] {
-			~ .checkbox-box {
-				background-position-x: -2 * @size;	
-			}
+        &[disabled] {
+            ~ .checkbox-box {
+                background-position-x: -2 * @size;    
+            }
 
-			&:checked ~ .checkbox-box {
-				background-position-x: -3 * @size;			
-			}
+            &:checked ~ .checkbox-box {
+                background-position-x: -3 * @size;            
+            }
 
-			~ .checkbox-label {
-				color: @gray-lv5;
-			}
+            ~ .checkbox-label {
+                color: @gray-lv5;
+            }
 
-			~ .checkbox-box, ~ .checkbox-label {
-				cursor: default;
-	 		}
-		}
-	}
+            ~ .checkbox-box, ~ .checkbox-label {
+                cursor: default;
+             }
+        }
 
-	.checkbox-box {
-		display: inline-block;
-		width: @size;
-		height: @size;
-		margin-right: .5em;
-		background-image: url('/fe/assets/checkbox.png');		
-	}
+        &:focus + .checkbox-box{
+            outline: @outline;
+        }
+    }
 
-	.checkbox-box, .checkbox-label {
-		vertical-align: middle;
-		cursor: @cursor-pointer;
-	 }
+    .checkbox-box {
+        display: inline-block;
+        width: @size;
+        height: @size;
+        margin-right: .5em;
+        background-image: url('/fe/assets/checkbox.png');
+    }
+
+    .checkbox-box, .checkbox-label {
+        vertical-align: middle;
+        cursor: @cursor-pointer;
+     }
 }

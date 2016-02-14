@@ -4,26 +4,26 @@ import { uiState } from 'model';
 import { refresh, signOut, openAuditLog, closeTray } from 'actions';
 
 class CommandBarViewModel {
-	constructor() {
-		this.isTrayOpen = ko.pureComputed(
-			() => !!uiState().tray
-		)
-	}
+    constructor() {
+        this.isTrayOpen = ko.pureComputed(
+            () => !!uiState().tray
+        )
+    }
 
-	refresh() {
-		refresh();
-	}
+    refresh() {
+        refresh();
+    }
 
-	showAuditLog() {
-		this.isTrayOpen() ? closeTray() : openAuditLog();
-	}
+    showAuditLog() {
+        this.isTrayOpen() ? closeTray() : openAuditLog();
+    }
 
-	signOut() {
-		signOut();
-	}	
+    signOut() {
+        signOut();
+    }    
 }
 
 export default { 
-	viewModel: CommandBarViewModel,
-	template: template
+    viewModel: CommandBarViewModel,
+    template: template
 }

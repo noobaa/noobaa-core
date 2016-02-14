@@ -150,7 +150,7 @@ function aggregate_nodes_by_pool(query) {
         }
     };
     var reduce_func = size_utils.reduce_sum;
-    return NodeModel.collection.mapReduce(map_func, reduce_func, {
+    return P.when(NodeModel.collection.mapReduce(map_func, reduce_func, {
         query: query,
         scope: {
             // have to pass variables to map/reduce with a scope
@@ -159,7 +159,7 @@ function aggregate_nodes_by_pool(query) {
         out: {
             inline: 1
         }
-    }).then(res => {
+    })).then(res => {
         var bins = {};
         _.each(res.results, r => {
             var t = bins[r._id[0]] = bins[r._id[0]] || {};

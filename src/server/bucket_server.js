@@ -153,6 +153,9 @@ function update_bucket(req) {
  */
 function delete_bucket(req) {
     var bucket = find_bucket(req);
+    if (_.map(req.system.buckets_by_name).length === 1) {
+        throw req.rpc_error('BAD_REQUEST', 'Cannot delete last bucket');
+    }
     db.ActivityLog.create({
         event: 'bucket.delete',
         level: 'info',
@@ -181,6 +184,7 @@ function delete_bucket(req) {
             sysid: req.system._id.toString(),
             bucketid: bucket._id.toString(),
             force_stop: true,
+            bucket_deleted: true,
         }, {
             auth_token: req.auth_token
         }))
@@ -219,21 +223,24 @@ function get_cloud_sync_policy(req, bucket) {
         }, {
             auth_token: req.auth_token
         }))
-        .then(status => ({
-            name: bucket.name,
-            health: status.health,
-            status: status.status,
-            policy: {
-                endpoint: bucket.cloud_sync.endpoint,
-                access_keys: [bucket.cloud_sync.access_keys],
-                schedule: bucket.cloud_sync.schedule_min,
-                last_sync: bucket.cloud_sync.last_sync.getTime(),
-                paused: bucket.cloud_sync.paused,
-                c2n_enabled: bucket.cloud_sync.c2n_enabled,
-                n2c_enabled: bucket.cloud_sync.n2c_enabled,
-                additions_only: bucket.cloud_sync.additions_only
-            }
-        }));
+        .then(res => {
+            bucket.cloud_sync.status = res.status;
+            return {
+                name: bucket.name,
+                health: res.health,
+                status: cloud_sync_utils.resolve_cloud_sync_info(bucket.cloud_sync),
+                policy: {
+                    endpoint: bucket.cloud_sync.endpoint,
+                    access_keys: [bucket.cloud_sync.access_keys],
+                    schedule: bucket.cloud_sync.schedule_min,
+                    last_sync: bucket.cloud_sync.last_sync.getTime(),
+                    paused: bucket.cloud_sync.paused,
+                    c2n_enabled: bucket.cloud_sync.c2n_enabled,
+                    n2c_enabled: bucket.cloud_sync.n2c_enabled,
+                    additions_only: bucket.cloud_sync.additions_only
+                }
+            };
+        });
 }
 
 /**
@@ -307,14 +314,16 @@ function set_cloud_sync(req) {
         additions_only: req.rpc_params.policy.additions_only || false
     };
 
-    //If either of the following is changed, signal the cloud sync worker to force stop and reload
-    if (!bucket.cloud_sync ||
-        bucket.cloud_sync.endpoint !== cloud_sync.endpoint ||
-        bucket.cloud_sync.access_keys.access_key !== cloud_sync.access_keys.access_key ||
-        bucket.cloud_sync.access_keys.secret_key !== cloud_sync.access_keys.secret_key ||
-        cloud_sync.paused) {
-        force_stop = true;
+    if (bucket.cloud_sync) {
+        //If either of the following is changed, signal the cloud sync worker to force stop and reload
+        if (bucket.cloud_sync.endpoint !== cloud_sync.endpoint ||
+            bucket.cloud_sync.access_keys.access_key !== cloud_sync.access_keys.access_key ||
+            bucket.cloud_sync.access_keys.secret_key !== cloud_sync.access_keys.secret_key ||
+            cloud_sync.paused) {
+            force_stop = true;
+        }
     }
+
     return system_store.make_changes({
             update: {
                 buckets: [{
@@ -396,7 +405,7 @@ function get_bucket_info(bucket, objects_aggregate, nodes_aggregate_pool, cloud_
         total: info.tiering && info.tiering.storage && info.tiering.storage.total || 0,
         free: info.tiering && info.tiering.storage && info.tiering.storage.free || 0,
     });
-    cloud_sync_utils.resolve_cloud_sync_info(cloud_sync_policy, info);
+    info.cloud_sync_status = cloud_sync_utils.resolve_cloud_sync_info(cloud_sync_policy);
     return info;
 }
 

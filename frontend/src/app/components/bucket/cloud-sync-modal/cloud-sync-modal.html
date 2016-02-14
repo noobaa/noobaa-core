@@ -1,100 +1,43 @@
-<modal params="onClose: () => cancel()" class="text-left">
-	<h1 class="heading2">
-		Cloud Sync for <span data-bind="text: bucketName"></span>
-	</h1>
+<modal params="onClose: () => close()">
+    <h1 class="heading2 container">
+        Cloud Sync Policy
+    </h1>
 
-	<section class="container">
-		<h2 class="heading3">AWS Bucket Credentials</h2>
-		
-		<label>
-			<span class="field-name">Access Key:</span>
-			<input type="text" placeholder="Choose Key" />
-		</label>
+    <section class="container box">
+        <editor params="label: 'AWS Access Key'">
+            <span class="emphasized" data-bind="text: accessKey"></span>
+        </editor>
 
-		<label>
-			<span class="field-name">Secret Key: </span>
-			<input type="password" placeholder="password" />
-		</label>
-	</section>
-	
-	<div class="container">
-		<h2 class="heading3">Select the bucket you want to connect to</h2>
-		<tiled-select></tiled-select>
-	</div>
+        <editor params="label: 'AWS Bucket'">
+            <span class="emphasized" data-bind="text: awsBucket"></span>
+        </editor>
 
-	<section class="container">
-		<h2 class="heading3">Additional Setting</h2>
-		
-		<div class="sync-dir line">
-			Sync Type: 	
-			
-			<radio-group params="
-				selected: syncType,
-				options: [
-					{ value: 'BI', label: 'Bi-Direcitonal' },
-					{ value: 'NB2AWS', label: 'NooBaa to AWS' },
-					{ value: 'AWS2NB', label: 'AWS to NooBaa' }
-				]
-			"></radio-group>
-		</div>
+        <editor params="label: 'NooBaa Bucket'">
+            <span class="emphasized" data-bind="text: bucketName"></span>
+        </editor>        
 
-		<checkbox class="line" params="
-			label: 'Synchronize File Deletions', 
-			checked: syncDeletions
-		"></checkbox>
+        <editor params="label: 'Sync Status'">
+            <span class="emphasized" data-bind="
+                css: syncStatus().css,
+                text: syncStatus().label
+            "></span>
+        </editor>
 
-		<div class="line">
-			Sync Bucket Every:
+        <editor params="label: 'Sync Frequency'">
+            <span class="emphasized" data-bind="text: syncFrequency"></span>
+        </editor>
 
-			<input type="Number" data-bind="value: syncCycle"/>
+        <editor params="label: 'Sync Direction'">
+            <span class="emphasized" data-bind="text: syncDirection"></span>
+        </editor>
 
-			<radio-group params="
-				selected: syncCycleUnit,
-				options: [
-					{ value: 'MINUTES', label: 'Minutes' },
-					{ value: 'HOURS', label: 'Hours' },
-					{ value: 'DAYS', label: 'Days' }
-				]
-			"></radio-group>
-		</div>
-	</section>
+        <editor params="label: 'Sync Deletions'">
+            <span class="emphasized" data-bind="text: syncDeletions() ? 'Yes' : 'No'"></span>
+        </editor>
+    </section>
 
-	<div class="action-line pull-right">
-		<button class="action link" data-bind="click: cancel">Cancel</button>	
-		<button class="action btn2" data-bind="click: save">Save</button>		
-	</div>	
-</modal> 
-
-
-<!-- <wizard params="
-	heading: 'Cloud Sync for ' + bucketName(), 
-	steps: ['Select AWS Bucket', 'Configure Connection'], 
-	actionLabel: 'save',
-	onClose: onClose
-">
-	<section class="text-left">
-		<div class="container">
-			<h2 class="heading3">Enter credentials for your AWS bucket</h2>
-			
-			<label>
-				<span class="field-name">Access Key:</span>
-				<input type="text" placeholder="" />
-			</label>
-
-			<label>
-				<span class="field-name">Secret Key: </span>
-				<input type="password" placeholder="" />
-			</label>
-		</div>
-
-		<div class="container">
-			<h2 class="heading3">Select the bucket you want to connect to</h2>
-			<tiled-select></tiled-select>
-		</div>
-	</section>
-
-
-
-	<section ></section>
-</wizard>
--->
+    <div class="action-line pull-right">
+        <button class="action btn3" data-bind="click: close">Remove Policy</button>
+        <button class="action btn2" data-bind="click: close">Close</button>
+    </div>
+</modal>

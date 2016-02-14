@@ -1,0 +1,7 @@
+<!-- ko if: visible -->
+<span class="editor-label" data-bind="text: label"></span>
+<div class="editor-field" data-bind="
+    validationOptions: { insertMessages: insertValMessages },
+    template: { nodes: $componentTemplateNodes, data: $parent }
+"></div>
+<!-- /ko -->

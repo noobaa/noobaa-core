@@ -32,7 +32,7 @@ var MAX_UINT32 = (1 << 16) * (1 << 16);
 
 var SIZE_UNITS = ['', 'K', 'M', 'G', 'T', 'P', 'E', 'Z', 'Y'];
 
-const SOTRAGE_OBJ_KEYS = [ 'used', 'total', 'free', 'alloc', 'real' ]; 
+const SOTRAGE_OBJ_KEYS = ['used', 'total', 'free', 'alloc', 'real'];
 
 module.exports = {
     to_bigint: to_bigint,
@@ -91,7 +91,7 @@ function bigint_factor(bigint, mult_factor, div_factor) {
     peta *= mult_factor;
     var peta_mod = peta % div_factor;
     peta = (peta - peta_mod) / div_factor;
-    n = Math.floor((peta_mod * PETABYTE  +  n * mult_factor) / div_factor);
+    n = Math.floor((peta_mod * PETABYTE + n * mult_factor) / div_factor);
     while (n >= PETABYTE) {
         n -= PETABYTE;
         peta += 1;
@@ -104,8 +104,7 @@ function bigint_factor(bigint, mult_factor, div_factor) {
 
 function reduce_storage(reducer, storage_items, mult_factor, div_factor) {
     let accumulator = _.reduce(
-        storage_items, 
-        (accumulator, item) => {
+        storage_items, (accumulator, item) => {
             _.each(SOTRAGE_OBJ_KEYS, key => item && item[key] && accumulator[key].push(item[key]));
             return accumulator;
         },
@@ -113,15 +112,13 @@ function reduce_storage(reducer, storage_items, mult_factor, div_factor) {
     );
 
     return _.reduce(
-        accumulator, 
-        (storage, val, key) => {
+        accumulator, (storage, val, key) => {
             if (!_.isEmpty(val)) {
-                storage[key] = bigint_factor(reducer(key, val), mult_factor, div_factor);    
+                storage[key] = bigint_factor(reducer(key, val), mult_factor, div_factor);                
             }
-            
+
             return storage;
-        },
-        {}
+        }, {}
     );
 }
 
@@ -131,8 +128,8 @@ function reduce_storage(reducer, storage_items, mult_factor, div_factor) {
 // so not using any functions or constants from above.
 function reduce_minimum(key, values) {
     var PETABYTE = 1024 * 1024 * 1024 * 1024 * 1024;
-    var n_min = 0;
-    var peta_min = 0;
+    var n_min = PETABYTE;
+    var peta_min = 100000;
     values.forEach(function(v) {
         var n = 0;
         var peta = 0;
@@ -146,6 +143,7 @@ function reduce_minimum(key, values) {
             n -= PETABYTE;
             peta += 1;
         }
+
         if (peta < peta_min || (peta === peta_min && n < n_min)) {
             n_min = n;
             peta_min = peta;

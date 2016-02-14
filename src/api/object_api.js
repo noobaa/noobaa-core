@@ -397,6 +397,9 @@ module.exports = {
                             $ref: '#/definitions/object_part_info'
                         },
                     },
+                    total_parts: {
+                        type: 'integer'
+                    },
                 }
             },
             auth: {

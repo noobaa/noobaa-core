@@ -1,27 +1,27 @@
 <div class="wrapper" tabindex="0">
-	<output data-bind="value: selected().label"></output>
+    <output data-bind="value: selected().label"></output>
 
-	<ul class="options" data-bind="foreach: options">
-		<li data-bind="
-			template: $componentTemplateNodes.length ? { nodes componentTemplateNodes } : {}
-		">
-			<span data-bind="text: label, action: " 
-		</li>
-	</ul>
+    <ul class="options" data-bind="foreach: options">
+        <li data-bind="
+            template: $componentTemplateNodes.length ? { nodes componentTemplateNodes } : {}
+        ">
+            <span data-bind="text: label, action: " 
+        </li>
+    </ul>
 </div>
 
 
 <dropdown params="options: [1,2,3], action: value => console.log(value)"></dropdown>
 
 <dropdown>
-	<option>GB</option>
-	<option>TB</option>
-	<option>PB</option>
+    <option>GB</option>
+    <option>TB</option>
+    <option>PB</option>
 </dropdown>
 
 
 <dropdown params="options: [
-	{ label: 1, action: val => console.log('one') },
-	{},
-	{}
+    { label: 1, action: val => console.log('one') },
+    {},
+    {}
 ], action: value => console.log(value)"></dropdown>

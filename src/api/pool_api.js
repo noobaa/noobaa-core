@@ -176,6 +176,17 @@ module.exports = {
                 storage: {
                     $ref: 'common_api#/definitions/storage_info'
                 },
+                deletions: {
+                    type: 'object',
+                    properties: {
+                        can_be_deleted: {
+                            type: 'boolean',
+                        },
+                        reason: {
+                            $ref: '#/definitions/deletion_reason'
+                        },
+                    },
+                },
             },
         },
 
@@ -199,6 +210,11 @@ module.exports = {
                     }
                 }
             }
+        },
+
+        deletion_reason: {
+            enum: ['NOTEMPTY', 'ASSOCIATED', 'SYSTEM'],
+            type: 'string',
         },
     }
 };

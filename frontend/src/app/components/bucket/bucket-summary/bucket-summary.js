@@ -5,63 +5,68 @@ import style from 'style';
 import { formatSize } from 'utils';
 
 class BucketSummrayViewModel {
-	constructor({ bucket }) {
-		this.dataReady = ko.pureComputed(
-			() => !!bucket()
-		);
+    constructor({ bucket }) {
+        this.dataReady = ko.pureComputed(
+            () => !!bucket()
+        );
 
-		this.name  = ko.pureComputed(
-			() => bucket().name
-		);
+        this.name  = ko.pureComputed(
+            () => bucket() && bucket().name
+        );
 
-		this.fileCount = ko.pureComputed(
-			() => bucket().num_objects
-		);
+        this.fileCount = ko.pureComputed(
+            () => bucket() && bucket().num_objects
+        );
 
-		this.fileCountText = ko.pureComputed(
-			() => `${this.fileCount() ? numeral(this.fileCount()).format('0,0') : 'No'} files`
-		)		
-		
-		this.total = ko.pureComputed(
-			() => bucket().storage.used
-		);
+        this.fileCountText = ko.pureComputed(
+            () => `${this.fileCount() ? numeral(this.fileCount()).format('0,0') : 'No'} files`
+        )       
+        
+        this.total = ko.pureComputed(
+            () => bucket() && bucket().storage.used
+        );
 
-		this.totalText = ko.pureComputed(
-			() => formatSize(bucket().storage.total)
-		);
+        this.totalText = ko.pureComputed(
+            () => bucket() && formatSize(bucket().storage.total)
+        );
 
-		this.free = ko.pureComputed(
-			() => bucket().storage.free
-		);
+        this.free = ko.pureComputed(
+            () => bucket() && bucket().storage.free
+        );
 
-		this.freeText = ko.pureComputed(
-			() => formatSize(this.free())
-		);
+        this.freeText = ko.pureComputed(
+            () => formatSize(this.free())
+        );
 
-		this.used = ko.pureComputed(
-			() => bucket().storage.used
-		);
+        this.used = ko.pureComputed(
+            () => bucket() && bucket().storage.used
+        );
 
-		this.usedText = ko.pureComputed(
-			() => formatSize(this.used())
-		);
+        this.usedText = ko.pureComputed(
+            () => bucket() && formatSize(this.used())
+        );
 
-		this.gaugeValues = [ 
-			{ value: this.used, color: style['text-color6'], emphasize: true },
-			{ value: this.free, color: style['text-color4'] }
-		]
+        this.gaugeValues = [ 
+            { value: this.used, color: style['text-color6'], emphasize: true },
+            { value: this.free, color: style['text-color4'] }
+        ]
 
-		this.policy = ko.pureComputed(
-			() => bucket().tiering
-		);
+        this.policy = ko.pureComputed(
+            () => bucket() && bucket().tiering
+        );
 
-		this.isPolicyModalVisible = ko.observable(false);
-		this.isUploadFilesModalVisible = ko.observable(false);
-		this.isCloudSyncModalVisible = ko.observable(false);
-	}
+        this.hasCloudSyncPolicy = ko.pureComputed(
+            () => bucket() && bucket().cloud_sync_status !== 'NOTSET'
+        );
+
+        this.isPolicyModalVisible = ko.observable(false);
+        this.isUploadFilesModalVisible = ko.observable(false);
+        this.isSetCloudSyncModalVisible = ko.observable(false);
+        this.isViewCloudSyncModalVisible = ko.observable(false);
+    }
 }
 
 export default {
-	viewModel: BucketSummrayViewModel,
-	template: template
+    viewModel: BucketSummrayViewModel,
+    template: template
 }

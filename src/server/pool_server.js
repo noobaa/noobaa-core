@@ -105,11 +105,23 @@ function read_pool(req) {
 function delete_pool(req) {
     dbg.log0('Deleting pool', req.rpc_params.name);
     var pool = find_pool_by_name(req);
-    return system_store.make_changes({
-        remove: {
-            pools: [pool._id]
-        }
-    }).return();
+    return nodes_store.aggregate_nodes_by_pool({
+            system: req.system._id,
+            pool: pool._id,
+            deleted: null,
+        })
+        .then(function(nodes_aggregate_pool) {
+            var reason = validate_pool_deletion(pool, nodes_aggregate_pool);
+            if (reason) {
+                throw req.rpc_error('BAD_REQUEST',
+                    'Unable to delete pool for reason - ' + reason);
+            }
+            return system_store.make_changes({
+                remove: {
+                    pools: [pool._id]
+                }
+            });
+        }).return();
 }
 
 function _assign_nodes_to_pool(system_id, pool_id, nodes_names) {
@@ -135,19 +147,24 @@ function assign_nodes_to_pool(req) {
 
 function get_associated_buckets(req) {
     var pool = find_pool_by_name(req);
-    var associated_buckets = _.filter(req.system.buckets_by_name, function(bucket) {
+    return get_associated_buckets_int(pool);
+}
+
+// UTILS //////////////////////////////////////////////////////////
+
+function get_associated_buckets_int(pool) {
+    var associated_buckets = _.filter(pool.system.buckets_by_name, function(bucket) {
         return _.find(bucket.tiering.tiers, function(tier_and_order) {
             return _.find(tier_and_order.tier.pools, function(pool2) {
                 return String(pool._id) === String(pool2._id);
             });
         });
     });
+
     return _.map(associated_buckets, function(bucket) {
         return bucket.name;
     });
 }
-
-// UTILS //////////////////////////////////////////////////////////
 
 function find_pool_by_name(req) {
     var name = req.rpc_params.name;
@@ -160,7 +177,7 @@ function find_pool_by_name(req) {
 
 function get_pool_info(pool, nodes_aggregate_pool) {
     var n = nodes_aggregate_pool[pool._id] || {};
-    return {
+    var info = {
         name: pool.name,
         nodes: {
             count: n.count || 0,
@@ -174,4 +191,32 @@ function get_pool_info(pool, nodes_aggregate_pool) {
             used: n.used,
         })
     };
+    var reason = validate_pool_deletion(pool, nodes_aggregate_pool);
+    if (reason) {
+        info.deletions = {
+            can_be_deleted: false,
+            reason: reason,
+        };
+    }
+    return info;
+}
+
+function validate_pool_deletion(pool, nodes_aggregate_pool) {
+
+    // Check if the default pool
+    if (pool.name === 'default_pool') {
+        return 'SYSTEM';
+    }
+
+    // Check if there are nodes till associated to this pool
+    var n = nodes_aggregate_pool[pool._id] || {};
+    if (n.count) {
+        return 'NOTEMPTY';
+    }
+
+    //Verify pool is not used by any bucket/tier
+    var buckets = get_associated_buckets_int(pool);
+    if (buckets.length) {
+        return 'ASSOCIATED';
+    }
 }

@@ -12,7 +12,6 @@ var mocha = require('mocha');
 var assert = require('assert');
 var mongoose = require('mongoose');
 var Semaphore = require('../util/semaphore');
-var api = require('../api');
 var mongo_client = require('../server/stores/mongo_client');
 var nodes_store = require('../server/stores/nodes_store');
 var server_rpc = require('../server/server_rpc');
@@ -30,6 +29,9 @@ server_rpc.register_md_servers();
 server_rpc.register_bg_servers();
 server_rpc.register_common_servers();
 server_rpc.rpc.set_request_logger(console.info);
+server_rpc.rpc.router.default =
+    server_rpc.rpc.router.bg =
+    'fcall://fcall';
 
 let http_port = 0;
 let api_coverage = new Set();
@@ -57,9 +59,9 @@ mocha.before('coretest-before', function() {
             ws: true
         }))
         .then(http_server => {
+            // the http/ws port is used by the agents
             http_port = http_server.address().port;
             console.log('CORETEST HTTP SERVER', http_port);
-            server_rpc.rpc.router = api.new_router('ws://127.0.0.1:' + http_port);
         });
 });
 

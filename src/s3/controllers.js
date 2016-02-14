@@ -10,7 +10,6 @@ var api = require('../api');
 var dbg = require('../util/debug_module')(__filename);
 var string_utils = require('../util/string_utils');
 var promise_utils = require('../util/promise_utils');
-
 var xml2js = require('xml2js');
 var FileStore = require('./file-store');
 var fileStore = new FileStore('/tmp');

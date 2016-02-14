@@ -7,5 +7,5 @@ AWS = window.AWS;
 
 // If not specific endpoint was set use the web server as endpoint.
 if (!!endpoint) {
-	endpoint = window.location.hostname;
+    endpoint = window.location.hostname;
 }

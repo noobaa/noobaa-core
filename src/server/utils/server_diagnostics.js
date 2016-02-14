@@ -34,7 +34,7 @@ function collect_server_diagnostics() {
             return os_utils.top_single(TMP_WORK_DIR + '/top.out');
         })
         .then(function() {
-            return promise_utils.promised_exec('lsof >& ' + TMP_WORK_DIR + '/lsof.out');
+            return promise_utils.promised_exec('lsof &> ' + TMP_WORK_DIR + '/lsof.out');
         })
         .then(function() {
             if (stats_aggregator) {

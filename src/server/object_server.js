@@ -239,11 +239,12 @@ function report_bad_block(req) {
  */
 function read_object_mappings(req) {
     var obj;
-    var reply;
+    var reply = {};
 
     return find_object_md(req)
         .then(function(obj_arg) {
             obj = obj_arg;
+            reply.size = obj.size;
             var params = _.pick(req.rpc_params,
                 'start',
                 'end',
@@ -258,36 +259,39 @@ function read_object_mappings(req) {
             return object_mapper.read_object_mappings(params);
         })
         .then(function(parts) {
-            reply = {
-                size: obj.size,
-                parts: parts,
-            };
+            reply.parts = parts;
             // when called from admin console, we do not update the stats
             // so that viewing the mapping in the ui will not increase read count
+            // We do count the number of parts and return them
             if (req.rpc_params.adminfo) {
-                return;
+                return P.when(db.ObjectPart.collection.count({
+                        obj: obj._id,
+                        deleted: null,
+                    }))
+                    .then(function(c) {
+                        reply.total_parts = c;
+                    });
+            } else {
+                system_store.make_changes_in_background({
+                    update: {
+                        buckets: [{
+                            _id: obj.bucket,
+                            $inc: {
+                                'stats.reads': 1
+                            }
+                        }]
+                    }
+                });
+                return P.when(db.ObjectMD.collection.updateOne({
+                    _id: obj._id
+                }, {
+                    $inc: {
+                        'stats.reads': 1
+                    }
+                }));
             }
-            system_store.make_changes_in_background({
-                update: {
-                    buckets: [{
-                        _id: obj.bucket,
-                        $inc: {
-                            'stats.reads': 1
-                        }
-                    }]
-                }
-            });
-            return P.when(db.ObjectMD.collection.updateOne({
-                _id: obj._id
-            }, {
-                $inc: {
-                    'stats.reads': 1
-                }
-            }));
         })
-        .then(function() {
-            return reply;
-        });
+        .return(reply);
 }
 
 

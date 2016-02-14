@@ -1,10 +1,12 @@
 <div class="main-layout">
-	<main-header></main-header>
+    <debug-status-bar></debug-status-bar>
 
-	<!-- ko if: panel -->
-	<main class="center" data-bind="component: panel">
-	</main>
-	<!-- /ko -->
+    <main-header></main-header>
 
-	<tray></tray>
+    <!-- ko if: panel -->
+    <main class="center" data-bind="component: panel">
+    </main>
+    <!-- /ko -->
+
+    <tray></tray>
 </div>

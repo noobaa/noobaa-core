@@ -1,3 +1,3 @@
 export default function register(ko) {
-	ko.extenders.tween 	= require('./tween');
+    ko.extenders.tween     = require('./tween');
 }

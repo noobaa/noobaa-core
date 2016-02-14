@@ -1,8 +1,8 @@
 <section class="steps" data-bind="
-	style: { transform: transform },
-	foreach: (slides || $componentTemplateNodes).filter(elm => elm.nodeType !== 3)
+    style: { transform: transform },
+    foreach: (slides || $componentTemplateNodes).filter(elm => elm.nodeType !== 3)
 ">
-	<div class="step" data-bind="
-		css: { current: $component.isCurrent($index) },
-		template: { nodes: [$data], data: $parents[1] }"></div>
+    <div class="step" data-bind="
+        css: { current: $component.isCurrent($index) },
+        template: { nodes: [$data], data: $parents[1] }"></div>
 </section>

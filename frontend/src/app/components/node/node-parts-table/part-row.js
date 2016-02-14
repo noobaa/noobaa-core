@@ -1,44 +1,69 @@
 import ko from 'knockout';
 import numeral from 'numeral';
+import { dblEncode } from 'utils';
 
-const partStateIconMapping = Object.freeze({
-	available: 	'/fe/assets/icons.svg#part-available',
-	in_process: '/fe/assets/icons.svg#part-in-process',
-	unavailable:'/fe/assets/icons.svg#part-unavailable' 
+const partStateMapping = Object.freeze({
+    available: {
+        toolTip: 'available',
+        icon: '/fe/assets/icons.svg#part-available',
+    },
+    in_process: {
+        toolTip: 'in process',
+        icon: '/fe/assets/icons.svg#part-in-process',
+    },
+    unavailable: {
+        toolTip: 'unavailable',
+        icon: '/fe/assets/icons.svg#part-unavailable' 
+    }
 });
 
 export default class ObjectRowViewModel {
-	constructor(part) {
-		this.isVisible = ko.pureComputed(
-			() => !!part()
-		);
+    constructor(part) {
 
-		this.stateIcon = ko.pureComputed(
-			() => !!part() && partStateIconMapping[part().info.chunk.adminfo.health] 
-		);
+        this.isVisible = ko.pureComputed(
+            () => !!part()
+        );
 
-		this.object = ko.pureComputed(
-			() => !!part() && part().object
-		);
+        let stateMapping = ko.pureComputed(
+            () => part() && partStateMapping[part().info.chunk.adminfo.health]
+        );
 
-		this.bucket = ko.pureComputed(
-			() => !!part() && part().bucket
-		);
+        this.stateToolTip = ko.pureComputed(
+            () => stateMapping() && stateMapping().toolTip
+        );
 
-		this.href = ko.pureComputed(
-			() => !!part() && `/fe/systems/:system/buckets/${part().bucket}/objects/${part().object}`
-		);
+        this.stateIcon = ko.pureComputed(
+            () => stateMapping() && stateMapping().icon
+        );
 
-		this.startOffset = ko.pureComputed(
-			() => !!part() && numeral(part().info.start).format('0.0b')
-		);
+        this.object = ko.pureComputed(
+            () => part() && part().object
+        );
 
-		this.endOffset = ko.pureComputed(
-			() => !!part() && numeral(part().info.end).format('0.0b')
-		);
+        this.bucket = ko.pureComputed(
+            () => part() && part().bucket
+        );
 
-		this.size = ko.pureComputed(
-			() => !!part() && numeral(part().info.size).format('0.0b')
-		)
-	}
+        this.href = ko.pureComputed(
+            () => part() && `/fe/systems/:system/buckets/${
+                part().bucket
+            }/objects/${
+                dblEncode(part().object)
+            }`
+        );
+
+        this.startOffset = ko.pureComputed(
+            () => part() && numeral(part().info.start).format('0.0 b')
+        );
+
+        this.endOffset = ko.pureComputed(
+            () => part() && numeral(part().info.end).format('0.0 b')
+        );
+
+        this.size = ko.pureComputed(
+            () => part() && numeral(
+                part().info.end - part().info.start).format('0.0 b'
+            )
+        );
+    }
 }

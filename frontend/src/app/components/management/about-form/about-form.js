@@ -3,23 +3,22 @@ import ko from 'knockout';
 import { systemInfo } from 'model';
 import { upgradeSystem } from 'actions';
 
-
 class AboutFormViewModel {
-	constructor({ onClose }) {
-		this.version = ko.pureComputed(
-			() => systemInfo() && systemInfo().version 
-		);
+    constructor({ onClose }) {
+        this.version = ko.pureComputed(
+            () => systemInfo() && systemInfo().version 
+        );
 
-		this.isUpgradingModalVisible = ko.observable(false);
-	}
+        this.isUpgradingModalVisible = ko.observable(false);
+    }
 
-	upgrade(upgradePackage) {
-		this.isUpgradingModalVisible(true);
-		upgradeSystem(upgradePackage);
-	}
+    upgrade(upgradePackage) {
+        this.isUpgradingModalVisible(true);
+        upgradeSystem(upgradePackage);
+    }
 }
 
 export default {
-	viewModel: AboutFormViewModel,
-	template: template
+    viewModel: AboutFormViewModel,
+    template: template
 }

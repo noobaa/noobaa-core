@@ -7,48 +7,49 @@ const closedIcon = '/fe/assets/icons.svg#trash-closed';
 const opendIcon = '/fe/assets/icons.svg#trash-opened';
 
 class DeleteButtonViewModel {
-	constructor({ 
-		group = ko.observable(), 
-		onDelete = noop,
-		toolTip,
-		disabled = false
-	}) {
-		this.onDelete = onDelete;
-		this.toolTip = toolTip;
-		this.disabled = disabled;
+    constructor({ 
+        group = ko.observable(), 
+        onDelete = noop,
+        toolTip,
+        disabled = false
+    }) {
+        this.onDelete = onDelete;
+        this.toolTip = toolTip;
+        this.disabled = disabled;
 
-		this.isSelected = ko.pureComputed({
-			read: () => group() === this,
-			write: val => {
-				if (val) {
-					group(this);
-				} else if (group() === this) {
-					group(null)
-				}
-			}
-		});
+        this.isSelected = ko.pureComputed({
+            read: () => group() === this,
+            write: val => {
+                if (val) {
+                    group(this);
+                } else if (group() === this) {
+                    group(null)
+                }
+            }
+        });
 
-		this.deleteIcon = ko.pureComputed(
-			() => ko.unwrap(this.disabled) ? 
-				disabledIcon :
-				(this.isSelected() ? opendIcon : closedIcon)
-		);
-	}
+        this.deleteIcon = ko.pureComputed(
+            () => ko.unwrap(this.disabled) ? 
+                disabledIcon :
+                (this.isSelected() ? opendIcon : closedIcon)
+        );
+    }
 
-	select() {
-		this.isSelected(true);
-	}
+    select() {
+        this.isSelected(true);
+    }
 
-	confirm() {
-		this.onDelete();
-	}
-	
-	cancel() {
-		this.isSelected(false);
-	}
+    confirm() {
+        this.isSelected(false);
+        this.onDelete();
+    }
+    
+    cancel() {
+        this.isSelected(false);
+    }
 }
 
 export default {
-	viewModel: DeleteButtonViewModel,
-	template: template
+    viewModel: DeleteButtonViewModel,
+    template: template
 }

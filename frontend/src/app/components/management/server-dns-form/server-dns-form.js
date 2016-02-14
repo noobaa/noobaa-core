@@ -2,58 +2,61 @@ import template from './server-dns-form.html';
 import ko from 'knockout';
 import { systemInfo } from 'model';
 import { makeRange } from 'utils';
-import { updateBaseAddress } from 'actions';
+import { updateHostname } from 'actions';
 
 const [ IP, DNS ] = makeRange(2); 
 const addressOptions = [
-	{ label: 'Use Server IP', value: IP },
-	{ label: 'Use DNS Name (recommended)', value: DNS }
+    { label: 'Use Server IP', value: IP },
+    { label: 'Use DNS Name (recommended)', value: DNS }
 ];
 
 class ServerDNSFormViewModel {
-	constructor() {
-		this.expanded = ko.observable(false);
-		this.addressOptions = addressOptions;
+    constructor() {
+        this.expanded = ko.observable(false);
+        this.addressOptions = addressOptions;
 
-		this.addressType = ko.observable(IP);
-		this.usingIP = this.addressType.is(IP);
-		this.usingDNS = this.addressType.is(DNS);
-		
-		this.ipAddress = ko.pureComputed(
-			()=> systemInfo() && systemInfo().ipAddress
-		);
+        this.addressType = ko.observableWithDefault(
+            () => systemInfo() && (!systemInfo().dnsName ? IP : DNS)
+        );
 
-		this.dnsName = ko.observableWithDefault(
-			() => systemInfo() && systemInfo().dnsName
-		)
-			.extend({ 
-				required: {
-					params: this.usingDNS,
-					message: 'Please enter a DNS Name'
-				},
-				isDNSName: true 
-			})
+        this.usingIP = this.addressType.is(IP);
+        this.usingDNS = this.addressType.is(DNS);
+        
+        this.ipAddress = ko.pureComputed(
+            ()=> systemInfo() && systemInfo().ipAddress
+        );
 
-		this.baseAddress = ko.pureComputed(
-			() => this.usingIP() ? this.ipAddress() : this.dnsName()
-		);
+        this.dnsName = ko.observableWithDefault(
+            () => systemInfo() && systemInfo().dnsName
+        )
+            .extend({ 
+                required: {
+                    params: this.usingDNS,
+                    message: 'Please enter a DNS Name'
+                },
+                isDNSName: true 
+            })
 
-		this.errors = ko.validation.group({ 
-			dnsName: this.dnsName 
-		});
-	}
+        this.baseAddress = ko.pureComputed(
+            () => this.usingIP() ? this.ipAddress() : this.dnsName()
+        );
 
-	applyChanges() {
-		if (this.errors().length > 0) {
-			this.errors.showAllMessages();
+        this.errors = ko.validation.group({ 
+            dnsName: this.dnsName 
+        });
+    }
 
-		} else {
-			updateBaseAddress(this.baseAddress);
-		}
-	}
+    applyChanges() {
+        if (this.errors().length > 0) {
+            this.errors.showAllMessages();
+
+        } else {
+            updateHostname(this.baseAddress(), systemInfo().sslPort, true);
+        }
+    }
 }
 
 export default {
-	viewModel: ServerDNSFormViewModel,
-	template: template
+    viewModel: ServerDNSFormViewModel,
+    template: template
 }

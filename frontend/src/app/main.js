@@ -16,11 +16,11 @@ ko.options.deferUpdates = true;
 
 // Setup validation policy.
 ko.validation.init({
-	errorMessageClass: 'val-msg',
-	decorateInputElement: true,
-	errorElementClass: 'invalid',
-	errorsAsTitle: false,
-	messagesOnModified: true
+    errorMessageClass: 'val-msg',
+    decorateInputElement: true,
+    errorElementClass: 'invalid',
+    errorsAsTitle: false,
+    messagesOnModified: true
 });
 
 // Register custom extenders, bindings, components and validation rules.
@@ -34,8 +34,8 @@ routing(page);
 
 // Bind the ui to the 
 ko.applyBindings({ 
-	layout: ko.pureComputed( () => uiState().layout ),
-	modal: ko.pureComputed( () => uiState().modal )
+    layout: ko.pureComputed( () => uiState().layout ),
+    modal: ko.pureComputed( () => uiState().modal )
 });
 
 // start the application.

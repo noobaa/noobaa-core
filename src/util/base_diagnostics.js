@@ -61,8 +61,20 @@ function pack_diagnostics(dst) {
             return archive_diagnostics_pack(dst);
         })
         .then(null, function(err) {
-            console.error('Error in packing diagnostics', err);
-            throw new Error('Error in packing diagnostics ' + err);
+            //The reason is that every distribution has its own issues.
+            //We had a case where it failed due to file change during the file.
+            //This flag can help, but not all the distributions support it
+            console.error("failed to tar, an attempt to ignore file changes");
+            return P.fcall(function() {
+                    return promise_utils.promised_exec('tar --warning=no-file-changed -zcvf ' + dst + ' ' + TMP_WORK_DIR + '/*');
+                })
+                .then(function() {
+                    return archive_diagnostics_pack(dst);
+                })
+                .then(null, function(err) {
+                    console.error('Error in packing diagnostics', err);
+                    throw new Error('Error in packing diagnostics ' + err);
+                });
         });
 }
 

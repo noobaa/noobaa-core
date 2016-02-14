@@ -8,29 +8,29 @@ import { makeArray } from 'utils';
 const maxRows = 100;
 
 class AccountsTableViewModel {
-	constructor() {
-		this.deleteGroup = ko.observable();
+    constructor() {
+        this.deleteGroup = ko.observable();
 
-		this.rows = makeArray(
-			maxRows, 
-			i => new AccountRowViewModel(
-				() => accountList()[i], this.deleteCandidate
-			)
-		);
+        this.rows = makeArray(
+            maxRows, 
+            i => new AccountRowViewModel(
+                () => accountList()[i], this.deleteCandidate
+            )
+        );
 
-		this.isCreateAccountModalVisible = ko.observable(false);
+        this.isCreateAccountModalVisible = ko.observable(false);
 
 
-		loadAccountList();
-		
-		// this is leaking, find another solution.
-		// refreshCounter.subscribe(
-		// 	() => loadAccountList()
-		// )
-	}
+        loadAccountList();
+        
+        // this is leaking, find another solution.
+        // refreshCounter.subscribe(
+        //     () => loadAccountList()
+        // )
+    }
 }
 
 export default {
-	viewModel: AccountsTableViewModel,
-	template: template
+    viewModel: AccountsTableViewModel,
+    template: template
 }

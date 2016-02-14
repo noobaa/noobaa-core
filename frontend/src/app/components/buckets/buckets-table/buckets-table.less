@@ -1,46 +1,46 @@
 
 @keyframes row-enter {
-	from { 
-		transform: translateX(100%);
-	}
+    from { 
+        transform: translateX(100%);
+    }
 
-	to {
-		transform: translateX(0);
-	}
+    to {
+        transform: translateX(0);
+    }
 }
 
 buckets-table {
-	display: block;
-	padding: 2em 3.5em;
+    display: block;
+    padding: 2em 3.5em;
 
-	.delete-btn {
-		padding: 0;
+    .delete-btn {
+        padding: 0;
 
-		&[disabled] {
-			cursor: default;
-		}
-	}
+        &[disabled] {
+            cursor: default;
+        }
+    }
 
-	.state-col,
-	.totalsize-col,
-	.freesize-col {
-		min-width: 4em;
-	}
+    .state-col,
+    .totalsize-col,
+    .freesize-col {
+        min-width: 4em;
+    }
 
-	.delete-col,
-	.filecount-col {
-		min-width: 6em;
-	}
+    .delete-col,
+    .filecount-col {
+        min-width: 6em;
+    }
 
-	.cloudsync-col {
-		min-width: 7em;
-	}
+    .cloudsync-col {
+        min-width: 7em;
+    }
 
-	.name-col{
-		width: 100%;	
-	}
+    .name-col{
+        width: 100%;
+    }
 
-	.unable-to-sync {
-		color: @text-color8;
-	}				
+    .unable-to-sync {
+        color: @text-color8;
+    }
 }

@@ -1,9 +1,9 @@
 <modal params="onClose: () => close()">
-	<div data-bind="if: uri">
-		<iframe data-bind="attr: { src: uri }"></iframe>
-	</div>
+    <div data-bind="if: uri">
+        <iframe data-bind="attr: { src: uri }"></iframe>
+    </div>
 
-	<div class="action-line pull-right">
-		<button class="action btn2" data-bind="click: () => close()">Close</button>		
-	</div>
+    <div class="action-line pull-right">
+        <button class="action btn2" data-bind="click: () => close()">Close</button>     
+    </div>
 </modal>

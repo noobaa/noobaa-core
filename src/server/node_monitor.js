@@ -467,11 +467,19 @@ function collect_agent_diagnostics(req) {
 
 function set_debug_node(req) {
     var target = req.rpc_params.target;
-
     return P.fcall(function() {
             return server_rpc.client.agent.set_debug_node({}, {
                 address: target,
             });
+        })
+        .then(function(){
+            var updates = {};
+            //TODO: use param and send it to the agent.
+            //Currently avoid it, due to multiple actors.
+            updates.debug_level = 5;
+            return db.Node.update({
+                rpc_address: target
+            }, updates).exec();
         })
         .then(null, function(err) {
             dbg.log0('Error on set_debug_node', err);

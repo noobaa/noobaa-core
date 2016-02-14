@@ -279,6 +279,10 @@ mocha.describe('system_servers', function() {
             .then(() => client.tier.delete_tier({
                 name: TIER,
             }))
+            .then(() => client.pool.assign_nodes_to_pool({
+                name: 'default_pool',
+                nodes: ['node0', 'node2', 'node4'],
+            }))
             .then(() => client.pool.delete_pool({
                 name: POOL,
             }))

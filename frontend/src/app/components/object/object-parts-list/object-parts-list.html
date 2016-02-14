@@ -2,31 +2,34 @@
 </paginator>
 
 <div class="list-wrapper fill">
-	<ul class="list-no-style" data-bind="foreach: rows">
-		<li>
-			<div class="row" data-bind="click: toggleExpend">
-				<button class="expend-btn btn-flat pull-right text-tech" 
-					data-bind="text: isExpended() ? '-' : '+'"></button>
+    <ul class="list-no-style" data-bind="foreach: rows">
+        <li>
+            <div class="row" data-bind="click: toggleExpend">
+                <button class="expend-btn btn-flat pull-right text-tech" 
+                    data-bind="text: isExpended() ? '-' : '+'"></button>
 
-				<svg-icon params="uri: stateIcon"></svg-icon>
+                <svg-icon params="uri: stateIcon" data-bind="attr: { title: stateToolTip }">
+                </svg-icon>
 
-				<span data-bind="text: name"></span>
-				(<span class="emphasized" data-bind="text: size"></span>)
-			</div>
-			
-			<ul class="block-list list-no-style" data-bind="
-				foreach: blocks,
-				css: { expended: isExpended  }
-			">
-				<li>
-					<div class="sub-row">
-						<svg-icon params="uri: nodeStateIcon"></svg-icon>
-						<span class="pull-right emphasized" data-bind="text: nodeIp">
-						</span>
-						<a class="link" href data-bind="text: nodeName, href: href"></a>
-					</div>
-				</li>
-			</ul>
-		</li>
-	</ul>
+                <span data-bind="text: name"></span>
+                (<span class="emphasized" data-bind="text: size"></span>)
+            </div>
+            
+            <ul class="block-list list-no-style" data-bind="
+                foreach: blocks,
+                css: { expended: isExpended  }
+            ">
+                <li>
+                    <div class="sub-row">
+                        <svg-icon params="uri: nodeStateIcon" 
+                            data-bind="attr: { title: nodeStateToolTip }"></svg-icon>
+
+                        <span class="pull-right emphasized" data-bind="text: nodeIp">
+                        </span>
+                        <a class="link" href data-bind="text: nodeName, href: href"></a>
+                    </div>
+                </li>
+            </ul>
+        </li>
+    </ul>
 </div>

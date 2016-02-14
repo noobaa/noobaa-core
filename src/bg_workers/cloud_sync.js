@@ -399,7 +399,7 @@ function load_single_policy(bucket) {
     policy.s3cloud = new AWS.S3({
         accessKeyId: policy.access_keys.access_key,
         secretAccessKey: policy.access_keys.secret_key,
-        region: 'eu-west-1', //TODO:: WA for AWS poorly developed SDK :-/
+        //region: 'eu-west-1', //TODO:: WA for AWS poorly developed SDK :-/
     });
 
     CLOUD_SYNC.configured_policies.push(policy);

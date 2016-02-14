@@ -1,13 +1,13 @@
 import template from './set-cloud-sync-modal.html';
 import ko from 'knockout';
-import { cloudSyncPolicy, awsCredentialsList, awsBucketList } from 'model';
-import { loadCloudSyncPolicy, loadAccountAwsCredentials, loadAwsBucketList, 
-    setCloudSyncPolicy } from 'actions';
+import { awsCredentialsList, awsBucketList } from 'model';
+import { loadAccountAwsCredentials, loadAwsBucketList, setCloudSyncPolicy } from 'actions';
 
+const [ MIN, HOUR, DAY ] = [1, 60, 60 * 24];
 const frequencyUnitOptions = Object.freeze([
-     { value: 1, label: 'Minutes' },
-     { value: 60, label: 'Hours' },
-     { value: 60 * 24, label: 'Days' }
+     { value: MIN, label: 'Minutes' },
+     { value: HOUR, label: 'Hours' },
+     { value: DAY, label: 'Days' }
 ]);
 
 const directionOptions = Object.freeze([
@@ -18,109 +18,90 @@ const directionOptions = Object.freeze([
 
 const addAccessKeyOption = {
     label: 'Add new access key',
-    value: null
-}
+    value: 'NEW_KEY'
+};
+
+// awsCredentialsList.push(
+//     { access_key: 'AKIAJOP7ZFXOOPGL5BOA', secret_key: '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' },
+//     { access_key: 'AKIAIKFRM4EAAO5TAXJA', secret_key: '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' }
+// );
 
 class CloudSyncModalViewModel {
     constructor({ bucketName, onClose }) {
         this.onClose = onClose;
         this.bucketName = bucketName;
 
-        this.accessKey = ko.observable();
         this.accessKeyOptions = ko.pureComputed(
             () => [
-                //addAccessKeyOption,
-                 //null,
+                addAccessKeyOption,
+                null,
                 ...awsCredentialsList().map(
                     ({ access_key }) => ({ value: access_key })
                 )
             ]
         );
 
-        this.awsCredentials = ko.pureComputed(
-            () => awsCredentialsList().find(
-                credentials => credentials.access_key === this.accessKey()
-            )
+        //let _accessKey = ko.observable();
+        // this.accessKey = ko.pureComputed(
+        // );
+
+        this.accessKey = ko.observable();
+        this.accessKey.subscribe(
+            accessKey => accessKey === 'NEW_KEY' && 
+                this.isAWSCredentialsModalVisible(true)
         );
 
-        // // Leaks memory
-        // this.awsCredentials.subscribe(
-        //     ({ access_key, secret_key }) => loadAwsBucketList(access_key, secret_key)
-        // );
+        this.awsCredentials = ko.pureComputed(
+            () => awsCredentialsList().find(
+                ({ access_key }) => access_key === this.accessKey()
+            )
+        );
+        this.awsCredentials.subscribe(
+            credentials => credentials && this.loadBucketsList()
+        );
 
         this.awsBucket = ko.observable();
         this.awsBucketsOptions = awsBucketList.map(
-            () => bucketName => ({ value: bucketName })
+            bucketName => ({ value: bucketName })
         );
 
-       
-        // this.direction = ko.observableWithDefault(
-        //     () => {
-        //         let policy = cloudSyncPolicy();
-        //         if (!policy) return;
+        this.direction = ko.observable('BI');
+        this.directionOptions = directionOptions;
 
-        //         let { n2c_enabled, c2n_enabled } = policy;
-        //         if (n2c_enabled && c2n_enabled) return 'BI';
-        //         if (n2c_enabled) return 'NB2AWS';
-        //         if (c2n_enabled) return 'AWS2NB';
-        //     }
-        // );
-
-        // this.directionOptions = directionOptions;
+        this.frequency = ko.observable(1);
+        this.frequencyUnit = ko.observable(HOUR);
+        this.frequencyUnitOptions = frequencyUnitOptions; 
         
-        // let calculatedUnit = ko.pureComputed(
-        //     () => {
-        //         let policy = cloudSyncPolicy();
-        //         if (!policy) return 60;
+        let _syncDeletions = ko.observable(true);
+        this.syncDeletions = ko.pureComputed({
+            read: () => this.direction() === 'BI' ? true : _syncDeletions(),
+            write: _syncDeletions 
+        });
 
-        //         let { schedule } = policy;
-        //         if (schedule < 60) {
-        //             return 1; 
+        this.isAWSCredentialsModalVisible = ko.observable(false);
 
-        //         } else if (schedule < 60 * 24){
-        //             return 60;
-
-        //         } else {
-        //             return 60 * 24
-        //         }
-        //     }
-        // );
-
-        // this.frequencyUnit = ko.observableWithDefault(
-        //     () =>  calculatedUnit()
-        // );
-
-        // this.frequency = ko.observableWithDefault(
-        //     () => cloudSyncPolicy() ?
-        //         Math.floor(cloudSyncPolicy().schedule / calculatedUnit()) :
-        //         1
-        // );
-        
-        // this.frequencyUnitOptions = frequencyUnitOptions;
-
-        // this.syncDeletions = ko.observableWithDefault(
-        //     () => cloudSyncPolicy() && !cloudSyncPolicy().additions_only
-        // );
-
-        // this.isAWSCredentialsModalVisible = ko.observable(false);
-
-        // loadCloudSyncPolicy(ko.unwrap(this.bucketName));
         loadAccountAwsCredentials();
     }
+
+    loadBucketsList() {
+        let { access_key, secret_key } = this.awsCredentials(); 
+        loadAwsBucketList(access_key, secret_key);
+    }
+
 
     cancel() {
         this.onClose();
     }
 
     save() {
-        // setCloudSyncPolicy(
-        //     ko.unwrap(this.bucketName),
-        //     this.awsBucket(),
-        //     this.awsCredentials(),
-        //     this.direction(),
-        //     this.frequency() * this.frequencyUnit(),
-        //     this.syncDeletions()
-        // );
+        setCloudSyncPolicy(
+            ko.unwrap(this.bucketName),
+            this.awsBucket(),
+            this.awsCredentials(),
+            this.direction(),
+            this.frequency() * this.frequencyUnit(),
+            this.syncDeletions()
+        );
         this.onClose();
     }
 }

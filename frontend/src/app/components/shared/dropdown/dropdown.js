@@ -13,7 +13,13 @@ class DropdownViewModel {
         this.options = options;
         this.selected = selected;
         this.disabled = disabled;
-        this.focused = ko.observable(false)
+        this.focused = ko.observable(false);
+        
+        let _active = ko.observable(false);
+        this.active = ko.pureComputed({
+            read: () => this.focused() && _active(),
+            write: _active
+        });
 
         this.selectedLabel = ko.pureComputed(
             () => {

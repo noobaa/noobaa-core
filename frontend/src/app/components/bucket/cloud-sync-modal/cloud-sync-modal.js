@@ -1,7 +1,7 @@
 import template from './cloud-sync-modal.html'
 import ko from 'knockout';
 import { cloudSyncInfo } from 'model';
-import { loadCloudSyncInfo } from 'actions';
+import { loadCloudSyncInfo, removeCloudSyncPolicy } from 'actions';
 
 const minPerHour = 60;
 const minPerDay = minPerHour * 25;
@@ -70,6 +70,11 @@ class CloudSyncModalViewModel {
         );
 
         loadCloudSyncInfo(ko.unwrap(bucketName));
+    }
+
+    removePolicy() {
+        removeCloudSyncPolicy(ko.unwrap(this.bucketName));
+        this.onClose();
     }
 
     close() {

@@ -4,7 +4,7 @@
     </h1>
 
     <section class="container">
-        <editor params="label: 'AWS Access Key'">
+        <editor params="label: 'AWS Access Key'"    >
             <dropdown class="aws-buckets" params="
                 placeholder: 'Choose Access Key',
                 options: accessKeyOptions,
@@ -21,9 +21,9 @@
             "></dropdown>
         </editor>
 
-<!--        <editor params="label: 'Sync Bucket Every'">
+        <editor params="label: 'Sync Bucket Every'">
             <input type="Number" data-bind="value: frequency, enable: awsBucket"/>
-            <dropdown params="
+            <dropdown class="freq-unit" params="
                 selected: frequencyUnit, 
                 options: frequencyUnitOptions, 
                 disabled: !awsBucket()
@@ -41,9 +41,9 @@
         <checkbox params="
             label: 'Synchronize File Deletions', 
             checked: syncDeletions,
-            disabled: !awsBucket()
+            disabled: !awsBucket() || direction() === 'BI'
         "></checkbox>
-    </section> -->
+    </section>
 
     <div class="action-line pull-right">
         <button class="action link" data-bind="click: cancel">Cancel</button>
@@ -51,8 +51,8 @@
     </div>
 </modal> 
 
-<!-- ko1 if: isAWSCredentialsModalVisible -->
-<!-- <aws-credentials-modal params="
+<!-- ko if: isAWSCredentialsModalVisible -->
+<aws-credentials-modal params="
     onClose: () => isAWSCredentialsModalVisible(false)
-"></aws-credentials-modal> -->
-<!-- /ko1 -->
+"></aws-credentials-modal> 
+<!-- /ko -->

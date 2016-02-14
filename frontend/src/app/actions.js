@@ -808,18 +808,22 @@ export function setCloudSyncPolicy(bucket, awsBucket, credentials, direction, fr
         .done();
 }
 
+export function removeCloudSyncPolicy(bucket) {
+    logAction('removeCloudSyncPolicy', { bucket });
+
+    api.bucket.delete_cloud_sync({ name: bucket })
+        .then(
+            () => model.cloudSyncInfo(null)
+        )
+        .done();
+}
+
 
 export function loadAccountAwsCredentials() {
     logAction('loadAccountAwsCredentials');
     
     api.account.get_account_sync_credentials_cache()
         .then(model.awsCredentialsList)
-        .then(
-            () => model.awsCredentialsList.push(
-                { access_key: 'AKIAJOP7ZFXOOPGL5BOA', secret_key: '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' },
-                { access_key: 'AKIAIKFRM4EAAO5TAXJA', secret_key: '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' }
-            )
-        )
         .done();
 }
 
@@ -831,7 +835,7 @@ export function addAWSCredentials(accessKey, secretKey) {
         secret_key: secretKey
     });
 }
-
+ 
 export function loadAwsBucketList(accessKey, secretKey) {
     logAction('loadAwsBucketList', { accessKey, secretKey })
 
@@ -1268,7 +1272,7 @@ export function downloadDiagnosticPack(nodeName) {
             url => downloadFile(url)
         )
         .done();
-}
+}   
 
 export function raiseNodeDebugLevel(node) {
     logAction('raiseNodeDebugLevel', { node });

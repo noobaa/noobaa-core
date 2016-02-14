@@ -2,12 +2,27 @@
 let fs = require('fs');
 let net = require('net');
 let tls = require('tls');
+let cluster = require('cluster');
 let Speedometer = require('../src/util/speedometer');
 let argv = require('minimist')(process.argv);
 argv.size = argv.size || 1024 * 1024;
 argv.port = parseInt(argv.port, 10) || 50505;
 argv.noframe = argv.noframe || false;
-main();
+argv.forks = argv.forks || 1;
+
+if (argv.forks > 1 && cluster.isMaster) {
+    let master_speedometer = new Speedometer('Total Speed');
+    master_speedometer.enable_cluster();
+    for (let i = 0; i < argv.forks; i++) {
+        console.warn('Forking', i + 1);
+        cluster.fork();
+    }
+    cluster.on('exit', function(worker, code, signal) {
+        console.warn('Fork pid ' + worker.process.pid + ' died');
+    });
+} else {
+    main();
+}
 
 
 function main() {
@@ -82,6 +97,7 @@ function setup_conn(conn) {
 
 function run_sender(conn) {
     let send_speedometer = new Speedometer('Send Speed');
+    send_speedometer.enable_cluster();
     let send;
     if (!argv.noframe) {
         send = () => {
@@ -118,6 +134,7 @@ function run_sender(conn) {
 function run_receiver(conn) {
     conn._readableState.highWaterMark = 8 * argv.size;
     let recv_speedometer = new Speedometer('Receive Speed');
+    recv_speedometer.enable_cluster();
     if (!argv.noframe) {
         let hdr;
         conn.on('readable', () => {

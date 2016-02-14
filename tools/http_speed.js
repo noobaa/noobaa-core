@@ -11,6 +11,8 @@ argv.concur = argv.concur || 1;
 argv.forks = argv.forks || 1;
 
 if (argv.forks > 1 && cluster.isMaster) {
+    let master_speedometer = new Speedometer('Total Speed');
+    master_speedometer.enable_cluster();
     for (let i = 0; i < argv.forks; i++) {
         console.warn('Forking', i + 1);
         cluster.fork();
@@ -72,6 +74,7 @@ function run_client(port, host, ssl) {
 
 function run_sender(port, host, ssl) {
     let send_speedometer = new Speedometer('Send Speed');
+    send_speedometer.enable_cluster();
     let send = () => {
         let buf = new Buffer(argv.size);
         let req = (ssl ? https : http).request({
@@ -108,6 +111,7 @@ function run_sender(port, host, ssl) {
 
 function run_receiver(server) {
     let recv_speedometer = new Speedometer('Receive Speed');
+    recv_speedometer.enable_cluster();
     server.on('request', (req, res) => {
         req.on('data', data => recv_speedometer.update(data.length));
         req.on('error', err => {

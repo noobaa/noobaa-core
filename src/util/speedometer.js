@@ -17,7 +17,7 @@ class Speedometer {
 
     set_interval(delay_ms) {
         this.clear_interval();
-        this.interval = setInterval(() => this.print(), delay_ms || 1000);
+        this.interval = setInterval(() => this.report(), delay_ms || 1000);
     }
 
     clear_interval() {
@@ -27,20 +27,44 @@ class Speedometer {
         }
     }
 
-    print(min_delay_ms) {
+    report(min_delay_ms) {
         let now = Date.now();
         if (min_delay_ms && now - this.last_time < min_delay_ms) {
             return;
         }
-        let speed = (this.num_bytes - this.last_bytes) / (now - this.last_time);
-        let avg_speed = this.num_bytes / (now - this.start_time);
-        speed *= 1000 / 1024 / 1024;
-        avg_speed *= 1000 / 1024 / 1024;
-        console.log(this.name + ': ' +
-            speed.toFixed(1) + ' MB/sec' +
-            ' (average ' + avg_speed.toFixed(1) + ')');
+        if (this.worker_mode) {
+            process.send(this.num_bytes - this.last_bytes);
+        } else {
+            let speed = (this.num_bytes - this.last_bytes) / (now - this.last_time);
+            let avg_speed = this.num_bytes / (now - this.start_time);
+            speed *= 1000 / 1024 / 1024;
+            avg_speed *= 1000 / 1024 / 1024;
+            console.log(this.name + ': ' +
+                speed.toFixed(1) + ' MB/sec' +
+                ' (average ' + avg_speed.toFixed(1) + ')');
+        }
         this.last_bytes = this.num_bytes;
         this.last_time = now;
+    }
+
+    enable_cluster() {
+        let cluster = require('cluster');
+        let _ = require('lodash');
+        if (cluster.isMaster) {
+            cluster.on('fork', worker => {
+                worker.on('message', bytes => this.update(bytes));
+            });
+            _.each(cluster.workers, worker => {
+                worker.on('message', bytes => this.update(bytes));
+            });
+            cluster.on('exit', worker => {
+                if (_.isEmpty(cluster.workers)) {
+                    this.clear_interval();
+                }
+            });
+        } else {
+            this.worker_mode = true;
+        }
     }
 }
 

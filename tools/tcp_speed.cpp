@@ -139,6 +139,44 @@ public:
             pos += n;
             len -= n;
         }
+        // test code to do mem copy on read
+        // char* tmp = new char[len];
+        // memcpy(tmp, buf, len);
+        // delete []tmp;
+    }
+
+    enum {
+        READ_MODE = 1,
+        WRITE_MODE = 2
+    };
+
+    int select(int mode)
+    {
+        fd_set rfds;
+        fd_set wfds;
+        fd_set* prfds = NULL;
+        fd_set* pwfds = NULL;
+        struct timeval tv;
+        tv.tv_sec = 1;
+        tv.tv_usec = 0;
+        if (mode & READ_MODE) {
+            prfds = &rfds;
+            FD_ZERO(prfds);
+            FD_SET(_fd, prfds);
+        }
+        if (mode & WRITE_MODE) {
+            pwfds = &wfds;
+            FD_ZERO(pwfds);
+            FD_SET(_fd, pwfds);
+        }
+        int ret;
+        SYSCALL(ret = ::select(_fd + 1, prfds, pwfds, NULL, &tv));
+        if (ret) {
+            return (prfds && FD_ISSET(_fd, prfds) ? READ_MODE : 0) |
+                (pwfds && FD_ISSET(_fd, pwfds) ? WRITE_MODE : 0);
+        } else {
+            return 0;
+        }
     }
 
 };
@@ -209,7 +247,9 @@ int main(int ac, char** av)
         while (true) {
             int msg_len = buf_size;
             *reinterpret_cast<int*>(hdr) = htonl(msg_len);
+            while (!client.select(Socket::WRITE_MODE)) {}
             client.write_all(hdr, hdr_len);
+            while (!client.select(Socket::WRITE_MODE)) {}
             client.write_all(buf, msg_len);
             speedometer.update(msg_len);
         }
@@ -223,11 +263,13 @@ int main(int ac, char** av)
         server.listen();
         server.accept(conn);
         while (true) {
+            while (!conn.select(Socket::READ_MODE)) {}
             conn.read_all(hdr, hdr_len);
             int msg_len = ntohl(*reinterpret_cast<int*>(hdr));
             if (msg_len > buf_size) {
                 FATAL("Message size " << msg_len << " exceeds buffer size " << buf_size);
             }
+            while (!conn.select(Socket::READ_MODE)) {}
             conn.read_all(buf, msg_len);
             speedometer.update(msg_len);
         }

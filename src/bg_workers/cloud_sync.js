@@ -399,7 +399,7 @@ function load_single_policy(bucket) {
     policy.s3cloud = new AWS.S3({
         accessKeyId: policy.access_keys.access_key,
         secretAccessKey: policy.access_keys.secret_key,
-        region: 'eu-west-1', //TODO:: WA for AWS poorly developed SDK :-/
+   //     region: 'us-standart-1', //TODO:: WA for AWS poorly developed SDK :-/
     });
 
     CLOUD_SYNC.configured_policies.push(policy);
@@ -479,7 +479,7 @@ function update_c2n_worklist(policy) {
             dbg.error('ERROR statusCode', error.statusCode, error.statusCode === 400, error.statusCode === 301);
             if (error.statusCode === 400 ||
                 error.statusCode === 301) {
-                dbg.log0('Resetting (list objects) signature type and region to eu-central-1 and v4');
+                dbg.log0('Resetting (list objects) signature type and region to eu-central-1 and v4', params);
                 // change default region from US to EU due to restricted signature of v4 and end point
                 policy.s3cloud = new AWS.S3({
                     accessKeyId: policy.access_keys.access_key,

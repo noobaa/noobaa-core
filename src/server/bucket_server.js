@@ -159,9 +159,6 @@ function delete_bucket(req) {
         actor: req.account._id,
         bucket: bucket._id,
     });
-    if (_.map(req.system.buckets_by_name).length === 1) { ///don't allow last bucket deletion
-      throw new Error('Cannot delete last bucket');
-    }
     return system_store.make_changes({
             remove: {
                 buckets: [bucket._id]
@@ -172,7 +169,6 @@ function delete_bucket(req) {
                 sysid: req.system._id.toString(),
                 bucketid: bucket._id.toString(),
                 force_stop: true,
-                bucket_deleted: true,
             }));
         })
         .return();
@@ -209,21 +205,20 @@ function get_cloud_sync_policy(req, bucket) {
             bucketid: bucket._id.toString()
         }))
         .then(function(stat) {
-            bucket.cloud_sync.status = stat.status;
             return {
                 name: bucket.name,
                 policy: {
                     endpoint: bucket.cloud_sync.endpoint,
                     access_keys: [bucket.cloud_sync.access_keys],
                     schedule: bucket.cloud_sync.schedule_min,
-                    last_sync: (new Date(bucket.cloud_sync.last_sync)).getTime(),
-                    paused: bucket.cloud_sync.paused || false,
+                    last_sync: bucket.cloud_sync.last_sync.getTime(),
+                    paused: bucket.cloud_sync.paused,
                     c2n_enabled: bucket.cloud_sync.c2n_enabled,
                     n2c_enabled: bucket.cloud_sync.n2c_enabled,
                     additions_only: bucket.cloud_sync.additions_only
                 },
                 health: stat.health,
-                status: cs_utils.resolve_cloud_sync_info(bucket.cloud_sync),
+                status: stat.status,
             };
         });
 }
@@ -237,17 +232,16 @@ function get_all_cloud_sync_policies(req) {
     dbg.log3('get_all_cloud_sync_policies');
     var reply = [];
     return P.all(_.map(req.system.buckets_by_name, function(bucket) {
-        if (!bucket.cloud_sync || !bucket.cloud_sync.endpoint) return;
+        if (!bucket.cloud_sync.endpoint) return;
         return bg_worker.cloud_sync.get_policy_status({
                 sysid: req.system._id.toString(),
                 bucketid: bucket._id.toString()
             })
             .then(function(stat) {
-                bucket.cloud_sync.status = stat.status;
                 reply.push({
                     name: bucket.name,
                     health: stat.health,
-                    status: cs_utils.resolve_cloud_sync_info(bucket.cloud_sync),
+                    status: stat.status,
                     policy: {
                         endpoint: bucket.cloud_sync.endpoint,
                         access_keys: [bucket.cloud_sync.access_keys],
@@ -320,16 +314,13 @@ function set_cloud_sync(req) {
         additions_only: req.rpc_params.policy.additions_only
     };
 
-    if (bucket.cloud_sync) {
-        //If either of the following is changed, signal the cloud sync worker to force stop and reload
-        if (bucket.cloud_sync.endpoint !== cloud_sync.endpoint ||
-            bucket.cloud_sync.access_keys.access_key !== cloud_sync.access_keys.access_key ||
-            bucket.cloud_sync.access_keys.secret_key !== cloud_sync.access_keys.secret_key ||
-            cloud_sync.paused) {
-            force_stop = true;
-        }
+    //If either of the following is changed, signal the cloud sync worker to force stop and reload
+    if (bucket.cloud_sync.endpoint !== cloud_sync.endpoint ||
+        bucket.cloud_sync.access_keys.access_key !== cloud_sync.access_keys.access_key ||
+        bucket.cloud_sync.access_keys.secret_key !== cloud_sync.access_keys.secret_key ||
+        cloud_sync.paused) {
+        force_stop = true;
     }
-
     return system_store.make_changes({
             update: {
                 buckets: [{
@@ -372,6 +363,7 @@ function get_cloud_buckets(req) {
         return P.ninvoke(s3, "listBuckets");
     }).then(function(data) {
         _.each(data.Buckets, function(bucket) {
+            dbg.log0('bucket info',bucket);
             buckets.push(bucket.Name);
         });
         return buckets;
@@ -409,7 +401,7 @@ function get_bucket_info(bucket, objects_aggregate, nodes_aggregate_pool, cloud_
         total: info.tiering && info.tiering.storage && info.tiering.storage.total || 0,
         free: info.tiering && info.tiering.storage && info.tiering.storage.free || 0,
     });
-    info.cloud_sync_status = cs_utils.resolve_cloud_sync_info(cloud_sync_policy);
+    cs_utils.resolve_cloud_sync_info(cloud_sync_policy, info);
     return info;
 }
 

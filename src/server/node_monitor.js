@@ -19,7 +19,6 @@ var promise_utils = require('../util/promise_utils');
 var server_rpc = require('./server_rpc');
 var system_server = require('./system_server');
 var nodes_store = require('./stores/nodes_store');
-var mongodb = require('mongodb');
 var dbg = require('../util/debug_module')(__filename);
 var pkg = require('../../package.json');
 var current_pkg_version = pkg.version;
@@ -38,7 +37,7 @@ var heartbeat_find_node_by_id_barrier = new Barrier({
         return nodes_store.find_nodes({
                 deleted: null,
                 _id: {
-                    $in: _.map(node_ids, mongodb.ObjectId)
+                    $in: node_ids
                 },
             }, {
                 // we are selective to reduce overhead
@@ -106,7 +105,7 @@ var heartbeat_update_node_timestamp_barrier = new Barrier({
     max_length: 200,
     expiry_ms: 500, // milliseconds to wait for others to join
     process: function(node_ids) {
-        dbg.log2('heartbeat_update_node_timestamp_barrier', node_ids.length);
+        dbg.log2('heartbeat_update_node_timestamp_barrier', node_ids);
         return nodes_store.update_nodes({
             deleted: null,
             _id: {
@@ -178,7 +177,9 @@ function heartbeat(req) {
 function update_heartbeat(req, reply_token) {
     var params = req.rpc_params;
     var conn = req.connection;
-    var node_id = params.node_id;
+    // the node_id param is string, and need to convert it to proper object id
+    // for the sake of all the queries that we use it for
+    var node_id = nodes_store.make_nodes_id(params.node_id);
     var peer_id = params.peer_id;
     var node;
 
@@ -366,7 +367,7 @@ function update_heartbeat(req, reply_token) {
                 $push: push_updates
             }, _.isEmpty);
 
-            dbg.log0('NODE HEARTBEAT UPDATES', node_id, updates);
+            dbg.log0('NODE HEARTBEAT UPDATES', node_id, node.heartbeat, updates);
 
             if (_.isEmpty(updates)) {
                 // when only timestamp is updated we optimize by merging DB calls with a barrier

@@ -13,6 +13,7 @@ var NodeModel = require('./node_model');
 
 module.exports = {
     // single node ops
+    make_nodes_id: make_nodes_id,
     create_node: create_node,
     find_node_by_name: find_node_by_name,
     update_node_by_name: update_node_by_name,
@@ -32,14 +33,17 @@ module.exports = {
     test_code_delete_all_nodes: test_code_delete_all_nodes,
 };
 
-
 /////////////////////
 // single node ops //
 /////////////////////
 
 
+function make_nodes_id(id_str) {
+    return new mongodb.ObjectId(id_str);
+}
+
 function create_node(req, node) {
-    node._id = new mongodb.ObjectId();
+    node._id = make_nodes_id();
     return P.when(NodeModel.collection.insertOne(node))
         .catch(db.check_already_exists(req, 'node'))
         .return(node);
@@ -82,7 +86,7 @@ function delete_node_by_name(req) {
 
 function update_node_by_id(node_id, updates) {
     return P.when(NodeModel.collection.findOneAndUpdate({
-        _id: new mongodb.ObjectId(node_id)
+        _id: make_nodes_id(node_id)
     }, updates));
 }
 

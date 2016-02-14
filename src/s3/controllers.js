@@ -1336,6 +1336,14 @@ module.exports = function(params) {
                     bucket: req.bucket,
                     key: key
                 });
+            }).fail(function(err){
+                //retry without replacement
+                dbg.error('Could not delete object "%s"', key,err.rpc_code);
+                key = req.params.key;
+                return clients[access_key].client.object.delete_object({
+                    bucket: req.bucket,
+                    key: key
+                });
             }).then(function() {
                 dbg.log0('Deleted object "%s" in bucket "%s"', key, req.bucket);
                 return res.status(204).end();

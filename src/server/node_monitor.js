@@ -479,7 +479,9 @@ function set_debug_node(req) {
             updates.debug_level = 5;
             return nodes_store.update_nodes({
                 rpc_address: target
-            }, updates);
+            }, {
+                $set: updates
+            });
         })
         .then(null, function(err) {
             dbg.log0('Error on set_debug_node', err);

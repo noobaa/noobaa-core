@@ -477,9 +477,9 @@ function set_debug_node(req) {
             //TODO: use param and send it to the agent.
             //Currently avoid it, due to multiple actors.
             updates.debug_level = 5;
-            return db.Node.update({
+            return nodes_store.update_nodes({
                 rpc_address: target
-            }, updates).exec();
+            }, updates);
         })
         .then(null, function(err) {
             dbg.log0('Error on set_debug_node', err);

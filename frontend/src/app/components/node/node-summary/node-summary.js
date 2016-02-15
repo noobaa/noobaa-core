@@ -7,7 +7,7 @@ import style from 'style';
 
 class NodeSummaryViewModel {
     constructor({ node }) {
-        
+
         this.dataReady = ko.pureComputed(
             () => !!node()
         );
@@ -23,9 +23,12 @@ class NodeSummaryViewModel {
         this.stateIcon = ko.pureComputed(
             () => `/fe/assets/icons.svg#node-${node().online ? 'online' : 'offline'}`
         )
-
+        let extended_state = '';
+        if (node().srvmode &&  node().srvmode === 'storage_full'){
+            extended_state = '. Not enough free space. Read-Only mode';
+        }
         this.state = ko.pureComputed(
-            () => node().online ? 'Online' : 'Offline'
+            () => node().online ? 'Online' : 'Offline' + extended_state
         );
 
         this.heartbeat = ko.pureComputed(
@@ -50,7 +53,7 @@ class NodeSummaryViewModel {
 
         this.totalText = ko.pureComputed(
             () => formatSize(this.total())
-        );      
+        );
 
         this.used = ko.pureComputed(
             () => node().storage.used
@@ -58,11 +61,11 @@ class NodeSummaryViewModel {
 
         this.usedText = ko.pureComputed(
             () => formatSize(this.used())
-        );      
+        );
 
         this.free = ko.pureComputed(
             () => node().storage.free
-        );      
+        );
 
         this.freeText = ko.pureComputed(
             () => formatSize(this.free())
@@ -70,11 +73,11 @@ class NodeSummaryViewModel {
 
         this.os = ko.pureComputed(
             () => this.total() - (this.used() + this.free())
-        );      
+        );
 
         this.osText = ko.pureComputed(
             () => formatSize(this.os())
-        );      
+        );
 
         this.gaugeValues = [
             { value: this.used, color: style['text-color6'], emphasize: true },

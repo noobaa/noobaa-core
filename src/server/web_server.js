@@ -256,7 +256,7 @@ app.get('/console', function(req, res) {
 });
 
 app.get('/', function(req, res) {
-    return res.redirect('/console/');
+    return res.redirect('/fe/');
 });
 
 // Upgrade checks

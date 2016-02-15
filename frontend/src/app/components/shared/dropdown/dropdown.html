@@ -2,7 +2,8 @@
     click: () => active(true) && true,
     hasFocus: focused,
     attr: { tabindex: !ko.unwrap(disabled) && '0' },
-    css: { disabled: disabled, active: active }
+    css: { disabled: disabled, active: active },
+    validationOptions: { insertMessages: false }
 ">
     <svg-icon class="pull-right" params="uri: '/fe/assets/icons.svg#expand'"></svg-icon>
     

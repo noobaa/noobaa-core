@@ -5,24 +5,26 @@
 
     <section class="container">
         <editor params="label: 'AWS Access Key'"    >
-            <dropdown class="aws-buckets" params="
+            <dropdown params="
                 placeholder: 'Choose Access Key',
                 options: accessKeyOptions,
                 selected: accessKey
             "></dropdown>
+            <div class="val-msg" data-bind="validationMessage: accessKey"></div>
         </editor>
 
          <editor params="label: 'AWS Bucket'">
-            <dropdown class="aws-bucket s" params="
+            <dropdown params="
                 placeholder: 'Choose Bucket',
                 disabled: !awsBucketsOptions(),
                 options: awsBucketsOptions,
                 selected: awsBucket
             "></dropdown>
+            <div class="val-msg" data-bind="validationMessage: awsBucket"></div>
         </editor>
 
-        <editor params="label: 'Sync Bucket Every'">
-            <input type="Number" data-bind="value: frequency, enable: awsBucket"/>
+        <editor params="label: 'Sync Bucket Every', insertValMessages: false">
+            <input type="Number" data-bind="value: frequency, enable: awsBucket" min="1"/>
             <dropdown class="freq-unit" params="
                 selected: frequencyUnit, 
                 options: frequencyUnitOptions, 
@@ -30,7 +32,7 @@
             "></dropdown>
         </editor>
 
-        <editor params="label: 'Sync Type'">
+        <editor params="label: 'Sync Type', insertValMessages: false">
             <radio-group params="
                 selected: direction, 
                 options: directionOptions, 
@@ -52,7 +54,6 @@
 </modal> 
 
 <!-- ko if: isAWSCredentialsModalVisible -->
-<aws-credentials-modal params="
-    onClose: () => isAWSCredentialsModalVisible(false)
-"></aws-credentials-modal> 
+<aws-credentials-modal params="onClose: canceled => onNewCredentials(canceled)">
+</aws-credentials-modal> 
 <!-- /ko -->

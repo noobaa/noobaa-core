@@ -17,14 +17,9 @@ const directionOptions = Object.freeze([
 ]);
 
 const addAccessKeyOption = {
-    label: 'Add new access key',
+    
     value: 'NEW_KEY'
 };
-
-// awsCredentialsList.push(
-//     { access_key: 'AKIAJOP7ZFXOOPGL5BOA', secret_key: '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' },
-//     { access_key: 'AKIAIKFRM4EAAO5TAXJA', secret_key: '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' }
-// );
 
 class CloudSyncModalViewModel {
     constructor({ bucketName, onClose }) {
@@ -33,7 +28,10 @@ class CloudSyncModalViewModel {
 
         this.accessKeyOptions = ko.pureComputed(
             () => [
-                addAccessKeyOption,
+                {
+                    label: 'Add new access key',
+                    value: 'NEW_KEY'
+                },
                 null,
                 ...awsCredentialsList().map(
                     ({ access_key }) => ({ value: access_key })
@@ -41,14 +39,14 @@ class CloudSyncModalViewModel {
             ]
         );
 
-        //let _accessKey = ko.observable();
-        // this.accessKey = ko.pureComputed(
-        // );
-
-        this.accessKey = ko.observable();
+        this.accessKey = ko.observable().extend({ 
+            required: { message: 'Please choose an aws access key'}  
+        });;
         this.accessKey.subscribe(
-            accessKey => accessKey === 'NEW_KEY' && 
-                this.isAWSCredentialsModalVisible(true)
+            accessKey => accessKey === 'NEW_KEY' && this.isAWSCredentialsModalVisible(true)
+        );
+        this.accessKey.subscribe(
+            () => this.awsBucket(null)
         );
 
         this.awsCredentials = ko.pureComputed(
@@ -60,10 +58,17 @@ class CloudSyncModalViewModel {
             credentials => credentials && this.loadBucketsList()
         );
 
-        this.awsBucket = ko.observable();
-        this.awsBucketsOptions = awsBucketList.map(
-            bucketName => ({ value: bucketName })
+        this.awsBucketsOptions = ko.pureComputed(
+            () => this.awsCredentials() && awsBucketList().map(
+                bucketName => ({ value: bucketName })
+            )
         );
+        this.awsBucket = ko.observable().extend({ 
+            required: { 
+                params: this.accessKey,
+                message: 'Please choose an aws bucket'
+            }  
+        });
 
         this.direction = ko.observable('BI');
         this.directionOptions = directionOptions;
@@ -80,6 +85,8 @@ class CloudSyncModalViewModel {
 
         this.isAWSCredentialsModalVisible = ko.observable(false);
 
+        this.errors = ko.validation.group(this);
+
         loadAccountAwsCredentials();
     }
 
@@ -88,25 +95,35 @@ class CloudSyncModalViewModel {
         loadAwsBucketList(access_key, secret_key);
     }
 
+    onNewCredentials(canceled) {
+        this.isAWSCredentialsModalVisible(false);
+        canceled ? 
+            this.accessKey(null) :
+            this.accessKey();
+    }
 
     cancel() {
         this.onClose();
     }
 
     save() {
-        setCloudSyncPolicy(
-            ko.unwrap(this.bucketName),
-            this.awsBucket(),
-            this.awsCredentials(),
-            this.direction(),
-            this.frequency() * this.frequencyUnit(),
-            this.syncDeletions()
-        );
-        this.onClose();
+        if (this.errors().length > 0) {
+            this.errors.showAllMessages();
+        } else {
+            setCloudSyncPolicy(
+                ko.unwrap(this.bucketName),
+                this.awsBucket(),
+                this.awsCredentials(),
+                this.direction(),
+                this.frequency() * this.frequencyUnit(),
+                this.syncDeletions()
+            );
+            this.onClose();
+        }
     }
 }
 
 export default {
     viewModel: CloudSyncModalViewModel,
     template: template
-}
+}   

@@ -248,6 +248,7 @@ RPC.prototype.client_request = function(api, method_api, params, options) {
 
             dbg.error('RPC client_request: response ERROR',
                 'srv', req.srv,
+                'params', params,
                 'reqid', req.reqid,
                 err.stack || err);
 

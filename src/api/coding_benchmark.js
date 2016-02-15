@@ -148,12 +148,8 @@ function test() {
                 highWaterMark: 4,
                 objectMode: true,
             },
-            transform: function(data) {
-                return P.ninvoke(dedup_chunker, 'push', data);
-            },
-            flush: function() {
-                return P.ninvoke(dedup_chunker, 'flush');
-            }
+            transform: (t, data) => P.ninvoke(dedup_chunker, 'push', data),
+            flush: t => P.ninvoke(dedup_chunker, 'flush')
         }));
         pipeline.pipe(transformer({
             options: {
@@ -161,7 +157,7 @@ function test() {
                 flatten: true,
                 objectMode: true,
             },
-            transform_parallel: function(data) {
+            transform_parallel: (t, data) => {
                 // console.log('encode chunk');
                 return P.ninvoke(object_coding, 'encode', object_coding_tpool, data);
             },
@@ -179,7 +175,7 @@ function test() {
                     flatten: true,
                     objectMode: true,
                 },
-                transform_parallel: function(chunk) {
+                transform_parallel: (t, chunk) => {
                     return P.ninvoke(object_coding, 'decode', object_coding_tpool, chunk)
                         .thenResolve(chunk);
                 },
@@ -191,7 +187,7 @@ function test() {
                 flatten: true,
                 objectMode: true,
             },
-            transform: function(chunk) {
+            transform: (t, chunk) => {
                 // console.log('done', chunk);
                 progress(chunk.size || chunk.length || 0, chunk.compress_size || 0);
             },
@@ -385,7 +381,7 @@ function test() {
                 objectMode: true,
                 highWaterMark: 5
             },
-            transform: function(data) {
+            transform: (t, data) => {
                 var crypt_info = {
                     hash_type: 'sha384',
                     cipher_type: 'aes-256-gcm'
@@ -398,7 +394,7 @@ function test() {
                 objectMode: true,
                 highWaterMark: 1
             },
-            transform: function(chunk) {
+            transform: (t, chunk) => {
                 // console.log('done', chunk);
                 progress(chunk.size || chunk.length || 0, chunk.compress_size || 0);
             },

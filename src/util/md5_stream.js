@@ -4,12 +4,10 @@ var crypto = require('crypto');
 var transformer = require('./transformer');
 
 var MD5Stream = transformer.ctor({
-    init: function() {
-        this.digester = crypto.createHash('md5');
-    },
-    transform: function(data, encoding) {
+    init: t => t.digester = crypto.createHash('md5'),
+    transform: (t, data, encoding) => {
         // console.log('MD5Stream', data.length);
-        this.digester.update(data);
+        t.digester.update(data);
         return data;
     }
 });

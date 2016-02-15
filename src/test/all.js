@@ -8,7 +8,7 @@ require('./coretest').set_incomplete_rpc_coverage('show');
 require('./test_system_servers');
 require('./test_node_server');
 require('./test_agent');
-// require('./test_object_driver');
+require('./test_object_driver');
 
 /**
  * UTILS

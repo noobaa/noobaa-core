@@ -19,6 +19,8 @@ dbg.set_level(5, 'core');
 mocha.describe('object_driver', function() {
 
     var client = coretest.new_test_client();
+    client.object_driver_lazy().set_verification_mode();
+
     var SYS = 'test-object-system';
     var BKT = 'files'; // the default bucket name
     var KEY = 'test-object-key';

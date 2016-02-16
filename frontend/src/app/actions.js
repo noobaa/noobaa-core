@@ -1292,13 +1292,12 @@ export function addAWSCredentials(accessKey, secretKey) {
         secret_key: secretKey
     };
 
-    api
-        // TODO: the call to get_cloud_sync is used here to check that the keys are valid, 
+    // TODO: the call to get_cloud_sync is used here to check that the keys are valid, 
         // and the server can access S3 using this keys. Need to replace this with a sort of 
         // s3 ping when avaliable in server side.
-        .bucket.get_cloud_buckets(credentials)
+    api.bucket.get_cloud_buckets(credentials)
         .then(
-            () => account.add_account_sync_credentials_cache(credentials)
+            () => api.account.add_account_sync_credentials_cache(credentials)
         )
         .then(loadAccountAwsCredentials)
         .done();

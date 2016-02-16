@@ -36,7 +36,6 @@ gulp.task('full', cb => {
     runSequence(
         'build',
         'watch',
-        'serve',
         cb
     );
 });

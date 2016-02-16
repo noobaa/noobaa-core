@@ -21,6 +21,16 @@ export default function register(ko) {
             },
 
             message: 'Please provide a valid DNS name'
+        },
+
+        notIn: {
+            validator(value, { list = [], compareFunc = (a,b) => a === b }) {
+                return ko.unwrap(list).every(
+                    item => !compareFunc(value, item)
+                )
+            },
+
+            message: 'Value already exists'
         }
     });
 

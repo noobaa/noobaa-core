@@ -4,33 +4,35 @@
     </h1>
 
     <section class="container">
-        <editor params="label: 'AWS Access Key'">
-            <dropdown class="aws-buckets" params="
+        <editor params="label: 'AWS Access Key'"    >
+            <dropdown params="
                 placeholder: 'Choose Access Key',
                 options: accessKeyOptions,
                 selected: accessKey
             "></dropdown>
+            <div class="val-msg" data-bind="validationMessage: accessKey"></div>
         </editor>
 
          <editor params="label: 'AWS Bucket'">
-            <dropdown class="aws-bucket s" params="
+            <dropdown params="
                 placeholder: 'Choose Bucket',
                 disabled: !awsBucketsOptions(),
                 options: awsBucketsOptions,
                 selected: awsBucket
             "></dropdown>
+            <div class="val-msg" data-bind="validationMessage: awsBucket"></div>
         </editor>
 
-<!--        <editor params="label: 'Sync Bucket Every'">
-            <input type="Number" data-bind="value: frequency, enable: awsBucket"/>
-            <dropdown params="
+        <editor params="label: 'Sync Bucket Every', insertValMessages: false">
+            <input type="Number" data-bind="value: frequency, enable: awsBucket" min="1"/>
+            <dropdown class="freq-unit" params="
                 selected: frequencyUnit, 
                 options: frequencyUnitOptions, 
                 disabled: !awsBucket()
             "></dropdown>
         </editor>
 
-        <editor params="label: 'Sync Type'">
+        <editor params="label: 'Sync Type', insertValMessages: false">
             <radio-group params="
                 selected: direction, 
                 options: directionOptions, 
@@ -41,9 +43,9 @@
         <checkbox params="
             label: 'Synchronize File Deletions', 
             checked: syncDeletions,
-            disabled: !awsBucket()
+            disabled: !awsBucket() || direction() === 'BI'
         "></checkbox>
-    </section> -->
+    </section>
 
     <div class="action-line pull-right">
         <button class="action link" data-bind="click: cancel">Cancel</button>
@@ -51,8 +53,7 @@
     </div>
 </modal> 
 
-<!-- ko1 if: isAWSCredentialsModalVisible -->
-<!-- <aws-credentials-modal params="
-    onClose: () => isAWSCredentialsModalVisible(false)
-"></aws-credentials-modal> -->
-<!-- /ko1 -->
+<!-- ko if: isAWSCredentialsModalVisible -->
+<aws-credentials-modal params="onClose: canceled => onNewCredentials(canceled)">
+</aws-credentials-modal> 
+<!-- /ko -->

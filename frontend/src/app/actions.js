@@ -14,7 +14,7 @@ import {
 import 'aws-sdk';
 AWS = window.AWS;
 
-// Use preconfigured hostname or the address of the serving computer.
+// Use preconfigured hostname or the addrcess of the serving computer.
 let endpoint = hostname || window.location.hostname;
 
 // -----------------------------------------------------
@@ -790,46 +790,12 @@ export function loadCloudSyncInfo(bucket) {
         .done();
 }
 
-export function setCloudSyncPolicy(bucket, awsBucket, credentials, direction, frequency, sycDeletions) {
-    logAction('setCloudSyncPolicy', { bucket, awsBucket, credentials, direction, frequency, 
-        sycDeletions });
-
-    api.bucket.set_cloud_sync({
-        name: bucket,
-        policy: {
-            endpoint: awsBucket,
-            access_keys: [ credentials ],
-            c2n_enabled: direction === 'AWS2NB' || direction === 'BI',
-            n2c_enabled: direction === 'NB2AWS' || direction === 'BI',
-            schedule: frequency,
-            additions_only: !sycDeletions
-        }
-    })
-        .done();
-}
-
-
 export function loadAccountAwsCredentials() {
     logAction('loadAccountAwsCredentials');
     
     api.account.get_account_sync_credentials_cache()
         .then(model.awsCredentialsList)
-        .then(
-            () => model.awsCredentialsList.push(
-                { access_key: 'AKIAJOP7ZFXOOPGL5BOA', secret_key: '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' },
-                { access_key: 'AKIAIKFRM4EAAO5TAXJA', secret_key: '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' }
-            )
-        )
         .done();
-}
-
-export function addAWSCredentials(accessKey, secretKey) {
-    logAction('addAWSCredentials', { accessKey, secretKey });
-
-    model.awsCredentialsList.push({
-        access_key: accessKey,
-        secret_key: secretKey
-    });
 }
 
 export function loadAwsBucketList(accessKey, secretKey) {
@@ -839,7 +805,10 @@ export function loadAwsBucketList(accessKey, secretKey) {
         access_key: accessKey,
         secret_key: secretKey
     })
-        .then(model.awsBucketList)
+        .then(
+            model.awsBucketList,
+            () => model.awsBucketList(null)
+        )
         .done();
 }
 
@@ -1268,7 +1237,7 @@ export function downloadDiagnosticPack(nodeName) {
             url => downloadFile(url)
         )
         .done();
-}
+}   
 
 export function raiseNodeDebugLevel(node) {
     logAction('raiseNodeDebugLevel', { node });
@@ -1284,3 +1253,54 @@ export function raiseNodeDebugLevel(node) {
         )
         .done();
 }
+
+export function setCloudSyncPolicy(bucket, awsBucket, credentials, direction, frequency, sycDeletions) {
+    logAction('setCloudSyncPolicy', { bucket, awsBucket, credentials, direction, frequency, 
+        sycDeletions });
+
+    api.bucket.set_cloud_sync({
+        name: bucket,
+        policy: {
+            endpoint: awsBucket,
+            access_keys: [ credentials ],
+            c2n_enabled: direction === 'AWS2NB' || direction === 'BI',
+            n2c_enabled: direction === 'NB2AWS' || direction === 'BI',
+            schedule: frequency,
+            additions_only: !sycDeletions
+        }
+    })
+        .then(refresh)
+        .done();
+}
+
+export function removeCloudSyncPolicy(bucket) {
+    logAction('removeCloudSyncPolicy', { bucket });
+
+    api.bucket.delete_cloud_sync({ name: bucket })
+        .then(
+            () => model.cloudSyncInfo(null)
+        )
+        .then(refresh)
+        .done();
+}
+
+export function addAWSCredentials(accessKey, secretKey) {
+    logAction('addAWSCredentials', { accessKey, secretKey });
+
+    let credentials = { 
+        access_key: accessKey,
+        secret_key: secretKey
+    };
+
+    api
+        // TODO: the call to get_cloud_sync is used here to check that the keys are valid, 
+        // and the server can access S3 using this keys. Need to replace this with a sort of 
+        // s3 ping when avaliable in server side.
+        .bucket.get_cloud_buckets(credentials)
+        .then(
+            () => account.add_account_sync_credentials_cache(credentials)
+        )
+        .then(loadAccountAwsCredentials)
+        .done();
+}
+ 

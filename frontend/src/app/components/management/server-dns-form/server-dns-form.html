@@ -1,5 +1,7 @@
 <h2 class="heading2" data-bind="click: () => expanded.toggle()">
-    <button class="btn-flat pull-right rotate no-outline" data-bind="css: { 'deg-180': expanded }">
+    <button class="btn-flat pull-right rotate no-outline" data-bind="
+        css: { 'deg-90': !expanded() }
+    ">
         <svg-icon class="expand-icon" params="uri: '/fe/assets/icons.svg#expand'" ></svg-icon>
     </button>
     Server DNS Address
@@ -65,7 +67,7 @@
         </p>
     </div>
 
-    <div class="container text-right">
+    <div class="container text-left">
         <button class="btn2" data-bind="click: applyChanges">
             Apply Changes
         </button>        

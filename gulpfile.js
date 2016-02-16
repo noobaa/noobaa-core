@@ -168,7 +168,7 @@ var PATHS = {
         'bower_components/alertify.js/lib/alertify.js',
         'node_modules/selectize/dist/js/standalone/selectize.js',
         'node_modules/video.js/dist/video-js/video.dev.js',
-        'vendor/flowplayer-5.4.6/flowplayer.js',
+        //'vendor/flowplayer-5.4.6/flowplayer.js',
     ],
 
     agent_sources: [

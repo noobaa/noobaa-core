@@ -156,7 +156,7 @@ function delete_bucket(req) {
         event: 'bucket.delete',
         level: 'info',
         system: req.system._id,
-        actor: req.account._id,
+        actor: req.account ? req.account._id : undefined,
         bucket: bucket._id,
     });
     return system_store.make_changes({

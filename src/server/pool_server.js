@@ -225,6 +225,10 @@ function get_pool_info(pool, nodes_aggregate_pool, extended_info) {
                             can_be_deleted: false,
                             reason: r,
                         };
+                    }else{
+                        info.deletions = {
+                            can_be_deleted: true
+                        };
                     }
                     return info;
                 });

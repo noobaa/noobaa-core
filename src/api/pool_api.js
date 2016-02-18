@@ -199,17 +199,9 @@ module.exports = {
                 storage: {
                     $ref: 'common_api#/definitions/storage_info'
                 },
-                deletions: {
-                    type: 'object',
-                    properties: {
-                        can_be_deleted: {
-                            type: 'boolean',
-                        },
-                        reason: {
-                            $ref: '#/definitions/deletion_reason'
-                        },
-                    },
-                },
+                deletion_status: {
+                    $ref: '#/definitions/deletion_status'
+                }
             },
         },
 
@@ -235,8 +227,8 @@ module.exports = {
             }
         },
 
-        deletion_reason: {
-            enum: ['NOTEMPTY', 'ASSOCIATED', 'SYSTEM'],
+        deletion_status: {
+            enum: ['CAN_BE_DELETED','NOT_EMPTY', 'ASSOCIATED', 'SYSTEM_ENTITY'],
             type: 'string',
         },
     }

@@ -7,6 +7,12 @@ var dbg = require('../util/debug_module')(__filename);
 var system_store = require('./stores/system_store');
 var size_utils = require('../util/size_utils');
 
+var pool_deletion_messages = {
+    SYSTEM_ENTITY: 'Cannot delete system pool',
+    NOT_EMPTY: 'Cannot delete pool with nodes associated to it',
+    ASSOCIATED: 'Cannot delete pool which is associated to buckets'
+};
+
 /**
  *
  * POOL_SERVER
@@ -35,7 +41,6 @@ function new_pool_defaults(name, system_id) {
     };
 }
 
-
 function create_pool(req) {
     var name = req.rpc_params.name;
     var nodes = req.rpc_params.nodes;
@@ -44,7 +49,7 @@ function create_pool(req) {
     }
     var pool = new_pool_defaults(name, req.system._id);
     dbg.log0('Creating new pool', pool);
-
+    
     return system_store.make_changes({
             insert: {
                 pools: [pool]
@@ -108,18 +113,21 @@ function read_pool(req) {
 function delete_pool(req) {
     dbg.log0('Deleting pool', req.rpc_params.name);
     var pool = find_pool_by_name(req);
-    return validate_pool_deletion(req.system._id, pool._id)
-        .fail(function(err) {
-            dbg.log0('Failed on validate pool deletions with', err);
-            throw err;
-        })
-        .then(function() {
+    return validate_pool_deletion(pool)
+        .then(function(reason) {
+            if (reason) {
+                let err = new Error(pool_deletion_messages[reason]);
+                dbg.log0('Failed on validate pool deletions with', err)
+                throw err;
+            }
+
             return system_store.make_changes({
                 remove: {
                     pools: [pool._id]
                 }
             });
-        }).return();
+        })
+        .return();
 }
 
 function assign_nodes_to_pool(system_id, pool_id, nodes_names) {
@@ -212,54 +220,40 @@ function get_pool_info(pool, nodes_aggregate_pool, extended_info) {
     };
 
     if (extended_info) {
-        if (pool.name === 'default_pool') {
-            info.deletions = {
-                can_be_deleted: false,
-                reason: 'SYSTEM',
-            };
-        } else {
-            return validate_pool_deletion(pool.system._id, pool._id, true)
-                .then(function(r) {
-                    if (r) {
-                        info.deletions = {
-                            can_be_deleted: false,
-                            reason: r,
-                        };
-                    }else{
-                        info.deletions = {
-                            can_be_deleted: true
-                        };
-                    }
-                    return info;
-                });
-        }
+        return validate_pool_deletion(pool)
+            .then(function(reason) {
+                info.deletion_status = reason || 'CAN_BE_DELETED';
+                return info;
+            });
+    } else {
+        return P.resolve(info);    
     }
-    return P.resolve(info);
 }
 
-function validate_pool_deletion(sysid, poolid, reason) {
-    return P.when(db.Node.collection.count({
+function validate_pool_deletion(pool) {
+    if (pool.name === 'default_pool') {
+        return P.when('SYSTEM_ENTITY');
+
+    } else {
+        let sysid = pool.system._id;
+        let poolid = pool._id;
+
+        return P.when(db.Node.collection.count({
             system: sysid,
             pool: poolid,
             deleted: null
         }))
-        .then(function(c) {
-            if (c) { //There are nodes till associated to this pool
-                if (reason) {
-                    return 'NOTEMPTY';
-                }
-                throw new Error('Cannot delete pool with nodes associated to it');
+        .then(function(count) {
+            if (count) { //There are nodes till associated to this pool
+                return 'NOT_EMPTY';
             }
+
             var buckets = get_associated_buckets_int(poolid,
                 system_store.data.get_by_id(sysid).buckets_by_name); //Verify pool is not used by any bucket/tier
 
             if (buckets.length) {
-                if (reason) {
-                    return 'ASSOCIATED';
-                }
-                throw new Error('Cannot delete pool which is associated to buckets');
-            } else {
-                return;
+                return 'ASSOCIATED';
             }
         });
+    }
 }

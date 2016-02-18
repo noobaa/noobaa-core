@@ -13,6 +13,7 @@
                 <th class="user-col text-left">User</th>
                 <th class="role-col">Roles</th>
                 <th class="status-col">Status</th>
+                <th class="password-col">Password</th>
                 <th class="delete-col"></th>    
             </tr>
         </thead>
@@ -28,6 +29,12 @@
                 
                 <td class="status-col" data-bind="text: status"></td>
                 
+                <td class="password-col" data-bind="">
+                    <button class="link" data-bind="
+                        click: () => $component.showResetPasswordModal(user)
+                    ">reset</button>
+                </td>
+
                 <td class="delete-col">
                     <delete-button params="
                         group: $component.deleteGroup,
@@ -44,4 +51,12 @@
 <create-account-modal params="
     onClose: () => isCreateAccountModalVisible(false)
 "></create-account-modal>
+<!-- /ko -->
+
+
+<!-- ko if: isResetPasswordModalVisible -->
+<reset-password-modal params="
+    accountEmail: selectedAccount,
+    onClose: () => isResetPasswordModalVisible(false)
+"></reset-password-modal>
 <!-- /ko -->

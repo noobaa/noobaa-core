@@ -11,7 +11,7 @@ const testTypes = Object.freeze([
         name: 'Full', 
         tests: ['connectivity', 'bandwidth'] 
     },
-    { 
+    {
         name: 'Connectivity', 
         tests: ['connectivity'] 
     },

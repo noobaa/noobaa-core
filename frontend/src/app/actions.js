@@ -857,6 +857,13 @@ export function deleteAccount(email) {
         .done();
 }
 
+export function resetAccountPassword(email, password) {
+    logAction('resetAccountPassword', { email, password });  
+
+    api.account.update_account({ email, password })
+        .done();
+}
+
 export function createBucket(name, dataPlacement, pools) {
     logAction('createBucket', { name, dataPlacement, pools });
 

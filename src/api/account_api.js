@@ -62,7 +62,7 @@ module.exports = {
             method: 'PUT',
             params: {
                 type: 'object',
-                // required: [],
+                required: [ 'email' ],
                 properties: {
                     name: {
                         type: 'string',
@@ -73,7 +73,7 @@ module.exports = {
                     password: {
                         type: 'string',
                     },
-                    original_email: {
+                    new_email: {
                         type: 'string',
                     },
                 }

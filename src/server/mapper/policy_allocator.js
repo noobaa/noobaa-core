@@ -202,7 +202,7 @@ function classify_block(fragment, block, now) {
         js_utils.named_array_push(fragment, 'good_blocks', block);
     }
     // also keep list of blocks that we can use to replicate from
-    if (!block.node.srvmode || block.node.srvmode === 'decommissioning') {
+    if (!block.node.srvmode || block.node.srvmode === 'decommissioning' || block.node.srvmode === 'storage_full') {
         js_utils.named_array_push(fragment, 'accessible_blocks', block);
     }
 }

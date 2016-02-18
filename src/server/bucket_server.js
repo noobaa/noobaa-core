@@ -71,7 +71,7 @@ function create_bucket(req) {
         event: 'bucket.create',
         level: 'info',
         system: req.system._id,
-        actor: req.account._id,
+        actor: req.account ? req.account._id : undefined,
         bucket: bucket._id,
     });
     return system_store.make_changes({
@@ -156,12 +156,9 @@ function delete_bucket(req) {
         event: 'bucket.delete',
         level: 'info',
         system: req.system._id,
-        actor: req.account._id,
+        actor: req.account ? req.account._id : undefined,
         bucket: bucket._id,
     });
-    if (_.map(req.system.buckets_by_name).length === 1) { ///don't allow last bucket deletion
-      throw new Error('Cannot delete last bucket');
-    }
     return system_store.make_changes({
             remove: {
                 buckets: [bucket._id]
@@ -172,7 +169,6 @@ function delete_bucket(req) {
                 sysid: req.system._id.toString(),
                 bucketid: bucket._id.toString(),
                 force_stop: true,
-                bucket_deleted: true,
             }));
         })
         .return();
@@ -217,7 +213,7 @@ function get_cloud_sync_policy(req, bucket) {
                     access_keys: [bucket.cloud_sync.access_keys],
                     schedule: bucket.cloud_sync.schedule_min,
                     last_sync: (new Date(bucket.cloud_sync.last_sync)).getTime(),
-                    paused: bucket.cloud_sync.paused || false,
+                    paused: bucket.cloud_sync.paused,
                     c2n_enabled: bucket.cloud_sync.c2n_enabled,
                     n2c_enabled: bucket.cloud_sync.n2c_enabled,
                     additions_only: bucket.cloud_sync.additions_only

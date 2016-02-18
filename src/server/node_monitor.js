@@ -296,6 +296,17 @@ function update_heartbeat(req, reply_token) {
             if (node.storage.used !== storage_used) {
                 updates['storage.used'] = storage_used;
             }
+            //remove from allocated node if less than 20% free space
+            //TODO: make it much smarter....
+            if (((node.storage.free * 100) / node.storage.total) < 20) {
+                updates['srvmode'] = 'storage_full';
+            } else {
+                _.merge(updates, {
+                    $unset: {
+                        srvmode: 1
+                    }
+                });
+            }
 
             // to avoid frequest updates of the node it will only send
             // extended info on longer period. this will allow more batching by
@@ -310,6 +321,7 @@ function update_heartbeat(req, reply_token) {
                 });
                 updates['storage.total'] = drives_total;
                 updates['storage.free'] = drives_free;
+
             }
             if (params.os_info) {
                 updates.os_info = params.os_info;
@@ -460,7 +472,7 @@ function set_debug_node(req) {
                 address: target,
             });
         })
-        .then(function(){
+        .then(function() {
             var updates = {};
             //TODO: use param and send it to the agent.
             //Currently avoid it, due to multiple actors.

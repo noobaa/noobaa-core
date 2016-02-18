@@ -46,13 +46,13 @@ export default class PoolRowViewModel {
         );
 
         this.canBeDeleted = ko.pureComputed(
-            () => pool() && pool().deletions.can_be_deleted
+            () => pool() && pool().deletions && pool().deletions && pool().deletions.can_be_deleted
         );
 
         this.deleteToolTip = ko.pureComputed(
             () => pool() && (
-                this.canBeDeleted() ? 
-                    'delete pool' : 
+                this.canBeDeleted() ?
+                    'delete pool' :
                     cannotDeleteReasons[pool().deletions.reason]
             )
         );
@@ -60,5 +60,5 @@ export default class PoolRowViewModel {
 
     del() {
         deletePool(this.name());
-    }    
+    }
 }

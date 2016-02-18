@@ -1200,8 +1200,6 @@ export function upgradeSystem(upgradePackage) {
             upgradeStatus.assign({
                 state: 'FAILED',
             });
-
-            console.error('Uploading upgrade package failed', evt.target)
         }       
     };
 
@@ -1209,16 +1207,12 @@ export function upgradeSystem(upgradePackage) {
         upgradeStatus.assign({
             state: 'FAILED'
         });
-
-        console.error('Uploading upgrade package failed', evt.target)
     };
 
     xhr.onabort = function(evt) {
         upgradeStatus.assign({
             state: 'CANCELED'
         });
-
-        console.warn('Uploading upgrade package canceled', evt)
     };
 
     let formData = new FormData();
@@ -1303,3 +1297,7 @@ export function addAWSCredentials(accessKey, secretKey) {
         .done();
 }
  
+
+export function notify(message) {
+    logAction('notify', message);
+}

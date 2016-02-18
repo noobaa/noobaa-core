@@ -113,3 +113,6 @@ export let upgradeStatus = ko.observable();
 
 // Hold debug collection info.
 export let debugCollectionInfo = ko.observable();
+
+// Hold the currect notifiction.
+export let lastNotification = ko.observable();

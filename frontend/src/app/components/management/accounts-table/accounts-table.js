@@ -10,23 +10,23 @@ const maxRows = 100;
 class AccountsTableViewModel {
     constructor() {
         this.deleteGroup = ko.observable();
+        this.selectedAccount = ko.observable();
 
         this.rows = makeArray(
             maxRows, 
             i => new AccountRowViewModel(
-                () => accountList()[i], this.deleteCandidate
+                () => accountList()[i], this.deleteGroup
             )
         );
 
         this.isCreateAccountModalVisible = ko.observable(false);
-
-
+        this.isResetPasswordModalVisible = ko.observable(false);
         loadAccountList();
-        
-        // this is leaking, find another solution.
-        // refreshCounter.subscribe(
-        //     () => loadAccountList()
-        // )
+    }
+
+    showResetPasswordModal(email) {
+        this.selectedAccount(ko.unwrap(email));
+        this.isResetPasswordModalVisible(true);
     }
 }
 

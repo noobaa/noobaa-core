@@ -107,26 +107,34 @@ function read_account(req) {
  *
  */
 function update_account(req) {
-    var updates = _.pick(req.rpc_params, 'name', 'email', 'password');
-    return P.fcall(function() {
-            return bcrypt_password(updates);
-        })
-        .then(function() {
-            var orig_email = req.rpc_params.original_email;
-            if (orig_email) {
-                var orig_account = system_store.data.accounts_by_email[orig_email];
-                updates._id = orig_account._id;
-            } else {
-                updates._id = req.account._id;
-            }
+    let updates = _.pick(req.rpc_params, 'name', 'email', 'password', 'new_email');
+    let account = system_store.data.accounts_by_email[updates.email];
 
-            create_activity_log_entry(req, 'update', updates);
-            return system_store.make_changes({
-                update: {
-                    accounts: [updates]
-                }
-            });
-        })
+    console.log('UPDATES:', updates)
+    console.log('ACCOUNT', account)
+
+    if (req.account._id !== account._id && !is_support_or_admin(req.system, req.account)) {
+        throw req.unauthorized('Action not allowed');
+    }
+
+    if (account.is_support) {
+        throw new Error('Invalid account, cannot update support account');
+    }
+
+    return bcrypt_password(updates)
+        .then(
+            () => {
+                updates._id = account._id;
+                return system_store.make_changes({
+                    update: {
+                        accounts: [updates]
+                    }
+                });
+            }
+        )
+        .then(
+            () => create_activity_log_entry(req, 'update', account)
+        )
         .return();
 }
 

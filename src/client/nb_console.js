@@ -389,8 +389,7 @@ nb_console.controller('UserManagementViewCtrl', [
                 return $q.when(nbClient.client.account.update_account({
                         name: nbSystem.system.name,
                         email: user_email,
-                        password: scope.password,
-                        original_email: user_email,
+                        password: scope.password
                     }))
                     .then(function() {
                         nbAlertify.success('Password for ' + user_email + ' has been set');
@@ -420,8 +419,8 @@ nb_console.controller('UserManagementViewCtrl', [
                 console.log('scope.email:' + scope.email);
                 return $q.when(nbClient.client.account.update_account({
                         name: nbSystem.system.name,
-                        email: scope.email,
-                        original_email: user_email,
+                        new_email: scope.email,
+                        email: user_email,
                     }))
                     .then(function() {
                         if (scope.email) {

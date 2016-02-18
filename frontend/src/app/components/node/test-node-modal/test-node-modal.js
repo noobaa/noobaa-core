@@ -1,8 +1,8 @@
 import template from './test-node-modal.html';
 import TestRowViewModel from './test-row';
 import ko from 'knockout';
-import { nodeTestResults } from 'model';
-import { testNode } from 'actions';
+import { nodeTestInfo } from 'model';
+import { testNode, abortNodeTest } from 'actions';
 import { makeArray } from 'utils';
 import moment from 'moment';
 
@@ -35,23 +35,35 @@ class TestNodeModalViewModel {
 
         this.selectedTests = ko.observable(testTypes[0].tests);
 
+        let results = ko.pureComputed(
+            () => nodeTestInfo() && nodeTestInfo().results
+        );
+
         this.hasResults = ko.pureComputed(
-            () => !!nodeTestResults() && nodeTestResults().length > 0
+            () => !!results() && results().length > 0
         );
 
         this.lastTestTime = ko.pureComputed(
-            () => nodeTestResults.timestemp() &&
-                `( From: ${moment(nodeTestResults.timestemp()).format('HH:mm:ss')} )`
+            () => nodeTestInfo() &&
+                `( From: ${moment(nodeTestInfo().timestemp).format('HH:mm:ss')} )`
+        );
+
+        this.testing = ko.pureComputed(
+            () => !!nodeTestInfo() && nodeTestInfo().state === 'IN_PROGRESS'
         );
 
         this.rows = makeArray(    
             100,
-            i => new TestRowViewModel(() => nodeTestResults()[i])
+            i => new TestRowViewModel(() => results()[i])
         );
     }
 
     runTest() {
         testNode(ko.unwrap(this.sourceRpcAddress), this.selectedTests())
+    }
+
+    abortTest() {
+        abortNodeTest();
     }
 
     close() {

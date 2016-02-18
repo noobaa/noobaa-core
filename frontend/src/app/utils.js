@@ -233,7 +233,7 @@ export function execInOrder(list, executer) {
 
     for (let i = 0; i < list.length; ++i) {
         result = result.then(
-            () => executer(list[i], i)
+            res => res === true || executer(list[i], i)
         );
     }
 

@@ -4,7 +4,12 @@
     <div class="text-left container">
         <h2 class="heading3">Test Type</h2>
         
-        <button class="btn3 pull-right" data-bind="click: runTest">Run Test</button>
+        <button class="btn3 pull-right" data-bind="click: runTest, visible: !testing()">
+            Run Test
+        </button>
+        <button class="btn3 pull-right" data-bind="click: abortTest, visible: testing">
+            Abort Test
+        </button>
 
         <radio-group params="selected: selectedTests, options: testTypeOptions"></radio-group>
     </div>

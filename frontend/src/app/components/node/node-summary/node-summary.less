@@ -1,6 +1,19 @@
 node-summary {
-    .debug-level > svg-icon {
-        fill: @text-color4;
+    .debug-level  {
+        color: @text-color4;
+        
+        > svg-icon {
+            fill: @text-color4;
+        }
+
+        &.dl-high {
+            color: @text-color10;
+            
+            > svg-icon {
+                fill: @text-color10;    
+            }
+            
+        }
     }
 
     .used-legend::before {

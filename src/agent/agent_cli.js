@@ -115,8 +115,9 @@ AgentCLI.prototype.init = function() {
         .then(function(drives) {
             dbg.log0('drives:', drives, ' current location ', process.cwd());
             var hds = _.filter(drives, function(hd_info) {
-                if ((hd_info.drive_id.indexOf('/dev/') >= 0 && hd_info.mount.indexOf('/boot') < 0 && hd_info.mount.indexOf('/Volumes/') < 0) ||
-                    (hd_info.drive_id.length === 2 && hd_info.drive_id.indexOf(':') === 1)) {
+                if ((hd_info.drive_id.indexOf('by-uuid') < 0 && (hd_info.drive_id.indexOf('/dev/') >= 0 || hd_info.mount === '/') && hd_info.mount.indexOf('/boot') < 0 && hd_info.mount.indexOf('/Volumes/') < 0) ||
+                    (hd_info.drive_id.length === 2 &&
+                        hd_info.drive_id.indexOf(':') === 1)) {
                     dbg.log0('Found relevant volume', hd_info.drive_id);
                     return true;
                 }

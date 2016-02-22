@@ -3,6 +3,7 @@
 let _ = require('lodash');
 let P = require('./promise');
 let mongodb = require('mongodb');
+let util = require('util');
 
 module.exports = {
     obj_ids_difference: obj_ids_difference,
@@ -100,10 +101,14 @@ function resolve_object_ids_paths(idmap, item, paths, allow_missing) {
             if (obj) {
                 _.set(item, path, obj);
             } else if (!allow_missing) {
-                throw new Error('resolve_object_ids_paths missing ref to ' + path + ' - ' + ref);
+                throw new Error('resolve_object_ids_paths missing ref to ' +
+                    path + ' - ' + ref + ' from item ' + util.inspect(item));
             }
-        } else if (!allow_missing && !(ref && ref._id instanceof mongodb.ObjectId)) {
-            throw new Error('resolve_object_ids_paths missing ref id to ' + path + ' - ' + ref);
+        } else if (!allow_missing) {
+            if (!ref || !(ref._id instanceof mongodb.ObjectId)) {
+                throw new Error('resolve_object_ids_paths missing ref id to ' +
+                    path + ' - ' + ref + ' from item ' + util.inspect(item));
+            }
         }
     });
     return item;

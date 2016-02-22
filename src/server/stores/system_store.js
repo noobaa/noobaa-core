@@ -7,12 +7,12 @@ let Ajv = require('ajv');
 let EventEmitter = require('events').EventEmitter;
 let mongodb = require('mongodb');
 let mongo_client = require('./mongo_client');
+let mongo_utils = require('../../util/mongo_utils');
 let js_utils = require('../../util/js_utils');
 let time_utils = require('../../util/time_utils');
 let size_utils = require('../../util/size_utils');
 let schema_utils = require('../../util/schema_utils');
-let bg_worker = require('../server_rpc').bg_worker;
-let server_rpc = require('../server_rpc').server_rpc;
+let server_rpc = require('../server_rpc');
 let dbg = require('../../util/debug_module')(__filename);
 // let promise_utils = require('../../util/promise_utils');
 
@@ -119,8 +119,6 @@ const DB_INDEXES = js_utils.deep_freeze([{
     }
 }]);
 
-const BG_BASE_ADDR = server_rpc.get_default_base_address('background');
-
 
 /**
  *
@@ -135,6 +133,14 @@ class SystemStoreData {
 
     get_by_id(id) {
         return id ? this.idmap[id.toString()] : null;
+    }
+
+    resolve_object_ids_paths(item, paths, allow_missing) {
+        return mongo_utils.resolve_object_ids_paths(this.idmap, item, paths, allow_missing);
+    }
+
+    resolve_object_ids_recursive(item) {
+        return mongo_utils.resolve_object_ids_recursive(this.idmap, item);
     }
 
     rebuild() {
@@ -165,7 +171,7 @@ class SystemStoreData {
     rebuild_object_links() {
         _.each(COLLECTIONS, (schema, collection) => {
             let items = this[collection];
-            _.each(items, item => resolve_object_ids_recursive(item, this.idmap));
+            _.each(items, item => this.resolve_object_ids_recursive(item));
         });
     }
 
@@ -238,7 +244,8 @@ class SystemStore extends EventEmitter {
             this._init_db_promise = null;
             this.load();
         });
-        setTimeout(() => this.refresh(), 1000);
+        this.refresh_middleware = () => this.refresh();
+        setTimeout(this.refresh_middleware, 1000);
     }
 
     refresh() {
@@ -291,14 +298,14 @@ class SystemStore extends EventEmitter {
 
     _register_for_changes() {
         if (!this._registered_for_reconnect) {
-            server_rpc.on('reconnect', conn => this._on_reconnect(conn));
+            server_rpc.rpc.on('reconnect', conn => this._on_reconnect(conn));
             this._registered_for_reconnect = true;
         }
-        return bg_worker.redirector.register_to_cluster();
+        return server_rpc.bg_client.redirector.register_to_cluster();
     }
 
     _on_reconnect(conn) {
-        if (_.startsWith(conn.url.href, BG_BASE_ADDR)) {
+        if (conn.url.href === server_rpc.rpc.router.bg) {
             dbg.log0('_on_reconnect:', conn.url.href);
             this.load();
         }
@@ -320,8 +327,9 @@ class SystemStore extends EventEmitter {
 
     _init_db() {
         if (this._init_db_promise) return this._init_db_promise;
-        this._init_db_promise = P.all(_.map(COLLECTIONS, (schema, collection) =>
-                mongo_client.db.createCollection(collection)))
+        this._init_db_promise = mongo_client.connect()
+            .then(() => P.all(_.map(COLLECTIONS, (schema, collection) =>
+                mongo_client.db.createCollection(collection))))
             .then(() => {
                 return P.all(_.map(DB_INDEXES, index =>
                     mongo_client.db.collection(index.collection).createIndex(index.fields, {
@@ -390,10 +398,12 @@ class SystemStore extends EventEmitter {
             depth: 4
         }));
 
-        let get_bulk = collection => {
+        let check_collection = collection => {
             if (!(collection in COLLECTIONS)) {
                 throw new Error('SystemStore: make_changes bad collection name - ' + collection);
             }
+        };
+        let get_bulk = collection => {
             let bulk =
                 bulk_per_collection[collection] =
                 bulk_per_collection[collection] ||
@@ -405,15 +415,15 @@ class SystemStore extends EventEmitter {
             .then(data => {
 
                 _.each(changes.insert, (list, collection) => {
-                    let bulk = get_bulk(collection);
+                    check_collection(collection);
                     _.each(list, item => {
                         this._check_schema(collection, item, 'insert');
                         data.check_indexes(collection, item);
-                        bulk.insert(item);
+                        get_bulk(collection).insert(item);
                     });
                 });
                 _.each(changes.update, (list, collection) => {
-                    let bulk = get_bulk(collection);
+                    check_collection(collection);
                     _.each(list, item => {
                         data.check_indexes(collection, item);
                         let updates = _.omit(item, '_id');
@@ -431,15 +441,15 @@ class SystemStore extends EventEmitter {
                         // if (updates.$set) {
                         //     this._check_schema(collection, updates.$set, 'update');
                         // }
-                        bulk.find({
+                        get_bulk(collection).find({
                             _id: item._id
                         }).updateOne(updates);
                     });
                 });
                 _.each(changes.remove, (list, collection) => {
-                    let bulk = get_bulk(collection);
+                    check_collection(collection);
                     _.each(list, id => {
-                        bulk.find({
+                        get_bulk(collection).find({
                             _id: id
                         }).updateOne({
                             $set: {
@@ -449,11 +459,12 @@ class SystemStore extends EventEmitter {
                     });
                 });
 
-                return P.all(_.map(bulk_per_collection, bulk => P.ninvoke(bulk, 'execute')));
+                return P.all(_.map(bulk_per_collection,
+                    bulk => bulk.length && P.ninvoke(bulk, 'execute')));
             })
             .then(() =>
                 // notify all the cluster (including myself) to reload
-                bg_worker.redirector.publish_to_cluster({
+                server_rpc.bg_client.redirector.publish_to_cluster({
                     method_api: 'cluster_api',
                     method_name: 'load_system_store',
                     target: ''
@@ -478,23 +489,6 @@ class SystemStore extends EventEmitter {
         }
     }
 
-}
-
-
-
-function resolve_object_ids_recursive(item, idmap) {
-    _.each(item, (val, key) => {
-        if (val instanceof mongodb.ObjectId) {
-            if (key !== '_id' && key !== 'id') {
-                let obj = idmap[val];
-                if (obj) {
-                    item[key] = obj;
-                }
-            }
-        } else if (_.isObject(val) && !_.isString(val)) {
-            resolve_object_ids_recursive(val, idmap);
-        }
-    });
 }
 
 

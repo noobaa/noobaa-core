@@ -44,12 +44,12 @@ var url = require('url');
 // var AWS = require('aws-sdk');
 var diag = require('./utils/server_diagnostics');
 var db = require('./db');
-var server_rpc = require('./server_rpc').server_rpc;
-var bg_worker = require('./server_rpc').bg_worker;
+var server_rpc = require('./server_rpc');
 var bucket_server = require('./bucket_server');
 var pool_server = require('./pool_server');
 var tier_server = require('./tier_server');
 var system_store = require('./stores/system_store');
+var nodes_store = require('./stores/nodes_store');
 var size_utils = require('../util/size_utils');
 // var stun = require('../rpc/stun');
 var promise_utils = require('../util/promise_utils');
@@ -93,7 +93,7 @@ function new_system_defaults(name, owner_account_id) {
 function new_system_changes(name, owner_account_id) {
     var system = new_system_defaults(name, owner_account_id);
     var pool = pool_server.new_pool_defaults('default_pool', system._id);
-    var tier = tier_server.new_tier_defaults('nodes', system._id, [pool._id]);
+    var tier = tier_server.new_tier_defaults('default_tier', system._id, [pool._id]);
     var policy = tier_server.new_policy_defaults('default_tiering', system._id, [{
         tier: tier._id,
         order: 0
@@ -166,12 +166,8 @@ function read_system(req) {
         deleted: null,
     };
     return P.join(
-        // nodes - count, online count, allocated/used storage aggregate by tier
-        db.Node.aggregate_nodes(by_system_id_undeleted, 'tier'),
-
-        //TODO:: merge this and the previous call into one query, two memory ops
         // nodes - count, online count, allocated/used storage aggregate by pool
-        db.Node.aggregate_nodes(by_system_id_undeleted, 'pool'),
+        nodes_store.aggregate_nodes_by_pool(by_system_id_undeleted),
 
         // objects - size, count
         db.ObjectMD.aggregate_objects(by_system_id_undeleted),
@@ -196,14 +192,13 @@ function read_system(req) {
         })
 
     ).spread(function(
-        nodes_aggregate_tier,
         nodes_aggregate_pool,
         objects_aggregate,
         blocks,
         cloud_sync_by_bucket) {
 
         blocks = _.mapValues(_.keyBy(blocks, '_id'), 'value');
-        var nodes_sys = nodes_aggregate_tier[''] || {};
+        var nodes_sys = nodes_aggregate_pool[''] || {};
         var objects_sys = objects_aggregate[''] || {};
         var ip_address = ip_module.address();
         var n2n_config = system.n2n_config;
@@ -215,62 +210,58 @@ function read_system(req) {
         //     n2n_config.stun_servers.unshift(stun_address);
         //     dbg.log0('read_system: n2n_config.stun_servers', n2n_config.stun_servers);
         // }
-        return P.all(_.map(system.pools_by_name, function(p) {
-                return pool_server.get_pool_info(p, nodes_aggregate_pool, true);
-            }))
-            .then(function(pools) {
-                let response = {
-                    name: system.name,
-                    objects: objects_sys.count || 0,
-                    roles: _.map(system.roles_by_account, function(roles, account_id) {
-                        var account = system_store.data.get_by_id(account_id);
-                        return {
-                            roles: roles,
-                            account: _.pick(account, 'name', 'email')
-                        };
-                    }),
-                    buckets: _.map(system.buckets_by_name,
-                        bucket => bucket_server.get_bucket_info(
-                            bucket,
-                            objects_aggregate,
-                            nodes_aggregate_pool,
-                            cloud_sync_by_bucket[bucket.name])),
-                    pools: pools,
-                    tiers: _.map(system.tiers_by_name,
-                        tier => tier_server.get_tier_info(tier, nodes_aggregate_pool)),
-                    storage: size_utils.to_bigint_storage({
-                        total: nodes_sys.total,
-                        free: nodes_sys.free,
-                        alloc: nodes_sys.alloc,
-                        used: objects_sys.size,
-                        real: blocks.size,
-                    }),
-                    nodes: {
-                        count: nodes_sys.count || 0,
-                        online: nodes_sys.online || 0,
-                    },
-                    access_keys: system.access_keys,
-                    ssl_port: process.env.SSL_PORT,
-                    web_port: process.env.PORT,
-                    web_links: get_system_web_links(system),
-                    n2n_config: n2n_config,
-                    ip_address: ip_address,
-                    base_address: system.base_address || 'wss://' + ip_address + ':' + process.env.SSL_PORT,
-                    version: pkg.version,
+        let response = {
+            name: system.name,
+            objects: objects_sys.count || 0,
+            roles: _.map(system.roles_by_account, function(roles, account_id) {
+                var account = system_store.data.get_by_id(account_id);
+                return {
+                    roles: roles,
+                    account: _.pick(account, 'name', 'email')
                 };
+            }),
+            buckets: _.map(system.buckets_by_name,
+                bucket => bucket_server.get_bucket_info(
+                    bucket,
+                    objects_aggregate,
+                    nodes_aggregate_pool,
+                    cloud_sync_by_bucket[bucket.name])),
+            pools: _.map(system.pools_by_name,
+                pool => pool_server.get_pool_info(pool, nodes_aggregate_pool)),
+            tiers: _.map(system.tiers_by_name,
+                tier => tier_server.get_tier_info(tier, nodes_aggregate_pool)),
+            storage: size_utils.to_bigint_storage({
+                total: nodes_sys.total,
+                free: nodes_sys.free,
+                alloc: nodes_sys.alloc,
+                used: objects_sys.size,
+                real: blocks.size,
+            }),
+            nodes: {
+                count: nodes_sys.count || 0,
+                online: nodes_sys.online || 0,
+            },
+            access_keys: system.access_keys,
+            ssl_port: process.env.SSL_PORT,
+            web_port: process.env.PORT,
+            web_links: get_system_web_links(system),
+            n2n_config: n2n_config,
+            ip_address: ip_address,
+            base_address: system.base_address || 'wss://' + ip_address + ':' + process.env.SSL_PORT,
+            version: pkg.version,
+        };
 
-                if (system.base_address) {
-                    let hostname = url.parse(system.base_address).hostname;
+        if (system.base_address) {
+            let hostname = url.parse(system.base_address).hostname;
 
-                    if (net.isIPv4(hostname) || net.isIPv6(hostname)) {
-                        response.ip_address = hostname;
-                    } else {
-                        response.dns_name = hostname;
-                    }
-                }
+            if (net.isIPv4(hostname) || net.isIPv6(hostname)) {
+                response.ip_address = hostname;
+            } else {
+                response.dns_name = hostname;
+            }
+        }
 
-                return response;
-            });
+        return response;
     });
 }
 
@@ -373,11 +364,12 @@ function add_role(req) {
  */
 function remove_role(req) {
     var account = find_account_by_email(req);
-    var roles = _.filter(system_store.data.roles, function(role) {
-        return String(role.system._id) === String(req.system._id) &&
-            String(role.account._id) === String(account._id) &&
-            role.role === req.rpc_params.role;
-    });
+    var roles = _.filter(system_store.data.roles,
+        role =>
+        String(role.system._id) === String(req.system._id) &&
+        String(role.account._id) === String(account._id) &&
+        role.role === req.rpc_params.role);
+    if (!roles.length) return;
     var roles_ids = _.map(roles, '_id');
     return system_store.make_changes({
         remove: {
@@ -522,7 +514,7 @@ function diagnose(req) {
         })
         .then(null, function(err) {
             dbg.log0('Error while collecting diagnostics', err, err.stack);
-            return;
+            return '';
         });
 }
 
@@ -544,20 +536,24 @@ function diagnose_with_agent(data) {
         })
         .then(null, function(err) {
             dbg.log0('Error while collecting diagnostics with agent', err, err.stack);
-            return;
+            return '';
         });
 }
 
 function start_debug(req) {
-    dbg.log0('Recieved start_debug req', server_rpc.client.debug);
+    dbg.log0('Recieved start_debug req');
     return P.when(server_rpc.client.debug.set_debug_level({
             level: 5,
             module: 'core'
+        }, {
+            auth_token: req.auth_token
         }))
         .then(function() {
-            return P.when(bg_worker.debug.set_debug_level({
+            return P.when(server_rpc.bg_client.debug.set_debug_level({
                 level: 5,
                 module: 'core'
+            }, {
+                auth_token: req.auth_token
             }));
         })
         .then(function() {
@@ -569,7 +565,7 @@ function start_debug(req) {
                     }));
                 })
                 .then(function() {
-                    return P.when(bg_worker.debug.set_debug_level({
+                    return P.when(server_rpc.bg_client.debug.set_debug_level({
                         level: 0,
                         module: 'core'
                     }));
@@ -591,13 +587,16 @@ function update_n2n_config(req) {
             }
         })
         .then(function() {
-            return db.Node.find({
-                system: req.system._id
+            return nodes_store.find_nodes({
+                system: req.system._id,
+                deleted: null
             }, {
                 // select just what we need
-                name: 1,
-                rpc_address: 1
-            }).exec();
+                fields: {
+                    name: 1,
+                    rpc_address: 1
+                }
+            });
         })
         .then(function(nodes) {
             var reply = {
@@ -630,13 +629,16 @@ function update_base_address(req) {
             }
         })
         .then(function() {
-            return db.Node.find({
-                system: req.system._id
+            return nodes_store.find_nodes({
+                system: req.system._id,
+                deleted: null
             }, {
                 // select just what we need
-                name: 1,
-                rpc_address: 1
-            }).exec();
+                fields: {
+                    name: 1,
+                    rpc_address: 1
+                }
+            });
         })
         .then(function(nodes) {
             var reply = {

@@ -9,8 +9,11 @@ var P = require('../src/util/promise');
 var repl_srv;
 
 function RPCShell() {
-    this.client = new api.Client();
-    this.bg_client = api.bg_workers_client;
+    this.rpc = api.new_rpc();
+    this.client = this.rpc.new_client();
+    this.bg_client = this.rpc.new_client({
+        domain: 'bg'
+    });
 }
 
 function construct_rpc_arguments(str_args) {

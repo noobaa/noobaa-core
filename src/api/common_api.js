@@ -59,6 +59,10 @@ module.exports = {
             type: 'object',
             // required: [],
             properties: {
+                last_update: {
+                    type: 'integer',
+                    format: 'idate',
+                },
                 hostname: {
                     type: 'string'
                 },
@@ -206,8 +210,12 @@ module.exports = {
                     }
                 }
             }]
-        }
+        },
 
+        undeletable_enum: {
+            enum: ['SYSTEM_ENTITY', 'NOT_EMPTY', 'IN_USE'],
+            type: 'string',
+        }
 
     }
 };

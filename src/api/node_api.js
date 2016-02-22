@@ -125,7 +125,7 @@ module.exports = {
                                 parts: {
                                     type: 'array',
                                     items: {
-                                        $ref: 'object_api#/definitions/object_part_info'
+                                        $ref: 'object_api#/definitions/part_info'
                                     }
                                 }
                             }
@@ -402,7 +402,7 @@ module.exports = {
                 $ref: 'agent_api#/definitions/self_test_reply'
             },
             auth: {
-                system: ['admin', 'user']
+                system: ['admin']
             }
         },
 
@@ -473,12 +473,12 @@ module.exports = {
                 type: 'array',
                 items: {
                     type: 'object',
-                    required: ['name', 'address'],
+                    required: ['name', 'rpc_address'],
                     properties: {
                         name: {
                             type: 'string'
                         },
-                        address: {
+                        rpc_address: {
                             type: 'string'
                         }
                     }
@@ -515,7 +515,7 @@ module.exports = {
 
         srvmode: {
             type: 'string',
-            enum: ['connect', 'disabled', 'decommissioning', 'decommissioned','storage_full']
+            enum: ['connect', 'disabled', 'decommissioning', 'decommissioned']
         },
 
         node_full_info: {
@@ -524,7 +524,6 @@ module.exports = {
                 'id',
                 'name',
                 'pool',
-                'geolocation',
                 'rpc_address',
                 'peer_id',
                 'ip',
@@ -548,6 +547,9 @@ module.exports = {
                 },
                 srvmode: {
                     $ref: '#/definitions/srvmode'
+                },
+                storage_full: {
+                    type: 'boolean'
                 },
                 rpc_address: {
                     type: 'string'

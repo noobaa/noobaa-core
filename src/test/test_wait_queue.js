@@ -1,26 +1,24 @@
-// make jshint ignore mocha globals
-// /* global describe, it, before, after, beforeEach, afterEach */
-/* global describe, it */
 'use strict';
 
 // var _ = require('lodash');
 var P = require('../util/promise');
+var mocha = require('mocha');
 var assert = require('assert');
 var WaitQueue = require('../util/wait_queue');
 
-describe('wait_queue', function() {
+mocha.describe('wait_queue', function() {
 
-    it('should create ok', function() {
+    mocha.it('should create ok', function() {
         var wq = new WaitQueue('a long name just for spite');
         wq = wq; // lint unused bypass
     });
 
-    it('should return null when no items', function() {
+    mocha.it('should return null when no items', function() {
         var wq = new WaitQueue();
         assert(!wq.wakeup());
     });
 
-    it('should handle single item', function(done) {
+    mocha.it('should handle single item', function() {
         var wq;
         var woke = 0;
         var do_wake = function() {
@@ -29,7 +27,7 @@ describe('wait_queue', function() {
         var item = {
             foo: 'bar',
         };
-        P.fcall(function() {
+        return P.fcall(function() {
             wq = new WaitQueue();
             assert.strictEqual(wq.length, 0);
 
@@ -57,7 +55,7 @@ describe('wait_queue', function() {
             assert.deepEqual(item, {
                 foo: 'bar!',
             });
-        }).done(done);
+        });
     });
 
 });

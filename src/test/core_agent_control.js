@@ -1,6 +1,3 @@
-// make jshint ignore mocha globals
-/* global describe, it, before, after, beforeEach, afterEach */
-/* exported describe, it, before, after, beforeEach, afterEach */
 'use strict';
 
 var _ = require('lodash');
@@ -13,7 +10,7 @@ var agntCtlConfig = {
     num_allocated: 0,
     allocated_agents: {},
     local_conf: {
-        utilitest: null,
+        base_address: null,
         auth: null,
     },
     remote_conf: {},
@@ -51,15 +48,16 @@ function show_ctl() {
     return agntCtlConfig;
 }
 
-function use_local_agents(utilitest, auth_token) {
-    if (!utilitest) {
-        throw Error('Must supply utilitest for local agents test run');
-    } else if (!auth_token) {
+function use_local_agents(base_address, auth_token) {
+    if (!base_address) {
+        throw Error('Must supply base_address for local agents test run');
+    }
+    if (!auth_token) {
         throw Error('Must supply auth_token for local agents test run');
     }
 
     agntCtlConfig.use_local = true;
-    agntCtlConfig.local_conf.utilitest = utilitest;
+    agntCtlConfig.local_conf.base_address = base_address;
     agntCtlConfig.local_conf.auth = _.clone(auth_token);
 }
 
@@ -76,93 +74,73 @@ function use_remote_agents() {
 
 function create_agent(howmany) {
     var count = howmany || 1;
-    return P.all(_.times(count, function(i) {
-        return P.fcall(function() {
-                var agent = new Agent({
-                    address: 'ws://localhost:' + agntCtlConfig.local_conf.utilitest.http_port(),
-                    node_name: 'node' + (_num_allocated() + 1) + '_' + (Date.now() % 100000),
-                    // passing token instead of storage_path to use memory storage
-                    token: agntCtlConfig.local_conf.auth,
-                });
-                return agent;
-            })
-            .then(function(agent) {
-                agntCtlConfig.allocated_agents[agent.node_name] = {
-                    agent: agent,
-                    started: false
-                };
-                agntCtlConfig.num_allocated++;
-                return;
-            });
-    }));
+    return _.times(count, i => {
+        var agent = new Agent({
+            address: agntCtlConfig.local_conf.base_address,
+            node_name: 'node' + (_num_allocated() + 1) + '_' + (Date.now() % 100000),
+            // passing token instead of storage_path to use memory storage
+            token: agntCtlConfig.local_conf.auth,
+        });
+        agntCtlConfig.allocated_agents[agent.node_name] = {
+            agent: agent,
+            started: false
+        };
+        agntCtlConfig.num_allocated++;
+    });
 }
 
 function cleanup_agents() {
-    return P.fcall(function() {
+    return P.fcall(() => {
             return stop_all_agents();
         })
-        .then(function() {
-            _.each(agntCtlConfig.allocated_agents, function(id) {
-                id.agent = null;
-            });
+        .then(() => {
+            _.each(agntCtlConfig.allocated_agents, id => id.agent = null);
             agntCtlConfig.allocated_agents = {};
             agntCtlConfig.num_allocated = 0;
         });
 }
 
 function start_agent(node_name) {
-    if (agntCtlConfig.allocated_agents.hasOwnProperty(node_name) &&
-        !agntCtlConfig.allocated_agents[node_name].started) {
-        return P.fcall(function() {
-                return agntCtlConfig.allocated_agents[node_name].agent.start();
-            })
-            .then(function() {
-                agntCtlConfig.allocated_agents[node_name].started = true;
-            });
-    }
-
-    return P.reject('No node_name supplied');
+    var ent;
+    return P.fcall(() => {
+            ent = get_agent_entry(node_name);
+            if (!ent.started) {
+                return ent.agent.start();
+            }
+        })
+        .then(() => {
+            ent.started = true;
+        });
 }
 
 function stop_agent(node_name) {
-    if (agntCtlConfig.allocated_agents.hasOwnProperty(node_name) &&
-        agntCtlConfig.allocated_agents[node_name].started) {
-        return P.fcall(function() {
-                return agntCtlConfig.allocated_agents[node_name].agent.stop();
-            })
-            .then(function() {
-                agntCtlConfig.allocated_agents[node_name].started = false;
-            });
-    }
-
-    return P.reject('No node_name supplied');
+    var ent;
+    return P.fcall(() => {
+            ent = get_agent_entry(node_name);
+            if (ent.started) {
+                return ent.agent.stop();
+            }
+        })
+        .then(() => {
+            ent.started = false;
+        });
 }
 
 function start_all_agents() {
-    return P.all(_.map(agntCtlConfig.allocated_agents,
-        function(data, id) {
-            if (data.started === false) {
-                return start_agent(id);
-            }
-        }));
+    return P.all(_.map(agntCtlConfig.allocated_agents, (entry, node_name) =>
+        start_agent(node_name)));
 }
 
 function stop_all_agents() {
-    return P.all(_.map(agntCtlConfig.allocated_agents,
-        function(data, id) {
-            if (data.started === true) {
-                return stop_agent(id);
-            }
-        }));
+    return P.all(_.map(agntCtlConfig.allocated_agents, (entry, node_name) =>
+        stop_agent(node_name)));
 }
 
 function get_agents_list() {
-    return _.map(agntCtlConfig.allocated_agents, function(stat, id) {
-        return {
-            node_name: id,
-            started: stat.started
-        };
-    });
+    return _.map(agntCtlConfig.allocated_agents, (stat, id) => ({
+        node_name: id,
+        started: stat.started
+    }));
 }
 
 /*
@@ -171,105 +149,91 @@ function get_agents_list() {
  *
  */
 function read_block(node_name, block_id) {
-    if (true) {
-        return P.reject('FUNCTION NOT MAINTAINED TO RECENT API CHANGES');
-    }
+    return P.fcall(() => {
+        if (true) {
+            throw new Error('FUNCTION NOT MAINTAINED TO RECENT API CHANGES');
+        }
 
-    if (!block_id) {
-        return P.reject('No block_id supplied');
-    }
+        if (!block_id) {
+            throw new Error('No block_id supplied');
+        }
 
-    var req = {
-        block_id: block_id,
-    };
+        var req = {
+            block_id: block_id,
+        };
 
-    if (agntCtlConfig.allocated_agents.hasOwnProperty(node_name) &&
-        agntCtlConfig.allocated_agents[node_name].started) {
-        return P.fcall(function() {
-            return agntCtlConfig.allocated_agents[node_name].agent.read_block(req);
-        });
-    }
-
-    return P.reject('No node_name supplied');
+        var ent = get_agent_entry(node_name);
+        if (ent.started) {
+            return ent.agent.read_block(req);
+        }
+    });
 }
 
 function write_block(node_name, block_id, data) {
-    if (true) {
-        return P.reject('FUNCTION NOT MAINTAINED TO RECENT API CHANGES');
-    }
+    return P.fcall(() => {
+        if (true) {
+            throw new Error('FUNCTION NOT MAINTAINED TO RECENT API CHANGES');
+        }
 
-    if (!block_id || !data) {
-        return P.reject('No block_id/data supplied');
-    }
+        if (!block_id || !data) {
+            throw new Error('No block_id/data supplied');
+        }
 
-    var req = {
-        block_id: block_id,
-        data: data,
-    };
+        var req = {
+            block_id: block_id,
+            data: data,
+        };
 
-    if (agntCtlConfig.allocated_agents.hasOwnProperty(node_name) &&
-        agntCtlConfig.allocated_agents[node_name].started) {
-        return P.fcall(function() {
-            return agntCtlConfig.allocated_agents[node_name].agent.write_block(req);
-        });
-    }
-
-    return P.reject('No node_name supplied');
+        var ent = get_agent_entry(node_name);
+        if (ent.started) {
+            return ent.agent.write_block(req);
+        }
+    });
 }
 
 function delete_blocks(node_name, block_ids) {
-    if (!block_ids) {
-        return P.reject('No block_ids supplied');
-    }
+    return P.fcall(() => {
+        if (!block_ids) {
+            throw new Error('No block_ids supplied');
+        }
 
-    var req = {
-        blocks: _.map(block_ids, function(block) {
-            return block._id.toString();
-        })
-    };
+        var req = {
+            blocks: _.map(block_ids, block => block._id.toString())
+        };
 
-    if (agntCtlConfig.allocated_agents.hasOwnProperty(node_name) &&
-        agntCtlConfig.allocated_agents[node_name].started) {
-        return P.fcall(function() {
-            return agntCtlConfig.allocated_agents[node_name].agent.delete_blocks(req);
-        });
-    }
-
-    return P.reject('No node_name supplied');
+        var ent = get_agent_entry(node_name);
+        if (ent.started) {
+            return ent.agent.delete_blocks(req);
+        }
+    });
 }
 
 function corrupt_blocks(node_name, block_ids) {
-    if (!block_ids) {
-        return P.reject('No block_ids supplied');
-    }
+    return P.fcall(() => {
+        if (!block_ids) {
+            throw new Error('No block_ids supplied');
+        }
 
-    /*
-    var req = {
-        blocks: _.map(block_ids, function(block) {
-            return block._id.toString();
-        })
-    };
-    */
+        /*
+        var req = {
+            blocks: _.map(block_ids, block => block._id.toString())
+        };
+        */
 
-    if (agntCtlConfig.allocated_agents.hasOwnProperty(node_name) &&
-        agntCtlConfig.allocated_agents[node_name].started) {
-        return P.fcall(function() {
-            return agntCtlConfig.allocated_agents[node_name].agent.corrupt_blocks(block_ids);
-        });
-    }
-
-    return P.reject('No node_name supplied');
+        var ent = get_agent_entry(node_name);
+        if (ent.started) {
+            return ent.agent.corrupt_blocks(block_ids);
+        }
+    });
 }
 
 function list_blocks(node_name) {
-    if (agntCtlConfig.allocated_agents.hasOwnProperty(node_name) &&
-        agntCtlConfig.allocated_agents[node_name].started) {
-        return P.fcall(function() {
-            return agntCtlConfig.allocated_agents[node_name].agent.list_blocks();
-        });
-    }
-
-    return P.reject('No node_name supplied');
+    return P.fcall(() => {
+        var ent = get_agent_entry(node_name);
+        if (ent.started) {
+            return ent.agent.list_blocks();
+        }
+    });
 }
 
 /*
@@ -279,4 +243,13 @@ function list_blocks(node_name) {
  */
 function _num_allocated() {
     return agntCtlConfig.num_allocated;
+}
+
+
+function get_agent_entry(node_name) {
+    var ent = agntCtlConfig.allocated_agents[node_name];
+    if (!ent) {
+        throw new Error('Agent not found ' + node_name);
+    }
+    return ent;
 }

@@ -24,7 +24,7 @@ class NodeSummaryViewModel {
             () => `/fe/assets/icons.svg#node-${node().online ? 'online' : 'offline'}`
         )
         let extended_state = '';
-        if (node().srvmode &&  node().srvmode === 'storage_full'){
+        if (node().storage_full) {
             extended_state = '. Not enough free space. Read-Only mode';
         }
         this.state = ko.pureComputed(
@@ -48,7 +48,7 @@ class NodeSummaryViewModel {
         );
 
         this.debugLevelCss = ko.pureComputed(
-          () => node().debug_level === 0 ? 'dl-low' : 'dl-high'  
+          () => node().debug_level === 0 ? 'dl-low' : 'dl-high'
         );
 
         this.total = ko.pureComputed(

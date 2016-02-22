@@ -16,14 +16,13 @@ var express = require('express');
 var dbg = require('../util/debug_module')(__filename);
 var argv = require('minimist')(process.argv);
 var pem = require('../util/pem');
-var api = require('../api');
 var s3app = require('./app');
 var cluster = require('cluster');
 var numCPUs = require('os').cpus().length;
 
 var params = argv;
 var certificate;
-if (cluster.isMaster) {
+if (cluster.isMaster && process.env.S3_CLUSTER_DISABLED !== 'true') {
     // Fork workers.
     for (var i = 0; i < numCPUs; i++) {
         console.warn('Spawning S3 Server', i + 1);
@@ -43,24 +42,11 @@ if (cluster.isMaster) {
             return;
         }).then(null, function(err) {
             dbg.log0('cannot find configuration file. Using defaults.' + err);
-            params = _.defaults(params, {
-                port: 80,
-                ssl_port: 443,
-            });
-            return;
-        }).then(function() {
             //Just in case part of the information is missing, add default params.
             params = _.defaults(params, {
                 port: 80,
                 ssl_port: 443,
             });
-            if (params.address) {
-                api.rpc.base_address = params.address;
-            }
-            var n2n_agent =  api.rpc.register_n2n_transport();
-            n2n_agent.set_any_rpc_address();
-        })
-        .then(function() {
             return P.nfcall(pem.createCertificate.bind(pem), {
                 days: 365 * 100,
                 selfSigned: true

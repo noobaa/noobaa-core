@@ -2,12 +2,12 @@
 'use strict';
 
 var _ = require('lodash');
-var P = require('../util/promise');
+// var P = require('../util/promise');
 var dbg = require('../util/debug_module')(__filename);
 var system_store = require('./stores/system_store');
+var nodes_store = require('./stores/nodes_store');
 var size_utils = require('../util/size_utils');
 var mongo_utils = require('../util/mongo_utils');
-var db = require('./db');
 
 /**
  *
@@ -101,13 +101,13 @@ function create_tier(req) {
 function read_tier(req) {
     var tier = find_tier_by_name(req);
     var pool_ids = mongo_utils.uniq_ids(tier.pools, '_id');
-    return P.when(db.Node.aggregate_nodes({
+    return nodes_store.aggregate_nodes_by_pool({
             system: req.system._id,
             pool: {
                 $in: pool_ids
             },
             deleted: null,
-        }, 'pool'))
+        })
         .then(function(nodes_aggregate_pool) {
             return get_tier_info(tier, nodes_aggregate_pool);
         });
@@ -185,13 +185,12 @@ function create_policy(req) {
 }
 
 function update_policy(req) {
-    throw req.rpc_error('TODO', 'Update tiering policy?');
+    throw req.rpc_error('TODO', 'TODO is update tiering policy needed?');
 }
 
 function get_policy_pools(req) {
     var policy = find_policy_by_name(req);
-    var reply = _.pick(policy, 'name', 'tiers');
-    return reply;
+    return get_tiering_policy_info(policy);
 }
 
 function read_policy(req) {
@@ -200,13 +199,13 @@ function read_policy(req) {
         tier_and_order => tier_and_order.tier.pools
     ));
     var pool_ids = mongo_utils.uniq_ids(pools, '_id');
-    return P.when(db.Node.aggregate_nodes({
+    return nodes_store.aggregate_nodes_by_pool({
             system: req.system._id,
             pool: {
                 $in: pool_ids
             },
             deleted: null,
-        }, 'pool'))
+        })
         .then(function(nodes_aggregate_pool) {
             return get_tiering_policy_info(policy, nodes_aggregate_pool);
         });
@@ -269,15 +268,19 @@ function get_tier_info(tier, nodes_aggregate_pool) {
 
 function get_tiering_policy_info(tiering_policy, nodes_aggregate_pool) {
     var info = _.pick(tiering_policy, 'name');
-    var tiers_storage = [];
+    var tiers_storage = nodes_aggregate_pool ? [] : null;
     info.tiers = _.map(tiering_policy.tiers, function(tier_and_order) {
-        var tier_info = get_tier_info(tier_and_order.tier, nodes_aggregate_pool);
-        tiers_storage.push(tier_info.storage);
+        if (tiers_storage) {
+            var tier_info = get_tier_info(tier_and_order.tier, nodes_aggregate_pool);
+            tiers_storage.push(tier_info.storage);
+        }
         return {
             order: tier_and_order.order,
             tier: tier_and_order.tier.name
         };
     });
-    info.storage = size_utils.reduce_storage(size_utils.reduce_sum, tiers_storage, 1, 1);
+    if (tiers_storage) {
+        info.storage = size_utils.reduce_storage(size_utils.reduce_sum, tiers_storage, 1, 1);
+    }
     return info;
 }

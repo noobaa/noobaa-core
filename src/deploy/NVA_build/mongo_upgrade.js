@@ -51,13 +51,17 @@ function upgrade_systems() {
 function upgrade_system(system) {
     print('\n*** upgrade_system ...', system.name);
 
-    print('\n*** find default pool ...');
+    print('\n*** POOL ***');
+
+    print('*** find', DEFAULT_POOL_NAME);
     var default_pool = db.pools.findOne({
         system: system._id,
         name: DEFAULT_POOL_NAME
     });
-    if (!default_pool) {
-        print('\n*** create default pool ...');
+    if (default_pool) {
+        print('*** found', DEFAULT_POOL_NAME, default_pool._id);
+    } else {
+        print('*** creating', DEFAULT_POOL_NAME, '...');
         db.pools.insert({
             system: system._id,
             name: DEFAULT_POOL_NAME
@@ -68,7 +72,9 @@ function upgrade_system(system) {
         });
     }
 
-    print('\n*** update nodes to default pool ...');
+    print('\n*** NODE ***');
+
+    print('*** assign nodes to default pool ...');
     db.nodes.update({
         system: system._id,
         pool: null
@@ -76,6 +82,17 @@ function upgrade_system(system) {
         $set: {
             pool: default_pool._id
         },
+    }, {
+        multi: true
+    });
+
+    print('*** remove old refs from nodes to tier ...');
+    db.nodes.update({
+        system: system._id,
+        tier: {
+            $exists: true
+        }
+    }, {
         $unset: {
             tier: 1
         }
@@ -83,20 +100,35 @@ function upgrade_system(system) {
         multi: true
     });
 
-    print('\n*** remove old tiers ...');
+    print('\n*** TIER ***');
+
+    print('*** remove old tiers ...');
     db.tiers.remove({
         system: system._id,
-        pools: null
+        $or: [{
+            pools: null
+        }, {
+            data_placement: null
+        }, {
+            replicas: null
+        }, {
+            data_fragments: null
+        }, {
+            parity_fragments: null
+        }]
     }, {
         multi: true
     });
-    print('\n*** find default tier ...');
+
+    print('*** find', DEFAULT_TIER_NAME);
     var default_tier = db.tiers.findOne({
         system: system._id,
         name: DEFAULT_TIER_NAME
     });
-    if (!default_tier) {
-        print('\n*** create default tier ...');
+    if (default_tier) {
+        print('*** already exists', DEFAULT_TIER_NAME, default_tier._id);
+    } else {
+        print('*** creating', DEFAULT_TIER_NAME, '...');
         db.tiers.insert({
             system: system._id,
             name: DEFAULT_TIER_NAME,
@@ -112,12 +144,15 @@ function upgrade_system(system) {
         });
     }
 
-    print('\n*** update buckets to tiering policy ...');
+    print('\n*** BUCKET ***');
+
+    print('\n*** find old buckets without tiering ...');
     db.buckets.find({
         system: system._id,
         tiering: null
     }).forEach(function(bucket) {
-        var policy_name = bucket.name + '_tiering_' + (Date.now().toString(36));
+        var policy_name = bucket.name + '_tiering_' + Date.now();
+        print('*** creating tiering policy', policy_name, '...');
         db.tieringpolicies.insert({
             system: system._id,
             name: policy_name,
@@ -130,6 +165,8 @@ function upgrade_system(system) {
             system: system._id,
             name: policy_name
         });
+        print('*** assign bucket to tiering policy',
+            bucket._id, policy_name, '...');
         db.buckets.update({
             _id: bucket._id
         }, {

@@ -1,115 +1,72 @@
 'use strict';
 
-module.exports = RpcNudpConnection;
-
-// var _ = require('lodash');
-var P = require('../util/promise');
-// var url = require('url');
-var util = require('util');
-var RpcBaseConnection = require('./rpc_base_conn');
-var native_core = require('../util/native_core');
-var stun = require('./stun');
-// var promise_utils = require('../util/promise_utils');
-// var dbg = require('../util/debug_module')(__filename);
-
-util.inherits(RpcNudpConnection, RpcBaseConnection);
+// let _ = require('lodash');
+let P = require('../util/promise');
+// let url = require('url');
+let RpcBaseConnection = require('./rpc_base_conn');
+let native_core = require('../util/native_core');
+let stun = require('./stun');
+// let promise_utils = require('../util/promise_utils');
+// let dbg = require('../util/debug_module')(__filename);
 
 /**
  *
  * RpcNudpConnection
  *
  */
-function RpcNudpConnection(addr_url) {
-    RpcBaseConnection.call(this, addr_url);
+class RpcNudpConnection extends RpcBaseConnection {
+
+    constructor(addr_url) {
+        super(addr_url);
+    }
+
+    _connect() {
+        let Nudp = native_core().Nudp;
+        this.nudp = new Nudp();
+        this._init_nudp();
+        return P.ninvoke(this.nudp, 'bind', 0, '0.0.0.0')
+            .then(port => {
+                return P.ninvoke(this.nudp, 'connect', this.url.port, this.url.hostname);
+            })
+            .then(() => {
+                // send stun request just for testing
+                return P.ninvoke(this.nudp, 'send_outbound', stun.new_packet(stun.METHODS.REQUEST), this.url.port, this.url.hostname);
+            })
+            .then(() => this.emit('connect'))
+            .catch(err => this.emit('error', err));
+    }
+
+    _close() {
+        if (this.nudp) {
+            this.nudp.close();
+        }
+    }
+
+    _send(msg) {
+        return P.ninvoke(this.nudp, 'send', msg);
+    }
+
+    accept(port) {
+        let Nudp = native_core().Nudp;
+        this.nudp = new Nudp();
+        this._init_nudp();
+        return P.ninvoke(this.nudp, 'bind', port, '0.0.0.0')
+            .then(port => {
+                // TODO emit event from native code?
+                return P.delay(1000);
+            })
+            .then(() => this.emit('connect'))
+            .catch(err => this.emit('error', err));
+    }
+
+    _init_nudp() {
+        let nudp = this.nudp;
+        nudp.on('close', () => this.emit('error', new Error('NUDP CLOSED')));
+        nudp.on('error', err => this.emit('error', err));
+        nudp.on('message', msg => this.emit('message', msg));
+        nudp.on('stun', (buffer, rinfo) => console.log('STUN:', rinfo, buffer));
+    }
+
 }
 
-/**
- *
- * connect
- *
- */
-RpcNudpConnection.prototype._connect = function() {
-    var self = this;
-    var Nudp = native_core().Nudp;
-    self.nudp = new Nudp();
-    self._init_nudp();
-    return P.ninvoke(self.nudp, 'bind', 0, '0.0.0.0')
-        .then(function(port) {
-            return P.ninvoke(self.nudp, 'connect', self.url.port, self.url.hostname);
-        })
-        .then(function() {
-            // send stun request just for testing
-            return P.ninvoke(self.nudp, 'send_outbound', stun.new_packet(stun.METHODS.REQUEST), self.url.port, self.url.hostname);
-        })
-        .then(function() {
-            self.emit('connect');
-        })
-        .fail(function(err) {
-            self.emit('error', err);
-        });
-};
-
-/**
- *
- * close
- *
- */
-RpcNudpConnection.prototype._close = function() {
-    if (this.nudp) {
-        this.nudp.close();
-    }
-};
-
-/**
- *
- * send
- *
- */
-RpcNudpConnection.prototype._send = function(msg) {
-    return P.ninvoke(this.nudp, 'send', msg);
-};
-
-/**
- *
- * accept
- *
- */
-RpcNudpConnection.prototype.accept = function(port) {
-    var self = this;
-    var Nudp = native_core().Nudp;
-    self.nudp = new Nudp();
-    self._init_nudp();
-    return P.ninvoke(self.nudp, 'bind', port, '0.0.0.0')
-        .then(function(port) {
-            // TODO emit event from native code?
-            return P.delay(1000);
-        })
-        .then(function() {
-            self.emit('connect');
-        })
-        .fail(function(err) {
-            self.emit('error', err);
-        });
-};
-
-
-RpcNudpConnection.prototype._init_nudp = function() {
-    var self = this;
-    var nudp = self.nudp;
-
-    nudp.on('close', function() {
-        self.emit('error', new Error('NUDP CLOSED'));
-    });
-
-    nudp.on('error', function(err) {
-        self.emit('error', err);
-    });
-
-    nudp.on('message', function(msg) {
-        self.emit('message', msg);
-    });
-
-    nudp.on('stun', function(buffer, rinfo) {
-        console.log('STUN:', rinfo, buffer);
-    });
-};
+module.exports = RpcNudpConnection;

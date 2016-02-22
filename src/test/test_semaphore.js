@@ -1,29 +1,27 @@
-// make jshint ignore mocha globals
-// /* global describe, it, before, after, beforeEach, afterEach */
-/* global describe, it */
 'use strict';
 
 // var _ = require('lodash');
 var P = require('../util/promise');
+var mocha = require('mocha');
 var assert = require('assert');
 var Semaphore = require('../util/semaphore');
 
-describe('semaphore', function() {
+mocha.describe('semaphore', function() {
 
-    it('should create ok', function() {
+    mocha.it('should create ok', function() {
         var sem = new Semaphore();
         assert.strictEqual(sem.length, 0);
         assert.strictEqual(sem.value, 0);
     });
 
-    it('should handle single item', function(done) {
+    mocha.it('should handle single item', function() {
         var sem;
         var woke = 0;
         var do_wake = function() {
             woke++;
         };
 
-        P.fcall(function() {
+        return P.fcall(function() {
             sem = new Semaphore(10);
             assert.strictEqual(sem.length, 0);
             assert.strictEqual(sem.value, 10);
@@ -68,12 +66,12 @@ describe('semaphore', function() {
             assert.strictEqual(sem.length, 0);
             assert.strictEqual(sem.value, 5);
             assert.strictEqual(woke, 4);
-        }).done(done);
+        });
     });
 
-    it('should surround', function(done) {
+    mocha.it('should surround', function() {
         var sem;
-        P.fcall(function() {
+        return P.fcall(function() {
             sem = new Semaphore(10);
             assert.strictEqual(sem.length, 0);
             assert.strictEqual(sem.value, 10);
@@ -101,7 +99,7 @@ describe('semaphore', function() {
             assert(results[2].value() === 22);
             assert.strictEqual(sem.length, 0);
             assert.strictEqual(sem.value, 10);
-        }).done(done);
+        });
     });
 
 

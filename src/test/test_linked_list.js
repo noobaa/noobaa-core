@@ -1,20 +1,18 @@
-// make jshint ignore mocha globals
-// /* global describe, it, before, after, beforeEach, afterEach */
-/* global describe, it */
 'use strict';
 
 // var _ = require('lodash');
+var mocha = require('mocha');
 var assert = require('assert');
 var LinkedList = require('../util/linked_list');
 
-describe('linked_list', function() {
+mocha.describe('linked_list', function() {
 
-    it('should create ok', function() {
+    mocha.it('should create ok', function() {
         var ll = new LinkedList();
         ll = ll; // lint unused bypass
     });
 
-    it('should handle single item', function() {
+    mocha.it('should handle single item', function() {
         var ll = new LinkedList();
         assert(ll.is_empty());
         assert.strictEqual(ll.length, 0);
@@ -38,7 +36,7 @@ describe('linked_list', function() {
         assert(!ll.pop_back());
     });
 
-    it('should throw mixing item between lists', function() {
+    mocha.it('should throw mixing item between lists', function() {
         var l1 = new LinkedList();
         var l2 = new LinkedList();
         var item = {};

@@ -5,9 +5,10 @@ var _ = require('lodash');
 var P = require('../util/promise');
 var size_utils = require('../util/size_utils');
 var string_utils = require('../util/string_utils');
-var object_mapper = require('./mapper/object_mapper');
+var map_reader = require('./mapper/map_reader');
 var node_monitor = require('./node_monitor');
-var system_store = require('./stores/system_store');
+var nodes_store = require('./stores/nodes_store');
+var config = require('../../config');
 var db = require('./db');
 var dbg = require('../util/debug_module')(__filename);
 
@@ -46,17 +47,17 @@ module.exports = node_server;
  *
  */
 function create_node(req) {
-    var info = _.pick(req.rpc_params,
+    var node = _.pick(req.rpc_params,
         'name',
         'is_server',
         'geolocation'
     );
-    info.system = req.system._id;
-    info.heartbeat = new Date(0);
-    info.peer_id = db.new_object_id();
+    node.system = req.system._id;
+    node.heartbeat = new Date(0);
+    node.peer_id = db.new_object_id();
 
     // storage info will be updated by heartbeat
-    info.storage = {
+    node.storage = {
         alloc: 0,
         used: 0,
         total: 0,
@@ -67,18 +68,17 @@ function create_node(req) {
     if (!pool) {
         throw req.rpc_error('NOT_FOUND', 'DEFAULT POOL NOT FOUND');
     }
-    info.pool = pool._id;
+    node.pool = pool._id;
 
-    dbg.log0('CREATE NODE', info);
-    return P.when(db.Node.create(info))
-        .then(null, db.check_already_exists(req, 'node'))
+    dbg.log0('CREATE NODE', node);
+    return nodes_store.create_node(req, node)
         .then(function(node) {
             // create async
             db.ActivityLog.create({
                 system: req.system,
                 level: 'info',
                 event: 'node.create',
-                node: node,
+                node: node._id,
             });
             var account_id = '';
             if (req.account) {
@@ -111,10 +111,7 @@ function create_node(req) {
  *
  */
 function read_node(req) {
-    return find_node_by_name(req)
-        .then(function(node) {
-            return get_node_full_info(node);
-        });
+    return nodes_store.find_node_by_name(req).then(get_node_full_info);
 }
 
 
@@ -125,25 +122,25 @@ function read_node(req) {
  *
  */
 function update_node(req) {
-    var updates = _.pick(req.rpc_params,
-        'is_server',
-        'geolocation',
-        'srvmode'
-    );
+    var updates = {
+        $set: _.pick(req.rpc_params,
+            'is_server',
+            'geolocation',
+            'srvmode'
+        )
+    };
 
     // to connect we remove the srvmode field
-    if (updates.srvmode === 'connect') {
-        delete updates.srvmode;
+    if (updates.$set.srvmode === 'connect') {
+        delete updates.$set.srvmode;
         updates.$unset = {
             srvmode: 1
         };
     }
 
-    return P.when(db.Node
-            .findOneAndUpdate(get_node_query(req), updates)
-            .exec())
-        .then(db.check_not_deleted(req, 'node'))
-        .thenResolve();
+    return nodes_store.find_node_by_name(req)
+        .then(node => nodes_store.update_node_by_name(req, updates))
+        .return();
 }
 
 
@@ -154,17 +151,10 @@ function update_node(req) {
  *
  */
 function delete_node(req) {
-    var updates = {
-        deleted: new Date()
-    };
-    return P.when(db.Node
-            .findOneAndUpdate(get_node_query(req), updates)
-            .exec())
-        .then(db.check_not_found(req, 'node'))
-        .then(function(node) {
-            // TODO notify to initiate rebuild of blocks
-        })
-        .thenResolve();
+    // TODO notify to initiate rebuild of blocks
+    return nodes_store.find_node_by_name(req)
+        .then(node => nodes_store.delete_node_by_name(req))
+        .return();
 }
 
 
@@ -177,19 +167,17 @@ function delete_node(req) {
  */
 function read_node_maps(req) {
     var node;
-    return find_node_by_name(req)
-        .then(function(node_arg) {
+    return nodes_store.find_node_by_name(req)
+        .then(node_arg => {
             node = node_arg;
             var params = _.pick(req.rpc_params, 'skip', 'limit');
             params.node = node;
-            return object_mapper.read_node_mappings(params);
+            return map_reader.read_node_mappings(params);
         })
-        .then(function(objects) {
-            return {
-                node: get_node_full_info(node),
-                objects: objects,
-            };
-        });
+        .then(objects => ({
+            node: get_node_full_info(node),
+            objects: objects,
+        }));
 }
 
 /**
@@ -234,7 +222,7 @@ function list_nodes_int(system_id, query, skip, limit, pagination, sort, order, 
                 info.geolocation = new RegExp(query.geolocation);
             }
             if (query.state) {
-                var minimum_online_heartbeat = db.Node.get_minimum_online_heartbeat();
+                var minimum_online_heartbeat = nodes_store.get_minimum_online_heartbeat();
                 switch (query.state) {
                     case 'online':
                         info.srvmode = null;
@@ -281,22 +269,21 @@ function list_nodes_int(system_id, query, skip, limit, pagination, sort, order, 
                     $in: pools_ids
                 };
             }
-            var find = db.Node.find(info)
-                .sort(sort_opt);
-            if (skip) {
-                find.skip(skip);
-            }
-            if (limit) {
-                find.limit(limit);
-            }
-            return P.all([
-                find.exec(),
-                pagination && db.Node.count(info)
-            ]);
+            return P.join(
+                nodes_store.find_nodes(info, {
+                    sort: sort_opt,
+                    limit: limit,
+                    skip: skip
+                }),
+                pagination && nodes_store.count_nodes(info));
         })
         .spread(function(nodes, total_count) {
+            console.log('list_nodes', nodes.length, '/', total_count);
             var res = {
-                nodes: _.map(nodes, get_node_full_info)
+                nodes: _.map(nodes, node => {
+                    nodes_store.resolve_node_object_ids(node);
+                    return get_node_full_info(node);
+                })
             };
             if (pagination) {
                 res.total_count = total_count;
@@ -309,12 +296,12 @@ function list_nodes_int(system_id, query, skip, limit, pagination, sort, order, 
 
 /**
  *
- * GROUP_NODES
+ * TODO REMOVE GROUP_NODES API. UNUSED IN NEW UI
  *
  */
 function group_nodes(req) {
     return P.fcall(function() {
-            var minimum_online_heartbeat = db.Node.get_minimum_online_heartbeat();
+            var minimum_online_heartbeat = nodes_store.get_minimum_online_heartbeat();
             var reduce_sum = size_utils.reduce_sum;
             var group_by = req.rpc_params.group_by;
             var by_system = {
@@ -322,7 +309,7 @@ function group_nodes(req) {
                 deleted: null,
             };
 
-            return db.Node.mapReduce({
+            return require('./stores/node_model').mapReduce({
                 query: by_system,
                 scope: {
                     // have to pass variables to map/reduce with a scope
@@ -385,7 +372,7 @@ function group_nodes(req) {
                         }
                     };
                     if (r._id.p) {
-                        group.pool = r._id.p;
+                        group.pool = String(r._id.p);
                     }
                     if (r._id.g) {
                         group.geolocation = r._id.g;
@@ -408,23 +395,17 @@ function test_latency_to_server(req) {
  */
 function max_node_capacity(req) {
     //TODO:: once filter is mplemented in list_nodes, also add it here for the query
-    return P.when(db.Node
-            .find({
-                system: req.system._id,
-                deleted: null,
-            })
-            .sort({
+    return nodes_store.find_nodes({
+            system: req.system._id,
+            deleted: null,
+        }, {
+            sort: {
                 'storage.total': 1
-            })
-            .limit(1))
-        .then(function(max) {
-            var max_capacity = 0;
-            _.each(max[0].drives, function(d) {
-                if (d.storage.total > max_capacity) {
-                    max_capacity = d.storage.total;
-                }
-            });
-            return max_capacity;
+            },
+            limit: 1
+        })
+        .then(nodes => {
+            return nodes && nodes[0] && nodes[0].storage.total || 0;
         });
 }
 
@@ -434,37 +415,32 @@ function max_node_capacity(req) {
  */
 function get_test_nodes(req) {
     var count = req.rpc_params.count;
-    var minimum_online_heartbeat = db.Node.get_minimum_online_heartbeat();
-    return P.when(db.Node
-            .count({
+    var minimum_online_heartbeat = nodes_store.get_minimum_online_heartbeat();
+    return nodes_store.count_nodes({
+            system: req.system._id,
+            heartbeat: {
+                $gt: minimum_online_heartbeat
+            },
+            deleted: null,
+        })
+        .then(nodes_count => {
+            var rand_start = Math.floor(Math.random() *
+                (nodes_count - count > 0 ? nodes_count - count : 0));
+            return nodes_store.find_nodes({
                 system: req.system._id,
                 heartbeat: {
                     $gt: minimum_online_heartbeat
                 },
                 deleted: null,
-            }))
-        .then(function(total_nodes) {
-            var rand_start = Math.floor(Math.random() *
-                (total_nodes - count > 0 ? total_nodes - count : 0));
-            return P.when(db.Node
-                .find({
-                    system: req.system._id,
-                    heartbeat: {
-                        $gt: minimum_online_heartbeat
-                    },
-                    deleted: null,
-                })
-                .skip(rand_start)
-                .limit(count));
-        })
-        .then(function(nodes) {
-            var targets = _.map(nodes, function(n) {
-                return {
-                    name: n.name,
-                    address: 'n2n://' + n.peer_id,
-                };
+            }, {
+                fields: {
+                    _id: 0,
+                    name: 1,
+                    rpc_address: 1
+                },
+                skip: rand_start,
+                limit: count
             });
-            return targets;
         });
 }
 
@@ -490,11 +466,9 @@ function count_node_storage_used(node_id) {
 }
 */
 
-var NODE_PICK_FIELDS = [
-    'id',
+const NODE_INFO_PICK_FIELDS = [
     'name',
     'geolocation',
-    'peer_id',
     'ip',
     'rpc_address',
     'base_address',
@@ -505,19 +479,25 @@ var NODE_PICK_FIELDS = [
     'latency_of_disk_write',
     'debug_level',
 ];
-
-var NODE_DEFAULT_FIELDS = {
+const NODE_INFO_DEFAULT_FIELDS = {
     ip: '0.0.0.0',
     version: '',
     peer_id: '',
+    rpc_address: '',
+    base_address: '',
 };
 
 function get_node_full_info(node) {
-    var info = _.defaults(_.pick(node, NODE_PICK_FIELDS), NODE_DEFAULT_FIELDS);
+    var info = _.defaults(_.pick(node, NODE_INFO_PICK_FIELDS), NODE_INFO_DEFAULT_FIELDS);
+    info.id = String(node._id);
+    info.peer_id = String(node.peer_id);
     if (node.srvmode) {
         info.srvmode = node.srvmode;
     }
-    info.pool = system_store.data.get_by_id(node.pool).name;
+    if (node.storage.free <= config.NODES_FREE_SPACE_RESERVE) {
+        info.storage_full = true;
+    }
+    info.pool = node.pool.name;
     info.heartbeat = node.heartbeat.getTime();
     info.storage = get_storage_info(node.storage);
     info.drives = _.map(node.drives, function(drive) {
@@ -527,10 +507,13 @@ function get_node_full_info(node) {
             storage: get_storage_info(drive.storage)
         };
     });
-    info.online = db.Node.is_online(node);
-    info.os_info = node.os_info && node.os_info.toObject() || {};
+    info.online = nodes_store.is_online_node(node);
+    info.os_info = _.defaults({}, node.os_info);
     if (info.os_info.uptime) {
-        info.os_info.uptime = info.os_info.uptime.getTime();
+        info.os_info.uptime = new Date(info.os_info.uptime).getTime();
+    }
+    if (info.os_info.last_update) {
+        info.os_info.last_update = new Date(info.os_info.last_update).getTime();
     }
     return info;
 }
@@ -542,24 +525,5 @@ function get_storage_info(storage) {
         used: storage.used || 0,
         alloc: storage.alloc || 0,
         limit: storage.limit || 0
-    };
-}
-
-function find_node_by_name(req) {
-    return P.when(
-            db.Node.findOne(get_node_query(req))
-            .exec())
-        .then(db.check_not_deleted(req, 'node'))
-        .then(function(node) {
-            node.pool = system_store.data.get_by_id(node.pool).name;
-            return node;
-        });
-}
-
-function get_node_query(req) {
-    return {
-        system: req.system._id,
-        name: req.rpc_params.name,
-        deleted: null,
     };
 }

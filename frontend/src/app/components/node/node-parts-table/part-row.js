@@ -7,13 +7,13 @@ const partStateMapping = Object.freeze({
         toolTip: 'available',
         icon: '/fe/assets/icons.svg#part-available',
     },
-    in_process: {
+    building: {
         toolTip: 'in process',
         icon: '/fe/assets/icons.svg#part-in-process',
     },
     unavailable: {
         toolTip: 'unavailable',
-        icon: '/fe/assets/icons.svg#part-unavailable' 
+        icon: '/fe/assets/icons.svg#part-unavailable'
     }
 });
 

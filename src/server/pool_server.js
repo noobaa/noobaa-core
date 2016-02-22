@@ -1,17 +1,12 @@
 'use strict';
 
 var _ = require('lodash');
-var P = require('../util/promise');
-var db = require('./db');
+// var P = require('../util/promise');
 var dbg = require('../util/debug_module')(__filename);
 var system_store = require('./stores/system_store');
+var nodes_store = require('./stores/nodes_store');
 var size_utils = require('../util/size_utils');
-
-var pool_deletion_messages = {
-    SYSTEM_ENTITY: 'Cannot delete system pool',
-    NOT_EMPTY: 'Cannot delete pool with nodes associated to it',
-    ASSOCIATED: 'Cannot delete pool which is associated to buckets'
-};
+var config = require('../../config');
 
 /**
  *
@@ -26,8 +21,7 @@ var pool_server = {
     list_pool_nodes: list_pool_nodes,
     read_pool: read_pool,
     delete_pool: delete_pool,
-    add_nodes_to_pool: add_nodes_to_pool,
-    remove_nodes_from_pool: remove_nodes_from_pool,
+    assign_nodes_to_pool: assign_nodes_to_pool,
     get_associated_buckets: get_associated_buckets,
 };
 
@@ -44,19 +38,20 @@ function new_pool_defaults(name, system_id) {
 function create_pool(req) {
     var name = req.rpc_params.name;
     var nodes = req.rpc_params.nodes;
-    if (name !== 'default_pool' && nodes.length < 3) {
-        throw req.rpc_error('NOT ENOUGH NODES', 'cant create a pool with less than 3 nodes');
+    if (name !== 'default_pool' && nodes.length < config.NODES_MIN_COUNT) {
+        throw req.rpc_error('NOT ENOUGH NODES', 'cant create a pool with less than ' +
+            config.NODES_MIN_COUNT + ' nodes');
     }
     var pool = new_pool_defaults(name, req.system._id);
     dbg.log0('Creating new pool', pool);
-    
+
     return system_store.make_changes({
             insert: {
                 pools: [pool]
             }
         })
         .then(function() {
-            return assign_nodes_to_pool(req.system._id, pool._id, nodes);
+            return _assign_nodes_to_pool(req.system._id, pool._id, nodes);
         });
 }
 
@@ -80,7 +75,7 @@ function update_pool(req) {
 
 function list_pool_nodes(req) {
     var pool = find_pool_by_name(req);
-    return P.when(db.Node.collection.find({
+    return nodes_store.find_nodes({
             system: req.system._id,
             pool: pool._id,
             deleted: null
@@ -89,22 +84,20 @@ function list_pool_nodes(req) {
                 _id: 0,
                 name: 1,
             }
-        }).toArray())
-        .then(function(nodes) {
-            return {
-                name: pool.name,
-                nodes: nodes
-            };
-        });
+        })
+        .then(nodes => ({
+            name: pool.name,
+            nodes: _.map(nodes, 'name')
+        }));
 }
 
 function read_pool(req) {
     var pool = find_pool_by_name(req);
-    return P.when(db.Node.aggregate_nodes({
+    return nodes_store.aggregate_nodes_by_pool({
             system: req.system._id,
             pool: pool._id,
             deleted: null,
-        }, 'pool'))
+        })
         .then(function(nodes_aggregate_pool) {
             return get_pool_info(pool, nodes_aggregate_pool);
         });
@@ -113,14 +106,16 @@ function read_pool(req) {
 function delete_pool(req) {
     dbg.log0('Deleting pool', req.rpc_params.name);
     var pool = find_pool_by_name(req);
-    return validate_pool_deletion(pool)
-        .then(function(reason) {
+    return nodes_store.aggregate_nodes_by_pool({
+            system: req.system._id,
+            pool: pool._id,
+            deleted: null,
+        })
+        .then(function(nodes_aggregate_pool) {
+            var reason = check_pool_deletion(pool, nodes_aggregate_pool);
             if (reason) {
-                let err = new Error(pool_deletion_messages[reason]);
-                dbg.log0('Failed on validate pool deletions with', err)
-                throw err;
+                throw req.rpc_error(reason, 'Cannot delete pool');
             }
-
             return system_store.make_changes({
                 remove: {
                     pools: [pool._id]
@@ -130,8 +125,8 @@ function delete_pool(req) {
         .return();
 }
 
-function assign_nodes_to_pool(system_id, pool_id, nodes_names) {
-    return P.when(db.Node.collection.updateMany({
+function _assign_nodes_to_pool(system_id, pool_id, nodes_names) {
+    return nodes_store.update_nodes({
         system: system_id,
         name: {
             $in: nodes_names
@@ -140,48 +135,29 @@ function assign_nodes_to_pool(system_id, pool_id, nodes_names) {
         $set: {
             pool: pool_id,
         }
-    })).return();
-}
-
-function unassign_nodes_from_pool(system_id, pool_id, nodes_names) {
-    return P.when(db.Node.collection.updateMany({
-        system: system_id,
-        name: {
-            $in: nodes_names
-        },
-        pool: pool_id,
-    }, {
-        $unset: {
-            pool: 1,
-        }
-    })).return();
+    }).return();
 }
 
 
-function add_nodes_to_pool(req) {
+function assign_nodes_to_pool(req) {
     dbg.log0('Adding nodes to pool', req.rpc_params.name, 'nodes', req.rpc_params.nodes);
     var pool = find_pool_by_name(req);
-    return assign_nodes_to_pool(req.system._id, pool._id, req.rpc_params.nodes);
+    return _assign_nodes_to_pool(req.system._id, pool._id, req.rpc_params.nodes);
 }
 
-function remove_nodes_from_pool(req) {
-    dbg.log0('Removing nodes from pool', req.rpc_params.name, 'nodes', req.rpc_params.nodes);
-    var pool = find_pool_by_name(req);
-    return unassign_nodes_from_pool(req.system._id, pool._id, req.rpc_params.nodes);
-}
 
 function get_associated_buckets(req) {
     var pool = find_pool_by_name(req);
-    return get_associated_buckets_int(pool._id, req.system.buckets_by_name);
+    return get_associated_buckets_int(pool);
 }
 
 // UTILS //////////////////////////////////////////////////////////
 
-function get_associated_buckets_int(poolid, buckets_by_name) {
-    var associated_buckets = _.filter(buckets_by_name, function(bucket) {
+function get_associated_buckets_int(pool) {
+    var associated_buckets = _.filter(pool.system.buckets_by_name, function(bucket) {
         return _.find(bucket.tiering.tiers, function(tier_and_order) {
             return _.find(tier_and_order.tier.pools, function(pool2) {
-                return String(poolid) === String(pool2._id);
+                return String(pool._id) === String(pool2._id);
             });
         });
     });
@@ -200,11 +176,9 @@ function find_pool_by_name(req) {
     return pool;
 }
 
-function get_pool_info(pool, nodes_aggregate_pool, extended_info) {
+function get_pool_info(pool, nodes_aggregate_pool) {
     var n = nodes_aggregate_pool[pool._id] || {};
-    var info;
-
-    info = {
+    var info = {
         name: pool.name,
         nodes: {
             count: n.count || 0,
@@ -218,42 +192,29 @@ function get_pool_info(pool, nodes_aggregate_pool, extended_info) {
             used: n.used,
         })
     };
-
-    if (extended_info) {
-        return validate_pool_deletion(pool)
-            .then(function(reason) {
-                info.deletion_status = reason || 'CAN_BE_DELETED';
-                return info;
-            });
-    } else {
-        return P.resolve(info);    
+    var reason = check_pool_deletion(pool, nodes_aggregate_pool);
+    if (reason) {
+        info.undeletable = reason;
     }
+    return info;
 }
 
-function validate_pool_deletion(pool) {
+function check_pool_deletion(pool, nodes_aggregate_pool) {
+
+    // Check if the default pool
     if (pool.name === 'default_pool') {
-        return P.when('SYSTEM_ENTITY');
+        return 'SYSTEM_ENTITY';
+    }
 
-    } else {
-        let sysid = pool.system._id;
-        let poolid = pool._id;
+    // Check if there are nodes till associated to this pool
+    var n = nodes_aggregate_pool[pool._id] || {};
+    if (n.count) {
+        return 'NOT_EMPTY';
+    }
 
-        return P.when(db.Node.collection.count({
-            system: sysid,
-            pool: poolid,
-            deleted: null
-        }))
-        .then(function(count) {
-            if (count) { //There are nodes till associated to this pool
-                return 'NOT_EMPTY';
-            }
-
-            var buckets = get_associated_buckets_int(poolid,
-                system_store.data.get_by_id(sysid).buckets_by_name); //Verify pool is not used by any bucket/tier
-
-            if (buckets.length) {
-                return 'ASSOCIATED';
-            }
-        });
+    //Verify pool is not used by any bucket/tier
+    var buckets = get_associated_buckets_int(pool);
+    if (buckets.length) {
+        return 'IN_USE';
     }
 }

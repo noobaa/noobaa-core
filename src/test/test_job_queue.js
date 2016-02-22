@@ -1,23 +1,21 @@
-// make jshint ignore mocha globals
-// /* global describe, it, before, after, beforeEach, afterEach */
-/* global describe, it */
 'use strict';
 
 // var _ = require('lodash');
 var P = require('../util/promise');
+var mocha = require('mocha');
 var assert = require('assert');
 var JobQueue = require('../util/job_queue');
 
-describe('job_queue', function() {
+mocha.describe('job_queue', function() {
 
 
-    it('should create ok', function() {
+    mocha.it('should create ok', function() {
         var q = new JobQueue();
         q = q; // lint unused bypass
     });
 
 
-    it('should process an item', function(done) {
+    mocha.it('should process an item', function(done) {
         var q = new JobQueue();
         assert.strictEqual(q.length, 0);
         var job = {
@@ -32,7 +30,7 @@ describe('job_queue', function() {
     });
 
 
-    it('should handle explicit method param', function(done) {
+    mocha.it('should handle explicit method param', function(done) {
         var q = new JobQueue({
             method: 'foo'
         });
@@ -49,7 +47,7 @@ describe('job_queue', function() {
     });
 
 
-    it('should handle explicit timeout param', function(done) {
+    mocha.it('should handle explicit timeout param', function(done) {
         var q = new JobQueue({
             timeout: function(fn, delay) {
                 return setTimeout(fn, delay);
@@ -68,7 +66,7 @@ describe('job_queue', function() {
     });
 
 
-    it('should process manually', function(done) {
+    mocha.it('should process manually', function(done) {
         var q = new JobQueue({
             concurrency: 0
         });
@@ -92,7 +90,7 @@ describe('job_queue', function() {
     });
 
 
-    it('should remove queued item', function(done) {
+    mocha.it('should remove queued item', function(done) {
         var q = new JobQueue({
             concurrency: 0
         });
@@ -112,7 +110,7 @@ describe('job_queue', function() {
     });
 
 
-    it('should handle promises with concurrency', function(done) {
+    mocha.it('should handle promises with concurrency', function(done) {
         var count = 0;
         var concurrency = 5;
         var q = new JobQueue({

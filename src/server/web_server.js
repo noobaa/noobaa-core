@@ -139,12 +139,12 @@ function use_exclude(path, middleware) {
 /////////
 
 // register RPC services and transports
-require('./server_rpc').register_servers();
-var server_rpc = require('./server_rpc').server_rpc;
-var bg_worker = require('./server_rpc').bg_worker;
-server_rpc.register_http_transport(app);
-// server_rpc.register_n2n_transport();
-server_rpc.register_redirector_transport(); //Allow redirection from this point
+var server_rpc = require('./server_rpc');
+server_rpc.register_md_servers();
+server_rpc.register_common_servers();
+server_rpc.rpc.register_http_transport(app);
+server_rpc.client.options.address = 'fcall://fcall';
+
 var http_port = process.env.PORT = process.env.PORT || 5001;
 var https_port = process.env.SSL_PORT = process.env.SSL_PORT || 5443;
 var http_server = http.createServer(app);
@@ -168,8 +168,8 @@ P.fcall(function() {
     })
     .then(function() {
         dbg.log('Web Server Started, ports: http', http_port, 'https', https_port);
-        server_rpc.register_ws_transport(http_server);
-        server_rpc.register_ws_transport(https_server);
+        server_rpc.rpc.register_ws_transport(http_server);
+        server_rpc.rpc.register_ws_transport(https_server);
     })
     .done(null, function(err) {
         dbg.error('Web Server FAILED TO START', err.stack || err);
@@ -289,11 +289,11 @@ app.post('/set_log_level*', function(req, res) {
 
     dbg.log0('Change log level requested for', req.param('module'), 'to', req.param('level'));
     dbg.set_level(req.param('level'), req.param('module'));
-    return P.when(bg_worker.bg_workers.set_debug_level({
+    // TODO what about all the other instances of the server???
+    return P.when(server_rpc.bg_client.debug.set_debug_level({
         level: req.param('level'),
         module: req.param('module')
-    })).
-    then(function() {
+    })).then(function() {
         res.status(200).send({});
     });
 });
@@ -332,11 +332,11 @@ function cache_control(seconds) {
 // setup static files
 
 //use versioned executables
-var setup_filename = 'noobaa-setup-'+pkg.version;
-var s3_rest_setup_filename = 'noobaa-s3rest-'+pkg.version;
-app.use('/public/noobaa-setup.exe', express.static(path.join(rootdir, 'build', 'public',setup_filename+'.exe')));
-app.use('/public/noobaa-setup', express.static(path.join(rootdir, 'build', 'public',setup_filename)));
-app.use('/public/noobaa-s3rest.exe', express.static(path.join(rootdir, 'build', 'public',s3_rest_setup_filename+'exe')));
+var setup_filename = 'noobaa-setup-' + pkg.version;
+var s3_rest_setup_filename = 'noobaa-s3rest-' + pkg.version;
+app.use('/public/noobaa-setup.exe', express.static(path.join(rootdir, 'build', 'public', setup_filename + '.exe')));
+app.use('/public/noobaa-setup', express.static(path.join(rootdir, 'build', 'public', setup_filename)));
+app.use('/public/noobaa-s3rest.exe', express.static(path.join(rootdir, 'build', 'public', s3_rest_setup_filename + 'exe')));
 
 app.use('/public/', cache_control(dev_mode ? 0 : 10 * 60)); // 10 minutes
 app.use('/public/', express.static(path.join(rootdir, 'build', 'public')));
@@ -345,14 +345,14 @@ app.use('/public/images/', express.static(path.join(rootdir, 'images')));
 
 // Serve the new frontend (management console)
 app.use('/fe/assets', express.static(path.join(rootdir, 'frontend', 'dist', 'assets')));
-app.use('/fe', express.static(path.join(rootdir, 'frontend','dist')));
+app.use('/fe', express.static(path.join(rootdir, 'frontend', 'dist')));
 app.get('/fe/**/', function(req, res) {
-var filePath = path.join(rootdir, 'frontend', 'dist',  'index.html');
+    var filePath = path.join(rootdir, 'frontend', 'dist', 'index.html');
     if (fs.existsSync(filePath)) {
         res.sendFile(filePath);
     } else {
         res.statusCode = 404;
-       res.end();
+        res.end();
     }
 });
 

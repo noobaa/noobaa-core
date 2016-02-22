@@ -4,14 +4,12 @@ require('../util/panic');
 var _ = require('lodash');
 var P = require('../util/promise');
 var util = require('util');
-var md5_stream = require('../util/md5_stream');
+var MD5Stream = require('../util/md5_stream');
 var mime = require('mime');
 var api = require('../api');
 var dbg = require('../util/debug_module')(__filename);
 var string_utils = require('../util/string_utils');
 var promise_utils = require('../util/promise_utils');
-var time_util = require('../util/time_utils');
-
 var xml2js = require('xml2js');
 var FileStore = require('./file-store');
 var fileStore = new FileStore('/tmp');
@@ -28,7 +26,12 @@ module.exports = function(params) {
     var store_locally = false;
     var calculate_md5 = true;
     var buckets_cache;
-    var getBucketLocally = function(req, res) {
+    var rpc = api.new_rpc(params.address);
+    var signal_client = rpc.new_client();
+    var n2n_agent = rpc.register_n2n_transport(signal_client.node.n2n_signal);
+    n2n_agent.set_any_rpc_address();
+
+    function getBucketLocally(req, res) {
         var options = {
             marker: req.query.marker || null,
             prefix: req.query.prefix || null,
@@ -54,8 +57,9 @@ module.exports = function(params) {
                 return buildXmlResponse(res, 200, template);
             });
         }
-    };
-    var putObjectLocally = function(req, res, file_key_name) {
+    }
+
+    function putObjectLocally(req, res, file_key_name) {
         req.params.key = file_key_name;
         P.ninvoke(fileStore, "putObject", req.params.bucket, req)
             .then(function(key) {
@@ -70,8 +74,9 @@ module.exports = function(params) {
                 return buildXmlResponse(res, 500, template);
 
             });
-    };
-    var getObjectLocally = function(req, res) {
+    }
+
+    function getObjectLocally(req, res) {
         var keyName = req.params.key;
         var acl = req.query.acl;
         if (acl !== undefined) {
@@ -107,15 +112,16 @@ module.exports = function(params) {
                     return errorResponse(req, res, keyName);
                 }
             });
+    }
 
-    };
-    var buildResponse = function(req, res, status, object, data) {
+    function buildResponse(req, res, status, object, data) {
         res.header('Etag', '"' + object.md5 + '"');
         res.header('Last-Modified', time_utils.toRFC822(new Date(object.modifiedDate)));
         res.header('Content-Type', object.contentType);
 
-        if (object.contentEncoding)
+        if (object.contentEncoding) {
             res.header('Content-Encoding', object.contentEncoding);
+        }
 
         res.header('Content-Length', object.size);
         if (object.customMetaData.length > 0) {
@@ -132,8 +138,9 @@ module.exports = function(params) {
             return res.end();
         }
         return res.end(data);
-    };
-    var errorResponse = function(req, res, keyName) {
+    }
+
+    function errorResponse(req, res, keyName) {
         dbg.error('Object "%s" in bucket "%s" does not exist', keyName, req.bucket.name);
 
         if (indexDocument) {
@@ -153,8 +160,9 @@ module.exports = function(params) {
             var template = templateBuilder.buildKeyNotFound(keyName);
             return buildXmlResponse(res, 404, template);
         }
-    };
-    var notFoundResponse = function(req, res) {
+    }
+
+    function notFoundResponse(req, res) {
         var ErrorDoc = '<!DOCTYPE html>\n<html><head><title>404 - Resource Not Found</title></head><body><h1>404 - Resource Not Found</h1></body></html>';
 
         return buildResponse(req, res, 404, {
@@ -163,8 +171,9 @@ module.exports = function(params) {
             customMetaData: [],
             size: ErrorDoc.length
         }, ErrorDoc);
-    };
-    var extract_access_key = function(req) {
+    }
+
+    function extract_access_key(req) {
         var req_access_key;
         if (req.headers.authorization) {
             var end_of_aws_key = req.headers.authorization.indexOf(':');
@@ -183,9 +192,9 @@ module.exports = function(params) {
             }
         }
         return req_access_key;
-    };
+    }
 
-    var extract_s3_info = function(req) {
+    function extract_s3_info(req) {
 
         if (!_.has(clients, req.access_key)) {
             return P.fcall(function() {
@@ -220,7 +229,7 @@ module.exports = function(params) {
 
             return new_params;
         }
-    };
+    }
 
     function set_xattr(req, params) {
         params.xattr = params.xattr || {};
@@ -238,12 +247,12 @@ module.exports = function(params) {
     }
 
 
-    var uploadPart = function(req, res) {
+    function uploadPart(req, res) {
 
         if (store_locally) {
             return putObjectLocally(req, res, req.query.uploadId + '___' + req.query.partNumber);
         }
-        var md5_calc = new md5_stream();
+        var md5_calc = new MD5Stream();
         var part_md5 = '0';
         var access_key = extract_access_key(req);
         var upload_part_number = parseInt(req.query.partNumber, 10);
@@ -312,9 +321,9 @@ module.exports = function(params) {
                 dbg.error('ERROR: upload:' + req.query.uploadId + ' err:' + util.inspect(err.stack));
                 return res.status(500).end();
             });
-    };
+    }
 
-    var listPartsResult = function(req, res) {
+    function listPartsResult(req, res) {
         P.fcall(function() {
             var template;
             var upload_id = req.query.uploadId;
@@ -341,17 +350,17 @@ module.exports = function(params) {
                     return buildXmlResponse(res, 200, template);
                 });
         });
-    };
+    }
 
-    var buildXmlResponse = function(res, status, template) {
+    function buildXmlResponse(res, status, template) {
         //dbg.log("build",res);
         res.header('Content-Type', 'application/xml');
         res.status(status);
         dbg.log2('template:', template);
         return res.send(template);
-    };
+    }
 
-    var delete_if_exists = function(target_object, access_key) {
+    function delete_if_exists(target_object, access_key) {
         dbg.log3('listing ', target_object.key, ' in bucket:', target_object.bucket);
         return clients[access_key].client.object.delete_object({
             bucket: target_object.bucket,
@@ -365,11 +374,9 @@ module.exports = function(params) {
                 dbg.error('Failure while trying to delete old version of object "%s"', target_object.key, err);
             }
         });
+    }
 
-
-    };
-
-    var copy_object = function(from_object, to_object, src_bucket, target_bucket, access_key, req) {
+    function copy_object(from_object, to_object, src_bucket, target_bucket, access_key, req) {
         dbg.log0('copy:', from_object, to_object, src_bucket, target_bucket, access_key);
 
         from_object = decodeURIComponent(from_object);
@@ -395,17 +402,17 @@ module.exports = function(params) {
                         if (source_object_md.size === 0 && last_char === '/') {
                             dbg.log0('Folder copy:', from_object, ' to ', to_object);
                             return list_objects_with_prefix(from_object, '/', src_bucket, access_key)
-                                .then(function(objects_and_folders) {
-                                    return P.all(_.times(objects_and_folders.objects.length, function(i) {
-                                        dbg.log0('copy inner objects:', objects_and_folders.objects[i].key, objects_and_folders.objects[i].key.replace(from_object, to_object));
-                                        return copy_object(objects_and_folders.objects[i].key,
-                                            objects_and_folders.objects[i].key.replace(from_object, to_object),
+                                .then(function(list_res) {
+                                    return P.map(list_res.objects, function(obj) {
+                                        dbg.log0('copy inner objects:', obj.key, obj.key.replace(from_object, to_object));
+                                        return copy_object(obj.key,
+                                            obj.key.replace(from_object, to_object),
                                             src_bucket, target_bucket, access_key);
-                                    })).then(function() {
-                                        //                                dbg.log0('folders......',_.keys(objects_and_folders.folders));
-                                        return P.map(_.keys(objects_and_folders.folders), function(folder) {
+                                    }).then(function() {
+                                        return P.map(list_res.common_prefixes, function(folder) {
                                             dbg.log0('copy inner folders:', folder, folder.replace(from_object, to_object));
-                                            return copy_object(folder, folder.replace(from_object, to_object),
+                                            return copy_object(folder,
+                                                folder.replace(from_object, to_object),
                                                 src_bucket, target_bucket, access_key);
                                         });
                                     });
@@ -471,78 +478,47 @@ module.exports = function(params) {
                 dbg.error("Failed to upload", err);
                 return false;
             });
+    }
 
-    };
-    var list_objects_with_prefix = function(prefix, delimiter, bucket_name, access_key) {
-        var list_params = {
-            bucket: bucket_name,
-            key_s3_prefix: ''
-        };
+    function list_objects_with_prefix(prefix, delimiter, bucket_name, access_key) {
         if (prefix) {
             //prefix = prefix.replace(/%2F/g, '/');
             prefix = decodeURI(prefix);
-            list_params.key_s3_prefix = prefix;
         }
         if (delimiter) {
             delimiter = decodeURI(delimiter);
         }
+        var list_params = {
+            bucket: bucket_name,
+            key_s3_prefix: prefix || '',
+            delimiter: delimiter || ''
+        };
         dbg.log3('Listing objects with', list_params, delimiter, 'key:', access_key);
         return clients[access_key].client.object.list_objects(list_params)
             .then(function(results) {
-                var folders = {};
-                dbg.log3('results:', results);
-                var objects = _.filter(results.objects, function(obj) {
-                    try {
-                        var date = new Date(obj.info.create_time);
-                        date.setMilliseconds(0);
-                        obj.modifiedDate = date.toISOString();
-                        obj.md5 = 100;
-                        obj.size = obj.info.size;
-
-                        //we will keep the full path for CloudBerry online cloud backup tool
-                        var obj_sliced_key = obj.key.slice(prefix.length);
-                        dbg.log3('obj.key:', obj.key, ' prefix ', prefix, ' sliced', obj_sliced_key);
-                        if (obj_sliced_key.indexOf(delimiter) >= 0) {
-                            var folder = obj_sliced_key.split(delimiter, 1)[0];
-                            folders[prefix + folder + "/"] = true;
-                            return false;
-                        }
-
-                        if (list_params.key === obj.key) {
-                            dbg.log3('LISTED KEY same as REQUIRED', obj.key);
-                            if (prefix === obj.key && prefix.substring(prefix.length - 1) !== delimiter) {
-
-                                return true;
-                            }
-
-                            return false;
-                        }
-                        if (!obj.key) {
-                            // empty key - might be object created as a folder
-                            return false;
-                        }
-                        return true;
-                    } catch (err) {
-                        dbg.error('Error while listing objects:', err);
-                    }
+                results.objects = _.filter(results.objects, function(obj) {
+                    // filter empty keys - might be object created as a folder
+                    if (!obj.key) return false;
+                    var date = new Date(obj.info.create_time);
+                    date.setMilliseconds(0);
+                    obj.modifiedDate = date.toISOString();
+                    obj.md5 = 100;
+                    obj.size = obj.info.size;
+                    return true;
                 });
-
-                var objects_and_folders = {
-                    objects: objects,
-                    folders: folders
-                };
-                dbg.log3('About to return objects and folders:', objects_and_folders);
-                return objects_and_folders;
+                dbg.log0('List objects results: objects', results.objects,
+                'and common_prefixes:', results.common_prefixes);
+                return results;
             }).then(null, function(err) {
-                dbg.error('failed to list object with prefix', err);
+                dbg.error('failed to list objects with prefix', err);
                 return {
-                    objects: {},
-                    folders: {}
+                    objects: [],
+                    common_prefixes: []
                 };
             });
-    };
+    }
 
-    var uploadObject = function(req, res, file_key_name) {
+    function uploadObject(req, res, file_key_name) {
         var create_params = {};
         var md5 = '0';
         P.fcall(function() {
@@ -553,7 +529,7 @@ module.exports = function(params) {
                     dbg.log3('uploadObject: upload', file_key_name);
 
                     // tranform stream that calculates md5 on-the-fly
-                    var md5_calc = new md5_stream();
+                    var md5_calc = new MD5Stream();
                     if (calculate_md5) {
                         req.pipe(md5_calc);
                     }
@@ -618,10 +594,10 @@ module.exports = function(params) {
                 dbg.error('ERROR: uploadObject:' + file_key_name + ' err:' + util.inspect(err.stack));
                 return res.status(500).end();
             });
-    };
+    }
 
 
-    var isBucketExists = function(bucketName, s3_info) {
+    function isBucketExists(bucketName, s3_info) {
         dbg.log3('isBucketExists', bucketName, ' info:', s3_info, 'key:', s3_info.access_key, 'auth', clients[s3_info.access_key].client.options.auth_token);
 
         var options = {
@@ -640,7 +616,7 @@ module.exports = function(params) {
                     return true;
                 }
             });
-    };
+    }
 
     /**
      * The following methods correspond the S3 api. For more information visit:
@@ -668,7 +644,7 @@ module.exports = function(params) {
                 } else {
                     dbg.log3('Adding new system client.', req.access_key);
                     clients[req.access_key] = {
-                        client: new api.Client(),
+                        client: rpc.new_client(),
                         buckets: []
                     };
                     return clients[req.access_key];
@@ -822,10 +798,10 @@ module.exports = function(params) {
             } else {
 
                 list_objects_with_prefix(options.prefix, options.delimiter, req.bucket, extract_access_key(req))
-                    .then(function(objects_and_folders) {
+                    .then(function(list_res) {
                         options.bucketName = req.bucket || params.bucket;
-                        options.common_prefixes = _.isEmpty(objects_and_folders.folders) ? '' : _.keys(objects_and_folders.folders);
-                        dbg.log3('total of objects:', objects_and_folders.objects.length, ' folders:', options.common_prefixes, 'bucket:', options.bucketName);
+                        options.common_prefixes = list_res.common_prefixes;
+                        dbg.log3('total of objects:', list_res.objects.length, ' folders:', options.common_prefixes, 'bucket:', options.bucketName);
 
                         if (req.query.versioning !== undefined) {
                             if (!_.isEmpty(options.common_prefixes)) {
@@ -834,7 +810,7 @@ module.exports = function(params) {
                                 date = date.toISOString();
                                 _.each(options.common_prefixes, function(folder) {
                                     dbg.log3('adding common_prefixe (folder):', folder);
-                                    objects_and_folders.objects.unshift({
+                                    list_res.objects.unshift({
                                         key: folder,
                                         modifiedDate: date,
                                         md5: 100,
@@ -842,9 +818,9 @@ module.exports = function(params) {
                                     });
                                 });
                             }
-                            template = templateBuilder.buildBucketVersionQuery(options, objects_and_folders.objects);
+                            template = templateBuilder.buildBucketVersionQuery(options, list_res.objects);
                         } else {
-                            template = templateBuilder.buildBucketQuery(options, objects_and_folders.objects);
+                            template = templateBuilder.buildBucketQuery(options, list_res.objects);
                         }
                         return buildXmlResponse(res, 200, template);
                     })
@@ -903,10 +879,10 @@ module.exports = function(params) {
                         } else {
                             dbg.log3('Creating new tiering_policy for bucket', bucketName);
                             return clients[access_key].client.tiering_policy.create_policy({
-                                    name: bucketName + '_tiering',
+                                    name: bucketName + '_tiering_' + Date.now(),
                                     tiers: [{
                                         order: 0,
-                                        tier: 'nodes'
+                                        tier: 'default_tier'
                                     }]
                                 })
                                 .then(function() {
@@ -1052,7 +1028,7 @@ module.exports = function(params) {
                                     var create_date = new Date(object_md.create_time);
                                     create_date.setMilliseconds(0);
 
-                                    res.header('Last-Modified', time_util.toRFC822(create_date));
+                                    res.header('Last-Modified', time_utils.toRFC822(create_date));
                                     res.header('Content-Type', object_md.content_type);
                                     res.header('Content-Length', object_md.size);
                                     res.header('x-amz-meta-cb-modifiedtime', req.headers['x-amz-date']);
@@ -1247,7 +1223,7 @@ module.exports = function(params) {
                         dbg.log0('Init Multipart, buckets', clients[access_key].buckets, '::::',
                             _.filter(clients[access_key].buckets, {
                                 bucket: req.bucket
-                        }));
+                            }));
                         if (!_.has(clients[access_key].buckets, req.bucket)) {
 
                             clients[access_key].buckets[req.bucket] = {
@@ -1336,9 +1312,9 @@ module.exports = function(params) {
                     bucket: req.bucket,
                     key: key
                 });
-            }).fail(function(err){
+            }).fail(function(err) {
                 //retry without replacement
-                dbg.error('Could not delete object "%s"', key,err.rpc_code);
+                dbg.error('Could not delete object "%s"', key, err.rpc_code);
                 key = req.params.key;
                 return clients[access_key].client.object.delete_object({
                     bucket: req.bucket,

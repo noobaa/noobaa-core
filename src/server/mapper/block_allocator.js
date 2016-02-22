@@ -10,27 +10,29 @@ var dbg = require('../../util/debug_module')(__filename);
 var nodes_store = require('../stores/nodes_store');
 
 module.exports = {
-    refresh_bucket_alloc: refresh_bucket_alloc,
-    refresh_pool_alloc: refresh_pool_alloc,
-    allocate_node_for_block: allocate_node_for_block,
+    refresh_tiering_alloc: refresh_tiering_alloc,
+    allocate_node: allocate_node,
 };
 
-var pool_alloc_group = {};
+var alloc_group_by_pool = {};
+var alloc_group_by_pool_set = {};
 
-function refresh_bucket_alloc(bucket) {
-    let pools = _.flatten(_.map(bucket.tiering.tiers,
+function refresh_tiering_alloc(tiering) {
+    let pools = _.flatten(_.map(tiering.tiers,
         tier_and_order => tier_and_order.tier.pools));
     return P.map(pools, refresh_pool_alloc);
 }
 
 function refresh_pool_alloc(pool) {
     var group =
-        pool_alloc_group[pool._id] =
-        pool_alloc_group[pool._id] || {
+        alloc_group_by_pool[pool._id] =
+        alloc_group_by_pool[pool._id] || {
             last_refresh: new Date(0),
             nodes: [],
             aggregate: {}
         };
+
+    dbg.log1('refresh_pool_alloc: checking pool', pool._id, 'group', group);
 
     // cache the nodes for 1 minutes and then refresh
     if (group.last_refresh >= moment().subtract(1, 'minute').toDate()) {
@@ -46,9 +48,13 @@ function refresh_pool_alloc(pool) {
             heartbeat: {
                 $gt: nodes_store.get_minimum_alloc_heartbeat()
             },
+            'storage.free': {
+                $gt: config.NODES_FREE_SPACE_RESERVE
+            },
             deleted: null,
             srvmode: null,
         }, {
+            fields: nodes_store.NODE_FIELDS_FOR_MAP,
             sort: {
                 // sorting with lowest used storage nodes first
                 'storage.used': 1
@@ -65,6 +71,15 @@ function refresh_pool_alloc(pool) {
         group.promise = null;
         group.nodes = nodes;
         group.aggregate = nodes_aggregate_pool[pool._id];
+        dbg.log1('refresh_pool_alloc: updated pool', pool._id,
+            'nodes', group.nodes, 'aggregate', group.aggregate);
+        _.each(alloc_group_by_pool_set, (g, pool_set) => {
+            if (_.includes(pool_set, pool._id.toString())) {
+                dbg.log0('invalidate alloc_group_by_pool_set for', pool_set,
+                    'on change to pool', pool._id);
+                delete alloc_group_by_pool_set[pool_set];
+            }
+        });
     }, err => {
         group.promise = null;
         throw err;
@@ -75,50 +90,40 @@ function refresh_pool_alloc(pool) {
 
 /**
  *
- * allocate_node_for_block
+ * allocate_node
  *
- * selects distinct edge node for allocating new blocks.
- *
- * @param chunk document from db
  * @param avoid_nodes array of node ids to avoid
  *
  */
-function allocate_node_for_block(block, avoid_nodes, tier, pool) {
-    let chosen_pool = pool;
-    if (!chosen_pool) {
-        let has_any_online = false;
-        let pools_online_node_count = _.map(tier.pools, pool => {
-            let group = pool_alloc_group[pool._id];
-            let online_nodes = group ? group.aggregate.online : 0;
-            if (online_nodes) {
-                has_any_online = true;
-            }
-            return online_nodes;
-        });
-        if (!has_any_online) {
-            throw new Error('no online nodes in tier ' + tier.name);
-        }
-        // choose a pool from the tier with weights
-        chosen_pool = chance.weighted(tier.pools, pools_online_node_count);
-    }
-    let group = pool_alloc_group[chosen_pool._id];
-    let num_nodes = group ? group.nodes.length : 0;
-    if (num_nodes < config.min_node_number) {
-        throw new Error('not enough online online nodes in tier ' + tier.name);
+function allocate_node(pools, avoid_nodes) {
+    let pool_set = _.map(pools, pool => pool._id.toString()).sort().join(',');
+    let alloc_group =
+        alloc_group_by_pool_set[pool_set] =
+        alloc_group_by_pool_set[pool_set] || {
+            nodes: chance.shuffle(_.flatten(_.map(pools, pool => {
+                let group = alloc_group_by_pool[pool._id];
+                return group && group.nodes;
+            })))
+        };
+    let num_nodes = alloc_group ? alloc_group.nodes.length : 0;
+    dbg.log1('allocate_node: pool_set', pool_set,
+        'num_nodes', num_nodes,
+        'alloc_group', alloc_group);
+    if (num_nodes < config.NODES_MIN_COUNT) {
+        throw new Error('allocate_node: not enough online nodes in pool set ' + pool_set);
     }
     for (var i = 0; i < num_nodes; ++i) {
-        var node = get_round_robin(group.nodes);
+        var node = get_round_robin(alloc_group.nodes);
         if (!_.includes(avoid_nodes, node._id.toString())) {
-            dbg.log1('allocate_node_for_block: allocated node', node.name,
+            dbg.log1('allocate_node: allocated node', node.name,
                 'avoid_nodes', avoid_nodes);
             return node;
         }
     }
 }
 
-
 function get_round_robin(nodes) {
-    var rr = nodes.rr || 0;
-    nodes.rr = (rr + 1) % nodes.length;
+    var rr = (nodes.rr || 0) % nodes.length;
+    nodes.rr = rr + 1;
     return nodes[rr];
 }

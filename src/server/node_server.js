@@ -8,6 +8,7 @@ var string_utils = require('../util/string_utils');
 var map_reader = require('./mapper/map_reader');
 var node_monitor = require('./node_monitor');
 var nodes_store = require('./stores/nodes_store');
+var config = require('../../config');
 var db = require('./db');
 var dbg = require('../util/debug_module')(__filename);
 
@@ -492,6 +493,9 @@ function get_node_full_info(node) {
     info.peer_id = String(node.peer_id);
     if (node.srvmode) {
         info.srvmode = node.srvmode;
+    }
+    if (node.storage.free <= config.NODES_FREE_SPACE_RESERVE) {
+        info.storage_full = true;
     }
     info.pool = node.pool.name;
     info.heartbeat = node.heartbeat.getTime();

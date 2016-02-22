@@ -32,11 +32,11 @@ class MapAllocator {
         dbg.log1('MapAllocator.run: start');
         return P.join(
                 this.find_dups(),
-                block_allocator.refresh_bucket_alloc(this.bucket)
+                block_allocator.refresh_tiering_alloc(this.bucket.tiering)
             )
             .then(() => this.allocate_blocks())
             .then(() => {
-                dbg.log0('MapAllocator.run: DONE. took', time_utils.millitook(millistamp));
+                dbg.log1('MapAllocator.run: DONE. took', time_utils.millitook(millistamp));
                 return {
                     parts: this.parts
                 };
@@ -92,8 +92,7 @@ class MapAllocator {
                     'digest_type',
                     'digest_b64');
                 block._id = md_store.make_md_id();
-                let node = block_allocator.allocate_node_for_block(
-                    block, avoid_nodes, alloc.tier, alloc.pool);
+                let node = block_allocator.allocate_node(alloc.pools, avoid_nodes);
                 if (!node) {
                     throw new Error('MapAllocator: no nodes for allocation');
                 }

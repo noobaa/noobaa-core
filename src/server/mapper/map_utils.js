@@ -86,8 +86,7 @@ function get_chunk_status(chunk, tiering) {
             let blocks_by_pool = _.groupBy(blocks, block => block.node.pool);
             _.each(tier.pools, pool => {
                 num_accessible += check_blocks_group(blocks_by_pool[pool._id], {
-                    tier: tier,
-                    pool: pool,
+                    pools: [pool],
                     fragment: f
                 });
                 delete blocks_by_pool[pool._id];
@@ -96,7 +95,7 @@ function get_chunk_status(chunk, tiering) {
 
         } else { // SPREAD
             num_accessible += check_blocks_group(blocks, {
-                tier: tier,
+                pools: tier.pools,
                 fragment: f
             });
         }
@@ -154,7 +153,14 @@ function is_block_good(block, now, tier_pools_by_id) {
     if (!is_block_accessible(block, now)) {
         return false;
     }
+    // detect nodes that do not belong to the tier pools
+    // to be deleted once they are not needed as source
     if (!tier_pools_by_id[block.node.pool]) {
+        return false;
+    }
+    // detect nodes that are full in terms of free space policy
+    // to be deleted once they are not needed as source
+    if (block.node.storage.free <= config.NODES_FREE_SPACE_RESERVE) {
         return false;
     }
     return true;
@@ -167,8 +173,7 @@ function is_block_accessible(block, now) {
         return false;
     }
     if (block.node.srvmode &&
-        block.node.srvmode !== 'decommissioning' &&
-        block.node.srvmode !== 'storage_full') {
+        block.node.srvmode !== 'decommissioning') {
         return false;
     }
     return true;

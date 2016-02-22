@@ -11,7 +11,6 @@ var P = require('../util/promise');
 var mocha = require('mocha');
 var assert = require('assert');
 var mongoose = require('mongoose');
-var Semaphore = require('../util/semaphore');
 var mongo_client = require('../server/stores/mongo_client');
 var nodes_store = require('../server/stores/nodes_store');
 var server_rpc = require('../server/server_rpc');

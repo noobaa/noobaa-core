@@ -38,9 +38,9 @@ function new_pool_defaults(name, system_id) {
 function create_pool(req) {
     var name = req.rpc_params.name;
     var nodes = req.rpc_params.nodes;
-    if (name !== 'default_pool' && nodes.length < config.min_node_number) {
+    if (name !== 'default_pool' && nodes.length < config.NODES_MIN_COUNT) {
         throw req.rpc_error('NOT ENOUGH NODES', 'cant create a pool with less than ' +
-            config.min_node_number + ' nodes');
+            config.NODES_MIN_COUNT + ' nodes');
     }
     var pool = new_pool_defaults(name, req.system._id);
     dbg.log0('Creating new pool', pool);

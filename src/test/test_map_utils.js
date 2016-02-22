@@ -38,7 +38,9 @@ mocha.describe('map_utils', function() {
                     assert.strictEqual(status.deletions.length, 0);
                     assert(!status.accessible, '!accessible');
                     _.each(status.allocations, alloc => {
-                        assert(_.find(pools, alloc.pool), 'alloc.pool');
+                        _.each(alloc.pools, pool => {
+                            assert(_.includes(pools, pool), 'alloc.pool');
+                        });
                     });
                 });
 
@@ -108,14 +110,16 @@ mocha.describe('map_utils', function() {
                     assert.strictEqual(status.deletions.length, 0);
                     assert(status.accessible, 'accessible');
                     _.each(status.allocations, alloc => {
-                        assert.strictEqual(alloc.tier, tiering.tiers[0].tier);
+                        _.each(alloc.pools, pool => {
+                            assert(_.includes(pools, pool), 'alloc.pool');
+                        });
                     });
                 });
 
                 mocha.it('should remove long gone blocks', function() {
                     let now = new Date();
                     let chunk = {};
-                    map_utils.set_chunk_frags_from_blocks(chunk, [{
+                    let blocks = [{
                         layer: 'D',
                         frag: 0,
                         node: {
@@ -129,22 +133,23 @@ mocha.describe('map_utils', function() {
                             heartbeat: now,
                             pool: pools[0]._id,
                         }
-                    }]);
+                    }];
+                    map_utils.set_chunk_frags_from_blocks(chunk, blocks);
                     let status = map_utils.get_chunk_status(chunk, tiering);
                     assert.strictEqual(status.allocations.length, total_num_blocks - 1);
                     assert.strictEqual(status.deletions.length, 1);
                     assert(status.accessible, 'accessible');
                     _.each(status.allocations, alloc => {
-                        alloc.fragment.blocks.push({
+                        blocks.push({
                             layer: alloc.fragment.layer,
                             frag: alloc.fragment.frag,
                             node: {
                                 heartbeat: now,
-                                pool: alloc.pool && alloc.pool._id ||
-                                    alloc.tier.pools[0]._id
+                                pool: alloc.pools[0]._id
                             }
                         });
                     });
+                    map_utils.set_chunk_frags_from_blocks(chunk, blocks);
                     status = map_utils.get_chunk_status(chunk, tiering);
                     assert.strictEqual(status.allocations.length, 0);
                     assert.strictEqual(status.deletions.length, 1);

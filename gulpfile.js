@@ -709,7 +709,7 @@ gulp.task('client_libs', ['bower'], function() {
         .pipe(gulp.dest(DEST));
 });
 
-gulp.task('client', function() {
+gulp.task('client', ['ng'], function() {
     var DEST = 'build/public/js';
     var NAME = 'app.js';
     var NAME_MIN = 'app.min.js';
@@ -827,21 +827,24 @@ gulp.task('install_ng_and_serve', ['ng'], serve);
 gulp.task('install_client_and_serve', ['client', 'ng', 'frontend'], serve);
 
 gulp.task('watch', ['serve'], function() {
-    gulp.watch([
-        'src/css/**/*'
-    ], ['install_css_and_serve']);
-    gulp.watch([
-        'src/ngview/**/*',
-    ], ['install_ng_and_serve']);
-    gulp.watch([
-        'src/client/**/*',
-        'src/api/**/*',
-        'src/rpc/**/*',
-        'src/util/**/*',
-    ], ['install_client_and_serve']);
+    // gulp.watch([
+    //     'src/css/**/*'
+    // ], ['install_css_and_serve']);
+    // gulp.watch([
+    //     'src/ngview/**/*',
+    // ], ['install_ng_and_serve']);
+    // gulp.watch([
+    //     'src/client/**/*',
+    //     'src/api/**/*',
+    //     'src/rpc/**/*',
+    //     'src/util/**/*',
+    // ], ['install_client_and_serve']);
     gulp.watch([
         'src/server/**/*',
         'src/views/**/*',
+        'src/api/**/*',
+        'src/rpc/**/*',
+        'src/util/**/*',
     ], ['serve']);
 });
 gulp.task('watch_bg', ['serve_bg'], function() {

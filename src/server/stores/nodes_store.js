@@ -11,6 +11,17 @@ var mongodb = require('mongodb');
 var moment = require('moment');
 var NodeModel = require('./node_model');
 
+const NODE_FIELDS_FOR_MAP = Object.freeze({
+    _id: 1,
+    ip: 1,
+    name: 1,
+    pool: 1,
+    srvmode: 1,
+    heartbeat: 1,
+    rpc_address: 1,
+    storage: 1,
+});
+
 module.exports = {
     // single node ops
     make_node_id: make_node_id,
@@ -32,6 +43,7 @@ module.exports = {
     is_online_node: is_online_node,
     resolve_node_object_ids: resolve_node_object_ids,
     test_code_delete_all_nodes: test_code_delete_all_nodes,
+    NODE_FIELDS_FOR_MAP: NODE_FIELDS_FOR_MAP,
 };
 
 /////////////////////
@@ -115,15 +127,7 @@ function populate_nodes_full(docs, doc_path) {
 }
 
 function populate_nodes_for_map(docs, doc_path) {
-    return mongo_utils.populate(docs, doc_path, NodeModel.collection, {
-        _id: 1,
-        ip: 1,
-        name: 1,
-        pool: 1,
-        srvmode: 1,
-        heartbeat: 1,
-        rpc_address: 1,
-    });
+    return mongo_utils.populate(docs, doc_path, NodeModel.collection, NODE_FIELDS_FOR_MAP);
 }
 
 function update_nodes(query, updates) {

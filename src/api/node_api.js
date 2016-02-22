@@ -515,7 +515,7 @@ module.exports = {
 
         srvmode: {
             type: 'string',
-            enum: ['connect', 'disabled', 'decommissioning', 'decommissioned', 'storage_full']
+            enum: ['connect', 'disabled', 'decommissioning', 'decommissioned']
         },
 
         node_full_info: {
@@ -547,6 +547,9 @@ module.exports = {
                 },
                 srvmode: {
                     $ref: '#/definitions/srvmode'
+                },
+                storage_full: {
+                    type: 'boolean'
                 },
                 rpc_address: {
                     type: 'string'

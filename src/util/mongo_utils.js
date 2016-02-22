@@ -51,8 +51,6 @@ function populate(docs, doc_path, collection, fields) {
     let docs_list = _.isArray(docs) ? docs : [docs];
     let ids = uniq_ids(docs_list, doc_path);
     collection = collection.collection || collection;
-    console.log('POPULATE:', collection.collectionName,
-        ids.slice(0, 10).join(','), ids.length > 10 ? '(partial list)' : '');
     if (!ids.length) return docs;
     return P.when(collection.find({
             _id: {

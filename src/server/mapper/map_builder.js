@@ -91,7 +91,9 @@ class MapBuilder {
     refresh_alloc() {
         let bucket_ids = mongo_utils.uniq_ids(this.chunks, 'bucket');
         let buckets = _.map(bucket_ids, id => system_store.data.get_by_id(id));
-        return P.map(buckets, bucket => block_allocator.refresh_bucket_alloc(bucket));
+        return P.map(buckets,
+            bucket => block_allocator.refresh_tiering_alloc(bucket.tiering)
+        );
     }
 
     allocate_blocks() {
@@ -107,8 +109,7 @@ class MapBuilder {
                     'digest_type',
                     'digest_b64');
                 block._id = md_store.make_md_id();
-                let node = block_allocator.allocate_node_for_block(
-                    block, avoid_nodes, alloc.tier, alloc.pool);
+                let node = block_allocator.allocate_node(alloc.pools, avoid_nodes);
                 if (!node) {
                     dbg.error('MapBuilder: no nodes for allocation');
                     chunk.had_errors = true;
@@ -198,7 +199,9 @@ class MapBuilder {
                     $in: mongo_utils.uniq_ids(this.delete_blocks, '_id')
                 }
             }, {
-                deleted: new Date()
+                $set: {
+                    deleted: new Date()
+                }
             })),
 
             success_chunk_ids.length &&

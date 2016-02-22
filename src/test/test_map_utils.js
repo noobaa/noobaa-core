@@ -46,16 +46,12 @@ mocha.describe('map_utils', function() {
 
 
                 mocha.it('should do nothing when blocks are good', function() {
-                    let now = new Date();
                     let chunk = {};
                     map_utils.set_chunk_frags_from_blocks(chunk,
                         _.times(total_num_blocks, i => ({
                             layer: 'D',
                             frag: 0,
-                            node: {
-                                heartbeat: now,
-                                pool: pools[i % num_pools]._id,
-                            }
+                            node: mock_node(pools[i % num_pools]._id)
                         })));
                     let status = map_utils.get_chunk_status(chunk, tiering);
                     assert.strictEqual(status.allocations.length, 0);
@@ -65,25 +61,18 @@ mocha.describe('map_utils', function() {
 
 
                 mocha.it('should remove blocks from pools not in the tier', function() {
-                    let now = new Date();
                     let chunk = {};
                     let blocks = _.times(total_num_blocks, i => ({
                         layer: 'D',
                         frag: 0,
-                        node: {
-                            heartbeat: now,
-                            pool: pools[i % num_pools]._id,
-                        }
+                        node: mock_node(pools[i % num_pools]._id)
                     }));
                     let num_extra = replicas;
                     _.times(num_extra, () => {
                         blocks.push({
                             layer: 'D',
                             frag: 0,
-                            node: {
-                                heartbeat: now,
-                                pool: 'extra'
-                            }
+                            node: mock_node('extra')
                         });
                     });
                     map_utils.set_chunk_frags_from_blocks(chunk, blocks);
@@ -95,15 +84,11 @@ mocha.describe('map_utils', function() {
 
 
                 mocha.it('should replicate from single block', function() {
-                    let now = new Date();
                     let chunk = {};
                     map_utils.set_chunk_frags_from_blocks(chunk, [{
                         layer: 'D',
                         frag: 0,
-                        node: {
-                            heartbeat: now,
-                            pool: pools[0]._id,
-                        }
+                        node: mock_node(pools[0]._id)
                     }]);
                     let status = map_utils.get_chunk_status(chunk, tiering);
                     assert.strictEqual(status.allocations.length, total_num_blocks - 1);
@@ -122,17 +107,13 @@ mocha.describe('map_utils', function() {
                     let blocks = [{
                         layer: 'D',
                         frag: 0,
-                        node: {
+                        node: _.extend(mock_node(pools[0]._id), {
                             heartbeat: new Date(now.getTime() - 24 * 3600 * 1000),
-                            pool: pools[0]._id,
-                        }
+                        })
                     }, {
                         layer: 'D',
                         frag: 0,
-                        node: {
-                            heartbeat: now,
-                            pool: pools[0]._id,
-                        }
+                        node: mock_node(pools[0]._id)
                     }];
                     map_utils.set_chunk_frags_from_blocks(chunk, blocks);
                     let status = map_utils.get_chunk_status(chunk, tiering);
@@ -143,10 +124,7 @@ mocha.describe('map_utils', function() {
                         blocks.push({
                             layer: alloc.fragment.layer,
                             frag: alloc.fragment.frag,
-                            node: {
-                                heartbeat: now,
-                                pool: alloc.pools[0]._id
-                            }
+                            node: mock_node(alloc.pools[0]._id)
                         });
                     });
                     map_utils.set_chunk_frags_from_blocks(chunk, blocks);
@@ -184,6 +162,16 @@ mocha.describe('map_utils', function() {
                 tiering: tiering_policy
             };
             return bucket;
+        }
+
+        function mock_node(pool_id) {
+            return {
+                pool: pool_id,
+                heartbeat: new Date(),
+                storage: {
+                    free: 100 * 1024 * 1024 * 1024
+                }
+            };
         }
 
     });

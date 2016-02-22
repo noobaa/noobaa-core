@@ -1,8 +1,8 @@
 var config = {};
 
-config.MIN_NODES_COUNT = 3;
-// TODO take free space reserve from system/pool config
-config.NODE_FREE_SPACE_RESERVE = 10 * 1024 * 1024 * 1024;
+// TODO take nodes min and free space reserve from system/pool config
+config.NODES_MIN_COUNT = 3;
+config.NODES_FREE_SPACE_RESERVE = 10 * 1024 * 1024 * 1024;
 
 // ACTION CONCURRENCY
 config.READ_CONCURRENCY = 32;

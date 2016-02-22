@@ -4,9 +4,9 @@ import { formatSize } from 'utils';
 import { deletePool } from 'actions';
 
 const cannotDeleteReasons = Object.freeze({
-    NOTEMPTY: 'Cannot delete pool with nodes',
-    SYSTEM : 'Cannot delete system defined pool',
-    ASSOCIATED: 'Cannot delete a pool that assigned to a bucket policy'
+    SYSTEM_POOL : 'Cannot delete a system defined pool',
+    NOT_EMPTY: 'Cannot delete pool with nodes',
+    IN_USE: 'Cannot delete a pool that is assigned to a bucket policy'
 });
 
 export default class PoolRowViewModel {
@@ -46,19 +46,19 @@ export default class PoolRowViewModel {
         );
 
         this.canBeDeleted = ko.pureComputed(
-            () => pool() && pool().deletions.can_be_deleted
+            () => pool() && !pool().undeletable
         );
 
         this.deleteToolTip = ko.pureComputed(
             () => pool() && (
-                this.canBeDeleted() ? 
-                    'delete pool' : 
-                    cannotDeleteReasons[pool().deletions.reason]
+                this.canBeDeleted() ?
+                    'delete pool' :
+                    cannotDeleteReasons[pool().undeletable]
             )
         );
     }
 
     del() {
         deletePool(this.name());
-    }    
+    }
 }

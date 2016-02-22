@@ -59,6 +59,19 @@ export function formatSize(num) {
     return `${num} ${sizeUnits[i]}`;
 }
 
+export function formatDuration(minutes) {
+    let hours = minutes / 60 | 0;
+    let days = hours / 24 | 0;
+    minutes %= 60;
+    hours %= 60;
+
+    return [
+        days > 0 ? `${days} Day${days > 1 ? 's' : ''}` : '',
+        hours > 0 ? `${hours} Hour${hours > 1 ? 's' : ''}` : '',
+        minutes > 0 ? `${minutes} Min${minutes > 1 ? 's' : ''}` : ''
+    ].join(' ');
+}
+
 export function randomString(len = 8) {
     var possible = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
 
@@ -220,7 +233,7 @@ export function execInOrder(list, executer) {
 
     for (let i = 0; i < list.length; ++i) {
         result = result.then(
-            () => executer(list[i], i)
+            res => res === true || executer(list[i], i)
         );
     }
 

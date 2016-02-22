@@ -31,9 +31,9 @@ module.exports = {
  *
  */
 function finalize_object_parts(bucket, obj, parts) {
-    console.log('GGG finalize_object_parts', require('util').inspect(parts, {
-        depth: null
-    }));
+    // console.log('GGG finalize_object_parts', require('util').inspect(parts, {
+    //     depth: null
+    // }));
     let new_parts = [];
     let new_chunks = [];
     let new_blocks = [];

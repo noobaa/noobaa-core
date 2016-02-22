@@ -14,7 +14,7 @@
     <label class="browse-btn btn3">
         Browse
         <input type="file" data-bind="
-            attr: { multiple: allowMultiSelect },
+            attr: { multiple: allowMultiSelect, accept: filter },
             event: { change: (_, evt) => select(evt.target.files) }
         "/>
     </label>

@@ -167,7 +167,8 @@ function is_block_accessible(block, now) {
         return false;
     }
     if (block.node.srvmode &&
-        block.node.srvmode !== 'decommissioning') {
+        block.node.srvmode !== 'decommissioning' &&
+        block.node.srvmode !== 'storage_full') {
         return false;
     }
     return true;

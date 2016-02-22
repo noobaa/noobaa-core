@@ -1,10 +1,8 @@
 import template from './cloud-sync-modal.html'
 import ko from 'knockout';
 import { cloudSyncInfo } from 'model';
-import { loadCloudSyncInfo } from 'actions';
-
-const minPerHour = 60;
-const minPerDay = minPerHour * 25;
+import { loadCloudSyncInfo, removeCloudSyncPolicy } from 'actions';
+import { formatDuration } from 'utils';
 
 const syncStatusMapping = Object.freeze({
     [undefined]:    { label: 'N/A',             css: ''               },
@@ -38,18 +36,7 @@ class CloudSyncModalViewModel {
         );
 
         this.syncFrequency = ko.pureComputed(
-            () => {
-                if (!policy()) {
-                    return;
-                }
-
-                let schedule = policy().schedule;
-                let [ factor, unit ] = schedule >= minPerHour ? 
-                    (schedule >= minPerDay ? [ minPerDay, 'Days' ] : [ minPerHour, 'Hours' ]) :
-                    [ 1, 'Minutes' ];
-                    
-               return `Every ${Math.floor(policy().schedule / factor)} ${unit}`;
-            }
+            () => policy() && `Every ${formatDuration(policy().schedule)}`
         );
 
         this.syncDirection = ko.pureComputed(
@@ -70,6 +57,11 @@ class CloudSyncModalViewModel {
         );
 
         loadCloudSyncInfo(ko.unwrap(bucketName));
+    }
+
+    removePolicy() {
+        removeCloudSyncPolicy(ko.unwrap(this.bucketName));
+        this.onClose();
     }
 
     close() {

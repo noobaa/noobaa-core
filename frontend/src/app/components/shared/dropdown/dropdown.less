@@ -9,38 +9,43 @@ dropdown {
 
     .dropdown-wrapper {
         vertical-align: middle;
-        fill: @text-color4;             
+        fill: @text-color4;
 
         &:focus {
-            fill: @text-color2;             
+            fill: @text-color2;
 
-            svg-icon {
-                background-color: @bg-color5;
-                box-shadow: 1px 1px 1px @bg-color2;
+            .value {
+                border-bottom-color: @text-color6;
             }
         }
 
+        &.active svg-icon {
+            background-color: @bg-color5;
+            box-shadow: 1px 0 0 @bg-color2;
+        }
+
         &.disabled {
-            color: @text-color5;
             fill: @text-color5;
 
             .value {
+                color: @text-color5;
                 border-bottom: 1px dotted @text-color5;
             }
         }   
     }
 
     .value {
-        border-bottom: 1px solid @bg-color7;            
+        border-bottom: 1px solid @bg-color7;
         padding: 1px 0;
         padding-right: 3em;
         line-height: 1.4;
+        color: @text-color2;
     }
 
     .value, .option-label {
         display: block;
         margin: 0;
-        vertical-align: middle;     
+        vertical-align: middle;
 
         &.placeholder {
             color: @text-color5;
@@ -50,8 +55,7 @@ dropdown {
     svg-icon {
         box-sizing: content-box;
         position: absolute;
-        padding: .5em .5em;
-        padding-top: .25em;
+        padding: .25em .5em;
         height: 1em;
         width: 1em;
         top: 0;
@@ -63,7 +67,7 @@ dropdown {
         width: 100%;
         background-color: @bg-color5;
         padding: .25em;
-        margin-top: -1px;
+        margin-top: -2px;
         z-index: 1;
         box-shadow: 1px 1px 1px @bg-color2;
 

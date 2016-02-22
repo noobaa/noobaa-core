@@ -44,6 +44,7 @@ mocha.describe('system_servers', function() {
             .then(() => client.account.get_account_sync_credentials_cache())
             .then(() => client.system.read_system())
             .then(() => client.account.update_account({
+                email: EMAIL,
                 name: SYS1,
             }))
             .then(() => client.system.update_system({

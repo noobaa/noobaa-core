@@ -13,7 +13,6 @@ export default function register(ko) {
     ko.components.register('main-header',       require('./layout/main-header/main-header'));
     ko.components.register('commands-bar',      require('./layout/commands-bar/commands-bar'));
     ko.components.register('breadcrumbs',       require('./layout/breadcrumbs/breadcrumbs'));
-    ko.components.register('debug-status-bar',  require('./layout/debug-status-bar/debug-status-bar'));
     
     // -------------------------------
     // Login
@@ -89,6 +88,7 @@ export default function register(ko) {
     // -------------------------------
     ko.components.register('management-panel',      require('./management/management-panel/management-panel'));
     ko.components.register('accounts-table',        require('./management/accounts-table/accounts-table'));
+    ko.components.register('reset-password-modal',  require('./management/reset-password-modal/reset-password-modal'));
     ko.components.register('create-account-modal',  require('./management/create-account-modal/create-account-modal'));
     ko.components.register('p2p-form',              require('./management/p2p-form/p2p-form'));
     ko.components.register('server-dns-form',       require('./management/server-dns-form/server-dns-form'));   

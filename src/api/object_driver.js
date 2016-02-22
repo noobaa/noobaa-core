@@ -783,7 +783,6 @@ class ObjectDriver {
         // read the data fragments of the chunk
         var frags_by_layer = _.groupBy(part.chunk.frags, 'layer');
         var data_frags = frags_by_layer.D;
-        dbg.log0('GGG data_frags', data_frags);
         return P.map(data_frags, fragment => this._read_fragment(part, fragment))
             .then(() => {
                 var chunk = _.pick(part.chunk, CHUNK_ATTRS);
@@ -815,7 +814,6 @@ class ObjectDriver {
             // and finally we return the first of them.
             return P.map(fragment.blocks, block => this._blocks_cache.get(block.block_md))
                 .then(buffers => {
-                    dbg.log0('GGG', fragment.blocks, buffers);
                     if (!fragment.blocks.length ||
                         _.compact(buffers).length !== fragment.blocks.length) {
                         dbg.error('_read_fragment: verification EXHAUSTED',

@@ -515,7 +515,7 @@ module.exports = {
 
         srvmode: {
             type: 'string',
-            enum: ['connect', 'disabled', 'decommissioning', 'decommissioned']
+            enum: ['connect', 'disabled', 'decommissioning', 'decommissioned', 'storage_full']
         },
 
         node_full_info: {

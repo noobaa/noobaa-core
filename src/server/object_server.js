@@ -411,7 +411,7 @@ function list_objects(req) {
 
             if (!_.isUndefined(req.rpc_params.key_s3_prefix)) {
                 // find objects that match "prefix***" or "prefix***/"
-                var one_level = delimiter !== '/' ?
+                var one_level = delimiter && delimiter !== '/' ?
                     one_level_delimiter(delimiter) :
                     ONE_LEVEL_SLASH_DELIMITER;
                 var escaped_prefix = string_utils.escapeRegExp(prefix);

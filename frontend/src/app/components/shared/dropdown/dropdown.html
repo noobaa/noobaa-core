@@ -1,17 +1,21 @@
 <div class="dropdown-wrapper no-outline" data-bind="
+    click: () => active(true) && true,
     hasFocus: focused,
     attr: { tabindex: !ko.unwrap(disabled) && '0' },
-    css: { disabled: disabled }
+    css: { disabled: disabled, active: active },
+    validationOptions: { insertMessages: false }
 ">
-    <svg-icon class="pull-right" params="uri: '/fe/assets/icons.svg#expand'">
-    </svg-icon>
+    <svg-icon class="pull-right" params="uri: '/fe/assets/icons.svg#expand'"></svg-icon>
     
     <div class="value no-wrap" data-bind="
         text: $component.selectedLabel,
         css: { placeholder: !selected() }
     "></div>
 
-    <div class="options" data-bind="visible: focused">
+    <div class="options" data-bind="
+        visible: active(), 
+        event: { change: () => active(false) && true }
+    ">
         <ul class="list-no-style" data-bind="foreach: options">
             <li data-bind="css: { seperator: !$data }, if: $data">
                 <label class="option">
@@ -19,7 +23,7 @@
                         attr: { name: $component.name },
                         checked: $component.selected, 
                         checkedValue: value
-                    " />        
+                    "/>
                     <span class="option-label no-wrap" data-bind="
                         css: $data.css,
                         text: $data.label || value,

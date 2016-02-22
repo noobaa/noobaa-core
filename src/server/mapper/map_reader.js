@@ -155,11 +155,11 @@ function read_parts_mappings(params) {
         .then(blocks => {
             var blocks_by_chunk = _.groupBy(blocks, 'chunk');
             return _.map(params.parts, part => {
-                console.log('GGG part', require('util').inspect(part, {
-                    depth: null
-                }), require('util').inspect(blocks_by_chunk[part.chunk._id], {
-                    depth: null
-                }));
+                // console.log('GGG part', require('util').inspect(part, {
+                //     depth: null
+                // }), require('util').inspect(blocks_by_chunk[part.chunk._id], {
+                //     depth: null
+                // }));
                 map_utils.set_chunk_frags_from_blocks(
                     part.chunk, blocks_by_chunk[part.chunk._id]);
                 let part_info = map_utils.get_part_info(part, params.adminfo);

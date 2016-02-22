@@ -21,6 +21,7 @@ var system_server = require('./system_server');
 var nodes_store = require('./stores/nodes_store');
 var dbg = require('../util/debug_module')(__filename);
 var pkg = require('../../package.json');
+var config = require('../../config.js');
 var current_pkg_version = pkg.version;
 
 server_rpc.rpc.on('reconnect', _on_reconnect);
@@ -274,6 +275,7 @@ function update_heartbeat(req, reply_token) {
             }
 
             var set_updates = {};
+            var unset_updates = {};
             var push_updates = {};
 
             // TODO detect nodes that try to change ip, port too rapidly
@@ -307,6 +309,22 @@ function update_heartbeat(req, reply_token) {
             // check if need to update the node used storage count
             if (node.storage.used !== storage_used) {
                 set_updates['storage.used'] = storage_used;
+            }
+
+            // remove from allocated node if less than 10 GB free space
+            // TODO: make it much smarter....
+            let is_full = node.storage.free < config.NODE_FREE_SPACE_RESERVE;
+            if (is_full) {
+                if (!node.srvmode) {
+                    set_updates.srvmode = 'storage_full';
+                } else if (node.srvmode !== 'storage_full') {
+                    dbg.log0('node storage is full for ', node.name,
+                        'but srvmode is already set to', node.srvmode);
+                }
+            } else {
+                if (node.srvmode === 'storage_full') {
+                    unset_updates.srvmode = 1;
+                }
             }
 
             // to avoid frequest updates of the node it will only send
@@ -364,6 +382,7 @@ function update_heartbeat(req, reply_token) {
             // make the update object hold only updates that are not empty
             var updates = _.omitBy({
                 $set: set_updates,
+                $unset: unset_updates,
                 $push: push_updates
             }, _.isEmpty);
 
@@ -473,7 +492,7 @@ function set_debug_node(req) {
                 address: target,
             });
         })
-        .then(function(){
+        .then(function() {
             var updates = {};
             //TODO: use param and send it to the agent.
             //Currently avoid it, due to multiple actors.

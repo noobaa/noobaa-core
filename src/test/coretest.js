@@ -111,12 +111,9 @@ function init_test_nodes(client, system, count) {
             agentctl.use_local_agents(
                 'ws://127.0.0.1:' + http_port,
                 create_node_token);
-            var sem = new Semaphore(3);
-            return P.all(_.times(count, i => {
-                return sem.surround(() => agentctl.create_agent(1));
-            }));
-        })
-        .then(() => agentctl.start_all_agents());
+            agentctl.create_agent(count);
+            return agentctl.start_all_agents();
+        });
 }
 
 // delete all edge nodes directly from the db

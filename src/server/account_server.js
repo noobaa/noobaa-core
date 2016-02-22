@@ -104,20 +104,21 @@ function read_account(req) {
  *
  */
 function update_account(req) {
-    var updates = _.pick(req.rpc_params, 'name', 'email', 'password');
-    return P.fcall(function() {
-            return bcrypt_password(updates);
-        })
-        .then(function() {
-            var orig_email = req.rpc_params.original_email;
-            if (orig_email) {
-                var orig_account = system_store.data.accounts_by_email[orig_email];
-                updates._id = orig_account._id;
-            } else {
-                updates._id = req.account._id;
-            }
-
-            create_activity_log_entry(req, 'update', updates);
+    let account = system_store.data.accounts_by_email[req.rpc_params.email];
+    if (!account) {
+        throw req.rpc_error('NOT_FOUND', 'account not found');
+    }
+    if (req.account._id !== account._id) {
+        throw req.unauthorized('update account requires to be authenticated with it');
+    }
+    let updates = _.pick(req.rpc_params, 'name', 'password');
+    updates._id = account._id;
+    if (req.rpc_params.new_email) {
+        updates.email = req.rpc_params.new_email;
+    }
+    return bcrypt_password(updates)
+        .then(() => {
+            create_activity_log_entry(req, 'update', account);
             return system_store.make_changes({
                 update: {
                     accounts: [updates]

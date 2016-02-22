@@ -6,6 +6,7 @@ var dbg = require('../util/debug_module')(__filename);
 var system_store = require('./stores/system_store');
 var nodes_store = require('./stores/nodes_store');
 var size_utils = require('../util/size_utils');
+var config = require('../../config');
 
 /**
  *
@@ -34,12 +35,12 @@ function new_pool_defaults(name, system_id) {
     };
 }
 
-
 function create_pool(req) {
     var name = req.rpc_params.name;
     var nodes = req.rpc_params.nodes;
-    if (name !== 'default_pool' && nodes.length < 3) {
-        throw req.rpc_error('NOT ENOUGH NODES', 'cant create a pool with less than 3 nodes');
+    if (name !== 'default_pool' && nodes.length < config.min_node_number) {
+        throw req.rpc_error('NOT ENOUGH NODES', 'cant create a pool with less than ' +
+            config.min_node_number + ' nodes');
     }
     var pool = new_pool_defaults(name, req.system._id);
     dbg.log0('Creating new pool', pool);
@@ -111,17 +112,17 @@ function delete_pool(req) {
             deleted: null,
         })
         .then(function(nodes_aggregate_pool) {
-            var reason = validate_pool_deletion(pool, nodes_aggregate_pool);
+            var reason = check_pool_deletion(pool, nodes_aggregate_pool);
             if (reason) {
-                throw req.rpc_error('BAD_REQUEST',
-                    'Unable to delete pool for reason - ' + reason);
+                throw req.rpc_error(reason, 'Cannot delete pool');
             }
             return system_store.make_changes({
                 remove: {
                     pools: [pool._id]
                 }
             });
-        }).return();
+        })
+        .return();
 }
 
 function _assign_nodes_to_pool(system_id, pool_id, nodes_names) {
@@ -191,32 +192,29 @@ function get_pool_info(pool, nodes_aggregate_pool) {
             used: n.used,
         })
     };
-    var reason = validate_pool_deletion(pool, nodes_aggregate_pool);
+    var reason = check_pool_deletion(pool, nodes_aggregate_pool);
     if (reason) {
-        info.deletions = {
-            can_be_deleted: false,
-            reason: reason,
-        };
+        info.undeletable = reason;
     }
     return info;
 }
 
-function validate_pool_deletion(pool, nodes_aggregate_pool) {
+function check_pool_deletion(pool, nodes_aggregate_pool) {
 
     // Check if the default pool
     if (pool.name === 'default_pool') {
-        return 'SYSTEM';
+        return 'SYSTEM_POOL';
     }
 
     // Check if there are nodes till associated to this pool
     var n = nodes_aggregate_pool[pool._id] || {};
     if (n.count) {
-        return 'NOTEMPTY';
+        return 'NOT_EMPTY';
     }
 
     //Verify pool is not used by any bucket/tier
     var buckets = get_associated_buckets_int(pool);
     if (buckets.length) {
-        return 'ASSOCIATED';
+        return 'IN_USE';
     }
 }

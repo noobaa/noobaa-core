@@ -14,7 +14,7 @@ import {
 import 'aws-sdk';
 AWS = window.AWS;
 
-// Use preconfigured hostname or the address of the serving computer.
+// Use preconfigured hostname or the addrcess of the serving computer.
 let endpoint = hostname || window.location.hostname;
 
 // -----------------------------------------------------
@@ -790,46 +790,12 @@ export function loadCloudSyncInfo(bucket) {
         .done();
 }
 
-export function setCloudSyncPolicy(bucket, awsBucket, credentials, direction, frequency, sycDeletions) {
-    logAction('setCloudSyncPolicy', { bucket, awsBucket, credentials, direction, frequency,
-        sycDeletions });
-
-    api.bucket.set_cloud_sync({
-        name: bucket,
-        policy: {
-            endpoint: awsBucket,
-            access_keys: [ credentials ],
-            c2n_enabled: direction === 'AWS2NB' || direction === 'BI',
-            n2c_enabled: direction === 'NB2AWS' || direction === 'BI',
-            schedule: frequency,
-            additions_only: !sycDeletions
-        }
-    })
-        .done();
-}
-
-
 export function loadAccountAwsCredentials() {
     logAction('loadAccountAwsCredentials');
 
     api.account.get_account_sync_credentials_cache()
         .then(model.awsCredentialsList)
-        .then(
-            () => model.awsCredentialsList.push(
-                { access_key: 'AKIAJOP7ZFXOOPGL5BOA', secret_key: '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' },
-                { access_key: 'AKIAIKFRM4EAAO5TAXJA', secret_key: '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' }
-            )
-        )
         .done();
-}
-
-export function addAWSCredentials(accessKey, secretKey) {
-    logAction('addAWSCredentials', { accessKey, secretKey });
-
-    model.awsCredentialsList.push({
-        access_key: accessKey,
-        secret_key: secretKey
-    });
 }
 
 export function loadAwsBucketList(accessKey, secretKey) {
@@ -839,7 +805,10 @@ export function loadAwsBucketList(accessKey, secretKey) {
         access_key: accessKey,
         secret_key: secretKey
     })
-        .then(model.awsBucketList)
+        .then(
+            model.awsBucketList,
+            () => model.awsBucketList(null)
+        )
         .done();
 }
 
@@ -885,6 +854,13 @@ export function deleteAccount(email) {
 
     api.account.delete_account({ email })
         .then(loadAccountList)
+        .done();
+}
+
+export function resetAccountPassword(email, password) {
+    logAction('resetAccountPassword', { email, password });
+
+    api.account.update_account({ email, password })
         .done();
 }
 
@@ -1064,9 +1040,14 @@ export function uploadFiles(bucketName, files) {
 export function testNode(source, testSet) {
     logAction('testNode', { source, testSet });
 
-    let { nodeTestResults } = model;
-    nodeTestResults([]);
-    nodeTestResults.timestemp(Date.now());
+    let { nodeTestInfo } = model;
+    nodeTestInfo({
+        source: source,
+        tests: testSet,
+        timestemp: Date.now(),
+        results: [],
+        state:'IN_PROGRESS'
+    });
 
     let { targetCount, testSettings } = config.nodeTest;
     api.node.get_test_nodes({
@@ -1089,7 +1070,7 @@ export function testNode(source, testSet) {
                                 progress: 0,
                                 session: ''
                             }
-                            nodeTestResults.push(result);
+                            nodeTestInfo().results.push(result);
 
                             return {
                                 testType: testType,
@@ -1107,6 +1088,12 @@ export function testNode(source, testSet) {
             tests => execInOrder(
                 tests,
                 ({ source, target, testType, result }) => {
+                    if (nodeTestInfo().state === 'ABORTING') {
+                        result.state = 'ABORTED';
+                        nodeTestInfo.valueHasMutated();
+                        return;
+                    }
+
                     let { stepCount, requestLength, responseLength, count, concur } = testSettings[testType];
                     let stepSize = count * (requestLength + responseLength);
                     let totalTestSize = stepSize * stepCount;
@@ -1131,37 +1118,59 @@ export function testNode(source, testSet) {
                     // Execute the steps in order.
                     return execInOrder(
                         steps,
-                        stepRequest => api.node.self_test_to_node_via_web(stepRequest)
-                            .then(
-                                ({ session }) => {
-                                    result.session = session;
-                                    result.time = Date.now() - start;
-                                    result.position = result.position + stepSize;
-                                    result.speed = result.position / result.time;
-                                    result.progress = totalTestSize > 0 ?
-                                        result.position / totalTestSize :
-                                        1;
+                        stepRequest => {
+                            if (nodeTestInfo().state === 'ABORTING'){
+                                return true;
+                            }
 
-                                    // Use replace to trigger change event.
-                                    nodeTestResults.replace(result, result);
-                                }
-                            )
+                            return api.node.self_test_to_node_via_web(stepRequest)
+                                .then(
+                                    ({ session }) => {
+                                        result.session = session;
+                                        result.time = Date.now() - start;
+                                        result.position = result.position + stepSize;
+                                        result.speed = result.position / result.time;
+                                        result.progress = totalTestSize > 0 ?
+                                            result.position / totalTestSize :
+                                            1;
+
+                                        // Notify subscribers on the change.
+                                        nodeTestInfo.valueHasMutated();
+                                    }
+                                );
+                        }
                     )
                     .then(
-                        () => 'COMPLETED',
+                        res => res === true ? 'ABORTED' : 'COMPLETED',
                         () => 'FAILED'
                     )
                     .then(
                         state => {
-                            // Use replace to trigger change event.
-                            result.state = state
-                            nodeTestResults.replace(result, result);
+                            // Notify subscribers on the change.
+                            result.state = state;
+                            nodeTestInfo.valueHasMutated();
                         }
                     )
                 }
             )
         )
+        .then(
+            () => nodeTestInfo.assign({
+                state: nodeTestInfo().state === 'ABORTING' ? 'ABORTED' : 'COMPLETED'
+            })
+        )
         .done();
+}
+
+export function abortNodeTest() {
+    logAction('abortNodeTest');
+
+    let nodeTestInfo = model.nodeTestInfo;
+    if (nodeTestInfo().state === 'IN_PROGRESS') {
+        nodeTestInfo.assign({
+            state: 'ABORTING'
+        });
+    }
 }
 
 export function updateP2PSettings(minPort, maxPort) {
@@ -1231,25 +1240,18 @@ export function upgradeSystem(upgradePackage) {
             upgradeStatus.assign({
                 state: 'FAILED',
             });
-
-            console.error('Uploading upgrade package failed', evt.target)
-        }
-    };
+        }    };
 
     xhr.onerror = function(evt) {
         upgradeStatus.assign({
             state: 'FAILED'
         });
-
-        console.error('Uploading upgrade package failed', evt.target)
     };
 
     xhr.onabort = function(evt) {
         upgradeStatus.assign({
             state: 'CANCELED'
         });
-
-        console.warn('Uploading upgrade package canceled', evt)
     };
 
     let formData = new FormData();
@@ -1283,4 +1285,58 @@ export function raiseNodeDebugLevel(node) {
             () => loadNodeInfo(node)
         )
         .done();
+}
+
+export function setCloudSyncPolicy(bucket, awsBucket, credentials, direction, frequency, sycDeletions) {
+    logAction('setCloudSyncPolicy', { bucket, awsBucket, credentials, direction, frequency,
+        sycDeletions });
+
+    api.bucket.set_cloud_sync({
+        name: bucket,
+        policy: {
+            endpoint: awsBucket,
+            access_keys: [ credentials ],
+            c2n_enabled: direction === 'AWS2NB' || direction === 'BI',
+            n2c_enabled: direction === 'NB2AWS' || direction === 'BI',
+            schedule: frequency,
+            additions_only: !sycDeletions
+        }
+    })
+        .then(refresh)
+        .done();
+}
+
+export function removeCloudSyncPolicy(bucket) {
+    logAction('removeCloudSyncPolicy', { bucket });
+
+    api.bucket.delete_cloud_sync({ name: bucket })
+        .then(
+            () => model.cloudSyncInfo(null)
+        )
+        .then(refresh)
+        .done();
+}
+
+export function addAWSCredentials(accessKey, secretKey) {
+    logAction('addAWSCredentials', { accessKey, secretKey });
+
+    let credentials = {
+        access_key: accessKey,
+        secret_key: secretKey
+    };
+
+    // TODO: the call to get_cloud_sync is used here to check that the keys are valid,
+        // and the server can access S3 using this keys. Need to replace this with a sort of
+        // s3 ping when avaliable in server side.
+    api.bucket.get_cloud_buckets(credentials)
+        .then(
+            () => api.account.add_account_sync_credentials_cache(credentials)
+        )
+        .then(loadAccountAwsCredentials)
+        .done();
+}
+
+
+export function notify(message) {
+    logAction('notify', message);
 }

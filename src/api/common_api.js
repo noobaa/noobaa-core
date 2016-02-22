@@ -210,8 +210,12 @@ module.exports = {
                     }
                 }
             }]
-        }
+        },
 
+        undeletable_enum: {
+            enum: ['SYSTEM_ENTITY', 'NOT_EMPTY', 'IN_USE'],
+            type: 'string',
+        }
 
     }
 };

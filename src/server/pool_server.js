@@ -203,7 +203,7 @@ function check_pool_deletion(pool, nodes_aggregate_pool) {
 
     // Check if the default pool
     if (pool.name === 'default_pool') {
-        return 'SYSTEM_POOL';
+        return 'SYSTEM_ENTITY';
     }
 
     // Check if there are nodes till associated to this pool

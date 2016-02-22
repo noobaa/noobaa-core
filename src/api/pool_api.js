@@ -177,8 +177,7 @@ module.exports = {
                     $ref: 'common_api#/definitions/storage_info'
                 },
                 undeletable: {
-                    enum: ['SYSTEM_POOL', 'NOT_EMPTY', 'IN_USE'],
-                    type: 'string',
+                    $ref: 'common_api#/definitions/undeletable_enum'
                 }
             },
         },

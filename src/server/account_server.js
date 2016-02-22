@@ -108,8 +108,11 @@ function update_account(req) {
     if (!account) {
         throw req.rpc_error('NOT_FOUND', 'account not found');
     }
-    if (req.account._id !== account._id) {
-        throw req.unauthorized('update account requires to be authenticated with it');
+    if (!is_support_or_admin_or_me(req.system, req.account, account)) {
+        throw req.unauthorized('Cannot update account');
+    }
+    if (account.is_support) {
+        throw req.forbidden('Cannot update support account');
     }
     let updates = _.pick(req.rpc_params, 'name', 'password');
     updates._id = account._id;
@@ -118,13 +121,13 @@ function update_account(req) {
     }
     return bcrypt_password(updates)
         .then(() => {
-            create_activity_log_entry(req, 'update', account);
             return system_store.make_changes({
                 update: {
                     accounts: [updates]
                 }
             });
         })
+        .then(() => create_activity_log_entry(req, 'update', account))
         .return();
 }
 
@@ -146,8 +149,8 @@ function delete_account(req) {
     if (String(account_to_delete._id) === String(req.system.owner._id)) {
         throw req.rpc_error('BAD_REQUEST', 'Cannot delete system owner account');
     }
-    if (req.account && String(req.account._id) === String(account_to_delete._id)) {
-        throw req.rpc_error('BAD_REQUEST', 'Cannot delete account while logged in');
+    if (!is_support_or_admin_or_me(req.system, req.account, account_to_delete)) {
+        throw req.unauthorized('Cannot delete account');
     }
 
     let roles_to_delete = system_store.data.roles
@@ -329,6 +332,15 @@ function bcrypt_password(account) {
         });
 }
 
+function is_support_or_admin_or_me(system, account, target_account) {
+    return account.is_support ||
+        (target_account && String(target_account._id) === String(account._id)) ||
+        (
+            system && account.roles_by_system[system._id].some(
+                role => role === 'admin'
+            )
+        );
+}
 
 function create_activity_log_entry(req, event, account, level) {
     db.ActivityLog.create({

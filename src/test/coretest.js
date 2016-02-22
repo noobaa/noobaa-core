@@ -28,7 +28,12 @@ config.test_mode = true;
 server_rpc.register_md_servers();
 server_rpc.register_bg_servers();
 server_rpc.register_common_servers();
-server_rpc.rpc.set_request_logger(console.info);
+server_rpc.rpc.set_request_logger(function() {
+    return console.info.apply(console,
+        _.map(arguments, arg => require('util').inspect(arg, {
+            depth: null
+        })));
+});
 server_rpc.rpc.router.default =
     server_rpc.rpc.router.bg =
     'fcall://fcall';

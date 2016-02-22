@@ -138,6 +138,7 @@ module.exports = {
                 system: ['admin', 'user']
             }
         },
+
         complete_part_upload: {
             method: 'PUT',
             params: {
@@ -162,6 +163,7 @@ module.exports = {
                 system: ['admin', 'user']
             }
         },
+
         abort_multipart_upload: {
             method: 'DELETE',
             params: {
@@ -196,36 +198,7 @@ module.exports = {
                     parts: {
                         type: 'array',
                         items: {
-                            type: 'object',
-                            required: [
-                                'start',
-                                'end',
-                                'chunk',
-                                'frags'
-                            ],
-                            properties: {
-                                start: {
-                                    type: 'integer',
-                                },
-                                end: {
-                                    type: 'integer',
-                                },
-                                upload_part_number: {
-                                    type: 'integer',
-                                },
-                                part_sequence_number: {
-                                    type: 'integer',
-                                },
-                                chunk: {
-                                    $ref: '#/definitions/chunk_info',
-                                },
-                                frags: {
-                                    type: 'array',
-                                    items: {
-                                        $ref: '#/definitions/frag_info',
-                                    }
-                                },
-                            }
+                            $ref: '#/definitions/part_info'
                         }
                     }
                 },
@@ -237,16 +210,7 @@ module.exports = {
                     parts: {
                         type: 'array',
                         items: {
-                            type: 'object',
-                            // required: [],
-                            properties: {
-                                dedup: {
-                                    type: 'boolean'
-                                },
-                                part: {
-                                    $ref: '#/definitions/object_part_info'
-                                }
-                            }
+                            $ref: '#/definitions/part_info'
                         }
                     }
                 }
@@ -271,28 +235,7 @@ module.exports = {
                     parts: {
                         type: 'array',
                         items: {
-                            type: 'object',
-                            required: ['start', 'end'],
-                            properties: {
-                                start: {
-                                    type: 'integer',
-                                },
-                                end: {
-                                    type: 'integer',
-                                },
-                                upload_part_number: {
-                                    type: 'integer',
-                                },
-                                part_sequence_number: {
-                                    type: 'integer',
-                                },
-                                block_ids: {
-                                    type: 'array',
-                                    items: {
-                                        type: 'string',
-                                    }
-                                },
-                            }
+                            $ref: '#/definitions/part_info'
                         }
                     }
                 },
@@ -394,7 +337,7 @@ module.exports = {
                     parts: {
                         type: 'array',
                         items: {
-                            $ref: '#/definitions/object_part_info'
+                            $ref: '#/definitions/part_info'
                         },
                     },
                     total_parts: {
@@ -477,6 +420,9 @@ module.exports = {
                     bucket: {
                         type: 'string',
                     },
+                    delimiter: {
+                        type: 'string',
+                    },
                     key_prefix: {
                         type: 'string',
                     },
@@ -531,6 +477,12 @@ module.exports = {
                                     $ref: '#/definitions/object_info'
                                 }
                             }
+                        }
+                    },
+                    common_prefixes: {
+                        type: 'array',
+                        items: {
+                            type: 'string'
                         }
                     }
                 }
@@ -602,13 +554,11 @@ module.exports = {
             }
         },
 
-        object_part_info: {
+        part_info: {
             type: 'object',
             required: [
                 'start',
-                'end',
-                'chunk',
-                'frags'
+                'end'
             ],
             properties: {
                 start: {
@@ -629,13 +579,9 @@ module.exports = {
                 chunk: {
                     $ref: '#/definitions/chunk_info',
                 },
-                // the fragments composing the data chunk
-                frags: {
-                    type: 'array',
-                    items: {
-                        $ref: '#/definitions/frag_info',
-                    }
-                }
+                chunk_dedup: {
+                    type: 'string',
+                },
             }
         },
 
@@ -648,7 +594,8 @@ module.exports = {
                 'cipher_type',
                 'cipher_key_b64',
                 'data_frags',
-                'lrc_frags'
+                'lrc_frags',
+                'frags'
             ],
             properties: {
                 size: {
@@ -684,11 +631,18 @@ module.exports = {
                 lrc_frags: {
                     type: 'integer',
                 },
+                frags: {
+                    type: 'array',
+                    items: {
+                        $ref: '#/definitions/frag_info',
+                    }
+                },
                 adminfo: {
                     type: 'object',
                     required: ['health'],
                     properties: {
                         health: {
+                            enum: ['available', 'building', 'unavailable'],
                             type: 'string'
                         }
                     }
@@ -724,53 +678,47 @@ module.exports = {
                 digest_b64: {
                     type: 'string'
                 },
-                adminfo: {
-                    type: 'object',
-                    required: ['health'],
-                    properties: {
-                        health: {
-                            type: 'string'
-                        }
-                    }
-                },
                 blocks: {
                     type: 'array',
                     items: {
-                        type: 'object',
-                        required: ['block_md'],
-                        properties: {
-                            block_md: {
-                                $ref: 'agent_api#/definitions/block_md'
-                            },
-                            adminfo: {
-                                type: 'object',
-                                required: ['pool_name', 'node_name', 'node_ip', 'online'],
-                                properties: {
-                                    node_name: {
-                                        type: 'string',
-                                    },
-                                    pool_name: {
-                                        type: 'string'
-                                    },
-                                    node_ip: {
-                                        type: 'string',
-                                    },
-                                    online: {
-                                        type: 'boolean'
-                                    },
-                                    srvmode: {
-                                        $ref: 'node_api#/definitions/srvmode'
-                                    },
-                                    building: {
-                                        type: 'boolean',
-                                    }
-                                }
-                            }
-                        }
+                        $ref: '#/definitions/block_info'
+                    }
+                },
+            }
+        },
+
+        block_info: {
+            type: 'object',
+            required: ['block_md'],
+            properties: {
+                block_md: {
+                    $ref: 'agent_api#/definitions/block_md'
+                },
+                adminfo: {
+                    type: 'object',
+                    required: ['pool_name', 'node_name', 'node_ip', 'online'],
+                    properties: {
+                        node_name: {
+                            type: 'string',
+                        },
+                        pool_name: {
+                            type: 'string'
+                        },
+                        node_ip: {
+                            type: 'string',
+                        },
+                        online: {
+                            type: 'boolean'
+                        },
+                        srvmode: {
+                            $ref: 'node_api#/definitions/srvmode'
+                        },
                     }
                 }
             }
         },
+
+
     },
 
 };

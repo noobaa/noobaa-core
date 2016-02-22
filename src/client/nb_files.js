@@ -156,7 +156,7 @@ nb_api.factory('nbFiles', [
                     _.each(res.parts, function(part) {
                         // TODO handle parity frags
                         var frag_size = part.chunk.size / part.chunk.data_frags;
-                        _.each(part.frags, function(fragment) {
+                        _.each(part.chunk.frags, function(fragment) {
                             fragment.start = part.start + (frag_size * fragment.frag);
                             fragment.size = frag_size;
                         });
@@ -221,7 +221,7 @@ nb_api.factory('nbFiles', [
                     Body: tx.input_file,
                     ContentType: tx.content_type
                 }, {
-                    partSize: 10 * 1024 * 1024, 
+                    partSize: 10 * 1024 * 1024,
                     queueSize: 10
                 }, function(err, data) {
                     if (err) {

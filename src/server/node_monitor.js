@@ -179,7 +179,7 @@ function update_heartbeat(req, reply_token) {
     var conn = req.connection;
     // the node_id param is string, and need to convert it to proper object id
     // for the sake of all the queries that we use it for
-    var node_id = nodes_store.make_nodes_id(params.node_id);
+    var node_id = nodes_store.make_node_id(params.node_id);
     var peer_id = params.peer_id;
     var node;
 

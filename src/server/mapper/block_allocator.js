@@ -4,21 +4,78 @@
 var _ = require('lodash');
 var P = require('../../util/promise');
 var moment = require('moment');
-var db = require('../db');
+var chance = require('chance')();
 var config = require('../../../config.js');
 var dbg = require('../../util/debug_module')(__filename);
 var nodes_store = require('../stores/nodes_store');
 
 module.exports = {
-    allocate_block: allocate_block,
-    remove_blocks: remove_blocks,
-    get_block_md: get_block_md,
+    refresh_bucket_alloc: refresh_bucket_alloc,
+    refresh_pool_alloc: refresh_pool_alloc,
+    allocate_node_for_block: allocate_node_for_block,
 };
 
+var pool_alloc_group = {};
+
+function refresh_bucket_alloc(bucket) {
+    let pools = _.flatten(_.map(bucket.tiering.tiers,
+        tier_and_order => tier_and_order.tier.pools));
+    return P.map(pools, refresh_pool_alloc);
+}
+
+function refresh_pool_alloc(pool) {
+    var group =
+        pool_alloc_group[pool._id] =
+        pool_alloc_group[pool._id] || {
+            last_refresh: new Date(0),
+            nodes: [],
+            aggregate: {}
+        };
+
+    // cache the nodes for 1 minutes and then refresh
+    if (group.last_refresh >= moment().subtract(1, 'minute').toDate()) {
+        return P.resolve();
+    }
+
+    if (group.promise) return group.promise;
+
+    group.promise = P.join(
+        nodes_store.find_nodes({
+            system: pool.system._id,
+            pool: pool._id,
+            heartbeat: {
+                $gt: nodes_store.get_minimum_alloc_heartbeat()
+            },
+            deleted: null,
+            srvmode: null,
+        }, {
+            sort: {
+                // sorting with lowest used storage nodes first
+                'storage.used': 1
+            },
+            limit: 100
+        }),
+        nodes_store.aggregate_nodes_by_pool({
+            system: pool.system._id,
+            pool: pool._id,
+            deleted: null,
+        })
+    ).spread((nodes, nodes_aggregate_pool) => {
+        group.last_refresh = new Date();
+        group.promise = null;
+        group.nodes = nodes;
+        group.aggregate = nodes_aggregate_pool[pool._id];
+    }, err => {
+        group.promise = null;
+        throw err;
+    });
+
+    return group.promise;
+}
 
 /**
  *
- * allocate_blocks
+ * allocate_node_for_block
  *
  * selects distinct edge node for allocating new blocks.
  *
@@ -26,106 +83,37 @@ module.exports = {
  * @param avoid_nodes array of node ids to avoid
  *
  */
-function allocate_block(chunk, avoid_nodes, pools) {
-    return update_tier_alloc_nodes(chunk.system, chunk.tier, pools)
-        .then(function(alloc_nodes) {
-            var block_size = (chunk.size / chunk.kfrag) | 0;
-            for (var i = 0; i < alloc_nodes.length; ++i) {
-                var node = get_round_robin(alloc_nodes);
-                if (!_.includes(avoid_nodes, node._id.toString())) {
-                    dbg.log1('allocate_block: allocate node', node.name,
-                        'for chunk', chunk._id, 'avoid_nodes', avoid_nodes);
-                    return new_block(chunk, node, block_size);
-                }
+function allocate_node_for_block(block, avoid_nodes, tier, pool) {
+    let chosen_pool = pool;
+    if (!chosen_pool) {
+        let has_any_online = false;
+        let pools_online_node_count = _.map(tier.pools, pool => {
+            let group = pool_alloc_group[pool._id];
+            let online_nodes = group ? group.aggregate.online : 0;
+            if (online_nodes) {
+                has_any_online = true;
             }
-            // we looped through all nodes and didn't find a node we can allocate
-            dbg.log0('allocate_block: no available node', chunk, 'avoid_nodes', avoid_nodes);
-            return null;
+            return online_nodes;
         });
-}
-
-
-function remove_blocks(blocks) {
-    return db.DataBlock.update({
-        _id: {
-            $in: _.map(blocks, '_id')
+        if (!has_any_online) {
+            throw new Error('no online nodes in tier ' + tier.name);
         }
-    }, {
-        deleted: new Date()
-    }, {
-        multi: true
-    }).exec();
-}
-
-
-function new_block(chunk, node, size) {
-    return /*new db.DataBlock*/ ({
-        _id: db.new_object_id(),
-        system: chunk.system,
-        chunk: chunk,
-        node: node,
-        layer: 'D',
-        frag: 0,
-        size: size,
-        // always allocate in building mode
-        building: new Date()
-    });
-}
-
-var tier_alloc_nodes = {};
-
-function update_tier_alloc_nodes(system, tier, pools) {
-    var tier_id = (tier && tier._id) || tier || null;
-    var info = tier_alloc_nodes[tier_id] = tier_alloc_nodes[tier_id] || {
-        last_refresh: new Date(0),
-        nodes: [],
-    };
-
-    // cache the nodes for 1 minutes and then refresh
-    if (info.last_refresh >= moment().subtract(1, 'minute').toDate()) {
-        return P.resolve(info.nodes);
+        // choose a pool from the tier with weights
+        chosen_pool = chance.weighted(tier.pools, pools_online_node_count);
     }
-
-    if (info.promise) return info.promise;
-
-    // refresh
-    info.promise = P.when(get_associated_nodes(system, pools))
-        .then(function(nodes) {
-            info.promise = null;
-            info.nodes = nodes;
-            if (nodes.length < config.min_node_number) {
-                throw new Error('not enough nodes: ' + nodes.length);
-            }
-            info.last_refresh = new Date();
-            return nodes;
-        }, function(err) {
-            info.promise = null;
-            throw err;
-        });
-
-    return info.promise;
-}
-
-function get_associated_nodes(system, pools) {
-    pools = _.flatten(pools);
-    var min_heartbeat = nodes_store.get_minimum_alloc_heartbeat();
-    return nodes_store.find_nodes({
-        system: system,
-        deleted: null,
-        pool: {
-            $in: _.map(pools, '_id')
-        },
-        heartbeat: {
-            $gt: min_heartbeat
-        },
-        srvmode: null,
-    }, {
-        sort: {
-            // sorting with lowest used storage nodes first
-            'storage.used': 1
-        },
-        limit: 100
-    });
+    let group = pool_alloc_group[chosen_pool._id];
+    let num_nodes = group ? group.nodes.length : 0;
+    if (num_nodes < config.min_node_number) {
+        throw new Error('not enough online online nodes in tier ' + tier.name);
+    }
+    for (var i = 0; i < num_nodes; ++i) {
+        var node = get_round_robin(group.nodes);
+        if (!_.includes(avoid_nodes, node._id.toString())) {
+            dbg.log1('allocate_node_for_block: allocated node', node.name,
+                'avoid_nodes', avoid_nodes);
+            return node;
+        }
+    }
 }
 
 
@@ -133,11 +121,4 @@ function get_round_robin(nodes) {
     var rr = nodes.rr || 0;
     nodes.rr = (rr + 1) % nodes.length;
     return nodes[rr];
-}
-
-function get_block_md(block) {
-    var b = _.pick(block, 'size', 'digest_type', 'digest_b64');
-    b.id = block._id.toString();
-    b.address = block.node.rpc_address;
-    return b;
 }

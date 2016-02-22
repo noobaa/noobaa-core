@@ -5,7 +5,7 @@ var _ = require('lodash');
 var P = require('../util/promise');
 var size_utils = require('../util/size_utils');
 var string_utils = require('../util/string_utils');
-var object_mapper = require('./mapper/object_mapper');
+var map_reader = require('./mapper/map_reader');
 var node_monitor = require('./node_monitor');
 var nodes_store = require('./stores/nodes_store');
 var db = require('./db');
@@ -171,7 +171,7 @@ function read_node_maps(req) {
             node = node_arg;
             var params = _.pick(req.rpc_params, 'skip', 'limit');
             params.node = node;
-            return object_mapper.read_node_mappings(params);
+            return map_reader.read_node_mappings(params);
         })
         .then(objects => ({
             node: get_node_full_info(node),

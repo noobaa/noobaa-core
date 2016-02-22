@@ -10,7 +10,7 @@ var _ = require('lodash');
 var url = require('url');
 var promise_utils = require('../util/promise_utils');
 var cloud_sync = require('./cloud_sync');
-var build_chunks = require('./build_chunks_worker');
+var build_chunks_worker = require('./build_chunks_worker');
 var server_rpc = require('../server/server_rpc');
 var dbg = require('../util/debug_module')(__filename);
 var db = require('../server/db');
@@ -54,10 +54,10 @@ register_bg_worker({
 if (process.env.BUILD_WORKER_DISABLED !== 'true') {
     register_bg_worker({
         name: 'build_chunks_worker',
-        batch_size: 50,
-        time_since_last_build: 60000 /* TODO increase...*/ ,
-        building_timeout: 300000 /* TODO increase...*/ ,
-    }, build_chunks.background_worker);
+        batch_size: 1000,
+        time_since_last_build: 60000, // TODO increase?
+        building_timeout: 300000, // TODO increase?
+    }, build_chunks_worker.background_worker);
 }
 
 dbg.log('BG Workers Server started');

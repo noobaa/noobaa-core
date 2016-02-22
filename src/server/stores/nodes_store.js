@@ -13,7 +13,7 @@ var NodeModel = require('./node_model');
 
 module.exports = {
     // single node ops
-    make_nodes_id: make_nodes_id,
+    make_node_id: make_node_id,
     create_node: create_node,
     find_node_by_name: find_node_by_name,
     update_node_by_name: update_node_by_name,
@@ -22,7 +22,8 @@ module.exports = {
     // multi node ops
     find_nodes: find_nodes,
     count_nodes: count_nodes,
-    populate_nodes: populate_nodes,
+    populate_nodes_full: populate_nodes_full,
+    populate_nodes_for_map: populate_nodes_for_map,
     update_nodes: update_nodes,
     aggregate_nodes_by_pool: aggregate_nodes_by_pool,
     // utils
@@ -38,12 +39,12 @@ module.exports = {
 /////////////////////
 
 
-function make_nodes_id(id_str) {
+function make_node_id(id_str) {
     return new mongodb.ObjectId(id_str);
 }
 
 function create_node(req, node) {
-    node._id = make_nodes_id();
+    node._id = make_node_id();
     return P.when(NodeModel.collection.insertOne(node))
         .catch(db.check_already_exists(req, 'node'))
         .return(node);
@@ -86,7 +87,7 @@ function delete_node_by_name(req) {
 
 function update_node_by_id(node_id, updates) {
     return P.when(NodeModel.collection.findOneAndUpdate({
-        _id: make_nodes_id(node_id)
+        _id: make_node_id(node_id)
     }, updates));
 }
 
@@ -109,8 +110,20 @@ function count_nodes(query) {
     return P.when(NodeModel.collection.count(query));
 }
 
-function populate_nodes(doc_path) {
-    return mongo_utils.populate(doc_path, NodeModel.collection);
+function populate_nodes_full(docs, doc_path) {
+    return mongo_utils.populate(docs, doc_path, NodeModel.collection);
+}
+
+function populate_nodes_for_map(docs, doc_path) {
+    return mongo_utils.populate(docs, doc_path, NodeModel.collection, {
+        _id: 1,
+        ip: 1,
+        name: 1,
+        pool: 1,
+        srvmode: 1,
+        heartbeat: 1,
+        rpc_address: 1,
+    });
 }
 
 function update_nodes(query, updates) {

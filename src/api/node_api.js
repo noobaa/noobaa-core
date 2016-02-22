@@ -125,7 +125,7 @@ module.exports = {
                                 parts: {
                                     type: 'array',
                                     items: {
-                                        $ref: 'object_api#/definitions/object_part_info'
+                                        $ref: 'object_api#/definitions/part_info'
                                     }
                                 }
                             }

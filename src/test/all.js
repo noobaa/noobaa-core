@@ -9,6 +9,7 @@ require('./test_system_servers');
 require('./test_node_server');
 require('./test_agent');
 require('./test_object_driver');
+require('./test_map_utils');
 
 /**
  * UTILS

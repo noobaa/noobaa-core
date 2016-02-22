@@ -12,7 +12,7 @@
     <div class="content-col col-sm-9">
 
         <div ng-repeat="part in parts">
-            <div ng-repeat="fragment in part.frags">
+            <div ng-repeat="fragment in part.chunk.frags">
                 <div class="clearfix" style="border-top: 1px solid hsl(0,0%,85%); padding: 10px 0">
                     <div class="pull-left text-center" style="padding: 5px 20px 5px 0">
                         <span class="badge" rel="tooltip" ng-attr-title="Offset {{human_size(fragment.start)}}" data-placement="bottom" data-container="body">
@@ -21,8 +21,8 @@
                     </div>
                     <div class="pull-right text-center" style="padding: 5px 0 5px 20px">
                         <!-- <span class="badge">#{{(parts_query.page*parts_page_size) + $index + 1}}</span> -->
-                        <span class="capitalize health-{{fragment.adminfo.health}}">
-                            {{fragment.adminfo.health}}
+                        <span class="capitalize health-{{part.chunk.adminfo.health}}">
+                            {{part.chunk.adminfo.health}}
                         </span>
                     </div>
                     <div class="hflow clearfix" style="border-left: 1px solid hsl(0,0%,85%); border-right: 1px solid hsl(0,0%,85%); margin: 5px 0">

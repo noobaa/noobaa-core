@@ -26,7 +26,9 @@ if (argv.upload) {
 
 function list_objects() {
     s3.listObjects({
-        Bucket: argv.bucket || 'files'
+        Bucket: argv.bucket || 'files',
+        Prefix: argv.prefix || '',
+        Delimiter: argv.delimiter || ''
     }, function(err, data) {
         console.log('results:', util.inspect(data, {
             depth: null

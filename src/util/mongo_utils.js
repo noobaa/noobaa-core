@@ -47,33 +47,34 @@ function uniq_ids(docs, doc_path) {
 /**
  * populate a certain doc path which contains object ids to another collection
  */
-function populate(doc_path, collection) {
-    return docs => { // returning a function
-        let ids = uniq_ids(docs, doc_path);
-        collection = collection.collection || collection;
-        console.log('POPULATE:', collection.collectionName,
-            ids.slice(0, 10).join(','), ids.length > 10 ? '(partial list)' : '');
-        if (!docs.length || !ids.length) return docs;
-        return P.when(collection.find({
-                _id: {
-                    $in: ids
+function populate(docs, doc_path, collection, fields) {
+    let docs_list = _.isArray(docs) ? docs : [docs];
+    let ids = uniq_ids(docs_list, doc_path);
+    collection = collection.collection || collection;
+    console.log('POPULATE:', collection.collectionName,
+        ids.slice(0, 10).join(','), ids.length > 10 ? '(partial list)' : '');
+    if (!ids.length) return docs;
+    return P.when(collection.find({
+            _id: {
+                $in: ids
+            }
+        }, {
+            fields: fields
+        }).toArray())
+        .then(items => {
+            let idmap = _.keyBy(items, '_id');
+            _.each(docs_list, doc => {
+                let item;
+                let id = _.get(doc, doc_path);
+                if (id) {
+                    item = idmap[id.toString()];
                 }
-            }).toArray())
-            .then(items => {
-                let idmap = _.keyBy(items, '_id');
-                _.each(docs, doc => {
-                    let item;
-                    let id = _.get(doc, doc_path);
-                    if (id) {
-                        item = idmap[id.toString()];
-                    }
-                    if (item) {
-                        _.set(doc, doc_path, item);
-                    }
-                });
-                return docs;
+                if (item) {
+                    _.set(doc, doc_path, item);
+                }
             });
-    };
+            return docs;
+        });
 }
 
 

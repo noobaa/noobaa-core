@@ -17,7 +17,7 @@ var devnull = require('dev-null');
 var config = require('../../config.js');
 var dbg = require('../util/debug_module')(__filename);
 var dedup_options = require("./dedup_options");
-dbg.set_level(5);
+// dbg.set_level(5);
 
 
 var PART_ATTRS = [
@@ -276,7 +276,7 @@ class ObjectDriver {
                             parts: _.map(parts, part => {
                                 var p = _.pick(part, PART_ATTRS);
                                 p.chunk = _.pick(part.chunk, CHUNK_ATTRS);
-                                p.frags = _.map(part.chunk.frags, fragment => {
+                                p.chunk.frags = _.map(part.chunk.frags, fragment => {
                                     var f = _.pick(fragment, FRAG_ATTRS);
                                     f.size = fragment.block.length;
                                     return f;
@@ -287,12 +287,9 @@ class ObjectDriver {
                             })
                         })
                         .then(res => {
-                            _.each(parts, (part, i) => {
-                                part.dedup = res.parts[i].dedup;
-                                part.alloc_part = res.parts[i].part;
-                            });
                             dbg.log0('upload_stream_parts: allocate', range_utils.human_range(range),
                                 'took', time_utils.millitook(millistamp));
+                            _.each(parts, (part, i) => part.alloc_part = res.parts[i]);
                             return parts;
                         });
                 }
@@ -325,9 +322,9 @@ class ObjectDriver {
             /////////////////////////////
 
             pipeline.pipe(new CoalesceStream({
-                highWaterMark: 4,
-                max_length: 10,
-                max_wait_ms: 100,
+                highWaterMark: 20,
+                max_length: 100,
+                max_wait_ms: 1000,
                 objectMode: true
             }));
 
@@ -348,15 +345,7 @@ class ObjectDriver {
                             return this.client.object.finalize_object_parts({
                                 bucket: params.bucket,
                                 key: params.key,
-                                parts: _.map(parts, part => {
-                                    var p = _.pick(part, PART_ATTRS);
-                                    if (!part.dedup) {
-                                        p.block_ids = _.flatten(_.map(part.alloc_part.frags, fragment => {
-                                            return _.map(fragment.blocks, block => block.block_md.id);
-                                        }));
-                                    }
-                                    return p;
-                                })
+                                parts: _.map(parts, 'alloc_part')
                             });
                         })
                         .then(() => {
@@ -397,22 +386,24 @@ class ObjectDriver {
      * write the allocated part fragments to the storage nodes
      *
      */
-    _write_fragments(part) {
-        if (part.dedup) {
+    _write_fragments(part, source_part) {
+        if (part.alloc_part.chunk_dedup) {
             dbg.log0('_write_fragments: DEDUP', range_utils.human_range(part));
             return;
         }
 
-        var frags_map = _.keyBy(part.chunk.frags, get_frag_key);
-        dbg.log1('_write_fragments: part', part, 'FRAGS', part.alloc_part.frags);
+        var data_frags_map = _.keyBy(part.chunk.frags, get_frag_key);
+        dbg.log1('_write_fragments: part', part, 'FRAGS', part.alloc_part.chunk.frags);
 
-        return P.map(part.alloc_part.frags, fragment => {
+        return P.map(part.alloc_part.chunk.frags, fragment => {
             var frag_key = get_frag_key(fragment);
+            // TODO GGG write one and replicate the others
+            fragment.blocks = [fragment.blocks[0]];
             return P.map(fragment.blocks, block => {
                 return this._attempt_write_block({
-                    part: part,
+                    part: part.alloc_part,
                     block: block,
-                    buffer: frags_map[frag_key].block,
+                    buffer: data_frags_map[frag_key].block,
                     frag_desc: size_utils.human_offset(part.start) + '-' + frag_key,
                     remaining_attempts: 20,
                 });
@@ -445,14 +436,14 @@ class ObjectDriver {
                     });
                 dbg.warn('_attempt_write_block: write failed, report_bad_block.',
                     'remaining attempts', params.remaining_attempts, frag_desc, bad_block_params);
-                return this.client.object.report_bad_block(bad_block_params);
-            })
-            .then(res => {
-                dbg.log2('_attempt_write_block retry with', res.new_block);
-                // NOTE: we update the block itself in the part so
-                // that finalize will see this update as well.
-                block.block_md = res.new_block;
-                return this._attempt_write_block(params);
+                return this.client.object.report_bad_block(bad_block_params)
+                    .then(res => {
+                        dbg.log2('_attempt_write_block retry with', res.new_block);
+                        // NOTE: we update the block itself in the part so
+                        // that finalize will see this update as well.
+                        block.block_md = res.new_block;
+                        return this._attempt_write_block(params);
+                    });
             });
     }
 
@@ -605,7 +596,7 @@ class ObjectDriver {
                     }
                 })
                 .catch(err => {
-                    console.error('reader error ' + err.stack);
+                    console.error('reader error', err.stack || err);
                     reader.emit('error', err || 'reader error');
                 });
         };
@@ -790,12 +781,13 @@ class ObjectDriver {
         dbg.log0('_read_object_part:', range_utils.human_range(part));
         this.lazy_init_natives();
         // read the data fragments of the chunk
-        var frags_by_layer = _.groupBy(part.frags, 'layer');
+        var frags_by_layer = _.groupBy(part.chunk.frags, 'layer');
         var data_frags = frags_by_layer.D;
+        dbg.log0('GGG data_frags', data_frags);
         return P.map(data_frags, fragment => this._read_fragment(part, fragment))
             .then(() => {
                 var chunk = _.pick(part.chunk, CHUNK_ATTRS);
-                chunk.frags = _.map(part.frags, fragment => {
+                chunk.frags = _.map(part.chunk.frags, fragment => {
                     var f = _.pick(fragment, FRAG_ATTRS, 'block');
                     f.layer_n = f.layer_n || 0;
                     return f;
@@ -927,7 +919,8 @@ class ObjectDriver {
             return () => {
                 console.log('+++ serve_http_stream:', reason);
                 if (read_stream) {
-                    read_stream.close();
+                    read_stream.pause();
+                    read_stream.unpipe(res);
                     read_stream = null;
                 }
                 if (reason === 'request ended') {

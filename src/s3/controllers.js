@@ -402,17 +402,17 @@ module.exports = function(params) {
                         if (source_object_md.size === 0 && last_char === '/') {
                             dbg.log0('Folder copy:', from_object, ' to ', to_object);
                             return list_objects_with_prefix(from_object, '/', src_bucket, access_key)
-                                .then(function(objects_and_folders) {
-                                    return P.all(_.times(objects_and_folders.objects.length, function(i) {
-                                        dbg.log0('copy inner objects:', objects_and_folders.objects[i].key, objects_and_folders.objects[i].key.replace(from_object, to_object));
-                                        return copy_object(objects_and_folders.objects[i].key,
-                                            objects_and_folders.objects[i].key.replace(from_object, to_object),
+                                .then(function(list_res) {
+                                    return P.map(list_res.objects, function(obj) {
+                                        dbg.log0('copy inner objects:', obj.key, obj.key.replace(from_object, to_object));
+                                        return copy_object(obj.key,
+                                            obj.key.replace(from_object, to_object),
                                             src_bucket, target_bucket, access_key);
-                                    })).then(function() {
-                                        //                                dbg.log0('folders......',_.keys(objects_and_folders.folders));
-                                        return P.map(_.keys(objects_and_folders.folders), function(folder) {
+                                    }).then(function() {
+                                        return P.map(list_res.common_prefixes, function(folder) {
                                             dbg.log0('copy inner folders:', folder, folder.replace(from_object, to_object));
-                                            return copy_object(folder, folder.replace(from_object, to_object),
+                                            return copy_object(folder,
+                                                folder.replace(from_object, to_object),
                                                 src_bucket, target_bucket, access_key);
                                         });
                                     });
@@ -481,70 +481,39 @@ module.exports = function(params) {
     }
 
     function list_objects_with_prefix(prefix, delimiter, bucket_name, access_key) {
-        var list_params = {
-            bucket: bucket_name,
-            key_s3_prefix: ''
-        };
         if (prefix) {
             //prefix = prefix.replace(/%2F/g, '/');
             prefix = decodeURI(prefix);
-            list_params.key_s3_prefix = prefix;
         }
         if (delimiter) {
             delimiter = decodeURI(delimiter);
         }
+        var list_params = {
+            bucket: bucket_name,
+            key_s3_prefix: prefix || '',
+            delimiter: delimiter || ''
+        };
         dbg.log3('Listing objects with', list_params, delimiter, 'key:', access_key);
         return clients[access_key].client.object.list_objects(list_params)
             .then(function(results) {
-                var folders = {};
-                dbg.log3('results:', results);
-                var objects = _.filter(results.objects, function(obj) {
-                    try {
-                        var date = new Date(obj.info.create_time);
-                        date.setMilliseconds(0);
-                        obj.modifiedDate = date.toISOString();
-                        obj.md5 = 100;
-                        obj.size = obj.info.size;
-
-                        //we will keep the full path for CloudBerry online cloud backup tool
-                        var obj_sliced_key = obj.key.slice(prefix.length);
-                        dbg.log3('obj.key:', obj.key, ' prefix ', prefix, ' sliced', obj_sliced_key);
-                        if (obj_sliced_key.indexOf(delimiter) >= 0) {
-                            var folder = obj_sliced_key.split(delimiter, 1)[0];
-                            folders[prefix + folder + "/"] = true;
-                            return false;
-                        }
-
-                        if (list_params.key === obj.key) {
-                            dbg.log3('LISTED KEY same as REQUIRED', obj.key);
-                            if (prefix === obj.key && prefix.substring(prefix.length - 1) !== delimiter) {
-
-                                return true;
-                            }
-
-                            return false;
-                        }
-                        if (!obj.key) {
-                            // empty key - might be object created as a folder
-                            return false;
-                        }
-                        return true;
-                    } catch (err) {
-                        dbg.error('Error while listing objects:', err);
-                    }
+                results.objects = _.filter(results.objects, function(obj) {
+                    // filter empty keys - might be object created as a folder
+                    if (!obj.key) return false;
+                    var date = new Date(obj.info.create_time);
+                    date.setMilliseconds(0);
+                    obj.modifiedDate = date.toISOString();
+                    obj.md5 = 100;
+                    obj.size = obj.info.size;
+                    return true;
                 });
-
-                var objects_and_folders = {
-                    objects: objects,
-                    folders: folders
-                };
-                dbg.log3('About to return objects and folders:', objects_and_folders);
-                return objects_and_folders;
+                dbg.log0('List objects results: objects', results.objects,
+                'and common_prefixes:', results.common_prefixes);
+                return results;
             }).then(null, function(err) {
-                dbg.error('failed to list object with prefix', err);
+                dbg.error('failed to list objects with prefix', err);
                 return {
-                    objects: {},
-                    folders: {}
+                    objects: [],
+                    common_prefixes: []
                 };
             });
     }
@@ -829,10 +798,10 @@ module.exports = function(params) {
             } else {
 
                 list_objects_with_prefix(options.prefix, options.delimiter, req.bucket, extract_access_key(req))
-                    .then(function(objects_and_folders) {
+                    .then(function(list_res) {
                         options.bucketName = req.bucket || params.bucket;
-                        options.common_prefixes = _.isEmpty(objects_and_folders.folders) ? '' : _.keys(objects_and_folders.folders);
-                        dbg.log3('total of objects:', objects_and_folders.objects.length, ' folders:', options.common_prefixes, 'bucket:', options.bucketName);
+                        options.common_prefixes = list_res.common_prefixes;
+                        dbg.log3('total of objects:', list_res.objects.length, ' folders:', options.common_prefixes, 'bucket:', options.bucketName);
 
                         if (req.query.versioning !== undefined) {
                             if (!_.isEmpty(options.common_prefixes)) {
@@ -841,7 +810,7 @@ module.exports = function(params) {
                                 date = date.toISOString();
                                 _.each(options.common_prefixes, function(folder) {
                                     dbg.log3('adding common_prefixe (folder):', folder);
-                                    objects_and_folders.objects.unshift({
+                                    list_res.objects.unshift({
                                         key: folder,
                                         modifiedDate: date,
                                         md5: 100,
@@ -849,9 +818,9 @@ module.exports = function(params) {
                                     });
                                 });
                             }
-                            template = templateBuilder.buildBucketVersionQuery(options, objects_and_folders.objects);
+                            template = templateBuilder.buildBucketVersionQuery(options, list_res.objects);
                         } else {
-                            template = templateBuilder.buildBucketQuery(options, objects_and_folders.objects);
+                            template = templateBuilder.buildBucketQuery(options, list_res.objects);
                         }
                         return buildXmlResponse(res, 200, template);
                     })
@@ -1254,7 +1223,7 @@ module.exports = function(params) {
                         dbg.log0('Init Multipart, buckets', clients[access_key].buckets, '::::',
                             _.filter(clients[access_key].buckets, {
                                 bucket: req.bucket
-                        }));
+                            }));
                         if (!_.has(clients[access_key].buckets, req.bucket)) {
 
                             clients[access_key].buckets[req.bucket] = {
@@ -1343,9 +1312,9 @@ module.exports = function(params) {
                     bucket: req.bucket,
                     key: key
                 });
-            }).fail(function(err){
+            }).fail(function(err) {
                 //retry without replacement
-                dbg.error('Could not delete object "%s"', key,err.rpc_code);
+                dbg.error('Could not delete object "%s"', key, err.rpc_code);
                 key = req.params.key;
                 return clients[access_key].client.object.delete_object({
                     bucket: req.bucket,

@@ -68,12 +68,6 @@ var data_block_schema = new Schema({
         required: true,
     },
 
-    // state of building block data
-    // the date is build start time, removed when build completes
-    building: {
-        type: Date
-    },
-
     // on delete set deletion time
     deleted: {
         type: Date

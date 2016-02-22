@@ -15,7 +15,7 @@ var util = require('util');
 var P = require('../util/promise');
 var server_rpc = require('../server/server_rpc');
 var dbg = require('../util/debug_module')(__filename);
-dbg.set_level(5);
+// dbg.set_level(5);
 
 var agents_address_map = new Map();
 var cluster_connections = new Set();

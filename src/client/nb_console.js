@@ -1283,7 +1283,7 @@ nb_console.controller('NodeViewCtrl', [
                         _.each(object.parts, function(part) {
                             // TODO handle parity frags
                             var frag_size = part.chunk.size / part.chunk.data_frags;
-                            _.each(part.frags, function(fragment) {
+                            _.each(part.chunk.frags, function(fragment) {
                                 fragment.start = part.start + (frag_size * fragment.frag);
                                 fragment.size = frag_size;
                             });

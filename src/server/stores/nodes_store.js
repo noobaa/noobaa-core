@@ -15,6 +15,7 @@ const NODE_FIELDS_FOR_MAP = Object.freeze({
     _id: 1,
     ip: 1,
     name: 1,
+    system: 1,
     pool: 1,
     srvmode: 1,
     heartbeat: 1,

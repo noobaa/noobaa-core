@@ -39,15 +39,17 @@ if (cluster.isMaster && process.env.S3_CLUSTER_DISABLED !== 'true') {
             var agent_conf = JSON.parse(data);
             dbg.log0('using agent_conf.json', util.inspect(agent_conf));
             params = _.defaults(params, agent_conf);
-            return;
-        }).then(null, function(err) {
+        })
+        .catch(function(err) {
             dbg.log0('cannot find configuration file. Using defaults.' + err);
             //Just in case part of the information is missing, add default params.
             params = _.defaults(params, {
                 port: 80,
                 ssl_port: 443,
             });
-            return P.nfcall(pem.createCertificate.bind(pem), {
+        })
+        .then(function() {
+            return P.nfcall(pem.createCertificate, {
                 days: 365 * 100,
                 selfSigned: true
             });

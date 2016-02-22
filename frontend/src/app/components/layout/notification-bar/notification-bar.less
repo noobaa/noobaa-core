@@ -1,0 +1,71 @@
+@keyframes notification-in {
+    from {
+        transform: translateY(100%);
+    }
+    to {
+        transform: translateY(0);
+    }
+}
+
+@keyframes notification-out {
+    from {
+        transform: translateY(0);
+    }
+    to {
+        transform: translateY(-100%);
+    }
+}
+
+notification-bar {
+    section {
+        .fixed();
+        top: auto;
+        margin: 0 1em;
+        height: 2em;
+        border-radius: 3px 3px 0 0;
+        line-height: 2em;
+        color: @text-color2;
+        box-shadow: 0 0 5px @shadow-color;
+        background-color: @bg-color5;
+        transform: translateY(100%);
+        transition: transform 500ms;
+        overflow: hidden;
+
+        &.visible {
+            transform: translateY(0);
+        }
+    }
+
+    .notification {
+        .fill();
+        display: block;
+        margin: 0 .5em;
+        animation: notification-out 500ms;
+        animation-fill-mode: forwards;
+
+        &:last-child {
+            animation: notification-in 500ms;
+
+            &:first-child {
+                animation: none;
+            }
+        }
+
+        &.success {
+            color: @text-color7;
+        }
+
+        &.warning {
+            color: @text-color10;
+        }
+
+        &.error {
+            color: @text-color8;
+        }
+
+        .notif-message {
+            vertical-align: middle;
+            margin-left: .25em;
+        }
+    }
+}

@@ -87,6 +87,12 @@ export function refresh() {
     page.redirect(pathname + search);
 
     model.refreshCounter(model.refreshCounter() + 1);
+
+
+    notify(
+        'Console Refreshed ' + Math.random(), 
+        ['INFO', 'SUCCESS', 'WARNING', 'ERROR'][Math.random() * 4 | 0]
+    );
 }
 
 // -----------------------------------------------------
@@ -846,7 +852,10 @@ export function createAccount(name, email, password) {
 
     api.account.create_account({ name, email, password })
         .then(loadAccountList)
-        .done();    
+        .then(
+            () => notify(`Account for user ${email} created successfuly`, 'SUCCESS')
+        )
+        .done();
 }
 
 export function deleteAccount(email) {
@@ -854,6 +863,9 @@ export function deleteAccount(email) {
 
     api.account.delete_account({ email })
         .then(loadAccountList)
+        .then(
+            () => notify(`Account for user ${email} deleted`)
+        )
         .done();
 }
 
@@ -1327,8 +1339,8 @@ export function addAWSCredentials(accessKey, secretKey) {
     };
 
     // TODO: the call to get_cloud_sync is used here to check that the keys are valid, 
-        // and the server can access S3 using this keys. Need to replace this with a sort of 
-        // s3 ping when avaliable in server side.
+    // and the server can access S3 using this keys. Need to replace this with a sort of 
+    // s3 ping when avaliable in server side.
     api.bucket.get_cloud_buckets(credentials)
         .then(
             () => api.account.add_account_sync_credentials_cache(credentials)
@@ -1337,7 +1349,8 @@ export function addAWSCredentials(accessKey, secretKey) {
         .done();
 }
  
+export function notify(message, severity = 'INFO') {
+    logAction('notifyInfo', { message, severity });
 
-export function notify(message) {
-    logAction('notify', message);
+    model.lastNotification({ message, severity });
 }

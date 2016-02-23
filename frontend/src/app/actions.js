@@ -1339,5 +1339,5 @@ export function addAWSCredentials(accessKey, secretKey) {
 export function notify(message, severity = 'INFO') {
     logAction('notifyInfo', { message, severity });
 
-̦    model.lastNotification({ message, severity });
+    model.lastNotification({ message, severity });
 }

@@ -12,6 +12,7 @@ module.exports = {
     populate: populate,
     resolve_object_ids_recursive: resolve_object_ids_recursive,
     resolve_object_ids_paths: resolve_object_ids_paths,
+    is_object_id: is_object_id,
 };
 
 /*

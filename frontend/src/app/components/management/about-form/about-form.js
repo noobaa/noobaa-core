@@ -10,7 +10,7 @@ class AboutFormViewModel {
             () => systemInfo() && systemInfo().version 
         );
 
-        this.upgradePackageSuffix = upgradePackage;
+        this.upgradePackageSuffix = upgradePackageSuffix;
 
         this.isUpgradingModalVisible = ko.observable(false);
     }

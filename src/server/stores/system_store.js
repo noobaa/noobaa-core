@@ -233,7 +233,7 @@ class SystemStore extends EventEmitter {
         this.FORCE_REFRESH_THRESHOLD = 60 * 60 * 1000;
         this._ajv = new Ajv({
             formats: {
-                objectid: val => val instanceof mongodb.ObjectId
+                objectid: val => mongo_utils.is_object_id(val)
             }
         });
         _.each(COLLECTIONS, (schema, collection) => {

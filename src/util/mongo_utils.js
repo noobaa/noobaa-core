@@ -3,6 +3,7 @@
 let _ = require('lodash');
 let P = require('./promise');
 let mongodb = require('mongodb');
+let mongoose = require('mongoose');
 let util = require('util');
 
 module.exports = {
@@ -11,6 +12,7 @@ module.exports = {
     populate: populate,
     resolve_object_ids_recursive: resolve_object_ids_recursive,
     resolve_object_ids_paths: resolve_object_ids_paths,
+    is_object_id: is_object_id,
 };
 
 /*
@@ -96,7 +98,7 @@ function resolve_object_ids_recursive(idmap, item) {
 function resolve_object_ids_paths(idmap, item, paths, allow_missing) {
     _.each(paths, path => {
         let ref = _.get(item, path);
-        if (ref instanceof mongodb.ObjectId) {
+        if (is_object_id(ref)) {
             let obj = idmap[ref];
             if (obj) {
                 _.set(item, path, obj);
@@ -105,11 +107,20 @@ function resolve_object_ids_paths(idmap, item, paths, allow_missing) {
                     path + ' - ' + ref + ' from item ' + util.inspect(item));
             }
         } else if (!allow_missing) {
-            if (!ref || !(ref._id instanceof mongodb.ObjectId)) {
+            if (!ref || !is_object_id(ref._id)) {
                 throw new Error('resolve_object_ids_paths missing ref id to ' +
                     path + ' - ' + ref + ' from item ' + util.inspect(item));
             }
         }
     });
     return item;
+}
+
+// apparently mongoose defined it's own class of ObjectID
+// instead of using the class from mongodb driver,
+// so we have to check both for now,
+// until we can get rid of mongoose completely.
+function is_object_id(id) {
+    return (id instanceof mongodb.ObjectId) ||
+        (id instanceof mongoose.Types.ObjectId);
 }

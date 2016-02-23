@@ -87,12 +87,6 @@ export function refresh() {
     page.redirect(pathname + search);
 
     model.refreshCounter(model.refreshCounter() + 1);
-
-
-    notify(
-        'Console Refreshed ' + Math.random(), 
-        ['INFO', 'SUCCESS', 'WARNING', 'ERROR'][Math.random() * 4 | 0]
-    );
 }
 
 // -----------------------------------------------------
@@ -852,9 +846,6 @@ export function createAccount(name, email, password) {
 
     api.account.create_account({ name, email, password })
         .then(loadAccountList)
-        .then(
-            () => notify(`Account for user ${email} created successfuly`, 'SUCCESS')
-        )
         .done();
 }
 
@@ -863,9 +854,6 @@ export function deleteAccount(email) {
 
     api.account.delete_account({ email })
         .then(loadAccountList)
-        .then(
-            () => notify(`Account for user ${email} deleted`)
-        )
         .done();
 }
 

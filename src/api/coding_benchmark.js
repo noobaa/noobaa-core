@@ -6,7 +6,7 @@ var P = require('../util/promise');
 var fs = require('fs');
 var path = require('path');
 var crypto = require('crypto');
-var chance = new(require('chance').Chance)();
+var chance = require('chance')();
 var time_utils = require('../util/time_utils');
 var transformer = require('../util/transformer');
 var Pipeline = require('../util/pipeline');
@@ -18,7 +18,6 @@ if (require.main === module) {
 }
 
 function test() {
-
     var filename = process.argv[2];
     var mode = process.argv[3];
     console.log('FILE', filename);
@@ -33,7 +32,7 @@ function test() {
             highWaterMark: 1024 * 1024
         });
     }
-    var api;
+    var client;
     var stats = {
         count: 0,
         bytes: 0,
@@ -94,11 +93,11 @@ function test() {
     }
 
     function init_api() {
-        api = require('../api');
-        api.client = new api.Client();
-        api.rpc.base_address = 'ws://127.0.0.1:5001';
-        api.rpc.register_n2n_transport();
-        return api.client.create_auth_token({
+        var api = require('../api');
+        var rpc = api.new_rpc();
+        client = rpc.new_client();
+        rpc.register_n2n_transport(client.node.n2n_signal);
+        return client.create_auth_token({
             email: 'demo@noobaa.com',
             password: 'DeMo',
             system: 'demo',
@@ -108,13 +107,13 @@ function test() {
     function test_upload() {
         init_api()
             .then(function() {
-                return api.client.object.delete_object({
+                return client.object.delete_object({
                     bucket: 'files',
                     key: path.basename(filename),
                 }).fail(function() {});
             })
             .then(function() {
-                return api.client.object_driver_lazy().upload_stream({
+                return client.object_driver_lazy().upload_stream({
                     bucket: 'files',
                     key: path.basename(filename),
                     size: fs.statSync(filename).size,
@@ -149,12 +148,8 @@ function test() {
                 highWaterMark: 4,
                 objectMode: true,
             },
-            transform: function(data) {
-                return P.ninvoke(dedup_chunker, 'push', data);
-            },
-            flush: function() {
-                return P.ninvoke(dedup_chunker, 'flush');
-            }
+            transform: (t, data) => P.ninvoke(dedup_chunker, 'push', data),
+            flush: t => P.ninvoke(dedup_chunker, 'flush')
         }));
         pipeline.pipe(transformer({
             options: {
@@ -162,7 +157,7 @@ function test() {
                 flatten: true,
                 objectMode: true,
             },
-            transform_parallel: function(data) {
+            transform_parallel: (t, data) => {
                 // console.log('encode chunk');
                 return P.ninvoke(object_coding, 'encode', object_coding_tpool, data);
             },
@@ -180,7 +175,7 @@ function test() {
                     flatten: true,
                     objectMode: true,
                 },
-                transform_parallel: function(chunk) {
+                transform_parallel: (t, chunk) => {
                     return P.ninvoke(object_coding, 'decode', object_coding_tpool, chunk)
                         .thenResolve(chunk);
                 },
@@ -192,7 +187,7 @@ function test() {
                 flatten: true,
                 objectMode: true,
             },
-            transform: function(chunk) {
+            transform: (t, chunk) => {
                 // console.log('done', chunk);
                 progress(chunk.size || chunk.length || 0, chunk.compress_size || 0);
             },
@@ -208,13 +203,13 @@ function test() {
         console.log('CONCUR', concur, 'NPARTS', nparts);
         init_api()
             .then(function() {
-                return api.client.object.delete_object({
+                return client.object.delete_object({
                     bucket: 'files',
                     key: path.basename(filename),
                 }).fail(function() {});
             })
             .then(function() {
-                return api.client.object.create_multipart_upload({
+                return client.object.create_multipart_upload({
                     bucket: 'files',
                     key: path.basename(filename),
                     size: 1024 * 1024 * 1024 * 1024,
@@ -237,7 +232,7 @@ function test() {
                 var i = 0;
                 return P.all(_.times(concur, function loop() {
                         var req_start_time = time_utils.millistamp();
-                        return api.client.object.allocate_object_parts({
+                        return client.object.allocate_object_parts({
                             bucket: 'files',
                             key: path.basename(filename),
                             parts: _.times(nparts, function() {
@@ -306,7 +301,7 @@ function test() {
         var write_bytes = 300000;
         init_api()
             .then(function() {
-                return api.client.node.list_nodes({});
+                return client.node.list_nodes({});
             })
             .then(function(res) {
                 var nodes = res.nodes;
@@ -332,7 +327,7 @@ function test() {
                         var req_start_time = time_utils.millistamp();
                         var next_node = nodes[next_node_rr];
                         next_node_rr = (next_node_rr + 1) % nodes.length;
-                        return api.client.agent.write_block({
+                        return client.agent.write_block({
                             block_md: {
                                 id: '' + Math.random(),
                                 address: next_node.rpc_address,
@@ -386,7 +381,7 @@ function test() {
                 objectMode: true,
                 highWaterMark: 5
             },
-            transform: function(data) {
+            transform: (t, data) => {
                 var crypt_info = {
                     hash_type: 'sha384',
                     cipher_type: 'aes-256-gcm'
@@ -399,7 +394,7 @@ function test() {
                 objectMode: true,
                 highWaterMark: 1
             },
-            transform: function(chunk) {
+            transform: (t, chunk) => {
                 // console.log('done', chunk);
                 progress(chunk.size || chunk.length || 0, chunk.compress_size || 0);
             },

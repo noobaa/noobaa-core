@@ -1,27 +1,22 @@
 'use strict';
 
-module.exports = RpcFcallConnection;
-
-var _ = require('lodash');
-var util = require('util');
-var RpcBaseConnection = require('./rpc_base_conn');
+let _ = require('lodash');
+let RpcBaseConnection = require('./rpc_base_conn');
 require('setimmediate');
 
-util.inherits(RpcFcallConnection, RpcBaseConnection);
+class RpcFcallConnection extends RpcBaseConnection {
 
-function RpcFcallConnection(addr_url) {
-    var self = this;
-    RpcBaseConnection.call(self, addr_url);
-    self._close = _.noop;
-    self._connect = function() {
-        setImmediate(function() {
-            self.emit('connect');
-        });
-    };
-    self._send = function(msg) {
-        msg = _.isArray(msg) ? Buffer.concat(msg) : msg;
-        setImmediate(function() {
-            self.emit('message', msg);
-        });
-    };
+    constructor(addr_url) {
+        super(addr_url);
+        this._close = _.noop;
+        this._connect = () => {
+            setImmediate(() => this.emit('connect'));
+        };
+        this._send = msg => {
+            msg = _.isArray(msg) ? Buffer.concat(msg) : msg;
+            setImmediate(() => this.emit('message', msg));
+        };
+    }
 }
+
+module.exports = RpcFcallConnection;

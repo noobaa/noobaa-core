@@ -4,7 +4,10 @@
 var _ = require('lodash');
 var P = require('../util/promise');
 var db = require('./db');
-var object_mapper = require('./mapper/object_mapper');
+var MapAllocator = require('./mapper/map_allocator');
+var map_writer = require('./mapper/map_writer');
+var map_reader = require('./mapper/map_reader');
+var map_deleter = require('./mapper/map_deleter');
 var system_store = require('./stores/system_store');
 var glob_to_regexp = require('glob-to-regexp');
 var dbg = require('../util/debug_module')(__filename);
@@ -79,7 +82,7 @@ function list_multipart_parts(req) {
                 'part_number_marker',
                 'max_parts');
             params.obj = obj;
-            return object_mapper.list_multipart_parts(params);
+            return map_writer.list_multipart_parts(params);
         });
 }
 
@@ -98,7 +101,7 @@ function complete_part_upload(req) {
             var params = _.pick(req.rpc_params,
                 'upload_part_number', 'etag');
             params.obj = obj;
-            return object_mapper.set_multipart_part_md5(params);
+            return map_writer.set_multipart_part_md5(params);
         });
 }
 
@@ -109,20 +112,18 @@ function complete_part_upload(req) {
  */
 function complete_multipart_upload(req) {
     var obj;
-    var obj_etag = req.rpc_params.etag;
+    var obj_etag = req.rpc_params.etag || '';
 
     return find_object_md(req)
         .then(function(obj_arg) {
             obj = obj_arg;
             fail_obj_not_in_upload_mode(req, obj);
             if (req.rpc_params.fix_parts_size) {
-                return object_mapper.calc_multipart_md5(obj)
+                return map_writer.calc_multipart_md5(obj)
                     .then(function(aggregated_md5) {
                         obj_etag = aggregated_md5;
                         dbg.log0('aggregated_md5', obj_etag);
-                        if (req.rpc_params.fix_parts_size) {
-                            return object_mapper.fix_multipart_parts(obj);
-                        }
+                        return map_writer.fix_multipart_parts(obj);
                     });
             }
         })
@@ -145,8 +146,6 @@ function complete_multipart_upload(req) {
                     upload_size: 1
                 }
             });
-        }).then(null, function(err) {
-            dbg.error('complete_multipart_upload_err ', err, err.stack);
         })
         .then(function() {
             system_store.make_changes_in_background({
@@ -162,6 +161,10 @@ function complete_multipart_upload(req) {
             return {
                 etag: obj_etag
             };
+        })
+        .catch(function(err) {
+            dbg.error('complete_multipart_upload: ERROR', err.stack || err);
+            throw err;
         });
 }
 
@@ -190,10 +193,11 @@ function allocate_object_parts(req) {
     return find_cached_object_md(req)
         .then(function(obj) {
             fail_obj_not_in_upload_mode(req, obj);
-            return object_mapper.allocate_object_parts(
+            let allocator = new MapAllocator(
                 req.bucket,
                 obj,
                 req.rpc_params.parts);
+            return allocator.run();
         });
 }
 
@@ -207,7 +211,7 @@ function finalize_object_parts(req) {
     return find_cached_object_md(req)
         .then(function(obj) {
             fail_obj_not_in_upload_mode(req, obj);
-            return object_mapper.finalize_object_parts(
+            return map_writer.finalize_object_parts(
                 req.bucket,
                 obj,
                 req.rpc_params.parts);
@@ -220,7 +224,7 @@ function report_bad_block(req) {
         .then(function(obj) {
             var params = req.rpc_params;
             params.obj = obj;
-            return object_mapper.report_bad_block(params);
+            return map_writer.report_bad_block(params);
         })
         .then(function(new_block) {
             if (new_block) {
@@ -239,11 +243,12 @@ function report_bad_block(req) {
  */
 function read_object_mappings(req) {
     var obj;
-    var reply;
+    var reply = {};
 
     return find_object_md(req)
         .then(function(obj_arg) {
             obj = obj_arg;
+            reply.size = obj.size;
             var params = _.pick(req.rpc_params,
                 'start',
                 'end',
@@ -255,47 +260,42 @@ function read_object_mappings(req) {
             if (params.adminfo && req.role !== 'admin') {
                 params.adminfo = false;
             }
-            return object_mapper.read_object_mappings(params);
+            return map_reader.read_object_mappings(params);
         })
         .then(function(parts) {
-            reply = {
-                size: obj.size,
-                parts: parts,
-            };
+            reply.parts = parts;
             // when called from admin console, we do not update the stats
             // so that viewing the mapping in the ui will not increase read count
             // We do count the number of parts and return them
             if (req.rpc_params.adminfo) {
-                return P.when(db.ObjectPart.count({
+                return P.when(db.ObjectPart.collection.count({
                         obj: obj._id,
                         deleted: null,
                     }))
                     .then(function(c) {
-                        reply.total_mappings = c;
-                        return;
+                        reply.total_parts = c;
                     });
+            } else {
+                system_store.make_changes_in_background({
+                    update: {
+                        buckets: [{
+                            _id: obj.bucket,
+                            $inc: {
+                                'stats.reads': 1
+                            }
+                        }]
+                    }
+                });
+                return P.when(db.ObjectMD.collection.updateOne({
+                    _id: obj._id
+                }, {
+                    $inc: {
+                        'stats.reads': 1
+                    }
+                }));
             }
-            system_store.make_changes_in_background({
-                update: {
-                    buckets: [{
-                        _id: obj.bucket,
-                        $inc: {
-                            'stats.reads': 1
-                        }
-                    }]
-                }
-            });
-            return P.when(db.ObjectMD.collection.updateOne({
-                _id: obj._id
-            }, {
-                $inc: {
-                    'stats.reads': 1
-                }
-            }));
         })
-        .then(function() {
-            return reply;
-        });
+        .return(reply);
 }
 
 
@@ -372,7 +372,7 @@ function delete_object(req) {
             }).exec();
         })
         .then(function() {
-            return object_mapper.delete_object_mappings(deleted_object);
+            return map_deleter.delete_object_mappings(deleted_object);
         })
         .thenResolve();
 }
@@ -402,10 +402,52 @@ var ONE_LEVEL_SLASH_DELIMITER = one_level_delimiter('/');
  */
 function list_objects(req) {
     dbg.log0('key query', req.rpc_params);
+    var prefix = req.rpc_params.key_s3_prefix;
+    var delimiter = req.rpc_params.delimiter;
     load_bucket(req);
     return P.fcall(function() {
             var info = _.omit(object_md_query(req), 'key');
-            if (req.rpc_params.key_query) {
+            var common_prefixes_query;
+
+            if (!_.isUndefined(req.rpc_params.key_s3_prefix)) {
+                // find objects that match "prefix***" or "prefix***/"
+                var one_level = delimiter && delimiter !== '/' ?
+                    one_level_delimiter(delimiter) :
+                    ONE_LEVEL_SLASH_DELIMITER;
+                var escaped_prefix = string_utils.escapeRegExp(prefix);
+                info.key = new RegExp('^' + escaped_prefix + one_level);
+
+                // we need another query to find common prefixes
+                // we go over objects with key that starts with prefix
+                // and only emit the next level delimited part of the key
+                // for example with prefix /Users/ and key /Users/tumtum/shlumper
+                // the emitted key will be just tumtum.
+                // this is used by s3 protocol to return folder structure
+                // even if there is no explicit empty object with the folder name.
+                common_prefixes_query = db.ObjectMD.collection.mapReduce(
+                    function map_func() {
+                        /* global emit */
+                        var suffix = this.key.slice(prefix.length);
+                        var pos = suffix.indexOf(delimiter);
+                        if (pos >= 0) {
+                            emit(suffix.slice(0, pos), undefined);
+                        }
+                    }, _.noop, {
+                        query: {
+                            system: req.system._id,
+                            bucket: req.bucket._id,
+                            key: new RegExp('^' + escaped_prefix),
+                            deleted: null
+                        },
+                        scope: {
+                            prefix: prefix,
+                            delimiter: delimiter,
+                        },
+                        out: {
+                            inline: 1
+                        }
+                    });
+            } else if (req.rpc_params.key_query) {
                 info.key = new RegExp(string_utils.escapeRegExp(req.rpc_params.key_query), 'i');
             } else if (req.rpc_params.key_regexp) {
                 info.key = new RegExp(req.rpc_params.key_regexp);
@@ -413,13 +455,6 @@ function list_objects(req) {
                 info.key = glob_to_regexp(req.rpc_params.key_glob);
             } else if (req.rpc_params.key_prefix) {
                 info.key = new RegExp('^' + string_utils.escapeRegExp(req.rpc_params.key_prefix));
-            } else if (!_.isUndefined(req.rpc_params.key_s3_prefix)) {
-                // match "prefix/file" or "prefix/dir/"
-                var one_level = req.rpc_params.delimiter ?
-                    one_level_delimiter(req.rpc_params.delimiter) :
-                    ONE_LEVEL_SLASH_DELIMITER;
-                var prefix = string_utils.escapeRegExp(req.rpc_params.key_s3_prefix);
-                info.key = new RegExp('^' + prefix + one_level);
             }
 
             var skip = req.rpc_params.skip;
@@ -440,12 +475,13 @@ function list_objects(req) {
                 find.sort(sort_opt);
             }
 
-            return P.all([
+            return P.join(
                 find.exec(),
-                req.rpc_params.pagination && db.ObjectMD.count(info)
-            ]);
+                req.rpc_params.pagination && db.ObjectMD.count(info),
+                common_prefixes_query
+            );
         })
-        .spread(function(objects, total_count) {
+        .spread(function(objects, total_count, common_prefixes_res) {
             var res = {
                 objects: _.map(objects, function(obj) {
                     return {
@@ -456,6 +492,10 @@ function list_objects(req) {
             };
             if (req.rpc_params.pagination) {
                 res.total_count = total_count;
+            }
+            if (common_prefixes_res) {
+                res.common_prefixes = _.map(common_prefixes_res.results,
+                    r => prefix + r._id + delimiter);
             }
             return res;
         });
@@ -511,7 +551,11 @@ function get_object_info(md) {
 }
 
 function load_bucket(req) {
-    req.bucket = req.system.buckets_by_name[req.rpc_params.bucket];
+    var bucket = req.system.buckets_by_name[req.rpc_params.bucket];
+    if (!bucket) {
+        throw req.rpc_error('NOT_FOUND', 'bucket not found ' + req.rpc_params.bucket);
+    }
+    req.bucket = bucket;
 }
 
 function object_md_query(req) {

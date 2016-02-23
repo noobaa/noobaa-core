@@ -1,10 +1,8 @@
-// make jshint ignore mocha globals
-/* global describe, it, before, after, beforeEach, afterEach */
-/* exported describe, it, before, after, beforeEach, afterEach */
 'use strict';
 
 var _ = require('lodash');
 var P = require('../util/promise');
+var mocha = require('mocha');
 var assert = require('assert');
 var argv = require('minimist')(process.argv);
 var promise_utils = require('../util/promise_utils');
@@ -18,51 +16,39 @@ var chance = require('chance')(chance_seed);
 var dbg = require('../util/debug_module')(__filename);
 dbg.set_level(5, 'core');
 
-describe('object', function() {
+mocha.describe('object_driver', function() {
 
-    var client = coretest.new_client();
+    var client = coretest.new_test_client();
+    client.object_driver_lazy().set_verification_mode();
+
     var SYS = 'test-object-system';
-    var TIER = 'edge';
-    var BKT = 'test_object_bucket';
-    var KEY = 'test_object_key';
+    var BKT = 'files'; // the default bucket name
+    var KEY = 'test-object-key';
+    var EMAIL = 'test-object-email@mail.mail';
+    var PASSWORD = 'test-object-password';
 
-    before(function(done) {
+    mocha.before(function() {
         this.timeout(30000);
-        P.fcall(function() {
-            return client.system.create_system({
-                name: SYS
-            });
-        }).then(function() {
-            // authenticate now with the new system
-            return client.create_auth_token({
-                system: SYS
-            });
-        }).then(function() {
-            return client.tier.create_tier({
-                name: TIER,                
-            });
-        }).then(function() {
-            return client.bucket.create_bucket({
-                name: BKT,
-                tiering: 'default_tiering',
-            });
-        }).then(function() {
-            return coretest.init_test_nodes(10, SYS, TIER);
-        }).nodeify(done);
+        return P.resolve()
+            .then(() => client.account.create_account({
+                name: SYS,
+                email: EMAIL,
+                password: PASSWORD,
+            }))
+            .then(res => client.options.auth_token = res.token)
+            .then(() => coretest.init_test_nodes(client, SYS, 5));
     });
 
-    after(function(done) {
+    mocha.after(function() {
         this.timeout(30000);
-        P.fcall(function() {
-            return coretest.clear_test_nodes();
-        }).nodeify(done);
+        return coretest.clear_test_nodes();
     });
 
 
-    it('works', function(done) {
+    mocha.it('works', function() {
         this.timeout(30000);
         var key = KEY + Date.now();
-        P.fcall(function() {
+        return P.fcall(function() {
             return client.object.create_multipart_upload({
                 bucket: BKT,
                 key: key,
@@ -73,6 +59,7 @@ describe('object', function() {
             return client.object.complete_multipart_upload({
                 bucket: BKT,
                 key: key,
+                fix_parts_size: true
             });
         }).then(function() {
             return client.object.read_object_md({
@@ -94,7 +81,7 @@ describe('object', function() {
                 bucket: BKT,
                 key: key,
             });
-        }).nodeify(done);
+        });
     });
 
     var CHANCE_BYTE = {
@@ -103,7 +90,7 @@ describe('object', function() {
     };
 
 
-    describe('object IO', function() {
+    mocha.describe('object IO', function() {
 
         var OBJ_NUM_PARTS = 16;
         var OBJ_PART_SIZE = 128 * 1024;
@@ -117,7 +104,7 @@ describe('object', function() {
         };
 
 
-        it('should write and read object data', function(done) {
+        mocha.it('should write and read object data', function() {
             this.timeout(30000);
             var key = KEY + Date.now();
             var size, data;
@@ -179,14 +166,14 @@ describe('object', function() {
                         });
                     });
 
-                }).nodeify(done);
+                });
         });
     });
 
 
-    describe('multipart upload', function() {
+    mocha.describe('multipart upload', function() {
 
-        it('should list_multipart_parts', function(done) {
+        mocha.it('should list_multipart_parts', function() {
             this.timeout(30000);
             var key = KEY + Date.now();
             var part_size = 1024;
@@ -195,7 +182,7 @@ describe('object', function() {
             for (var i = 0; i < data.length; i++) {
                 data[i] = chance.integer(CHANCE_BYTE);
             }
-            P.fcall(function() {
+            return P.fcall(function() {
                     return client.object.create_multipart_upload({
                         bucket: BKT,
                         key: key,
@@ -257,8 +244,7 @@ describe('object', function() {
                     for (var i = 0; i < data.length; i++) {
                         assert.strictEqual(data[i], read_buf[i], "mismatch data at offset " + i);
                     }
-                })
-                .nodeify(done);
+                });
         });
 
     });

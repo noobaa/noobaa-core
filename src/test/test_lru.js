@@ -1,16 +1,14 @@
-// make jshint ignore mocha globals
-// /* global describe, it, before, after, beforeEach, afterEach */
-/* global describe, it */
 'use strict';
 
 // var _ = require('lodash');
 var P = require('../util/promise');
+var mocha = require('mocha');
 var assert = require('assert');
 var LRU = require('../util/lru');
 
-describe('lru', function() {
+mocha.describe('lru', function() {
 
-    it('should hit and miss after remove', function() {
+    mocha.it('should hit and miss after remove', function() {
         var lru = new LRU();
         var item = lru.find_or_add_item(1);
         item.foo = 'bar';
@@ -21,7 +19,7 @@ describe('lru', function() {
         assert.strictEqual(item.foo, undefined);
     });
 
-    it('should remove item to make room', function() {
+    mocha.it('should remove item to make room', function() {
         var lru = new LRU({
             max_length: 1
         });
@@ -32,22 +30,22 @@ describe('lru', function() {
         assert.strictEqual(item.foo, undefined);
     });
 
-    it('should remove expired item', function(done) {
+    mocha.it('should remove expired item', function() {
         var lru = new LRU({
-            expiry_ms: 10
+            expiry_ms: 100
         });
         var item = lru.find_or_add_item(1);
         item.foo = 'bar';
-        P.delay(1).then(function() {
+        return P.delay(1).then(function() {
             item = lru.find_or_add_item(1);
             assert.strictEqual(item.foo, 'bar');
-        }).delay(20).then(function() {
+        }).delay(110).then(function() {
             item = lru.find_or_add_item(1);
             assert.strictEqual(item.foo, undefined);
-        }).nodeify(done);
+        });
     });
 
-    it('should return null for missing id', function() {
+    mocha.it('should return null for missing id', function() {
         var lru = new LRU();
         lru.find_or_add_item(1);
         assert(lru.remove_item(1));

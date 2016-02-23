@@ -1051,7 +1051,6 @@ Ice.prototype._handle_stun_request = function(buffer, info) {
             port: info.port,
             type: CAND_TYPE_PEER_REFLEX,
         }));
-        // dbg.log0('GGG session', info.session, attr_map.address, info);
     }
     if (info.session) {
         if (info.tcp && !info.tcp.destroyed &&
@@ -1461,7 +1460,13 @@ function listen_on_port_range(port_range) {
         } else if (typeof(port_range) === 'number') {
             port = port_range;
         } else {
-            port = 0;
+            // can't use port 0 to allocate random port because
+            // when running inside a nodejs 'cluster' then it will
+            // allocate the same port for all listen(0) calls.
+            port = chance.integer({
+                min: 1025,
+                max: 64 * 1024,
+            });
         }
         if (attempts > max_attempts) {
             throw new Error('ICE PORT ALLOCATION EXHAUSTED');

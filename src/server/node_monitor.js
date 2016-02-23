@@ -16,15 +16,14 @@ var db = require('./db');
 var Barrier = require('../util/barrier');
 var size_utils = require('../util/size_utils');
 var promise_utils = require('../util/promise_utils');
-var server_rpc = require('./server_rpc').server_rpc;
-var bg_worker = require('./server_rpc').bg_worker;
+var server_rpc = require('./server_rpc');
 var system_server = require('./system_server');
+var nodes_store = require('./stores/nodes_store');
 var dbg = require('../util/debug_module')(__filename);
 var pkg = require('../../package.json');
 var current_pkg_version = pkg.version;
 
-var BG_BASE_ADDR = server_rpc.get_default_base_address('background');
-server_rpc.on('reconnect', _on_reconnect);
+server_rpc.rpc.on('reconnect', _on_reconnect);
 
 /**
  * finding node by id for heatbeat requests uses a barrier for merging DB calls.
@@ -35,15 +34,26 @@ var heartbeat_find_node_by_id_barrier = new Barrier({
     expiry_ms: 500, // milliseconds to wait for others to join
     process: function(node_ids) {
         dbg.log2('heartbeat_find_node_by_id_barrier', node_ids.length);
-        return P.when(db.Node.find({
-                    deleted: null,
-                    _id: {
-                        $in: node_ids
-                    },
-                })
-                // we are very selective to reduce overhead
-                .select('ip port peer_id storage geolocation')
-                .exec())
+        return nodes_store.find_nodes({
+                deleted: null,
+                _id: {
+                    $in: node_ids
+                },
+            }, {
+                // we are selective to reduce overhead
+                fields: {
+                    _id: 1,
+                    ip: 1,
+                    port: 1,
+                    peer_id: 1,
+                    storage: 1,
+                    geolocation: 1,
+                    rpc_address: 1,
+                    base_address: 1,
+                    version: 1,
+                    debug_level: 1,
+                }
+            })
             .then(function(res) {
                 var nodes_by_id = _.keyBy(res, '_id');
                 return _.map(node_ids, function(node_id) {
@@ -95,18 +105,17 @@ var heartbeat_update_node_timestamp_barrier = new Barrier({
     max_length: 200,
     expiry_ms: 500, // milliseconds to wait for others to join
     process: function(node_ids) {
-        dbg.log2('heartbeat_update_node_timestamp_barrier', node_ids.length);
-        return P.when(db.Node.collection.updateMany({
-                deleted: null,
-                _id: {
-                    $in: node_ids
-                },
-            }, {
-                $set: {
-                    heartbeat: new Date()
-                }
-            }))
-            .thenResolve();
+        dbg.log2('heartbeat_update_node_timestamp_barrier', node_ids);
+        return nodes_store.update_nodes({
+            deleted: null,
+            _id: {
+                $in: node_ids
+            },
+        }, {
+            $set: {
+                heartbeat: new Date()
+            }
+        }).return();
     }
 });
 
@@ -168,7 +177,9 @@ function heartbeat(req) {
 function update_heartbeat(req, reply_token) {
     var params = req.rpc_params;
     var conn = req.connection;
-    var node_id = params.node_id;
+    // the node_id param is string, and need to convert it to proper object id
+    // for the sake of all the queries that we use it for
+    var node_id = nodes_store.make_node_id(params.node_id);
     var peer_id = params.peer_id;
     var node;
 
@@ -190,11 +201,11 @@ function update_heartbeat(req, reply_token) {
         rpc_address = 'n2n://' + peer_id;
         dbg.log0('PEER REVERSE ADDRESS', rpc_address, conn.url.href);
         // Add node to RPC map and notify redirector if needed
-        var notify_redirector = server_rpc.map_address_to_connection(rpc_address, conn);
+        var notify_redirector = server_rpc.rpc.map_address_to_connection(rpc_address, conn);
         if (notify_redirector) {
             conn.on('close', _unregister_agent.bind(null, conn, peer_id));
             P.fcall(function() {
-                    return bg_worker.redirector.register_agent({
+                    return server_rpc.bg_client.redirector.register_agent({
                         peer_id: peer_id,
                     });
                 })
@@ -262,26 +273,28 @@ function update_heartbeat(req, reply_token) {
                 return;
             }
 
-            var updates = {};
+            var set_updates = {};
+            var push_updates = {};
+            // var unset_updates = {};
 
             // TODO detect nodes that try to change ip, port too rapidly
             if (params.geolocation &&
                 params.geolocation !== node.geolocation) {
-                updates.geolocation = params.geolocation;
+                set_updates.geolocation = params.geolocation;
             }
             if (params.ip && params.ip !== node.ip) {
-                updates.ip = params.ip;
+                set_updates.ip = params.ip;
             }
             if (params.rpc_address &&
                 params.rpc_address !== node.rpc_address) {
-                updates.rpc_address = params.rpc_address;
+                set_updates.rpc_address = params.rpc_address;
             }
             if (params.base_address &&
                 params.base_address !== node.base_address) {
-                updates.base_address = params.base_address;
+                set_updates.base_address = params.base_address;
             }
             if (params.version && params.version !== node.version) {
-                updates.version = params.version;
+                set_updates.version = params.version;
             }
 
             // verify the agent's reported usage
@@ -294,86 +307,76 @@ function update_heartbeat(req, reply_token) {
 
             // check if need to update the node used storage count
             if (node.storage.used !== storage_used) {
-                updates['storage.used'] = storage_used;
-            }
-            //remove from allocated node if less than 20% free space
-            //TODO: make it much smarter....
-            if (((node.storage.free * 100) / node.storage.total) < 20) {
-                updates['srvmode'] = 'storage_full';
-            } else {
-                _.merge(updates, {
-                    $unset: {
-                        srvmode: 1
-                    }
-                });
+                set_updates['storage.used'] = storage_used;
             }
 
             // to avoid frequest updates of the node it will only send
             // extended info on longer period. this will allow more batching by
             // heartbeat_update_node_timestamp_barrier.
             if (params.drives) {
-                updates.drives = params.drives;
+                set_updates.drives = params.drives;
                 var drives_total = 0;
                 var drives_free = 0;
                 _.each(params.drives, function(drive) {
                     drives_total += drive.storage.total;
                     drives_free += drive.storage.free;
                 });
-                updates['storage.total'] = drives_total;
-                updates['storage.free'] = drives_free;
-
+                set_updates['storage.total'] = drives_total;
+                set_updates['storage.free'] = drives_free;
             }
             if (params.os_info) {
-                updates.os_info = params.os_info;
-                updates.os_info.last_update = new Date();
+                set_updates.os_info = params.os_info;
+                set_updates.os_info.last_update = new Date();
             }
 
             // push latency measurements to arrays
             // limit the size of the array to keep the last ones using negative $slice
             var MAX_NUM_LATENCIES = 20;
             if (params.latency_to_server) {
-                _.merge(updates, {
-                    $push: {
-                        latency_to_server: {
-                            $each: params.latency_to_server,
-                            $slice: -MAX_NUM_LATENCIES
-                        }
+                _.merge(push_updates, {
+                    latency_to_server: {
+                        $each: params.latency_to_server,
+                        $slice: -MAX_NUM_LATENCIES
                     }
                 });
             }
             if (params.latency_of_disk_read) {
-                _.merge(updates, {
-                    $push: {
-                        latency_of_disk_read: {
-                            $each: params.latency_of_disk_read,
-                            $slice: -MAX_NUM_LATENCIES
-                        }
+                _.merge(push_updates, {
+                    latency_of_disk_read: {
+                        $each: params.latency_of_disk_read,
+                        $slice: -MAX_NUM_LATENCIES
                     }
                 });
             }
             if (params.latency_of_disk_write) {
-                _.merge(updates, {
-                    $push: {
-                        latency_of_disk_write: {
-                            $each: params.latency_of_disk_write,
-                            $slice: -MAX_NUM_LATENCIES
-                        }
+                _.merge(push_updates, {
+                    latency_of_disk_write: {
+                        $each: params.latency_of_disk_write,
+                        $slice: -MAX_NUM_LATENCIES
                     }
                 });
             }
 
-            updates.debug_level = params.debug_level || 0;
+            if (!_.isUndefined(params.debug_level) &&
+                params.debug_level !== node.debug_level) {
+                set_updates.debug_level = params.debug_level || 0;
+            }
 
-            dbg.log2('NODE heartbeat', node_id, params.ip + ':' + params.port);
+            // make the update object hold only updates that are not empty
+            var updates = _.omitBy({
+                $set: set_updates,
+                $push: push_updates,
+                // $unset: unset_updates,
+            }, _.isEmpty);
+
+            dbg.log0('NODE HEARTBEAT UPDATES', node_id, node.heartbeat, updates);
 
             if (_.isEmpty(updates)) {
                 // when only timestamp is updated we optimize by merging DB calls with a barrier
                 return heartbeat_update_node_timestamp_barrier.call(node_id);
             } else {
-                updates.heartbeat = new Date();
-                return db.Node.update({
-                    _id: node_id
-                }, updates).exec();
+                updates.$set.heartbeat = new Date();
+                return nodes_store.update_node_by_id(node_id, updates);
             }
         }).then(function() {
             var storage = node && node.storage || {};
@@ -477,9 +480,11 @@ function set_debug_node(req) {
             //TODO: use param and send it to the agent.
             //Currently avoid it, due to multiple actors.
             updates.debug_level = 5;
-            return db.Node.update({
+            return nodes_store.update_nodes({
                 rpc_address: target
-            }, updates).exec();
+            }, {
+                $set: updates
+            });
         })
         .then(null, function(err) {
             dbg.log0('Error on set_debug_node', err);
@@ -491,7 +496,7 @@ function set_debug_node(req) {
 }
 
 function _unregister_agent(connection, peer_id) {
-    return P.when(bg_worker.redirector.unregister_agent({
+    return P.when(server_rpc.bg_client.redirector.unregister_agent({
             peer_id: peer_id,
         }))
         .fail(function(error) {
@@ -501,7 +506,7 @@ function _unregister_agent(connection, peer_id) {
 }
 
 function _on_reconnect(conn) {
-    if (_.startsWith(conn.url.href, BG_BASE_ADDR)) {
+    if (conn.url.href === server_rpc.rpc.router.bg) {
         dbg.log0('_on_reconnect:', conn.url.href);
         _resync_agents();
     }
@@ -512,9 +517,9 @@ function _resync_agents() {
 
     //Retry to resync redirector
     return promise_utils.retry(Infinity, 1000, 0, function(attempt) {
-        var agents = server_rpc.get_n2n_addresses();
+        var agents = server_rpc.rpc.get_n2n_addresses();
         var ts = Date.now();
-        return bg_worker.redirector.resync_agents({
+        return server_rpc.bg_client.redirector.resync_agents({
                 agents: agents,
                 timestamp: ts,
             })

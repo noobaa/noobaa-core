@@ -92,11 +92,12 @@ function iterate(array, func) {
  * and only returns a promise for completion or failure
  *
  */
-function loop(times, func) {
-    if (times > 0) {
-        return P.fcall(func)
+function loop(times, func, current_index) {
+    current_index = current_index || 0;
+    if (current_index < times) {
+        return P.fcall(func, current_index)
             .then(function() {
-                return loop(times - 1, func);
+                return loop(times, func, current_index + 1);
             });
     }
 }

@@ -114,7 +114,7 @@ function reduce_storage(reducer, storage_items, mult_factor, div_factor) {
     return _.reduce(
         accumulator, (storage, val, key) => {
             if (!_.isEmpty(val)) {
-                storage[key] = bigint_factor(reducer(key, val), mult_factor, div_factor);                
+                storage[key] = bigint_factor(reducer(key, val), mult_factor, div_factor);
             }
 
             return storage;
@@ -229,11 +229,12 @@ function human_size(bytes) {
  *
  */
 function human_offset(offset) {
-    var res;
+    var res = '';
+    var sign = '';
     var i;
-    var peta;
     var n;
-    var sign;
+    var peta;
+    var mod;
 
     if (typeof(offset) === 'object') {
         peta = offset.peta;
@@ -241,29 +242,31 @@ function human_offset(offset) {
         sign = '';
     } else {
         peta = 0;
-        if (offset < 0) {
-            n = -offset;
-            sign = '-';
-        } else {
-            n = offset;
-            sign = '';
-        }
+        n = offset;
+    }
+
+    if (n < 0) {
+        n = -n;
+        sign = '-';
     }
 
     // always include the lowest offset unit
-    res = (n % 1024) + '';
-    n = Math.floor(n / 1024);
-
-    i = 1;
-    while (n) {
-        res = (n % 1024) + SIZE_UNITS[i] + '_' + res;
+    i = 0;
+    do {
+        mod = n % 1024;
+        if (res) {
+            res = mod + SIZE_UNITS[i] + '.' + res;
+        } else if (mod) {
+            res = mod + SIZE_UNITS[i];
+        }
         n = Math.floor(n / 1024);
         i++;
-    }
+    } while (n);
 
     i = 5;
     while (peta) {
-        res = (peta % 1024) + SIZE_UNITS[i] + '_' + res;
+        mod = peta % 1024;
+        res = mod + SIZE_UNITS[i] + '.' + res;
         peta = Math.floor(peta / 1024);
         i++;
     }

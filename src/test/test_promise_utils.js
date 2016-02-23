@@ -1,88 +1,73 @@
-// make jshint ignore mocha globals
-/* global describe, it, before, after, beforeEach, afterEach */
-/* exported describe, it, before, after, beforeEach, afterEach */
 'use strict';
 
 var _ = require('lodash');
 var P = require('../util/promise');
+var mocha = require('mocha');
 var assert = require('assert');
 var promise_utils = require('../util/promise_utils');
 
 
-describe('promise_utils', function() {
+mocha.describe('promise_utils', function() {
 
-    describe('iterate', function() {
+    mocha.describe('iterate', function() {
 
-        it('should handle small array', function(done) {
-            P.fcall(function() {
-                    return promise_utils.iterate([1, 2, 3, 4], function(i) {
-                        return P.delay();
-                    });
-                })
-                .nodeify(done);
+        mocha.it('should handle small array', function() {
+            return promise_utils.iterate([1, 2, 3, 4], function(i) {
+                return P.delay();
+            });
         });
 
-        it('should handle large array', function(done) {
+        mocha.it('should handle large array', function() {
             var len = 1000;
             var func = Math.sqrt;
             var input = _.times(len);
             var output = _.times(len, func);
-            P.fcall(function() {
-                    return promise_utils.iterate(input, function(i) {
-                        return func(i);
-                    });
+            return promise_utils.iterate(input, function(i) {
+                    return func(i);
                 })
                 .then(function(res) {
                     assert(_.isEqual(res, output), 'unexpected output');
-                })
-                .nodeify(done);
+                });
         });
 
-        it('should return empty array when given empty array', function(done) {
-            P.fcall(function() {
-                    return promise_utils.iterate([], function thrower() {
-                        throw new Error('shouldnt call me');
-                    });
+        mocha.it('should return empty array when given empty array', function() {
+            return promise_utils.iterate([], function thrower() {
+                    throw new Error('shouldnt call me');
                 })
                 .then(function(res) {
                     assert(_.isArray(res));
                     assert.strictEqual(res.length, 0);
-                })
-                .nodeify(done);
+                });
         });
 
-        it('should return empty array when given null values', function(done) {
-            P.fcall(function() {
-                    var falsy_values = [null, undefined, false, NaN, 0, ''];
-                    return P.all(_.map(falsy_values, function(val) {
-                        return promise_utils.iterate(val).then(function(res) {
-                            assert(_.isArray(res));
-                            assert.strictEqual(res.length, 0);
-                        });
-                    }));
-                })
-                .nodeify(done);
+        mocha.it('should return empty array when given null values', function() {
+            var falsy_values = [null, undefined, false, NaN, 0, ''];
+            return P.all(_.map(falsy_values, function(val) {
+                return promise_utils.iterate(val).then(function(res) {
+                    assert(_.isArray(res));
+                    assert.strictEqual(res.length, 0);
+                });
+            }));
         });
 
     });
 
 
-    describe('loop', function() {
-        function test_loop_count(n, done) {
+    mocha.describe('loop', function() {
+        function test_loop_count(n) {
             var count = 0;
-            P.fcall(function() {
+            return P.fcall(function() {
                     return promise_utils.loop(n, function() {
                         count += 1;
                     });
                 })
                 .then(function() {
                     assert.strictEqual(count, n);
-                })
-                .nodeify(done);
+                });
         }
-        it('should work with 0', test_loop_count.bind(null, 0));
-        it('should work with 10', test_loop_count.bind(null, 10));
-        it('should work with 98', test_loop_count.bind(null, 98));
+        mocha.it('should work with 0', test_loop_count.bind(null, 0));
+        mocha.it('should work with 10', test_loop_count.bind(null, 10));
+        mocha.it('should work with 98', test_loop_count.bind(null, 98));
     });
 
 });

@@ -8,7 +8,7 @@ module.exports = {
 
 var TMP_WORK_DIR = '/tmp/diag';
 
-var stats = require('../stats_aggregator');
+var stats_aggregator = require('../stats_aggregator');
 var P = require('../../util/promise');
 var os = require('os');
 var fs = require('fs');
@@ -37,14 +37,14 @@ function collect_server_diagnostics() {
             return promise_utils.promised_exec('lsof &> ' + TMP_WORK_DIR + '/lsof.out');
         })
         .then(function() {
-            if (stats) {
-                return stats.get_all_stats();
+            if (stats_aggregator) {
+                return stats_aggregator.get_all_stats();
             } else {
                 return;
             }
         })
         .then(function(restats) {
-            if (stats) {
+            if (stats_aggregator) {
                 var stats_data = JSON.stringify(restats);
                 return P.nfcall(fs.writeFile, TMP_WORK_DIR + '/phone_home_stats.out', stats_data);
             } else {

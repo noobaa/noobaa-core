@@ -55,7 +55,7 @@ function define_transformer(params) {
         var self = this;
         options = options || {};
         stream.Transform.call(self, options);
-        self._init(options);
+        self._init.call(null, self, options);
         self._flatten = options.flatten;
         self.transformer = true;
         self._self_push = function(item) {
@@ -111,7 +111,7 @@ function define_transformer(params) {
         Transformer.prototype._push_parallel = function(data, encoding) {
             var self = this;
             var promise = P.fcall(function() {
-                return params.transform_parallel.call(self, data, encoding);
+                return params.transform_parallel.call(null, self, data, encoding);
             });
             self._self_push(promise);
         };
@@ -129,11 +129,11 @@ function define_transformer(params) {
                 .then(function(data_in) {
                     if (self._flatten && _.isArray(data_in)) {
                         return promise_utils.iterate(data_in, function(item) {
-                            return P.when(params.transform.call(self, item, encoding))
+                            return P.when(params.transform.call(null, self, item, encoding))
                                 .then(self._self_push);
                         }).thenResolve();
                     } else if (data_in) {
-                        return params.transform.call(self, data_in, encoding);
+                        return params.transform.call(null, self, data_in, encoding);
                     }
                 })
                 .done(function(data_out) {
@@ -175,7 +175,7 @@ function define_transformer(params) {
         Transformer.prototype._flush = function(callback) {
             var self = this;
             P.fcall(function() {
-                    return params.flush.call(self);
+                    return params.flush.call(null, self);
                 })
                 .done(function(data) {
                     if (data) {

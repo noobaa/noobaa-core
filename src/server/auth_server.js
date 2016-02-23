@@ -114,7 +114,8 @@ function create_auth(req) {
             if (!system || system.deleted) throw req.unauthorized('system not found');
 
             // find the role of authenticated_account in the system
-            var roles = system.roles_by_account[authenticated_account._id];
+            var roles = system.roles_by_account &&
+                system.roles_by_account[authenticated_account._id];
 
             // now approve the role -
             if (
@@ -350,8 +351,9 @@ function _prepare_auth_request(req) {
                 throw req.unauthorized('auth system not found ' + (req.auth && req.auth.system_id));
             }
 
-            // check that auth contains valid system role
-            if (!_.includes(options.system, req.auth.role)) {
+            // check that auth contains valid system role or the account is support
+            if (!(req.account && req.account.is_support) &&
+                !_.includes(options.system, req.auth.role)) {
                 throw req.unauthorized('auth role not allowed in system');
             }
         }

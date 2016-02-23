@@ -13,9 +13,9 @@ module.exports = {
 var _ = require('lodash');
 var util = require('util');
 var P = require('../util/promise');
-var bg_workers_rpc = require('./bg_workers_rpc').bg_workers_rpc;
+var server_rpc = require('../server/server_rpc');
 var dbg = require('../util/debug_module')(__filename);
-dbg.set_level(5);
+// dbg.set_level(5);
 
 var agents_address_map = new Map();
 var cluster_connections = new Set();
@@ -31,7 +31,7 @@ function redirect(req) {
     var address = agents_address_map.get(target_agent);
     if (address) {
         dbg.log3('redirect found entry', address);
-        return P.when(bg_workers_rpc.client.node.redirect(req.rpc_params, {
+        return P.when(server_rpc.client.node.redirect(req.rpc_params, {
             address: address,
         }));
     } else {
@@ -142,15 +142,16 @@ function register_to_cluster(req) {
 }
 
 function publish_to_cluster(req) {
-    var api = req.rpc_params.method_api.slice(0, -4); // remove _api suffix
+    var api_name = req.rpc_params.method_api.slice(0, -4); // remove _api suffix
     var method = req.rpc_params.method_name;
     var addresses = ['fcall://fcall']; // also call on myself
     cluster_connections.forEach(function(conn) {
         addresses.push(conn.url.href);
     });
+    addresses = _.uniq(addresses);
     dbg.log0('publish_to_cluster:', addresses);
     return P.map(addresses, function(address) {
-        return bg_workers_rpc.client[api][method](req.rpc_params.request_params, {
+        return server_rpc.client[api_name][method](req.rpc_params.request_params, {
             address: address
         });
     }).return({});

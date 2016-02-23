@@ -97,6 +97,7 @@ nb_api.factory('nbFiles', [
                 endpoint: rest_endpoint,
                 s3ForcePathStyle: true,
                 sslEnabled: false,
+
             });
         }
 
@@ -155,7 +156,7 @@ nb_api.factory('nbFiles', [
                     _.each(res.parts, function(part) {
                         // TODO handle parity frags
                         var frag_size = part.chunk.size / part.chunk.data_frags;
-                        _.each(part.frags, function(fragment) {
+                        _.each(part.chunk.frags, function(fragment) {
                             fragment.start = part.start + (frag_size * fragment.frag);
                             fragment.size = frag_size;
                         });
@@ -219,6 +220,9 @@ nb_api.factory('nbFiles', [
                     Bucket: tx.bucket,
                     Body: tx.input_file,
                     ContentType: tx.content_type
+                }, {
+                    partSize: 10 * 1024 * 1024,
+                    queueSize: 10
                 }, function(err, data) {
                     if (err) {
                         console.error('upload failed (s3)', err, err.stack);

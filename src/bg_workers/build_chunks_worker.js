@@ -6,7 +6,7 @@ module.exports = {
 
 var P = require('../util/promise');
 var db = require('../server/db');
-var chunk_builder = require('../server/mapper/chunk_builder');
+var MapBuilder = require('../server/mapper/map_builder');
 var dbg = require('../util/debug_module')(__filename);
 
 /**
@@ -41,35 +41,38 @@ function background_worker() {
             };
             if (self.last_chunk_id) {
                 query._id = {
-                    $gt: self.last_chunk_id
+                    $lt: self.last_chunk_id
                 };
             } else {
                 dbg.log0('BUILD_WORKER:', 'BEGIN');
             }
             query.deleted = null;
 
-            return db.DataChunk.find(query)
-                .limit(self.batch_size)
-                .exec();
+            return P.when(db.DataChunk.collection.find(query, {
+                limit: self.batch_size,
+                sort: '-_id'
+            }).toArray());
         })
         .then(function(chunks) {
 
             // update the last_chunk_id for next time
             if (chunks.length === self.batch_size) {
-                self.last_chunk_id = chunks[chunks.length - 1]._id;
+                self.last_chunk_id = chunks[0]._id;
             } else {
                 self.last_chunk_id = undefined;
             }
 
             if (chunks.length) {
-                return chunk_builder.build_chunks(chunks);
+                dbg.log0('BUILD_WORKER:', 'WORKING ON', chunks.length, 'CHUNKS');
+                let builder = new MapBuilder(chunks);
+                return builder.run();
             }
         })
         .then(function() {
             // return the delay before next batch
             if (self.last_chunk_id) {
                 dbg.log0('BUILD_WORKER:', 'CONTINUE', self.last_chunk_id);
-                return 250;
+                return 100;
             } else {
                 dbg.log0('BUILD_WORKER:', 'END');
                 return 60000;

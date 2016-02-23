@@ -6,13 +6,13 @@ const partStateMapping = Object.freeze({
         toolTip: 'available',
         icon: '/fe/assets/icons.svg#part-available'
     },
-    in_process:  {
+    building:  {
         toolTip: 'in process',
         icon: '/fe/assets/icons.svg#part-in-process'
     },
     unavailable: {
         toolTip: 'unavailable',
-        icon: '/fe/assets/icons.svg#part-unavailable' 
+        icon: '/fe/assets/icons.svg#part-unavailable'
     }
 });
 
@@ -32,7 +32,7 @@ export default class ObjectPartRowViewModel {
     constructor(part, partNumber, partsCount) {
         let size = formatSize(part.chunk.size);
         let state = part.chunk.adminfo.health;
-        let blocks = part.frags[0].blocks;
+        let blocks = part.chunk.frags[0].blocks;
         let stateMapping = partStateMapping[state];
 
         this.stateToolTip = stateMapping.toolTip;

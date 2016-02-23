@@ -53,11 +53,9 @@ ClientCLI.prototype.init = function() {
             });
         })
         .then(function() {
-            self.client = new api.Client();
-            if (self.params.address) {
-                api.rpc.base_address = self.params.address;
-            }
-            return api.rpc.register_n2n_transport();
+            var rpc = api.new_rpc(self.params.address);
+            self.client = rpc.new_client();
+            return rpc.register_n2n_transport();
         })
         .then(function() {
 

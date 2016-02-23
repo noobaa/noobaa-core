@@ -1,6 +1,7 @@
 /* jshint node:true */
 'use strict';
 
+// var _ = require('lodash');
 var system_store = require('./stores/system_store');
 
 /*
@@ -21,7 +22,9 @@ module.exports = cluster_server;
  */
 function get_cluster_id(req) {
     var cluster = system_store.data.clusters[0];
-    return cluster ? cluster.cluster_id : '';
+    return {
+        cluster_id: cluster && cluster.cluster_id || ''
+    };
 }
 
 /**

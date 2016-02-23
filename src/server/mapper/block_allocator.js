@@ -4,140 +4,126 @@
 var _ = require('lodash');
 var P = require('../../util/promise');
 var moment = require('moment');
-var db = require('../db');
+var chance = require('chance')();
 var config = require('../../../config.js');
 var dbg = require('../../util/debug_module')(__filename);
-
+var nodes_store = require('../stores/nodes_store');
 
 module.exports = {
-    allocate_block: allocate_block,
-    remove_blocks: remove_blocks,
-    get_block_md: get_block_md,
+    refresh_tiering_alloc: refresh_tiering_alloc,
+    allocate_node: allocate_node,
 };
 
+var alloc_group_by_pool = {};
+var alloc_group_by_pool_set = {};
+
+function refresh_tiering_alloc(tiering) {
+    let pools = _.flatten(_.map(tiering.tiers,
+        tier_and_order => tier_and_order.tier.pools));
+    return P.map(pools, refresh_pool_alloc);
+}
+
+function refresh_pool_alloc(pool) {
+    var group =
+        alloc_group_by_pool[pool._id] =
+        alloc_group_by_pool[pool._id] || {
+            last_refresh: new Date(0),
+            nodes: [],
+            aggregate: {}
+        };
+
+    dbg.log1('refresh_pool_alloc: checking pool', pool._id, 'group', group);
+
+    // cache the nodes for 1 minutes and then refresh
+    if (group.last_refresh >= moment().subtract(1, 'minute').toDate()) {
+        return P.resolve();
+    }
+
+    if (group.promise) return group.promise;
+
+    group.promise = P.join(
+        nodes_store.find_nodes({
+            system: pool.system._id,
+            pool: pool._id,
+            heartbeat: {
+                $gt: nodes_store.get_minimum_alloc_heartbeat()
+            },
+            'storage.free': {
+                $gt: config.NODES_FREE_SPACE_RESERVE
+            },
+            deleted: null,
+            srvmode: null,
+        }, {
+            fields: nodes_store.NODE_FIELDS_FOR_MAP,
+            sort: {
+                // sorting with lowest used storage nodes first
+                'storage.used': 1
+            },
+            limit: 100
+        }),
+        nodes_store.aggregate_nodes_by_pool({
+            system: pool.system._id,
+            pool: pool._id,
+            deleted: null,
+        })
+    ).spread((nodes, nodes_aggregate_pool) => {
+        group.last_refresh = new Date();
+        group.promise = null;
+        group.nodes = nodes;
+        group.aggregate = nodes_aggregate_pool[pool._id];
+        dbg.log1('refresh_pool_alloc: updated pool', pool._id,
+            'nodes', group.nodes, 'aggregate', group.aggregate);
+        _.each(alloc_group_by_pool_set, (g, pool_set) => {
+            if (_.includes(pool_set, pool._id.toString())) {
+                dbg.log0('invalidate alloc_group_by_pool_set for', pool_set,
+                    'on change to pool', pool._id);
+                delete alloc_group_by_pool_set[pool_set];
+            }
+        });
+    }, err => {
+        group.promise = null;
+        throw err;
+    });
+
+    return group.promise;
+}
 
 /**
  *
- * allocate_blocks
+ * allocate_node
  *
- * selects distinct edge node for allocating new blocks.
- *
- * @param chunk document from db
  * @param avoid_nodes array of node ids to avoid
  *
  */
-function allocate_block(chunk, avoid_nodes, pools) {
-    return update_tier_alloc_nodes(chunk.system, chunk.tier, pools)
-        .then(function(alloc_nodes) {
-            var block_size = (chunk.size / chunk.kfrag) | 0;
-            for (var i = 0; i < alloc_nodes.length; ++i) {
-                var node = get_round_robin(alloc_nodes);
-                if (!_.includes(avoid_nodes, node._id.toString())) {
-                    dbg.log1('allocate_block: allocate node', node.name,
-                        'for chunk', chunk._id, 'avoid_nodes', avoid_nodes);
-                    return new_block(chunk, node, block_size);
-                }
-            }
-            // we looped through all nodes and didn't find a node we can allocate
-            dbg.log0('allocate_block: no available node', chunk, 'avoid_nodes', avoid_nodes);
-            return null;
-        });
-}
-
-
-function remove_blocks(blocks) {
-    return db.DataBlock.update({
-        _id: {
-            $in: _.map(blocks, '_id')
-        }
-    }, {
-        deleted: new Date()
-    }, {
-        multi: true
-    }).exec();
-}
-
-
-function new_block(chunk, node, size) {
-    return /*new db.DataBlock*/ ({
-        _id: db.new_object_id(),
-        system: chunk.system,
-        chunk: chunk,
-        node: node,
-        layer: 'D',
-        frag: 0,
-        size: size,
-        // always allocate in building mode
-        building: new Date()
-    });
-}
-
-var tier_alloc_nodes = {};
-
-function update_tier_alloc_nodes(system, tier, pools) {
-    var tier_id = (tier && tier._id) || tier || null;
-    var info = tier_alloc_nodes[tier_id] = tier_alloc_nodes[tier_id] || {
-        last_refresh: new Date(0),
-        nodes: [],
-    };
-
-    // cache the nodes for 1 minutes and then refresh
-    if (info.last_refresh >= moment().subtract(1, 'minute').toDate()) {
-        return P.resolve(info.nodes);
+function allocate_node(pools, avoid_nodes) {
+    let pool_set = _.map(pools, pool => pool._id.toString()).sort().join(',');
+    let alloc_group =
+        alloc_group_by_pool_set[pool_set] =
+        alloc_group_by_pool_set[pool_set] || {
+            nodes: chance.shuffle(_.flatten(_.map(pools, pool => {
+                let group = alloc_group_by_pool[pool._id];
+                return group && group.nodes;
+            })))
+        };
+    let num_nodes = alloc_group ? alloc_group.nodes.length : 0;
+    dbg.log1('allocate_node: pool_set', pool_set,
+        'num_nodes', num_nodes,
+        'alloc_group', alloc_group);
+    if (num_nodes < config.NODES_MIN_COUNT) {
+        throw new Error('allocate_node: not enough online nodes in pool set ' + pool_set);
     }
-
-    if (info.promise) return info.promise;
-
-    // refresh
-    info.promise = P.when(get_associated_nodes(system, pools))
-        .then(function(nodes) {
-            info.promise = null;
-            info.nodes = nodes;
-            if (nodes.length < config.min_node_number) {
-                throw new Error('not enough nodes: ' + nodes.length);
-            }
-            info.last_refresh = new Date();
-            return nodes;
-        }, function(err) {
-            info.promise = null;
-            throw err;
-        });
-
-    return info.promise;
+    for (var i = 0; i < num_nodes; ++i) {
+        var node = get_round_robin(alloc_group.nodes);
+        if (!_.includes(avoid_nodes, node._id.toString())) {
+            dbg.log1('allocate_node: allocated node', node.name,
+                'avoid_nodes', avoid_nodes);
+            return node;
+        }
+    }
 }
-
-function get_associated_nodes(system, pools) {
-    pools = _.flatten(pools);
-    var min_heartbeat = db.Node.get_minimum_alloc_heartbeat();
-    return P.when(db.Node.collection.find({
-        system: system,
-        deleted: null,
-        pool: {
-            $in: _.map(pools, '_id')
-        },
-        heartbeat: {
-            $gt: min_heartbeat
-        },
-        srvmode: null,
-    }, {
-        sort: {
-            // sorting with lowest used storage nodes first
-            'storage.used': 1
-        },
-        limit: 100
-    }).toArray());
-}
-
 
 function get_round_robin(nodes) {
-    var rr = nodes.rr || 0;
-    nodes.rr = (rr + 1) % nodes.length;
+    var rr = (nodes.rr || 0) % nodes.length;
+    nodes.rr = rr + 1;
     return nodes[rr];
-}
-
-function get_block_md(block) {
-    var b = _.pick(block, 'size', 'digest_type', 'digest_b64');
-    b.id = block._id.toString();
-    b.address = block.node.rpc_address;
-    return b;
 }

@@ -1,26 +1,24 @@
-// make jshint ignore mocha globals
-// /* global describe, it, before, after, beforeEach, afterEach */
-/* global describe, it */
 'use strict';
 
 // var _ = require('lodash');
+var mocha = require('mocha');
 var assert = require('assert');
 var dot = require('../util/dot');
 var dot_engine = require('../util/dot_engine');
 var dot_orig = require('dot');
 
-describe('dot', function() {
+mocha.describe('dot', function() {
 
-    it('should return original dot', function() {
+    mocha.it('should return original dot', function() {
         assert.strictEqual(dot, dot_orig, 'expected original dot module to be returned');
     });
 
-    describe('engine', function() {
+    mocha.describe('engine', function() {
 
         var engine = dot_engine();
         var orig_read_template = engine.read_template;
 
-        it('should include string template', function() {
+        mocha.it('should include string template', function() {
             engine.read_template = function(name) {
                 if (name === 'ninja') {
                     return 'NINJA {{{= it.what }}}';
@@ -47,7 +45,7 @@ describe('dot', function() {
             validate(engine('turtles', ctx));
         });
 
-        it('should include file template', function(callback) {
+        mocha.it('should include file template', function(callback) {
             engine.read_template = function(name) {
                 if (name === 'foo') {
                     return '{"foomanchu": {{{# def.include("package.json",{a:1}) }}} }';
@@ -62,10 +60,11 @@ describe('dot', function() {
                 try {
                     var json = JSON.parse(data);
                     if (typeof(json) !== 'object' ||
-                        typeof(json.foomanchu) !== 'object' || json.foomanchu.name !== 'noobaa-util') {
+                        typeof(json.foomanchu) !== 'object' || json.foomanchu.name !== 'noobaa-core') {
                         callback(new Error('template engine did not produce package.json'));
+                    } else {
+                        callback();
                     }
-                    return callback();
                 } catch (err) {
                     return callback(err);
                 }

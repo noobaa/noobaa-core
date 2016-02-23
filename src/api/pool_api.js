@@ -27,7 +27,7 @@ module.exports = {
             method: 'POST',
             params: {
                 type: 'object',
-                required: ['pool'],
+                required: ['name'],
                 properties: {
                     name: {
                         type: 'string',
@@ -99,31 +99,8 @@ module.exports = {
             }
         },
 
-        add_nodes_to_pool: {
+        assign_nodes_to_pool: {
             doc: 'Add nodes to Pool',
-            method: 'POST',
-            params: {
-                type: 'object',
-                required: ['name'],
-                properties: {
-                    name: {
-                        type: 'string',
-                    },
-                    nodes: {
-                        type: 'array',
-                        items: {
-                            type: 'string',
-                        }
-                    }
-                }
-            },
-            auth: {
-                system: 'admin'
-            }
-        },
-
-        remove_nodes_from_pool: {
-            doc: 'Remove nodes to Pool',
             method: 'POST',
             params: {
                 type: 'object',
@@ -199,8 +176,8 @@ module.exports = {
                 storage: {
                     $ref: 'common_api#/definitions/storage_info'
                 },
-                deletion_status: {
-                    $ref: '#/definitions/deletion_status'
+                undeletable: {
+                    $ref: 'common_api#/definitions/undeletable_enum'
                 }
             },
         },
@@ -227,9 +204,5 @@ module.exports = {
             }
         },
 
-        deletion_status: {
-            enum: ['CAN_BE_DELETED','NOT_EMPTY', 'ASSOCIATED', 'SYSTEM_ENTITY'],
-            type: 'string',
-        },
     }
 };

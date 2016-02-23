@@ -28,11 +28,7 @@ function FrameStream(stream, msg_handler, config) {
     this._send_seq = (MAX_SEQ * Math.random()) >>> 0;
     this._recv_seq = NaN;
     this._header_len = this._magic_len + 8;
-
-    var self = this;
-    stream.on('readable', function() {
-        self._on_readable();
-    });
+    stream.on('readable', () => this._on_readable());
 }
 
 /**
@@ -62,6 +58,7 @@ FrameStream.prototype.send_message = function(buffer_or_buffers, message_type_co
     // in addition, we also don't pass a callback function to write,
     // because we prefer the errors to be handled by the stream error event.
     try {
+        // this.stream.cork();
         this.stream.write(msg_header);
         if (is_iovecs) {
             for (var i = 0; i < buffer_or_buffers.length; ++i) {
@@ -70,6 +67,7 @@ FrameStream.prototype.send_message = function(buffer_or_buffers, message_type_co
         } else {
             this.stream.write(buffer_or_buffers);
         }
+        // this.stream.uncork();
     } catch (err) {
         this.stream.emit('error', err);
         throw err;

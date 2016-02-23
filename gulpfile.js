@@ -115,7 +115,7 @@ var PATHS = {
 
     ngview: 'src/ngview/**/*',
     scripts: ['src/**/*.js', '*.js'],
-    test_scripts: 'src/**/test*.js',
+    test_all: 'src/test/all.js',
     html_scripts: [
         // 'src/views/adminoobaa.html'
     ],
@@ -709,7 +709,7 @@ gulp.task('client_libs', ['bower'], function() {
         .pipe(gulp.dest(DEST));
 });
 
-gulp.task('client', function() {
+gulp.task('client', ['ng'], function() {
     var DEST = 'build/public/js';
     var NAME = 'app.js';
     var NAME_MIN = 'app.min.js';
@@ -749,7 +749,7 @@ gulp.task('mocha', function() {
         .pipe(gulp_istanbul())
         .pipe(gulp_istanbul.hookRequire()) // Force `require` to return covered files
         .on('finish', function() {
-            return gulp.src(PATHS.test_scripts, SRC_DONT_READ)
+            return gulp.src(PATHS.test_all, SRC_DONT_READ)
                 .pipe(gulp_mocha(mocha_options))
                 .pipe(gulp_istanbul.writeReports());
         });
@@ -827,21 +827,24 @@ gulp.task('install_ng_and_serve', ['ng'], serve);
 gulp.task('install_client_and_serve', ['client', 'ng', 'frontend'], serve);
 
 gulp.task('watch', ['serve'], function() {
-    gulp.watch([
-        'src/css/**/*'
-    ], ['install_css_and_serve']);
-    gulp.watch([
-        'src/ngview/**/*',
-    ], ['install_ng_and_serve']);
-    gulp.watch([
-        'src/client/**/*',
-        'src/api/**/*',
-        'src/rpc/**/*',
-        'src/util/**/*',
-    ], ['install_client_and_serve']);
+    // gulp.watch([
+    //     'src/css/**/*'
+    // ], ['install_css_and_serve']);
+    // gulp.watch([
+    //     'src/ngview/**/*',
+    // ], ['install_ng_and_serve']);
+    // gulp.watch([
+    //     'src/client/**/*',
+    //     'src/api/**/*',
+    //     'src/rpc/**/*',
+    //     'src/util/**/*',
+    // ], ['install_client_and_serve']);
     gulp.watch([
         'src/server/**/*',
         'src/views/**/*',
+        'src/api/**/*',
+        'src/rpc/**/*',
+        'src/util/**/*',
     ], ['serve']);
 });
 gulp.task('watch_bg', ['serve_bg'], function() {

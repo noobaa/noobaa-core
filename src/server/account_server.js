@@ -7,7 +7,6 @@ var db = require('./db');
 var bcrypt = require('bcrypt');
 var system_store = require('./stores/system_store');
 var system_server = require('./system_server');
-// var server_rpc = require('./server_rpc').server_rpc;
 // var dbg = require('../util/debug_module')(__filename);
 
 
@@ -21,10 +20,8 @@ var account_server = {
     create_account: create_account,
     read_account: read_account,
     update_account: update_account,
-    delete_curr_account: delete_curr_account,
     delete_account: delete_account,
     list_accounts: list_accounts,
-    list_system_accounts: list_system_accounts,
     accounts_status: accounts_status,
     get_system_roles: get_system_roles,
     add_account_sync_credentials_cache: add_account_sync_credentials_cache,
@@ -107,34 +104,30 @@ function read_account(req) {
  *
  */
 function update_account(req) {
-    let updates = _.pick(req.rpc_params, 'name', 'email', 'password', 'new_email');
-    let account = system_store.data.accounts_by_email[updates.email];
-
-    console.log('UPDATES:', updates)
-    console.log('ACCOUNT', account)
-
-    if (req.account._id !== account._id && !is_support_or_admin(req.system, req.account)) {
-        throw req.unauthorized('Action not allowed');
+    let account = system_store.data.accounts_by_email[req.rpc_params.email];
+    if (!account) {
+        throw req.rpc_error('NOT_FOUND', 'account not found');
     }
-
+    if (!is_support_or_admin_or_me(req.system, req.account, account)) {
+        throw req.unauthorized('Cannot update account');
+    }
     if (account.is_support) {
-        throw new Error('Invalid account, cannot update support account');
+        throw req.forbidden('Cannot update support account');
     }
-
+    let updates = _.pick(req.rpc_params, 'name', 'password');
+    updates._id = account._id;
+    if (req.rpc_params.new_email) {
+        updates.email = req.rpc_params.new_email;
+    }
     return bcrypt_password(updates)
-        .then(
-            () => {
-                updates._id = account._id;
-                return system_store.make_changes({
-                    update: {
-                        accounts: [updates]
-                    }
-                });
-            }
-        )
-        .then(
-            () => create_activity_log_entry(req, 'update', account)
-        )
+        .then(() => {
+            return system_store.make_changes({
+                update: {
+                    accounts: [updates]
+                }
+            });
+        })
+        .then(() => create_activity_log_entry(req, 'update', account))
         .return();
 }
 
@@ -145,32 +138,19 @@ function update_account(req) {
  * DELETE_ACCOUNT
  *
  */
-
-// TODO: Remove after retiring the old menegment console.
-function delete_curr_account(req) {
-    create_activity_log_entry(req, 'delete', req.account);
-
-    return system_store.make_changes({
-            remove: {
-                accounts: [req.account._id]
-            }
-        })
-        .return();
-}
-
 function delete_account(req) {
-    if (!is_support_or_admin(req.system, req.account)) {
-        throw req.unauthorized('Action not allowed');
-    }
-
     let account_to_delete = system_store.data.accounts_by_email[req.rpc_params.email];
-
-    if (account_to_delete.is_support) {
-        throw new Error('Invalid account, cannot delete support account');
+    if (!account_to_delete) {
+        throw req.rpc_error('NOT_FOUND', 'account not found');
     }
-
-    if (account_to_delete.email === req.system.owner.email) {
-        throw new Error('Invalid account, cannot delete system owner account');
+    if (account_to_delete.is_support) {
+        throw req.rpc_error('BAD_REQUEST', 'Cannot delete support account');
+    }
+    if (String(account_to_delete._id) === String(req.system.owner._id)) {
+        throw req.rpc_error('BAD_REQUEST', 'Cannot delete system owner account');
+    }
+    if (!is_support_or_admin_or_me(req.system, req.account, account_to_delete)) {
+        throw req.unauthorized('Cannot delete account');
     }
 
     let roles_to_delete = system_store.data.roles
@@ -205,50 +185,21 @@ function delete_account(req) {
  * LIST_ACCOUNTS
  *
  */
-function list_accounts(req, system_id) {
-    var accounts;
+function list_accounts(req) {
+    let accounts;
     if (req.account.is_support) {
         // for support account - list all accounts
         accounts = system_store.data.accounts;
-    } else {
-        // for normal accounts - use current account
-        accounts = [req.account];
+    } else if (req.account) {
+        // list system accounts - system admin can see all the system accounts
+        if (!_.includes(req.account.roles_by_system[req.system._id], 'admin')) {
+            throw req.unauthorized('Must be system admin');
+        }
+        let account_ids = _.map(req.system.roles_by_account, (roles, account_id) =>
+            roles && roles.length ? account_id : null);
+        accounts = _.compact(_.map(account_ids, account_id =>
+            system_store.data.get_by_id(account_id)));
     }
-    // system_id is provided by internal call from list_system_accounts
-    if (system_id) {
-        accounts = _.filter(accounts, function(account) {
-            var roles = account.roles_by_system[system_id];
-            return roles && roles.length;
-        });
-    }
-    return {
-        accounts: _.map(accounts, get_account_info)
-    };
-}
-
-/**
- *
- * LIST_SYSTEM_ACCOUNTS
- *
- */
-function list_system_accounts(req) {
-    let accounts;
-    if (is_support_or_admin(req.system, req.account)) {
-        accounts = _.filter(
-            system_store.data.accounts,
-            account => {
-                if (account.is_support) {
-                    return false;
-                } else {
-                    let roles = account.roles_by_system[req.system._id];
-                    return roles && roles.length > 0;
-                }
-            }
-        );
-    } else {
-        accounts = [req.account];
-    }
-
     return {
         accounts: _.map(accounts, get_account_info)
     };
@@ -381,12 +332,13 @@ function bcrypt_password(account) {
         });
 }
 
-
-function is_support_or_admin(system, account) {
+function is_support_or_admin_or_me(system, account, target_account) {
     return account.is_support ||
-        account.roles_by_system[system._id]
-        .some(
-            role => role === 'admin'
+        (target_account && String(target_account._id) === String(account._id)) ||
+        (
+            system && account.roles_by_system[system._id].some(
+                role => role === 'admin'
+            )
         );
 }
 

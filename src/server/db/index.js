@@ -8,7 +8,6 @@ var dbg = require('../../util/debug_module')(__filename);
 
 
 var LRUCache = require('../../util/lru_cache');
-var Node = require('./node');
 var ObjectMD = require('./object_md');
 var ObjectPart = require('./object_part');
 var DataChunk = require('./data_chunk');
@@ -34,9 +33,7 @@ mongoose.connection.on('connected', function() {
     // call ensureIndexes explicitly for each model
     console.log('mongoose connection connected');
     mongoose_connected = true;
-    return P.all(_.map(mongoose.modelNames(), function(model_name) {
-        return P.npost(mongoose.model(model_name), 'ensureIndexes');
-    }));
+    mongoose_ensure_indexes();
 });
 
 mongoose.connection.on('error', function(err) {
@@ -72,19 +69,20 @@ module.exports = {
     // be confusing and buggy...
     new_object_id: mongoose.Types.ObjectId,
 
-    Node: Node,
     ObjectMD: ObjectMD,
     ObjectPart: ObjectPart,
     DataChunk: DataChunk,
     DataBlock: DataBlock,
     ActivityLog: ActivityLog,
 
+    mongoose_connect: mongoose_connect,
+    mongoose_ensure_indexes: mongoose_ensure_indexes,
+    mongoose_wait_connected: mongoose_wait_connected,
+
     check_not_found: check_not_found,
     check_not_deleted: check_not_deleted,
-    mongoose_connect: mongoose_connect,
     check_already_exists: check_already_exists,
     is_err_exists: is_err_exists,
-
 
     // short living cache for objects
     // the purpose is to reduce hitting the DB many many times per second during upload/download.
@@ -96,7 +94,7 @@ module.exports = {
             return params.system + ':' + params.bucket + ':' + params.key;
         },
         load: function(params) {
-            console.log('ObjectMDCache: load', params.name);
+            console.log('ObjectMDCache: load', params.key);
             return P.when(ObjectMD.findOne({
                 system: params.system,
                 bucket: params.bucket,
@@ -114,6 +112,26 @@ function mongoose_connect() {
     if (!mongoose_connected) {
         mongoose.connect(MONGODB_URL);
     }
+}
+
+function mongoose_wait_connected() {
+    return new P((resolve, reject) => {
+        if (mongoose_connected) {
+            resolve();
+        } else {
+            mongoose.connection.once('connected', resolve);
+            mongoose.connection.once('error', reject);
+        }
+    });
+}
+
+// after dropDatabase() we need to recreate the indexes
+// otherwise we get "MongoError: ns doesn't exist"
+// see https://github.com/LearnBoost/mongoose/issues/2671
+function mongoose_ensure_indexes() {
+    return P.all(_.map(mongoose.modelNames(), function(model_name) {
+        return P.npost(mongoose.model(model_name), 'ensureIndexes');
+    }));
 }
 
 function check_not_found(req, entity) {

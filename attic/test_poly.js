@@ -1,15 +1,13 @@
-// make jshint ignore mocha globals
-/* global describe, it, before, after, beforeEach, afterEach */
-/* exported describe, it, before, after, beforeEach, afterEach */
 'use strict';
 
 var _ = require('lodash');
 var P = require('../src/util/promise');
+var mocha = require('mocha');
 // var assert = require('assert');
 var Poly = require('./poly');
 
 
-describe('poly', function() {
+mocha.describe('poly', function() {
 
     var test_degree = parseInt(process.env.POLY_TEST_DEGREE, 10);
     var max_degree = parseInt(process.env.POLY_TEST_MAX_DEGREE, 10) || 8;
@@ -29,7 +27,7 @@ describe('poly', function() {
             return;
         }
 
-        it(p.toString(), function(done) {
+        mocha.it(p.toString(), function(done) {
 
             this.timeout(1000000);
             console.log(' ');

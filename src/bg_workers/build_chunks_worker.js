@@ -50,7 +50,9 @@ function background_worker() {
 
             return P.when(db.DataChunk.collection.find(query, {
                 limit: self.batch_size,
-                sort: '-_id'
+                sort: {
+                    _id: -1
+                }
             }).toArray());
         })
         .then(function(chunks) {

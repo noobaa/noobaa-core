@@ -200,7 +200,7 @@ function update_heartbeat(req, reply_token) {
         // Add node to RPC map and notify redirector if needed
         var notify_redirector = server_rpc.rpc.map_address_to_connection(rpc_address, conn);
         if (notify_redirector) {
-            conn.on('close', _unregister_agent.bind(null, conn, peer_id));
+            conn.on('close', () => P.fcall(_unregister_agent, conn, peer_id));
             P.fcall(function() {
                     return server_rpc.bg_client.redirector.register_agent({
                         peer_id: peer_id,

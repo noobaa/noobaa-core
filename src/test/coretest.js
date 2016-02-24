@@ -17,8 +17,8 @@ var server_rpc = require('../server/server_rpc');
 var config = require('../../config.js');
 var db = require('../server/db');
 var agentctl = require('./core_agent_control');
-var dbg = require('../util/debug_module')(__filename);
-dbg.set_level(5, 'core');
+// var dbg = require('../util/debug_module')(__filename);
+// dbg.set_level(5, 'core');
 
 P.longStackTraces();
 config.test_mode = true;
@@ -38,6 +38,7 @@ server_rpc.rpc.router.default =
     'fcall://fcall';
 
 let http_port = 0;
+let http_server;
 let api_coverage = new Set();
 let client_options = {
     tracker: req => api_coverage.delete(req.srv)
@@ -62,8 +63,9 @@ mocha.before('coretest-before', function() {
             logging: true,
             ws: true
         }))
-        .then(http_server => {
+        .then(http_server_arg => {
             // the http/ws port is used by the agents
+            http_server = http_server_arg;
             http_port = http_server.address().port;
             console.log('CORETEST HTTP SERVER', http_port);
         });
@@ -89,6 +91,17 @@ mocha.after('coretest-after', function() {
             }
         }
     }
+
+    return agentctl.cleanup_agents()
+        .delay(1000)
+        .then(() => server_rpc.rpc.set_disconnected_state(true))
+        .then(() => mongo_client.disconnect())
+        .then(() => {
+            mongoose.connection.removeAllListeners('disconnected');
+            mongoose.connection.removeAllListeners('error');
+            mongoose.connection.close();
+        })
+        .then(() => http_server && http_server.close());
 });
 
 function set_incomplete_rpc_coverage(type) {
@@ -129,9 +142,6 @@ function clear_test_nodes() {
             }, 3000);
             return nodes_store.test_code_delete_all_nodes()
                 .finally(() => clearTimeout(warning_timeout));
-        }).then(() => {
-            console.log('STOPING AGENTS');
-            return agentctl.stop_all_agents();
         })
         .then(() => {
             console.log('CLEANING AGENTS');

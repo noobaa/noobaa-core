@@ -163,6 +163,7 @@ Agent.prototype.start = function() {
     var self = this;
 
     self.is_started = true;
+    self.rpc.set_disconnected_state(false);
 
     return P.fcall(function() {
             return self._init_node();
@@ -189,7 +190,12 @@ Agent.prototype.stop = function() {
     self.is_started = false;
     self._start_stop_server();
     self._start_stop_heartbeats();
-    self.rpc.disconnect_all();
+    // mark the rpc state as disconnected to close and reject incoming connections
+    self.rpc.set_disconnected_state(true);
+    // reset the n2n config to close any open ports
+    self.n2n_agent.update_n2n_config({
+        tcp_permanent_passive: false
+    });
 };
 
 

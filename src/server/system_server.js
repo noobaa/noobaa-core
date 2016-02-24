@@ -51,6 +51,7 @@ var tier_server = require('./tier_server');
 var system_store = require('./stores/system_store');
 var nodes_store = require('./stores/nodes_store');
 var size_utils = require('../util/size_utils');
+var mongo_functions = require('../util/mongo_functions');
 // var stun = require('../rpc/stun');
 var promise_utils = require('../util/promise_utils');
 var dbg = require('../util/debug_module')(__filename);
@@ -175,11 +176,8 @@ function read_system(req) {
         // blocks
         db.DataBlock.mapReduce({
             query: by_system_id_undeleted,
-            map: function() {
-                /* global emit */
-                emit('size', this.size);
-            },
-            reduce: size_utils.reduce_sum
+            map: mongo_functions.map_size,
+            reduce: mongo_functions.reduce_sum
         }),
 
         promise_utils.all_obj(system.buckets_by_name, function(bucket) {

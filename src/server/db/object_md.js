@@ -5,7 +5,7 @@ var _ = require('lodash');
 var mongoose = require('mongoose');
 var Schema = mongoose.Schema;
 var types = mongoose.Schema.Types;
-var size_utils = require('../../util/size_utils');
+var mongo_functions = require('../../util/mongo_functions');
 
 
 /**
@@ -121,14 +121,8 @@ objmd_schema.index({
 objmd_schema.statics.aggregate_objects = function(query) {
     return this.mapReduce({
         query: query,
-        map: function() {
-            /* global emit */
-            emit(['', 'size'], this.size);
-            emit(['', 'count'], 1);
-            emit([this.bucket, 'size'], this.size);
-            emit([this.bucket, 'count'], 1);
-        },
-        reduce: size_utils.reduce_sum
+        map: mongo_functions.map_aggregate_objects,
+        reduce: mongo_functions.reduce_sum
     }).then(function(res) {
         var buckets = {};
         _.each(res, function(r) {

@@ -12,6 +12,7 @@ var system_store = require('./stores/system_store');
 var glob_to_regexp = require('glob-to-regexp');
 var dbg = require('../util/debug_module')(__filename);
 var string_utils = require('../util/string_utils');
+var mongo_functions = require('../util/mongo_functions');
 
 /**
  *
@@ -425,14 +426,8 @@ function list_objects(req) {
                 // this is used by s3 protocol to return folder structure
                 // even if there is no explicit empty object with the folder name.
                 common_prefixes_query = db.ObjectMD.collection.mapReduce(
-                    function map_func() {
-                        /* global emit */
-                        var suffix = this.key.slice(prefix.length);
-                        var pos = suffix.indexOf(delimiter);
-                        if (pos >= 0) {
-                            emit(suffix.slice(0, pos), undefined);
-                        }
-                    }, _.noop, {
+                    mongo_functions.map_key_with_prefix_delimiter,
+                    mongo_functions.reduce_noop, {
                         query: {
                             system: req.system._id,
                             bucket: req.bucket._id,

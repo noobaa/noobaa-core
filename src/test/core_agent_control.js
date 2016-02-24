@@ -127,13 +127,15 @@ function stop_agent(node_name) {
 }
 
 function start_all_agents() {
-    return P.all(_.map(agntCtlConfig.allocated_agents, (entry, node_name) =>
-        start_agent(node_name)));
+    return P.all(_.map(agntCtlConfig.allocated_agents,
+        (entry, node_name) => start_agent(node_name)
+    ));
 }
 
 function stop_all_agents() {
-    return P.all(_.map(agntCtlConfig.allocated_agents, (entry, node_name) =>
-        stop_agent(node_name)));
+    return P.all(_.map(agntCtlConfig.allocated_agents,
+        (entry, node_name) => stop_agent(node_name)
+    ));
 }
 
 function get_agents_list() {

@@ -549,6 +549,9 @@ RPC.prototype._new_connection = function(addr_url) {
  */
 RPC.prototype._accept_new_connection = function(conn) {
     var self = this;
+    if (self._disconnected_state) {
+        throw new Error('RPC IN DISCONNECTED STATE');
+    }
     conn._sent_requests = {};
     conn._received_requests = {};
     conn.on('message', function(msg) {
@@ -614,6 +617,19 @@ RPC.prototype._reconnect = function(addr_url, reconn_backoff) {
                     err.stack || err);
             });
     }, reconn_backoff);
+};
+
+
+/**
+ *
+ */
+RPC.prototype.set_disconnected_state = function(state) {
+    if (state) {
+        this._disconnected_state = true;
+        this.disconnect_all();
+    } else {
+        this._disconnected_state = false;
+    }
 };
 
 

@@ -14,7 +14,7 @@ var _ = require('lodash');
 var P = require('../util/promise');
 var db = require('./db');
 var Barrier = require('../util/barrier');
-var size_utils = require('../util/size_utils');
+var mongo_functions = require('../util/mongo_functions');
 var promise_utils = require('../util/promise_utils');
 var server_rpc = require('./server_rpc');
 var system_server = require('./system_server');
@@ -80,11 +80,8 @@ var heartbeat_count_node_storage_barrier = new Barrier({
                         $in: node_ids
                     },
                 },
-                map: function() {
-                    /* global emit */
-                    emit(this.node, this.size);
-                },
-                reduce: size_utils.reduce_sum
+                map: mongo_functions.map_size,
+                reduce: mongo_functions.reduce_sum
             }))
             .then(function(res) {
                 // convert the map-reduce array to map of node_id -> sum of block sizes

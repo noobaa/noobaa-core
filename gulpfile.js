@@ -740,19 +740,22 @@ gulp.task('client', ['ng'], function() {
 });
 
 
-gulp.task('mocha', function() {
+gulp.task('hook_cov', function() {
+    // Force `require` to return covered files
+    return gulp
+        .src(PATHS.scripts.concat(['!./src/util/mongo_functions.js']))
+        .pipe(gulp_istanbul())
+        .pipe(gulp_istanbul.hookRequire());
+});
+
+gulp.task('mocha', ['hook_cov'], function() {
     var mocha_options = {
         reporter: 'spec'
     };
-    return gulp
-        .src(PATHS.scripts)
-        .pipe(gulp_istanbul())
-        .pipe(gulp_istanbul.hookRequire()) // Force `require` to return covered files
-        .on('finish', function() {
-            return gulp.src(PATHS.test_all, SRC_DONT_READ)
-                .pipe(gulp_mocha(mocha_options))
-                .pipe(gulp_istanbul.writeReports());
-        });
+    // return gulp.src('./src/test/test_system_servers.js', SRC_DONT_READ)
+    return gulp.src(PATHS.test_all, SRC_DONT_READ)
+        .pipe(gulp_mocha(mocha_options))
+        .pipe(gulp_istanbul.writeReports());
 });
 
 gulp.task('test', ['lint', 'mocha']);

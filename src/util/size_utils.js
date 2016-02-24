@@ -3,6 +3,7 @@
 
 var _ = require('lodash');
 var make_object = require('./js_utils').make_object;
+var mongo_functions = require('./mongo_functions');
 
 /**
  * functions to handle storage sizes that might not fit into single integer
@@ -39,7 +40,7 @@ module.exports = {
     to_bigint_storage: to_bigint_storage,
     reduce_storage: reduce_storage,
     reduce_minimum: reduce_minimum,
-    reduce_sum: reduce_sum,
+    reduce_sum: mongo_functions.reduce_sum,
     human_size: human_size,
     human_offset: human_offset,
     KILOBYTE: KILOBYTE,
@@ -152,32 +153,6 @@ function reduce_minimum(key, values) {
     return !peta_min ? n_min : {
         n: n_min,
         peta: peta_min,
-    };
-}
-
-
-// a map-reduce part for summing up
-// this function must be self contained to be able to send to mongo mapReduce()
-// so not using any functions or constants from above.
-function reduce_sum(key, values) {
-    var PETABYTE = 1024 * 1024 * 1024 * 1024 * 1024;
-    var n = 0;
-    var peta = 0;
-    values.forEach(function(v) {
-        if (typeof(v) === 'number') {
-            n += v;
-        } else if (v) {
-            n += v.n;
-            peta += v.peta;
-        }
-        while (n >= PETABYTE) {
-            n -= PETABYTE;
-            peta += 1;
-        }
-    });
-    return !peta ? n : {
-        n: n,
-        peta: peta,
     };
 }
 

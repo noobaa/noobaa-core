@@ -5,6 +5,7 @@ var _ = require('lodash');
 var P = require('../util/promise');
 var size_utils = require('../util/size_utils');
 var string_utils = require('../util/string_utils');
+var mongo_functions = require('../util/mongo_functions');
 var map_reader = require('./mapper/map_reader');
 var node_monitor = require('./node_monitor');
 var nodes_store = require('./stores/nodes_store');
@@ -309,7 +310,8 @@ function group_nodes(req) {
                 deleted: null,
             };
 
-            return require('./stores/node_model').mapReduce({
+            let NodeModel = require('./stores/node_model');
+            return NodeModel.mapReduce({
                 query: by_system,
                 scope: {
                     // have to pass variables to map/reduce with a scope
@@ -317,46 +319,8 @@ function group_nodes(req) {
                     group_by: group_by,
                     reduce_sum: reduce_sum,
                 },
-                map: function() {
-                    var key = {};
-                    if (group_by.pool) {
-                        key.p = this.pool;
-                    }
-                    if (group_by.geolocation) {
-                        key.g = this.geolocation;
-                    }
-                    var online = (!this.srvmode && this.heartbeat >= minimum_online_heartbeat);
-                    var val = {
-                        // count
-                        c: 1,
-                        // online
-                        o: online ? 1 : 0,
-                        // allocated
-                        a: this.storage.alloc || 0,
-                        // used
-                        u: this.storage.used || 0,
-                    };
-                    /* global emit */
-                    emit(key, val);
-                },
-                reduce: function(key, values) {
-                    var c = []; // count
-                    var o = []; // online
-                    var a = []; // allocated
-                    var u = []; // used
-                    values.forEach(function(v) {
-                        c.push(v.c);
-                        o.push(v.o);
-                        a.push(v.a);
-                        u.push(v.u);
-                    });
-                    return {
-                        c: reduce_sum(key, c),
-                        o: reduce_sum(key, o),
-                        a: reduce_sum(key, a),
-                        u: reduce_sum(key, u),
-                    };
-                }
+                map: mongo_functions.map_nodes_groups,
+                reduce: mongo_functions.reduce_nodes_groups
             });
         })
         .then(function(res) {
@@ -447,7 +411,6 @@ function get_test_nodes(req) {
 // UTILS //////////////////////////////////////////////////////////
 
 
-
 /*
 function count_node_storage_used(node_id) {
     return P.when(db.DataBlock.mapReduce({
@@ -455,10 +418,8 @@ function count_node_storage_used(node_id) {
                 node: node_id,
                 deleted: null,
             },
-            map: function() {
-                emit('size', this.size);
-            },
-            reduce: size_utils.reduce_sum
+            map: mongo_functions.map_size,
+            reduce: mongo_functions.reduce_sum
         }))
         .then(function(res) {
             return res && res[0] && res[0].value || 0;

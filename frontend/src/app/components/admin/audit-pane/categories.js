@@ -39,12 +39,17 @@ export default {
         events: {
             create: {
                 message: 'Account Created',
-                entityId: ({ bucket }) => bucket && bucket.email 
+                entityId: ({ account }) => account && account.email
+            },
+
+            update: {
+                message: 'Account Updated',
+                entityId: ({ account }) => account && account.email
             },
 
             delete: {
                 message: 'Account Deleted',
-                entityId: ({ bucket }) => bucket && bucket.email 
+                entityId: ({ account }) => account && account.email
             }
         }
     },

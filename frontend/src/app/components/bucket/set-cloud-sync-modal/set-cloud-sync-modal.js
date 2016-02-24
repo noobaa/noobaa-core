@@ -91,7 +91,7 @@ class CloudSyncModalViewModel {
     }
 
     loadBucketsList() {
-        let { access_key, secret_key } = this.awsCredentials(); 
+        let { access_key, secret_key } = this.awsCredentials();
         loadAwsBucketList(access_key, secret_key);
     }
 

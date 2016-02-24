@@ -13,6 +13,7 @@ export default function register(ko) {
     ko.components.register('main-header',       require('./layout/main-header/main-header'));
     ko.components.register('commands-bar',      require('./layout/commands-bar/commands-bar'));
     ko.components.register('breadcrumbs',       require('./layout/breadcrumbs/breadcrumbs'));
+    ko.components.register('notification-bar',  require('./layout/notification-bar/notification-bar'));
     
     // -------------------------------
     // Login

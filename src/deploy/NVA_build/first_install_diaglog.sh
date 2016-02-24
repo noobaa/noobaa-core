@@ -123,7 +123,7 @@ DNS servers (Use \Z4\ZbUp/Down\Zn to navigate)." 12 80 4 "Primary DNS:" 1 1 "" 1
 
 function end_wizard {
   local current_ip=$(ifconfig eth0  |grep 'inet addr' | cut -f 2 -d':' | cut -f 1 -d' ')
-  dialog --colors --nocancel --backtitle "NooBaa First Install" --title '\Z5\ZbNooBaa\Zn is Ready' --msgbox "\n\Z5\ZbNooBaa\Zn was configured and is ready to use. You can access \Z5\Zbhttps://${current_ip}:8443\Zn to start using your system." 7 65
+  dialog --colors --nocancel --backtitle "NooBaa First Install" --title '\Z5\ZbNooBaa\Zn is Ready' --msgbox "\n\Z5\ZbNooBaa\Zn was configured and is ready to use. You can access \Z5\Zbhttp://${current_ip}:8080\Zn to start using your system." 7 65
   date >> ${FIRST_INSTALL_MARK}
   clear
 

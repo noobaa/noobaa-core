@@ -97,6 +97,7 @@ process.on("SIGTERM", leave_no_wounded);
 var PATHS = {
     css: 'src/css/**/*',
     less_css: ['src/css/styles.less'],
+    ngview: 'src/ngview/**/*',
 
     assets: {
         'build/public': [
@@ -113,11 +114,14 @@ var PATHS = {
         ],
     },
 
-    ngview: 'src/ngview/**/*',
-    scripts: ['src/**/*.js', '*.js'],
     test_all: 'src/test/all.js',
-    html_scripts: [
-        // 'src/views/adminoobaa.html'
+    js_for_lint: ['src/**/*.js', '*.js'],
+    js_for_coverage: [
+        'src/**/*.js',
+        '*.js',
+        '!src/deploy/**/*',
+        '!src/licenses/**/*',
+        '!src/util/mongo_functions.js'
     ],
 
     server_main: 'src/server/web_server.js',
@@ -455,7 +459,7 @@ gulp.task('lint', [
 
 gulp.task('eslint', function() {
     return gulp
-        .src(_.flatten([PATHS.scripts, PATHS.html_scripts]))
+        .src(PATHS.js_for_lint)
         // eslint() attaches the lint output to the eslint property
         // of the file object so it can be used by other modules.
         .pipe(gulp_eslint())
@@ -469,7 +473,7 @@ gulp.task('eslint', function() {
 
 gulp.task('jshint', function() {
     return gulp
-        .src(_.flatten([PATHS.scripts, PATHS.html_scripts]))
+        .src(PATHS.js_for_lint)
         .pipe(gulp_plumber(PLUMB_CONF))
         .pipe(gulp_cached('jshint'))
         .pipe(gulp_jshint.extract())
@@ -740,15 +744,17 @@ gulp.task('client', ['ng'], function() {
 });
 
 
-gulp.task('hook_cov', function() {
+gulp.task('coverage_hook', function() {
     // Force `require` to return covered files
     return gulp
-        .src(PATHS.scripts.concat(['!./src/util/mongo_functions.js']))
-        .pipe(gulp_istanbul())
+        .src(PATHS.js_for_coverage)
+        .pipe(gulp_istanbul({
+            includeUntested: true
+        }))
         .pipe(gulp_istanbul.hookRequire());
 });
 
-gulp.task('mocha', ['hook_cov'], function() {
+gulp.task('mocha', ['coverage_hook'], function() {
     var mocha_options = {
         reporter: 'spec'
     };

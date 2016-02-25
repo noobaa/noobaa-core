@@ -398,7 +398,7 @@ class ObjectDriver {
         return P.map(part.alloc_part.chunk.frags, fragment => {
             var frag_key = get_frag_key(fragment);
             // TODO GGG write one and replicate the others
-            fragment.blocks = [fragment.blocks[0]];
+            // fragment.blocks = [fragment.blocks[0]];
             return P.map(fragment.blocks, block => {
                 return this._attempt_write_block({
                     part: part.alloc_part,

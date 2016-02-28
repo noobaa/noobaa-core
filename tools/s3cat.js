@@ -1,7 +1,9 @@
 'use strict';
 
+let _ = require('lodash');
 let fs = require('fs');
-let util = require('util');
+// let util = require('util');
+let moment = require('moment');
 let mime = require('mime');
 let AWS = require('aws-sdk');
 var argv = require('minimist')(process.argv);
@@ -18,9 +20,11 @@ let s3 = new AWS.S3({
     computeChecksums: false,
 });
 
-if (argv.upload) {
+if (argv.help) {
+    print_usage();
+} else if (argv.upload) {
     upload_file();
-} else {
+} else if (argv.list || argv.ls || argv.ll || true) {
     list_objects();
 }
 
@@ -30,9 +34,31 @@ function list_objects() {
         Prefix: argv.prefix || '',
         Delimiter: argv.delimiter || ''
     }, function(err, data) {
-        console.log('results:', util.inspect(data, {
-            depth: null
-        }));
+        if (err) {
+            console.error('ERROR:', err);
+            return;
+        }
+        let contents = data.Contents;
+        delete data.Contents;
+        if (argv.long) {
+            console.log('List:', JSON.stringify(data));
+        }
+        _.each(contents, obj => {
+            let key = obj.Key;
+            let size = size_utils.human_size(obj.Size);
+            size = '        '.slice(size.length) + size;
+            let mtime = moment(new Date(obj.LastModified)).format('MMM D HH:mm');
+            let owner = obj.Owner && (obj.Owner.DisplayName || obj.Owner.ID) || '?';
+            if (argv.long || argv.ll) {
+                delete obj.Key;
+                delete obj.Size;
+                delete obj.Owner;
+                delete obj.LastModified;
+                console.log(owner, size, mtime, key, JSON.stringify(obj));
+            } else {
+                console.log(owner, size, mtime, key);
+            }
+        });
     });
 }
 
@@ -46,10 +72,14 @@ function upload_file() {
         upload_key = file_path + '-' + Date.now().toString(36);
         data_source = fs.createReadStream(file_path);
         data_size = fs.statSync(file_path).size;
+        console.log('Uploading file', file_path, 'of size',
+            size_utils.human_size(data_size));
     } else {
         upload_key = 'upload-' + Date.now().toString(36);
         data_size = argv.size || 1024 * 1024 * 1024;
         data_source = new RandStream(data_size);
+        console.log('Uploading generated data of size',
+            size_utils.human_size(data_size));
     }
 
     let start_time = Date.now();
@@ -82,4 +112,27 @@ function upload_file() {
             console.log(percents + '% done.', speed_str + '/sec');
         }
     });
+}
+
+function print_usage() {
+    console.log(
+        'Usage: \n' +
+        '  --help               show this usage \n' +
+        'General S3 Flags: \n' +
+        '  --endpoint <host>    (default is 127.0.0.1)  \n' +
+        '  --access_key <key>   (default is 123)        \n' +
+        '  --secret_key <key>   (default is abc)        \n' +
+        '  --bucket <name>      (default is "files")    \n' +
+        'List Objects Flags: \n' +
+        '  --list/ls            run list objects \n' +
+        '  --long/ll            run list objects with long output \n' +
+        '  --prefix <path>      prefix used for list objects \n' +
+        '  --delimiter <key>    delimiter used for list objects \n' +
+        'Upload Flags: \n' +
+        '  --upload             run upload file \n' +
+        '  --file <path>        use source file from local path \n' +
+        '  --size <num>         if no file is given, generate a file of this size \n' +
+        '  --part_size <num>    multipart size \n' +
+        '  --concur <num>       multipart concurrency \n' +
+        '');
 }

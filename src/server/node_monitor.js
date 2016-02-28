@@ -125,6 +125,21 @@ function heartbeat(req) {
     dbg.log0('heartbeat:', 'ROLE', req.role, 'AUTH', req.auth, 'PARAMS', req.rpc_params);
     var extra = req.auth.extra || {};
 
+    // since the heartbeat api is dynamic through new versions
+    // if we detect that this is a new version we return immediately
+    // with the new version so that the agent will update the code first
+    // and only after the upgrade we will run the heartbeat functionality
+    if (req.rpc_params.version && current_pkg_version &&
+        req.rpc_params.version !== current_pkg_version) {
+        dbg.log0('SEND MINIMAL REPLY WITH NEW VERSION',
+            req.rpc_params.version, '=>', current_pkg_version,
+            'node', extra.node_id);
+        return {
+            version: current_pkg_version || '0',
+            delay_ms: 0
+        };
+    }
+
     // verify the authorization to use this node for non admin roles
     if (extra.node_id &&
         (req.role === 'admin' || req.role === 'agent')) {
@@ -226,16 +241,6 @@ function update_heartbeat(req, reply_token) {
         version: current_pkg_version || '0',
         delay_ms: hb_delay_ms,
     };
-
-    // since the heartbeat api is dynamic through new versions
-    // if we detect that this is a new version we return immediately
-    // with the new version so that the agent will update the code first
-    // and only after the upgrade we will run the heartbeat functionality
-    if (params.version && reply.version && params.version !== reply.version) {
-        dbg.log0('SEND MINIMAL REPLY WITH NEW VERSION',
-            params.version, '=>', reply.version, 'node', node_id);
-        return reply;
-    }
 
     //0.4 backward compatible - reply with version and without rpc address.
     if (!params.id) {

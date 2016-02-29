@@ -124,10 +124,14 @@ AgentStore.prototype.read_block = function(block_md) {
                 dbg.error('BLOCK MD MISMATCH ON READ', block_md_from_store, block_md);
                 throw AgentStore.TAMPERING_ERROR;
             }
-            var digest_b64 = crypto.createHash(block_md.digest_type).update(data).digest('base64');
-            if (digest_b64 !== block_md_from_store.digest_b64) {
-                dbg.error('BLOCK DIGEST MISMATCH ON READ', block_md_from_store, digest_b64);
-                throw AgentStore.TAMPERING_ERROR;
+            if (block_md.digest_type) {
+                var digest_b64 = crypto.createHash(block_md.digest_type)
+                    .update(data)
+                    .digest('base64');
+                if (digest_b64 !== block_md_from_store.digest_b64) {
+                    dbg.error('BLOCK DIGEST MISMATCH ON READ', block_md_from_store, digest_b64);
+                    throw AgentStore.TAMPERING_ERROR;
+                }
             }
             return {
                 block_md: block_md,
@@ -153,9 +157,13 @@ AgentStore.prototype.write_block = function(block_md, data) {
     }
 
     var block_md_to_store = _.pick(block_md, 'id', 'digest_type', 'digest_b64');
-    var digest_b64 = crypto.createHash(block_md.digest_type).update(data).digest('base64');
-    if (digest_b64 !== block_md_to_store.digest_b64) {
-        throw new Error('BLOCK DIGEST MISMATCH ON WRITE');
+    if (block_md.digest_type) {
+        var digest_b64 = crypto.createHash(block_md.digest_type)
+            .update(data)
+            .digest('base64');
+        if (digest_b64 !== block_md_to_store.digest_b64) {
+            throw new Error('BLOCK DIGEST MISMATCH ON WRITE');
+        }
     }
 
     return P.when(self._stat_block_path(block_path, true))
@@ -374,9 +382,13 @@ function MemoryStore() {
             throw new Error('No such block ' + block_id);
         }
 
-        var digest_b64 = crypto.createHash(block_md.digest_type).update(b.data).digest('base64');
-        if (digest_b64 !== block_md.digest_b64) {
-            throw AgentStore.TAMPERING_ERROR;
+        if (block_md.digest_type) {
+            var digest_b64 = crypto.createHash(block_md.digest_type)
+                .update(b.data)
+                .digest('base64');
+            if (digest_b64 !== block_md.digest_b64) {
+                throw AgentStore.TAMPERING_ERROR;
+            }
         }
 
         return b;
@@ -389,9 +401,13 @@ function MemoryStore() {
             this._count -= 1;
         }
 
-        var digest_b64 = crypto.createHash(block_md.digest_type).update(data).digest('base64');
-        if (digest_b64 !== block_md.digest_b64) {
-            throw new Error('BLOCK DIGEST MISMATCH ON WRITE');
+        if (block_md.digest_type) {
+            var digest_b64 = crypto.createHash(block_md.digest_type)
+                .update(data)
+                .digest('base64');
+            if (digest_b64 !== block_md.digest_b64) {
+                throw new Error('BLOCK DIGEST MISMATCH ON WRITE');
+            }
         }
 
         this._blocks[block_id] = {

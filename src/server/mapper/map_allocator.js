@@ -29,20 +29,21 @@ class MapAllocator {
     run() {
         this.check_parts();
         let millistamp = time_utils.millistamp();
-        dbg.log1('MapAllocator.run: start');
+        dbg.log1('MapAllocator: start');
         return P.join(
                 this.find_dups(),
                 block_allocator.refresh_tiering_alloc(this.bucket.tiering)
             )
             .then(() => this.allocate_blocks())
             .then(() => {
-                dbg.log1('MapAllocator.run: DONE. took', time_utils.millitook(millistamp));
+                dbg.log0('MapAllocator: DONE. parts', this.parts.length,
+                    'took', time_utils.millitook(millistamp));
                 return {
                     parts: this.parts
                 };
             })
             .catch(err => {
-                dbg.error('MapAllocator.run: ERROR', err.stack || err);
+                dbg.error('MapAllocator: ERROR', err.stack || err);
                 throw err;
             });
     }

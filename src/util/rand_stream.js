@@ -25,7 +25,8 @@ function RandStream(max_length, options) {
     this.max_length = max_length;
     this.pos = 0;
     var base_len = options && options.highWaterMark || 1024 * 1024;
-    this.truly_random_buffer = crypto.randomBytes(4 * base_len);
+    this.truly_random_buffer = options.no_crypto ?
+        new Buffer(4 * base_len): crypto.randomBytes(4 * base_len);
     this.offset_random_conf = {
         min: 0,
         max: 3 * base_len

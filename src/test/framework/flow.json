@@ -8,7 +8,8 @@
         }, {
             "arg": "--target_ip",
             "val": "23.251.150.201"
-        }]
+        }],
+        "blocking": ""
     }, {
         "name": "Unit Tests",
         "action": "gulp mocha"

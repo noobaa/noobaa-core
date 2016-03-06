@@ -15,13 +15,13 @@
                     <th class="name-col text-left" data-bind="css: orderClassFor('name')">
                         <a href data-bind="click: () => orderBy('name')">node name</a>
                     </th>
-                    <th class="diskRead-col text-left" data-bind="css: orderClassFor('diskRead')">
+                    <th class="diskRead-col" data-bind="css: orderClassFor('diskRead')">
                         <a href data-bind="click: () => orderBy('diskRead')">Disk Read</a>
                     </th>
-                    <th class="diskWrite-col text-left" data-bind="css: orderClassFor('diskWrite')">
+                    <th class="diskWrite-col" data-bind="css: orderClassFor('diskWrite')">
                         <a href data-bind="click: () => orderBy('diskWrite')">Disk Write</a>
                     </th>
-                    <th class="RTT-col text-left" data-bind="css: orderClassFor('RTT')">
+                    <th class="RTT-col" data-bind="css: orderClassFor('RTT')">
                         <a href data-bind="click: () => orderBy('RTT')">RTT</a>
                     </th>
 
@@ -43,9 +43,9 @@
                     <td class="name-col text-left" >
                         <a class="link" data-bind="text: name, href: href"></a>
                     </td>
-                    <td class="diskRead-col text-left" data-bind="text: diskRead"></td>
-                    <td class="diskWrite-col text-left" data-bind="text: diskWrite"></td>
-                    <td class="RTT-col text-left" data-bind="text: RTT"></td>
+                    <td class="diskRead-col " data-bind="text: diskRead"></td>
+                    <td class="diskWrite-col" data-bind="text: diskWrite"></td>
+                    <td class="RTT-col " data-bind="text: RTT"></td>
                     <td class="ip-col" data-bind="text: ip"></td>
                     <td class="capacity-col" data-bind="text: capacity"></td>
                 </tr>

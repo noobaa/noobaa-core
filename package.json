@@ -99,6 +99,7 @@
     "gulp-util": "~3.0.6",
     "heapdump": "~0.3.7",
     "ip": "^1.0.1",
+    "istanbul": "^0.4.2",
     "jshint-stylish": "~2.0.1",
     "jsonwebtoken": "~5.0.5",
     "jstoxml": "~0.2.3",

@@ -1,9 +1,10 @@
 "use strict";
 
-var bso = require('./basic_server_ops');
+var basic_server_ops = require('./basic_server_ops');
 var P = require('../../util/promise');
 var api = require('../../api');
 var argv = require('minimist')(process.argv);
+var _ = require('lodash');
 
 argv.ip = argv.ip || '127.0.0.1';
 argv.access_key = argv.access_key || '123';
@@ -14,7 +15,7 @@ var client = rpc.new_client({
 });
 
 // Does the Auth and returns the nodes in the system
-function GetNodesAuth() {
+function get_nodes_auth() {
     return P.fcall(function() {
             var auth_params = {
                 email: 'demo@noobaa.com',
@@ -34,25 +35,25 @@ function GetNodesAuth() {
 
 function main() {
     // Used in order to get the nodes of the system
-    var SysNodes;
+    var sys_nodes;
     // Used in order to get the key of the file
     var fkey = null;
 
     // Starting the test chain
-    GetNodesAuth().then(function(res) {
-            SysNodes = res;
-            if (SysNodes.total_count < 6) {
+    get_nodes_auth().then(function(res) {
+            sys_nodes = res;
+            if (sys_nodes.total_count < 6) {
                 return P.reject("Not Enough Nodes For 2 Pools");
             }
 
             return client.pool.create_pool({
                 name: "pool1",
-                nodes: [SysNodes.nodes[0].name, SysNodes.nodes[1].name, SysNodes.nodes[2].name],
+                nodes: [sys_nodes.nodes[0].name, sys_nodes.nodes[1].name, sys_nodes.nodes[2].name],
             });
         })
         .then(() => client.pool.create_pool({
             name: "pool2",
-            nodes: [SysNodes.nodes[3].name, SysNodes.nodes[4].name, SysNodes.nodes[5].name],
+            nodes: [sys_nodes.nodes[3].name, sys_nodes.nodes[4].name, sys_nodes.nodes[5].name],
         }))
         .then(() => client.tier.create_tier({
             name: 'tier1',
@@ -71,10 +72,10 @@ function main() {
             name: 'bucket1',
             tiering: 'tiering1',
         }))
-        .then(() => bso.generate_random_file(20))
+        .then(() => basic_server_ops.generate_random_file(20))
         .then((fl) => {
             fkey = fl;
-            return bso.upload_file(argv.ip, fkey, 'bucket1', fkey);
+            return basic_server_ops.upload_file(argv.ip, fkey, 'bucket1', fkey);
         })
         .delay(60000).then(() => {
             return client.object.read_object_mappings({
@@ -84,29 +85,22 @@ function main() {
             });
         })
         .then((res) => {
-            var fp = 0;
-            var fb = 0;
-
-            //console.log("SPREAD Parts Number: " + res.parts.length);
-            for (fp = 0; fp < res.parts.length; fp++) {
-                //console.log("SPREAD Frags Number: " + res.parts[fp].chunk.frags.length);
-                //console.log("SPREAD Blocks Number: " + res.parts[fp].chunk.frags[0].blocks.length);
-                for (fb = 0; fb < res.parts[fp].chunk.frags[0].blocks.length; fb++) {
-                    //console.log("SPREAD Blocks Info: " + res.parts[fp].chunk.frags[0].blocks[fb]);
-                    if (res.parts[fp].chunk.frags[0].blocks.length !== 3)
+            _.each(res.parts, part => {
+                _.each(part.chunk.frags, frag => {
+                    if (frag.blocks.length !== 3)
                         return P.reject("SPREAD NOT CORRECT!");
-                }
-            }
+                });
+            });
             return P.resolve();
         })
         .then(() => client.tier.update_tier({
             name: 'tier1',
             data_placement: 'MIRROR'
         }))
-        .then(() => bso.generate_random_file(20))
+        .then(() => basic_server_ops.generate_random_file(20))
         .then((fl) => {
             fkey = fl;
-            return bso.upload_file(argv.ip, fkey, 'bucket1', fkey);
+            return basic_server_ops.upload_file(argv.ip, fkey, 'bucket1', fkey);
         })
         .delay(60000).then(() => {
             return client.object.read_object_mappings({
@@ -116,28 +110,22 @@ function main() {
             });
         })
         .then((res) => {
-            var fp = 0;
-            var fb = 0;
             var countarr = [0, 0];
 
-            //console.log("MIRROR Parts Number: " + res.parts.length);
-            for (fp = 0; fp < res.parts.length; fp++) {
-                //    console.log("MIRROR Frags Number: " + res.parts[fp].chunk.frags.length);
-                //    console.log("MIRROR Blocks Number: " + res.parts[fp].chunk.frags[0].blocks.length);
-                for (fb = 0; fb < res.parts[fp].chunk.frags[0].blocks.length; fb++) {
-                    //        console.log("MIRROR Blocks Info: " + res.parts[fp].chunk.frags[0].blocks[fb]);
-                    if (res.parts[fp].chunk.frags[0].blocks[fb].adminfo.pool_name === 'pool1') {
-                        countarr[0]++;
-                    } else {
-                        countarr[1]++;
-                    }
-                }
-
+            _.each(res.parts, part => {
+                _.each(part.chunk.frags, frag => {
+                    _.each(frag.blocks, block => {
+                        if (block.adminfo.pool_name === 'pool1') {
+                            countarr[0]++;
+                        } else {
+                            countarr[1]++;
+                        }
+                    });
+                });
                 if (countarr[0] !== 3 && countarr[1] !== 3)
                     return P.reject("MIRROR NOT CORRECT!");
-
                 countarr = [0, 0];
-            }
+            });
             return P.resolve("Test Passed! Everything Seems To Be Fine...");
         })
         .then(console.log, console.error).done();

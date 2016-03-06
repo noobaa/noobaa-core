@@ -113,7 +113,7 @@ function get_agent_setup(ip) {
         });
 }
 
-function upload_file(ip, path, bucket) {
+function upload_file(ip, path, bucket, key) {
     return P.fcall(function() {
             //verify the 'demo' system exists on the instance
             return ec2_wrap.verify_demo_system(ip);
@@ -121,7 +121,7 @@ function upload_file(ip, path, bucket) {
         .then(function() {
             //upload the file
             return P.fcall(function() {
-                    return ec2_wrap.put_object(ip, path, bucket);
+                    return ec2_wrap.put_object(ip, path, bucket, key);
                 })
                 .then(function() {
                     console.log('Upload file successfully');

@@ -346,10 +346,9 @@ function verify_demo_system(ip) {
         });
 }
 
-function put_object(ip, source, bucket) {
+function put_object(ip, source, bucket, key) {
     load_demo_config_env(); //switch to Demo system
 
-    var key = source;
     var rest_endpoint = 'http://' + ip + ':80';
     var s3bucket = new AWS.S3({
         endpoint: rest_endpoint,
@@ -364,6 +363,9 @@ function put_object(ip, source, bucket) {
     if(!bucket)
     {
         bucket = 'files';
+    }
+    if(!key)
+    {
         key = 'ec2_wrapper_test_upgrade.dat';
     }
 

@@ -74,7 +74,7 @@ function main() {
         .then(() => bso.generate_random_file(20))
         .then((fl) => {
             fkey = fl;
-            return bso.upload_file(argv.ip, fkey, 'bucket1');
+            return bso.upload_file(argv.ip, fkey, 'bucket1', fkey);
         })
         .delay(60000).then(() => {
             return client.object.read_object_mappings({
@@ -103,6 +103,11 @@ function main() {
             name: 'tier1',
             data_placement: 'MIRROR'
         }))
+        .then(() => bso.generate_random_file(20))
+        .then((fl) => {
+            fkey = fl;
+            return bso.upload_file(argv.ip, fkey, 'bucket1', fkey);
+        })
         .delay(60000).then(() => {
             return client.object.read_object_mappings({
                 bucket: 'bucket1',

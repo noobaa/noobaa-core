@@ -346,9 +346,10 @@ function verify_demo_system(ip) {
         });
 }
 
-function put_object(ip, source) {
+function put_object(ip, source, bucket) {
     load_demo_config_env(); //switch to Demo system
 
+    var key = source;
     var rest_endpoint = 'http://' + ip + ':80';
     var s3bucket = new AWS.S3({
         endpoint: rest_endpoint,
@@ -360,10 +361,15 @@ function put_object(ip, source) {
     if (!source) {
         source = '/var/log/appstore.log';
     }
+    if(!bucket)
+    {
+        bucket = 'files';
+        key = 'ec2_wrapper_test_upgrade.dat';
+    }
 
     var params = {
-        Bucket: 'files',
-        Key: 'ec2_wrapper_test_upgrade.dat',
+        Bucket: bucket,
+        Key: key,
         Body: fs.createReadStream(source),
     };
     console.log('about to upload object');

@@ -290,6 +290,17 @@ function delete_cloud_sync(req) {
  *
  */
 function set_cloud_sync(req) {
+    req.rpc_params.policy = {
+        endpoint: '192.168.0.183:/files',
+        access_keys: [{
+            access_key: '123',
+            secret_key: 'abc'
+        }],
+        c2n_enabled: true,
+        n2c_enabled: true,
+        schedule: 60,
+        additions_only: false
+    };
     dbg.log0('set_cloud_sync:', req.rpc_params.name, 'on', req.system._id, 'with', req.rpc_params.policy);
     var bucket = find_bucket(req);
     var force_stop = false;

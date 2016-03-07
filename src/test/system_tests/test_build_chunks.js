@@ -3,27 +3,23 @@
 let _ = require('lodash');
 let P = require('../../util/promise');
 let api = require('../../api');
-let argv = require('minimist')(process.argv);
 let ops = require('./basic_server_ops');
 let promise_utils = require('../../util/promise_utils');
 
-argv.ip = argv.ip || '127.0.0.1';
-argv.access_key = argv.access_key || '123';
-argv.secret_key = argv.secret_key || 'abc';
-argv.bucket = argv.bucket || 'files';
-argv.timeout = argv.timeout || 60;
+
+let TEST_CTX = {
+    ip: '127.0.0.1',
+    bucket: 'files',
+    object_key: '',
+    timeout: 60
+};
+
 let rpc = api.new_rpc(); //'ws://' + argv.ip + ':8080');
 let client = rpc.new_client({
-    address: 'ws://' + argv.ip + ':5001'
+    address: 'ws://' + TEST_CTX.ip + ':5001'
 });
 
 
-let TEST_CTX = {
-    ip: argv.ip,
-    bucket: argv.bucket,
-    object_key: '',
-    timeout: argv.timeout
-};
 
 /////// Aux Functions ////////
 
@@ -42,7 +38,7 @@ function upload_random_file(size_mb) {
     return ops.generate_random_file(size_mb)
         .then(function(fname) {
             TEST_CTX.object_key = fname;
-            return ops.upload_file(argv.ip, fname, argv.bucket, fname);
+            return ops.upload_file(TEST_CTX.ip, fname, TEST_CTX.bucket, fname);
         });
 
 }
@@ -50,7 +46,7 @@ function upload_random_file(size_mb) {
 ///// Test Functions ///////
 
 function test_uploaded_object_has_expected_num_blocks(expected_num_blocks) {
-    let abort_timeout_sec = argv.timeout;
+    let abort_timeout_sec = TEST_CTX.timeout;
 
     let first_iteration = true;
     let num_blocks = 0;

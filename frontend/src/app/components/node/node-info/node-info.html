@@ -2,7 +2,7 @@
 <ul class="prop-sheet">
     <li class="prop">
         <span class="prop-name">Version:</span>
-        <span class="prop-value" data-bind="text: version"></span>    
+        <span class="prop-value" data-bind="text: version"></span>
     </li>
 </ul>
 
@@ -35,6 +35,19 @@
             <span class="prop-name">OS Type:</span>
             <span class="prop-value" data-bind="text: osType"></span>
         </li>
+        <li class="prop">
+            <span class="prop-name">RTT:</span>
+            <span class="prop-value" data-bind="text: RTT"></span>
+        </li>
+        <li class="prop">
+            <span class="prop-name">Disk Read:</span>
+            <span class="prop-value" data-bind="text: diskRead"></span>
+        </li>
+        <li class="prop">
+            <span class="prop-name">Disk Write:</span>
+            <span class="prop-value" data-bind="text: diskWrite"></span>
+        </li>
+
     </ul>
 </section>
 
@@ -50,13 +63,13 @@
             <div class="drive-icon">
                 <svg-icon params="uri: '/fe/assets/icons.svg#drive'"></svg-icon>
             </div>
-            
+
             <span class="no-wrap drive-name" data-bind="text: name"></span>
 
             <div class="drive-capacity">
                 <div data-bind="foreach: values">
                     <span class="legend" data-bind="
-                        style: { color: color }, 
+                        style: { color: color },
                         text: legend
                     "></span>
                 </div>

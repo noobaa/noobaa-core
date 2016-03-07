@@ -5,13 +5,13 @@ export function noop() {
 
 export function invokeAsync(f, ...params) {
     setTimeout(
-        () => f(...params), 
+        () => f(...params),
         0
     );
 }
 
 export function isNumber(value) {
-    return typeof value === 'number' || value instanceof Number; 
+    return typeof value === 'number' || value instanceof Number;
 }
 
 export function isFunction(value) {
@@ -28,7 +28,7 @@ export function isDefined(value) {
 
 export function toCammelCase(str) {
     return str.replace(/-\w/g, match => match[1].toUpperCase());
-}   
+}
 
 export function toDashedCase(str) {
     return str.replace(/[A-Z]+/g, match => `-${match.toLowerCase()}`);
@@ -37,21 +37,21 @@ export function toDashedCase(str) {
 export function formatSize(num) {
     const peta = 1024 ** 5;
 
-    let i = 0; 
+    let i = 0;
     if (!isNumber(num)) {
         if (num.peta > 0) {
             i = 5;
-            num = num.peta + num.n / peta;          
+            num = num.peta + num.n / peta;
         } else {
             num = num.n;
         }
-    } 
+    }
 
     while (num / 1024 > 1) {
         num /= 1024;
         ++i;
     }
-    
+
     if (i > 0) {
         num = num.toFixed(num < 10 ? 1 : 0);
     }
@@ -76,7 +76,7 @@ export function randomString(len = 8) {
     var possible = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
 
     return makeArray(
-        len, 
+        len,
         () => possible.charAt(Math.random() * possible.length | 0)
     ).join('');
 }
@@ -128,8 +128,8 @@ export function createCompareFunc(accessor, descending = false) {
     return function (obj1, obj2) {
         let value1 = accessor(obj1);
         let value2 = accessor(obj2);
-        
-        return (descending ? -1 : 1) * 
+
+        return (descending ? -1 : 1) *
             (value1 < value2 ? -1 : (value1 > value2 ? 1 : 0));
     }
 }
@@ -180,7 +180,7 @@ export function downloadFile(url) {
     link.href = url;
     body.appendChild(link);
     link.click();
-    
+
     setImmediate(
         () => body.removeChild(link)
     );
@@ -239,7 +239,17 @@ export function execInOrder(list, executer) {
 
     return result;
 }
-
+export function avarageArrayValues(inArray) {
+    let total=0;
+    console.log('inarray',inArray);
+    for(var i= 0; i < inArray.length; ++i)
+    {
+        console.log('item:'+i+'::'+inArray[i]+':::'+total);
+        total += inArray[i];
+    }
+    console.log('total:'+total);
+    return total/inArray.length;
+}
 export function defineEnum(...values) {
     return Object.freeze(
         values.reduce(

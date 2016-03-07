@@ -2,10 +2,15 @@ import template from './node-info.html';
 import ko from 'knockout';
 import moment from 'moment';
 import style from 'style';
-import { formatSize } from 'utils';
+import {
+    formatSize,
+    avarageArrayValues
+} from 'utils';
 
 class NodeInfoViewModel {
-    constructor({ node }) {
+    constructor({
+        node
+    }) {
         this.dataReady = ko.pureComputed(
             () => !!node()
         )
@@ -21,7 +26,7 @@ class NodeInfoViewModel {
         this.upTime = ko.pureComputed(
             () => moment(node().os_info.uptime).fromNow(true)
         );
-        
+
         this.osType = ko.pureComputed(
             () => node().os_info.ostype
         );
@@ -45,45 +50,63 @@ class NodeInfoViewModel {
         this.drives = ko.pureComputed(
             () => this._mapDrives(node().drives)
         );
+
+        this.diskRead = ko.pureComputed(
+            () => node() && (avarageArrayValues(node().latency_of_disk_read)).toFixed(1) + ' ms'
+        );
+
+        this.diskWrite = ko.pureComputed(
+            () => node() && (avarageArrayValues(node().latency_of_disk_write)).toFixed(1) + ' ms'
+        );
+
+        this.RTT = ko.pureComputed(
+            () => node() && (avarageArrayValues(node().latency_to_server)).toFixed(1) + ' ms'
+        );
+
     }
 
-    _mapCpus({ os_info }) {
+    _mapCpus({
+        os_info
+    }) {
         return `${os_info.cpus.length}x ${os_info.cpus[0].model}`;
     }
 
     _mapNetwotkInterfaces(networkInterfaces) {
-        return Object.keys(networkInterfaces).map( controller => {
-            return { 
-                controller: controller, 
-                interfaces: networkInterfaces[controller].map( addr => addr.address )
+        return Object.keys(networkInterfaces).map(controller => {
+            return {
+                controller: controller,
+                interfaces: networkInterfaces[controller].map(addr => addr.address)
             };
         });
     }
 
     _mapDrives(drives) {
-        return drives.map( ({ mount, storage }) => {
-            let { total, used = 0, free} = storage;
+        return drives.map(({
+            mount,
+            storage
+        }) => {
+            let {
+                total,
+                used = 0,
+                free
+            } = storage;
             let os = total - (used + free);
 
             return {
                 name: mount,
-                values: [
-                    {
-                        legend: `NooBaa: ${formatSize(used)}`,
-                        value: used,
-                        color: style['text-color6']
-                    },
-                    {
-                        legend: `OS: ${formatSize(os)}`,
-                        value: os,
-                        color: style['text-color2']
-                    },
-                    {
-                        legend: `Unused: ${formatSize(free)}`,
-                        value: free,
-                        color: style['text-color5']
-                    }
-                ]
+                values: [{
+                    legend: `NooBaa: ${formatSize(used)}`,
+                    value: used,
+                    color: style['text-color6']
+                }, {
+                    legend: `OS: ${formatSize(os)}`,
+                    value: os,
+                    color: style['text-color2']
+                }, {
+                    legend: `Unused: ${formatSize(free)}`,
+                    value: free,
+                    color: style['text-color5']
+                }]
             };
         });
     }

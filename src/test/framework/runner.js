@@ -1,6 +1,7 @@
 'use strict';
 var _ = require('lodash');
 var fs = require('fs');
+var argv = require('minimist')(process.argv);
 var promise_utils = require('../../util/promise_utils');
 var P = require('../../util/promise');
 var ops = require('../system_tests/basic_server_ops');
@@ -9,8 +10,9 @@ var ops = require('../system_tests/basic_server_ops');
 var COVERAGE_DIR = '/tmp';
 var REPORT_PATH = COVERAGE_DIR + '/regression_report.log';
 
-function TestRunner(version) {
+function TestRunner(version, argv) {
     this._version = version;
+    this._argv = argv;
     this._error = false;
 }
 
@@ -146,7 +148,15 @@ TestRunner.prototype._run_action = function(current_step, step_res) {
     var command = current_step.action;
     if (current_step.params && current_step.params.length > 0) {
         _.each(current_step.params, function(p) {
-            command += ' ' + p.arg;
+            if (p.arg) {
+                command += ' ' + p.arg;
+            } else if (p.input_arg) {
+                if (self._argv[p.input_arg]) {
+                    command += ' ' + self._argv[p.input_arg];
+                } else {
+                    fs.appendFileSync(REPORT_PATH, 'No argument recieved for ' + p.input_args + '\n');
+                }
+            }
         });
     }
 
@@ -186,7 +196,7 @@ TestRunner.utils = {
 module.exports = TestRunner;
 
 function main() {
-    var run = new TestRunner(5);
+    var run = new TestRunner(5, argv);
     return P.when(run.init_run())
         .fail(function(error) {
             console.error('Init run failed, stopping tests', error);

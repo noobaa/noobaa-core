@@ -5,7 +5,7 @@
         "params": [{
             "arg": "--upgrade_pack"
         }, {
-            "arg": "noobaa-NVA-5.tar.gz"
+            "input_arg": "upgrade_pack"
         }, {
             "arg": "--target_ip"
         }, {

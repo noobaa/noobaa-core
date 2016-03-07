@@ -4,7 +4,7 @@ Single point for smoke/regression tests runs. Define which tests and order, clea
 
 The framework consists of the runner and the flow.json
 
-flow.json is the description of the run, it is build as an array of steps, running sequencially.
+flow.json is the description of the run, it is build as an array of steps, running sequentially.
 
 Each step has the following:
 
@@ -13,5 +13,6 @@ Each step has the following:
 3) common: use a common functionality from the runner (i.e. restore db to defaults)
 4) blocking: if set to true, failure in this step would stop the chain
 5) args: if the action requires arguments, supply an array of arguments
+   supply "arg" for a static argument, or "input_arg" and the arg name as value for an argument which is received by the runner
 
 NOTE: common and action are mutual exclusive

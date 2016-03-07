@@ -3,11 +3,13 @@
         "name": "Upgrading to new version",
         "action": "node src/test/system_tests/sanity_build_test.js",
         "params": [{
-            "arg": "--upgrade_pack",
-            "val": "noobaa-NVA-$GIT_COMMIT.tar.gz"
+            "arg": "--upgrade_pack"
         }, {
-            "arg": "--target_ip",
-            "val": "23.251.150.201"
+            "arg": "noobaa-NVA-5.tar.gz"
+        }, {
+            "arg": "--target_ip"
+        }, {
+            "arg": "23.251.150.201"
         }],
         "blocking": "true"
     }, {
@@ -15,18 +17,18 @@
         "action": "gulp mocha"
     }, {
         "name": "Restore DB Defaults",
-        "action": "TestRunner.utils.restore_db_defaults"
+        "common": "restore_db_defaults"
     }, {
         "name": "Pools Data Placement Test",
-        "action": "node src/test/system_tests/pools.js"
+        "action": "node src/test/system_tests/test_files_spread.js"
     }, {
         "name": "Restore DB Defaults",
-        "action": "TestRunner.utils.restore_db_defaults"
+        "common": "restore_db_defaults"
     }, {
         "name": "Rebuild and Eviction Test",
         "action": "node src/test/system_tests/rebuild.js"
     }, {
         "name": "Restore DB Defaults",
-        "action": "TestRunner.utils.restore_db_defaults"
+        "common": "restore_db_defaults"
     }]
 }

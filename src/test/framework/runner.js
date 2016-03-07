@@ -7,7 +7,7 @@ var P = require('../../util/promise');
 var ops = require('../system_tests/basic_server_ops');
 
 //var COVERAGE_DIR = '/root/noobaa-core/coverage';
-var COVERAGE_DIR = '/tmp';
+var COVERAGE_DIR = '/tmp/cov';
 var REPORT_PATH = COVERAGE_DIR + '/regression_report.log';
 
 function TestRunner(version, argv) {
@@ -20,10 +20,20 @@ TestRunner.prototype.init_run = function() {
     var self = this;
     //Clean previous run results
     console.log('Clearing previous test run results');
-    return promise_utils.promised_exec('rm -rf /root/node_modules/noobaa-core/coverage/*')
+    if (!fs.statSync(COVERAGE_DIR)) {
+        fs.mkdirSync(COVERAGE_DIR);
+    }
+    return promise_utils.promised_exec('rm -rf ' + COVERAGE_DIR + '/*')
         .fail(function(err) {
             console.error('Failed cleaning ', COVERAGE_DIR, 'from previous run results', err);
             throw new Error('Failed cleaning dir');
+        })
+        .then(function() {
+            return promise_utils.promised_exec('rm -rf /root/node_modules/noobaa-core/coverage/*');
+        })
+        .fail(function(err) {
+            console.error('Failed cleaning istanbul data from previous run results', err);
+            throw new Error('Failed cleaning istanbul data');
         })
         .then(function() {
             //set TESTRUN=true in .env

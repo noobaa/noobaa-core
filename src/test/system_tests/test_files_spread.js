@@ -88,7 +88,7 @@ function main() {
             _.each(res.parts, part => {
                 _.each(part.chunk.frags, frag => {
                     if (frag.blocks.length !== 3)
-                        return P.reject("SPREAD NOT CORRECT!");
+                        throw new Error("SPREAD NOT CORRECT!");
                 });
             });
             return P.resolve();
@@ -110,21 +110,20 @@ function main() {
             });
         })
         .then((res) => {
-            var countarr = [0, 0];
-
             _.each(res.parts, part => {
+                var pool1_count = 0;
+                var pool2_count = 0;
                 _.each(part.chunk.frags, frag => {
                     _.each(frag.blocks, block => {
                         if (block.adminfo.pool_name === 'pool1') {
-                            countarr[0]++;
+                            pool1_count++;
                         } else {
-                            countarr[1]++;
+                            pool2_count++;
                         }
                     });
                 });
-                if (countarr[0] !== 3 && countarr[1] !== 3)
-                    return P.reject("MIRROR NOT CORRECT!");
-                countarr = [0, 0];
+                if (pool1_count !== 3 && pool2_count !== 3)
+                    throw new Error("MIRROR NOT CORRECT!");
             });
             return P.resolve("Test Passed! Everything Seems To Be Fine...");
         })

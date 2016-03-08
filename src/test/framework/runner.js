@@ -20,7 +20,7 @@ TestRunner.prototype.init_run = function() {
     var self = this;
     //Clean previous run results
     console.log('Clearing previous test run results');
-    if (!fs.statSync(COVERAGE_DIR)) {
+    if (!fs.existsSync(COVERAGE_DIR)) {
         fs.mkdirSync(COVERAGE_DIR);
     }
     return promise_utils.promised_exec('rm -rf ' + COVERAGE_DIR + '/*')
@@ -86,7 +86,6 @@ TestRunner.prototype.complete_run = function() {
 
 TestRunner.prototype.run_tests = function() {
     var self = this;
-    console.warn('NBNB:: starting tests', process.cwd() + '/src/test/framework/flow.json');
     return P.nfcall(fs.readFile, process.cwd() + '/src/test/framework/flow.json') //TODO:: get as arg for execution
         .then(function(data) {
             var steps = JSON.parse(data);
@@ -113,7 +112,6 @@ TestRunner.prototype.run_tests = function() {
 TestRunner.prototype._print_curent_step = function(current_step) {
     var step_res;
     var title;
-    console.warn('NBNB:: _print_curent_step');
     return P.fcall(function() {
         if (_.startsWith(current_step.action, 'TestRunner.utils')) {
             title = 'Performing ' + current_step.name + ' (' + current_step.action + ')';
@@ -126,26 +124,22 @@ TestRunner.prototype._print_curent_step = function(current_step) {
             step_res = current_step.action;
         }
         fs.appendFileSync(REPORT_PATH, title + '\n');
-        console.warn('NBNB:: _print_curent_step title', title);
         return step_res;
     });
 };
 
 TestRunner.prototype._run_current_step = function(current_step, step_res) {
     var self = this;
-    console.warn('NBNB:: _run_current_step');
     if (!current_step.action && !current_step.common) {
         step_res = '        No Action Defined!!!';
         return;
     } else {
         if (current_step.common) {
-            console.warn('NBNB:: performing ', current_step.common);
-            return self.utils[current_step.common]
+            return P.invoke(self, current_step.common)
                 .then(function() {
                     return step_res;
                 });
         } else {
-            console.warn('NBNB:: _run_action ', current_step.action);
             return self._run_action(current_step, step_res);
         }
     }
@@ -170,11 +164,10 @@ TestRunner.prototype._run_action = function(current_step, step_res) {
         });
     }
 
-    console.warn('NBNB:: running ', command);
     return promise_utils.promised_exec(command)
         .then(function(res) {
             step_res = '        ' + step_res + ' - Successeful ( took ' +
-                (new Date() - ts) + 's )';
+                ((new Date() - ts) / 1000) + 's )';
             return step_res;
         })
         .fail(function(res) {
@@ -187,7 +180,7 @@ TestRunner.prototype._run_action = function(current_step, step_res) {
                     '------------------------------\n' +
                     res +
                     '------------------------------   ' +
-                    '( took ' + (new Date() - ts) + 's )';
+                    '( took ' + ((new Date() - ts) / 1000) + 's )';
             }
             return step_res;
         });
@@ -195,12 +188,11 @@ TestRunner.prototype._run_action = function(current_step, step_res) {
 
 TestRunner.prototype.restore_db_defaults = function() {
     return promise_utils.promised_exec(
-        'mongo nbcore /root/node_modules/noobaa-core/src/test/system_tests/mongodb_defaults.js');
-};
-
-//Common steps such as restore DB to defaults etc.
-TestRunner.utils = {
-    restore_db_defaults: TestRunner.restore_db_defaults,
+            'mongo nbcore /root/node_modules/noobaa-core/src/test/system_tests/mongodb_defaults.js')
+        .fail(function(err) {
+            console.warn('failed on mongodb_defaults');
+            throw new Error('Failed pn mongodb reset');
+        });
 };
 
 module.exports = TestRunner;

@@ -247,6 +247,9 @@ function promised_exec(command, ignore_rc) {
     var deferred = P.defer();
 
     child_process.exec(command,
+        {
+          maxBuffer: 5000*1024, //5MB, should be enough
+        },
         function(error, stdout, stderr) {
             if (error === null || ignore_rc) {
                 deferred.resolve();

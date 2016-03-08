@@ -13,9 +13,6 @@ var chance_seed = argv.seed || Date.now();
 console.log('using seed', chance_seed);
 var chance = require('chance')(chance_seed);
 
-var dbg = require('../util/debug_module')(__filename);
-dbg.set_level(5, 'core');
-
 mocha.describe('object_driver', function() {
 
     var client = coretest.new_test_client();

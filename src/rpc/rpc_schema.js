@@ -84,20 +84,22 @@ class RpcSchema {
                 method_api.validate_params = (params, desc) => {
                     let result = method_api.params_validator(params);
                     if (!result) {
-                        dbg.error('INVALID PARAMS SCHEMA', desc, method_api.fullname,
+                        dbg.error('INVALID SCHEMA', desc, 'PARAMS', method_api.fullname,
                             'ERRORS:', method_api.params_validator.errors,
                             'PARAMS:', params);
-                        throw new Error('INVALID PARAMS SCHEMA ' + desc + ' ' + method_api.fullname);
+                        throw new Error('INVALID SCHEMA ' + desc + ' PARAMS ' +
+                            method_api.fullname);
                     }
                 };
 
                 method_api.validate_reply = (reply, desc) => {
                     let result = method_api.reply_validator(reply);
                     if (!result) {
-                        dbg.error('INVALID REPLY SCHEMA', desc, method_api.fullname,
+                        dbg.error('INVALID SCHEMA', desc, 'REPLY', method_api.fullname,
                             'ERRORS:', method_api.reply_validator.errors,
                             'REPLY:', reply);
-                        throw new Error('INVALID REPLY SCHEMA ' + desc + ' ' + method_api.fullname);
+                        throw new Error('INVALID SCHEMA ' + desc + ' REPLY ' +
+                            method_api.fullname);
                     }
                 };
             });

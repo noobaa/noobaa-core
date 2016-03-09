@@ -6,7 +6,8 @@ require('dotenv').load();
 
 //If test mode, use Istanbuk for coverage
 if (process.env.TESTRUN) {
-    require('../test/framework/istanbul_coverage');
+    var ist = require('../test/framework/istanbul_coverage');
+    ist.start_istanbul_coverage();
 }
 
 require('../util/panic');

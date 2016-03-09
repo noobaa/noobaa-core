@@ -1,31 +1,31 @@
 'use strict';
 
-var _ = require('lodash');
-var P = require('../util/promise');
-var mocha = require('mocha');
-var assert = require('assert');
-var argv = require('minimist')(process.argv);
-var promise_utils = require('../util/promise_utils');
-var coretest = require('./coretest');
-var SliceReader = require('../util/slice_reader');
+let _ = require('lodash');
+let P = require('../util/promise');
+let mocha = require('mocha');
+let assert = require('assert');
+let argv = require('minimist')(process.argv);
+let promise_utils = require('../util/promise_utils');
+let coretest = require('./coretest');
+let SliceReader = require('../util/slice_reader');
 
-var chance_seed = argv.seed || Date.now();
+let chance_seed = argv.seed || Date.now();
 console.log('using seed', chance_seed);
-var chance = require('chance')(chance_seed);
+let chance = require('chance')(chance_seed);
 
-var dbg = require('../util/debug_module')(__filename);
+let dbg = require('../util/debug_module')(__filename);
 dbg.set_level(5, 'core');
 
 mocha.describe('object_driver', function() {
 
-    var client = coretest.new_test_client();
+    let client = coretest.new_test_client();
     client.object_driver_lazy().set_verification_mode();
 
-    var SYS = 'test-object-system';
-    var BKT = 'files'; // the default bucket name
-    var KEY = 'test-object-key';
-    var EMAIL = 'test-object-email@mail.mail';
-    var PASSWORD = 'test-object-password';
+    let SYS = 'test-object-system';
+    let BKT = 'files'; // the default bucket name
+    let KEY = 'test-object-key';
+    let EMAIL = 'test-object-email@mail.mail';
+    let PASSWORD = 'test-object-password';
 
     mocha.before(function() {
         this.timeout(30000);
@@ -41,13 +41,13 @@ mocha.describe('object_driver', function() {
 
     mocha.after(function() {
         this.timeout(30000);
-        return coretest.clear_test_nodes();
+        // return coretest.clear_test_nodes();
     });
 
 
     mocha.it('works', function() {
         this.timeout(30000);
-        var key = KEY + Date.now();
+        let key = KEY + Date.now();
         return P.fcall(function() {
             return client.object.create_multipart_upload({
                 bucket: BKT,
@@ -55,10 +55,11 @@ mocha.describe('object_driver', function() {
                 size: 0,
                 content_type: 'application/octet-stream',
             });
-        }).then(function() {
+        }).then(function(create_reply) {
             return client.object.complete_multipart_upload({
                 bucket: BKT,
                 key: key,
+                upload_id: create_reply.upload_id,
                 fix_parts_size: true
             });
         }).then(function() {
@@ -84,7 +85,7 @@ mocha.describe('object_driver', function() {
         });
     });
 
-    var CHANCE_BYTE = {
+    let CHANCE_BYTE = {
         min: 0,
         max: 255,
     };
@@ -92,13 +93,13 @@ mocha.describe('object_driver', function() {
 
     mocha.describe('object IO', function() {
 
-        var OBJ_NUM_PARTS = 16;
-        var OBJ_PART_SIZE = 128 * 1024;
-        var CHANCE_PART_NUM = {
+        let OBJ_NUM_PARTS = 16;
+        let OBJ_PART_SIZE = 128 * 1024;
+        let CHANCE_PART_NUM = {
             min: 0,
             max: OBJ_NUM_PARTS,
         };
-        var CHANCE_PART_OFFSET = {
+        let CHANCE_PART_OFFSET = {
             min: 0,
             max: OBJ_PART_SIZE - 1,
         };
@@ -106,8 +107,8 @@ mocha.describe('object_driver', function() {
 
         mocha.it('should write and read object data', function() {
             this.timeout(30000);
-            var key = KEY + Date.now();
-            var size, data;
+            let key = KEY + Date.now();
+            let size, data;
             return P.fcall(function() {
                     return client.node.list_nodes({});
                 })
@@ -119,7 +120,7 @@ mocha.describe('object_driver', function() {
                     // randomize a buffer
                     // console.log('random object size', size);
                     data = new Buffer(size);
-                    for (var i = 0; i < size; i++) {
+                    for (let i = 0; i < size; i++) {
                         data[i] = chance.integer(CHANCE_BYTE);
                     }
                     return client.object_driver_lazy().upload_stream({
@@ -140,7 +141,7 @@ mocha.describe('object_driver', function() {
 
                     // verify the read buffer equals the written buffer
                     assert.strictEqual(data.length, read_buf.length);
-                    for (var i = 0; i < size; i++) {
+                    for (let i = 0; i < size; i++) {
                         assert.strictEqual(data[i], read_buf[i]);
                     }
                     console.log('READ SUCCESS');
@@ -155,8 +156,8 @@ mocha.describe('object_driver', function() {
                         adminfo: true
                     }).then(function(res) {
                         _.each(res.parts, function(part) {
-                            var blocks = _.flatten(_.map(part.fragments, 'blocks'));
-                            var blocks_per_node = _.groupBy(blocks, function(block) {
+                            let blocks = _.flatten(_.map(part.fragments, 'blocks'));
+                            let blocks_per_node = _.groupBy(blocks, function(block) {
                                 return block.adminfo.node_name;
                             });
                             console.log('VERIFY MAPPING UNIQUE ON NODE', blocks_per_node);
@@ -175,11 +176,12 @@ mocha.describe('object_driver', function() {
 
         mocha.it('should list_multipart_parts', function() {
             this.timeout(30000);
-            var key = KEY + Date.now();
-            var part_size = 1024;
-            var num_parts = 10;
-            var data = new Buffer(num_parts * part_size);
-            for (var i = 0; i < data.length; i++) {
+            let upload_id;
+            let key = KEY + Date.now();
+            let part_size = 1024;
+            let num_parts = 10;
+            let data = new Buffer(num_parts * part_size);
+            for (let i = 0; i < data.length; i++) {
                 data[i] = chance.integer(CHANCE_BYTE);
             }
             return P.fcall(function() {
@@ -190,28 +192,30 @@ mocha.describe('object_driver', function() {
                         content_type: 'test/test'
                     });
                 })
-                .then(function() {
+                .then(function(create_reply) {
+                    upload_id = create_reply.upload_id;
                     return client.object.list_multipart_parts({
                             bucket: BKT,
                             key: key,
+                            upload_id: upload_id,
                         })
                         .then(function(res) {
                             console.log('list_multipart_parts reply', res);
                         });
                 })
                 .then(function() {
-                    var i = 0;
+                    let i = 0;
                     return promise_utils.loop(10, function() {
                         return client.object_driver_lazy().upload_stream_parts({
                             bucket: BKT,
                             key: key,
+                            upload_id: upload_id,
+                            upload_part_number: (i++),
                             size: part_size,
-                            content_type: 'application/octet-stream',
                             source_stream: new SliceReader(data, {
                                 start: i * part_size,
                                 end: (i + 1) * part_size
                             }),
-                            upload_part_number: (i++)
                         });
                     });
                 })
@@ -219,6 +223,7 @@ mocha.describe('object_driver', function() {
                     return client.object.list_multipart_parts({
                             bucket: BKT,
                             key: key,
+                            upload_id: upload_id,
                             part_number_marker: 1,
                             max_parts: 1
                         })
@@ -230,6 +235,7 @@ mocha.describe('object_driver', function() {
                     return client.object.complete_multipart_upload({
                         bucket: BKT,
                         key: key,
+                        upload_id: upload_id,
                         fix_parts_size: true
                     });
                 })
@@ -241,7 +247,7 @@ mocha.describe('object_driver', function() {
                 })
                 .then(function(read_buf) {
                     assert.strictEqual(data.length, read_buf.length, "mismatch data length");
-                    for (var i = 0; i < data.length; i++) {
+                    for (let i = 0; i < data.length; i++) {
                         assert.strictEqual(data[i], read_buf[i], "mismatch data at offset " + i);
                     }
                 });

@@ -161,7 +161,10 @@ class ObjectDriver {
 
         dbg.log0('upload_stream: start upload', params.key);
         return this.client.object.create_multipart_upload(create_params)
-            .then(() => this.upload_stream_parts(params))
+            .then(create_reply => {
+                params.upload_id = create_reply.upload_id;
+                return this.upload_stream_parts(params);
+            })
             .then(md5_digest => {
                 var complete_params = _.pick(params, 'bucket', 'key', 'upload_id');
                 if (md5_digest) {

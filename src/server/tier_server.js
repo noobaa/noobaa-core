@@ -8,6 +8,7 @@ var system_store = require('./stores/system_store');
 var nodes_store = require('./stores/nodes_store');
 var size_utils = require('../util/size_utils');
 var mongo_utils = require('../util/mongo_utils');
+var db = require('./db');
 
 /**
  *
@@ -133,10 +134,22 @@ function update_tier(req) {
     }
     updates._id = tier._id;
     return system_store.make_changes({
-        update: {
-            tiers: [updates]
-        }
-    }).return();
+            update: {
+                tiers: [updates]
+            }
+        })
+        .then((res) => {
+            var bucket = find_bucket_by_tier(req);
+            db.ActivityLog.create({
+                event: 'bucket.edit_policy',
+                level: 'info',
+                system: req.system._id,
+                actor: req.account && req.account._id,
+                bucket: bucket._id,
+            });
+            return res;
+        })
+        .return();
 }
 
 
@@ -224,6 +237,28 @@ function delete_policy(req) {
 
 // UTILS //////////////////////////////////////////////////////////
 
+function find_bucket_by_tier(req) {
+    var tier = find_tier_by_name(req);
+    var policy = _.find(system_store.data.tieringpolicies, function(o) {
+        return _.find(o.tiers, function(t) {
+            return (t.tier._id.toString() == tier._id.toString());
+        });
+    });
+
+    if (!policy) {
+        throw req.rpc_error('NOT_FOUND', 'POLICY OF TIER NOT FOUND ' + tier.name);
+    }
+
+    var bucket = _.find(system_store.data.buckets, function(o) {
+        return (o.tiering._id == policy._id);
+    });
+
+    if (!bucket) {
+        throw req.rpc_error('NOT_FOUND', 'BUCKET OF TIER POLICY NOT FOUND ' + policy.name);
+    }
+
+    return bucket;
+}
 
 function find_tier_by_name(req) {
     var name = req.rpc_params.name;

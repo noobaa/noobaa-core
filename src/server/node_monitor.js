@@ -493,6 +493,12 @@ function set_debug_node(req) {
             return '';
         })
         .then(function() {
+            db.ActivityLog.create({
+                system: req.system,
+                level: 'info',
+                event: 'node.set_debug_node',
+                //node: node._id,
+            });
             dbg.log1('set_debug_node for agent', target, 'was successful');
         });
 }

@@ -5,6 +5,7 @@ var argv = require('minimist')(process.argv);
 var promise_utils = require('../../util/promise_utils');
 var P = require('../../util/promise');
 var ops = require('../system_tests/basic_server_ops');
+var api = require('../../api');
 
 //var COVERAGE_DIR = '/root/noobaa-core/coverage';
 var COVERAGE_DIR = '/tmp/cov';
@@ -16,6 +17,22 @@ function TestRunner(version, argv) {
     this._error = false;
 }
 
+/**************************
+ *   Common Functionality
+ **************************/
+TestRunner.prototype.restore_db_defaults = function() {
+    return promise_utils.promised_exec(
+            'mongo nbcore /root/node_modules/noobaa-core/src/test/system_tests/mongodb_defaults.js')
+        .fail(function(err) {
+            console.warn('failed on mongodb_defaults');
+            throw new Error('Failed pn mongodb reset');
+        });
+};
+
+/**************************
+ *   Flow Control
+ **************************/
+
 TestRunner.prototype.init_run = function() {
     var self = this;
     //Clean previous run results
@@ -23,7 +40,23 @@ TestRunner.prototype.init_run = function() {
     if (!fs.existsSync(COVERAGE_DIR)) {
         fs.mkdirSync(COVERAGE_DIR);
     }
-    return promise_utils.promised_exec('rm -rf ' + COVERAGE_DIR + '/*')
+
+    this._rpc = api.new_rpc();
+    this._bg_client = this._rpc.new_client({
+        domain: 'bg'
+    });
+
+    return P.fcall(function() {
+            var auth_params = {
+                email: 'demo@noobaa.com',
+                password: 'DeMo',
+                system: 'demo'
+            };
+            return this.bg_client.create_auth_token(auth_params);
+        })
+        .then(function() {
+            return promise_utils.promised_exec('rm -rf ' + COVERAGE_DIR + '/*');
+        })
         .fail(function(err) {
             console.error('Failed cleaning ', COVERAGE_DIR, 'from previous run results', err);
             throw new Error('Failed cleaning dir');
@@ -58,10 +91,13 @@ TestRunner.prototype.init_run = function() {
 TestRunner.prototype.complete_run = function() {
     //Take coverage output and report and pack them
     var dst = '/tmp/res_' + this._version + '.tgz';
-    return promise_utils.promised_exec('tar --warning=no-file-changed -zcvf ' + dst + ' ' + COVERAGE_DIR + '/*')
-        .fail(function(err) {
-            console.error('Failed archiving test runs', err);
-            throw new Error('Failed archiving test runs');
+    return this._write_coverage()
+        .then(function() {
+            return promise_utils.promised_exec('tar --warning=no-file-changed -zcvf ' + dst + ' ' + COVERAGE_DIR + '/*')
+                .fail(function(err) {
+                    console.error('Failed archiving test runs', err);
+                    throw new Error('Failed archiving test runs');
+                });
         })
         .then(function() {
             console.log('Disabling TESTRUN');
@@ -80,15 +116,14 @@ TestRunner.prototype.complete_run = function() {
         .then(function() {
             console.log('Uploading results file');
             //Save package on current NooBaa system
-            return ops.upload_file('127.0.0.1', dst);
+            return ops.upload_file('127.0.0.1', dst, 'files', 'report_' + this._version + '.tgz');
         });
 };
 
 TestRunner.prototype.run_tests = function() {
     var self = this;
-    return P.nfcall(fs.readFile, process.cwd() + '/src/test/framework/flow.json') //TODO:: get as arg for execution
-        .then(function(data) {
-            var steps = JSON.parse(data);
+    return P.nfcall(fs.readFile, process.cwd() + '/src/test/framework/flow.js') //TODO:: get as arg for execution
+        .then(function(steps) {
             return P.each(steps.steps, function(current_step) {
                     return P.when(self._print_curent_step(current_step))
                         .then(function(step_res) {
@@ -186,12 +221,16 @@ TestRunner.prototype._run_action = function(current_step, step_res) {
         });
 };
 
-TestRunner.prototype.restore_db_defaults = function() {
-    return promise_utils.promised_exec(
-            'mongo nbcore /root/node_modules/noobaa-core/src/test/system_tests/mongodb_defaults.js')
-        .fail(function(err) {
-            console.warn('failed on mongodb_defaults');
-            throw new Error('Failed pn mongodb reset');
+TestRunner.prototype._write_coverage = function() {
+    return this._bg_client.redirector.publish_to_cluster({
+            method_api: 'debug',
+            method_name: 'get_istanbul_collector',
+            target: ''
+        })
+        .then(function(res) {
+            console.warn('NBNB:: res from publish is', res);
+            //_.each(res)
+            //add collector
         });
 };
 
@@ -217,6 +256,9 @@ function main() {
         .fail(function(error) {
             console.error('Complete run failed', error);
             process.exit(3);
+        })
+        .then(function() {
+            process.exit(0);
         });
 }
 

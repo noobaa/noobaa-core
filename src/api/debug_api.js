@@ -29,5 +29,20 @@ module.exports = {
                 system: 'admin'
             }
         },
+        get_istanbul_collector: {
+            method: 'GET',
+            reply: {
+                type: 'object',
+                required: ['data'],
+                properties: {
+                    data: {
+                        type: 'buffer'
+                    },
+                },
+            },
+        },
+        auth: {
+            system: 'admin'
+        }
     }
 };

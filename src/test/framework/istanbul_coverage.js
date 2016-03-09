@@ -1,30 +1,34 @@
 'use strict';
 //NO REQUIRES for NooBaa's code
 
-var hook = require('istanbul').hook;
 var path = require('path');
 var basepath = path.resolve(__dirname, '..', '..', '..');
 var regexp = new RegExp('^' + basepath + '/(node_modules|src/deploy|src/licenses|util/mongo_functions)');
+var istanbul = require('istanbul');
 
-var IstMatcher = function(file) {
-    if (file.match(regexp)) {
-        return false;
-    }
-    return true;
+module.exports = {
+  start_istanbul_coverage: start_istanbul_coverage
 };
 
-var IstTransformer = function(code, file) {
-    return code;
-};
+var _instrumenter;
+var _istMatcher;
+var _istTransformer;
 
-hook.hookRequire(IstMatcher, IstTransformer);
+function start_istanbul_coverage() {
+    _instrumenter = new istanbul.Instrumenter({
+        coverageVariable: 'NOOBAA_COV'
+    });
 
-/*gulp.task('mocha', ['coverage_hook'], function() {
-    var mocha_options = {
-        reporter: 'spec'
+    _istMatcher = function(file) {
+        if (file.match(regexp)) {
+            return false;
+        }
+        return true;
     };
-    // return gulp.src('./src/test/test_system_servers.js', SRC_DONT_READ)
-    return gulp.src(PATHS.test_all, SRC_DONT_READ)
-        .pipe(gulp_mocha(mocha_options))
-        .pipe(gulp_istanbul.writeReports());
-});*/
+
+    _istTransformer = function(code, file) {
+        return _instrumenter.instrumentSync(code, file.path);
+    };
+
+    istanbul.hook.hookRequire(_istMatcher, _istTransformer);
+}

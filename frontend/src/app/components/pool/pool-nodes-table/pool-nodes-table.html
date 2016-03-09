@@ -1,4 +1,4 @@
-<input type="search" class="filter" placeholder="Filter Files" data-bind="textInput: filter" />
+<input type="search" class="filter" placeholder="Filter Nodes" data-bind="textInput: filter" />
 
 <paginator params="itemCount: count, pageSize: pageSize, page: page" class="pull-right">
 </paginator>
@@ -14,6 +14,15 @@
 
                     <th class="name-col text-left" data-bind="css: orderClassFor('name')">
                         <a href data-bind="click: () => orderBy('name')">node name</a>
+                    </th>
+                    <th class="diskRead-col" data-bind="css: orderClassFor('diskRead')">
+                        <a href data-bind="click: () => orderBy('diskRead')">Disk Read</a>
+                    </th>
+                    <th class="diskWrite-col" data-bind="css: orderClassFor('diskWrite')">
+                        <a href data-bind="click: () => orderBy('diskWrite')">Disk Write</a>
+                    </th>
+                    <th class="RTT-col" data-bind="css: orderClassFor('RTT')">
+                        <a href data-bind="click: () => orderBy('RTT')">RTT</a>
                     </th>
 
                     <th class="ip-col" data-bind="css: orderClassFor('ip')">
@@ -34,6 +43,9 @@
                     <td class="name-col text-left" >
                         <a class="link" data-bind="text: name, href: href"></a>
                     </td>
+                    <td class="diskRead-col " data-bind="text: diskRead"></td>
+                    <td class="diskWrite-col" data-bind="text: diskWrite"></td>
+                    <td class="RTT-col " data-bind="text: RTT"></td>
                     <td class="ip-col" data-bind="text: ip"></td>
                     <td class="capacity-col" data-bind="text: capacity"></td>
                 </tr>

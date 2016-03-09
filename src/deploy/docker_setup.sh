@@ -38,7 +38,7 @@ if [ ! -d "/noobaa" ]; then
 	if [ $router != "0.0.0.0" ] ; then
 		sudo weave launch --ipalloc-range 10.2.0.$network/16 --trusted-subnets 10.2.0.0/16 $router #104.155.2.195
 	else
-		sudo weave launch --ipalloc-range 10.2.0.1/16 --trusted-subnets 10.2.0.0/16
+		sudo weave launch --ipalloc-range 10.2.0.1/16 --trusted-subnets 10.2.0.0/16 --connlimit  200
 	fi
 
 	curl http://noobaa-download.s3.amazonaws.com/DockerClientAmazon.zip >DockerClientAmazon.zip

@@ -711,7 +711,9 @@ Agent.prototype.collect_diagnostics = function(req) {
                 });
         })
         .then(null, function() {
-            return;
+            return {
+                data: new Buffer(),
+            };
         });
 };
 

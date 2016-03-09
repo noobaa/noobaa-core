@@ -1,6 +1,7 @@
 'use strict';
 
 let _ = require('lodash');
+let assert = require('assert');
 let LinkedList = require('./linked_list');
 
 let DEFAULT_PARAMS = {
@@ -37,10 +38,11 @@ class LRU {
             // check if not expired
             if (!this.params.expiry_ms || (now < item.time + this.params.expiry_ms)) {
                 // hit - move to front to mark as recently used
+                if (this.list.remove(item)) {
+                    this.list.push_front(item);
+                }
                 // fake update the usage - just to keep the length controlled
                 this._update_usage(0);
-                this.list.remove(item);
-                this.list.push_front(item);
                 return item;
             }
             // item expired
@@ -60,13 +62,23 @@ class LRU {
         if (!_.isNumber(usage)) {
             throw new TypeError('LRUItem usage should be a number');
         }
-        this._update_usage(usage - item.usage);
+        // setting the item usage before updating
+        // so that if the update will decides to discard this
+        // current item it will be able to account it.
+        let diff = usage - item.usage;
         item.usage = usage;
+        if (this.list.is_linked(item)) {
+            this._update_usage(diff);
+        }
+    }
+
+    is_linked(item) {
+        return this.list.is_linked(item);
     }
 
     _update_usage(diff) {
         this.usage += diff;
-        while (this.usage > this.params.max_usage) {
+        while (this.usage > this.params.max_usage && this.list.length) {
             let item = this.list.get_back();
             this._remove_item(item);
         }
@@ -74,9 +86,9 @@ class LRU {
 
     _add_item(item) {
         // make room for 1 new item
-        this._update_usage(item.usage);
         this.map[item.id] = item;
         this.list.push_front(item);
+        this._update_usage(item.usage);
     }
 
     _remove_item(item) {
@@ -85,6 +97,19 @@ class LRU {
         delete this.map[item.id];
         this._update_usage(-item.usage);
         return item;
+    }
+
+    _sanity() {
+        // now count the real usage
+        let usage = 0;
+        let item = this.list.get_front();
+        while (item) {
+            usage += item.usage;
+            assert.strictEqual(this.map[item.id], item);
+            item = this.list.get_next(item);
+        }
+        assert.strictEqual(this.usage, usage);
+        assert(usage <= this.params.max_usage);
     }
 
 }

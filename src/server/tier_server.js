@@ -229,7 +229,7 @@ function find_tier_by_name(req) {
     var name = req.rpc_params.name;
     var tier = req.system.tiers_by_name[name];
     if (!tier) {
-        throw req.rpc_error('NOT_FOUND', 'TIER NOT FOUND ' + name);
+        throw req.rpc_error('NO_SUCH_TIER', 'No such tier: ' + name);
     }
     return tier;
 }
@@ -238,7 +238,7 @@ function find_policy_by_name(req) {
     var name = req.rpc_params.name;
     var policy = req.system.tiering_policies_by_name[name];
     if (!policy) {
-        throw req.rpc_error('NOT_FOUND', 'POLICY NOT FOUND ' + name);
+        throw req.rpc_error('NO_SUCH_TIERING_POLICY', 'No such tiering policy: ' + name);
     }
     return policy;
 }

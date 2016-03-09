@@ -4,11 +4,12 @@ var config = {};
 config.NODES_MIN_COUNT = 3;
 config.NODES_FREE_SPACE_RESERVE = 10 * 1024 * 1024 * 1024;
 
-// ACTION CONCURRENCY
-config.READ_CONCURRENCY = 32;
-config.WRITE_CONCURRENCY = 32;
-config.READ_RANGE_CONCURRENCY = 8;
+// WRITE CONCURRENCY
+config.WRITE_CONCURRENCY = 256;
 config.REPLICATE_CONCURRENCY = 32;
+// READ CONCURRENCY
+config.READ_CONCURRENCY = 256;
+config.READ_RANGE_CONCURRENCY = 32;
 
 config.write_block_timeout = 20 * 1000;
 config.read_block_timeout = 10 * 1000;

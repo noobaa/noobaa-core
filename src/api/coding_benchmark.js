@@ -143,6 +143,12 @@ function test() {
             lrc_parity: 0,
         });
         var pipeline = new Pipeline(input);
+        pipeline.pipe(new CoalesceStream({
+            highWaterMark: 10,
+            max_length: 10,
+            max_wait_ms: 100,
+            objectMode: true
+        }));
         pipeline.pipe(transformer({
             options: {
                 highWaterMark: 4,

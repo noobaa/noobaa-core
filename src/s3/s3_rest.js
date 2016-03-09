@@ -33,16 +33,14 @@ const GET_BUCKET_QUERIES = Object.freeze([
     'versions',
     'uploads'
 ].concat(BUCKET_QUERIES));
-const OBJECT_QUERIES = Object.freeze([
-    'acl',
-    'uploadId'
-]);
 const RPC_ERRORS_TO_S3 = Object.freeze({
     UNAUTHORIZED: s3_errors.AccessDenied,
     FORBIDDEN: s3_errors.AccessDenied,
     NO_SUCH_BUCKET: s3_errors.NoSuchBucket,
     NO_SUCH_OBJECT: s3_errors.NoSuchKey,
     INVALID_BUCKET_NAME: s3_errors.InvalidBucketName,
+    BUCKET_NOT_EMPTY: s3_errors.BucketNotEmpty,
+    BUCKET_ALREADY_EXISTS: s3_errors.BucketAlreadyExists,
 });
 
 module.exports = s3_rest;
@@ -62,9 +60,9 @@ function s3_rest(controller) {
     app.post('/:bucket', s3_handler('post_bucket', ['delete']));
     app.delete('/:bucket', s3_handler('delete_bucket'));
     app.head('/:bucket/:key(*)', s3_handler('head_object'));
-    app.get('/:bucket/:key(*)', s3_handler('get_object', OBJECT_QUERIES));
-    app.put('/:bucket/:key(*)', s3_handler('put_object', OBJECT_QUERIES));
-    app.post('/:bucket/:key(*)', s3_handler('post_object', ['uploads']));
+    app.get('/:bucket/:key(*)', s3_handler('get_object', ['uploadId', 'acl']));
+    app.put('/:bucket/:key(*)', s3_handler('put_object', ['uploadId', 'acl']));
+    app.post('/:bucket/:key(*)', s3_handler('post_object', ['uploadId', 'uploads']));
     app.delete('/:bucket/:key(*)', s3_handler('delete_object', ['uploadId']));
     app.use(handle_common_s3_errors);
     return app;
@@ -108,8 +106,10 @@ function s3_rest(controller) {
                     // in this case the controller already replied
                     return;
                 }
-                dbg.log0('S3 REPLY', func_name, req.method, req.url, reply);
+                dbg.log1('S3 REPLY', func_name, req.method, req.url, reply);
                 if (!reply) {
+                    dbg.log0('S3 EMPTY REPLY', func_name, req.method, req.url,
+                        JSON.stringify(req.headers));
                     if (req.method === 'DELETE') {
                         res.status(204).end();
                     } else {
@@ -122,7 +122,8 @@ function s3_rest(controller) {
                         _content: val
                     }));
                     let xml_reply = jstoxml.toXML(xml_root, XML_OPTIONS);
-                    dbg.log0('S3 XML REPLY', func_name, req.method, req.url, xml_reply);
+                    dbg.log0('S3 XML REPLY', func_name, req.method, req.url,
+                        JSON.stringify(req.headers), xml_reply);
                     res.status(200).send(xml_reply);
                 }
             })
@@ -135,14 +136,20 @@ function s3_rest(controller) {
                 // test for non printable characters
                 // 403 is required for unreadable headers
                 if (/[\x00-\x1F]/.test(val) || /[\x00-\x1F]/.test(key)) {
+                    if (key.startsWith('x-amz-meta-')) {
+                        throw s3_errors.InvalidArgument;
+                    }
                     if (key !== 'expect') {
                         throw s3_errors.AccessDenied;
                     }
                 }
             });
-            req.content_length = parseInt(req.headers['content-length'], 10);
+
+            let content_length_str = req.headers['content-length'];
+            req.content_length = parseInt(content_length_str, 10);
             if (req.method === 'PUT') {
-                if (req.headers['content-length'] === '') {
+                if (content_length_str === '' ||
+                    req.content_length < 0) {
                     throw new s3_errors.S3Error({
                         http_code: 400,
                         reply: () => 'bad request'
@@ -152,6 +159,7 @@ function s3_rest(controller) {
                     throw s3_errors.MissingContentLength;
                 }
             }
+
             let content_md5_b64 = req.headers['content-md5'];
             if (!_.isUndefined(content_md5_b64)) {
                 req.content_md5 = new Buffer(content_md5_b64, 'base64');
@@ -159,6 +167,7 @@ function s3_rest(controller) {
                     throw s3_errors.InvalidDigest;
                 }
             }
+
             next();
         } catch (err) {
             next(err);
@@ -176,9 +185,12 @@ function s3_rest(controller) {
         let s3err =
             (err instanceof s3_errors.S3Error) && err ||
             RPC_ERRORS_TO_S3[err.rpc_code] ||
-            s3_errors.InternalError;
+            // s3_errors.InternalError;
+            s3_errors.AccessDenied;
         let reply = s3err.reply(req.url, req.request_id);
-        dbg.error('S3 ERROR', reply, err.stack || err);
+        dbg.error('S3 ERROR', reply,
+            JSON.stringify(req.headers),
+            err.stack || err);
         res.status(s3err.http_code).send(reply);
     }
 

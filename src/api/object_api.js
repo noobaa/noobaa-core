@@ -17,7 +17,11 @@ module.exports = {
             method: 'POST',
             params: {
                 type: 'object',
-                required: ['bucket', 'key', 'size'],
+                required: [
+                    'bucket',
+                    'key',
+                    'size'
+                ],
                 properties: {
                     bucket: {
                         type: 'string',
@@ -36,6 +40,82 @@ module.exports = {
                     },
                 }
             },
+            reply: {
+                type: 'object',
+                required: ['upload_id'],
+                properties: {
+                    upload_id: {
+                        type: 'string'
+                    }
+                }
+            },
+            auth: {
+                system: ['admin', 'user']
+            }
+        },
+
+        complete_multipart_upload: {
+            method: 'PUT',
+            params: {
+                type: 'object',
+                required: [
+                    'bucket',
+                    'key',
+                    'upload_id'
+                ],
+                properties: {
+                    bucket: {
+                        type: 'string',
+                    },
+                    key: {
+                        type: 'string',
+                    },
+                    upload_id: {
+                        type: 'string',
+                    },
+                    fix_parts_size: {
+                        type: 'boolean',
+                    },
+                    etag: {
+                        type: 'string',
+                    }
+                }
+            },
+            reply: {
+                type: 'object',
+                required: ['etag'],
+                properties: {
+                    etag: {
+                        type: 'string',
+                    }
+                }
+            },
+            auth: {
+                system: ['admin', 'user']
+            }
+        },
+
+        abort_multipart_upload: {
+            method: 'DELETE',
+            params: {
+                type: 'object',
+                required: [
+                    'bucket',
+                    'key',
+                    'upload_id'
+                ],
+                properties: {
+                    bucket: {
+                        type: 'string',
+                    },
+                    key: {
+                        type: 'string',
+                    },
+                    upload_id: {
+                        type: 'string',
+                    }
+                }
+            },
             auth: {
                 system: ['admin', 'user']
             }
@@ -45,12 +125,19 @@ module.exports = {
             method: 'GET',
             params: {
                 type: 'object',
-                required: ['bucket', 'key'],
+                required: [
+                    'bucket',
+                    'key',
+                    'upload_id'
+                ],
                 properties: {
                     bucket: {
                         type: 'string',
                     },
                     key: {
+                        type: 'string',
+                    },
+                    upload_id: {
                         type: 'string',
                     },
                     part_number_marker: {
@@ -87,7 +174,7 @@ module.exports = {
                         type: 'array',
                         items: {
                             type: 'object',
-                            required: ['part_number', 'size'],
+                            required: ['part_number', 'size', 'etag', 'last_modified'],
                             properties: {
                                 part_number: {
                                     type: 'integer'
@@ -95,42 +182,15 @@ module.exports = {
                                 size: {
                                     type: 'integer'
                                 },
+                                etag: {
+                                    type: 'string'
+                                },
+                                last_modified: {
+                                    type: 'integer',
+                                    format: 'idate'
+                                }
                             }
                         }
-                    }
-                }
-            },
-            auth: {
-                system: ['admin', 'user']
-            }
-        },
-
-        complete_multipart_upload: {
-            method: 'PUT',
-            params: {
-                type: 'object',
-                required: ['bucket', 'key'],
-                properties: {
-                    bucket: {
-                        type: 'string',
-                    },
-                    key: {
-                        type: 'string',
-                    },
-                    fix_parts_size: {
-                        type: 'boolean',
-                    },
-                    etag: {
-                        type: 'string',
-                    }
-                }
-            },
-            reply: {
-                type: 'object',
-                required: ['etag'],
-                properties: {
-                    etag: {
-                        type: 'string',
                     }
                 }
             },
@@ -143,12 +203,21 @@ module.exports = {
             method: 'PUT',
             params: {
                 type: 'object',
-                required: ['bucket', 'key'],
+                required: [
+                    'bucket',
+                    'key',
+                    'upload_id',
+                    'upload_part_number',
+                    'etag'
+                ],
                 properties: {
                     bucket: {
                         type: 'string',
                     },
                     key: {
+                        type: 'string',
+                    },
+                    upload_id: {
                         type: 'string',
                     },
                     upload_part_number: {
@@ -164,35 +233,24 @@ module.exports = {
             }
         },
 
-        abort_multipart_upload: {
-            method: 'DELETE',
-            params: {
-                type: 'object',
-                required: ['bucket', 'key'],
-                properties: {
-                    bucket: {
-                        type: 'string',
-                    },
-                    key: {
-                        type: 'string',
-                    },
-                }
-            },
-            auth: {
-                system: ['admin', 'user']
-            }
-        },
-
         allocate_object_parts: {
             method: 'POST',
             params: {
                 type: 'object',
-                required: ['bucket', 'key', 'parts'],
+                required: [
+                    'bucket',
+                    'key',
+                    'upload_id',
+                    'parts'
+                ],
                 properties: {
                     bucket: {
                         type: 'string',
                     },
                     key: {
+                        type: 'string',
+                    },
+                    upload_id: {
                         type: 'string',
                     },
                     parts: {
@@ -224,12 +282,20 @@ module.exports = {
             method: 'PUT',
             params: {
                 type: 'object',
-                required: ['bucket', 'key', 'parts'],
+                required: [
+                    'bucket',
+                    'key',
+                    'upload_id',
+                    'parts'
+                ],
                 properties: {
                     bucket: {
                         type: 'string',
                     },
                     key: {
+                        type: 'string',
+                    },
+                    upload_id: {
                         type: 'string',
                     },
                     parts: {
@@ -423,11 +489,10 @@ module.exports = {
                     delimiter: {
                         type: 'string',
                     },
-                    key_prefix: {
+                    prefix: {
                         type: 'string',
                     },
-                    //filter subdirectories
-                    key_s3_prefix: {
+                    key_prefix: {
                         type: 'string',
                     },
                     key_regexp: {

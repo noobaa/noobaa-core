@@ -56,6 +56,7 @@ function create_multipart_upload(req) {
     load_bucket(req);
     dbg.log0('create_multipart_upload xattr', req.rpc_params);
     var info = {
+        _id: db.new_object_id(),
         system: req.system._id,
         bucket: req.bucket._id,
         key: req.rpc_params.key,
@@ -65,7 +66,18 @@ function create_multipart_upload(req) {
         cloud_synced: false,
         xattr: req.rpc_params.xattr
     };
-    return P.when(db.ObjectMD.create(info)).return();
+    return P.when(db.ObjectMD.create(info))
+        .catch(err => {
+            if (db.is_err_exists(err)) {
+                return delete_object(req)
+                    .then(() => db.ObjectMD.create(info));
+            } else {
+                throw err;
+            }
+        })
+        .return({
+            upload_id: String(info._id)
+        });
 }
 
 
@@ -403,14 +415,14 @@ var ONE_LEVEL_SLASH_DELIMITER = one_level_delimiter('/');
  */
 function list_objects(req) {
     dbg.log0('key query', req.rpc_params);
-    var prefix = req.rpc_params.key_s3_prefix;
+    var prefix = req.rpc_params.prefix;
     var delimiter = req.rpc_params.delimiter;
     load_bucket(req);
     return P.fcall(function() {
             var info = _.omit(object_md_query(req), 'key');
             var common_prefixes_query;
 
-            if (!_.isUndefined(req.rpc_params.key_s3_prefix)) {
+            if (!_.isUndefined(prefix)) {
                 // find objects that match "prefix***" or "prefix***/"
                 var one_level = delimiter && delimiter !== '/' ?
                     one_level_delimiter(delimiter) :
@@ -548,7 +560,7 @@ function get_object_info(md) {
 function load_bucket(req) {
     var bucket = req.system.buckets_by_name[req.rpc_params.bucket];
     if (!bucket) {
-        throw req.rpc_error('NOT_FOUND', 'bucket not found ' + req.rpc_params.bucket);
+        throw req.rpc_error('NO_SUCH_BUCKET', 'No such bucket: ' + req.rpc_params.bucket);
     }
     req.bucket = bucket;
 }
@@ -573,7 +585,7 @@ function find_object_md(req) {
 function find_cached_object_md(req) {
     load_bucket(req);
     return P.fcall(function() {
-            return db.ObjectMDCache.get({
+            return db.ObjectMDCache.get_with_cache({
                 system: req.system._id,
                 bucket: req.bucket._id,
                 key: req.rpc_params.key
@@ -584,6 +596,7 @@ function find_cached_object_md(req) {
 
 function fail_obj_not_in_upload_mode(req, obj) {
     if (!_.isNumber(obj.upload_size)) {
-        throw req.rpc_error('BAD_STATE', 'object not in upload mode ' + obj.key + ' size:' + obj.upload_size);
+        throw req.rpc_error('INVALID_OBJECT_STATE', 'Object not in upload mode ' +
+            obj.key + ' upload_size ' + obj.upload_size);
     }
 }

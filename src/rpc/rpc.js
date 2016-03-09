@@ -294,7 +294,7 @@ RPC.prototype.handle_request = function(conn, msg) {
         dbg.warn('RPC handle_request: NOT FOUND', srv,
             'reqid', msg.header.reqid,
             'connid', conn.connid);
-        req.rpc_error('NOT_FOUND', srv + ' not found', {
+        req.rpc_error('NO_SUCH_RPC_SERVICE', 'No such RPC Service ' + srv, {
             nostack: true
         });
         return conn.send(req.export_response_buffer(), 'res', req);

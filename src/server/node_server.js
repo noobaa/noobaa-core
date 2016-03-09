@@ -67,7 +67,7 @@ function create_node(req) {
 
     var pool = req.system.pools_by_name.default_pool;
     if (!pool) {
-        throw req.rpc_error('NOT_FOUND', 'DEFAULT POOL NOT FOUND');
+        throw req.rpc_error('NO_DEFAULT_POOL', 'No default pool');
     }
     node.pool = pool._id;
 

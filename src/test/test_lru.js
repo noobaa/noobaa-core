@@ -21,7 +21,7 @@ mocha.describe('lru', function() {
 
     mocha.it('should remove item to make room', function() {
         var lru = new LRU({
-            max_length: 1
+            max_usage: 1
         });
         var item = lru.find_or_add_item(1);
         item.foo = 'bar';

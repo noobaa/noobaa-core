@@ -152,11 +152,14 @@ function list_multipart_parts(params) {
                 is_truncated: !!(part_numbers.length || !max_parts),
                 next_part_number_marker: last_part + 1,
                 upload_parts: _.map(part_numbers, function(num) {
+                    let updated_item = upload_parts[num][0];
                     return {
                         part_number: parseInt(num, 10),
                         size: _.reduce(upload_parts[num], function(sum, part) {
                             return sum + part.end - part.start;
-                        }, 0)
+                        }, 0),
+                        etag: updated_item.etag,
+                        last_modified: updated_item._id.getTimestamp().getTime(),
                     };
                 })
             };
@@ -384,7 +387,7 @@ function report_bad_block(params) {
                         var avoid_nodes = _.map(all_blocks, function(block) {
                             return block.node._id.toString();
                         });
-                        // TODO GGG
+                        // TODO GGG report_bad_block
                         return block_allocator.allocate_block(chunk, avoid_nodes);
                     })
                     .then(function(new_block_arg) {
@@ -401,7 +404,7 @@ function report_bad_block(params) {
                         return db.DataBlock.create(new_block);
                     })
                     .then(function() {
-                        // TODO GGG
+                        // TODO GGG report_bad_block
                         return block_allocator.remove_allocation([bad_block]);
                     })
                     .then(function() {

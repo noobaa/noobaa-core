@@ -54,8 +54,9 @@ function canonicalizedResource(request) {
     // parts[0] = '/s3' +parts[0];
     var resource = '';
 
-    if (r.virtualHostedBucket)
+    if (r.virtualHostedBucket) {
         resource += '/' + r.virtualHostedBucket;
+    }
 
     resource += path;
     if (querystring) {
@@ -90,10 +91,11 @@ function canonicalizedResource(request) {
         if (resources.length) {
             querystring = [];
             s3_util.arrayEach(resources, function(res) {
-                if (res.value === undefined)
+                if (res.value === undefined) {
                     querystring.push(res.name);
-                else
+                } else {
                     querystring.push(res.name + '=' + res.value);
+                }
             });
 
             resource += '?' + querystring.join('&');
@@ -107,8 +109,9 @@ function canonicalizedAmzHeaders(request) {
     var amzHeaders = [];
 
     s3_util.each(request.headers, function(name) {
-        if (name.match(/^x-amz-/i))
+        if (name.match(/^x-amz-/i)) {
             amzHeaders.push(name);
+        }
     });
 
     amzHeaders.sort(function(a, b) {
@@ -136,12 +139,11 @@ function noobaa_string_to_sign(request) {
     // string for this Date header regardless.
 
     //another noobaa addition - take into account signed urls
-    if (r.headers['presigned-expires']  || r.query.Expires){
-        parts.push(r.headers['presigned-expires']  || r.query.Expires);
-    }else if (r.headers.date){
+    if (r.headers['presigned-expires'] || r.query.Expires) {
+        parts.push(r.headers['presigned-expires'] || r.query.Expires);
+    } else if (r.headers.date) {
         parts.push(r.headers.date);
-    }else
-    {
+    } else {
         parts.push('');
     }
 

@@ -123,6 +123,7 @@ schema.compile();
 // create rpc
 var rpc = new RPC({
     schema: schema,
+    router: {}
 });
 if (argv.novalidation) {
     rpc.disable_validation();

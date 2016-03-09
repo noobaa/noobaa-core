@@ -74,7 +74,7 @@ mocha.describe('object_driver', function() {
         }).then(function() {
             return client.object.list_objects({
                 bucket: BKT,
-                key_s3_prefix: key,
+                prefix: key,
             });
         }).then(function() {
             return client.object.delete_object({

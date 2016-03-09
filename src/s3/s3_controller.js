@@ -13,10 +13,10 @@ var s3_errors = require('./s3_errors');
 
 dbg.set_level(5);
 
-const DISPLAY_NAME = 'NooBaa';
-const DEFAULT_OWNER = Object.freeze({
-    ID: 123,
-    DisplayName: DISPLAY_NAME
+const STORAGE_CLASS_STANDARD = 'Standard';
+const DEFAULT_S3_USER = Object.freeze({
+    ID: '123',
+    DisplayName: 'NooBaa'
 });
 
 class S3Controller {
@@ -58,7 +58,7 @@ class S3Controller {
                 var date = to_s3_date(new Date());
                 return {
                     ListAllMyBucketsResult: {
-                        Owner: DEFAULT_OWNER,
+                        Owner: DEFAULT_S3_USER,
                         Buckets: if_not_empty(_.map(reply.buckets, bucket => ({
                             Bucket: {
                                 Name: bucket.name,
@@ -89,6 +89,7 @@ class S3Controller {
             });
     }
 
+
     /**
      * http://docs.aws.amazon.com/AmazonS3/latest/API/RESTBucketGET.html
      * (aka list objects)
@@ -99,10 +100,10 @@ class S3Controller {
             bucket: req.params.bucket,
         };
         if ('prefix' in req.query) {
-            params.key_s3_prefix = decodeURI(req.query.prefix);
+            params.prefix = req.query.prefix;
         }
         if ('delimiter' in req.query) {
-            params.delimiter = decodeURI(req.query.delimiter);
+            params.delimiter = req.query.delimiter;
         }
         return req.rpc_client.object.list_objects(params)
             .then(reply => {
@@ -122,8 +123,8 @@ class S3Controller {
                                 LastModified: to_s3_date(obj.info.create_time),
                                 ETag: obj.info.etag,
                                 Size: obj.info.size,
-                                StorageClass: 'Standard',
-                                Owner: DEFAULT_OWNER
+                                StorageClass: STORAGE_CLASS_STANDARD,
+                                Owner: DEFAULT_S3_USER
                             }
                         }))),
                         if_not_empty(_.map(reply.common_prefixes, prefix => ({
@@ -136,6 +137,7 @@ class S3Controller {
             });
     }
 
+
     /**
      * http://docs.aws.amazon.com/AmazonS3/latest/API/RESTBucketGETVersion.html
      * (aka list object versions)
@@ -146,10 +148,10 @@ class S3Controller {
             bucket: req.params.bucket,
         };
         if ('prefix' in req.query) {
-            params.key_s3_prefix = decodeURI(req.query.prefix);
+            params.prefix = req.query.prefix;
         }
         if ('delimiter' in req.query) {
-            params.delimiter = decodeURI(req.query.delimiter);
+            params.delimiter = req.query.delimiter;
         }
         return req.rpc_client.object.list_objects(params)
             .then(reply => {
@@ -174,8 +176,8 @@ class S3Controller {
                                 LastModified: to_s3_date(obj.info.create_time),
                                 ETag: obj.info.etag,
                                 Size: obj.info.size,
-                                StorageClass: 'Standard',
-                                Owner: DEFAULT_OWNER
+                                StorageClass: STORAGE_CLASS_STANDARD,
+                                Owner: DEFAULT_S3_USER
                             }
                         }))),
                         if_not_empty(_.map(reply.common_prefixes, prefix => ({
@@ -188,13 +190,44 @@ class S3Controller {
             });
     }
 
+
     /**
      * http://docs.aws.amazon.com/AmazonS3/latest/API/mpUploadListMPUpload.html
      */
     // get_bucket_uploads(req) { TODO GGG }
 
+
+    /**
+     * http://docs.aws.amazon.com/AmazonS3/latest/API/RESTBucketPUT.html
+     * (aka create bucket)
+     */
+    put_bucket(req) {
+        return req.rpc_client.bucket.create_bucket({
+            name: req.params.bucket
+        }).return();
+    }
+
+
+    /**
+     * http://docs.aws.amazon.com/AmazonS3/latest/API/RESTBucketDELETE.html
+     */
+    delete_bucket(req, res) {
+        return req.rpc_client.bucket.delete_bucket({
+            name: req.params.bucket
+        }).return();
+    }
+
+
+    /**
+     * http://docs.aws.amazon.com/AmazonS3/latest/API/multiobjectdeleteapi.html
+     * (aka delete objects)
+     */
+    // post_bucket_delete(req) { TODO GGG }
+
+
     /**
      * http://docs.aws.amazon.com/AmazonS3/latest/API/RESTBucketGETacl.html
+     * (aka get bucket permissions)
      */
     get_bucket_acl(req) {
         return req.rpc_client.bucket.read_bucket({
@@ -203,11 +236,21 @@ class S3Controller {
             .then(bucket_info => {
                 return {
                     AccessControlPolicy: {
-                        Owner: DEFAULT_OWNER
+                        Owner: DEFAULT_S3_USER
                     }
                 };
             });
     }
+
+
+    /**
+     * http://docs.aws.amazon.com/AmazonS3/latest/API/RESTBucketPUTacl.html
+     * (aka set bucket permissions)
+     */
+    put_bucket_acl(req) {
+        // TODO GGG ignoring put_bucket_acl for now
+    }
+
 
     /**
      * http://docs.aws.amazon.com/AmazonS3/latest/API/RESTBucketGETlocation.html
@@ -223,134 +266,108 @@ class S3Controller {
             });
     }
 
-    /**
-     * http://docs.aws.amazon.com/AmazonS3/latest/API/RESTBucketPUT.html
-     * (aka create bucket)
-     */
-    put_bucket(req) {
-        return req.rpc_client.bucket.create_bucket({
-            name: req.params.bucket
-        }).return();
-    }
-
-    /**
-     * http://docs.aws.amazon.com/AmazonS3/latest/API/RESTBucketPUTacl.html
-     * (aka set bucket acl)
-     */
-    put_bucket_acl(req) {
-        // TODO GGG ignoring put_bucket_acl for now
-    }
-
-    /**
-     * http://docs.aws.amazon.com/AmazonS3/latest/API/RESTBucketDELETE.html
-     */
-    delete_bucket(req, res) {
-        return req.rpc_client.bucket.delete_bucket({
-            name: req.params.bucket
-        }).return();
-    }
-
-    /**
-     * http://docs.aws.amazon.com/AmazonS3/latest/API/multiobjectdeleteapi.html
-     * (aka delete objects)
-     */
-    // post_bucket_delete(req) { TODO GGG }
-
-
 
     ///////////////////////////
     // OPERATIONS ON OBJECTS //
     ///////////////////////////
 
-    _object_path(req) {
-        // Support _$folder$ used by s3 clients (supported by AWS). Replace with current prefix /
-        let key = req.params.key.replace(/_\$folder\$/, '/');
-        return {
-            bucket: req.params.bucket,
-            key: key
-        };
-    }
 
     /**
      * http://docs.aws.amazon.com/AmazonS3/latest/API/RESTObjectHEAD.html
+     * (aka read object meta-data)
      */
     head_object(req, res) {
         return req.rpc_client.object.read_object_md(this._object_path(req))
             .then(object_md => {
+                req.object_md = object_md;
                 res.setHeader('ETag', '"' + object_md.etag + '"');
                 res.setHeader('Last-Modified', to_s3_date(object_md.create_time));
                 res.setHeader('Content-Type', object_md.content_type);
                 res.setHeader('Content-Length', object_md.size);
+                res.setHeader('Accept-Ranges', 'bytes');
                 set_response_xattr(res, object_md.xattr);
+                if (this._check_ifs(req, res, object_md) === false) {
+                    return false;
+                }
             });
     }
+
 
     /**
      * http://docs.aws.amazon.com/AmazonS3/latest/API/RESTObjectGET.html
+     * (aka read object)
      */
     get_object(req, res) {
         return this.head_object(req, res)
-            .then(() => {
+            .then(should_handle => {
+                // check if already handled by head_object
+                if (should_handle === false) {
+                    return false;
+                }
+                let object_md = req.object_md;
                 let object_driver = req.rpc_client.object_driver_lazy();
-                object_driver.serve_http_stream(req, res, this._object_path(req));
-                return false; // let the caller know we are handling the response
+                let code = object_driver.serve_http_stream(
+                    req, res, this._object_path(req), object_md);
+                switch (code) {
+                    case 400:
+                        throw s3_errors.InvalidArgument;
+                    case 416:
+                        throw s3_errors.InvalidRange;
+                    case 200:
+                        res.status(200);
+                        return false; // let the caller know we are handling the response
+                    case 206:
+                        res.status(206);
+                        return false; // let the caller know we are handling the response
+                    default:
+                        throw s3_errors.InternalError;
+                }
             });
     }
 
-    /**
-     * http://docs.aws.amazon.com/AmazonS3/latest/API/RESTObjectGETacl.html
-     */
-    get_object_acl(req) {
-        return req.rpc_client.object.read_object_md(this._object_path(req))
-            .then(object_md => {
-                return {
-                    AccessControlPolicy: {
-                        Owner: DEFAULT_OWNER
-                    }
-                };
-            });
-    }
 
     /**
      * http://docs.aws.amazon.com/AmazonS3/latest/API/RESTObjectPUT.html
      * (aka upload object, or copy object)
      */
     put_object(req, res) {
+
+        // TODO GGG IMPLEMENT COPY OBJECT
         var copy_source = req.headers['x-amz-copy-source'];
         if (copy_source) {
-            // TODO GGG COPY OBJECT
             // return req.rpc_client.object.copy_object({});
             throw s3_errors.NotImplemented;
-        } else {
-            dbg.log0('S3Controller.put_object: headers', req.headers);
-            let object_driver = req.rpc_client.object_driver_lazy();
-            return object_driver.upload_stream({
-                    bucket: req.params.bucket,
-                    key: req.params.key,
-                    size: req.content_length,
-                    content_type: req.headers['content-type'] || mime.lookup(req.params.key),
-                    xattr: get_request_xattr(req),
-                    source_stream: req,
-                    calculate_md5: true
-                })
-                .then(md5_digest => {
-                    let etag = md5_digest.toString('hex');
-                    res.setHeader('ETag', '"' + etag + '"');
-                    if (req.content_md5) {
-                        if (Buffer.compare(md5_digest, req.content_md5)) {
-                            // TODO GGG how to handle? delete the object?
-                            dbg.error('S3Controller.put_object: BadDigest',
-                                'content-md5', req.content_md5.toString('hex'),
-                                'etag', etag);
-                            throw s3_errors.BadDigest;
-                        }
-                    }
-                });
         }
+
+        let object_driver = req.rpc_client.object_driver_lazy();
+        return object_driver.upload_stream({
+                bucket: req.params.bucket,
+                key: req.params.key,
+                size: req.content_length,
+                content_type: req.headers['content-type'] || mime.lookup(req.params.key),
+                xattr: get_request_xattr(req),
+                source_stream: req,
+                calculate_md5: true
+            })
+            .then(md5_digest => {
+                let etag = md5_digest.toString('hex');
+                res.setHeader('ETag', '"' + etag + '"');
+                if (req.content_md5) {
+                    if (Buffer.compare(md5_digest, req.content_md5)) {
+                        // TODO GGG how to handle? delete the object?
+                        dbg.error('S3Controller.put_object: BadDigest',
+                            'content-md5', req.content_md5.toString('hex'),
+                            'etag', etag);
+                        throw s3_errors.BadDigest;
+                    }
+                }
+            });
     }
+
 
     /**
      * http://docs.aws.amazon.com/AmazonS3/latest/API/RESTObjectPOST.html
+     * (aka upload using HTTP multipart/form-data encoding)
      */
     // post_object(req) { TODO GGG }
 
@@ -365,6 +382,31 @@ class S3Controller {
     }
 
 
+    /**
+     * http://docs.aws.amazon.com/AmazonS3/latest/API/RESTObjectGETacl.html
+     * (aka get object acl)
+     */
+    get_object_acl(req) {
+        return req.rpc_client.object.read_object_md(this._object_path(req))
+            .then(object_md => {
+                return {
+                    AccessControlPolicy: {
+                        Owner: DEFAULT_S3_USER
+                    }
+                };
+            });
+    }
+
+
+    /**
+     * http://docs.aws.amazon.com/AmazonS3/latest/API/RESTObjectPUTacl.html
+     * (aka set object acl)
+     */
+    put_object_acl(req) {
+        // TODO GGG ignoring put_object_acl for now
+    }
+
+
     //////////////////////
     // MULTIPART UPLOAD //
     //////////////////////
@@ -372,34 +414,204 @@ class S3Controller {
 
     /**
      * http://docs.aws.amazon.com/AmazonS3/latest/API/mpUploadInitiate.html
+     * (aka start multipart upload)
      */
-    // post_object_uploads(req) { TODO GGG }
+    post_object_uploads(req) {
+        return req.rpc_client.object.create_multipart_upload({
+            bucket: req.params.bucket,
+            key: req.params.key,
+            size: req.content_length,
+            content_type: req.headers['content-type'] || mime.lookup(req.params.key),
+            xattr: get_request_xattr(req),
+        }).then(reply => {
+            return {
+                InitiateMultipartUploadResult: {
+                    Bucket: req.params.bucket,
+                    Key: req.params.key,
+                    UploadId: reply.upload_id
+                }
+            };
+        });
+    }
 
-    /**
-     * http://docs.aws.amazon.com/AmazonS3/latest/API/mpUploadUploadPart.html
-     */
-    // put_object_uploadId(req) { TODO GGG }
 
     /**
      * http://docs.aws.amazon.com/AmazonS3/latest/API/mpUploadComplete.html
+     * (aka complete multipart upload)
      */
-    // post_object_uploadId(req) { TODO GGG }
+    post_object_uploadId(req) {
+        return req.rpc_client.object.complete_multipart_upload({
+                bucket: req.params.bucket,
+                key: req.params.key,
+                upload_id: req.query.uploadId,
+                fix_parts_size: true,
+                etag: '',
+            })
+            .then(reply => {
+                return {
+                    CompleteMultipartUploadResult: {
+                        Bucket: req.params.bucket,
+                        Key: req.params.key,
+                        ETag: reply.etag,
+                        Location: req.url,
+                    }
+                };
+            });
+
+    }
+
 
     /**
      * http://docs.aws.amazon.com/AmazonS3/latest/API/mpUploadAbort.html
+     * (aka abort multipart upload)
      */
-    // delete_object_uploadId(req) { TODO GGG }
+    delete_object_uploadId(req) {
+        return req.rpc_client.object.abort_multipart_upload({
+            bucket: req.params.bucket,
+            key: req.params.key,
+            upload_id: req.query.uploadId,
+        });
+    }
+
 
     /**
      * http://docs.aws.amazon.com/AmazonS3/latest/API/mpUploadListParts.html
+     * (aka list multipart upload parts)
      */
-    // get_object_uploadId(req) { TODO GGG }
+    get_object_uploadId(req) {
+        let part_number_marker = parseInt(req.query['part-number-marker'], 10) || 1;
+        let max_parts = parseInt(req.query['max-parts'], 10) || 1000;
+        return req.rpc_client.object.list_multipart_parts({
+                bucket: req.params.bucket,
+                key: req.params.key,
+                upload_id: req.query.uploadId,
+                part_number_marker: part_number_marker,
+                max_parts: max_parts,
+            })
+            .then(reply => {
+                return {
+                    ListPartsResult: [{
+                            Bucket: req.params.bucket,
+                            Key: req.params.key,
+                            UploadId: reply.uploadId,
+                            Initiator: DEFAULT_S3_USER,
+                            Owner: DEFAULT_S3_USER,
+                            StorageClass: STORAGE_CLASS_STANDARD,
+                            PartNumberMarker: part_number_marker,
+                            MaxParts: max_parts,
+                            NextPartNumberMarker: reply.next_part_number_marker,
+                            IsTruncated: reply.is_truncated,
+                        },
+                        if_not_empty(_.map(reply.upload_parts, part => ({
+                            Part: {
+                                PartNumber: part.part_number,
+                                Size: part.size,
+                                ETag: part.etag,
+                                LastModified: to_s3_date(part.last_modified),
+                            }
+                        })))
+                    ]
+                };
+            });
+    }
+
+
+    /**
+     * http://docs.aws.amazon.com/AmazonS3/latest/API/mpUploadUploadPart.html
+     * (aka upload part)
+     */
+    put_object_uploadId(req, res) {
+        let upload_part_number = parseInt(req.query.partNumber, 10);
+
+        // TODO GGG IMPLEMENT COPY PART
+        var copy_source = req.headers['x-amz-copy-source'];
+        if (copy_source) {
+            // return req.rpc_client.object.copy_part({});
+            throw s3_errors.NotImplemented;
+        }
+
+        let object_driver = req.rpc_client.object_driver_lazy();
+        return object_driver.upload_stream_parts({
+                bucket: req.params.bucket,
+                key: req.params.key,
+                upload_id: req.query.uploadId,
+                upload_part_number: upload_part_number,
+                size: req.content_length,
+                source_stream: req,
+                calculate_md5: true
+            })
+            .then(md5_digest => {
+                let etag = md5_digest.toString('hex');
+                res.setHeader('ETag', '"' + etag + '"');
+                if (req.content_md5) {
+                    if (Buffer.compare(md5_digest, req.content_md5)) {
+                        // TODO GGG how to handle? delete the object?
+                        dbg.error('S3Controller.put_object_uploadId: BadDigest',
+                            'content-md5', req.content_md5.toString('hex'),
+                            'etag', etag);
+                        throw s3_errors.BadDigest;
+                    }
+                }
+                return req.rpc_client.object.complete_part_upload({
+                    bucket: req.params.bucket,
+                    key: req.params.key,
+                    upload_id: req.query.uploadId,
+                    upload_part_number: upload_part_number,
+                    etag: etag
+                });
+            });
+    }
+
+
+    /////////////
+    // PRIVATE //
+    /////////////
+
+
+    _object_path(req) {
+        // Support _$folder$ used by s3 clients (supported by AWS). Replace with current prefix /
+        let key = req.params.key.replace(/_\$folder\$/, '/');
+        return {
+            bucket: req.params.bucket,
+            key: key
+        };
+    }
+
+
+    _check_ifs(req, res, object_md) {
+        if ('if-modified-since' in req.headers && (
+                object_md.create_time.getTime() <=
+                (new Date(req.headers['if-modified-since'])).getTime()
+            )) {
+            res.status(304).end();
+            return false;
+        }
+        if ('if-unmodified-since' in req.headers && (
+                object_md.create_time.getTime() >=
+                (new Date(req.headers['if-unmodified-since'])).getTime()
+            )) {
+            res.status(412).end();
+            return false;
+        }
+        if ('if-match' in req.headers &&
+            req.headers['if-match'] !== object_md.etag) {
+            res.status(412).end();
+            return false;
+        }
+        if ('if-none-match' in req.headers &&
+            req.headers['if-none-match'] === object_md.etag) {
+            res.status(304).end();
+            return false;
+        }
+        return true;
+    }
+
 
 }
 
 
 function to_s3_date(input) {
-    let date = new Date(input);
+    let date = input ? new Date(input) : new Date();
     date.setMilliseconds(0);
     return date.toISOString();
 }

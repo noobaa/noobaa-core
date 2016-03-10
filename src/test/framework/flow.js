@@ -16,6 +16,11 @@ var steps = [{
     //Run unit tests
     name: 'Unit Tests',
     action: 'gulp mocha',
+    params: [{
+        arg: '--COV_DIR',
+    }, {
+        input_arg: '/tmp/cov/mocha',
+    }],
 }, {
     //Restore DB to defaults
     name: 'Restore DB Defaults',

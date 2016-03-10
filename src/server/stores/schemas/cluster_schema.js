@@ -14,5 +14,24 @@ module.exports = {
         cluster_id: {
             type: 'string'
         },
+        members: {
+            type: 'array',
+            items: {
+                type: 'object',
+                required: ['name', 'address'],
+                properties: {
+                    name: {
+                        type: 'string'
+                    },
+                    address: {
+                        type: 'string'
+                    },
+                    adminable_state: {
+                        enum: ['member', 'detaching', 'attaching']
+                    }
+                }
+            }
+
+        }
     }
 };

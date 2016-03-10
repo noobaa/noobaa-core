@@ -1,8 +1,9 @@
 /* jshint node:true */
 'use strict';
 
-// var _ = require('lodash');
 var system_store = require('./stores/system_store');
+var api = require('../../api');
+var rpc = api.new_rpc();
 
 /*
  * Cluster Server
@@ -10,7 +11,8 @@ var system_store = require('./stores/system_store');
 
 var cluster_server = {
     get_cluster_id: get_cluster_id,
-    load_system_store: load_system_store,
+    add_member_to_cluster: add_member_to_cluster,
+    join_to_cluster: join_to_cluster,
 };
 
 module.exports = cluster_server;
@@ -27,9 +29,14 @@ function get_cluster_id(req) {
     };
 }
 
-/**
- *
- */
-function load_system_store(req) {
-    return system_store.load().return();
+function add_member_to_cluster(req) {
+
+    return;
+}
+
+function join_to_cluster(req) {
+    //Verify secret is correct
+    //update cluster info
+    //update mongodb
+    return;
 }

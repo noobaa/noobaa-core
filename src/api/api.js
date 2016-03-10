@@ -24,7 +24,8 @@ api_schema.register_api(require('./debug_api'));
 api_schema.register_api(require('./redirector_api'));
 api_schema.register_api(require('./tiering_policy_api'));
 api_schema.register_api(require('./pool_api'));
-api_schema.register_api(require('./cluster_api'));
+api_schema.register_api(require('./cluster_server_api'));
+api_schema.register_api(require('./cluster_member_api'));
 api_schema.compile();
 
 /**

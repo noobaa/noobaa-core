@@ -281,6 +281,16 @@ function delete_cloud_sync(req) {
                 auth_token: req.auth_token
             });
         })
+        .then((res) => {
+            db.ActivityLog.create({
+                event: 'bucket.remove_cloud_sync',
+                level: 'info',
+                system: req.system._id,
+                actor: req.account && req.account._id,
+                bucket: bucket._id,
+            });
+            return res;
+        })
         .return();
 }
 
@@ -344,6 +354,16 @@ function set_cloud_sync(req) {
             }, {
                 auth_token: req.auth_token
             });
+        })
+        .then((res) => {
+            db.ActivityLog.create({
+                event: 'bucket.set_cloud_sync',
+                level: 'info',
+                system: req.system._id,
+                actor: req.account && req.account._id,
+                bucket: bucket._id,
+            });
+            return res;
         })
         .catch(function(err) {
             dbg.error('Error setting cloud sync', err, err.stack);

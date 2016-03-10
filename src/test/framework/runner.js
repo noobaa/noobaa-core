@@ -2,12 +2,15 @@
 var _ = require('lodash');
 var fs = require('fs');
 var argv = require('minimist')(process.argv);
+var istanbul = require('istanbul');
+
+require('dotenv').load();
+
 var promise_utils = require('../../util/promise_utils');
 var P = require('../../util/promise');
 var ops = require('../system_tests/basic_server_ops');
 var api = require('../../api');
 
-//var COVERAGE_DIR = '/root/noobaa-core/coverage';
 var COVERAGE_DIR = '/tmp/cov';
 var REPORT_PATH = COVERAGE_DIR + '/regression_report.log';
 
@@ -41,8 +44,9 @@ TestRunner.prototype.init_run = function() {
         fs.mkdirSync(COVERAGE_DIR);
     }
 
-    this._rpc = api.new_rpc();
-    this._bg_client = this._rpc.new_client({
+    self._rpc = api.new_rpc();
+    self._client = self._rpc.new_client();
+    self._bg_client = self._rpc.new_client({
         domain: 'bg'
     });
 
@@ -52,7 +56,7 @@ TestRunner.prototype.init_run = function() {
                 password: 'DeMo',
                 system: 'demo'
             };
-            return this.bg_client.create_auth_token(auth_params);
+            return self._client.create_auth_token(auth_params);
         })
         .then(function() {
             return promise_utils.promised_exec('rm -rf ' + COVERAGE_DIR + '/*');
@@ -222,15 +226,27 @@ TestRunner.prototype._run_action = function(current_step, step_res) {
 };
 
 TestRunner.prototype._write_coverage = function() {
+    var self = this;
+    var collector = new istanbul.Collector();
+    var reporter = new istanbul.Reporter(null, +'/istanbul');
+    //Get all collectors data
     return this._bg_client.redirector.publish_to_cluster({
-            method_api: 'debug',
+            method_api: 'debug_api',
             method_name: 'get_istanbul_collector',
             target: ''
+        }, {
+            auth_token: self._client.options.auth_token,
         })
         .then(function(res) {
-            console.warn('NBNB:: res from publish is', res);
-            //_.each(res)
-            //add collector
+            //Add all recieved data to the collector
+            _.each(res.aggregated, function(r) {
+                collector.add(r.data.toJSON());
+            });
+            //Add unit test coverage data
+            collector.add(JSON.parse(fs.readFileSync(COVERAGE_DIR + '/mocha/coverage-final.json', 'utf8')));
+            //Generate the report
+            reporter.add('lcov');
+            reporter.write(collector, true /*sync*/ );
         });
 };
 

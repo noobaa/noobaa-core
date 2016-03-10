@@ -43,7 +43,8 @@ var ip_module = require('ip');
 var url = require('url');
 // var AWS = require('aws-sdk');
 var diag = require('./utils/server_diagnostics');
-var db = require('./db');var server_rpc = require('./server_rpc');
+var db = require('./db');
+var server_rpc = require('./server_rpc');
 var bucket_server = require('./bucket_server');
 var pool_server = require('./pool_server');
 var tier_server = require('./tier_server');
@@ -110,7 +111,8 @@ function new_system_changes(name, owner_account_id) {
         event: 'conf.create_system',
         level: 'info',
         system: system._id,
-        actor: owner_account_id,});
+        actor: owner_account_id,
+    });
 
     return {
         insert: {
@@ -515,7 +517,8 @@ function diagnose(req) {
                 event: 'conf.diagnose_system',
                 level: 'info',
                 system: req.system._id,
-                actor: req.account && req.account._id,});
+                actor: req.account && req.account._id,
+            });
             return res;
         })
         .then(function() {
@@ -675,7 +678,8 @@ function update_base_address(req) {
                 event: 'conf.dns_address',
                 level: 'info',
                 system: req.system,
-                actor: req.account && req.account._id,});
+                actor: req.account && req.account._id,
+            });
             return res;
         });
 }

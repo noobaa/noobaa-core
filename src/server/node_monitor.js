@@ -490,16 +490,21 @@ function set_debug_node(req) {
         })
         .then(null, function(err) {
             dbg.log0('Error on set_debug_node', err);
-            return '';
+            return;
         })
         .then(function() {
-            db.ActivityLog.create({
-                system: req.system,
-                level: 'info',
-                event: 'node.set_debug_node',
-                //node: node._id,
-            });
-            dbg.log1('set_debug_node for agent', target, 'was successful');
+            return nodes_store.find_node_by_address(req)
+                .then((node) => {
+                    db.ActivityLog.create({
+                        system: req.system._id,
+                        level: 'info',
+                        event: 'dbg.set_debug_node',
+                        actor: req.account && req.account._id,
+                        node: node._id
+                    });
+                    dbg.log1('set_debug_node for agent', target, 'was successful');
+                    return '';
+                });
         });
 }
 

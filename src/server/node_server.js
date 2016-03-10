@@ -408,10 +408,10 @@ function get_test_nodes(req) {
         })
         .then((res) => {
             db.ActivityLog.create({
-                system: req.system,
+                system: req.system._id,
+                actor: req.account && req.account._id,
                 level: 'info',
-                event: 'node.test_node',
-                //node: node._id,
+                event: 'node.test_node'
             });
             return res;
         });

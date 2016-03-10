@@ -13,14 +13,7 @@ export default {
                 message: 'Node Tested',
                 entityId: ({
                     node
-                }) => {}
-            },
-
-            set_debug_node: {
-                message: 'Node Debug Level Changed',
-                entityId: ({
-                    node
-                }) => {}
+                }) => node && node.name
             }
         }
     },
@@ -129,11 +122,23 @@ export default {
         }
     },
 
+    dbg: {
+        displayName: 'Debug',
+        events: {
+            set_debug_node: {
+                message: 'Node Debug Level Changed',
+                entityId: ({
+                    node
+                }) => node && node.name
+            }
+        }
+    },
+
     conf: {
         displayName: 'Configuration',
         events: {
             create_system: {
-                message: 'Create System',
+                message: 'System Created',
                 entityId: ({
                     conf
                 }) => {}
@@ -152,16 +157,6 @@ export default {
                     conf
                 }) => {}
             }
-
-            /*assign_nodes: {
-                message: 'Configuration Nodes Assigned',
-                entityId: ({ conf }) => conf && conf.name
-            }*/
         }
-    },
-
-    dbg: {
-        displayName: 'Debug',
-        events: {}
     }
 };

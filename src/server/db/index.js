@@ -90,15 +90,10 @@ module.exports = {
         name: 'ObjectMDCache',
         max_usage: 1000,
         expiry_ms: 1000, // 1 second of blissfull ignorance
-        make_key: function(params) {
-            return params.system + '\0' + params.bucket + '\0' + params.key;
-        },
-        load: function(params) {
-            console.log('ObjectMDCache: load', params.key);
+        load: function(object_id) {
+            console.log('ObjectMDCache: load', object_id);
             return P.when(ObjectMD.findOne({
-                system: params.system,
-                bucket: params.bucket,
-                key: params.key,
+                _id: object_id,
                 deleted: null,
             }).exec());
         }

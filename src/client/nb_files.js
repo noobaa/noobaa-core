@@ -3,7 +3,6 @@
 
 var _ = require('lodash');
 var moment = require('moment');
-var concat_stream = require('concat-stream');
 var AWS = require('aws-sdk');
 var nb_api = angular.module('nb_api');
 
@@ -19,7 +18,6 @@ nb_api.factory('nbFiles', [
         $scope.create_bucket = create_bucket;
         $scope.upload_file = upload_file;
         $scope.clear_upload = clear_upload;
-        $scope.read_entire_object = read_entire_object;
         $scope.set_access_keys = set_access_keys;
         $scope.delete_file = delete_file;
 
@@ -116,10 +114,10 @@ nb_api.factory('nbFiles', [
                 });
         }
 
-        function get_file(params, cache_miss) {
+        function get_file(params) {
             return $q.when()
                 .then(function() {
-                    return nbClient.client.object_driver_lazy().get_object_md(params, cache_miss);
+                    return nbClient.client.object.read_object_md(params);
                 })
                 .then(function(res) {
                     console.log('FILE', res, params.key);
@@ -266,20 +264,6 @@ nb_api.factory('nbFiles', [
 
         function clear_upload(tx) {
             _.pull($scope.uploads, tx);
-        }
-
-        function read_entire_object(object) {
-            var object_path = {
-                bucket: object.bucket.name,
-                key: object.key,
-            };
-            var defer = $q.defer();
-            var stream = concat_stream(defer.resolve);
-            var source = nbClient.client.object_driver_lazy().open_read_stream(object_path);
-            source.once('error', defer.reject);
-            stream.once('error', defer.reject);
-            source.pipe(stream);
-            return defer.promise;
         }
 
         function delete_file(bucket, key) {

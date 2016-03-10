@@ -1,33 +1,33 @@
 // module targets: nodejs & browserify
 'use strict';
 
-var Readable = require('stream').Readable;
-var _ = require('lodash');
-var P = require('../util/promise');
-var crypto = require('crypto');
-var Semaphore = require('../util/semaphore');
-var transformer = require('../util/transformer');
-var Pipeline = require('../util/pipeline');
-var CoalesceStream = require('../util/coalesce_stream');
-var range_utils = require('../util/range_utils');
-var size_utils = require('../util/size_utils');
-var time_utils = require('../util/time_utils');
-var LRUCache = require('../util/lru_cache');
-var devnull = require('dev-null');
-var config = require('../../config.js');
-var dbg = require('../util/debug_module')(__filename);
-var dedup_options = require("./dedup_options");
-var MD5Stream = require('../util/md5_stream');
-// dbg.set_level(5);
+let Readable = require('stream').Readable;
+let _ = require('lodash');
+let P = require('../util/promise');
+let crypto = require('crypto');
+let Semaphore = require('../util/semaphore');
+let transformer = require('../util/transformer');
+let Pipeline = require('../util/pipeline');
+let CoalesceStream = require('../util/coalesce_stream');
+let range_utils = require('../util/range_utils');
+let size_utils = require('../util/size_utils');
+let time_utils = require('../util/time_utils');
+let LRUCache = require('../util/lru_cache');
+let devnull = require('dev-null');
+let config = require('../../config.js');
+let dbg = require('../util/debug_module')(__filename);
+let dedup_options = require("./dedup_options");
+let MD5Stream = require('../util/md5_stream');
+// dbg.set_level(5, 'core');
 
 
-var PART_ATTRS = [
+let PART_ATTRS = [
     'start',
     'end',
     'upload_part_number',
     'part_sequence_number'
 ];
-var CHUNK_ATTRS = [
+let CHUNK_ATTRS = [
     'size',
     'digest_type',
     'compress_type',
@@ -40,20 +40,20 @@ var CHUNK_ATTRS = [
     'cipher_iv_b64',
     'cipher_auth_tag_b64'
 ];
-var FRAG_ATTRS = [
+let FRAG_ATTRS = [
     'layer',
     'layer_n',
     'frag',
     'digest_type',
     'digest_b64'
 ];
-var CHUNK_DEFAULTS = {
+let CHUNK_DEFAULTS = {
     digest_type: '',
     digest_b64: '',
     cipher_type: '',
     cipher_key_b64: '',
 };
-var FRAG_DEFAULTS = {
+let FRAG_DEFAULTS = {
     digest_type: '',
     digest_b64: '',
 };
@@ -61,9 +61,9 @@ var FRAG_DEFAULTS = {
 
 /**
  *
- * OBJECT DRIVER
+ * OBJECT IO
  *
- * the object driver is a "heavy" object with data caches.
+ * the object io is a "heavy" instance with data caches.
  *
  * extends object_api which is plain REST api with logic to provide access
  * to remote object storage, and does the necessary distributed of io.
@@ -73,7 +73,7 @@ var FRAG_DEFAULTS = {
  * defined in object_api to the web server.
  *
  */
-class ObjectDriver {
+class ObjectIO {
 
     constructor(client) {
         this.client = client;
@@ -119,11 +119,11 @@ class ObjectDriver {
         // these threadpools are global OS threads used to offload heavy CPU work
         // from the node.js thread so that it will keep processing incoming IO while
         // encoding/decoding the object chunks in high performance native code.
-        if (!ObjectDriver.dedup_chunker_tpool) {
-            ObjectDriver.dedup_chunker_tpool = new nc.ThreadPool(1);
+        if (!ObjectIO.dedup_chunker_tpool) {
+            ObjectIO.dedup_chunker_tpool = new nc.ThreadPool(1);
         }
-        if (!ObjectDriver.object_coding_tpool) {
-            ObjectDriver.object_coding_tpool = new nc.ThreadPool(2);
+        if (!ObjectIO.object_coding_tpool) {
+            ObjectIO.object_coding_tpool = new nc.ThreadPool(2);
         }
         if (!this.dedup_config) {
             this.dedup_config = new nc.DedupConfig(dedup_options);
@@ -150,28 +150,31 @@ class ObjectDriver {
      *
      */
     upload_stream(params) {
-        var create_params = _.pick(params,
+        let create_params = _.pick(params,
             'bucket',
             'key',
-            'upload_id',
             'size',
             'content_type',
-            'xattr'
+            'xattr',
+            'if_modified_since',
+            'if_unmodified_since',
+            'if_match_etag',
+            'if_none_match_etag'
         );
 
         dbg.log0('upload_stream: start upload', params.key);
-        return this.client.object.create_multipart_upload(create_params)
+        return this.client.object.create_object_upload(create_params)
             .then(create_reply => {
                 params.upload_id = create_reply.upload_id;
                 return this.upload_stream_parts(params);
             })
             .then(md5_digest => {
-                var complete_params = _.pick(params, 'bucket', 'key', 'upload_id');
+                let complete_params = _.pick(params, 'bucket', 'key', 'upload_id');
                 if (md5_digest) {
                     complete_params.etag = md5_digest.toString('hex');
                 }
                 dbg.log0('upload_stream: complete upload', complete_params.key, complete_params.etag);
-                return this.client.object.complete_multipart_upload(complete_params)
+                return this.client.object.complete_object_upload(complete_params)
                     .return(md5_digest);
             }, err => {
                 dbg.log0('upload_stream: error write stream', params.key, err);
@@ -186,9 +189,9 @@ class ObjectDriver {
      *
      */
     upload_stream_parts(params) {
-        var start = params.start || 0;
-        var upload_part_number = params.upload_part_number || 0;
-        var part_sequence_number = params.part_sequence_number || 0;
+        let start = params.start || 0;
+        let upload_part_number = params.upload_part_number || 0;
+        let part_sequence_number = params.part_sequence_number || 0;
 
         let md5_stream;
         let source_stream = params.source_stream;
@@ -216,7 +219,7 @@ class ObjectDriver {
             // source_stream.pipe(devnull);
             // return defer.promise;
 
-            var pipeline = new Pipeline(source_stream);
+            let pipeline = new Pipeline(source_stream);
 
             // TODO GGG
             // pipeline.pipe(transformer({
@@ -247,7 +250,7 @@ class ObjectDriver {
                 init: t => {
                     t.offset = start;
                     t.chunker = new this.native_core.DedupChunker({
-                        tpool: ObjectDriver.dedup_chunker_tpool
+                        tpool: ObjectIO.dedup_chunker_tpool
                     }, this.dedup_config);
                 },
                 transform: (t, data) => {
@@ -295,7 +298,7 @@ class ObjectDriver {
                     t.offset = start;
                 },
                 transform_parallel: (t, data) => {
-                    var part = {
+                    let part = {
                         millistamp: time_utils.millistamp(),
                         bucket: params.bucket,
                         key: params.key,
@@ -308,7 +311,7 @@ class ObjectDriver {
                     t.offset += data.length;
                     dbg.log2('upload_stream_parts: encode', range_utils.human_range(part));
                     return P.ninvoke(this.object_coding, 'encode',
-                            ObjectDriver.object_coding_tpool, data)
+                            ObjectIO.object_coding_tpool, data)
                         .then(chunk => {
                             part.chunk = chunk;
                             dbg.log1('upload_stream_parts: encode',
@@ -336,8 +339,8 @@ class ObjectDriver {
                     objectMode: true
                 },
                 transform_parallel: (t, parts) => {
-                    var millistamp = time_utils.millistamp();
-                    var range = {
+                    let millistamp = time_utils.millistamp();
+                    let range = {
                         start: parts[0].start,
                         end: parts[parts.length - 1].end
                     };
@@ -348,11 +351,11 @@ class ObjectDriver {
                             key: params.key,
                             upload_id: params.upload_id,
                             parts: _.map(parts, part => {
-                                var p = _.pick(part, PART_ATTRS);
+                                let p = _.pick(part, PART_ATTRS);
                                 p.chunk = _.pick(part.chunk, CHUNK_ATTRS);
                                 _.defaults(p.chunk, CHUNK_DEFAULTS);
                                 p.chunk.frags = _.map(part.chunk.frags, fragment => {
-                                    var f = _.pick(fragment, FRAG_ATTRS);
+                                    let f = _.pick(fragment, FRAG_ATTRS);
                                     _.defaults(f, FRAG_DEFAULTS);
                                     f.size = fragment.block.length;
                                     return f;
@@ -383,7 +386,7 @@ class ObjectDriver {
                     objectMode: true,
                 },
                 transform_parallel: (t, part) => {
-                    var millistamp = time_utils.millistamp();
+                    let millistamp = time_utils.millistamp();
                     dbg.log2('upload_stream_parts: write', range_utils.human_range(part));
                     return P.when(this._write_fragments(part))
                         .then(() => {
@@ -412,8 +415,8 @@ class ObjectDriver {
                     objectMode: true
                 },
                 transform_parallel: (t, parts) => {
-                    var millistamp = time_utils.millistamp();
-                    var range = {
+                    let millistamp = time_utils.millistamp();
+                    let range = {
                         start: parts[0].start,
                         end: parts[parts.length - 1].end
                     };
@@ -475,22 +478,25 @@ class ObjectDriver {
             return;
         }
 
-        var data_frags_map = _.keyBy(part.chunk.frags, get_frag_key);
+        let data_frags_map = _.keyBy(part.chunk.frags, get_frag_key);
         dbg.log1('_write_fragments: part', part, 'FRAGS', part.alloc_part.chunk.frags);
 
         return P.map(part.alloc_part.chunk.frags, fragment => {
-            var frag_key = get_frag_key(fragment);
-            // TODO GGG write one and replicate the others
-            // fragment.blocks = [fragment.blocks[0]];
-            return P.map(fragment.blocks, block => {
-                return this._attempt_write_block({
-                    part: part.alloc_part,
-                    block: block,
-                    buffer: data_frags_map[frag_key].block,
-                    frag_desc: size_utils.human_offset(part.start) + '-' + frag_key,
-                    remaining_attempts: 20,
-                });
-            });
+            let frag_key = get_frag_key(fragment);
+            let buffer = data_frags_map[frag_key].block;
+            let block_to_write = fragment.blocks[0];
+            let blocks_to_replicate = fragment.blocks.slice(1);
+            return this._attempt_write_block({
+                remaining_attempts: 5,
+                block: block_to_write,
+                buffer: buffer,
+                part: part.alloc_part,
+                desc: size_utils.human_offset(part.start) + '-' + frag_key,
+            }).then(() => P.map(blocks_to_replicate, block => this._replicate_block({
+                target: block,
+                source: block_to_write,
+                desc: size_utils.human_offset(part.start) + '-' + frag_key,
+            })));
         });
     }
 
@@ -502,23 +508,24 @@ class ObjectDriver {
      *
      */
     _attempt_write_block(params) {
-        var part = params.part;
-        var block = params.block;
-        var frag_desc = params.frag_desc;
-        dbg.log1('_attempt_write_block:', params.block);
-        return this._write_block(block.block_md, params.buffer, frag_desc)
-            .catch(( /*err*/ ) => {
+        return this._write_block(params)
+            .catch(err => {
                 if (params.remaining_attempts <= 0) {
-                    throw new Error('EXHAUSTED WRITE BLOCK', frag_desc);
+                    throw new Error('EXHAUSTED WRITE BLOCK ' + params.desc);
                 }
                 params.remaining_attempts -= 1;
-                var bad_block_params = _.extend(
+                return P.delay(100).then(() => this._attempt_write_block(params));
+                /*
+                let part = params.part;
+                let block = params.block;
+                let bad_block_params = _.extend(
                     _.pick(part, 'bucket', 'key', PART_ATTRS), {
                         block_id: block.block_md.id,
                         is_write: true,
                     });
                 dbg.warn('_attempt_write_block: write failed, report_bad_block.',
-                    'remaining attempts', params.remaining_attempts, frag_desc, bad_block_params);
+                    params.desc, 'remaining attempts', params.remaining_attempts,
+                    bad_block_params);
                 return this.client.object.report_bad_block(bad_block_params)
                     .then(res => {
                         dbg.log2('_attempt_write_block retry with', res.new_block);
@@ -527,6 +534,7 @@ class ObjectDriver {
                         block.block_md = res.new_block;
                         return this._attempt_write_block(params);
                     });
+                */
             });
     }
 
@@ -535,14 +543,16 @@ class ObjectDriver {
      * write a block to the storage node
      *
      */
-    _write_block(block_md, buffer, desc) {
+    _write_block(params) {
+        let block_md = params.block.block_md;
+        let buffer = params.buffer;
 
         // use semaphore to surround the IO
         return this._block_write_sem.surround(() => {
 
-            dbg.log1('write_block', desc,
-                size_utils.human_size(buffer.length), block_md.id,
-                'to', block_md.address, 'block:', block_md);
+            dbg.log1('write_block', params.desc,
+                size_utils.human_size(buffer.length),
+                block_md.id, block_md.address);
 
             if (process.env.WRITE_BLOCK_ERROR_INJECTON &&
                 process.env.WRITE_BLOCK_ERROR_INJECTON > Math.random()) {
@@ -559,17 +569,34 @@ class ObjectDriver {
                 address: block_md.address,
                 timeout: config.write_block_timeout,
             }).catch(err => {
-                console.error('FAILED write_block', desc,
-                    size_utils.human_size(buffer.length), block_md.id,
-                    'from', block_md.address);
+                dbg.error('write_block FAILED', params.desc,
+                    size_utils.human_size(buffer.length),
+                    block_md.id, block_md.address);
                 throw err;
             });
         });
     }
 
 
-    _replicate_block() {
+    _replicate_block(params) {
+        let target_md = params.target.block_md;
+        let source_md = params.source.block_md;
+        dbg.log1('replicate_block', params.desc,
+            'target', target_md.id, target_md.address,
+            'source', source_md.id, source_md.address);
 
+        return this.client.agent.replicate_block({
+            target: target_md,
+            source: source_md,
+        }, {
+            address: target_md.address,
+            timeout: config.write_block_timeout,
+        }).catch(err => {
+            dbg.error('replicate_block FAILED', params.desc,
+                'target', target_md.id, target_md.address,
+                'source', source_md.id, source_md.address);
+            throw err;
+        });
     }
 
 
@@ -598,6 +625,7 @@ class ObjectDriver {
     _init_object_md_cache() {
         this._object_md_cache = new LRUCache({
             name: 'MDCache',
+            // max_usage: 0,
             max_usage: 1000,
             expiry_ms: 60000, // 1 minute
             make_key: params => params.bucket + '\0' + params.key,
@@ -624,19 +652,19 @@ class ObjectDriver {
      */
     read_entire_object(params) {
         return new P((resolve, reject) => {
-            var buffers = [];
+            let buffers = [];
             this.open_read_stream(params)
                 .on('data', buffer => {
-                    console.log('read data', buffer.length);
+                    dbg.log0('read data', buffer.length);
                     buffers.push(buffer);
                 })
                 .once('end', () => {
-                    var read_buf = Buffer.concat(buffers);
-                    console.log('read end', read_buf.length);
+                    let read_buf = Buffer.concat(buffers);
+                    dbg.log0('read end', read_buf.length);
                     resolve(read_buf);
                 })
                 .once('error', err => {
-                    console.log('read error', err);
+                    dbg.log0('read error', err);
                     reject(err);
                 });
         });
@@ -668,7 +696,7 @@ class ObjectDriver {
         // implement the stream's Readable._read() function
         reader._read = requested_size => {
             P.fcall(() => {
-                    var requested_end = Math.min(end, pos + requested_size);
+                    let requested_end = Math.min(end, pos + requested_size);
                     return this.read_object({
                         bucket: params.bucket,
                         key: params.key,
@@ -687,7 +715,7 @@ class ObjectDriver {
                     }
                 })
                 .catch(err => {
-                    console.error('reader error', err.stack || err);
+                    dbg.error('reader error', err.stack || err);
                     reader.emit('error', err || 'reader error');
                 });
         };
@@ -718,11 +746,11 @@ class ObjectDriver {
             return null;
         }
 
-        var pos = params.start;
-        var promises = [];
+        let pos = params.start;
+        let promises = [];
 
         while (pos < params.end && promises.length < this.READ_RANGE_CONCURRENCY) {
-            var range = _.clone(params);
+            let range = _.clone(params);
             range.start = pos;
             range.end = Math.min(
                 params.end,
@@ -746,17 +774,18 @@ class ObjectDriver {
     _init_object_range_cache() {
         this._object_range_cache = new LRUCache({
             name: 'RangesCache',
+            // max_usage: 0,
             max_usage: 128 * 1024 * 1024, // 128 MB
-            item_usage: (data, params) => data ? data.length : 1024,
+            // item_usage: (data, params) => data ? data.length : 1024,
             expiry_ms: 600000, // 10 minutes
             make_key: params => {
-                var start = range_utils.align_down(
+                let start = range_utils.align_down(
                     params.start, this.OBJECT_RANGE_ALIGN);
-                var end = start + this.OBJECT_RANGE_ALIGN;
+                let end = start + this.OBJECT_RANGE_ALIGN;
                 return params.bucket + '\0' + params.key + '\0' + start + '\0' + end;
             },
             load: params => {
-                var range_params = _.clone(params);
+                let range_params = _.clone(params);
                 range_params.start = range_utils.align_down(
                     params.start, this.OBJECT_RANGE_ALIGN);
                 range_params.end = range_params.start + this.OBJECT_RANGE_ALIGN;
@@ -768,10 +797,10 @@ class ObjectDriver {
                     dbg.log3('RangesCache: null', range_utils.human_range(params));
                     return data;
                 }
-                var start = range_utils.align_down(
+                let start = range_utils.align_down(
                     params.start, this.OBJECT_RANGE_ALIGN);
-                var end = start + this.OBJECT_RANGE_ALIGN;
-                var inter = range_utils.intersection(
+                let end = start + this.OBJECT_RANGE_ALIGN;
+                let inter = range_utils.intersection(
                     start, end, params.start, params.end);
                 if (!inter) {
                     dbg.log3('RangesCache: empty', range_utils.human_range(params),
@@ -804,7 +833,7 @@ class ObjectDriver {
      *
      */
     _read_object_range(params) {
-        var obj_size;
+        let obj_size;
 
         dbg.log2('_read_object_range:', range_utils.human_range(params));
 
@@ -816,7 +845,7 @@ class ObjectDriver {
             })
             .then(parts => {
                 // once all parts finish we can construct the complete buffer.
-                var end = Math.min(obj_size, params.end);
+                let end = Math.min(obj_size, params.end);
                 return combine_parts_buffers_in_range(parts, params.start, end);
             });
     }
@@ -830,15 +859,16 @@ class ObjectDriver {
     _init_object_map_cache() {
         this._object_map_cache = new LRUCache({
             name: 'MappingsCache',
+            // max_usage: 0,
             max_usage: 1000,
             expiry_ms: 600000, // 10 minutes
             make_key: params => {
-                var start = range_utils.align_down(
+                let start = range_utils.align_down(
                     params.start, this.MAP_RANGE_ALIGN);
                 return params.bucket + '\0' + params.key + '\0' + start;
             },
             load: params => {
-                var map_params = _.clone(params);
+                let map_params = _.clone(params);
                 map_params.start = range_utils.align_down(
                     params.start, this.MAP_RANGE_ALIGN);
                 map_params.end = map_params.start + this.MAP_RANGE_ALIGN;
@@ -847,9 +877,9 @@ class ObjectDriver {
                 return this.client.object.read_object_mappings(map_params);
             },
             make_val: (val, params) => {
-                var mappings = _.clone(val);
+                let mappings = _.clone(val);
                 mappings.parts = _.cloneDeep(_.filter(val.parts, part => {
-                    var inter = range_utils.intersection(
+                    let inter = range_utils.intersection(
                         part.start, part.end, params.start, params.end);
                     if (!inter) {
                         dbg.log4('MappingsCache: filtered', range_utils.human_range(params),
@@ -874,19 +904,19 @@ class ObjectDriver {
         dbg.log1('_read_object_part:', range_utils.human_range(part));
         this.lazy_init_natives();
         // read the data fragments of the chunk
-        var frags_by_layer = _.groupBy(part.chunk.frags, 'layer');
-        var data_frags = frags_by_layer.D;
+        let frags_by_layer = _.groupBy(part.chunk.frags, 'layer');
+        let data_frags = frags_by_layer.D;
         return P.map(data_frags, fragment => this._read_fragment(part, fragment))
             .then(() => {
-                var chunk = _.pick(part.chunk, CHUNK_ATTRS);
+                let chunk = _.pick(part.chunk, CHUNK_ATTRS);
                 chunk.frags = _.map(part.chunk.frags, fragment => {
-                    var f = _.pick(fragment, FRAG_ATTRS, 'block');
+                    let f = _.pick(fragment, FRAG_ATTRS, 'block');
                     f.layer_n = f.layer_n || 0;
                     return f;
                 });
                 dbg.log2('_read_object_part: decode chunk', chunk);
                 return P.ninvoke(this.object_coding, 'decode',
-                        ObjectDriver.object_coding_tpool, chunk)
+                        ObjectIO.object_coding_tpool, chunk)
                     .then(decoded_chunk => {
                         part.buffer = decoded_chunk.data;
                         return part;
@@ -898,9 +928,9 @@ class ObjectDriver {
     }
 
     _read_fragment(part, fragment) {
-        var frag_desc = size_utils.human_offset(part.start) + '-' + get_frag_key(fragment);
+        let frag_desc = size_utils.human_offset(part.start) + '-' + get_frag_key(fragment);
         dbg.log1('_read_fragment', frag_desc);
-        var next_block = 0;
+        let next_block = 0;
         if (this._verification_mode) {
             // in verification mode we read all the blocks
             // which will also verify their digest
@@ -925,7 +955,7 @@ class ObjectDriver {
                 dbg.error('_read_fragment: EXHAUSTED', frag_desc, fragment.blocks);
                 throw new Error('_read_fragment: EXHAUSTED');
             }
-            var block = fragment.blocks[next_block];
+            let block = fragment.blocks[next_block];
             next_block += 1;
             return this._blocks_cache.get_with_cache(block.block_md)
                 .then(finish, read_next_block);
@@ -973,7 +1003,7 @@ class ObjectDriver {
                 })
                 .then(res => {
                     if (this._verification_mode) {
-                        var digest_b64 = crypto.createHash(block_md.digest_type)
+                        let digest_b64 = crypto.createHash(block_md.digest_type)
                             .update(res.data)
                             .digest('base64');
                         if (digest_b64 !== block_md.digest_b64) {
@@ -1012,7 +1042,7 @@ class ObjectDriver {
         //      -2 (invalid syntax)
         //      -1 (unsatisfiable)
         //      array (ranges with type)
-        var range = req.range(object_md.size);
+        let range = req.range(object_md.size);
 
         // return http 400 Bad Request
         if (range === -2) {
@@ -1031,10 +1061,10 @@ class ObjectDriver {
             return 416;
         }
 
-        var read_stream;
+        let read_stream;
         let read_closer = reason => {
             return () => {
-                console.log('+++ serve_http_stream:', reason);
+                dbg.log0('+++ serve_http_stream:', reason);
                 if (read_stream) {
                     read_stream.pause();
                     read_stream.unpipe(res);
@@ -1061,8 +1091,8 @@ class ObjectDriver {
         }
 
         // return http 206 Partial Content
-        var start = range[0].start;
-        var end = range[0].end + 1; // use exclusive end
+        let start = range[0].start;
+        let end = range[0].end + 1; // use exclusive end
 
         // [disabled] truncate a single http request to limited size.
         // the idea was to make the browser fetch the next part of content
@@ -1097,7 +1127,7 @@ class ObjectDriver {
         // see https://trac.ffmpeg.org/wiki/Encode/H.264#faststartforwebvideo
         if (start === 0) {
             dbg.log1('+++ serve_http_stream: prefetch end of file');
-            var eof_len = 100;
+            let eof_len = 100;
             this.open_read_stream(_.extend({
                 start: object_md.size > eof_len ? (object_md.size - eof_len) : 0,
                 end: object_md.size,
@@ -1120,20 +1150,20 @@ function combine_parts_buffers_in_range(parts, start, end) {
         return null;
     }
     if (!parts || !parts.length) {
-        console.error('no parts for data', range_utils.human_range({
+        dbg.error('no parts for data', range_utils.human_range({
             start: start,
             end: end
         }));
         throw new Error('no parts for data');
     }
-    var pos = start;
-    var buffers = _.compact(_.map(parts, function(part) {
-        var part_range = range_utils.intersection(part.start, part.end, pos, end);
+    let pos = start;
+    let buffers = _.compact(_.map(parts, function(part) {
+        let part_range = range_utils.intersection(part.start, part.end, pos, end);
         if (!part_range) {
             return;
         }
-        var buffer_start = part_range.start - part.start;
-        var buffer_end = part_range.end - part.start;
+        let buffer_start = part_range.start - part.start;
+        let buffer_end = part_range.end - part.start;
         if (part.chunk_offset) {
             buffer_start += part.chunk_offset;
             buffer_end += part.chunk_offset;
@@ -1142,17 +1172,17 @@ function combine_parts_buffers_in_range(parts, start, end) {
         return part.buffer.slice(buffer_start, buffer_end);
     }));
     if (pos !== end) {
-        console.error('missing parts for data',
+        dbg.error('missing parts for data',
             range_utils.human_range({
                 start: start,
                 end: end
             }), 'pos', size_utils.human_offset(pos), parts);
         throw new Error('missing parts for data');
     }
-    var len = end - start;
-    var buffer = Buffer.concat(buffers, len);
+    let len = end - start;
+    let buffer = Buffer.concat(buffers, len);
     if (buffer.length !== len) {
-        console.error('short buffer from parts',
+        dbg.error('short buffer from parts',
             range_utils.human_range({
                 start: start,
                 end: end
@@ -1168,4 +1198,4 @@ function get_frag_key(f) {
 
 
 
-module.exports = ObjectDriver;
+module.exports = ObjectIO;

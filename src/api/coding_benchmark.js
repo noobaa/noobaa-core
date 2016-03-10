@@ -10,6 +10,7 @@ var chance = require('chance')();
 var time_utils = require('../util/time_utils');
 var transformer = require('../util/transformer');
 var Pipeline = require('../util/pipeline');
+var ObjectIO = require('../api/ObjectIO');
 var dbg = require('../util/debug_module')(__filename);
 dbg.set_level(5, 'core');
 
@@ -33,6 +34,7 @@ function test() {
         });
     }
     var client;
+    var object_io;
     var stats = {
         count: 0,
         bytes: 0,
@@ -96,6 +98,7 @@ function test() {
         var api = require('../api');
         var rpc = api.new_rpc();
         client = rpc.new_client();
+        object_io = new ObjectIO(client);
         rpc.register_n2n_transport(client.node.n2n_signal);
         return client.create_auth_token({
             email: 'demo@noobaa.com',
@@ -113,7 +116,7 @@ function test() {
                 }).fail(function() {});
             })
             .then(function() {
-                return client.object_driver_lazy().upload_stream({
+                return object_io.upload_stream({
                     bucket: 'files',
                     key: path.basename(filename),
                     size: fs.statSync(filename).size,
@@ -215,7 +218,7 @@ function test() {
                 }).fail(function() {});
             })
             .then(function() {
-                return client.object.create_multipart_upload({
+                return client.object.create_object_upload({
                     bucket: 'files',
                     key: path.basename(filename),
                     size: 1024 * 1024 * 1024 * 1024,

@@ -7,6 +7,7 @@ let assert = require('assert');
 let argv = require('minimist')(process.argv);
 let promise_utils = require('../util/promise_utils');
 let coretest = require('./coretest');
+let ObjectIO = require('../api/object_io');
 let SliceReader = require('../util/slice_reader');
 
 let chance_seed = argv.seed || Date.now();
@@ -16,10 +17,11 @@ let chance = require('chance')(chance_seed);
 let dbg = require('../util/debug_module')(__filename);
 dbg.set_level(5, 'core');
 
-mocha.describe('object_driver', function() {
+mocha.describe('object_io', function() {
 
     let client = coretest.new_test_client();
-    client.object_driver_lazy().set_verification_mode();
+    let object_io = new ObjectIO(client);
+    object_io.set_verification_mode();
 
     let SYS = 'test-object-system';
     let BKT = 'files'; // the default bucket name
@@ -49,14 +51,14 @@ mocha.describe('object_driver', function() {
         this.timeout(30000);
         let key = KEY + Date.now();
         return P.fcall(function() {
-            return client.object.create_multipart_upload({
+            return client.object.create_object_upload({
                 bucket: BKT,
                 key: key,
                 size: 0,
                 content_type: 'application/octet-stream',
             });
         }).then(function(create_reply) {
-            return client.object.complete_multipart_upload({
+            return client.object.complete_object_upload({
                 bucket: BKT,
                 key: key,
                 upload_id: create_reply.upload_id,
@@ -123,7 +125,7 @@ mocha.describe('object_driver', function() {
                     for (let i = 0; i < size; i++) {
                         data[i] = chance.integer(CHANCE_BYTE);
                     }
-                    return client.object_driver_lazy().upload_stream({
+                    return object_io.upload_stream({
                         bucket: BKT,
                         key: key,
                         size: size,
@@ -131,7 +133,7 @@ mocha.describe('object_driver', function() {
                         source_stream: new SliceReader(data),
                     });
                 }).then(function() {
-                    return client.object_driver_lazy().read_entire_object({
+                    return object_io.read_entire_object({
                         bucket: BKT,
                         key: key,
                         start: 0,
@@ -185,7 +187,7 @@ mocha.describe('object_driver', function() {
                 data[i] = chance.integer(CHANCE_BYTE);
             }
             return P.fcall(function() {
-                    return client.object.create_multipart_upload({
+                    return client.object.create_object_upload({
                         bucket: BKT,
                         key: key,
                         size: num_parts * part_size,
@@ -206,7 +208,7 @@ mocha.describe('object_driver', function() {
                 .then(function() {
                     let i = 0;
                     return promise_utils.loop(10, function() {
-                        return client.object_driver_lazy().upload_stream_parts({
+                        return object_io.upload_stream_parts({
                             bucket: BKT,
                             key: key,
                             upload_id: upload_id,
@@ -232,7 +234,7 @@ mocha.describe('object_driver', function() {
                         });
                 })
                 .then(function() {
-                    return client.object.complete_multipart_upload({
+                    return client.object.complete_object_upload({
                         bucket: BKT,
                         key: key,
                         upload_id: upload_id,
@@ -240,7 +242,7 @@ mocha.describe('object_driver', function() {
                     });
                 })
                 .then(function() {
-                    return client.object_driver_lazy().read_entire_object({
+                    return object_io.read_entire_object({
                         bucket: BKT,
                         key: key,
                     });

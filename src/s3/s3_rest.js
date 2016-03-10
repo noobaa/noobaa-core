@@ -41,6 +41,11 @@ const RPC_ERRORS_TO_S3 = Object.freeze({
     INVALID_BUCKET_NAME: s3_errors.InvalidBucketName,
     BUCKET_NOT_EMPTY: s3_errors.BucketNotEmpty,
     BUCKET_ALREADY_EXISTS: s3_errors.BucketAlreadyExists,
+    NO_SUCH_UPLOAD: s3_errors.NoSuchUpload,
+    IF_MODIFIED_SINCE: s3_errors.NotModified,
+    IF_UNMODIFIED_SINCE: s3_errors.PreconditionFailed,
+    IF_MATCH_ETAG: s3_errors.PreconditionFailed,
+    IF_NONE_MATCH_ETAG: s3_errors.PreconditionFailed,
 });
 
 module.exports = s3_rest;

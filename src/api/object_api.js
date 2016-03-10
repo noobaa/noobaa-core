@@ -13,14 +13,13 @@ module.exports = {
 
     methods: {
 
-        create_multipart_upload: {
+        create_object_upload: {
             method: 'POST',
             params: {
                 type: 'object',
                 required: [
                     'bucket',
                     'key',
-                    'size'
                 ],
                 properties: {
                     bucket: {
@@ -38,6 +37,21 @@ module.exports = {
                     xattr: {
                         $ref: '#/definitions/xattr',
                     },
+                    // conditions for overwriting existing object of this key
+                    if_modified_since: {
+                        type: 'integer',
+                        format: 'idate'
+                    },
+                    if_unmodified_since: {
+                        type: 'integer',
+                        format: 'idate'
+                    },
+                    if_match_etag: {
+                        type: 'string'
+                    },
+                    if_none_match_etag: {
+                        type: 'string'
+                    },
                 }
             },
             reply: {
@@ -54,7 +68,7 @@ module.exports = {
             }
         },
 
-        complete_multipart_upload: {
+        complete_object_upload: {
             method: 'PUT',
             params: {
                 type: 'object',
@@ -95,7 +109,7 @@ module.exports = {
             }
         },
 
-        abort_multipart_upload: {
+        abort_object_upload: {
             method: 'DELETE',
             params: {
                 type: 'object',
@@ -584,8 +598,15 @@ module.exports = {
 
         object_info: {
             type: 'object',
-            required: ['size', 'content_type', 'create_time'],
+            required: [
+                'size',
+                'content_type',
+                'create_time'
+            ],
             properties: {
+                version_id: {
+                    type: 'string'
+                },
                 size: {
                     type: 'integer',
                 },

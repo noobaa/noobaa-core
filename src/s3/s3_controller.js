@@ -1,15 +1,12 @@
 'use strict';
 
-var _ = require('lodash');
-// var P = require('../util/promise');
-var mime = require('mime');
-// var xml2js = require('xml2js');
-// var path = require('path');
-var api = require('../api');
-var dbg = require('../util/debug_module')(__filename);
-var string_utils = require('../util/string_utils');
-// var time_utils = require('../util/time_utils');
-var s3_errors = require('./s3_errors');
+let _ = require('lodash');
+// let P = require('../util/promise');
+let mime = require('mime');
+let api = require('../api');
+let dbg = require('../util/debug_module')(__filename);
+let ObjectIO = require('../api/object_io');
+let s3_errors = require('./s3_errors');
 
 dbg.set_level(5);
 
@@ -24,8 +21,8 @@ class S3Controller {
     constructor(params) {
         this.rpc_client_by_access_key = {};
         this.rpc = api.new_rpc(params.address);
-        var signal_client = this.rpc.new_client();
-        var n2n_agent = this.rpc.register_n2n_transport(signal_client.node.n2n_signal);
+        let signal_client = this.rpc.new_client();
+        let n2n_agent = this.rpc.register_n2n_transport(signal_client.node.n2n_signal);
         n2n_agent.set_any_rpc_address();
     }
 
@@ -35,6 +32,7 @@ class S3Controller {
             req.rpc_client =
                 this.rpc_client_by_access_key[req.access_key] =
                 this.rpc.new_client();
+            req.rpc_client.object_io = new ObjectIO(req.rpc_client);
             return req.rpc_client.create_access_key_auth({
                 access_key: req.access_key,
                 string_to_sign: req.string_to_sign,
@@ -55,7 +53,7 @@ class S3Controller {
     list_buckets(req) {
         return req.rpc_client.bucket.list_buckets()
             .then(reply => {
-                var date = to_s3_date(new Date());
+                let date = to_s3_date(new Date());
                 return {
                     ListAllMyBucketsResult: {
                         Owner: DEFAULT_S3_USER,
@@ -119,7 +117,7 @@ class S3Controller {
                         },
                         if_not_empty(_.map(reply.objects, obj => ({
                             Contents: {
-                                Key: string_utils.encodeXML(obj.key),
+                                Key: obj.key,
                                 LastModified: to_s3_date(obj.info.create_time),
                                 ETag: obj.info.etag,
                                 Size: obj.info.size,
@@ -170,7 +168,7 @@ class S3Controller {
                         },
                         if_not_empty(_.map(reply.objects, obj => ({
                             Version: {
-                                Key: string_utils.encodeXML(obj.key),
+                                Key: obj.key,
                                 VersionId: '',
                                 IsLatest: true,
                                 LastModified: to_s3_date(obj.info.create_time),
@@ -286,7 +284,7 @@ class S3Controller {
                 res.setHeader('Content-Length', object_md.size);
                 res.setHeader('Accept-Ranges', 'bytes');
                 set_response_xattr(res, object_md.xattr);
-                if (this._check_ifs(req, res, object_md) === false) {
+                if (this._ifs_check(req, res, object_md) === false) {
                     return false;
                 }
             });
@@ -305,8 +303,7 @@ class S3Controller {
                     return false;
                 }
                 let object_md = req.object_md;
-                let object_driver = req.rpc_client.object_driver_lazy();
-                let code = object_driver.serve_http_stream(
+                let code = req.rpc_client.object_io.serve_http_stream(
                     req, res, this._object_path(req), object_md);
                 switch (code) {
                     case 400:
@@ -333,22 +330,23 @@ class S3Controller {
     put_object(req, res) {
 
         // TODO GGG IMPLEMENT COPY OBJECT
-        var copy_source = req.headers['x-amz-copy-source'];
+        let copy_source = req.headers['x-amz-copy-source'];
         if (copy_source) {
             // return req.rpc_client.object.copy_object({});
             throw s3_errors.NotImplemented;
         }
 
-        let object_driver = req.rpc_client.object_driver_lazy();
-        return object_driver.upload_stream({
-                bucket: req.params.bucket,
-                key: req.params.key,
-                size: req.content_length,
-                content_type: req.headers['content-type'] || mime.lookup(req.params.key),
-                xattr: get_request_xattr(req),
-                source_stream: req,
-                calculate_md5: true
-            })
+        let params = {
+            bucket: req.params.bucket,
+            key: req.params.key,
+            size: req.content_length,
+            content_type: req.headers['content-type'] || mime.lookup(req.params.key),
+            xattr: get_request_xattr(req),
+            source_stream: req,
+            calculate_md5: true
+        };
+        this._ifs_for_create(req, params);
+        return req.rpc_client.object_io.upload_stream(params)
             .then(md5_digest => {
                 let etag = md5_digest.toString('hex');
                 res.setHeader('ETag', '"' + etag + '"');
@@ -417,21 +415,24 @@ class S3Controller {
      * (aka start multipart upload)
      */
     post_object_uploads(req) {
-        return req.rpc_client.object.create_multipart_upload({
+        let params = {
             bucket: req.params.bucket,
             key: req.params.key,
             size: req.content_length,
             content_type: req.headers['content-type'] || mime.lookup(req.params.key),
             xattr: get_request_xattr(req),
-        }).then(reply => {
-            return {
-                InitiateMultipartUploadResult: {
-                    Bucket: req.params.bucket,
-                    Key: req.params.key,
-                    UploadId: reply.upload_id
-                }
-            };
-        });
+        };
+        this._ifs_for_create(req, params);
+        return req.rpc_client.object.create_object_upload(params)
+            .then(reply => {
+                return {
+                    InitiateMultipartUploadResult: {
+                        Bucket: req.params.bucket,
+                        Key: req.params.key,
+                        UploadId: reply.upload_id
+                    }
+                };
+            });
     }
 
 
@@ -440,7 +441,7 @@ class S3Controller {
      * (aka complete multipart upload)
      */
     post_object_uploadId(req) {
-        return req.rpc_client.object.complete_multipart_upload({
+        return req.rpc_client.object.complete_object_upload({
                 bucket: req.params.bucket,
                 key: req.params.key,
                 upload_id: req.query.uploadId,
@@ -466,11 +467,11 @@ class S3Controller {
      * (aka abort multipart upload)
      */
     delete_object_uploadId(req) {
-        return req.rpc_client.object.abort_multipart_upload({
+        return req.rpc_client.object.abort_object_upload({
             bucket: req.params.bucket,
             key: req.params.key,
             upload_id: req.query.uploadId,
-        });
+        }).return();
     }
 
 
@@ -524,14 +525,13 @@ class S3Controller {
         let upload_part_number = parseInt(req.query.partNumber, 10);
 
         // TODO GGG IMPLEMENT COPY PART
-        var copy_source = req.headers['x-amz-copy-source'];
+        let copy_source = req.headers['x-amz-copy-source'];
         if (copy_source) {
             // return req.rpc_client.object.copy_part({});
             throw s3_errors.NotImplemented;
         }
 
-        let object_driver = req.rpc_client.object_driver_lazy();
-        return object_driver.upload_stream_parts({
+        return req.rpc_client.object_io.upload_stream_parts({
                 bucket: req.params.bucket,
                 key: req.params.key,
                 upload_id: req.query.uploadId,
@@ -578,7 +578,7 @@ class S3Controller {
     }
 
 
-    _check_ifs(req, res, object_md) {
+    _ifs_check(req, res, object_md) {
         if ('if-modified-since' in req.headers && (
                 object_md.create_time.getTime() <=
                 (new Date(req.headers['if-modified-since'])).getTime()
@@ -606,6 +606,20 @@ class S3Controller {
         return true;
     }
 
+    _ifs_for_create(req, params) {
+        if ('if-modified-since' in req.headers) {
+            params.id_modified_since = (new Date(req.headers['if-modified-since'])).getTime();
+        }
+        if ('if-unmodified-since' in req.headers) {
+            params.id_unmodified_since = (new Date(req.headers['if-unmodified-since'])).getTime();
+        }
+        if ('if-match' in req.headers) {
+            params.if_match_etag = req.headers['if-match'];
+        }
+        if ('if-none-match' in req.headers) {
+            params.if_none_match_etag = req.headers['if-none-match'];
+        }
+    }
 
 }
 
@@ -624,7 +638,7 @@ function get_request_xattr(req) {
     let xattr = {};
     _.each(req.headers, (val, hdr) => {
         if (!hdr.startsWith('x-amz-meta-')) return;
-        var key = hdr.slice('x-amz-meta-'.length);
+        let key = hdr.slice('x-amz-meta-'.length);
         if (!key) return;
         xattr[key] = val;
     });

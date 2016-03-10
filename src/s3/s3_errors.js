@@ -340,6 +340,11 @@ let errors_defs = [{
     code: 'UserKeyMustBeSpecified',
     message: 'The bucket POST must contain the specified field name. If it is specified, check the order of the fields.',
     http_code: 400,
+}, {
+    // not defined in AWS list, but defined in the protocol handling
+    code: 'NotModified',
+    message: 'The resource was not modified according to the conditions in the provided headers.',
+    http_code: 304,
 }];
 
 // return a map of code -> error object

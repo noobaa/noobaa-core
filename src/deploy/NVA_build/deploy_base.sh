@@ -187,7 +187,8 @@ function general_settings {
 	echo  "| |\\  | (_) | (_) | |_/ / (_| | (_| |   " >> /etc/issue
 	echo  "\\_| \\_/\\___/ \\___/\\____/ \\__,_|\\__,_|   " >> /etc/issue
 	echo -e "\n\nWelcome to your \x1b[0;35;40mNooBaa\x1b[0m server.\n" >> /etc/issue
-	echo -e "You can configure IP, DNS, GW and Hostname by logging in using \x1b[0;32;40mnoobaa/Passw0rd\x1b[0m" >> /etc/issue
+	echo -e "You can set up a cluster member," >> /etc/issue
+	echo -e "configure IP, DNS, GW and Hostname by logging in using \x1b[0;32;40mnoobaa/Passw0rd\x1b[0m" >> /etc/issue
 }
 
 function setup_supervisors {

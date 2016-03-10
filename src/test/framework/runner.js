@@ -15,7 +15,7 @@ var COVERAGE_DIR = '/tmp/cov';
 var REPORT_PATH = COVERAGE_DIR + '/regression_report.log';
 
 function TestRunner(version, argv) {
-    this._version = version;
+    this._version = argv.GIT_VERSION;
     this._argv = argv;
     this._error = false;
 }
@@ -253,25 +253,29 @@ TestRunner.prototype._write_coverage = function() {
 module.exports = TestRunner;
 
 function main() {
-    var run = new TestRunner(5, argv);
+    if (!argv.GIT_VERSION) {
+        console.error('Must supply git version');
+        process.exit(1);
+    }
+    var run = new TestRunner(argv);
     return P.when(run.init_run())
         .fail(function(error) {
             console.error('Init run failed, stopping tests', error);
-            process.exit(1);
+            process.exit(2);
         })
         .then(function() {
             return run.run_tests(run);
         })
         .fail(function(error) {
             console.error('run tests failed', error);
-            process.exit(2);
+            process.exit(3);
         })
         .then(function() {
             return run.complete_run();
         })
         .fail(function(error) {
             console.error('Complete run failed', error);
-            process.exit(3);
+            process.exit(4);
         })
         .then(function() {
             process.exit(0);

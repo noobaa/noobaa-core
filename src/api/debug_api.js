@@ -40,9 +40,9 @@ module.exports = {
                     },
                 },
             },
+            auth: {
+                system: 'admin'
+            }
         },
-        auth: {
-            system: 'admin'
-        }
     }
 };

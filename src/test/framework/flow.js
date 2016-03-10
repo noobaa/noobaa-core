@@ -19,7 +19,7 @@ var steps = [{
     params: [{
         arg: '--COV_DIR',
     }, {
-        input_arg: '/tmp/cov/mocha',
+        arg: '/tmp/cov/mocha',
     }],
 }, {
     //Restore DB to defaults

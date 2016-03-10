@@ -465,7 +465,7 @@ class SystemStore extends EventEmitter {
             .then(() =>
                 // notify all the cluster (including myself) to reload
                 server_rpc.bg_client.redirector.publish_to_cluster({
-                    method_api: 'cluster_api',
+                    method_api: 'cluster_member_api',
                     method_name: 'load_system_store',
                     target: ''
                 })

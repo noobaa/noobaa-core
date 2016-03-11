@@ -99,8 +99,8 @@ function upload_file() {
             highWaterMark: part_size
         });
         data_size = fs.statSync(file_path).size;
-        console.log('Uploading file', file_path, 'of size',
-            size_utils.human_size(data_size));
+        console.log('Uploading', upload_key, 'from file', file_path,
+            'of size', size_utils.human_size(data_size));
     } else {
         upload_key = upload_key || 'upload-' + Date.now().toString(36);
         data_size = (argv.size || 10 * 1024) * 1024 * 1024;
@@ -108,7 +108,7 @@ function upload_file() {
             highWaterMark: part_size,
             no_crypto: true
         });
-        console.log('Uploading generated data of size',
+        console.log('Uploading', upload_key, 'from generated data of size',
             size_utils.human_size(data_size));
     }
 

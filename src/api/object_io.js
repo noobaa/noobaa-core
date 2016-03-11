@@ -8,16 +8,17 @@ let crypto = require('crypto');
 let Semaphore = require('../util/semaphore');
 let transformer = require('../util/transformer');
 let Pipeline = require('../util/pipeline');
-let CoalesceStream = require('../util/coalesce_stream');
 let range_utils = require('../util/range_utils');
 let size_utils = require('../util/size_utils');
 let time_utils = require('../util/time_utils');
+let js_utils = require('../util/js_utils');
 let LRUCache = require('../util/lru_cache');
 let devnull = require('dev-null');
 let config = require('../../config.js');
 let dbg = require('../util/debug_module')(__filename);
 let dedup_options = require("./dedup_options");
 let MD5Stream = require('../util/md5_stream');
+let ChunkStream = require('../util/chunk_stream');
 // dbg.set_level(5, 'core');
 
 
@@ -146,7 +147,9 @@ class ObjectIO {
 
     /**
      *
-     * upload the entire source_stream
+     * upload_stream
+     *
+     * upload the entire source_stream as a new object
      *
      */
     upload_stream(params) {
@@ -184,285 +187,242 @@ class ObjectIO {
 
     /**
      *
-     * upload the entire source_stream parts
-     * by allocating, writing and finalizing each part
+     * upload_stream_parts
+     *
+     * upload the source_stream parts to object in upload mode
+     * by reading large portions from the stream and call upload_data_parts()
      *
      */
     upload_stream_parts(params) {
-        let start = params.start || 0;
-        let upload_part_number = params.upload_part_number || 0;
-        let part_sequence_number = params.part_sequence_number || 0;
+        params.start = params.start || 0;
+        params.upload_part_number = params.upload_part_number || 0;
+        params.part_sequence_number = params.part_sequence_number || 0;
 
         let md5_stream;
         let source_stream = params.source_stream;
         source_stream._readableState.highWaterMark = 1024 * 1024;
         if (params.calculate_md5) {
-            md5_stream = new MD5Stream();
+            md5_stream = new MD5Stream({
+                highWaterMark: 1024 * 1024
+            });
             source_stream.pipe(md5_stream);
             source_stream = md5_stream;
         }
 
+        dbg.log0('upload_stream: start', params.key,
+            'part number', params.upload_part_number,
+            'sequence number', params.part_sequence_number);
+
         this.lazy_init_natives();
+        params.dedup_chunker = new this.native_core.DedupChunker({
+            tpool: ObjectIO.dedup_chunker_tpool
+        }, this.dedup_config);
 
-        dbg.log0('upload_stream: start', params.key, 'part number', upload_part_number,
-            'sequence number', part_sequence_number);
-        return P.fcall(() => {
+        let pipeline = new Pipeline(source_stream);
 
-            // TODO GGG
-            // let defer = P.defer();
-            // let devnull = new require('stream').Writable({
-            //     write: (data, encoding, next) => {
-            //         next();
-            //     }
-            // });
-            // devnull.on('finish', () => defer.resolve());
-            // source_stream.pipe(devnull);
-            // return defer.promise;
+        pipeline.pipe(new ChunkStream(128 * 1024 * 1024, {
+            highWaterMark: 1,
+            objectMode: true
+        }));
 
-            let pipeline = new Pipeline(source_stream);
+        if (true) {
+            pipeline.pipe(transformer({
+                options: {
+                    highWaterMark: 1,
+                    objectMode: true
+                },
+                transform: (t, data) => this.upload_data_parts(params, data)
+            }));
+        } else {
+            pipeline.pipe(transformer({
+                options: {
+                    highWaterMark: 1,
+                    objectMode: true
+                },
+                transform: (t, data) => this._chunk_and_encode_data(params, data)
+            }));
+            pipeline.pipe(transformer({
+                options: {
+                    highWaterMark: 1,
+                    objectMode: true
+                },
+                transform_parallel: (t, parts) => this._allocate_parts(params, parts)
+            }));
+            pipeline.pipe(transformer({
+                options: {
+                    highWaterMark: 1,
+                    objectMode: true,
+                },
+                transform_parallel: (t, parts) => this._write_parts(params, parts)
+            }));
+            pipeline.pipe(transformer({
+                options: {
+                    highWaterMark: 1,
+                    objectMode: true
+                },
+                transform_parallel: (t, parts) => this._finalize_parts(params, parts)
+            }));
+        }
 
-            // TODO GGG
-            // pipeline.pipe(transformer({
-            //     options: {
-            //         highWaterMark: 100,
-            //         objectMode: true
-            //     },
-            //     transform: (t, data) => {}
-            // }));
-            // return pipeline.run();
-
-            //////////////////////////////
-            // PIPELINE: dedup chunking //
-            //////////////////////////////
-
-            pipeline.pipe(new CoalesceStream({
-                highWaterMark: 100,
-                max_length: 100,
-                max_wait_ms: 500,
+        pipeline.pipe(transformer({
+            options: {
+                highWaterMark: 1,
+                flatten: true,
                 objectMode: true
-            }));
-
-            pipeline.pipe(transformer({
-                options: {
-                    highWaterMark: 10,
-                    objectMode: true
-                },
-                init: t => {
-                    t.offset = start;
-                    t.chunker = new this.native_core.DedupChunker({
-                        tpool: ObjectIO.dedup_chunker_tpool
-                    }, this.dedup_config);
-                },
-                transform: (t, data) => {
-                    if (_.isArray(data)) {
-                        _.each(data, buf => {
-                            dbg.log1('upload_stream_parts: chunking',
-                                'offset', size_utils.human_offset(t.offset),
-                                'len', size_utils.human_size(buf.length));
-                            t.offset += buf.length;
-                        });
-                    } else {
-                        dbg.log1('upload_stream_parts: chunking',
-                            'offset', size_utils.human_offset(t.offset),
-                            'len', size_utils.human_size(data.length));
-                        t.offset += data.length;
-                    }
-                    return P.ninvoke(t.chunker, 'push', data);
-                },
-                flush: t => {
-                    return P.ninvoke(t.chunker, 'flush');
+            },
+            transform: (t, part) => {
+                dbg.log1('upload_stream_parts: completed',
+                    range_utils.human_range(part),
+                    'took', time_utils.millitook(part.millistamp));
+                dbg.log_progress(part.end / params.size);
+                if (params.progress) {
+                    params.progress(part);
                 }
-            }));
+            }
+        }));
 
-            // TODO GGG
-            // pipeline.pipe(transformer({
-            //     options: {
-            //         highWaterMark: 100,
-            //         objectMode: true
-            //     },
-            //     transform: (t, data) => {}
-            // }));
-            // return pipeline.run();
+        return pipeline.run()
+            .then(() => md5_stream && md5_stream.wait_digest());
+    }
 
-            ///////////////////////////////
-            // PIPELINE: object encoding //
-            ///////////////////////////////
+    /**
+     *
+     * upload_data_parts
+     *
+     * upload parts to object in upload mode
+     * where data is buffer or array of buffers in memory.
+     *
+     */
+    upload_data_parts(params, data) {
+        return P.fcall(() => this._chunk_and_encode_data(params, data))
+            .then(parts => this._allocate_parts(params, parts))
+            .then(parts => this._write_parts(params, parts))
+            .then(parts => this._finalize_parts(params, parts));
+    }
 
-            pipeline.pipe(transformer({
-                options: {
-                    highWaterMark: 10,
-                    flatten: true,
-                    objectMode: true
-                },
-                init: t => {
-                    t.offset = start;
-                },
-                transform_parallel: (t, data) => {
+
+    /**
+     *
+     * _chunk_and_encode_data
+     *
+     */
+    _chunk_and_encode_data(params, data) {
+        return P.fcall(() => P.ninvoke(params.dedup_chunker, 'push', data))
+            .then(buffers => P.ninvoke(params.dedup_chunker, 'flush')
+                .then(last_bufs => js_utils.array_push_all(buffers, last_bufs)))
+            .then(buffers => {
+                let parts = _.map(buffers, buffer => {
                     let part = {
+                        buffer: buffer,
                         millistamp: time_utils.millistamp(),
                         bucket: params.bucket,
                         key: params.key,
-                        start: t.offset,
-                        end: t.offset + data.length,
-                        upload_part_number: upload_part_number,
-                        part_sequence_number: part_sequence_number,
+                        start: params.start,
+                        end: params.start + buffer.length,
+                        upload_part_number: params.upload_part_number,
+                        part_sequence_number: params.part_sequence_number,
                     };
-                    part_sequence_number += 1;
-                    t.offset += data.length;
+                    params.part_sequence_number += 1;
+                    params.start += buffer.length;
+                    return part;
+                });
+                return P.map(parts, part => {
                     dbg.log2('upload_stream_parts: encode', range_utils.human_range(part));
                     return P.ninvoke(this.object_coding, 'encode',
-                            ObjectIO.object_coding_tpool, data)
+                            ObjectIO.object_coding_tpool, part.buffer)
                         .then(chunk => {
                             part.chunk = chunk;
+                            part.buffer = null;
                             dbg.log1('upload_stream_parts: encode',
                                 range_utils.human_range(part),
                                 'took', time_utils.millitook(part.millistamp));
                             return part;
                         });
-                },
-            }));
-
-            //////////////////////////////////////
-            // PIPELINE: allocate part mappings //
-            //////////////////////////////////////
-
-            pipeline.pipe(new CoalesceStream({
-                highWaterMark: 100,
-                max_length: 100,
-                max_wait_ms: 500,
-                objectMode: true
-            }));
-
-            pipeline.pipe(transformer({
-                options: {
-                    highWaterMark: 100,
-                    objectMode: true
-                },
-                transform_parallel: (t, parts) => {
-                    let millistamp = time_utils.millistamp();
-                    let range = {
-                        start: parts[0].start,
-                        end: parts[parts.length - 1].end
-                    };
-                    dbg.log2('upload_stream_parts: allocate', range_utils.human_range(range));
-                    // send parts to server
-                    return this.client.object.allocate_object_parts({
-                            bucket: params.bucket,
-                            key: params.key,
-                            upload_id: params.upload_id,
-                            parts: _.map(parts, part => {
-                                let p = _.pick(part, PART_ATTRS);
-                                p.chunk = _.pick(part.chunk, CHUNK_ATTRS);
-                                _.defaults(p.chunk, CHUNK_DEFAULTS);
-                                p.chunk.frags = _.map(part.chunk.frags, fragment => {
-                                    let f = _.pick(fragment, FRAG_ATTRS);
-                                    _.defaults(f, FRAG_DEFAULTS);
-                                    f.size = fragment.block.length;
-                                    return f;
-                                });
-                                dbg.log3('upload_stream_parts: allocating specific part ul#',
-                                    p.upload_part_number, 'seq#', p.part_sequence_number);
-                                return p;
-                            })
-                        })
-                        .then(res => {
-                            dbg.log1('upload_stream_parts: allocate',
-                                range_utils.human_range(range),
-                                'took', time_utils.millitook(millistamp));
-                            _.each(parts, (part, i) => part.alloc_part = res.parts[i]);
-                            return parts;
-                        });
-                }
-            }));
-
-            /////////////////////////////////
-            // PIPELINE: write part blocks //
-            /////////////////////////////////
-
-            pipeline.pipe(transformer({
-                options: {
-                    highWaterMark: 100,
-                    flatten: true,
-                    objectMode: true,
-                },
-                transform_parallel: (t, part) => {
-                    let millistamp = time_utils.millistamp();
-                    dbg.log2('upload_stream_parts: write', range_utils.human_range(part));
-                    return P.when(this._write_fragments(part))
-                        .then(() => {
-                            dbg.log1('upload_stream_parts: write',
-                                range_utils.human_range(part),
-                                'took', time_utils.millitook(millistamp));
-                            return part;
-                        });
-                }
-            }));
-
-            /////////////////////////////
-            // PIPELINE: finalize part //
-            /////////////////////////////
-
-            pipeline.pipe(new CoalesceStream({
-                highWaterMark: 100,
-                max_length: 100,
-                max_wait_ms: 500,
-                objectMode: true
-            }));
-
-            pipeline.pipe(transformer({
-                options: {
-                    highWaterMark: 100,
-                    objectMode: true
-                },
-                transform_parallel: (t, parts) => {
-                    let millistamp = time_utils.millistamp();
-                    let range = {
-                        start: parts[0].start,
-                        end: parts[parts.length - 1].end
-                    };
-                    dbg.log2('upload_stream_parts: finalize', range_utils.human_range(range));
-                    // send parts to server
-                    return this.client.object.finalize_object_parts({
-                            bucket: params.bucket,
-                            key: params.key,
-                            upload_id: params.upload_id,
-                            parts: _.map(parts, 'alloc_part')
-                        })
-                        .then(() => {
-                            dbg.log1('upload_stream_parts: finalize',
-                                range_utils.human_range(range),
-                                'took', time_utils.millitook(millistamp));
-                            return parts;
-                        });
-                }
-            }));
-
-            //////////////////////////////////////////
-            // PIPELINE: resolve, reject and notify //
-            //////////////////////////////////////////
-
-            pipeline.pipe(transformer({
-                options: {
-                    highWaterMark: 100,
-                    flatten: true,
-                    objectMode: true
-                },
-                transform: (t, part) => {
-                    dbg.log1('upload_stream_parts: completed',
-                        range_utils.human_range(part),
-                        'took', time_utils.millitook(part.millistamp));
-                    dbg.log_progress(part.end / params.size);
-                    if (params.progress) {
-                        params.progress(part);
-                    }
-                }
-            }));
-
-            return pipeline.run()
-                .then(() => md5_stream && md5_stream.wait_digest());
-        });
+                });
+            });
     }
 
+    /**
+     *
+     * _allocate_parts
+     *
+     */
+    _allocate_parts(params, parts) {
+        let millistamp = time_utils.millistamp();
+        let range = {
+            start: parts[0].start,
+            end: parts[parts.length - 1].end
+        };
+        dbg.log2('_allocate_parts:', range_utils.human_range(range));
+        return this.client.object.allocate_object_parts({
+                bucket: params.bucket,
+                key: params.key,
+                upload_id: params.upload_id,
+                parts: _.map(parts, part => {
+                    let p = _.pick(part, PART_ATTRS);
+                    p.chunk = _.pick(part.chunk, CHUNK_ATTRS);
+                    _.defaults(p.chunk, CHUNK_DEFAULTS);
+                    p.chunk.frags = _.map(part.chunk.frags, fragment => {
+                        let f = _.pick(fragment, FRAG_ATTRS);
+                        _.defaults(f, FRAG_DEFAULTS);
+                        f.size = fragment.block.length;
+                        return f;
+                    });
+                    return p;
+                })
+            })
+            .then(res => {
+                dbg.log1('_allocate_parts: done', range_utils.human_range(range),
+                    'took', time_utils.millitook(millistamp));
+                _.each(parts, (part, i) => part.alloc_part = res.parts[i]);
+                return parts;
+            });
+    }
+
+    /**
+     *
+     * _write_parts
+     *
+     */
+    _write_parts(params, parts) {
+        let millistamp = time_utils.millistamp();
+        let range = {
+            start: parts[0].start,
+            end: parts[parts.length - 1].end
+        };
+        dbg.log2('_write_parts: ', range_utils.human_range(range));
+        return P.map(parts, part => this._write_fragments(part))
+            .then(() => {
+                dbg.log1('_write_parts: done', range_utils.human_range(range),
+                    'took', time_utils.millitook(millistamp));
+                return parts;
+            });
+    }
+
+    /**
+     *
+     * _finalize_parts
+     *
+     */
+    _finalize_parts(params, parts) {
+        let millistamp = time_utils.millistamp();
+        let range = {
+            start: parts[0].start,
+            end: parts[parts.length - 1].end
+        };
+        dbg.log2('_finalize_parts:', range_utils.human_range(range));
+        return this.client.object.finalize_object_parts({
+                bucket: params.bucket,
+                key: params.key,
+                upload_id: params.upload_id,
+                parts: _.map(parts, 'alloc_part')
+            })
+            .then(() => {
+                dbg.log1('_finalize_parts: done', range_utils.human_range(range),
+                    'took', time_utils.millitook(millistamp));
+                return parts;
+            });
+    }
 
     /**
      *
@@ -499,7 +459,6 @@ class ObjectIO {
             })));
         });
     }
-
 
     /**
      *
@@ -1046,7 +1005,8 @@ class ObjectIO {
 
         // return http 400 Bad Request
         if (range === -2) {
-            dbg.log1('+++ serve_http_stream: bad range request', req.get('range'));
+            dbg.log1('+++ serve_http_stream: bad range request',
+                req.get('range'), object_md);
             return 400;
         }
 
@@ -1055,7 +1015,8 @@ class ObjectIO {
                 range === -1 ||
                 range.type !== 'bytes' ||
                 range.length !== 1)) {
-            dbg.warn('+++ serve_http_stream: invalid range', range, req.get('range'));
+            dbg.warn('+++ serve_http_stream: invalid range',
+                range, req.get('range'), object_md);
             // let the client know of the relevant range
             res.setHeader('Content-Range', 'bytes */' + object_md.size);
             return 416;

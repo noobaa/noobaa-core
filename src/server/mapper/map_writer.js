@@ -228,7 +228,7 @@ function calc_multipart_md5(obj) {
             var part_md5 = part.etag;
             aggregated_nobin_md5 = aggregated_nobin_md5 + part_md5;
             aggregated_bin_md5 = aggregated_bin_md5 + string_utils.toBinary(part_md5);
-            dbg.log0('part', part, ' with md5', part_md5, 'aggregated:', aggregated_nobin_md5);
+            dbg.log1('part', part, ' with md5', part_md5, 'aggregated:', aggregated_nobin_md5);
         });
         var digester = crypto.createHash('md5');
         digester.update(aggregated_bin_md5);

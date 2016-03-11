@@ -405,6 +405,15 @@ function get_test_nodes(req) {
                 skip: rand_start,
                 limit: count
             });
+        })
+        .then((res) => {
+            db.ActivityLog.create({
+                system: req.system._id,
+                actor: req.account && req.account._id,
+                level: 'info',
+                event: 'node.test_node'
+            });
+            return res;
         });
 }
 

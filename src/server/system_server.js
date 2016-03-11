@@ -713,7 +713,7 @@ function get_system_info(system, get_id) {
 function find_account_by_email(req) {
     var account = system_store.data.accounts_by_email[req.rpc_params.email];
     if (!account) {
-        throw req.rpc_error('NOT_FOUND', 'account not found: ' + req.rpc_params.email);
+        throw req.rpc_error('NO_SUCH_ACCOUNT', 'No such account email: ' + req.rpc_params.email);
     }
     return account;
 }

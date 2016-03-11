@@ -199,7 +199,7 @@ function find_pool_by_name(req) {
     var name = req.rpc_params.name;
     var pool = req.system.pools_by_name[name];
     if (!pool) {
-        throw req.rpc_error('NOT_FOUND', 'POOL NOT FOUND ' + name);
+        throw req.rpc_error('NO_SUCH_POOL', 'No such pool: ' + name);
     }
     return pool;
 }

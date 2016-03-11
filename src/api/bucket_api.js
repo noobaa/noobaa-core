@@ -17,7 +17,7 @@ module.exports = {
             method: 'POST',
             params: {
                 type: 'object',
-                required: ['name', 'tiering'],
+                required: ['name'],
                 properties: {
                     name: {
                         type: 'string',

@@ -191,10 +191,13 @@ inline v8::Local<v8::Value> NanKey(std::string s) {
         } \
     } while (0)
 
+# define NAUV_CALLBACK_STATUS(func_name, handle_def) \
+    void func_name(handle_def, int status)
+
 #if NAUV_UVVERSION < 0x000b17
 
 # define NAUV_CALLBACK(func_name, handle_def) \
-    void func_name(handle_def, int)
+    void func_name(handle_def, int status)
 # define NAUV_IP4_ADDR(address, port, sin4) \
     *sin4 = uv_ip4_addr(address, port)
 # define NAUV_IP6_ADDR(address, port, sin6) \
@@ -215,7 +218,7 @@ inline v8::Local<v8::Value> NanKey(std::string s) {
         return buf; \
     }
 # define NAUV_UDP_RECEIVE_CB_WRAP(func_name, receive_func) \
-    void uv_callback_receive_wrap( \
+    void func_name( \
         uv_udp_t* handle, \
         ssize_t nread, \
         uv_buf_t buf, \
@@ -223,6 +226,14 @@ inline v8::Local<v8::Value> NanKey(std::string s) {
         unsigned flags) \
     { \
         receive_func(handle, nread, &buf, addr, flags); \
+    }
+# define NAUV_READ_CB_WRAP(func_name, read_func) \
+    void func_name( \
+        uv_stream_t* handle, \
+        ssize_t nread, \
+        uv_buf_t buf) \
+    { \
+        read_func(handle, nread, &buf); \
     }
 
 #else
@@ -246,7 +257,7 @@ inline v8::Local<v8::Value> NanKey(std::string s) {
         alloc_func(handle, suggested_size, buf); \
     }
 # define NAUV_UDP_RECEIVE_CB_WRAP(func_name, receive_func) \
-    void uv_callback_receive_wrap( \
+    void func_name( \
         uv_udp_t* handle, \
         ssize_t nread, \
         const uv_buf_t* buf, \
@@ -254,6 +265,14 @@ inline v8::Local<v8::Value> NanKey(std::string s) {
         unsigned flags) \
     { \
         receive_func(handle, nread, buf, addr, flags); \
+    }
+# define NAUV_READ_CB_WRAP(func_name, read_func) \
+    void func_name( \
+        uv_stream_t* handle, \
+        ssize_t nread, \
+        const uv_buf_t* buf) \
+    { \
+        read_func(handle, nread, buf); \
     }
 
 #endif

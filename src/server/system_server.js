@@ -106,6 +106,14 @@ function new_system_changes(name, owner_account_id) {
         system: system._id,
         role: 'admin'
     };
+
+    db.ActivityLog.create({
+        event: 'conf.create_system',
+        level: 'info',
+        system: system._id,
+        actor: owner_account_id,
+    });
+
     return {
         insert: {
             systems: [system],
@@ -504,6 +512,15 @@ function diagnose(req) {
     return P.fcall(function() {
             return diag.collect_server_diagnostics();
         })
+        .then((res) => {
+            db.ActivityLog.create({
+                event: 'conf.diagnose_system',
+                level: 'info',
+                system: req.system._id,
+                actor: req.account && req.account._id,
+            });
+            return res;
+        })
         .then(function() {
             return diag.pack_diagnostics(inner_path);
         })
@@ -655,6 +672,15 @@ function update_base_address(req) {
                     concurrency: 5
                 })
                 .return(reply);
+        })
+        .then((res) => {
+            db.ActivityLog.create({
+                event: 'conf.dns_address',
+                level: 'info',
+                system: req.system,
+                actor: req.account && req.account._id,
+            });
+            return res;
         });
 }
 
@@ -687,7 +713,7 @@ function get_system_info(system, get_id) {
 function find_account_by_email(req) {
     var account = system_store.data.accounts_by_email[req.rpc_params.email];
     if (!account) {
-        throw req.rpc_error('NOT_FOUND', 'account not found: ' + req.rpc_params.email);
+        throw req.rpc_error('NO_SUCH_ACCOUNT', 'No such account email: ' + req.rpc_params.email);
     }
     return account;
 }

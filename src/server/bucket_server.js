@@ -42,6 +42,9 @@ var mongo_utils = require('../util/mongo_utils');
 var dbg = require('../util/debug_module')(__filename);
 var P = require('../util/promise');
 
+const VALID_BUCKET_NAME_REGEXP = new RegExp(
+    '^(([a-z]|[a-z][a-z0-9\-]*[a-z0-9])\\.)*' +
+    '([a-z]|[a-z][a-z0-9\-]*[a-z0-9])$');
 
 function new_bucket_defaults(name, system_id, tiering_policy_id) {
     return {
@@ -63,11 +66,38 @@ function new_bucket_defaults(name, system_id, tiering_policy_id) {
  *
  */
 function create_bucket(req) {
-    var tiering_policy = resolve_tiering_policy(req, req.rpc_params.tiering);
-    var bucket = new_bucket_defaults(
+    if (!VALID_BUCKET_NAME_REGEXP.test(req.rpc_params.name)) {
+        throw req.rpc_error('INVALID_BUCKET_NAME');
+    }
+    if (req.system.buckets_by_name[req.rpc_params.name]) {
+        throw req.rpc_error('BUCKET_ALREADY_EXISTS');
+    }
+    let tiering_policy;
+    let changes = {
+        insert: {}
+    };
+    if (req.rpc_params.tiering) {
+        tiering_policy = resolve_tiering_policy(req, req.rpc_params.tiering);
+    } else {
+        // we create dedicated tier and tiering policy for the new bucket
+        // that uses the default_pool
+        let default_pool = req.system.pools_by_name.default_pool;
+        let name_with_suffix = req.rpc_params.name + '#' + Date.now().toString(36);
+        let tier = tier_server.new_tier_defaults(
+            name_with_suffix, req.system._id, [default_pool._id]);
+        tiering_policy = tier_server.new_policy_defaults(
+            name_with_suffix, req.system._id, [{
+                tier: tier._id,
+                order: 0
+            }]);
+        changes.insert.tieringpolicies = [tiering_policy];
+        changes.insert.tiers = [tier];
+    }
+    let bucket = new_bucket_defaults(
         req.rpc_params.name,
         req.system._id,
         tiering_policy._id);
+    changes.insert.buckets = [bucket];
     db.ActivityLog.create({
         event: 'bucket.create',
         level: 'info',
@@ -75,15 +105,12 @@ function create_bucket(req) {
         actor: req.account && req.account._id,
         bucket: bucket._id,
     });
-    return system_store.make_changes({
-        insert: {
-            buckets: [bucket]
-        }
-    }).then(function() {
-        req.load_auth();
-        var created_bucket = find_bucket(req);
-        return get_bucket_info(created_bucket);
-    });
+    return system_store.make_changes(changes)
+        .then(function() {
+            req.load_auth();
+            let created_bucket = find_bucket(req);
+            return get_bucket_info(created_bucket);
+        });
 }
 
 /**
@@ -172,7 +199,7 @@ function delete_bucket(req) {
             objects_aggregate = objects_aggregate || {};
             var objects_aggregate_bucket = objects_aggregate[bucket._id] || {};
             if (objects_aggregate_bucket.count) {
-                throw req.rpc_error('NOT_EMPTY', 'bucket not empty');
+                throw req.rpc_error('BUCKET_NOT_EMPTY', 'Bucket not empty: ' + bucket.name);
             }
             return system_store.make_changes({
                 remove: {
@@ -281,6 +308,16 @@ function delete_cloud_sync(req) {
                 auth_token: req.auth_token
             });
         })
+        .then((res) => {
+            db.ActivityLog.create({
+                event: 'bucket.remove_cloud_sync',
+                level: 'info',
+                system: req.system._id,
+                actor: req.account && req.account._id,
+                bucket: bucket._id,
+            });
+            return res;
+        })
         .return();
 }
 
@@ -345,6 +382,16 @@ function set_cloud_sync(req) {
                 auth_token: req.auth_token
             });
         })
+        .then((res) => {
+            db.ActivityLog.create({
+                event: 'bucket.set_cloud_sync',
+                level: 'info',
+                system: req.system._id,
+                actor: req.account && req.account._id,
+                bucket: bucket._id,
+            });
+            return res;
+        })
         .catch(function(err) {
             dbg.error('Error setting cloud sync', err, err.stack);
             throw err;
@@ -386,7 +433,7 @@ function find_bucket(req) {
     var bucket = req.system.buckets_by_name[req.rpc_params.name];
     if (!bucket) {
         dbg.error('BUCKET NOT FOUND', req.rpc_params.name);
-        throw req.rpc_error('NOT_FOUND', 'missing bucket');
+        throw req.rpc_error('NO_SUCH_BUCKET', 'No such bucket: ' + req.rpc_params.name);
     }
     return bucket;
 }
@@ -413,7 +460,7 @@ function resolve_tiering_policy(req, policy_name) {
     var tiering_policy = req.system.tiering_policies_by_name[policy_name];
     if (!tiering_policy) {
         dbg.error('TIER POLICY NOT FOUND', policy_name);
-        throw req.rpc_error('NOT_FOUND', 'missing tiering policy');
+        throw req.rpc_error('INVALID_BUCKET_STATE', 'Bucket tiering policy not found');
     }
     return tiering_policy;
 }

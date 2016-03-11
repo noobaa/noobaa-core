@@ -62,7 +62,7 @@ mocha.describe('rabin', function() {
     }
 
     function test_file(file_name) {
-        // copied from object_driver
+        // copied from ObjectIO
         var OBJECT_RANGE_ALIGN_NBITS = 19; // log2( 512 KB )
         var OBJECT_RANGE_ALIGN = 1 << OBJECT_RANGE_ALIGN_NBITS; // 512 KB
 

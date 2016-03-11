@@ -1,12 +1,7 @@
 // module targets: nodejs & browserify
 'use strict';
 
-var util = require('util');
 var stream = require('stream');
-
-
-module.exports = ChunkStream;
-
 
 /**
  *
@@ -15,35 +10,48 @@ module.exports = ChunkStream;
  * A transforming stream that chunks the input to fixes size chunks.
  *
  */
-function ChunkStream(chunk_size, options) {
-    stream.Transform.call(this, options);
-    this.chunk_size = chunk_size;
-    this.pending = new Buffer(0);
+class ChunkStream extends stream.Transform {
+
+    constructor(chunk_size, options) {
+        super(options);
+        this.chunk_size = chunk_size;
+        this.pending_buffers = [];
+        this.pending_bytes = 0;
+    }
+
+
+    /**
+     * implement the stream's Transform._transform() function.
+     */
+    _transform(data, encoding, callback) {
+        // console.log('ChunkStream transform', data.length);
+        while (data && data.length) {
+            let room = this.chunk_size - this.pending_bytes;
+            let buf = (room < data.length) ? data.slice(0, room) : data;
+            this.pending_buffers.push(buf);
+            this.pending_bytes += buf.length;
+            if (this.pending_bytes === this.chunk_size) {
+                this._flush();
+            }
+            data = (room < data.length) ? data.slice(room) : null;
+        }
+        callback();
+    }
+
+    /**
+     * implement the stream's Transform._flush() function.
+     */
+    _flush(callback) {
+        if (this.pending_buffers.length) {
+            // console.log('ChunkStream flush', this.pending_bytes, this.pending_buffers.length);
+            this.push(this.pending_buffers);
+            this.pending_buffers = [];
+            this.pending_bytes = 0;
+        }
+        if (callback) {
+            callback();
+        }
+    }
 }
 
-// proper inheritance
-util.inherits(ChunkStream, stream.Transform);
-
-
-/**
- * implement the stream's Transform._transform() function.
- */
-ChunkStream.prototype._transform = function(data, encoding, callback) {
-    this.pending = Buffer.concat([this.pending, data]);
-    while (this.pending.length >= this.chunk_size) {
-        var chunk = this.pending.slice(0, this.chunk_size);
-        this.pending = this.pending.slice(this.chunk_size);
-        this.push(chunk);
-    }
-    callback();
-};
-
-/**
- * implement the stream's Transform._flush() function.
- */
-ChunkStream.prototype._flush = function(callback) {
-    if (this.pending.length) {
-        this.push(this.pending);
-    }
-    callback();
-};
+module.exports = ChunkStream;

@@ -28,6 +28,14 @@ if (argv.help) {
     upload_file();
 } else if (argv.get) {
     get_file();
+} else if (argv.head) {
+    if (_.isString(argv.head)) {
+        head_file();
+    } else {
+        head_bucket();
+    }
+} else if (argv.buckets) {
+    list_buckets();
 } else if (argv.list || argv.ls || argv.ll || true) {
     list_objects();
 }
@@ -66,6 +74,18 @@ function list_objects() {
     });
 }
 
+function list_buckets() {
+    s3.listBuckets(function(err, data) {
+        if (err) {
+            console.error('LIST BUCKETS ERROR:', err);
+            return;
+        }
+        _.each(data.Buckets, bucket => {
+            console.log(bucket.Name);
+        });
+    });
+}
+
 function upload_file() {
     let bucket = argv.bucket;
     let file_path = argv.file || '';
@@ -75,10 +95,12 @@ function upload_file() {
     let part_size = (argv.part_size || 64) * 1024 * 1024;
     if (file_path) {
         upload_key = upload_key || file_path + '-' + Date.now().toString(36);
-        data_source = fs.createReadStream(file_path);
+        data_source = fs.createReadStream(file_path, {
+            highWaterMark: part_size
+        });
         data_size = fs.statSync(file_path).size;
-        console.log('Uploading file', file_path, 'of size',
-            size_utils.human_size(data_size));
+        console.log('Uploading', upload_key, 'from file', file_path,
+            'of size', size_utils.human_size(data_size));
     } else {
         upload_key = upload_key || 'upload-' + Date.now().toString(36);
         data_size = (argv.size || 10 * 1024) * 1024 * 1024;
@@ -86,7 +108,7 @@ function upload_file() {
             highWaterMark: part_size,
             no_crypto: true
         });
-        console.log('Uploading generated data of size',
+        console.log('Uploading', upload_key, 'from generated data of size',
             size_utils.human_size(data_size));
     }
 
@@ -164,6 +186,31 @@ function get_file() {
                 console.log(percents + '% progress.', speed_str + '/sec');
             }
         });
+    });
+}
+
+function head_bucket() {
+    s3.headBucket({
+        Bucket: argv.bucket
+    }, (err,data) => {
+        if (err) {
+            console.error('HEAD BUCKET ERROR:', err);
+            return;
+        }
+        console.log('HEAD BUCKET', data);
+    });
+}
+
+function head_file() {
+    s3.headObject({
+        Bucket: argv.bucket,
+        Key: argv.head
+    }, (err,data) => {
+        if (err) {
+            console.error('HEAD OBJECT ERROR:', err);
+            return;
+        }
+        console.log('HEAD OBJECT', data);
     });
 }
 

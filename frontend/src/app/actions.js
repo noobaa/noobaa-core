@@ -869,17 +869,19 @@ export function createBucket(name, dataPlacement, pools) {
 
     let { bucketList } = model;
 
+    // TODO: remove the random string after patching the server
+    // with a delete bucket that deletes also the policy
+    let name_with_suffix = `${name}#${Date.now().toString(36)}`;
+
     api.tier.create_tier({
-        name: randomString(8),
+        name: name_with_suffix,
         data_placement: dataPlacement,
         pools: pools
     })
         .then(
             tier => {
                 let policy = {
-                    // TODO: remove the random string after patching the server
-                    // with a delete bucket that deletes also the policy
-                    name: `${name}_tiering_${randomString(5)}`,
+                    name: name_with_suffix,
                     tiers: [ { order: 0, tier: tier.name } ]
                 };
 
@@ -989,6 +991,10 @@ export function uploadFiles(bucketName, files) {
                                     Bucket: bucketName,
                                     Body: file,
                                     ContentType: file.type
+                                },
+                                {
+                                    partSize: 64 * 1024 * 1024,
+                                    queueSize: 4
                                 },
                                 error => {
                                     if (!error) {

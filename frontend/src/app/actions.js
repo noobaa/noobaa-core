@@ -235,7 +235,7 @@ export function showNode() {
     logAction('showNode');
 
     let ctx = model.routeContext();
-    let { pool, node, tab = 'parts' } = ctx.params;
+    let { pool, node, tab = 'info' } = ctx.params;
     let { page = 0 } = ctx.query;
 
     model.uiState({
@@ -1325,8 +1325,8 @@ export function addAWSCredentials(accessKey, secretKey) {
         secret_key: secretKey
     };
 
-    // TODO: the call to get_cloud_sync is used here to check that the keys are valid, 
-    // and the server can access S3 using this keys. Need to replace this with a sort of 
+    // TODO: the call to get_cloud_sync is used here to check that the keys are valid,
+    // and the server can access S3 using this keys. Need to replace this with a sort of
     // s3 ping when avaliable in server side.
     api.bucket.get_cloud_buckets(credentials)
         .then(
@@ -1335,7 +1335,7 @@ export function addAWSCredentials(accessKey, secretKey) {
         .then(loadAccountAwsCredentials)
         .done();
 }
- 
+
 export function notify(message, severity = 'INFO') {
     logAction('notifyInfo', { message, severity });
 

@@ -7,6 +7,7 @@ ENV_FILE="${CORE_DIR}/.env"
 LOG_FILE="/var/log/noobaa_deploy.log"
 SUPERD="/usr/bin/supervisord"
 SUPERCTL="/usr/bin/supervisorctl"
+NOOBAASEC="/etc/noobaa_sec"
 
 function deploy_log {
 	if [ "$1" != "" ]; then

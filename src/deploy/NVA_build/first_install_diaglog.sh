@@ -32,6 +32,11 @@ function validate_mask() {
 }
 
 function run_wizard {
+  if [ ! -f ${NOOBAASEC} ]; then
+    local sec=$(cat /dev/urandom | tr -dc 'a-zA-Z0-9' | fold -w 32 | head -1)
+    echo ${sec} > ${NOOBAASEC}
+  fi
+
   dialog --colors --backtitle "NooBaa First Install" --title 'Welcome to \Z5\ZbNooBaa\Zn' --msgbox 'Welcome to your \Z5\ZbNooBaa\Zn experience.\n\nThis
  is a short first install wizard to help configure \Z5\ZbNooBaa\Zn to best suit your needs' 8 50
 
@@ -127,8 +132,26 @@ function end_wizard {
   date >> ${FIRST_INSTALL_MARK}
   clear
 
+  fix_etc_issue
+
   trap 2 20
   exit 0
+}
+
+function fix_etc_issue {
+  #remove old IP and secret line
+  sed -i '/Configured IP on this NooBaa Server/d' /etc/issue
+
+  #add the new one
+  local current_ip=$(ifconfig eth0  |grep 'inet addr' | cut -f 2 -d':' | cut -f 1 -d' ')
+  local secret
+  if [ -f ${NOOBAASEC} ]; then
+    secret=$(cat ${NOOBAASEC})
+  else
+    secret="Not Configured"
+  fi
+
+  echo -e "Configured IP on this NooBaa Server \x1b[0;32;40m${current_ip}\x1b[0m, This server's secret is \x1b[0;32;40m${secret}\x1b[0m" >> /etc/issue
 }
 
 function verify_wizard_run {

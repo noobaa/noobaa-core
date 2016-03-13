@@ -140,13 +140,15 @@ function update_tier(req) {
         })
         .then((res) => {
             var bucket = find_bucket_by_tier(req);
-            db.ActivityLog.create({
-                event: 'bucket.edit_policy',
-                level: 'info',
-                system: req.system._id,
-                actor: req.account && req.account._id,
-                bucket: bucket._id,
-            });
+            if (bucket != null) {
+                db.ActivityLog.create({
+                    event: 'bucket.edit_policy',
+                    level: 'info',
+                    system: req.system._id,
+                    actor: req.account && req.account._id,
+                    bucket: bucket._id,
+                });
+            }
             return res;
         })
         .return();
@@ -241,20 +243,22 @@ function find_bucket_by_tier(req) {
     var tier = find_tier_by_name(req);
     var policy = _.find(system_store.data.tieringpolicies, function(o) {
         return _.find(o.tiers, function(t) {
-            return (t.tier._id.toString() == tier._id.toString());
+            return (t.tier._id.toString() === tier._id.toString());
         });
     });
 
     if (!policy) {
-        throw req.rpc_error('NOT_FOUND', 'POLICY OF TIER NOT FOUND ' + tier.name);
+        return null;
+        //throw req.rpc_error('NOT_FOUND', 'POLICY OF TIER NOT FOUND ' + tier.name);
     }
 
     var bucket = _.find(system_store.data.buckets, function(o) {
-        return (o.tiering._id == policy._id);
+        return (o.tiering._id.toString() === policy._id.toString());
     });
 
     if (!bucket) {
-        throw req.rpc_error('NOT_FOUND', 'BUCKET OF TIER POLICY NOT FOUND ' + policy.name);
+        return null;
+        //throw req.rpc_error('NOT_FOUND', 'BUCKET OF TIER POLICY NOT FOUND ' + policy.name);
     }
 
     return bucket;

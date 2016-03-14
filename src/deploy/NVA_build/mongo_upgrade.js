@@ -41,7 +41,8 @@ function upgrade_systems() {
         db.systems.update({
             _id: system._id
         }, {
-            $set: updates
+            $set: updates,
+            $unset: '__v'
         });
     });
     db.systems.find().forEach(upgrade_system);
@@ -146,7 +147,21 @@ function upgrade_system(system) {
 
     print('\n*** BUCKET ***');
 
+    print('\n*** find old buckets with old tiering model...');
+
+    db.buckets.update({
+        system: system._id,
+        'tiering.tier': {
+            $exists: true
+        }
+    }, {
+        $unset: {
+            tiering: 1
+        }
+    });
+
     print('\n*** find old buckets without tiering ...');
+
     db.buckets.find({
         system: system._id,
         tiering: null

@@ -30,7 +30,7 @@ NAN_METHOD(DedupConfig::new_instance)
     int max_chunk = NAN_GET_INT(self, "max_chunk");
     int avg_chunk_bits = NAN_GET_INT(self, "avg_chunk_bits");
     T AVG_CHUNK_VAL = ~T(0); // arbitrary fixed value
-    ASSERT(min_chunk < max_chunk,
+    ASSERT(min_chunk <= max_chunk,
         DVAL(min_chunk) << " should be smaller than " << DVAL(max_chunk));
     ASSERT(avg_chunk_bits < gf_degree,
         DVAL(avg_chunk_bits) << " should be smaller than " << DVAL(gf_degree));

@@ -106,7 +106,7 @@ function read_account(req) {
 function update_account(req) {
     let account = system_store.data.accounts_by_email[req.rpc_params.email];
     if (!account) {
-        throw req.rpc_error('NOT_FOUND', 'account not found');
+        throw req.rpc_error('NO_SUCH_ACCOUNT', 'No such account email: ' + req.rpc_params.email);
     }
     if (!is_support_or_admin_or_me(req.system, req.account, account)) {
         throw req.unauthorized('Cannot update account');
@@ -141,7 +141,7 @@ function update_account(req) {
 function delete_account(req) {
     let account_to_delete = system_store.data.accounts_by_email[req.rpc_params.email];
     if (!account_to_delete) {
-        throw req.rpc_error('NOT_FOUND', 'account not found');
+        throw req.rpc_error('NO_SUCH_ACCOUNT', 'No such account email: ' + req.rpc_params.email);
     }
     if (account_to_delete.is_support) {
         throw req.rpc_error('BAD_REQUEST', 'Cannot delete support account');

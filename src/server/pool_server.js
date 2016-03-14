@@ -7,6 +7,7 @@ var system_store = require('./stores/system_store');
 var nodes_store = require('./stores/nodes_store');
 var size_utils = require('../util/size_utils');
 var config = require('../../config');
+var db = require('./db');
 
 /**
  *
@@ -52,6 +53,16 @@ function create_pool(req) {
         })
         .then(function() {
             return _assign_nodes_to_pool(req.system._id, pool._id, nodes);
+        })
+        .then((res) => {
+            db.ActivityLog.create({
+                event: 'pool.create',
+                level: 'info',
+                system: req.system._id,
+                actor: req.account && req.account._id,
+                pool: pool._id,
+            });
+            return res;
         });
 }
 
@@ -122,6 +133,16 @@ function delete_pool(req) {
                 }
             });
         })
+        .then((res) => {
+            db.ActivityLog.create({
+                event: 'pool.delete',
+                level: 'info',
+                system: req.system._id,
+                actor: req.account && req.account._id,
+                pool: pool._id,
+            });
+            return res;
+        })
         .return();
 }
 
@@ -142,6 +163,13 @@ function _assign_nodes_to_pool(system_id, pool_id, nodes_names) {
 function assign_nodes_to_pool(req) {
     dbg.log0('Adding nodes to pool', req.rpc_params.name, 'nodes', req.rpc_params.nodes);
     var pool = find_pool_by_name(req);
+    db.ActivityLog.create({
+        event: 'pool.assign_nodes',
+        level: 'info',
+        system: req.system._id,
+        actor: req.account && req.account._id,
+        pool: pool._id,
+    });
     return _assign_nodes_to_pool(req.system._id, pool._id, req.rpc_params.nodes);
 }
 
@@ -171,7 +199,7 @@ function find_pool_by_name(req) {
     var name = req.rpc_params.name;
     var pool = req.system.pools_by_name[name];
     if (!pool) {
-        throw req.rpc_error('NOT_FOUND', 'POOL NOT FOUND ' + name);
+        throw req.rpc_error('NO_SUCH_POOL', 'No such pool: ' + name);
     }
     return pool;
 }

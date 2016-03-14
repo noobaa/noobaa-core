@@ -3,6 +3,7 @@
 var moment = require('moment');
 var size_utils = require('../src/util/size_utils');
 var api = require('../src/api');
+var ObjectIO = require('../src/api/object_io_client');
 var dbg = require('../src/util/debug_module')(__filename);
 dbg.set_level(5);
 
@@ -13,6 +14,7 @@ var end = parseInt(process.argv[5], 10) || Infinity;
 var output = process.stdout;
 var rpc = api.new_rpc();
 var client = rpc.new_client();
+var object_io = new ObjectIO(client);
 
 if (!bkt) {
     init_api().then(function() {
@@ -47,7 +49,7 @@ if (!bkt) {
     });
 } else {
     init_api().then(function() {
-        return client.object_driver_lazy().open_read_stream({
+        return object_io.open_read_stream({
                 bucket: bkt,
                 key: key,
                 start: start,

@@ -399,6 +399,7 @@ Agent.prototype._do_heartbeat = function() {
             // for now we only use a single drive,
             // so mark the usage on the drive of our storage folder.
             var used_drives = _.filter(drives, function(drive) {
+                dbg.log0('used drives:',self.storage_path_mount ,drive,store_stats.used);
                 if (self.storage_path_mount === drive.mount) {
                     drive.storage.used = store_stats.used;
                     return true;

@@ -10,7 +10,7 @@
     <li title="state">
         <svg-icon params="uri: stateIcon"></svg-icon>
         <span data-bind="text: state"></span>
-    </li>    
+    </li>
     <li title="trust">
         <svg-icon params="uri: trustIcon"></svg-icon>
         <span data-bind="text: trust"></span>
@@ -18,33 +18,33 @@
     <li title="debug level" class="debug-level" data-bind="css: debugLevelCss">
         <svg-icon params="uri: '/fe/assets/icons.svg#diagnose'"></svg-icon>
         <span data-bind="text: debugLevel"></span>
-    </li>    
+    </li>
 </ul>
 
 <div class="text-center">
     <section class="gauge-legend">
         <h3 class="heading3 underline">
-            Capacity: 
+            Node Storage Capacity:
             <span data-bind="text: totalText"></span>
         </h3>
 
         <ul class="list-no-style">
             <li class="used-legend">
-                Used: 
+                NooBaa:
                 <span class="emphasized" data-bind="text: usedText"></span>
             </li>
             <li class="os-legend">
-                OS: 
+                Other:
                 <span class="emphasized" data-bind="text: osText"></span>
             </li>
             <li class="free-legend">
-                Free: 
+                Free Space:
                 <span class="emphasized" data-bind="text: freeText"></span>
             </li>
-        </ul>        
+        </ul>
     </section>
 
-    <quantity-gauge params="values: gaugeValues"></quantity-gauge>    
+    <quantity-gauge params="values: gaugeValues"></quantity-gauge>
 
     <section class="action-list">
         <button class="action btn2" data-bind="click: () => isTestModalVisible(true)">
@@ -57,7 +57,7 @@
             Raise Debug Level
         </button>
 
-        <a class="action btn3" data-bind="click: () => downloadDiagnosticPack()" 
+        <a class="action btn3" data-bind="click: () => downloadDiagnosticPack()"
             target="_blank">
             <svg-icon params="uri: '/fe/assets/icons.svg#download'"></svg-icon>
             Export Diag Pack

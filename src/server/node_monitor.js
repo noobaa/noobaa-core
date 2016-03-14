@@ -195,7 +195,7 @@ function update_heartbeat(req, reply_token) {
     var peer_id = params.peer_id;
     var node;
 
-    dbg.log0('HEARTBEAT node_id', node_id, 'process.env.AGENT_VERSION', process.env.AGENT_VERSION);
+    dbg.log0('HEARTBEAT node_id', node_id, 'process.env.AGENT_VERSION', process.env.AGENT_VERSION,'  params:',params);
 
     var hb_delay_ms = process.env.AGENT_HEARTBEAT_DELAY_MS || 60000;
     hb_delay_ms *= 1 + Math.random(); // jitter of 2x max
@@ -267,7 +267,7 @@ function update_heartbeat(req, reply_token) {
         ])
         .spread(function(node_arg, storage_used) {
             node = node_arg;
-
+            dbg.log0('ETET:storage_used',storage_used);
             if (!node) {
                 // we don't fail here because failures would keep retrying
                 // to find this node, and the node is not in the db.
@@ -306,10 +306,11 @@ function update_heartbeat(req, reply_token) {
                     agent_storage.used, ' counted used ', storage_used);
                 // TODO trigger a detailed usage check / reclaiming
             }
+            dbg.log0('should update',storage_used , 'with', agent_storage.used);
 
             // check if need to update the node used storage count
-            if (node.storage.used !== storage_used) {
-                set_updates['storage.used'] = storage_used;
+            if (agent_storage.used !== storage_used) {
+                set_updates['storage.used'] = agent_storage.used;
             }
 
             // to avoid frequest updates of the node it will only send

@@ -31,17 +31,22 @@ module.exports = {
             }
         },
 
-        add_member_to_cluster: {
-            doc: 'Add new member to the cluster',
+        add_members_to_cluster: {
+            doc: 'Add new members to the cluster',
             method: 'POST',
             params: {
-                type: 'object',
-                required: ['ip'],
-                properties: {
-                    ip: {
-                        type: 'string',
+                type: 'array',
+                items: {
+                    type: 'object',
+                    properties: {
+                        ip: {
+                            type: 'string',
+                        },
+                        secret: {
+                            type: 'string'
+                        },
                     },
-                }
+                },
             },
             auth: {
                 system: 'admin'
@@ -53,7 +58,7 @@ module.exports = {
             method: 'POST',
             params: {
                 type: 'object',
-                required: ['ip', 'cluster_id', 'secret'],
+                required: ['ips', 'cluster_id', 'secret'],
                 properties: {
                     ips: {
                         type: 'array',
@@ -70,9 +75,15 @@ module.exports = {
                 }
             },
             auth: {
-                system: 'admin'
+                system: false
             }
         },
+
+        heartbeat: {
+          doc: 'HB passed between members of the cluster',
+          method: 'POST',
+          
+        }
 
     },
 };

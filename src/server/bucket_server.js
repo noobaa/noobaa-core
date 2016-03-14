@@ -57,6 +57,10 @@ function new_bucket_defaults(name, system_id, tiering_policy_id) {
 }
 
 
+function default_value(val, def_val) {
+    return _.isUndefined(val) ? def_val : val;
+}
+
 /**
  *
  * CREATE_BUCKET
@@ -225,12 +229,18 @@ function get_cloud_sync_policy(req, bucket) {
         }))
         .then(res => {
             bucket.cloud_sync.status = res.status;
+            let endpoint;
+            if (bucket.cloud_sync.target_ip) {
+                endpoint = bucket.cloud_sync.target_ip + ':/' + bucket.cloud_sync.endpoint;
+            } else {
+                endpoint = bucket.cloud_sync.endpoint;
+            }
             return {
                 name: bucket.name,
                 health: res.health,
                 status: cloud_sync_utils.resolve_cloud_sync_info(bucket.cloud_sync),
                 policy: {
-                    endpoint: bucket.cloud_sync.endpoint,
+                    endpoint: endpoint,
                     access_keys: [bucket.cloud_sync.access_keys],
                     schedule: bucket.cloud_sync.schedule_min,
                     last_sync: (new Date(bucket.cloud_sync.last_sync)).getTime(),
@@ -290,6 +300,15 @@ function delete_cloud_sync(req) {
  *
  */
 function set_cloud_sync(req) {
+    let ip = '';
+    var ip_bucket = req.rpc_params.policy.endpoint.split(':/');
+    if (ip_bucket.length > 1) {
+        // take first entry as ip, second entry as bucket (endpoint).
+        // should we assume format (':/' separator) correctness?
+        ip = ip_bucket[0];
+        req.rpc_params.policy.endpoint = ip_bucket[1];
+        dbg.log0('set_cloud_sync to ip:', ip, ' to bucket: ', req.rpc_params.policy.endpoint);
+    }
     dbg.log0('set_cloud_sync:', req.rpc_params.name, 'on', req.system._id, 'with', req.rpc_params.policy);
     var bucket = find_bucket(req);
     var force_stop = false;
@@ -302,21 +321,23 @@ function set_cloud_sync(req) {
     }
     var cloud_sync = {
         endpoint: req.rpc_params.policy.endpoint,
+        target_ip: ip,
         access_keys: {
             access_key: req.rpc_params.policy.access_keys[0].access_key,
             secret_key: req.rpc_params.policy.access_keys[0].secret_key
         },
-        schedule_min: req.rpc_params.policy.schedule || 60,
+        schedule_min: default_value(req.rpc_params.policy.schedule, 60),
         last_sync: new Date(0),
-        paused: req.rpc_params.policy.paused || false,
-        c2n_enabled: req.rpc_params.policy.c2n_enabled || true,
-        n2c_enabled: req.rpc_params.policy.n2c_enabled || true,
-        additions_only: req.rpc_params.policy.additions_only || false
+        paused: default_value(req.rpc_params.policy.paused, false),
+        c2n_enabled: default_value(req.rpc_params.policy.c2n_enabled, true),
+        n2c_enabled: default_value(req.rpc_params.policy.n2c_enabled, true),
+        additions_only: default_value(req.rpc_params.policy.additions_only, false)
     };
 
     if (bucket.cloud_sync) {
         //If either of the following is changed, signal the cloud sync worker to force stop and reload
         if (bucket.cloud_sync.endpoint !== cloud_sync.endpoint ||
+            bucket.cloud_sync.target_ip !== cloud_sync.target_ip ||
             bucket.cloud_sync.access_keys.access_key !== cloud_sync.access_keys.access_key ||
             bucket.cloud_sync.access_keys.secret_key !== cloud_sync.access_keys.secret_key ||
             cloud_sync.paused) {

@@ -61,7 +61,7 @@ function create_pool(req) {
                 system: req.system._id,
                 actor: req.account && req.account._id,
                 pool: pool._id,
-            })
+            });
             return res;
         });
 }
@@ -140,7 +140,7 @@ function delete_pool(req) {
                 system: req.system._id,
                 actor: req.account && req.account._id,
                 pool: pool._id,
-            })
+            });
             return res;
         })
         .return();

@@ -183,6 +183,7 @@ function upload_file() {
 function get_file() {
     let start_time = Date.now();
     let progress_time = Date.now();
+
     s3.headObject({
         Bucket: argv.bucket,
         Key: argv.get || '',
@@ -192,20 +193,13 @@ function get_file() {
             return;
         }
         let data_size = parseInt(data.ContentLength, 10);
+        let progress = {
+            loaded: 0
+        };
+
         console.log('object size', size_utils.human_size(data_size));
-        s3.getObject({
-            Bucket: argv.bucket,
-            Key: argv.get || '',
-        }, function(err, data) {
-            if (err) {
-                console.error('GET ERROR:', err);
-                return;
-            }
-            let end_time = Date.now();
-            let total_seconds = (end_time - start_time) / 1000;
-            let speed_str = size_utils.human_size(data_size / total_seconds);
-            console.log('get done.', speed_str + '/sec');
-        }).on('httpDownloadProgress', function(progress) {
+
+        function on_progress(progress) {
             let now = Date.now();
             if (now - progress_time >= 500) {
                 progress_time = now;
@@ -214,7 +208,34 @@ function get_file() {
                 let speed_str = size_utils.human_size(progress.loaded / passed_seconds);
                 console.log(percents + '% progress.', speed_str + '/sec');
             }
-        });
+        }
+
+        function on_finish(err) {
+            if (err) {
+                console.error('GET ERROR:', err);
+                return;
+            }
+            let end_time = Date.now();
+            let total_seconds = (end_time - start_time) / 1000;
+            let speed_str = size_utils.human_size(data_size / total_seconds);
+            console.log('get done.', speed_str + '/sec');
+        }
+
+        s3.getObject({
+                Bucket: argv.bucket,
+                Key: argv.get,
+            })
+            .createReadStream()
+            .pipe(new stream.Writable({
+                highWaterMark: 64 * 1024 * 1024,
+                write: function(data, enc, next) {
+                    progress.loaded += data.length;
+                    on_progress(progress);
+                    next();
+                }
+            }))
+            .on('finish', on_finish)
+            .on('error', on_finish);
     });
 }
 

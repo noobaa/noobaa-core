@@ -1,6 +1,8 @@
 'use strict';
 
 module.exports = {
+    _init: _init,
+
     redirect: redirect,
     register_agent: register_agent,
     unregister_agent: unregister_agent,
@@ -12,6 +14,7 @@ module.exports = {
 
 var _ = require('lodash');
 var util = require('util');
+var fs = require('fs');
 var P = require('../util/promise');
 var server_rpc = require('../server/server_rpc');
 var dbg = require('../util/debug_module')(__filename);
@@ -20,10 +23,32 @@ var dbg = require('../util/debug_module')(__filename);
 var agents_address_map = new Map();
 var cluster_connections = new Set();
 
+var CLUSTER_TOPOLOGY;
+var CLUSTER_TOPOLOGY_FILE = '/etc/noobaa_cluster';
+
+/*
+ * Init
+ */
+function _init() {
+    return P.nfcall(fs.stat, CLUSTER_TOPOLOGY_FILE)
+        .then(function(exists) {
+            return P.nfcall(fs.readFile, CLUSTER_TOPOLOGY_FILE);
+        })
+        .then(function(top) {
+            CLUSTER_TOPOLOGY = JSON.parse(top);
+        })
+        .fail(function(err) {
+            if (err.code !== 'ENOENT') {
+                console.error('Topology file corrupted');
+            }
+        });
+}
+
 /*
  * REDIRECTOR API
  */
 function redirect(req) {
+    console.warn('NBNB:: got redirect', req.rpc_params);
     dbg.log2('redirect request for', req.rpc_params);
 
     //Remove the leading n2n:// prefix from the address
@@ -35,6 +60,15 @@ function redirect(req) {
             address: address,
         }));
     } else {
+        //If part of a cluster, try to scattershot ther other redirectors
+        if (CLUSTER_TOPOLOGY_FILE.servers) {
+            //TODO:: Don't call myself
+            return P.each(CLUSTER_TOPOLOGY_FILE.server, function(ser) {
+                return P.when(server_rpc.bg_client.redirect(req.rpc_params, {
+                    address: address,
+                }));
+            });
+        }
         throw new Error('Agent not registered ' + target_agent);
     }
 }

@@ -85,6 +85,8 @@ function run_client(port, host, ssl) {
 
 
 function setup_conn(conn) {
+    // conn._readableState.highWaterMark = 8 * argv.size;
+    // conn._writableState.highWaterMark = 8 * argv.size;
     conn.on('error', function(err) {
         console.log('connection error', err.message);
     });
@@ -132,7 +134,6 @@ function run_sender(conn) {
 
 
 function run_receiver(conn) {
-    conn._readableState.highWaterMark = 8 * argv.size;
     let recv_speedometer = new Speedometer('Receive Speed');
     recv_speedometer.enable_cluster();
     if (!argv.noframe) {

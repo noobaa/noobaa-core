@@ -18,7 +18,7 @@ module.exports = {
             format: 'objectid'
         },
         deleted: {
-            format: 'date'
+            format: 'idate'
         },
         system: {
             format: 'objectid'
@@ -37,6 +37,7 @@ module.exports = {
             type: 'integer'
         },
         data_placement: {
+            type: 'string',
             enum: ['MIRROR', 'SPREAD']
         },
 

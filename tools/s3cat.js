@@ -2,7 +2,7 @@
 
 let _ = require('lodash');
 let fs = require('fs');
-// let util = require('util');
+let stream = require('stream');
 let moment = require('moment');
 let mime = require('mime');
 let AWS = require('aws-sdk');
@@ -115,25 +115,8 @@ function upload_file() {
     let start_time = Date.now();
     let progress_time = Date.now();
     let progress_bytes = 0;
-    s3.upload({
-        Key: upload_key,
-        Bucket: bucket,
-        Body: data_source,
-        ContentType: mime.lookup(file_path),
-        ContentLength: data_size
-    }, {
-        partSize: part_size,
-        queueSize: argv.concur || 4
-    }, function(err, data) {
-        if (err) {
-            console.error('UPLOAD ERROR:', err);
-            return;
-        }
-        let end_time = Date.now();
-        let total_seconds = (end_time - start_time) / 1000;
-        let speed_str = size_utils.human_size(data_size / total_seconds);
-        console.log('upload done.', speed_str + '/sec');
-    }).on('httpUploadProgress', function(progress) {
+
+    function on_progress(progress) {
         let now = Date.now();
         if (now - progress_time >= 500) {
             let percents = Math.round(progress.loaded / data_size * 100);
@@ -148,7 +131,53 @@ function upload_file() {
                 current_speed_str + '/sec',
                 '(~', avg_speed_str + '/sec)');
         }
-    });
+    }
+
+    function on_finish(err, data) {
+        if (err) {
+            console.error('UPLOAD ERROR:', err);
+            return;
+        }
+        let end_time = Date.now();
+        let total_seconds = (end_time - start_time) / 1000;
+        let speed_str = size_utils.human_size(data_size / total_seconds);
+        console.log('upload done.', speed_str + '/sec');
+    }
+
+    if (argv.put) {
+        let progress = {
+            loaded: 0
+        };
+        s3.putObject({
+            Key: upload_key,
+            Bucket: bucket,
+            Body: data_source.pipe(new stream.Transform({
+                objectMode: true,
+                highWaterMark: 8,
+                transform: function(data, enc, next) {
+                    console.log('INPUT', data.length, progress);
+                    progress.loaded += data.length;
+                    on_progress(progress);
+                    this.push(data);
+                    next();
+                }
+            })),
+            ContentType: mime.lookup(file_path),
+            ContentLength: data_size
+        }, on_finish);
+    } else {
+        s3.upload({
+                Key: upload_key,
+                Bucket: bucket,
+                Body: data_source,
+                ContentType: mime.lookup(file_path),
+                ContentLength: data_size
+            }, {
+                partSize: part_size,
+                queueSize: argv.concur || 16
+            }, on_finish)
+            .on('httpUploadProgress', on_progress);
+    }
 }
 
 function get_file() {
@@ -192,7 +221,7 @@ function get_file() {
 function head_bucket() {
     s3.headBucket({
         Bucket: argv.bucket
-    }, (err,data) => {
+    }, (err, data) => {
         if (err) {
             console.error('HEAD BUCKET ERROR:', err);
             return;
@@ -205,7 +234,7 @@ function head_file() {
     s3.headObject({
         Bucket: argv.bucket,
         Key: argv.head
-    }, (err,data) => {
+    }, (err, data) => {
         if (err) {
             console.error('HEAD OBJECT ERROR:', err);
             return;

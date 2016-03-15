@@ -41,6 +41,7 @@ var size_utils = require('../util/size_utils');
 var mongo_utils = require('../util/mongo_utils');
 var dbg = require('../util/debug_module')(__filename);
 var P = require('../util/promise');
+var js_utils = require('../util/js_utils');
 
 const VALID_BUCKET_NAME_REGEXP = new RegExp(
     '^(([a-z]|[a-z][a-z0-9\-]*[a-z0-9])\\.)*' +
@@ -60,9 +61,6 @@ function new_bucket_defaults(name, system_id, tiering_policy_id) {
 }
 
 
-function default_value(val, def_val) {
-    return _.isUndefined(val) ? def_val : val;
-}
 
 /**
  *
@@ -363,12 +361,12 @@ function set_cloud_sync(req) {
             access_key: req.rpc_params.policy.access_keys[0].access_key,
             secret_key: req.rpc_params.policy.access_keys[0].secret_key
         },
-        schedule_min: default_value(req.rpc_params.policy.schedule, 60),
+        schedule_min: js_utils.default_value(req.rpc_params.policy.schedule, 60),
         last_sync: new Date(0),
-        paused: default_value(req.rpc_params.policy.paused, false),
-        c2n_enabled: default_value(req.rpc_params.policy.c2n_enabled, true),
-        n2c_enabled: default_value(req.rpc_params.policy.n2c_enabled, true),
-        additions_only: default_value(req.rpc_params.policy.additions_only, false)
+        paused: js_utils.default_value(req.rpc_params.policy.paused, false),
+        c2n_enabled: js_utils.default_value(req.rpc_params.policy.c2n_enabled, true),
+        n2c_enabled: js_utils.default_value(req.rpc_params.policy.n2c_enabled, true),
+        additions_only: js_utils.default_value(req.rpc_params.policy.additions_only, false)
     };
 
     if (bucket.cloud_sync) {

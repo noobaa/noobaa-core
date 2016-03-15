@@ -14,7 +14,7 @@ module.exports = {
             format: 'objectid'
         },
         deleted: {
-            format: 'date'
+            format: 'idate'
         },
         system: {
             format: 'objectid'
@@ -56,7 +56,7 @@ module.exports = {
                 },
                 // Last finished sync
                 last_sync: {
-                    format: 'date'
+                    format: 'idate'
                 },
                 // Enable cloud to NooBaa bucket sync
                 c2n_enabled: {

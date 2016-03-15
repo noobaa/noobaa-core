@@ -99,11 +99,11 @@ class NodeInfoViewModel {
                     value: used,
                     color: style['text-color6']
                 }, {
-                    legend: `OS: ${formatSize(os)}`,
+                    legend: `Other: ${formatSize(os)}`,
                     value: os,
                     color: style['text-color2']
                 }, {
-                    legend: `Unused: ${formatSize(free)}`,
+                    legend: `Free: ${formatSize(free)}`,
                     value: free,
                     color: style['text-color5']
                 }]

@@ -39,11 +39,9 @@ module.exports = {
                     },
                     // conditions for overwriting existing object of this key
                     if_modified_since: {
-                        type: 'integer',
                         format: 'idate'
                     },
                     if_unmodified_since: {
-                        type: 'integer',
                         format: 'idate'
                     },
                     if_match_etag: {
@@ -200,7 +198,6 @@ module.exports = {
                                     type: 'string'
                                 },
                                 last_modified: {
-                                    type: 'integer',
                                     format: 'idate'
                                 }
                             }
@@ -593,7 +590,8 @@ module.exports = {
         // free form object
         xattr: {
             type: 'object',
-            additionalProperties: true
+            additionalProperties: true,
+            properties: {}
         },
 
         object_info: {
@@ -614,8 +612,7 @@ module.exports = {
                     type: 'string',
                 },
                 create_time: {
-                    type: 'integer',
-                    format: 'idate',
+                    format: 'idate'
                 },
                 upload_size: {
                     type: 'integer',

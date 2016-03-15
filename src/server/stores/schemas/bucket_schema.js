@@ -34,6 +34,9 @@ module.exports = {
                 endpoint: {
                     type: 'string'
                 },
+                target_ip: {
+                    type: 'string'
+                },
                 access_keys: {
                     type: 'object',
                     required: ['access_key', 'secret_key'],

@@ -235,7 +235,7 @@ export function showNode() {
     logAction('showNode');
 
     let ctx = model.routeContext();
-    let { pool, node, tab = 'parts' } = ctx.params;
+    let { pool, node, tab = 'info' } = ctx.params;
     let { page = 0 } = ctx.query;
 
     model.uiState({

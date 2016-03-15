@@ -41,7 +41,8 @@ module.exports = {
                     },
                     extra: {
                         type: 'object',
-                        additionalProperties: true
+                        additionalProperties: true,
+                        properties: {}
                     },
                     expiry: {
                         type: 'integer',
@@ -85,7 +86,8 @@ module.exports = {
                     },
                     extra: {
                         type: 'object',
-                        additionalProperties: true
+                        additionalProperties: true,
+                        properties: {}
                     },
                     expiry: {
                         type: 'integer',
@@ -144,7 +146,8 @@ module.exports = {
                     },
                     extra: {
                         type: 'object',
-                        additionalProperties: true
+                        additionalProperties: true,
+                        properties: {}
                     },
                 }
             },

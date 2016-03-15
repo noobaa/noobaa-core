@@ -24,7 +24,7 @@ module.exports = {
                         $ref: '#/definitions/block_md'
                     },
                     data: {
-                        type: 'buffer'
+                        format: 'buffer'
                     }
                 },
             },
@@ -49,7 +49,7 @@ module.exports = {
                         $ref: '#/definitions/block_md'
                     },
                     data: {
-                        type: 'buffer'
+                        format: 'buffer'
                     },
                 },
             },
@@ -115,7 +115,7 @@ module.exports = {
                         type: 'integer'
                     },
                     data: {
-                        type: 'buffer'
+                        format: 'buffer'
                     }
                 },
             },
@@ -124,7 +124,7 @@ module.exports = {
                 required: ['data'],
                 properties: {
                     data: {
-                        type: 'buffer'
+                        format: 'buffer'
                     },
                 },
             },
@@ -151,7 +151,7 @@ module.exports = {
                 required: ['data'],
                 properties: {
                     data: {
-                        type: 'buffer'
+                        format: 'buffer'
                     },
                 },
             },

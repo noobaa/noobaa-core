@@ -5,8 +5,13 @@ var repl = require('repl');
 var util = require('util');
 var api = require('../src/api');
 var P = require('../src/util/promise');
+var argv = require('minimist')(process.argv);
 
 var repl_srv;
+
+argv.email = argv.email || 'demo@noobaa.com';
+argv.password = argv.password || 'DeMo';
+argv.system = argv.system || 'demo';
 
 function RPCShell() {
     this.rpc = api.new_rpc();
@@ -50,9 +55,9 @@ RPCShell.prototype.init = function() {
 
     return P.fcall(function() {
             var auth_params = {
-                email: 'demo@noobaa.com',
-                password: 'DeMo',
-                system: 'demo'
+                email: argv.email,
+                password: argv.password,
+                system: argv.system
             };
             return self.client.create_auth_token(auth_params);
         })

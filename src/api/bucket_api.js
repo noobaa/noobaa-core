@@ -214,6 +214,22 @@ module.exports = {
             }
         },
 
+        generate_new_bucket_key: {
+            method: 'PUT',
+            params: {
+                type: 'object',
+                required: ['name'],
+                properties: {
+                    name: {
+                        type: 'string',
+                    }
+                }
+            },
+            auth: {
+                system: 'admin'
+            }
+        },
+
         get_cloud_buckets: {
             method: 'GET',
             params: {
@@ -258,6 +274,9 @@ module.exports = {
                 },
                 num_objects: {
                     type: 'integer'
+                },
+                access_keys: {
+                    $ref: 'system_api#/definitions/access_keys'
                 },
                 cloud_sync_status: {
                     $ref: '#/definitions/api_cloud_sync_status'

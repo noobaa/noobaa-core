@@ -17,6 +17,7 @@ module.exports = {
     update_bucket: update_bucket,
     delete_bucket: delete_bucket,
     list_buckets: list_buckets,
+    generate_new_bucket_key: generate_new_bucket_key,
 
     //Cloud Sync policies
     get_cloud_sync_policy: get_cloud_sync_policy,
@@ -31,6 +32,7 @@ module.exports = {
 var _ = require('lodash');
 var AWS = require('aws-sdk');
 var db = require('./db');
+var crypto = require('crypto');
 var object_server = require('./object_server');
 var tier_server = require('./tier_server');
 var server_rpc = require('./server_rpc');
@@ -46,7 +48,7 @@ const VALID_BUCKET_NAME_REGEXP = new RegExp(
     '^(([a-z]|[a-z][a-z0-9\-]*[a-z0-9])\\.)*' +
     '([a-z]|[a-z][a-z0-9\-]*[a-z0-9])$');
 
-function new_bucket_defaults(name, system_id, tiering_policy_id) {
+function new_bucket_defaults(name, system_id, tiering_policy_id, access_keys) {
     return {
         _id: system_store.generate_id(),
         name: name,
@@ -55,7 +57,8 @@ function new_bucket_defaults(name, system_id, tiering_policy_id) {
         stats: {
             reads: 0,
             writes: 0,
-        }
+        },
+        access_keys: access_keys
     };
 }
 
@@ -96,7 +99,8 @@ function create_bucket(req) {
     let bucket = new_bucket_defaults(
         req.rpc_params.name,
         req.system._id,
-        tiering_policy._id);
+        tiering_policy._id,
+        req.system.access_keys[0]);
     changes.insert.buckets = [bucket];
     db.ActivityLog.create({
         event: 'bucket.create',
@@ -171,6 +175,28 @@ function update_bucket(req) {
     }).return();
 }
 
+
+function generate_new_bucket_key(req) {
+    var bucket = find_bucket(req);
+
+    if (!bucket) {
+        throw req.rpc_error('INVALID_BUCKET_NAME');
+    }
+
+    var updates = {
+        _id: bucket._id,
+        access_keys: [{
+            access_key: crypto.randomBytes(16).toString('hex'),
+            secret_key: crypto.randomBytes(32).toString('hex'),
+        }]
+    };
+
+    return system_store.make_changes({
+        update: {
+            buckets: [updates]
+        }
+    }).return();
+}
 
 
 /**
@@ -453,6 +479,7 @@ function get_bucket_info(bucket, objects_aggregate, nodes_aggregate_pool, cloud_
         free: info.tiering && info.tiering.storage && info.tiering.storage.free || 0,
     });
     info.cloud_sync_status = _.isEmpty(cloud_sync_policy) ? 'NOTSET' : cloud_sync_policy.status;
+    info.access_keys = bucket.access_keys;
     return info;
 }
 

@@ -72,6 +72,18 @@ module.exports = {
                 }
             }
         },
+        access_keys: {
+            type: 'object',
+            required: ['access_key', 'secret_key'],
+            properties: {
+                access_key: {
+                    type: 'string',
+                },
+                secret_key: {
+                    type: 'string',
+                }
+            }
+        },
         stats: {
             type: 'object',
             // required: [],
@@ -83,6 +95,6 @@ module.exports = {
                     type: 'integer',
                 }
             }
-        },
+        }
     }
 };

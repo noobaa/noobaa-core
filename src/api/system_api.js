@@ -289,7 +289,7 @@ module.exports = {
             }
         },
 
-        update_base_address: {  
+        update_base_address: {
             method: 'POST',
             params: {
                 type: 'object',
@@ -315,7 +315,7 @@ module.exports = {
             }
         },
 
-        update_hostname: {  
+        update_hostname: {
             method: 'POST',
             params: {
                 type: 'object',
@@ -332,7 +332,7 @@ module.exports = {
             auth: {
                 system: 'admin',
             }
-        },        
+        },
     },
 
     definitions: {
@@ -490,13 +490,13 @@ module.exports = {
         access_keys: {
             type: 'object',
             required: ['access_key', 'secret_key'],
-            peroperties: {
+            properties: {
                 access_key: {
-                    type: String,
+                    type: 'string',
 
                 },
                 secret_key: {
-                    type: String,
+                    type: 'string',
                 }
             }
         },

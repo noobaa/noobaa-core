@@ -36,7 +36,7 @@ var steps = [{
 }, {
     //Test Data Rebuild and Eviction
     name: 'Rebuild and Eviction Test',
-    action: 'node src/test/system_tests/rebuild.js',
+    action: 'node src/test/system_tests//test_build_chunks.js',
 }, {
     //Restore DB to defaults
     name: 'Restore DB Defaults',

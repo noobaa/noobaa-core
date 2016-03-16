@@ -105,7 +105,7 @@ module.exports = {
             method: 'POST',
             params: {
                 type: 'object',
-                requires: ['role', 'email'],
+                required: ['role', 'email'],
                 properties: {
                     email: {
                         type: 'string',
@@ -125,7 +125,7 @@ module.exports = {
             method: 'DELETE',
             params: {
                 type: 'object',
-                requires: ['role', 'email'],
+                required: ['role', 'email'],
                 properties: {
                     email: {
                         type: 'string',
@@ -145,7 +145,7 @@ module.exports = {
             method: 'GET',
             params: {
                 type: 'object',
-                requires: [],
+                required: [],
                 properties: {
                     event: {
                         type: 'string',
@@ -157,12 +157,10 @@ module.exports = {
                         }
                     },
                     till: {
-                        type: 'integer',
-                        format: 'idate',
+                        format: 'idate'
                     },
                     since: {
-                        type: 'integer',
-                        format: 'idate',
+                        format: 'idate'
                     },
                     skip: {
                         type: 'integer',
@@ -174,20 +172,19 @@ module.exports = {
             },
             reply: {
                 type: 'object',
-                requires: ['logs'],
+                required: ['logs'],
                 properties: {
                     logs: {
                         type: 'array',
                         items: {
                             type: 'object',
-                            requires: ['id', 'time', 'level', 'event'],
+                            required: ['id', 'time', 'level', 'event'],
                             properties: {
                                 id: {
                                     type: 'string',
                                 },
                                 time: {
-                                    type: 'integer',
-                                    format: 'idate',
+                                    format: 'idate'
                                 },
                                 level: {
                                     type: 'string',
@@ -400,7 +397,7 @@ module.exports = {
                 },
                 access_keys: {
                     type: 'array',
-                    item: {
+                    items: {
                         $ref: '#/definitions/access_keys'
                     }
                 },

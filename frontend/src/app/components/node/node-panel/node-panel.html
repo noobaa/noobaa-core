@@ -2,16 +2,6 @@
 <node-summary class="text-center" params="node: node"></node-summary>
 
 <ul class="tabs details-pane">
-    <li data-bind="css: { selected: selectedTab() == 'parts' }">
-        <a class="tab-header" data-bind="href: '/fe/systems/:system/pools/:pool/nodes/:node/parts'">
-            <svg-icon params="uri: '/fe/assets/icons.svg#part-dark'"></svg-icon>
-            Stored File Parts
-        </a>
-
-        <section class="tab-content">
-            <node-parts-table params="parts: storedParts"></node-parts-table>
-        </section>
-    </li>
 
     <li data-bind="css: { selected: selectedTab() === 'info' }">
         <a class="tab-header" data-bind="href: '/fe/systems/:system/pools/:pool/nodes/:node/info'">
@@ -23,7 +13,15 @@
             <node-info params="node: node"></node-info>
         </section>
     </li>
-</ul>    
-<!-- /ko -->
+    <li data-bind="css: { selected: selectedTab() === 'parts' }">
+        <a class="tab-header" data-bind="href: '/fe/systems/:system/pools/:pool/nodes/:node/parts'">
+            <svg-icon params="uri: '/fe/assets/icons.svg#part-dark'"></svg-icon>
+            Stored File Parts
+        </a>
 
- 
+        <section class="tab-content">
+            <node-parts-table params="parts: storedParts"></node-parts-table>
+        </section>
+    </li>
+</ul>
+<!-- /ko -->

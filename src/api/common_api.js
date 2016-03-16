@@ -60,8 +60,7 @@ module.exports = {
             // required: [],
             properties: {
                 last_update: {
-                    type: 'integer',
-                    format: 'idate',
+                    format: 'idate'
                 },
                 hostname: {
                     type: 'string'
@@ -79,8 +78,7 @@ module.exports = {
                     type: 'string'
                 },
                 uptime: {
-                    type: 'integer',
-                    format: 'idate',
+                    format: 'idate'
                 },
                 loadavg: {
                     type: 'array',

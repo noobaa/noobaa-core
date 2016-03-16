@@ -18,7 +18,7 @@ module.exports = {
             method: 'POST',
             params: {
                 type: 'object',
-                requires: ['name'],
+                required: ['name'],
                 properties: {
                     name: {
                         type: 'string',
@@ -53,7 +53,7 @@ module.exports = {
             method: 'GET',
             params: {
                 type: 'object',
-                requires: ['name'],
+                required: ['name'],
                 properties: {
                     name: {
                         type: 'string',
@@ -73,7 +73,7 @@ module.exports = {
             method: 'PUT',
             params: {
                 type: 'object',
-                requires: ['name'],
+                required: ['name'],
                 properties: {
                     name: {
                         type: 'string',
@@ -108,7 +108,7 @@ module.exports = {
             method: 'DELETE',
             params: {
                 type: 'object',
-                requires: ['name'],
+                required: ['name'],
                 properties: {
                     name: {
                         type: 'string',

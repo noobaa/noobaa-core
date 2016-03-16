@@ -190,6 +190,7 @@ function read_system(req) {
 
         promise_utils.all_obj(system.buckets_by_name, function(bucket) {
             return bucket_server.get_cloud_sync_policy({
+                auth_token: req.auth_token,
                 system: system,
                 rpc_params: {
                     name: bucket.name

@@ -31,11 +31,13 @@ mocha.describe('RPC', function() {
                         type: 'boolean',
                     },
                     param4: {
-                        type: 'integer',
-                        format: 'idate',
+                        format: 'idate'
                     },
                     param5: {
                         type: 'array',
+                        items: {
+                            type: 'integer'
+                        }
                     },
                 }
             },
@@ -45,6 +47,18 @@ mocha.describe('RPC', function() {
                 properties: {
                     rest: {
                         type: 'array',
+                        items: {
+                            oneOf: [{
+                                type: 'string'
+                            }, {
+                                type: 'object',
+                                properties: {
+                                    fucking: {
+                                        type: 'string'
+                                    }
+                                }
+                            }]
+                        }
                     }
                 }
             },

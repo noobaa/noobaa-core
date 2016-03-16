@@ -156,7 +156,7 @@ module.exports = {
             reply: {
                 type: 'array',
                 // required: [],
-                item: {
+                items: {
                     type: 'object',
                     properties: {
                         name: {
@@ -293,7 +293,7 @@ module.exports = {
                 },
                 access_keys: {
                     type: 'array',
-                    item: {
+                    items: {
                         $ref: 'system_api#/definitions/access_keys'
                     }
                 },
@@ -301,7 +301,6 @@ module.exports = {
                     type: 'integer'
                 },
                 last_sync: {
-                    type: 'integer',
                     format: 'idate'
                 },
                 paused: {

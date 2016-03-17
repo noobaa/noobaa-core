@@ -14,7 +14,7 @@ var api = require('../../api');
 var COVERAGE_DIR = '/tmp/cov';
 var REPORT_PATH = COVERAGE_DIR + '/regression_report.log';
 
-function TestRunner(version, argv) {
+function TestRunner(argv) {
     this._version = argv.GIT_VERSION;
     this._argv = argv;
     this._error = false;
@@ -126,25 +126,24 @@ TestRunner.prototype.complete_run = function() {
 
 TestRunner.prototype.run_tests = function() {
     var self = this;
-    return P.nfcall(fs.readFile, process.cwd() + '/src/test/framework/flow.js') //TODO:: get as arg for execution
-        .then(function(steps) {
-            return P.each(steps.steps, function(current_step) {
-                    return P.when(self._print_curent_step(current_step))
-                        .then(function(step_res) {
-                            return P.when(self._run_current_step(current_step, step_res));
-                        })
-                        .then(function(step_res) {
-                            fs.appendFileSync(REPORT_PATH, step_res + '\n');
-                        });
+
+    var steps = require(process.cwd() + '/src/test/framework/flow.js');
+    return P.each(steps, function(current_step) {
+            return P.when(self._print_curent_step(current_step))
+                .then(function(step_res) {
+                    return P.when(self._run_current_step(current_step, step_res));
                 })
-                .then(function() {
-                    fs.appendFileSync(REPORT_PATH, 'All steps done\n');
-                    return;
-                })
-                .fail(function(error) {
-                    fs.appendFileSync(REPORT_PATH, 'Stopping tests\n', error);
-                    return;
+                .then(function(step_res) {
+                    fs.appendFileSync(REPORT_PATH, step_res + '\n');
                 });
+        })
+        .then(function() {
+            fs.appendFileSync(REPORT_PATH, 'All steps done\n');
+            return;
+        })
+        .fail(function(error) {
+            fs.appendFileSync(REPORT_PATH, 'Stopping tests\n', error);
+            return;
         });
 };
 
@@ -239,8 +238,8 @@ TestRunner.prototype._write_coverage = function() {
         })
         .then(function(res) {
             //Add all recieved data to the collector
-            _.each(res.aggregated, function(r) {
-                collector.add(r.data.toJSON());
+            _.each(res.aggregated, function(r) {		
+                collector.add(JSON.parse(r.data.data));
             });
             //Add unit test coverage data
             collector.add(JSON.parse(fs.readFileSync(COVERAGE_DIR + '/mocha/coverage-final.json', 'utf8')));

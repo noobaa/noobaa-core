@@ -92,14 +92,17 @@ function new_system_defaults(name, owner_account_id) {
 }
 
 function new_system_changes(name, owner_account_id) {
+    const default_pool_name = 'default_pool';
+    const default_bucket_name = 'files';
+    const bucket_with_suffix = default_bucket_name + '#' + Date.now().toString(36);
     var system = new_system_defaults(name, owner_account_id);
-    var pool = pool_server.new_pool_defaults('default_pool', system._id);
-    var tier = tier_server.new_tier_defaults('default_tier', system._id, [pool._id]);
-    var policy = tier_server.new_policy_defaults('default_tiering', system._id, [{
+    var pool = pool_server.new_pool_defaults(default_pool_name, system._id);
+    var tier = tier_server.new_tier_defaults(bucket_with_suffix, system._id, [pool._id]);
+    var policy = tier_server.new_policy_defaults(bucket_with_suffix, system._id, [{
         tier: tier._id,
         order: 0
     }]);
-    var bucket = bucket_server.new_bucket_defaults('files', system._id, policy._id);
+    var bucket = bucket_server.new_bucket_defaults(default_bucket_name, system._id, policy._id);
     var role = {
         _id: system_store.generate_id(),
         account: owner_account_id,

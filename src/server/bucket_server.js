@@ -82,11 +82,11 @@ function create_bucket(req) {
         // we create dedicated tier and tiering policy for the new bucket
         // that uses the default_pool
         let default_pool = req.system.pools_by_name.default_pool;
-        let name_with_suffix = req.rpc_params.name + '#' + Date.now().toString(36);
+        let bucket_with_suffix = req.rpc_params.name + '#' + Date.now().toString(36);
         let tier = tier_server.new_tier_defaults(
-            name_with_suffix, req.system._id, [default_pool._id]);
+            bucket_with_suffix, req.system._id, [default_pool._id]);
         tiering_policy = tier_server.new_policy_defaults(
-            name_with_suffix, req.system._id, [{
+            bucket_with_suffix, req.system._id, [{
                 tier: tier._id,
                 order: 0
             }]);

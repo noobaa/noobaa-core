@@ -138,22 +138,6 @@ function end_wizard {
   exit 0
 }
 
-function fix_etc_issue {
-  #remove old IP and secret line
-  sed -i '/Configured IP on this NooBaa Server/d' /etc/issue
-
-  #add the new one
-  local current_ip=$(ifconfig eth0  |grep 'inet addr' | cut -f 2 -d':' | cut -f 1 -d' ')
-  local secret
-  if [ -f ${NOOBAASEC} ]; then
-    secret=$(cat ${NOOBAASEC})
-  else
-    secret="Not Configured"
-  fi
-
-  echo -e "Configured IP on this NooBaa Server \x1b[0;32;40m${current_ip}\x1b[0m, This server's secret is \x1b[0;32;40m${secret}\x1b[0m" >> /etc/issue
-}
-
 function verify_wizard_run {
   dialog --colors --backtitle "NooBaa First Install" --title 'Welcome to \Z5\ZbNooBaa\Zn' \
     --defaultno --yesno '\n\Z5\ZbNooBaa\Zn was already configured on this machine.\nAre you sure you wish to override the previous configuration ?' 8 70

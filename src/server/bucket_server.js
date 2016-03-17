@@ -182,8 +182,9 @@ function update_bucket(req) {
  */
 function delete_bucket(req) {
     var bucket = find_bucket(req);
+    // TODO before deleting tier and tiering_policy need to check they are not in use
     let tiering_policy = bucket.tiering;
-    let tier = tiering_policy.tiers[0].tier._id;
+    let tier = tiering_policy.tiers[0].tier;
     if (_.map(req.system.buckets_by_name).length === 1) {
         throw req.rpc_error('BAD_REQUEST', 'Cannot delete last bucket');
     }
@@ -209,7 +210,7 @@ function delete_bucket(req) {
                 remove: {
                     buckets: [bucket._id],
                     tieringpolicies: [tiering_policy._id],
-                    tiers: [tier]
+                    tiers: [tier._id]
                 }
             });
         })

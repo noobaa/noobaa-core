@@ -775,19 +775,7 @@ function update_bucket_last_sync(bucket) {
         update: {
             buckets: [{
                 _id: bucket._id,
-                //Fill the entire cloud_sync object, otherwise its being overwriten
-                cloud_sync: {
-                    endpoint: bucket.cloud_sync.endpoint,
-                    access_keys: {
-                        access_key: bucket.cloud_sync.access_keys.access_key,
-                        secret_key: bucket.cloud_sync.access_keys.secret_key
-                    },
-                    schedule_min: bucket.cloud_sync.schedule_min,
-                    last_sync: new Date(),
-                    paused: bucket.cloud_sync.paused,
-                    c2n_enabled: bucket.cloud_sync.c2n_enabled,
-                    n2c_enabled: bucket.cloud_sync.n2c_enabled,
-                }
+                'cloud_sync.last_sync': new Date()
             }]
         }
     });

@@ -208,6 +208,8 @@ function generate_new_bucket_key(req) {
  */
 function delete_bucket(req) {
     var bucket = find_bucket(req);
+    let tiering_policy = bucket.tiering;
+    let tier = tiering_policy.tiers[0].tier._id;
     if (_.map(req.system.buckets_by_name).length === 1) {
         throw req.rpc_error('BAD_REQUEST', 'Cannot delete last bucket');
     }
@@ -231,7 +233,9 @@ function delete_bucket(req) {
             }
             return system_store.make_changes({
                 remove: {
-                    buckets: [bucket._id]
+                    buckets: [bucket._id],
+                    tieringpolicies: [tiering_policy._id],
+                    tiers: [tier]
                 }
             });
         })

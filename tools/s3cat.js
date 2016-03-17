@@ -24,7 +24,7 @@ let s3 = new AWS.S3({
 
 if (argv.help) {
     print_usage();
-} else if (argv.upload) {
+} else if (argv.upload || argv.put) {
     upload_file();
 } else if (argv.get) {
     get_file();
@@ -89,7 +89,10 @@ function list_buckets() {
 function upload_file() {
     let bucket = argv.bucket;
     let file_path = argv.file || '';
-    let upload_key = argv.upload === true ? '' : argv.upload;
+    let upload_key =
+        _.isString(argv.upload) && argv.upload ||
+        _.isString(argv.put) && argv.put ||
+        '';
     let data_source;
     let data_size;
     let part_size = (argv.part_size || 64) * 1024 * 1024;

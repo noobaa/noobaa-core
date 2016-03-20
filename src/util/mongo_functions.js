@@ -16,6 +16,7 @@
 
 module.exports = {
     map_size: map_size,
+    map_node_size: map_node_size,
     map_aggregate_nodes: map_aggregate_nodes,
     map_aggregate_objects: map_aggregate_objects,
     map_key_with_prefix_delimiter: map_key_with_prefix_delimiter,
@@ -35,6 +36,11 @@ let group_by;
 function map_size() {
     /* jshint validthis: true */
     emit('size', this.size);
+}
+
+function map_node_size() {
+    /* jshint validthis: true */
+    emit(this.node, this.size);
 }
 
 function map_aggregate_nodes() {

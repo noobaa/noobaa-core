@@ -87,11 +87,11 @@ function create_bucket(req) {
         // we create dedicated tier and tiering policy for the new bucket
         // that uses the default_pool
         let default_pool = req.system.pools_by_name.default_pool;
-        let name_with_suffix = req.rpc_params.name + '#' + Date.now().toString(36);
+        let bucket_with_suffix = req.rpc_params.name + '#' + Date.now().toString(36);
         let tier = tier_server.new_tier_defaults(
-            name_with_suffix, req.system._id, [default_pool._id]);
+            bucket_with_suffix, req.system._id, [default_pool._id]);
         tiering_policy = tier_server.new_policy_defaults(
-            name_with_suffix, req.system._id, [{
+            bucket_with_suffix, req.system._id, [{
                 tier: tier._id,
                 order: 0
             }]);
@@ -208,8 +208,9 @@ function generate_new_bucket_key(req) {
  */
 function delete_bucket(req) {
     var bucket = find_bucket(req);
+    // TODO before deleting tier and tiering_policy need to check they are not in use
     let tiering_policy = bucket.tiering;
-    let tier = tiering_policy.tiers[0].tier._id;
+    let tier = tiering_policy.tiers[0].tier;
     if (_.map(req.system.buckets_by_name).length === 1) {
         throw req.rpc_error('BAD_REQUEST', 'Cannot delete last bucket');
     }
@@ -235,7 +236,7 @@ function delete_bucket(req) {
                 remove: {
                     buckets: [bucket._id],
                     tieringpolicies: [tiering_policy._id],
-                    tiers: [tier]
+                    tiers: [tier._id]
                 }
             });
         })

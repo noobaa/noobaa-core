@@ -71,14 +71,14 @@ function get_cluster_id(req) {
 function add_members_to_cluster(req) {
     dbg.log0('Recieved add members to cluster req', req.rpc_params);
     var id = get_cluster_id(req).cluster_id.toString();
-    return P.each(req.rpc_params, function(server) {            
+    return P.each(req.rpc_params, function(server) {
             return server_rpc.client.cluster_server.join_to_cluster({
                 ips: ['1.1.1.1', '2.2.2.2', '3.3.3.3'],
                 cluster_id: id,
                 secret: server.secret,
             }, {
                 address: 'ws://' + server.ip + ':8080',
-                timeout:  60000 //60s
+                timeout: 60000 //60s
             });
         })
         .fail(function(err) {

@@ -47,8 +47,7 @@ function _init() {
 /*
  * REDIRECTOR API
  */
-function redirect(req) {
-    console.warn('NBNB:: got redirect', req.rpc_params);
+function redirect(req) {    
     dbg.log2('redirect request for', req.rpc_params);
 
     //Remove the leading n2n:// prefix from the address
@@ -61,11 +60,11 @@ function redirect(req) {
         }));
     } else {
         //If part of a cluster, try to scattershot ther other redirectors
-        if (CLUSTER_TOPOLOGY_FILE.servers) {
+        if (CLUSTER_TOPOLOGY.servers) {
             //TODO:: Don't call myself
-            return P.each(CLUSTER_TOPOLOGY_FILE.server, function(ser) {
-                return P.when(server_rpc.bg_client.redirect(req.rpc_params, {
-                    address: address,
+            return P.each(CLUSTER_TOPOLOGY.servers, function(ser) {
+                return P.when(server_rpc.bg_client.redirector.redirect(req.rpc_params, {
+                    address: ser,
                 }));
             });
         }

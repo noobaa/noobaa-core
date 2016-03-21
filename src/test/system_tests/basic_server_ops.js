@@ -194,8 +194,8 @@ function verify_upload_download(ip, path) {
 }
 
 function generate_random_file(size_mb) {
-    var prefix = Math.round(Math.random() * 100) + '.dat';
-    var fname = test_file + prefix;
+    var suffix = Date.now() + '.' + Math.round(Math.random() * 1000) + '.dat';
+    var fname = test_file + suffix;
     var dd_cmd;
 
     if (os.type() === 'Darwin') {

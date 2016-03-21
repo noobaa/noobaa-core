@@ -871,17 +871,17 @@ export function createBucket(name, dataPlacement, pools) {
 
     // TODO: remove the random string after patching the server
     // with a delete bucket that deletes also the policy
-    let name_with_suffix = `${name}#${Date.now().toString(36)}`;
+    let bucket_with_suffix = `${name}#${Date.now().toString(36)}`;
 
     api.tier.create_tier({
-        name: name_with_suffix,
+        name: bucket_with_suffix,
         data_placement: dataPlacement,
         pools: pools
     })
         .then(
             tier => {
                 let policy = {
-                    name: name_with_suffix,
+                    name: bucket_with_suffix,
                     tiers: [ { order: 0, tier: tier.name } ]
                 };
 

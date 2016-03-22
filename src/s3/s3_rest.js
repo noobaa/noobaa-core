@@ -302,8 +302,7 @@ function handle_options(req, res, next) {
 }
 
 function read_post_body(req, res, next) {
-    if (req.method === 'POST' &&
-        req.headers['content-type' === 'application/xml']) {
+    if (req.method === 'POST') {
         let data = '';
         req.setEncoding('utf8');
         req.on('data', function(chunk) {

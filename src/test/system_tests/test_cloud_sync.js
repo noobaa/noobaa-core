@@ -26,7 +26,6 @@ if (!TEST_CTX.target_ip || !TEST_CTX.target_port) {
     process.exit(1);
 }
 
-console.log('DZDZ:', 'using these parmeters for test:', TEST_CTX);
 
 var client = rpc.new_client({
     address: 'ws://127.0.0.1:5001'
@@ -43,12 +42,10 @@ function authenticate() {
         system: 'demo'
     };
     return P.fcall(function() {
-            console.log('DZDZ:', 'authenticating rpc for source');
             return client.create_auth_token(auth_params);
         })
         .delay(1000)
         .then(function() {
-            // console.log('DZDZ:', 'authenticating rpc for target');
             return target_client.create_auth_token(auth_params);
         });
 }
@@ -139,14 +136,6 @@ function main() {
                     return compare_object_lists(file_names);
                 });
         })
-        .then(function() {
-            // remove cloud_sync policy
-            console.log('removing cloud_sync policy');
-            return client.bucket.delete_cloud_sync({
-                name: 'files'
-            });
-        })
-        // generate files to upload to target
         .then(() => P.all(_.map(file_sizes, ops.generate_random_file)))
         .then(function(res_file_names) {
             let i = 0;
@@ -161,29 +150,12 @@ function main() {
                         .delay(1000);
                 });
         })
-        .then(() => {
-            // start cloud sync from source to target and check file list on the target.
-            let cloud_sync_params = {
-                n2c: true,
-                c2n: true,
-                deletions: true
-            };
-            return set_cloud_sync(cloud_sync_params)
-                .then(() => console.log('set cloud_sync with these params:', cloud_sync_params, ' sleeping for 3 minutes'))
-                .delay(60000 * 3)
-                .then(function() {
-                    //check target file list against local
-                    return compare_object_lists(file_names);
-                });
-        })
+        .then(() => console.log('uploaded files to target bucket. waiting for changes to sync for 3 minutes'))
+        .delay(60000 * 2)
         .then(function() {
-            // remove cloud_sync policy
-            console.log('removing cloud_sync policy');
-            return client.bucket.delete_cloud_sync({
-                name: 'files'
-            });
+            //check target file list against local
+            return compare_object_lists(file_names);
         })
-        // delete from source files that were uploaded to target
         .then(function() {
             let i = 0;
             console.log('deleting from source files that were uploaded to target');
@@ -201,25 +173,22 @@ function main() {
         // list objects on target to verify the number of objects later
         .then(function() {
             return client.object.list_objects({
-                bucket: TEST_CTX.target_bucket
+                bucket: TEST_CTX.source_bucket
             });
 
         })
         .then((obj_list) => {
             expected_after_del = obj_list.objects.length;
-            // start cloud sync from source to target and check file list on the target.
-            let cloud_sync_params = {
-                n2c: true,
-                c2n: true,
-                deletions: true
-            };
-            return set_cloud_sync(cloud_sync_params)
-                .then(() => console.log('set cloud_sync with these params:', cloud_sync_params, ' sleeping for 3 minutes'))
-                .delay(60000 * 3)
-                .then(function() {
-                    //check target file list against local
-                    return compare_object_lists(file_names, expected_after_del);
-                });
+            console.log('waiting for deletions to sync for 3 minutes..');
+        })
+        .delay(2 * 60000)
+        .then(() => compare_object_lists(file_names, expected_after_del))
+        .then(function() {
+            // remove cloud_sync policy
+            console.log('removing cloud_sync policy');
+            return client.bucket.delete_cloud_sync({
+                name: 'files'
+            });
         })
         .then(() => {
             console.log('test_cloud_sync PASSED');

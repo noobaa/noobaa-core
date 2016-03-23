@@ -7,6 +7,8 @@ let api = require('../api');
 let dbg = require('../util/debug_module')(__filename);
 let ObjectIO = require('../api/object_io');
 let s3_errors = require('./s3_errors');
+let xml2js = require('xml2js');
+let P = require('../util/promise');
 
 dbg.set_level(5);
 
@@ -220,7 +222,19 @@ class S3Controller {
      * http://docs.aws.amazon.com/AmazonS3/latest/API/multiobjectdeleteapi.html
      * (aka delete objects)
      */
-    // post_bucket_delete(req) { TODO GGG }
+    post_bucket_delete(req) {
+        return P.ninvoke(xml2js, 'parseString', req.body)
+            .then(function(data) {
+                var objects_to_delete = data.Delete.Object;
+                dbg.log3('Delete objects "%s" in bucket "%s"', JSON.stringify(objects_to_delete), req.params.bucket);
+                let keys = _.map(objects_to_delete, object_to_delete => object_to_delete.Key[0]);
+                dbg.log3('calling delete_multiple_objects: keys=', keys);
+                return req.rpc_client.object.delete_multiple_objects({
+                    bucket: req.params.bucket,
+                    keys: keys
+                });
+            });
+    }
 
 
     /**

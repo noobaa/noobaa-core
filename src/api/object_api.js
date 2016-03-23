@@ -488,6 +488,31 @@ module.exports = {
             }
         },
 
+        delete_multiple_objects: {
+            method: 'DELETE',
+            params: {
+                type: 'object',
+                required: [
+                    'bucket',
+                    'keys',
+                ],
+                properties: {
+                    bucket: {
+                        type: 'string',
+                    },
+                    keys: {
+                        type: 'array',
+                        items: {
+                            type: 'string'
+                        }
+                    }
+                }
+            },
+            auth: {
+                system: ['admin', 'user']
+            }
+        },
+
         list_objects: {
             method: 'GET',
             params: {

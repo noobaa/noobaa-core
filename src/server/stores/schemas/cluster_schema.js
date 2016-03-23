@@ -21,13 +21,14 @@ module.exports = {
                 required: ['name', 'address'],
                 properties: {
                     name: {
-                        type: 'string'
+                        type: 'string',
                     },
                     address: {
-                        type: 'string'
+                        type: 'string',
                     },
                     adminable_state: {
-                        enum: ['member', 'detaching', 'attaching']
+                        type: 'string',
+                        enum: ['member', 'detaching', 'attaching'],
                     }
                 }
             }

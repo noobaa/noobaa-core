@@ -567,8 +567,7 @@ module.exports = {
                     type: 'boolean',
                 },
                 heartbeat: {
-                    type: 'integer',
-                    format: 'idate',
+                    format: 'idate'
                 },
                 version: {
                     type: 'string'
@@ -614,6 +613,7 @@ module.exports = {
         signal_reply: {
             type: 'object',
             additionalProperties: true,
+            properties: {}
         },
 
         latency_array: {

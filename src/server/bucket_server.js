@@ -41,7 +41,11 @@ var size_utils = require('../util/size_utils');
 var mongo_utils = require('../util/mongo_utils');
 var dbg = require('../util/debug_module')(__filename);
 var P = require('../util/promise');
+var js_utils = require('../util/js_utils');
 
+const VALID_BUCKET_NAME_REGEXP = new RegExp(
+    '^(([a-z]|[a-z][a-z0-9\-]*[a-z0-9])\\.)*' +
+    '([a-z]|[a-z][a-z0-9\-]*[a-z0-9])$');
 
 function new_bucket_defaults(name, system_id, tiering_policy_id) {
     return {
@@ -57,17 +61,45 @@ function new_bucket_defaults(name, system_id, tiering_policy_id) {
 }
 
 
+
 /**
  *
  * CREATE_BUCKET
  *
  */
 function create_bucket(req) {
-    var tiering_policy = resolve_tiering_policy(req, req.rpc_params.tiering);
-    var bucket = new_bucket_defaults(
+    if (!VALID_BUCKET_NAME_REGEXP.test(req.rpc_params.name)) {
+        throw req.rpc_error('INVALID_BUCKET_NAME');
+    }
+    if (req.system.buckets_by_name[req.rpc_params.name]) {
+        throw req.rpc_error('BUCKET_ALREADY_EXISTS');
+    }
+    let tiering_policy;
+    let changes = {
+        insert: {}
+    };
+    if (req.rpc_params.tiering) {
+        tiering_policy = resolve_tiering_policy(req, req.rpc_params.tiering);
+    } else {
+        // we create dedicated tier and tiering policy for the new bucket
+        // that uses the default_pool
+        let default_pool = req.system.pools_by_name.default_pool;
+        let bucket_with_suffix = req.rpc_params.name + '#' + Date.now().toString(36);
+        let tier = tier_server.new_tier_defaults(
+            bucket_with_suffix, req.system._id, [default_pool._id]);
+        tiering_policy = tier_server.new_policy_defaults(
+            bucket_with_suffix, req.system._id, [{
+                tier: tier._id,
+                order: 0
+            }]);
+        changes.insert.tieringpolicies = [tiering_policy];
+        changes.insert.tiers = [tier];
+    }
+    let bucket = new_bucket_defaults(
         req.rpc_params.name,
         req.system._id,
         tiering_policy._id);
+    changes.insert.buckets = [bucket];
     db.ActivityLog.create({
         event: 'bucket.create',
         level: 'info',
@@ -75,15 +107,12 @@ function create_bucket(req) {
         actor: req.account && req.account._id,
         bucket: bucket._id,
     });
-    return system_store.make_changes({
-        insert: {
-            buckets: [bucket]
-        }
-    }).then(function() {
-        req.load_auth();
-        var created_bucket = find_bucket(req);
-        return get_bucket_info(created_bucket);
-    });
+    return system_store.make_changes(changes)
+        .then(function() {
+            req.load_auth();
+            let created_bucket = find_bucket(req);
+            return get_bucket_info(created_bucket);
+        });
 }
 
 /**
@@ -153,6 +182,9 @@ function update_bucket(req) {
  */
 function delete_bucket(req) {
     var bucket = find_bucket(req);
+    // TODO before deleting tier and tiering_policy need to check they are not in use
+    let tiering_policy = bucket.tiering;
+    let tier = tiering_policy.tiers[0].tier;
     if (_.map(req.system.buckets_by_name).length === 1) {
         throw req.rpc_error('BAD_REQUEST', 'Cannot delete last bucket');
     }
@@ -172,11 +204,13 @@ function delete_bucket(req) {
             objects_aggregate = objects_aggregate || {};
             var objects_aggregate_bucket = objects_aggregate[bucket._id] || {};
             if (objects_aggregate_bucket.count) {
-                throw req.rpc_error('NOT_EMPTY', 'bucket not empty');
+                throw req.rpc_error('BUCKET_NOT_EMPTY', 'Bucket not empty: ' + bucket.name);
             }
             return system_store.make_changes({
                 remove: {
-                    buckets: [bucket._id]
+                    buckets: [bucket._id],
+                    tieringpolicies: [tiering_policy._id],
+                    tiers: [tier._id]
                 }
             });
         })
@@ -225,12 +259,18 @@ function get_cloud_sync_policy(req, bucket) {
         }))
         .then(res => {
             bucket.cloud_sync.status = res.status;
+            let endpoint;
+            if (bucket.cloud_sync.target_ip) {
+                endpoint = bucket.cloud_sync.target_ip + ':/' + bucket.cloud_sync.endpoint;
+            } else {
+                endpoint = bucket.cloud_sync.endpoint;
+            }
             return {
                 name: bucket.name,
                 health: res.health,
                 status: cloud_sync_utils.resolve_cloud_sync_info(bucket.cloud_sync),
                 policy: {
-                    endpoint: bucket.cloud_sync.endpoint,
+                    endpoint: endpoint,
                     access_keys: [bucket.cloud_sync.access_keys],
                     schedule: bucket.cloud_sync.schedule_min,
                     last_sync: (new Date(bucket.cloud_sync.last_sync)).getTime(),
@@ -281,6 +321,16 @@ function delete_cloud_sync(req) {
                 auth_token: req.auth_token
             });
         })
+        .then((res) => {
+            db.ActivityLog.create({
+                event: 'bucket.remove_cloud_sync',
+                level: 'info',
+                system: req.system._id,
+                actor: req.account && req.account._id,
+                bucket: bucket._id,
+            });
+            return res;
+        })
         .return();
 }
 
@@ -290,6 +340,15 @@ function delete_cloud_sync(req) {
  *
  */
 function set_cloud_sync(req) {
+    let ip = '';
+    var ip_bucket = req.rpc_params.policy.endpoint.split(':/');
+    if (ip_bucket.length > 1) {
+        // take first entry as ip, second entry as bucket (endpoint).
+        // should we assume format (':/' separator) correctness?
+        ip = ip_bucket[0];
+        req.rpc_params.policy.endpoint = ip_bucket[1];
+        dbg.log0('set_cloud_sync to ip:', ip, ' to bucket: ', req.rpc_params.policy.endpoint);
+    }
     dbg.log0('set_cloud_sync:', req.rpc_params.name, 'on', req.system._id, 'with', req.rpc_params.policy);
     var bucket = find_bucket(req);
     var force_stop = false;
@@ -302,21 +361,23 @@ function set_cloud_sync(req) {
     }
     var cloud_sync = {
         endpoint: req.rpc_params.policy.endpoint,
+        target_ip: ip,
         access_keys: {
             access_key: req.rpc_params.policy.access_keys[0].access_key,
             secret_key: req.rpc_params.policy.access_keys[0].secret_key
         },
-        schedule_min: req.rpc_params.policy.schedule || 60,
+        schedule_min: js_utils.default_value(req.rpc_params.policy.schedule, 60),
         last_sync: new Date(0),
-        paused: req.rpc_params.policy.paused || false,
-        c2n_enabled: req.rpc_params.policy.c2n_enabled || true,
-        n2c_enabled: req.rpc_params.policy.n2c_enabled || true,
-        additions_only: req.rpc_params.policy.additions_only || false
+        paused: js_utils.default_value(req.rpc_params.policy.paused, false),
+        c2n_enabled: js_utils.default_value(req.rpc_params.policy.c2n_enabled, true),
+        n2c_enabled: js_utils.default_value(req.rpc_params.policy.n2c_enabled, true),
+        additions_only: js_utils.default_value(req.rpc_params.policy.additions_only, false)
     };
 
     if (bucket.cloud_sync) {
         //If either of the following is changed, signal the cloud sync worker to force stop and reload
         if (bucket.cloud_sync.endpoint !== cloud_sync.endpoint ||
+            bucket.cloud_sync.target_ip !== cloud_sync.target_ip ||
             bucket.cloud_sync.access_keys.access_key !== cloud_sync.access_keys.access_key ||
             bucket.cloud_sync.access_keys.secret_key !== cloud_sync.access_keys.secret_key ||
             cloud_sync.paused) {
@@ -344,6 +405,16 @@ function set_cloud_sync(req) {
             }, {
                 auth_token: req.auth_token
             });
+        })
+        .then((res) => {
+            db.ActivityLog.create({
+                event: 'bucket.set_cloud_sync',
+                level: 'info',
+                system: req.system._id,
+                actor: req.account && req.account._id,
+                bucket: bucket._id,
+            });
+            return res;
         })
         .catch(function(err) {
             dbg.error('Error setting cloud sync', err, err.stack);
@@ -386,7 +457,7 @@ function find_bucket(req) {
     var bucket = req.system.buckets_by_name[req.rpc_params.name];
     if (!bucket) {
         dbg.error('BUCKET NOT FOUND', req.rpc_params.name);
-        throw req.rpc_error('NOT_FOUND', 'missing bucket');
+        throw req.rpc_error('NO_SUCH_BUCKET', 'No such bucket: ' + req.rpc_params.name);
     }
     return bucket;
 }
@@ -413,7 +484,7 @@ function resolve_tiering_policy(req, policy_name) {
     var tiering_policy = req.system.tiering_policies_by_name[policy_name];
     if (!tiering_policy) {
         dbg.error('TIER POLICY NOT FOUND', policy_name);
-        throw req.rpc_error('NOT_FOUND', 'missing tiering policy');
+        throw req.rpc_error('INVALID_BUCKET_STATE', 'Bucket tiering policy not found');
     }
     return tiering_policy;
 }

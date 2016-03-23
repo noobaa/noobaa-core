@@ -2,7 +2,6 @@
 /* jshint -W089 */ // ignore for-in loops without hasOwnProperty checks
 'use strict';
 var DEFAULT_POOL_NAME = 'default_pool';
-var DEFAULT_TIER_NAME = 'default_tier';
 setVerboseShell(true);
 upgrade();
 
@@ -75,7 +74,7 @@ function upgrade_system(system) {
 
     print('\n*** NODE ***');
 
-    print('*** assign nodes to default pool ...');
+    print('*** assign nodes without a pool to default pool ...');
     db.nodes.update({
         system: system._id,
         pool: null
@@ -121,67 +120,50 @@ function upgrade_system(system) {
         multi: true
     });
 
-    print('*** find', DEFAULT_TIER_NAME);
-    var default_tier = db.tiers.findOne({
+    print('\n*** BUCKET ***');
+    db.buckets.find({
         system: system._id,
-        name: DEFAULT_TIER_NAME
-    });
-    if (default_tier) {
-        print('*** already exists', DEFAULT_TIER_NAME, default_tier._id);
-    } else {
-        print('*** creating', DEFAULT_TIER_NAME, '...');
+    }).forEach(function(bucket) {
+
+        if (bucket.tiering instanceof ObjectId) {
+            print('\n*** bucket already with new tiering model', bucket.name);
+            return;
+        }
+
+        var bucket_with_suffix = bucket.name + '#' + Date.now().toString(36);
+
+        print('*** creating tier', bucket_with_suffix, '...');
         db.tiers.insert({
             system: system._id,
-            name: DEFAULT_TIER_NAME,
+            name: bucket_with_suffix,
             data_placement: 'SPREAD',
             replicas: 3,
             data_fragments: 1,
             parity_fragments: 0,
             pools: [default_pool._id],
         });
-        default_tier = db.tiers.findOne({
+        var tier = db.tiers.findOne({
             system: system._id,
-            name: DEFAULT_TIER_NAME
+            name: bucket_with_suffix
         });
-    }
 
-    print('\n*** BUCKET ***');
-
-    print('\n*** find old buckets with old tiering model...');
-
-    db.buckets.update({
-        system: system._id,
-        'tiering.tier': {
-            $exists: true
-        }
-    }, {
-        $unset: {
-            tiering: 1
-        }
-    });
-
-    print('\n*** find old buckets without tiering ...');
-
-    db.buckets.find({
-        system: system._id,
-        tiering: null
-    }).forEach(function(bucket) {
-        var policy_name = bucket.name + '_tiering_' + Date.now();
-        print('*** creating tiering policy', policy_name, '...');
+        print('*** creating tiering policy', bucket_with_suffix, '...');
         db.tieringpolicies.insert({
             system: system._id,
-            name: policy_name,
+            name: bucket_with_suffix,
             tiers: [{
                 order: 0,
-                tier: default_tier._id
+                tier: tier._id
             }]
         });
         var tiering_policy = db.tieringpolicies.findOne({
             system: system._id,
-            name: policy_name
+            name: bucket_with_suffix
         });
+
         print('*** assign bucket to tiering policy',
-            bucket._id, policy_name, '...');
+            bucket.name, bucket_with_suffix, '...');
+
         db.buckets.update({
             _id: bucket._id
         }, {

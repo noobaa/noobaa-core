@@ -57,6 +57,10 @@ var activity_log_schema = new Schema({
         // ref: 'Account',
         type: types.ObjectId,
     },
+    pool: {
+        //ref: 'Pool',
+        type: types.ObjectId,
+    },
     //The User that performed the action
     actor: {
         // ref: 'Account',

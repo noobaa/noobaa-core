@@ -105,7 +105,7 @@ module.exports = {
             method: 'GET',
             reply: {
                 type: 'object',
-                require: 'accounts',
+                required: ['accounts'],
                 properties: {
                     accounts: {
                         type: 'array',

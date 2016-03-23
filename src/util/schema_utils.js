@@ -12,6 +12,9 @@ module.exports = {
 };
 
 function idate_format(val) {
+    if (!_.isDate(val) && !_.isNumber(val)) {
+        return false;
+    }
     var d = new Date(val);
     return !isNaN(d.getTime());
 }
@@ -20,38 +23,76 @@ function buffer_format(val) {
     return Buffer.isBuffer(val);
 }
 
+const COMMON_SCHEMA_KEYWORDS = ['doc', 'id'];
 
 function make_strict_schema(schema, base) {
     if (!schema) return;
     if (!base) base = schema;
     if (!_.isObject(schema)) return;
-    if (schema.type) {
-        if (schema.type === 'object') {
-            if (!('additionalProperties' in schema)) {
-                schema.additionalProperties = false;
-            }
-            _.each(schema.properties, val => make_strict_schema(val, base));
-        } else if (schema.type === 'array') {
-            make_strict_schema(schema.items, base);
+
+    if (schema.type === 'object') {
+        if (!_.isObject(schema.properties)) {
+            illegal_json_schema(schema, base, 'missing properties for object type');
         }
+        check_schema_extra_keywords(schema, base, ['type', 'properties', 'additionalProperties', 'required']);
+        if (!('additionalProperties' in schema)) {
+            schema.additionalProperties = false;
+        }
+        _.each(schema.properties, val => make_strict_schema(val, base));
+    } else if (schema.type === 'array') {
+        if (!_.isObject(schema.items)) {
+            illegal_json_schema(schema, base, 'missing items for array type');
+        }
+        check_schema_extra_keywords(schema, base, ['type', 'items']);
+        make_strict_schema(schema.items, base);
+    } else if (schema.type === 'string') {
+        check_schema_extra_keywords(schema, base, ['type', 'format', 'enum']);
+    } else if (schema.type === 'boolean') {
+        check_schema_extra_keywords(schema, base, 'type');
+    } else if (schema.type === 'integer') {
+        check_schema_extra_keywords(schema, base, ['type', 'format']);
+    } else if (schema.type === 'number') {
+        check_schema_extra_keywords(schema, base, ['type', 'format']);
+    } else if (schema.format === 'buffer') {
+        check_schema_extra_keywords(schema, base, 'format');
+    } else if (schema.format === 'idate') {
+        check_schema_extra_keywords(schema, base, 'format');
+    } else if (schema.format === 'objectid') {
+        check_schema_extra_keywords(schema, base, 'format');
     } else if (schema.oneOf) {
+        check_schema_extra_keywords(schema, base, 'oneOf');
         _.each(schema.oneOf, val => make_strict_schema(val, base));
     } else if (schema.anyOf) {
+        check_schema_extra_keywords(schema, base, 'anyOf');
         _.each(schema.anyOf, val => make_strict_schema(val, base));
     } else if (schema.allOf) {
+        check_schema_extra_keywords(schema, base, 'allOf');
         _.each(schema.allOf, val => make_strict_schema(val, base));
     } else if (schema.$ref) {
-        // noop
-    } else if (schema.format) {
-        // noop
-    } else if (schema.enum) {
-        // noop
+        check_schema_extra_keywords(schema, base, '$ref');
     } else {
-        console.error('ILLEGAL JSON SCHEMA, missing type/$ref/oneOf/allOf/anyOf',
-            'schema', schema, 'base', base);
-        throw new Error('ILLEGAL JSON SCHEMA ' + base.id);
+        illegal_json_schema(schema, base, 'missing type/$ref/oneOf/allOf/anyOf');
     }
 }
+
+function check_schema_extra_keywords(schema, base, keywords) {
+    let remain = _.omit(schema, COMMON_SCHEMA_KEYWORDS, keywords);
+    if (!_.isEmpty(remain)) {
+        illegal_json_schema(schema, base, 'extra keywords in schema - ' + _.keys(remain));
+    }
+}
+
+function illegal_json_schema(schema, base, error) {
+    console.error('ILLEGAL JSON SCHEMA:',
+        'ID: "' + base.id + '"',
+        'ERROR: "' + error + '"',
+        'SCHEMA:', schema,
+        'BASE:', base);
+    throw new Error('ILLEGAL JSON SCHEMA:' +
+        'ID: "' + base.id + '"' +
+        'ERROR: "' + error + '"');
+}
+
 
 function empty_schema_validator(json) {
     if (_.isEmpty(json)) {
@@ -70,10 +111,7 @@ function prepare_buffers_in_schema(schema, base, path) {
         path = [];
     }
 
-    if (schema.type === 'buffer') {
-        delete schema.type;
-        delete schema.additionalProperties;
-        schema.format = 'buffer';
+    if (schema.format === 'buffer') {
         base.buffers = base.buffers || [];
         base.buffers.push({
             path: path,

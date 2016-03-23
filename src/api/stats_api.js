@@ -144,7 +144,8 @@ module.exports = {
                 },
                 histograms: {
                     type: 'object',
-                    additionalProperties: true
+                    additionalProperties: true,
+                    properties: {}
                 }
             }
         },

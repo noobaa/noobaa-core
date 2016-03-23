@@ -288,12 +288,6 @@ function diff_worklists(wl1, wl2, sync_time) {
         }
     };
 
-    if (wl1.length === 0 || wl2.length === 0) {
-        return {
-            uniq_a: wl1,
-            uniq_b: wl2
-        };
-    }
 
     if (wl1.length === 0 || wl2.length === 0) {
         return {
@@ -372,6 +366,7 @@ function load_single_policy(bucket) {
         bucket: bucket,
         system: bucket.system,
         endpoint: bucket.cloud_sync.endpoint,
+        target_ip: bucket.cloud_sync.target_ip,
         access_keys: {
             access_key: bucket.cloud_sync.access_keys.access_key,
             secret_key: bucket.cloud_sync.access_keys.secret_key
@@ -396,10 +391,20 @@ function load_single_policy(bucket) {
         maxRedirects: 10,
     });
 
-    policy.s3cloud = new AWS.S3({
-        accessKeyId: policy.access_keys.access_key,
-        secretAccessKey: policy.access_keys.secret_key
-    });
+    if (policy.target_ip) {
+        policy.s3cloud = new AWS.S3({
+            endpoint: policy.target_ip,
+            s3ForcePathStyle: true,
+            sslEnabled: false,
+            accessKeyId: policy.access_keys.access_key,
+            secretAccessKey: policy.access_keys.secret_key
+        });
+    } else {
+        policy.s3cloud = new AWS.S3({
+            accessKeyId: policy.access_keys.access_key,
+            secretAccessKey: policy.access_keys.secret_key
+        });
+    }
 
     CLOUD_SYNC.configured_policies.push(policy);
 
@@ -480,6 +485,7 @@ function update_c2n_worklist(policy) {
                 error.statusCode === 301) {
                 dbg.log0('Resetting (list objects) signature type and region to eu-central-1 and v4', params);
                 // change default region from US to EU due to restricted signature of v4 and end point
+                //TODO: maybe we should add support here for cloud sync from noobaa to noobaa after supporting v4.
                 policy.s3cloud = new AWS.S3({
                     accessKeyId: policy.access_keys.access_key,
                     secretAccessKey: policy.access_keys.secret_key,
@@ -518,7 +524,10 @@ function update_c2n_worklist(policy) {
             dbg.log2('update_c2n_worklist bucket_object_list length', bucket_object_list.length);
 
             //Diff the arrays
-            var diff = diff_worklists(cloud_object_list, bucket_object_list);
+            let sorted_cloud_object_list = _.sortBy(cloud_object_list, function(o) {
+                return o.key;
+            });
+            var diff = diff_worklists(sorted_cloud_object_list, bucket_object_list);
             dbg.log2('update_c2n_worklist found ', diff.uniq_a.length + diff.uniq_b.length, 'diffs to resolve');
             /*Now resolve each diff in the following manner:
               Appear On   Appear On   Need Sync         Action
@@ -605,6 +614,7 @@ function sync_single_file_to_noobaa(policy, object) {
             dbg.error('ERROR statusCode', err.statusCode, err.statusCode === 400, err.statusCode === 301);
             if (err.statusCode === 400 ||
                 err.statusCode === 301) {
+                //TODO: maybe we should add support here for cloud sync from noobaa to noobaa after supporting v4.
                 dbg.log0('Resetting (upload) signature type and region to eu-central-1 and v4');
                 policy.s3cloud = new AWS.S3({
                     accessKeyId: policy.access_keys.access_key,
@@ -659,6 +669,7 @@ function sync_to_cloud_single_bucket(bucket_work_lists, policy) {
                         if (err.statusCode === 400 ||
                             err.statusCode === 301) {
                             dbg.log0('Resetting (delete) signature type and region to eu-central-1 and v4');
+                            //TODO: maybe we should add support here for cloud sync from noobaa to noobaa after supporting v4.
                             policy.s3cloud = new AWS.S3({
                                 accessKeyId: policy.access_keys.access_key,
                                 secretAccessKey: policy.access_keys.secret_key,
@@ -695,8 +706,15 @@ function sync_to_cloud_single_bucket(bucket_work_lists, policy) {
             if (bucket_work_lists.n2c_added.length) {
                 //Now upload the new objects
                 return P.all(_.map(bucket_work_lists.n2c_added, function(object) {
-                    return sync_single_file_to_cloud(policy, object, target);
-                }));
+                        return sync_single_file_to_cloud(policy, object, target);
+                    }))
+                    .then(function() {
+                        //empty added work list jsperf http://jsperf.com/empty-javascript-array
+                        dbg.log2('clearing n2c_added work_list');
+                        while (bucket_work_lists.n2c_added.length > 0) {
+                            bucket_work_lists.n2c_added.pop();
+                        }
+                    });
             } else {
                 dbg.log1('sync_to_cloud_single_bucket syncing additions n2c, nothing to sync');
             }
@@ -775,19 +793,7 @@ function update_bucket_last_sync(bucket) {
         update: {
             buckets: [{
                 _id: bucket._id,
-                //Fill the entire cloud_sync object, otherwise its being overwriten
-                cloud_sync: {
-                    endpoint: bucket.cloud_sync.endpoint,
-                    access_keys: {
-                        access_key: bucket.cloud_sync.access_keys.access_key,
-                        secret_key: bucket.cloud_sync.access_keys.secret_key
-                    },
-                    schedule_min: bucket.cloud_sync.schedule_min,
-                    last_sync: new Date(),
-                    paused: bucket.cloud_sync.paused,
-                    c2n_enabled: bucket.cloud_sync.c2n_enabled,
-                    n2c_enabled: bucket.cloud_sync.n2c_enabled,
-                }
+                'cloud_sync.last_sync': new Date()
             }]
         }
     });

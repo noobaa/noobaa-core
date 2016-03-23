@@ -2,7 +2,7 @@
 
 let _ = require('lodash');
 let fs = require('fs');
-// let util = require('util');
+let stream = require('stream');
 let moment = require('moment');
 let mime = require('mime');
 let AWS = require('aws-sdk');
@@ -28,6 +28,14 @@ if (argv.help) {
     upload_file();
 } else if (argv.get) {
     get_file();
+} else if (argv.head) {
+    if (_.isString(argv.head)) {
+        head_file();
+    } else {
+        head_bucket();
+    }
+} else if (argv.buckets) {
+    list_buckets();
 } else if (argv.list || argv.ls || argv.ll || true) {
     list_objects();
 }
@@ -66,6 +74,18 @@ function list_objects() {
     });
 }
 
+function list_buckets() {
+    s3.listBuckets(function(err, data) {
+        if (err) {
+            console.error('LIST BUCKETS ERROR:', err);
+            return;
+        }
+        _.each(data.Buckets, bucket => {
+            console.log(bucket.Name);
+        });
+    });
+}
+
 function upload_file() {
     let bucket = argv.bucket;
     let file_path = argv.file || '';
@@ -75,10 +95,12 @@ function upload_file() {
     let part_size = (argv.part_size || 64) * 1024 * 1024;
     if (file_path) {
         upload_key = upload_key || file_path + '-' + Date.now().toString(36);
-        data_source = fs.createReadStream(file_path);
+        data_source = fs.createReadStream(file_path, {
+            highWaterMark: part_size
+        });
         data_size = fs.statSync(file_path).size;
-        console.log('Uploading file', file_path, 'of size',
-            size_utils.human_size(data_size));
+        console.log('Uploading', upload_key, 'from file', file_path,
+            'of size', size_utils.human_size(data_size));
     } else {
         upload_key = upload_key || 'upload-' + Date.now().toString(36);
         data_size = (argv.size || 10 * 1024) * 1024 * 1024;
@@ -86,32 +108,15 @@ function upload_file() {
             highWaterMark: part_size,
             no_crypto: true
         });
-        console.log('Uploading generated data of size',
+        console.log('Uploading', upload_key, 'from generated data of size',
             size_utils.human_size(data_size));
     }
 
     let start_time = Date.now();
     let progress_time = Date.now();
     let progress_bytes = 0;
-    s3.upload({
-        Key: upload_key,
-        Bucket: bucket,
-        Body: data_source,
-        ContentType: mime.lookup(file_path),
-        ContentLength: data_size
-    }, {
-        partSize: part_size,
-        queueSize: argv.concur || 4
-    }, function(err, data) {
-        if (err) {
-            console.error('UPLOAD ERROR:', err);
-            return;
-        }
-        let end_time = Date.now();
-        let total_seconds = (end_time - start_time) / 1000;
-        let speed_str = size_utils.human_size(data_size / total_seconds);
-        console.log('upload done.', speed_str + '/sec');
-    }).on('httpUploadProgress', function(progress) {
+
+    function on_progress(progress) {
         let now = Date.now();
         if (now - progress_time >= 500) {
             let percents = Math.round(progress.loaded / data_size * 100);
@@ -126,12 +131,59 @@ function upload_file() {
                 current_speed_str + '/sec',
                 '(~', avg_speed_str + '/sec)');
         }
-    });
+    }
+
+    function on_finish(err, data) {
+        if (err) {
+            console.error('UPLOAD ERROR:', err);
+            return;
+        }
+        let end_time = Date.now();
+        let total_seconds = (end_time - start_time) / 1000;
+        let speed_str = size_utils.human_size(data_size / total_seconds);
+        console.log('upload done.', speed_str + '/sec');
+    }
+
+    if (argv.put) {
+        let progress = {
+            loaded: 0
+        };
+        s3.putObject({
+            Key: upload_key,
+            Bucket: bucket,
+            Body: data_source.pipe(new stream.Transform({
+                objectMode: true,
+                highWaterMark: 8,
+                transform: function(data, enc, next) {
+                    console.log('INPUT', data.length, progress);
+                    progress.loaded += data.length;
+                    on_progress(progress);
+                    this.push(data);
+                    next();
+                }
+            })),
+            ContentType: mime.lookup(file_path),
+            ContentLength: data_size
+        }, on_finish);
+    } else {
+        s3.upload({
+                Key: upload_key,
+                Bucket: bucket,
+                Body: data_source,
+                ContentType: mime.lookup(file_path),
+                ContentLength: data_size
+            }, {
+                partSize: part_size,
+                queueSize: argv.concur || 16
+            }, on_finish)
+            .on('httpUploadProgress', on_progress);
+    }
 }
 
 function get_file() {
     let start_time = Date.now();
     let progress_time = Date.now();
+
     s3.headObject({
         Bucket: argv.bucket,
         Key: argv.get || '',
@@ -141,20 +193,13 @@ function get_file() {
             return;
         }
         let data_size = parseInt(data.ContentLength, 10);
+        let progress = {
+            loaded: 0
+        };
+
         console.log('object size', size_utils.human_size(data_size));
-        s3.getObject({
-            Bucket: argv.bucket,
-            Key: argv.get || '',
-        }, function(err, data) {
-            if (err) {
-                console.error('GET ERROR:', err);
-                return;
-            }
-            let end_time = Date.now();
-            let total_seconds = (end_time - start_time) / 1000;
-            let speed_str = size_utils.human_size(data_size / total_seconds);
-            console.log('get done.', speed_str + '/sec');
-        }).on('httpDownloadProgress', function(progress) {
+
+        function on_progress(progress) {
             let now = Date.now();
             if (now - progress_time >= 500) {
                 progress_time = now;
@@ -163,7 +208,59 @@ function get_file() {
                 let speed_str = size_utils.human_size(progress.loaded / passed_seconds);
                 console.log(percents + '% progress.', speed_str + '/sec');
             }
-        });
+        }
+
+        function on_finish(err) {
+            if (err) {
+                console.error('GET ERROR:', err);
+                return;
+            }
+            let end_time = Date.now();
+            let total_seconds = (end_time - start_time) / 1000;
+            let speed_str = size_utils.human_size(data_size / total_seconds);
+            console.log('get done.', speed_str + '/sec');
+        }
+
+        s3.getObject({
+                Bucket: argv.bucket,
+                Key: argv.get,
+            })
+            .createReadStream()
+            .pipe(new stream.Writable({
+                highWaterMark: 64 * 1024 * 1024,
+                write: function(data, enc, next) {
+                    progress.loaded += data.length;
+                    on_progress(progress);
+                    next();
+                }
+            }))
+            .on('finish', on_finish)
+            .on('error', on_finish);
+    });
+}
+
+function head_bucket() {
+    s3.headBucket({
+        Bucket: argv.bucket
+    }, (err, data) => {
+        if (err) {
+            console.error('HEAD BUCKET ERROR:', err);
+            return;
+        }
+        console.log('HEAD BUCKET', data);
+    });
+}
+
+function head_file() {
+    s3.headObject({
+        Bucket: argv.bucket,
+        Key: argv.head
+    }, (err, data) => {
+        if (err) {
+            console.error('HEAD OBJECT ERROR:', err);
+            return;
+        }
+        console.log('HEAD OBJECT', data);
     });
 }
 

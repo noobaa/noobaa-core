@@ -235,7 +235,7 @@ export function showNode() {
     logAction('showNode');
 
     let ctx = model.routeContext();
-    let { pool, node, tab = 'parts' } = ctx.params;
+    let { pool, node, tab = 'info' } = ctx.params;
     let { page = 0 } = ctx.query;
 
     model.uiState({
@@ -869,17 +869,19 @@ export function createBucket(name, dataPlacement, pools) {
 
     let { bucketList } = model;
 
+    // TODO: remove the random string after patching the server
+    // with a delete bucket that deletes also the policy
+    let bucket_with_suffix = `${name}#${Date.now().toString(36)}`;
+
     api.tier.create_tier({
-        name: randomString(8),
+        name: bucket_with_suffix,
         data_placement: dataPlacement,
         pools: pools
     })
         .then(
             tier => {
                 let policy = {
-                    // TODO: remove the random string after patching the server
-                    // with a delete bucket that deletes also the policy
-                    name: `${name}_tiering_${randomString(5)}`,
+                    name: bucket_with_suffix,
                     tiers: [ { order: 0, tier: tier.name } ]
                 };
 
@@ -989,6 +991,10 @@ export function uploadFiles(bucketName, files) {
                                     Bucket: bucketName,
                                     Body: file,
                                     ContentType: file.type
+                                },
+                                {
+                                    partSize: 64 * 1024 * 1024,
+                                    queueSize: 4
                                 },
                                 error => {
                                     if (!error) {
@@ -1325,8 +1331,8 @@ export function addAWSCredentials(accessKey, secretKey) {
         secret_key: secretKey
     };
 
-    // TODO: the call to get_cloud_sync is used here to check that the keys are valid, 
-    // and the server can access S3 using this keys. Need to replace this with a sort of 
+    // TODO: the call to get_cloud_sync is used here to check that the keys are valid,
+    // and the server can access S3 using this keys. Need to replace this with a sort of
     // s3 ping when avaliable in server side.
     api.bucket.get_cloud_buckets(credentials)
         .then(
@@ -1335,7 +1341,7 @@ export function addAWSCredentials(accessKey, secretKey) {
         .then(loadAccountAwsCredentials)
         .done();
 }
- 
+
 export function notify(message, severity = 'INFO') {
     logAction('notifyInfo', { message, severity });
 

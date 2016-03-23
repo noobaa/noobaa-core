@@ -1,19 +1,31 @@
 'use strict';
 
+var P = require('./promise');
 var crypto = require('crypto');
-var transformer = require('./transformer');
+var Transform = require('stream').Transform;
 
-var MD5Stream = transformer.ctor({
-    init: t => t.digester = crypto.createHash('md5'),
-    transform: (t, data, encoding) => {
-        // console.log('MD5Stream', data.length);
-        t.digester.update(data);
-        return data;
+class MD5Stream extends Transform {
+
+    constructor(options) {
+        super(options);
+        this._defer = P.defer();
+        this._md5 = crypto.createHash('md5');
     }
-});
 
-MD5Stream.prototype.toString = function() {
-    return this.digester.digest('hex');
-};
+    _transform(data, encoding, callback) {
+        this._md5.update(data);
+        callback(null, data);
+    }
+
+    _flush(callback) {
+        this._defer.resolve(this._md5.digest()); // raw buffer
+        callback();
+    }
+
+    wait_digest() {
+        return this._defer.promise;
+    }
+
+}
 
 module.exports = MD5Stream;

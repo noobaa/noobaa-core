@@ -26,6 +26,8 @@
             'coding/object_coding.h',
             'n2n/nat.cpp',
             'n2n/nat.h',
+            'n2n/ntcp.cpp',
+            'n2n/ntcp.h',
             'n2n/nudp.cpp',
             'n2n/nudp.h',
             'util/backtrace.h',

@@ -3,7 +3,6 @@
 let _ = require('lodash');
 let RPC = require('../rpc/rpc');
 let RpcSchema = require('../rpc/rpc_schema');
-let ObjectDriver = require('./object_driver');
 let url = require('url');
 
 // registring all api's on the same RpcSchema object
@@ -38,13 +37,6 @@ RPC.Client.prototype.create_auth_token = function(params) {
 RPC.Client.prototype.create_access_key_auth = function(params) {
     return this.auth.create_access_key_auth(params)
         .tap(res => this.options.auth_token = res.token);
-};
-RPC.Client.prototype.object_driver_lazy = function() {
-    // the object driver is a "heavy" object with caches
-    if (!this.object_driver) {
-        this.object_driver = new ObjectDriver(this);
-    }
-    return this.object_driver;
 };
 
 function new_router(base_address) {

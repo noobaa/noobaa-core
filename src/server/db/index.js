@@ -88,17 +88,12 @@ module.exports = {
     // the purpose is to reduce hitting the DB many many times per second during upload/download.
     ObjectMDCache: new LRUCache({
         name: 'ObjectMDCache',
-        max_length: 1000,
+        max_usage: 1000,
         expiry_ms: 1000, // 1 second of blissfull ignorance
-        make_key: function(params) {
-            return params.system + ':' + params.bucket + ':' + params.key;
-        },
-        load: function(params) {
-            console.log('ObjectMDCache: load', params.key);
+        load: function(object_id) {
+            console.log('ObjectMDCache: load', object_id);
             return P.when(ObjectMD.findOne({
-                system: params.system,
-                bucket: params.bucket,
-                key: params.key,
+                _id: object_id,
                 deleted: null,
             }).exec());
         }
@@ -138,9 +133,9 @@ function check_not_found(req, entity) {
     return function(doc) {
         if (!doc) {
             if (typeof(req) !== 'undefined') {
-                throw req.rpc_error('NOT_FOUND', entity + ' not found');
+                throw req.rpc_error('NO_SUCH_' + entity.toUpperCase(), 'No such ' + entity);
             } else {
-                throw new Error('NOT_FOUND', entity + ' not found');
+                throw new Error('NO_SUCH_' + entity.toUpperCase());
             }
         }
         return doc;
@@ -151,9 +146,9 @@ function check_not_deleted(req, entity) {
     return function(doc) {
         if (!doc || doc.deleted) {
             if (typeof(req) !== 'undefined') {
-                throw req.rpc_error('NOT_FOUND', entity + ' not found');
+                throw req.rpc_error('NO_SUCH_' + entity.toUpperCase(), 'No such ' + entity);
             } else {
-                throw new Error('NOT_FOUND', entity + ' not found');
+                throw new Error('NO_SUCH_' + entity.toUpperCase());
             }
         }
         return doc;

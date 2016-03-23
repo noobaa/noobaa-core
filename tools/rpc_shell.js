@@ -41,8 +41,11 @@ function construct_rpc_arguments(str_args) {
 RPCShell.prototype.init = function() {
     var self = this;
     this.APIs = {};
-    var ignore_keys = ['options', 'common', 'create_auth_token',
-        'create_access_key_auth', 'object_driver_lazy'
+    var ignore_keys = [
+        'options',
+        'common',
+        'create_auth_token',
+        'create_access_key_auth'
     ];
 
     return P.fcall(function() {

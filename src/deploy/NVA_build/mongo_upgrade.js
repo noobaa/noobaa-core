@@ -35,13 +35,14 @@ function upgrade_systems() {
                 udp_port: true,
             };
         }
-        print('updating system', system.name, '...', updates);
+        print('updating system', system.name, '...');
+        printjson(updates);
         printjson(system);
         db.systems.update({
             _id: system._id
         }, {
             $set: updates,
-            $unset: '__v'
+            $unset:{'__v':1}
         });
     });
     db.systems.find().forEach(upgrade_system);

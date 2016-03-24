@@ -402,7 +402,8 @@ function load_single_policy(bucket) {
     } else {
         policy.s3cloud = new AWS.S3({
             accessKeyId: policy.access_keys.access_key,
-            secretAccessKey: policy.access_keys.secret_key
+            secretAccessKey: policy.access_keys.secret_key,
+            region: 'us-east-1'
         });
     }
 

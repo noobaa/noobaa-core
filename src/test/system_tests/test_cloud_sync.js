@@ -44,7 +44,7 @@ function authenticate() {
     return P.fcall(function() {
             return client.create_auth_token(auth_params);
         })
-        .delay(1000)
+            .delay(1000)
         .then(function() {
             return target_client.create_auth_token(auth_params);
         });
@@ -53,7 +53,8 @@ function authenticate() {
 
 function set_cloud_sync(params) {
     var cloud_sync_policy = {
-        endpoint: TEST_CTX.target_ip + ':/' + TEST_CTX.target_bucket,
+        endpoint: TEST_CTX.target_ip,
+        target_bucket:  TEST_CTX.target_bucket,
         access_keys: [{
             access_key: '123',
             secret_key: 'abc'

@@ -34,7 +34,7 @@ module.exports = {
                 endpoint: {
                     type: 'string'
                 },
-                target_ip: {
+                target_bucket: {
                     type: 'string'
                 },
                 access_keys: {

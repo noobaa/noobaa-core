@@ -62,7 +62,7 @@ module.exports = {
             method: 'PUT',
             params: {
                 type: 'object',
-                required: [ 'email' ],
+                required: ['email'],
                 properties: {
                     name: {
                         type: 'string',
@@ -84,7 +84,7 @@ module.exports = {
         },
 
         delete_account: {
-          doc: 'Delete a given account',
+            doc: 'Delete a given account',
             method: 'DELETE',
             params: {
                 type: 'object',
@@ -150,6 +150,9 @@ module.exports = {
                     secret_key: {
                         type: 'string',
                     },
+                    endpoint: {
+                        type: 'string',
+                    }
                 }
             },
             auth: {
@@ -168,6 +171,9 @@ module.exports = {
                             type: 'string',
                         },
                         secret_key: {
+                            type: 'string',
+                        },
+                        endpoint: {
                             type: 'string',
                         },
                     }

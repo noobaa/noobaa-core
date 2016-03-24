@@ -121,6 +121,27 @@ function upgrade_system(system) {
         multi: true
     });
 
+    print('\n*** CLOUD SYNC ***');
+
+    db.buckets.find({
+        system: system._id,
+        cloud_sync: {
+            $exists: true
+        }
+    }).forEach(function(bucket) {
+        print('\n*** update bucket with endpoint and target bucket', bucket.name);
+
+        db.buckets.update({
+            _id: bucket._id
+        }, {
+            $set: {
+                'cloud_sync.target_bucket': bucket.cloud_sync.endpoint,
+                'cloud_sync.endpoint': 'https://s3.amazonaws.com'
+                }
+            });
+    });
+
+
     print('\n*** BUCKET ***');
     db.buckets.find({
         system: system._id,

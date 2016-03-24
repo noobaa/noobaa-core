@@ -248,7 +248,7 @@ function list_buckets(req) {
 function get_cloud_sync_policy(req, bucket) {
     dbg.log3('get_cloud_sync_policy');
     bucket = bucket || find_bucket(req);
-    if (!bucket.cloud_sync || !bucket.cloud_sync.endpoint) {
+    if (!bucket.cloud_sync || !bucket.cloud_sync.target_bucket) {
         return {};
     }
     return P.when(server_rpc.bg_client.cloud_sync.get_policy_status({
@@ -259,18 +259,13 @@ function get_cloud_sync_policy(req, bucket) {
         }))
         .then(res => {
             bucket.cloud_sync.status = res.status;
-            let endpoint;
-            if (bucket.cloud_sync.target_ip) {
-                endpoint = bucket.cloud_sync.target_ip + ':/' + bucket.cloud_sync.endpoint;
-            } else {
-                endpoint = bucket.cloud_sync.endpoint;
-            }
             return {
                 name: bucket.name,
                 health: res.health,
                 status: cloud_sync_utils.resolve_cloud_sync_info(bucket.cloud_sync),
                 policy: {
-                    endpoint: endpoint,
+                    endpoint: bucket.cloud_sync.endpoint,
+                    target_bucket: bucket.cloud_sync.target_bucket,
                     access_keys: [bucket.cloud_sync.access_keys],
                     schedule: bucket.cloud_sync.schedule_min,
                     last_sync: (new Date(bucket.cloud_sync.last_sync)).getTime(),
@@ -340,15 +335,7 @@ function delete_cloud_sync(req) {
  *
  */
 function set_cloud_sync(req) {
-    let ip = '';
-    var ip_bucket = req.rpc_params.policy.endpoint.split(':/');
-    if (ip_bucket.length > 1) {
-        // take first entry as ip, second entry as bucket (endpoint).
-        // should we assume format (':/' separator) correctness?
-        ip = ip_bucket[0];
-        req.rpc_params.policy.endpoint = ip_bucket[1];
-        dbg.log0('set_cloud_sync to ip:', ip, ' to bucket: ', req.rpc_params.policy.endpoint);
-    }
+
     dbg.log0('set_cloud_sync:', req.rpc_params.name, 'on', req.system._id, 'with', req.rpc_params.policy);
     var bucket = find_bucket(req);
     var force_stop = false;
@@ -361,7 +348,7 @@ function set_cloud_sync(req) {
     }
     var cloud_sync = {
         endpoint: req.rpc_params.policy.endpoint,
-        target_ip: ip,
+        target_bucket: req.rpc_params.policy.target_bucket,
         access_keys: {
             access_key: req.rpc_params.policy.access_keys[0].access_key,
             secret_key: req.rpc_params.policy.access_keys[0].secret_key
@@ -377,7 +364,7 @@ function set_cloud_sync(req) {
     if (bucket.cloud_sync) {
         //If either of the following is changed, signal the cloud sync worker to force stop and reload
         if (bucket.cloud_sync.endpoint !== cloud_sync.endpoint ||
-            bucket.cloud_sync.target_ip !== cloud_sync.target_ip ||
+            bucket.cloud_sync.target_bucket !== cloud_sync.target_bucket ||
             bucket.cloud_sync.access_keys.access_key !== cloud_sync.access_keys.access_key ||
             bucket.cloud_sync.access_keys.secret_key !== cloud_sync.access_keys.secret_key ||
             cloud_sync.paused) {
@@ -430,8 +417,10 @@ function set_cloud_sync(req) {
  */
 function get_cloud_buckets(req) {
     var buckets = [];
+    dbg.log0('get cloud buckets',req.rpc_params);
     return P.fcall(function() {
         var s3 = new AWS.S3({
+            endpoint: req.rpc_params.endpoint,
             accessKeyId: req.rpc_params.access_key,
             secretAccessKey: req.rpc_params.secret_key,
             sslEnabled: false

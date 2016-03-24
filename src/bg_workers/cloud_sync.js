@@ -366,7 +366,7 @@ function load_single_policy(bucket) {
         bucket: bucket,
         system: bucket.system,
         endpoint: bucket.cloud_sync.endpoint,
-        target_ip: bucket.cloud_sync.target_ip,
+        target_bucket: bucket.cloud_sync.target_bucket,
         access_keys: {
             access_key: bucket.cloud_sync.access_keys.access_key,
             secret_key: bucket.cloud_sync.access_keys.secret_key
@@ -391,20 +391,24 @@ function load_single_policy(bucket) {
         maxRedirects: 10,
     });
 
-    if (policy.target_ip) {
+    if (policy.endpoint==="https://s3.amazonaws.com"){
+        //Amazon S3
         policy.s3cloud = new AWS.S3({
-            endpoint: policy.target_ip,
-            s3ForcePathStyle: true,
-            sslEnabled: false,
-            accessKeyId: policy.access_keys.access_key,
-            secretAccessKey: policy.access_keys.secret_key
-        });
-    } else {
-        policy.s3cloud = new AWS.S3({
+            endpoint: policy.endpoint,
             accessKeyId: policy.access_keys.access_key,
             secretAccessKey: policy.access_keys.secret_key,
             region: 'us-east-1'
         });
+    }else{
+        //S3 compatible
+        policy.s3cloud = new AWS.S3({
+            endpoint: policy.endpoint,
+            sslEnabled: false,
+            s3ForcePathStyle: true,
+            accessKeyId: policy.access_keys.access_key,
+            secretAccessKey: policy.access_keys.secret_key,
+        });
+
     }
 
     CLOUD_SYNC.configured_policies.push(policy);
@@ -471,7 +475,7 @@ function update_c2n_worklist(policy) {
     });
     var current_worklists = CLOUD_SYNC.work_lists[worklist_ind];
 
-    var target = policy.endpoint;
+    var target = policy.target_bucket;
     var params = {
         Bucket: target,
     };
@@ -599,7 +603,7 @@ function sync_single_file_to_noobaa(policy, object) {
     dbg.log3('sync_single_file_to_noobaa', object.key, '->', policy.bucket.name + '/' + object.key);
 
     var body = policy.s3cloud.getObject({
-        Bucket: policy.endpoint,
+        Bucket: policy.target_bucket,
         Key: object.key,
     }).createReadStream();
 
@@ -647,7 +651,7 @@ function sync_to_cloud_single_bucket(bucket_work_lists, policy) {
         throw new Error('bucket_work_list and bucket_work_list must be provided');
     }
 
-    var target = policy.endpoint;
+    var target = policy.target_bucket;
     //First delete all the deleted objects
     return P.fcall(function() {
             if (bucket_work_lists.n2c_deleted.length) {

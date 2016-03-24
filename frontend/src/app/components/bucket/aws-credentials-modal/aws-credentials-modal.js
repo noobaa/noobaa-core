@@ -6,9 +6,15 @@ import { addAWSCredentials } from 'actions';
 class AWSCredentialsModalViewModel {
     constructor({ onClose }) {
         this.onClose = onClose;
+        this.endPoint = ko.observable('https://s3.amazonaws.com')
+            .extend({
+                required: { message: 'Please enter valid URI endpoint' },
+                isURI: true
+            });
+
 
         this.accessKey = ko.observable()
-            .extend({   
+            .extend({
                 required: { message: 'Please enter an aws access key' },
                 notIn: {
                     params: {
@@ -21,7 +27,7 @@ class AWSCredentialsModalViewModel {
             });
 
         this.secretKey = ko.observable()
-            .extend({ 
+            .extend({
                 required: { message: 'Please enter an aws secret key'}
             });
 
@@ -35,7 +41,7 @@ class AWSCredentialsModalViewModel {
         if (this.errors().length > 0) {
             this.errors.showAllMessages();
         } else {
-            addAWSCredentials(this.accessKey(), this.secretKey());
+            addAWSCredentials(this.accessKey(), this.secretKey(),this.endPoint());
             this.onClose(false);
         }
     }

@@ -356,7 +356,13 @@ InternalDebugLogger.prototype.log_internal = function(level) {
         } else {
             let msg = syslog_formatter(self, level, arguments);
             syslog.log(this._levels_to_syslog[level], msg.message);
-            console.log(msg.console_prefix + msg.message);
+            // when not redirecting to file console.log is async:
+            // https://nodejs.org/api/console.html#console_asynchronous_vs_synchronous_consoles
+            if (level === 'ERROR') {
+                console.error(msg.console_prefix + msg.message);
+            } else {
+                console.log(msg.console_prefix + msg.message);
+            }
         }
     } else {
         // browser workaround, don't use winston. Add timestamp and level

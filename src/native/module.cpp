@@ -5,6 +5,7 @@
 #include "coding/object_coding.h"
 #include "n2n/ntcp.h"
 #include "n2n/nudp.h"
+#include "util/syslog.h"
 
 namespace noobaa {
 
@@ -31,6 +32,7 @@ NAN_MODULE_INIT(setup)
     ObjectCoding::setup(target);
     Nudp::setup(target);
     Ntcp::setup(target);
+    Syslog::setup(target);
 
 /*
     Nan::SetMethod(target, "set_recv_buffer_size", set_recv_buffer_size);

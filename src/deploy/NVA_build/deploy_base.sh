@@ -223,6 +223,11 @@ function install_id_gen {
 	deploy_log "install_id_gen done"
 }
 
+function setup_syslog {
+	# copy noobaa_syslog.conf to /etc/rsyslog.d/ which is included by rsyslog.conf
+	cp -f ${CORE_DIR}/src/deploy/NVA_build/noobaa_syslog.conf /etc/rsyslog.d/
+}
+
 if [ "$1" == "runinstall" ]; then
 	deploy_log "Running with runinstall"
 	set -e
@@ -234,6 +239,7 @@ if [ "$1" == "runinstall" ]; then
 	install_mongo
 	setup_mongo
 	general_settings
+	setup_syslog
 	setup_supervisors
 	install_id_gen
 	reboot -fn

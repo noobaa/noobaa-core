@@ -136,6 +136,10 @@ function post_upgrade {
   deploy_log "Note: installed MD5 was ${prevmd}, new is ${curmd}"
 
   cp -f ${CORE_DIR}/src/deploy/NVA_build/noobaa_supervisor.conf /etc/noobaa_supervisor.conf
+
+  # copy noobaa_syslog.conf to /etc/rsyslog.d/ which is included by rsyslog.conf
+  cp -f ${CORE_DIR}/src/deploy/NVA_build/noobaa_syslog.conf /etc/rsyslog.d/
+  
   if [ -f /tmp/agent_conf.json ]; then
     cp -f /tmp/agent_conf.json ${CORE_DIR}/agent_conf.json
   fi

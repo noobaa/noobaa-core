@@ -17,6 +17,7 @@ module.exports = DebugLogger;
 
 var _ = require('lodash');
 var fs = require('fs');
+var util = require('util');
 
 var config = {
     dbg_log_level: 0,
@@ -40,6 +41,9 @@ if (typeof process !== 'undefined' &&
 } else if (!global.document) {
     // node
     var winston = require('winston');
+    if (process.platform !== 'win32') {
+        var syslog = (new require('./native_core')().Syslog());
+    }
     processType = "node";
     var con = require('./console_wrapper');
 } else {
@@ -137,6 +141,23 @@ function InternalDebugLogger() {
         'L2': 7,
         'L3': 8,
         'L4': 9
+    };
+
+    // map the levels we use to syslog protocol levels
+    // ERROR --> LOG_ERR (3)
+    // WARN --> LOG_WARNING (4)
+    // INFO\LOG\TRACE\L[0-4] --> LOG_NOTICE (5)
+    self._levels_to_syslog = {
+        'ERROR': 3,
+        'WARN': 4,
+        'INFO': 5,
+        'LOG': 5,
+        'TRACE': 5,
+        'L0': 5,
+        'L1': 5,
+        'L2': 5,
+        'L3': 5,
+        'L4': 5
     };
 
     if (!winston) {
@@ -302,14 +323,41 @@ var LOG_FUNC_PER_LEVEL = {
     ERROR: 'error',
 };
 
+function syslog_formatter(self, level, args) {
+    let msg = '';
+    for (var i = 1; i < args.length; i++) {
+        msg += util.format(args[i]) + ' ';
+    }
+    let level_str = ((self._levels[level] === 0) ?
+            ' \x1B[31m[' :
+            ((self._levels[level] === 1) ? ' \x1B[33m[' : ' \x1B[36m[')) +
+        level + ']\x1B[39m ';
+
+    var proc = '[' + self._proc_name + '/' + self._pid + ']';
+    let prefix = '\x1B[32m' + formatted_time() +
+        '\x1B[35m ' + proc;
+
+    return {
+        console_prefix: prefix,
+        message: level_str + msg.replace(/(\r\n|\n|\r)/gm, "")
+    };
+}
+
 InternalDebugLogger.prototype.log_internal = function(level) {
+    var self = this;
     var args;
     con && con.original_console();
     if (this._log) {
         // normal path (non browser)
-        args = Array.prototype.slice.call(arguments, 1);
-        args.push("");
-        this._log[level].apply(this._log, args);
+        if (_.isUndefined(syslog)) {
+            args = Array.prototype.slice.call(arguments, 1);
+            args.push("");
+            this._log[level].apply(this._log, args);
+        } else {
+            let msg = syslog_formatter(self, level, arguments);
+            syslog.log(this._levels_to_syslog[level], msg.message);
+            console.log(msg.console_prefix + msg.message);
+        }
     } else {
         // browser workaround, don't use winston. Add timestamp and level
         var logfunc = LOG_FUNC_PER_LEVEL[level] || 'log';
@@ -451,6 +499,9 @@ DebugLogger.prototype.get_module_level = function(mod) {
 
 DebugLogger.prototype.set_process_name = function(name) {
     int_dbg._proc_name = name;
+    if (!_.isUndefined(syslog)) {
+        syslog.openlog(name);
+    }
 };
 
 DebugLogger.prototype.log_progress = function(fraction) {

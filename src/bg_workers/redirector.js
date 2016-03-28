@@ -47,7 +47,7 @@ function _init() {
 /*
  * REDIRECTOR API
  */
-function redirect(req) {    
+function redirect(req) {
     dbg.log2('redirect request for', req.rpc_params);
 
     //Remove the leading n2n:// prefix from the address
@@ -59,14 +59,20 @@ function redirect(req) {
             address: address,
         }));
     } else {
-        //If part of a cluster, try to scattershot ther other redirectors
-        if (CLUSTER_TOPOLOGY.servers) {
+        //If part of a cluster, & not already a scatter redirect
+        //try to scattershot ther other redirectors
+        if (CLUSTER_TOPOLOGY.servers && !req.rpc_params.stop_redirect) {
+            req.rpc_params.stop_redirect = true;
             //TODO:: Don't call myself
-            return P.each(CLUSTER_TOPOLOGY.servers, function(ser) {
+            return P.all(_.map(CLUSTER_TOPOLOGY.servers, function(srv) {
+                //return P.each(CLUSTER_TOPOLOGY.servers, function(ser) {
+                console.warn('NBNB:: redirect calling scatter on', 'ws://' + srv + ':8081');
                 return P.when(server_rpc.bg_client.redirector.redirect(req.rpc_params, {
-                    address: ser,
+                    //TODO:: port and ws/wss decision
+                    address: 'ws://' + srv + ':8081',
+                     
                 }));
-            });
+            }));
         }
         throw new Error('Agent not registered ' + target_agent);
     }

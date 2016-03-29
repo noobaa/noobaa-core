@@ -8,6 +8,7 @@ var dbg = require('../util/debug_module')(__filename);
 var system_store = require('./stores/system_store');
 var bcrypt = require('bcrypt');
 var S3Auth = require('aws-sdk/lib/signers/s3');
+var s3_util = require('../util/s3_utils');
 var s3_auth = new S3Auth();
 
 /**
@@ -175,42 +176,64 @@ function create_auth(req) {
  *
  */
 function create_access_key_auth(req) {
+    //console.warn("evg evg evg REQ:NOOBAA_V4 STRING: " ,req.noobaa_v4);
 
     var access_key = req.rpc_params.access_key;
     var string_to_sign = req.rpc_params.string_to_sign;
     var signature = req.rpc_params.signature;
-    // var expiry = req.rpc_params.expiry;
+    //var expiry = req.rpc_params.expiry;
+    var noobaa_v4 = req.rpc_params.extra;
+    console.warn("CHECKING THE NOOBAA_V4 STRING: " ,noobaa_v4);
 
     var system = _.find(system_store.data.systems, function(sys) {
-        return !!_.find(sys.access_keys, 'access_key', access_key);
+        return _.find(sys.access_keys, ['access_key', access_key]);
     });
     if (!system || system.deleted) {
         throw req.unauthorized('system not found');
     }
-    dbg.log1('create_access_key_auth:',
+    dbg.log0('create_access_key_auth:',
         'system.name', system.name,
         'access_key', access_key,
         'string_to_sign', string_to_sign,
         'signature', signature);
 
-    var secret_key = _.result(_.find(system.access_keys, 'access_key', access_key), 'secret_key');
-    var s3_signature = s3_auth.sign(secret_key, string_to_sign);
-    dbg.log2('signature for access key:', access_key, 'string:', string_to_sign, ' is', s3_signature);
+        //console.warn('EVG EVG EVG EVG EVG SYSTEM ACCESS KEYS ARE: ', _.find(system.access_keys, 'access_key', access_key));
+    var secret_key = _.result(_.find(system.access_keys, ['access_key', access_key]), 'secret_key');
+    //console.warn('EVG EVG EVG EVG EVG SECRET_KEY IS: ', secret_key);
+    var s3_signature;
+
+    if(noobaa_v4){
+        s3_signature = s3_util.noobaa_signature_v4({
+            xamzdate: noobaa_v4.xamzdate,
+            region: noobaa_v4.region,
+            service: noobaa_v4.service,
+            string_to_sign: string_to_sign,
+            secret_key: secret_key
+        });
+    }
+    else {
+        s3_signature = s3_auth.sign(secret_key ,string_to_sign);//secret_key, string_to_sign);
+        //signature = s3_auth.sign('abcd', string_to_sign);
+        //console.warn('EVG EVG EVG EVG EVG SIGNATURE COMP: ', s3_signature, signature);
+
+    }
+    //var s3_signature = s3_auth.sign(secret_key, string_to_sign);
+    dbg.log0('signature for access key:', access_key, 'string:', string_to_sign, ' is', s3_signature);
 
     //TODO:bring back ASAP!!!! - temporary for V4 "Support"
     //
-    // if (signature === s3_signature) {
-    //     dbg.log0('s3 authentication test passed!!!');
-    // } else {
-    //     throw req.unauthorized('SignatureDoesNotMatch');
-    // }
+    if (signature === s3_signature) {
+        dbg.log0('s3 authentication test passed!!!');
+    } else {
+        throw req.unauthorized('SignatureDoesNotMatch');
+    }
 
     var token = req.make_auth_token({
         system_id: system && system._id,
         role: 'admin',
         extra: req.rpc_params.extra,
     });
-    dbg.log2('ACCESS TOKEN:', token);
+    dbg.log0('ACCESS TOKEN:', token);
     return {
         token: token
     };
@@ -252,9 +275,13 @@ function read_auth(req) {
  *
  */
 function authorize(req) {
-
+//console.warn('CHECKING AUTHORIZE CONNECT');
     _prepare_auth_request(req);
     var auth_token_obj;
+
+//console.warn('evg evg evg req.auth_token = ',req.auth_token);
+//console.warn('evg evg evg req.noobaa_v4 = ',req.noobaa_v4);
+//console.warn('evg evg evg req.rpc_params = ',req.rpc_params);
 
     if (req.auth_token) {
         try {
@@ -276,7 +303,7 @@ function authorize(req) {
     }
 
     if (req.method_api.auth !== false) {
-        dbg.log3('authorize:', req.method_api.auth, req.srv);
+        dbg.log0('authorize:', req.method_api.auth, req.srv);
         req.load_auth();
 
         //if request request has access signature, validate the signature

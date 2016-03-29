@@ -17,6 +17,7 @@ let s3 = new AWS.S3({
     accessKeyId: argv.access_key || '123',
     secretAccessKey: argv.secret_key || 'abc',
     endpoint: argv.endpoint || 'http://127.0.0.1',
+    signatureVersion: argv.sigver || 'v2',
     s3ForcePathStyle: true,
     sslEnabled: false,
     computeChecksums: false,
@@ -151,7 +152,7 @@ function upload_file() {
         s3.putObject({
             Key: upload_key,
             Bucket: bucket,
-            Body: data_source.pipe(new stream.Transform({
+            Body: data_source || data_source.pipe(new stream.Transform({
                 objectMode: true,
                 highWaterMark: 8,
                 transform: function(data, enc, next) {

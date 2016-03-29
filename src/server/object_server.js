@@ -141,12 +141,21 @@ function list_multipart_parts(req) {
  */
 function complete_part_upload(req) {
     dbg.log1('complete_part_upload - etag', req.rpc_params.etag, 'req:', req);
+    dbg.log1('complete_part_upload - etag_sha256', req.rpc_params.etag_sha256, 'req:', req);
     return find_object_upload(req)
         .then(obj => {
+            //console.warn('CHECK OUT MI BIG FISH');
             var params = _.pick(req.rpc_params,
-                'upload_part_number', 'etag');
+                'upload_part_number', 'etag', 'etag_sha256');
+            //console.warn('CHECK OUT MI BIG FISH');
             params.obj = obj;
+            //console.warn('CHECK OUT MI BIG FISH params: ', params);
+            //return P.all(map_writer.set_multipart_part_md5(params), map_writer.set_multipart_part_sha256(params));//.then((etags));
+            //return map_writer.set_multipart_part_md5(params);
+            let resultj = map_writer.set_multipart_part_md5(params);
+            console.warn('CHECK MI BIG RESULTJ: ', resultj);
             return map_writer.set_multipart_part_md5(params);
+
         });
 }
 
@@ -158,6 +167,7 @@ function complete_part_upload(req) {
 function complete_object_upload(req) {
     var obj;
     var obj_etag = req.rpc_params.etag || '';
+    var obj_etag_sha256 = req.rpc_params.etag_sha256 || '';
 
     return find_object_upload(req)
         .then(obj_arg => {
@@ -167,6 +177,11 @@ function complete_object_upload(req) {
                     .then(aggregated_md5 => {
                         obj_etag = aggregated_md5;
                         dbg.log0('aggregated_md5', obj_etag);
+                        return map_writer.calc_multipart_sha256(obj);
+                    })
+                    .then(aggregated_sha256 => {
+                        obj_etag_sha256 = aggregated_sha256;
+                        dbg.log0('aggregated_sha256', obj_etag_sha256);
                         return map_writer.fix_multipart_parts(obj);
                     });
             }
@@ -185,6 +200,7 @@ function complete_object_upload(req) {
                 $set: {
                     size: object_size || obj.size,
                     etag: obj_etag,
+                    etag_sha256: obj_etag_sha256
                 },
                 $unset: {
                     upload_size: 1
@@ -203,7 +219,8 @@ function complete_object_upload(req) {
                 }
             });
             return {
-                etag: obj_etag
+                etag: obj_etag,
+                etag_sha256: obj_etag_sha256
             };
         })
         .catch(err => {

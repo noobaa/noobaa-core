@@ -566,6 +566,8 @@ export function loadObjectMetadata(bucketName, objectName) {
                     },
                     s3ForcePathStyle: true,
                     sslEnabled: false,
+                    signatureVersion: 'v4',
+                    region: 'eu-central-1'
                 })
             }
         );

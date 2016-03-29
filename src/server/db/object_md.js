@@ -63,6 +63,10 @@ var objmd_schema = new Schema({
         type: String,
     },
 
+    etag_sha256: {
+        type: String,
+    },
+
     // is the object synced with the cloud
     cloud_synced: {
         type: Boolean,

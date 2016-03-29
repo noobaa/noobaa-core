@@ -40,10 +40,18 @@ if (typeof process !== 'undefined' &&
     var con = require('./console_wrapper');
 } else if (!global.document) {
     // node
-    var winston = require('winston');
+    let should_log_to_syslog = false;
     if (process.platform !== 'win32') {
-        var syslog = (new require('./native_core')().Syslog());
+        // create syslog if on MD server <=> /etc/rsyslog.d/noobaa_syslog.conf
+        var file = fs.statSync('/etc/rsyslog.d/noobaa_syslog.conf');
+        should_log_to_syslog = file.isFile();
     }
+    if (should_log_to_syslog) {
+        var syslog = (new require('./native_core')().Syslog());
+    } else {
+        var winston = require('winston');
+    }
+
     processType = "node";
     var con = require('./console_wrapper');
 } else {
@@ -347,23 +355,22 @@ InternalDebugLogger.prototype.log_internal = function(level) {
     var self = this;
     var args;
     con && con.original_console();
-    if (this._log) {
-        // normal path (non browser)
-        if (_.isUndefined(syslog)) {
-            args = Array.prototype.slice.call(arguments, 1);
-            args.push("");
-            this._log[level].apply(this._log, args);
+    if (!_.isUndefined(syslog)) {
+        // syslog path
+        let msg = syslog_formatter(self, level, arguments);
+        syslog.log(this._levels_to_syslog[level], msg.message);
+        // when not redirecting to file console.log is async:
+        // https://nodejs.org/api/console.html#console_asynchronous_vs_synchronous_consoles
+        if (level === 'ERROR') {
+            console.error(msg.console_prefix + msg.message);
         } else {
-            let msg = syslog_formatter(self, level, arguments);
-            syslog.log(this._levels_to_syslog[level], msg.message);
-            // when not redirecting to file console.log is async:
-            // https://nodejs.org/api/console.html#console_asynchronous_vs_synchronous_consoles
-            if (level === 'ERROR') {
-                console.error(msg.console_prefix + msg.message);
-            } else {
-                console.log(msg.console_prefix + msg.message);
-            }
+            console.log(msg.console_prefix + msg.message);
         }
+    } else if (this._log) {
+        // winston path (non browser)
+        args = Array.prototype.slice.call(arguments, 1);
+        args.push("");
+        this._log[level].apply(this._log, args);
     } else {
         // browser workaround, don't use winston. Add timestamp and level
         var logfunc = LOG_FUNC_PER_LEVEL[level] || 'log';

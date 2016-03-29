@@ -7,6 +7,7 @@ ENV_FILE="${CORE_DIR}/.env"
 LOG_FILE="/var/log/noobaa_deploy.log"
 SUPERD="/usr/bin/supervisord"
 SUPERCTL="/usr/bin/supervisorctl"
+NOOBAASEC="/etc/noobaa_sec"
 
 function deploy_log {
 	if [ "$1" != "" ]; then
@@ -179,15 +180,7 @@ function general_settings {
 	chown root:root /etc/profile.d/first_install_diaglog.sh
 	chmod 4755 /etc/profile.d/first_install_diaglog.sh
 
-	#Fix login message
-	echo  " _   _            ______    "   > /etc/issue
-	echo  "| \\ | |           | ___ \\   "    >> /etc/issue
-	echo  "|  \\| | ___   ___ | |_/ / __ _  __ _    " >> /etc/issue
-	echo  "| . \` |/ _ \\ / _ \\| ___ \\/ _\` |/ _\` |   " >> /etc/issue
-	echo  "| |\\  | (_) | (_) | |_/ / (_| | (_| |   " >> /etc/issue
-	echo  "\\_| \\_/\\___/ \\___/\\____/ \\__,_|\\__,_|   " >> /etc/issue
-	echo -e "\n\nWelcome to your \x1b[0;35;40mNooBaa\x1b[0m server.\n" >> /etc/issue
-	echo -e "You can configure IP, DNS, GW and Hostname by logging in using \x1b[0;32;40mnoobaa/Passw0rd\x1b[0m" >> /etc/issue
+	fix_etc_issue
 }
 
 function setup_supervisors {
@@ -227,6 +220,31 @@ function setup_syslog {
 	# copy noobaa_syslog.conf to /etc/rsyslog.d/ which is included by rsyslog.conf
 	cp -f ${CORE_DIR}/src/deploy/NVA_build/noobaa_syslog.conf /etc/rsyslog.d/
 	service rsyslog restart
+
+function fix_etc_issue {
+	local current_ip=$(ifconfig eth0  |grep 'inet addr' | cut -f 2 -d':' | cut -f 1 -d' ')
+	local secret
+	if [ -f ${NOOBAASEC} ]; then
+		secret=$(cat ${NOOBAASEC})
+	else
+		secret="Not Configured"
+	fi
+
+	#Fix login message
+	echo -e "\x1b[0;35;40m" 																	> /etc/issue
+	echo  "  _   _            ______    "   									>> /etc/issue
+	echo  " | \\ | |           | ___ \\   "    								>> /etc/issue
+	echo  " |  \\| | ___   ___ | |_/ / __ _  __ _    " 				>> /etc/issue
+	echo  " | . \` |/ _ \\ / _ \\| ___ \\/ _\` |/ _\` |   " 	>> /etc/issue
+	echo  " | |\\  | (_) | (_) | |_/ / (_| | (_| |   " 				>> /etc/issue
+	echo  " \\\_| \\_/\\___/ \\___/\\____/ \\__,_|\\__,_|   "	>> /etc/issue
+	echo -e "\x1b[0m" 																				>> /etc/issue
+
+	echo -e "\n\nWelcome to your \x1b[0;35;40mNooBaa\x1b[0m server.\n" >> /etc/issue
+
+  	echo -e "\nConfigured IP on this NooBaa Server \x1b[0;32;40m${current_ip}\x1b[0m.\nThis server's secret is \x1b[0;32;40m${secret}\x1b[0m" >> /etc/issue
+
+	echo -e "\nYou can set up a cluster member, configure IP, DNS, GW and Hostname by logging in using \x1b[0;32;40mnoobaa/Passw0rd\x1b[0m" >> /etc/issue
 }
 
 if [ "$1" == "runinstall" ]; then

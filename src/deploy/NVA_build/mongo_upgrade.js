@@ -35,13 +35,14 @@ function upgrade_systems() {
                 udp_port: true,
             };
         }
-        print('updating system', system.name, '...', updates);
+        print('updating system', system.name, '...');
+        printjson(updates);
         printjson(system);
         db.systems.update({
             _id: system._id
         }, {
             $set: updates,
-            $unset: '__v'
+            $unset:{'__v':1}
         });
     });
     db.systems.find().forEach(upgrade_system);
@@ -119,6 +120,27 @@ function upgrade_system(system) {
     }, {
         multi: true
     });
+
+    print('\n*** CLOUD SYNC ***');
+
+    db.buckets.find({
+        system: system._id,
+        cloud_sync: {
+            $exists: true
+        }
+    }).forEach(function(bucket) {
+        print('\n*** update bucket with endpoint and target bucket', bucket.name);
+
+        db.buckets.update({
+            _id: bucket._id
+        }, {
+            $set: {
+                'cloud_sync.target_bucket': bucket.cloud_sync.endpoint,
+                'cloud_sync.endpoint': 'https://s3.amazonaws.com'
+                }
+            });
+    });
+
 
     print('\n*** BUCKET ***');
     db.buckets.find({

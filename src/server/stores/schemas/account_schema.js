@@ -39,6 +39,9 @@ module.exports = {
                     },
                     secret_key: {
                         type: 'string'
+                    },
+                    endpoint: {
+                        type: 'string'
                     }
                 }
             }

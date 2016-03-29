@@ -175,8 +175,8 @@ function aggregate_nodes_by_pool(query) {
             }
         ))
         .then(res => {
-            var bins = {};
-            _.each(res.results, r => {
+            var bins = {};              
+            _.each(res, r => {
                 var t = bins[r._id[0]] = bins[r._id[0]] || {};
                 t[r._id[1]] = r.value;
             });

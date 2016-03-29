@@ -40,15 +40,23 @@ if (typeof process !== 'undefined' &&
     var con = require('./console_wrapper');
 } else if (!global.document) {
     // node
-    let should_log_to_syslog = false;
-    if (process.platform !== 'win32') {
-        // create syslog if on MD server <=> /etc/rsyslog.d/noobaa_syslog.conf
+
+    // check if we run on md_server <=> /etc/rsyslog.d/noobaa_syslog.conf exists
+    let should_log_to_syslog = true;
+    try {
         var file = fs.statSync('/etc/rsyslog.d/noobaa_syslog.conf');
-        should_log_to_syslog = file.isFile();
+        if (!file.isFile()) {
+            should_log_to_syslog = false;
+        }
+    } catch (err) {
+        should_log_to_syslog = false;
     }
+
     if (should_log_to_syslog) {
+        console.log('creating syslog');
         var syslog = (new require('./native_core')().Syslog());
     } else {
+        console.log('creating winston');
         var winston = require('winston');
     }
 

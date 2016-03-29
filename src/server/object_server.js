@@ -38,6 +38,7 @@ var object_server = {
     read_object_md: read_object_md,
     update_object_md: update_object_md,
     delete_object: delete_object,
+    delete_multiple_objects: delete_multiple_objects,
     list_objects: list_objects,
 
     //cloud sync related
@@ -407,6 +408,32 @@ function delete_object(req) {
         })
         .then(db.check_not_found(req, 'object'))
         .then(obj => delete_object_internal(obj))
+        .return();
+}
+
+
+/**
+ *
+ * DELETE_MULTIPLE_OBJECTS
+ * delete multiple objects
+ *
+ */
+function delete_multiple_objects(req) {
+    dbg.log2('delete_multiple_objects: keys =', req.params.keys);
+    load_bucket(req);
+    // TODO: change it to perform changes in one transaction
+    return P.all(_.map(req.params.keys, function(key) {
+            return P.fcall(() => {
+                    var query = {
+                        system: req.system._id,
+                        bucket: req.bucket._id,
+                        key: key
+                    };
+                    return db.ObjectMD.findOne(query).exec();
+                })
+                .then(db.check_not_found(req, 'object'))
+                .then(obj => delete_object_internal(obj));
+        }))
         .return();
 }
 

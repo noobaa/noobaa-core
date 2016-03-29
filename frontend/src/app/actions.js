@@ -798,10 +798,11 @@ export function loadAccountAwsCredentials() {
         .done();
 }
 
-export function loadAwsBucketList(accessKey, secretKey) {
-    logAction('loadAwsBucketList', { accessKey, secretKey })
+export function loadAwsBucketList(accessKey, secretKey,endPoint) {
+    logAction('loadAwsBucketList', { accessKey, secretKey,endPoint})
 
     api.bucket.get_cloud_buckets({
+        endpoint: endPoint,
         access_key: accessKey,
         secret_key: secretKey
     })
@@ -1297,10 +1298,14 @@ export function setCloudSyncPolicy(bucket, awsBucket, credentials, direction, fr
     logAction('setCloudSyncPolicy', { bucket, awsBucket, credentials, direction, frequency,
         sycDeletions });
 
+    let policy_endpoint =  credentials.endpoint||'https://s3.amazonaws.com';
+    delete credentials.endpoint;
+
     api.bucket.set_cloud_sync({
         name: bucket,
         policy: {
-            endpoint: awsBucket,
+            endpoint:policy_endpoint,
+            target_bucket: awsBucket,
             access_keys: [ credentials ],
             c2n_enabled: direction === 'AWS2NB' || direction === 'BI',
             n2c_enabled: direction === 'NB2AWS' || direction === 'BI',
@@ -1323,10 +1328,11 @@ export function removeCloudSyncPolicy(bucket) {
         .done();
 }
 
-export function addAWSCredentials(accessKey, secretKey) {
-    logAction('addAWSCredentials', { accessKey, secretKey });
+export function addAWSCredentials(accessKey, secretKey, endPoint) {
+    logAction('addAWSCredentials', { accessKey, secretKey, endPoint });
 
     let credentials = {
+        endpoint: endPoint,
         access_key: accessKey,
         secret_key: secretKey
     };

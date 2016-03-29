@@ -80,13 +80,15 @@ var heartbeat_count_node_storage_barrier = new Barrier({
                         $in: node_ids
                     },
                 },
-                map: mongo_functions.map_size,
+                map: mongo_functions.map_node_size,
                 reduce: mongo_functions.reduce_sum
             }))
             .then(function(res) {
+
                 // convert the map-reduce array to map of node_id -> sum of block sizes
                 var nodes_storage = _.mapValues(_.keyBy(res, '_id'), 'value');
                 return _.map(node_ids, function(node_id) {
+                    dbg.log2('heartbeat_count_node_storage_barrier', nodes_storage, 'for ',node_ids, ' nodes_storage[',node_id,'] ',nodes_storage[node_id] );
                     return nodes_storage[node_id] || 0;
                 });
             });
@@ -306,11 +308,11 @@ function update_heartbeat(req, reply_token) {
                     agent_storage.used, ' counted used ', storage_used);
                 // TODO trigger a detailed usage check / reclaiming
             }
-            dbg.log0('should update',storage_used , 'with', agent_storage.used);
+            dbg.log0('should update (?)',node.storage.used , 'with', storage_used);
 
             // check if need to update the node used storage count
-            if (agent_storage.used !== storage_used) {
-                set_updates['storage.used'] = agent_storage.used;
+            if (node.storage.used !== storage_used) {
+                set_updates['storage.used'] = storage_used;
             }
 
             // to avoid frequest updates of the node it will only send

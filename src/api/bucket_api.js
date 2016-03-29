@@ -236,6 +236,9 @@ module.exports = {
                 type: 'object',
                 required: ['access_key', 'secret_key'],
                 properties: {
+                    endpoint:{
+                            type:'string',
+                    },
                     access_key: {
                         type: 'string',
                     },
@@ -290,6 +293,9 @@ module.exports = {
             properties: {
                 endpoint: {
                     type: 'string',
+                },
+                target_bucket:{
+                    type:'string',
                 },
                 access_keys: {
                     type: 'array',

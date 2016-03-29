@@ -1,6 +1,8 @@
 'use strict';
 
 module.exports = {
+    _init: _init,
+
     redirect: redirect,
     register_agent: register_agent,
     unregister_agent: unregister_agent,
@@ -12,6 +14,7 @@ module.exports = {
 
 var _ = require('lodash');
 var util = require('util');
+var fs = require('fs');
 var P = require('../util/promise');
 var server_rpc = require('../server/server_rpc');
 var dbg = require('../util/debug_module')(__filename);
@@ -20,11 +23,34 @@ var dbg = require('../util/debug_module')(__filename);
 var agents_address_map = new Map();
 var cluster_connections = new Set();
 
+var CLUSTER_TOPOLOGY;
+var CLUSTER_TOPOLOGY_FILE = '/etc/noobaa_cluster';
+
+/*
+ * Init
+ */
+function _init() {
+    return P.nfcall(fs.stat, CLUSTER_TOPOLOGY_FILE)
+        .then(function(exists) {
+            return P.nfcall(fs.readFile, CLUSTER_TOPOLOGY_FILE);
+        })
+        .then(function(top) {
+            CLUSTER_TOPOLOGY = JSON.parse(top);
+        })
+        .fail(function(err) {
+            if (err.code !== 'ENOENT') {
+                console.error('Topology file corrupted');
+            }
+        });
+}
+
 /*
  * REDIRECTOR API
  */
 function redirect(req) {
-    dbg.log2('redirect request for', req.rpc_params);
+    var scatter_redirect =
+        _.isUndefined(req.rpc_params.stop_redirect) ? false : req.rpc_params.stop_redirect;
+    dbg.log2('redirect request for', req.rpc_params, 'scatter redirect', scatter_redirect);
 
     //Remove the leading n2n:// prefix from the address
     var target_agent = req.rpc_params.target.slice(6);
@@ -32,10 +58,51 @@ function redirect(req) {
     if (address) {
         dbg.log3('redirect found entry', address);
         return P.when(server_rpc.client.node.redirect(req.rpc_params, {
-            address: address,
-        }));
+                address: address,
+            }))
+            .then(function(res) {
+                if (scatter_redirect) {
+                    return {
+                        scatter_res: res,
+                    };
+                } else {
+                    return res;
+                }
+            });
     } else {
-        throw new Error('Agent not registered ' + target_agent);
+        //If part of a cluster, & not already a scatter redirect
+        //try to scattershot ther other redirectors
+        if (CLUSTER_TOPOLOGY.servers && !scatter_redirect) {
+            req.rpc_params.stop_redirect = true;
+            //TODO:: Don't call myself
+            return P.all(_.map(CLUSTER_TOPOLOGY.servers, function(srv) {
+                    dbg.log3('scatter redirect calling', 'ws://' + srv + ':8081');
+                    return P.when(server_rpc.bg_client.redirector.redirect(req.rpc_params, {
+                            //TODO:: port and ws/wss decision
+                            address: 'ws://' + srv + ':8081',
+                        }))
+                        .fail(function(err) {
+                            dbg.log0('Failed scatter redirect on', srv, 'with err', err);
+                            return;
+                        });
+                }))
+                .then(function(res) {
+                    var reply = {};
+                    _.each(res, function(r) {
+                        if (r.scatter_res) {
+                            reply = r.scatter_res;
+                            dbg.log3('Got back scatter response', reply);
+                        }
+                    });
+                    return reply;
+                });
+        }
+        //stop redirect is recieved from another redirector, in such a case, don't throw
+        if (scatter_redirect) {
+            return {};
+        } else {
+            throw new Error('Agent not registered ' + target_agent);
+        }
     }
 }
 

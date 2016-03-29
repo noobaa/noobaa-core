@@ -32,6 +32,11 @@ function validate_mask() {
 }
 
 function run_wizard {
+  if [ ! -f ${NOOBAASEC} ]; then
+    local sec=$(cat /dev/urandom | tr -dc 'a-zA-Z0-9' | fold -w 32 | head -1)
+    echo ${sec} > ${NOOBAASEC}
+  fi
+
   dialog --colors --backtitle "NooBaa First Install" --title 'Welcome to \Z5\ZbNooBaa\Zn' --msgbox 'Welcome to your \Z5\ZbNooBaa\Zn experience.\n\nThis
  is a short first install wizard to help configure \Z5\ZbNooBaa\Zn to best suit your needs' 8 50
 
@@ -126,6 +131,8 @@ function end_wizard {
   dialog --colors --nocancel --backtitle "NooBaa First Install" --title '\Z5\ZbNooBaa\Zn is Ready' --msgbox "\n\Z5\ZbNooBaa\Zn was configured and is ready to use. You can access \Z5\Zbhttp://${current_ip}:8080\Zn to start using your system." 7 65
   date >> ${FIRST_INSTALL_MARK}
   clear
+
+  fix_etc_issue
 
   trap 2 20
   exit 0

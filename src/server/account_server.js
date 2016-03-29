@@ -242,7 +242,7 @@ function get_account_sync_credentials_cache(req) {
  */
 
 function add_account_sync_credentials_cache(req) {
-    var info = _.pick(req.rpc_params, 'access_key', 'secret_key');
+    var info = _.pick(req.rpc_params, 'access_key', 'secret_key','endpoint');
     var updates = {
         _id: req.account._id,
         sync_credentials_cache: req.account.sync_credentials_cache || []

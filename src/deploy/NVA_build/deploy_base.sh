@@ -216,6 +216,12 @@ function install_id_gen {
 	deploy_log "install_id_gen done"
 }
 
+function setup_syslog {
+	# copy noobaa_syslog.conf to /etc/rsyslog.d/ which is included by rsyslog.conf
+	cp -f ${CORE_DIR}/src/deploy/NVA_build/noobaa_syslog.conf /etc/rsyslog.d/
+	cp -f ${CORE_DIR}/src/deploy/NVA_build/logrotate_noobaa /etc/logrotate.d/noobaa
+	service rsyslog restart
+
 function fix_etc_issue {
 	local current_ip=$(ifconfig eth0  |grep 'inet addr' | cut -f 2 -d':' | cut -f 1 -d' ')
 	local secret
@@ -237,7 +243,7 @@ function fix_etc_issue {
 
 	echo -e "\n\nWelcome to your \x1b[0;35;40mNooBaa\x1b[0m server.\n" >> /etc/issue
 
-  echo -e "\nConfigured IP on this NooBaa Server \x1b[0;32;40m${current_ip}\x1b[0m.\nThis server's secret is \x1b[0;32;40m${secret}\x1b[0m" >> /etc/issue
+  	echo -e "\nConfigured IP on this NooBaa Server \x1b[0;32;40m${current_ip}\x1b[0m.\nThis server's secret is \x1b[0;32;40m${secret}\x1b[0m" >> /etc/issue
 
 	echo -e "\nYou can set up a cluster member, configure IP, DNS, GW and Hostname by logging in using \x1b[0;32;40mnoobaa/Passw0rd\x1b[0m" >> /etc/issue
 }
@@ -254,6 +260,7 @@ if [ "$1" == "runinstall" ]; then
 	setup_mongo
 	general_settings
 	setup_supervisors
+	setup_syslog
 	install_id_gen
 	reboot -fn
 fi

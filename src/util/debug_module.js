@@ -176,6 +176,9 @@ function InternalDebugLogger() {
         'L4': 5
     };
 
+    self._proc_name = '';
+    self._pid = process.pid;
+
     if (!winston) {
         return;
     }
@@ -239,8 +242,6 @@ function InternalDebugLogger() {
         ]
     });
 
-    self._proc_name = '';
-    self._pid = process.pid;
 }
 
 InternalDebugLogger.prototype.build_module_context = function(mod, mod_object) {

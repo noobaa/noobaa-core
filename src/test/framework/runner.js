@@ -94,6 +94,7 @@ TestRunner.prototype.init_run = function() {
 
 TestRunner.prototype.complete_run = function() {
     //Take coverage output and report and pack them
+    var self = this;
     var dst = '/tmp/res_' + this._version + '.tgz';
     return this._write_coverage()
         .then(function() {
@@ -120,7 +121,7 @@ TestRunner.prototype.complete_run = function() {
         .then(function() {
             console.log('Uploading results file');
             //Save package on current NooBaa system
-            return ops.upload_file('127.0.0.1', dst, 'files', 'report_' + this._version + '.tgz');
+            return ops.upload_file('127.0.0.1', dst, 'files', 'report_' + self._version + '.tgz');
         });
 };
 
@@ -238,7 +239,7 @@ TestRunner.prototype._write_coverage = function() {
         })
         .then(function(res) {
             //Add all recieved data to the collector
-            _.each(res.aggregated, function(r) {		
+            _.each(res.aggregated, function(r) {
                 collector.add(JSON.parse(r.data.data));
             });
             //Add unit test coverage data

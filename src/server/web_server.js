@@ -5,7 +5,7 @@ console.log('loading .env file');
 require('dotenv').load();
 
 //If test mode, use Istanbul for coverage
-if (process.env.TESTRUN) {
+if (process.env.TESTRUN === 'true') {
     var ist = require('../test/framework/istanbul_coverage');
     ist.start_istanbul_coverage();
 }

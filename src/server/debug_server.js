@@ -24,7 +24,7 @@ function set_debug_level(req) {
 
 function get_istanbul_collector(req) {
     //ONLY applicable during TESTRUN
-    if (!process.env.TESTRUN) {
+    if (process.env.TESTRUN !== 'true') {
         console.error('Coverage only applicable in TESTRUN mode');
         throw new Error('Coverage only applicable in TESTRUN mode');
     } else {

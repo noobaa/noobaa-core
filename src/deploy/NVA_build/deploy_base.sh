@@ -219,7 +219,7 @@ function install_id_gen {
 function setup_syslog {
 	# copy noobaa_syslog.conf to /etc/rsyslog.d/ which is included by rsyslog.conf
 	cp -f ${CORE_DIR}/src/deploy/NVA_build/noobaa_syslog.conf /etc/rsyslog.d/
-	cp -f ${CORE_DIR}/src/deploy/NVA_build/logrotate_noobaa /etc/logrotate.d/noobaa
+	cp -f ${CORE_DIR}/src/deploy/NVA_build/logrotate_noobaa.conf /etc/logrotate.d/noobaa
 	service rsyslog restart
 
 function fix_etc_issue {

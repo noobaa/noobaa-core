@@ -6,6 +6,7 @@ var db = require('../db');
 // var dbg = require('../../util/debug_module')(__filename);
 var size_utils = require('../../util/size_utils');
 var mongo_utils = require('../../util/mongo_utils');
+var mongo_functions = require('../../util/mongo_functions');
 var system_store = require('./system_store');
 var mongodb = require('mongodb');
 var moment = require('moment');
@@ -28,6 +29,7 @@ module.exports = {
     make_node_id: make_node_id,
     create_node: create_node,
     find_node_by_name: find_node_by_name,
+    find_node_by_address: find_node_by_address,
     update_node_by_name: update_node_by_name,
     delete_node_by_name: delete_node_by_name,
     update_node_by_id: update_node_by_id,
@@ -67,6 +69,16 @@ function find_node_by_name(req) {
     return P.when(NodeModel.collection.findOne({
             system: req.system._id,
             name: req.rpc_params.name,
+            deleted: null,
+        }))
+        .then(db.check_not_deleted(req, 'node'))
+        .then(resolve_node_object_ids);
+}
+
+function find_node_by_address(req) {
+    return P.when(NodeModel.collection.findOne({
+            system: req.system._id,
+            rpc_address: req.rpc_params.target,
             deleted: null,
         }))
         .then(db.check_not_deleted(req, 'node'))
@@ -149,46 +161,27 @@ function update_nodes(query, updates) {
  */
 function aggregate_nodes_by_pool(query) {
     var minimum_online_heartbeat = get_minimum_online_heartbeat();
-    var map_func = function() {
-        /* global emit */
-        emit(['', 'total'], this.storage.total);
-        emit(['', 'free'], this.storage.free);
-        emit(['', 'used'], this.storage.used);
-        emit(['', 'alloc'], this.storage.alloc);
-        emit(['', 'count'], 1);
-        var online = (!this.srvmode && this.heartbeat >= minimum_online_heartbeat);
-        if (online) {
-            emit(['', 'online'], 1);
-        }
-        if (this.pool) {
-            emit([this.pool, 'total'], this.storage.total);
-            emit([this.pool, 'free'], this.storage.free);
-            emit([this.pool, 'used'], this.storage.used);
-            emit([this.pool, 'alloc'], this.storage.alloc);
-            emit([this.pool, 'count'], 1);
-            if (online) {
-                emit([this.pool, 'online'], 1);
+    return P.when(NodeModel.collection.mapReduce(
+            mongo_functions.map_aggregate_nodes,
+            mongo_functions.reduce_sum, {
+                query: query,
+                scope: {
+                    // have to pass variables to map/reduce with a scope
+                    minimum_online_heartbeat: minimum_online_heartbeat,
+                },
+                out: {
+                    inline: 1
+                }
             }
-        }
-    };
-    var reduce_func = size_utils.reduce_sum;
-    return P.when(NodeModel.collection.mapReduce(map_func, reduce_func, {
-        query: query,
-        scope: {
-            // have to pass variables to map/reduce with a scope
-            minimum_online_heartbeat: minimum_online_heartbeat,
-        },
-        out: {
-            inline: 1
-        }
-    })).then(res => {
-        var bins = {};
-        _.each(res.results, r => {
-            var t = bins[r._id[0]] = bins[r._id[0]] || {};
-            t[r._id[1]] = r.value;
+        ))
+        .then(res => {
+            var bins = {};              
+            _.each(res, r => {
+                var t = bins[r._id[0]] = bins[r._id[0]] || {};
+                t[r._id[1]] = r.value;
+            });
+            return bins;
         });
-        return bins;
-    });
 }
 
 

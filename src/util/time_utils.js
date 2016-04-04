@@ -41,5 +41,7 @@ function time_suffix() {
 //This function convert it to 2 digits year, required by S3 (and specifically enforced by hadoop)
 
 function toRFC822(in_date) {
-     return in_date.toUTCString().replace(' '+in_date.getFullYear()+' ',' '+(in_date.getFullYear().toString()).substr(2)+' ');
+    return in_date.toUTCString().replace(
+        ' ' + in_date.getFullYear() + ' ',
+        ' ' + (in_date.getFullYear().toString()).substr(2) + ' ');
 }

@@ -2,29 +2,29 @@
     <!-- ko if: dataReady -->
     <h1 class="heading2">
         Bucket Policy
-    </h1>    
+    </h1>
     <section class="container text-left">
         <h2 class="heading3">Policy Type</h2>
         <ul class="list-no-style policy-types">
             <li>
                 <radio-btn  params="
-                    group: 'policy-type', 
-                    value: 'SPREAD', 
-                    selected: dataPlacement, 
+                    group: 'policy-type',
+                    value: 'SPREAD',
+                    selected: dataPlacement,
                     label: 'Stripe'
                 "></radio-btn>
-                | Sperading the data across the choosen pools
+                | Spreading the data across the chosen pools
             </li>
             <li>
                 <radio-btn params="
-                    group: 'policy-type', 
-                    value: 'MIRROR', 
-                    selected: dataPlacement, 
+                    group: 'policy-type',
+                    value: 'MIRROR',
+                    selected: dataPlacement,
                     label: 'Mirror'
                 "></radio-btn>
                 | Full duplication of the data in each chosen pool
             </li>
-        </ul>        
+        </ul>
     </section>
 
     <section class="container text-left">
@@ -38,8 +38,8 @@
     </section>
 
     <div class="action-line pull-right">
-        <button class="action link" data-bind="click: cancel">Cancel</button>    
-        <button class="action btn2" data-bind="click: save">Save</button>        
+        <button class="action link" data-bind="click: cancel">Cancel</button>
+        <button class="action btn2" data-bind="click: save">Save</button>
     </div>
     <!-- /ko -->
 </modal>

@@ -116,7 +116,11 @@ AgentCLI.prototype.init = function() {
         .then(function(drives) {
             dbg.log0('drives:', drives, ' current location ', process.cwd());
             var hds = _.filter(drives, function(hd_info) {
-                if ((hd_info.drive_id.indexOf('by-uuid') < 0 && (hd_info.drive_id.indexOf('/dev/') >= 0 || hd_info.mount === '/') && hd_info.mount.indexOf('/boot') < 0 && hd_info.mount.indexOf('/Volumes/') < 0) ||
+                if ((hd_info.drive_id.indexOf('by-uuid') < 0 &&
+                        hd_info.mount.indexOf('/etc/hosts') < 0 &&
+                        (hd_info.drive_id.indexOf('/dev/') >= 0 || hd_info.mount === '/') &&
+                        hd_info.mount.indexOf('/boot') < 0 &&
+                        hd_info.mount.indexOf('/Volumes/') < 0) ||
                     (hd_info.drive_id.length === 2 &&
                         hd_info.drive_id.indexOf(':') === 1)) {
                     dbg.log0('Found relevant volume', hd_info.drive_id);
@@ -342,6 +346,17 @@ AgentCLI.prototype.create_node_helper = function(current_node_path_info) {
             }).then(function() {
                 dbg.log0('writing token', token_path);
                 return P.nfcall(fs.writeFile, token_path, self.create_node_token);
+            })
+            .then(function() {
+                // remove access_key and secret_key from agent_conf after a token was acquired
+                return P.nfcall(fs.readFile, 'agent_conf.json')
+                    .then(function(data) {
+                        let agent_conf = JSON.parse(data);
+                        delete agent_conf.access_key;
+                        delete agent_conf.secret_key;
+                        var write_data = JSON.stringify(agent_conf);
+                        return P.nfcall(fs.writeFile, 'agent_conf.json', write_data);
+                    });
             })
             .then(function() {
                 dbg.log0('about to start node', node_path, 'with node name:', node_name);

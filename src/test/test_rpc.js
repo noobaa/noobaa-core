@@ -31,11 +31,13 @@ mocha.describe('RPC', function() {
                         type: 'boolean',
                     },
                     param4: {
-                        type: 'integer',
-                        format: 'idate',
+                        format: 'idate'
                     },
                     param5: {
                         type: 'array',
+                        items: {
+                            type: 'integer'
+                        }
                     },
                 }
             },
@@ -45,6 +47,18 @@ mocha.describe('RPC', function() {
                 properties: {
                     rest: {
                         type: 'array',
+                        items: {
+                            oneOf: [{
+                                type: 'string'
+                            }, {
+                                type: 'object',
+                                properties: {
+                                    fucking: {
+                                        type: 'string'
+                                    }
+                                }
+                            }]
+                        }
                     }
                 }
             },
@@ -110,11 +124,33 @@ mocha.describe('RPC', function() {
             fucking: 'aWeSoMe'
         }]
     };
-    var ERROR_MESSAGE = 'testing error';
+    var ERROR_MESSAGE = 'THIS IS AN EXPECTED TEST ERROR';
     var ERROR_CODE = 'TEST_CODE';
     var schema = new RpcSchema();
     schema.register_api(test_api);
     schema.compile();
+
+    var rpc;
+    var client;
+
+    mocha.beforeEach('test_rpc.afterEach', function() {
+        rpc = new RPC({
+            schema: schema,
+            router: {
+                default: 'fcall://fcall'
+            }
+        });
+        client = rpc.new_client({
+            address: 'fcall://fcall'
+        });
+    });
+
+    mocha.afterEach('test_rpc.afterEach', function() {
+        rpc.disconnect_all();
+        rpc = null;
+        client = null;
+    });
+
 
     mocha.describe('schema.register_api', function() {
 
@@ -138,9 +174,6 @@ mocha.describe('RPC', function() {
     mocha.describe('register_service', function() {
 
         mocha.it('should work on empty server with allow_missing_methods', function() {
-            var rpc = new RPC({
-                schema: schema
-            });
             rpc.register_service(test_api, {}, {
                 allow_missing_methods: true
             });
@@ -148,18 +181,12 @@ mocha.describe('RPC', function() {
 
         mocha.it('should detect missing api func', function() {
             // check that missing functions are detected
-            var rpc = new RPC({
-                schema: schema
-            });
             assert.throws(function() {
                 rpc.register_service(test_api, {});
             }, Error);
         });
 
         mocha.it('should throw on duplicate service', function() {
-            var rpc = new RPC({
-                schema: schema
-            });
             rpc.register_service(test_api, {}, {
                 peer: 17,
                 allow_missing_methods: true
@@ -173,9 +200,6 @@ mocha.describe('RPC', function() {
         });
 
         mocha.it('should work on mock server', function() {
-            var rpc = new RPC({
-                schema: schema
-            });
             var server = {
                 get: function() {},
                 put: function() {},
@@ -194,35 +218,29 @@ mocha.describe('RPC', function() {
         // create a test for every api function
         _.each(test_api.methods, function(method_api, method_name) {
 
-            var rpc = new RPC({
-                schema: schema
-            });
-            var client = rpc.new_client({
-                address: 'fcall://fcall'
-            });
-
             mocha.describe(method_name, function() {
 
+                // init a server for the currently tested func.
+                // we use a dedicated server per func so that all the other funcs
+                // of the server return error in order to detect calling confusions.
                 var reply_error = false;
-
-                mocha.before(function() {
-                    // init a server for the currently tested func.
-                    // we use a dedicated server per func so that all the other funcs
-                    // of the server return error in order to detect calling confusions.
-                    var methods = {};
-                    methods[method_name] = function(req) {
-                        // console.log('TEST SERVER REQUEST');
-                        _.each(PARAMS, function(param, name) {
-                            assert.deepEqual(param, req.rpc_params[name]);
+                var methods = {};
+                methods[method_name] = function(req) {
+                    // console.log('TEST SERVER REQUEST');
+                    _.each(PARAMS, function(param, name) {
+                        assert.deepEqual(param, req.rpc_params[name]);
+                    });
+                    if (reply_error) {
+                        throw req.rpc_error(ERROR_CODE, ERROR_MESSAGE, {
+                            quiet: true,
+                            nostack: true
                         });
-                        if (reply_error) {
-                            throw req.rpc_error(ERROR_CODE, ERROR_MESSAGE, {
-                                quiet: true
-                            });
-                        } else {
-                            return P.resolve(REPLY);
-                        }
-                    };
+                    } else {
+                        return P.resolve(REPLY);
+                    }
+                };
+
+                mocha.beforeEach(function() {
                     rpc.register_service(test_api, methods, {
                         allow_missing_methods: true
                     });
@@ -254,9 +272,6 @@ mocha.describe('RPC', function() {
     });
 
     mocha.it('HTTP/WS', function() {
-        var rpc = new RPC({
-            schema: schema
-        });
         rpc.register_service(test_api, {
             get: req => REPLY
         }, {
@@ -286,9 +301,6 @@ mocha.describe('RPC', function() {
     });
 
     mocha.it('HTTPS/WSS', function() {
-        var rpc = new RPC({
-            schema: schema
-        });
         rpc.register_service(test_api, {
             get: req => REPLY
         }, {
@@ -318,32 +330,32 @@ mocha.describe('RPC', function() {
     });
 
     mocha.it('TCP', function() {
-        var rpc = new RPC({
-            schema: schema
-        });
         rpc.register_service(test_api, {
             get: req => REPLY
         }, {
             allow_missing_methods: true
         });
+        let tcp_server;
         return rpc.register_tcp_transport(0)
-            .then(tcp_server => {
+            .then(tcp_server_arg => {
+                tcp_server = tcp_server_arg;
                 var client = rpc.new_client({
                     address: 'tcp://127.0.0.1:' + tcp_server.port
                 });
                 return client.test.get(PARAMS);
+            })
+            .finally(() => {
+                if (tcp_server) tcp_server.close();
             });
     });
 
     mocha.it('TLS', function() {
-        var rpc = new RPC({
-            schema: schema
-        });
         rpc.register_service(test_api, {
             get: req => REPLY
         }, {
             allow_missing_methods: true
         });
+        let tls_server;
         return P.nfcall(pem.createCertificate, {
                 days: 365 * 100,
                 selfSigned: true
@@ -354,11 +366,15 @@ mocha.describe('RPC', function() {
                     cert: cert.certificate
                 });
             })
-            .then(tls_server => {
+            .then(tls_server_arg => {
+                tls_server = tls_server_arg;
                 var client = rpc.new_client({
                     address: 'tls://127.0.0.1:' + tls_server.port
                 });
                 return client.test.get(PARAMS);
+            })
+            .finally(() => {
+                if (tls_server) tls_server.close();
             });
     });
 
@@ -391,14 +407,12 @@ mocha.describe('RPC', function() {
 
     function n2n_tester(n2n_config) {
         return function() {
-            var rpc = new RPC({
-                schema: schema
-            });
             rpc.register_service(test_api, {
                 get: req => REPLY
             }, {
                 allow_missing_methods: true
             });
+            let tcp_server;
             const ADDR = 'n2n://testrpc';
             let n2n_agent = rpc.register_n2n_transport(
                 params => rpc.accept_n2n_signal(params)
@@ -406,11 +420,19 @@ mocha.describe('RPC', function() {
             n2n_agent.set_rpc_address(ADDR);
             n2n_agent.update_n2n_config(n2n_config);
             return rpc.register_tcp_transport(0)
-                .then(tcp_server => {
+                .then(tcp_server_arg => {
+                    tcp_server = tcp_server_arg;
                     var client = rpc.new_client({
                         address: ADDR
                     });
                     return client.test.get(PARAMS);
+                })
+                .finally(() => {
+                    if (tcp_server) tcp_server.close();
+                    // reset the n2n config to close any open ports
+                    n2n_agent.update_n2n_config({
+                        tcp_permanent_passive: false
+                    });
                 });
         };
     }

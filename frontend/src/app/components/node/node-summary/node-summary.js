@@ -82,11 +82,10 @@ class NodeSummaryViewModel {
         this.osText = ko.pureComputed(
             () => formatSize(this.os())
         );
-
         this.gaugeValues = [
-            { value: this.used, color: style['text-color6'], emphasize: true },
-            { value: this.os, color: style['text-color2'] },
-            { value: this.free, color: style['text-color5'] }
+            { value: this.used(), color: style['text-color6'], emphasize: true },
+            { value: this.os(), color: style['text-color2'] ,emphasize: false },
+            { value: this.free(), color: style['text-color5'] ,emphasize: false }
         ]
 
         this.rpcAddress = ko.pureComputed(

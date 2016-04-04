@@ -17,7 +17,7 @@ module.exports = {
             method: 'POST',
             params: {
                 type: 'object',
-                required: ['name', 'tiering'],
+                required: ['name'],
                 properties: {
                     name: {
                         type: 'string',
@@ -156,7 +156,7 @@ module.exports = {
             reply: {
                 type: 'array',
                 // required: [],
-                item: {
+                items: {
                     type: 'object',
                     properties: {
                         name: {
@@ -220,6 +220,9 @@ module.exports = {
                 type: 'object',
                 required: ['access_key', 'secret_key'],
                 properties: {
+                    endpoint:{
+                            type:'string',
+                    },
                     access_key: {
                         type: 'string',
                     },
@@ -272,9 +275,12 @@ module.exports = {
                 endpoint: {
                     type: 'string',
                 },
+                target_bucket:{
+                    type:'string',
+                },
                 access_keys: {
                     type: 'array',
-                    item: {
+                    items: {
                         $ref: 'system_api#/definitions/access_keys'
                     }
                 },
@@ -282,7 +288,6 @@ module.exports = {
                     type: 'integer'
                 },
                 last_sync: {
-                    type: 'integer',
                     format: 'idate'
                 },
                 paused: {

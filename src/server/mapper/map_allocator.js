@@ -29,20 +29,21 @@ class MapAllocator {
     run() {
         this.check_parts();
         let millistamp = time_utils.millistamp();
-        dbg.log1('MapAllocator.run: start');
+        dbg.log1('MapAllocator: start');
         return P.join(
                 this.find_dups(),
                 block_allocator.refresh_tiering_alloc(this.bucket.tiering)
             )
             .then(() => this.allocate_blocks())
             .then(() => {
-                dbg.log1('MapAllocator.run: DONE. took', time_utils.millitook(millistamp));
+                dbg.log0('MapAllocator: DONE. parts', this.parts.length,
+                    'took', time_utils.millitook(millistamp));
                 return {
                     parts: this.parts
                 };
             })
             .catch(err => {
-                dbg.error('MapAllocator.run: ERROR', err.stack || err);
+                dbg.error('MapAllocator: ERROR', err.stack || err);
                 throw err;
             });
     }
@@ -70,7 +71,7 @@ class MapAllocator {
                         map_utils.set_chunk_frags_from_blocks(dup_chunk, dup_chunk.blocks);
                         if (map_utils.is_chunk_good(dup_chunk, this.bucket.tiering)) {
                             // we set the part's chunk_dedup to the chunk id
-                            // so that the driver will send it back to finalize
+                            // so that the client will send it back to finalize
                             part.chunk_dedup = dup_chunk._id.toString();
                             delete part.chunk;
                             // returning explicit false to break from _.each

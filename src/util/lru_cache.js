@@ -5,102 +5,108 @@ var P = require('../util/promise');
 var LRU = require('./lru');
 // var dbg = require('../util/debug_module')(__filename);
 
-module.exports = LRUCache;
+class LRUCache {
 
-/**
- * options (Object):
- * - load - loading function(key). can return a promise.
- * - max_length: lru max length
- * - expiry_ms: time after which the item is considered expired
- */
-function LRUCache(options) {
-    var self = this;
-    options = options || {};
-    self.load = options.load;
-    self.name = options.name;
-    self.make_key = options.make_key || function(k) {
-        return k;
-    };
-    self.make_val = options.make_val || function(data, params) {
-        return data;
-    };
-    self.use_negative_cache = options.use_negative_cache;
-    self.lru = new LRU(_.extend({
-        max_length: 100,
-        expiry_ms: 60000, // default 1 minute
-    }, options));
+    /**
+     * options (Object):
+     * - load - loading function(key). can return a promise.
+     * - max_usage: lru max length
+     * - expiry_ms: time after which the item is considered expired
+     */
+    constructor(options) {
+        options = options || {};
+        this.load = options.load;
+        this.name = options.name;
+        this.make_key = options.make_key || function(k) {
+            return k;
+        };
+        this.make_val = options.make_val || function(data, params) {
+            return data;
+        };
+        this.item_usage = options.item_usage;
+        this.use_negative_cache = options.use_negative_cache;
+        this.lru = new LRU(_.extend({
+            max_usage: 100,
+            expiry_ms: 60000, // default 1 minute
+        }, options));
+    }
+
+    /**
+     * get from cache, will load on cache miss, returns a promise.
+     *
+     * cache_miss (String) - pass the literal string 'cache_miss' to force fetching.
+     *
+     */
+    get_with_cache(params, cache_miss) {
+        return P.fcall(() => {
+                var key = this.make_key(params);
+                var item = this.lru.find_or_add_item(key);
+
+                // use cached item when not forcing cache_miss and still not expired by lru
+                // also go to load if data is falsy and negative caching is off
+                if ('d' in item &&
+                    (cache_miss !== 'cache_miss') &&
+                    (this.use_negative_cache || item.d)) {
+                    return item;
+                }
+
+                // keep the promise in the item to synchronize when getting
+                // concurrent get requests that miss the cache
+                if (!item.p) {
+                    item.p = P.when(this.load(params))
+                        .then(data => {
+                            item.p = null;
+                            item.d = data;
+                            if (this.item_usage) {
+                                let usage = this.item_usage(data, params);
+                                this.lru.set_usage(item, usage);
+                            }
+                            return item;
+                        }, err => {
+                            item.p = null;
+                            throw err;
+                        });
+                }
+                return item.p;
+            })
+            .then(item => this.make_val(item.d, params));
+    }
+
+    put_in_cache(params, data) {
+        var key = this.make_key(params);
+        var item = this.lru.find_or_add_item(key);
+        item.d = data;
+        if (this.item_usage) {
+            let usage = this.item_usage(data, params);
+            this.lru.set_usage(item, usage);
+        }
+    }
+
+    /**
+     * remove multiple keys from the cache
+     */
+    multi_invalidate(params) {
+        return _.map(params, p => this.invalidate(p));
+    }
+
+    /**
+     * remove the key from the cache
+     */
+    invalidate(params) {
+        var key = this.make_key(params);
+        return this.invalidate_key(key);
+    }
+
+    /**
+     * remove the key from the cache
+     */
+    invalidate_key(key) {
+        var item = this.lru.remove_item(key);
+        if (item && item.val) {
+            return item.val;
+        }
+    }
+
 }
 
-/**
- * get from cache, will load on cache miss, returns a promise.
- *
- * cache_miss (String) - pass the literal string 'cache_miss' to force fetching.
- *
- */
-LRUCache.prototype.get = function(params, cache_miss) {
-    var self = this;
-    return P.fcall(function() {
-            var key = self.make_key(params);
-            var item = self.lru.find_or_add_item(key);
-
-            // use cached item when not forcing cache_miss and still not expired by lru
-            // also go to load if data is falsy and negative caching is off
-            if ('d' in item &&
-                (cache_miss !== 'cache_miss') &&
-                (self.use_negative_cache || item.d)) {
-                return item;
-            }
-
-            // keep the promise in the item to synchronize when getting
-            // concurrent get requests that miss the cache
-            if (!item.p) {
-                item.p = P.when(self.load(params))
-                    .then(function(data) {
-                        item.p = null;
-                        item.d = data;
-                        return item;
-                    }, function(err) {
-                        item.p = null;
-                        throw err;
-                    });
-            }
-            return item.p;
-        })
-        .then(function(item) {
-            return self.make_val(item.d, params);
-        });
-};
-
-LRUCache.prototype.put = function(params, data) {
-    var key = this.make_key(params);
-    var item = this.lru.find_or_add_item(key);
-    item.d = data;
-};
-
-/**
- * remove multiple keys from the cache
- */
-LRUCache.prototype.multi_invalidate = function(params) {
-    var self = this;
-    return _.map(params, function(p) {
-        return self.invalidate(p);
-    });
-};
-
-/**
- * remove the key from the cache
- */
-LRUCache.prototype.invalidate = function(params) {
-    var key = this.make_key(params);
-    return this.invalidate_key(key);
-};
-
-/**
- * remove the key from the cache
- */
-LRUCache.prototype.invalidate_key = function(key) {
-    var item = this.lru.remove_item(key);
-    if (item && item.val) {
-        return item.val;
-    }
-};
+module.exports = LRUCache;

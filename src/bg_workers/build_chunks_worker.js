@@ -48,10 +48,13 @@ function background_worker() {
             }
             query.deleted = null;
 
-            return P.when(db.DataChunk.collection.find(query, {
-                limit: self.batch_size,
-                sort: '-_id'
-            }).toArray());
+            return P.when(db.DataChunk.find(query).limit(self.batch_size).sort('-_id').lean().exec());
+            // return P.when(db.DataChunk.collection.find(query, {
+            //     limit: self.batch_size,
+            //     sort: {
+            //         _id: -1
+            //     }
+            // }).toArray());
         })
         .then(function(chunks) {
 

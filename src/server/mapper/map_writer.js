@@ -8,6 +8,7 @@ var db = require('../db');
 var md_store = require('../stores/md_store');
 var nodes_store = require('../stores/nodes_store');
 var mongo_utils = require('../../util/mongo_utils');
+var time_utils = require('../../util/time_utils');
 var string_utils = require('../../util/string_utils');
 var map_utils = require('./map_utils');
 var block_allocator = require('./block_allocator');
@@ -34,6 +35,7 @@ function finalize_object_parts(bucket, obj, parts) {
     // console.log('GGG finalize_object_parts', require('util').inspect(parts, {
     //     depth: null
     // }));
+    let millistamp = time_utils.millistamp();
     let new_parts = [];
     let new_chunks = [];
     let new_blocks = [];
@@ -105,7 +107,8 @@ function finalize_object_parts(bucket, obj, parts) {
             }))
         )
         .then(function() {
-            dbg.log0('finalize_object_parts: DONE. parts', parts.length);
+            dbg.log0('finalize_object_parts: DONE. parts', parts.length,
+                'took', time_utils.millitook(millistamp));
         }, function(err) {
             dbg.error('finalize_object_parts: ERROR', err.stack || err);
             throw err;
@@ -149,11 +152,14 @@ function list_multipart_parts(params) {
                 is_truncated: !!(part_numbers.length || !max_parts),
                 next_part_number_marker: last_part + 1,
                 upload_parts: _.map(part_numbers, function(num) {
+                    let updated_item = upload_parts[num][0];
                     return {
                         part_number: parseInt(num, 10),
                         size: _.reduce(upload_parts[num], function(sum, part) {
                             return sum + part.end - part.start;
-                        }, 0)
+                        }, 0),
+                        etag: updated_item.etag,
+                        last_modified: updated_item._id.getTimestamp().getTime(),
                     };
                 })
             };
@@ -222,7 +228,7 @@ function calc_multipart_md5(obj) {
             var part_md5 = part.etag;
             aggregated_nobin_md5 = aggregated_nobin_md5 + part_md5;
             aggregated_bin_md5 = aggregated_bin_md5 + string_utils.toBinary(part_md5);
-            dbg.log0('part', part, ' with md5', part_md5, 'aggregated:', aggregated_nobin_md5);
+            dbg.log1('part', part, ' with md5', part_md5, 'aggregated:', aggregated_nobin_md5);
         });
         var digester = crypto.createHash('md5');
         digester.update(aggregated_bin_md5);
@@ -381,7 +387,7 @@ function report_bad_block(params) {
                         var avoid_nodes = _.map(all_blocks, function(block) {
                             return block.node._id.toString();
                         });
-                        // TODO GGG
+                        // TODO GGG report_bad_block
                         return block_allocator.allocate_block(chunk, avoid_nodes);
                     })
                     .then(function(new_block_arg) {
@@ -398,7 +404,7 @@ function report_bad_block(params) {
                         return db.DataBlock.create(new_block);
                     })
                     .then(function() {
-                        // TODO GGG
+                        // TODO GGG report_bad_block
                         return block_allocator.remove_allocation([bad_block]);
                     })
                     .then(function() {

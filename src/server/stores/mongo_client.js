@@ -47,12 +47,14 @@ class MongoClient extends EventEmitter {
      * mongodb_url is optional and by default takes from env or local db.
      */
     connect() {
+        this._disconnected_state = false;
         if (this.promise) return this.promise;
         this.promise = this._connect();
         return this.promise;
     }
 
     _connect() {
+        if (this._disconnected_state) return;
         if (this.db) return this.db;
         return mongodb.MongoClient.connect(this.url, this.config)
             .then(db => {
@@ -66,6 +68,14 @@ class MongoClient extends EventEmitter {
                 console.error('MongoClient: initial connect failed, will retry', err.message);
                 return P.delay(3000).then(() => this._connect());
             });
+    }
+
+    disconnect() {
+        this._disconnected_state = true;
+        if (this.db) {
+            this.db.close();
+            this.db = null;
+        }
     }
 
 }

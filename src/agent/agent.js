@@ -66,7 +66,8 @@ function Agent(params) {
         self.store = new AgentStore(self.storage_path);
         self.store_cache = new LRUCache({
             name: 'AgentBlocksCache',
-            max_length: 200, // ~200 MB
+            max_usage: 200 * 1024 * 1024, // 200 MB
+            item_usage: (data, params) => data.data.length,
             expiry_ms: 0, // no expiry
             make_key: params => params.id,
             load: key => self.store.read_block(key)
@@ -77,10 +78,11 @@ function Agent(params) {
         self.store = new AgentStore.MemoryStore();
         self.store_cache = new LRUCache({
             name: 'AgentBlocksCache',
-            max_length: 1,
+            max_usage: 0,
+            item_usage: (data, params) => data.data.length,
             expiry_ms: 0, // no expiry
             make_key: params => params.id,
-            load: key => self.store.read_block(key)
+            load: key => self.store.read_block(key),
         });
     }
 
@@ -163,6 +165,7 @@ Agent.prototype.start = function() {
     var self = this;
 
     self.is_started = true;
+    self.rpc.set_disconnected_state(false);
 
     return P.fcall(function() {
             return self._init_node();
@@ -189,7 +192,12 @@ Agent.prototype.stop = function() {
     self.is_started = false;
     self._start_stop_server();
     self._start_stop_heartbeats();
-    self.rpc.disconnect_all();
+    // mark the rpc state as disconnected to close and reject incoming connections
+    self.rpc.set_disconnected_state(true);
+    // reset the n2n config to close any open ports
+    self.n2n_agent.update_n2n_config({
+        tcp_permanent_passive: false
+    });
 };
 
 
@@ -391,6 +399,7 @@ Agent.prototype._do_heartbeat = function() {
             // for now we only use a single drive,
             // so mark the usage on the drive of our storage folder.
             var used_drives = _.filter(drives, function(drive) {
+                dbg.log0('used drives:',self.storage_path_mount ,drive,store_stats.used);
                 if (self.storage_path_mount === drive.mount) {
                     drive.storage.used = store_stats.used;
                     return true;
@@ -540,7 +549,7 @@ Agent.prototype.read_block = function(req) {
     var self = this;
     var block_md = req.rpc_params.block_md;
     dbg.log1('read_block', block_md.id, 'node', self.node_name);
-    return self.store_cache.get(block_md)
+    return self.store_cache.get_with_cache(block_md)
         .then(function(block_from_cache) {
             // must clone before returning to rpc encoding
             // since it mutates the object for encoding buffers
@@ -560,7 +569,7 @@ Agent.prototype.write_block = function(req) {
     dbg.log1('write_block', block_md.id, data.length, 'node', self.node_name);
     return P.when(self.store.write_block(block_md, data))
         .then(function() {
-            self.store_cache.put(block_md, {
+            self.store_cache.put_in_cache(block_md, {
                 block_md: block_md,
                 data: data
             });
@@ -703,7 +712,9 @@ Agent.prototype.collect_diagnostics = function(req) {
                 });
         })
         .then(null, function() {
-            return;
+            return {
+                data: new Buffer(),
+            };
         });
 };
 

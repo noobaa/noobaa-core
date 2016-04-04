@@ -9,6 +9,7 @@ module.exports = {
     append_buffer_or_array: append_buffer_or_array,
     deep_freeze: deep_freeze,
     make_object: make_object,
+    default_value: default_value,
 };
 
 
@@ -117,4 +118,9 @@ function make_object(keys, valueProvider) {
         obj[key] = valueProvider(key);
         return obj;
     }, {});
+}
+
+
+function default_value(val, def_val) {
+    return _.isUndefined(val) ? def_val : val;
 }

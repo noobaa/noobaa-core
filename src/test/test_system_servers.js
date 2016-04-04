@@ -245,6 +245,7 @@ mocha.describe('system_servers', function() {
                 secret_key: 'abc'
             }))
             */
+            .then(() => client.system.read_system())
             .then(() => client.bucket.get_cloud_sync_policy({
                 name: BUCKET,
             }))

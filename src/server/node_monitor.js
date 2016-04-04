@@ -14,7 +14,7 @@ var _ = require('lodash');
 var P = require('../util/promise');
 var db = require('./db');
 var Barrier = require('../util/barrier');
-var size_utils = require('../util/size_utils');
+var mongo_functions = require('../util/mongo_functions');
 var promise_utils = require('../util/promise_utils');
 var server_rpc = require('./server_rpc');
 var system_server = require('./system_server');
@@ -80,16 +80,15 @@ var heartbeat_count_node_storage_barrier = new Barrier({
                         $in: node_ids
                     },
                 },
-                map: function() {
-                    /* global emit */
-                    emit(this.node, this.size);
-                },
-                reduce: size_utils.reduce_sum
+                map: mongo_functions.map_node_size,
+                reduce: mongo_functions.reduce_sum
             }))
             .then(function(res) {
+
                 // convert the map-reduce array to map of node_id -> sum of block sizes
                 var nodes_storage = _.mapValues(_.keyBy(res, '_id'), 'value');
                 return _.map(node_ids, function(node_id) {
+                    dbg.log2('heartbeat_count_node_storage_barrier', nodes_storage, 'for ',node_ids, ' nodes_storage[',node_id,'] ',nodes_storage[node_id] );
                     return nodes_storage[node_id] || 0;
                 });
             });
@@ -127,6 +126,21 @@ var heartbeat_update_node_timestamp_barrier = new Barrier({
 function heartbeat(req) {
     dbg.log0('heartbeat:', 'ROLE', req.role, 'AUTH', req.auth, 'PARAMS', req.rpc_params);
     var extra = req.auth.extra || {};
+
+    // since the heartbeat api is dynamic through new versions
+    // if we detect that this is a new version we return immediately
+    // with the new version so that the agent will update the code first
+    // and only after the upgrade we will run the heartbeat functionality
+    if (req.rpc_params.version && current_pkg_version &&
+        req.rpc_params.version !== current_pkg_version) {
+        dbg.log0('SEND MINIMAL REPLY WITH NEW VERSION',
+            req.rpc_params.version, '=>', current_pkg_version,
+            'node', extra.node_id);
+        return {
+            version: current_pkg_version || '0',
+            delay_ms: 0
+        };
+    }
 
     // verify the authorization to use this node for non admin roles
     if (extra.node_id &&
@@ -183,7 +197,7 @@ function update_heartbeat(req, reply_token) {
     var peer_id = params.peer_id;
     var node;
 
-    dbg.log0('HEARTBEAT node_id', node_id, 'process.env.AGENT_VERSION', process.env.AGENT_VERSION);
+    dbg.log0('HEARTBEAT node_id', node_id, 'process.env.AGENT_VERSION', process.env.AGENT_VERSION,'  params:',params);
 
     var hb_delay_ms = process.env.AGENT_HEARTBEAT_DELAY_MS || 60000;
     hb_delay_ms *= 1 + Math.random(); // jitter of 2x max
@@ -203,7 +217,7 @@ function update_heartbeat(req, reply_token) {
         // Add node to RPC map and notify redirector if needed
         var notify_redirector = server_rpc.rpc.map_address_to_connection(rpc_address, conn);
         if (notify_redirector) {
-            conn.on('close', _unregister_agent.bind(null, conn, peer_id));
+            conn.on('close', () => P.fcall(_unregister_agent, conn, peer_id));
             P.fcall(function() {
                     return server_rpc.bg_client.redirector.register_agent({
                         peer_id: peer_id,
@@ -230,16 +244,6 @@ function update_heartbeat(req, reply_token) {
         delay_ms: hb_delay_ms,
     };
 
-    // since the heartbeat api is dynamic through new versions
-    // if we detect that this is a new version we return immediately
-    // with the new version so that the agent will update the code first
-    // and only after the upgrade we will run the heartbeat functionality
-    if (params.version && reply.version && params.version !== reply.version) {
-        dbg.log0('SEND MINIMAL REPLY WITH NEW VERSION',
-            params.version, '=>', reply.version, 'node', node_id);
-        return reply;
-    }
-
     //0.4 backward compatible - reply with version and without rpc address.
     if (!params.id) {
         reply.rpc_address = rpc_address;
@@ -265,7 +269,7 @@ function update_heartbeat(req, reply_token) {
         ])
         .spread(function(node_arg, storage_used) {
             node = node_arg;
-
+            dbg.log0('ETET:storage_used',storage_used);
             if (!node) {
                 // we don't fail here because failures would keep retrying
                 // to find this node, and the node is not in the db.
@@ -304,6 +308,7 @@ function update_heartbeat(req, reply_token) {
                     agent_storage.used, ' counted used ', storage_used);
                 // TODO trigger a detailed usage check / reclaiming
             }
+            dbg.log0('should update (?)',node.storage.used , 'with', storage_used);
 
             // check if need to update the node used storage count
             if (node.storage.used !== storage_used) {
@@ -488,10 +493,21 @@ function set_debug_node(req) {
         })
         .then(null, function(err) {
             dbg.log0('Error on set_debug_node', err);
-            return '';
+            return;
         })
         .then(function() {
-            dbg.log1('set_debug_node for agent', target, 'was successful');
+            return nodes_store.find_node_by_address(req)
+                .then((node) => {
+                    db.ActivityLog.create({
+                        system: req.system._id,
+                        level: 'info',
+                        event: 'dbg.set_debug_node',
+                        actor: req.account && req.account._id,
+                        node: node._id
+                    });
+                    dbg.log1('set_debug_node for agent', target, 'was successful');
+                    return '';
+                });
         });
 }
 

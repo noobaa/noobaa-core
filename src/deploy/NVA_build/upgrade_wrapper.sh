@@ -136,6 +136,12 @@ function post_upgrade {
   deploy_log "Note: installed MD5 was ${prevmd}, new is ${curmd}"
 
   cp -f ${CORE_DIR}/src/deploy/NVA_build/noobaa_supervisor.conf /etc/noobaa_supervisor.conf
+
+  # copy noobaa_syslog.conf to /etc/rsyslog.d/ which is included by rsyslog.conf
+  cp -f ${CORE_DIR}/src/deploy/NVA_build/noobaa_syslog.conf /etc/rsyslog.d/
+  cp -f ${CORE_DIR}/src/deploy/NVA_build/logrotate_noobaa.conf /etc/logrotate.d/noobaa
+  service rsyslog restart
+
   if [ -f /tmp/agent_conf.json ]; then
     cp -f /tmp/agent_conf.json ${CORE_DIR}/agent_conf.json
   fi
@@ -159,14 +165,7 @@ function post_upgrade {
   echo "${AGENT_VERSION_VAR}" >> ${CORE_DIR}/.env
 
 	#Fix login message
-	echo  " _   _            ______ "   > /etc/issue
-	echo  "| \\ | |           | ___ \\"    >> /etc/issue
-	echo  "|  \\| | ___   ___ | |_/ / __ _  __ _ " >> /etc/issue
-	echo  "| . \` |/ _ \\ / _ \\| ___ \\/ _\` |/ _\` |" >> /etc/issue
-	echo  "| |\\  | (_) | (_) | |_/ / (_| | (_| |" >> /etc/issue
-	echo  "\\_| \\_/\\___/ \\___/\\____/ \\__,_|\\__,_|" >> /etc/issue
-  echo -e "\nWelcome to your \x1b[0;35;40mNooBaa\x1b[0m server,\n" >> /etc/issue
-  echo -e "You can configure IP, DNS, GW and Hostname by logging in using \x1b[0;32;40mnoobaa/Passw0rd\x1b[0m" >> /etc/issue
+	fix_etc_issue
 
   deploy_log "NooBaa supervisor services configuration changes"
   #NooBaa supervisor services configuration changes

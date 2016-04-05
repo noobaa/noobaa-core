@@ -117,6 +117,28 @@ module.exports = {
             }
         },
 
+        list_bucket_access_accounts: {
+            method: 'GET',
+            params: {
+                type: 'object',
+                required: ['name'],
+                properties: {
+                    name: {
+                        type: 'string',
+                    },
+                }
+            },
+            reply: {
+                type: 'array',
+                items: {
+                    $ref: 'account_api#/definitions/account_info'
+                }
+            },
+            auth: {
+                system: 'admin'
+            }
+        },
+
         get_cloud_sync_policy: {
             method: 'GET',
             params: {
@@ -214,13 +236,25 @@ module.exports = {
             }
         },
 
-        generate_new_bucket_key: {
+        generate_bucket_access: {
             method: 'PUT',
             params: {
                 type: 'object',
                 required: ['name'],
                 properties: {
                     name: {
+                        type: 'string',
+                    }
+                }
+            },
+            reply: {
+                type: 'object',
+                required: ['access_key', 'secret_key'],
+                properties: {
+                    access_key: {
+                        type: 'string',
+                    },
+                    secret_key: {
                         type: 'string',
                     }
                 }
@@ -236,8 +270,8 @@ module.exports = {
                 type: 'object',
                 required: ['access_key', 'secret_key'],
                 properties: {
-                    endpoint:{
-                            type:'string',
+                    endpoint: {
+                        type: 'string',
                     },
                     access_key: {
                         type: 'string',
@@ -294,8 +328,8 @@ module.exports = {
                 endpoint: {
                     type: 'string',
                 },
-                target_bucket:{
-                    type:'string',
+                target_bucket: {
+                    type: 'string',
                 },
                 access_keys: {
                     type: 'array',

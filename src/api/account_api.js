@@ -83,6 +83,58 @@ module.exports = {
             }
         },
 
+        generate_account_keys: {
+            doc: 'Generate new account keys',
+            method: 'PUT',
+            params: {
+                type: 'object',
+                required: ['email'],
+                properties: {
+                    email: {
+                        type: 'string',
+                    }
+                },
+            },
+            reply: {
+                type: 'object',
+                required: ['access_key', 'secret_key'],
+                properties: {
+                    access_key: {
+                        type: 'string',
+                    },
+                    secret_key: {
+                        type: 'string',
+                    }
+                }
+            },
+            auth: {
+                system: 'admin'
+            }
+        },
+
+        update_bucket_permissions: {
+            doc: 'Update bucket access permissions',
+            method: 'PUT',
+            params: {
+                type: 'object',
+                required: ['email'], //['allowed_buckets'],
+                properties: {
+                    email: {
+                        type: 'string',
+                    },
+                    allowed_buckets: {
+                        type: 'array',
+                        items: {
+                            type: 'string'//format: 'objectid'
+                        }
+                    },
+                },
+            },
+            auth: {
+                system: 'admin'
+            }
+        },
+
         delete_account: {
             doc: 'Delete a given account',
             method: 'DELETE',
@@ -201,6 +253,24 @@ module.exports = {
                 },
                 is_support: {
                     type: 'boolean',
+                },
+                noobaa_access_keys: {
+                    type: 'object',
+                    required: ['access_key', 'secret_key'],
+                    properties: {
+                        access_key: {
+                            type: 'string'
+                        },
+                        secret_key: {
+                            type: 'string'
+                        }
+                    }
+                },
+                allowed_buckets: {
+                    type: 'array',
+                    items: {
+                        type: 'string'//format: 'objectid'//type: 'string'
+                    }
                 },
                 systems: {
                     type: 'array',

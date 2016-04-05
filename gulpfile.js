@@ -170,7 +170,7 @@ var PATHS = {
         'bower_components/ladda/js/spin.js',
         'bower_components/ladda/js/ladda.js',
         'bower_components/alertify.js/lib/alertify.js',
-        'node_modules/selectize/dist/js/standalone/selectize.js',
+        // 'node_modules/selectize/dist/js/standalone/selectize.js',
         'node_modules/video.js/dist/video-js/video.dev.js',
         //'vendor/flowplayer-5.4.6/flowplayer.js',
     ],
@@ -180,6 +180,7 @@ var PATHS = {
         'src/rpc/**/*.js',
         'src/api/**/*.js',
         'src/util/**/*.js',
+        'tools/**/*.js',
     ],
 
     NVA_Package_sources: [

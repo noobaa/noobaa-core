@@ -1,10 +1,10 @@
 'use strict';
 
 var moment = require('moment');
-var size_utils = require('../src/util/size_utils');
-var api = require('../src/api');
-var ObjectIO = require('../src/api/object_io_client');
-var dbg = require('../src/util/debug_module')(__filename);
+var size_utils = require('../util/size_utils');
+var api = require('../api');
+var ObjectIO = require('../api/object_io');
+var dbg = require('../util/debug_module')(__filename);
 dbg.set_level(5);
 
 var bkt = process.argv[2];

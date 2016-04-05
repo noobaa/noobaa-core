@@ -8,8 +8,8 @@ let mime = require('mime');
 let http = require('http');
 let AWS = require('aws-sdk');
 var argv = require('minimist')(process.argv);
-let size_utils = require('../src/util/size_utils');
-let RandStream = require('../src/util/rand_stream');
+let size_utils = require('../util/size_utils');
+let RandStream = require('../util/rand_stream');
 
 
 argv.bucket = argv.bucket || 'files';

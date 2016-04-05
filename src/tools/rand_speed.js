@@ -1,9 +1,9 @@
 'use strict';
 let _ = require('lodash');
-let RandStream = require('../src/util/rand_stream');
-let cluster = require('cluster');
 let zlib = require('zlib');
-let Speedometer = require('../src/util/speedometer');
+let cluster = require('cluster');
+let RandStream = require('../util/rand_stream');
+let Speedometer = require('../util/speedometer');
 let argv = require('minimist')(process.argv);
 argv.forks = argv.forks || 1;
 

@@ -2,7 +2,7 @@
 let _ = require('lodash');
 let cluster = require('cluster');
 let crypto = require('crypto');
-let Speedometer = require('../src/util/speedometer');
+let Speedometer = require('../util/speedometer');
 let argv = require('minimist')(process.argv);
 argv.forks = argv.forks || 1;
 argv.size = argv.size || 1024;

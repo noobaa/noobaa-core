@@ -1,7 +1,7 @@
 'use strict';
 
 let dgram = require('dgram');
-let stun = require('../src/rpc/stun');
+let stun = require('../rpc/stun');
 let argv = require('minimist')(process.argv);
 
 argv.port = argv.port || 3478;

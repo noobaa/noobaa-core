@@ -102,7 +102,7 @@ function new_system_changes(name, owner_account_id) {
         tier: tier._id,
         order: 0
     }]);
-    var bucket = bucket_server.new_bucket_defaults(default_bucket_name, system._id, policy._id, system.access_keys[0]);
+    var bucket = bucket_server.new_bucket_defaults(default_bucket_name, system._id, policy._id);
     var role = {
         _id: system_store.generate_id(),
         account: owner_account_id,

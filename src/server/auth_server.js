@@ -200,7 +200,7 @@ function create_access_key_auth(req) {
         throw req.unauthorized('account not found');
     }
     dbg.log0('create_access_key_auth:',
-        'system.name', account.email,
+        'account.name', account.email,
         'access_key', access_key,
         'string_to_sign', string_to_sign,
         'signature', signature);
@@ -345,7 +345,7 @@ function authorize(req) {
             }
             req.auth = jwt.verify(auth_token, process.env.JWT_SECRET);
             auth_token_obj = req.auth;
-            console.warn('Auth Token Object5: ', req.auth);
+            //console.warn('Auth Token Object5: ', req.auth);
 
         } catch (err) {
             dbg.error('AUTH JWT VERIFY FAILED', req, err);
@@ -360,7 +360,7 @@ function authorize(req) {
         dbg.log0('authorize:', req.method_api.auth, req.srv);
         req.load_auth();
 
-        console.warn('AUTHORIZE S3 AUTH auth_token_obj: ', auth_token_obj);
+        //console.warn('AUTHORIZE S3 AUTH auth_token_obj: ', auth_token_obj);
         //if request request has access signature, validate the signature
         if (auth_token_obj && auth_token_obj.s3_auth) {
             var s3_params = auth_token_obj.s3_auth;

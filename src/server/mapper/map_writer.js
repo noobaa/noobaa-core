@@ -19,9 +19,7 @@ module.exports = {
     list_multipart_parts: list_multipart_parts,
     fix_multipart_parts: fix_multipart_parts,
     calc_multipart_md5: calc_multipart_md5,
-    calc_multipart_sha256: calc_multipart_sha256,
     set_multipart_part_md5: set_multipart_part_md5,
-    //set_multipart_part_sha256: set_multipart_part_sha256,
     report_bad_block: report_bad_block,
 };
 
@@ -161,7 +159,6 @@ function list_multipart_parts(params) {
                             return sum + part.end - part.start;
                         }, 0),
                         etag: updated_item.etag,
-                        etag_sha256: updated_item.etag_sha256,
                         last_modified: updated_item._id.getTimestamp().getTime(),
                     };
                 })
@@ -192,41 +189,11 @@ function set_multipart_part_md5(params) {
             }, {
                 $set: {
                     etag: params.etag,
-                    etag_sha256: params.etag_sha256
                 }
             });
         })
         .return();
 }
-
-
-/**
- *
- * set_multipart_part_sha256
- *
- */
-/*function set_multipart_part_sha256(params) {
-    return P.when(db.ObjectPart.collection.find({
-            system: params.obj.system,
-            obj: params.obj._id,
-            upload_part_number: params.upload_part_number,
-            part_sequence_number: 0,
-            deleted: null,
-        }, {
-            sort: '-_id' // when same, get newest first
-        }).toArray())
-        .then(function(part_obj) {
-            dbg.log1('set_multipart_part_sha256_obj: ', part_obj[0]._id, params.etag_sha256);
-            return db.ObjectPart.collection.updateOne({
-                _id: part_obj[0]._id
-            }, {
-                $set: {
-                    etag_sha256: params.etag_sha256
-                }
-            });
-        })
-        .return();
-}*/
 
 
 /**
@@ -268,48 +235,6 @@ function calc_multipart_md5(obj) {
         var aggregated_md5 = digester.digest('hex') + '-' + upload_parts.length;
         dbg.log0('aggregated etag:', aggregated_md5, ' for ', obj.key);
         return aggregated_md5;
-    });
-}
-
-/**
- *
- * calc_multipart_sha256
- *
- */
-function calc_multipart_sha256(obj) {
-    var aggregated_nobin_sha256 = '';
-    var aggregated_bin_sha256 = '';
-    return P.fcall(function() {
-        // find part that need update of start and end offsets
-        dbg.warn('calc_multipart_sha256: SLOW QUERY',
-            'ObjectPart.find(part_sequence_number:0).',
-            'add part_sequence_number to index?');
-        return db.ObjectPart.collection.find({
-            system: obj.system,
-            obj: obj._id,
-            part_sequence_number: 0,
-            deleted: null,
-            etag_sha256: {
-                $exists: true
-            }
-        }, {
-            sort: {
-                upload_part_number: 1,
-                _id: -1 // when same, get newest first
-            }
-        }).toArray();
-    }).then(function(upload_parts) {
-        _.each(upload_parts, function(part) {
-            var part_sha256 = part.etag_sha256;
-            aggregated_nobin_sha256 = aggregated_nobin_sha256 + part_sha256;
-            aggregated_bin_sha256 = aggregated_bin_sha256 + string_utils.toBinary(part_sha256);
-            dbg.log0('part', part, ' with sha256', part_sha256, 'aggregated:', aggregated_nobin_sha256);
-        });
-        var digester = crypto.createHash('sha256');
-        digester.update(aggregated_bin_sha256);
-        var aggregated_sha256 = digester.digest('hex') + '-' + upload_parts.length;
-        dbg.log0('aggregated etag_sha256:', aggregated_sha256, ' for ', obj.key);
-        return aggregated_sha256;
     });
 }
 
@@ -397,7 +322,6 @@ function fix_multipart_parts(obj) {
                         $unset: {
                             upload_part_number: '',
                             etag: '',
-                            etag_sha256: ''
                         }
                     });
                     last_end = current_end;

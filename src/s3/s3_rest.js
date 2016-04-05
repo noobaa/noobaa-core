@@ -175,10 +175,11 @@ function s3_rest(controller) {
                 }
             }
 
+            var bodyless_requests = ['UNSIGNED-PAYLOAD', 'STREAMING-AWS4-HMAC-SHA256-PAYLOAD'];
             let content_sha256_b64 = req.headers['x-amz-content-sha256'];
-            if (!_.isUndefined(content_sha256_b64)) {
+            if (!_.isUndefined(content_sha256_b64) &&
+                bodyless_requests.indexOf(content_sha256_b64.toString()) < 0) {
                 req.content_sha256 = new Buffer(content_sha256_b64, 'hex');
-                console.warn('BUFFER SHA256 AFTER READ: ', req.content_sha256);
                 if (req.content_sha256.length !== 32) {
                     throw s3_errors.InvalidDigest;
                 }
@@ -231,31 +232,31 @@ function s3_rest(controller) {
                     if (req.headers.authorization.substring(0, 4) === 'AWS4') {
                         let v4info = {};
                         v4info.xamzdate = req.headers['x-amz-date'];
-                        console.warn('v4info.xamzdate: ', v4info.xamzdate);
+                        //console.warn('v4info.xamzdate: ', v4info.xamzdate);
                         v4info.signedheaders = req.headers.authorization.substring(req.headers.authorization.indexOf('SignedHeaders') + 14,
                             req.headers.authorization.indexOf('Signature') - 2);
-                        console.warn('v4info.signedheaders: ', v4info.signedheaders);
+                        //console.warn('v4info.signedheaders: ', v4info.signedheaders);
                         //authorization: 'AWS4-HMAC-SHA256 Credential=wwwwwwwwwwwww123aaaa/20151023/us-east-1/s3/aws4_request, SignedHeaders=host;x-amz-content-sha256;x-amz-date, Signature=0b04a57def200559b3353551f95bce0712e378c703a97d58e13a6eef41a20877',
                         /*let credentials_location = req.headers.authorization.indexOf('Credential') + 11;
                         req_access_key = req.headers.authorization.substring(credentials_location, req.headers.authorization.indexOf('/'));*/
                         let credentials_str = req.headers.authorization.substring(req.headers.authorization.indexOf('Credential') + 11,
                             req.headers.authorization.indexOf(','));
-                        console.warn('credentials_str: ', credentials_str);
+                        //console.warn('credentials_str: ', credentials_str);
                         req_access_key = credentials_str.substring(0, credentials_str.indexOf('/'));
-                        console.warn('req_access_key: ', req_access_key);
+                        //console.warn('req_access_key: ', req_access_key);
                         // TODO: 1 for the / and another 8 for the date and another 1 for the /
                         credentials_str = credentials_str.substring(req_access_key.length + 10);
-                        console.warn('credentials_str: ', credentials_str);
+                        //console.warn('credentials_str: ', credentials_str);
                         v4info.region = credentials_str.substring(0, credentials_str.indexOf('/'));
-                        console.warn('v4info.region: ', v4info.region);
+                        //console.warn('v4info.region: ', v4info.region);
                         credentials_str = credentials_str.substring(v4info.region.length + 1);
-                        console.warn('credentials_str: ', credentials_str);
+                        //console.warn('credentials_str: ', credentials_str);
                         v4info.service = credentials_str.substring(0, credentials_str.indexOf('/'));
-                        console.warn('v4info.service: ', v4info.service);
+                        //console.warn('v4info.service: ', v4info.service);
                         req.noobaa_v4 = v4info;
                         console.warn('req.noobaa_v4: ', req.noobaa_v4);
                         signature = req.headers.authorization.substring(req.headers.authorization.indexOf('Signature') + 10);
-                        console.warn('signature: ', signature);
+                        //console.warn('signature: ', signature);
                     } else {
                         req_access_key = req.headers.authorization.substring(4, end_of_aws_key);
                         signature = req.headers.authorization.substring(end_of_aws_key + 1, req.headers.authorization.length);
@@ -270,33 +271,32 @@ function s3_rest(controller) {
                     req.signature = req.query.Signature;
                     dbg.log1('signed url');
                 } else if (req.query['X-Amz-Credential']) {
-                    //TODO TODO TODO TODO TODO TODO TODO TODO TODO TODO TODO TODO TODO
                     let v4info = {};
                     v4info.xamzdate = req.query['X-Amz-Date'];
-                    console.warn('v4info.xamzdate: ', v4info.xamzdate);
+                    //console.warn('v4info.xamzdate: ', v4info.xamzdate);
                     v4info.signedheaders = req.query['X-Amz-SignedHeaders'];
-                    console.warn('v4info.signedheaders: ', v4info.signedheaders);
+                    //console.warn('v4info.signedheaders: ', v4info.signedheaders);
                     //authorization: 'AWS4-HMAC-SHA256 Credential=wwwwwwwwwwwww123aaaa/20151023/us-east-1/s3/aws4_request, SignedHeaders=host;x-amz-content-sha256;x-amz-date, Signature=0b04a57def200559b3353551f95bce0712e378c703a97d58e13a6eef41a20877',
                     /*let credentials_location = req.headers.authorization.indexOf('Credential') + 11;
                     req_access_key = req.headers.authorization.substring(credentials_location, req.headers.authorization.indexOf('/'));*/
                     let credentials_str = req.query['X-Amz-Credential'];
-                    console.warn('credentials_str: ', credentials_str);
+                    //console.warn('credentials_str: ', credentials_str);
                     req.access_key = credentials_str.substring(0, credentials_str.indexOf('/'));
-                    console.warn('req.access_key: ', req.access_key);
+                    //console.warn('req.access_key: ', req.access_key);
                     // TODO: 1 for the / and another 8 for the date and another 1 for the /
                     credentials_str = credentials_str.substring(req.access_key.length + 10);
-                    console.warn('credentials_str: ', credentials_str);
+                    //console.warn('credentials_str: ', credentials_str);
                     v4info.region = credentials_str.substring(0, credentials_str.indexOf('/'));
-                    console.warn('v4info.region: ', v4info.region);
+                    //console.warn('v4info.region: ', v4info.region);
                     credentials_str = credentials_str.substring(v4info.region.length + 1);
-                    console.warn('credentials_str: ', credentials_str);
+                    //console.warn('credentials_str: ', credentials_str);
                     v4info.service = credentials_str.substring(0, credentials_str.indexOf('/'));
-                    console.warn('v4info.service: ', v4info.service);
+                    //console.warn('v4info.service: ', v4info.service);
                     req.noobaa_v4 = v4info;
                     console.warn('req.noobaa_v4: ', req.noobaa_v4);
                     req.signature = req.query['X-Amz-Signature'];
                     //signature = req.headers.authorization.substring(req.headers.authorization.indexOf('Signature') + 10);
-                    console.warn('req.signature: ', req.signature);
+                    //console.warn('req.signature: ', req.signature);
 
                     //req.access_key = req.query['X-Amz-Credential'].substring(0, req.query['X-Amz-Credential'].indexOf('/'));
                     //req.signature = req.query['X-Amz-Signature'];
@@ -338,18 +338,18 @@ function s3_rest(controller) {
                 //if ((req.headers.authorization === 'AWS ' + req.access_key + ':' + s3_internal_signature) ||
                 //if ((req.headers.authorization === 'AWS ' + req.access_key + ':' + s3_internal_signature) ||
                 //if (req.signature === s3_internal_signature) {
-                    //console.warn('PAAAASSSEEEEEDDDDDD');
-                    // dbg.log0('s3 internal authentication test passed!!!', s3_internal_signature);
+                //console.warn('PAAAASSSEEEEEDDDDDD');
+                // dbg.log0('s3 internal authentication test passed!!!', s3_internal_signature);
                 // } else {
                 //     throw s3_errors.SignatureDoesNotMatch;
                 //     //console.warn('FAIIIIILLLLEEEEDDDDD');
                 //     dbg.error('s3 internal authentication test failed!!! Computed signature is ', s3_internal_signature, 'while the expected signature is:', req.headers.authorization || req.query.Signature);
                 // }
-            /*    dbg.log0('S3 request information. Time:', Date.now(),
-                    'url:', req.originalUrl,
-                    'method:', req.method,
-                    'headers:', req.headers,
-                    'query:', req.query);*/
+                /*    dbg.log0('S3 request information. Time:', Date.now(),
+                        'url:', req.originalUrl,
+                        'method:', req.method,
+                        'headers:', req.headers,
+                        'query:', req.query);*/
                 return controller.prepare_request(req);
 
             })

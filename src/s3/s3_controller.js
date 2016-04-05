@@ -40,11 +40,11 @@ class S3Controller {
         //console.warn('MY ARRAY OF KEYS IS: ', this.rpc_client_by_access_key);
         //req.rpc_client = this.rpc_client_by_access_key[req.access_key];
         //if (!req.rpc_client) {
-            req.rpc_client =
-                //this.rpc_client_by_access_key[req.access_key] =
-                this.rpc.new_client();
-            req.rpc_client.object_io = new ObjectIO(req.rpc_client);
-            return req.rpc_client.create_access_key_auth({
+        req.rpc_client =
+            //this.rpc_client_by_access_key[req.access_key] =
+            this.rpc.new_client();
+        req.rpc_client.object_io = new ObjectIO(req.rpc_client);
+        return req.rpc_client.create_access_key_auth({
                 access_key: req.access_key,
                 string_to_sign: req.string_to_sign,
                 signature: req.signature,
@@ -376,14 +376,11 @@ class S3Controller {
             xattr: get_request_xattr(req),
             source_stream: req,
             calculate_md5: true,
-            calculate_sha256: true//(!_.isUndefined(req.content_sha256)) ? true : false
+            calculate_sha256: (!_.isUndefined(req.content_sha256)) ? true : false
         };
         this._ifs_for_create(req, params);
         return req.rpc_client.object_io.upload_stream(params)
             .then(md5_digest => {
-                //console.warn('THIS IS WHAT WE GOT: ', md5_digest);
-                //console.warn('THIS IS WHAT WE GOT SHA256: ', md5_digest.md5.toString('hex'));
-                //console.warn('THIS IS WHAT WE GOT: ', typeof md5_digest.md5, typeof req.content_md5);
                 let etag = md5_digest.md5.toString('hex');
                 res.setHeader('ETag', '"' + etag + '"');
                 if (req.content_md5) {
@@ -396,12 +393,10 @@ class S3Controller {
                     }
                 }
                 if (req.content_sha256) {
-                    //console.warn('THIS IS WHAT WE GOT: ', typeof md5_digest.sha256, typeof req.content_sha256);
-
                     if (Buffer.compare(md5_digest.sha256, req.content_sha256)) {
                         // TODO GGG how to handle? delete the object?
                         dbg.error('S3Controller.put_object: BadDigest',
-                            'content-md5', req.content_sha256.toString('hex'),
+                            'content-sha256', req.content_sha256.toString('hex'),
                             'etag', md5_digest.sha256.toString('hex'));
                         throw s3_errors.BadDigest;
                     }
@@ -586,11 +581,11 @@ class S3Controller {
                 size: req.content_length,
                 source_stream: req,
                 calculate_md5: true,
-                calculate_sha256: true//(!_.isUndefined(req.content_sha256)) ? true : false
+                calculate_sha256: (!_.isUndefined(req.content_sha256)) ? true : false
             })
             .then(md5_digest => {
                 let etag = md5_digest.md5.toString('hex');
-                let etag_sha256 = md5_digest.sha256.toString('hex');
+                //let etag_sha256 = md5_digest.sha256.toString('hex');
 
                 res.setHeader('ETag', '"' + etag + '"');
                 if (req.content_md5) {
@@ -603,12 +598,10 @@ class S3Controller {
                     }
                 }
                 if (req.content_sha256) {
-                    // console.warn('THIS IS WHAT WE GOT: ', md5_digest.sha256, " LOOK RIGHT " ,req.content_sha256);
-
                     if (Buffer.compare(md5_digest.sha256, req.content_sha256)) {
                         // TODO GGG how to handle? delete the object?
                         dbg.error('S3Controller.put_object: BadDigest',
-                            'content-md5', req.content_sha256.toString('hex'),
+                            'content-sha256', req.content_sha256.toString('hex'),
                             'etag', md5_digest.sha256.toString('hex'));
                         throw s3_errors.BadDigest;
                     }
@@ -618,8 +611,7 @@ class S3Controller {
                     key: req.params.key,
                     upload_id: req.query.uploadId,
                     upload_part_number: upload_part_number,
-                    etag: etag,
-                    etag_sha256: etag_sha256
+                    etag: etag
                 });
             });
     }

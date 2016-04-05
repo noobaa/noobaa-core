@@ -90,9 +90,6 @@ module.exports = {
                     },
                     etag: {
                         type: 'string',
-                    },
-                    etag_sha256: {
-                        type: 'string',
                     }
                 }
             },
@@ -101,9 +98,6 @@ module.exports = {
                 required: ['etag'],
                 properties: {
                     etag: {
-                        type: 'string',
-                    },
-                    etag_sha256: {
                         type: 'string',
                     }
                 }
@@ -203,9 +197,6 @@ module.exports = {
                                 etag: {
                                     type: 'string'
                                 },
-                                etag_sha256: {
-                                    type: 'string'
-                                },
                                 last_modified: {
                                     format: 'idate'
                                 }
@@ -228,8 +219,7 @@ module.exports = {
                     'key',
                     'upload_id',
                     'upload_part_number',
-                    'etag',
-                    'etag_sha256'
+                    'etag'
                 ],
                 properties: {
                     bucket: {
@@ -245,9 +235,6 @@ module.exports = {
                         type: 'integer',
                     },
                     etag: {
-                        type: 'string',
-                    },
-                    etag_sha256: {
                         type: 'string',
                     }
                 }
@@ -656,9 +643,6 @@ module.exports = {
                     type: 'integer',
                 },
                 etag: {
-                    type: 'string',
-                },
-                etag_sha256: {
                     type: 'string',
                 },
                 xattr: {

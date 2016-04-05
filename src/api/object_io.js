@@ -177,10 +177,6 @@ class ObjectIO {
                 if (md5_digest.md5) {
                     complete_params.etag = md5_digest.md5.toString('hex');
                 }
-                if (md5_digest.sha256) {
-                    complete_params.etag_sha256 = md5_digest.sha256.toString('hex');
-                }
-
                 dbg.log0('upload_stream: complete upload', complete_params.key, complete_params.etag);
                 return this.client.object.complete_object_upload(complete_params)
                     .return(md5_digest);
@@ -216,10 +212,6 @@ class ObjectIO {
             source_stream = md5_stream;
         }
         if (params.calculate_sha256) {
-            //sha256_stream = new Stream();
-            //const hash = crypto.createHash('sha256');
-            //input.pipe(hash).pipe(process.stdout);
-
             sha256_stream = new HASHStream({
                 highWaterMark: 1024 * 1024,
                 hash_type: 'sha256'
@@ -302,7 +294,12 @@ class ObjectIO {
 
         return pipeline.run()
             .then(() => {
-                return P.all([P.resolve(md5_stream && md5_stream.wait_digest()), P.resolve(sha256_stream && sha256_stream.wait_digest())])
+                var sha256_promise = '';
+                if(params.calculate_sha256)
+                {
+                    sha256_promise = P.resolve(sha256_stream && sha256_stream.wait_digest());
+                }
+                return P.all([P.resolve(md5_stream && md5_stream.wait_digest()), sha256_promise])
                     .then((values) => {
                         return {
                             md5: values[0],

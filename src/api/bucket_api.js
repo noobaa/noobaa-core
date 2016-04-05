@@ -311,10 +311,7 @@ module.exports = {
                 },
                 num_objects: {
                     type: 'integer'
-                },
-                access_keys: {
-                    $ref: 'system_api#/definitions/access_keys'
-                },
+                },                
                 cloud_sync_status: {
                     $ref: '#/definitions/api_cloud_sync_status'
                 }

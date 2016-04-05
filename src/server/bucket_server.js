@@ -50,7 +50,7 @@ const VALID_BUCKET_NAME_REGEXP = new RegExp(
     '^(([a-z]|[a-z][a-z0-9\-]*[a-z0-9])\\.)*' +
     '([a-z]|[a-z][a-z0-9\-]*[a-z0-9])$');
 
-function new_bucket_defaults(name, system_id, tiering_policy_id, access_keys) {
+function new_bucket_defaults(name, system_id, tiering_policy_id) {
     return {
         _id: system_store.generate_id(),
         name: name,
@@ -59,8 +59,7 @@ function new_bucket_defaults(name, system_id, tiering_policy_id, access_keys) {
         stats: {
             reads: 0,
             writes: 0,
-        },
-        access_keys: access_keys
+        }
     };
 }
 
@@ -102,8 +101,7 @@ function create_bucket(req) {
     let bucket = new_bucket_defaults(
         req.rpc_params.name,
         req.system._id,
-        tiering_policy._id,
-        req.system.access_keys[0]);
+        tiering_policy._id);
     changes.insert.buckets = [bucket];
     db.ActivityLog.create({
         event: 'bucket.create',
@@ -186,7 +184,7 @@ function generate_bucket_access(req) {
         throw req.rpc_error('INVALID_BUCKET_NAME');
     }
     var account_email = req.system.name + system_store.data.accounts.length + '@noobaa.com';
-    console.warn('Email Generated: ', account_email);
+    //console.warn('Email Generated: ', account_email);
     return server_rpc.client.account.create_account({
             name: req.system.name,
             email: account_email,
@@ -195,7 +193,7 @@ function generate_bucket_access(req) {
             auth_token: req.auth_token
         })
         .then(() => {
-            console.warn('Account Created');
+            //console.warn('Account Created');
             return server_rpc.client.account.update_bucket_permissions({
                 email: account_email,
                 allowed_buckets: [bucket.name]
@@ -204,7 +202,7 @@ function generate_bucket_access(req) {
             });
         })
         .then(() => {
-            console.warn('Permissions Created');
+            //console.warn('Permissions Created');
             return server_rpc.client.account.generate_account_keys({
                 email: account_email
             }, {
@@ -229,8 +227,8 @@ function list_bucket_access_accounts(req) {
     var reply = _.map(access_accounts, function(val) {
         return _.pick(val, 'name', 'email', 'is_support', 'noobaa_access_keys');
     });
-    console.warn('MY ACCOUNTS ARE: ', typeof reply);
-    console.warn(Array.isArray(reply));
+    //console.warn('MY ACCOUNTS ARE: ', typeof reply);
+    //console.warn(Array.isArray(reply));
     return reply;
 }
 
@@ -283,7 +281,7 @@ function delete_bucket(req) {
             auth_token: req.auth_token
         }))
         .then((res) => {
-        //TODO NEED TO INSERT CODE THAT DELETES BUCKET ID FROM ALL ACCOUNT PERMISSIONS;
+            //TODO NEED TO INSERT CODE THAT DELETES BUCKET ID FROM ALL ACCOUNT PERMISSIONS;
             return res;
         })
         .return();
@@ -532,12 +530,12 @@ function find_bucket(req) {
             throw req.unauthorized('account not found');
         }
 
-        console.warn('find_bucket allowed_buckets: ', account.allowed_buckets, 'AND BUCKET: ', bucket);
+        //console.warn('find_bucket allowed_buckets: ', account.allowed_buckets, 'AND BUCKET: ', bucket);
         var is_allowed = _.find(account.allowed_buckets, function(allowed_bucket) {
             return allowed_bucket.toString() === bucket._id.toString();
         });
 
-        if(!is_allowed) {
+        if (!is_allowed) {
             throw req.unauthorized('No permission to access bucket');
         }
     }
@@ -560,7 +558,6 @@ function get_bucket_info(bucket, objects_aggregate, nodes_aggregate_pool, cloud_
         free: info.tiering && info.tiering.storage && info.tiering.storage.free || 0,
     });
     info.cloud_sync_status = _.isEmpty(cloud_sync_policy) ? 'NOTSET' : cloud_sync_policy.status;
-    info.access_keys = bucket.access_keys;
     return info;
 }
 

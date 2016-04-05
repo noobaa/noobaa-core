@@ -73,10 +73,6 @@ var object_part_schema = new Schema({
         type: String,
     },
 
-    etag_sha256: {
-        type: String,
-    },
-
     // on delete set deletion time
     deleted: {
         type: Date

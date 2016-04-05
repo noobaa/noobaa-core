@@ -179,12 +179,12 @@ function noobaa_string_to_sign_v4(req) {
     var parts = [];
 
     var canonicalStringstr = canonicalString(req);
-    console.warn('CANONICAL CHECK: ', canonicalStringstr);
+    //console.warn('CANONICAL CHECK: ', canonicalStringstr);
     parts.push('AWS4-HMAC-SHA256');
     parts.push(req.noobaa_v4.xamzdate);
     parts.push(credentialString(req));
     parts.push(hexEncodedHash(canonicalStringstr));
-    console.warn('ALGO noobaa_string_to_sign_v4:', parts);
+    //console.warn('ALGO noobaa_string_to_sign_v4:', parts);
     return parts.join('\n');
 }
 
@@ -192,7 +192,7 @@ function canonicalString(req) {
     var parts = [],
         pathname = req.path;
     let querystr = queryParse(req);
-    console.warn('THE QUERRY STRING: ', querystr);
+    //console.warn('THE QUERRY STRING: ', querystr);
 
     if (req.noobaa_v4.service !== 's3') pathname = s3_util.uriEscapePath(pathname);
 

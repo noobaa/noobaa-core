@@ -69,7 +69,7 @@ function create_account(req) {
             return system_store.make_changes(changes);
         })
         .then(function() {
-            console.warn('req.system: ', req.system, 'req.account: ', req.account, 'account: ', account);
+            //console.warn('req.system: ', req.system, 'req.account: ', req.account, 'account: ', account);
             let updates = _.pick(account, '_id');
             let new_access_keys = {
                 access_key: crypto.randomBytes(16).toString('hex'),
@@ -173,7 +173,7 @@ function generate_account_keys(req) {
  *
  */
 function update_bucket_permissions(req) {
-    console.warn('req.rpc_params: ', req);
+    //console.warn('req.rpc_params: ', req);
     var system = req.system;
     //req.rpc_params.allowed_buckets = ['files', 'check3'];
     let account = system_store.data.accounts_by_email[req.rpc_params.email];
@@ -195,10 +195,10 @@ function update_bucket_permissions(req) {
     }
     let updates = _.pick(account, '_id');
     updates.allowed_buckets = [];
-    console.warn('system_store.data.buckets_by_name: ', system.buckets_by_name);
+    //console.warn('system_store.data.buckets_by_name: ', system.buckets_by_name);
     if (req.rpc_params.allowed_buckets) {
         updates.allowed_buckets = _.map(req.rpc_params.allowed_buckets, bucket_name => system.buckets_by_name[bucket_name]._id.toString());
-        console.warn('updates.allowed_buckets: ', updates.allowed_buckets);
+        //console.warn('updates.allowed_buckets: ', updates.allowed_buckets);
     }
     return system_store.make_changes({
             update: {
@@ -374,7 +374,7 @@ function add_account_sync_credentials_cache(req) {
 
 
 function get_account_info(account) {
-    console.log('account', account);
+    //console.log('account', account);
     var info = _.pick(account, 'name', 'email');
     if (account.is_support) {
         info.is_support = true;
@@ -382,7 +382,7 @@ function get_account_info(account) {
     if (account.noobaa_access_keys) {
         info.noobaa_access_keys = account.noobaa_access_keys;
     }
-    console.warn('account.allowed_buckets: ', account.allowed_buckets);
+    //console.warn('account.allowed_buckets: ', account.allowed_buckets);
     if (account.allowed_buckets) {
         /*let buckets_list = _.filter(account.allowed_buckets, function(bucket) {
             return bucket.system.owner._id.toString() !== account._id.toString();
@@ -396,7 +396,7 @@ function get_account_info(account) {
             roles: roles
         };
     });
-    console.log('get_account_info', info);
+    //console.log('get_account_info', info);
     return info;
 }
 

@@ -594,14 +594,14 @@ class S3Controller {
 
     _ifs_check(req, res, object_md) {
         if ('if-modified-since' in req.headers && (
-                object_md.create_time.getTime() <=
+                object_md.create_time <=
                 (new Date(req.headers['if-modified-since'])).getTime()
             )) {
             res.status(304).end();
             return false;
         }
         if ('if-unmodified-since' in req.headers && (
-                object_md.create_time.getTime() >=
+                object_md.create_time >=
                 (new Date(req.headers['if-unmodified-since'])).getTime()
             )) {
             res.status(412).end();

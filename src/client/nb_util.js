@@ -35,7 +35,7 @@ nb_util.run(['$rootScope', function($rootScope) {
         selector: '[rel=popover]'
     });
     $('.datetimepicker').datetimepicker();
-    $('select').selectize();
+    // $('select').selectize();
 }]);
 
 

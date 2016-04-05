@@ -3,8 +3,8 @@
 var _ = require('lodash');
 var repl = require('repl');
 var util = require('util');
-var api = require('../src/api');
-var P = require('../src/util/promise');
+var api = require('../api');
+var P = require('../util/promise');
 
 var repl_srv;
 

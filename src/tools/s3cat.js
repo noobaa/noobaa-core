@@ -5,6 +5,7 @@ let fs = require('fs');
 let stream = require('stream');
 let moment = require('moment');
 let mime = require('mime');
+let http = require('http');
 let AWS = require('aws-sdk');
 var argv = require('minimist')(process.argv);
 let size_utils = require('../src/util/size_utils');
@@ -20,6 +21,11 @@ let s3 = new AWS.S3({
     s3ForcePathStyle: true,
     sslEnabled: false,
     computeChecksums: false,
+    httpOptions: {
+        agent: new http.Agent({
+            keepAlive: true
+        })
+    }
 });
 
 if (argv.help) {
@@ -93,9 +99,12 @@ function upload_file() {
         _.isString(argv.upload) && argv.upload ||
         _.isString(argv.put) && argv.put ||
         '';
+    argv.size = argv.size || 1024;
+    argv.concur = argv.concur || 32;
+    argv.part_size = argv.part_size || 32;
     let data_source;
     let data_size;
-    let part_size = (argv.part_size || 64) * 1024 * 1024;
+    let part_size = argv.part_size * 1024 * 1024;
     if (file_path) {
         upload_key = upload_key || file_path + '-' + Date.now().toString(36);
         data_source = fs.createReadStream(file_path, {
@@ -106,10 +115,9 @@ function upload_file() {
             'of size', size_utils.human_size(data_size));
     } else {
         upload_key = upload_key || 'upload-' + Date.now().toString(36);
-        data_size = (argv.size || 10 * 1024) * 1024 * 1024;
+        data_size = argv.size * 1024 * 1024;
         data_source = new RandStream(data_size, {
             highWaterMark: part_size,
-            no_crypto: true
         });
         console.log('Uploading', upload_key, 'from generated data of size',
             size_utils.human_size(data_size));
@@ -123,28 +131,29 @@ function upload_file() {
         let now = Date.now();
         if (now - progress_time >= 500) {
             let percents = Math.round(progress.loaded / data_size * 100);
-            let current_speed_str = size_utils.human_size(
+            let current_speed_str = (
                 (progress.loaded - progress_bytes) /
-                (now - progress_time) * 1000);
-            let avg_speed_str = size_utils.human_size(
-                progress.loaded / (now - start_time) * 1000);
+                (now - progress_time) * 1000 / 1024 / 1024).toFixed(0);
+            let avg_speed_str = (
+                progress.loaded /
+                (now - start_time) * 1000 / 1024 / 1024).toFixed(0);
             progress_time = now;
             progress_bytes = progress.loaded;
             console.log(percents + '% progress.',
-                current_speed_str + '/sec',
-                '(~', avg_speed_str + '/sec)');
+                current_speed_str, 'MB/sec',
+                '(~', avg_speed_str, 'MB/sec)');
         }
     }
 
-    function on_finish(err, data) {
+    function on_finish(err) {
         if (err) {
             console.error('UPLOAD ERROR:', err);
             return;
         }
         let end_time = Date.now();
         let total_seconds = (end_time - start_time) / 1000;
-        let speed_str = size_utils.human_size(data_size / total_seconds);
-        console.log('upload done.', speed_str + '/sec');
+        let speed_str = (data_size / total_seconds / 1024 / 1024).toFixed(0);
+        console.log('upload done.', speed_str, 'MB/sec');
     }
 
     if (argv.put) {
@@ -168,6 +177,88 @@ function upload_file() {
             ContentType: mime.lookup(file_path),
             ContentLength: data_size
         }, on_finish);
+    } else if (argv.perf) {
+        let progress = {
+            loaded: 0
+        };
+        s3.createMultipartUpload({
+            Key: upload_key,
+            Bucket: bucket,
+            ContentType: mime.lookup(file_path),
+        }, (err, create_res) => {
+            if (err) {
+                console.error('s3.createMultipartUpload ERROR', err);
+                return;
+            }
+            let next_part_num = 0;
+            let concur = 0;
+            let finished = false;
+            let latency_avg = 0;
+
+            function complete() {
+                s3.completeMultipartUpload({
+                    Key: upload_key,
+                    Bucket: bucket,
+                    UploadId: create_res.UploadId,
+                    // MultipartUpload: {
+                    //     Parts: [{
+                    //         ETag: etag,
+                    //         PartNumber: part_num
+                    //     }]
+                    // }
+                }, function(err, complete_res) {
+                    if (err) {
+                        console.error('s3.completeMultipartUpload ERROR', err);
+                        return;
+                    }
+                    console.log('uploadPart average latency',
+                        (latency_avg / next_part_num).toFixed(0), 'ms');
+                    on_finish();
+                });
+            }
+
+            data_source.on('data', data => {
+                next_part_num += 1;
+                concur += 1;
+                if (concur >= argv.concur) {
+                    //console.log('=== pause source stream ===');
+                    data_source.pause();
+                }
+                //console.log('uploadPart');
+                let start_time = Date.now();
+                let part_num = next_part_num;
+                s3.uploadPart({
+                    Key: upload_key,
+                    Bucket: bucket,
+                    PartNumber: part_num,
+                    UploadId: create_res.UploadId,
+                    Body: data,
+                }, (err, res) => {
+                    concur -= 1;
+                    if (err) {
+                        data_source.close();
+                        console.error('s3.uploadPart ERROR', err);
+                        return;
+                    }
+                    let took = Date.now() - start_time;
+                    // console.log('Part', part_num, 'Took', took, 'ms');
+                    latency_avg += took;
+                    data_source.resume();
+                    progress.loaded += data.length;
+                    if (finished && !concur) {
+                        complete();
+                    } else {
+                        on_progress(progress);
+                    }
+                });
+            });
+            data_source.on('end', () => {
+                finished = true;
+                if (!concur) {
+                    complete();
+                }
+            });
+        });
     } else {
         s3.upload({
                 Key: upload_key,
@@ -177,7 +268,7 @@ function upload_file() {
                 ContentLength: data_size
             }, {
                 partSize: part_size,
-                queueSize: argv.concur || 16
+                queueSize: argv.concur
             }, on_finish)
             .on('httpUploadProgress', on_progress);
     }
@@ -208,8 +299,8 @@ function get_file() {
                 progress_time = now;
                 let percents = Math.round(progress.loaded / data_size * 100);
                 let passed_seconds = (now - start_time) / 1000;
-                let speed_str = size_utils.human_size(progress.loaded / passed_seconds);
-                console.log(percents + '% progress.', speed_str + '/sec');
+                let speed_str = (progress.loaded / passed_seconds / 1024 / 1024).toFixed(0);
+                console.log(percents + '% progress.', speed_str, 'MB/sec');
             }
         }
 
@@ -220,8 +311,8 @@ function get_file() {
             }
             let end_time = Date.now();
             let total_seconds = (end_time - start_time) / 1000;
-            let speed_str = size_utils.human_size(data_size / total_seconds);
-            console.log('get done.', speed_str + '/sec');
+            let speed_str = (data_size / total_seconds / 1024 / 1024).toFixed(0);
+            console.log('get done.', speed_str, 'MB/sec');
         }
 
         s3.getObject({
@@ -290,5 +381,6 @@ function print_usage() {
         '  --concur <num>       multipart concurrency \n' +
         'Get Flags: \n' +
         '  --get <key>          get key name \n' +
+        '  --head <key>         head key name \n' +
         '');
 }

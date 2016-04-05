@@ -180,7 +180,7 @@ var PATHS = {
         'src/rpc/**/*.js',
         'src/api/**/*.js',
         'src/util/**/*.js',
-        'tools/**/*.js',
+        'src/tools/**/*.js',
     ],
 
     NVA_Package_sources: [
@@ -196,7 +196,7 @@ var PATHS = {
         'src/util/**/*.*',
         'src/views/**/*.*',
         'src/native/**/*.*',
-        'tools/**/*.*',
+        'src/tools/**/*.*',
         'binding.gyp',
         'common.gypi'
     ],

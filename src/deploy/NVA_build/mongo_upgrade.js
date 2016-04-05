@@ -35,6 +35,17 @@ function upgrade_systems() {
                 udp_port: true,
             };
         }
+        var updated_access_keys = system.access_keys;
+        for(var i= 0; i < updated_access_keys.length; ++i)
+        {
+            if (updated_access_keys[i]._id)
+            {
+                delete updated_access_keys[i]._id;
+            }
+        }
+
+        updates.access_keys = updated_access_keys;
+
         print('updating system', system.name, '...');
         printjson(updates);
         printjson(system);

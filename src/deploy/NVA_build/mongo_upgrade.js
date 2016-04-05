@@ -141,12 +141,12 @@ function upgrade_system(system) {
         }
     }).forEach(function(bucket) {
         print('\n*** update bucket with endpoint and target bucket', bucket.name);
-
+        var target_bucket = bucket.cloud_sync.endpoint;
         db.buckets.update({
             _id: bucket._id
         }, {
             $set: {
-                'cloud_sync.target_bucket': bucket.cloud_sync.endpoint,
+                'cloud_sync.target_bucket': target_bucket,
                 'cloud_sync.endpoint': 'https://s3.amazonaws.com'
                 }
             });

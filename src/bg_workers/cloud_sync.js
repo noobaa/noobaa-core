@@ -52,7 +52,11 @@ function background_worker() {
                         return;
                     }
                     should_update_time = true;
-                    return update_work_list(policy);
+                    return update_work_list(policy)
+                        .fail(function(error) {
+                            dbg.error('update_work_list failed for policy:', policy);
+                            return;
+                        });
                 }
             }));
         })

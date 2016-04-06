@@ -97,6 +97,7 @@ class S3Controller {
         // TODO GGG MUST implement Marker & MaxKeys & IsTruncated
         let params = {
             bucket: req.params.bucket,
+            upload_mode: false,
         };
         if ('prefix' in req.query) {
             params.prefix = req.query.prefix;
@@ -122,8 +123,8 @@ class S3Controller {
                                 LastModified: to_s3_date(obj.info.create_time),
                                 ETag: obj.info.etag,
                                 Size: obj.info.size,
+                                Owner: DEFAULT_S3_USER,
                                 StorageClass: STORAGE_CLASS_STANDARD,
-                                Owner: DEFAULT_S3_USER
                             }
                         }))),
                         if_not_empty(_.map(reply.common_prefixes, prefix => ({
@@ -145,6 +146,7 @@ class S3Controller {
         // TODO GGG MUST implement KeyMarker & VersionIdMarker & MaxKeys & IsTruncated
         let params = {
             bucket: req.params.bucket,
+            upload_mode: false,
         };
         if ('prefix' in req.query) {
             params.prefix = req.query.prefix;
@@ -175,8 +177,8 @@ class S3Controller {
                                 LastModified: to_s3_date(obj.info.create_time),
                                 ETag: obj.info.etag,
                                 Size: obj.info.size,
+                                Owner: DEFAULT_S3_USER,
                                 StorageClass: STORAGE_CLASS_STANDARD,
-                                Owner: DEFAULT_S3_USER
                             }
                         }))),
                         if_not_empty(_.map(reply.common_prefixes, prefix => ({
@@ -193,7 +195,50 @@ class S3Controller {
     /**
      * http://docs.aws.amazon.com/AmazonS3/latest/API/mpUploadListMPUpload.html
      */
-    // get_bucket_uploads(req) { TODO GGG }
+    get_bucket_uploads(req) {
+        // TODO GGG MUST implement Marker & MaxKeys & IsTruncated
+        let params = {
+            bucket: req.params.bucket,
+            upload_mode: true,
+        };
+        if ('prefix' in req.query) {
+            params.prefix = req.query.prefix;
+        }
+        if ('delimiter' in req.query) {
+            params.delimiter = req.query.delimiter;
+        }
+        return req.rpc_client.object.list_objects(params)
+            .then(reply => {
+                return {
+                    ListMultipartUploadsResult: [{
+                            Bucket: req.params.bucket,
+                            Prefix: req.query.prefix,
+                            Delimiter: req.query.delimiter,
+                            MaxUploads: req.query['max-uploads'],
+                            KeyMarker: req.query['key-marker'],
+                            UploadIdMarker: req.query['upload-id-marker'],
+                            IsTruncated: false,
+                            'Encoding-Type': req.query['encoding-type'],
+                        },
+                        if_not_empty(_.map(reply.objects, obj => ({
+                            Upload: {
+                                Key: obj.key,
+                                UploadId: obj.info.version_id,
+                                Initiated: to_s3_date(obj.info.create_time),
+                                Initiator: DEFAULT_S3_USER,
+                                Owner: DEFAULT_S3_USER,
+                                StorageClass: STORAGE_CLASS_STANDARD,
+                            }
+                        }))),
+                        if_not_empty(_.map(reply.common_prefixes, prefix => ({
+                            CommonPrefixes: {
+                                Prefix: prefix || ''
+                            }
+                        })))
+                    ]
+                };
+            });
+    }
 
 
     /**

@@ -603,6 +603,9 @@ module.exports = {
                     order: {
                         type: 'integer',
                     },
+                    upload_mode: {
+                        type: 'boolean'
+                    },
                 }
             },
             reply: {

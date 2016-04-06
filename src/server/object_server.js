@@ -587,6 +587,13 @@ function list_objects(req) {
                 info.key = new RegExp('^' + string_utils.escapeRegExp(req.rpc_params.key_prefix));
             }
 
+            // allow filtering of uploading/non-uploading objects
+            if (typeof(req.rpc_params.upload_mode) === 'boolean') {
+                info.upload_size = {
+                    $exists: req.rpc_params.upload_mode
+                };
+            }
+
             var skip = req.rpc_params.skip;
             var limit = req.rpc_params.limit;
             dbg.log0('list_objects query', info);

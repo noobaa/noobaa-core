@@ -1,17 +1,6 @@
 // this module is written for both nodejs.
 'use strict';
 
-var _ = require('lodash');
-var P = require('../util/promise');
-var db = require('./db');
-var bcrypt = require('bcrypt');
-var system_store = require('./stores/system_store');
-var system_server = require('./system_server');
-var crypto = require('crypto');
-// var dbg = require('../util/debug_module')(__filename);
-
-
-
 /**
  *
  * ACCOUNT_SERVER
@@ -33,6 +22,16 @@ var account_server = {
 };
 
 module.exports = account_server;
+
+var _ = require('lodash');
+var P = require('../util/promise');
+var db = require('./db');
+var bcrypt = require('bcrypt');
+var system_store = require('./stores/system_store');
+var system_server = require('./system_server');
+var crypto = require('crypto');
+// var dbg = require('../util/debug_module')(__filename);
+
 
 system_store.on('load', ensure_support_account);
 

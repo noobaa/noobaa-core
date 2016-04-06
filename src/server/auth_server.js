@@ -187,7 +187,7 @@ function create_access_key_auth(req) {
 
     var account = _.find(system_store.data.accounts, function(acc) {
         //console.warn(".accounts: " , acc);
-        if(acc.access_keys[0])
+        if(acc.access_keys)
         {
             return acc.access_keys[0].access_key.toString() === access_key.toString();
         }

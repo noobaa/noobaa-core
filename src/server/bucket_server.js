@@ -225,7 +225,7 @@ function list_bucket_access_accounts(req) {
     });
 
     var reply = _.map(access_accounts, function(val) {
-        return _.pick(val, 'name', 'email', 'is_support', 'noobaa_access_keys');
+        return _.pick(val, 'name', 'email', 'is_support', 'access_keys');
     });
     //console.warn('MY ACCOUNTS ARE: ', typeof reply);
     //console.warn(Array.isArray(reply));

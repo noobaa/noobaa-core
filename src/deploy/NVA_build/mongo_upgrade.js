@@ -9,6 +9,7 @@ upgrade();
 function upgrade() {
     upgrade_systems();
     upgrade_chunks_add_ref_to_bucket();
+    upgrade_system_access_keys();
     print('\nUPGRADE DONE.');
 }
 
@@ -290,4 +291,44 @@ function upgrade_chunks_add_ref_to_bucket() {
             multi: true
         });
     }
+}
+
+function upgrade_system_access_keys() {
+    print('\n*** upgrade_system_access_keys ...');
+
+    db.systems.find().forEach(function(system) {
+        var updates = {};
+        if (system.access_keys) {
+            updates.access_keys = [{
+                access_key: system.access_keys[0].access_key,
+                secret_key: system.access_keys[0].secret_key
+            }];
+
+            var allowed_buckets = [];
+            db.buckets.find().forEach(function(bucket) {
+                allowed_buckets.push(bucket._id.toString());
+            });
+            updates.allowed_buckets = allowed_buckets;
+
+            print('Updating Owner Account: ', system.owner.email, '...');
+            printjson(updates);
+            printjson(system.owner);
+
+            db.accounts.update({
+                _id: system.owner._id
+            }, {
+                $set: updates,
+                $unset:{'__v':1}
+            });
+
+            db.systems.update({
+                _id: system._id
+            }, {
+                $unset:{
+                    'access_keys':1,
+                    '__v':1
+                }
+            });
+        }
+    });
 }

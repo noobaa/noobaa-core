@@ -187,9 +187,9 @@ function create_access_key_auth(req) {
 
     var account = _.find(system_store.data.accounts, function(acc) {
         //console.warn(".accounts: " , acc);
-        if(acc.noobaa_access_keys)
+        if(acc.access_keys[0])
         {
-            return acc.noobaa_access_keys.access_key.toString() === access_key.toString();
+            return acc.access_keys[0].access_key.toString() === access_key.toString();
         }
         else {
             return false;
@@ -207,7 +207,7 @@ function create_access_key_auth(req) {
 
         //console.warn('EVG EVG EVG EVG EVG SYSTEM ACCESS KEYS ARE: ', _.find(system.access_keys, 'access_key', access_key));
         //console.warn('account is: ', account);
-    //secret_key = account.noobaa_access_keys.secret_key;
+    //secret_key = account.access_keys.secret_key;
     //console.warn('secret_key is: ', secret_key);
 
     //TODO JUST FOR NOW
@@ -365,7 +365,7 @@ function authorize(req) {
         if (auth_token_obj && auth_token_obj.s3_auth) {
             var s3_params = auth_token_obj.s3_auth;
             var account = system_store.data.get_by_id(auth_token_obj.account_id);
-            var secret_key = account.noobaa_access_keys.secret_key;
+            var secret_key = account.access_keys[0].secret_key;
             var s3_signature;
 
             if(s3_params.string_to_sign.indexOf('AWS4') > -1){
@@ -384,7 +384,7 @@ function authorize(req) {
 
             }
             //var s3_signature = s3_auth.sign(secret_key, string_to_sign);
-            dbg.log0('signature for access key:', account.noobaa_access_keys.access_key, 'string:', s3_params.string_to_sign, ' is', s3_signature);
+            dbg.log0('signature for access key:', account.access_keys[0].access_key, 'string:', s3_params.string_to_sign, ' is', s3_signature);
 
             //TODO:bring back ASAP!!!! - temporary for V4 "Support"
             //

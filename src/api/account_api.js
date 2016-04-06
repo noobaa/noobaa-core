@@ -96,7 +96,7 @@ module.exports = {
                 },
             },
             reply: {
-                type: 'object',
+                /*type: 'object',
                 required: ['access_key', 'secret_key'],
                 properties: {
                     access_key: {
@@ -105,6 +105,10 @@ module.exports = {
                     secret_key: {
                         type: 'string',
                     }
+                }*/
+                type: 'array',
+                items: {
+                    $ref: 'system_api#/definitions/access_keys'
                 }
             },
             auth: {
@@ -254,8 +258,8 @@ module.exports = {
                 is_support: {
                     type: 'boolean',
                 },
-                noobaa_access_keys: {
-                    type: 'object',
+                access_keys: {
+                    /*type: 'object',
                     required: ['access_key', 'secret_key'],
                     properties: {
                         access_key: {
@@ -264,6 +268,10 @@ module.exports = {
                         secret_key: {
                             type: 'string'
                         }
+                    }*/
+                    type: 'array',
+                    items: {
+                        $ref: 'system_api#/definitions/access_keys'
                     }
                 },
                 allowed_buckets: {

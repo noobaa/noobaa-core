@@ -363,7 +363,7 @@ export function loadSystemInfo() {
     api.system.read_system()
         .then(
             reply => {
-                let { access_key, secret_key } = reply.access_keys[0];
+                let { access_key, secret_key } = reply.owner.access_keys[0];
 
                 model.systemInfo({
                     status: 'active',
@@ -474,7 +474,7 @@ export function loadAgentInstallationInfo() {
     api.system.read_system()
         .then(
             reply => {
-                let keys = reply.access_keys[0];
+                let keys = reply.owner.access_keys[0];
 
                 agentInstallationInfo({
                     agentConf: encodeBase64({
@@ -556,7 +556,7 @@ export function loadObjectMetadata(bucketName, objectName) {
     let S3Promise = api.system.read_system()
         .then(
             reply => {
-                let { access_key, secret_key } = reply.access_keys[0];
+                let { access_key, secret_key } = reply.owner.access_keys[0];
 
                 return new AWS.S3({
                     endpoint: endpoint,
@@ -960,7 +960,7 @@ export function uploadFiles(bucketName, files) {
     api.system.read_system()
         .then(
             reply => {
-                let { access_key, secret_key } = reply.access_keys[0];
+                let { access_key, secret_key } = reply.owner.access_keys[0];
 
                 return new AWS.S3({
                     endpoint: endpoint,

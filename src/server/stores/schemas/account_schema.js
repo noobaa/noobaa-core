@@ -28,15 +28,18 @@ module.exports = {
         is_support: {
             type: 'boolean'
         },
-        noobaa_access_keys: {
-            type: 'object',
-            required: ['access_key', 'secret_key'],
-            properties: {
-                access_key: {
-                    type: 'string'
-                },
-                secret_key: {
-                    type: 'string'
+        access_keys: {
+            type: 'array',
+            items: {
+                type: 'object',
+                required: ['access_key', 'secret_key'],
+                properties: {
+                    access_key: {
+                        type: 'string'
+                    },
+                    secret_key: {
+                        type: 'string'
+                    }
                 }
             }
         },

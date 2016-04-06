@@ -28,7 +28,8 @@ var account_server = {
     accounts_status: accounts_status,
     get_system_roles: get_system_roles,
     add_account_sync_credentials_cache: add_account_sync_credentials_cache,
-    get_account_sync_credentials_cache: get_account_sync_credentials_cache
+    get_account_sync_credentials_cache: get_account_sync_credentials_cache,
+    get_account_info: get_account_info
 };
 
 module.exports = account_server;
@@ -70,18 +71,20 @@ function create_account(req) {
         })
         .then(function() {
             //console.warn('req.system: ', req.system, 'req.account: ', req.account, 'account: ', account);
-            let updates = _.pick(account, '_id');
-            let new_access_keys = {
-                access_key: crypto.randomBytes(16).toString('hex'),
-                secret_key: crypto.randomBytes(32).toString('hex')
-            };
 
             if (!req.system) {
-                if (req.rpc_params.name.toString() === 'demo') {
-                    new_access_keys.access_key = '123';
-                    new_access_keys.secret_key = 'abc';
+                let updates = _.pick(account, '_id');
+                let new_access_keys = [{
+                    access_key: crypto.randomBytes(16).toString('hex'),
+                    secret_key: crypto.randomBytes(32).toString('hex')
+                }];
+
+                if (req.rpc_params.name.toString() === 'demo' &&
+                    req.rpc_params.email.toString() === 'demo@noobaa.com') {
+                    new_access_keys[0].access_key = '123';
+                    new_access_keys[0].secret_key = 'abc';
                 }
-                updates.noobaa_access_keys = new_access_keys;
+                updates.access_keys = new_access_keys;
                 return system_store.make_changes({
                         update: {
                             accounts: [updates]
@@ -149,12 +152,12 @@ function generate_account_keys(req) {
         throw req.forbidden('Cannot update support account');
     }
     let updates = _.pick(account, '_id');
-    let new_access_keys = {
+    let new_access_keys = [{
         access_key: crypto.randomBytes(16).toString('hex'),
         secret_key: crypto.randomBytes(32).toString('hex')
-    };
+    }];
 
-    updates.noobaa_access_keys = new_access_keys;
+    updates.access_keys = new_access_keys;
     return system_store.make_changes({
             update: {
                 accounts: [updates]
@@ -379,8 +382,8 @@ function get_account_info(account) {
     if (account.is_support) {
         info.is_support = true;
     }
-    if (account.noobaa_access_keys) {
-        info.noobaa_access_keys = account.noobaa_access_keys;
+    if (account.access_keys) {
+        info.access_keys = account.access_keys;
     }
     //console.warn('account.allowed_buckets: ', account.allowed_buckets);
     if (account.allowed_buckets) {

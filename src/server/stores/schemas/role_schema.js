@@ -14,7 +14,7 @@ module.exports = {
             format: 'objectid'
         },
         deleted: {
-            format: 'date'
+            format: 'idate'
         },
         system: {
             format: 'objectid'
@@ -23,6 +23,7 @@ module.exports = {
             format: 'objectid'
         },
         role: {
+            type: 'string',
             enum: ['admin', 'user', 'viewer']
         },
     }

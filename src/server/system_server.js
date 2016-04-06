@@ -92,20 +92,31 @@ function new_system_defaults(name, owner_account_id) {
 }
 
 function new_system_changes(name, owner_account_id) {
+    const default_pool_name = 'default_pool';
+    const default_bucket_name = 'files';
+    const bucket_with_suffix = default_bucket_name + '#' + Date.now().toString(36);
     var system = new_system_defaults(name, owner_account_id);
-    var pool = pool_server.new_pool_defaults('default_pool', system._id);
-    var tier = tier_server.new_tier_defaults('default_tier', system._id, [pool._id]);
-    var policy = tier_server.new_policy_defaults('default_tiering', system._id, [{
+    var pool = pool_server.new_pool_defaults(default_pool_name, system._id);
+    var tier = tier_server.new_tier_defaults(bucket_with_suffix, system._id, [pool._id]);
+    var policy = tier_server.new_policy_defaults(bucket_with_suffix, system._id, [{
         tier: tier._id,
         order: 0
     }]);
-    var bucket = bucket_server.new_bucket_defaults('files', system._id, policy._id);
+    var bucket = bucket_server.new_bucket_defaults(default_bucket_name, system._id, policy._id);
     var role = {
         _id: system_store.generate_id(),
         account: owner_account_id,
         system: system._id,
         role: 'admin'
     };
+
+    db.ActivityLog.create({
+        event: 'conf.create_system',
+        level: 'info',
+        system: system._id,
+        actor: owner_account_id,
+    });
+
     return {
         insert: {
             systems: [system],
@@ -182,6 +193,7 @@ function read_system(req) {
 
         promise_utils.all_obj(system.buckets_by_name, function(bucket) {
             return bucket_server.get_cloud_sync_policy({
+                auth_token: req.auth_token,
                 system: system,
                 rpc_params: {
                     name: bucket.name
@@ -504,6 +516,15 @@ function diagnose(req) {
     return P.fcall(function() {
             return diag.collect_server_diagnostics();
         })
+        .then((res) => {
+            db.ActivityLog.create({
+                event: 'conf.diagnose_system',
+                level: 'info',
+                system: req.system._id,
+                actor: req.account && req.account._id,
+            });
+            return res;
+        })
         .then(function() {
             return diag.pack_diagnostics(inner_path);
         })
@@ -655,6 +676,15 @@ function update_base_address(req) {
                     concurrency: 5
                 })
                 .return(reply);
+        })
+        .then((res) => {
+            db.ActivityLog.create({
+                event: 'conf.dns_address',
+                level: 'info',
+                system: req.system,
+                actor: req.account && req.account._id,
+            });
+            return res;
         });
 }
 
@@ -687,7 +717,7 @@ function get_system_info(system, get_id) {
 function find_account_by_email(req) {
     var account = system_store.data.accounts_by_email[req.rpc_params.email];
     if (!account) {
-        throw req.rpc_error('NOT_FOUND', 'account not found: ' + req.rpc_params.email);
+        throw req.rpc_error('NO_SUCH_ACCOUNT', 'No such account email: ' + req.rpc_params.email);
     }
     return account;
 }

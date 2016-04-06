@@ -17,8 +17,9 @@ const textColor = style['gray-lv6'];
 class CapacityGaugeViewModel {
     constructor({ values }) {
         this.canvasWidth = canvasWidth;
-        this.canvasHeight = canvasHeight;        
+        this.canvasHeight = canvasHeight;
         this.values = values;
+        console.log('valuessss:'+JSON.stringify(values));
         this.tweened = values.map(
             ({ value }) => ko.pureComputed(
                 () => ko.unwrap(value)
@@ -43,14 +44,16 @@ class CapacityGaugeViewModel {
                 (item, i) => {
                     let value = this.tweened[i]();
                     let ratio = value/total;
-                    this._drawSection(ctx, offset, ratio, item.color, item.emphasize);
+                    this._drawSection(ctx, offset, ratio, item.color, true);
                     offset += ratio;
-                    sum += item.emphasize ? value : 0; 
+                    sum += item.emphasize ? value : 0;
                 }
             );
 
             let percentage = sum/total;
-            let text = 0 < percentage && percentage < 1 ?
+
+
+            let text = 0 < percentage && percentage < 0.01 ?
                 '<1%' :
                 numeral(sum/total).format('0%');
 
@@ -78,19 +81,19 @@ class CapacityGaugeViewModel {
             ctx.lineWidth = emphasiseWidth;
             ctx.arc(0, 0, radius - (lineWidth + lineMargin + emphasiseWidth / 2 | 0), start, end);
             ctx.stroke();
-            ctx.closePath();                
+            ctx.closePath();
         }
     }
 
     _drawText(ctx, text) {
         ctx.fillStyle = textColor;
         ctx.font = textFont;
-        ctx.fillText(text, -ctx.measureText(text).width / 2 | 0, 0);                
+        ctx.fillText(text, -ctx.measureText(text).width / 2 | 0, 0);
     }
 
     _toAngle(value) {
         return (value * 1.5 + .75) * Math.PI;
-    }    
+    }
 
 }
 

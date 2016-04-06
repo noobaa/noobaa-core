@@ -29,6 +29,7 @@ module.exports = {
     make_node_id: make_node_id,
     create_node: create_node,
     find_node_by_name: find_node_by_name,
+    find_node_by_address: find_node_by_address,
     update_node_by_name: update_node_by_name,
     delete_node_by_name: delete_node_by_name,
     update_node_by_id: update_node_by_id,
@@ -68,6 +69,16 @@ function find_node_by_name(req) {
     return P.when(NodeModel.collection.findOne({
             system: req.system._id,
             name: req.rpc_params.name,
+            deleted: null,
+        }))
+        .then(db.check_not_deleted(req, 'node'))
+        .then(resolve_node_object_ids);
+}
+
+function find_node_by_address(req) {
+    return P.when(NodeModel.collection.findOne({
+            system: req.system._id,
+            rpc_address: req.rpc_params.target,
             deleted: null,
         }))
         .then(db.check_not_deleted(req, 'node'))
@@ -164,8 +175,8 @@ function aggregate_nodes_by_pool(query) {
             }
         ))
         .then(res => {
-            var bins = {};
-            _.each(res.results, r => {
+            var bins = {};              
+            _.each(res, r => {
                 var t = bins[r._id[0]] = bins[r._id[0]] || {};
                 t[r._id[1]] = r.value;
             });

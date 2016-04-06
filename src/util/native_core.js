@@ -13,6 +13,7 @@ function lazy_init_native_core(dont_fail) {
 
             // see https://github.com/bnoordhuis/node-event-emitter
             inherits(native_core.Nudp, events.EventEmitter);
+            inherits(native_core.Ntcp, events.EventEmitter);
 
         } catch (err) {
             if (!dont_fail) {

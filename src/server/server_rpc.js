@@ -45,6 +45,7 @@ class ServerRpc {
         rpc.register_service(schema.object_api, require('./object_server'), options);
         rpc.register_service(schema.pool_api, require('./pool_server'), options);
         rpc.register_service(schema.stats_api, require('./stats_aggregator'), options);
+        rpc.register_service(schema.cluster_server_api, require('./cluster_server'), options);
     }
 
     register_bg_servers() {
@@ -68,7 +69,7 @@ class ServerRpc {
         let schema = rpc.schema;
         let options = this.get_server_options();
         rpc.register_service(schema.debug_api, require('./debug_server'), options);
-        rpc.register_service(schema.cluster_api, require('./cluster_server'), options);
+        rpc.register_service(schema.cluster_member_api, require('./cluster_member'), options);
     }
 
 }

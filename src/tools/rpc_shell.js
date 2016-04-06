@@ -3,8 +3,8 @@
 var _ = require('lodash');
 var repl = require('repl');
 var util = require('util');
-var api = require('../src/api');
-var P = require('../src/util/promise');
+var api = require('../api');
+var P = require('../util/promise');
 
 var repl_srv;
 
@@ -41,8 +41,11 @@ function construct_rpc_arguments(str_args) {
 RPCShell.prototype.init = function() {
     var self = this;
     this.APIs = {};
-    var ignore_keys = ['options', 'common', 'create_auth_token',
-        'create_access_key_auth', 'object_driver_lazy'
+    var ignore_keys = [
+        'options',
+        'common',
+        'create_auth_token',
+        'create_access_key_auth'
     ];
 
     return P.fcall(function() {

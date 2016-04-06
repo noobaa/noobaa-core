@@ -85,7 +85,7 @@ schema.register_api({
                         required: ['data', 'rsize'],
                         properties: {
                             data: {
-                                type: 'buffer'
+                                format: 'buffer'
                             },
                             rsize: {
                                 type: 'integer'
@@ -98,7 +98,7 @@ schema.register_api({
                 type: 'object',
                 properties: {
                     data: {
-                        type: 'buffer'
+                        format: 'buffer'
                     }
                 }
             }
@@ -123,6 +123,7 @@ schema.compile();
 // create rpc
 var rpc = new RPC({
     schema: schema,
+    router: {}
 });
 if (argv.novalidation) {
     rpc.disable_validation();

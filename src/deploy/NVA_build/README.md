@@ -13,6 +13,7 @@ noobaa-core/deploy/NVA_build
 - deploy_base.sh - The master script for the NVA image creation.
 - noobaa_supervisor.conf - Supervisord configuration for the NVA services (mongodb, webserver etc.)
 - supervisord.orig - /etc/rc.d script for supervisord.
+- noobaa_syslog.conf - rsyslog configuration file. directs all local0 messages to /var/log/noobaa.log
 - upgrade - upgrade flow which runs from the crontab
 - version_check.js - simple http request to the SaaS werbserver for version verification
 - mongo.repo - mongodb repo definitions
@@ -27,21 +28,21 @@ noobaa-core/deploy/NVA_build
 * ###NVA_Build (NooBaa Virtual Appliance):
 
 - Build Procedure:
-- 
+-
   1) Importing a base CentOS image (.OVA file)
 
   2) Running the following:
-  
+
       2.1) yum -y update
-      
+
       2.2) passwd -> current pass reverse change to roonoobaa
-           
+
   3) In the core repo dir, run gulp package_build.
-  
+
   4) SCP src/deploy/NVA_build/* and build/public/noobaa-NVA.tar.gz to the machine at /tmp
-  
+
   5) run /tmp/deploy_base runinstall
-  
+
   6) Once done, export the machine to a .OVA file
 
   The created OVA file is the NVA which needs to be imported by the admin.

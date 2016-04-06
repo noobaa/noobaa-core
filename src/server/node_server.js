@@ -67,7 +67,7 @@ function create_node(req) {
 
     var pool = req.system.pools_by_name.default_pool;
     if (!pool) {
-        throw req.rpc_error('NOT_FOUND', 'DEFAULT POOL NOT FOUND');
+        throw req.rpc_error('NO_DEFAULT_POOL', 'No default pool');
     }
     node.pool = pool._id;
 
@@ -405,6 +405,15 @@ function get_test_nodes(req) {
                 skip: rand_start,
                 limit: count
             });
+        })
+        .then((res) => {
+            db.ActivityLog.create({
+                system: req.system._id,
+                actor: req.account && req.account._id,
+                level: 'info',
+                event: 'node.test_node'
+            });
+            return res;
         });
 }
 

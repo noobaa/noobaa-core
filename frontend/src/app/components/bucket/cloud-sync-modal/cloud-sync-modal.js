@@ -19,7 +19,7 @@ class CloudSyncModalViewModel {
         this.bucketName = bucketName;
         this.onClose = onClose;
 
-        let policy = ko.pureComputed( 
+        let policy = ko.pureComputed(
             () => cloudSyncInfo() && cloudSyncInfo().policy
         );
 
@@ -32,7 +32,7 @@ class CloudSyncModalViewModel {
         );
 
         this.awsBucket = ko.pureComputed(
-            () => policy() && policy().endpoint
+            () => policy() && policy().target_bucket
         );
 
         this.syncFrequency = ko.pureComputed(
@@ -46,7 +46,7 @@ class CloudSyncModalViewModel {
                 }
 
                 let { n2c_enabled, c2n_enabled } = policy();
-                return n2c_enabled ? 
+                return n2c_enabled ?
                     (c2n_enabled ? 'Bi-Direcitonal' : 'AWS to NooBaa') :
                     'NooBaa to AWS';
             }

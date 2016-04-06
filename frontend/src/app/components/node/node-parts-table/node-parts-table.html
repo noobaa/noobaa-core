@@ -1,5 +1,4 @@
-<paginator params="pageSize: pageSize, itemCount: count, page: page" class="pull-right">
-</paginator>
+
 
 <section class="table-wrapper">
     <div class="data-table">
@@ -12,9 +11,14 @@
                     <th class="start-col">Start Offset</th>
                     <th class="end-col">End Offset</th>
                     <th class="size-col">Part Size</th>
-                </tr>    
+                    <th class="pagingation-col">
+                        <paginator params="pageSize: pageSize, itemCount: count, page: page" class="pull-right">
+                        </paginator>
+
+                    </th>
+                </tr>
             </thead>
-            
+
             <tbody  data-bind="foreach: rows">
                 <!-- ko if: isVisible -->
                 <tr>
@@ -25,17 +29,18 @@
                     <td class="name-col text-left">
                         <a class="link" data-bind="href: href, text: object"></a>
                     </td>
-                    
+
                     <td class="bucket-col no-wrap" data-bind="text: bucket"></td>
-                    
+
                     <td class="start-col" data-bind="text: startOffset"></td>
                     <td class="end-col" data-bind="text: endOffset"></td>
                     <td class="size-col" data-bind="text: size"></td>
+                    <td class="pagingation-col">
+                    </td>
                 </tr>
                 <!-- /ko -->
             </tbody>
         </table>
-
         <p class="empty-message" data-bind="visible: !hasParts()">
             No file parts stored on the node
         </p>

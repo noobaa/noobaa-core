@@ -18,6 +18,7 @@ class Speedometer {
     set_interval(delay_ms) {
         this.clear_interval();
         this.interval = setInterval(() => this.report(), delay_ms || 1000);
+        this.interval.unref();
     }
 
     clear_interval() {
@@ -51,12 +52,7 @@ class Speedometer {
         let cluster = require('cluster');
         let _ = require('lodash');
         if (cluster.isMaster) {
-            cluster.on('fork', worker => {
-                worker.on('message', bytes => this.update(bytes));
-            });
-            _.each(cluster.workers, worker => {
-                worker.on('message', bytes => this.update(bytes));
-            });
+            cluster.on('message', bytes => this.update(bytes));
             cluster.on('exit', worker => {
                 if (_.isEmpty(cluster.workers)) {
                     this.clear_interval();

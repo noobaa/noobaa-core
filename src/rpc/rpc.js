@@ -17,6 +17,8 @@ var RpcHttpConnection = require('./rpc_http');
 var RpcHttpServer = require('./rpc_http_server');
 var RpcTcpConnection = require('./rpc_tcp');
 var RpcTcpServer = require('./rpc_tcp_server');
+var RpcNtcpConnection = require('./rpc_ntcp');
+var RpcNtcpServer = require('./rpc_ntcp_server');
 var RpcNudpConnection = require('./rpc_nudp');
 var RpcN2NConnection = require('./rpc_n2n');
 var RpcN2NAgent = require('./rpc_n2n_agent');
@@ -26,8 +28,8 @@ var EventEmitter = require('events').EventEmitter;
 // dbg.set_level(5, __dirname);
 
 var RPC_PING_INTERVAL_MS = 20000;
-var RECONN_BACKOFF_BASE = 1000;
-var RECONN_BACKOFF_MAX = 10000;
+var RECONN_BACKOFF_BASE = 250;
+var RECONN_BACKOFF_MAX = 5000;
 var RECONN_BACKOFF_FACTOR = 1.2;
 
 
@@ -292,7 +294,7 @@ RPC.prototype.handle_request = function(conn, msg) {
         dbg.warn('RPC handle_request: NOT FOUND', srv,
             'reqid', msg.header.reqid,
             'connid', conn.connid);
-        req.rpc_error('NOT_FOUND', srv + ' not found', {
+        req.rpc_error('NO_SUCH_RPC_SERVICE', 'No such RPC Service ' + srv, {
             nostack: true
         });
         return conn.send(req.export_response_buffer(), 'res', req);
@@ -436,6 +438,7 @@ RPC.prototype._assign_connection = function(req, options) {
     var address = options.address;
     if (!address) {
         address = this.router[options.domain || 'default'];
+        dbg.log3('RPC ROUTER', options.domain || 'default', '=>', address);
     }
     assert(address, 'No RPC Address/Domain');
     var addr_url = this._address_to_url_cache[address];
@@ -535,6 +538,10 @@ RPC.prototype._new_connection = function(addr_url) {
             break;
         case 'nudp:':
             conn = new RpcNudpConnection(addr_url);
+            break;
+        case 'ntcp:':
+        case 'ntls:':
+            conn = new RpcNtcpConnection(addr_url);
             break;
         default:
             throw new Error('RPC new_connection: bad protocol ' + addr_url.href);
@@ -836,6 +843,19 @@ RPC.prototype.register_tcp_transport = function(port, tls_options) {
     var tcp_server = new RpcTcpServer(tls_options);
     tcp_server.on('connection', conn => this._accept_new_connection(conn));
     return P.when(tcp_server.listen(port)).return(tcp_server);
+};
+
+
+/**
+ *
+ * register_tcp_transport
+ *
+ */
+RPC.prototype.register_ntcp_transport = function(port, tls_options) {
+    dbg.log0('RPC register_ntcp_transport');
+    var ntcp_server = new RpcNtcpServer(tls_options);
+    ntcp_server.on('connection', conn => this._accept_new_connection(conn));
+    return P.when(ntcp_server.listen(port)).return(ntcp_server);
 };
 
 

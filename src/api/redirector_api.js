@@ -50,8 +50,7 @@ module.exports = {
                 type: 'object',
                 properties: {
                     timestamp: {
-                        type: 'integer',
-                        format: 'idate',
+                        format: 'idate'
                     },
                     agents: {
                         type: 'array',
@@ -123,9 +122,13 @@ module.exports = {
                 method_name: {
                     type: 'string'
                 },
+                stop_redirect: {
+                    type: 'boolean',
+                },
                 request_params: {
                     type: 'object',
                     additionalProperties: true,
+                    properties: {}
                 },
             },
         },
@@ -133,6 +136,7 @@ module.exports = {
         redirect_reply: {
             type: 'object',
             additionalProperties: true,
+            properties: {}
         },
     }
 };

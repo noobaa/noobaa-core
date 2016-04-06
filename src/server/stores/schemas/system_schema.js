@@ -13,7 +13,7 @@ module.exports = {
             format: 'objectid'
         },
         deleted: {
-            format: 'date'
+            format: 'idate'
         },
         name: {
             type: 'string'
@@ -59,7 +59,8 @@ module.exports = {
         // redefining it.
         n2n_config: {
             type: 'object',
-            additionalProperties: true
+            additionalProperties: true,
+            properties: {}
         },
         // the DNS name or IP address used for the server
         base_address: {

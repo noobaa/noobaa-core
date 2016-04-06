@@ -48,7 +48,7 @@ private:
     DedupChunker& _chunker;
     Nan::Persistent<v8::Object> _persistent;
     NanCallbackSharedPtr _callback;
-    Buf _buf;
+    std::list<Buf> _bufs;
     std::list<Buf> _chunks;
 public:
 
@@ -56,16 +56,27 @@ public:
     explicit Worker(
         DedupChunker& chunker,
         v8::Handle<v8::Object> chunker_handle,
-        v8::Handle<v8::Value> buf_handle,
+        v8::Handle<v8::Object> buf_or_bufs,
         NanCallbackSharedPtr callback)
         : _chunker(chunker)
         , _callback(callback)
-        , _buf(node::Buffer::Data(buf_handle), node::Buffer::Length(buf_handle))
     {
         auto persistent = NAN_NEW_OBJ();
         NAN_SET(persistent, 0, chunker_handle);
-        NAN_SET(persistent, 1, buf_handle);
+        NAN_SET(persistent, 1, buf_or_bufs);
         _persistent.Reset(persistent);
+
+        if (buf_or_bufs->IsArray()) {
+            int num_buffers = buf_or_bufs.As<v8::Array>()->Length();
+            for (int i=0; i<num_buffers; ++i) {
+                auto node_buf = NAN_GET_OBJ(buf_or_bufs, i);
+                Buf buf(node::Buffer::Data(node_buf), node::Buffer::Length(node_buf));
+                _bufs.push_back(buf);
+            }
+        } else {
+            Buf buf(node::Buffer::Data(buf_or_bufs), node::Buffer::Length(buf_or_bufs));
+            _bufs.push_back(buf);
+        }
     }
 
     // ctor for flush (without data buffer)
@@ -88,37 +99,42 @@ public:
 
     virtual void work() //override (override requires C++11, N/A before gcc-4.7)
     {
-        if (!_buf.data()) {
+        if (_bufs.empty()) {
             // just flush
             process_chunk();
             return;
         }
 
-        const uint8_t* datap = _buf.data();
-        int len = _buf.length();
+        while (!_bufs.empty()) {
+            Buf buf = _bufs.front();
+            _bufs.pop_front();
+            int len = buf.length();
+            int pos = 0;
 
-        while (len > 0) {
-            int offset = _chunker._dedup_window.push(datap, len);
-            if (offset) {
-                // offset!=0 means we got chunk boundary
-                // for the last slice we don't copy it because process_chunk will copy all slices.
-                Buf last_slice(datap, offset);
-                _chunker._chunk_slices.push_back(last_slice);
-                _chunker._chunk_len += last_slice.length();
-                process_chunk();
-                datap += offset;
-                len -= offset;
-            } else {
-                // offset==0 means no chunk boundary
-                // we must make a copy of the slice buffer here because we need to keep
-                // it till the next worker and the nodejs buffer handle is only attached
-                // to the current worker.
-                Buf slice(len);
-                memcpy(slice.data(), datap, len);
-                _chunker._chunk_slices.push_back(slice);
-                _chunker._chunk_len += slice.length();
-                datap += len;
-                len = 0;
+            while (len > 0) {
+                int offset = _chunker._dedup_window.push(buf.data() + pos, len);
+                if (offset) {
+                    // offset!=0 means we got chunk boundary
+                    // for the last slice we don't copy it because
+                    // process_chunk will copy all slices.
+                    Buf shared_slice(buf, pos, offset);
+                    _chunker._chunk_slices.push_back(shared_slice);
+                    _chunker._chunk_len += offset;
+                    process_chunk();
+                    pos += offset;
+                    len -= offset;
+                } else {
+                    // offset==0 means no chunk boundary
+                    // we must make a copy of the slice buffer here because we need to keep
+                    // it till the next worker and the nodejs buffer handle is only attached
+                    // to the current worker.
+                    Buf copy_slice(len);
+                    memcpy(copy_slice.data(), buf.data() + pos, len);
+                    _chunker._chunk_slices.push_back(copy_slice);
+                    _chunker._chunk_len += len;
+                    pos += len;
+                    len = 0;
+                }
             }
         }
     }
@@ -162,16 +178,16 @@ public:
 NAN_METHOD(DedupChunker::push)
 {
     if (info.Length() != 2
-        || !node::Buffer::HasInstance(info[0])
+        || (!node::Buffer::HasInstance(info[0]) && !info[0]->IsArray())
         || !info[1]->IsFunction()) {
-        return Nan::ThrowError("DedupChunker::push expected arguments function(buffer,callback)");
+        return Nan::ThrowError("DedupChunker::push expected arguments function(buf_or_bufs,callback)");
     }
     v8::Local<v8::Object> self = info.This();
     DedupChunker& chunker = *NAN_UNWRAP_THIS(DedupChunker);
     ThreadPool& tpool = *NAN_GET_UNWRAP(ThreadPool, self, "tpool");
-    v8::Local<v8::Object> buffer = info[0]->ToObject();
+    v8::Local<v8::Object> buf_or_bufs = info[0]->ToObject();
     NanCallbackSharedPtr callback(new Nan::Callback(info[1].As<v8::Function>()));
-    Worker* worker = new Worker(chunker, self, buffer, callback);
+    Worker* worker = new Worker(chunker, self, buf_or_bufs, callback);
     tpool.submit(worker);
     NAN_RETURN(Nan::Undefined());
 }

@@ -28,8 +28,8 @@ var EventEmitter = require('events').EventEmitter;
 // dbg.set_level(5, __dirname);
 
 var RPC_PING_INTERVAL_MS = 20000;
-var RECONN_BACKOFF_BASE = 1000;
-var RECONN_BACKOFF_MAX = 10000;
+var RECONN_BACKOFF_BASE = 250;
+var RECONN_BACKOFF_MAX = 5000;
 var RECONN_BACKOFF_FACTOR = 1.2;
 
 

@@ -154,16 +154,15 @@ function verify_wizard_run {
 fix_network
 
 who=$(whoami)
-if [ "$who" != "noobaa" ]; then
-  return
+if [ "$who" = "noobaa" ]; then
+  if [ ! -f ${FIRST_INSTALL_MARK} ]; then
+    #sudo echo "Server was booted, first install mark down not exist. Running first install wizard" >> /var/log/noobaa_deploy.log
+    run_wizard
+  else
+    verify_wizard_run
+  fi
 fi
 
-if [ ! -f ${FIRST_INSTALL_MARK} ]; then
-  #sudo echo "Server was booted, first install mark down not exist. Running first install wizard" >> /var/log/noobaa_deploy.log
-  run_wizard
-else
-  verify_wizard_run
-fi
 
 trap 2 20
 

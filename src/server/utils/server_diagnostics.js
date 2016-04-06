@@ -28,6 +28,9 @@ function collect_server_diagnostics() {
             return promise_utils.promised_exec('cp -f /var/log/noobaa_deploy* ' + TMP_WORK_DIR);
         })
         .then(function() {
+            return promise_utils.promised_exec('cp -f /var/log/noobaa.log* ' + TMP_WORK_DIR);
+        })
+        .then(function() {
             return promise_utils.promised_spawn('cp', ['-f', process.cwd() + '/.env', TMP_WORK_DIR + '/env'], process.cwd());
         })
         .then(function() {

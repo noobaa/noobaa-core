@@ -45,6 +45,8 @@
             'util/mutex.h',
             'util/rabin_fingerprint.h',
             'util/rabin_karp.h',
+            'util/syslog.h',
+            'util/syslog.cpp',
             'util/tpool.cpp',
             'util/tpool.h',
             'module.cpp',

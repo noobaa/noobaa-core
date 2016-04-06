@@ -52,7 +52,11 @@ function background_worker() {
                         return;
                     }
                     should_update_time = true;
-                    return update_work_list(policy);
+                    return update_work_list(policy)
+                        .fail(function(error) {
+                            dbg.error('update_work_list failed for policy:', policy);
+                            return;
+                        });
                 }
             }));
         })
@@ -391,7 +395,7 @@ function load_single_policy(bucket) {
         maxRedirects: 10,
     });
 
-    if (policy.endpoint==="https://s3.amazonaws.com"){
+    if (policy.endpoint === "https://s3.amazonaws.com") {
         //Amazon S3
         policy.s3cloud = new AWS.S3({
             endpoint: policy.endpoint,
@@ -399,7 +403,7 @@ function load_single_policy(bucket) {
             secretAccessKey: policy.access_keys.secret_key,
             region: 'us-east-1'
         });
-    }else{
+    } else {
         //S3 compatible
         policy.s3cloud = new AWS.S3({
             endpoint: policy.endpoint,
@@ -579,7 +583,7 @@ function sync_single_file_to_cloud(policy, object, target) {
     var body = policy.s3rver.getObject({
         Bucket: policy.bucket.name,
         Key: object.key,
-    }).createReadStream();
+    }).createReadStream().on('error', (err) => console.error('got error on createReadStream', err));
 
     var params = {
         Bucket: target,
@@ -588,33 +592,6 @@ function sync_single_file_to_cloud(policy, object, target) {
     };
 
     return P.ninvoke(policy.s3cloud, 'upload', params)
-        .fail(function(err) {
-            dbg.error('Error sync_single_file_to_cloud', object.key, '->', target + '/' + object.key,
-                err, err.stack);
-            throw new Error('Error sync_single_file_to_cloud ' + object.key + ' -> ' + target);
-        })
-        .then(function() {
-            return mark_cloud_synced(object);
-        });
-}
-
-//sync a single file to NooBaa
-function sync_single_file_to_noobaa(policy, object) {
-    dbg.log3('sync_single_file_to_noobaa', object.key, '->', policy.bucket.name + '/' + object.key);
-
-    var body = policy.s3cloud.getObject({
-        Bucket: policy.target_bucket,
-        Key: object.key,
-    }).createReadStream();
-
-    var params = {
-        Bucket: policy.bucket.name,
-        Key: object.key,
-        ContentType: object.content_type,
-        Body: body
-    };
-
-    return P.ninvoke(policy.s3rver, 'upload', params)
         .fail(function(err) {
             dbg.error('ERROR statusCode', err.statusCode, err.statusCode === 400, err.statusCode === 301);
             if (err.statusCode === 400 ||
@@ -631,13 +608,38 @@ function sync_single_file_to_noobaa(policy, object) {
                     .fail(function(err) {
                         dbg.error('Error sync_single_file_to_noobaa', object.key, '->', policy.bucket.name + '/' + object.key,
                             err, err.stack);
-                        throw new Error('Error sync_single_file_to_noobaa ' + object.key, '->', policy.bucket.name);
                     });
             } else {
                 dbg.error('Error sync_single_file_to_noobaa', object.key, '->', policy.bucket.name + '/' + object.key,
                     err, err.stack);
-                throw new Error('Error sync_single_file_to_noobaa ' + object.key, '->', policy.bucket.name);
             }
+        })
+        .then(function() {
+            return mark_cloud_synced(object);
+        });
+}
+
+//sync a single file to NooBaa
+function sync_single_file_to_noobaa(policy, object) {
+    dbg.log3('sync_single_file_to_noobaa', object.key, '->', policy.bucket.name + '/' + object.key);
+
+    var body = policy.s3cloud.getObject({
+        Bucket: policy.target_bucket,
+        Key: object.key,
+    }).createReadStream().on('error', (err) => console.error('got error on createReadStream', err));
+
+    var params = {
+        Bucket: policy.bucket.name,
+        Key: object.key,
+        ContentType: object.content_type,
+        Body: body
+    };
+
+    return P.ninvoke(policy.s3rver, 'upload', params)
+        .fail(function(err) {
+            // on any error just continue to the next file
+            dbg.error('Error sync_single_file_to_noobaa', object.key, '->', policy.bucket.name + '/' + object.key,
+                err, err.stack);
         })
         .then(function() {
             return;

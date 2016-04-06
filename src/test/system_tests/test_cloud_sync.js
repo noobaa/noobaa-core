@@ -18,7 +18,7 @@ let TEST_CTX = {
     source_bucket: 'files',
     target_ip: argv.target_ip,
     target_port: argv.target_port,
-    target_bucket: argv.target_bucket || 'files'
+    target_bucket: argv.target_bucket || 'target'
 };
 
 if (!TEST_CTX.target_ip || !TEST_CTX.target_port) {

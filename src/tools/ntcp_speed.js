@@ -1,6 +1,6 @@
 'use strict';
-let Ntcp = require('../src/util/native_core')().Ntcp;
-let Speedometer = require('../src/util/speedometer');
+let Ntcp = require('../util/native_core')().Ntcp;
+let Speedometer = require('../util/speedometer');
 let argv = require('minimist')(process.argv);
 argv.size = argv.size || 1024 * 1024;
 argv.port = parseInt(argv.port, 10) || 50505;

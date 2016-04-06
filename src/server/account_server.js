@@ -389,7 +389,7 @@ function get_account_info(account) {
         /*let buckets_list = _.filter(account.allowed_buckets, function(bucket) {
             return bucket.system.owner._id.toString() !== account._id.toString();
         });*/
-        info.allowed_buckets = account.allowed_buckets;
+        info.allowed_buckets = _.map(account.allowed_buckets, 'name');
     }
     info.systems = _.map(account.roles_by_system, function(roles, system_id) {
         var system = system_store.data.get_by_id(system_id);

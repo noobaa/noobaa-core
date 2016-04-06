@@ -36,7 +36,7 @@ module.exports = {
                 required: ['data'],
                 properties: {
                     data: {
-                        type: 'buffer'
+                        format: 'buffer'
                     },
                 },
             },

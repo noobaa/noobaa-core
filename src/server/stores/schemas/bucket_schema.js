@@ -86,6 +86,6 @@ module.exports = {
                     type: 'integer',
                 }
             }
-        },
+        }
     }
 };

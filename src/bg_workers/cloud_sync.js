@@ -390,8 +390,8 @@ function load_single_policy(bucket) {
         endpoint: 'http://127.0.0.1',
         s3ForcePathStyle: true,
         sslEnabled: false,
-        accessKeyId: policy.system.access_keys[0].access_key,
-        secretAccessKey: policy.system.access_keys[0].secret_key,
+        accessKeyId: policy.system.owner.access_keys[0].access_key,
+        secretAccessKey: policy.system.owner.access_keys[0].secret_key,
         maxRedirects: 10,
     });
 

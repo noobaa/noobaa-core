@@ -37,10 +37,8 @@ function upgrade_systems() {
             };
         }
         var updated_access_keys = system.access_keys;
-        for(var i= 0; i < updated_access_keys.length; ++i)
-        {
-            if (updated_access_keys[i]._id)
-            {
+        for (var i = 0; i < updated_access_keys.length; ++i) {
+            if (updated_access_keys[i]._id) {
                 delete updated_access_keys[i]._id;
             }
         }
@@ -54,7 +52,9 @@ function upgrade_systems() {
             _id: system._id
         }, {
             $set: updates,
-            $unset:{'__v':1}
+            $unset: {
+                '__v': 1
+            }
         });
     });
     db.systems.find().forEach(upgrade_system);
@@ -149,8 +149,8 @@ function upgrade_system(system) {
             $set: {
                 'cloud_sync.target_bucket': target_bucket,
                 'cloud_sync.endpoint': 'https://s3.amazonaws.com'
-                }
-            });
+            }
+        });
     });
 
 
@@ -217,7 +217,7 @@ function upgrade_chunks_add_ref_to_bucket() {
     });
     if (!num_chunks_to_upgrade) {
         print('\n*** no chunks require upgrade.');
-        // return;
+        return;
     }
     print('\n*** number of chunks to upgrade', num_chunks_to_upgrade);
 
@@ -316,7 +316,9 @@ function upgrade_system_access_keys() {
             }];
 
             var allowed_buckets = [];
-            db.buckets.find().forEach(function(bucket) {
+            db.buckets.find({
+                deleted: null
+            }).forEach(function(bucket) {
                 allowed_buckets.push(bucket._id);
             });
             updates.allowed_buckets = allowed_buckets;
@@ -333,15 +335,17 @@ function upgrade_system_access_keys() {
                 _id: account_to_update._id
             }, {
                 $set: updates,
-                $unset:{'__v':1}
+                $unset: {
+                    '__v': 1
+                }
             });
 
             db.systems.update({
                 _id: system._id
             }, {
-                $unset:{
-                    'access_keys':1,
-                    '__v':1
+                $unset: {
+                    'access_keys': 1,
+                    '__v': 1
                 }
             });
         }

@@ -83,8 +83,7 @@ TestRunner.prototype.init_run = function() {
         })
         .then(function() {
             //Restart services to hook require instanbul
-            console.log('Restarting services');
-            return promise_utils.promised_exec('supervisorctl restart webserver bg_workers');
+            return self._restart_services();
         })
         .delay(15000)
         .then(function() {
@@ -113,9 +112,7 @@ TestRunner.prototype.complete_run = function() {
             throw new Error('Failed setting TESTRUN=false in .env');
         })
         .then(function() {
-            console.log('Restarting services');
-            //Restart services to remove hook require instanbul
-            return promise_utils.promised_exec('supervisorctl restart webserver bg_workers');
+            return self._restart_services();
         })
         .delay(15000)
         .then(function() {
@@ -247,6 +244,17 @@ TestRunner.prototype._write_coverage = function() {
             //Generate the report
             reporter.add('lcov');
             reporter.write(collector, true /*sync*/ );
+        });
+};
+
+TestRunner.prototype._restart_services = function() {
+    console.log('Restarting services');
+    return promise_utils.promised_exec('supervisorctl stop all')
+        .then(function() {
+            return promise_utils.promised_exec('supervisorctl shutdown');
+        })
+        .then(function() {
+            return promise_utils.promised_exec('/usr/bin/supervisord');
         });
 };
 

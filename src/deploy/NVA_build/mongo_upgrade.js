@@ -317,16 +317,20 @@ function upgrade_system_access_keys() {
 
             var allowed_buckets = [];
             db.buckets.find().forEach(function(bucket) {
-                allowed_buckets.push(bucket._id.toString());
+                allowed_buckets.push(bucket._id);
             });
             updates.allowed_buckets = allowed_buckets;
 
-            print('Updating Owner Account: ', system.owner.email, '...');
+            var account_to_update = db.accounts.findOne({
+                _id: system.owner
+            });
+
+            print('Updating Owner Account: ', account_to_update.email, '...');
             printjson(updates);
-            printjson(system.owner);
+            printjson(account_to_update);
 
             db.accounts.update({
-                _id: system.owner._id
+                _id: account_to_update._id
             }, {
                 $set: updates,
                 $unset:{'__v':1}

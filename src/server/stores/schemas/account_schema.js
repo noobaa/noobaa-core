@@ -46,7 +46,7 @@ module.exports = {
         allowed_buckets: {
             type: 'array',
             items: {
-                type: 'string'
+                format: 'objectid'
             }
         },
         sync_credentials_cache: {

@@ -220,7 +220,7 @@ function list_bucket_access_accounts(req) {
 
     var access_accounts = _.filter(system_store.data.accounts, function(account) {
         return _.find(account.allowed_buckets, function(allowed_bucket) {
-            return (allowed_bucket.toString() === bucket._id.toString());
+            return (allowed_bucket._id.toString() === bucket._id.toString());
         });
     });
 
@@ -296,7 +296,7 @@ function delete_bucket(req) {
  */
 function list_buckets(req) {
     var buckets_by_name = req.system.buckets_by_name;
-    if (req.auth.s3_auth) {
+    if (req.auth && req.auth.s3_auth) {
         var account = system_store.data.get_by_id(req.auth.account_id);
         if (!account || account.deleted) {
             throw req.unauthorized('account not found');
@@ -304,7 +304,7 @@ function list_buckets(req) {
 
         buckets_by_name = _.filter(buckets_by_name, function(bucket) {
             return _.find(account.allowed_buckets, function(allowed_bucket) {
-                return allowed_bucket.toString() === bucket._id.toString();
+                return allowed_bucket._id.toString() === bucket._id.toString();
             });
         });
     }
@@ -532,7 +532,7 @@ function find_bucket(req) {
 
         //console.warn('find_bucket allowed_buckets: ', account.allowed_buckets, 'AND BUCKET: ', bucket);
         var is_allowed = _.find(account.allowed_buckets, function(allowed_bucket) {
-            return allowed_bucket.toString() === bucket._id.toString();
+            return allowed_bucket._id.toString() === bucket._id.toString();
         });
 
         if (!is_allowed) {

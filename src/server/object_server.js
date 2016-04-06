@@ -615,7 +615,7 @@ function load_bucket(req) {
         }
 
         var is_allowed = _.find(account.allowed_buckets, function(allowed_bucket) {
-            return allowed_bucket.toString() === bucket._id.toString();
+            return allowed_bucket._id.toString() === bucket._id.toString();
         });
 
         if(!is_allowed) {

@@ -199,7 +199,7 @@ function update_bucket_permissions(req) {
     updates.allowed_buckets = [];
     //console.warn('system_store.data.buckets_by_name: ', system.buckets_by_name);
     if (req.rpc_params.allowed_buckets) {
-        updates.allowed_buckets = _.map(req.rpc_params.allowed_buckets, bucket_name => system.buckets_by_name[bucket_name]._id.toString());
+        updates.allowed_buckets = _.map(req.rpc_params.allowed_buckets, bucket_name => system.buckets_by_name[bucket_name]._id);
         //console.warn('updates.allowed_buckets: ', updates.allowed_buckets);
     }
     return system_store.make_changes({

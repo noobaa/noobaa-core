@@ -4,7 +4,9 @@
 var _ = require('lodash');
 var P = require('../util/promise');
 var db = require('./db');
+var mime = require('mime');
 var MapAllocator = require('./mapper/map_allocator');
+var MapCopy = require('./mapper/map_copy');
 var map_writer = require('./mapper/map_writer');
 var map_reader = require('./mapper/map_reader');
 var map_deleter = require('./mapper/map_deleter');
@@ -63,7 +65,9 @@ function create_object_upload(req) {
         system: req.system._id,
         bucket: req.bucket._id,
         key: req.rpc_params.key,
-        content_type: req.rpc_params.content_type || 'application/octet-stream',
+        content_type: req.rpc_params.content_type ||
+            mime.lookup(req.rpc_params.key) ||
+            'application/octet-stream',
         create_time: new Date(),
         upload_size: 0,
         cloud_synced: false,
@@ -304,7 +308,10 @@ function copy_object(req) {
                 size: source_obj.size,
                 etag: source_obj.etag,
                 create_time: new Date(),
-                content_type: req.rpc_params.content_type || 'application/octet-stream',
+                content_type: req.rpc_params.content_type ||
+                    source_obj.content_type ||
+                    mime.lookup(req.rpc_params.key) ||
+                    'application/octet-stream',
                 upload_size: 0,
                 cloud_synced: false,
             };
@@ -322,7 +329,10 @@ function copy_object(req) {
             }
         })
         .then(() => db.ObjectMD.create(create_info))
-        // .then(() => map_writer.copy_mappings())
+        .then(() => {
+            let map_copy = new MapCopy(source_obj, create_info);
+            return map_copy.run();
+        })
         .then(() => {
             db.ActivityLog.create({
                 system: req.system,

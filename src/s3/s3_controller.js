@@ -2,7 +2,6 @@
 
 let _ = require('lodash');
 // let P = require('../util/promise');
-let mime = require('mime');
 let api = require('../api');
 let dbg = require('../util/debug_module')(__filename);
 let ObjectIO = require('../api/object_io');
@@ -350,7 +349,7 @@ class S3Controller {
             bucket: req.params.bucket,
             key: req.params.key,
             size: req.content_length,
-            content_type: req.headers['content-type'] || mime.lookup(req.params.key),
+            content_type: req.headers['content-type'],
             xattr: get_request_xattr(req),
             source_stream: req,
             calculate_md5: true
@@ -387,7 +386,7 @@ class S3Controller {
             key: req.params.key,
             source_bucket: source_bucket,
             source_key: source_key,
-            content_type: req.headers['content-type'] || mime.lookup(req.params.key),
+            content_type: req.headers['content-type'],
             xattr: get_request_xattr(req),
             xattr_copy: (req.headers['x-amz-metadata-directive'] === 'COPY')
         };
@@ -461,7 +460,7 @@ class S3Controller {
             bucket: req.params.bucket,
             key: req.params.key,
             size: req.content_length,
-            content_type: req.headers['content-type'] || mime.lookup(req.params.key),
+            content_type: req.headers['content-type'],
             xattr: get_request_xattr(req),
         };
         this._set_md_conditions(req, params, 'overwrite_if');

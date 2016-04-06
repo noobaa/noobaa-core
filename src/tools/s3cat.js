@@ -187,6 +187,7 @@ function upload_file() {
             Bucket: bucket,
             Key: upload_key,
             CopySource: bucket + '/' + argv.copy,
+            ContentType: mime.lookup(upload_key) || '',
         }, on_finish);
     } else if (argv.put) {
         let progress = {
@@ -206,7 +207,7 @@ function upload_file() {
                     next();
                 }
             })),
-            ContentType: mime.lookup(file_path),
+            ContentType: mime.lookup(file_path) || '',
             ContentLength: data_size
         }, on_finish);
     } else if (argv.perf) {

@@ -17,7 +17,7 @@ let devnull = require('dev-null');
 let config = require('../../config.js');
 let dbg = require('../util/debug_module')(__filename);
 let dedup_options = require("./dedup_options");
-let MD5Stream = require('../util/md5_stream');
+let HashStream = require('../util/hash_stream');
 let ChunkStream = require('../util/chunk_stream');
 // dbg.set_level(5, 'core');
 
@@ -169,9 +169,10 @@ class ObjectIO {
                 return this.upload_stream_parts(params);
             })
             .then(md5_digest => {
+                //console.warn('MD5 DIGEST AFTER UPLOAD PARTS IS: ', md5_digest);
                 let complete_params = _.pick(params, 'bucket', 'key', 'upload_id');
-                if (md5_digest) {
-                    complete_params.etag = md5_digest.toString('hex');
+                if (md5_digest.md5) {
+                    complete_params.etag = md5_digest.md5.toString('hex');
                 }
                 dbg.log0('upload_stream: complete upload', complete_params.key, complete_params.etag);
                 return this.client.object.complete_object_upload(complete_params)
@@ -196,14 +197,24 @@ class ObjectIO {
         params.part_sequence_number = params.part_sequence_number || 0;
 
         let md5_stream;
+        let sha256_stream;
         let source_stream = params.source_stream;
         source_stream._readableState.highWaterMark = 1024 * 1024;
         if (params.calculate_md5) {
-            md5_stream = new MD5Stream({
-                highWaterMark: 1024 * 1024
+            md5_stream = new HashStream({
+                highWaterMark: 1024 * 1024,
+                hash_type: 'md5'
             });
             source_stream.pipe(md5_stream);
             source_stream = md5_stream;
+        }
+        if (params.calculate_sha256) {
+            sha256_stream = new HashStream({
+                highWaterMark: 1024 * 1024,
+                hash_type: 'sha256'
+            });
+            source_stream.pipe(sha256_stream);
+            source_stream = sha256_stream;
         }
 
         dbg.log0('upload_stream: start', params.key,
@@ -279,7 +290,20 @@ class ObjectIO {
         }));
 
         return pipeline.run()
-            .then(() => md5_stream && md5_stream.wait_digest());
+            .then(() => {
+                var sha256_promise = '';
+                if(params.calculate_sha256)
+                {
+                    sha256_promise = P.resolve(sha256_stream && sha256_stream.wait_digest());
+                }
+                return P.all([P.resolve(md5_stream && md5_stream.wait_digest()), sha256_promise])
+                    .then((values) => {
+                        return {
+                            md5: values[0],
+                            sha256: values[1]
+                        };
+                    });
+            });
     }
 
     /**

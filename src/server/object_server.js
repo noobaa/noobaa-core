@@ -168,7 +168,7 @@ function complete_object_upload(req) {
             }, {
                 $set: {
                     size: object_size || obj.size,
-                    etag: obj_etag,
+                    etag: obj_etag
                 },
                 $unset: {
                     upload_size: 1
@@ -690,6 +690,20 @@ function load_bucket(req) {
     var bucket = req.system.buckets_by_name[req.rpc_params.bucket];
     if (!bucket) {
         throw req.rpc_error('NO_SUCH_BUCKET', 'No such bucket: ' + req.rpc_params.bucket);
+    }
+    if (req.auth && req.auth.s3_auth) {
+        var account = system_store.data.get_by_id(req.auth.account_id);
+        if (!account || account.deleted) {
+            throw req.unauthorized('account not found');
+        }
+
+        var is_allowed = _.find(account.allowed_buckets, function(allowed_bucket) {
+            return allowed_bucket._id.toString() === bucket._id.toString();
+        });
+
+        if (!is_allowed) {
+            throw req.unauthorized('No permission to access bucket');
+        }
     }
     req.bucket = bucket;
 }

@@ -4,21 +4,21 @@ var P = require('./promise');
 var crypto = require('crypto');
 var Transform = require('stream').Transform;
 
-class MD5Stream extends Transform {
+class HashStream extends Transform {
 
     constructor(options) {
         super(options);
         this._defer = P.defer();
-        this._md5 = crypto.createHash('md5');
+        this._hash = crypto.createHash(options.hash_type);
     }
 
     _transform(data, encoding, callback) {
-        this._md5.update(data);
+        this._hash.update(data);
         callback(null, data);
     }
 
     _flush(callback) {
-        this._defer.resolve(this._md5.digest()); // raw buffer
+        this._defer.resolve(this._hash.digest()); // raw buffer
         callback();
     }
 
@@ -28,4 +28,4 @@ class MD5Stream extends Transform {
 
 }
 
-module.exports = MD5Stream;
+module.exports = HashStream;

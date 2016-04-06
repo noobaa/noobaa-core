@@ -38,7 +38,7 @@ module.exports = system_server;
 
 var _ = require('lodash');
 var P = require('../util/promise');
-var crypto = require('crypto');
+//var crypto = require('crypto');
 var ip_module = require('ip');
 var url = require('url');
 // var AWS = require('aws-sdk');
@@ -48,6 +48,7 @@ var server_rpc = require('./server_rpc');
 var bucket_server = require('./bucket_server');
 var pool_server = require('./pool_server');
 var tier_server = require('./tier_server');
+var account_server = require('./account_server');
 var system_store = require('./stores/system_store');
 var nodes_store = require('./stores/nodes_store');
 var size_utils = require('../util/size_utils');
@@ -64,13 +65,13 @@ function new_system_defaults(name, owner_account_id) {
         _id: system_store.generate_id(),
         name: name,
         owner: owner_account_id,
-        access_keys: (name === 'demo') ? [{
+        /*access_keys: (name === 'demo') ? [{
             access_key: '123',
             secret_key: 'abc',
         }] : [{
             access_key: crypto.randomBytes(16).toString('hex'),
             secret_key: crypto.randomBytes(32).toString('hex'),
-        }],
+        }],*/
         resources: {
             // set default package names
             agent_installer: 'noobaa-setup.exe',
@@ -251,7 +252,8 @@ function read_system(req) {
                 count: nodes_sys.count || 0,
                 online: nodes_sys.online || 0,
             },
-            access_keys: system.access_keys,
+            //JENaccess_keys: system.access_keys,
+            owner: account_server.get_account_info(system_store.data.get_by_id(system._id).owner),
             ssl_port: process.env.SSL_PORT,
             web_port: process.env.PORT,
             web_links: get_system_web_links(system),

@@ -28,6 +28,27 @@ module.exports = {
         is_support: {
             type: 'boolean'
         },
+        access_keys: {
+            type: 'array',
+            items: {
+                type: 'object',
+                required: ['access_key', 'secret_key'],
+                properties: {
+                    access_key: {
+                        type: 'string'
+                    },
+                    secret_key: {
+                        type: 'string'
+                    }
+                }
+            }
+        },
+        allowed_buckets: {
+            type: 'array',
+            items: {
+                format: 'objectid'
+            }
+        },
         sync_credentials_cache: {
             type: 'array',
             items: {

@@ -37,19 +37,10 @@ module.exports = {
                     xattr: {
                         $ref: '#/definitions/xattr',
                     },
-                    // conditions for overwriting existing object of this key
-                    if_modified_since: {
-                        format: 'idate'
-                    },
-                    if_unmodified_since: {
-                        format: 'idate'
-                    },
-                    if_match_etag: {
-                        type: 'string'
-                    },
-                    if_none_match_etag: {
-                        type: 'string'
-                    },
+                    overwrite_if: {
+                        // conditions on target key if exists
+                        $ref: '#/definitions/md_conditions',
+                    }
                 }
             },
             reply: {
@@ -375,6 +366,62 @@ module.exports = {
             }
         },
 
+        copy_object: {
+            method: 'PUT',
+            params: {
+                type: 'object',
+                required: [
+                    'bucket',
+                    'key',
+                    'source_bucket',
+                    'source_key',
+                ],
+                properties: {
+                    bucket: {
+                        type: 'string',
+                    },
+                    key: {
+                        type: 'string',
+                    },
+                    source_bucket: {
+                        type: 'string'
+                    },
+                    source_key: {
+                        type: 'string'
+                    },
+                    content_type: {
+                        type: 'string',
+                    },
+                    xattr: {
+                        $ref: '#/definitions/xattr',
+                    },
+                    xattr_copy: {
+                        type: 'boolean'
+                    },
+                    overwrite_if: {
+                        // conditions on target key if exists
+                        $ref: '#/definitions/md_conditions',
+                    },
+                    source_if: {
+                        // conditions on source key
+                        $ref: '#/definitions/md_conditions',
+                    }
+                }
+            },
+            reply: {
+                type: 'object',
+                // required: [],
+                properties: {
+                    source_md: {
+                        $ref: '#/definitions/object_info'
+                    }
+                }
+            },
+            auth: {
+                system: ['admin', 'user']
+            }
+        },
+
         read_object_mappings: {
             method: 'GET',
             params: {
@@ -608,6 +655,25 @@ module.exports = {
                 },
                 key: {
                     type: 'string',
+                },
+            }
+        },
+
+        // metadata if's - conditions to use metadata
+        md_conditions: {
+            type: 'object',
+            properties: {
+                if_modified_since: {
+                    format: 'idate'
+                },
+                if_unmodified_since: {
+                    format: 'idate'
+                },
+                if_match_etag: {
+                    type: 'string'
+                },
+                if_none_match_etag: {
+                    type: 'string'
                 },
             }
         },

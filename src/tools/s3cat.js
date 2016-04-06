@@ -92,6 +92,32 @@ function list_buckets() {
     });
 }
 
+function head_bucket() {
+    s3.headBucket({
+        Bucket: argv.bucket
+    }, (err, data) => {
+        if (err) {
+            console.error('HEAD BUCKET ERROR:', err);
+            return;
+        }
+        console.log('HEAD BUCKET', data);
+    });
+}
+
+function head_file() {
+    s3.headObject({
+        Bucket: argv.bucket,
+        Key: argv.head
+    }, (err, data) => {
+        if (err) {
+            console.error('HEAD OBJECT ERROR:', err);
+            return;
+        }
+        console.log('HEAD OBJECT', data);
+    });
+}
+
+
 function upload_file() {
     let bucket = argv.bucket;
     let file_path = argv.file || '';
@@ -156,7 +182,13 @@ function upload_file() {
         console.log('upload done.', speed_str, 'MB/sec');
     }
 
-    if (argv.put) {
+    if (argv.copy) {
+        s3.copyObject({
+            Bucket: bucket,
+            Key: upload_key,
+            CopySource: bucket + '/' + argv.copy,
+        }, on_finish);
+    } else if (argv.put) {
         let progress = {
             loaded: 0
         };
@@ -333,30 +365,6 @@ function get_file() {
     });
 }
 
-function head_bucket() {
-    s3.headBucket({
-        Bucket: argv.bucket
-    }, (err, data) => {
-        if (err) {
-            console.error('HEAD BUCKET ERROR:', err);
-            return;
-        }
-        console.log('HEAD BUCKET', data);
-    });
-}
-
-function head_file() {
-    s3.headObject({
-        Bucket: argv.bucket,
-        Key: argv.head
-    }, (err, data) => {
-        if (err) {
-            console.error('HEAD OBJECT ERROR:', err);
-            return;
-        }
-        console.log('HEAD OBJECT', data);
-    });
-}
 
 
 function print_usage() {
@@ -374,7 +382,9 @@ function print_usage() {
         '  --prefix <path>      prefix used for list objects \n' +
         '  --delimiter <key>    delimiter used for list objects \n' +
         'Upload Flags: \n' +
-        '  --upload <key>       run upload file to key (key can be omited)\n' +
+        '  --upload <key>       upload (multipart) to key (key can be omited)\n' +
+        '  --put <key>          put (single) to key (key can be omited)\n' +
+        '  --copy <key>         copy source key from same bucket \n' +
         '  --file <path>        use source file from local path \n' +
         '  --size <MB>          if no file path, generate random data of size (default 10 GB) \n' +
         '  --part_size <MB>     multipart size \n' +

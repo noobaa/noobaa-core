@@ -298,7 +298,8 @@ class S3Controller {
                 res.setHeader('Content-Length', object_md.size);
                 res.setHeader('Accept-Ranges', 'bytes');
                 set_response_xattr(res, object_md.xattr);
-                if (this._ifs_check(req, res, object_md) === false) {
+                if (this._check_md_conditions(req, res, object_md) === false) {
+                    // _check_md_conditions already responded
                     return false;
                 }
             });
@@ -312,8 +313,8 @@ class S3Controller {
     get_object(req, res) {
         return this.head_object(req, res)
             .then(should_handle => {
-                // check if already handled by head_object
                 if (should_handle === false) {
+                    // head_object already responded
                     return false;
                 }
                 let object_md = req.object_md;
@@ -342,14 +343,9 @@ class S3Controller {
      * (aka upload object, or copy object)
      */
     put_object(req, res) {
-
-        // TODO GGG IMPLEMENT COPY OBJECT
-        let copy_source = req.headers['x-amz-copy-source'];
-        if (copy_source) {
-            // return req.rpc_client.object.copy_object({});
-            throw s3_errors.NotImplemented;
+        if (req.headers['x-amz-copy-source']) {
+            return this._copy_object(req, res);
         }
-
         let params = {
             bucket: req.params.bucket,
             key: req.params.key,
@@ -359,7 +355,7 @@ class S3Controller {
             source_stream: req,
             calculate_md5: true
         };
-        this._ifs_for_create(req, params);
+        this._set_md_conditions(req, params, 'overwrite_if');
         return req.rpc_client.object_io.upload_stream(params)
             .then(md5_digest => {
                 let etag = md5_digest.toString('hex');
@@ -373,6 +369,38 @@ class S3Controller {
                         throw s3_errors.BadDigest;
                     }
                 }
+            });
+    }
+
+
+    /**
+     * http://docs.aws.amazon.com/AmazonS3/latest/API/RESTObjectCOPY.html
+     * (aka copy object)
+     */
+    _copy_object(req, res) {
+        let copy_source = req.headers['x-amz-copy-source'];
+        let slash_index = copy_source.indexOf('/');
+        let source_bucket = copy_source.slice(0, slash_index);
+        let source_key = copy_source.slice(slash_index + 1);
+        let params = {
+            bucket: req.params.bucket,
+            key: req.params.key,
+            source_bucket: source_bucket,
+            source_key: source_key,
+            content_type: req.headers['content-type'] || mime.lookup(req.params.key),
+            xattr: get_request_xattr(req),
+            xattr_copy: (req.headers['x-amz-metadata-directive'] === 'COPY')
+        };
+        this._set_md_conditions(req, params, 'overwrite_if');
+        this._set_md_conditions(req, params, 'source_if', 'x-amz-copy-source-');
+        return req.rpc_client.object.copy_object(params)
+            .then(reply => {
+                return {
+                    CopyObjectResult: {
+                        LastModified: to_s3_date(reply.source_md.create_time),
+                        ETag: '"' + reply.source_md.etag + '"'
+                    }
+                };
             });
     }
 
@@ -436,7 +464,7 @@ class S3Controller {
             content_type: req.headers['content-type'] || mime.lookup(req.params.key),
             xattr: get_request_xattr(req),
         };
-        this._ifs_for_create(req, params);
+        this._set_md_conditions(req, params, 'overwrite_if');
         return req.rpc_client.object.create_object_upload(params)
             .then(reply => {
                 return {
@@ -592,7 +620,7 @@ class S3Controller {
     }
 
 
-    _ifs_check(req, res, object_md) {
+    _check_md_conditions(req, res, object_md) {
         if ('if-modified-since' in req.headers && (
                 object_md.create_time <=
                 (new Date(req.headers['if-modified-since'])).getTime()
@@ -620,18 +648,25 @@ class S3Controller {
         return true;
     }
 
-    _ifs_for_create(req, params) {
-        if ('if-modified-since' in req.headers) {
-            params.id_modified_since = (new Date(req.headers['if-modified-since'])).getTime();
+    _set_md_conditions(req, params, params_key, prefix) {
+        prefix = prefix || '';
+        if (prefix + 'if-modified-since' in req.headers) {
+            params[params_key] = params[params_key] || {};
+            params[params_key].if_modified_since =
+                (new Date(req.headers[prefix + 'if-modified-since'])).getTime();
         }
-        if ('if-unmodified-since' in req.headers) {
-            params.id_unmodified_since = (new Date(req.headers['if-unmodified-since'])).getTime();
+        if (prefix + 'if-unmodified-since' in req.headers) {
+            params[params_key] = params[params_key] || {};
+            params[params_key].if_unmodified_since =
+                (new Date(req.headers[prefix + 'if-unmodified-since'])).getTime();
         }
-        if ('if-match' in req.headers) {
-            params.if_match_etag = req.headers['if-match'];
+        if (prefix + 'if-match' in req.headers) {
+            params[params_key] = params[params_key] || {};
+            params[params_key].if_match_etag = req.headers[prefix + 'if-match'];
         }
-        if ('if-none-match' in req.headers) {
-            params.if_none_match_etag = req.headers['if-none-match'];
+        if (prefix + 'if-none-match' in req.headers) {
+            params[params_key] = params[params_key] || {};
+            params[params_key].if_none_match_etag = req.headers[prefix + 'if-none-match'];
         }
     }
 

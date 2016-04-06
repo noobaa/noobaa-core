@@ -159,10 +159,7 @@ class ObjectIO {
             'size',
             'content_type',
             'xattr',
-            'if_modified_since',
-            'if_unmodified_since',
-            'if_match_etag',
-            'if_none_match_etag'
+            'overwrite_ifs'
         );
 
         dbg.log0('upload_stream: start upload', params.key);

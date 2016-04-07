@@ -187,11 +187,9 @@ function create_access_key_auth(req) {
 
     var account = _.find(system_store.data.accounts, function(acc) {
         //console.warn(".accounts: " , acc);
-        if(acc.access_keys)
-        {
+        if (acc.access_keys) {
             return acc.access_keys[0].access_key.toString() === access_key.toString();
-        }
-        else {
+        } else {
             return false;
         }
     });
@@ -205,8 +203,8 @@ function create_access_key_auth(req) {
         'string_to_sign', string_to_sign,
         'signature', signature);
 
-        //console.warn('EVG EVG EVG EVG EVG SYSTEM ACCESS KEYS ARE: ', _.find(system.access_keys, 'access_key', access_key));
-        //console.warn('account is: ', account);
+    //console.warn('EVG EVG EVG EVG EVG SYSTEM ACCESS KEYS ARE: ', _.find(system.access_keys, 'access_key', access_key));
+    //console.warn('account is: ', account);
     //secret_key = account.access_keys.secret_key;
     //console.warn('secret_key is: ', secret_key);
 
@@ -245,7 +243,7 @@ function create_access_key_auth(req) {
 
     var role = _.find(system_store.data.roles, function(role) {
         //return _.find(role.account, function(acc) {
-            return role.account._id.toString() === account._id.toString();
+        return role.account._id.toString() === account._id.toString();
         //});
     });
 
@@ -260,14 +258,13 @@ function create_access_key_auth(req) {
     }
 
     var auth_extra;
-    if(req.rpc_params.extra) {
+    if (req.rpc_params.extra) {
         auth_extra = req.rpc_params.extra;
         auth_extra.signature = req.rpc_params.signature;
         auth_extra.string_to_sign = req.rpc_params.string_to_sign;
-    }
-    else {
+    } else {
         auth_extra = {
-            signature:  req.rpc_params.signature,
+            signature: req.rpc_params.signature,
             string_to_sign: req.rpc_params.string_to_sign
         };
     }
@@ -320,14 +317,14 @@ function read_auth(req) {
  *
  */
 function authorize(req) {
-//console.warn('CHECKING AUTHORIZE CONNECT');
+    //console.warn('CHECKING AUTHORIZE CONNECT');
     _prepare_auth_request(req);
     var auth_token_obj;
 
-//console.warn('evg evg evg req.auth_token = ',req.auth_token);
-//console.warn('evg evg evg req.noobaa_v4 = ',req.noobaa_v4);
-//console.warn('evg evg evg req.rpc_params = ',req.rpc_params);
-//console.warn('Auth Token Object1: ', auth_token_obj);
+    //console.warn('evg evg evg req.auth_token = ',req.auth_token);
+    //console.warn('evg evg evg req.noobaa_v4 = ',req.noobaa_v4);
+    //console.warn('evg evg evg req.rpc_params = ',req.rpc_params);
+    //console.warn('Auth Token Object1: ', auth_token_obj);
 
     if (req.auth_token) {
         //console.warn('Auth Token Object2: ', auth_token_obj);
@@ -368,7 +365,7 @@ function authorize(req) {
             var secret_key = account.access_keys[0].secret_key;
             var s3_signature;
 
-            if(s3_params.string_to_sign.indexOf('AWS4') > -1){
+            if (s3_params.string_to_sign.indexOf('AWS4') > -1) {
                 s3_signature = s3_util.noobaa_signature_v4({
                     xamzdate: s3_params.xamzdate,
                     region: s3_params.region,
@@ -376,9 +373,8 @@ function authorize(req) {
                     string_to_sign: s3_params.string_to_sign,
                     secret_key: secret_key
                 });
-            }
-            else {
-                s3_signature = s3_auth.sign(secret_key, s3_params.string_to_sign);//secret_key, string_to_sign);
+            } else {
+                s3_signature = s3_auth.sign(secret_key, s3_params.string_to_sign); //secret_key, string_to_sign);
                 //signature = s3_auth.sign('abcd', string_to_sign);
                 //console.warn('EVG EVG EVG EVG EVG SIGNATURE COMP: ', s3_signature, signature);
 
@@ -472,6 +468,22 @@ function _prepare_auth_request(req) {
         dbg.log3('load auth system:', req.system);
     };
 
+    req.has_bucket_permission = function(bucket, optional_account) {
+        let account = optional_account || req.account;
+        if (req.role === 'admin' || account.is_support) {
+            return true;
+        }
+        return _.find(
+            account.allowed_buckets,
+            allowed_bucket => String(allowed_bucket._id) === String(bucket._id)
+        );
+    };
+
+    req.check_bucket_permission = function(bucket) {
+        if (!req.has_bucket_permission(bucket)) {
+            throw req.unauthorized('No permission to access bucket');
+        }
+    };
 
     /**
      *

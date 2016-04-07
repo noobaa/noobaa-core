@@ -310,7 +310,13 @@ class S3Controller {
             .then(bucket_info => {
                 return {
                     AccessControlPolicy: {
-                        Owner: DEFAULT_S3_USER
+                        Owner: DEFAULT_S3_USER,
+                        AccessControlList: [{
+                            Grant: {
+                                Grantee: DEFAULT_S3_USER,
+                                Permission: 'FULL_CONTROL'
+                            }
+                        }]
                     }
                 };
             });
@@ -452,7 +458,12 @@ class S3Controller {
     _copy_object(req, res) {
         let copy_source = req.headers['x-amz-copy-source'];
         let slash_index = copy_source.indexOf('/');
-        let source_bucket = copy_source.slice(0, slash_index);
+        let start_index = 0;
+        if (slash_index === 0) {
+            start_index = 1;
+            slash_index = copy_source.indexOf('/', 1);
+        }
+        let source_bucket = copy_source.slice(start_index, slash_index);
         let source_key = copy_source.slice(slash_index + 1);
         let params = {
             bucket: req.params.bucket,
@@ -503,7 +514,13 @@ class S3Controller {
             .then(object_md => {
                 return {
                     AccessControlPolicy: {
-                        Owner: DEFAULT_S3_USER
+                        Owner: DEFAULT_S3_USER,
+                        AccessControlList: [{
+                            Grant: {
+                                Grantee: DEFAULT_S3_USER,
+                                Permission: 'FULL_CONTROL'
+                            }
+                        }]
                     }
                 };
             });

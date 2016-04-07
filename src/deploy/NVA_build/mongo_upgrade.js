@@ -9,6 +9,7 @@ upgrade();
 function upgrade() {
     upgrade_systems();
     upgrade_chunks_add_ref_to_bucket();
+    upgrade_system_access_keys();
     print('\nUPGRADE DONE.');
 }
 
@@ -36,10 +37,8 @@ function upgrade_systems() {
             };
         }
         var updated_access_keys = system.access_keys;
-        for(var i= 0; i < updated_access_keys.length; ++i)
-        {
-            if (updated_access_keys[i]._id)
-            {
+        for (var i = 0; i < updated_access_keys.length; ++i) {
+            if (updated_access_keys[i]._id) {
                 delete updated_access_keys[i]._id;
             }
         }
@@ -53,7 +52,9 @@ function upgrade_systems() {
             _id: system._id
         }, {
             $set: updates,
-            $unset:{'__v':1}
+            $unset: {
+                '__v': 1
+            }
         });
     });
     db.systems.find().forEach(upgrade_system);
@@ -148,8 +149,8 @@ function upgrade_system(system) {
             $set: {
                 'cloud_sync.target_bucket': target_bucket,
                 'cloud_sync.endpoint': 'https://s3.amazonaws.com'
-                }
-            });
+            }
+        });
     });
 
 
@@ -216,7 +217,7 @@ function upgrade_chunks_add_ref_to_bucket() {
     });
     if (!num_chunks_to_upgrade) {
         print('\n*** no chunks require upgrade.');
-        // return;
+        return;
     }
     print('\n*** number of chunks to upgrade', num_chunks_to_upgrade);
 
@@ -301,4 +302,52 @@ function upgrade_chunks_add_ref_to_bucket() {
             multi: true
         });
     }
+}
+
+function upgrade_system_access_keys() {
+    print('\n*** upgrade_system_access_keys ...');
+
+    db.systems.find().forEach(function(system) {
+        var updates = {};
+        if (system.access_keys) {
+            updates.access_keys = [{
+                access_key: system.access_keys[0].access_key,
+                secret_key: system.access_keys[0].secret_key
+            }];
+
+            var allowed_buckets = [];
+            db.buckets.find({
+                deleted: null
+            }).forEach(function(bucket) {
+                allowed_buckets.push(bucket._id);
+            });
+            updates.allowed_buckets = allowed_buckets;
+
+            var account_to_update = db.accounts.findOne({
+                _id: system.owner
+            });
+
+            print('Updating Owner Account: ', account_to_update.email, '...');
+            printjson(updates);
+            printjson(account_to_update);
+
+            db.accounts.update({
+                _id: account_to_update._id
+            }, {
+                $set: updates,
+                $unset: {
+                    '__v': 1
+                }
+            });
+
+            db.systems.update({
+                _id: system._id
+            }, {
+                $unset: {
+                    'access_keys': 1,
+                    '__v': 1
+                }
+            });
+        }
+    });
 }

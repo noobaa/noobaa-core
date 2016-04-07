@@ -83,6 +83,62 @@ module.exports = {
             }
         },
 
+        generate_account_keys: {
+            doc: 'Generate new account keys',
+            method: 'PUT',
+            params: {
+                type: 'object',
+                required: ['email'],
+                properties: {
+                    email: {
+                        type: 'string',
+                    }
+                },
+            },
+            reply: {
+                /*type: 'object',
+                required: ['access_key', 'secret_key'],
+                properties: {
+                    access_key: {
+                        type: 'string',
+                    },
+                    secret_key: {
+                        type: 'string',
+                    }
+                }*/
+                type: 'array',
+                items: {
+                    $ref: 'system_api#/definitions/access_keys'
+                }
+            },
+            auth: {
+                system: 'admin'
+            }
+        },
+
+        update_bucket_permissions: {
+            doc: 'Update bucket access permissions',
+            method: 'PUT',
+            params: {
+                type: 'object',
+                required: ['email'], //['allowed_buckets'],
+                properties: {
+                    email: {
+                        type: 'string',
+                    },
+                    allowed_buckets: {
+                        type: 'array',
+                        items: {
+                            type: 'string'
+                        }
+                    },
+                },
+            },
+            auth: {
+                system: 'admin'
+            }
+        },
+
         delete_account: {
             doc: 'Delete a given account',
             method: 'DELETE',
@@ -201,6 +257,28 @@ module.exports = {
                 },
                 is_support: {
                     type: 'boolean',
+                },
+                access_keys: {
+                    /*type: 'object',
+                    required: ['access_key', 'secret_key'],
+                    properties: {
+                        access_key: {
+                            type: 'string'
+                        },
+                        secret_key: {
+                            type: 'string'
+                        }
+                    }*/
+                    type: 'array',
+                    items: {
+                        $ref: 'system_api#/definitions/access_keys'
+                    }
+                },
+                allowed_buckets: {
+                    type: 'array',
+                    items: {
+                        type: 'string' //BucketName
+                    }
                 },
                 systems: {
                     type: 'array',

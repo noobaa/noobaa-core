@@ -2,7 +2,7 @@
 
 let _ = require('lodash');
 // let P = require('../util/promise');
-let mime = require('mime');
+//let time_utils = require('../util/time_utils');
 let api = require('../api');
 let dbg = require('../util/debug_module')(__filename);
 let ObjectIO = require('../api/object_io');
@@ -29,18 +29,35 @@ class S3Controller {
     }
 
     prepare_request(req) {
-        req.rpc_client = this.rpc_client_by_access_key[req.access_key];
-        if (!req.rpc_client) {
-            req.rpc_client =
-                this.rpc_client_by_access_key[req.access_key] =
-                this.rpc.new_client();
-            req.rpc_client.object_io = new ObjectIO(req.rpc_client);
-            return req.rpc_client.create_access_key_auth({
+        //console.warn('MY ARRAY OF KEYS IS: ', this.rpc_client_by_access_key);
+        //var req_start_time = time_utils.millistamp();
+        //console.warn('IS THIS ME: ', this);
+        //console.warn('MY ACCESS KEY IS: ', req.access_key);
+        //console.warn('TYPE OF MY ACCESS KEY IS: ', typeof req.access_key);
+
+
+        //console.warn('MY ARRAY OF KEYS IS: ', this.rpc_client_by_access_key);
+        //req.rpc_client = this.rpc_client_by_access_key[req.access_key];
+        //if (!req.rpc_client) {
+        req.rpc_client =
+            //this.rpc_client_by_access_key[req.access_key] =
+            this.rpc.new_client();
+        req.rpc_client.object_io = new ObjectIO(req.rpc_client);
+        return req.rpc_client.create_access_key_auth({
                 access_key: req.access_key,
                 string_to_sign: req.string_to_sign,
                 signature: req.signature,
-            }).return();
-        }
+                extra: req.noobaa_v4
+            })
+            /*.then((res) => {
+                var millistamp = time_utils.millistamp();
+                var req_took_ms_sum = millistamp - req_start_time;
+                var total_took_sec = (req_took_ms_sum) / 1000;
+                console.warn('TOOK TIME TO MAKE THE AUTH AND CLIENT IN MS: ', req_took_ms_sum, ' IN SEC: ',total_took_sec);
+                return res;
+            })*/
+            .return();
+        //}
     }
 
 
@@ -98,6 +115,7 @@ class S3Controller {
         // TODO GGG MUST implement Marker & MaxKeys & IsTruncated
         let params = {
             bucket: req.params.bucket,
+            upload_mode: false,
         };
         if ('prefix' in req.query) {
             params.prefix = req.query.prefix;
@@ -123,8 +141,8 @@ class S3Controller {
                                 LastModified: to_s3_date(obj.info.create_time),
                                 ETag: obj.info.etag,
                                 Size: obj.info.size,
+                                Owner: DEFAULT_S3_USER,
                                 StorageClass: STORAGE_CLASS_STANDARD,
-                                Owner: DEFAULT_S3_USER
                             }
                         }))),
                         if_not_empty(_.map(reply.common_prefixes, prefix => ({
@@ -146,6 +164,7 @@ class S3Controller {
         // TODO GGG MUST implement KeyMarker & VersionIdMarker & MaxKeys & IsTruncated
         let params = {
             bucket: req.params.bucket,
+            upload_mode: false,
         };
         if ('prefix' in req.query) {
             params.prefix = req.query.prefix;
@@ -176,8 +195,8 @@ class S3Controller {
                                 LastModified: to_s3_date(obj.info.create_time),
                                 ETag: obj.info.etag,
                                 Size: obj.info.size,
+                                Owner: DEFAULT_S3_USER,
                                 StorageClass: STORAGE_CLASS_STANDARD,
-                                Owner: DEFAULT_S3_USER
                             }
                         }))),
                         if_not_empty(_.map(reply.common_prefixes, prefix => ({
@@ -194,7 +213,50 @@ class S3Controller {
     /**
      * http://docs.aws.amazon.com/AmazonS3/latest/API/mpUploadListMPUpload.html
      */
-    // get_bucket_uploads(req) { TODO GGG }
+    get_bucket_uploads(req) {
+        // TODO GGG MUST implement Marker & MaxKeys & IsTruncated
+        let params = {
+            bucket: req.params.bucket,
+            upload_mode: true,
+        };
+        if ('prefix' in req.query) {
+            params.prefix = req.query.prefix;
+        }
+        if ('delimiter' in req.query) {
+            params.delimiter = req.query.delimiter;
+        }
+        return req.rpc_client.object.list_objects(params)
+            .then(reply => {
+                return {
+                    ListMultipartUploadsResult: [{
+                            Bucket: req.params.bucket,
+                            Prefix: req.query.prefix,
+                            Delimiter: req.query.delimiter,
+                            MaxUploads: req.query['max-uploads'],
+                            KeyMarker: req.query['key-marker'],
+                            UploadIdMarker: req.query['upload-id-marker'],
+                            IsTruncated: false,
+                            'Encoding-Type': req.query['encoding-type'],
+                        },
+                        if_not_empty(_.map(reply.objects, obj => ({
+                            Upload: {
+                                Key: obj.key,
+                                UploadId: obj.info.version_id,
+                                Initiated: to_s3_date(obj.info.create_time),
+                                Initiator: DEFAULT_S3_USER,
+                                Owner: DEFAULT_S3_USER,
+                                StorageClass: STORAGE_CLASS_STANDARD,
+                            }
+                        }))),
+                        if_not_empty(_.map(reply.common_prefixes, prefix => ({
+                            CommonPrefixes: {
+                                Prefix: prefix || ''
+                            }
+                        })))
+                    ]
+                };
+            });
+    }
 
 
     /**
@@ -248,7 +310,13 @@ class S3Controller {
             .then(bucket_info => {
                 return {
                     AccessControlPolicy: {
-                        Owner: DEFAULT_S3_USER
+                        Owner: DEFAULT_S3_USER,
+                        AccessControlList: [{
+                            Grant: {
+                                Grantee: DEFAULT_S3_USER,
+                                Permission: 'FULL_CONTROL'
+                            }
+                        }]
                     }
                 };
             });
@@ -298,7 +366,8 @@ class S3Controller {
                 res.setHeader('Content-Length', object_md.size);
                 res.setHeader('Accept-Ranges', 'bytes');
                 set_response_xattr(res, object_md.xattr);
-                if (this._ifs_check(req, res, object_md) === false) {
+                if (this._check_md_conditions(req, res, object_md) === false) {
+                    // _check_md_conditions already responded
                     return false;
                 }
             });
@@ -312,8 +381,8 @@ class S3Controller {
     get_object(req, res) {
         return this.head_object(req, res)
             .then(should_handle => {
-                // check if already handled by head_object
                 if (should_handle === false) {
+                    // head_object already responded
                     return false;
                 }
                 let object_md = req.object_md;
@@ -342,30 +411,26 @@ class S3Controller {
      * (aka upload object, or copy object)
      */
     put_object(req, res) {
-
-        // TODO GGG IMPLEMENT COPY OBJECT
-        let copy_source = req.headers['x-amz-copy-source'];
-        if (copy_source) {
-            // return req.rpc_client.object.copy_object({});
-            throw s3_errors.NotImplemented;
+        if (req.headers['x-amz-copy-source']) {
+            return this._copy_object(req, res);
         }
-
         let params = {
             bucket: req.params.bucket,
             key: req.params.key,
             size: req.content_length,
-            content_type: req.headers['content-type'] || mime.lookup(req.params.key),
+            content_type: req.headers['content-type'],
             xattr: get_request_xattr(req),
             source_stream: req,
-            calculate_md5: true
+            calculate_md5: true,
+            calculate_sha256: (!_.isUndefined(req.content_sha256)) ? true : false
         };
-        this._ifs_for_create(req, params);
+        this._set_md_conditions(req, params, 'overwrite_if');
         return req.rpc_client.object_io.upload_stream(params)
             .then(md5_digest => {
-                let etag = md5_digest.toString('hex');
+                let etag = md5_digest.md5.toString('hex');
                 res.setHeader('ETag', '"' + etag + '"');
                 if (req.content_md5) {
-                    if (Buffer.compare(md5_digest, req.content_md5)) {
+                    if (Buffer.compare(md5_digest.md5, req.content_md5)) {
                         // TODO GGG how to handle? delete the object?
                         dbg.error('S3Controller.put_object: BadDigest',
                             'content-md5', req.content_md5.toString('hex'),
@@ -373,6 +438,52 @@ class S3Controller {
                         throw s3_errors.BadDigest;
                     }
                 }
+                if (req.content_sha256) {
+                    if (Buffer.compare(md5_digest.sha256, req.content_sha256)) {
+                        // TODO GGG how to handle? delete the object?
+                        dbg.error('S3Controller.put_object: BadDigest',
+                            'content-sha256', req.content_sha256.toString('hex'),
+                            'etag', md5_digest.sha256.toString('hex'));
+                        throw s3_errors.BadDigest;
+                    }
+                }
+            });
+    }
+
+
+    /**
+     * http://docs.aws.amazon.com/AmazonS3/latest/API/RESTObjectCOPY.html
+     * (aka copy object)
+     */
+    _copy_object(req, res) {
+        let copy_source = req.headers['x-amz-copy-source'];
+        let slash_index = copy_source.indexOf('/');
+        let start_index = 0;
+        if (slash_index === 0) {
+            start_index = 1;
+            slash_index = copy_source.indexOf('/', 1);
+        }
+        let source_bucket = copy_source.slice(start_index, slash_index);
+        let source_key = copy_source.slice(slash_index + 1);
+        let params = {
+            bucket: req.params.bucket,
+            key: req.params.key,
+            source_bucket: source_bucket,
+            source_key: source_key,
+            content_type: req.headers['content-type'],
+            xattr: get_request_xattr(req),
+            xattr_copy: (req.headers['x-amz-metadata-directive'] === 'COPY')
+        };
+        this._set_md_conditions(req, params, 'overwrite_if');
+        this._set_md_conditions(req, params, 'source_if', 'x-amz-copy-source-');
+        return req.rpc_client.object.copy_object(params)
+            .then(reply => {
+                return {
+                    CopyObjectResult: {
+                        LastModified: to_s3_date(reply.source_md.create_time),
+                        ETag: '"' + reply.source_md.etag + '"'
+                    }
+                };
             });
     }
 
@@ -403,7 +514,13 @@ class S3Controller {
             .then(object_md => {
                 return {
                     AccessControlPolicy: {
-                        Owner: DEFAULT_S3_USER
+                        Owner: DEFAULT_S3_USER,
+                        AccessControlList: [{
+                            Grant: {
+                                Grantee: DEFAULT_S3_USER,
+                                Permission: 'FULL_CONTROL'
+                            }
+                        }]
                     }
                 };
             });
@@ -433,10 +550,10 @@ class S3Controller {
             bucket: req.params.bucket,
             key: req.params.key,
             size: req.content_length,
-            content_type: req.headers['content-type'] || mime.lookup(req.params.key),
+            content_type: req.headers['content-type'],
             xattr: get_request_xattr(req),
         };
-        this._ifs_for_create(req, params);
+        this._set_md_conditions(req, params, 'overwrite_if');
         return req.rpc_client.object.create_object_upload(params)
             .then(reply => {
                 return {
@@ -552,17 +669,29 @@ class S3Controller {
                 upload_part_number: upload_part_number,
                 size: req.content_length,
                 source_stream: req,
-                calculate_md5: true
+                calculate_md5: true,
+                calculate_sha256: (!_.isUndefined(req.content_sha256)) ? true : false
             })
             .then(md5_digest => {
-                let etag = md5_digest.toString('hex');
+                let etag = md5_digest.md5.toString('hex');
+                //let etag_sha256 = md5_digest.sha256.toString('hex');
+
                 res.setHeader('ETag', '"' + etag + '"');
                 if (req.content_md5) {
-                    if (Buffer.compare(md5_digest, req.content_md5)) {
+                    if (Buffer.compare(md5_digest.md5, req.content_md5)) {
                         // TODO GGG how to handle? delete the object?
                         dbg.error('S3Controller.put_object_uploadId: BadDigest',
                             'content-md5', req.content_md5.toString('hex'),
                             'etag', etag);
+                        throw s3_errors.BadDigest;
+                    }
+                }
+                if (req.content_sha256) {
+                    if (Buffer.compare(md5_digest.sha256, req.content_sha256)) {
+                        // TODO GGG how to handle? delete the object?
+                        dbg.error('S3Controller.put_object: BadDigest',
+                            'content-sha256', req.content_sha256.toString('hex'),
+                            'etag', md5_digest.sha256.toString('hex'));
                         throw s3_errors.BadDigest;
                     }
                 }
@@ -592,7 +721,7 @@ class S3Controller {
     }
 
 
-    _ifs_check(req, res, object_md) {
+    _check_md_conditions(req, res, object_md) {
         if ('if-modified-since' in req.headers && (
                 object_md.create_time <=
                 (new Date(req.headers['if-modified-since'])).getTime()
@@ -620,18 +749,25 @@ class S3Controller {
         return true;
     }
 
-    _ifs_for_create(req, params) {
-        if ('if-modified-since' in req.headers) {
-            params.id_modified_since = (new Date(req.headers['if-modified-since'])).getTime();
+    _set_md_conditions(req, params, params_key, prefix) {
+        prefix = prefix || '';
+        if (prefix + 'if-modified-since' in req.headers) {
+            params[params_key] = params[params_key] || {};
+            params[params_key].if_modified_since =
+                (new Date(req.headers[prefix + 'if-modified-since'])).getTime();
         }
-        if ('if-unmodified-since' in req.headers) {
-            params.id_unmodified_since = (new Date(req.headers['if-unmodified-since'])).getTime();
+        if (prefix + 'if-unmodified-since' in req.headers) {
+            params[params_key] = params[params_key] || {};
+            params[params_key].if_unmodified_since =
+                (new Date(req.headers[prefix + 'if-unmodified-since'])).getTime();
         }
-        if ('if-match' in req.headers) {
-            params.if_match_etag = req.headers['if-match'];
+        if (prefix + 'if-match' in req.headers) {
+            params[params_key] = params[params_key] || {};
+            params[params_key].if_match_etag = req.headers[prefix + 'if-match'];
         }
-        if ('if-none-match' in req.headers) {
-            params.if_none_match_etag = req.headers['if-none-match'];
+        if (prefix + 'if-none-match' in req.headers) {
+            params[params_key] = params[params_key] || {};
+            params[params_key].if_none_match_etag = req.headers[prefix + 'if-none-match'];
         }
     }
 

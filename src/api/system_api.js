@@ -356,7 +356,8 @@ module.exports = {
                 'nodes',
                 'buckets',
                 'objects',
-                'access_keys'
+                'owner',
+                //'access_keys'
             ],
             properties: {
                 name: {
@@ -367,6 +368,9 @@ module.exports = {
                     items: {
                         $ref: '#/definitions/role_info'
                     }
+                },
+                owner: {
+                    $ref: 'account_api#/definitions/account_info'
                 },
                 tiers: {
                     type: 'array',
@@ -395,12 +399,12 @@ module.exports = {
                 objects: {
                     type: 'integer'
                 },
-                access_keys: {
+                /*access_keys: {
                     type: 'array',
                     items: {
                         $ref: '#/definitions/access_keys'
                     }
-                },
+                },*/
                 ssl_port: {
                     type: 'string'
                 },
@@ -490,7 +494,6 @@ module.exports = {
             properties: {
                 access_key: {
                     type: 'string',
-
                 },
                 secret_key: {
                     type: 'string',

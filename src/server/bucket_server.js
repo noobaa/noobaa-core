@@ -218,11 +218,10 @@ function list_bucket_access_accounts(req) {
         throw req.rpc_error('INVALID_BUCKET_NAME');
     }
 
-    var access_accounts = _.filter(system_store.data.accounts, function(account) {
-        return _.find(account.allowed_buckets, function(allowed_bucket) {
-            return (allowed_bucket._id.toString() === bucket._id.toString());
-        });
-    });
+    var access_accounts = _.filter(
+        system_store.data.accounts,
+        account => req.has_bucket_permission(bucket, account)
+    );
 
     var reply = _.map(access_accounts, function(val) {
         return _.pick(val, 'name', 'email', 'is_support', 'access_keys');
@@ -295,19 +294,10 @@ function delete_bucket(req) {
  *
  */
 function list_buckets(req) {
-    var buckets_by_name = req.system.buckets_by_name;
-    if (req.auth && req.auth.s3_auth) {
-        var account = system_store.data.get_by_id(req.auth.account_id);
-        if (!account || account.deleted) {
-            throw req.unauthorized('account not found');
-        }
-
-        buckets_by_name = _.filter(buckets_by_name, function(bucket) {
-            return _.find(account.allowed_buckets, function(allowed_bucket) {
-                return allowed_bucket._id.toString() === bucket._id.toString();
-            });
-        });
-    }
+    var buckets_by_name = _.filter(
+        req.system.buckets_by_name,
+        bucket => req.has_bucket_permission(bucket)
+    );
     return {
         buckets: _.map(buckets_by_name, function(bucket) {
             return _.pick(bucket, 'name');
@@ -523,23 +513,7 @@ function find_bucket(req) {
         dbg.error('BUCKET NOT FOUND', req.rpc_params.name);
         throw req.rpc_error('NO_SUCH_BUCKET', 'No such bucket: ' + req.rpc_params.name);
     }
-
-    if (req.auth && req.auth.s3_auth) {
-        var account = system_store.data.get_by_id(req.auth.account_id);
-        if (!account || account.deleted) {
-            throw req.unauthorized('account not found');
-        }
-
-        //console.warn('find_bucket allowed_buckets: ', account.allowed_buckets, 'AND BUCKET: ', bucket);
-        var is_allowed = _.find(account.allowed_buckets, function(allowed_bucket) {
-            return allowed_bucket._id.toString() === bucket._id.toString();
-        });
-
-        if (!is_allowed) {
-            throw req.unauthorized('No permission to access bucket');
-        }
-    }
-
+    req.check_bucket_permission(bucket);
     return bucket;
 }
 

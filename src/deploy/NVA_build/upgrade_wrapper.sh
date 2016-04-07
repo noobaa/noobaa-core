@@ -141,6 +141,8 @@ function post_upgrade {
   cp -f ${CORE_DIR}/src/deploy/NVA_build/noobaa_syslog.conf /etc/rsyslog.d/
   cp -f ${CORE_DIR}/src/deploy/NVA_build/logrotate_noobaa.conf /etc/logrotate.d/noobaa
   service rsyslog restart
+  # setup crontab to run logrotate every 15 minutes.
+  echo "*/15 * * * * /usr/sbin/logrotate /etc/logrotate.d/noobaa >/dev/null 2>&1" > /var/spool/cron/root
 
   if [ -f /tmp/agent_conf.json ]; then
     cp -f /tmp/agent_conf.json ${CORE_DIR}/agent_conf.json

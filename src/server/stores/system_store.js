@@ -200,7 +200,11 @@ class SystemStoreData {
 
     rebuild_allowed_buckets_links() {
         _.each(this.accounts, (account) => {
-            account.allowed_buckets = _.filter(account.allowed_buckets, bucket => bucket._id);
+            // filter only the buckets that were resolved to existing buckets
+            // this is to handle deletions of buckets that currently do not
+            // update all the accounts.
+            account.allowed_buckets =
+                _.filter(account.allowed_buckets, bucket => !!bucket._id);
         });
     }
 

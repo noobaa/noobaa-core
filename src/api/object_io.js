@@ -17,7 +17,7 @@ let devnull = require('dev-null');
 let config = require('../../config.js');
 let dbg = require('../util/debug_module')(__filename);
 let dedup_options = require("./dedup_options");
-let HASHStream = require('../util/hash_stream');
+let HashStream = require('../util/hash_stream');
 let ChunkStream = require('../util/chunk_stream');
 // dbg.set_level(5, 'core');
 
@@ -159,10 +159,7 @@ class ObjectIO {
             'size',
             'content_type',
             'xattr',
-            'if_modified_since',
-            'if_unmodified_since',
-            'if_match_etag',
-            'if_none_match_etag'
+            'overwrite_ifs'
         );
 
         dbg.log0('upload_stream: start upload', params.key);
@@ -204,7 +201,7 @@ class ObjectIO {
         let source_stream = params.source_stream;
         source_stream._readableState.highWaterMark = 1024 * 1024;
         if (params.calculate_md5) {
-            md5_stream = new HASHStream({
+            md5_stream = new HashStream({
                 highWaterMark: 1024 * 1024,
                 hash_type: 'md5'
             });
@@ -212,7 +209,7 @@ class ObjectIO {
             source_stream = md5_stream;
         }
         if (params.calculate_sha256) {
-            sha256_stream = new HASHStream({
+            sha256_stream = new HashStream({
                 highWaterMark: 1024 * 1024,
                 hash_type: 'sha256'
             });

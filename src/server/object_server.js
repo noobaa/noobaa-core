@@ -596,7 +596,7 @@ function list_objects(req) {
 
             var skip = req.rpc_params.skip;
             var limit = req.rpc_params.limit;
-            dbg.log0('list_objects query', info);
+            dbg.log0('list_objects params:', req.rpc_params, 'query:', info);
             var find = db.ObjectMD.find(info);
             if (skip) {
                 find.skip(skip);
@@ -619,20 +619,33 @@ function list_objects(req) {
             );
         })
         .spread(function(objects, total_count, common_prefixes_res) {
-            var res = {
-                objects: _.map(objects, function(obj) {
-                    return {
-                        key: obj.key,
-                        info: get_object_info(obj),
-                    };
-                })
-            };
+            let res = {};
+            let prefix_map;
+            let should_compact_objects = false;
+            if (common_prefixes_res) {
+                prefix_map = _.keyBy(common_prefixes_res, r => prefix + r._id + delimiter);
+                res.common_prefixes = _.keys(prefix_map);
+            } else {
+                prefix_map = {};
+            }
+            res.objects = _.map(objects, obj => {
+                if (!obj.size && (obj.key in prefix_map)) {
+                    // we filter out objects that are folder placeholders
+                    // which means that have size 0 and already included as prefixes
+                    // this is to avoid showing them as duplicates
+                    should_compact_objects = true;
+                    return;
+                }
+                return {
+                    key: obj.key,
+                    info: get_object_info(obj),
+                };
+            });
+            if (should_compact_objects) {
+                res.objects = _.compact(res.objects);
+            }
             if (req.rpc_params.pagination) {
                 res.total_count = total_count;
-            }
-            if (common_prefixes_res) {
-                res.common_prefixes = _.map(common_prefixes_res.results,
-                    r => prefix + r._id + delimiter);
             }
             return res;
         });

@@ -52,7 +52,11 @@ function background_worker() {
                         return;
                     }
                     should_update_time = true;
-                    return update_work_list(policy);
+                    return update_work_list(policy)
+                        .fail(function(error) {
+                            dbg.error('update_work_list failed for policy:', policy);
+                            return;
+                        });
                 }
             }));
         })
@@ -386,8 +390,8 @@ function load_single_policy(bucket) {
         endpoint: 'http://127.0.0.1',
         s3ForcePathStyle: true,
         sslEnabled: false,
-        accessKeyId: policy.system.access_keys[0].access_key,
-        secretAccessKey: policy.system.access_keys[0].secret_key,
+        accessKeyId: policy.system.owner.access_keys[0].access_key,
+        secretAccessKey: policy.system.owner.access_keys[0].secret_key,
         maxRedirects: 10,
     });
 

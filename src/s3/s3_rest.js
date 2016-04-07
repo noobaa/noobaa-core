@@ -387,6 +387,11 @@ function handle_options(req, res, next) {
     res.setHeader('x-amz-request-id', req.request_id);
     res.setHeader('x-amz-id-2', req.request_id);
 
+    // replace hadoop _$folder$
+    if (req.params.key) {
+        req.params.key = req.params.key.replace(/_\$folder\$/, '/');
+    }
+
     next();
 }
 

@@ -470,13 +470,17 @@ function _prepare_auth_request(req) {
 
     req.has_bucket_permission = function(bucket, optional_account) {
         let account = optional_account || req.account;
-        if (req.role === 'admin' || account.is_support) {
+        /*if (req.role === 'admin' || account.is_support) {
+            return true;
+        }*/
+        if (req.auth && req.auth.s3_auth) {
+            return _.find(
+                account.allowed_buckets,
+                allowed_bucket => String(allowed_bucket._id) === String(bucket._id)
+            );
+        } else {
             return true;
         }
-        return _.find(
-            account.allowed_buckets,
-            allowed_bucket => String(allowed_bucket._id) === String(bucket._id)
-        );
     };
 
     req.check_bucket_permission = function(bucket) {

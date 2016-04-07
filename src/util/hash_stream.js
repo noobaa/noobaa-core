@@ -4,7 +4,7 @@ var P = require('./promise');
 var crypto = require('crypto');
 var Transform = require('stream').Transform;
 
-class HASHStream extends Transform {
+class HashStream extends Transform {
 
     constructor(options) {
         super(options);
@@ -28,4 +28,4 @@ class HASHStream extends Transform {
 
 }
 
-module.exports = HASHStream;
+module.exports = HashStream;

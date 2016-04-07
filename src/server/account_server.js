@@ -93,8 +93,6 @@ function create_account(req) {
                         req.rpc_params.allowed_buckets = ['files'];
                         return update_bucket_permissions(req);
                     });
-            } else {
-                return;
             }
         })
         .then(function() {
@@ -186,9 +184,8 @@ function update_bucket_permissions(req) {
         if (!is_support_or_admin_or_me(req.system, req.account, account)) {
             throw req.unauthorized('Cannot update account');
         }
-    }
-    else {
-        if(!req.system) {
+    } else {
+        if (!req.system) {
             system = system_store.data.systems_by_name[req.rpc_params.name];
         }
     }
@@ -199,7 +196,8 @@ function update_bucket_permissions(req) {
     updates.allowed_buckets = [];
     //console.warn('system_store.data.buckets_by_name: ', system.buckets_by_name);
     if (req.rpc_params.allowed_buckets) {
-        updates.allowed_buckets = _.map(req.rpc_params.allowed_buckets, bucket_name => system.buckets_by_name[bucket_name]._id);
+        updates.allowed_buckets = _.map(req.rpc_params.allowed_buckets,
+            bucket_name => system.buckets_by_name[bucket_name]._id);
         //console.warn('updates.allowed_buckets: ', updates.allowed_buckets);
     }
     return system_store.make_changes({

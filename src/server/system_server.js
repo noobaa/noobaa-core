@@ -193,13 +193,13 @@ function read_system(req) {
         }),
 
         promise_utils.all_obj(system.buckets_by_name, function(bucket) {
-            return bucket_server.get_cloud_sync_policy({
-                auth_token: req.auth_token,
-                system: system,
+            // TODO this is a hacky "pseudo" rpc request. really should avoid.
+            let new_req = _.defaults({
                 rpc_params: {
                     name: bucket.name
                 }
-            });
+            }, req);
+            return bucket_server.get_cloud_sync_policy(new_req);
         })
 
     ).spread(function(

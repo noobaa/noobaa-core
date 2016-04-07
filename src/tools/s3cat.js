@@ -18,7 +18,8 @@ let s3 = new AWS.S3({
     accessKeyId: argv.access_key || '123',
     secretAccessKey: argv.secret_key || 'abc',
     endpoint: argv.endpoint || 'http://127.0.0.1',
-    signatureVersion: argv.sigver || 'v2',
+    region: 'us-east-1',
+    signatureVersion: argv.sigver || 's3', // use s3/v4, v2 doesn't
     s3ForcePathStyle: true,
     sslEnabled: false,
     computeChecksums: false,
@@ -54,7 +55,7 @@ function list_objects() {
         Delimiter: argv.delimiter || ''
     }, function(err, data) {
         if (err) {
-            console.error('LIST ERROR:', err);
+            console.error('LIST ERROR:', err.stack);
             return;
         }
         let contents = data.Contents;

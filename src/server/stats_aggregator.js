@@ -77,9 +77,10 @@ function get_systems_stats(req) {
         sys_stats.clusterid = cluster.cluster_id;
     }
     return P.all(_.map(system_store.data.systems, system => {
-            return system_server.read_system({
-                    system: system
-                })
+            let new_req = _.defaults({
+                system: system
+            }, req);
+            return system_server.read_system(new_req)
                 .then(res => _.defaults({
                     roles: res.roles.length,
                     tiers: res.tiers.length,

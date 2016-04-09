@@ -374,7 +374,6 @@ function add_account_sync_credentials_cache(req) {
 
 
 function get_account_info(account) {
-    //console.log('account', account);
     var info = _.pick(account, 'name', 'email');
     if (account.is_support) {
         info.is_support = true;
@@ -384,19 +383,18 @@ function get_account_info(account) {
     }
     //console.warn('account.allowed_buckets: ', account.allowed_buckets);
     if (account.allowed_buckets) {
-        /*let buckets_list = _.filter(account.allowed_buckets, function(bucket) {
-            return bucket.system.owner._id.toString() !== account._id.toString();
-        });*/
         info.allowed_buckets = _.map(account.allowed_buckets, 'name');
     }
-    info.systems = _.map(account.roles_by_system, function(roles, system_id) {
+    info.systems = _.compact(_.map(account.roles_by_system, function(roles, system_id) {
         var system = system_store.data.get_by_id(system_id);
+        if (!system) {
+            return null;
+        }
         return {
             name: system.name,
             roles: roles
         };
-    });
-    //console.log('get_account_info', info);
+    }));
     return info;
 }
 

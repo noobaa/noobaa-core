@@ -33,6 +33,7 @@ module.exports = {
 var _ = require('lodash');
 var AWS = require('aws-sdk');
 var db = require('./db');
+var net = require('net');
 var crypto = require('crypto');
 var object_server = require('./object_server');
 var tier_server = require('./tier_server');
@@ -46,9 +47,8 @@ var dbg = require('../util/debug_module')(__filename);
 var P = require('../util/promise');
 var js_utils = require('../util/js_utils');
 
-const VALID_BUCKET_NAME_REGEXP = new RegExp(
-    '^(([a-z]|[a-z][a-z0-9\-]*[a-z0-9])\\.)*' +
-    '([a-z]|[a-z][a-z0-9\-]*[a-z0-9])$');
+const VALID_BUCKET_NAME_REGEXP =
+    /^(([a-z0-9]|[a-z0-9][a-z0-9\-]*[a-z0-9])\.)*([a-z0-9]|[a-z0-9][a-z0-9\-]*[a-z0-9])$/;
 
 function new_bucket_defaults(name, system_id, tiering_policy_id) {
     return {
@@ -71,7 +71,10 @@ function new_bucket_defaults(name, system_id, tiering_policy_id) {
  *
  */
 function create_bucket(req) {
-    if (!VALID_BUCKET_NAME_REGEXP.test(req.rpc_params.name)) {
+    if (req.rpc_params.name.length < 3 ||
+        req.rpc_params.name.length > 63 ||
+        net.isIP(req.rpc_params.name) ||
+        !VALID_BUCKET_NAME_REGEXP.test(req.rpc_params.name)) {
         throw req.rpc_error('INVALID_BUCKET_NAME');
     }
     if (req.system.buckets_by_name[req.rpc_params.name]) {

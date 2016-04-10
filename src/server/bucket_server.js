@@ -116,8 +116,19 @@ function create_bucket(req) {
     return system_store.make_changes(changes)
         .then(function() {
             req.load_auth();
-            let created_bucket = find_bucket(req);
-            return get_bucket_info(created_bucket);
+            var new_allowed_buckets = _.map(req.account && req.account.allowed_buckets,
+                bucket => bucket.name);
+            new_allowed_buckets.push(bucket.name);
+            return server_rpc.client.account.update_bucket_permissions({
+                email: req.account && req.account.email,
+                allowed_buckets: new_allowed_buckets
+            }, {
+                auth_token: req.auth_token
+            }).then(() => {
+                req.load_auth();
+                let created_bucket = find_bucket(req);
+                return get_bucket_info(created_bucket);
+            });
         });
 }
 

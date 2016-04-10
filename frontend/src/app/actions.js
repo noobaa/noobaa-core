@@ -796,6 +796,15 @@ export function loadAccountAwsCredentials() {
     logAction('loadAccountAwsCredentials');
 
     api.account.get_account_sync_credentials_cache()
+        .then(
+            // Fix missing endpoint from prior version.
+            list => list.map(
+                c => {
+                    c.endpoint = c.endpoint || 'https://s3.amazonaws.com';
+                    return c;
+                }
+            )
+        )
         .then(model.awsCredentialsList)
         .done();
 }
@@ -1050,6 +1059,7 @@ export function testNode(source, testSet) {
     logAction('testNode', { source, testSet });
 
     let { nodeTestInfo } = model;
+
     nodeTestInfo({
         source: source,
         tests: testSet,
@@ -1296,17 +1306,14 @@ export function raiseNodeDebugLevel(node) {
         .done();
 }
 
-export function setCloudSyncPolicy(bucket, awsBucket, credentials, direction, frequency, sycDeletions) {
-    logAction('setCloudSyncPolicy', { bucket, awsBucket, credentials, direction, frequency,
+export function setCloudSyncPolicy(bucket, awsBucket, endpoint, credentials, direction, frequency, sycDeletions) {
+    logAction('setCloudSyncPolicy', { bucket, awsBucket, endpoint, credentials, direction, frequency,
         sycDeletions });
-
-    let policy_endpoint =  credentials.endpoint||'https://s3.amazonaws.com';
-    delete credentials.endpoint;
 
     api.bucket.set_cloud_sync({
         name: bucket,
         policy: {
-            endpoint:policy_endpoint,
+            endpoint: endpoint,
             target_bucket: awsBucket,
             access_keys: [ credentials ],
             c2n_enabled: direction === 'AWS2NB' || direction === 'BI',
@@ -1330,24 +1337,33 @@ export function removeCloudSyncPolicy(bucket) {
         .done();
 }
 
-export function addAWSCredentials(accessKey, secretKey, endPoint) {
-    logAction('addAWSCredentials', { accessKey, secretKey, endPoint });
+export function checkAWSCredentials(endpoint, accessKey, secretKey) {
+    logAction('checkAWSCredentials', { endpoint, accessKey, secretKey });
 
     let credentials = {
-        endpoint: endPoint,
+        endpoint: endpoint,
         access_key: accessKey,
         secret_key: secretKey
     };
 
-    // TODO: the call to get_cloud_sync is used here to check that the keys are valid,
-    // and the server can access S3 using this keys. Need to replace this with a sort of
-    // s3 ping when avaliable in server side.
-    api.bucket.get_cloud_buckets(credentials)
-        .then(
-            () => api.account.add_account_sync_credentials_cache(credentials)
-        )
-        .then(loadAccountAwsCredentials)
+    api.account.check_account_sync_credentials(credentials)
+        .then(model.areAwsCredentialValid)
         .done();
+}
+
+export function addAWSCredentials(name, endpoint, accessKey, secretKey) {
+    logAction('addAWSCredentials', { name, endpoint, accessKey, secretKey });
+
+    let credentials = {
+        name: name,
+        endpoint: endpoint,
+        access_key: accessKey,
+        secret_key: secretKey
+    };
+
+    api.account.add_account_sync_credentials_cache(credentials)
+        .then(loadAccountAwsCredentials)
+        .done()
 }
 
 export function notify(message, severity = 'INFO') {

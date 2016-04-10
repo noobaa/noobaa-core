@@ -1,107 +1,96 @@
 import template from './set-cloud-sync-modal.html';
 import ko from 'knockout';
-import {
-    awsCredentialsList,
-    awsBucketList
-} from 'model';
-import {
-    loadAccountAwsCredentials,
-    loadAwsBucketList,
-    setCloudSyncPolicy
-} from 'actions';
+import { awsCredentialsList, awsBucketList } from 'model';
+import { loadAccountAwsCredentials, loadAwsBucketList, setCloudSyncPolicy } from 'actions';
 
 const [MIN, HOUR, DAY] = [1, 60, 60 * 24];
-const frequencyUnitOptions = Object.freeze([{
-    value: MIN,
-    label: 'Minutes'
-}, {
-    value: HOUR,
-    label: 'Hours'
-}, {
-    value: DAY,
-    label: 'Days'
-}]);
+const frequencyUnitOptions = Object.freeze([
+    {
+        value: MIN,
+        label: 'Minutes'
+    }, 
+    {
+        value: HOUR,
+        label: 'Hours'
+    }, 
+    {
+        value: DAY,
+        label: 'Days'
+    }
+]);
 
-const directionOptions = Object.freeze([{
-    value: 'BI',
-    label: 'Bi-Direcitonal'
-}, {
-    value: 'NB2AWS',
-    label: 'NooBaa to AWS'
-}, {
-    value: 'AWS2NB',
-    label: 'AWS to NooBaa'
-}]);
+const directionOptions = Object.freeze([
+    {
+        value: 'BI',
+        label: 'Bi-Direcitonal'
+    },
+    {
+        value: 'NB2AWS',
+        label: 'NooBaa to AWS'
+    },
+    {
+        value: 'AWS2NB',
+        label: 'AWS to NooBaa'
+    }
+]);
 
-const addAccessKeyOption = {
-
-    value: 'NEW_KEY'
-};
+const addConnectionOption = Object.freeze({
+    label: 'Add new connection',
+    value: {}
+});
 
 class CloudSyncModalViewModel {
-    constructor({
-        bucketName,
-        onClose
-    }) {
+    constructor({ bucketName, onClose }) {
         this.onClose = onClose;
         this.bucketName = bucketName;
 
-        this.endPoint = "https://s3.amazonaws.com"
-        this.accessKeyOptions = ko.pureComputed(
-            () => [{
-                    label: 'Add new access key',
-                    value: 'NEW_KEY'
-                },
+        this.connectionOptions = ko.pureComputed(
+            () => [
+                addConnectionOption,
                 null,
-                ...awsCredentialsList().map(function(item) {
-                    let endpoint_label;
-                    if (item.endpoint) {
-                        endpoint_label = item.access_key + ' on ' + item.endpoint.replace('https://', '').replace('http://', '').replace('s3.amazonaws.com', 'Amazon');
-                    } else {
-                        endpoint_label = item.access_key;
-                    }
-                    return {
-                        value: item.access_key,
-                        label: endpoint_label
-                    };
-                })
+                ...awsCredentialsList().map(
+                    connection => ({ 
+                        label: connection.name || connection.access_key, 
+                        value: connection
+                     })
+                )
             ]
         );
 
-        this.accessKey = ko.observable().extend({
-            required: {
-                message: 'Please choose an aws access key'
+        let connectionStorage = ko.observable()
+        this.connection = ko.pureComputed({
+            read: connectionStorage,
+            write: val => {
+                if (val !== addConnectionOption.value) {
+                    connectionStorage(val);
+                } else {
+                    connectionStorage(connectionStorage() || null)
+                    this.isAWSCredentialsModalVisible(true);
+                }
             }
-        });;
-        this.accessKey.subscribe(
-            accessKey => accessKey === 'NEW_KEY' && this.isAWSCredentialsModalVisible(true)
-        );
-        this.accessKey.subscribe(
-            () => this.awsBucket(null)
+        })
+        .extend({
+            required: { message: 'Please select a connection from the list' }
+        });
+
+        this.connection.subscribe(
+            () => this.targetBucket(null)
         );
 
-        this.awsCredentials = ko.pureComputed(
-            () => awsCredentialsList().find(
-                ({
-                    access_key
-                }) => access_key === this.accessKey()
-            )
-        );
-        this.awsCredentials.subscribe(
-            credentials => credentials && this.loadBucketsList()
+        this.connection.subscribe(
+            value => value && this.loadBucketsList()
         );
 
-        this.awsBucketsOptions = ko.pureComputed(
-            () => this.awsCredentials() && awsBucketList().map(
-                bucketName => ({
-                    value: bucketName
-                })
+        this.targetBucketsOptions = ko.pureComputed(
+            () => this.connection() && awsBucketList() && awsBucketList().map(
+                bucketName => ({ value: bucketName })
             )
         );
-        this.awsBucket = ko.observable().extend({
+
+        this.targetBucket = ko.observable().extend({
             required: {
-                params: this.accessKey,
-                message: 'Please choose an aws bucket'
+                params: this.connection,
+                message: 'Please select a bucket from the list'
             }
         });
 
@@ -126,20 +115,13 @@ class CloudSyncModalViewModel {
     }
 
     loadBucketsList() {
-        let {
-            access_key,
-            secret_key,
-            endpoint
-        } = this.awsCredentials();
-        console.log('awsCredentials', this.awsCredentials);
+        let { access_key, secret_key, endpoint } = this.connection();
         loadAwsBucketList(access_key, secret_key, endpoint);
     }
 
     onNewCredentials(canceled) {
         this.isAWSCredentialsModalVisible(false);
-        canceled ?
-            this.accessKey(null) :
-            this.accessKey();
+        !canceled && this.connection();
     }
 
     cancel() {
@@ -150,10 +132,13 @@ class CloudSyncModalViewModel {
         if (this.errors().length > 0) {
             this.errors.showAllMessages();
         } else {
+            let { access_key, secret_key, endpoint } = this.connection();
+
             setCloudSyncPolicy(
                 ko.unwrap(this.bucketName),
-                this.awsBucket(),
-                this.awsCredentials(),
+                this.targetBucket(),
+                endpoint,
+                { access_key, secret_key }, 
                 this.direction(),
                 this.frequency() * this.frequencyUnit(),
                 this.syncDeletions()

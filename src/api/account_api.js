@@ -198,16 +198,21 @@ module.exports = {
             method: 'PUT',
             params: {
                 type: 'object',
-                // required: [],
+                required: [ 'name', 'access_key', 'secret_key', 'endpoint' ],
                 properties: {
-                    access_key: {
-                        type: 'string',
-                    },
-                    secret_key: {
-                        type: 'string',
+                    name: {
+                        type: 'string'
                     },
                     endpoint: {
-                        type: 'string',
+                        type: 'string'
+                    },
+
+                    access_key: {
+                        type: 'string'
+                    },
+
+                    secret_key: {
+                        type: 'string'
                     }
                 }
             },
@@ -223,6 +228,9 @@ module.exports = {
                 items: {
                     type: 'object',
                     properties: {
+                        name: {
+                            type: 'string'
+                        },
                         access_key: {
                             type: 'string',
                         },
@@ -240,6 +248,32 @@ module.exports = {
             }
         },
 
+        check_account_sync_credentials: {
+            method: 'GET',
+            params: {
+                type: 'object',
+                required: [ 'access_key', 'secret_key', 'endpoint' ],
+                properties: {
+                    endpoint: {
+                        type: 'string'
+                    },
+
+                    access_key: {
+                        type: 'string'
+                    },
+
+                    secret_key: {
+                        type: 'string'
+                    }
+                }
+            },
+            reply: {
+                type: 'boolean'
+            },
+            auth: {
+                system: 'admin'
+            }
+        }
     },
 
 

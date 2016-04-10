@@ -5,4 +5,4 @@ export default function tweenExtender(target) {
     return ko.pureComputed(
         () => formatSize(target() || 0)
     );
-}
+} 

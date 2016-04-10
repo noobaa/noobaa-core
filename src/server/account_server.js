@@ -18,6 +18,7 @@ var account_server = {
     get_system_roles: get_system_roles,
     add_account_sync_credentials_cache: add_account_sync_credentials_cache,
     get_account_sync_credentials_cache: get_account_sync_credentials_cache,
+    check_account_sync_credentials: check_account_sync_credentials,
     get_account_info: get_account_info
 };
 
@@ -30,6 +31,7 @@ var bcrypt = require('bcrypt');
 var system_store = require('./stores/system_store');
 var system_server = require('./system_server');
 var crypto = require('crypto');
+var AWS = require('aws-sdk');
 // var dbg = require('../util/debug_module')(__filename);
 
 
@@ -353,7 +355,7 @@ function get_account_sync_credentials_cache(req) {
  */
 
 function add_account_sync_credentials_cache(req) {
-    var info = _.pick(req.rpc_params, 'access_key', 'secret_key', 'endpoint');
+    var info = _.pick(req.rpc_params, 'name', 'endpoint', 'access_key', 'secret_key');
     var updates = {
         _id: req.account._id,
         sync_credentials_cache: req.account.sync_credentials_cache || []
@@ -366,6 +368,23 @@ function add_account_sync_credentials_cache(req) {
     }).return();
 }
 
+function check_account_sync_credentials(req) {
+    var params = _.pick(req.rpc_params, 'endpoint', 'access_key', 'secret_key');
+    
+    return P.fcall(function() {
+        var s3 = new AWS.S3({
+            endpoint: params.endpoint,
+            accessKeyId: params.access_key,
+            secretAccessKey: params.secret_key,
+            sslEnabled: false
+        });
+        
+        return P.ninvoke(s3, "listBuckets");
+    }).then(
+        () => true,
+        () => false
+    );
+}
 
 
 

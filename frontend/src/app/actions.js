@@ -1050,6 +1050,7 @@ export function testNode(source, testSet) {
     logAction('testNode', { source, testSet });
 
     let { nodeTestInfo } = model;
+
     nodeTestInfo({
         source: source,
         tests: testSet,

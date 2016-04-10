@@ -71,7 +71,7 @@ class AWSCredentialsModalViewModel {
 
         this.checkSub = areAwsCredentialValid
             .subscribe(
-                () => this.save()
+                isValid => isValid && this.save()
             );
 
         this.errors = ko.validation.group({
@@ -91,10 +91,8 @@ class AWSCredentialsModalViewModel {
     }
 
     save() {
-        if (this.isValidConenction()) {
-            addAWSCredentials(this.name(), this.endpoint(), this.accessKey(), this.secretKey());
-            this.onClose(false);
-        }
+        addAWSCredentials(this.name(), this.endpoint(), this.accessKey(), this.secretKey());
+        this.onClose(false);
     }
 
     cancel() {

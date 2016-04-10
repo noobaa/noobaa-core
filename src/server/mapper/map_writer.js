@@ -188,7 +188,7 @@ function set_multipart_part_md5(params) {
                 _id: part_obj[0]._id
             }, {
                 $set: {
-                    etag: params.etag
+                    etag: params.etag,
                 }
             });
         })
@@ -321,7 +321,7 @@ function fix_multipart_parts(obj) {
                         },
                         $unset: {
                             upload_part_number: '',
-                            etag: ''
+                            etag: '',
                         }
                     });
                     last_end = current_end;

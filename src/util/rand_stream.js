@@ -4,6 +4,15 @@ let stream = require('stream');
 let crypto = require('crypto');
 let chance = require('chance')();
 
+const BYTE_CHANCE = {
+    min: 0,
+    max: 255
+};
+const SECTION_CHANCE = {
+    min: 0,
+    max: 16 * 1024
+};
+
 /**
  *
  * RandStream
@@ -40,7 +49,7 @@ class RandStream extends stream.Readable {
             this.randbuf_use_count = 0;
             this.randbuf_max_usage = options.randbuf_max_usage || 10000;
             this.randbuf = crypto.randomBytes(4 * this.randbuf_chunk_size);
-            this.randbuf_offset_conf = {
+            this.randbuf_offset_chance = {
                 min: 0,
                 max: 3 * this.randbuf_chunk_size
             };
@@ -65,8 +74,17 @@ class RandStream extends stream.Readable {
                 this.randbuf_use_count = 0;
                 this.randbuf = crypto.randomBytes(4 * this.randbuf_chunk_size);
             }
-            let offset = chance.integer(this.randbuf_offset_conf);
+            let offset = chance.integer(this.randbuf_offset_chance);
             buf = this.randbuf.slice(offset, offset + size);
+            // add random changes in every small section of the buffer.
+            // TODO: maybe we should copy the buffer instead of changing randbuf inplace
+            // this might backfire because we are changing a buffer that
+            // we already returned to previous caller,
+            // but copying adds significant overhead...
+            for (let i = 0; i < buf.length; i += SECTION_CHANCE.max) {
+                let pos = chance.integer(SECTION_CHANCE);
+                buf[i + pos] = chance.integer(BYTE_CHANCE);
+            }
         }
         this.pos += buf.length;
         setImmediate(() => this.push(buf));

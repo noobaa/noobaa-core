@@ -23,7 +23,7 @@ var dbg = require('../util/debug_module')(__filename);
 var agents_address_map = new Map();
 var cluster_connections = new Set();
 
-var CLUSTER_TOPOLOGY;
+var CLUSTER_TOPOLOGY = {};
 var CLUSTER_TOPOLOGY_FILE = '/etc/noobaa_cluster';
 
 /*

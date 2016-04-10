@@ -6,27 +6,35 @@ let stream = require('stream');
 let moment = require('moment');
 let mime = require('mime');
 let http = require('http');
+let crypto = require('crypto');
 let AWS = require('aws-sdk');
 var argv = require('minimist')(process.argv);
 let size_utils = require('../util/size_utils');
 let RandStream = require('../util/rand_stream');
 
-
 argv.bucket = argv.bucket || 'files';
 
-let s3 = new AWS.S3({
-    accessKeyId: argv.access_key || '123',
-    secretAccessKey: argv.secret_key || 'abc',
-    endpoint: argv.endpoint || 'http://127.0.0.1',
-    s3ForcePathStyle: true,
-    sslEnabled: false,
-    computeChecksums: false,
+let s3_config = {
+    accessKeyId: argv.access_key || process.env.AWS_ACCESS_KEY_ID || '123',
+    secretAccessKey: argv.secret_key || process.env.AWS_SECRET_ACCESS_KEY || 'abc',
+    sslEnabled: argv.ssl || false,
+    computeChecksums: argv.checksum || false,
+    region: argv.region || 'us-east-1',
     httpOptions: {
         agent: new http.Agent({
             keepAlive: true
         })
     }
-});
+};
+if (argv.aws) {
+    s3_config.signatureVersion = argv.sigver || 'v4';
+    // s3_config.s3ForcePathStyle = false;
+} else {
+    s3_config.endpoint = argv.endpoint || 'http://127.0.0.1';
+    s3_config.signatureVersion = argv.sigver || 's3'; // use s3/v4, v2 seems irrelevant
+    s3_config.s3ForcePathStyle = true;
+}
+let s3 = new AWS.S3(s3_config);
 
 if (argv.help) {
     print_usage();
@@ -49,11 +57,11 @@ if (argv.help) {
 function list_objects() {
     s3.listObjects({
         Bucket: argv.bucket,
-        Prefix: argv.prefix || '',
-        Delimiter: argv.delimiter || ''
+        Prefix: argv.prefix,
+        Delimiter: argv.delimiter,
     }, function(err, data) {
         if (err) {
-            console.error('LIST ERROR:', err);
+            console.error('LIST ERROR:', err.stack);
             return;
         }
         let contents = data.Contents;
@@ -92,6 +100,32 @@ function list_buckets() {
     });
 }
 
+function head_bucket() {
+    s3.headBucket({
+        Bucket: argv.bucket
+    }, (err, data) => {
+        if (err) {
+            console.error('HEAD BUCKET ERROR:', err);
+            return;
+        }
+        console.log('HEAD BUCKET', data);
+    });
+}
+
+function head_file() {
+    s3.headObject({
+        Bucket: argv.bucket,
+        Key: argv.head
+    }, (err, data) => {
+        if (err) {
+            console.error('HEAD OBJECT ERROR:', err);
+            return;
+        }
+        console.log('HEAD OBJECT', data);
+    });
+}
+
+
 function upload_file() {
     let bucket = argv.bucket;
     let file_path = argv.file || '';
@@ -116,9 +150,11 @@ function upload_file() {
     } else {
         upload_key = upload_key || 'upload-' + Date.now().toString(36);
         data_size = argv.size * 1024 * 1024;
-        data_source = new RandStream(data_size, {
-            highWaterMark: part_size,
-        });
+        data_source = argv.buf ?
+            crypto.randomBytes(data_size) :
+            new RandStream(data_size, {
+                highWaterMark: part_size,
+            });
         console.log('Uploading', upload_key, 'from generated data of size',
             size_utils.human_size(data_size));
     }
@@ -128,6 +164,7 @@ function upload_file() {
     let progress_bytes = 0;
 
     function on_progress(progress) {
+        // console.log('on_progress', progress);
         let now = Date.now();
         if (now - progress_time >= 500) {
             let percents = Math.round(progress.loaded / data_size * 100);
@@ -156,27 +193,22 @@ function upload_file() {
         console.log('upload done.', speed_str, 'MB/sec');
     }
 
-    if (argv.put) {
-        let progress = {
-            loaded: 0
-        };
-        s3.putObject({
-            Key: upload_key,
+    if (argv.copy) {
+        s3.copyObject({
             Bucket: bucket,
-            Body: data_source.pipe(new stream.Transform({
-                objectMode: true,
-                highWaterMark: 8,
-                transform: function(data, enc, next) {
-                    console.log('INPUT', data.length, progress);
-                    progress.loaded += data.length;
-                    on_progress(progress);
-                    this.push(data);
-                    next();
-                }
-            })),
-            ContentType: mime.lookup(file_path),
-            ContentLength: data_size
+            Key: upload_key,
+            CopySource: bucket + '/' + argv.copy,
+            ContentType: mime.lookup(upload_key) || '',
         }, on_finish);
+    } else if (argv.put) {
+        s3.putObject({
+                Key: upload_key,
+                Bucket: bucket,
+                Body: data_source,
+                ContentType: mime.lookup(file_path) || '',
+                ContentLength: data_size
+            }, on_finish)
+            .on('httpUploadProgress', on_progress);
     } else if (argv.perf) {
         let progress = {
             loaded: 0
@@ -333,30 +365,6 @@ function get_file() {
     });
 }
 
-function head_bucket() {
-    s3.headBucket({
-        Bucket: argv.bucket
-    }, (err, data) => {
-        if (err) {
-            console.error('HEAD BUCKET ERROR:', err);
-            return;
-        }
-        console.log('HEAD BUCKET', data);
-    });
-}
-
-function head_file() {
-    s3.headObject({
-        Bucket: argv.bucket,
-        Key: argv.head
-    }, (err, data) => {
-        if (err) {
-            console.error('HEAD OBJECT ERROR:', err);
-            return;
-        }
-        console.log('HEAD OBJECT', data);
-    });
-}
 
 
 function print_usage() {
@@ -374,7 +382,9 @@ function print_usage() {
         '  --prefix <path>      prefix used for list objects \n' +
         '  --delimiter <key>    delimiter used for list objects \n' +
         'Upload Flags: \n' +
-        '  --upload <key>       run upload file to key (key can be omited)\n' +
+        '  --upload <key>       upload (multipart) to key (key can be omited)\n' +
+        '  --put <key>          put (single) to key (key can be omited)\n' +
+        '  --copy <key>         copy source key from same bucket \n' +
         '  --file <path>        use source file from local path \n' +
         '  --size <MB>          if no file path, generate random data of size (default 10 GB) \n' +
         '  --part_size <MB>     multipart size \n' +

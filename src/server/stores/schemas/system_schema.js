@@ -21,7 +21,7 @@ module.exports = {
         owner: {
             format: 'objectid' // account id
         },
-        access_keys: {
+        /*JENaccess_keys: {
             type: 'array',
             items: {
                 type: 'object',
@@ -35,7 +35,7 @@ module.exports = {
                     }
                 }
             }
-        },
+        },*/
         // links to system resources used for storing install packages
         resources: {
             type: 'object',

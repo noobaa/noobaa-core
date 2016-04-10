@@ -32,11 +32,13 @@ export default function register(ko) {
 
             message: 'Value already exists'
         },
+
         isURI:{
-            validator: function(val, required) {
+            validator(val, required) {
                 if (!val) {
                   return !required
                 }
+
                 val = val.replace(/^\s+|\s+$/, ''); //Strip whitespace
                 //Regex by Diego Perini from: http://mathiasbynens.be/demo/url-regex
                 //Modified regex - removed the restrictions for private ip ranges
@@ -72,8 +74,9 @@ export default function register(ko) {
                   "$", "i"
                 );
                 return val.match(re_weburl);
-              },
-              message: 'This field has to be a valid URL'
+            },
+              
+            message: 'Please enter a valid URI'
         }
     });
 

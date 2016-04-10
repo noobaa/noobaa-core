@@ -538,14 +538,14 @@ var ONE_LEVEL_SLASH_DELIMITER = one_level_delimiter('/');
  */
 function list_objects(req) {
     dbg.log0('list_objects', req.rpc_params);
-    var prefix = req.rpc_params.prefix;
+    var prefix = req.rpc_params.prefix || '';
     var delimiter = req.rpc_params.delimiter;
     load_bucket(req);
     return P.fcall(() => {
             var info = _.omit(object_md_query(req), 'key');
             var common_prefixes_query;
 
-            if (!_.isUndefined(prefix)) {
+            if (!_.isUndefined(delimiter)) {
                 // find objects that match "prefix***" or "prefix***/"
                 var one_level = delimiter && delimiter !== '/' ?
                     one_level_delimiter(delimiter) :
@@ -629,7 +629,7 @@ function list_objects(req) {
                 prefix_map = {};
             }
             res.objects = _.map(objects, obj => {
-                if (!obj.size && (obj.key in prefix_map)) {
+                if (obj.key in prefix_map) {
                     // we filter out objects that are folder placeholders
                     // which means that have size 0 and already included as prefixes
                     // this is to avoid showing them as duplicates

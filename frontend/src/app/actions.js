@@ -1330,24 +1330,33 @@ export function removeCloudSyncPolicy(bucket) {
         .done();
 }
 
-export function addAWSCredentials(accessKey, secretKey, endPoint) {
-    logAction('addAWSCredentials', { accessKey, secretKey, endPoint });
+export function checkAWSCredentials(endpoint, accessKey, secretKey) {
+    logAction('checkAWSCredentials', { endpoint, accessKey, secretKey });
 
     let credentials = {
-        endpoint: endPoint,
+        endpoint: endpoint,
         access_key: accessKey,
         secret_key: secretKey
     };
 
-    // TODO: the call to get_cloud_sync is used here to check that the keys are valid,
-    // and the server can access S3 using this keys. Need to replace this with a sort of
-    // s3 ping when avaliable in server side.
-    api.bucket.get_cloud_buckets(credentials)
-        .then(
-            () => api.account.add_account_sync_credentials_cache(credentials)
-        )
-        .then(loadAccountAwsCredentials)
+    api.account.check_account_sync_credentials(credentials)
+        .then(model.areAwsCredentialValid)
         .done();
+}
+
+export function addAWSCredentials(name, endpoint, accessKey, secretKey) {
+    logAction('addAWSCredentials', { name, endpoint, accessKey, secretKey });
+
+    let credentials = {
+        name: name,
+        endpoint: endpoint,
+        access_key: accessKey,
+        secret_key: secretKey
+    };
+
+    api.account.add_account_sync_credentials_cache(credentials)
+        .then(loadAccountAwsCredentials)
+        .done()
 }
 
 export function notify(message, severity = 'INFO') {

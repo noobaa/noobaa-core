@@ -4,31 +4,31 @@
     </h1>
 
     <section class="container">
-        <editor params="label: 'AWS Access Key'"    >
+        <editor params="label: 'Target Connection'">
             <dropdown params="
-                placeholder: 'Choose Access Key',
-                options: accessKeyOptions,
-                selected: accessKey
+                placeholder: 'Choose a connection',
+                options: connectionOptions,
+                selected: connection
             "></dropdown>
-            <div class="val-msg" data-bind="validationMessage: accessKey"></div>
+            <div class="val-msg" data-bind="validationMessage: connection"></div>
         </editor>
 
-         <editor params="label: 'AWS Bucket'">
+         <editor params="label: 'Target Bucket'">
             <dropdown params="
                 placeholder: 'Choose Bucket',
-                disabled: !awsBucketsOptions(),
-                options: awsBucketsOptions,
-                selected: awsBucket
+                disabled: !targetBucketsOptions(),
+                options: targetBucketsOptions,
+                selected: targetBucket
             "></dropdown>
-            <div class="val-msg" data-bind="validationMessage: awsBucket"></div>
+            <div class="val-msg" data-bind="validationMessage: targetBucket"></div>
         </editor>
 
         <editor params="label: 'Sync Bucket Every', insertValMessages: false">
-            <input type="Number" data-bind="value: frequency, enable: awsBucket" min="1"/>
+            <input type="Number" data-bind="value: frequency, enable: targetBucket" min="1"/>
             <dropdown class="freq-unit" params="
                 selected: frequencyUnit, 
                 options: frequencyUnitOptions, 
-                disabled: !awsBucket()
+                disabled: !targetBucket()
             "></dropdown>
         </editor>
 
@@ -36,14 +36,14 @@
             <radio-group params="
                 selected: direction, 
                 options: directionOptions, 
-                disabled: !awsBucket()
+                disabled: !targetBucket()
             "></radio-group>
         </editor>
         
         <checkbox params="
             label: 'Synchronize File Deletions', 
             checked: syncDeletions,
-            disabled: !awsBucket() || direction() === 'BI'
+            disabled: !targetBucket() || direction() === 'BI'
         "></checkbox>
     </section>
 

@@ -153,6 +153,29 @@ function upgrade_system(system) {
         });
     });
 
+    db.accounts.find().
+    forEach(function(account){
+        if (account.sync_credentials_cache &&
+            account.sync_credentials_cache.length>0 ) {
+            var updated_access_keys = account.sync_credentials_cache;
+
+            for (var i = 0; i < updated_access_keys.length; ++i) {
+                if (updated_access_keys[i]._id) {
+                    delete updated_access_keys[i]._id;
+                }
+            }
+            var updates = {};
+            updates.sync_credentials_cache = updated_access_keys;
+            printjson(updates);
+            db.accounts.update({
+                _id: account._id
+            }, {
+                $set: updates
+            });
+
+        }
+
+    })
 
     print('\n*** BUCKET ***');
     db.buckets.find({

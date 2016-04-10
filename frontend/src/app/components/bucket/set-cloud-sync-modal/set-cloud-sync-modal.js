@@ -132,10 +132,13 @@ class CloudSyncModalViewModel {
         if (this.errors().length > 0) {
             this.errors.showAllMessages();
         } else {
+            let { access_key, secret_key, endpoint } = this.connection();
+
             setCloudSyncPolicy(
                 ko.unwrap(this.bucketName),
                 this.targetBucket(),
-                this.connection(),
+                endpoint,
+                { access_key, secret_key }, 
                 this.direction(),
                 this.frequency() * this.frequencyUnit(),
                 this.syncDeletions()

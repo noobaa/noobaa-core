@@ -281,14 +281,35 @@ mocha.describe('system_servers', function() {
                 name: BUCKET,
             }))
             .then(() => client.tiering_policy.delete_policy({
-                    name: TIERING_POLICY,
-                })
-                .catch(err => assert.deepEqual(err.rpc_code, 'NO_SUCH_TIERING_POLICY'))
+                name: TIERING_POLICY,
+            }))
+            .then(res => {
+                    throw new Error('TIERING_POLICY: ' + TIERING_POLICY +
+                        ' should have been deleted by now');
+                },
+                err => {
+                    if (err.rpc_code.indexOf('NO_SUCH_TIERING_POLICY') > -1) {
+                        return;
+                    } else {
+                        throw new Error(err);
+                    }
+                }
             )
             .then(() => client.tier.delete_tier({
-                    name: TIER,
-                })
-                .catch(err => assert.deepEqual(err.rpc_code, 'NO_SUCH_TIER'))
+                name: TIER,
+            }))
+            .then(res => {
+                    throw new Error('TIER: ' + TIER +
+                        ' should have been deleted by now');
+                },
+                err => {
+                    console.warn('MY CHECK56:', err);
+                    if (err.rpc_code && err.rpc_code.indexOf('NO_SUCH_TIER') > -1) {
+                        return;
+                    } else {
+                        throw new Error(err);
+                    }
+                }
             )
             .then(() => client.pool.assign_nodes_to_pool({
                 name: 'default_pool',

@@ -6,6 +6,8 @@ var mocha = require('mocha');
 let assert = require('assert');
 let coretest = require('./coretest');
 let promise_utils = require('../util/promise_utils');
+var S3Auth = require('aws-sdk/lib/signers/s3');
+var s3_auth = new S3Auth();
 
 mocha.describe('system_servers', function() {
 
@@ -87,11 +89,14 @@ mocha.describe('system_servers', function() {
                 password: PASSWORD,
                 system: SYS,
             }))
-            .then(() => client.auth.create_access_key_auth({
-                access_key: '123',
-                string_to_sign: '',
-                signature: ''
-            }))
+            .then(() => {
+                return P.resolve(client.system.read_system())
+                    .then((res) => client.auth.create_access_key_auth({
+                        access_key: res.owner.access_keys[0].access_key, //'123',
+                        string_to_sign: '',
+                        signature: s3_auth.sign(res.owner.access_keys[0].secret_key, '')
+                    }));
+            })
             //////////////
             //  SYSTEM  //
             //////////////
@@ -219,7 +224,7 @@ mocha.describe('system_servers', function() {
             .then(() => client.bucket.update_bucket({
                 name: BUCKET,
                 new_name: BUCKET + 1,
-                tiering: 'default_tiering',
+                tiering: TIERING_POLICY//'default_tiering',
             }))
             .then(() => client.bucket.read_bucket({
                 name: BUCKET + 1,
@@ -246,6 +251,10 @@ mocha.describe('system_servers', function() {
             }))
             */
             .then(() => client.system.read_system())
+            /*.then(() => {
+                console.warn('JEN client: ', client);
+                return true;
+            })*/
             .then(() => client.bucket.get_cloud_sync_policy({
                 name: BUCKET,
             }))
@@ -264,7 +273,7 @@ mocha.describe('system_servers', function() {
             ////////////
             //  MISC  //
             ////////////
-            .then(() => client.cluster.get_cluster_id())
+            .then(() => client.cluster_server.get_cluster_id())
             .then(() => client.debug.set_debug_level({
                 module: 'rpc',
                 level: 0

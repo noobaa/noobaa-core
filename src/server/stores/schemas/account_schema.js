@@ -53,8 +53,11 @@ module.exports = {
             type: 'array',
             items: {
                 type: 'object',
-                required: ['access_key', 'secret_key'],
+                required: ['endpoint', 'access_key', 'secret_key'],
                 properties: {
+                    name: {
+                        type: 'string'
+                    },
                     access_key: {
                         type: 'string'
                     },

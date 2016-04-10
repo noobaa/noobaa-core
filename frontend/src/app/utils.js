@@ -241,13 +241,10 @@ export function execInOrder(list, executer) {
 }
 export function avarageArrayValues(inArray) {
     let total=0;
-    console.log('inarray',inArray);
     for(var i= 0; i < inArray.length; ++i)
     {
-        console.log('item:'+i+'::'+inArray[i]+':::'+total);
         total += inArray[i];
     }
-    console.log('total:'+total);
     return total/inArray.length;
 }
 export function defineEnum(...values) {

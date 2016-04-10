@@ -29,7 +29,7 @@ function get_istanbul_collector(req) {
         throw new Error('Coverage only applicable in TESTRUN mode');
     } else {
         return {
-            data: new Buffer(global.NOOBAA_COV.toString()),
+            data: JSON.stringify(global.NOOBAA_COV),
         };
     }
 }

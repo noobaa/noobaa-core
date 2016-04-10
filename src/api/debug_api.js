@@ -35,8 +35,8 @@ module.exports = {
                 type: 'object',
                 required: ['data'],
                 properties: {
-                    data: {
-                        format: 'buffer'
+                    data: {                        
+                        type: 'string',
                     },
                 },
             },

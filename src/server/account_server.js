@@ -409,6 +409,10 @@ function get_account_info(account) {
 function ensure_support_account() {
     return system_store.refresh()
         .then(function() {
+            if (!process.env.create_support) {
+                return;
+            }
+
             var support_account = _.find(system_store.data.accounts, function(account) {
                 return !!account.is_support;
             });

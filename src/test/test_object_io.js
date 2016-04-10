@@ -131,6 +131,7 @@ mocha.describe('object_io', function() {
                         size: size,
                         content_type: 'application/octet-stream',
                         source_stream: new SliceReader(data),
+                        calculate_md5: true,
                     });
                 }).then(function() {
                     return object_io.read_entire_object({
@@ -218,6 +219,7 @@ mocha.describe('object_io', function() {
                                 start: i * part_size,
                                 end: (i + 1) * part_size
                             }),
+                            calculate_md5: true,
                         });
                     });
                 })

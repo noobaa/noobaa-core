@@ -303,7 +303,6 @@ mocha.describe('system_servers', function() {
                         ' should have been deleted by now');
                 },
                 err => {
-                    console.warn('MY CHECK56:', err);
                     if (err.rpc_code && err.rpc_code.indexOf('NO_SUCH_TIER') > -1) {
                         return;
                     } else {

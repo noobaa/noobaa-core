@@ -96,12 +96,16 @@ TestRunner.prototype.complete_run = function() {
     var self = this;
     var dst = '/tmp/res_' + this._version + '.tgz';
     return this._write_coverage()
+        .fail(function(err) {
+            console.error('Failed writing coverage for test runs', err);
+            throw new Error('Failed writing coverage for test runs');
+        })
         .then(function() {
-            return promise_utils.promised_exec('tar --warning=no-file-changed -zcvf ' + dst + ' ' + COVERAGE_DIR + '/*')
-                .fail(function(err) {
-                    console.error('Failed archiving test runs', err);
-                    throw new Error('Failed archiving test runs');
-                });
+            return promise_utils.promised_exec('tar --warning=no-file-changed -zcvf ' + dst + ' ' + COVERAGE_DIR + '/*');
+        })
+        .fail(function(err) {
+            console.error('Failed archiving test runs', err);
+            throw new Error('Failed archiving test runs');
         })
         .then(function() {
             console.log('Disabling TESTRUN');
@@ -225,7 +229,7 @@ TestRunner.prototype._run_action = function(current_step, step_res) {
 TestRunner.prototype._write_coverage = function() {
     var self = this;
     var collector = new istanbul.Collector();
-    var reporter = new istanbul.Reporter(null, +'/istanbul');
+    var reporter = new istanbul.Reporter(null, COVERAGE_DIR + '/istanbul');
     //Get all collectors data
     return this._bg_client.redirector.publish_to_cluster({
             method_api: 'debug_api',
@@ -237,22 +241,34 @@ TestRunner.prototype._write_coverage = function() {
         .then(function(res) {
             //Add all recieved data to the collector
             _.each(res.aggregated, function(r) {
-                collector.add(JSON.parse(r.data.data));
+                if (r.data) {
+                    var to_add = r.data;
+                    collector.add(JSON.parse(to_add));
+                } else {
+                    console.warn('r.data is undefined');
+                }
             });
             //Add unit test coverage data
             collector.add(JSON.parse(fs.readFileSync(COVERAGE_DIR + '/mocha/coverage-final.json', 'utf8')));
             //Generate the report
             reporter.add('lcov');
             reporter.write(collector, true /*sync*/ );
+        })
+        .fail(function(err) {
+            console.warn('Error on write with', err, err.stack);
+            throw err;
         });
 };
 
 TestRunner.prototype._restart_services = function() {
     console.log('Restarting services');
     return promise_utils.promised_exec('supervisorctl stop all')
+        .delay(15000)
         .then(function() {
+            console.warn('Shutting down supervisorctl');
             return promise_utils.promised_exec('supervisorctl shutdown');
         })
+        .delay(15000)
         .then(function() {
             return promise_utils.promised_exec('/usr/bin/supervisord');
         });
@@ -262,7 +278,7 @@ module.exports = TestRunner;
 
 function main() {
     if (!argv.GIT_VERSION) {
-        console.error('Must supply git version');
+        console.error('Must supply git version (--GIT_VERSION)');
         process.exit(1);
     }
     var run = new TestRunner(argv);
@@ -272,13 +288,15 @@ function main() {
             process.exit(2);
         })
         .then(function() {
-            return run.run_tests(run);
+            console.warn('Running tests');
+            return run.run_tests();
         })
         .fail(function(error) {
             console.error('run tests failed', error);
             process.exit(3);
         })
         .then(function() {
+            console.warn('Finalizing run results');
             return run.complete_run();
         })
         .fail(function(error) {

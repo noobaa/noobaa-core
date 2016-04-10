@@ -92,7 +92,7 @@ mocha.describe('system_servers', function() {
             .then(() => {
                 return P.resolve(client.system.read_system())
                     .then((res) => client.auth.create_access_key_auth({
-                        access_key: res.owner.access_keys[0].access_key, //'123',
+                        access_key: res.owner.access_keys[0].access_key,
                         string_to_sign: '',
                         signature: s3_auth.sign(res.owner.access_keys[0].secret_key, '')
                     }));
@@ -224,7 +224,7 @@ mocha.describe('system_servers', function() {
             .then(() => client.bucket.update_bucket({
                 name: BUCKET,
                 new_name: BUCKET + 1,
-                tiering: TIERING_POLICY//'default_tiering',
+                tiering: TIERING_POLICY //'default_tiering',
             }))
             .then(() => client.bucket.read_bucket({
                 name: BUCKET + 1,
@@ -251,10 +251,6 @@ mocha.describe('system_servers', function() {
             }))
             */
             .then(() => client.system.read_system())
-            /*.then(() => {
-                console.warn('JEN client: ', client);
-                return true;
-            })*/
             .then(() => client.bucket.get_cloud_sync_policy({
                 name: BUCKET,
             }))
@@ -287,9 +283,33 @@ mocha.describe('system_servers', function() {
             .then(() => client.tiering_policy.delete_policy({
                 name: TIERING_POLICY,
             }))
+            .then(res => {
+                    throw new Error('TIERING_POLICY: ' + TIERING_POLICY +
+                        ' should have been deleted by now');
+                },
+                err => {
+                    if (err.rpc_code.indexOf('NO_SUCH_TIERING_POLICY') > -1) {
+                        return;
+                    } else {
+                        throw new Error(err);
+                    }
+                }
+            )
             .then(() => client.tier.delete_tier({
                 name: TIER,
             }))
+            .then(res => {
+                    throw new Error('TIER: ' + TIER +
+                        ' should have been deleted by now');
+                },
+                err => {
+                    if (err.rpc_code && err.rpc_code.indexOf('NO_SUCH_TIER') > -1) {
+                        return;
+                    } else {
+                        throw new Error(err);
+                    }
+                }
+            )
             .then(() => client.pool.assign_nodes_to_pool({
                 name: 'default_pool',
                 nodes: ['node0', 'node2', 'node4'],

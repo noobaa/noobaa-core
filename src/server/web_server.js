@@ -51,7 +51,13 @@ if (cluster.isMaster && process.env.MD_CLUSTER_DISABLED !== 'true') {
     // Fork MD Servers
     for (var i = 0; i < numCPUs; i++) {
         console.warn('Spawning MD Server', i + 1);
-        cluster.fork();
+        if (i === 0) {
+            cluster.fork({
+                create_support: true
+            });
+        } else {
+            cluster.fork();
+        }
     }
 
     cluster.on('exit', function(worker, code, signal) {

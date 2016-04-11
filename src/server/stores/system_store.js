@@ -362,6 +362,9 @@ class SystemStore extends EventEmitter {
                     .then(res => dbg.log0('SystemStore indexes of',
                         collection, _.map(res, 'name')))
                 ));
+            })
+            .then(null, function(err) {
+                console.warn('ignoring error in _init_db:', err);
             });
         return this._init_db_promise;
     }

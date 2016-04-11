@@ -771,7 +771,9 @@ gulp.task('mocha', ['coverage_hook'], function() {
         };
     }
     return gulp.src(PATHS.test_all, SRC_DONT_READ)
-        .pipe(gulp_mocha(mocha_options))
+        .pipe(gulp_mocha(mocha_options).on('error', function(err) {
+            console.log('Mocha Failed With Error', err.toString());
+        }))
         .pipe(gulp_istanbul.writeReports(writer_options));
 });
 

@@ -283,7 +283,8 @@ function pack(dest, name) {
                     _.contains([
                         'bower',
                         'mocha',
-                        'form-data'
+                        'form-data',
+                        'istanbul'
                     ], key);
             });
             return {

@@ -796,6 +796,15 @@ export function loadAccountAwsCredentials() {
     logAction('loadAccountAwsCredentials');
 
     api.account.get_account_sync_credentials_cache()
+        .then(
+            // Fix missing endpoint from prior version.
+            list => list.map(
+                c => {
+                    c.endpoint = c.endpoint || 'https://s3.amazonaws.com';
+                    return c;
+                }
+            )
+        )
         .then(model.awsCredentialsList)
         .done();
 }
@@ -1050,6 +1059,7 @@ export function testNode(source, testSet) {
     logAction('testNode', { source, testSet });
 
     let { nodeTestInfo } = model;
+
     nodeTestInfo({
         source: source,
         tests: testSet,
@@ -1296,17 +1306,14 @@ export function raiseNodeDebugLevel(node) {
         .done();
 }
 
-export function setCloudSyncPolicy(bucket, awsBucket, credentials, direction, frequency, sycDeletions) {
-    logAction('setCloudSyncPolicy', { bucket, awsBucket, credentials, direction, frequency,
+export function setCloudSyncPolicy(bucket, awsBucket, endpoint, credentials, direction, frequency, sycDeletions) {
+    logAction('setCloudSyncPolicy', { bucket, awsBucket, endpoint, credentials, direction, frequency,
         sycDeletions });
-
-    let policy_endpoint =  credentials.endpoint||'https://s3.amazonaws.com';
-    delete credentials.endpoint;
 
     api.bucket.set_cloud_sync({
         name: bucket,
         policy: {
-            endpoint:policy_endpoint,
+            endpoint: endpoint,
             target_bucket: awsBucket,
             access_keys: [ credentials ],
             c2n_enabled: direction === 'AWS2NB' || direction === 'BI',

@@ -55,7 +55,8 @@ export let tierInfo = ko.observable();
 export let cloudSyncInfo = ko.observable();
 export let awsCredentialsList = ko.observableArray();
 export let awsBucketList = ko.observableArray();
-export let areAwsCredentialValid = ko.observable(true);
+export let areAwsCredentialValid = ko.observable(true)
+    .extend({ notify: 'always' });
 
 // Hold the current pool list. derived from system info.
 export let poolList = ko.observableArray();

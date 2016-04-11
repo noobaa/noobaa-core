@@ -1,10 +1,16 @@
 'use strict';
-require('../util/panic');
-
 // load .env file before any other modules so that it will contain
 // all the arguments even when the modules are loading.
 console.log('loading .env file');
 require('dotenv').load();
+
+//If test mode, use Istanbul for coverage
+if (process.env.TESTRUN === 'true') {
+    var ist = require('../test/framework/istanbul_coverage');
+    ist.start_istanbul_coverage();
+}
+
+require('../util/panic');
 
 // dump heap with kill -USR2 <pid>
 require('heapdump');

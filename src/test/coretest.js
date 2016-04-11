@@ -3,7 +3,6 @@
 
 var CORETEST_MONGODB_URL = 'mongodb://localhost/coretest';
 process.env.MONGODB_URL = CORETEST_MONGODB_URL;
-process.env.DEBUG_MODE === 'true';
 process.env.JWT_SECRET = 'coretest';
 
 var _ = require('lodash');
@@ -17,8 +16,6 @@ var server_rpc = require('../server/server_rpc');
 var config = require('../../config.js');
 var db = require('../server/db');
 var agentctl = require('./core_agent_control');
-// var dbg = require('../util/debug_module')(__filename);
-// dbg.set_level(5, 'core');
 
 P.longStackTraces();
 config.test_mode = true;

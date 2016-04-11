@@ -51,6 +51,7 @@ var build_on_premise = true;
 var skip_install = false;
 var use_local_executable = false;
 var git_commit = "DEVONLY";
+var cov_dir;
 
 for (var arg_idx = 0; arg_idx < process.argv.length; arg_idx++) {
     if (process.argv[arg_idx] === '--on_premise') {
@@ -67,6 +68,9 @@ for (var arg_idx = 0; arg_idx < process.argv.length; arg_idx++) {
     }
     if (process.argv[arg_idx] === '--GIT_COMMIT') {
         git_commit = process.argv[arg_idx + 1].substr(0, 7);
+    }
+    if (process.argv[arg_idx] === '--COV_DIR') {
+        cov_dir = process.argv[arg_idx + 1];
     }
 }
 
@@ -759,10 +763,19 @@ gulp.task('mocha', ['coverage_hook'], function() {
     var mocha_options = {
         reporter: 'spec'
     };
-    // return gulp.src('./src/test/test_system_servers.js', SRC_DONT_READ)
+    var writer_options = {};
+    if (cov_dir) {
+        writer_options.dir = cov_dir;
+        writer_options.reportOpts = {
+            dir: cov_dir,
+        };
+    }
     return gulp.src(PATHS.test_all, SRC_DONT_READ)
-        .pipe(gulp_mocha(mocha_options))
-        .pipe(gulp_istanbul.writeReports());
+        .pipe(gulp_mocha(mocha_options).on('error', function(err) {
+            console.log('Mocha Failed With Error', err.toString());
+            process.exit(1);
+        }))
+        .pipe(gulp_istanbul.writeReports(writer_options));
 });
 
 gulp.task('test', ['lint', 'mocha']);

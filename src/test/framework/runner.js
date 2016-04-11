@@ -95,14 +95,15 @@ TestRunner.prototype.complete_run = function() {
     //Take coverage output and report and pack them
     var self = this;
     var dst = '/tmp/res_' + this._version + '.tgz';
-    return this._write_coverage()
+    //TODO:: TODO:: Uncomment and fix this
+    /*return this._write_coverage()
         .fail(function(err) {
             console.error('Failed writing coverage for test runs', err);
             throw new Error('Failed writing coverage for test runs');
         })
-        .then(function() {
-            return promise_utils.promised_exec('tar --warning=no-file-changed -zcvf ' + dst + ' ' + COVERAGE_DIR + '/*');
-        })
+        .then(function() {*/
+    return promise_utils.promised_exec('tar --warning=no-file-changed -zcvf ' + dst + ' ' + COVERAGE_DIR + '/*')
+        //})
         .fail(function(err) {
             console.error('Failed archiving test runs', err);
             throw new Error('Failed archiving test runs');
@@ -153,8 +154,8 @@ TestRunner.prototype._print_curent_step = function(current_step) {
     var step_res;
     var title;
     return P.fcall(function() {
-        if (_.startsWith(current_step.action, 'TestRunner.utils')) {
-            title = 'Performing ' + current_step.name + ' (' + current_step.action + ')';
+        if (current_step.common) {
+            title = 'Performing ' + current_step.name;
             step_res = current_step.name;
         } else if (current_step.name) {
             title = 'Running ' + current_step.name;
@@ -175,8 +176,11 @@ TestRunner.prototype._run_current_step = function(current_step, step_res) {
         return;
     } else {
         if (current_step.common) {
+            //  var ts = new Date();
             return P.invoke(self, current_step.common)
                 .then(function() {
+                    //  return step_res + ' - Successeful ( took ' +
+                    //      ((new Date() - ts) / 1000) + 's )';
                     return step_res;
                 });
         } else {
@@ -245,17 +249,26 @@ TestRunner.prototype._write_coverage = function() {
                     var to_add = r.data;
                     collector.add(JSON.parse(to_add));
                 } else {
-                    console.warn('r.data is undefined');
+                    console.warn('r.data is undefined, skipping');
                 }
             });
-            //Add unit test coverage data
-            collector.add(JSON.parse(fs.readFileSync(COVERAGE_DIR + '/mocha/coverage-final.json', 'utf8')));
+
+            //Add unit test coverage data if exists (on failure of unit test, does not exist)
+            if (fs.existsSync(COVERAGE_DIR + '/mocha/coverage-final.json')) {
+                console.warn('No unit test coverage info, skipping');
+                collector.add(JSON.parse(fs.readFileSync(COVERAGE_DIR + '/mocha/coverage-final.json', 'utf8')));
+            }
+
             //Generate the report
             reporter.add('lcov');
-            reporter.write(collector, true /*sync*/ );
+            return P.when(reporter.write(collector, true /*sync*/ ))
+                .fail(function(err) {
+                    console.warn('Error on write with', err, err.stack);
+                    throw err;
+                });
         })
         .fail(function(err) {
-            console.warn('Error on write with', err, err.stack);
+            console.warn('Error on _write_coverage', err, err.stack);
             throw err;
         });
 };
@@ -304,7 +317,11 @@ function main() {
             process.exit(4);
         })
         .then(function() {
-            process.exit(0);
+            if (!run._error) {
+                process.exit(0);
+            } else {
+                process.exit(1);
+            }
         });
 }
 

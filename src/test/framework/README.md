@@ -1,5 +1,5 @@
 # Noobaa-Core Tests Framework
-=========== Single point execution for smoke/regression tests runs. Define which tests to run, their order, cleaning steps etc.
+Single point execution for smoke/regression tests runs. Define which tests to run, their order, cleaning steps etc.
 
 The framework consists of the runner, istanbul_coverage the flow.json.
 

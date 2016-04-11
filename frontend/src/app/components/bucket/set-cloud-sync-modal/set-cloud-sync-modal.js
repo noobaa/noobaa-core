@@ -1,7 +1,7 @@
 import template from './set-cloud-sync-modal.html';
 import ko from 'knockout';
-import { awsCredentialsList, awsBucketList } from 'model';
-import { loadAccountAwsCredentials, loadAwsBucketList, setCloudSyncPolicy } from 'actions';
+import { S3Connections, S3BucketList } from 'model';
+import { loadS3Connections, loadS3BucketList, setCloudSyncPolicy } from 'actions';
 
 const [MIN, HOUR, DAY] = [1, 60, 60 * 24];
 const frequencyUnitOptions = Object.freeze([
@@ -26,11 +26,11 @@ const directionOptions = Object.freeze([
     },
     {
         value: 'NB2AWS',
-        label: 'NooBaa to AWS'
+        label: 'Source to Target'
     },
     {
         value: 'AWS2NB',
-        label: 'AWS to NooBaa'
+        label: 'Target to Source'
     }
 ]);
 
@@ -48,7 +48,7 @@ class CloudSyncModalViewModel {
             () => [
                 addConnectionOption,
                 null,
-                ...awsCredentialsList().map(
+                ...S3Connections().map(
                     connection => ({ 
                         label: connection.name || connection.access_key, 
                         value: connection
@@ -82,7 +82,7 @@ class CloudSyncModalViewModel {
         );
 
         this.targetBucketsOptions = ko.pureComputed(
-            () => this.connection() && awsBucketList() && awsBucketList().map(
+            () => this.connection() && S3BucketList() && S3BucketList().map(
                 bucketName => ({ value: bucketName })
             )
         );
@@ -111,12 +111,11 @@ class CloudSyncModalViewModel {
 
         this.errors = ko.validation.group(this);
 
-        loadAccountAwsCredentials();
+        loadS3Connections();
     }
 
     loadBucketsList() {
-        let { access_key, secret_key, endpoint } = this.connection();
-        loadAwsBucketList(access_key, secret_key, endpoint);
+        loadS3BucketList(this.connection().name);
     }
 
     onNewCredentials(canceled) {
@@ -132,13 +131,10 @@ class CloudSyncModalViewModel {
         if (this.errors().length > 0) {
             this.errors.showAllMessages();
         } else {
-            let { access_key, secret_key, endpoint } = this.connection();
-
             setCloudSyncPolicy(
                 ko.unwrap(this.bucketName),
+                this.connection().name,
                 this.targetBucket(),
-                endpoint,
-                { access_key, secret_key }, 
                 this.direction(),
                 this.frequency() * this.frequencyUnit(),
                 this.syncDeletions()

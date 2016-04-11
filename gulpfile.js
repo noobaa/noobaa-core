@@ -188,6 +188,7 @@ var PATHS = {
     ],
 
     NVA_Package_sources: [
+        'src/agent/**/*.js',
         'src/api/**/*.*',
         'src/client/**/*.*',
         'src/css/**/*.*',

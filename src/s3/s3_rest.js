@@ -233,8 +233,9 @@ function s3_rest(controller) {
                         let v4info = {};
                         v4info.xamzdate = req.headers['x-amz-date'];
                         //console.warn('v4info.xamzdate: ', v4info.xamzdate);
-                        v4info.signedheaders = req.headers.authorization.substring(req.headers.authorization.indexOf('SignedHeaders') + 14,
-                            req.headers.authorization.indexOf('Signature') - 2);
+                        var signedheaders_substring = req.headers.authorization.substring(req.headers.authorization.indexOf('SignedHeaders') + 14,
+                            req.headers.authorization.length);
+                        v4info.signedheaders = signedheaders_substring.substring(0, signedheaders_substring.indexOf(','));
                         //console.warn('v4info.signedheaders: ', v4info.signedheaders);
                         //authorization: 'AWS4-HMAC-SHA256 Credential=wwwwwwwwwwwww123aaaa/20151023/us-east-1/s3/aws4_request, SignedHeaders=host;x-amz-content-sha256;x-amz-date, Signature=0b04a57def200559b3353551f95bce0712e378c703a97d58e13a6eef41a20877',
                         /*let credentials_location = req.headers.authorization.indexOf('Credential') + 11;

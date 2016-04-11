@@ -95,6 +95,7 @@ mocha.describe('debug_module', function() {
             }
         };
         dbg.log4("test_debug_module: log4 should appear after level change", a);
+        dbg.set_level(0);
         return file_content_verify("text", "core.blabla.asd.lll:: test_debug_module: log4 should appear after level change");
     });
 
@@ -108,7 +109,8 @@ mocha.describe('debug_module', function() {
         var dbg = new DebugModule('/web/noise/noobaa-core/src/blabla.asd/lll.asd');
         dbg.set_level(2, 'util');
         dbg.log2("test_debug_module: log2 setting a higher level module level should affect current");
-        return file_content_verify("text", "core.blabla.asd.lll:: test_debug_module: log2 setting a higher level module level should affect current");
+        dbg.set_level(0, 'util');
+        return file_content_verify("text", "core.blabla.asd.lll:: test_debug_module: log2 setting a higher level module level should affect current");        
     });
 
     mocha.it('formatted string should be logged correctly (string substitutions)', function() {

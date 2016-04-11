@@ -109,15 +109,15 @@ char addrbuf[65];
 #define PACKET_SIZE_HUGE_BUCKET 4
 
 struct PACKED_ATTRIBUTE PacketFormatV1 {
-	// GUYM: ver_type changed from original:
+	// GUYM MOD - ver_type changed from original:
 	// highest bit is always 1 to help identify from STUN packets.
 	// then 3 next bits is protocol version
 	// then 4 next bits is packet_type
-	byte ver_type;
-	byte version() const { return (ver_type >> 4) & 0x7; }
-	byte type() const { return ver_type & 0xf; }
-	void set_version(byte v) { ver_type = 0x80 | (v << 4) | (ver_type & 0xf); }
-	void set_type(byte t) { ver_type = 0x80 | (ver_type & 0x70) | (t & 0xf); }
+	byte ver_type; // GUYM MOD
+	byte version() const { return (ver_type >> 4) & 0x7; } // GUYM MOD
+	byte type() const { return ver_type & 0xf; } // GUYM MOD
+	void set_version(byte v) { ver_type = 0x80 | (v << 4) | (ver_type & 0xf); } // GUYM MOD
+	void set_type(byte t) { ver_type = 0x80 | (ver_type & 0x70) | (t & 0xf); } // GUYM MOD
 
 	// Type of the first extension header
 	byte ext;
@@ -192,7 +192,7 @@ struct SizableCircularBuffer {
 	// This is the elements that the circular buffer points to
 	void **elements;
 
-	void *get(size_t i) { assert(elements); return elements ? elements[i & mask] : NULL; }
+	void *get(size_t i) const { assert(elements); return elements ? elements[i & mask] : NULL; }
 	void put(size_t i, void *data) { assert(elements); elements[i&mask] = data; }
 
 	void grow(size_t item, size_t index);
@@ -552,9 +552,7 @@ struct UTPSocket {
 
 	void log(int level, char const *fmt, ...)
 	{
-		if (!ctx->should_log(level)) {
-			return;
-		}
+		if (!ctx->should_log(level)) return; // GUYM MOD
 
 		va_list va;
 		char buf[4096], buf2[4096];
@@ -564,7 +562,7 @@ struct UTPSocket {
 		va_end(va);
 		buf[4095] = '\0';
 
-		snprintf(buf2, 4096, "%p %s %06d %s", this, addrfmt(addr, addrbuf), conn_id_recv, buf);
+		snprintf(buf2, 4096, "%p %s %06u %s", this, addrfmt(addr, addrbuf), conn_id_recv, buf);
 		buf2[4095] = '\0';
 
 		ctx->log(level, this, buf2);
@@ -696,7 +694,7 @@ static void utp_register_sent_packet(utp_context *ctx, size_t length)
 
 void send_to_addr(
 	utp_context *ctx,
-	utp_socket *socket,
+	utp_socket *socket, // GUYM MOD - added socket
 	const byte *p,
 	size_t len,
 	const PackedSockAddr &addr,
@@ -1915,10 +1913,21 @@ size_t utp_process_incoming(UTPSocket *conn, const byte *packet, size_t len, boo
 
 	// if we get the same ack_nr as in the last packet
 	// increase the duplicate_ack counter, otherwise reset
-	// it to 0
+	// it to 0.
+	// It's important to only count ACKs in ST_STATE packets. Any other
+	// packet (primarily ST_DATA) is likely to have been sent because of the
+	// other end having new outgoing data, not in response to incoming data.
+	// For instance, if we're receiving a steady stream of payload with no
+	// outgoing data, and we suddently have a few bytes of payload to send (say,
+	// a bittorrent HAVE message), we're very likely to see 3 duplicate ACKs
+	// immediately after sending our payload packet. This effectively disables
+	// the fast-resend on duplicate-ack logic for bi-directional connections
+	// (except in the case of a selective ACK). This is in line with BSD4.4 TCP
+	// implementation.
 	if (conn->cur_window_packets > 0) {
 		if (pk_ack_nr == ((conn->seq_nr - conn->cur_window_packets - 1) & ACK_NR_MASK)
-			&& conn->cur_window_packets > 0) {
+			&& conn->cur_window_packets > 0
+			&& pk_flags == ST_STATE) {
 			++conn->duplicate_ack;
 			if (conn->duplicate_ack == DUPLICATE_ACKS_BEFORE_RESEND && conn->mtu_probe_seq) {
 				// It's likely that the probe was rejected due to its size, but we haven't got an
@@ -2016,7 +2025,6 @@ size_t utp_process_incoming(UTPSocket *conn, const byte *packet, size_t len, boo
 	// hasn't received a sample from us yet, and doesn't
 	// know what it is. We can't update out history unless
 	// we have a true measured sample
-	prev_delay_base = conn->our_hist.delay_base;
 	if (actual_delay != 0) {
 		conn->our_hist.add_sample(actual_delay, conn->ctx->current_ms);
 
@@ -3395,9 +3403,7 @@ void* utp_get_userdata(utp_socket *socket) {
 
 void struct_utp_context::log(int level, utp_socket *socket, char const *fmt, ...)
 {
-	if (!should_log(level)) {
-		return;
-	}
+	if (!should_log(level)) return; // GUYM MOD
 
 	va_list va;
 	char buf[4096];

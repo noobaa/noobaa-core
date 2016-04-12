@@ -265,11 +265,9 @@ app.post('/upgrade',
         res.end('<html><head><meta http-equiv="refresh" content="60;url=/console/" /></head>Upgrading. You will be redirected back to the upgraded site in 60 seconds.');
     });
 
-app.get('/console/*', function(req, res) {
-    return res.render('console.html', page_context(req));
-});
+//Upgrade from 0.3.X will try to return to this path. We will redirect it.
 app.get('/console', function(req, res) {
-    return res.redirect('/console/');
+    return res.redirect('/fe/');
 });
 
 app.get('/', function(req, res) {

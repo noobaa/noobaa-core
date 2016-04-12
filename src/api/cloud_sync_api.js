@@ -57,7 +57,7 @@ module.exports = {
                     force_stop: {
                         type: 'boolean'
                     },
-                    bucket_deleted: {
+                    skip_load: {
                         type: 'boolean'
                     }
                 }

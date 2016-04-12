@@ -287,7 +287,7 @@ function delete_bucket(req) {
             sysid: req.system._id.toString(),
             bucketid: bucket._id.toString(),
             force_stop: true,
-            bucket_deleted: true,
+            skip_load: true,
         }, {
             auth_token: req.auth_token
         }))
@@ -375,6 +375,7 @@ function delete_cloud_sync(req) {
     dbg.log2('delete_cloud_sync:', req.rpc_params.name, 'on', req.system._id);
     var bucket = find_bucket(req);
     dbg.log3('delete_cloud_sync: delete on bucket', bucket);
+
     return system_store.make_changes({
             update: {
                 buckets: [{
@@ -390,6 +391,7 @@ function delete_cloud_sync(req) {
                 sysid: req.system._id.toString(),
                 bucketid: bucket._id.toString(),
                 force_stop: true,
+                skip_load: true
             }, {
                 auth_token: req.auth_token
             });
@@ -415,11 +417,7 @@ function delete_cloud_sync(req) {
 function set_cloud_sync(req) {
     dbg.log0('set_cloud_sync:', req.rpc_params);
 
-    var connection = find_cloud_sync_connection(
-        req.account, 
-        req.rpc_params.connection
-    );
-
+    var connection = find_cloud_sync_connection(req);
     var bucket = find_bucket(req);
     var force_stop = false;
     //Verify parameters, bi-directional sync can't be set with additions_only
@@ -503,11 +501,7 @@ function get_cloud_buckets(req) {
     dbg.log0('get cloud buckets', req.rpc_params);
 
     return P.fcall(function() {
-        var connection = find_cloud_sync_connection(
-            req.account, 
-            req.rpc_params.connection
-        );
-
+        var connection = find_cloud_sync_connection(req);
         var s3 = new AWS.S3({
             endpoint: connection.endpoint,
             accessKeyId: connection.access_key,
@@ -530,12 +524,21 @@ function get_cloud_buckets(req) {
 
 // UTILS //////////////////////////////////////////////////////////
 
-function find_cloud_sync_connection(account, name) {
-    return account.sync_credentials_cache
+function find_cloud_sync_connection(req) {
+    let account = req.account;
+    let conn_name = req.rpc_params.connection;
+    let conn = (account.sync_credentials_cache || [])
         .filter(
-            credentials => credentials.name === name
+            conn => conn.name === conn_name
         )
         [0];
+
+    if (!conn) {
+        dbg.error('CONNECTION NOT FOUND', account, conn_name);
+        throw req.rpc_error('INVALID_CONNECTION', 'Connection dosn\'t exists: ' + conn_name);
+    }
+
+    return conn;
 }
 
 function find_bucket(req) {

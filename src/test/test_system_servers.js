@@ -22,6 +22,7 @@ mocha.describe('system_servers', function() {
     const EMAIL = SYS + EMAIL_DOMAIN;
     const EMAIL1 = SYS1 + EMAIL_DOMAIN;
     const PASSWORD = SYS + '-password';
+    const CLOUD_SYNC_CONNECTION = 'Connection 1';
 
     let client = coretest.new_test_client();
 
@@ -34,9 +35,9 @@ mocha.describe('system_servers', function() {
             .then(() => client.account.accounts_status())
             .then(res => assert(!res.has_accounts, '!has_accounts'))
             .then(() => client.account.create_account({
-                name: SYS,
+                name: CLOUD_SYNC_CONNECTION,
                 email: EMAIL,
-                password: PASSWORD,
+                password: PASSWORD
             }))
             .then(res => client.options.auth_token = res.token)
             .then(() => client.account.accounts_status())
@@ -79,6 +80,12 @@ mocha.describe('system_servers', function() {
             .then(() => client.system.list_systems())
             .then(() => client.system.read_activity_log({
                 limit: 2016
+            }))
+            .then(client.account.add_account_sync_credentials_cache({
+                name: 'Connection 1',
+                endpoint: '127.0.0.1',
+                access_key: '123',
+                secret_key: 'abc'
             }))
             ////////////
             //  AUTH  //
@@ -210,9 +217,9 @@ mocha.describe('system_servers', function() {
                 name: TIERING_POLICY
             }))
             .then(() => client.system.read_system())
-            //////////////
-            //  BUCKET  //
-            //////////////
+            // //////////////
+            // //  BUCKET  //
+            // //////////////
             .then(() => client.bucket.create_bucket({
                 name: BUCKET,
                 tiering: TIERING_POLICY,
@@ -235,23 +242,18 @@ mocha.describe('system_servers', function() {
             }))
             .then(() => client.bucket.set_cloud_sync({
                 name: BUCKET,
+                connection: CLOUD_SYNC_CONNECTION,
                 policy: {
-                    endpoint: 'localhost',
-                    access_keys: [{
-                        access_key: '123',
-                        secret_key: 'abc'
-                    }],
+                    target_bucket: BUCKET,
                     schedule: 11
                 }
             }))
-            /*
             .then(() => client.bucket.get_cloud_buckets({
-                access_key: '123',
-                secret_key: 'abc'
+                connection: CLOUD_SYNC_CONNECTION
             }))
-            */
+            
             .then(() => client.system.read_system())
-            .then(() => client.bucket.get_cloud_sync_policy({
+            .then(() => client.bucket.clear({
                 name: BUCKET,
             }))
             .then(() => client.bucket.delete_cloud_sync({
@@ -259,9 +261,9 @@ mocha.describe('system_servers', function() {
             }))
             .then(() => client.bucket.get_all_cloud_sync_policies())
             .then(() => client.system.read_system())
-            /////////////
-            //  STATS  //
-            /////////////
+            // /////////////
+            // //  STATS  //
+            // /////////////
             .then(() => client.stats.get_systems_stats())
             .then(() => client.stats.get_nodes_stats())
             .then(() => client.stats.get_ops_stats())

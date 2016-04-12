@@ -32,7 +32,7 @@ TestRunner.prototype.restore_db_defaults = function() {
     return promise_utils.promised_exec(
             'mongo nbcore /root/node_modules/noobaa-core/src/test/system_tests/mongodb_defaults.js')
         .fail(function(err) {
-            console.warn('failed on mongodb_defaults');
+            console.warn('failed on mongodb_defaults', err);
             throw new Error('Failed pn mongodb reset');
         });
 };
@@ -81,7 +81,6 @@ TestRunner.prototype.init_run = function() {
             //Restart services to hook require instanbul
             return self._restart_services(true);
         })
-        .delay(15000)
         .then(function() {
             fs.appendFileSync(REPORT_PATH, 'Init Test Run for version ' + self._version + '\n');
         });
@@ -274,6 +273,7 @@ TestRunner.prototype._restart_services = function(testrun) {
         .then(function() {
             return promise_utils.promised_exec('supervisorctl reload');
         })
+        .delay(1000)
         .then(function() {
             return promise_utils.promised_exec('supervisorctl restart webserver bg_workers');
         })

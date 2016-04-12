@@ -1,10 +1,21 @@
 'use strict';
-require('../util/panic');
-
 // load .env file before any other modules so that it will contain
 // all the arguments even when the modules are loading.
 console.log('loading .env file');
 require('dotenv').load();
+
+//If test mode, use Istanbuk for coverage
+for (var i = 0; i < process.argv.length; ++i) {
+    if (process.argv[i] === '--TESTRUN') {
+        process.env.TESTRUN = true;
+    }
+}
+if (process.env.TESTRUN === 'true') {
+    var ist = require('../test/framework/istanbul_coverage');
+    ist.start_istanbul_coverage();
+}
+
+require('../util/panic');
 
 var _ = require('lodash');
 var url = require('url');

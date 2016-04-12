@@ -156,8 +156,12 @@ function main() {
         .then(() => test_uploaded_object_has_expected_num_blocks(3))
         .then((obj_mapping) => move_one_block_to_different_pool(obj_mapping))
         .then(() => test_uploaded_object_has_expected_num_blocks(3))
+        .then(() => process.exit(0))
 
-    .catch(err => console.error('test_build_chunks FAILED: ', err.stack || err));
+    .catch(err => {
+        console.error('test_build_chunks FAILED: ', err.stack || err);
+        process.exit(1);
+    });
 }
 
 

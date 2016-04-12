@@ -7,9 +7,6 @@ var assert = require('assert');
 let pem = require('../util/pem');
 var RPC = require('../rpc/rpc');
 var RpcSchema = require('../rpc/rpc_schema');
-var dbg = require('../util/debug_module')(__filename);
-
-dbg.set_level(5);
 
 mocha.describe('RPC', function() {
 

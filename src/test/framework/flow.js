@@ -1,6 +1,7 @@
-var steps = [{
+var steps = [
     //Upgrade to new version
-    name: 'Upgrading to new version',
+    //UPgrade moved externally to be run from the jenkins prior to the framework run
+    /*name: 'Upgrading to new version',
     action: 'node src/test/system_tests/sanity_build_test.js',
     params: [{
         arg: '--upgrade_pack',
@@ -11,8 +12,8 @@ var steps = [{
     }, {
         arg: '127.0.0.1',
     }],
-    blocking: true,
-}, {
+    blocking: true,*/
+{
     //Run unit tests
     name: 'Unit Tests',
     action: '/root/node_modules/noobaa-core/node_modules/.bin/gulp mocha',

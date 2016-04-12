@@ -16,7 +16,7 @@ Arguments passed to Runner:
 
 
 ## Istanbul_coverage
-Istanbul coverage hooks and instruments our code for the purpose of coverage reports. It is being required by each server (and each member of the node cluster) in cases TESTRUN is true in .env (the Runner sets to to true at the beginning and to false upon completion and restarts the services)
+Istanbul coverage hooks and instruments our code for the purpose of coverage reports. It is being required by each server (and each member of the node cluster) in cases TESTRUN is true (the Runner sets the supervisor to run services with --TESTRUN beginning and removes it upon completion and restarts the services)
 
 It defines the coverageVariable for istanbul to be 'NOOBAA_COV'
 

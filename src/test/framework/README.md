@@ -8,6 +8,13 @@ Runner holds the logic of the framework. It provides the ability to pass argumen
 
 Runner also implements common logic such as restore db to default state (as if the system was just created + the nodes which were up previously).
 
+Arguments passed to Runner:
+
+1) --GIT_VERSION - Must be supplied, the git version of the Build
+
+2) --FLOW_FILE - Optional, provide an alternate scenario file. If not supplied will use flow.js
+
+
 ## Istanbul_coverage
 Istanbul coverage hooks and instruments our code for the purpose of coverage reports. It is being required by each server (and each member of the node cluster) in cases TESTRUN is true in .env (the Runner sets to to true at the beginning and to false upon completion and restarts the services)
 
@@ -63,7 +70,6 @@ If this step would fail, the runner will not continue to the next step.
 Not implemented yet, need to think and see if the following is needed
 - Skip to a certain point in flow.js
 - Stop at a certain point in flow.js
-- Get a different flow.js as input to runner
 - Add coverage hooks to agents and S3
 - Specific errors integration for tests and not entire test failure message
 

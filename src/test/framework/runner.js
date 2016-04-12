@@ -18,6 +18,11 @@ function TestRunner(argv) {
     this._version = argv.GIT_VERSION;
     this._argv = argv;
     this._error = false;
+    if (argv.FLOW_FILE) {
+        this._steps = require(argv.FLOW_FILE);
+    } else {
+        this._steps = require(process.cwd() + '/src/test/framework/flow.js');
+    }
 }
 
 /**************************
@@ -130,8 +135,7 @@ TestRunner.prototype.complete_run = function() {
 TestRunner.prototype.run_tests = function() {
     var self = this;
 
-    var steps = require(process.cwd() + '/src/test/framework/flow.js');
-    return P.each(steps, function(current_step) {
+    return P.each(self._steps, function(current_step) {
             return P.when(self._print_curent_step(current_step))
                 .then(function(step_res) {
                     return P.when(self._run_current_step(current_step, step_res));

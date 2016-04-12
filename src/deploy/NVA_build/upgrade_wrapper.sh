@@ -166,6 +166,10 @@ function post_upgrade {
   fi
   echo "${AGENT_VERSION_VAR}" >> ${CORE_DIR}/.env
 
+	#Fix TESTRUN in .env (copy from previous version)
+	TESTRUN=$(grep TESTRUN /backup/.env)
+	sed -i "s/TESTRUN.*/${TESTRUN}/" ${CORE_DIR}/.env
+
 	#Fix login message
 	fix_etc_issue
 

@@ -18,6 +18,11 @@ function TestRunner(argv) {
     this._version = argv.GIT_VERSION;
     this._argv = argv;
     this._error = false;
+    if (argv.FLOW_FILE) {
+        this._steps = require(argv.FLOW_FILE);
+    } else {
+        this._steps = require(process.cwd() + '/src/test/framework/flow.js');
+    }
 }
 
 /**************************
@@ -27,7 +32,7 @@ TestRunner.prototype.restore_db_defaults = function() {
     return promise_utils.promised_exec(
             'mongo nbcore /root/node_modules/noobaa-core/src/test/system_tests/mongodb_defaults.js')
         .fail(function(err) {
-            console.warn('failed on mongodb_defaults');
+            console.warn('failed on mongodb_defaults', err);
             throw new Error('Failed pn mongodb reset');
         });
 };
@@ -73,19 +78,9 @@ TestRunner.prototype.init_run = function() {
             throw new Error('Failed cleaning istanbul data');
         })
         .then(function() {
-            //set TESTRUN=true in .env
-            console.log('Setting TESTRUN');
-            return promise_utils.promised_exec("sed -i 's/TESTRUN=false/TESTRUN=true/' /root/node_modules/noobaa-core/.env");
-        })
-        .fail(function(err) {
-            console.error('Failed setting TESTRUN=true in .env', err);
-            throw new Error('Failed setting TESTRUN=true in .env');
-        })
-        .then(function() {
             //Restart services to hook require instanbul
-            return self._restart_services();
+            return self._restart_services(true);
         })
-        .delay(15000)
         .then(function() {
             fs.appendFileSync(REPORT_PATH, 'Init Test Run for version ' + self._version + '\n');
         });
@@ -109,17 +104,8 @@ TestRunner.prototype.complete_run = function() {
             throw new Error('Failed archiving test runs');
         })
         .then(function() {
-            console.log('Disabling TESTRUN');
-            return promise_utils.promised_exec("sed -i 's/TESTRUN=true/TESTRUN=false/' /root/node_modules/noobaa-core/.env");
+            return self._restart_services(false);
         })
-        .fail(function(err) {
-            console.error('Failed setting TESTRUN=false in .env', err);
-            throw new Error('Failed setting TESTRUN=false in .env');
-        })
-        .then(function() {
-            return self._restart_services();
-        })
-        .delay(15000)
         .then(function() {
             console.log('Uploading results file');
             //Save package on current NooBaa system
@@ -130,8 +116,7 @@ TestRunner.prototype.complete_run = function() {
 TestRunner.prototype.run_tests = function() {
     var self = this;
 
-    var steps = require(process.cwd() + '/src/test/framework/flow.js');
-    return P.each(steps, function(current_step) {
+    return P.each(self._steps, function(current_step) {
             return P.when(self._print_curent_step(current_step))
                 .then(function(step_res) {
                     return P.when(self._run_current_step(current_step, step_res));
@@ -176,12 +161,12 @@ TestRunner.prototype._run_current_step = function(current_step, step_res) {
         return;
     } else {
         if (current_step.common) {
-            //  var ts = new Date();
+            var ts = new Date();
             return P.invoke(self, current_step.common)
                 .then(function() {
-                    //  return step_res + ' - Successeful ( took ' +
-                    //      ((new Date() - ts) / 1000) + 's )';
-                    return step_res;
+                    return step_res + ' - Successeful ( took ' +
+                        ((new Date() - ts) / 1000) + 's )';
+                    //return step_res;
                 });
         } else {
             return self._run_action(current_step, step_res);
@@ -273,18 +258,27 @@ TestRunner.prototype._write_coverage = function() {
         });
 };
 
-TestRunner.prototype._restart_services = function() {
-    console.log('Restarting services');
-    return promise_utils.promised_exec('supervisorctl stop all')
-        .delay(15000)
+TestRunner.prototype._restart_services = function(testrun) {
+    console.log('Restarting services with TESTRUN arg to', testrun);
+    var command;
+    if (testrun) { //Add --TESTRUN to the required services
+        command = "sed -i 's/\\(.*web_server.js\\)/\\1 --TESTRUN/' /etc/noobaa_supervisor.conf ";
+        command += " ; sed -i 's/\\(.*bg_workers_starter.js\\)/\\1 --TESTRUN/' /etc/noobaa_supervisor.conf ";
+    } else { //Remove --TESTRUN from the required services
+        command = "sed -i 's/\\(.*web_server.js\\).*--TESTRUN/\\1/' /etc/noobaa_supervisor.conf ";
+        command += " ; sed -i 's/\\(.*bg_workers_starter.js\\).*--TESTRUN/\\1/' /etc/noobaa_supervisor.conf ";
+    }
+
+    return promise_utils.promised_exec(command)
         .then(function() {
-            console.warn('Shutting down supervisorctl');
-            return promise_utils.promised_exec('supervisorctl shutdown');
+            return promise_utils.promised_exec('supervisorctl reload');
         })
-        .delay(15000)
+        .delay(1000)
         .then(function() {
-            return promise_utils.promised_exec('/usr/bin/supervisord');
-        });
+            return promise_utils.promised_exec('supervisorctl restart webserver bg_workers');
+        })
+        .delay(5000);
+
 };
 
 module.exports = TestRunner;

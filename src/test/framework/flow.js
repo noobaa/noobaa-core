@@ -1,18 +1,5 @@
 var steps = [
-    //Upgrade to new version
-    //UPgrade moved externally to be run from the jenkins prior to the framework run
-    /*name: 'Upgrading to new version',
-    action: 'node src/test/system_tests/sanity_build_test.js',
-    params: [{
-        arg: '--upgrade_pack',
-    }, {
-        input_arg: 'upgrade_pack',
-    }, {
-        arg: '--target_ip',
-    }, {
-        arg: '127.0.0.1',
-    }],
-    blocking: true,*/
+    //Upgrade moved externally to be run from the jenkins prior to the framework run
 {
     //Run unit tests
     name: 'Unit Tests',

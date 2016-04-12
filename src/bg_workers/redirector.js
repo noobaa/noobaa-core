@@ -218,8 +218,14 @@ function publish_to_cluster(req) {
     addresses = _.uniq(addresses);
     dbg.log0('publish_to_cluster:', addresses);
     return P.map(addresses, function(address) {
-        return server_rpc.client[api_name][method](req.rpc_params.request_params, {
-            address: address
+            return server_rpc.client[api_name][method](req.rpc_params.request_params, {
+                address: address,
+                auth_token: req.auth_token,
+            });
+        })
+        .then(function(res) {
+            return {
+                aggregated: res,
+            };
         });
-    }).return({});
 }

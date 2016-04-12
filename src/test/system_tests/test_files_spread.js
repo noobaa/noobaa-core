@@ -127,6 +127,10 @@ function main() {
             });
             return P.resolve("Test Passed! Everything Seems To Be Fine...");
         })
+        .catch(err => {
+            console.error('test_files_spread FAILED: ', err.stack || err);
+            process.exit(1);
+        })
         .then(console.log, console.error).done();
 }
 

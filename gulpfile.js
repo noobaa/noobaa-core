@@ -202,6 +202,7 @@ var PATHS = {
         'src/views/**/*.*',
         'src/native/**/*.*',
         'src/tools/**/*.*',
+        'src/test/**/*.*',
         'binding.gyp',
         'common.gypi'
     ],

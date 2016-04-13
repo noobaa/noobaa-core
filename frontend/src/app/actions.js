@@ -792,34 +792,23 @@ export function loadCloudSyncInfo(bucket) {
         .done();
 }
 
-export function loadAccountAwsCredentials() {
-    logAction('loadAccountAwsCredentials');
+export function loadS3Connections() {
+    logAction('loadS3Connections');
 
     api.account.get_account_sync_credentials_cache()
-        .then(
-            // Fix missing endpoint from prior version.
-            list => list.map(
-                c => {
-                    c.endpoint = c.endpoint || 'https://s3.amazonaws.com';
-                    return c;
-                }
-            )
-        )
-        .then(model.awsCredentialsList)
+        .then(model.S3Connections)
         .done();
 }
 
-export function loadAwsBucketList(accessKey, secretKey,endPoint) {
-    logAction('loadAwsBucketList', { accessKey, secretKey,endPoint})
+export function loadS3BucketList(connection) {
+    logAction('loadS3BucketList', { connection })
 
     api.bucket.get_cloud_buckets({
-        endpoint: endPoint,
-        access_key: accessKey,
-        secret_key: secretKey
+        connection: connection
     })
         .then(
-            model.awsBucketList,
-            () => model.awsBucketList(null)
+            model.S3BucketList,
+            () => model.S3BucketList(null)
         )
         .done();
 }
@@ -1306,16 +1295,14 @@ export function raiseNodeDebugLevel(node) {
         .done();
 }
 
-export function setCloudSyncPolicy(bucket, awsBucket, endpoint, credentials, direction, frequency, sycDeletions) {
-    logAction('setCloudSyncPolicy', { bucket, awsBucket, endpoint, credentials, direction, frequency,
-        sycDeletions });
+export function setCloudSyncPolicy(bucket, connection, targetBucket, direction, frequency, sycDeletions) {
+    logAction('setCloudSyncPolicy', { bucket, connection, targetBucket, direction, frequency, sycDeletions });
 
     api.bucket.set_cloud_sync({
         name: bucket,
+        connection: connection,
         policy: {
-            endpoint: endpoint,
-            target_bucket: awsBucket,
-            access_keys: [ credentials ],
+            target_bucket: targetBucket,
             c2n_enabled: direction === 'AWS2NB' || direction === 'BI',
             n2c_enabled: direction === 'NB2AWS' || direction === 'BI',
             schedule: frequency,
@@ -1337,8 +1324,8 @@ export function removeCloudSyncPolicy(bucket) {
         .done();
 }
 
-export function checkAWSCredentials(endpoint, accessKey, secretKey) {
-    logAction('checkAWSCredentials', { endpoint, accessKey, secretKey });
+export function checkS3Connection(endpoint, accessKey, secretKey) {
+    logAction('checkS3Connection', { endpoint, accessKey, secretKey });
 
     let credentials = {
         endpoint: endpoint,
@@ -1347,12 +1334,12 @@ export function checkAWSCredentials(endpoint, accessKey, secretKey) {
     };
 
     api.account.check_account_sync_credentials(credentials)
-        .then(model.areAwsCredentialValid)
+        .then(model.isS3ConnectionValid)
         .done();
 }
 
-export function addAWSCredentials(name, endpoint, accessKey, secretKey) {
-    logAction('addAWSCredentials', { name, endpoint, accessKey, secretKey });
+export function addS3Connection(name, endpoint, accessKey, secretKey) {
+    logAction('addS3Connection', { name, endpoint, accessKey, secretKey });
 
     let credentials = {
         name: name,
@@ -1362,7 +1349,7 @@ export function addAWSCredentials(name, endpoint, accessKey, secretKey) {
     };
 
     api.account.add_account_sync_credentials_cache(credentials)
-        .then(loadAccountAwsCredentials)
+        .then(loadS3Connections)
         .done()
 }
 

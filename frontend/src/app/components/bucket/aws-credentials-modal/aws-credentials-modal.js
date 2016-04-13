@@ -1,15 +1,15 @@
 import template from './aws-credentials-modal.html';
 import ko from 'knockout';
-import { awsCredentialsList, areAwsCredentialValid } from 'model';
-import { checkAWSCredentials, addAWSCredentials } from 'actions';
+import { S3Connections, isS3ConnectionValid } from 'model';
+import { checkS3Connection, addS3Connection } from 'actions';
 
 class AWSCredentialsModalViewModel {
     constructor({ onClose }) {
-        areAwsCredentialValid(true);
+        isS3ConnectionValid(true);
         this.onClose = onClose;
 
-        let existingNames = awsCredentialsList.map(
-            ({ name, access_key }) => name || access_key
+        let existingNames = S3Connections.map(
+            ({ name }) => name
         );
 
         this.name = ko.observableWithDefault(
@@ -48,7 +48,7 @@ class AWSCredentialsModalViewModel {
                 required: { message: 'Please enter an aws access key' },
                 notIn: {
                     params: {
-                        list: awsCredentialsList.map(
+                        list: S3Connections.map(
                             ({ access_key }) => access_key
                         )
                     },
@@ -61,7 +61,7 @@ class AWSCredentialsModalViewModel {
                 required: { message: 'Please enter an aws secret key'}
             });
 
-        this.isValidConenction = areAwsCredentialValid
+        this.isValidConenction = isS3ConnectionValid
             .extend({ 
                 equal: { 
                     params: true,
@@ -69,7 +69,7 @@ class AWSCredentialsModalViewModel {
                 }
             })
 
-        this.checkSub = areAwsCredentialValid
+        this.checkSub = isS3ConnectionValid
             .subscribe(
                 isValid => isValid && this.save()
             );
@@ -86,17 +86,17 @@ class AWSCredentialsModalViewModel {
         if (this.errors().length > 0) {
             this.errors.showAllMessages();
         } else {
-            checkAWSCredentials(this.endpoint(), this.accessKey(), this.secretKey());
+            checkS3Connection(this.endpoint(), this.accessKey(), this.secretKey());
         }
     }
 
     save() {
-        addAWSCredentials(this.name(), this.endpoint(), this.accessKey(), this.secretKey());
+        addS3Connection(this.name(), this.endpoint(), this.accessKey(), this.secretKey());
         this.onClose(false);
     }
 
     cancel() {
-        areAwsCredentialValid(false);
+        isS3ConnectionValid(false);
         this.onClose(true);
     }
 

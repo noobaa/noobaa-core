@@ -14,6 +14,7 @@ var promise_utils = require('../../util/promise_utils');
 
 
 let TEST_CTX = {
+    connection_name: 'test_connection',
     source_ip: '127.0.0.1',
     source_bucket: 'files',
     target_ip: argv.target_ip,
@@ -52,26 +53,34 @@ function authenticate() {
 
 
 function set_cloud_sync(params) {
-    var cloud_sync_policy = {
-        endpoint: TEST_CTX.target_ip,
-        target_bucket: TEST_CTX.target_bucket,
-        access_keys: [{
-            access_key: '123',
-            secret_key: 'abc'
-        }],
-        c2n_enabled: params.c2n,
-        n2c_enabled: params.n2c,
-        schedule: 1,
-        additions_only: !params.deletions
-    };
-    return P.when(client.bucket.set_cloud_sync({
-            name: 'files',
-            policy: cloud_sync_policy
-        }))
-        .fail(function(error) {
-            console.warn('Failed with', error, error.stack);
-            process.exit(0);
-        });
+    return P.when()
+        .then(
+            () => client.account.add_account_sync_credentials_cache({
+                name: TEST_CTX.connection_name,
+                endpoint: TEST_CTX.target_ip,
+                access_key: '123',
+                secret_key: 'abc'
+            })
+        )
+        .then(
+            () => client.bucket.set_cloud_sync({
+                name: TEST_CTX.source_bucket,
+                connection: TEST_CTX.connection_name,
+                policy: {
+                    target_bucket: TEST_CTX.target_bucket,
+                    c2n_enabled: params.c2n,
+                    n2c_enabled: params.n2c,
+                    schedule: 1,
+                    additions_only: !params.deletions
+                }
+            })
+        )
+        .fail(
+            error => {
+                console.warn('Failed with', error, error.stack);
+                process.exit(0);
+            }
+        );
 }
 
 function compare_object_lists(file_names, fail_msg, expected_len) {

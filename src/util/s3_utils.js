@@ -5,6 +5,7 @@ var _ = require('lodash');
 // var P = require('../util/promise');
 // var dbg = require('../util/debug_module')(__filename);
 var s3_util = require('aws-sdk/lib/util');
+var moment = require('moment');
 
 // The original s3 code doesn't work well with express and query string.
 // It expects to see query string as part of the request.path.
@@ -142,6 +143,7 @@ function noobaa_string_to_sign(request) {
 
     //another noobaa addition - take into account signed urls
     if (r.headers['presigned-expires'] || r.query.Expires) {
+        checkExpired(Number(r.headers['presigned-expires'] || r.query.Expires));
         parts.push(r.headers['presigned-expires'] || r.query.Expires);
     } else if (r.headers.date) {
         parts.push(r.headers.date);
@@ -273,7 +275,12 @@ function isSignableHeader(req, key) {
 }
 
 function isPresigned(req) {
-    return req.query[expiresHeader] ? true : false;
+    if (req.query[expiresHeader] || req.headers[expiresHeader]) {
+        checkExpired(req.noobaa_v4.xamzdate, Number(req.query[expiresHeader] || req.headers[expiresHeader]));
+        return true;
+    } else {
+        return false;
+    }
 }
 
 function queryParse(req) {
@@ -296,13 +303,13 @@ function queryParse(req) {
                 //fixed to isEmpty, instead of undefined comparison
                 if (!_.isEmpty(value)) {
                     //if (subResources[name]) {
-                        subresource.value = value;
+                    subresource.value = value;
                     //} else {
                     //    subresource.value = decodeURIComponent(value);
                     //}
                 }
                 resources.push(subresource);
-            //}
+                //}
             }
         });
 
@@ -325,4 +332,17 @@ function queryParse(req) {
 
     }
     return resource;
+}
+
+function checkExpired(date, expiry_seconds) {
+    var req_date;
+    if (expiry_seconds) {
+        req_date = moment(date).add(expiry_seconds, 'seconds');
+    } else {
+        req_date = moment.unix(date);
+    }
+
+    if (moment().diff(req_date) > 0) {
+        throw new Error('Signature Expired');
+    }
 }

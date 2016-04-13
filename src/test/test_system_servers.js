@@ -22,6 +22,7 @@ mocha.describe('system_servers', function() {
     const EMAIL = SYS + EMAIL_DOMAIN;
     const EMAIL1 = SYS1 + EMAIL_DOMAIN;
     const PASSWORD = SYS + '-password';
+    const CLOUD_SYNC_CONNECTION = 'Connection 1';
 
     let client = coretest.new_test_client();
 
@@ -34,9 +35,9 @@ mocha.describe('system_servers', function() {
             .then(() => client.account.accounts_status())
             .then(res => assert(!res.has_accounts, '!has_accounts'))
             .then(() => client.account.create_account({
-                name: SYS,
+                name: CLOUD_SYNC_CONNECTION,
                 email: EMAIL,
-                password: PASSWORD,
+                password: PASSWORD
             }))
             .then(res => client.options.auth_token = res.token)
             .then(() => client.account.accounts_status())
@@ -210,9 +211,9 @@ mocha.describe('system_servers', function() {
                 name: TIERING_POLICY
             }))
             .then(() => client.system.read_system())
-            //////////////
-            //  BUCKET  //
-            //////////////
+            // //////////////
+            // //  BUCKET  //
+            // //////////////
             .then(() => client.bucket.create_bucket({
                 name: BUCKET,
                 tiering: TIERING_POLICY,
@@ -233,23 +234,24 @@ mocha.describe('system_servers', function() {
                 name: BUCKET + 1,
                 new_name: BUCKET,
             }))
-            .then(() => client.bucket.set_cloud_sync({
-                name: BUCKET,
-                policy: {
-                    endpoint: 'localhost',
-                    access_keys: [{
-                        access_key: '123',
-                        secret_key: 'abc'
-                    }],
-                    schedule: 11
-                }
-            }))
-            /*
-            .then(() => client.bucket.get_cloud_buckets({
+            .then(() => client.account.add_account_sync_credentials_cache({
+                name: CLOUD_SYNC_CONNECTION,
+                endpoint: '127.0.0.1',
                 access_key: '123',
                 secret_key: 'abc'
             }))
-            */
+            .then(() => client.bucket.set_cloud_sync({
+                name: BUCKET,
+                connection: CLOUD_SYNC_CONNECTION,
+                policy: {
+                    target_bucket: BUCKET,
+                    schedule: 11
+                }
+            }))
+            .then(() => client.bucket.get_cloud_buckets({
+                connection: CLOUD_SYNC_CONNECTION
+            }))
+            
             .then(() => client.system.read_system())
             .then(() => client.bucket.get_cloud_sync_policy({
                 name: BUCKET,
@@ -259,9 +261,9 @@ mocha.describe('system_servers', function() {
             }))
             .then(() => client.bucket.get_all_cloud_sync_policies())
             .then(() => client.system.read_system())
-            /////////////
-            //  STATS  //
-            /////////////
+            // /////////////
+            // //  STATS  //
+            // /////////////
             .then(() => client.stats.get_systems_stats())
             .then(() => client.stats.get_nodes_stats())
             .then(() => client.stats.get_ops_stats())
@@ -288,7 +290,7 @@ mocha.describe('system_servers', function() {
                         ' should have been deleted by now');
                 },
                 err => {
-                    if (err.rpc_code.indexOf('NO_SUCH_TIERING_POLICY') > -1) {
+                    if (err.rpc_code && err.rpc_code.indexOf('NO_SUCH_TIERING_POLICY') > -1) {
                         return;
                     } else {
                         throw new Error(err);

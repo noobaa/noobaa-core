@@ -96,16 +96,6 @@ module.exports = {
                 },
             },
             reply: {
-                /*type: 'object',
-                required: ['access_key', 'secret_key'],
-                properties: {
-                    access_key: {
-                        type: 'string',
-                    },
-                    secret_key: {
-                        type: 'string',
-                    }
-                }*/
                 type: 'array',
                 items: {
                     $ref: 'system_api#/definitions/access_keys'
@@ -116,12 +106,42 @@ module.exports = {
             }
         },
 
-        update_bucket_permissions: {
+        get_buckets_permissions: {
+            method: 'GET',
+            params: {
+                type: 'object',
+                required: ['email'],
+                properties: {
+                    email: {
+                        type: 'string',
+                    },
+                }
+            },
+            reply: {
+                type: 'array',
+                items: {
+                    type: 'object',
+                    properties: {
+                        bucket_name: {
+                            type: 'string'
+                        },
+                        is_allowed: {
+                            type: 'boolean'
+                        }
+                    }
+                }
+            },
+            auth: {
+                system: 'admin'
+            }
+        },
+
+        update_buckets_permissions: {
             doc: 'Update bucket access permissions',
             method: 'PUT',
             params: {
                 type: 'object',
-                required: ['email'], //['allowed_buckets'],
+                required: ['email', 'allowed_buckets'],
                 properties: {
                     email: {
                         type: 'string',
@@ -129,7 +149,15 @@ module.exports = {
                     allowed_buckets: {
                         type: 'array',
                         items: {
-                            type: 'string'
+                            type: 'object',
+                            properties: {
+                                bucket_name: {
+                                    type: 'string'
+                                },
+                                is_allowed: {
+                                    type: 'boolean'
+                                }
+                            }
                         }
                     },
                 },
@@ -198,7 +226,7 @@ module.exports = {
             method: 'PUT',
             params: {
                 type: 'object',
-                required: [ 'name', 'access_key', 'secret_key', 'endpoint' ],
+                required: ['name', 'access_key', 'secret_key', 'endpoint'],
                 properties: {
                     name: {
                         type: 'string'
@@ -206,11 +234,9 @@ module.exports = {
                     endpoint: {
                         type: 'string'
                     },
-
                     access_key: {
                         type: 'string'
                     },
-
                     secret_key: {
                         type: 'string'
                     }
@@ -231,15 +257,12 @@ module.exports = {
                         name: {
                             type: 'string'
                         },
-                        access_key: {
-                            type: 'string',
-                        },
-                        secret_key: {
-                            type: 'string',
-                        },
                         endpoint: {
-                            type: 'string',
+                            type: 'string'
                         },
+                        access_key: {
+                            type: 'string'
+                        }
                     }
                 }
             },
@@ -252,12 +275,11 @@ module.exports = {
             method: 'GET',
             params: {
                 type: 'object',
-                required: [ 'access_key', 'secret_key', 'endpoint' ],
+                required: ['access_key', 'secret_key', 'endpoint'],
                 properties: {
                     endpoint: {
                         type: 'string'
                     },
-
                     access_key: {
                         type: 'string'
                     },
@@ -293,25 +315,9 @@ module.exports = {
                     type: 'boolean',
                 },
                 access_keys: {
-                    /*type: 'object',
-                    required: ['access_key', 'secret_key'],
-                    properties: {
-                        access_key: {
-                            type: 'string'
-                        },
-                        secret_key: {
-                            type: 'string'
-                        }
-                    }*/
                     type: 'array',
                     items: {
                         $ref: 'system_api#/definitions/access_keys'
-                    }
-                },
-                allowed_buckets: {
-                    type: 'array',
-                    items: {
-                        type: 'string' //BucketName
                     }
                 },
                 systems: {

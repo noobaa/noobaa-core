@@ -255,6 +255,8 @@ Section "NooBaa S3 REST Service"
 	${WriteFile} "$INSTDIR\service_installer.bat" "NooBaa_Agent_wd set $\"Noobaa S3REST Service$\" AppStderr $\"$INSTDIR\Noobaa_S3REST_Service.log$\""
 	${WriteFile} "$INSTDIR\service_installer.bat" "NooBaa_Agent_wd set $\"Noobaa S3REST Service$\" AppStdout $\"$INSTDIR\Noobaa_S3REST_Service.log$\""
 	${WriteFile} "$INSTDIR\service_installer.bat" "NooBaa_Agent_wd.exe start $\"Noobaa S3REST Service$\""
+	${WriteFile} "$INSTDIR\service_installer.bat" "echo Noobaa S3REST Installation completed successfully."
+
 	CreateDirectory "${SMDIR}"
 	CreateShortCut "${SMDIR}\${UNINST}.lnk" "$INSTDIR\uninstall-noobaa-S3REST.exe"
 	nsExec::ExecToStack '$\"$INSTDIR\service_installer.bat$\""'

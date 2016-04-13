@@ -102,6 +102,7 @@ fi
 echo "building installer"
 cp ../../src/deploy/Linux/noobaa_local_service.sh ./package/
 cp ../../src/deploy/Linux/noobaa_service_installer.sh ./package/
+cp ../../src/deploy/Linux/noobaa_service_uninstall.sh ./package/
 mkdir ./dist
 cp ../../src/deploy/Linux/setup.sh ./dist/
 ./makeself.sh ./package noobaa-installer $current_package_version ./noobaa_service_installer.sh

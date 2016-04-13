@@ -252,7 +252,6 @@ function read_system(req) {
                 count: nodes_sys.count || 0,
                 online: nodes_sys.online || 0,
             },
-            //JENaccess_keys: system.access_keys,
             owner: account_server.get_account_info(system_store.data.get_by_id(system._id).owner),
             ssl_port: process.env.SSL_PORT,
             web_port: process.env.PORT,

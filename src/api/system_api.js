@@ -357,7 +357,6 @@ module.exports = {
                 'buckets',
                 'objects',
                 'owner',
-                //'access_keys'
             ],
             properties: {
                 name: {

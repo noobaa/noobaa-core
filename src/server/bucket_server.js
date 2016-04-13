@@ -17,7 +17,7 @@ module.exports = {
     update_bucket: update_bucket,
     delete_bucket: delete_bucket,
     list_buckets: list_buckets,
-    generate_bucket_access: generate_bucket_access,
+    //generate_bucket_access: generate_bucket_access,
     list_bucket_access_accounts: list_bucket_access_accounts,
 
     //Cloud Sync policies
@@ -114,12 +114,12 @@ function create_bucket(req) {
     return system_store.make_changes(changes)
         .then(function() {
             req.load_auth();
-            var new_allowed_buckets = _.map(req.account && req.account.allowed_buckets,
-                bucket => bucket.name);
-            new_allowed_buckets.push(bucket.name);
-            return server_rpc.client.account.update_bucket_permissions({
+            return server_rpc.client.account.update_buckets_permissions({
                 email: req.account && req.account.email,
-                allowed_buckets: new_allowed_buckets
+                allowed_buckets: [{
+                    bucket_name: bucket.name,
+                    is_allowed: true
+                }]
             }, {
                 auth_token: req.auth_token
             }).then(() => {
@@ -188,8 +188,8 @@ function update_bucket(req) {
     }).return();
 }
 
-
-function generate_bucket_access(req) {
+// TODO Removed by request of Ohad, because seems like we won't be using it
+/*function generate_bucket_access(req) {
     var bucket = find_bucket(req);
 
     if (!bucket) {
@@ -206,9 +206,12 @@ function generate_bucket_access(req) {
         })
         .then(() => {
             //console.warn('Account Created');set
-            return server_rpc.client.account.update_bucket_permissions({
+            return server_rpc.client.account.update_buckets_permissions({
                 email: account_email,
-                allowed_buckets: [bucket.name]
+                allowed_buckets: [{
+                    bucket_name: bucket.name,
+                    is_allowed: true
+                }]
             }, {
                 auth_token: req.auth_token
             });
@@ -220,8 +223,9 @@ function generate_bucket_access(req) {
             }, {
                 auth_token: req.auth_token
             });
-        });
-}
+        })
+        .then(res => res[0]);
+}*/
 
 function list_bucket_access_accounts(req) {
     var bucket = find_bucket(req);
@@ -235,11 +239,7 @@ function list_bucket_access_accounts(req) {
         account => req.has_bucket_permission(bucket, account)
     );
 
-    var reply = _.map(access_accounts, function(val) {
-        return _.pick(val, 'name', 'email', 'is_support', 'access_keys');
-    });
-    //console.warn('MY ACCOUNTS ARE: ', typeof reply);
-    //console.warn(Array.isArray(reply));
+    var reply = _.map(access_accounts, account => account.email);
     return reply;
 }
 

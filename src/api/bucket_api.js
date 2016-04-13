@@ -131,7 +131,7 @@ module.exports = {
             reply: {
                 type: 'array',
                 items: {
-                    $ref: 'account_api#/definitions/account_info'
+                    type: 'string'
                 }
             },
             auth: {
@@ -251,7 +251,8 @@ module.exports = {
             }
         },
 
-        generate_bucket_access: {
+        // TODO Removed by request of Ohad, because seems like we won't be using it
+        /*generate_bucket_access: {
             method: 'PUT',
             params: {
                 type: 'object',
@@ -277,7 +278,7 @@ module.exports = {
             auth: {
                 system: 'admin'
             }
-        },
+        },*/
 
         get_cloud_buckets: {
             method: 'GET',
@@ -320,7 +321,7 @@ module.exports = {
                 },
                 num_objects: {
                     type: 'integer'
-                },                
+                },
                 cloud_sync_status: {
                     $ref: '#/definitions/api_cloud_sync_status'
                 }

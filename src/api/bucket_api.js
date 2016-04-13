@@ -311,7 +311,7 @@ module.exports = {
                 },
                 num_objects: {
                     type: 'integer'
-                },                
+                },
                 cloud_sync_status: {
                     $ref: '#/definitions/api_cloud_sync_status'
                 }

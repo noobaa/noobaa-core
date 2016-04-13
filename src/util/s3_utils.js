@@ -335,15 +335,12 @@ function queryParse(req) {
 }
 
 function checkExpired(date, expiry_seconds) {
-    console.warn('JEN EXPIRED: ', date, ' ', expiry_seconds);
-    var req_date
+    var req_date;
     if (expiry_seconds) {
         req_date = moment(date).add(expiry_seconds, 'seconds');
     } else {
         req_date = moment.unix(date);
     }
-    console.warn('JEN DATE: ', req_date);
-    console.warn('JEN DIFF: ', moment().diff(req_date));
 
     if (moment().diff(req_date) > 0) {
         throw new Error('Signature Expired');

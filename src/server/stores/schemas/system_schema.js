@@ -21,21 +21,6 @@ module.exports = {
         owner: {
             format: 'objectid' // account id
         },
-        /*JENaccess_keys: {
-            type: 'array',
-            items: {
-                type: 'object',
-                required: ['access_key', 'secret_key'],
-                properties: {
-                    access_key: {
-                        type: 'string'
-                    },
-                    secret_key: {
-                        type: 'string'
-                    }
-                }
-            }
-        },*/
         // links to system resources used for storing install packages
         resources: {
             type: 'object',

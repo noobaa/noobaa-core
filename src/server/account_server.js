@@ -12,6 +12,7 @@ var account_server = {
     update_account: update_account,
     generate_account_keys: generate_account_keys,
     update_bucket_permissions: update_bucket_permissions,
+    get_allowed_buckets: get_allowed_buckets,
     delete_account: delete_account,
     list_accounts: list_accounts,
     accounts_status: accounts_status,
@@ -92,7 +93,10 @@ function create_account(req) {
                         }
                     })
                     .then(() => {
-                        req.rpc_params.allowed_buckets = ['files'];
+                        req.rpc_params.allowed_buckets = [{
+                            bucket_name: 'files',
+                            is_allowed: true
+                        }];
                         return update_bucket_permissions(req);
                     });
             }
@@ -135,10 +139,7 @@ function read_account(req) {
  *
  */
 function generate_account_keys(req) {
-    //console.warn('req.rpc_params: ', req.rpc_params);
     let account = system_store.data.accounts_by_email[req.rpc_params.email];
-    //console.warn('req.system: ', req.system, 'req.account: ', req.account, 'account: ', account);
-
     if (!account) {
         throw req.rpc_error('NO_SUCH_ACCOUNT', 'No such account email: ' + req.rpc_params.email);
     }
@@ -175,9 +176,7 @@ function generate_account_keys(req) {
  *
  */
 function update_bucket_permissions(req) {
-    //console.warn('req.rpc_params: ', req);
     var system = req.system;
-    //req.rpc_params.allowed_buckets = ['files', 'check3'];
     let account = system_store.data.accounts_by_email[req.rpc_params.email];
     if (!account) {
         throw req.rpc_error('NO_SUCH_ACCOUNT', 'No such account email: ' + req.rpc_params.email);
@@ -195,13 +194,19 @@ function update_bucket_permissions(req) {
         throw req.forbidden('Cannot update support account');
     }
     let updates = _.pick(account, '_id');
-    updates.allowed_buckets = [];
-    //console.warn('system_store.data.buckets_by_name: ', system.buckets_by_name);
-    if (req.rpc_params.allowed_buckets) {
-        updates.allowed_buckets = _.map(req.rpc_params.allowed_buckets,
-            bucket_name => system.buckets_by_name[bucket_name]._id);
-        //console.warn('updates.allowed_buckets: ', updates.allowed_buckets);
-    }
+    updates.allowed_buckets = account.allowed_buckets;
+
+    _.forEach(req.rpc_params.allowed_buckets, bucket => {
+        if (bucket.is_allowed) {
+            updates.allowed_buckets = _.unionWith(updates.allowed_buckets, [system.buckets_by_name[bucket.bucket_name]], _.isEqual);
+        } else {
+            _.remove(updates.allowed_buckets, remove_bucket =>
+                remove_bucket.name.toString() === bucket.bucket_name.toString());
+        }
+    });
+
+    updates.allowed_buckets = _.map(updates.allowed_buckets, bucket => bucket._id);
+
     return system_store.make_changes({
             update: {
                 accounts: [updates]
@@ -370,7 +375,7 @@ function add_account_sync_credentials_cache(req) {
 
 function check_account_sync_credentials(req) {
     var params = _.pick(req.rpc_params, 'endpoint', 'access_key', 'secret_key');
-    
+
     return P.fcall(function() {
         var s3 = new AWS.S3({
             endpoint: params.endpoint,
@@ -378,7 +383,7 @@ function check_account_sync_credentials(req) {
             secretAccessKey: params.secret_key,
             sslEnabled: false
         });
-        
+
         return P.ninvoke(s3, "listBuckets");
     }).then(
         () => true,
@@ -387,6 +392,38 @@ function check_account_sync_credentials(req) {
 }
 
 
+/**
+ *
+ * GET_ALLOWED_BUCKETS
+ *
+ */
+function get_allowed_buckets(req) {
+    var system = req.system;
+    let account = system_store.data.accounts_by_email[req.rpc_params.email];
+    if (!account) {
+        throw req.rpc_error('NO_SUCH_ACCOUNT', 'No such account email: ' + req.rpc_params.email);
+    }
+    if (req.system && req.account) {
+        if (!is_support_or_admin_or_me(req.system, req.account, account)) {
+            throw req.unauthorized('No permission to get allowed buckets');
+        }
+    } else {
+        if (!req.system) {
+            system = system_store.data.get_by_id(req.auth && req.auth.system_id);
+        }
+    }
+    if (account.is_support) {
+        throw req.forbidden('No allowed buckets for support account');
+    }
+    let reply = [];
+    reply = _.map(system_store.data.buckets,
+        bucket => ({
+            bucket_name: bucket.name,
+            is_allowed: _.find(account.allowed_buckets, allowed_bucket => (allowed_bucket === bucket)) ? true : false
+        }));
+
+    return reply;
+}
 
 // UTILS //////////////////////////////////////////////////////////
 
@@ -399,10 +436,6 @@ function get_account_info(account) {
     }
     if (account.access_keys) {
         info.access_keys = account.access_keys;
-    }
-    //console.warn('account.allowed_buckets: ', account.allowed_buckets);
-    if (account.allowed_buckets) {
-        info.allowed_buckets = _.map(account.allowed_buckets, 'name');
     }
     info.systems = _.compact(_.map(account.roles_by_system, function(roles, system_id) {
         var system = system_store.data.get_by_id(system_id);

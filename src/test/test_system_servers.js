@@ -8,6 +8,8 @@ let coretest = require('./coretest');
 let promise_utils = require('../util/promise_utils');
 var S3Auth = require('aws-sdk/lib/signers/s3');
 var s3_auth = new S3Auth();
+var dotenv = require('dotenv');
+dotenv.load();
 
 mocha.describe('system_servers', function() {
 
@@ -237,8 +239,8 @@ mocha.describe('system_servers', function() {
             .then(() => client.account.add_account_sync_credentials_cache({
                 name: CLOUD_SYNC_CONNECTION,
                 endpoint: 'https://s3.amazonaws.com',
-                access_key: 'AKIAJOP7ZFXOOPGL5BOA',
-                secret_key: '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'
+                access_key: process.env.AWS_ACCESS_KEY_ID,
+                secret_key: process.env.AWS_SECRET_ACCESS_KEY
             }))
             .then(() => client.bucket.set_cloud_sync({
                 name: BUCKET,

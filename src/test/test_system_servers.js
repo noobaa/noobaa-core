@@ -236,9 +236,9 @@ mocha.describe('system_servers', function() {
             }))
             .then(() => client.account.add_account_sync_credentials_cache({
                 name: CLOUD_SYNC_CONNECTION,
-                endpoint: '127.0.0.1',
-                access_key: '123',
-                secret_key: 'abc'
+                endpoint: 'https://s3.amazonaws.com',
+                access_key: 'AKIAJOP7ZFXOOPGL5BOA',
+                secret_key: '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'
             }))
             .then(() => client.bucket.set_cloud_sync({
                 name: BUCKET,
@@ -251,7 +251,7 @@ mocha.describe('system_servers', function() {
             .then(() => client.bucket.get_cloud_buckets({
                 connection: CLOUD_SYNC_CONNECTION
             }))
-            
+
             .then(() => client.system.read_system())
             .then(() => client.bucket.get_cloud_sync_policy({
                 name: BUCKET,

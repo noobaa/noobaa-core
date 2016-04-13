@@ -206,11 +206,9 @@ module.exports = {
                     endpoint: {
                         type: 'string'
                     },
-
                     access_key: {
                         type: 'string'
                     },
-
                     secret_key: {
                         type: 'string'
                     }
@@ -231,15 +229,12 @@ module.exports = {
                         name: {
                             type: 'string'
                         },
-                        access_key: {
-                            type: 'string',
-                        },
-                        secret_key: {
-                            type: 'string',
-                        },
                         endpoint: {
-                            type: 'string',
+                            type: 'string'
                         },
+                        access_key: {
+                            type: 'string'
+                        }
                     }
                 }
             },
@@ -257,7 +252,6 @@ module.exports = {
                     endpoint: {
                         type: 'string'
                     },
-
                     access_key: {
                         type: 'string'
                     },

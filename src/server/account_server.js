@@ -344,10 +344,19 @@ function get_system_roles(req) {
  * UPDATE_ACCOUNT with keys
  *
  */
-
 function get_account_sync_credentials_cache(req) {
-    return req.account.sync_credentials_cache || [];
+    return (req.account.sync_credentials_cache || []).map(
+        // The defaults are used for backword compatibility.
+        credentials => {
+            return {
+                name: credentials.name || credentials.access_key,
+                endpoint: credentials.endpoint || 'https://s3.amazonaws.com',
+                access_key: credentials.access_key
+            };
+        }
+    );
 }
+
 /**
  *
  * UPDATE_ACCOUNT with keys

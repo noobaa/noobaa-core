@@ -63,10 +63,8 @@ function new_bucket_defaults(name, system_id, tiering_policy_id) {
     };
 }
 
-
-
 /**
- *
+ *3
  * CREATE_BUCKET
  *
  */
@@ -207,7 +205,7 @@ function generate_bucket_access(req) {
             auth_token: req.auth_token
         })
         .then(() => {
-            //console.warn('Account Created');
+            //console.warn('Account Created');set
             return server_rpc.client.account.update_bucket_permissions({
                 email: account_email,
                 allowed_buckets: [bucket.name]
@@ -289,7 +287,7 @@ function delete_bucket(req) {
             sysid: req.system._id.toString(),
             bucketid: bucket._id.toString(),
             force_stop: true,
-            bucket_deleted: true,
+            skip_load: true,
         }, {
             auth_token: req.auth_token
         }))
@@ -338,14 +336,15 @@ function get_cloud_sync_policy(req, bucket) {
         }))
         .then(res => {
             bucket.cloud_sync.status = res.status;
+
             return {
                 name: bucket.name,
+                endpoint: bucket.cloud_sync.endpoint,
+                access_key: bucket.cloud_sync.access_keys.access_key,
                 health: res.health,
                 status: cloud_sync_utils.resolve_cloud_sync_info(bucket.cloud_sync),
                 policy: {
-                    endpoint: bucket.cloud_sync.endpoint,
                     target_bucket: bucket.cloud_sync.target_bucket,
-                    access_keys: [bucket.cloud_sync.access_keys],
                     schedule: bucket.cloud_sync.schedule_min,
                     last_sync: (new Date(bucket.cloud_sync.last_sync)).getTime(),
                     paused: bucket.cloud_sync.paused,
@@ -376,6 +375,7 @@ function delete_cloud_sync(req) {
     dbg.log2('delete_cloud_sync:', req.rpc_params.name, 'on', req.system._id);
     var bucket = find_bucket(req);
     dbg.log3('delete_cloud_sync: delete on bucket', bucket);
+
     return system_store.make_changes({
             update: {
                 buckets: [{
@@ -391,6 +391,7 @@ function delete_cloud_sync(req) {
                 sysid: req.system._id.toString(),
                 bucketid: bucket._id.toString(),
                 force_stop: true,
+                skip_load: true
             }, {
                 auth_token: req.auth_token
             });
@@ -414,8 +415,9 @@ function delete_cloud_sync(req) {
  *
  */
 function set_cloud_sync(req) {
+    dbg.log0('set_cloud_sync:', req.rpc_params);
 
-    dbg.log0('set_cloud_sync:', req.rpc_params.name, 'on', req.system._id, 'with', req.rpc_params.policy);
+    var connection = find_cloud_sync_connection(req);
     var bucket = find_bucket(req);
     var force_stop = false;
     //Verify parameters, bi-directional sync can't be set with additions_only
@@ -426,11 +428,11 @@ function set_cloud_sync(req) {
         throw new Error('bi-directional sync cant be set with additions_only');
     }
     var cloud_sync = {
-        endpoint: req.rpc_params.policy.endpoint,
+        endpoint: connection.endpoint,
         target_bucket: req.rpc_params.policy.target_bucket,
         access_keys: {
-            access_key: req.rpc_params.policy.access_keys[0].access_key,
-            secret_key: req.rpc_params.policy.access_keys[0].secret_key
+            access_key: connection.access_key,
+            secret_key: connection.secret_key
         },
         schedule_min: js_utils.default_value(req.rpc_params.policy.schedule, 60),
         last_sync: new Date(0),
@@ -497,11 +499,13 @@ function set_cloud_sync(req) {
 function get_cloud_buckets(req) {
     var buckets = [];
     dbg.log0('get cloud buckets', req.rpc_params);
+
     return P.fcall(function() {
+        var connection = find_cloud_sync_connection(req);
         var s3 = new AWS.S3({
-            endpoint: req.rpc_params.endpoint,
-            accessKeyId: req.rpc_params.access_key,
-            secretAccessKey: req.rpc_params.secret_key,
+            endpoint: connection.endpoint,
+            accessKeyId: connection.access_key,
+            secretAccessKey: connection.secret_key,
             sslEnabled: false
         });
         return P.ninvoke(s3, "listBuckets");
@@ -520,6 +524,22 @@ function get_cloud_buckets(req) {
 
 // UTILS //////////////////////////////////////////////////////////
 
+function find_cloud_sync_connection(req) {
+    let account = req.account;
+    let conn_name = req.rpc_params.connection;
+    let conn = (account.sync_credentials_cache || [])
+        .filter(
+            conn => conn.name === conn_name
+        )
+        [0];
+
+    if (!conn) {
+        dbg.error('CONNECTION NOT FOUND', account, conn_name);
+        throw req.rpc_error('INVALID_CONNECTION', 'Connection dosn\'t exists: "' + conn_name + '"');
+    }
+
+    return conn;
+}
 
 function find_bucket(req) {
     var bucket = req.system.buckets_by_name[req.rpc_params.name];

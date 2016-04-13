@@ -11,8 +11,8 @@ var account_server = {
     read_account: read_account,
     update_account: update_account,
     generate_account_keys: generate_account_keys,
-    update_bucket_permissions: update_bucket_permissions,
-    get_allowed_buckets: get_allowed_buckets,
+    update_buckets_permissions: update_buckets_permissions,
+    get_buckets_permissions: get_buckets_permissions,
     delete_account: delete_account,
     list_accounts: list_accounts,
     accounts_status: accounts_status,
@@ -97,7 +97,7 @@ function create_account(req) {
                             bucket_name: 'files',
                             is_allowed: true
                         }];
-                        return update_bucket_permissions(req);
+                        return update_buckets_permissions(req);
                     });
             }
         })
@@ -172,10 +172,10 @@ function generate_account_keys(req) {
 
 /**
  *
- * UPDATE_BUCKET_PERMISSIONS
+ * update_buckets_permissions
  *
  */
-function update_bucket_permissions(req) {
+function update_buckets_permissions(req) {
     var system = req.system;
     let account = system_store.data.accounts_by_email[req.rpc_params.email];
     if (!account) {
@@ -403,10 +403,10 @@ function check_account_sync_credentials(req) {
 
 /**
  *
- * GET_ALLOWED_BUCKETS
+ * get_buckets_permissions
  *
  */
-function get_allowed_buckets(req) {
+function get_buckets_permissions(req) {
     var system = req.system;
     let account = system_store.data.accounts_by_email[req.rpc_params.email];
     if (!account) {

@@ -106,7 +106,7 @@ module.exports = {
             }
         },
 
-        get_allowed_buckets: {
+        get_buckets_permissions: {
             method: 'GET',
             params: {
                 type: 'object',
@@ -136,7 +136,7 @@ module.exports = {
             }
         },
 
-        update_bucket_permissions: {
+        update_buckets_permissions: {
             doc: 'Update bucket access permissions',
             method: 'PUT',
             params: {

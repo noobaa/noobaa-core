@@ -535,7 +535,7 @@ function find_cloud_sync_connection(req) {
 
     if (!conn) {
         dbg.error('CONNECTION NOT FOUND', account, conn_name);
-        throw req.rpc_error('INVALID_CONNECTION', 'Connection dosn\'t exists: ' + conn_name);
+        throw req.rpc_error('INVALID_CONNECTION', 'Connection dosn\'t exists: "' + conn_name + '"');
     }
 
     return conn;

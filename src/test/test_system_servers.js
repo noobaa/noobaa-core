@@ -81,12 +81,6 @@ mocha.describe('system_servers', function() {
             .then(() => client.system.read_activity_log({
                 limit: 2016
             }))
-            .then(client.account.add_account_sync_credentials_cache({
-                name: 'Connection 1',
-                endpoint: '127.0.0.1',
-                access_key: '123',
-                secret_key: 'abc'
-            }))
             ////////////
             //  AUTH  //
             ////////////
@@ -240,6 +234,12 @@ mocha.describe('system_servers', function() {
                 name: BUCKET + 1,
                 new_name: BUCKET,
             }))
+            .then(() => client.account.add_account_sync_credentials_cache({
+                name: CLOUD_SYNC_CONNECTION,
+                endpoint: '127.0.0.1',
+                access_key: '123',
+                secret_key: 'abc'
+            }))
             .then(() => client.bucket.set_cloud_sync({
                 name: BUCKET,
                 connection: CLOUD_SYNC_CONNECTION,
@@ -253,7 +253,7 @@ mocha.describe('system_servers', function() {
             }))
             
             .then(() => client.system.read_system())
-            .then(() => client.bucket.clear({
+            .then(() => client.bucket.get_cloud_sync_policy({
                 name: BUCKET,
             }))
             .then(() => client.bucket.delete_cloud_sync({
@@ -290,7 +290,7 @@ mocha.describe('system_servers', function() {
                         ' should have been deleted by now');
                 },
                 err => {
-                    if (err.rpc_code.indexOf('NO_SUCH_TIERING_POLICY') > -1) {
+                    if (err.rpc_code && err.rpc_code.indexOf('NO_SUCH_TIERING_POLICY') > -1) {
                         return;
                     } else {
                         throw new Error(err);

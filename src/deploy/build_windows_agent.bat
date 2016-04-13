@@ -71,6 +71,8 @@ nvm list
 call .\node_modules\.bin\node-gyp --arch=x64 configure
 call .\node_modules\.bin\node-gyp --arch=x64 build
 
+rd /q/s .\node_modules\node-gyp
+
 xcopy /Y/I/E .\build\Release .\build\Release-64
 
 call curl -L https://nodejs.org/dist/v4.2.2/win-x86/node.exe > node-32.exe

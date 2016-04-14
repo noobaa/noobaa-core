@@ -16,7 +16,7 @@ var steps = [
 }, {
     //Test Data Placement according to policy
     name: 'Pools Data Placement Test',
-    action: 'node src/test/system_tests/test_files_spread.js',
+    lib_test: '/src/test/system_tests/test_files_spread',
 }, {
     //Restore DB to defaults
     name: 'Restore DB Defaults',
@@ -24,7 +24,7 @@ var steps = [
 }, {
     //Test Data Rebuild and Eviction
     name: 'Rebuild and Eviction Test',
-    action: 'node src/test/system_tests//test_build_chunks.js',
+    lib_test: '/src/test/system_tests//test_build_chunks',
 }, {
     //Restore DB to defaults
     name: 'Restore DB Defaults',
@@ -36,7 +36,7 @@ module.exports = steps;
 /*Example Step:
 {
   name: 'Some Name',
-  action: 'node src/some_file.js' OR common 'function name'
+  action: 'node src/some_file.js' OR common 'function name' OR lib_test '/src/sometest'
   params: if exists, array of args
       [
         arg: 'value',

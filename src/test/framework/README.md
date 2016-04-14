@@ -39,6 +39,8 @@ Each step can be configured in the following manner:
 - arg for a static param, its value provided inline, for example _arg: '5'_
 - input_arg for a dynamic value param, its value provided to the runner as argv when its being run, for example _input_arg: 'ip'_ would result in evaluating the value for the --ip parameter sent for the runner execution (node runner.js --ip 127.0.0.1)
 
+5) ***lib_test***: test which is exported as a library, will be required and run_test() will be invoked.
+
 So an whole step can look something like:
 
 ```

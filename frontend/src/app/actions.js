@@ -1267,13 +1267,24 @@ export function upgradeSystem(upgradePackage) {
     xhr.send(formData);
 }
 
-export function downloadDiagnosticPack(nodeName) {
+export function downloadNodeDiagnosticPack(nodeName) {
     logAction('downloadDiagnosticFile', { nodeName });
 
     api.node.read_node({ name: nodeName })
         .then(
             node => api.node.collect_agent_diagnostics({ target: node.rpc_address })
         )
+        .then(
+            url => downloadFile(url)
+        )
+        .done();
+}
+
+
+export function downloadSystemDiagnosticPack() {
+    logAction('downloadSystemDiagnosticPack');
+
+    api.system.diagnose()
         .then(
             url => downloadFile(url)
         )

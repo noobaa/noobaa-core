@@ -8,6 +8,8 @@ let coretest = require('./coretest');
 let promise_utils = require('../util/promise_utils');
 var S3Auth = require('aws-sdk/lib/signers/s3');
 var s3_auth = new S3Auth();
+var dotenv = require('dotenv');
+dotenv.load();
 
 mocha.describe('system_servers', function() {
 
@@ -236,9 +238,9 @@ mocha.describe('system_servers', function() {
             }))
             .then(() => client.account.add_account_sync_credentials_cache({
                 name: CLOUD_SYNC_CONNECTION,
-                endpoint: '127.0.0.1',
-                access_key: '123',
-                secret_key: 'abc'
+                endpoint: 'https://s3.amazonaws.com',
+                access_key: process.env.AWS_ACCESS_KEY_ID,
+                secret_key: process.env.AWS_SECRET_ACCESS_KEY
             }))
             .then(() => client.bucket.set_cloud_sync({
                 name: BUCKET,
@@ -251,7 +253,7 @@ mocha.describe('system_servers', function() {
             .then(() => client.bucket.get_cloud_buckets({
                 connection: CLOUD_SYNC_CONNECTION
             }))
-            
+
             .then(() => client.system.read_system())
             .then(() => client.bucket.get_cloud_sync_policy({
                 name: BUCKET,

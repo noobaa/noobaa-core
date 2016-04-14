@@ -770,10 +770,6 @@ nb_console.controller('BucketsViewCtrl', [
                 });
             $q.when(nbClient.client.account.get_account_sync_credentials_cache())
                 .then(function(cached_access_key) {
-                    // TODO: Test, remove
-                    // AKIAJOP7ZFXOOPGL5BOA knaTbOnT9F3Afk+lfbWDSAUACAqsfoWj1FnHMaDz
-                    // AKIAIKFRM4EAAO5TAXJA nntw4SsW60qUUldKiLH99SJnUe2c+rsVlmSyQWHF
-
 
                     console.log('Cached keys :::' + JSON.stringify(cached_access_key));
                     scope.accessKeys.push({

@@ -281,6 +281,8 @@ Section "Noobaa Local Service"
 		${WriteFile} "$INSTDIR\service_installer.bat" "NooBaa_Agent_wd set $\"Noobaa Local Service$\" AppStderr $\"$INSTDIR\Noobaa_Local_Service.log$\""
 	    ${WriteFile} "$INSTDIR\service_installer.bat" "NooBaa_Agent_wd set $\"Noobaa Local Service$\" AppStdout $\"$INSTDIR\Noobaa_Local_Service.log$\""
 		${WriteFile} "$INSTDIR\service_installer.bat" "NooBaa_Agent_wd start $\"Noobaa Local Service$\""
+		${WriteFile} "$INSTDIR\service_installer.bat" "echo Agent Installation completed successfully."
+
 		${WriteFile} "$INSTDIR\service_uninstaller.bat" "cd $\"$INSTDIR$\""
 		${WriteFile} "$INSTDIR\service_uninstaller.bat" "NooBaa_Agent_wd stop $\"Noobaa Local Service$\""
 		${WriteFile} "$INSTDIR\service_uninstaller.bat" "NooBaa_Agent_wd remove $\"Noobaa Local Service$\" confirm"

@@ -64,7 +64,9 @@ class CreateAccountWizardViewModel {
     }
 
     selectAllBuckets() {
-        this.selectedBuckets(Array.from(this.buckets));
+        this.selectedBuckets(
+            Array.from(this.buckets)
+        );
     }
 
     clearBuckets() {

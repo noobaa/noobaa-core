@@ -6,7 +6,7 @@
 * [test_upgrade_ec2](#test_upgrade_ec2) - Test Upgrade Flow on EC2
 * [test_upgrade_gcloud](#test_upgrade_gcloud) - Test Upgrade Flow on GCloud
 * [test_files_ul](#test_small_files_ul) - Test UL of small files
-* [Smaple Test](#sample_test) - Sample system test for a template
+* [Sample Test](#sample_test) - Sample system test for a template
 
 
 * ### introduction
@@ -16,7 +16,7 @@
 
 * ### library_test
   The testing framework can run tests by requiring them and running them instead of invoking a shell with node.
-  In order to use this option, the test must export run_test().
+  In order to use this option, the test must export run_test(). See Sample test
 
 * ### test_upgrade_ec2
   This test comes to verify our upgrade flow. It's performs basic sanity after the upgrade just to make sure

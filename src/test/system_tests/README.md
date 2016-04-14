@@ -2,6 +2,7 @@
 ===========
 ### Core Tests Table of Contents:
 * [Introduction](#introduction) - introduction
+* [Library Test]*#library_test) - Creating a Library Test for the Framework
 * [test_upgrade_ec2](#test_upgrade_ec2) - Test Upgrade Flow on EC2
 * [test_upgrade_gcloud](#test_upgrade_gcloud) - Test Upgrade Flow on GCloud
 * [test_files_ul](#test_small_files_ul) - Test UL of small files
@@ -11,6 +12,10 @@
   The NooBaa deployment tests purpose is the verify various flows regarding initial deployment, NVA creation,
   upgrade etc.
   They can be combined with other more core functional tests to verify behavior after such flows.
+
+* ### library_test
+  The testing framework can run tests by requiring them and running them instead of invoking a shell with node.
+  In order to use this option, the test must export run_test().
 
 * ### test_upgrade_ec2
   This test comes to verify our upgrade flow. It's performs basic sanity after the upgrade just to make sure

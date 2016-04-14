@@ -3,7 +3,7 @@ var steps = [
 {
     //Run unit tests
     name: 'Unit Tests',
-    action: '/root/node_modules/noobaa-core/node_modules/.bin/gulp mocha',
+    action: './node_modules/.bin/gulp mocha',
     params: [{
         arg: '--COV_DIR',
     }, {

@@ -3,7 +3,7 @@ import nameAndPermissionsStepTemplate from './name-and-permissions-step.html';
 import detailsStepTemplate from './details-step.html';
 import userMessageTemplate from './user-message-template.html';
 import ko from 'knockout';
-import { randomString, copyToClipboard } from 'utils';
+import { randomString, copyTextToClipboard } from 'utils';
 
 const makeUserMessage = new Function(
     'serverAddress', 'emailAddress','password',

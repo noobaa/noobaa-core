@@ -320,6 +320,9 @@ module.exports = {
                         $ref: 'system_api#/definitions/access_keys'
                     }
                 },
+                has_allowed_buckets: {
+                    type: 'string'
+                },
                 systems: {
                     type: 'array',
                     items: {

@@ -1,0 +1,57 @@
+toggle-switch {
+    @radius: .55em;
+    @margin: .2em;
+    @size: (@radius + @margin) * 2;
+
+    display: inline-block;
+    vertical-align: middle;
+    line-height: @size;
+
+    input {
+        position: absolute;
+        z-index: -1;
+    }
+
+    .toggle-box {
+        position: relative;
+        display: inline-block;
+        width: @size * 2;
+        height: @size;
+        border-radius: @size;
+        line-height: 0;
+        background-color: @bg-color5;
+        vertical-align: middle;
+        margin-right: .25em;
+
+        &::before {
+            position: absolute;
+            display: inline-block;
+            content: '';
+            width: @radius * 2;
+            height: @radius * 2;
+            border-radius: @radius * 2;
+            top: @margin;
+            background-color: @bg-color4;
+            left: @margin;
+            transition: 
+                left 250ms ease-in-out, 
+                background-color 250ms linear;
+        }
+    }
+
+    .toggle-label {
+        display: inline-block;
+        vertical-align: middle;
+    }
+
+    :checked {
+        + .toggle-box::before {
+            background-color: @bg-color11;
+            left: 3em - (1.1em + .3em);
+        }
+
+        ~ .toggle-label {
+            color: @bg-color11;
+        }
+    }
+}

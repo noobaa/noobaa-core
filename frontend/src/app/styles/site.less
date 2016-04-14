@@ -289,7 +289,7 @@ input[type="search"] {
     a&[href], button& {
         cursor: @cursor-pointer;    
         
-        &:hover {va
+        &:hover {
             text-decoration: underline; 
         }       
     }
@@ -305,6 +305,10 @@ input[type="search"] {
         @text-color9,
         @text-color1
     );
+
+    &:disabled {
+        color: @text-color5;
+    }
 }
 
 .link-small {

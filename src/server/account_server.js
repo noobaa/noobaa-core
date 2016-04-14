@@ -446,6 +446,9 @@ function get_account_info(account) {
     if (account.access_keys) {
         info.access_keys = account.access_keys;
     }
+
+    info.has_allowed_buckets = !!account.allowed_buckets;
+
     info.systems = _.compact(_.map(account.roles_by_system, function(roles, system_id) {
         var system = system_store.data.get_by_id(system_id);
         if (!system) {

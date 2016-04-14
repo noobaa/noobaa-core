@@ -1,0 +1,14 @@
+<wizard params="
+    heading: 'Create Account', 
+    steps: ['name & permissions', 'review details'], 
+    actionLabel: 'Create & Copy to clipboard',
+    validateStep: step => validateStep(step),
+    onComplete: () => create(),
+    onClose: () => cancel()
+">
+    <section data-bind="template: { html: nameAndPermissionsStepTemplate }">
+    </section>
+
+    <section data-bind="template: { html: detailsStepTemplate }">
+    </section>
+</wizard>

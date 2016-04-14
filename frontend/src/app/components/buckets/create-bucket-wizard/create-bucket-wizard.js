@@ -1,6 +1,6 @@
 import template from './create-bucket-wizard.html';
-import chooseNameStepTempalte from './choose-name-step.html'
-import setPolicyStepTempalte from './set-policy-step.html'
+import chooseNameStepTemplate from './choose-name-step.html'
+import setPolicyStepTemplate from './set-policy-step.html'
 import ko from 'knockout';
 import nameValidationRules from 'name-validation-rules';
 import { poolList, bucketList } from 'model';
@@ -10,8 +10,8 @@ import { defaultPoolName } from 'config';
 class CreateBucketWizardViewModel {
     constructor({ onClose }) {
         this.onClose = onClose;
-        this.chooseNameStepTemplate = chooseNameStepTempalte;
-        this.setPolicyStepTemplate = setPolicyStepTempalte;
+        this.chooseNameStepTemplate = chooseNameStepTemplate;
+        this.setPolicyStepTemplate = setPolicyStepTemplate;
 
         let existingBucketNames = bucketList.map(
             ({ name }) => name

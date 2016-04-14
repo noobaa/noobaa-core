@@ -1,0 +1,32 @@
+<section class="container">
+    <h2 class="heading3">Enter user email address</h2>
+    <input type="text" placeholder="Email Address" data-bind="
+        textInput: emailAddress, 
+        hasFocus: true
+    "/>
+</section>
+
+<section class="container">
+    <h2 class="heading3">Enable S3 access for this user</h2>
+    <toggle-switch params="value: enableS3Access"></toggle-switch>
+</section>
+
+<section class="container">
+    <div class="pull-right">
+        <button class="link" data-bind="click: selectAllBuckets, enable: enableS3Access">
+            Select all
+        </button>
+        |
+        <button class="link" data-bind="click: clearBuckets, enable: enableS3Access">
+            Clear
+        </button>
+    </div>
+    <h2 class="heading3" data-bind="css: { disabled: !enableS3Access() }">
+        Grant S3 access permissions
+    </h2>
+    <multiselect params="
+        options: buckets, 
+        selected: selectedBuckets,
+        disabled: !enableS3Access()">
+    </multiselect>
+</section>

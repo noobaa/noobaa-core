@@ -2,7 +2,7 @@
 ===========
 ### Core Tests Table of Contents:
 * [Introduction](#introduction) - introduction
-* [Library Test]*#library_test) - Creating a Library Test for the Framework
+* [Library Test](#library_test) - Creating a Library Test for the Framework
 * [test_upgrade_ec2](#test_upgrade_ec2) - Test Upgrade Flow on EC2
 * [test_upgrade_gcloud](#test_upgrade_gcloud) - Test Upgrade Flow on GCloud
 * [test_files_ul](#test_small_files_ul) - Test UL of small files

@@ -36,7 +36,7 @@ function _init() {
         })
         .fail(function(err) {
             if (err.code === 'ENOENT') {
-                console.error('No noobaa_sec file exists');
+                dbg.log0('No noobaa_sec file exists');
             }
             return;
         })

@@ -220,6 +220,7 @@ function promised_spawn(command, args, cwd, ignore_rc) {
 
     proc.on('error', function(error) {
         if ((typeof ignore_rc !== 'undefined') && ignore_rc) {
+            dbg.warn(command + " " + args.join(" ") + " in " + cwd + " exited with error:" + error.message+" and ignored");
             deferred.resolve(out);
         } else {
             deferred.reject(new Error(command + " " + args.join(" ") + " in " + cwd + " recieved error " + error.message));
@@ -252,6 +253,9 @@ function promised_exec(command, ignore_rc) {
         },
         function(error, stdout, stderr) {
             if (error === null || ignore_rc) {
+                if (error!==null){
+                    dbg.warn(command + " exited with error " + error + " and ignored");
+                }
                 deferred.resolve();
             } else {
                 deferred.reject(new Error(command + " exited with error " + error));

@@ -9,12 +9,16 @@ export default class AccountRowViewModel {
         );
 
         this.isVisible = ko.pureComputed(
-            () => !!account()
+            () => account()
         );
 
         this.user = ko.pureComputed(
-            () => !!account() && account().email
+            () => account() && account().email
         );
+
+        let isSystemOwner = ko.pureComputed(
+            () => this.user() === systemInfo().owner
+        )
 
         this.roles = ko.pureComputed(
             () => {
@@ -22,19 +26,26 @@ export default class AccountRowViewModel {
                     return '';
                 }
 
-                return account().systems
-                    .find(
-                        ({ name }) => name === systemName()
-                    )
-                    .roles
-                    .join(' | ')
+                return  isSystemOwner() ?
+                    'owner' :
+                    account().systems.find( 
+                        ({ name }) => name === systemName() 
+                    ).roles[0]
             }
         );
 
-        // TODO: return real status when avaliable
-        this.status = ko.pureComputed(
-            () => 'active' 
-        );    
+        this.S3AccessStatus = ko.pureComputed(
+            () => !!account() && 
+                account().has_allowed_buckets ? 'enabled' : 'disabled'
+        );        
+
+        this.isDeletable = ko.pureComputed(
+            () =>  !isSystemOwner()
+        );
+
+        this.deleteToolTip = ko.pureComputed(
+            () =>  this.isDeletable() ? 'delete user' : 'Cannot detete system owner'
+        );
     }
 
     del() {

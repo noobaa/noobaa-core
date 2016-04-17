@@ -15,7 +15,8 @@ class AccountsTableViewModel {
         this.rows = makeArray(
             maxRows, 
             i => new AccountRowViewModel(
-                () => accountList()[i], this.deleteGroup
+                () => accountList()[i], 
+                this.deleteGroup, 
             )
         );
 

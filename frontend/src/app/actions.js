@@ -376,7 +376,8 @@ export function loadSystemInfo() {
                     sslPort: reply.ssl_port,
                     accessKey: access_key,
                     secretKey: secret_key,
-                    P2PConfig: reply.n2n_config
+                    P2PConfig: reply.n2n_config,
+                    owner: reply.owner.email
                 });
             }
         )
@@ -819,7 +820,11 @@ export function loadS3BucketList(connection) {
 export function createSystemAccount(systemName, email, password, dnsName) {
     logAction('createSystemAccount', { systemName, email, password, dnsName });
 
-    api.account.create_account({ name: systemName, email: email, password: password })
+    api.account.create_account({ 
+        name: systemName, 
+        email: email, 
+        password: password
+    })
         .then(
             ({ token }) => {
                 api.options.auth_token = token;
@@ -842,10 +847,15 @@ export function createSystemAccount(systemName, email, password, dnsName) {
         .done();
 }
 
-export function createAccount(name, email, password) {
-    logAction('createAccount', { name, email, password });
+export function createAccount(name, email, password, S3AccessList) {
+    logAction('createAccount', { name, email, password, S3AccessList });
 
-    api.account.create_account({ name, email, password })
+    api.account.create_account({ 
+        name: name, 
+        email: email, 
+        password: password,
+        allowed_buckets: S3AccessList
+    })
         .then(loadAccountList)
         .done();
 }
@@ -1365,7 +1375,7 @@ export function addS3Connection(name, endpoint, accessKey, secretKey) {
 }
 
 export function notify(message, severity = 'INFO') {
-    logAction('notifyInfo', { message, severity });
+    logAction('notify', { message, severity });
 
     model.lastNotification({ message, severity });
 }

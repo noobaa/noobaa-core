@@ -52,10 +52,26 @@ function create_account(req) {
         })
         .then(function() {
             var changes;
+            let new_access_keys = [{
+                    access_key: crypto.randomBytes(16).toString('hex'),
+                    secret_key: crypto.randomBytes(32).toString('hex')
+                }];
+
+            if (req.rpc_params.name.toString() === 'demo' &&
+                req.rpc_params.email.toString() === 'demo@noobaa.com') {
+                new_access_keys[0].access_key = '123';
+                new_access_keys[0].secret_key = 'abc';
+            }
+            account.access_keys = new_access_keys;
+            
             if (!req.system) {
                 changes = system_server.new_system_changes(account.name, account._id);
+                account.allowed_buckets = [changes.insert.buckets[0]._id];
                 changes.insert.accounts = [account];
             } else {
+                if(req.rpc_params.allowed_buckets){
+                    account.allowed_buckets = _.map(req.rpc_params.allowed_buckets, bucket => req.system.buckets_by_name[bucket]._id);                    
+                }
                 changes = {
                     insert: {
                         accounts: [account],
@@ -68,38 +84,9 @@ function create_account(req) {
                     }
                 };
             }
+            
             create_activity_log_entry(req, 'create', account);
             return system_store.make_changes(changes);
-        })
-        .then(function() {
-            //console.warn('req.system: ', req.system, 'req.account: ', req.account, 'account: ', account);
-
-            if (!req.system) {
-                let updates = _.pick(account, '_id');
-                let new_access_keys = [{
-                    access_key: crypto.randomBytes(16).toString('hex'),
-                    secret_key: crypto.randomBytes(32).toString('hex')
-                }];
-
-                if (req.rpc_params.name.toString() === 'demo' &&
-                    req.rpc_params.email.toString() === 'demo@noobaa.com') {
-                    new_access_keys[0].access_key = '123';
-                    new_access_keys[0].secret_key = 'abc';
-                }
-                updates.access_keys = new_access_keys;
-                return system_store.make_changes({
-                        update: {
-                            accounts: [updates]
-                        }
-                    })
-                    .then(() => {
-                        req.rpc_params.allowed_buckets = [{
-                            bucket_name: 'files',
-                            is_allowed: true
-                        }];
-                        return update_buckets_permissions(req);
-                    });
-            }
         })
         .then(function() {
             var created_account = system_store.data.get_by_id(account._id);
@@ -118,7 +105,6 @@ function create_account(req) {
                 token: req.make_auth_token(auth),
             };
         });
-
 }
 
 
@@ -315,9 +301,15 @@ function list_accounts(req) {
         }
         let account_ids = _.map(req.system.roles_by_account, (roles, account_id) =>
             roles && roles.length ? account_id : null);
-        accounts = _.compact(_.map(account_ids, account_id =>
-            system_store.data.get_by_id(account_id)));
+
+        accounts = _.compact(
+            _.map(
+                account_ids, 
+                account_id => system_store.data.get_by_id(account_id)
+            )
+        );
     }
+
     return {
         accounts: _.map(accounts, get_account_info)
     };

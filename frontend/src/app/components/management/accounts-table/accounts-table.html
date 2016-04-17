@@ -12,7 +12,7 @@
             <tr>
                 <th class="user-col text-left">User</th>
                 <th class="role-col">Roles</th>
-                <th class="status-col">Status</th>
+                <th class="s3-access-col">S3 Access</th>
                 <th class="password-col">Password</th>
                 <th class="delete-col"></th>    
             </tr>
@@ -27,8 +27,8 @@
 
                 <td class="role-col" data-bind="text: roles"></td>
                 
-                <td class="status-col" data-bind="text: status"></td>
-                
+                <td class="s3-access-col" data-bind="text: S3AccessStatus"></td>
+
                 <td class="password-col" data-bind="">
                     <button class="link" data-bind="
                         click: () => $component.showResetPasswordModal(user)
@@ -38,6 +38,8 @@
                 <td class="delete-col">
                     <delete-button params="
                         group: $component.deleteGroup,
+                        disabled: !isDeletable(),
+                        toolTip: deleteToolTip,
                         onDelete: () => del()
                     "><delete-button>
                 </td>

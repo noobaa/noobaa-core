@@ -37,25 +37,28 @@ function upgrade_systems() {
             };
         }
         var updated_access_keys = system.access_keys;
-        for (var i = 0; i < updated_access_keys.length; ++i) {
-            if (updated_access_keys[i]._id) {
-                delete updated_access_keys[i]._id;
+        if (updated_access_keys){
+            for (var i = 0; i < updated_access_keys.length; ++i) {
+                if (updated_access_keys[i]._id) {
+                    delete updated_access_keys[i]._id;
+                }
             }
+
+            updates.access_keys = updated_access_keys;
+
+            print('updating system', system.name, '...');
+            printjson(updates);
+            printjson(system);
+            db.systems.update({
+                _id: system._id
+            }, {
+                $set: updates,
+                $unset: {
+                    '__v': 1
+                }
+            });
+
         }
-
-        updates.access_keys = updated_access_keys;
-
-        print('updating system', system.name, '...');
-        printjson(updates);
-        printjson(system);
-        db.systems.update({
-            _id: system._id
-        }, {
-            $set: updates,
-            $unset: {
-                '__v': 1
-            }
-        });
     });
     db.systems.find().forEach(upgrade_system);
 }
@@ -191,8 +194,7 @@ function upgrade_system(system) {
             });
 
         }
-
-    })
+    });
 
     print('\n*** BUCKET ***');
     db.buckets.find({

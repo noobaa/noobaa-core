@@ -515,7 +515,7 @@ function diagnose(req) {
     var out_path = '/public/diagnostics.tgz';
     var inner_path = process.cwd() + '/build' + out_path;
     return P.fcall(function() {
-            return diag.collect_server_diagnostics();
+            return diag.collect_server_diagnostics(req);
         })
         .then((res) => {
             db.ActivityLog.create({
@@ -538,12 +538,12 @@ function diagnose(req) {
         });
 }
 
-function diagnose_with_agent(data) {
+function diagnose_with_agent(data,req) {
     dbg.log0('Recieved diag with agent req');
     var out_path = '/public/diagnostics.tgz';
     var inner_path = process.cwd() + '/build' + out_path;
     return P.fcall(function() {
-            return diag.collect_server_diagnostics();
+            return diag.collect_server_diagnostics(req);
         })
         .then(function() {
             return diag.write_agent_diag_file(data.data);

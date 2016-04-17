@@ -17,7 +17,7 @@ var promise_utils = require('../../util/promise_utils');
 var base_diagnostics = require('../../util/base_diagnostics');
 
 //TODO: Add temp collection dir as param
-function collect_server_diagnostics() {
+function collect_server_diagnostics(req) {
     return P.fcall(function() {
             return base_diagnostics.collect_basic_diagnostics();
         })
@@ -27,24 +27,42 @@ function collect_server_diagnostics() {
         .then(function() {
             return promise_utils.promised_exec('cp -f /var/log/noobaa_deploy* ' + TMP_WORK_DIR);
         })
+        .catch(function(err) {
+            console.error('Failed to collect noobaa_deploy logs', err.stack || err);
+        })
         .then(function() {
             return promise_utils.promised_exec('cp -f /var/log/noobaa.log* ' + TMP_WORK_DIR);
+        })
+        .catch(function(err) {
+            console.error('Failed to collect noobaa logs', err.stack || err);
         })
         .then(function() {
             return promise_utils.promised_spawn('cp', ['-f', process.cwd() + '/.env', TMP_WORK_DIR + '/env'], process.cwd());
         })
+        .catch(function(err) {
+            console.error('Failed to collect .env', err.stack || err);
+        })
         .then(function() {
             return os_utils.top_single(TMP_WORK_DIR + '/top.out');
+        })
+        .catch(function(err) {
+            console.error('Failed to collect top ', err.stack || err);
         })
         .then(function() {
             return promise_utils.promised_exec('lsof &> ' + TMP_WORK_DIR + '/lsof.out');
         })
+        .catch(function(err) {
+            console.error('Failed to collect lsof ', err.stack || err);
+        })
         .then(function() {
             if (stats_aggregator) {
-                return stats_aggregator.get_all_stats();
+                return stats_aggregator.get_all_stats(req);
             } else {
                 return;
             }
+        })
+        .catch(function(err) {
+            console.error('Failed to collect stats', err.stack || err);
         })
         .then(function(restats) {
             if (stats_aggregator) {
@@ -54,8 +72,11 @@ function collect_server_diagnostics() {
                 return;
             }
         })
+        .catch(function(err) {
+            console.error('Failed to collect phone_home_stats', err.stack || err);
+        })
         .then(null, function(err) {
-            console.error('Error in collecting server diagnostics', err);
+            console.error('Error in collecting server diagnostics (should never happen)', err);
             throw new Error('Error in collecting server diagnostics ' + err);
         });
 }

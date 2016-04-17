@@ -53,7 +53,7 @@ TestRunner.prototype.restore_db_defaults = function() {
                     return P.ninvoke(request, 'get', {
                         url: 'http://127.0.0.1:8080/',
                         rejectUnauthorized: false,
-                    }).then(function(res, body) {
+                    }).spread(function(res, body) {
                         console.log('server started after '+wait_counter+' seconds');
                         isNotListening = false;
                     }, function(err) {

@@ -138,7 +138,7 @@ function main() {
                                 return P.ninvoke(request, 'get', {
                                     url: 'http://' + ip + ':8080/',
                                     rejectUnauthorized: false,
-                                }).then(function(res, body) {
+                                }).spread(function(res, body) {
                                     console.log('server started');
                                     isNotListening = false;
                                 }, function(err) {

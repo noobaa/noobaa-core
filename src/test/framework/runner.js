@@ -46,30 +46,30 @@ TestRunner.prototype.restore_db_defaults = function() {
             var wait_counter = 1;
             //wait up to 10 seconds
             return promise_utils.pwhile(
-                function() {
-                    return isNotListening;
-                },
-                function() {
-                    return P.ninvoke(request, 'get', {
-                        url: 'http://127.0.0.1:8080/',
-                        rejectUnauthorized: false,
-                    }).then(function(res, body) {
-                        console.log('server started after '+wait_counter+' seconds');
-                        isNotListening = false;
-                    }, function(err) {
-                        console.log('waiting for server to start');
-                        wait_counter +=1;
-                        if (wait_counter>= MAX_RETRIES){
-                            console.Error('Too many retries after restart server');
-                            throw new Error('Too many retries');
-                        }
-                        return P.delay(1000);
-                    });
-                //one more delay for reconnection of other processes
-                }).delay(2000)
+                    function() {
+                        return isNotListening;
+                    },
+                    function() {
+                        return P.ninvoke(request, 'get', {
+                            url: 'http://127.0.0.1:8080/',
+                            rejectUnauthorized: false,
+                        }).then(function(res, body) {
+                            console.log('server started after ' + wait_counter + ' seconds');
+                            isNotListening = false;
+                        }, function(err) {
+                            console.log('waiting for server to start');
+                            wait_counter += 1;
+                            if (wait_counter >= MAX_RETRIES) {
+                                console.Error('Too many retries after restart server');
+                                throw new Error('Too many retries');
+                            }
+                            return P.delay(1000);
+                        });
+                        //one more delay for reconnection of other processes
+                    }).delay(2000)
                 .then(function() {
-                return;
-            });
+                    return;
+                });
         })
         .fail(function(err) {
             console.log('Failed restarting webserver');
@@ -130,14 +130,24 @@ TestRunner.prototype.complete_run = function() {
     //Take coverage output and report and pack them
     var self = this;
     var dst = '/tmp/res_' + this._version + '.tgz';
-    if (_.isUndefined(self._bg_client)){
+    if (_.isUndefined(self._bg_client)) {
         self._rpc = api.new_rpc();
         self._client = self._rpc.new_client();
         self._bg_client = self._rpc.new_client({
             domain: 'bg'
         });
     }
-    return this._write_coverage()
+    return P.fcall(function() {
+            var auth_params = {
+                email: 'demo@noobaa.com',
+                password: 'DeMo',
+                system: 'demo'
+            };
+            return self._client.create_auth_token(auth_params);
+        })
+        .then(function() {
+            return this._write_coverage();
+        })
         .fail(function(err) {
             console.error('Failed writing coverage for test runs', err);
             throw new Error('Failed writing coverage for test runs');

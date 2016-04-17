@@ -2,10 +2,11 @@
 ===========
 ### Core Tests Table of Contents:
 * [Introduction](#introduction) - introduction
-* [Library Test]*#library_test) - Creating a Library Test for the Framework
+* [Library Test](#library_test) - Creating a Library Test for the Framework
 * [test_upgrade_ec2](#test_upgrade_ec2) - Test Upgrade Flow on EC2
 * [test_upgrade_gcloud](#test_upgrade_gcloud) - Test Upgrade Flow on GCloud
 * [test_files_ul](#test_small_files_ul) - Test UL of small files
+* [Sample Test](#sample_test) - Sample system test for a template
 
 
 * ### introduction
@@ -15,7 +16,7 @@
 
 * ### library_test
   The testing framework can run tests by requiring them and running them instead of invoking a shell with node.
-  In order to use this option, the test must export run_test().
+  In order to use this option, the test must export run_test(). See Sample test
 
 * ### test_upgrade_ec2
   This test comes to verify our upgrade flow. It's performs basic sanity after the upgrade just to make sure
@@ -29,3 +30,52 @@
   Same as test_upgrade_ec2, but for gcloud.
 
 * ### test_files_ul
+
+* ### sample_test
+
+```
+"use strict";
+
+var api = require('../../api');
+var dotenv = require('dotenv');
+dotenv.load();
+
+var rpc = api.new_rpc();
+var client = rpc.new_client({
+    address: 'ws://' + argv.ip + ':' + process.env.PORT
+});
+
+module.exports = {
+    run_test: run_test
+};
+
+function run_test() {
+    // Starting the test chain
+        //Test Logic
+        //...
+        .then((res) => {
+            rpc.disconnect_all();
+            return P.resolve("Test Passed! Everything Seems To Be Fine...");
+        })
+        .catch(err => {
+            console.error('test_files_spread FAILED: ', err.stack || err);
+            rpc.disconnect_all();
+            throw new Error('test_files_spread FAILED: ', err);
+        })
+}
+
+function main() {
+    return run_test()
+        .then(function() {
+            process.exit(0);
+        })
+        .fail(function(err) {
+            process.exit(1);
+        });
+}
+
+if (require.main === module) {
+    main();
+}
+
+```

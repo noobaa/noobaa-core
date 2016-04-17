@@ -1,42 +1,42 @@
 <modal params="onClose: () => close()">
-	<h1 class="heading2">Diagnose Node</h1>
+    <h1 class="heading2">Diagnose Node</h1>
 
-	<p class="container">
-		Diagnosing a node consist of collecting debug information while reproducing the conditions that cause the problem
-	</p>
+    <p class="container">
+        Diagnosing a node consist of collecting debug information while reproducing the conditions that cause the problem
+    </p>
 
-	<div class="container">
-		<h2 class="heading3">Select Debug Level</h2>
-		
-		<div class="container">
-			<radio-btn params="
-				group: 'debug-level', 
-				value: 'LOW', 
-				label: 'Low Level', 
-				selected: debugLevel
-			"></radio-btn>
-			
-			<p class="paragraph line">
-				Collect basic information but does not interfere with the regular workings of the node
-			</p>
-		</div>
+    <div class="container">
+        <h2 class="heading3">Select Debug Level</h2>
+        
+        <div class="container">
+            <radio-btn params="
+                group: 'debug-level', 
+                value: 'LOW', 
+                label: 'Low Level', 
+                selected: debugLevel
+            "></radio-btn>
+            
+            <p class="paragraph line">
+                Collect basic information but does not interfere with the regular workings of the node
+            </p>
+        </div>
 
-		<div class="container">
-			<radio-btn params="
-				group: 'debug-level', 
-				value: 'HIGH', 
-				label: 'High Level', 
-				selected: debugLevel
-			"></radio-btn>
-			
-			<p class="paragraph line">
-				Collect full information but may cause node slowdown during the collection period
-			</p>
-		</div>		
-	</div>
+        <div class="container">
+            <radio-btn params="
+                group: 'debug-level', 
+                value: 'HIGH', 
+                label: 'High Level', 
+                selected: debugLevel
+            "></radio-btn>
+            
+            <p class="paragraph line">
+                Collect full information but may cause node slowdown during the collection period
+            </p>
+        </div>
+    </div>
 
-	<div class="action-line pull-right">		
-		<button class="action link" data-bind="click: () => close()">Close</button>		
-		<button class="action btn2" data-bind="click: () => start()">Start Collection</button>		
-	</div>
+    <div class="action-line pull-right">
+        <button class="action link" data-bind="click: () => close()">Close</button>
+        <button class="action btn2" data-bind="click: () => start()">Start Collection</button>
+    </div>
 </modal>

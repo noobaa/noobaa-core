@@ -4,6 +4,7 @@ var fs = require('fs');
 var argv = require('minimist')(process.argv);
 var istanbul = require('istanbul');
 var request = require('request');
+var mkdirp = require('mkdirp');
 
 require('dotenv').load();
 
@@ -12,7 +13,7 @@ var P = require('../../util/promise');
 var ops = require('../system_tests/basic_server_ops');
 var api = require('../../api');
 
-var COVERAGE_DIR = '/tmp/cov';
+var COVERAGE_DIR = './report/cov';
 var REPORT_PATH = COVERAGE_DIR + '/regression_report.log';
 
 function TestRunner(argv) {
@@ -85,7 +86,7 @@ TestRunner.prototype.init_run = function() {
     //Clean previous run results
     console.log('Clearing previous test run results');
     if (!fs.existsSync(COVERAGE_DIR)) {
-        fs.mkdirSync(COVERAGE_DIR);
+        return P.nfcall(mkdirp, COVERAGE_DIR);
     }
 
     self._rpc = api.new_rpc();

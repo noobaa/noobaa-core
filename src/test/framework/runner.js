@@ -130,7 +130,12 @@ TestRunner.prototype.complete_run = function() {
     //Take coverage output and report and pack them
     var self = this;
     var dst = '/tmp/res_' + this._version + '.tgz';
-
+    if (_.isUndefined(self._bg_client)){
+        console.warn("reinit bg_client");
+        self._bg_client = self._rpc.new_client({
+            domain: 'bg'
+        });
+    }
     return this._write_coverage()
         .fail(function(err) {
             console.error('Failed writing coverage for test runs', err);

@@ -253,7 +253,6 @@ mocha.describe('system_servers', function() {
             .then(() => client.bucket.get_cloud_buckets({
                 connection: CLOUD_SYNC_CONNECTION
             }))
-
             .then(() => client.system.read_system())
             .then(() => client.bucket.get_cloud_sync_policy({
                 name: BUCKET,
@@ -302,7 +301,7 @@ mocha.describe('system_servers', function() {
             .then(() => client.tier.delete_tier({
                 name: TIER,
             }))
-            .then(res => {
+            .then(() => {
                     throw new Error('TIER: ' + TIER +
                         ' should have been deleted by now');
                 },

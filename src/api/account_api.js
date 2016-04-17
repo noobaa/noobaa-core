@@ -29,6 +29,12 @@ module.exports = {
                     password: {
                         type: 'string',
                     },
+                    allowed_buckets: {
+                        type: 'array',
+                        items: {
+                            type: 'string',
+                        }
+                    },
                 },
             },
             reply: {

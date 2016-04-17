@@ -1,5 +1,8 @@
 'use strict';
 
+var dotenv = require('dotenv');
+dotenv.load();
+
 var _ = require('lodash');
 var repl = require('repl');
 var util = require('util');

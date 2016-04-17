@@ -95,6 +95,7 @@ export default function register(ko) {
     ko.components.register('server-dns-form',       require('./management/server-dns-form/server-dns-form'));   
     ko.components.register('about-form',            require('./management/about-form/about-form')); 
     ko.components.register('upgrade-modal',         require('./management/upgrade-modal/upgrade-modal'));   
+    ko.components.register('diagnostics-form',      require('./management/diagnostics-form/diagnostics-form'));   
 
     // -------------------------------
     // Admin

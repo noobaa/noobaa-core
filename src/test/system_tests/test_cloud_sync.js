@@ -9,6 +9,8 @@ var ops = require('./basic_server_ops');
 var _ = require('lodash');
 var assert = require('assert');
 var promise_utils = require('../../util/promise_utils');
+var dotenv = require('dotenv');
+dotenv.load();
 
 // var dbg = require('../util/debug_module')(__filename);
 
@@ -29,12 +31,16 @@ if (!TEST_CTX.target_ip || !TEST_CTX.target_port) {
 
 
 var client = rpc.new_client({
-    address: 'ws://127.0.0.1:5001'
+    address: 'ws://127.0.0.1:' + process.env.PORT
 });
 
 var target_client = target_rpc.new_client({
     address: 'ws://' + TEST_CTX.target_ip + ':' + TEST_CTX.target_port
 });
+
+module.exports = {
+    run_test: run_test
+};
 
 function authenticate() {
     let auth_params = {
@@ -133,10 +139,20 @@ function compare_object_lists(file_names, fail_msg, expected_len) {
 }
 
 function main() {
+    return run_test()
+        .then(function() {
+            process.exit(0);
+        })
+        .fail(function(err) {
+            process.exit(1);
+        });
+}
+
+function run_test() {
     let file_sizes = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
     let file_names = [];
     let expected_after_del = 0;
-    authenticate()
+    return authenticate()
         .then(() => P.all(_.map(file_sizes, ops.generate_random_file)))
         .then(function(res_file_names) {
             let i = 0;
@@ -223,12 +239,14 @@ function main() {
         })
         .then(() => {
             console.log('test_cloud_sync PASSED');
-            process.exit(0);
+            rpc.disconnect_all();
+            return;
         })
 
     .catch(err => {
+        rpc.disconnect_all();
         console.error('test_cloud_sync FAILED: ', err.stack || err);
-        process.exit(1);
+        throw new Error('test_cloud_sync FAILED: ', err);
     });
 }
 

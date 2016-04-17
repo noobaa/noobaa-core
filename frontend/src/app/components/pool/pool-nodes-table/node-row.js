@@ -1,5 +1,5 @@
 import ko from 'knockout';
-import { formatSize,avarageArrayValues } from 'utils';
+import { formatSize,avarageArrayValues, dblEncode } from 'utils';
 
 export default class NodeRowViewModel {
     constructor(node) {
@@ -34,7 +34,9 @@ export default class NodeRowViewModel {
         );
 
         this.href = ko.pureComputed(
-            () => node() && `/fe/systems/:system/pools/:pool/nodes/${node().name}`
+            () => node() && `/fe/systems/:system/pools/:pool/nodes/${
+                dblEncode(node().name)
+            }`
         );
 
         this.ip = ko.pureComputed(

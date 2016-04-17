@@ -34,6 +34,14 @@ TestRunner.prototype.restore_db_defaults = function() {
         .fail(function(err) {
             console.warn('failed on mongodb_defaults', err);
             throw new Error('Failed pn mongodb reset');
+        })
+        .then(function() {
+            return promise_utils.promised_exec('supervisorctl restart webserver');
+        })
+        .delay(3000)
+        .fail(function(err) {
+            console.log('Failed restarting webserver');
+            throw new Error('Failed restarting webserver');
         });
 };
 
@@ -123,6 +131,7 @@ TestRunner.prototype.run_tests = function() {
                 })
                 .then(function(step_res) {
                     fs.appendFileSync(REPORT_PATH, step_res + '\n');
+                    return;
                 });
         })
         .then(function() {
@@ -142,8 +151,11 @@ TestRunner.prototype._print_curent_step = function(current_step) {
         if (current_step.common) {
             title = 'Performing ' + current_step.name;
             step_res = current_step.name;
-        } else if (current_step.name) {
-            title = 'Running ' + current_step.name;
+        } else if (current_step.action) {
+            title = 'Running Action ' + current_step.name;
+            step_res = current_step.name;
+        } else if (current_step.lib_test) {
+            title = 'Running Library Test ' + current_step.name;
             step_res = current_step.name;
         } else {
             title = 'Running Unamed ' + current_step.action;
@@ -156,7 +168,9 @@ TestRunner.prototype._print_curent_step = function(current_step) {
 
 TestRunner.prototype._run_current_step = function(current_step, step_res) {
     var self = this;
-    if (!current_step.action && !current_step.common) {
+    if (!current_step.action &&
+        !current_step.common &&
+        !current_step.lib_test) {
         step_res = '        No Action Defined!!!';
         return;
     } else {
@@ -168,8 +182,12 @@ TestRunner.prototype._run_current_step = function(current_step, step_res) {
                         ((new Date() - ts) / 1000) + 's )';
                     //return step_res;
                 });
-        } else {
+        } else if (current_step.action) {
             return self._run_action(current_step, step_res);
+        } else if (current_step.lib_test) {
+            return self._run_lib_test(current_step, step_res);
+        } else {
+            throw new Error('Undefined step');
         }
     }
 };
@@ -203,7 +221,7 @@ TestRunner.prototype._run_action = function(current_step, step_res) {
             self._error = true;
             if (current_step.blocking) {
                 fs.appendFileSync(REPORT_PATH, step_res + ' ' + res + '\n');
-                throw new Error('Blocking test failed');
+                throw new Error('Blocking action failed');
             } else {
                 step_res = '        ' + step_res + ' - Failed with \n' +
                     '------------------------------\n' +
@@ -214,6 +232,35 @@ TestRunner.prototype._run_action = function(current_step, step_res) {
             return step_res;
         });
 };
+
+TestRunner.prototype._run_lib_test = function(current_step, step_res) {
+    var self = this;
+    var ts = new Date();
+
+    var test = require(process.cwd() + current_step.lib_test);
+    return P.when(test.run_test())
+        .then(function(res) {
+            step_res = '        ' + step_res + ' - Successeful ( took ' +
+                ((new Date() - ts) / 1000) + 's )';
+            return step_res;
+        })
+        .fail(function(res) {
+            self._error = true;
+            if (current_step.blocking) {
+                fs.appendFileSync(REPORT_PATH, step_res + ' ' + res + '\n');
+                throw new Error('Blocking libtest failed');
+            } else {
+                step_res = '        ' + step_res + ' - Failed with \n' +
+                    '------------------------------\n' +
+                    res +
+                    '------------------------------   ' +
+                    '( took ' + ((new Date() - ts) / 1000) + 's )';
+            }
+            console.warn('Failed lib test with', res);
+            return step_res;
+        });
+};
+
 
 TestRunner.prototype._write_coverage = function() {
     var self = this;
@@ -259,6 +306,9 @@ TestRunner.prototype._write_coverage = function() {
 };
 
 TestRunner.prototype._restart_services = function(testrun) {
+    //TODO:: set this back when istanbil is ok
+    return;
+
     console.log('Restarting services with TESTRUN arg to', testrun);
     var command;
     if (testrun) { //Add --TESTRUN to the required services

@@ -465,7 +465,7 @@ function collect_agent_diagnostics(req) {
             });
         })
         .then(function(data) {
-            return system_server.diagnose_with_agent(data);
+            return system_server.diagnose_with_agent(data,req);
         })
         .then(null, function(err) {
             dbg.log0('Error on collect_agent_diagnostics', err);

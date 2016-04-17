@@ -131,7 +131,8 @@ TestRunner.prototype.complete_run = function() {
     var self = this;
     var dst = '/tmp/res_' + this._version + '.tgz';
     if (_.isUndefined(self._bg_client)){
-        console.warn("reinit bg_client");
+        self._rpc = api.new_rpc();
+        self._client = self._rpc.new_client();
         self._bg_client = self._rpc.new_client({
             domain: 'bg'
         });

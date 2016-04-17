@@ -3,11 +3,11 @@
 
 var path = require('path');
 var basepath = path.resolve(__dirname, '..', '..', '..');
-var regexp = new RegExp('^' + basepath + '/(node_modules|src/deploy|src/licenses|util/mongo_functions)');
+var regexp = new RegExp('^' + basepath + '/(node_modules|src/deploy|src/licenses|src/util/mongo_functions)');
 var istanbul = require('istanbul');
 
 module.exports = {
-  start_istanbul_coverage: start_istanbul_coverage
+    start_istanbul_coverage: start_istanbul_coverage
 };
 
 var _instrumenter;
@@ -27,7 +27,10 @@ function start_istanbul_coverage() {
     };
 
     _istTransformer = function(code, file) {
-        return _instrumenter.instrumentSync(code, file.path);
+        if (file.startsWith(basepath)) {
+            file = file.slice(basepath.length +1 /*for / seperator*/);
+        }
+        return _instrumenter.instrumentSync(code, file);
     };
 
     istanbul.hook.hookRequire(_istMatcher, _istTransformer);

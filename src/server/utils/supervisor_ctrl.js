@@ -4,23 +4,19 @@ var _ = require('lodash');
 var fs = require('fs');
 var P = require('../../util/promise');
 var promise_utils = require('../../util/promise_utils');
+var config = require('../../../../config.js');
 
 module.exports = SupervisorCtrl;
 
-var SUPERVISOR_DEFAULTS = {
-    SUPER_FILE: '/etc/noobaa_supervisor.conf',
-    PROGRAM_SEPERATOR: '#endprogram',
-};
-
 function SupervisorCtrl() {
     let self = this;
-    return fs.statAsync(SUPERVISOR_DEFAULTS.SUPER_FILE)
+    return fs.statAsync(config.CLUSTERING_PATHS.SUPER_FILE)
         .fail(function(err) {
             console.warn('Error on reading supervisor file', err);
             throw err;
         })
         .then(function() {
-            return P.nfcall(fs.readFile, SUPERVISOR_DEFAULTS.SUPER_FILE)
+            return P.nfcall(fs.readFile, config.CLUSTERING_PATHS.SUPER_FILE)
                 .then(function(data) {
                     self._parse_config(data.toString());
                 });
@@ -43,11 +39,21 @@ SupervisorCtrl.prototype.get_mongo_services = function() {
     let self = this;
     let mongo_progs = {};
     _.each(self._programs, function(prog) {
-        if (prog.name.indexOf('mongo') > 0) {
-            //service type
-            //mongos, repl, shard, config
-            //repl name / shard name
-            //port
+        //mongos, mongo replicaset, mongo shard, mongo config set
+        //TODO:: add replicaset once implemented
+        if (prog.name.indexOf('mongoshard') > 0) {
+            mongo_progs.push({
+                type: 'shard',
+                name: prog.name.slice('mongoshard-'.length),
+            });
+        } else if (prog.name.indexOf('mongos') > 0) {
+            mongo_progs.push({
+                type: 'mongos',
+            });
+        } else if (prog.name.indexOf('mongocfg') > 0) {
+            mongo_progs.push({
+                type: 'config',
+            });
         }
     });
 };
@@ -62,18 +68,18 @@ SupervisorCtrl.prototype._serialize = function() {
         _.each(_.keys(prog), function(key) {
             data += key + '=' + prog[key] + '\n';
         });
-        data += SUPERVISOR_DEFAULTS.PROGRAM_SEPERATOR + '\n';
+        data += config.SUPERVISOR_PROGRAM_SEPERATOR + '\n';
     });
-    console.warn('Serialized', SUPERVISOR_DEFAULTS.SUPER_FILE, data);
+    console.warn('Serializing', config.CLUSTERING_PATHS.SUPER_FILE, data);
 
-    return fs.writeFileAsync(SUPERVISOR_DEFAULTS.SUPER_FILE, data);
+    return fs.writeFileAsync(config.CLUSTERING_PATHS.SUPER_FILE, data);
 };
 
 SupervisorCtrl.prototype._parse_config = function(data) {
     let self = this;
     self._programs = [];
     //run target by target and create the services structure
-    var programs = _.split(data, SUPERVISOR_DEFAULTS.PROGRAM_SEPERATOR);
+    var programs = _.split(data, config.SUPERVISOR_PROGRAM_SEPERATOR);
     _.each(programs, function(p) {
         let program_obj = {};
         let lines = _.split(p, '\n');

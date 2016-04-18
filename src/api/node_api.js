@@ -429,15 +429,15 @@ module.exports = {
             method: 'POST',
             params: {
                 type: 'object',
-                required: ['target'],
+                required: ['target', 'level'],
                 properties: {
                     target: {
                         type: 'string',
                     },
                     level: {
-                        type: 'integer'
+                        type: 'integer',
                     }
-                }
+                },
             },
             auth: {
                 system: 'admin',
@@ -610,6 +610,9 @@ module.exports = {
                 target: {
                     type: 'string'
                 },
+                //Passing params to the actual API done via
+                //request_params: {
+                //}
             },
         },
 

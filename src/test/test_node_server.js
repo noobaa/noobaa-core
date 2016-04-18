@@ -81,6 +81,9 @@ mocha.describe('node_server', function() {
             }))
             .then(() => client.node.redirect({
                 target: nodes[0].rpc_address,
+                request_params: {
+                    level: 0,
+                },
                 method_api: 'agent_api',
                 method_name: 'set_debug_node',
             }))

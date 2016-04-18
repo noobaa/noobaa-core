@@ -547,8 +547,6 @@ function find_bucket(req) {
         dbg.error('BUCKET NOT FOUND', req.rpc_params.name);
         throw req.rpc_error('NO_SUCH_BUCKET', 'No such bucket: ' + req.rpc_params.name);
     }
-    dbg.error('req',req);
-    dbg.error('bucket',bucket);
     req.check_bucket_permission(bucket);
     return bucket;
 }

@@ -25,22 +25,13 @@ function collect_server_diagnostics(req) {
             return collect_supervisor_logs();
         })
         .then(function() {
-            return promise_utils.promised_exec('cp -f /var/log/noobaa_deploy* ' + TMP_WORK_DIR);
-        })
-        .catch(function(err) {
-            console.error('Failed to collect noobaa_deploy logs', err.stack || err);
+            return promise_utils.promised_exec('cp -f /var/log/noobaa_deploy* ' + TMP_WORK_DIR,true);
         })
         .then(function() {
-            return promise_utils.promised_exec('cp -f /var/log/noobaa.log* ' + TMP_WORK_DIR);
-        })
-        .catch(function(err) {
-            console.error('Failed to collect noobaa logs', err.stack || err);
+            return promise_utils.promised_exec('cp -f /var/log/noobaa.log* ' + TMP_WORK_DIR,true);
         })
         .then(function() {
-            return promise_utils.promised_spawn('cp', ['-f', process.cwd() + '/.env', TMP_WORK_DIR + '/env'], process.cwd());
-        })
-        .catch(function(err) {
-            console.error('Failed to collect .env', err.stack || err);
+            return promise_utils.promised_spawn('cp', ['-f', process.cwd() + '/.env', TMP_WORK_DIR + '/env'], process.cwd(),true);
         })
         .then(function() {
             return os_utils.top_single(TMP_WORK_DIR + '/top.out');
@@ -49,10 +40,7 @@ function collect_server_diagnostics(req) {
             console.error('Failed to collect top ', err.stack || err);
         })
         .then(function() {
-            return promise_utils.promised_exec('lsof &> ' + TMP_WORK_DIR + '/lsof.out');
-        })
-        .catch(function(err) {
-            console.error('Failed to collect lsof ', err.stack || err);
+            return promise_utils.promised_exec('lsof &> ' + TMP_WORK_DIR + '/lsof.out',true);
         })
         .then(function() {
             if (stats_aggregator) {

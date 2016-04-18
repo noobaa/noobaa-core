@@ -98,15 +98,15 @@ TestRunner.prototype.complete_run = function() {
     //Take coverage output and report and pack them
     var self = this;
     var dst = '/tmp/res_' + this._version + '.tgz';
-    //TODO:: TODO:: Uncomment and fix this
-    /*return this._write_coverage()
+
+    return this._write_coverage()
         .fail(function(err) {
             console.error('Failed writing coverage for test runs', err);
             throw new Error('Failed writing coverage for test runs');
         })
-        .then(function() {*/
-    return promise_utils.promised_exec('tar --warning=no-file-changed -zcvf ' + dst + ' ' + COVERAGE_DIR + '/*')
-        //})
+        .then(function() {
+            return promise_utils.promised_exec('tar --warning=no-file-changed -zcvf ' + dst + ' ' + COVERAGE_DIR + '/*');
+        })
         .fail(function(err) {
             console.error('Failed archiving test runs', err);
             throw new Error('Failed archiving test runs');
@@ -293,7 +293,11 @@ TestRunner.prototype._write_coverage = function() {
 
             //Generate the report
             reporter.add('lcov');
-            return P.when(reporter.write(collector, true /*sync*/ ))
+            return P.fcall(function() {
+                    return reporter.write(collector, true /*sync*/ , function() {
+                        console.warn('done reporter.write');
+                    });
+                })
                 .fail(function(err) {
                     console.warn('Error on write with', err, err.stack);
                     throw err;
@@ -306,9 +310,6 @@ TestRunner.prototype._write_coverage = function() {
 };
 
 TestRunner.prototype._restart_services = function(testrun) {
-    //TODO:: set this back when istanbil is ok
-    return;
-
     console.log('Restarting services with TESTRUN arg to', testrun);
     var command;
     if (testrun) { //Add --TESTRUN to the required services

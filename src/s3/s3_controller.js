@@ -190,7 +190,7 @@ class S3Controller {
                         },
                         if_not_empty(_.map(reply.objects, obj => ({
                             Version: {
-                                Key: obj.key,
+                                Key: string_utils.encodeXML(obj.key),
                                 VersionId: '',
                                 IsLatest: true,
                                 LastModified: to_s3_date(obj.info.create_time),
@@ -241,7 +241,7 @@ class S3Controller {
                         },
                         if_not_empty(_.map(reply.objects, obj => ({
                             Upload: {
-                                Key: obj.key,
+                                Key: string_utils.encodeXML(obj.key),
                                 UploadId: obj.info.version_id,
                                 Initiated: to_s3_date(obj.info.create_time),
                                 Initiator: DEFAULT_S3_USER,
@@ -457,7 +457,7 @@ class S3Controller {
      * (aka copy object)
      */
     _copy_object(req, res) {
-        let copy_source = req.headers['x-amz-copy-source'];
+        let copy_source = decodeURIComponent(req.headers['x-amz-copy-source']);
         let slash_index = copy_source.indexOf('/');
         let start_index = 0;
         if (slash_index === 0) {
@@ -471,7 +471,7 @@ class S3Controller {
             bucket: req.params.bucket,
             key: req.params.key,
             source_bucket: source_bucket,
-            source_key: decodeURIComponent(source_key),
+            source_key: source_key,
             content_type: req.headers['content-type'],
             xattr: get_request_xattr(req),
             xattr_copy: (req.headers['x-amz-metadata-directive'] === 'COPY')

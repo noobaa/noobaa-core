@@ -391,7 +391,6 @@ function handle_options(req, res, next) {
     // replace hadoop _$folder$
     if (req.params.key) {
         req.params.key = req.params.key.replace(/_\$folder\$/, '/');
-        req.params.key = decodeURIComponent(req.params.key);
     }
 
     next();

@@ -3,6 +3,8 @@ var _ = require('lodash');
 var fs = require('fs');
 var argv = require('minimist')(process.argv);
 var istanbul = require('istanbul');
+var request = require('request');
+var mkdirp = require('mkdirp');
 
 require('dotenv').load();
 
@@ -11,7 +13,7 @@ var P = require('../../util/promise');
 var ops = require('../system_tests/basic_server_ops');
 var api = require('../../api');
 
-var COVERAGE_DIR = '/tmp/cov';
+var COVERAGE_DIR = './report/cov';
 var REPORT_PATH = COVERAGE_DIR + '/regression_report.log';
 
 function TestRunner(argv) {
@@ -38,7 +40,37 @@ TestRunner.prototype.restore_db_defaults = function() {
         .then(function() {
             return promise_utils.promised_exec('supervisorctl restart webserver');
         })
-        .delay(3000)
+        .then(function() {
+            var isNotListening = true;
+            var MAX_RETRIES = 10;
+            var wait_counter = 1;
+            //wait up to 10 seconds
+            return promise_utils.pwhile(
+                function() {
+                    return isNotListening;
+                },
+                function() {
+                    return P.ninvoke(request, 'get', {
+                        url: 'http://127.0.0.1:8080/',
+                        rejectUnauthorized: false,
+                    }).spread(function(res, body) {
+                        console.log('server started after '+wait_counter+' seconds');
+                        isNotListening = false;
+                    }, function(err) {
+                        console.log('waiting for server to start');
+                        wait_counter +=1;
+                        if (wait_counter>= MAX_RETRIES){
+                            console.Error('Too many retries after restart server');
+                            throw new Error('Too many retries');
+                        }
+                        return P.delay(1000);
+                    });
+                //one more delay for reconnection of other processes
+                }).delay(2000)
+                .then(function() {
+                return;
+            });
+        })
         .fail(function(err) {
             console.log('Failed restarting webserver');
             throw new Error('Failed restarting webserver');
@@ -54,7 +86,7 @@ TestRunner.prototype.init_run = function() {
     //Clean previous run results
     console.log('Clearing previous test run results');
     if (!fs.existsSync(COVERAGE_DIR)) {
-        fs.mkdirSync(COVERAGE_DIR);
+        P.nfcall(mkdirp, COVERAGE_DIR);
     }
 
     self._rpc = api.new_rpc();
@@ -98,15 +130,15 @@ TestRunner.prototype.complete_run = function() {
     //Take coverage output and report and pack them
     var self = this;
     var dst = '/tmp/res_' + this._version + '.tgz';
-    //TODO:: TODO:: Uncomment and fix this
-    /*return this._write_coverage()
+
+    return this._write_coverage()
         .fail(function(err) {
             console.error('Failed writing coverage for test runs', err);
             throw new Error('Failed writing coverage for test runs');
         })
-        .then(function() {*/
-    return promise_utils.promised_exec('tar --warning=no-file-changed -zcvf ' + dst + ' ' + COVERAGE_DIR + '/*')
-        //})
+        .then(function() {
+            return promise_utils.promised_exec('tar --warning=no-file-changed -zcvf ' + dst + ' ' + COVERAGE_DIR + '/*');
+        })
         .fail(function(err) {
             console.error('Failed archiving test runs', err);
             throw new Error('Failed archiving test runs');
@@ -293,7 +325,11 @@ TestRunner.prototype._write_coverage = function() {
 
             //Generate the report
             reporter.add('lcov');
-            return P.when(reporter.write(collector, true /*sync*/ ))
+            return P.fcall(function() {
+                    return reporter.write(collector, true /*sync*/ , function() {
+                        console.warn('done reporter.write');
+                    });
+                })
                 .fail(function(err) {
                     console.warn('Error on write with', err, err.stack);
                     throw err;
@@ -306,9 +342,6 @@ TestRunner.prototype._write_coverage = function() {
 };
 
 TestRunner.prototype._restart_services = function(testrun) {
-    //TODO:: set this back when istanbil is ok
-    return;
-
     console.log('Restarting services with TESTRUN arg to', testrun);
     var command;
     if (testrun) { //Add --TESTRUN to the required services

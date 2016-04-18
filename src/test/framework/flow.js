@@ -7,7 +7,7 @@ var steps = [
     params: [{
         arg: '--COV_DIR',
     }, {
-        arg: '/tmp/cov/mocha',
+        arg: './report/cov/mocha',
     }],
 }, {
     //Restore DB to defaults

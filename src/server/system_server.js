@@ -538,7 +538,7 @@ function diagnose(req) {
         });
 }
 
-function diagnose_with_agent(data,req) {
+function diagnose_with_agent(data, req) {
     dbg.log0('Recieved diag with agent req');
     var out_path = '/public/diagnostics.tgz';
     var inner_path = process.cwd() + '/build' + out_path;
@@ -563,33 +563,35 @@ function diagnose_with_agent(data,req) {
 function start_debug(req) {
     dbg.log0('Recieved start_debug req');
     return P.when(server_rpc.client.debug.set_debug_level({
-            level: 5,
+            level: req.rpc_params.level,
             module: 'core'
         }, {
             auth_token: req.auth_token
         }))
         .then(function() {
             return P.when(server_rpc.bg_client.debug.set_debug_level({
-                level: 5,
+                level: req.rpc_params.level,
                 module: 'core'
             }, {
                 auth_token: req.auth_token
             }));
         })
         .then(function() {
-            promise_utils.delay_unblocking(1000 * 60 * 10) //10m
-                .then(function() {
-                    return P.when(server_rpc.client.debug.set_debug_level({
-                        level: 0,
-                        module: 'core'
-                    }));
-                })
-                .then(function() {
-                    return P.when(server_rpc.bg_client.debug.set_debug_level({
-                        level: 0,
-                        module: 'core'
-                    }));
-                });
+            if (req.level > 0) { //If level was set, remove it after 10m
+                promise_utils.delay_unblocking(1000 * 60 * 10) //10m
+                    .then(function() {
+                        return P.when(server_rpc.client.debug.set_debug_level({
+                            level: 0,
+                            module: 'core'
+                        }));
+                    })
+                    .then(function() {
+                        return P.when(server_rpc.bg_client.debug.set_debug_level({
+                            level: 0,
+                            module: 'core'
+                        }));
+                    });
+            }
             return;
         });
 }

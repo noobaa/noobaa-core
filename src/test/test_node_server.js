@@ -74,6 +74,7 @@ mocha.describe('node_server', function() {
             .then(() => console.log('NODES', nodes))
             .then(() => client.node.set_debug_node({
                 target: nodes[0].rpc_address,
+                level: 0,
             }))
             .then(() => client.node.collect_agent_diagnostics({
                 target: nodes[0].rpc_address,

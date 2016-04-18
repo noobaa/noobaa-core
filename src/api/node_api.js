@@ -433,6 +433,9 @@ module.exports = {
                 properties: {
                     target: {
                         type: 'string',
+                    },
+                    level: {
+                        type: 'integer'
                     }
                 }
             },

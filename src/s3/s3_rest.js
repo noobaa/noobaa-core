@@ -216,12 +216,6 @@ function s3_rest(controller) {
      */
     function authenticate_s3_request(req, res, next) {
         P.fcall(function() {
-                dbg.log0('S3 request information. Time:', Date.now(),
-                    'url:', req.originalUrl,
-                    'method:', req.method,
-                    'headers:', req.headers,
-                    'query:', req.query);
-
                 if (req.headers.authorization) {
                     // Using noobaa's extraction function,
                     // due to compatibility problem in aws library with express.

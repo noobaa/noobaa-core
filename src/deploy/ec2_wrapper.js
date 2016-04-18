@@ -366,7 +366,7 @@ function put_object(ip, source, bucket, key) {
         Key: key,
         Body: fs.createReadStream(source),
     };
-    console.log('about to upload object');
+    console.log('about to upload object',params);
     var start_ts = Date.now();
     return P.ninvoke(s3bucket, 'upload', params)
         .then(function(res) {
@@ -376,7 +376,7 @@ function put_object(ip, source, bucket, key) {
         }, function(err) {
             var wait_limit_in_sec = 1200;
             var start_moment = moment();
-            var wait_for_agents = (err.statusCode === 500);
+            var wait_for_agents = (err.statusCode === 500 || err.statusCode === 403);
             console.log('failed to upload object in loop', err.statusCode, wait_for_agents);
             return promise_utils.pwhile(
                 function() {

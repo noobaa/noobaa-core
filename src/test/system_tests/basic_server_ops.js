@@ -62,7 +62,7 @@ function upload_and_upgrade(ip, upgrade_pack) {
                         return P.ninvoke(request, 'get', {
                             url: 'http://' + ip + ':8080/',
                             rejectUnauthorized: false,
-                        }).then(function(res, body) {
+                        }).spread(function(res, body) {
                             console.log('Web Server started after upgrade');
                             isNotListening = false;
                         }, function(err) {
@@ -81,7 +81,7 @@ function upload_and_upgrade(ip, upgrade_pack) {
                             return P.ninvoke(request, 'get', {
                                 url: 'http://' + ip + ':8080/',
                                 rejectUnauthorized: false,
-                            }).then(function(res, body) {
+                            }).spread(function(res, body) {
                                 console.log('S3 server started after upgrade');
                                 isNotListening = false;
                             }, function(err) {

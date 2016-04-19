@@ -9,6 +9,7 @@ let ObjectIO = require('../api/object_io');
 let s3_errors = require('./s3_errors');
 let xml2js = require('xml2js');
 let P = require('../util/promise');
+let string_utils = require('../util/string_utils');
 
 dbg.set_level(5);
 
@@ -137,7 +138,7 @@ class S3Controller {
                         },
                         if_not_empty(_.map(reply.objects, obj => ({
                             Contents: {
-                                Key: obj.key,
+                                Key: string_utils.encodeXML(obj.key),
                                 LastModified: to_s3_date(obj.info.create_time),
                                 ETag: obj.info.etag,
                                 Size: obj.info.size,
@@ -189,7 +190,7 @@ class S3Controller {
                         },
                         if_not_empty(_.map(reply.objects, obj => ({
                             Version: {
-                                Key: obj.key,
+                                Key: string_utils.encodeXML(obj.key),
                                 VersionId: '',
                                 IsLatest: true,
                                 LastModified: to_s3_date(obj.info.create_time),
@@ -240,7 +241,7 @@ class S3Controller {
                         },
                         if_not_empty(_.map(reply.objects, obj => ({
                             Upload: {
-                                Key: obj.key,
+                                Key: string_utils.encodeXML(obj.key),
                                 UploadId: obj.info.version_id,
                                 Initiated: to_s3_date(obj.info.create_time),
                                 Initiator: DEFAULT_S3_USER,
@@ -456,13 +457,14 @@ class S3Controller {
      * (aka copy object)
      */
     _copy_object(req, res) {
-        let copy_source = req.headers['x-amz-copy-source'];
+        let copy_source = decodeURIComponent(req.headers['x-amz-copy-source']);
         let slash_index = copy_source.indexOf('/');
         let start_index = 0;
         if (slash_index === 0) {
             start_index = 1;
             slash_index = copy_source.indexOf('/', 1);
         }
+        console.log('COPY OBJECT ',req.params.key);
         let source_bucket = copy_source.slice(start_index, slash_index);
         let source_key = copy_source.slice(slash_index + 1);
         let params = {

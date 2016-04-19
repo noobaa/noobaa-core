@@ -11,7 +11,8 @@ var cluster_server = {
     get_cluster_id: get_cluster_id,
     add_member_to_cluster: add_member_to_cluster,
     join_to_cluster: join_to_cluster,
-    publish_config_servers: publish_config_servers,
+    news_config_servers: news_config_servers,
+    news_updated_topology: news_updated_topology,
     heartbeat: heartbeat,
 };
 
@@ -62,18 +63,15 @@ function _init() {
         });
 }
 
-/**
- *
- * GET_CLUSTER_ID
- *
- */
+//
+//API
+//
 function get_cluster_id(req) {
     var cluster = system_store.data.clusters[0];
     return {
         cluster_id: cluster && cluster.cluster_id || ''
     };
 }
-
 
 function add_member_to_cluster(req) {
     dbg.log0('Recieved add member to cluster req', req.rpc_params);
@@ -100,7 +98,6 @@ function add_member_to_cluster(req) {
         });
 }
 
-
 function join_to_cluster(req) {
     console.warn('NBNB:: got join_to_cluster', req.rpc_params);
     if (req.rpc_params.secret !== SECRET) {
@@ -122,45 +119,22 @@ function join_to_cluster(req) {
         return;
     }
 
-    if (req.rpc_params.role !== 'SHARD' ||
-        req.rpc_params.role !== 'REPLICA') {
-        dbg.error('Unknown role', req.rpc_params.role, 'recieved, ignoring');
-        throw new Error('Unknown server role ' + req.rpc_params.role);
-    }
-
-    //So far so good, write the topology file
-    TOPOLOGY = req.rpc_params.topology;
-
-    return P.nfcall(fs.writeFile, config.CLUSTERING_PATHS.TOPOLOGY_FILE, JSON.stringify(TOPOLOGY))
-        .then(function() {
+    return P.nfcall(function() {
             if (req.rpc_params.role === 'SHARD') {
                 return _add_new_shard_member(req.rpc_params.shard, req.rpc_params.ip);
             } else if (req.rpc_params.role === 'REPLICA') {
-                return _add_new_replicaset_member(req.rpc_params.shard);
+                return _add_new_replicaset_member(req.rpc_params.shard, req.rpc_params.ip);
+            } else {
+                dbg.error('Unknown role', req.rpc_params.role, 'recieved, ignoring');
+                throw new Error('Unknown server role ' + req.rpc_params.role);
             }
-        });
-}
-
-function _add_new_shard_member(shardname, ip) {
-    return mongo_ctrl.add_new_shard_server(shardname)
+        })
         .then(function() {
-            //TODO:: must find a better solution than enforcing 3 shards when all user
-            //wanted was actually two, maybe setup a 3rd config on one of the replica sets servers
-            //if exists
-
-            if (TOPOLOGY.config_servers.length === 3) { //Currently stay with a repset of 3 for config
-                return mongo_ctrl.add_new_mongos(TOPOLOGY.config_servers);
-            } else { // < 3 since we don't add once we reach 3
-                TOPOLOGY.config_servers.push(ip);
-                return mongo_ctrl.add_new_config()
-                    .then(function() {
-                        return _update_cluster_config_servers();
-                    });
-            }
+            return _publish_to_cluster('news_updated_topology', TOPOLOGY);
         });
 }
 
-function publish_config_servers(req) {
+function news_config_servers(req) {
     if (!TOPOLOGY ||
         TOPOLOGY.cluster_id !== req.rpc_params.cluster_id) {
         dbg.error('No cluster or cluster mismatch', TOPOLOGY);
@@ -175,6 +149,20 @@ function publish_config_servers(req) {
     //We have a valid config replica set, start the mongos service
     TOPOLOGY.config_servers = req.rpc_params.IPs;
     return mongo_ctrl.add_new_mongos(TOPOLOGY.config_servers);
+
+    //TODO:: Update connection string for our mongo connections
+    //probably have something stored in mongo_ctrl and return it, need to update current connections
+}
+
+function news_updated_topology(req) {
+    if (!TOPOLOGY ||
+        TOPOLOGY.cluster_id !== req.rpc_params.cluster_id) {
+        dbg.error('No cluster or cluster mismatch', TOPOLOGY);
+        throw new Error('No cluster or cluster mismatch');
+    }
+
+    TOPOLOGY = req.rpc_params.topology;
+    return P.nfcall(fs.writeFile, config.CLUSTERING_PATHS.TOPOLOGY_FILE, JSON.stringify(TOPOLOGY));
 }
 
 function heartbeat(req) {
@@ -182,20 +170,74 @@ function heartbeat(req) {
     dbg.log('Clustering HB currently not implemented');
 }
 
-function _add_new_replicaset_member(shardname) {
-    //add server as RS
-    return mongo_ctrl.add_replica_set_member();
+
+//
+//Internals
+//
+function _add_new_shard_member(shardname, ip) {
+    TOPOLOGY.shards.push({
+        name: shardname,
+        servers: [ip],
+    });
+    return mongo_ctrl.add_new_shard_server(shardname)
+        .then(function() {
+            //TODO:: must find a better solution than enforcing 3 shards when all user
+            //wanted was actually two, maybe setup a 3rd config on one of the replica sets servers
+            //if exists
+
+            if (TOPOLOGY.config_servers.length === 3) { //Currently stay with a repset of 3 for config
+                return mongo_ctrl.add_new_mongos(TOPOLOGY.config_servers);
+            } else { // < 3 since we don't add once we reach 3
+                TOPOLOGY.config_servers.push(ip);
+                return mongo_ctrl.add_new_config()
+                    .then(function() {
+                        return _publish_to_cluster('news_config_servers', TOPOLOGY.config_servers);
+                    });
+            }
+        });
 }
 
-function _update_cluster_config_servers() {
+function _add_new_replicaset_member(shardname, ip) {
+    var shard_idx = _.findIndex(TOPOLOGY.shards, function(s) {
+        return shardname === s.name;
+    });
+
+    //No Such shard
+    if (shard_idx === -1) {
+        throw new Error('Cannot add RS member to non-existing shard');
+    }
+
+    return mongo_ctrl.add_replica_set_member(shardname)
+        .then(function() {
+            TOPOLOGY.shards[shard_idx].servers.push(ip);
+            var rs_length = TOPOLOGY.shards[shard_idx].servers.length;
+            if (rs_length === 3) {
+                //Initiate replica set and add all members
+                return mongo_ctrl.initiate_replica_set(shardname)
+                    .then(function() {
+                        return P.each(TOPOLOGY.shards[shard_idx].servers, function(server) {
+                            return mongo_ctrl.add_member_to_replica_set(server);
+                        });
+                    });
+            } else if (rs_length > 3) {
+                //joining an already existing and functioning replica set, add new member
+                return mongo_ctrl.add_member_to_replica_set(ip);
+            } else {
+                //2 servers, nothing to be done yet. RS will be activated on the 3rd join
+                return;
+            }
+        });
+}
+
+function _publish_to_cluster(apiname, req_params) {
     var servers = [];
-    _.each(TOPOLOGY.shards, function(shard_servers) {
-        servers.concat(shard_servers);
+    _.each(TOPOLOGY.shards, function(shard) {
+        _.each(shard.servers, function(single_srv) {
+            servers.concat(single_srv);
+        });
     });
     return P.each(servers, function(server) {
-        return server_rpc.client.cluster_server.publish_config_servers({
-            IPs: TOPOLOGY.config_servers,
-        }, {
+        return server_rpc.client.cluster_server[apiname](req_params, {
             address: 'ws://' + server.ip + ':8080',
             timeout: 30000 //30s
         });

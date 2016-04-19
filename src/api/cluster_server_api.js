@@ -67,11 +67,6 @@ module.exports = {
                     ip: {
                         type: 'string',
                     },
-                    topology: {
-                        type: 'object',
-                        additionalProperties: true,
-                        properties: {}
-                    },
                     cluster_id: {
                         type: 'string'
                     },
@@ -91,8 +86,8 @@ module.exports = {
             }
         },
 
-        publish_config_servers: {
-            doc: 'publish the config server IPs to the cluster',
+        news_config_servers: {
+            doc: 'published the config server IPs to the cluster',
             method: 'POST',
             params: {
                 type: 'object',
@@ -106,6 +101,16 @@ module.exports = {
                 cluster_id: {
                     type: 'string'
                 },
+            },
+        },
+
+        news_updated_topology: {
+            doc: 'published updated clustering topology info',
+            method: 'POST',
+            params: {
+                type: 'object',
+                additionalProperties: true,
+                properties: {}
             },
         },
 

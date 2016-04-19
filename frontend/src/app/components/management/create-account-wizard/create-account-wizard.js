@@ -3,7 +3,7 @@ import nameAndPermissionsStepTemplate from './name-and-permissions-step.html';
 import detailsStepTemplate from './details-step.html';
 import userMessageTemplate from './user-message-template.html';
 import ko from 'knockout';
-import { randomString, copyTextToClipboard } from 'utils';
+import { randomString, copyTextToClipboard, generateAccessKeys } from 'utils';
 import { systemInfo, bucketList, accountList } from 'model';
 import { loadBucketList, createAccount } from 'actions';
 
@@ -50,9 +50,14 @@ class CreateAccountWizardViewModel {
              )
         );
 
-        let existingAccounts = accountList.map(
-            ({ email }) => email
+        let { access_key, secret_key } = this.accessKeys = generateAccessKeys();
+        this.accessKeyDetails =  ko.pureComputed(
+            () => [
+                { label: 'S3 Access Key', value: access_key, allowCopy: true },
+                { label: 'S3 Secret Key', value: secret_key, allowCopy: true }
+            ]
         );
+
 
         this.nameAndPermissionsErrors = ko.validation.group({
             email: this.emailAddress
@@ -80,8 +85,18 @@ class CreateAccountWizardViewModel {
         );
     }
 
-    clearBuckets() {
+    clearAllBuckets() {
         this.selectedBuckets([]);
+    }
+
+    copyCreateEmailToClipboard() {
+        let createEmail = makeUserMessage(
+            `https://${systemInfo().endpoint}:${systemInfo().sslPort}`,
+            this.emailAddress() || '', 
+            this.password
+        )
+
+        copyTextToClipboard(createEmail);
     }
 
     create() {
@@ -89,10 +104,9 @@ class CreateAccountWizardViewModel {
             systemInfo().name, 
             this.emailAddress(), 
             this.password, 
+            this.accessKeys,
             this.enableS3Access() ? this.selectedBuckets() : undefined
         );
-
-        copyTextToClipboard(this.userMessage());
 
         this.onClose();
 

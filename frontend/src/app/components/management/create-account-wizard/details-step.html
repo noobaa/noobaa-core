@@ -3,3 +3,10 @@
 
     <div class="box" data-bind="html: userMessage"></div>
 </section>
+
+<!-- ko if: enableS3Access --> 
+<section class="container">
+    <h2 class="heading3">Use the follwing access key in your S3 application</h2>
+    <property-sheet params="properties: accessKeyDetails"></property-sheet>
+</section>
+<!-- /ko -->

@@ -14,10 +14,10 @@
                 <th class="role-col">Roles</th>
                 <th class="s3-access-col">S3 Access</th>
                 <th class="password-col">Password</th>
-                <th class="delete-col"></th>    
+                <th class="delete-col"></th>
             </tr>
         </thead>
-        <tbody data-bind="foreach: rows">    
+        <tbody data-bind="foreach: rows">
             <!-- ko if: isVisible -->
             <tr>
                 <td class="user-col text-left">
@@ -26,9 +26,16 @@
                 </td>
 
                 <td class="role-col" data-bind="text: roles"></td>
-                
-                <td class="s3-access-col" data-bind="text: S3AccessStatus"></td>
 
+                <td class="s3-access-col">
+                    <!-- ko if: hasS3Access --> 
+                    enabled | <a class="link" href='#'>edit</a>
+                    <!-- /ko -->
+                    <!-- ko ifnot: hasS3Access -->
+                    disabled | <a class="link" href='#'>edit</a>
+                    <!-- /ko -->
+                </td>
+                
                 <td class="password-col" data-bind="">
                     <button class="link" data-bind="
                         click: () => $component.showResetPasswordModal(user)

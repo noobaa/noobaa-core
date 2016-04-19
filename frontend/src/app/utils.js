@@ -258,3 +258,10 @@ export function defineEnum(...values) {
         )
     );
 }
+
+export function generateAccessKeys() {
+    return {
+        access_key: randomString(16),
+        secret_key: randomString(32)
+    };
+}

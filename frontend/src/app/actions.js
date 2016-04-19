@@ -6,7 +6,8 @@ import { hostname } from 'server-conf';
 
 import {
     isDefined, isUndefined, encodeBase64, cmpStrings, cmpInts, cmpBools,
-    randomString, last, clamp,  makeArray, execInOrder, realizeUri, downloadFile
+    randomString, last, clamp,  makeArray, execInOrder, realizeUri, downloadFile,
+    generateAccessKeys
 } from 'utils';
 
 // TODO: resolve browserify issue with export of the aws-sdk module.
@@ -777,6 +778,16 @@ export function loadAccountList() {
         .done()
 }
 
+export function loadAccountInfo(email) {
+    logAction('loadAccountInfo', { email });
+
+    api.account.read_account({
+        email: email
+    })
+        .then(model.accountInfo)
+        .done();
+}
+
 export function loadTier(name) {
     logAction('loadTier', { name });
 
@@ -819,11 +830,16 @@ export function loadS3BucketList(connection) {
 // -----------------------------------------------------
 export function createSystemAccount(systemName, email, password, dnsName) {
     logAction('createSystemAccount', { systemName, email, password, dnsName });
+    
+    let accessKeys = systemName === 'demo' && email === 'demo@noobaa.com' ? 
+        { access_key: '123', secret_key: 'abc' } :
+        generateAccessKeys();
 
-    api.account.create_account({ 
+    api.account.create_account({
         name: systemName, 
         email: email, 
-        password: password
+        password: password,
+        access_keys: accessKeys
     })
         .then(
             ({ token }) => {
@@ -847,13 +863,14 @@ export function createSystemAccount(systemName, email, password, dnsName) {
         .done();
 }
 
-export function createAccount(name, email, password, S3AccessList) {
-    logAction('createAccount', { name, email, password, S3AccessList });
+export function createAccount(name, email, password, accessKeys, S3AccessList) {
+    logAction('createAccount', { name, email, password, accessKeys,     S3AccessList });
 
     api.account.create_account({ 
         name: name, 
         email: email, 
         password: password,
+        access_keys: accessKeys,
         allowed_buckets: S3AccessList
     })
         .then(loadAccountList)
@@ -1378,4 +1395,13 @@ export function notify(message, severity = 'INFO') {
     logAction('notify', { message, severity });
 
     model.lastNotification({ message, severity });
+}
+
+export function loadBucketS3AccessList(bucketName) {
+    logAction('loadBucketS3AccessList', { bucketName });
+
+    api.bucket.list_bucket_accounts_with_s3_access({
+        name: bucketName
+    })
+        .then(model.bucketS3AccessList);
 }

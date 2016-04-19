@@ -46,24 +46,15 @@ system_store.on('load', ensure_support_account);
  */
 function create_account(req) {
     var account = _.pick(req.rpc_params, 'name', 'email', 'password');
+    account.access_keys = [req.rpc_params.access_keys];
+
     account._id = system_store.generate_id();
     return P.fcall(function() {
             return bcrypt_password(account);
         })
         .then(function() {
             var changes;
-            let new_access_keys = [{
-                    access_key: crypto.randomBytes(16).toString('hex'),
-                    secret_key: crypto.randomBytes(32).toString('hex')
-                }];
-
-            if (req.rpc_params.name.toString() === 'demo' &&
-                req.rpc_params.email.toString() === 'demo@noobaa.com') {
-                new_access_keys[0].access_key = '123';
-                new_access_keys[0].secret_key = 'abc';
-            }
-            account.access_keys = new_access_keys;
-            
+           
             if (!req.system) {
                 changes = system_server.new_system_changes(account.name, account._id);
                 account.allowed_buckets = [changes.insert.buckets[0]._id];
@@ -115,7 +106,14 @@ function create_account(req) {
  *
  */
 function read_account(req) {
-    return get_account_info(req.account);
+    let email = req.rpc_params.email;
+
+    let account = system_store.data.accounts_by_email[req.rpc_params.email];
+    if (!account) {
+        throw req.rpc_error('NO_SUCH_ACCOUNT', 'No such account email: ' + req.rpc_params.email);
+    }
+    
+    return get_account_info(account);
 }
 
 

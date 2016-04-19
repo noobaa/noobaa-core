@@ -7,6 +7,10 @@ class BucketPanelViewModel {
         this.bucket = bucketInfo;
         this.objects = bucketObjectList;
 
+        this.bucketName = ko.pureComputed(
+            () => bucketInfo() && bucketInfo().name
+        );
+
         this.selectedTab = ko.pureComputed(
             () => uiState().tab
         );

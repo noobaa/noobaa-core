@@ -18,7 +18,7 @@ module.exports = {
             method: 'POST',
             params: {
                 type: 'object',
-                required: ['name', 'email', 'password'],
+                required: ['name', 'email', 'password', 'access_keys'],
                 properties: {
                     name: {
                         type: 'string',
@@ -28,6 +28,17 @@ module.exports = {
                     },
                     password: {
                         type: 'string',
+                    },
+                    access_keys: {
+                        type: 'object',
+                        properties: {
+                            access_key: {
+                                type: 'string'
+                            },
+                            secret_key: {
+                                type: 'string'
+                            }
+                        }
                     },
                     allowed_buckets: {
                         type: 'array',
@@ -55,6 +66,15 @@ module.exports = {
         read_account: {
             doc: 'Read the info of the authorized account',
             method: 'GET',
+            params: {
+                type: 'object',
+                required: ['email'],
+                properties: {
+                    email: {
+                        type: 'string'
+                    }
+                }
+            },
             reply: {
                 $ref: '#/definitions/account_info'
             },

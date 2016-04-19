@@ -23,11 +23,16 @@ mocha.describe('object_io', function() {
     let object_io = new ObjectIO(client);
     object_io.set_verification_mode();
 
-    let SYS = 'test-object-system';
-    let BKT = 'files'; // the default bucket name
-    let KEY = 'test-object-key';
-    let EMAIL = 'test-object-email@mail.mail';
-    let PASSWORD = 'test-object-password';
+    const SYS = 'test-object-system';
+    const BKT = 'files'; // the default bucket name
+    const KEY = 'test-object-key';
+    const EMAIL = 'test-object-email@mail.mail';
+    const PASSWORD = 'test-object-password';
+    const ACCESS_KEYS = { 
+        access_key: 'ydaydayda', 
+        secret_key: 'blablabla' 
+    };     
+    const NODE = 'test-node';
 
     mocha.before(function() {
         this.timeout(30000);
@@ -36,6 +41,7 @@ mocha.describe('object_io', function() {
                 name: SYS,
                 email: EMAIL,
                 password: PASSWORD,
+                access_keys: ACCESS_KEYS
             }))
             .then(res => client.options.auth_token = res.token)
             .then(() => coretest.init_test_nodes(client, SYS, 5));

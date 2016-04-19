@@ -117,7 +117,7 @@ module.exports = {
             }
         },
 
-        list_bucket_access_accounts: {
+        list_bucket_accounts_with_s3_access: {
             method: 'GET',
             params: {
                 type: 'object',

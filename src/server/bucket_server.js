@@ -18,7 +18,7 @@ module.exports = {
     delete_bucket: delete_bucket,
     list_buckets: list_buckets,
     //generate_bucket_access: generate_bucket_access,
-    list_bucket_access_accounts: list_bucket_access_accounts,
+    list_bucket_accounts_with_s3_access: list_bucket_accounts_with_s3_access,
 
     //Cloud Sync policies
     get_cloud_sync_policy: get_cloud_sync_policy,
@@ -227,7 +227,7 @@ function update_bucket(req) {
         .then(res => res[0]);
 }*/
 
-function list_bucket_access_accounts(req) {
+function list_bucket_accounts_with_s3_access(req) {
     var bucket = find_bucket(req);
 
     if (!bucket) {
@@ -236,7 +236,9 @@ function list_bucket_access_accounts(req) {
 
     var access_accounts = _.filter(
         system_store.data.accounts,
-        account => req.has_bucket_permission(bucket, account)
+        account => !account.is_support && account.allowed_buckets.some(
+             another_bucket => bucket === another_bucket
+        )
     );
 
     var reply = _.map(access_accounts, account => account.email);

@@ -42,22 +42,25 @@ export default function register(ko) {
     // -------------------------------
     // Bucket
     // -------------------------------
-    ko.components.register('bucket-panel',          require('./bucket/bucket-panel/bucket-panel'));
-    ko.components.register('bucket-summary',        require('./bucket/bucket-summary/bucket-summary'));
-    ko.components.register('bucket-objects-table',  require('./bucket/bucket-objects-table/bucket-objects-table'));
-    ko.components.register('bucket-policy-modal',   require('./bucket/bucket-policy-modal/bucket-policy-modal'));
-    ko.components.register('upload-files-modal',    require('./bucket/upload-files-modal/upload-files-modal'));
-    ko.components.register('cloud-sync-modal',      require('./bucket/cloud-sync-modal/cloud-sync-modal'));
-    ko.components.register('set-cloud-sync-modal',  require('./bucket/set-cloud-sync-modal/set-cloud-sync-modal'));
-    ko.components.register('aws-credentials-modal', require('./bucket/aws-credentials-modal/aws-credentials-modal'));
+    ko.components.register('bucket-panel',              require('./bucket/bucket-panel/bucket-panel'));
+    ko.components.register('bucket-summary',            require('./bucket/bucket-summary/bucket-summary'));
+    ko.components.register('bucket-objects-table',      require('./bucket/bucket-objects-table/bucket-objects-table'));
+    ko.components.register('bucket-policy-modal',       require('./bucket/bucket-policy-modal/bucket-policy-modal'));
+    ko.components.register('upload-files-modal',        require('./bucket/upload-files-modal/upload-files-modal'));
+    ko.components.register('cloud-sync-modal',          require('./bucket/cloud-sync-modal/cloud-sync-modal'));
+    ko.components.register('set-cloud-sync-modal',      require('./bucket/set-cloud-sync-modal/set-cloud-sync-modal'));
+    ko.components.register('aws-credentials-modal',     require('./bucket/aws-credentials-modal/aws-credentials-modal'));
+    ko.components.register('bucket-s3-access-list',     require('./bucket/bucket-s3-access-list/bucket-s3-access-list'));
+    ko.components.register('s3-access-details-modal',   require('./bucket/s3-access-details-modal/s3-access-details-modal'));
+    ko.components.register('bucket-s3-access-modal',    require('./bucket/bucket-s3-access-modal/bucket-s3-access-modal'));
 
     // -------------------------------
     // Object
     // -------------------------------
     ko.components.register('object-panel',          require('./object/object-panel/object-panel'));
     ko.components.register('object-summary',        require('./object/object-summary/object-summary'));
-    ko.components.register('object-parts-list',     require('./object/object-parts-list/object-parts-list'));    
-    ko.components.register('object-preview-modal',  require('./object/object-preview-modal/object-preview-modal'));        
+    ko.components.register('object-parts-list',     require('./object/object-parts-list/object-parts-list'));
+    ko.components.register('object-preview-modal',  require('./object/object-preview-modal/object-preview-modal'));
 
     // -------------------------------
     // Pools
@@ -130,4 +133,5 @@ export default function register(ko) {
     ko.components.register('autocomplete',      require('./shared/autocomplete/autocomplete'));
     ko.components.register('editor',            require('./shared/editor/editor'));
     ko.components.register('toggle-switch',     require('./shared/toggle-switch/toggle-switch'));
-}   
+    ko.components.register('property-sheet',    require('./shared/property-sheet/property-sheet'));
+}

@@ -34,10 +34,9 @@ export default class AccountRowViewModel {
             }
         );
 
-        this.S3AccessStatus = ko.pureComputed(
-            () => !!account() && 
-                account().has_allowed_buckets ? 'enabled' : 'disabled'
-        );        
+        this.hasS3Access = ko.pureComputed(
+            () => !!account() && account().has_allowed_buckets
+        );
 
         this.isDeletable = ko.pureComputed(
             () =>  !isSystemOwner()

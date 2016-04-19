@@ -132,14 +132,14 @@ mocha.describe('object_io', function() {
                         content_type: 'application/octet-stream',
                         source_stream: new SliceReader(data),
                         calculate_md5: true,
-                    });
+                    }, client);
                 }).then(function() {
                     return object_io.read_entire_object({
                         bucket: BKT,
                         key: key,
                         start: 0,
                         end: size,
-                    });
+                    }, client);
                 }).then(function(read_buf) {
 
                     // verify the read buffer equals the written buffer
@@ -221,7 +221,7 @@ mocha.describe('object_io', function() {
                                 end: (i + 1) * part_size
                             }),
                             calculate_md5: true,
-                        })
+                        }, client)
                         .then((md5_digest) => client.object.complete_part_upload({
                             bucket: BKT,
                             key: key,
@@ -255,7 +255,7 @@ mocha.describe('object_io', function() {
                     return object_io.read_entire_object({
                         bucket: BKT,
                         key: key,
-                    });
+                    }, client);
                 })
                 .then(function(read_buf) {
                     assert.strictEqual(data.length, read_buf.length, "mismatch data length");

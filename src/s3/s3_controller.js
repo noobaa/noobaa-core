@@ -2,7 +2,6 @@
 
 let _ = require('lodash');
 // let P = require('../util/promise');
-//let time_utils = require('../util/time_utils');
 let api = require('../api');
 let dbg = require('../util/debug_module')(__filename);
 let ObjectIO = require('../api/object_io');
@@ -21,43 +20,36 @@ const DEFAULT_S3_USER = Object.freeze({
 class S3Controller {
 
     constructor(params) {
-        this.rpc_client_by_access_key = {};
+        //this.rpc_client_by_access_key = {};
         this.rpc = api.new_rpc(params.address);
+        this.object_io = new ObjectIO(this.rpc.new_client());
         let signal_client = this.rpc.new_client();
         let n2n_agent = this.rpc.register_n2n_transport(signal_client.node.n2n_signal);
         n2n_agent.set_any_rpc_address();
     }
 
     prepare_request(req) {
-        //console.warn('MY ARRAY OF KEYS IS: ', this.rpc_client_by_access_key);
-        //var req_start_time = time_utils.millistamp();
-        //console.warn('IS THIS ME: ', this);
-        //console.warn('MY ACCESS KEY IS: ', req.access_key);
-        //console.warn('TYPE OF MY ACCESS KEY IS: ', typeof req.access_key);
-
-
-        //console.warn('MY ARRAY OF KEYS IS: ', this.rpc_client_by_access_key);
-        //req.rpc_client = this.rpc_client_by_access_key[req.access_key];
+        req.rpc_client = this.rpc.new_client();//this.rpc_client_by_access_key[req.access_key];
+        console.warn('JEN CHECK: ', req.rpc_client);
+        req.rpc_client.options.auth_token = {
+            access_key: req.access_key,
+            string_to_sign: req.string_to_sign,
+            signature: req.signature,
+            extra: req.noobaa_v4
+        };
         //if (!req.rpc_client) {
-        req.rpc_client =
-            //this.rpc_client_by_access_key[req.access_key] =
-            this.rpc.new_client();
-        req.rpc_client.object_io = new ObjectIO(req.rpc_client);
-        return req.rpc_client.create_access_key_auth({
-                access_key: req.access_key,
-                string_to_sign: req.string_to_sign,
-                signature: req.signature,
-                extra: req.noobaa_v4
-            })
-            /*.then((res) => {
-                var millistamp = time_utils.millistamp();
-                var req_took_ms_sum = millistamp - req_start_time;
-                var total_took_sec = (req_took_ms_sum) / 1000;
-                console.warn('TOOK TIME TO MAKE THE AUTH AND CLIENT IN MS: ', req_took_ms_sum, ' IN SEC: ',total_took_sec);
-                return res;
-            })*/
-            .return();
+            //req.rpc_client =
+                //this.rpc_client_by_access_key[req.access_key] =
+                //this.rpc.new_client();
+            //req.rpc_client.object_io = new ObjectIO(req.rpc_client);
         //}
+        /*return req.rpc_client.create_access_key_auth({
+            access_key: req.access_key,
+            string_to_sign: req.string_to_sign,
+            signature: req.signature,
+            extra: req.noobaa_v4
+        })*/
+        //.return();
     }
 
 
@@ -386,8 +378,8 @@ class S3Controller {
                     return false;
                 }
                 let object_md = req.object_md;
-                let code = req.rpc_client.object_io.serve_http_stream(
-                    req, res, this._object_path(req), object_md);
+                let code = this.object_io.serve_http_stream(
+                    req, res, this._object_path(req), object_md, req.rpc_client);
                 switch (code) {
                     case 400:
                         throw s3_errors.InvalidArgument;
@@ -425,7 +417,7 @@ class S3Controller {
             calculate_sha256: (!_.isUndefined(req.content_sha256)) ? true : false
         };
         this._set_md_conditions(req, params, 'overwrite_if');
-        return req.rpc_client.object_io.upload_stream(params)
+        return this.object_io.upload_stream(params, req.rpc_client)
             .then(md5_digest => {
                 let etag = md5_digest.md5.toString('hex');
                 res.setHeader('ETag', '"' + etag + '"');
@@ -662,7 +654,7 @@ class S3Controller {
             throw s3_errors.NotImplemented;
         }
 
-        return req.rpc_client.object_io.upload_stream_parts({
+        return this.object_io.upload_stream_parts({
                 bucket: req.params.bucket,
                 key: req.params.key,
                 upload_id: req.query.uploadId,
@@ -671,7 +663,7 @@ class S3Controller {
                 source_stream: req,
                 calculate_md5: true,
                 calculate_sha256: (!_.isUndefined(req.content_sha256)) ? true : false
-            })
+            }, req.rpc_client)
             .then(md5_digest => {
                 let etag = md5_digest.md5.toString('hex');
                 //let etag_sha256 = md5_digest.sha256.toString('hex');

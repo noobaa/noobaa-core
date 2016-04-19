@@ -54,7 +54,7 @@ if (!bkt) {
                 key: key,
                 start: start,
                 end: end
-            })
+            }, client)
             .on('end', function() {
                 rpc.disconnect_all();
             })

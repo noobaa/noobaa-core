@@ -77,7 +77,7 @@ let FRAG_DEFAULTS = {
 class ObjectIO {
 
     constructor(client) {
-        this.client = client;
+        //this.client = client;
 
         // some constants that might be provided as options to the client one day
 
@@ -95,10 +95,10 @@ class ObjectIO {
         this._block_write_sem = new Semaphore(this.WRITE_CONCURRENCY);
         this._block_read_sem = new Semaphore(this.READ_CONCURRENCY);
 
-        this._init_object_md_cache();
+        this._init_object_md_cache(client);
         this._init_object_range_cache();
-        this._init_object_map_cache();
-        this._init_blocks_cache();
+        this._init_object_map_cache(client);
+        this._init_blocks_cache(client);
 
         this.object_coding_default_options = {
             digest_type: 'sha384',
@@ -152,7 +152,7 @@ class ObjectIO {
      * upload the entire source_stream as a new object
      *
      */
-    upload_stream(params) {
+    upload_stream(params, client) {
         let create_params = _.pick(params,
             'bucket',
             'key',
@@ -163,10 +163,10 @@ class ObjectIO {
         );
 
         dbg.log0('upload_stream: start upload', params.key);
-        return this.client.object.create_object_upload(create_params)
+        return client.object.create_object_upload(create_params)
             .then(create_reply => {
                 params.upload_id = create_reply.upload_id;
-                return this.upload_stream_parts(params);
+                return this.upload_stream_parts(params, client);
             })
             .then(md5_digest => {
                 //console.warn('MD5 DIGEST AFTER UPLOAD PARTS IS: ', md5_digest);
@@ -175,7 +175,7 @@ class ObjectIO {
                     complete_params.etag = md5_digest.md5.toString('hex');
                 }
                 dbg.log0('upload_stream: complete upload', complete_params.key, complete_params.etag);
-                return this.client.object.complete_object_upload(complete_params)
+                return client.object.complete_object_upload(complete_params)
                     .return(md5_digest);
             }, err => {
                 dbg.log0('upload_stream: error write stream', params.key, err);
@@ -191,7 +191,7 @@ class ObjectIO {
      * by reading large portions from the stream and call upload_data_parts()
      *
      */
-    upload_stream_parts(params) {
+    upload_stream_parts(params, client) {
         params.start = params.start || 0;
         params.upload_part_number = params.upload_part_number || 0;
         params.part_sequence_number = params.part_sequence_number || 0;
@@ -239,7 +239,7 @@ class ObjectIO {
                     highWaterMark: 1,
                     objectMode: true
                 },
-                transform: (t, data) => this.upload_data_parts(params, data)
+                transform: (t, data) => this.upload_data_parts(params, data, client)
             }));
         } else {
             pipeline.pipe(transformer({
@@ -254,21 +254,21 @@ class ObjectIO {
                     highWaterMark: 1,
                     objectMode: true
                 },
-                transform_parallel: (t, parts) => this._allocate_parts(params, parts)
+                transform_parallel: (t, parts) => this._allocate_parts(params, parts, client)
             }));
             pipeline.pipe(transformer({
                 options: {
                     highWaterMark: 1,
                     objectMode: true,
                 },
-                transform_parallel: (t, parts) => this._write_parts(params, parts)
+                transform_parallel: (t, parts) => this._write_parts(params, parts, client)
             }));
             pipeline.pipe(transformer({
                 options: {
                     highWaterMark: 1,
                     objectMode: true
                 },
-                transform_parallel: (t, parts) => this._finalize_parts(params, parts)
+                transform_parallel: (t, parts) => this._finalize_parts(params, parts, client)
             }));
         }
 
@@ -314,11 +314,11 @@ class ObjectIO {
      * where data is buffer or array of buffers in memory.
      *
      */
-    upload_data_parts(params, data) {
+    upload_data_parts(params, data, client) {
         return P.fcall(() => this._chunk_and_encode_data(params, data))
-            .then(parts => this._allocate_parts(params, parts))
-            .then(parts => this._write_parts(params, parts))
-            .then(parts => this._finalize_parts(params, parts));
+            .then(parts => this._allocate_parts(params, parts, client))
+            .then(parts => this._write_parts(params, parts, client))
+            .then(parts => this._finalize_parts(params, parts, client));
     }
 
 
@@ -368,14 +368,14 @@ class ObjectIO {
      * _allocate_parts
      *
      */
-    _allocate_parts(params, parts) {
+    _allocate_parts(params, parts, client) {
         let millistamp = time_utils.millistamp();
         let range = {
             start: parts[0].start,
             end: parts[parts.length - 1].end
         };
         dbg.log2('_allocate_parts:', range_utils.human_range(range));
-        return this.client.object.allocate_object_parts({
+        return client.object.allocate_object_parts({
                 bucket: params.bucket,
                 key: params.key,
                 upload_id: params.upload_id,
@@ -405,14 +405,14 @@ class ObjectIO {
      * _write_parts
      *
      */
-    _write_parts(params, parts) {
+    _write_parts(params, parts, client) {
         let millistamp = time_utils.millistamp();
         let range = {
             start: parts[0].start,
             end: parts[parts.length - 1].end
         };
         dbg.log2('_write_parts: ', range_utils.human_range(range));
-        return P.map(parts, part => this._write_fragments(part))
+        return P.map(parts, part => this._write_fragments(client, part))
             .then(() => {
                 dbg.log1('_write_parts: done', range_utils.human_range(range),
                     'took', time_utils.millitook(millistamp));
@@ -425,14 +425,14 @@ class ObjectIO {
      * _finalize_parts
      *
      */
-    _finalize_parts(params, parts) {
+    _finalize_parts(params, parts, client) {
         let millistamp = time_utils.millistamp();
         let range = {
             start: parts[0].start,
             end: parts[parts.length - 1].end
         };
         dbg.log2('_finalize_parts:', range_utils.human_range(range));
-        return this.client.object.finalize_object_parts({
+        return client.object.finalize_object_parts({
                 bucket: params.bucket,
                 key: params.key,
                 upload_id: params.upload_id,
@@ -450,7 +450,7 @@ class ObjectIO {
      * write the allocated part fragments to the storage nodes
      *
      */
-    _write_fragments(part, source_part) {
+    _write_fragments(client, part, source_part) {
         if (part.alloc_part.chunk_dedup) {
             dbg.log0('_write_fragments: DEDUP', range_utils.human_range(part));
             // nullify the chunk in order to release all the buffer's memory
@@ -473,11 +473,11 @@ class ObjectIO {
                 buffer: buffer,
                 part: part.alloc_part,
                 desc: size_utils.human_offset(part.start) + '-' + frag_key,
-            }).then(() => P.map(blocks_to_replicate, block => this._replicate_block({
+            }, client).then(() => P.map(blocks_to_replicate, block => this._replicate_block({
                 target: block,
                 source: block_to_write,
                 desc: size_utils.human_offset(part.start) + '-' + frag_key,
-            })));
+            }, client)));
         });
     }
 
@@ -487,14 +487,14 @@ class ObjectIO {
      * and bad block reporting.
      *
      */
-    _attempt_write_block(params) {
-        return this._write_block(params)
+    _attempt_write_block(params, client) {
+        return this._write_block(params, client)
             .catch(err => {
                 if (params.remaining_attempts <= 0) {
                     throw new Error('EXHAUSTED WRITE BLOCK ' + params.desc);
                 }
                 params.remaining_attempts -= 1;
-                return P.delay(100).then(() => this._attempt_write_block(params));
+                return P.delay(100).then(() => this._attempt_write_block(params, client));
                 /*
                 let part = params.part;
                 let block = params.block;
@@ -523,7 +523,7 @@ class ObjectIO {
      * write a block to the storage node
      *
      */
-    _write_block(params) {
+    _write_block(params, client) {
         let block_md = params.block.block_md;
         let buffer = params.buffer;
 
@@ -542,7 +542,7 @@ class ObjectIO {
             // TODO GGG
             // return P.delay(1 + (1 * Math.random()));
 
-            return this.client.agent.write_block({
+            return client.agent.write_block({
                 block_md: block_md,
                 data: buffer,
             }, {
@@ -558,14 +558,14 @@ class ObjectIO {
     }
 
 
-    _replicate_block(params) {
+    _replicate_block(params, client) {
         let target_md = params.target.block_md;
         let source_md = params.source.block_md;
         dbg.log1('replicate_block', params.desc,
             'target', target_md.id, target_md.address,
             'source', source_md.id, source_md.address);
 
-        return this.client.agent.replicate_block({
+        return client.agent.replicate_block({
             target: target_md,
             source: source_md,
         }, {
@@ -602,7 +602,7 @@ class ObjectIO {
     }
 
 
-    _init_object_md_cache() {
+    _init_object_md_cache(client) {
         this._object_md_cache = new LRUCache({
             name: 'MDCache',
             // max_usage: 0,
@@ -611,7 +611,7 @@ class ObjectIO {
             make_key: params => params.bucket + '\0' + params.key,
             load: params => {
                 dbg.log1('MDCache: load', params.key, 'bucket', params.bucket);
-                return this.client.object.read_object_md(params);
+                return client.object.read_object_md(params);
             }
         });
     }
@@ -836,7 +836,7 @@ class ObjectIO {
      * _init_object_map_cache
      *
      */
-    _init_object_map_cache() {
+    _init_object_map_cache(client) {
         this._object_map_cache = new LRUCache({
             name: 'MappingsCache',
             // max_usage: 0,
@@ -854,7 +854,7 @@ class ObjectIO {
                 map_params.end = map_params.start + this.MAP_RANGE_ALIGN;
                 dbg.log1('MappingsCache: load', range_utils.human_range(params),
                     'aligned', range_utils.human_range(map_params));
-                return this.client.object.read_object_mappings(map_params);
+                return client.object.read_object_mappings(map_params);
             },
             make_val: (val, params) => {
                 let mappings = _.clone(val);
@@ -948,7 +948,7 @@ class ObjectIO {
      * _init_blocks_cache
      *
      */
-    _init_blocks_cache() {
+    _init_blocks_cache(client) {
         this._blocks_cache = new LRUCache({
             name: 'BlocksCache',
             // quite small cache, just to handle repeated calls
@@ -958,7 +958,7 @@ class ObjectIO {
             make_key: block_md => block_md.id,
             load: block_md => {
                 dbg.log1('BlocksCache: load', block_md.id);
-                return this._read_block(block_md);
+                return this._read_block(block_md, client);
             }
         });
     }
@@ -971,11 +971,11 @@ class ObjectIO {
      * read a block from the storage node
      *
      */
-    _read_block(block_md) {
+    _read_block(block_md, client) {
         // use semaphore to surround the IO
         return this._block_read_sem.surround(() => {
             dbg.log1('_read_block:', block_md.id, 'from', block_md.address);
-            return this.client.agent.read_block({
+            return client.agent.read_block({
                     block_md: block_md
                 }, {
                     address: block_md.address,

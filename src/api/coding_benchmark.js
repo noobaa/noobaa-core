@@ -122,7 +122,7 @@ function test() {
                     size: fs.statSync(filename).size,
                     content_type: require('mime').lookup(filename),
                     source_stream: input
-                });
+                }, client);
             })
             .done(fin, fin);
     }

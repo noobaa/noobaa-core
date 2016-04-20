@@ -176,17 +176,11 @@ function create_auth(req) {
  *
  */
 function create_access_key_auth(req) {
-    //console.warn("evg evg evg REQ:NOOBAA_V4 STRING: " ,req.noobaa_v4);
-
     var access_key = req.rpc_params.access_key;
     var string_to_sign = req.rpc_params.string_to_sign;
     var signature = req.rpc_params.signature;
-    //var expiry = req.rpc_params.expiry;
-    //var noobaa_v4 = req.rpc_params.extra;
-    //var secret_key;
 
     var account = _.find(system_store.data.accounts, function(acc) {
-        //console.warn(".accounts: " , acc);
         if (acc.access_keys) {
             return acc.access_keys[0].access_key.toString() === access_key.toString();
         } else {
@@ -203,48 +197,8 @@ function create_access_key_auth(req) {
         'string_to_sign', string_to_sign,
         'signature', signature);
 
-    //console.warn('EVG EVG EVG EVG EVG SYSTEM ACCESS KEYS ARE: ', _.find(system.access_keys, 'access_key', access_key));
-    //console.warn('account is: ', account);
-    //secret_key = account.access_keys.secret_key;
-    //console.warn('secret_key is: ', secret_key);
-
-    //TODO JUST FOR NOW
-    //console.warn('EVG EVG EVG EVG EVG SECRET_KEY IS: ', secret_key);
-    /*var s3_signature;
-
-    if(noobaa_v4){
-        s3_signature = s3_util.noobaa_signature_v4({
-            xamzdate: noobaa_v4.xamzdate,
-            region: noobaa_v4.region,
-            service: noobaa_v4.service,
-            string_to_sign: string_to_sign,
-            secret_key: secret_key
-        });
-    }
-    else {
-        s3_signature = s3_auth.sign(secret_key ,string_to_sign);//secret_key, string_to_sign);
-        //signature = s3_auth.sign('abcd', string_to_sign);
-        //console.warn('EVG EVG EVG EVG EVG SIGNATURE COMP: ', s3_signature, signature);
-
-    }
-    //var s3_signature = s3_auth.sign(secret_key, string_to_sign);
-    dbg.log0('signature for access key:', access_key, 'string:', string_to_sign, ' is', s3_signature);
-
-    //TODO:bring back ASAP!!!! - temporary for V4 "Support"
-    //
-    if (signature === s3_signature) {
-        dbg.log0('s3 authentication test passed!!!');
-    } else {
-        throw req.unauthorized('SignatureDoesNotMatch');
-    }*/
-
-    //console.warn('system_store.data.systems is: ', system_store.data.roles);
-
-
     var role = _.find(system_store.data.roles, function(role) {
-        //return _.find(role.account, function(acc) {
         return role.account._id.toString() === account._id.toString();
-        //});
     });
 
     if (!role || role.deleted) {
@@ -317,7 +271,8 @@ function read_auth(req) {
  *
  */
 function authorize(req) {
-    //console.warn('CHECKING AUTHORIZE CONNECT');
+    //console.warn('JEN AUTH REQ', req);
+    //console.warn('JEN AUTH REQ CLIENT', req.rpc_client);
     _prepare_auth_request(req);
     var auth_token_obj;
 
@@ -330,7 +285,44 @@ function authorize(req) {
         //console.warn('Auth Token Object2: ', auth_token_obj);
 
         try {
-            var auth_token;
+            if (typeof req.auth_token === 'object') {
+                auth_token_obj = req.auth_token;
+                let account = _.find(system_store.data.accounts, function(acc) {
+                    if (acc.access_keys) {
+                        return acc.access_keys[0].access_key.toString() === auth_token_obj.access_key.toString();
+                    } else {
+                        return false;
+                    }
+                });
+
+                if (!account || account.deleted) {
+                    throw req.unauthorized('account not found');
+                }
+
+                var role = _.find(system_store.data.roles, function(role) {
+                    return role.account._id.toString() === account._id.toString();
+                });
+
+                if (!role || role.deleted) {
+                    throw req.unauthorized('role not found');
+                }
+
+                var system = role.system;
+
+                if (!system) {
+                    throw req.unauthorized('system not found');
+                }
+
+                req.auth = {};
+                req.auth.system_id = system && system._id;
+                auth_token_obj.account_id = req.auth.account_id = account && account._id;
+                req.auth.role = role && role.role;
+            }
+            else {
+                req.auth = jwt.verify(req.auth_token, process.env.JWT_SECRET);
+                //auth_token_obj = req.auth;
+            }
+            /*
             if (req.auth_token.indexOf('auth_token') > 0) {
                 auth_token_obj = JSON.parse(req.auth_token);
                 //console.warn('Auth Token Object3: ', auth_token_obj);
@@ -342,7 +334,7 @@ function authorize(req) {
             }
             req.auth = jwt.verify(auth_token, process.env.JWT_SECRET);
             auth_token_obj = req.auth;
-            //console.warn('Auth Token Object5: ', req.auth);
+            //console.warn('Auth Token Object5: ', req.auth);*/
 
         } catch (err) {
             dbg.error('AUTH JWT VERIFY FAILED', req, err);
@@ -359,32 +351,31 @@ function authorize(req) {
 
         //console.warn('AUTHORIZE S3 AUTH auth_token_obj: ', auth_token_obj);
         //if request request has access signature, validate the signature
-        if (auth_token_obj && auth_token_obj.s3_auth) {
-            var s3_params = auth_token_obj.s3_auth;
-            var account = system_store.data.get_by_id(auth_token_obj.account_id);
+        if (auth_token_obj) { //&& auth_token_obj.s3_auth) {
+            let account = system_store.data.get_by_id(auth_token_obj.account_id);
             var secret_key = account.access_keys[0].secret_key;
             var s3_signature;
 
-            if (s3_params.string_to_sign.indexOf('AWS4') > -1) {
+            if (auth_token_obj.string_to_sign.indexOf('AWS4') > -1) {
                 s3_signature = s3_util.noobaa_signature_v4({
-                    xamzdate: s3_params.xamzdate,
-                    region: s3_params.region,
-                    service: s3_params.service,
-                    string_to_sign: s3_params.string_to_sign,
+                    xamzdate: auth_token_obj.extra && auth_token_obj.extra.xamzdate,
+                    region: auth_token_obj.extra && auth_token_obj.extra.region,
+                    service: auth_token_obj.extra && auth_token_obj.extra.service,
+                    string_to_sign: auth_token_obj.string_to_sign,
                     secret_key: secret_key
                 });
             } else {
-                s3_signature = s3_auth.sign(secret_key, s3_params.string_to_sign); //secret_key, string_to_sign);
+                s3_signature = s3_auth.sign(secret_key, auth_token_obj.string_to_sign); //secret_key, string_to_sign);
                 //signature = s3_auth.sign('abcd', string_to_sign);
                 //console.warn('EVG EVG EVG EVG EVG SIGNATURE COMP: ', s3_signature, signature);
 
             }
             //var s3_signature = s3_auth.sign(secret_key, string_to_sign);
-            dbg.log0('signature for access key:', account.access_keys[0].access_key, 'string:', s3_params.string_to_sign, ' is', s3_signature);
+            dbg.log0('signature for access key:', account.access_keys[0].access_key, 'string:', auth_token_obj.string_to_sign, ' is', s3_signature);
 
             //TODO:bring back ASAP!!!! - temporary for V4 "Support"
             //
-            if (s3_params.signature === s3_signature) {
+            if (auth_token_obj.signature === s3_signature) {
                 dbg.log0('s3 authentication test passed!!!');
             } else {
                 throw req.unauthorized('SignatureDoesNotMatch');
@@ -473,7 +464,7 @@ function _prepare_auth_request(req) {
         /*if (req.role === 'admin' || account.is_support) {
             return true;
         }*/
-        if (req.auth && req.auth.s3_auth) {
+        if (req.auth_token && typeof req.auth_token === 'object') {
             return _.find(
                 account.allowed_buckets,
                 allowed_bucket => String(allowed_bucket._id) === String(bucket._id)
@@ -504,7 +495,7 @@ function _prepare_auth_request(req) {
      * @return <String> token
      */
     req.make_auth_token = function(options) {
-        var auth = _.pick(options, 'account_id', 'system_id', 'role', 'extra', 's3_auth');
+        var auth = _.pick(options, 'account_id', 'system_id', 'role', 'extra');
 
         // don't incude keys if value is falsy, to minimize the token size
         auth = _.omitBy(auth, function(value) {

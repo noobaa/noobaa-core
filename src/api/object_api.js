@@ -453,10 +453,10 @@ module.exports = {
             },
             reply: {
                 type: 'object',
-                required: ['size', 'parts'],
+                required: ['object_md', 'parts'],
                 properties: {
-                    size: {
-                        type: 'integer'
+                    object_md: {
+                        $ref: '#/definitions/object_info'
                     },
                     parts: {
                         type: 'array',

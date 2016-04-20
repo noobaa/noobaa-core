@@ -369,7 +369,7 @@ function read_object_mappings(req) {
     return find_object_md(req)
         .then(obj_arg => {
             obj = obj_arg;
-            reply.size = obj.size || obj.upload_size || 0;
+            reply.object_md = get_object_info(obj);
             var params = _.pick(req.rpc_params,
                 'start',
                 'end',

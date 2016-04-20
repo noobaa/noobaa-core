@@ -545,13 +545,17 @@ function list_objects(req) {
             var info = _.omit(object_md_query(req), 'key');
             var common_prefixes_query;
 
-            if (!_.isUndefined(delimiter)) {
+            if (prefix !== '' || delimiter) {
                 // find objects that match "prefix***" or "prefix***/"
-                var one_level = delimiter && delimiter !== '/' ?
-                    one_level_delimiter(delimiter) :
-                    ONE_LEVEL_SLASH_DELIMITER;
                 var escaped_prefix = string_utils.escapeRegExp(prefix);
-                info.key = new RegExp('^' + escaped_prefix + one_level);
+                if (delimiter) {
+                    var one_level = delimiter && delimiter !== '/' ?
+                        one_level_delimiter(delimiter) :
+                        ONE_LEVEL_SLASH_DELIMITER;
+                    info.key = new RegExp('^' + escaped_prefix + one_level);
+                } else {
+                    info.key = new RegExp('^' + escaped_prefix);
+                }
 
                 // we need another query to find common prefixes
                 // we go over objects with key that starts with prefix
@@ -560,23 +564,28 @@ function list_objects(req) {
                 // the emitted key will be just tumtum.
                 // this is used by s3 protocol to return folder structure
                 // even if there is no explicit empty object with the folder name.
+
+                let inner_query = {
+                    query: {
+                        system: req.system._id,
+                        bucket: req.bucket._id,
+                        key: new RegExp('^' + escaped_prefix),
+                        deleted: null
+                    },
+                    scope: {
+                        prefix: prefix,
+                    },
+                    out: {
+                        inline: 1
+                    }
+                };
+                if (delimiter){
+                    inner_query.scope.delimiter = delimiter;
+                }
+
                 common_prefixes_query = db.ObjectMD.collection.mapReduce(
                     mongo_functions.map_key_with_prefix_delimiter,
-                    mongo_functions.reduce_noop, {
-                        query: {
-                            system: req.system._id,
-                            bucket: req.bucket._id,
-                            key: new RegExp('^' + escaped_prefix),
-                            deleted: null
-                        },
-                        scope: {
-                            prefix: prefix,
-                            delimiter: delimiter,
-                        },
-                        out: {
-                            inline: 1
-                        }
-                    });
+                    mongo_functions.reduce_noop,inner_query );
             } else if (req.rpc_params.key_query) {
                 info.key = new RegExp(string_utils.escapeRegExp(req.rpc_params.key_query), 'i');
             } else if (req.rpc_params.key_regexp) {

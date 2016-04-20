@@ -78,9 +78,15 @@ function map_aggregate_objects() {
 function map_key_with_prefix_delimiter() {
     /* jshint validthis: true */
     var suffix = this.key.slice(prefix.length);
-    var pos = suffix.indexOf(delimiter);
-    if (pos >= 0) {
-        emit(suffix.slice(0, pos), undefined);
+    if (delimiter && delimiter!==''){
+        var pos = suffix.indexOf(delimiter);
+        if (pos >= 0) {
+            emit(suffix.slice(0, pos), undefined);
+        }
+    }
+    else
+    {
+        emit(suffix,undefined);
     }
 }
 

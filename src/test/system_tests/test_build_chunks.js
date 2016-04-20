@@ -82,8 +82,9 @@ function test_uploaded_object_has_expected_num_blocks(expected_num_blocks) {
                             for (let n = 0; n < nodes_list.nodes.length; n++) {
                                 for (let blk = 0; blk < blk_info.length; blk++) {
                                     // console.log('checking block node = ', blk_info[blk].block_md.node, 'vs node.id = ', nodes_list.nodes[n].id);
-                                    if (nodes_list.nodes[n].id === blk_info[blk].block_md.node)
+                                    if (nodes_list.nodes[n].id === blk_info[blk].block_md.node) {
                                         num_blocks++;
+                                    }
                                 }
                             }
                             if (num_blocks < expected_num_blocks) {

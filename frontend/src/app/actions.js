@@ -1297,6 +1297,7 @@ export function raiseNodeDebugLevel(node) {
     api.node.read_node({ name: node })
         .then(
             node => api.node.set_debug_node({
+                level: 5,
                 target: node.rpc_address
             })
         )

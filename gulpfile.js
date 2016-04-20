@@ -561,63 +561,6 @@ gulp.task('agent', ['lint'], function() {
         .pipe(gulp.dest(DEST));
 });
 
-
-function build_agent_distro() {
-    gutil.log('build_agent_distro');
-
-    var build_params = [];
-    if (build_on_premise === true) {
-        build_params = ['--on_premise',
-            '--clean=false'
-        ];
-    }
-
-    return Q.fcall(function() {
-            gutil.log('build_atom_agent_win:' + JSON.stringify(build_params));
-            return promise_utils.promised_spawn('src/deploy/build_atom_agent_win.sh',
-                build_params, process.cwd());
-        })
-        .then(function() {
-            gutil.log('done src/deploy/build_atom_agent_win.sh');
-        })
-        .then(function() {
-            gutil.log('before downloading linux setup');
-            return promise_utils.promised_exec('curl -u tamireran:0436dd1acfaf9cd247b3dd22a37f561f -L http://146.148.16.59:8080/job/LinuxBuild/lastBuild/artifact/build/linux/noobaa-setup' + current_pkg_version + ' >build/public/noobaa-setup',
-                build_params, process.cwd());
-        })
-        .then(function() {
-            return promise_utils.promised_exec('chmod 777 build/public/noobaa-setup*',
-                build_params, process.cwd());
-        })
-        .then(function() {
-            gutil.log('done downloading noobaa-setup for linux');
-        })
-        .then(null, function(error) {
-            gutil.log('WARN: command src/deploy/build_atom_agent_win.sh failed ', error, error.stack);
-        });
-}
-
-function build_rest_distro() {
-    var build_params = [];
-    if (build_on_premise === true) {
-        build_params = ['--on_premise',
-            '--clean=false'
-        ];
-    }
-
-    return Q.fcall(function() {
-            return promise_utils.promised_spawn('src/deploy/build_atom_rest_win.sh',
-                build_params, process.cwd());
-        })
-        .then(function() {
-            gutil.log('done src/deploy/build_atom_rest_win.sh');
-        })
-        .then(null, function(error) {
-            gutil.log('WARN: command src/deploy/build_atom_rest_win.sh failed ', error);
-        });
-}
-
-
 gulp.task('frontend', function() {
     return gulp_spawn('npm', ['install'], {
         cwd: 'frontend'
@@ -751,11 +694,18 @@ gulp.task('client', ['ng'], function() {
         .pipe(gulp.dest(DEST));
 });
 
-
+var basepath = path.resolve(__dirname);
 gulp.task('coverage_hook', function() {
     // Force `require` to return covered files
     return gulp
         .src(PATHS.js_for_coverage)
+        .pipe(through2.obj(function(file, enc, callback) {
+            if (file.path.startsWith(basepath)) {
+                file.path = file.path.slice(basepath.length + 1 /*for / seperator*/ );
+            }
+            this.push(file);
+            callback();
+        }))
         .pipe(gulp_istanbul({
             includeUntested: true
         }))
@@ -774,7 +724,8 @@ gulp.task('mocha', ['coverage_hook'], function() {
         };
     }
     return gulp.src(PATHS.test_all, SRC_DONT_READ)
-        .pipe(gulp_mocha(mocha_options).on('error', function(err) {
+        .pipe(gulp_mocha(mocha_options)
+        .on('error', function(err) {
             console.log('Mocha Failed With Error', err.toString());
             process.exit(1);
         }))

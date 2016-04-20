@@ -268,6 +268,15 @@ module.exports = {
 
         start_debug: {
             method: 'POST',
+            params: {
+                type: 'object',
+                required: ['level'],
+                properties: {
+                    level: {
+                        type: 'integer',
+                    },
+                },
+            },
             auth: {
                 system: 'admin',
             }

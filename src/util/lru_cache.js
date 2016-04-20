@@ -15,8 +15,11 @@ class LRUCache {
      */
     constructor(options) {
         options = options || {};
-        this.load = options.load;
         this.name = options.name;
+        this.load = options.load;
+        this.validate = options.validate || function(item) {
+            return item;
+        };
         this.make_key = options.make_key || function(k) {
             return k;
         };
@@ -41,33 +44,16 @@ class LRUCache {
         return P.fcall(() => {
                 var key = this.make_key(params);
                 var item = this.lru.find_or_add_item(key);
-
                 // use cached item when not forcing cache_miss and still not expired by lru
                 // also go to load if data is falsy and negative caching is off
                 if ('d' in item &&
                     (cache_miss !== 'cache_miss') &&
                     (this.use_negative_cache || item.d)) {
-                    return item;
+                    return P.when(this.validate(item.d, params))
+                        .then(validated => validated ? item : this._load_item(item, params));
+                } else {
+                    return this._load_item(item, params);
                 }
-
-                // keep the promise in the item to synchronize when getting
-                // concurrent get requests that miss the cache
-                if (!item.p) {
-                    item.p = P.when(this.load(params))
-                        .then(data => {
-                            item.p = null;
-                            item.d = data;
-                            if (this.item_usage) {
-                                let usage = this.item_usage(data, params);
-                                this.lru.set_usage(item, usage);
-                            }
-                            return item;
-                        }, err => {
-                            item.p = null;
-                            throw err;
-                        });
-                }
-                return item.p;
             })
             .then(item => this.make_val(item.d, params));
     }
@@ -107,6 +93,26 @@ class LRUCache {
         }
     }
 
+    _load_item(item, params) {
+        // keep the promise in the item to synchronize when getting
+        // concurrent get requests that miss the cache
+        if (!item.p) {
+            item.p = P.when(this.load(params))
+                .then(data => {
+                    item.p = null;
+                    item.d = data;
+                    if (this.item_usage) {
+                        let usage = this.item_usage(data, params);
+                        this.lru.set_usage(item, usage);
+                    }
+                    return item;
+                }, err => {
+                    item.p = null;
+                    throw err;
+                });
+        }
+        return item.p;
+    }
 }
 
 module.exports = LRUCache;

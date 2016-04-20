@@ -577,7 +577,7 @@ function start_debug(req) {
             }));
         })
         .then(function() {
-            if (req.level > 0) { //If level was set, remove it after 10m
+            if (req.rpc_params.level > 0) { //If level was set, remove it after 10m
                 promise_utils.delay_unblocking(1000 * 60 * 10) //10m
                     .then(function() {
                         return P.when(server_rpc.client.debug.set_debug_level({

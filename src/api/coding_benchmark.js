@@ -98,7 +98,7 @@ function test() {
         var api = require('../api');
         var rpc = api.new_rpc();
         client = rpc.new_client();
-        object_io = new ObjectIO(client);
+        object_io = new ObjectIO();
         rpc.register_n2n_transport(client.node.n2n_signal);
         return client.create_auth_token({
             email: 'demo@noobaa.com',
@@ -117,12 +117,13 @@ function test() {
             })
             .then(function() {
                 return object_io.upload_stream({
+                    client: client,
                     bucket: 'files',
                     key: path.basename(filename),
                     size: fs.statSync(filename).size,
                     content_type: require('mime').lookup(filename),
                     source_stream: input
-                }, client);
+                });
             })
             .done(fin, fin);
     }

@@ -79,8 +79,7 @@ class ObjectIO {
     constructor() {
         // some constants that might be provided as options to the client one day
 
-        this.OBJECT_RANGE_ALIGN = 16 * 1024 * 1024;
-        this.MAP_RANGE_ALIGN = 128 * 1024 * 1024;
+        this.OBJECT_RANGE_ALIGN = 32 * 1024 * 1024;
 
         this.READ_CONCURRENCY = config.READ_CONCURRENCY;
         this.WRITE_CONCURRENCY = config.WRITE_CONCURRENCY;
@@ -718,8 +717,8 @@ class ObjectIO {
     _init_object_range_cache() {
         this._object_range_cache = new LRUCache({
             name: 'RangesCache',
-            max_usage: 128 * 1024 * 1024, // 128 MB
-            item_usage: (data, params) => data ? data.length : 1024,
+            max_usage: 256 * 1024 * 1024, // 128 MB
+            item_usage: (data, params) => data && data.buffer && data.buffer.length || 1024,
             expiry_ms: 600000, // 10 minutes
             make_key: params => {
                 let start = range_utils.align_down(
@@ -740,10 +739,14 @@ class ObjectIO {
                     bucket: params.bucket,
                     key: params.key
                 }).then(object_md => {
-                    return object_md.version_id === data.object_md.version_id &&
+                    let validated = object_md.version_id === data.object_md.version_id &&
                         object_md.etag === data.object_md.etag &&
                         object_md.size === data.object_md.size &&
                         object_md.create_time === data.object_md.create_time;
+                    if (!validated) {
+                        dbg.log0('RangesCache: ValidateFailed:', params.bucket, params.key);
+                    }
+                    return validated;
                 });
             },
             make_val: (data, params) => {
@@ -803,52 +806,6 @@ class ObjectIO {
                 };
             });
     }
-
-
-    /**
-     *
-     * _init_object_map_cache
-     *
-    _init_object_map_cache() {
-        this._object_map_cache = new LRUCache({
-            name: 'MappingsCache',
-            // max_usage: 0,
-            max_usage: 1000,
-            expiry_ms: 600000, // 10 minutes
-            make_key: params => {
-                let start = range_utils.align_down(
-                    params.start, this.MAP_RANGE_ALIGN);
-                return params.bucket + '\0' + params.key + '\0' + start;
-            },
-            load: params => {
-                let map_params = _.clone(params);
-                map_params.start = range_utils.align_down(
-                    params.start, this.MAP_RANGE_ALIGN);
-                map_params.end = map_params.start + this.MAP_RANGE_ALIGN;
-                dbg.log1('MappingsCache: load', range_utils.human_range(params),
-                    'aligned', range_utils.human_range(map_params));
-                return this.client.object.read_object_mappings(map_params);
-            },
-            make_val: (val, params) => {
-                let mappings = _.clone(val);
-                mappings.parts = _.cloneDeep(_.filter(val.parts, part => {
-                    let inter = range_utils.intersection(
-                        part.start, part.end, params.start, params.end);
-                    if (!inter) {
-                        dbg.log4('MappingsCache: filtered', range_utils.human_range(params),
-                            'part', range_utils.human_range(part));
-                        return false;
-                    }
-                    dbg.log3('MappingsCache: map', range_utils.human_range(params),
-                        'part', range_utils.human_range(part));
-                    return true;
-                }));
-                return mappings;
-            },
-        });
-    }
-    */
-
 
 
     /**

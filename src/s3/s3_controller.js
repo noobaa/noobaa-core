@@ -21,7 +21,6 @@ const DEFAULT_S3_USER = Object.freeze({
 class S3Controller {
 
     constructor(params) {
-        //this.rpc_client_by_access_key = {};
         this.rpc = api.new_rpc(params.address);
         this.object_io = new ObjectIO();
         let signal_client = this.rpc.new_client();
@@ -30,27 +29,13 @@ class S3Controller {
     }
 
     prepare_request(req) {
-        req.rpc_client = this.rpc.new_client();//this.rpc_client_by_access_key[req.access_key];
-        console.warn('JEN CHECK: ', req.rpc_client);
+        req.rpc_client = this.rpc.new_client();
         req.rpc_client.options.auth_token = {
             access_key: req.access_key,
             string_to_sign: req.string_to_sign,
             signature: req.signature,
             extra: req.noobaa_v4
         };
-        //if (!req.rpc_client) {
-            //req.rpc_client =
-                //this.rpc_client_by_access_key[req.access_key] =
-                //this.rpc.new_client();
-            //req.rpc_client.object_io = new ObjectIO();
-        //}
-        /*return req.rpc_client.create_access_key_auth({
-            access_key: req.access_key,
-            string_to_sign: req.string_to_sign,
-            signature: req.signature,
-            extra: req.noobaa_v4
-        })*/
-        //.return();
     }
 
 
@@ -381,7 +366,7 @@ class S3Controller {
                 let object_md = req.object_md;
                 let params = this._object_path(req);
                 params.client = req.rpc_client;
-                let code = req.rpc_client.object_io.serve_http_stream(
+                let code = this.object_io.serve_http_stream(
                     req, res, params, object_md);
                 switch (code) {
                     case 400:

@@ -16,7 +16,6 @@ require('./test_map_utils');
  */
 
 // require('./test_debug_module');
-require('./test_dot');
 require('./test_job_queue');
 require('./test_linked_list');
 require('./test_lru');

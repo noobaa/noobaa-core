@@ -14,7 +14,7 @@ var build_chunks_worker = require('./build_chunks_worker');
 var server_rpc = require('../server/server_rpc');
 var dbg = require('../util/debug_module')(__filename);
 var db = require('../server/db');
-var mongo_client = require('../server/stores/mongo_client');
+var mongo_client = require('../server/utils/mongo_client');
 
 
 dbg.set_process_name('BGWorkers');

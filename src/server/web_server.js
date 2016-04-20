@@ -35,7 +35,7 @@ var fs = require('fs');
 var cluster = require('cluster');
 var pkg = require('../../package.json');
 var db = require('../server/db');
-var mongo_client = require('./stores/mongo_client');
+var mongo_client = require('./utils/mongo_client');
 
 
 

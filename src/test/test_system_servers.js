@@ -112,7 +112,7 @@ mocha.describe('system_servers', function() {
             .then(() => client.system.update_system_certificate()
                 .catch(err => assert.deepEqual(err.rpc_code, 'TODO'))
             )
-            //.then(() => client.system.start_debug())
+            //.then(() => client.system.start_debug({level:0}))
             .then(() => client.system.diagnose())
             .then(() => client.system.create_system({
                 name: SYS1

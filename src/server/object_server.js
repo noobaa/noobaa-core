@@ -539,18 +539,18 @@ var ONE_LEVEL_SLASH_DELIMITER = one_level_delimiter('/');
 function list_objects(req) {
     dbg.log0('list_objects', req.rpc_params);
     var prefix = req.rpc_params.prefix || '';
-    var delimiter = req.rpc_params.delimiter;
+    let escaped_prefix = string_utils.escapeRegExp(prefix);
+    var delimiter = req.rpc_params.delimiter || '';
     load_bucket(req);
     return P.fcall(() => {
             var info = _.omit(object_md_query(req), 'key');
             var common_prefixes_query;
 
-            if (!_.isUndefined(delimiter)) {
+            if (delimiter) {
                 // find objects that match "prefix***" or "prefix***/"
-                var one_level = delimiter && delimiter !== '/' ?
+                let one_level = delimiter !== '/' ?
                     one_level_delimiter(delimiter) :
                     ONE_LEVEL_SLASH_DELIMITER;
-                var escaped_prefix = string_utils.escapeRegExp(prefix);
                 info.key = new RegExp('^' + escaped_prefix + one_level);
 
                 // we need another query to find common prefixes
@@ -577,6 +577,8 @@ function list_objects(req) {
                             inline: 1
                         }
                     });
+            } else if (prefix) {
+                info.key = new RegExp('^' + escaped_prefix);
             } else if (req.rpc_params.key_query) {
                 info.key = new RegExp(string_utils.escapeRegExp(req.rpc_params.key_query), 'i');
             } else if (req.rpc_params.key_regexp) {

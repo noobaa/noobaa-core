@@ -46,30 +46,30 @@ TestRunner.prototype.restore_db_defaults = function() {
             var wait_counter = 1;
             //wait up to 10 seconds
             return promise_utils.pwhile(
-                function() {
-                    return isNotListening;
-                },
-                function() {
-                    return P.ninvoke(request, 'get', {
-                        url: 'http://127.0.0.1:8080/',
-                        rejectUnauthorized: false,
-                    }).spread(function(res, body) {
-                        console.log('server started after '+wait_counter+' seconds');
-                        isNotListening = false;
-                    }, function(err) {
-                        console.log('waiting for server to start');
-                        wait_counter +=1;
-                        if (wait_counter>= MAX_RETRIES){
-                            console.Error('Too many retries after restart server');
-                            throw new Error('Too many retries');
-                        }
-                        return P.delay(1000);
-                    });
-                //one more delay for reconnection of other processes
-                }).delay(2000)
+                    function() {
+                        return isNotListening;
+                    },
+                    function() {
+                        return P.ninvoke(request, 'get', {
+                            url: 'http://127.0.0.1:8080/',
+                            rejectUnauthorized: false,
+                        }).spread(function(res, body) {
+                            console.log('server started after ' + wait_counter + ' seconds');
+                            isNotListening = false;
+                        }, function(err) {
+                            console.log('waiting for server to start');
+                            wait_counter += 1;
+                            if (wait_counter >= MAX_RETRIES) {
+                                console.Error('Too many retries after restart server');
+                                throw new Error('Too many retries');
+                            }
+                            return P.delay(1000);
+                        });
+                        //one more delay for reconnection of other processes
+                    }).delay(2000)
                 .then(function() {
-                return;
-            });
+                    return;
+                });
         })
         .fail(function(err) {
             console.log('Failed restarting webserver');
@@ -174,6 +174,10 @@ TestRunner.prototype.run_tests = function() {
             fs.appendFileSync(REPORT_PATH, 'Stopping tests\n', error);
             return;
         });
+};
+
+TestRunner.prototype.print_conclusion = function() {
+    console.log(fs.readFileSync('./report/cov/regression_report.log').toString());
 };
 
 TestRunner.prototype._print_curent_step = function(current_step) {
@@ -394,6 +398,7 @@ function main() {
             process.exit(4);
         })
         .then(function() {
+            run.print_conclusion();
             if (!run._error) {
                 process.exit(0);
             } else {

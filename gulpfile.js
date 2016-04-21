@@ -128,7 +128,7 @@ function pack(dest, name) {
         })
         .pipe(gulp_rename(function(p) {
             p.dirname = path.join('src', p.dirname);
-        }));
+        })) .on('error', gutil.log);
     // TODO bring back uglify .pipe(gulp_uglify());
 
     var node_modules_stream = gulp.src([
@@ -141,7 +141,7 @@ function pack(dest, name) {
         })
         .pipe(gulp_rename(function(p) {
             p.dirname = path.join('node_modules', p.dirname);
-        }));
+        })) .on('error', gutil.log);
 
     var basejs_stream = gulp.src([
         'bower.json',
@@ -154,22 +154,22 @@ function pack(dest, name) {
     var agent_distro = gulp.src(['src/build/windows/noobaa_setup.exe'], {})
         .pipe(gulp_rename(function(p) {
             p.dirname = path.join('deployment', p.dirname);
-        }));
+        })) .on('error', gutil.log);
 
     var build_stream = gulp.src(['build/public/**/*', ], {})
         .pipe(gulp_rename(function(p) {
             p.dirname = path.join('build/public', p.dirname);
-        }));
+        })) .on('error', gutil.log);
 
     var build_native_stream = gulp.src(['build/Release/**/*', ], {})
         .pipe(gulp_rename(function(p) {
             p.dirname = path.join('build/Release', p.dirname);
-        }));
+        })) .on('error', gutil.log);
 
     var build_fe_stream = gulp.src(['frontend/dist/**/*'], {})
         .pipe(gulp_rename(function(p) {
             p.dirname = path.join('frontend/dist', p.dirname);
-        }));
+        })) .on('error', gutil.log);
 
     return event_stream
         .merge(
@@ -185,12 +185,17 @@ function pack(dest, name) {
         .pipe(gulp_rename(function(p) {
             p.dirname = path.join('noobaa-core', p.dirname);
         }))
+         .on('error', gutil.log)
         .pipe(gulp_tar(name))
+         .on('error', gutil.log)
         .pipe(gulp_gzip())
-        .pipe(gulp_size({
-            title: name
-        }))
-        .pipe(gulp.dest(dest));
+         .on('error', gutil.log)
+        // .pipe(gulp_size({
+        //     title: name
+        // }))
+        //  .on('error', gutil.log)
+        .pipe(gulp.dest(dest))
+         .on('error', gutil.log);
 }
 
 var PLUMB_CONF = {
@@ -316,16 +321,19 @@ function package_build_task() {
             if (!use_local_executable) {
                 gutil.log('before downloading setup and rest');
                 return Q.fcall(function() {
-                        return promise_utils.promised_exec('curl -u tamireran:0436dd1acfaf9cd247b3dd22a37f561f -L http://127.0.0.1:8080/job/LinuxBuild/lastBuild/artifact/build/linux/noobaa-setup-' + current_pkg_version + ' >build/public/noobaa-setup-' + current_pkg_version, [], process.cwd());
+                        return promise_utils.promised_exec('curl -u tamireran:0436dd1acfaf9cd247b3dd22a37f561f -L http://127.0.0.1:8080/job/LinuxBuild/lastBuild/artifact/build/linux/noobaa-setup-' + current_pkg_version + ' >build/public/noobaa-setup-' + current_pkg_version);
                     })
                     .then(function() {
-                        return promise_utils.promised_exec('curl -u tamireran:0436dd1acfaf9cd247b3dd22a37f561f -L http://127.0.0.1:8080/job/win_agent_remote/lastBuild/artifact/build/windows/noobaa-setup-' + current_pkg_version + '.exe >build/public/noobaa-setup-' + current_pkg_version + '.exe', [], process.cwd());
+                        return promise_utils.promised_exec('curl -u tamireran:0436dd1acfaf9cd247b3dd22a37f561f -L http://127.0.0.1:8080/job/win_agent_remote/lastBuild/artifact/build/windows/noobaa-setup-' + current_pkg_version + '.exe >build/public/noobaa-setup-' + current_pkg_version + '.exe');
                     })
                     .then(function() {
-                        return promise_utils.promised_exec('curl -u tamireran:0436dd1acfaf9cd247b3dd22a37f561f -L http://127.0.0.1:8080/job/win_s3_remote/lastBuild/artifact/build/windows/noobaa-s3rest-' + current_pkg_version + '.exe>build/public/noobaa-s3rest-' + current_pkg_version + '.exe', [], process.cwd());
+                        return promise_utils.promised_exec('curl -u tamireran:0436dd1acfaf9cd247b3dd22a37f561f -L http://127.0.0.1:8080/job/win_s3_remote/lastBuild/artifact/build/windows/noobaa-s3rest-' + current_pkg_version + '.exe>build/public/noobaa-s3rest-' + current_pkg_version + '.exe');
                     })
                     .then(function() {
-                        return promise_utils.promised_exec('chmod 777 build/public/noobaa-setup', [], process.cwd());
+                        return promise_utils.promised_exec('chmod 777 build/public/noobaa-setup*');
+                    }).fail(function(err){
+                        gutil.log('Failed to download packages. Aborting due to '+err.message+"     "+err.stack);
+                        throw new Error('Failed to download packages. Aborting due to '+err.message+"     "+err.stack);
                     });
             } else {
                 return;
@@ -340,6 +348,7 @@ function package_build_task() {
         })
         .then(function() {
             //call for packing
+            gutil.log('Packing '+DEST+' to '+NAME + "-" + current_pkg_version + '.tar');
             return pack(DEST, NAME + "-" + current_pkg_version + '.tar');
         })
         .then(null, function(error) {

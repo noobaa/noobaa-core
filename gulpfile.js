@@ -1,31 +1,21 @@
 'use strict';
 
+var argv = require('minimist')(process.argv);
 var gulp = require('gulp');
 var gutil = require('gulp-util');
 // var gulp_debug = require('gulp-debug');
-var gulp_replace = require('gulp-replace');
 // var gulp_filter = require('gulp-filter');
 var gulp_size = require('gulp-size');
-var gulp_concat = require('gulp-concat');
 var gulp_cached = require('gulp-cached');
-var gulp_newer = require('gulp-newer');
 var gulp_plumber = require('gulp-plumber');
 var gulp_notify = require('gulp-notify');
-var gulp_less = require('gulp-less');
-var gulp_uglify = require('gulp-uglify');
-var gulp_minify_css = require('gulp-minify-css');
-var gulp_sourcemaps = require('gulp-sourcemaps');
 var gulp_rename = require('gulp-rename');
 var gulp_tar = require('gulp-tar');
 var gulp_gzip = require('gulp-gzip');
 var gulp_json_editor = require('gulp-json-editor');
-var gulp_ng_template = require('gulp-angular-templatecache');
 var gulp_jshint = require('gulp-jshint');
 var gulp_eslint = require('gulp-eslint');
 var jshint_stylish = require('jshint-stylish');
-var vinyl_buffer = require('vinyl-buffer');
-var vinyl_source_stream = require('vinyl-source-stream');
-var browserify = require('browserify');
 var event_stream = require('event-stream');
 var gulp_mocha = require('gulp-mocha');
 var gulp_istanbul = require('gulp-istanbul');
@@ -34,7 +24,6 @@ var path = require('path');
 var child_process = require('child_process');
 var dotenv = require('dotenv');
 var through2 = require('through2');
-var bower = require('bower');
 var Q = require('q');
 var _ = require('lodash');
 var promise_utils = require('./src/util/promise_utils');
@@ -47,32 +36,11 @@ if (!process.env.PORT) {
 }
 
 var active_services = {};
-var build_on_premise = true;
-var skip_install = false;
-var use_local_executable = false;
-var git_commit = "DEVONLY";
-var cov_dir;
-
-for (var arg_idx = 0; arg_idx < process.argv.length; arg_idx++) {
-    if (process.argv[arg_idx] === '--on_premise') {
-        build_on_premise = true;
-    }
-    if (process.argv[arg_idx] === '--saas') {
-        build_on_premise = false;
-    }
-    if (process.argv[arg_idx] === '--skip_install') {
-        skip_install = true;
-    }
-    if (process.argv[arg_idx] === '--local') {
-        use_local_executable = true;
-    }
-    if (process.argv[arg_idx] === '--GIT_COMMIT') {
-        git_commit = process.argv[arg_idx + 1].substr(0, 7);
-    }
-    if (process.argv[arg_idx] === '--COV_DIR') {
-        cov_dir = process.argv[arg_idx + 1];
-    }
-}
+var build_on_premise = argv.saas ? false : (argv.on_premise || true);
+var skip_install = argv.skip_install ? true : false;
+var use_local_executable = argv.local ? true : false;
+var git_commit = argv.GIT_COMMIT || 'DEVONLY';
+var cov_dir = argv.COV_DIR || '';
 
 current_pkg_version = pkg.version + '-' + git_commit;
 console.log('current_pkg_version:', current_pkg_version);
@@ -99,30 +67,10 @@ process.on("SIGTERM", leave_no_wounded);
 
 
 var PATHS = {
-    css: 'src/css/**/*',
-    less_css: ['src/css/styles.less'],
-    ngview: 'src/ngview/**/*',
-
-    assets: {
-        'build/public': [
-            'node_modules/video.js/dist/video-js/video-js.swf'
-        ],
-        'build/public/css': [],
-        'build/public/fonts': [
-            'node_modules/bootstrap/dist/fonts/*',
-            'node_modules/font-awesome/fonts/*',
-            'bower_components/bootstrap-material-design/fonts/*',
-        ],
-        'build/public/css/font': [
-            'node_modules/video.js/dist/video-js/font/*',
-        ],
-    },
-
     test_all: 'src/test/all.js',
     js_for_lint: ['src/**/*.js', '*.js'],
     js_for_coverage: [
         'src/**/*.js',
-        '*.js',
         '!src/deploy/**/*',
         '!src/licenses/**/*',
         '!src/util/mongo_functions.js'
@@ -132,52 +80,6 @@ var PATHS = {
     bg_workers_main: 'src/bg_workers/bg_workers_starter.js',
     agent_main: 'src/agent/agent_cli.js',
     s3_main: 'src/s3/s3rver.js',
-    client_bundle: 'src/client/index.js',
-    client_libs: [
-        // browserify nodejs wrappers
-        'fs',
-        'os',
-        'url',
-        'util',
-        'path',
-        'http',
-        'https',
-        'buffer',
-        'crypto',
-        'stream',
-        'assert',
-        'events',
-        'querystring',
-        // other libs
-        'lodash',
-        'moment',
-        'ws',
-        'ip',
-        'q',
-        'aws-sdk',
-        'bluebird',
-        'generate-function',
-        'performance-now',
-        'ajv',
-        'concat-stream',
-        'dev-null',
-        'chance',
-        'winston',
-    ],
-    client_externals: [
-        'node_modules/bootstrap/dist/js/bootstrap.js',
-        'vendor/arrive-2.0.0.min.js', // needed by material for dynamic content
-        'bower_components/bootstrap-material-design/scripts/material.js',
-        'bower_components/bootstrap-material-design/scripts/ripples.js',
-        'bower_components/bootstrap-sidebar/dist/js/sidebar.js',
-        'bower_components/datetimepicker/build/jquery.datetimepicker.full.js',
-        'bower_components/ladda/js/spin.js',
-        'bower_components/ladda/js/ladda.js',
-        'bower_components/alertify.js/lib/alertify.js',
-        // 'node_modules/selectize/dist/js/standalone/selectize.js',
-        'node_modules/video.js/dist/video-js/video.dev.js',
-        //'vendor/flowplayer-5.4.6/flowplayer.js',
-    ],
 
     agent_sources: [
         'src/agent/**/*.js',
@@ -188,21 +90,7 @@ var PATHS = {
     ],
 
     NVA_Package_sources: [
-        'src/agent/**/*.js',
-        'src/api/**/*.*',
-        'src/client/**/*.*',
-        'src/css/**/*.*',
-        'src/deploy/**/*.*',
-        'src/ngview/**/*.*',
-        'src/rpc/**/*.*',
-        'src/s3/**/*.*',
-        'src/server/**/*.*',
-        'src/bg_workers/**/*.*',
-        'src/util/**/*.*',
-        'src/views/**/*.*',
-        'src/native/**/*.*',
-        'src/tools/**/*.*',
-        'src/test/**/*.*',
+        'src/**/*',
         'binding.gyp',
         'common.gypi'
     ],
@@ -212,78 +100,15 @@ var SRC_DONT_READ = {
     read: false
 };
 
-function gulp_size_log(title) {
-    return gulp_size({
-        title: title
-    });
-}
-
-function simple_bower() {
-    var done = false;
-    return through2.obj(function(file, enc, callback) {
-        var self = this;
-        // only run for the first file in the stream,
-        // and for the rest of the files just push them forward
-        if (done) {
-            self.push(file);
-            callback();
-            return;
-        }
-        done = true;
-        bower.commands.install()
-            .on('log', function(result) {
-                gutil.log('bower', gutil.colors.cyan(result.id), result.message);
-            })
-            .on('error', function(err) {
-                console.log('BOWER ERROR');
-                self.emit('error', new gutil.PluginError('simple_bower', err));
-            })
-            .on('end', function() {
-                console.log('BOWER END');
-                self.push(file);
-                callback();
-            });
-    });
-}
-
-/**
- * manipulates the stream so that if any file exists in the stream
- * it will push the given candidates instead of any of the files in the original stream.
- * this is useful for doing checks like gulp_newer from a group of
- * source files vs target file and if any of the sources are newer
- * then replace the stream with a specific candidate to be compiled.
- */
-function candidate(candidate_src) {
-    var done;
-    var stream = through2.obj(function(file, enc, callback) {
-        var self = this;
-        if (done) {
-            return callback();
-        }
-        done = true;
-        gulp.src(candidate_src)
-            .pipe(through2.obj(function(c_file, c_enc, c_callback) {
-                self.push(c_file);
-                c_callback();
-            }, function() {
-                callback();
-            }));
-    });
-    return stream;
-}
 
 function pack(dest, name) {
-    var pkg_stream = gulp
-        .src('package.json')
+    var pkg_stream = gulp.src('package.json')
         .pipe(gulp_json_editor(function(json) {
             var deps = _.omit(json.dependencies, function(val, key) {
                 return /^gulp/.test(key) ||
-                    /^vinyl/.test(key) ||
                     /^jshint/.test(key) ||
                     /^eslint/.test(key) ||
-                    /^browserify/.test(key) ||
                     _.contains([
-                        'bower',
                         'mocha',
                         'form-data',
                         'istanbul'
@@ -298,37 +123,25 @@ function pack(dest, name) {
             };
         })).on('error', gutil.log);
 
-    var src_stream = gulp
-        .src(PATHS.NVA_Package_sources, {
+    var src_stream = gulp.src(PATHS.NVA_Package_sources, {
             base: 'src'
         })
         .pipe(gulp_rename(function(p) {
             p.dirname = path.join('src', p.dirname);
-        }));
+        })) .on('error', gutil.log);
     // TODO bring back uglify .pipe(gulp_uglify());
 
-    var images_stream = gulp
-        .src(['images/**/*', ], {
-            base: 'images'
-        })
-        .pipe(gulp_rename(function(p) {
-            p.dirname = path.join('images', p.dirname);
-        }));
-
-    var node_modules_stream = gulp
-        .src(['node_modules/**/*',
+    var node_modules_stream = gulp.src([
+            'node_modules/**/*',
             '!node_modules/babel*/**/*',
             '!node_modules/gulp*/**/*',
-            '!node_modules/bower/**/*',
             '!node_modules/node-inspector/**/*'
         ], {
             base: 'node_modules'
         })
         .pipe(gulp_rename(function(p) {
             p.dirname = path.join('node_modules', p.dirname);
-        }));
-
-
+        })) .on('error', gutil.log);
 
     var basejs_stream = gulp.src([
         'bower.json',
@@ -338,43 +151,31 @@ function pack(dest, name) {
         '.eslintrc'
     ], {});
 
-    var vendor_stream = gulp
-        .src(['vendor/**/*', ], {})
-        .pipe(gulp_rename(function(p) {
-            p.dirname = path.join('vendor', p.dirname);
-        }));
-
-    var agent_distro = gulp
-        .src(['src/build/windows/noobaa_setup.exe'], {})
+    var agent_distro = gulp.src(['src/build/windows/noobaa_setup.exe'], {})
         .pipe(gulp_rename(function(p) {
             p.dirname = path.join('deployment', p.dirname);
-        }));
+        })) .on('error', gutil.log);
 
-    var build_stream = gulp
-        .src(['build/public/**/*', ], {})
+    var build_stream = gulp.src(['build/public/**/*', ], {})
         .pipe(gulp_rename(function(p) {
             p.dirname = path.join('build/public', p.dirname);
-        }));
+        })) .on('error', gutil.log);
 
-    var build_native_stream = gulp
-        .src(['build/Release/**/*', ], {})
+    var build_native_stream = gulp.src(['build/Release/**/*', ], {})
         .pipe(gulp_rename(function(p) {
             p.dirname = path.join('build/Release', p.dirname);
-        }));
+        })) .on('error', gutil.log);
 
-    var build_fe_stream = gulp
-        .src(['frontend/dist/**/*'], {})
+    var build_fe_stream = gulp.src(['frontend/dist/**/*'], {})
         .pipe(gulp_rename(function(p) {
             p.dirname = path.join('frontend/dist', p.dirname);
-        }));
+        })) .on('error', gutil.log);
 
     return event_stream
         .merge(
             pkg_stream,
             src_stream,
-            images_stream,
             basejs_stream,
-            vendor_stream,
             agent_distro,
             build_stream,
             build_native_stream,
@@ -384,81 +185,22 @@ function pack(dest, name) {
         .pipe(gulp_rename(function(p) {
             p.dirname = path.join('noobaa-core', p.dirname);
         }))
+         .on('error', gutil.log)
         .pipe(gulp_tar(name))
+         .on('error', gutil.log)
         .pipe(gulp_gzip())
-        // .pipe(gulp_size_log(NAME))
-        .pipe(gulp.dest(dest));
+         .on('error', gutil.log)
+        // .pipe(gulp_size({
+        //     title: name
+        // }))
+        //  .on('error', gutil.log)
+        .pipe(gulp.dest(dest))
+         .on('error', gutil.log);
 }
 
 var PLUMB_CONF = {
     errorHandler: gulp_notify.onError("Error: <%= error.message %>")
 };
-
-gulp.task('bower', function() {
-    var DEST = 'build';
-    var NAME = 'bower.json';
-    return gulp
-        .src(NAME)
-        .pipe(gulp_plumber(PLUMB_CONF))
-        .pipe(gulp_newer(path.join(DEST, NAME)))
-        .pipe(simple_bower())
-        .pipe(gulp.dest(DEST));
-});
-
-gulp.task('assets', ['bower'], function() {
-    return Q.all(_.map(PATHS.assets,
-        function(src, target) {
-            return gulp.src(src)
-                .pipe(gulp_plumber(PLUMB_CONF))
-                .pipe(gulp_newer(target))
-                .pipe(gulp.dest(target));
-        }
-    ));
-});
-
-gulp.task('less_css', ['bower'], function() {
-    var DEST = 'build/public/css';
-    var NAME = 'styles.css';
-    return gulp
-        .src(PATHS.css, SRC_DONT_READ)
-        .pipe(gulp_plumber(PLUMB_CONF))
-        .pipe(gulp_newer(path.join(DEST, NAME)))
-        .pipe(candidate(PATHS.less_css))
-        .pipe(gulp_sourcemaps.init())
-        .pipe(gulp_less())
-        .pipe(gulp_sourcemaps.write())
-        .pipe(gulp_rename(NAME))
-        .pipe(gulp_size_log(NAME))
-        .pipe(gulp.dest(DEST));
-});
-
-gulp.task('css', ['less_css'], function() {
-    var DEST = 'build/public/css';
-    var NAME = 'styles.css';
-    var NAME_MIN = 'styles.min.css';
-    return gulp
-        .src(path.join(DEST, NAME))
-        .pipe(gulp_plumber(PLUMB_CONF))
-        .pipe(gulp_newer(path.join(DEST, NAME_MIN)))
-        .pipe(gulp_minify_css())
-        .pipe(gulp_rename(NAME_MIN))
-        .pipe(gulp_size_log(NAME_MIN))
-        .pipe(gulp.dest(DEST));
-});
-
-gulp.task('ng', function() {
-    var DEST = 'build/public/js';
-    var NAME = 'templates.js';
-    return gulp
-        .src(PATHS.ngview)
-        .pipe(gulp_plumber(PLUMB_CONF))
-        .pipe(gulp_newer(path.join(DEST, NAME)))
-        .pipe(gulp_ng_template({
-            standalone: true
-        }))
-        .pipe(gulp_size_log(NAME))
-        .pipe(gulp.dest(DEST));
-});
 
 gulp.task('lint', [
     'jshint',
@@ -466,8 +208,7 @@ gulp.task('lint', [
 ]);
 
 gulp.task('eslint', function() {
-    return gulp
-        .src(PATHS.js_for_lint)
+    return gulp.src(PATHS.js_for_lint)
         // eslint() attaches the lint output to the eslint property
         // of the file object so it can be used by other modules.
         .pipe(gulp_eslint())
@@ -480,8 +221,7 @@ gulp.task('eslint', function() {
 });
 
 gulp.task('jshint', function() {
-    return gulp
-        .src(PATHS.js_for_lint)
+    return gulp.src(PATHS.js_for_lint)
         .pipe(gulp_plumber(PLUMB_CONF))
         .pipe(gulp_cached('jshint'))
         .pipe(gulp_jshint.extract())
@@ -496,31 +236,19 @@ gulp.task('agent', ['lint'], function() {
     var BUILD_DEST = 'build/windows';
     var NAME = 'noobaa-agent.tar';
 
-    var pkg_stream = gulp
-        .src('package.json')
+    var pkg_stream = gulp.src('package.json')
         .pipe(gulp_json_editor(function(json) {
             var deps = _.omit(json.dependencies, function(val, key) {
                 return /^gulp/.test(key) ||
                     /^vinyl/.test(key) ||
                     /^jshint/.test(key) ||
                     /^eslint/.test(key) ||
-                    /^browserify/.test(key) ||
                     _.contains([
-                        'bower',
                         'mocha',
                         'mongoose',
                         'bcrypt',
-                        'font-awesome',
-                        'bootstrap',
-                        'animate.css',
-                        'video.js',
                         'heapdump',
-                        'atom-shell',
                         'gulp',
-                        'browserify',
-                        'rebuild',
-                        'nodetime',
-                        'newrelic',
                         'memwatch',
                         'form-data'
                     ], key);
@@ -535,13 +263,11 @@ gulp.task('agent', ['lint'], function() {
             };
         })).on('error', gutil.log);
 
-    var src_stream = gulp
-        .src(PATHS.agent_sources, {
-            base: 'src'
-        });
+    var src_stream = gulp.src(PATHS.agent_sources, {
+        base: 'src'
+    });
 
-    var basejs_stream = gulp
-        .src(['config.js', ], {});
+    var basejs_stream = gulp.src(['config.js', ], {});
 
     // TODO bring back uglify .pipe(gulp_uglify());
 
@@ -557,7 +283,9 @@ gulp.task('agent', ['lint'], function() {
         }))
         .pipe(gulp_tar(NAME))
         .pipe(gulp_gzip())
-        // .pipe(gulp_size_log(NAME))
+        // .pipe(gulp_size({
+        // title: NAME
+        // }))
         .pipe(gulp.dest(DEST));
 });
 
@@ -593,16 +321,19 @@ function package_build_task() {
             if (!use_local_executable) {
                 gutil.log('before downloading setup and rest');
                 return Q.fcall(function() {
-                        return promise_utils.promised_exec('curl -u tamireran:0436dd1acfaf9cd247b3dd22a37f561f -L http://127.0.0.1:8080/job/LinuxBuild/lastBuild/artifact/build/linux/noobaa-setup-' + current_pkg_version + ' >build/public/noobaa-setup-' + current_pkg_version, [], process.cwd());
+                        return promise_utils.promised_exec('curl -u tamireran:0436dd1acfaf9cd247b3dd22a37f561f -L http://127.0.0.1:8080/job/LinuxBuild/lastBuild/artifact/build/linux/noobaa-setup-' + current_pkg_version + ' >build/public/noobaa-setup-' + current_pkg_version);
                     })
                     .then(function() {
-                        return promise_utils.promised_exec('curl -u tamireran:0436dd1acfaf9cd247b3dd22a37f561f -L http://127.0.0.1:8080/job/win_agent_remote/lastBuild/artifact/build/windows/noobaa-setup-' + current_pkg_version + '.exe >build/public/noobaa-setup-' + current_pkg_version + '.exe', [], process.cwd());
+                        return promise_utils.promised_exec('curl -u tamireran:0436dd1acfaf9cd247b3dd22a37f561f -L http://127.0.0.1:8080/job/win_agent_remote/lastBuild/artifact/build/windows/noobaa-setup-' + current_pkg_version + '.exe >build/public/noobaa-setup-' + current_pkg_version + '.exe');
                     })
                     .then(function() {
-                        return promise_utils.promised_exec('curl -u tamireran:0436dd1acfaf9cd247b3dd22a37f561f -L http://127.0.0.1:8080/job/win_s3_remote/lastBuild/artifact/build/windows/noobaa-s3rest-' + current_pkg_version + '.exe>build/public/noobaa-s3rest-' + current_pkg_version + '.exe', [], process.cwd());
+                        return promise_utils.promised_exec('curl -u tamireran:0436dd1acfaf9cd247b3dd22a37f561f -L http://127.0.0.1:8080/job/win_s3_remote/lastBuild/artifact/build/windows/noobaa-s3rest-' + current_pkg_version + '.exe>build/public/noobaa-s3rest-' + current_pkg_version + '.exe');
                     })
                     .then(function() {
-                        return promise_utils.promised_exec('chmod 777 build/public/noobaa-setup', [], process.cwd());
+                        return promise_utils.promised_exec('chmod 777 build/public/noobaa-setup*');
+                    }).fail(function(err){
+                        gutil.log('Failed to download packages. Aborting due to '+err.message+"     "+err.stack);
+                        throw new Error('Failed to download packages. Aborting due to '+err.message+"     "+err.stack);
                     });
             } else {
                 return;
@@ -617,6 +348,7 @@ function package_build_task() {
         })
         .then(function() {
             //call for packing
+            gutil.log('Packing '+DEST+' to '+NAME + "-" + current_pkg_version + '.tar');
             return pack(DEST, NAME + "-" + current_pkg_version + '.tar');
         })
         .then(null, function(error) {
@@ -631,74 +363,11 @@ gulp.task('package_build', deps, function() {
 });
 
 
-gulp.task('client_libs', ['bower'], function() {
-    var DEST = 'build/public/js';
-    var NAME = 'libs.js';
-    var NAME_MIN = 'libs.min.js';
-    var bundler = browserify({
-        debug: true,
-    });
-    _.each(PATHS.client_libs, function(lib) {
-        bundler.require(lib, {
-            expose: lib
-        });
-    });
-
-    // using gulp_replace to fix collision of requires
-    var client_libs_bundle_stream = bundler.bundle()
-        .pipe(vinyl_source_stream(NAME))
-        .pipe(vinyl_buffer());
-    var client_merged_stream = event_stream.merge(
-        client_libs_bundle_stream,
-        gulp.src(PATHS.client_externals)
-    );
-    return client_merged_stream
-        .pipe(gulp_plumber(PLUMB_CONF))
-        .pipe(gulp_concat(NAME))
-        .pipe(gulp_size_log(NAME))
-        .pipe(gulp.dest(DEST))
-        .pipe(gulp_cached(NAME))
-        .pipe(gulp_uglify())
-        .pipe(gulp_rename(NAME_MIN))
-        .pipe(gulp_size_log(NAME_MIN))
-        .pipe(gulp.dest(DEST));
-});
-
-gulp.task('client', ['ng'], function() {
-    var DEST = 'build/public/js';
-    var NAME = 'app.js';
-    var NAME_MIN = 'app.min.js';
-    var bundler = browserify('./' + PATHS.client_bundle, {
-            debug: true,
-        })
-        .transform('babelify', {
-            presets: ['es2015']
-        });
-    _.each(PATHS.client_libs, function(lib) {
-        bundler.external(lib);
-    });
-    gutil.log('setting upgrade', pkg.version, current_pkg_version);
-
-    return bundler.bundle()
-        .pipe(vinyl_source_stream(NAME))
-        .pipe(vinyl_buffer())
-        .pipe(gulp_replace('"version": "' + pkg.version + '"', '"version": "' + current_pkg_version + '"'))
-        .pipe(gulp_plumber(PLUMB_CONF))
-        .pipe(gulp_size_log(NAME))
-        .pipe(gulp.dest(DEST))
-        .pipe(gulp_cached(NAME))
-        .pipe(gulp_uglify())
-        .pipe(gulp_replace('noobaa-core",version:"' + pkg.version + '"', 'noobaa-core",version:"' + current_pkg_version + '"'))
-        .pipe(gulp_rename(NAME_MIN))
-        .pipe(gulp_size_log(NAME_MIN))
-        .pipe(gulp.dest(DEST));
-});
-
 var basepath = path.resolve(__dirname);
+
 gulp.task('coverage_hook', function() {
     // Force `require` to return covered files
-    return gulp
-        .src(PATHS.js_for_coverage)
+    return gulp.src(PATHS.js_for_coverage)
         .pipe(through2.obj(function(file, enc, callback) {
             if (file.path.startsWith(basepath)) {
                 file.path = file.path.slice(basepath.length + 1 /*for / seperator*/ );
@@ -778,13 +447,7 @@ function run_service(service_name, main_script) {
 }
 
 gulp.task('install', [
-    'bower',
-    'assets',
-    'ng',
-    'css',
     'lint',
-    'client_libs',
-    'client',
     'agent',
     'frontend'
 ]);
@@ -799,26 +462,11 @@ gulp.task('serve_bg', [], serve_bg);
 gulp.task('serve_agent', [], serve_agent);
 gulp.task('serve_s3', [], serve_s3);
 gulp.task('install_and_serve', ['install'], serve);
-gulp.task('install_css_and_serve', ['css'], serve);
-gulp.task('install_ng_and_serve', ['ng'], serve);
-gulp.task('install_client_and_serve', ['client', 'ng', 'frontend'], serve);
+gulp.task('install_frontend_and_serve', ['frontend'], serve);
 
 gulp.task('watch', ['serve'], function() {
-    // gulp.watch([
-    //     'src/css/**/*'
-    // ], ['install_css_and_serve']);
-    // gulp.watch([
-    //     'src/ngview/**/*',
-    // ], ['install_ng_and_serve']);
-    // gulp.watch([
-    //     'src/client/**/*',
-    //     'src/api/**/*',
-    //     'src/rpc/**/*',
-    //     'src/util/**/*',
-    // ], ['install_client_and_serve']);
     gulp.watch([
         'src/server/**/*',
-        'src/views/**/*',
         'src/api/**/*',
         'src/rpc/**/*',
         'src/util/**/*',

@@ -41,6 +41,5 @@
   "browser": {
     "istanbul": false
   },
-  "author": "Ohad Mitrani",
-  "license": "ISC"
+  "author": "Ohad Mitrani"
 }

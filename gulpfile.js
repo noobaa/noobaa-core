@@ -36,11 +36,14 @@ if (!process.env.PORT) {
 }
 
 var active_services = {};
-var build_on_premise = argv.saas ? false : (argv.on_premise || true);
 var skip_install = argv.skip_install ? true : false;
 var use_local_executable = argv.local ? true : false;
-var git_commit = argv.GIT_COMMIT || 'DEVONLY';
+var git_commit ='DEVONLY';
 var cov_dir = argv.COV_DIR || '';
+
+if  (argv.GIT_COMMIT) {
+    git_commit = argv.GIT_COMMIT.substr(0, 7);
+}
 
 current_pkg_version = pkg.version + '-' + git_commit;
 console.log('current_pkg_version:', current_pkg_version);

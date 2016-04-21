@@ -5,7 +5,7 @@ They have been split out from the MD server into their own process.
 
 bg_workers_starter - "main" of the bg workers process, inits and registration of actual background worker items.
 
-build_chunks_worker - Rebuilding chunks which are not in optimal state.
+scrubber - Rebuilding chunks which are not in optimal state.
 
 cloud_sync - actual cloud_sync data flows, configuration done via the the MD server, data flow from here.
 

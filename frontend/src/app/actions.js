@@ -580,7 +580,7 @@ export function loadObjectMetadata(bucketName, objectName) {
                 info: objInfo,
                 s3Url: s3.getSignedUrl(
                     'getObject',
-                    { Bucket: bucketName, Key: objectName }
+                    { Bucket: bucketName, Key: objectName, Expires: 604800 }
                 )
             })
         );
@@ -968,6 +968,8 @@ export function uploadFiles(bucketName, files) {
                     },
                     s3ForcePathStyle: true,
                     sslEnabled: false,
+                    //signatureVersion: 'v4',
+                    //region: 'eu-central-1'
                 })
             }
         )
@@ -1297,6 +1299,7 @@ export function raiseNodeDebugLevel(node) {
     api.node.read_node({ name: node })
         .then(
             node => api.node.set_debug_node({
+                level: 5,
                 target: node.rpc_address
             })
         )

@@ -86,8 +86,8 @@ function run_test() {
         })
         .delay(3000)
         .fail(function(err) {
-            console.log('Failed uploading file (SPEAD)', err);
-            throw new Error('Failed uploading file (SPEAD) ' + err);
+            console.log('Failed uploading file (SPREAD)', err);
+            throw new Error('Failed uploading file (SPREAD) ' + err);
         })
         .then(() => {
             return client.object.read_object_mappings({

@@ -31,7 +31,7 @@ module.exports = {
 const EMPTY_CONST_ARRAY = Object.freeze([]);
 
 
-function get_chunk_status(chunk, tiering) {
+function get_chunk_status(chunk, tiering, special_replication_chunk) {
     // TODO handle multi-tiering
     if (tiering.tiers.length !== 1) {
         throw new Error('analyze_chunk: ' +
@@ -40,7 +40,9 @@ function get_chunk_status(chunk, tiering) {
     }
     const tier = tiering.tiers[0].tier;
     const tier_pools_by_id = _.keyBy(tier.pools, '_id');
-    const replicas = tier.replicas;
+    console.warn('JEN is_special_replicas(special_replication_chunk): ', is_special_replicas(special_replication_chunk));
+    var replicas = is_special_replicas(special_replication_chunk)? tier.replicas*2 : tier.replicas;
+    console.warn('JEN replicas: ', replicas);
     const now = Date.now();
 
     let missing_frags = get_missing_frags_in_chunk(chunk, tier);
@@ -53,6 +55,34 @@ function get_chunk_status(chunk, tiering) {
     let deletions = [];
     let chunk_accessible = true;
 
+    function is_special_replicas(special_replication_chunk) {
+        let result = false;
+        _.forEach(special_replication_chunk && special_replication_chunk.objects, obj => {
+            if(obj.content_type.indexOf('video') > -1) {
+                let obj_parts = _.filter(special_replication_chunk.parts, part => String(part.obj) === String(obj._id));
+                _.forEach(obj_parts, part => {
+                    if(part.start === 0 || part.end === obj.size) {
+                        result = true;
+                    }
+                });
+            }
+        });
+
+        return result;
+        /*let result = [];
+        _.forEach(chunks, chunk => {
+            console.warn('JEN CHUNK', chunk);
+            var tmp_parts = _.filter(parts, part => String(part.chunk) === String(chunk._id));
+            var tmp_objects = _.filter(objects, obj => _.find(tmp_parts, part => String(part.obj) === String(obj._id)));
+            console.warn('JEN PARTS', tmp_parts);
+            console.warn('JEN OBJECTS', tmp_objects);
+            result[chunk._id] = {
+                parts: tmp_parts,
+                objects: tmp_objects
+            };
+        });
+        return result;*/
+    }
 
     function check_blocks_group(blocks, alloc) {
         let num_good = 0;

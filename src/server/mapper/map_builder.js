@@ -31,6 +31,7 @@ class MapBuilder {
 
     constructor(chunks) {
         this.chunks = chunks;
+        this.special_replication_chunks = [];
     }
 
     run() {
@@ -41,6 +42,10 @@ class MapBuilder {
                 md_store.load_blocks_for_chunks(this.chunks),
                 this.mark_building()
             ))
+            .then(() => {
+                return md_store.load_jenia_magic_for_chunks(this.chunks)
+                .then((res) => this.special_replication_chunks = res);
+            })
             .then(() => this.analyze_chunks())
             .then(() => this.refresh_alloc())
             .then(() => this.allocate_blocks())
@@ -76,7 +81,7 @@ class MapBuilder {
         _.each(this.chunks, chunk => {
             let bucket = system_store.data.get_by_id(chunk.bucket);
             map_utils.set_chunk_frags_from_blocks(chunk, chunk.blocks);
-            chunk.status = map_utils.get_chunk_status(chunk, bucket.tiering);
+            chunk.status = map_utils.get_chunk_status(chunk, bucket.tiering, this.special_replication_chunks[chunk._id]);
             // only delete blocks if the chunk is in good shape,
             // that is no allocations needed, and is accessible.
             if (chunk.status.accessible &&
@@ -170,6 +175,45 @@ class MapBuilder {
                 });
             }));
         }));
+    }
+
+    content_replica_multiply() {
+       _.each(this.chunks, chunk => {
+        var obj, obj_part;
+        return P.when(db.ObjectPart.collection.findOne({
+            chunk: chunk._id,
+            deleted: null,
+        }))
+        .then(res_objpart => {
+            obj_part = res_objpart;
+            return db.ObjectMD.collection.findOne({
+                _id: obj_part.obj,
+                deleted: null,
+            });
+        })
+        .then(res_obj => {
+            obj = res_obj;
+            return db.ObjectPart.collection.count({
+                obj: obj._id,
+                deleted: null,
+            });
+        })
+        .then(parts_count => {
+            if(obj.content_type.indexOf('video') > -1) {
+                if(parts_count <= 4) {
+                    this.special_replication_chunks.push(chunk);
+                    return;
+                }
+                else {
+                    if(obj_part.part_sequence_number <= 1 || obj_part.part_sequence_number >= parts_count - 2) {
+                        this.special_replication_chunks.push(chunk);
+                        return;
+                    }
+                }
+            }
+            return;
+        });
+       });
     }
 
     update_db() {

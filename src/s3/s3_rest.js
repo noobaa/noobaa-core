@@ -7,6 +7,7 @@ let s3_util = require('../util/s3_utils');
 let s3_errors = require('./s3_errors');
 let express = require('express');
 let jstoxml = require('jstoxml');
+let moment = require('moment');
 //var S3Auth = require('aws-sdk/lib/signers/s3');
 //var s3_auth = new S3Auth();
 
@@ -183,6 +184,14 @@ function s3_rest(controller) {
                 if (req.content_sha256.length !== 32) {
                     throw s3_errors.InvalidDigest;
                 }
+            }
+
+            // using moment to parse x-amz-date from string iso8601 or iso822.
+            // When using a signedURL we give an expiry of 7days, which will cover
+            // up the skew between the times, so we don't check it
+            let client_date = moment(req.headers.date || req.headers['x-amz-date']);
+            if (!req.query['X-Amz-Credential'] && Math.abs(moment().diff(client_date, 'seconds')) > 60) {
+                throw s3_errors.RequestTimeTooSkewed;
             }
 
             next();

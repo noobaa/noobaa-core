@@ -125,7 +125,7 @@ class S3Controller {
                         }))),
                         if_not_empty(_.map(reply.common_prefixes, prefix => ({
                             CommonPrefixes: {
-                                Prefix: prefix || ''
+                                Prefix: string_utils.encodeXML(prefix) || ''
                             }
                         })))
                     ]
@@ -179,7 +179,7 @@ class S3Controller {
                         }))),
                         if_not_empty(_.map(reply.common_prefixes, prefix => ({
                             CommonPrefixes: {
-                                Prefix: prefix || ''
+                                Prefix: string_utils.encodeXML(prefix) || ''
                             }
                         })))
                     ]
@@ -228,7 +228,7 @@ class S3Controller {
                         }))),
                         if_not_empty(_.map(reply.common_prefixes, prefix => ({
                             CommonPrefixes: {
-                                Prefix: prefix || ''
+                                Prefix: string_utils.encodeXML(prefix) || ''
                             }
                         })))
                     ]

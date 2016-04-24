@@ -229,11 +229,7 @@ function update_bucket(req) {
 }*/
 
 function list_bucket_s3_acl(req) {
-    var bucket = find_bucket(req);
-    if (!bucket) {
-        throw req.rpc_error('INVALID_BUCKET_NAME');
-    }
-
+    let bucket = find_bucket(req);
     return system_store.data.accounts
         .filter(
             account => !account.is_support && account.allowed_buckets
@@ -249,18 +245,14 @@ function list_bucket_s3_acl(req) {
 }
 
 function update_bucket_s3_acl(req) {
-    var bucket = find_bucket(req);
-    if (!bucket) {
-        throw req.rpc_error('INVALID_BUCKET_NAME');
-    }
-
+    let bucket = find_bucket(req);
     let updates = req.rpc_params.access_control
         .map(
             record => {
                 let account = system_store.data.accounts_by_email[record.account];
                 let allowed_buckets = record.is_allowed ?
-                    _.unionWith(account.allowed_buckets, [bucket], js_utils.has_equal_id) :
-                    _.differenceWith(account.allowed_buckets, [bucket], js_utils.has_equal_id);
+                    _.unionWith(account.allowed_buckets, [bucket], system_store.has_same_id) :
+                    _.differenceWith(account.allowed_buckets, [bucket], system_store.has_same_id);
 
                 return {
                     _id: account._id,

@@ -10,7 +10,6 @@ module.exports = {
     deep_freeze: deep_freeze,
     make_object: make_object,
     default_value: default_value,
-    has_equal_id: has_equal_id
 };
 
 
@@ -124,9 +123,4 @@ function make_object(keys, valueProvider) {
 
 function default_value(val, def_val) {
     return _.isUndefined(val) ? def_val : val;
-}
-
-
-function has_equal_id(obj1, obj2) {
-    return obj1._id === obj2._id;
 }

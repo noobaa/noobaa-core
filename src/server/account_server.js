@@ -36,7 +36,6 @@ var system_store = require('./stores/system_store');
 var system_server = require('./system_server');
 var crypto = require('crypto');
 var AWS = require('aws-sdk');
-var js_utils = require('../util/js_utils');
 // var dbg = require('../util/debug_module')(__filename);
 
 
@@ -187,8 +186,8 @@ function update_account_s3_acl(req) {
                 (list, record) => {
                     let bucket = system.buckets_by_name[record.bucket_name];
                     return record.is_allowed ?
-                        _.unionWith(list, [bucket], js_utils.has_equal_id) :
-                        _.differenceWith(list, [bucket], js_utils.has_equal_id)
+                        _.unionWith(list, [bucket], system_store.has_same_id) :
+                        _.differenceWith(list, [bucket], system_store.has_same_id)
                 },
                 account.allowed_buckets
             )

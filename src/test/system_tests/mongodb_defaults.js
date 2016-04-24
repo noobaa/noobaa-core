@@ -1,9 +1,10 @@
+/* global db */
 /*
-* mongodb script to restore the initial state of the database
-*
-* usage: mongo nbcore mongodb_init.js
-*
-*/
+ * mongodb script to restore the initial state of the database
+ *
+ * usage: mongo nbcore mongodb_init.js
+ *
+ */
 db.datablocks.remove({});
 db.datachunks.remove({});
 db.objectparts.remove({});

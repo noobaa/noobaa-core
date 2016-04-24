@@ -36,6 +36,7 @@ var system_store = require('./stores/system_store');
 var system_server = require('./system_server');
 var crypto = require('crypto');
 var AWS = require('aws-sdk');
+var js_utils = require('../util/js_utils');
 // var dbg = require('../util/debug_module')(__filename);
 
 
@@ -178,23 +179,30 @@ function update_account_s3_acl(req) {
     if (account.is_support) {
         throw req.forbidden('Cannot update support account');
     }
-    let updates = _.pick(account, '_id');
-    updates.allowed_buckets = account.allowed_buckets;
 
-    _.forEach(req.rpc_params.access_control, bucket => {
-        if (bucket.is_allowed) {
-            updates.allowed_buckets = _.unionWith(updates.allowed_buckets, [system.buckets_by_name[bucket.bucket_name]], _.isEqual);
-        } else {
-            _.remove(updates.allowed_buckets, remove_bucket =>
-                remove_bucket.name.toString() === bucket.bucket_name.toString());
-        }
-    });
-
-    updates.allowed_buckets = _.map(updates.allowed_buckets, bucket => bucket._id);
+    let allowed_buckets = null;
+    if (req.rpc_params.access_control) {
+        allowed_buckets = req.rpc_params.access_control
+            .reduce(
+                (list, record) => {
+                    let bucket = system.buckets_by_name[record.bucket_name];
+                    return record.is_allowed ?
+                        _.unionWith(list, [bucket], js_utils.has_equal_id) :
+                        _.differenceWith(list, [bucket], js_utils.has_equal_id)
+                },
+                account.allowed_buckets
+            )
+            .map(
+                bucket => bucket._id
+            );
+    }
 
     return system_store.make_changes({
             update: {
-                accounts: [updates]
+                accounts: [{
+                    _id: account._id,
+                    allowed_buckets: allowed_buckets
+                }]
             }
         })
         .return();

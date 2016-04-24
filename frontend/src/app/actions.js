@@ -1443,5 +1443,6 @@ export function updateAccountS3ACL(email, acl) {
         .then(
             () => model.accountS3ACL
         )
+        .then(loadAccountList)
         .done();
 }

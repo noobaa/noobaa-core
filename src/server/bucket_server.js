@@ -259,8 +259,8 @@ function update_bucket_s3_acl(req) {
             record => {
                 let account = system_store.data.accounts_by_email[record.account];
                 let allowed_buckets = record.is_allowed ?
-                    _.unionWith(account.allowed_buckets, [bucket], (a, b) => a ._id === b._id ) :
-                    _.differenceWith(account.allowed_buckets, [bucket], (a, b) => a ._id === b._id);
+                    _.unionWith(account.allowed_buckets, [bucket], js_utils.has_equal_id) :
+                    _.differenceWith(account.allowed_buckets, [bucket], js_utils.has_equal_id);
 
                 return {
                     _id: account._id,

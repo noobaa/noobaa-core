@@ -13,7 +13,7 @@ class AccountS3AccessModalViewModel {
                 ({ bucket_name }) => bucket_name
             );
 
-        this.selectedBuckets = ko.observableWithDefault(
+        let selectedBucketsInternal = ko.observableWithDefault(
             () => accountS3ACL
                 .filter(
                     ({ is_allowed }) => is_allowed
@@ -22,6 +22,11 @@ class AccountS3AccessModalViewModel {
                     ({ bucket_name }) => bucket_name
                 )
         )
+
+        this.selectedBuckets = ko.pureComputed({
+            read: () => this.hasS3Access() ? selectedBucketsInternal() : [],
+            write: selectedBucketsInternal
+        });
 
         this.hasS3Access = ko.observableWithDefault(
             () => !!accountInfo() && accountInfo().has_s3_access
@@ -50,6 +55,7 @@ class AccountS3AccessModalViewModel {
             })
         );
 
+        console.log('HERE1');
         updateAccountS3ACL(
             ko.unwrap(this.email), 
             this.hasS3Access() ? acl : null

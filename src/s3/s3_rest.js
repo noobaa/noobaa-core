@@ -120,8 +120,11 @@ function s3_rest(controller) {
                         res.status(200).end();
                     }
                 } else {
-                    _.each(reply, val => val._attr = S3_XML_ATTRS);
-                    let xml_reply = xml_utils.encode_xml(reply);
+                    let xml_root = _.mapValues(reply, val => ({
+                        _attr: S3_XML_ATTRS,
+                        _content: val
+                    }));
+                    let xml_reply = xml_utils.encode_xml(xml_root);
                     dbg.log0('S3 XML REPLY', func_name, req.method, req.url,
                         JSON.stringify(req.headers), xml_reply);
                     res.status(200).send(xml_reply);

@@ -31,7 +31,9 @@ function encode_xml(object) {
 }
 
 function append_object(append, object) {
-    if (Array.isArray(object)) {
+    if (typeof(object) !== 'object') {
+        append(encode_xml_str(object));
+    } else if (Array.isArray(object)) {
         // arrays are encoded without adding new tags
         // which allows repeating keys with the same name
         for (let i = 0; i < object.length; ++i) {
@@ -39,28 +41,37 @@ function append_object(append, object) {
         }
     } else {
         for (let key in object) {
+
             // skip any keys from the prototype
             if (!object.hasOwnProperty(key)) continue;
-            // skip any internal key
-            if (key[0] === '_') continue;
+
+            // undefined values skip encoding the key tag altogether
             let val = object[key];
-            let type = typeof(val);
-            // undefined values will skip encoding the key tag altogether
-            if (type === 'undefined') continue;
-            if (type === 'object') {
+            let val_type = typeof(val);
+            if (val_type === 'undefined') continue;
+
+            // keys starting with _ are not considered tag names
+            // _content - encode only the value but without a tag
+            // otherwise ignore the key and value altogether
+            if (key[0] === '_') {
+                if (key === '_content') {
+                    append_object(append, val);
+                }
+                continue;
+            }
+
+            if (val_type === 'object') {
                 if (val && val._attr) {
                     append('<' + key);
-                    for (let k in val._attr) {
-                        if (!val._attr.hasOwnProperty(k)) continue;
-                        append(' ' + k + '="' + encode_xml_str(val._attr[k]) + '"');
+                    for (let a in val._attr) {
+                        if (!val._attr.hasOwnProperty(a)) continue;
+                        append(' ' + a + '="' + encode_xml_str(val._attr[a]) + '"');
                     }
                     append('>');
                 } else {
                     append('<' + key + '>');
                 }
-                if (val) {
-                    append_object(append, val);
-                }
+                append_object(append, val);
                 append('</' + key + '>');
             } else {
                 append('<' + key + '>');

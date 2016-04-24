@@ -48,8 +48,8 @@ bucketObjectList.order = ko.observable(1);
 bucketObjectList.filter = ko.observable();
 bucketObjectList.page = ko.observable(0);
 
-// Hold the current bucket S3 access list.
-export const bucketS3AccessList = ko.observableArray();
+// Hold the current bucket S3 access permissions.
+export const bucketS3ACL = ko.observableArray();
 
 // Hold the current tier information.
 export const tierInfo = ko.observable();
@@ -109,6 +109,8 @@ export const accountList = ko.observableArray();
 
 // Hold current account information.
 export const accountInfo = ko.observable();
+
+export const accountS3ACL = ko.observableArray();
 
 // Hold node test information.
 export const nodeTestInfo = ko.observable();

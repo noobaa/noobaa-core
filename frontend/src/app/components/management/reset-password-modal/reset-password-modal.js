@@ -11,9 +11,9 @@ const userMessage = new Function(
 );
 
 class RestPasswordModalViewModel {
-	constructor({ onClose, accountEmail }) {
+	constructor({ onClose, email }) {
 		this.onClose = onClose;
-		this.email = accountEmail;
+		this.email = email;
 		this.password = randomString();
 
 		this.userMessage = ko.pureComputed(

@@ -1,18 +1,24 @@
 import template from './bucket-s3-access-list.html';
 import ko from 'knockout';
-import { bucketS3AccessList } from 'model';
-import { loadBucketS3AccessList } from 'actions';
+import { bucketS3ACL } from 'model';
+import { loadBucketS3ACL } from 'actions';
 
 class BucketS3AccessListViewModel {
     constructor({ bucketName }) {
-        this.accessList = bucketS3AccessList
+        this.accessList = bucketS3ACL
+            .filter(
+                ({ is_allowed }) => is_allowed
+            )
+            .map(
+                ({ account }) => account
+            );
 
         this.selectedAccount = ko.observable();
 
         this.bucketName = bucketName;
 
         this.bucketNameSub = this.bucketName.subscribe(
-            name => loadBucketS3AccessList(name)
+            name => loadBucketS3ACL(name)
         );
 
         this.isS3AccessModalVisible = ko.observable(false);

@@ -132,7 +132,7 @@ module.exports = {
             }
         },
 
-        get_buckets_permissions: {
+        list_account_s3_acl: {
             method: 'GET',
             params: {
                 type: 'object',
@@ -144,47 +144,25 @@ module.exports = {
                 }
             },
             reply: {
-                type: 'array',
-                items: {
-                    type: 'object',
-                    properties: {
-                        bucket_name: {
-                            type: 'string'
-                        },
-                        is_allowed: {
-                            type: 'boolean'
-                        }
-                    }
-                }
+                $ref: '#/definitions/account_acl'
             },
             auth: {
                 system: 'admin'
             }
         },
 
-        update_buckets_permissions: {
+        update_account_s3_acl: {
             doc: 'Update bucket access permissions',
             method: 'PUT',
             params: {
                 type: 'object',
-                required: ['email', 'allowed_buckets'],
+                required: ['email', 'access_control'],
                 properties: {
                     email: {
                         type: 'string',
                     },
-                    allowed_buckets: {
-                        type: 'array',
-                        items: {
-                            type: 'object',
-                            properties: {
-                                bucket_name: {
-                                    type: 'string'
-                                },
-                                is_allowed: {
-                                    type: 'boolean'
-                                }
-                            }
-                        }
+                    access_control: {
+                        $ref: '#/definitions/account_acl'
                     },
                 },
             },
@@ -326,7 +304,6 @@ module.exports = {
 
 
     definitions: {
-
         account_info: {
             type: 'object',
             required: ['name', 'email'],
@@ -346,7 +323,7 @@ module.exports = {
                         $ref: 'system_api#/definitions/access_keys'
                     }
                 },
-                has_allowed_buckets: {
+                has_s3_access: {
                     type: 'boolean'
                 },
                 systems: {
@@ -369,8 +346,25 @@ module.exports = {
                     }
                 }
             },
-        }
+        },
 
+        account_acl: {
+            oneOf: {
+                type: ['array', 'null'],
+            },
+            items: {
+                type: 'object',
+                required: ['bucket_name', 'is_allowed'],
+                properties: {
+                    bucket_name: {
+                        type: 'string'
+                    },
+                    is_allowed: {
+                        type: 'boolean'
+                    }
+                }
+            }
+        }
     }
 
 };

@@ -1,23 +1,31 @@
 import template from './bucket-s3-access-modal.html';
 import ko from 'knockout';
 import { noop } from 'utils';
-import { accountList, bucketS3AccessList } from 'model';
-import { loadAccountList, loadBucketS3AccessList } from 'actions';
+import { bucketS3ACL } from 'model';
+import { loadBucketS3ACL, updateBucketS3ACL } from 'actions';
 
 class BucketS3AccessModalViewModel {
     constructor({ bucketName, onClose = noop }) {
         this.onClose = onClose;
 
-        this.accounts = accountList.map(
-            account => account.email
-        );
+        this.bucketName = bucketName;
+
+        this.accounts = bucketS3ACL
+            .map(
+                ({ account }) => account
+            );
 
         this.selectedAccounts = ko.observableWithDefault(
-            () => bucketS3AccessList()
+            () => bucketS3ACL
+                .filter(
+                    ({ is_allowed }) => is_allowed
+                )
+                .map(
+                    ({ account }) => account
+                )
         );
 
-        loadAccountList()
-        loadBucketS3AccessList(ko.unwrap(bucketName));
+        loadBucketS3ACL(ko.unwrap(this.bucketName));
     }
 
     selectAllAccounts() {
@@ -31,6 +39,14 @@ class BucketS3AccessModalViewModel {
     }
 
     save() {
+        let acl = this.accounts().map(
+            account => ({
+                account: account,
+                is_allowed: this.selectedAccounts().indexOf(account) !== -1
+            })
+        );
+
+        updateBucketS3ACL(ko.unwrap(this.bucketName), acl);
         this.onClose();
     }
 

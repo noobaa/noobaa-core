@@ -117,21 +117,37 @@ module.exports = {
             }
         },
 
-        list_bucket_accounts_with_s3_access: {
+        list_bucket_s3_acl: {
             method: 'GET',
             params: {
                 type: 'object',
                 required: ['name'],
                 properties: {
                     name: {
-                        type: 'string',
-                    },
+                        type: 'string'
+                    }
                 }
             },
             reply: {
-                type: 'array',
-                items: {
-                    type: 'string'
+                $ref: '#/definitions/bucket_s3_acl'
+            },
+            auth: {
+                system: 'admin'
+            }
+        },
+
+        update_bucket_s3_acl: {
+            method: 'PUT',
+            params: {
+                type: 'object', 
+                required: ['name', 'access_control'],
+                properties: {
+                    name: {
+                        type: 'string',
+                    },
+                    access_control: {
+                        $ref: '#/definitions/bucket_s3_acl'
+                    }
                 }
             },
             auth: {
@@ -352,6 +368,22 @@ module.exports = {
                 },
                 additions_only: { //If true, only additions will be synced
                     type: 'boolean',
+                }
+            }
+        },
+
+        bucket_s3_acl: {
+            type: 'array',
+            items: {
+                type: 'object',
+                required: ['account', 'is_allowed'],
+                properties: {
+                    account: {
+                        type: 'string'
+                    },
+                    is_allowed: {
+                        type: 'boolean'
+                    }
                 }
             }
         },

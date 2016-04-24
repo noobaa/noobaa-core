@@ -1,16 +1,39 @@
 import template from './create-account-wizard.html';
 import nameAndPermissionsStepTemplate from './name-and-permissions-step.html';
 import detailsStepTemplate from './details-step.html';
-import userMessageTemplate from './user-message-template.html';
 import ko from 'knockout';
 import { randomString, copyTextToClipboard, generateAccessKeys } from 'utils';
 import { systemInfo, bucketList, accountList } from 'model';
 import { loadBucketList, createAccount } from 'actions';
 
-const makeUserMessage = new Function(
-    'serverAddress', 'emailAddress','password',
-    'return `' + userMessageTemplate + '`'
-);
+function makeUserMessage(loginInfo, S3AccessInfo) {
+    return `
+<p class="paragraph">Hi, I created a noobaa user for you:</p>
+${makeLoginMessage(loginInfo)}<br>
+${S3AccessInfo ? makeS3AccessMessage(S3AccessInfo) : ''}
+    `;
+}
+
+function makeLoginMessage({ serverAddress, username, password }) {
+    return `
+<p class="paragraph">
+Use the following credentials to connect to the NooBaa console:<br>
+<span class="emphasized">Console Url:</span> ${serverAddress}<br>
+<span class="emphasized">Username:</span> ${username}<br>
+<span class="emphasized">Password:</span> ${password}
+</p>
+    `;
+}
+
+function makeS3AccessMessage({ access_key, secret_key }) {
+    return `
+<p class="paragraph">
+Use the follwoing S3 access to connect an S3 compatible application to NooBaa:<br>
+<span class="emphasized">Access Key:</span> ${access_key}<br>
+<span class="emphasized">Secret Key:</span> ${secret_key}
+</p>
+    `;
+}
 
 class CreateAccountWizardViewModel {
     constructor({ onClose }) {
@@ -41,23 +64,23 @@ class CreateAccountWizardViewModel {
         });
 
         this.password = randomString();
+        this.accessKeys = generateAccessKeys();
+
+
+        let loginInfo = ko.pureComputed(
+            () => ({
+                serverAddress: `https://${systemInfo().endpoint}:${systemInfo().sslPort}`,
+                username: this.emailAddress(),
+                password: this.password
+            })
+        );
 
         this.userMessage = ko.pureComputed(
-             () => makeUserMessage(
-                 `https://${systemInfo().endpoint}:${systemInfo().sslPort}`,
-                 this.emailAddress() || '', 
-                 this.password
-             )
+            () => makeUserMessage(
+                loginInfo(),
+                this.enableS3Access() ? this.accessKeys : null
+            )
         );
-
-        let { access_key, secret_key } = this.accessKeys = generateAccessKeys();
-        this.accessKeyDetails =  ko.pureComputed(
-            () => [
-                { label: 'S3 Access Key', value: access_key, allowCopy: true },
-                { label: 'S3 Secret Key', value: secret_key, allowCopy: true }
-            ]
-        );
-
 
         this.nameAndPermissionsErrors = ko.validation.group({
             email: this.emailAddress
@@ -90,13 +113,8 @@ class CreateAccountWizardViewModel {
     }
 
     copyCreateEmailToClipboard() {
-        let createEmail = makeUserMessage(
-            `https://${systemInfo().endpoint}:${systemInfo().sslPort}`,
-            this.emailAddress() || '', 
-            this.password
-        )
 
-        copyTextToClipboard(createEmail);
+
     }
 
     create() {
@@ -108,6 +126,7 @@ class CreateAccountWizardViewModel {
             this.enableS3Access() ? this.selectedBuckets() : undefined
         );
 
+        copyTextToClipboard(this.userMessage());
         this.onClose();
 
     }

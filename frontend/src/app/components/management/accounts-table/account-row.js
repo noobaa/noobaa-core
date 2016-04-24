@@ -12,12 +12,12 @@ export default class AccountRowViewModel {
             () => account()
         );
 
-        this.user = ko.pureComputed(
+        this.username = ko.pureComputed(
             () => account() && account().email
         );
 
         let isSystemOwner = ko.pureComputed(
-            () => this.user() === systemInfo().owner
+            () => systemInfo() && this.username() === systemInfo().owner
         )
 
         this.roles = ko.pureComputed(
@@ -35,7 +35,7 @@ export default class AccountRowViewModel {
         );
 
         this.hasS3Access = ko.pureComputed(
-            () => !!account() && account().has_allowed_buckets
+            () => !!account() && account().has_s3_access
         );
 
         this.isDeletable = ko.pureComputed(
@@ -48,6 +48,6 @@ export default class AccountRowViewModel {
     }
 
     del() {
-        deleteAccount(this.user())
+        deleteAccount(this.username())
     }
 }

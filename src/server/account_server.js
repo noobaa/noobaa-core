@@ -10,10 +10,10 @@ var account_server = {
     create_account: create_account,
     read_account: read_account,
     update_account: update_account,
-    generate_account_keys: generate_account_keys,
-    update_buckets_permissions: update_buckets_permissions,
-    get_buckets_permissions: get_buckets_permissions,
     delete_account: delete_account,
+    generate_account_keys: generate_account_keys,
+    list_account_s3_acl: list_account_s3_acl,
+    update_account_s3_acl: update_account_s3_acl,
     list_accounts: list_accounts,
     accounts_status: accounts_status,
     get_system_roles: get_system_roles,
@@ -159,7 +159,7 @@ function generate_account_keys(req) {
  * update_buckets_permissions
  *
  */
-function update_buckets_permissions(req) {
+function update_account_s3_acl(req) {
     var system = req.system;
     let account = system_store.data.accounts_by_email[req.rpc_params.email];
     if (!account) {
@@ -180,7 +180,7 @@ function update_buckets_permissions(req) {
     let updates = _.pick(account, '_id');
     updates.allowed_buckets = account.allowed_buckets;
 
-    _.forEach(req.rpc_params.allowed_buckets, bucket => {
+    _.forEach(req.rpc_params.access_control, bucket => {
         if (bucket.is_allowed) {
             updates.allowed_buckets = _.unionWith(updates.allowed_buckets, [system.buckets_by_name[bucket.bucket_name]], _.isEqual);
         } else {
@@ -198,7 +198,6 @@ function update_buckets_permissions(req) {
         })
         .return();
 }
-
 
 /**
  *
@@ -396,7 +395,7 @@ function check_account_sync_credentials(req) {
  * get_buckets_permissions
  *
  */
-function get_buckets_permissions(req) {
+function list_account_s3_acl(req) {
     var system = req.system;
     let account = system_store.data.accounts_by_email[req.rpc_params.email];
     if (!account) {
@@ -437,7 +436,7 @@ function get_account_info(account) {
         info.access_keys = account.access_keys;
     }
 
-    info.has_allowed_buckets = !!account.allowed_buckets;
+    info.has_s3_access = !!account.allowed_buckets;
 
     info.systems = _.compact(_.map(account.roles_by_system, function(roles, system_id) {
         var system = system_store.data.get_by_id(system_id);

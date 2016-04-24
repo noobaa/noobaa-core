@@ -18,7 +18,8 @@ module.exports = {
     delete_bucket: delete_bucket,
     list_buckets: list_buckets,
     //generate_bucket_access: generate_bucket_access,
-    list_bucket_accounts_with_s3_access: list_bucket_accounts_with_s3_access,
+    list_bucket_s3_acl: list_bucket_s3_acl,
+    update_bucket_s3_acl: update_bucket_s3_acl,
 
     //Cloud Sync policies
     get_cloud_sync_policy: get_cloud_sync_policy,
@@ -227,22 +228,54 @@ function update_bucket(req) {
         .then(res => res[0]);
 }*/
 
-function list_bucket_accounts_with_s3_access(req) {
+function list_bucket_s3_acl(req) {
     var bucket = find_bucket(req);
-
     if (!bucket) {
         throw req.rpc_error('INVALID_BUCKET_NAME');
     }
 
-    var access_accounts = _.filter(
-        system_store.data.accounts,
-        account => !account.is_support && account.allowed_buckets.some(
-             another_bucket => bucket === another_bucket
-        )
-    );
+    return system_store.data.accounts
+        .filter(
+            account => !account.is_support && account.allowed_buckets
+        ) 
+        .map(
+            account => {
+                return {
+                    account: account.email,
+                    is_allowed: _.includes(account.allowed_buckets, bucket)
+                }
+            }
+        );
+}
 
-    var reply = _.map(access_accounts, account => account.email);
-    return reply;
+function update_bucket_s3_acl(req) {
+    var bucket = find_bucket(req);
+    if (!bucket) {
+        throw req.rpc_error('INVALID_BUCKET_NAME');
+    }
+
+    let updates = req.rpc_params.access_control
+        .map(
+            record => {
+                let account = system_store.data.accounts_by_email[record.account];
+                let allowed_buckets = record.is_allowed ?
+                    _.unionWith(account.allowed_buckets, [bucket], (a, b) => a ._id === b._id ) :
+                    _.differenceWith(account.allowed_buckets, [bucket], (a, b) => a ._id === b._id);
+
+                return {
+                    _id: account._id,
+                    allowed_buckets: allowed_buckets.map(
+                        bucket => bucket._id
+                    )
+                }
+            }
+        );
+
+    system_store.make_changes({
+        update: {
+            accounts: updates
+        }
+    });
 }
 
 

@@ -1397,11 +1397,48 @@ export function notify(message, severity = 'INFO') {
     model.lastNotification({ message, severity });
 }
 
-export function loadBucketS3AccessList(bucketName) {
-    logAction('loadBucketS3AccessList', { bucketName });
+export function loadBucketS3ACL(bucketName) {
+    logAction('loadBucketS3ACL', { bucketName });
 
-    api.bucket.list_bucket_accounts_with_s3_access({
+    api.bucket.list_bucket_s3_acl({
         name: bucketName
     })
-        .then(model.bucketS3AccessList);
+        .then(model.bucketS3ACL)
+        .done();
+}
+
+export function updateBucketS3ACL(bucketName, acl) {
+    logAction('updateBucketS3ACL', { bucketName, acl });
+
+    api.bucket.update_bucket_s3_acl({
+        name: bucketName,
+        access_control: acl
+    })
+        .then(
+            () => model.bucketS3ACL(acl)
+        )
+        .done();
+}
+
+export function loadAccountS3ACL(email) {
+    logAction('loadAccountS3ACL', { email });
+
+    api.account.list_account_s3_acl({
+        email: email
+    })
+        .then(model.accountS3ACL)
+        .done();
+}
+
+export function updateAccountS3ACL(email, acl) {
+    logAction('updateAccountS3ACL', { email, acl });
+
+    api.account.update_account_s3_acl({
+        email: email,
+        access_control: acl
+    })
+        .then(
+            () => model.accountS3ACL
+        )
+        .done();
 }

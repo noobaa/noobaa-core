@@ -1,7 +1,5 @@
 <div class="clear">
-    <button class="btn2 pull-right" data-bind="
-        click: () => isCreateAccountModalVisible(true)
-    ">
+    <button class="btn2 pull-right" data-bind="click: () => openCreateAccountModal()">
         Create Account
     </button>
 </div>
@@ -22,23 +20,22 @@
             <tr>
                 <td class="user-col text-left">
                     <svg-icon params="uri: '/fe/assets/icons.svg#account'"></svg-icon>
-                    <span data-bind="text: user"></span>
+                    <span data-bind="text: username"></span>
                 </td>
 
                 <td class="role-col" data-bind="text: roles"></td>
 
                 <td class="s3-access-col">
-                    <!-- ko if: hasS3Access --> 
-                    enabled | <a class="link" href='#'>edit</a>
-                    <!-- /ko -->
-                    <!-- ko ifnot: hasS3Access -->
-                    disabled | <a class="link" href='#'>edit</a>
-                    <!-- /ko -->
+                    <span data-bind="text: hasS3Access() ? 'enabled' : 'disabled'"></span>
+                    |
+                    <button class="link" data-bind="
+                        click: () => $component.openS3AccessModal(username)
+                    ">edit</button>
                 </td>
                 
-                <td class="password-col" data-bind="">
+                <td class="password-col">
                     <button class="link" data-bind="
-                        click: () => $component.showResetPasswordModal(user)
+                        click: () => $component.openResetPasswordModal(username)
                     ">reset</button>
                 </td>
 
@@ -58,14 +55,21 @@
 
 <!-- ko if: isCreateAccountModalVisible -->
 <create-account-wizard params="
-    onClose: () => isCreateAccountModalVisible(false)
+    onClose: () => closeCreateAccountModal()
 "></create-account-wizard>
 <!-- /ko -->
 
 
-<!-- ko if: isResetPasswordModalVisible -->
+<!-- ko if: resetPasswordTarget -->
 <reset-password-modal params="
-    accountEmail: selectedAccount,
-    onClose: () => isResetPasswordModalVisible(false)
+    email: resetPasswordTarget,
+    onClose: () => closeResetPasswordModal()
 "></reset-password-modal>
+<!-- /ko -->
+
+<!-- ko if: editS3AccessTarget -->
+<account-s3-access-modal params="
+    email: editS3AccessTarget,
+    onClose: () => closeS3AccessModal()
+"></account-s3-access-modal>
 <!-- /ko -->

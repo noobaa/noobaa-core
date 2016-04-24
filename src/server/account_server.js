@@ -20,7 +20,10 @@ var account_server = {
     add_account_sync_credentials_cache: add_account_sync_credentials_cache,
     get_account_sync_credentials_cache: get_account_sync_credentials_cache,
     check_account_sync_credentials: check_account_sync_credentials,
-    get_account_info: get_account_info
+    get_account_info: get_account_info,
+
+    // utility to create the support account from bg_workers
+    ensure_support_account: ensure_support_account,
 };
 
 module.exports = account_server;
@@ -34,9 +37,6 @@ var system_server = require('./system_server');
 var crypto = require('crypto');
 var AWS = require('aws-sdk');
 // var dbg = require('../util/debug_module')(__filename);
-
-
-system_store.on('load', ensure_support_account);
 
 
 /**
@@ -54,14 +54,15 @@ function create_account(req) {
         })
         .then(function() {
             var changes;
-           
+
             if (!req.system) {
                 changes = system_server.new_system_changes(account.name, account._id);
                 account.allowed_buckets = [changes.insert.buckets[0]._id];
                 changes.insert.accounts = [account];
             } else {
-                if(req.rpc_params.allowed_buckets){
-                    account.allowed_buckets = _.map(req.rpc_params.allowed_buckets, bucket => req.system.buckets_by_name[bucket]._id);                    
+                if (req.rpc_params.allowed_buckets) {
+                    account.allowed_buckets = _.map(req.rpc_params.allowed_buckets,
+                        bucket => req.system.buckets_by_name[bucket]._id);
                 }
                 changes = {
                     insert: {
@@ -75,7 +76,7 @@ function create_account(req) {
                     }
                 };
             }
-            
+
             create_activity_log_entry(req, 'create', account);
             return system_store.make_changes(changes);
         })
@@ -462,16 +463,13 @@ function get_account_info(account) {
 function ensure_support_account() {
     return system_store.refresh()
         .then(function() {
-            if (!process.env.create_support) {
-                return;
-            }
-
             var support_account = _.find(system_store.data.accounts, function(account) {
                 return !!account.is_support;
             });
             if (support_account) {
                 return;
             }
+            console.log('CREATING SUPPORT ACCOUNT...');
             support_account = {
                 _id: system_store.generate_id(),
                 name: 'Support',

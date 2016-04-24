@@ -20,7 +20,7 @@ dbg.set_level(5, 'core');
 mocha.describe('object_io', function() {
 
     let client = coretest.new_test_client();
-    let object_io = new ObjectIO(client);
+    let object_io = new ObjectIO();
     object_io.set_verification_mode();
 
     const SYS = 'test-object-system';
@@ -132,6 +132,7 @@ mocha.describe('object_io', function() {
                         data[i] = chance.integer(CHANCE_BYTE);
                     }
                     return object_io.upload_stream({
+                        client: client,
                         bucket: BKT,
                         key: key,
                         size: size,
@@ -141,6 +142,7 @@ mocha.describe('object_io', function() {
                     });
                 }).then(function() {
                     return object_io.read_entire_object({
+                        client: client,
                         bucket: BKT,
                         key: key,
                         start: 0,
@@ -217,6 +219,7 @@ mocha.describe('object_io', function() {
                     return promise_utils.loop(10, function() {
                         i++;
                         return object_io.upload_stream_parts({
+                            client: client,
                             bucket: BKT,
                             key: key,
                             upload_id: upload_id,
@@ -259,6 +262,7 @@ mocha.describe('object_io', function() {
                 })
                 .then(function() {
                     return object_io.read_entire_object({
+                        client: client,
                         bucket: BKT,
                         key: key,
                     });

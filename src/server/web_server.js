@@ -20,9 +20,6 @@ require('../util/panic');
 // dump heap with kill -USR2 <pid>
 require('heapdump');
 
-// important - dot settings should run before any require() that might use dot
-// or else the it will get mess up (like the email.js code)
-var dot_engine = require('../util/dot_engine');
 var _ = require('lodash');
 var P = require('../util/promise');
 var path = require('path');
@@ -47,7 +44,8 @@ var cluster = require('cluster');
 var pkg = require('../../package.json');
 var db = require('../server/db');
 var mongo_client = require('./stores/mongo_client');
-
+var rootdir = path.join(__dirname, '..', '..');
+var dev_mode = (process.env.DEV_MODE === 'true');
 
 
 // Temporary removed - causes issues with upgrade.
@@ -56,13 +54,7 @@ if (cluster.isMaster && process.env.MD_CLUSTER_DISABLED !== 'true') {
     // Fork MD Servers
     for (var i = 0; i < numCPUs; i++) {
         console.warn('Spawning MD Server', i + 1);
-        if (i === 0) {
-            cluster.fork({
-                create_support: true
-            });
-        } else {
-            cluster.fork();
-        }
+        cluster.fork();
     }
 
     cluster.on('exit', function(worker, code, signal) {
@@ -72,24 +64,11 @@ if (cluster.isMaster && process.env.MD_CLUSTER_DISABLED !== 'true') {
 }
 
 dbg.set_process_name('WebServer');
-
-// address means the address of the server as reachable from the internet
-process.env.ADDRESS = process.env.ADDRESS || 'http://localhost:5001';
-
-var rootdir = path.join(__dirname, '..', '..');
-var dev_mode = (process.env.DEV_MODE === 'true');
-
-
 db.mongoose_connect();
 mongo_client.connect();
 
 // create express app
 var app = express();
-
-// setup view template engine with doT
-var views_path = path.join(rootdir, 'src', 'views');
-app.set('views', views_path);
-app.engine('html', dot_engine(views_path));
 
 // copied from s3rver. not sure why. but copy.
 app.disable('x-powered-by');
@@ -101,7 +80,6 @@ app.disable('x-powered-by');
 
 // configure app middleware handlers in the order to use them
 
-app.use(express_favicon(path.join(rootdir, 'images', 'noobaa_icon.ico')));
 app.use(express_morgan_logger(dev_mode ? 'dev' : 'combined'));
 app.use(function(req, res, next) {
     // HTTPS redirect:
@@ -224,13 +202,6 @@ app.get('/agent/package.json', function(req, res) {
 
 
 // setup pages
-
-function page_context(req) {
-    var data = {};
-    return {
-        data: data
-    };
-}
 
 app.post('/upgrade',
     multer({

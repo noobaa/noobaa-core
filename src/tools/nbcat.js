@@ -14,7 +14,7 @@ var end = parseInt(process.argv[5], 10) || Infinity;
 var output = process.stdout;
 var rpc = api.new_rpc();
 var client = rpc.new_client();
-var object_io = new ObjectIO(client);
+var object_io = new ObjectIO();
 
 if (!bkt) {
     init_api().then(function() {
@@ -50,6 +50,7 @@ if (!bkt) {
 } else {
     init_api().then(function() {
         return object_io.open_read_stream({
+                client: client,
                 bucket: bkt,
                 key: key,
                 start: start,

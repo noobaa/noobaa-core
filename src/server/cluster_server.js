@@ -213,15 +213,10 @@ function _add_new_replicaset_member(shardname, ip) {
             var rs_length = TOPOLOGY.shards[shard_idx].servers.length;
             if (rs_length === 3) {
                 //Initiate replica set and add all members
-                return mongo_ctrl.initiate_replica_set(shardname)
-                    .then(function() {
-                        return P.each(TOPOLOGY.shards[shard_idx].servers, function(server) {
-                            return mongo_ctrl.add_member_to_replica_set(server);
-                        });
-                    });
+                return mongo_ctrl.initiate_replica_set(shardname, TOPOLOGY.shards[shard_idx].servers);
             } else if (rs_length > 3) {
                 //joining an already existing and functioning replica set, add new member
-                return mongo_ctrl.add_member_to_replica_set(ip);
+                return mongo_ctrl.add_member_to_replica_set(shardname, TOPOLOGY.shards[shard_idx].servers);
             } else {
                 //2 servers, nothing to be done yet. RS will be activated on the 3rd join
                 return;

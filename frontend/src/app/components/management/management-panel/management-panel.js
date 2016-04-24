@@ -10,7 +10,7 @@ class ManagementPanelViewModel {
     }
 
     isTabSelected(tab) {
-        return this.selectedTab() === tab;    
+        return this.selectedTab() === tab;
     }
 }
 

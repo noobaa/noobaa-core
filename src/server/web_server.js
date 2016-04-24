@@ -1,17 +1,25 @@
 'use strict';
-require('../util/panic');
-
 // load .env file before any other modules so that it will contain
 // all the arguments even when the modules are loading.
 console.log('loading .env file');
 require('dotenv').load();
 
+//If test mode, use Istanbul for coverage
+for (var i = 0; i < process.argv.length; ++i) {
+    if (process.argv[i] === '--TESTRUN') {
+        process.env.TESTRUN = true;
+    }
+}
+if (process.env.TESTRUN === 'true') {
+    var ist = require('../test/framework/istanbul_coverage');
+    ist.start_istanbul_coverage();
+}
+
+require('../util/panic');
+
 // dump heap with kill -USR2 <pid>
 require('heapdump');
 
-// important - dot settings should run before any require() that might use dot
-// or else the it will get mess up (like the email.js code)
-var dot_engine = require('../util/dot_engine');
 var _ = require('lodash');
 var P = require('../util/promise');
 var path = require('path');
@@ -36,7 +44,8 @@ var cluster = require('cluster');
 var pkg = require('../../package.json');
 var db = require('../server/db');
 var mongo_client = require('./utils/mongo_client');
-
+var rootdir = path.join(__dirname, '..', '..');
+var dev_mode = (process.env.DEV_MODE === 'true');
 
 
 // Temporary removed - causes issues with upgrade.
@@ -55,24 +64,11 @@ if (cluster.isMaster && process.env.MD_CLUSTER_DISABLED !== 'true') {
 }
 
 dbg.set_process_name('WebServer');
-
-// address means the address of the server as reachable from the internet
-process.env.ADDRESS = process.env.ADDRESS || 'http://localhost:5001';
-
-var rootdir = path.join(__dirname, '..', '..');
-var dev_mode = (process.env.DEV_MODE === 'true');
-
-
 db.mongoose_connect();
 mongo_client.connect();
 
 // create express app
 var app = express();
-
-// setup view template engine with doT
-var views_path = path.join(rootdir, 'src', 'views');
-app.set('views', views_path);
-app.engine('html', dot_engine(views_path));
 
 // copied from s3rver. not sure why. but copy.
 app.disable('x-powered-by');
@@ -84,7 +80,6 @@ app.disable('x-powered-by');
 
 // configure app middleware handlers in the order to use them
 
-app.use(express_favicon(path.join(rootdir, 'images', 'noobaa_icon.ico')));
 app.use(express_morgan_logger(dev_mode ? 'dev' : 'combined'));
 app.use(function(req, res, next) {
     // HTTPS redirect:
@@ -208,13 +203,6 @@ app.get('/agent/package.json', function(req, res) {
 
 // setup pages
 
-function page_context(req) {
-    var data = {};
-    return {
-        data: data
-    };
-}
-
 app.post('/upgrade',
     multer({
         storage: multer.diskStorage({
@@ -248,11 +236,9 @@ app.post('/upgrade',
         res.end('<html><head><meta http-equiv="refresh" content="60;url=/console/" /></head>Upgrading. You will be redirected back to the upgraded site in 60 seconds.');
     });
 
-app.get('/console/*', function(req, res) {
-    return res.render('console.html', page_context(req));
-});
+//Upgrade from 0.3.X will try to return to this path. We will redirect it.
 app.get('/console', function(req, res) {
-    return res.redirect('/console/');
+    return res.redirect('/fe/');
 });
 
 app.get('/', function(req, res) {

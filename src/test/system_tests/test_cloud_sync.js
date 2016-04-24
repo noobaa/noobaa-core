@@ -9,16 +9,19 @@ var ops = require('./basic_server_ops');
 var _ = require('lodash');
 var assert = require('assert');
 var promise_utils = require('../../util/promise_utils');
+var dotenv = require('dotenv');
+dotenv.load();
 
 // var dbg = require('../util/debug_module')(__filename);
 
 
 let TEST_CTX = {
+    connection_name: 'test_connection',
     source_ip: '127.0.0.1',
     source_bucket: 'files',
     target_ip: argv.target_ip,
     target_port: argv.target_port,
-    target_bucket: argv.target_bucket || 'files'
+    target_bucket: argv.target_bucket || 'target'
 };
 
 if (!TEST_CTX.target_ip || !TEST_CTX.target_port) {
@@ -28,12 +31,16 @@ if (!TEST_CTX.target_ip || !TEST_CTX.target_port) {
 
 
 var client = rpc.new_client({
-    address: 'ws://127.0.0.1:5001'
+    address: 'ws://127.0.0.1:' + process.env.PORT
 });
 
 var target_client = target_rpc.new_client({
     address: 'ws://' + TEST_CTX.target_ip + ':' + TEST_CTX.target_port
 });
+
+module.exports = {
+    run_test: run_test
+};
 
 function authenticate() {
     let auth_params = {
@@ -52,26 +59,34 @@ function authenticate() {
 
 
 function set_cloud_sync(params) {
-    var cloud_sync_policy = {
-        endpoint: TEST_CTX.target_ip,
-        target_bucket: TEST_CTX.target_bucket,
-        access_keys: [{
-            access_key: '123',
-            secret_key: 'abc'
-        }],
-        c2n_enabled: params.c2n,
-        n2c_enabled: params.n2c,
-        schedule: 1,
-        additions_only: !params.deletions
-    };
-    return P.when(client.bucket.set_cloud_sync({
-            name: 'files',
-            policy: cloud_sync_policy
-        }))
-        .fail(function(error) {
-            console.warn('Failed with', error, error.stack);
-            process.exit(0);
-        });
+    return P.when()
+        .then(
+            () => client.account.add_account_sync_credentials_cache({
+                name: TEST_CTX.connection_name,
+                endpoint: TEST_CTX.target_ip,
+                access_key: '123',
+                secret_key: 'abc'
+            })
+        )
+        .then(
+            () => client.bucket.set_cloud_sync({
+                name: TEST_CTX.source_bucket,
+                connection: TEST_CTX.connection_name,
+                policy: {
+                    target_bucket: TEST_CTX.target_bucket,
+                    c2n_enabled: params.c2n,
+                    n2c_enabled: params.n2c,
+                    schedule: 1,
+                    additions_only: !params.deletions
+                }
+            })
+        )
+        .fail(
+            error => {
+                console.warn('Failed with', error, error.stack);
+                process.exit(0);
+            }
+        );
 }
 
 function compare_object_lists(file_names, fail_msg, expected_len) {
@@ -124,10 +139,20 @@ function compare_object_lists(file_names, fail_msg, expected_len) {
 }
 
 function main() {
+    return run_test()
+        .then(function() {
+            process.exit(0);
+        })
+        .fail(function(err) {
+            process.exit(1);
+        });
+}
+
+function run_test() {
     let file_sizes = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
     let file_names = [];
     let expected_after_del = 0;
-    authenticate()
+    return authenticate()
         .then(() => P.all(_.map(file_sizes, ops.generate_random_file)))
         .then(function(res_file_names) {
             let i = 0;
@@ -214,12 +239,14 @@ function main() {
         })
         .then(() => {
             console.log('test_cloud_sync PASSED');
-            process.exit(0);
+            rpc.disconnect_all();
+            return;
         })
 
     .catch(err => {
+        rpc.disconnect_all();
         console.error('test_cloud_sync FAILED: ', err.stack || err);
-        process.exit(1);
+        throw new Error('test_cloud_sync FAILED: ', err);
     });
 }
 

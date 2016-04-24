@@ -38,6 +38,8 @@
     "lint": "eslint src",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "author": "Ohad Mitrani",
-  "license": "ISC"
+  "browser": {
+    "istanbul": false
+  },
+  "author": "Ohad Mitrani"
 }

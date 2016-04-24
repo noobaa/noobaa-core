@@ -32,7 +32,11 @@ function collect_basic_diagnostics() {
             return mkdirp.sync(TMP_WORK_DIR);
         })
         .then(function() {
-            return promise_utils.full_dir_copy(process.cwd() + '/logs', TMP_WORK_DIR);
+            if (fs.existsSync(process.cwd() + '/logs')) {
+                return promise_utils.full_dir_copy(process.cwd() + '/logs', TMP_WORK_DIR);
+            } else {
+                return;
+            }
         })
         .then(function() {
             return promise_utils.promised_spawn('cp', ['-f', process.cwd() + '/package.json', TMP_WORK_DIR], process.cwd());

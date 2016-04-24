@@ -38,7 +38,7 @@ module.exports = system_server;
 
 var _ = require('lodash');
 var P = require('../util/promise');
-var crypto = require('crypto');
+//var crypto = require('crypto');
 var ip_module = require('ip');
 var url = require('url');
 // var AWS = require('aws-sdk');
@@ -48,6 +48,7 @@ var server_rpc = require('./server_rpc');
 var bucket_server = require('./bucket_server');
 var pool_server = require('./pool_server');
 var tier_server = require('./tier_server');
+var account_server = require('./account_server');
 var system_store = require('./stores/system_store');
 var nodes_store = require('./stores/nodes_store');
 var size_utils = require('../util/size_utils');
@@ -64,13 +65,13 @@ function new_system_defaults(name, owner_account_id) {
         _id: system_store.generate_id(),
         name: name,
         owner: owner_account_id,
-        access_keys: (name === 'demo') ? [{
+        /*access_keys: (name === 'demo') ? [{
             access_key: '123',
             secret_key: 'abc',
         }] : [{
             access_key: crypto.randomBytes(16).toString('hex'),
             secret_key: crypto.randomBytes(32).toString('hex'),
-        }],
+        }],*/
         resources: {
             // set default package names
             agent_installer: 'noobaa-setup.exe',
@@ -192,13 +193,13 @@ function read_system(req) {
         }),
 
         promise_utils.all_obj(system.buckets_by_name, function(bucket) {
-            return bucket_server.get_cloud_sync_policy({
-                auth_token: req.auth_token,
-                system: system,
+            // TODO this is a hacky "pseudo" rpc request. really should avoid.
+            let new_req = _.defaults({
                 rpc_params: {
                     name: bucket.name
                 }
-            });
+            }, req);
+            return bucket_server.get_cloud_sync_policy(new_req);
         })
 
     ).spread(function(
@@ -251,7 +252,7 @@ function read_system(req) {
                 count: nodes_sys.count || 0,
                 online: nodes_sys.online || 0,
             },
-            access_keys: system.access_keys,
+            owner: account_server.get_account_info(system_store.data.get_by_id(system._id).owner),
             ssl_port: process.env.SSL_PORT,
             web_port: process.env.PORT,
             web_links: get_system_web_links(system),
@@ -514,7 +515,7 @@ function diagnose(req) {
     var out_path = '/public/diagnostics.tgz';
     var inner_path = process.cwd() + '/build' + out_path;
     return P.fcall(function() {
-            return diag.collect_server_diagnostics();
+            return diag.collect_server_diagnostics(req);
         })
         .then((res) => {
             db.ActivityLog.create({
@@ -537,12 +538,12 @@ function diagnose(req) {
         });
 }
 
-function diagnose_with_agent(data) {
+function diagnose_with_agent(data, req) {
     dbg.log0('Recieved diag with agent req');
     var out_path = '/public/diagnostics.tgz';
     var inner_path = process.cwd() + '/build' + out_path;
     return P.fcall(function() {
-            return diag.collect_server_diagnostics();
+            return diag.collect_server_diagnostics(req);
         })
         .then(function() {
             return diag.write_agent_diag_file(data.data);
@@ -562,33 +563,35 @@ function diagnose_with_agent(data) {
 function start_debug(req) {
     dbg.log0('Recieved start_debug req');
     return P.when(server_rpc.client.debug.set_debug_level({
-            level: 5,
+            level: req.rpc_params.level,
             module: 'core'
         }, {
             auth_token: req.auth_token
         }))
         .then(function() {
             return P.when(server_rpc.bg_client.debug.set_debug_level({
-                level: 5,
+                level: req.rpc_params.level,
                 module: 'core'
             }, {
                 auth_token: req.auth_token
             }));
         })
         .then(function() {
-            promise_utils.delay_unblocking(1000 * 60 * 10) //10m
-                .then(function() {
-                    return P.when(server_rpc.client.debug.set_debug_level({
-                        level: 0,
-                        module: 'core'
-                    }));
-                })
-                .then(function() {
-                    return P.when(server_rpc.bg_client.debug.set_debug_level({
-                        level: 0,
-                        module: 'core'
-                    }));
-                });
+            if (req.rpc_params.level > 0) { //If level was set, remove it after 10m
+                promise_utils.delay_unblocking(1000 * 60 * 10) //10m
+                    .then(function() {
+                        return P.when(server_rpc.client.debug.set_debug_level({
+                            level: 0,
+                            module: 'core'
+                        }));
+                    })
+                    .then(function() {
+                        return P.when(server_rpc.bg_client.debug.set_debug_level({
+                            level: 0,
+                            module: 'core'
+                        }));
+                    });
+            }
             return;
         });
 }

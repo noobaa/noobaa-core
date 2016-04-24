@@ -1,16 +1,6 @@
 // this module is written for both nodejs.
 'use strict';
 
-var _ = require('lodash');
-var P = require('../util/promise');
-var db = require('./db');
-var bcrypt = require('bcrypt');
-var system_store = require('./stores/system_store');
-var system_server = require('./system_server');
-// var dbg = require('../util/debug_module')(__filename);
-
-
-
 /**
  *
  * ACCOUNT_SERVER
@@ -20,17 +10,33 @@ var account_server = {
     create_account: create_account,
     read_account: read_account,
     update_account: update_account,
+    generate_account_keys: generate_account_keys,
+    update_buckets_permissions: update_buckets_permissions,
+    get_buckets_permissions: get_buckets_permissions,
     delete_account: delete_account,
     list_accounts: list_accounts,
     accounts_status: accounts_status,
     get_system_roles: get_system_roles,
     add_account_sync_credentials_cache: add_account_sync_credentials_cache,
-    get_account_sync_credentials_cache: get_account_sync_credentials_cache
+    get_account_sync_credentials_cache: get_account_sync_credentials_cache,
+    check_account_sync_credentials: check_account_sync_credentials,
+    get_account_info: get_account_info,
+
+    // utility to create the support account from bg_workers
+    ensure_support_account: ensure_support_account,
 };
 
 module.exports = account_server;
 
-system_store.on('load', ensure_support_account);
+var _ = require('lodash');
+var P = require('../util/promise');
+var db = require('./db');
+var bcrypt = require('bcrypt');
+var system_store = require('./stores/system_store');
+var system_server = require('./system_server');
+var crypto = require('crypto');
+var AWS = require('aws-sdk');
+// var dbg = require('../util/debug_module')(__filename);
 
 
 /**
@@ -46,10 +52,27 @@ function create_account(req) {
         })
         .then(function() {
             var changes;
+            let new_access_keys = [{
+                access_key: crypto.randomBytes(16).toString('hex'),
+                secret_key: crypto.randomBytes(32).toString('hex')
+            }];
+
+            if (req.rpc_params.name.toString() === 'demo' &&
+                req.rpc_params.email.toString() === 'demo@noobaa.com') {
+                new_access_keys[0].access_key = '123';
+                new_access_keys[0].secret_key = 'abc';
+            }
+            account.access_keys = new_access_keys;
+
             if (!req.system) {
                 changes = system_server.new_system_changes(account.name, account._id);
+                account.allowed_buckets = [changes.insert.buckets[0]._id];
                 changes.insert.accounts = [account];
             } else {
+                if (req.rpc_params.allowed_buckets) {
+                    account.allowed_buckets = _.map(req.rpc_params.allowed_buckets,
+                        bucket => req.system.buckets_by_name[bucket]._id);
+                }
                 changes = {
                     insert: {
                         accounts: [account],
@@ -62,6 +85,7 @@ function create_account(req) {
                     }
                 };
             }
+
             create_activity_log_entry(req, 'create', account);
             return system_store.make_changes(changes);
         })
@@ -82,7 +106,6 @@ function create_account(req) {
                 token: req.make_auth_token(auth),
             };
         });
-
 }
 
 
@@ -96,6 +119,88 @@ function read_account(req) {
     return get_account_info(req.account);
 }
 
+
+/**
+ *
+ * GENERATE_ACCOUNT_KEYS
+ *
+ */
+function generate_account_keys(req) {
+    let account = system_store.data.accounts_by_email[req.rpc_params.email];
+    if (!account) {
+        throw req.rpc_error('NO_SUCH_ACCOUNT', 'No such account email: ' + req.rpc_params.email);
+    }
+    if (req.system && req.account) {
+        if (!is_support_or_admin_or_me(req.system, req.account, account)) {
+            throw req.unauthorized('Cannot update account');
+        }
+    }
+    if (account.is_support) {
+        throw req.forbidden('Cannot update support account');
+    }
+    let updates = _.pick(account, '_id');
+    let new_access_keys = [{
+        access_key: crypto.randomBytes(16).toString('hex'),
+        secret_key: crypto.randomBytes(32).toString('hex')
+    }];
+
+    updates.access_keys = new_access_keys;
+    return system_store.make_changes({
+            update: {
+                accounts: [updates]
+            }
+        })
+        .then(() => {
+            //create_activity_log_entry(req, 'update', account);
+            return new_access_keys;
+        });
+}
+
+
+/**
+ *
+ * update_buckets_permissions
+ *
+ */
+function update_buckets_permissions(req) {
+    var system = req.system;
+    let account = system_store.data.accounts_by_email[req.rpc_params.email];
+    if (!account) {
+        throw req.rpc_error('NO_SUCH_ACCOUNT', 'No such account email: ' + req.rpc_params.email);
+    }
+    if (req.system && req.account) {
+        if (!is_support_or_admin_or_me(req.system, req.account, account)) {
+            throw req.unauthorized('Cannot update account');
+        }
+    } else {
+        if (!req.system) {
+            system = system_store.data.systems_by_name[req.rpc_params.name];
+        }
+    }
+    if (account.is_support) {
+        throw req.forbidden('Cannot update support account');
+    }
+    let updates = _.pick(account, '_id');
+    updates.allowed_buckets = account.allowed_buckets;
+
+    _.forEach(req.rpc_params.allowed_buckets, bucket => {
+        if (bucket.is_allowed) {
+            updates.allowed_buckets = _.unionWith(updates.allowed_buckets, [system.buckets_by_name[bucket.bucket_name]], _.isEqual);
+        } else {
+            _.remove(updates.allowed_buckets, remove_bucket =>
+                remove_bucket.name.toString() === bucket.bucket_name.toString());
+        }
+    });
+
+    updates.allowed_buckets = _.map(updates.allowed_buckets, bucket => bucket._id);
+
+    return system_store.make_changes({
+            update: {
+                accounts: [updates]
+            }
+        })
+        .return();
+}
 
 
 /**
@@ -231,10 +336,19 @@ function get_system_roles(req) {
  * UPDATE_ACCOUNT with keys
  *
  */
-
 function get_account_sync_credentials_cache(req) {
-    return req.account.sync_credentials_cache || [];
+    return (req.account.sync_credentials_cache || []).map(
+        // The defaults are used for backword compatibility.
+        credentials => {
+            return {
+                name: credentials.name || credentials.access_key,
+                endpoint: credentials.endpoint || 'https://s3.amazonaws.com',
+                access_key: credentials.access_key
+            };
+        }
+    );
 }
+
 /**
  *
  * UPDATE_ACCOUNT with keys
@@ -242,7 +356,7 @@ function get_account_sync_credentials_cache(req) {
  */
 
 function add_account_sync_credentials_cache(req) {
-    var info = _.pick(req.rpc_params, 'access_key', 'secret_key','endpoint');
+    var info = _.pick(req.rpc_params, 'name', 'endpoint', 'access_key', 'secret_key');
     var updates = {
         _id: req.account._id,
         sync_credentials_cache: req.account.sync_credentials_cache || []
@@ -255,27 +369,80 @@ function add_account_sync_credentials_cache(req) {
     }).return();
 }
 
+function check_account_sync_credentials(req) {
+    var params = _.pick(req.rpc_params, 'endpoint', 'access_key', 'secret_key');
+
+    return P.fcall(function() {
+        var s3 = new AWS.S3({
+            endpoint: params.endpoint,
+            accessKeyId: params.access_key,
+            secretAccessKey: params.secret_key,
+            sslEnabled: false
+        });
+
+        return P.ninvoke(s3, "listBuckets");
+    }).then(
+        () => true,
+        () => false
+    );
+}
 
 
+/**
+ *
+ * get_buckets_permissions
+ *
+ */
+function get_buckets_permissions(req) {
+    var system = req.system;
+    let account = system_store.data.accounts_by_email[req.rpc_params.email];
+    if (!account) {
+        throw req.rpc_error('NO_SUCH_ACCOUNT', 'No such account email: ' + req.rpc_params.email);
+    }
+    if (req.system && req.account) {
+        if (!is_support_or_admin_or_me(req.system, req.account, account)) {
+            throw req.unauthorized('No permission to get allowed buckets');
+        }
+    } else {
+        if (!req.system) {
+            system = system_store.data.get_by_id(req.auth && req.auth.system_id);
+        }
+    }
+    if (account.is_support) {
+        throw req.forbidden('No allowed buckets for support account');
+    }
+    let reply = [];
+    reply = _.map(system_store.data.buckets,
+        bucket => ({
+            bucket_name: bucket.name,
+            is_allowed: _.find(account.allowed_buckets, allowed_bucket => (allowed_bucket === bucket)) ? true : false
+        }));
+
+    return reply;
+}
 
 // UTILS //////////////////////////////////////////////////////////
 
 
 
 function get_account_info(account) {
-    console.log('account', account);
     var info = _.pick(account, 'name', 'email');
     if (account.is_support) {
         info.is_support = true;
     }
-    info.systems = _.map(account.roles_by_system, function(roles, system_id) {
+    if (account.access_keys) {
+        info.access_keys = account.access_keys;
+    }
+    info.systems = _.compact(_.map(account.roles_by_system, function(roles, system_id) {
         var system = system_store.data.get_by_id(system_id);
+        if (!system) {
+            return null;
+        }
         return {
             name: system.name,
             roles: roles
         };
-    });
-    console.log('get_account_info', info);
+    }));
     return info;
 }
 
@@ -296,6 +463,7 @@ function ensure_support_account() {
             if (support_account) {
                 return;
             }
+            console.log('CREATING SUPPORT ACCOUNT...');
             support_account = {
                 _id: system_store.generate_id(),
                 name: 'Support',

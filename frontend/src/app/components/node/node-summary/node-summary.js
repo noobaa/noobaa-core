@@ -1,7 +1,7 @@
 import template from './node-summary.html';
 import ko from 'knockout';
 import moment from 'moment';
-import { raiseNodeDebugLevel, downloadDiagnosticPack } from 'actions';
+import { raiseNodeDebugLevel, downloadNodeDiagnosticPack } from 'actions';
 import { formatSize } from 'utils';
 import style from 'style';
 
@@ -100,7 +100,7 @@ class NodeSummaryViewModel {
     }
 
     downloadDiagnosticPack() {
-        downloadDiagnosticPack(this.name());
+        downloadNodeDiagnosticPack(this.name());
     }
 }
 

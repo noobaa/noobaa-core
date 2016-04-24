@@ -88,7 +88,7 @@ var heartbeat_count_node_storage_barrier = new Barrier({
                 // convert the map-reduce array to map of node_id -> sum of block sizes
                 var nodes_storage = _.mapValues(_.keyBy(res, '_id'), 'value');
                 return _.map(node_ids, function(node_id) {
-                    dbg.log2('heartbeat_count_node_storage_barrier', nodes_storage, 'for ',node_ids, ' nodes_storage[',node_id,'] ',nodes_storage[node_id] );
+                    dbg.log2('heartbeat_count_node_storage_barrier', nodes_storage, 'for ', node_ids, ' nodes_storage[', node_id, '] ', nodes_storage[node_id]);
                     return nodes_storage[node_id] || 0;
                 });
             });
@@ -197,7 +197,7 @@ function update_heartbeat(req, reply_token) {
     var peer_id = params.peer_id;
     var node;
 
-    dbg.log0('HEARTBEAT node_id', node_id, 'process.env.AGENT_VERSION', process.env.AGENT_VERSION,'  params:',params);
+    dbg.log0('HEARTBEAT node_id', node_id, 'process.env.AGENT_VERSION', process.env.AGENT_VERSION, '  params:', params);
 
     var hb_delay_ms = process.env.AGENT_HEARTBEAT_DELAY_MS || 60000;
     hb_delay_ms *= 1 + Math.random(); // jitter of 2x max
@@ -269,7 +269,7 @@ function update_heartbeat(req, reply_token) {
         ])
         .spread(function(node_arg, storage_used) {
             node = node_arg;
-            dbg.log0('ETET:storage_used',storage_used);
+            dbg.log0('ETET:storage_used', storage_used);
             if (!node) {
                 // we don't fail here because failures would keep retrying
                 // to find this node, and the node is not in the db.
@@ -308,7 +308,7 @@ function update_heartbeat(req, reply_token) {
                     agent_storage.used, ' counted used ', storage_used);
                 // TODO trigger a detailed usage check / reclaiming
             }
-            dbg.log0('should update (?)',node.storage.used , 'with', storage_used);
+            dbg.log0('should update (?)', node.storage.used, 'with', storage_used);
 
             // check if need to update the node used storage count
             if (node.storage.used !== storage_used) {
@@ -465,7 +465,7 @@ function collect_agent_diagnostics(req) {
             });
         })
         .then(function(data) {
-            return system_server.diagnose_with_agent(data);
+            return system_server.diagnose_with_agent(data, req);
         })
         .then(null, function(err) {
             dbg.log0('Error on collect_agent_diagnostics', err);
@@ -474,17 +474,17 @@ function collect_agent_diagnostics(req) {
 }
 
 function set_debug_node(req) {
-    var target = req.rpc_params.target;
+    var target = req.rpc_params.target;    
     return P.fcall(function() {
-            return server_rpc.client.agent.set_debug_node({}, {
+            return server_rpc.client.agent.set_debug_node({
+                level: req.rpc_params.level
+            }, {
                 address: target,
             });
         })
         .then(function() {
             var updates = {};
-            //TODO: use param and send it to the agent.
-            //Currently avoid it, due to multiple actors.
-            updates.debug_level = 5;
+            updates.debug_level = req.rpc_params.level;
             return nodes_store.update_nodes({
                 rpc_address: target
             }, {
@@ -505,7 +505,7 @@ function set_debug_node(req) {
                         actor: req.account && req.account._id,
                         node: node._id
                     });
-                    dbg.log1('set_debug_node for agent', target, 'was successful');
+                    dbg.log1('set_debug_node for agent', target, req.rpc_params.level, 'was successful');
                     return '';
                 });
         });

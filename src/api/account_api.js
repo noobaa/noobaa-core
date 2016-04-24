@@ -29,6 +29,12 @@ module.exports = {
                     password: {
                         type: 'string',
                     },
+                    allowed_buckets: {
+                        type: 'array',
+                        items: {
+                            type: 'string',
+                        }
+                    },
                 },
             },
             reply: {
@@ -80,6 +86,90 @@ module.exports = {
             },
             auth: {
                 system: false
+            }
+        },
+
+        generate_account_keys: {
+            doc: 'Generate new account keys',
+            method: 'PUT',
+            params: {
+                type: 'object',
+                required: ['email'],
+                properties: {
+                    email: {
+                        type: 'string',
+                    }
+                },
+            },
+            reply: {
+                type: 'array',
+                items: {
+                    $ref: 'system_api#/definitions/access_keys'
+                }
+            },
+            auth: {
+                system: 'admin'
+            }
+        },
+
+        get_buckets_permissions: {
+            method: 'GET',
+            params: {
+                type: 'object',
+                required: ['email'],
+                properties: {
+                    email: {
+                        type: 'string',
+                    },
+                }
+            },
+            reply: {
+                type: 'array',
+                items: {
+                    type: 'object',
+                    properties: {
+                        bucket_name: {
+                            type: 'string'
+                        },
+                        is_allowed: {
+                            type: 'boolean'
+                        }
+                    }
+                }
+            },
+            auth: {
+                system: 'admin'
+            }
+        },
+
+        update_buckets_permissions: {
+            doc: 'Update bucket access permissions',
+            method: 'PUT',
+            params: {
+                type: 'object',
+                required: ['email', 'allowed_buckets'],
+                properties: {
+                    email: {
+                        type: 'string',
+                    },
+                    allowed_buckets: {
+                        type: 'array',
+                        items: {
+                            type: 'object',
+                            properties: {
+                                bucket_name: {
+                                    type: 'string'
+                                },
+                                is_allowed: {
+                                    type: 'boolean'
+                                }
+                            }
+                        }
+                    },
+                },
+            },
+            auth: {
+                system: 'admin'
             }
         },
 
@@ -142,16 +232,19 @@ module.exports = {
             method: 'PUT',
             params: {
                 type: 'object',
-                // required: [],
+                required: ['name', 'access_key', 'secret_key', 'endpoint'],
                 properties: {
-                    access_key: {
-                        type: 'string',
-                    },
-                    secret_key: {
-                        type: 'string',
+                    name: {
+                        type: 'string'
                     },
                     endpoint: {
-                        type: 'string',
+                        type: 'string'
+                    },
+                    access_key: {
+                        type: 'string'
+                    },
+                    secret_key: {
+                        type: 'string'
                     }
                 }
             },
@@ -167,15 +260,15 @@ module.exports = {
                 items: {
                     type: 'object',
                     properties: {
-                        access_key: {
-                            type: 'string',
-                        },
-                        secret_key: {
-                            type: 'string',
+                        name: {
+                            type: 'string'
                         },
                         endpoint: {
-                            type: 'string',
+                            type: 'string'
                         },
+                        access_key: {
+                            type: 'string'
+                        }
                     }
                 }
             },
@@ -184,6 +277,31 @@ module.exports = {
             }
         },
 
+        check_account_sync_credentials: {
+            method: 'GET',
+            params: {
+                type: 'object',
+                required: ['access_key', 'secret_key', 'endpoint'],
+                properties: {
+                    endpoint: {
+                        type: 'string'
+                    },
+                    access_key: {
+                        type: 'string'
+                    },
+
+                    secret_key: {
+                        type: 'string'
+                    }
+                }
+            },
+            reply: {
+                type: 'boolean'
+            },
+            auth: {
+                system: 'admin'
+            }
+        }
     },
 
 
@@ -201,6 +319,12 @@ module.exports = {
                 },
                 is_support: {
                     type: 'boolean',
+                },
+                access_keys: {
+                    type: 'array',
+                    items: {
+                        $ref: 'system_api#/definitions/access_keys'
+                    }
                 },
                 systems: {
                     type: 'array',

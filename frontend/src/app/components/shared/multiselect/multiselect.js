@@ -6,7 +6,7 @@ class MultiSelectViewModel {
         this.options = options.map(
             option => typeof ko.unwrap(option) === 'object' ? 
                 ko.unwrap(option) : 
-                { value: ko.unwrap(option),  label: option.toString() } 
+                { value: ko.unwrap(option),  label: ko.unwrap(option).toString() } 
         );
 
         this.selected = selected;

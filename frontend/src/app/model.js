@@ -53,10 +53,10 @@ export let tierInfo = ko.observable();
 
 // Hold the current cloud sync information.
 export let cloudSyncInfo = ko.observable();
-export let awsCredentialsList = ko.observableArray();
-
-export let awsBucketList = ko.observableArray();
-awsBucketList.credentials = ko.observable();
+export let S3Connections = ko.observableArray();
+export let S3BucketList = ko.observableArray();
+export let isS3ConnectionValid = ko.observable(true)
+    .extend({ notify: 'always' });
 
 // Hold the current pool list. derived from system info.
 export let poolList = ko.observableArray();
@@ -115,3 +115,4 @@ export let debugCollectionInfo = ko.observable();
 
 // Hold the last notifiction.
 export let lastNotification = ko.observable();
+

@@ -3,7 +3,7 @@
     "paginationPageSize": 25,
     "defaultPoolName": "default_pool",
     "notificationInterval": 5000,
-    "upgradePackageSuffix": ".tgz",
+    "upgradePackageSuffix": ".gz",
     "nodeTest": {
         "targetCount": 20,
         "testSettings": {

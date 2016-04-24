@@ -147,6 +147,7 @@ class SystemStoreData {
         this.rebuild_idmap();
         this.rebuild_object_links();
         this.rebuild_indexes();
+        this.rebuild_allowed_buckets_links();
     }
 
     rebuild_idmap() {
@@ -194,6 +195,16 @@ class SystemStoreData {
                     }
                 }
             });
+        });
+    }
+
+    rebuild_allowed_buckets_links() {
+        _.each(this.accounts, (account) => {
+            // filter only the buckets that were resolved to existing buckets
+            // this is to handle deletions of buckets that currently do not
+            // update all the accounts.
+            account.allowed_buckets =
+                _.filter(account.allowed_buckets, bucket => !!bucket._id);
         });
     }
 
@@ -351,6 +362,9 @@ class SystemStore extends EventEmitter {
                     .then(res => dbg.log0('SystemStore indexes of',
                         collection, _.map(res, 'name')))
                 ));
+            })
+            .then(null, function(err) {
+                console.warn('ignoring error in _init_db:', err);
             });
         return this._init_db_promise;
     }

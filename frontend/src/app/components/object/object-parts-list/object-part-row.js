@@ -1,5 +1,5 @@
 import ko from 'knockout';
-import { formatSize } from 'utils';
+import { formatSize, dblEncode } from 'utils';
 
 const partStateMapping = Object.freeze({
     available: {
@@ -24,7 +24,11 @@ class BlockRowViewModel {
         this.nodeStateIcon = `/fe/assets/icons.svg#node-${online ? 'online' : 'offline'}`;
         this.nodeIp = node_ip;
         this.nodeName = node_name;
-        this.href = `/fe/systems/:system/pools/${pool_name}/nodes/${node_name}`;
+        this.href = `/fe/systems/:system/pools/${
+                dblEncode(pool_name)
+            }/nodes/${
+                dblEncode(node_name)
+            }`;
     }
 }
 

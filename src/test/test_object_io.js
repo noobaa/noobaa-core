@@ -20,7 +20,7 @@ dbg.set_level(5, 'core');
 mocha.describe('object_io', function() {
 
     let client = coretest.new_test_client();
-    let object_io = new ObjectIO(client);
+    let object_io = new ObjectIO();
     object_io.set_verification_mode();
 
     let SYS = 'test-object-system';
@@ -126,14 +126,17 @@ mocha.describe('object_io', function() {
                         data[i] = chance.integer(CHANCE_BYTE);
                     }
                     return object_io.upload_stream({
+                        client: client,
                         bucket: BKT,
                         key: key,
                         size: size,
                         content_type: 'application/octet-stream',
                         source_stream: new SliceReader(data),
+                        calculate_md5: true,
                     });
                 }).then(function() {
                     return object_io.read_entire_object({
+                        client: client,
                         bucket: BKT,
                         key: key,
                         start: 0,
@@ -206,19 +209,29 @@ mocha.describe('object_io', function() {
                         });
                 })
                 .then(function() {
-                    let i = 0;
+                    let i = -1;
                     return promise_utils.loop(10, function() {
+                        i++;
                         return object_io.upload_stream_parts({
+                            client: client,
                             bucket: BKT,
                             key: key,
                             upload_id: upload_id,
-                            upload_part_number: (i++),
+                            upload_part_number: i,
                             size: part_size,
                             source_stream: new SliceReader(data, {
                                 start: i * part_size,
                                 end: (i + 1) * part_size
                             }),
-                        });
+                            calculate_md5: true,
+                        })
+                        .then((md5_digest) => client.object.complete_part_upload({
+                            bucket: BKT,
+                            key: key,
+                            upload_id: upload_id,
+                            upload_part_number: i,
+                            etag: md5_digest.md5.toString('hex')
+                        }));
                     });
                 })
                 .then(function() {
@@ -243,6 +256,7 @@ mocha.describe('object_io', function() {
                 })
                 .then(function() {
                     return object_io.read_entire_object({
+                        client: client,
                         bucket: BKT,
                         key: key,
                     });

@@ -117,6 +117,28 @@ module.exports = {
             }
         },
 
+        list_bucket_access_accounts: {
+            method: 'GET',
+            params: {
+                type: 'object',
+                required: ['name'],
+                properties: {
+                    name: {
+                        type: 'string',
+                    },
+                }
+            },
+            reply: {
+                type: 'array',
+                items: {
+                    type: 'string'
+                }
+            },
+            auth: {
+                system: 'admin'
+            }
+        },
+
         get_cloud_sync_policy: {
             method: 'GET',
             params: {
@@ -133,7 +155,13 @@ module.exports = {
                 // required: [],
                 properties: {
                     name: {
-                        type: 'string',
+                        type: 'string'
+                    },
+                    endpoint: {
+                        type: 'string'
+                    },
+                    access_key: {
+                        type: 'string'
                     },
                     policy: {
                         $ref: '#/definitions/cloud_sync'
@@ -160,7 +188,13 @@ module.exports = {
                     type: 'object',
                     properties: {
                         name: {
-                            type: 'string',
+                            type: 'string'
+                        },
+                        endpoint: {
+                            type: 'string'
+                        },
+                        access_key: {
+                            type: 'string'
                         },
                         policy: {
                             $ref: '#/definitions/cloud_sync'
@@ -186,8 +220,8 @@ module.exports = {
                 required: ['name'],
                 properties: {
                     name: {
-                        type: 'string',
-                    },
+                        type: 'string'
+                    }
                 }
             },
             auth: {
@@ -202,7 +236,10 @@ module.exports = {
                 required: ['name', 'policy'],
                 properties: {
                     name: {
-                        type: 'string',
+                        type: 'string'
+                    },
+                    connection: {
+                        type: 'string'
                     },
                     policy: {
                         $ref: '#/definitions/cloud_sync'
@@ -214,21 +251,44 @@ module.exports = {
             }
         },
 
-        get_cloud_buckets: {
-            method: 'GET',
+        // TODO Removed by request of Ohad, because seems like we won't be using it
+        /*generate_bucket_access: {
+            method: 'PUT',
             params: {
+                type: 'object',
+                required: ['name'],
+                properties: {
+                    name: {
+                        type: 'string',
+                    }
+                }
+            },
+            reply: {
                 type: 'object',
                 required: ['access_key', 'secret_key'],
                 properties: {
-                    endpoint:{
-                            type:'string',
-                    },
                     access_key: {
                         type: 'string',
                     },
                     secret_key: {
                         type: 'string',
-                    },
+                    }
+                }
+            },
+            auth: {
+                system: 'admin'
+            }
+        },*/
+
+        get_cloud_buckets: {
+            method: 'GET',
+            params: {
+                type: 'object',
+                required: ['connection'],
+                properties: {
+                    connection: {
+                        type: 'string'
+                    }
                 }
             },
             reply: {
@@ -270,19 +330,10 @@ module.exports = {
 
         cloud_sync: {
             type: 'object',
-            required: ['endpoint', 'access_keys', 'schedule'],
+            required: ['target_bucket', 'schedule'],
             properties: {
-                endpoint: {
+                target_bucket: {
                     type: 'string',
-                },
-                target_bucket:{
-                    type:'string',
-                },
-                access_keys: {
-                    type: 'array',
-                    items: {
-                        $ref: 'system_api#/definitions/access_keys'
-                    }
                 },
                 schedule: {
                     type: 'integer'

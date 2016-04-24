@@ -4,7 +4,9 @@
 var _ = require('lodash');
 var P = require('../util/promise');
 var db = require('./db');
+var mime = require('mime');
 var MapAllocator = require('./mapper/map_allocator');
+var MapCopy = require('./mapper/map_copy');
 var map_writer = require('./mapper/map_writer');
 var map_reader = require('./mapper/map_reader');
 var map_deleter = require('./mapper/map_deleter');
@@ -30,6 +32,7 @@ var object_server = {
     finalize_object_parts: finalize_object_parts,
     complete_part_upload: complete_part_upload,
     report_bad_block: report_bad_block,
+    copy_object: copy_object,
 
     // read
     read_object_mappings: read_object_mappings,
@@ -55,14 +58,17 @@ module.exports = object_server;
  *
  */
 function create_object_upload(req) {
+    dbg.log0('create_object_upload:', req.rpc_params);
     load_bucket(req);
-    dbg.log0('create_object_upload xattr', req.rpc_params);
     var info = {
         _id: db.new_object_id(),
         system: req.system._id,
         bucket: req.bucket._id,
         key: req.rpc_params.key,
-        content_type: req.rpc_params.content_type || 'application/octet-stream',
+        content_type: req.rpc_params.content_type ||
+            mime.lookup(req.rpc_params.key) ||
+            'application/octet-stream',
+        create_time: new Date(),
         upload_size: 0,
         cloud_synced: false,
     };
@@ -79,32 +85,9 @@ function create_object_upload(req) {
             deleted: null
         }))
         .then(existing_obj => {
-            if (req.rpc_params.if_modified_since) {
-                if (!existing_obj ||
-                    req.rpc_params.if_modified_since < existing_obj._id.getTimestamp().getTime()) {
-                    throw req.rpc_error('IF_MODIFIED_SINCE');
-                }
-            }
-            if (req.rpc_params.if_unmodified_since) {
-                if (!existing_obj ||
-                    req.rpc_params.if_unmodified_since > existing_obj._id.getTimestamp().getTime()) {
-                    throw req.rpc_error('IF_UNMODIFIED_SINCE');
-                }
-            }
-            if (req.rpc_params.if_match_etag) {
-                if (!existing_obj ||
-                    (req.rpc_params.if_match_etag !== '*' &&
-                        req.rpc_params.if_match_etag !== existing_obj.etag)) {
-                    throw req.rpc_error('IF_MATCH_ETAG');
-                }
-            }
-            if (req.rpc_params.if_none_match_etag) {
-                if (existing_obj &&
-                    (req.rpc_params.if_none_match_etag === '*' ||
-                        req.rpc_params.if_none_match_etag === existing_obj.etag)) {
-                    throw req.rpc_error('IF_NONE_MATCH_ETAG');
-                }
-            }
+            // check if the conditions for overwrite are met, throws if not
+            check_md_conditions(req, req.rpc_params.overwrite_if, existing_obj);
+            // we passed the checks, so we can delete the existing object if exists
             if (existing_obj) {
                 return delete_object_internal(existing_obj);
             }
@@ -185,7 +168,7 @@ function complete_object_upload(req) {
             }, {
                 $set: {
                     size: object_size || obj.size,
-                    etag: obj_etag,
+                    etag: obj_etag
                 },
                 $unset: {
                     upload_size: 1
@@ -283,6 +266,99 @@ function report_bad_block(req) {
 
 /**
  *
+ * copy_object
+ *
+ */
+function copy_object(req) {
+    dbg.log0('copy_object', req.rpc_params);
+    load_bucket(req);
+    var source_bucket = req.system.buckets_by_name[req.rpc_params.source_bucket];
+    if (!source_bucket) {
+        throw req.rpc_error('NO_SUCH_BUCKET', 'No such bucket: ' + req.rpc_params.source_bucket);
+    }
+    var create_info;
+    var existing_obj;
+    var source_obj;
+    return P.join(
+            db.ObjectMD.findOne({
+                system: req.system._id,
+                bucket: req.bucket._id,
+                key: req.rpc_params.key,
+                deleted: null
+            }),
+            db.ObjectMD.findOne({
+                system: req.system._id,
+                bucket: source_bucket._id,
+                key: req.rpc_params.source_key,
+                deleted: null
+            }))
+        .spread((existing_obj_arg, source_obj_arg) => {
+            existing_obj = existing_obj_arg;
+            source_obj = source_obj_arg;
+            if (!source_obj) {
+                throw req.rpc_error('NO_SUCH_OBJECT',
+                    'No such object: ' + req.rpc_params.source_bucket +
+                    ' ' + req.rpc_params.source_key);
+            }
+            create_info = {
+                _id: db.new_object_id(),
+                system: req.system._id,
+                bucket: req.bucket._id,
+                key: req.rpc_params.key,
+                size: source_obj.size,
+                etag: source_obj.etag,
+                create_time: new Date(),
+                content_type: req.rpc_params.content_type ||
+                    source_obj.content_type ||
+                    mime.lookup(req.rpc_params.key) ||
+                    'application/octet-stream',
+                upload_size: 0,
+                cloud_synced: false,
+            };
+            if (req.rpc_params.xattr_copy) {
+                create_info.xattr = source_obj.xattr;
+            } else if (req.rpc_params.xattr) {
+                create_info.xattr = req.rpc_params.xattr;
+            }
+            // check if the conditions for overwrite are met, throws if not
+            check_md_conditions(req, req.rpc_params.overwrite_if, existing_obj);
+            check_md_conditions(req, req.rpc_params.source_if, source_obj);
+            // we passed the checks, so we can delete the existing object if exists
+            if (existing_obj) {
+                return delete_object_internal(existing_obj);
+            }
+        })
+        .then(() => db.ObjectMD.create(create_info))
+        .then(() => {
+            let map_copy = new MapCopy(source_obj, create_info);
+            return map_copy.run();
+        })
+        .then(() => {
+            db.ActivityLog.create({
+                system: req.system,
+                level: 'info',
+                event: 'obj.uploaded',
+                obj: create_info._id,
+            });
+            // mark the new object not in upload mode
+            return db.ObjectMD.collection.updateOne({
+                _id: create_info._id
+            }, {
+                $unset: {
+                    upload_size: 1
+                }
+            });
+        })
+        .then(() => {
+            return {
+                source_md: get_object_info(source_obj)
+            };
+        });
+}
+
+
+/**
+ *
  * READ_OBJECT_MAPPING
  *
  */
@@ -293,7 +369,7 @@ function read_object_mappings(req) {
     return find_object_md(req)
         .then(obj_arg => {
             obj = obj_arg;
-            reply.size = obj.size || obj.upload_size || 0;
+            reply.object_md = get_object_info(obj);
             var params = _.pick(req.rpc_params,
                 'start',
                 'end',
@@ -462,19 +538,19 @@ var ONE_LEVEL_SLASH_DELIMITER = one_level_delimiter('/');
  */
 function list_objects(req) {
     dbg.log0('list_objects', req.rpc_params);
-    var prefix = req.rpc_params.prefix;
-    var delimiter = req.rpc_params.delimiter;
+    var prefix = req.rpc_params.prefix || '';
+    let escaped_prefix = string_utils.escapeRegExp(prefix);
+    var delimiter = req.rpc_params.delimiter || '';
     load_bucket(req);
     return P.fcall(() => {
             var info = _.omit(object_md_query(req), 'key');
             var common_prefixes_query;
 
-            if (!_.isUndefined(prefix)) {
+            if (delimiter) {
                 // find objects that match "prefix***" or "prefix***/"
-                var one_level = delimiter && delimiter !== '/' ?
+                let one_level = delimiter !== '/' ?
                     one_level_delimiter(delimiter) :
                     ONE_LEVEL_SLASH_DELIMITER;
-                var escaped_prefix = string_utils.escapeRegExp(prefix);
                 info.key = new RegExp('^' + escaped_prefix + one_level);
 
                 // we need another query to find common prefixes
@@ -501,6 +577,8 @@ function list_objects(req) {
                             inline: 1
                         }
                     });
+            } else if (prefix) {
+                info.key = new RegExp('^' + escaped_prefix);
             } else if (req.rpc_params.key_query) {
                 info.key = new RegExp(string_utils.escapeRegExp(req.rpc_params.key_query), 'i');
             } else if (req.rpc_params.key_regexp) {
@@ -511,9 +589,16 @@ function list_objects(req) {
                 info.key = new RegExp('^' + string_utils.escapeRegExp(req.rpc_params.key_prefix));
             }
 
+            // allow filtering of uploading/non-uploading objects
+            if (typeof(req.rpc_params.upload_mode) === 'boolean') {
+                info.upload_size = {
+                    $exists: req.rpc_params.upload_mode
+                };
+            }
+
             var skip = req.rpc_params.skip;
             var limit = req.rpc_params.limit;
-            dbg.log0('list_objects query', info);
+            dbg.log0('list_objects params:', req.rpc_params, 'query:', info);
             var find = db.ObjectMD.find(info);
             if (skip) {
                 find.skip(skip);
@@ -536,20 +621,33 @@ function list_objects(req) {
             );
         })
         .spread(function(objects, total_count, common_prefixes_res) {
-            var res = {
-                objects: _.map(objects, function(obj) {
-                    return {
-                        key: obj.key,
-                        info: get_object_info(obj),
-                    };
-                })
-            };
+            let res = {};
+            let prefix_map;
+            let should_compact_objects = false;
+            if (common_prefixes_res) {
+                prefix_map = _.keyBy(common_prefixes_res, r => prefix + r._id + delimiter);
+                res.common_prefixes = _.keys(prefix_map);
+            } else {
+                prefix_map = {};
+            }
+            res.objects = _.map(objects, obj => {
+                if (obj.key in prefix_map) {
+                    // we filter out objects that are folder placeholders
+                    // which means that have size 0 and already included as prefixes
+                    // this is to avoid showing them as duplicates
+                    should_compact_objects = true;
+                    return;
+                }
+                return {
+                    key: obj.key,
+                    info: get_object_info(obj),
+                };
+            });
+            if (should_compact_objects) {
+                res.objects = _.compact(res.objects);
+            }
             if (req.rpc_params.pagination) {
                 res.total_count = total_count;
-            }
-            if (common_prefixes_res) {
-                res.common_prefixes = _.map(common_prefixes_res.results,
-                    r => prefix + r._id + delimiter);
             }
             return res;
         });
@@ -608,6 +706,7 @@ function load_bucket(req) {
     if (!bucket) {
         throw req.rpc_error('NO_SUCH_BUCKET', 'No such bucket: ' + req.rpc_params.bucket);
     }
+    req.check_bucket_permission(bucket);
     req.bucket = bucket;
 }
 
@@ -671,4 +770,36 @@ function delete_object_internal(obj) {
         })
         .then(() => map_deleter.delete_object_mappings(obj))
         .return();
+}
+
+function check_md_conditions(req, conditions, obj) {
+    if (!conditions) {
+        return;
+    }
+    if (conditions.if_modified_since) {
+        if (!obj ||
+            conditions.if_modified_since < obj._id.getTimestamp().getTime()) {
+            throw req.rpc_error('IF_MODIFIED_SINCE');
+        }
+    }
+    if (conditions.if_unmodified_since) {
+        if (!obj ||
+            conditions.if_unmodified_since > obj._id.getTimestamp().getTime()) {
+            throw req.rpc_error('IF_UNMODIFIED_SINCE');
+        }
+    }
+    if (conditions.if_match_etag) {
+        if (!obj ||
+            (conditions.if_match_etag !== '*' &&
+                conditions.if_match_etag !== obj.etag)) {
+            throw req.rpc_error('IF_MATCH_ETAG');
+        }
+    }
+    if (conditions.if_none_match_etag) {
+        if (obj &&
+            (conditions.if_none_match_etag === '*' ||
+                conditions.if_none_match_etag === obj.etag)) {
+            throw req.rpc_error('IF_NONE_MATCH_ETAG');
+        }
+    }
 }

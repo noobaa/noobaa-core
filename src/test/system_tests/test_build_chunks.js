@@ -5,6 +5,8 @@ let P = require('../../util/promise');
 let api = require('../../api');
 let ops = require('./basic_server_ops');
 let promise_utils = require('../../util/promise_utils');
+var dotenv = require('dotenv');
+dotenv.load();
 
 
 let TEST_CTX = {
@@ -16,21 +18,23 @@ let TEST_CTX = {
 
 let rpc = api.new_rpc(); //'ws://' + argv.ip + ':8080');
 let client = rpc.new_client({
-    address: 'ws://' + TEST_CTX.ip + ':5001'
+    address: 'ws://' + TEST_CTX.ip + ':' + process.env.PORT
 });
 
-
+module.exports = {
+    run_test: run_test
+};
 
 /////// Aux Functions ////////
 
 function authenticate() {
+    let auth_params = {
+        email: 'demo@noobaa.com',
+        password: 'DeMo',
+        system: 'demo'
+    };
     return P.fcall(function() {
-        let auth_params = {
-            email: 'demo@noobaa.com',
-            password: 'DeMo',
-            system: 'demo'
-        };
-        return client.create_auth_token(auth_params);
+        client.create_auth_token(auth_params);
     });
 }
 
@@ -78,8 +82,9 @@ function test_uploaded_object_has_expected_num_blocks(expected_num_blocks) {
                             for (let n = 0; n < nodes_list.nodes.length; n++) {
                                 for (let blk = 0; blk < blk_info.length; blk++) {
                                     // console.log('checking block node = ', blk_info[blk].block_md.node, 'vs node.id = ', nodes_list.nodes[n].id);
-                                    if (nodes_list.nodes[n].id === blk_info[blk].block_md.node)
+                                    if (nodes_list.nodes[n].id === blk_info[blk].block_md.node) {
                                         num_blocks++;
+                                    }
                                 }
                             }
                             if (num_blocks < expected_num_blocks) {
@@ -151,13 +156,31 @@ function move_one_block_to_different_pool(object_mapping) {
 
 
 function main() {
-    authenticate()
+    return run_test()
+        .then(function() {
+            process.exit(0);
+        })
+        .fail(function(err) {
+            process.exit(1);
+        });
+}
+
+function run_test() {
+    return authenticate()
         .then(() => upload_random_file(1))
         .then(() => test_uploaded_object_has_expected_num_blocks(3))
         .then((obj_mapping) => move_one_block_to_different_pool(obj_mapping))
         .then(() => test_uploaded_object_has_expected_num_blocks(3))
+        .then(() => {
+            rpc.disconnect_all();
+            return;
+        })
 
-    .catch(err => console.error('test_build_chunks FAILED: ', err.stack || err));
+    .catch(err => {
+        rpc.disconnect_all();
+        console.error('test_build_chunks FAILED: ', err.stack || err);
+        throw new Error('test_build_chunks FAILED: ', err);
+    });
 }
 
 

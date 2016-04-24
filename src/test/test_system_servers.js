@@ -6,6 +6,10 @@ var mocha = require('mocha');
 let assert = require('assert');
 let coretest = require('./coretest');
 let promise_utils = require('../util/promise_utils');
+var S3Auth = require('aws-sdk/lib/signers/s3');
+var s3_auth = new S3Auth();
+var dotenv = require('dotenv');
+dotenv.load();
 
 mocha.describe('system_servers', function() {
 
@@ -20,6 +24,7 @@ mocha.describe('system_servers', function() {
     const EMAIL = SYS + EMAIL_DOMAIN;
     const EMAIL1 = SYS1 + EMAIL_DOMAIN;
     const PASSWORD = SYS + '-password';
+    const CLOUD_SYNC_CONNECTION = 'Connection 1';
 
     let client = coretest.new_test_client();
 
@@ -32,9 +37,9 @@ mocha.describe('system_servers', function() {
             .then(() => client.account.accounts_status())
             .then(res => assert(!res.has_accounts, '!has_accounts'))
             .then(() => client.account.create_account({
-                name: SYS,
+                name: CLOUD_SYNC_CONNECTION,
                 email: EMAIL,
-                password: PASSWORD,
+                password: PASSWORD
             }))
             .then(res => client.options.auth_token = res.token)
             .then(() => client.account.accounts_status())
@@ -87,11 +92,14 @@ mocha.describe('system_servers', function() {
                 password: PASSWORD,
                 system: SYS,
             }))
-            .then(() => client.auth.create_access_key_auth({
-                access_key: '123',
-                string_to_sign: '',
-                signature: ''
-            }))
+            .then(() => {
+                return P.resolve(client.system.read_system())
+                    .then((res) => client.auth.create_access_key_auth({
+                        access_key: res.owner.access_keys[0].access_key,
+                        string_to_sign: '',
+                        signature: s3_auth.sign(res.owner.access_keys[0].secret_key, '')
+                    }));
+            })
             //////////////
             //  SYSTEM  //
             //////////////
@@ -104,7 +112,7 @@ mocha.describe('system_servers', function() {
             .then(() => client.system.update_system_certificate()
                 .catch(err => assert.deepEqual(err.rpc_code, 'TODO'))
             )
-            .then(() => client.system.start_debug())
+            //.then(() => client.system.start_debug({level:0}))
             .then(() => client.system.diagnose())
             .then(() => client.system.create_system({
                 name: SYS1
@@ -205,9 +213,9 @@ mocha.describe('system_servers', function() {
                 name: TIERING_POLICY
             }))
             .then(() => client.system.read_system())
-            //////////////
-            //  BUCKET  //
-            //////////////
+            // //////////////
+            // //  BUCKET  //
+            // //////////////
             .then(() => client.bucket.create_bucket({
                 name: BUCKET,
                 tiering: TIERING_POLICY,
@@ -219,7 +227,7 @@ mocha.describe('system_servers', function() {
             .then(() => client.bucket.update_bucket({
                 name: BUCKET,
                 new_name: BUCKET + 1,
-                tiering: 'default_tiering',
+                tiering: TIERING_POLICY //'default_tiering',
             }))
             .then(() => client.bucket.read_bucket({
                 name: BUCKET + 1,
@@ -228,23 +236,23 @@ mocha.describe('system_servers', function() {
                 name: BUCKET + 1,
                 new_name: BUCKET,
             }))
+            .then(() => client.account.add_account_sync_credentials_cache({
+                name: CLOUD_SYNC_CONNECTION,
+                endpoint: 'https://s3.amazonaws.com',
+                access_key: process.env.AWS_ACCESS_KEY_ID,
+                secret_key: process.env.AWS_SECRET_ACCESS_KEY
+            }))
             .then(() => client.bucket.set_cloud_sync({
                 name: BUCKET,
+                connection: CLOUD_SYNC_CONNECTION,
                 policy: {
-                    endpoint: 'localhost',
-                    access_keys: [{
-                        access_key: '123',
-                        secret_key: 'abc'
-                    }],
+                    target_bucket: BUCKET,
                     schedule: 11
                 }
             }))
-            /*
             .then(() => client.bucket.get_cloud_buckets({
-                access_key: '123',
-                secret_key: 'abc'
+                connection: CLOUD_SYNC_CONNECTION
             }))
-            */
             .then(() => client.system.read_system())
             .then(() => client.bucket.get_cloud_sync_policy({
                 name: BUCKET,
@@ -254,9 +262,9 @@ mocha.describe('system_servers', function() {
             }))
             .then(() => client.bucket.get_all_cloud_sync_policies())
             .then(() => client.system.read_system())
-            /////////////
-            //  STATS  //
-            /////////////
+            // /////////////
+            // //  STATS  //
+            // /////////////
             .then(() => client.stats.get_systems_stats())
             .then(() => client.stats.get_nodes_stats())
             .then(() => client.stats.get_ops_stats())
@@ -264,7 +272,7 @@ mocha.describe('system_servers', function() {
             ////////////
             //  MISC  //
             ////////////
-            .then(() => client.cluster.get_cluster_id())
+            .then(() => client.cluster_server.get_cluster_id())
             .then(() => client.debug.set_debug_level({
                 module: 'rpc',
                 level: 0
@@ -278,9 +286,33 @@ mocha.describe('system_servers', function() {
             .then(() => client.tiering_policy.delete_policy({
                 name: TIERING_POLICY,
             }))
+            .then(res => {
+                    throw new Error('TIERING_POLICY: ' + TIERING_POLICY +
+                        ' should have been deleted by now');
+                },
+                err => {
+                    if (err.rpc_code && err.rpc_code.indexOf('NO_SUCH_TIERING_POLICY') > -1) {
+                        return;
+                    } else {
+                        throw new Error(err);
+                    }
+                }
+            )
             .then(() => client.tier.delete_tier({
                 name: TIER,
             }))
+            .then(() => {
+                    throw new Error('TIER: ' + TIER +
+                        ' should have been deleted by now');
+                },
+                err => {
+                    if (err.rpc_code && err.rpc_code.indexOf('NO_SUCH_TIER') > -1) {
+                        return;
+                    } else {
+                        throw new Error(err);
+                    }
+                }
+            )
             .then(() => client.pool.assign_nodes_to_pool({
                 name: 'default_pool',
                 nodes: ['node0', 'node2', 'node4'],

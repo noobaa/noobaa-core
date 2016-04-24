@@ -95,22 +95,6 @@ AgentCLI.prototype.init = function() {
             if (self.params.address) {
                 self.client.options.address = self.params.address;
             }
-
-            if (self.params.setup) {
-                dbg.log0('Setup');
-                var account_params = _.pick(self.params, 'email', 'password');
-                account_params.name = account_params.email;
-                return self.client.account.create_account(account_params)
-                    .then(function() {
-                        dbg.log0('COMPLETED: setup', self.params);
-                    }, function(err) {
-                        dbg.log0('ERROR: setup', self.params, err.stack);
-                    })
-                    .then(function() {
-                        process.exit();
-                    });
-            }
-        }).then(function() {
             return os_util.read_drives();
         })
         .then(function(drives) {
@@ -160,7 +144,6 @@ AgentCLI.prototype.init = function() {
             dbg.log0('root path:', self.params.root_path);
             self.params.all_storage_paths = mount_points;
 
-        }).then(function() {
             if (self.params.cleanup) {
                 return P.all(_.map(self.params.all_storage_paths, function(storage_path_info) {
                     var storage_path = storage_path_info.mount;
@@ -356,6 +339,13 @@ AgentCLI.prototype.create_node_helper = function(current_node_path_info) {
                         delete agent_conf.secret_key;
                         var write_data = JSON.stringify(agent_conf);
                         return P.nfcall(fs.writeFile, 'agent_conf.json', write_data);
+                    })
+                    .catch(function(err) {
+                        if(err.code === 'ENOENT'){
+                            console.warn('No agent_conf.json file exists');
+                            return;
+                        }
+                        throw new Error(err);
                     });
             })
             .then(function() {

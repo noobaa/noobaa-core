@@ -1,9 +1,12 @@
 <!-- ko if: dataReady -->
 <wizard params="
     heading: 'Install Node', 
-    steps: ['install', 'review'],
+    steps: ['select', 'install', 'review'],
     onClose: onClose
 ">
+    <section class="select-step"  data-bind="template: { html: selectStepTemplate }">
+    </section>
+
     <section class="install-step" data-bind="template: { html: installStepTemplate }">
     </section>
     

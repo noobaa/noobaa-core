@@ -1,5 +1,5 @@
 import template from './install-node-wizard.html';
-import downloadStepTemplate from './download-step.html';
+import selectStepTemplate from './select-step.html';
 import installStepTemplate from './install-step.html';
 import reviewStepTemplate from './review-step.html';
 import ko from 'knockout';
@@ -28,7 +28,7 @@ const installCommands = {
 
 class InstallNodeWizardViewModel {
     constructor({ onClose }) {
-        this.downloadStepTemplate = downloadStepTemplate;
+        this.selectStepTemplate = selectStepTemplate;
         this.installStepTemplate = installStepTemplate;
         this.reviewStepTemplate = reviewStepTemplate;
         this.onClose = onClose;
@@ -38,7 +38,7 @@ class InstallNodeWizardViewModel {
         );
 
         this.installationTypeOptions = [
-            { value: 'NETWORK', label: 'Network Installation' },
+            { value: 'NETWORK', label: 'Network Installation (recommended)' },
             { value: 'LOCAL', label: 'Local Installation' }
         ];
 

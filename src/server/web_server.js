@@ -80,6 +80,7 @@ app.disable('x-powered-by');
 
 // configure app middleware handlers in the order to use them
 
+// app.use(express_favicon(path.join(rootdir, 'images', 'noobaa_icon.ico')));
 app.use(express_morgan_logger(dev_mode ? 'dev' : 'combined'));
 app.use(function(req, res, next) {
     // HTTPS redirect:

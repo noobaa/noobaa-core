@@ -6,7 +6,8 @@ import { hostname } from 'server-conf';
 
 import {
     isDefined, isUndefined, encodeBase64, cmpStrings, cmpInts, cmpBools,
-    randomString, last, clamp,  makeArray, execInOrder, realizeUri, downloadFile
+    randomString, last, clamp,  makeArray, execInOrder, realizeUri, downloadFile,
+    generateAccessKeys
 } from 'utils';
 
 // TODO: resolve browserify issue with export of the aws-sdk module.
@@ -376,7 +377,8 @@ export function loadSystemInfo() {
                     sslPort: reply.ssl_port,
                     accessKey: access_key,
                     secretKey: secret_key,
-                    P2PConfig: reply.n2n_config
+                    P2PConfig: reply.n2n_config,
+                    owner: reply.owner.email
                 });
             }
         )
@@ -776,6 +778,16 @@ export function loadAccountList() {
         .done()
 }
 
+export function loadAccountInfo(email) {
+    logAction('loadAccountInfo', { email });
+
+    api.account.read_account({
+        email: email
+    })
+        .then(model.accountInfo)
+        .done();
+}
+
 export function loadTier(name) {
     logAction('loadTier', { name });
 
@@ -818,8 +830,17 @@ export function loadS3BucketList(connection) {
 // -----------------------------------------------------
 export function createSystemAccount(systemName, email, password, dnsName) {
     logAction('createSystemAccount', { systemName, email, password, dnsName });
+    
+    let accessKeys = systemName === 'demo' && email === 'demo@noobaa.com' ? 
+        { access_key: '123', secret_key: 'abc' } :
+        generateAccessKeys();
 
-    api.account.create_account({ name: systemName, email: email, password: password })
+    api.account.create_account({
+        name: systemName, 
+        email: email, 
+        password: password,
+        access_keys: accessKeys
+    })
         .then(
             ({ token }) => {
                 api.options.auth_token = token;
@@ -842,10 +863,16 @@ export function createSystemAccount(systemName, email, password, dnsName) {
         .done();
 }
 
-export function createAccount(name, email, password) {
-    logAction('createAccount', { name, email, password });
+export function createAccount(name, email, password, accessKeys, S3AccessList) {
+    logAction('createAccount', { name, email, password, accessKeys,     S3AccessList });
 
-    api.account.create_account({ name, email, password })
+    api.account.create_account({ 
+        name: name, 
+        email: email, 
+        password: password,
+        access_keys: accessKeys,
+        allowed_buckets: S3AccessList
+    })
         .then(loadAccountList)
         .done();
 }
@@ -1368,7 +1395,54 @@ export function addS3Connection(name, endpoint, accessKey, secretKey) {
 }
 
 export function notify(message, severity = 'INFO') {
-    logAction('notifyInfo', { message, severity });
+    logAction('notify', { message, severity });
 
     model.lastNotification({ message, severity });
+}
+
+export function loadBucketS3ACL(bucketName) {
+    logAction('loadBucketS3ACL', { bucketName });
+
+    api.bucket.list_bucket_s3_acl({
+        name: bucketName
+    })
+        .then(model.bucketS3ACL)
+        .done();
+}
+
+export function updateBucketS3ACL(bucketName, acl) {
+    logAction('updateBucketS3ACL', { bucketName, acl });
+
+    api.bucket.update_bucket_s3_acl({
+        name: bucketName,
+        access_control: acl
+    })
+        .then(
+            () => model.bucketS3ACL(acl)
+        )
+        .done();
+}
+
+export function loadAccountS3ACL(email) {
+    logAction('loadAccountS3ACL', { email });
+
+    api.account.list_account_s3_acl({
+        email: email
+    })
+        .then(model.accountS3ACL)
+        .done();
+}
+
+export function updateAccountS3ACL(email, acl) {
+    logAction('updateAccountS3ACL', { email, acl });
+
+    api.account.update_account_s3_acl({
+        email: email,
+        access_control: acl
+    })
+        .then(
+            () => model.accountS3ACL
+        )
+        .then(loadAccountList)
+        .done();
 }

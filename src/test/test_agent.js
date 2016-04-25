@@ -13,6 +13,10 @@ mocha.describe('agent', function() {
     const SYS = 'test-agent-system';
     const EMAIL = SYS + '@coretest.coretest';
     const PASSWORD = 'tululu';
+    const ACCESS_KEYS = { 
+        access_key: 'ydaydayda', 
+        secret_key: 'blablabla' 
+    };
 
     mocha.it('should run agents', function() {
         this.timeout(20000);
@@ -21,6 +25,7 @@ mocha.describe('agent', function() {
                 name: SYS,
                 email: EMAIL,
                 password: PASSWORD,
+                access_keys: ACCESS_KEYS
             }))
             .then(res => client.options.auth_token = res.token)
             .then(() => coretest.init_test_nodes(client, SYS, 5))

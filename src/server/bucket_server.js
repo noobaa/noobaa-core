@@ -18,7 +18,8 @@ module.exports = {
     delete_bucket: delete_bucket,
     list_buckets: list_buckets,
     //generate_bucket_access: generate_bucket_access,
-    list_bucket_access_accounts: list_bucket_access_accounts,
+    list_bucket_s3_acl: list_bucket_s3_acl,
+    update_bucket_s3_acl: update_bucket_s3_acl,
 
     //Cloud Sync policies
     get_cloud_sync_policy: get_cloud_sync_policy,
@@ -227,20 +228,46 @@ function update_bucket(req) {
         .then(res => res[0]);
 }*/
 
-function list_bucket_access_accounts(req) {
-    var bucket = find_bucket(req);
+function list_bucket_s3_acl(req) {
+    let bucket = find_bucket(req);
+    return system_store.data.accounts
+        .filter(
+            account => !account.is_support && account.allowed_buckets
+        ) 
+        .map(
+            account => {
+                return {
+                    account: account.email,
+                    is_allowed: _.includes(account.allowed_buckets, bucket)
+                }
+            }
+        );
+}
 
-    if (!bucket) {
-        throw req.rpc_error('INVALID_BUCKET_NAME');
-    }
+function update_bucket_s3_acl(req) {
+    let bucket = find_bucket(req);
+    let updates = req.rpc_params.access_control
+        .map(
+            record => {
+                let account = system_store.data.accounts_by_email[record.account];
+                let allowed_buckets = record.is_allowed ?
+                    _.unionWith(account.allowed_buckets, [bucket], system_store.has_same_id) :
+                    _.differenceWith(account.allowed_buckets, [bucket], system_store.has_same_id);
 
-    var access_accounts = _.filter(
-        system_store.data.accounts,
-        account => req.has_bucket_permission(bucket, account)
-    );
+                return {
+                    _id: account._id,
+                    allowed_buckets: allowed_buckets.map(
+                        bucket => bucket._id
+                    )
+                }
+            }
+        );
 
-    var reply = _.map(access_accounts, account => account.email);
-    return reply;
+    system_store.make_changes({
+        update: {
+            accounts: updates
+        }
+    });
 }
 
 

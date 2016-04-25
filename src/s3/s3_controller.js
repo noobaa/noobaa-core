@@ -124,7 +124,7 @@ class S3Controller {
                         })),
                         _.map(reply.common_prefixes, prefix => ({
                             CommonPrefixes: {
-                                Prefix: prefix || ''
+                                Prefix: string_utils.encodeXML(prefix) || ''
                             }
                         }))
                     ]
@@ -178,7 +178,7 @@ class S3Controller {
                         })),
                         _.map(reply.common_prefixes, prefix => ({
                             CommonPrefixes: {
-                                Prefix: prefix || ''
+                                Prefix: string_utils.encodeXML(prefix) || ''
                             }
                         }))
                     ]
@@ -227,7 +227,7 @@ class S3Controller {
                         })),
                         _.map(reply.common_prefixes, prefix => ({
                             CommonPrefixes: {
-                                Prefix: prefix || ''
+                                Prefix: string_utils.encodeXML(prefix) || ''
                             }
                         }))
                     ]

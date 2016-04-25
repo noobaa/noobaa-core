@@ -112,23 +112,29 @@ function create_bucket(req) {
         actor: req.account && req.account._id,
         bucket: bucket._id,
     });
+
     return system_store.make_changes(changes)
-        .then(function() {
-            req.load_auth();
-            return server_rpc.client.account.update_buckets_permissions({
-                email: req.account && req.account.email,
-                allowed_buckets: [{
-                    bucket_name: bucket.name,
-                    is_allowed: true
-                }]
-            }, {
-                auth_token: req.auth_token
-            }).then(() => {
+        .then(
+            () => {
+                req.load_auth();
+                return server_rpc.client.bucket.update_bucket_s3_acl({
+                    name: bucket.name,
+                    access_control: [{
+                        account: req.account && req.account.email,
+                        is_allowed: true
+                    }]
+                }, {
+                    auth_token: req.auth_token
+                });
+            }
+        )
+        .then(
+            () => {
                 req.load_auth();
                 let created_bucket = find_bucket(req);
                 return get_bucket_info(created_bucket);
-            });
-        });
+            }
+        );
 }
 
 /**

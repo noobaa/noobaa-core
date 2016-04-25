@@ -26,6 +26,30 @@ const installCommands = {
     }
 };
 
+const installationTypeOptions = [
+    { 
+        value: 'NETWORK', 
+        label: 'Network Installation (recommended)',
+        description: 'Choose this option to use NooBaa\'s distribution utilities to install the NooBaa daemon over the network. This option require direct access from the target machine to the NooBaa server'
+    },
+    { 
+        value: 'LOCAL', 
+        label: 'Local Installation',
+        description: 'Choose this option when your target machine does not have direct access to the NooBaa server'
+    }
+];
+
+const installationTargetOptions = [
+    { 
+        value: 'LINUX', 
+        label: 'Linux' 
+    },
+    { 
+        value: 'WINDOWS', 
+        label: 'Windows' 
+    }
+];
+
 class InstallNodeWizardViewModel {
     constructor({ onClose }) {
         this.selectStepTemplate = selectStepTemplate;
@@ -37,22 +61,14 @@ class InstallNodeWizardViewModel {
             () => !!installInfo()
         );
 
-        this.installationTypeOptions = [
-            { value: 'NETWORK', label: 'Network Installation (recommended)' },
-            { value: 'LOCAL', label: 'Local Installation' }
-        ];
-
+        this.installationTypeOptions = installationTypeOptions;
         this.installationType = ko.observable(
-            this.installationTypeOptions[0].value
+            installationTypeOptions[0].value
         );
 
-        this.installationTargetOptions = [
-            { value: 'LINUX', label: 'Linux' },
-            { value: 'WINDOWS', label: 'Windows' }
-        ];
-
+        this.installationTargetOptions = installationTargetOptions;
         this.installationTarget = ko.observable(
-            this.installationTargetOptions[0].value
+            installationTargetOptions[0].value
         );
 
         this.commandSelector = ko.pureComputed(

@@ -1,9 +1,16 @@
 <section class="container">
-    <h2 class="heading3"/>Select your Installation Type</h2>
+    <h2 class="heading3"/>Select your installation type</h2>
 
-    <radio-group params="
-        options: installationTypeOptions,
-        selected: installationType,
-        multiline: true
-    "></radio-group>
+    <ul class="list-no-style clear" data-bind="foreach: installationTypeOptions">
+        <li class="container">
+            <radio-btn params="
+                group: 'installation-type', 
+                value: value, 
+                label: label, 
+                selected: $parent.installationType
+            "></radio-btn>
+            
+            <p class="paragraph option-desc" data-bind="text: description">
+        </li>
+    </ul>
 </section>

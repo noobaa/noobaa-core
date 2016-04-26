@@ -63,7 +63,12 @@ function Agent(params) {
     if (self.storage_path) {
         assert(!self.token, 'unexpected param: token. ' +
             'with storage_path the token is expected in the file <storage_path>/token');
-        self.store = new AgentStore(self.storage_path);
+        if (_.isUndefined(params.cloud_info)) {
+            self.store = new AgentStore(self.storage_path);
+        } else {
+            self.cloud_info = params.cloud_info;
+            self.store = new AgentStore.CloudStore(self.storage_path, self.cloud_info);
+        }
         self.store_cache = new LRUCache({
             name: 'AgentBlocksCache',
             max_usage: 200 * 1024 * 1024, // 200 MB
@@ -364,6 +369,10 @@ Agent.prototype._do_heartbeat = function() {
         version: current_pkg_version || '',
         extended_hb: extended_hb,
     };
+
+    if (self.cloud_info && self.cloud_info.cloud_pool_name) {
+        params.cloud_pool_name = self.cloud_info.cloud_pool_name;
+    }
 
     params.debug_level = dbg.get_module_level('core');
 

@@ -85,7 +85,7 @@ class MapAllocator {
     allocate_blocks() {
         _.each(this.parts, part => {
             if (part.chunk_dedup) return; // already found dup
-            let status = map_utils.get_chunk_status(part.chunk, this.bucket.tiering);
+            let status = map_utils.get_chunk_status(part.chunk, this.bucket.tiering, /*ignore_cloud_pools=*/ true);
             var avoid_nodes = [];
             _.each(status.allocations, alloc => {
                 let f = alloc.fragment;

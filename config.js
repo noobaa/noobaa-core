@@ -2,6 +2,7 @@ var config = {};
 
 // TODO take nodes min and free space reserve from system/pool config
 config.NODES_MIN_COUNT = 3;
+config.NODES_PER_CLOUD_POOL = 1;
 config.NODES_FREE_SPACE_RESERVE = 10 * 1024 * 1024 * 1024;
 
 // WRITE CONCURRENCY
@@ -53,11 +54,16 @@ config.MONGO_DEFAULTS = {
 };
 
 config.CLUSTERING_PATHS = {
-  TOPOLOGY_FILE: '/etc/noobaa_cluster',
-  SECRET_FILE: 'noobaa_sec',
-  SUPER_FILE: '/etc/noobaa_supervisor.conf',
+    TOPOLOGY_FILE: '/etc/noobaa_cluster',
+    SECRET_FILE: 'noobaa_sec',
+    SUPER_FILE: '/etc/noobaa_supervisor.conf',
 };
 
 config.SUPERVISOR_PROGRAM_SEPERATOR = '#endprogram';
+
+config.SUPERVISOR_DEFAULTS = {
+    STOPSIGNAL: 'KILL',
+    DIRECTORY: '/root/node_modules/noobaa-core'
+};
 
 module.exports = config;

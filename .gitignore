@@ -10,6 +10,7 @@ build/
 .idea/
 tags
 *.iml
+.vscode/
 
 ## istanbul coverage
 coverage/

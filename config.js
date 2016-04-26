@@ -54,11 +54,16 @@ config.MONGO_DEFAULTS = {
 };
 
 config.CLUSTERING_PATHS = {
-  TOPOLOGY_FILE: '/etc/noobaa_cluster',
-  SECRET_FILE: 'noobaa_sec',
-  SUPER_FILE: '/etc/noobaa_supervisor.conf',
+    TOPOLOGY_FILE: '/etc/noobaa_cluster',
+    SECRET_FILE: 'noobaa_sec',
+    SUPER_FILE: '/etc/noobaa_supervisor.conf',
 };
 
 config.SUPERVISOR_PROGRAM_SEPERATOR = '#endprogram';
+
+config.SUPERVISOR_DEFAULTS = {
+    STOPSIGNAL: 'KILL',
+    DIRECTORY: '/root/node_modules/noobaa-core'
+};
 
 module.exports = config;

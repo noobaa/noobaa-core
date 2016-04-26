@@ -11,6 +11,7 @@ var db = require('./db');
 var child_process = require('child_process');
 var P = require('../util/promise');
 var os = require('os');
+var SupervisorCtl = require('../server/utils/supervisor_ctrl');
 
 /**
  *
@@ -86,16 +87,6 @@ function create_cloud_pool(req) {
             }
         })
         .then(res => {
-            // run a new cloud agent with the given cloud_info
-            // let command = 'node src/agent/agent_cli.js' +
-            //     ' --cloud_endpoint ' + cloud_info.endpoint +
-            //     ' --cloud_bucket ' + cloud_info.target_bucket +
-            //     ' --cloud_access_key ' + cloud_info.access_keys.access_key +
-            //     ' --cloud_secret_key ' + cloud_info.access_keys.secret_key +
-            //     ' --cloud_pool_name ' + name;
-            // let child = child_process.exec(command);
-
-            // TODO: temporary - agent start\stop needs to be handles through supervisor ctl
             let args = ['src/agent/agent_cli.js',
                 '--cloud_endpoint', cloud_info.endpoint,
                 '--cloud_bucket', cloud_info.target_bucket,
@@ -104,10 +95,13 @@ function create_cloud_pool(req) {
                 '--cloud_pool_name', name
             ];
 
+            // TODO: temporarily using spawn - agent start\stop needs to be handles through supervisor ctl
             let child = child_process.spawn('node', args, {
                 stdio: 'inherit'
             });
             dbg.log0('running agent (pid=' + child.pid + ' ): node', _.join(args));
+            // let super_ctl = new SupervisorCtl();
+            // return super_ctl.add_agent(name, _.join(args, ' '));
         })
         .then(() => {
             // TODO: should we add different event for cloud pool?
@@ -223,6 +217,14 @@ function delete_cloud_pool(req) {
                 }
             });
         })
+        .then(() => nodes_store.delete_node_by_name({
+            system: {
+                _id: req.system._id
+            },
+            rpc_params: {
+                name: cloud_node_name
+            }
+        }))
         .then((res) => {
             db.ActivityLog.create({
                 event: 'pool.delete',
@@ -231,7 +233,6 @@ function delete_cloud_pool(req) {
                 actor: req.account && req.account._id,
                 pool: pool._id,
             });
-            return res;
         })
         .return();
 }

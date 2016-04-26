@@ -6,7 +6,7 @@ var P = require('../../util/promise');
 var promise_utils = require('../../util/promise_utils');
 var config = require('../../../config.js');
 
-module.exports = SupervisorCtrl;
+module.exports = new SupervisorCtrl();
 
 function SupervisorCtrl() {
     this._inited = false;
@@ -67,6 +67,10 @@ SupervisorCtrl.prototype.get_mongo_services = function() {
                     mongo_progs.push({
                         type: 'config',
                     });
+                } else if (prog.name.indexOf('mongodb') > 0) {
+                  mongo_progs.push({
+                      type: 'mongo_single',
+                  });
                 }
             });
         });
@@ -103,14 +107,16 @@ SupervisorCtrl.prototype.remove_agent = function(agent_name) {
 // Internals
 
 SupervisorCtrl.prototype._serialize = function() {
-    let data;
+    let data = '';
     let self = this;
     _.each(self._programs, function(prog) {
         data += '[program:' + prog.name + ']\n';
         _.each(_.keys(prog), function(key) {
-            data += key + '=' + prog[key] + '\n';
+            if (key !== 'name') {//skip name
+              data += key + '=' + prog[key] + '\n';
+            }
         });
-        data += config.SUPERVISOR_PROGRAM_SEPERATOR + '\n';
+        data += config.SUPERVISOR_PROGRAM_SEPERATOR + '\n\n';
     });
     console.warn('Serializing', config.CLUSTERING_PATHS.SUPER_FILE, data);
 
@@ -136,7 +142,9 @@ SupervisorCtrl.prototype._parse_config = function(data) {
                 }
             }
         });
-        self._programs.push(program_obj);
+        if (program_obj.name) {
+          self._programs.push(program_obj);
+        }
     });
 };
 

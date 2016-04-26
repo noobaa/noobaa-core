@@ -1,6 +1,6 @@
 'use strict';
 
-// var _ = require('lodash');
+var _ = require('lodash');
 var P = require('../../util/promise');
 var mongodb = require('mongodb');
 var EventEmitter = require('events').EventEmitter;
@@ -78,6 +78,48 @@ class MongoClient extends EventEmitter {
         }
     }
 
+    initiate_replica_set(set, members) {
+        var rep_config = this._build_replica_config(set, members);
+        return P.when(this.db.admin.command({
+            replSetInitiate: rep_config
+        }));
+    }
+
+    replica_update_members(set, members) {
+        var rep_config = this._build_replica_config(set, members);
+        return P.when(this.db.admin.command({
+            replSetReconfig: rep_config
+        }));
+    }
+
+    add_shard() {
+        //{ addShard: "<hostname><:port>", maxSize: <size>, name: "<shard_name>" }
+        /*return P.when(this.db.admin.command({
+            addShard: rep_config
+        }));
+        */
+    }
+
+    update_connection_string(cfg_array) {
+        //Currently seems for replica set only ... 
+    }
+
+    _build_replica_config(set, members) {
+        var rep_config = {
+            _id: set,
+            members: []
+        };
+        var id = 0;
+        _.each(members, function(m) {
+            rep_config.members.push({
+                _id: id,
+                host: m,
+            });
+            ++id;
+        });
+
+        return rep_config;
+    }
 }
 
 module.exports = new MongoClient(); // singleton

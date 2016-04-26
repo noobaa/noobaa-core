@@ -2,7 +2,7 @@ import template from './multiselect.html';
 import ko from 'knockout';
 
 class MultiSelectViewModel {
-    constructor({ options = [], selected = [] }) {
+    constructor({ options = [], selected = [], disabled = false }) {
         this.options = options.map(
             option => typeof ko.unwrap(option) === 'object' ? 
                 ko.unwrap(option) : 
@@ -10,6 +10,7 @@ class MultiSelectViewModel {
         );
 
         this.selected = selected;
+        this.disabled = disabled;
     }
 }
 

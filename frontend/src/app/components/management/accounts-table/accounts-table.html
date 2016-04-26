@@ -1,7 +1,5 @@
 <div class="clear">
-    <button class="btn2 pull-right" data-bind="
-        click: () => isCreateAccountModalVisible(true)
-    ">
+    <button class="btn2 pull-right" data-bind="click: () => openCreateAccountModal()">
         Create Account
     </button>
 </div>
@@ -12,32 +10,40 @@
             <tr>
                 <th class="user-col text-left">User</th>
                 <th class="role-col">Roles</th>
-                <th class="status-col">Status</th>
+                <th class="s3-access-col">S3 Access</th>
                 <th class="password-col">Password</th>
-                <th class="delete-col"></th>    
+                <th class="delete-col"></th>
             </tr>
         </thead>
-        <tbody data-bind="foreach: rows">    
+        <tbody data-bind="foreach: rows">
             <!-- ko if: isVisible -->
             <tr>
                 <td class="user-col text-left">
                     <svg-icon params="uri: '/fe/assets/icons.svg#account'"></svg-icon>
-                    <span data-bind="text: user"></span>
+                    <span data-bind="text: username"></span>
                 </td>
 
                 <td class="role-col" data-bind="text: roles"></td>
-                
-                <td class="status-col" data-bind="text: status"></td>
-                
-                <td class="password-col" data-bind="">
+
+                <td class="s3-access-col">
+                    <span data-bind="text: hasS3Access() ? 'enabled' : 'disabled'"></span>
+                    |
                     <button class="link" data-bind="
-                        click: () => $component.showResetPasswordModal(user)
+                        click: () => $component.openS3AccessModal(username)
+                    ">edit</button>
+                </td>
+                
+                <td class="password-col">
+                    <button class="link" data-bind="
+                        click: () => $component.openResetPasswordModal(username)
                     ">reset</button>
                 </td>
 
                 <td class="delete-col">
                     <delete-button params="
                         group: $component.deleteGroup,
+                        disabled: !isDeletable(),
+                        toolTip: deleteToolTip,
                         onDelete: () => del()
                     "><delete-button>
                 </td>
@@ -48,15 +54,22 @@
 </div>
 
 <!-- ko if: isCreateAccountModalVisible -->
-<create-account-modal params="
-    onClose: () => isCreateAccountModalVisible(false)
-"></create-account-modal>
+<create-account-wizard params="
+    onClose: () => closeCreateAccountModal()
+"></create-account-wizard>
 <!-- /ko -->
 
 
-<!-- ko if: isResetPasswordModalVisible -->
+<!-- ko if: resetPasswordTarget -->
 <reset-password-modal params="
-    accountEmail: selectedAccount,
-    onClose: () => isResetPasswordModalVisible(false)
+    email: resetPasswordTarget,
+    onClose: () => closeResetPasswordModal()
 "></reset-password-modal>
+<!-- /ko -->
+
+<!-- ko if: editS3AccessTarget -->
+<account-s3-access-modal params="
+    email: editS3AccessTarget,
+    onClose: () => closeS3AccessModal()
+"></account-s3-access-modal>
 <!-- /ko -->

@@ -133,9 +133,7 @@ function post_upgrade {
   local curmd=$(md5sum /root/node_modules/noobaa-core/build/public/noobaa-setup*.exe | cut -f 1 -d' ')
   local prevmd=$(md5sum /backup/build/public/noobaa-setup*.exe | cut -f 1 -d' ')
 
-  deploy_log "Note: installed MD5 was ${prevmd}, new is ${curmd}"
-
-  cp -f ${CORE_DIR}/src/deploy/NVA_build/noobaa_supervisor.conf /etc/noobaa_supervisor.conf
+  deploy_log "Note: installed MD5 was ${prevmd}, new is ${curmd}"  
 
   # copy noobaa_syslog.conf to /etc/rsyslog.d/ which is included by rsyslog.conf
   cp -f ${CORE_DIR}/src/deploy/NVA_build/noobaa_syslog.conf /etc/rsyslog.d/

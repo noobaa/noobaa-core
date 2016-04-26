@@ -87,10 +87,15 @@ object-parts-list {
         padding-left: 3.5em;
         padding-right: 1.5em;
         border-bottom: 1px solid @bg-color3;
+        vertical-align: middle;
 
-        .node-ip, .node-name {
-            margin: 0 .75em;
-            text-align: center;
+        .pool-name, .node-name, .node-ip {
+            display: inline-block;
+            vertical-align: top;
+        }
+
+        .pool-name {
+            width: 10em
         }
 
         .node-ip {

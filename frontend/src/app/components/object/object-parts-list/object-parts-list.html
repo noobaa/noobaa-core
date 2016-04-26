@@ -24,16 +24,25 @@
                         <svg-icon params="uri: nodeStateIcon" 
                             data-bind="attr: { title: nodeStateToolTip }"></svg-icon>
 
-                        <a class="pull-right link node-ip" data-bind="
-                            text: nodeIp, 
-                            href: nodeUrl
-                        "></a>
-
-                        <a class="pull-right link node-name" data-bind="
-                            text: shortenNodeName,
-                            attr: { title: nodeName },
-                            href: nodeUrl
-                        "></a>
+                        <span class="pull-right">
+                            <span class="link" data-bind="attr: { title: nodeName }">
+                                <a class="text-right node-name" data-bind="
+                                    text: shortenNodeName,
+                                    attr: { title: nodeName },
+                                    href: nodeUrl
+                                "></a>
+                                |
+                                <a class="text-left node-ip" data-bind="
+                                    text: nodeIp,
+                                    href: nodeUrl
+                                "></a>
+                            </span>
+                            <a class="link text-right no-wrap pool-name" data-bind="
+                                text: poolName,
+                                attr: { title: poolName },
+                                href: poolUrl
+                            "></a>
+                        </span>
 
                         <a data-bind="text: label"></a>
                     </div>

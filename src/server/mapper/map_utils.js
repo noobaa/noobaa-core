@@ -31,7 +31,7 @@ module.exports = {
 const EMPTY_CONST_ARRAY = Object.freeze([]);
 
 
-function get_chunk_status(chunk, tiering) {
+function get_chunk_status(chunk, tiering, ignore_cloud_pools) {
     // TODO handle multi-tiering
     if (tiering.tiers.length !== 1) {
         throw new Error('analyze_chunk: ' +
@@ -39,7 +39,13 @@ function get_chunk_status(chunk, tiering) {
             tiering.tiers.length);
     }
     const tier = tiering.tiers[0].tier;
-    const tier_pools_by_id = _.keyBy(tier.pools, '_id');
+    // when allocating blocks for upload we want to ignore cloud_pools
+    // so the client is not blocked until all blocks are uploded to the cloud.
+    // on build_chunks flow we will not ignore cloud pools.
+    const participating_pools = ignore_cloud_pools ?
+        _.filter(tier.pools, pool => _.isUndefined(pool.cloud_pool_info)) :
+        tier.pools;
+    const tier_pools_by_id = _.keyBy(participating_pools, '_id');
     const replicas = tier.replicas;
     const now = Date.now();
 
@@ -55,13 +61,18 @@ function get_chunk_status(chunk, tiering) {
 
 
     function check_blocks_group(blocks, alloc) {
+        let required_replicas = replicas;
+        if (alloc.pools[0].cloud_pool_info) {
+            // for cloud_pools we only need one replica
+            required_replicas = 1;
+        }
         let num_good = 0;
         let num_accessible = 0;
         _.each(blocks, block => {
             if (is_block_accessible(block, now)) {
                 num_accessible += 1;
             }
-            if (num_good < replicas &&
+            if (num_good < required_replicas &&
                 is_block_good(block, now, tier_pools_by_id)) {
                 num_good += 1;
             } else {
@@ -69,7 +80,7 @@ function get_chunk_status(chunk, tiering) {
             }
         });
         if (alloc) {
-            let num_missing = Math.max(0, replicas - num_good);
+            let num_missing = Math.max(0, required_replicas - num_good);
             _.times(num_missing, () => allocations.push(_.clone(alloc)));
         }
         return num_accessible;
@@ -84,7 +95,7 @@ function get_chunk_status(chunk, tiering) {
 
         if (tier.data_placement === 'MIRROR') {
             let blocks_by_pool = _.groupBy(blocks, block => block.node.pool);
-            _.each(tier.pools, pool => {
+            _.each(participating_pools, pool => {
                 num_accessible += check_blocks_group(blocks_by_pool[pool._id], {
                     pools: [pool],
                     fragment: f
@@ -94,10 +105,21 @@ function get_chunk_status(chunk, tiering) {
             _.each(blocks_by_pool, blocks => check_blocks_group(blocks, null));
 
         } else { // SPREAD
+            let pools_partitions = _.partition(participating_pools, pool => _.isUndefined(pool.cloud_pool_info));
             num_accessible += check_blocks_group(blocks, {
-                pools: tier.pools,
+                pools: pools_partitions[0], // only spread data on regular pools, and not cloud_pools
                 fragment: f
             });
+            if (pools_partitions[1].length > 0) {
+                let blocks_by_pool = _.groupBy(blocks, block => block.node.pool);
+                //now mirror to cloud_pools:
+                _.each(pools_partitions[1], cloud_pool => {
+                    num_accessible += check_blocks_group(blocks_by_pool[cloud_pool._id], {
+                        pools: [cloud_pool],
+                        fragment: f
+                    });
+                });
+            }
         }
 
         if (!num_accessible) {

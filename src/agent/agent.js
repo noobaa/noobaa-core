@@ -63,7 +63,12 @@ function Agent(params) {
     if (self.storage_path) {
         assert(!self.token, 'unexpected param: token. ' +
             'with storage_path the token is expected in the file <storage_path>/token');
-        self.store = new AgentStore(self.storage_path);
+        if (_.isUndefined(params.cloud_info)) {
+            self.store = new AgentStore(self.storage_path);
+        } else {
+            self.cloud_info = params.cloud_info;
+            self.store = new AgentStore.CloudStore(self.storage_path, self.cloud_info);
+        }
         self.store_cache = new LRUCache({
             name: 'AgentBlocksCache',
             max_usage: 200 * 1024 * 1024, // 200 MB
@@ -365,6 +370,10 @@ Agent.prototype._do_heartbeat = function() {
         extended_hb: extended_hb,
     };
 
+    if (self.cloud_info && self.cloud_info.cloud_pool_name) {
+        params.cloud_pool_name = self.cloud_info.cloud_pool_name;
+    }
+
     params.debug_level = dbg.get_module_level('core');
 
     if (self.rpc_address) {
@@ -399,7 +408,7 @@ Agent.prototype._do_heartbeat = function() {
             // for now we only use a single drive,
             // so mark the usage on the drive of our storage folder.
             var used_drives = _.filter(drives, function(drive) {
-                dbg.log0('used drives:',self.storage_path_mount ,drive,store_stats.used);
+                dbg.log0('used drives:', self.storage_path_mount, drive, store_stats.used);
                 if (self.storage_path_mount === drive.mount) {
                     drive.storage.used = store_stats.used;
                     return true;

@@ -2,6 +2,7 @@ var config = {};
 
 // TODO take nodes min and free space reserve from system/pool config
 config.NODES_MIN_COUNT = 3;
+config.NODES_PER_CLOUD_POOL = 1;
 config.NODES_FREE_SPACE_RESERVE = 10 * 1024 * 1024 * 1024;
 
 // WRITE CONCURRENCY

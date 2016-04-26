@@ -6,14 +6,14 @@ class RadioGroupViewModel {
             selected, 
             name = randomString(5), 
             options, 
-            seperateLines = false, 
+            multiline = false, 
             disabled = false 
     }) {
         this.name = name;
         this.selected = selected;
         this.options = options;
         this.disabled = disabled;
-        this.layoutClass = !!seperateLines ? 'block' : 'inline';
+        this.layoutClass = !!multiline ? 'block' : 'inline';
     }
 }
 

@@ -8,7 +8,6 @@ let ObjectIO = require('../api/object_io');
 let s3_errors = require('./s3_errors');
 let xml2js = require('xml2js');
 let P = require('../util/promise');
-let string_utils = require('../util/string_utils');
 
 dbg.set_level(5);
 
@@ -54,12 +53,12 @@ class S3Controller {
                 return {
                     ListAllMyBucketsResult: {
                         Owner: DEFAULT_S3_USER,
-                        Buckets: if_not_empty(_.map(reply.buckets, bucket => ({
+                        Buckets: _.map(reply.buckets, bucket => ({
                             Bucket: {
                                 Name: bucket.name,
                                 CreationDate: date
                             }
-                        })))
+                        }))
                     }
                 };
             });
@@ -113,21 +112,21 @@ class S3Controller {
                             IsTruncated: false,
                             'Encoding-Type': req.query['encoding-type'],
                         },
-                        if_not_empty(_.map(reply.objects, obj => ({
+                        _.map(reply.objects, obj => ({
                             Contents: {
-                                Key: string_utils.encodeXML(obj.key),
+                                Key: obj.key,
                                 LastModified: to_s3_date(obj.info.create_time),
                                 ETag: obj.info.etag,
                                 Size: obj.info.size,
                                 Owner: DEFAULT_S3_USER,
                                 StorageClass: STORAGE_CLASS_STANDARD,
                             }
-                        }))),
-                        if_not_empty(_.map(reply.common_prefixes, prefix => ({
+                        })),
+                        _.map(reply.common_prefixes, prefix => ({
                             CommonPrefixes: {
                                 Prefix: prefix || ''
                             }
-                        })))
+                        }))
                     ]
                 };
             });
@@ -165,9 +164,9 @@ class S3Controller {
                             // NextVersionIdMarker: ...
                             'Encoding-Type': req.query['encoding-type'],
                         },
-                        if_not_empty(_.map(reply.objects, obj => ({
+                        _.map(reply.objects, obj => ({
                             Version: {
-                                Key: string_utils.encodeXML(obj.key),
+                                Key: obj.key,
                                 VersionId: '',
                                 IsLatest: true,
                                 LastModified: to_s3_date(obj.info.create_time),
@@ -176,12 +175,12 @@ class S3Controller {
                                 Owner: DEFAULT_S3_USER,
                                 StorageClass: STORAGE_CLASS_STANDARD,
                             }
-                        }))),
-                        if_not_empty(_.map(reply.common_prefixes, prefix => ({
+                        })),
+                        _.map(reply.common_prefixes, prefix => ({
                             CommonPrefixes: {
                                 Prefix: prefix || ''
                             }
-                        })))
+                        }))
                     ]
                 };
             });
@@ -216,21 +215,21 @@ class S3Controller {
                             IsTruncated: false,
                             'Encoding-Type': req.query['encoding-type'],
                         },
-                        if_not_empty(_.map(reply.objects, obj => ({
+                        _.map(reply.objects, obj => ({
                             Upload: {
-                                Key: string_utils.encodeXML(obj.key),
+                                Key: obj.key,
                                 UploadId: obj.info.version_id,
                                 Initiated: to_s3_date(obj.info.create_time),
                                 Initiator: DEFAULT_S3_USER,
                                 Owner: DEFAULT_S3_USER,
                                 StorageClass: STORAGE_CLASS_STANDARD,
                             }
-                        }))),
-                        if_not_empty(_.map(reply.common_prefixes, prefix => ({
+                        })),
+                        _.map(reply.common_prefixes, prefix => ({
                             CommonPrefixes: {
                                 Prefix: prefix || ''
                             }
-                        })))
+                        }))
                     ]
                 };
             });
@@ -444,7 +443,7 @@ class S3Controller {
             start_index = 1;
             slash_index = copy_source.indexOf('/', 1);
         }
-        console.log('COPY OBJECT ',req.params.key);
+        console.log('COPY OBJECT ', req.params.key);
         let source_bucket = copy_source.slice(start_index, slash_index);
         let source_key = copy_source.slice(slash_index + 1);
         let params = {
@@ -616,14 +615,14 @@ class S3Controller {
                             NextPartNumberMarker: reply.next_part_number_marker,
                             IsTruncated: reply.is_truncated,
                         },
-                        if_not_empty(_.map(reply.upload_parts, part => ({
+                        _.map(reply.upload_parts, part => ({
                             Part: {
                                 PartNumber: part.part_number,
                                 Size: part.size,
                                 ETag: part.etag,
                                 LastModified: to_s3_date(part.last_modified),
                             }
-                        })))
+                        }))
                     ]
                 };
             });
@@ -761,10 +760,6 @@ function to_s3_date(input) {
     let date = input ? new Date(input) : new Date();
     date.setMilliseconds(0);
     return date.toISOString();
-}
-
-function if_not_empty(obj) {
-    return _.isEmpty(obj) ? undefined : obj;
 }
 
 function get_request_xattr(req) {

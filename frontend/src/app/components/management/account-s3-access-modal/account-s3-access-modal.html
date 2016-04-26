@@ -1,0 +1,33 @@
+<modal params="onClose: () => cancel()">
+    <h1 class="heading2 container">Account S3 Access</h1>
+
+    <section class="container">
+        <h2 class="heading3">Allow S3 access for this user</h2>
+        <toggle-switch params="value: hasS3Access"></toggle-switch>
+    </section>
+
+    <section class="container">
+        <div class="pull-right">
+            <button class="link" data-bind="click: selectAllBuckets, enable: hasS3Access">
+                Select all
+            </button>
+            |
+            <button class="link" data-bind="click: clearAllBuckets, enable: hasS3Access">
+                Clear
+            </button>
+        </div>
+        <h2 class="heading3" data-bind="css: { disabled: !hasS3Access() }">
+            Edit S3 access permissions for buckets
+        </h2>
+        <multiselect params="
+            options: buckets, 
+            selected: selectedBuckets,
+            disabled: !hasS3Access()">
+        </multiselect>
+    </section>
+
+    <div class="action-line pull-right">
+        <button class="action link" data-bind="click: cancel">Cancel</button>
+        <button class="action btn2" data-bind="click: save">Save</button>
+    </div>
+</modal>

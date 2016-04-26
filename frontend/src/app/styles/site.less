@@ -70,8 +70,7 @@ output {
 }
 
 :focus {
-    outline: @outline;
-    outline-offset: -1px;
+    .focused();
 }   
 
 .no-outline {
@@ -186,6 +185,7 @@ input[type="search"] {
     overflow: hidden;
 }
 
+
 .heading1 {
     margin-bottom : .5em;
 
@@ -254,8 +254,12 @@ input[type="search"] {
         @font-type2, 
         @font-weight-normal, 
         @font-size-normal, 
-        @text-color3            
+        @text-color3
     );
+}
+
+.greedy {
+    width: 100%;
 }
 
 .disabeld {
@@ -263,7 +267,7 @@ input[type="search"] {
         @font-type2, 
         @font-weight-light, 
         @font-size-normal, 
-        @text-color5        
+        @text-color5
     );  
 }
 
@@ -285,11 +289,13 @@ input[type="search"] {
     border: none;
     background: none;
     text-decoration: none;
+    display: inline;
+    padding: 0;
 
     a&[href], button& {
-        cursor: @cursor-pointer;    
+        cursor: @cursor-pointer;
         
-        &:hover {va
+        &:hover {
             text-decoration: underline; 
         }       
     }
@@ -305,6 +311,10 @@ input[type="search"] {
         @text-color9,
         @text-color1
     );
+
+    &:disabled {
+        color: @text-color5;
+    }
 }
 
 .link-small {
@@ -506,7 +516,7 @@ input[type="search"] {
         th, td {
             box-sizing: content-box;
             word-break: break-all;
-            padding: .75em 1.5em;       
+            padding: .75em 1.5em;
             vertical-align: top;
         }
 

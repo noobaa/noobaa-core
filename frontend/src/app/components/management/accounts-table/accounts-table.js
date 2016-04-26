@@ -15,18 +15,40 @@ class AccountsTableViewModel {
         this.rows = makeArray(
             maxRows, 
             i => new AccountRowViewModel(
-                () => accountList()[i], this.deleteGroup
+                () => accountList()[i], 
+                this.deleteGroup, 
             )
         );
 
         this.isCreateAccountModalVisible = ko.observable(false);
-        this.isResetPasswordModalVisible = ko.observable(false);
+        this.resetPasswordTarget = ko.observable(null);
+        this.editS3AccessTarget = ko.observable(null);
+
         loadAccountList();
     }
 
-    showResetPasswordModal(email) {
-        this.selectedAccount(ko.unwrap(email));
-        this.isResetPasswordModalVisible(true);
+    openCreateAccountModal() {
+        this.isCreateAccountModalVisible(true);
+    }
+
+    closeCreateAccountModal() {
+        this.isCreateAccountModalVisible(false);
+    }
+
+    openResetPasswordModal(email) {
+        this.resetPasswordTarget(ko.unwrap(email));
+    }
+
+    closeResetPasswordModal() {
+        this.resetPasswordTarget(null);
+    }
+
+    openS3AccessModal(email) {
+        this.editS3AccessTarget(ko.unwrap(email));
+    }
+
+    closeS3AccessModal() {
+        this.editS3AccessTarget(null);
     }
 }
 

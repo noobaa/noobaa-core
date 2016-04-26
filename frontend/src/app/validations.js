@@ -24,7 +24,14 @@ export default function register(ko) {
         },
 
         notIn: {
-            validator(value, { list = [], compareFunc = (a,b) => a === b }) {
+            validator(value, params) {
+                params = ko.unwrap(params);
+                if (params instanceof Array) {
+                  params = { list: params }
+                }
+
+                let { list = [], compareFunc = (a,b) => a === b } = params;
+
                 return ko.unwrap(list).every(
                     item => !compareFunc(value, item)
                 )

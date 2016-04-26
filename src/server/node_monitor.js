@@ -475,17 +475,17 @@ function collect_agent_diagnostics(req) {
 }
 
 function set_debug_node(req) {
-    var target = req.rpc_params.target;
+    var target = req.rpc_params.target;    
     return P.fcall(function() {
-            return server_rpc.client.agent.set_debug_node({}, {
+            return server_rpc.client.agent.set_debug_node({
+                level: req.rpc_params.level
+            }, {
                 address: target,
             });
         })
         .then(function() {
             var updates = {};
-            //TODO: use param and send it to the agent.
-            //Currently avoid it, due to multiple actors.
-            updates.debug_level = 5;
+            updates.debug_level = req.rpc_params.level;
             return nodes_store.update_nodes({
                 rpc_address: target
             }, {
@@ -506,7 +506,7 @@ function set_debug_node(req) {
                         actor: req.account && req.account._id,
                         node: node._id
                     });
-                    dbg.log1('set_debug_node for agent', target, 'was successful');
+                    dbg.log1('set_debug_node for agent', target, req.rpc_params.level, 'was successful');
                     return '';
                 });
         });

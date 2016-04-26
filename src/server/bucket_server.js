@@ -18,7 +18,8 @@ module.exports = {
     delete_bucket: delete_bucket,
     list_buckets: list_buckets,
     //generate_bucket_access: generate_bucket_access,
-    list_bucket_access_accounts: list_bucket_access_accounts,
+    list_bucket_s3_acl: list_bucket_s3_acl,
+    update_bucket_s3_acl: update_bucket_s3_acl,
 
     //Cloud Sync policies
     get_cloud_sync_policy: get_cloud_sync_policy,
@@ -111,23 +112,29 @@ function create_bucket(req) {
         actor: req.account && req.account._id,
         bucket: bucket._id,
     });
+
     return system_store.make_changes(changes)
-        .then(function() {
-            req.load_auth();
-            return server_rpc.client.account.update_buckets_permissions({
-                email: req.account && req.account.email,
-                allowed_buckets: [{
-                    bucket_name: bucket.name,
-                    is_allowed: true
-                }]
-            }, {
-                auth_token: req.auth_token
-            }).then(() => {
+        .then(
+            () => {
+                req.load_auth();
+                return server_rpc.client.bucket.update_bucket_s3_acl({
+                    name: bucket.name,
+                    access_control: [{
+                        account: req.account && req.account.email,
+                        is_allowed: true
+                    }]
+                }, {
+                    auth_token: req.auth_token
+                });
+            }
+        )
+        .then(
+            () => {
                 req.load_auth();
                 let created_bucket = find_bucket(req);
                 return get_bucket_info(created_bucket);
-            });
-        });
+            }
+        );
 }
 
 /**
@@ -227,20 +234,46 @@ function update_bucket(req) {
         .then(res => res[0]);
 }*/
 
-function list_bucket_access_accounts(req) {
-    var bucket = find_bucket(req);
+function list_bucket_s3_acl(req) {
+    let bucket = find_bucket(req);
+    return system_store.data.accounts
+        .filter(
+            account => !account.is_support && account.allowed_buckets
+        ) 
+        .map(
+            account => {
+                return {
+                    account: account.email,
+                    is_allowed: _.includes(account.allowed_buckets, bucket)
+                }
+            }
+        );
+}
 
-    if (!bucket) {
-        throw req.rpc_error('INVALID_BUCKET_NAME');
-    }
+function update_bucket_s3_acl(req) {
+    let bucket = find_bucket(req);
+    let updates = req.rpc_params.access_control
+        .map(
+            record => {
+                let account = system_store.data.accounts_by_email[record.account];
+                let allowed_buckets = record.is_allowed ?
+                    _.unionWith(account.allowed_buckets, [bucket], system_store.has_same_id) :
+                    _.differenceWith(account.allowed_buckets, [bucket], system_store.has_same_id);
 
-    var access_accounts = _.filter(
-        system_store.data.accounts,
-        account => req.has_bucket_permission(bucket, account)
-    );
+                return {
+                    _id: account._id,
+                    allowed_buckets: allowed_buckets.map(
+                        bucket => bucket._id
+                    )
+                }
+            }
+        );
 
-    var reply = _.map(access_accounts, account => account.email);
-    return reply;
+    system_store.make_changes({
+        update: {
+            accounts: updates
+        }
+    });
 }
 
 

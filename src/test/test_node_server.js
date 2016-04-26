@@ -15,6 +15,10 @@ mocha.describe('node_server', function() {
     const SYS = 'test-node-system';
     const EMAIL = SYS + '@coretest.coretest';
     const PASSWORD = 'tululu';
+    const ACCESS_KEYS = { 
+        access_key: 'ydaydayda', 
+        secret_key: 'blablabla' 
+    };    
     const NODE = 'test-node';
 
     mocha.it('works', function() {
@@ -25,6 +29,7 @@ mocha.describe('node_server', function() {
                 name: SYS,
                 email: EMAIL,
                 password: PASSWORD,
+                access_keys: ACCESS_KEYS
             }))
             .then(res => client.options.auth_token = res.token)
             .then(() => client.node.create_node({
@@ -74,12 +79,16 @@ mocha.describe('node_server', function() {
             .then(() => console.log('NODES', nodes))
             .then(() => client.node.set_debug_node({
                 target: nodes[0].rpc_address,
+                level: 0,
             }))
             .then(() => client.node.collect_agent_diagnostics({
                 target: nodes[0].rpc_address,
             }))
             .then(() => client.node.redirect({
                 target: nodes[0].rpc_address,
+                request_params: {
+                    level: 0,
+                },
                 method_api: 'agent_api',
                 method_name: 'set_debug_node',
             }))

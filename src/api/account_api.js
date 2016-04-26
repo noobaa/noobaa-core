@@ -18,7 +18,7 @@ module.exports = {
             method: 'POST',
             params: {
                 type: 'object',
-                required: ['name', 'email', 'password'],
+                required: ['name', 'email', 'password', 'access_keys'],
                 properties: {
                     name: {
                         type: 'string',
@@ -28,6 +28,17 @@ module.exports = {
                     },
                     password: {
                         type: 'string',
+                    },
+                    access_keys: {
+                        type: 'object',
+                        properties: {
+                            access_key: {
+                                type: 'string'
+                            },
+                            secret_key: {
+                                type: 'string'
+                            }
+                        }
                     },
                     allowed_buckets: {
                         type: 'array',
@@ -55,6 +66,15 @@ module.exports = {
         read_account: {
             doc: 'Read the info of the authorized account',
             method: 'GET',
+            params: {
+                type: 'object',
+                required: ['email'],
+                properties: {
+                    email: {
+                        type: 'string'
+                    }
+                }
+            },
             reply: {
                 $ref: '#/definitions/account_info'
             },
@@ -112,7 +132,7 @@ module.exports = {
             }
         },
 
-        get_buckets_permissions: {
+        list_account_s3_acl: {
             method: 'GET',
             params: {
                 type: 'object',
@@ -124,47 +144,25 @@ module.exports = {
                 }
             },
             reply: {
-                type: 'array',
-                items: {
-                    type: 'object',
-                    properties: {
-                        bucket_name: {
-                            type: 'string'
-                        },
-                        is_allowed: {
-                            type: 'boolean'
-                        }
-                    }
-                }
+                $ref: '#/definitions/account_acl'
             },
             auth: {
                 system: 'admin'
             }
         },
 
-        update_buckets_permissions: {
+        update_account_s3_acl: {
             doc: 'Update bucket access permissions',
             method: 'PUT',
             params: {
                 type: 'object',
-                required: ['email', 'allowed_buckets'],
+                required: ['email', 'access_control'],
                 properties: {
                     email: {
                         type: 'string',
                     },
-                    allowed_buckets: {
-                        type: 'array',
-                        items: {
-                            type: 'object',
-                            properties: {
-                                bucket_name: {
-                                    type: 'string'
-                                },
-                                is_allowed: {
-                                    type: 'boolean'
-                                }
-                            }
-                        }
+                    access_control: {
+                        $ref: '#/definitions/account_acl'
                     },
                 },
             },
@@ -306,7 +304,6 @@ module.exports = {
 
 
     definitions: {
-
         account_info: {
             type: 'object',
             required: ['name', 'email'],
@@ -325,6 +322,9 @@ module.exports = {
                     items: {
                         $ref: 'system_api#/definitions/access_keys'
                     }
+                },
+                has_s3_access: {
+                    type: 'boolean'
                 },
                 systems: {
                     type: 'array',
@@ -346,8 +346,29 @@ module.exports = {
                     }
                 }
             },
+        },
+
+        account_acl: {
+            anyOf: [
+                {
+                    type: 'null'
+                },
+                {
+                    type: 'array',
+                    items: {
+                        type: 'object',
+                        required: ['bucket_name', 'is_allowed'],
+                        properties: {
+                            bucket_name: {
+                                type: 'string'
+                            },
+                            is_allowed: {
+                                type: 'boolean'
+                            }
+                        }
+                    }
+                }
+            ]
         }
-
     }
-
 };

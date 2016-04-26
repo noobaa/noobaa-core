@@ -24,6 +24,10 @@ mocha.describe('system_servers', function() {
     const EMAIL = SYS + EMAIL_DOMAIN;
     const EMAIL1 = SYS1 + EMAIL_DOMAIN;
     const PASSWORD = SYS + '-password';
+    const ACCESS_KEYS = { 
+        access_key: 'ydaydayda', 
+        secret_key: 'blablabla' 
+    };
     const CLOUD_SYNC_CONNECTION = 'Connection 1';
 
     let client = coretest.new_test_client();
@@ -37,14 +41,15 @@ mocha.describe('system_servers', function() {
             .then(() => client.account.accounts_status())
             .then(res => assert(!res.has_accounts, '!has_accounts'))
             .then(() => client.account.create_account({
-                name: CLOUD_SYNC_CONNECTION,
+                name: SYS,
                 email: EMAIL,
-                password: PASSWORD
+                password: PASSWORD,
+                access_keys: ACCESS_KEYS
             }))
             .then(res => client.options.auth_token = res.token)
             .then(() => client.account.accounts_status())
             .then(res => assert(res.has_accounts, 'has_accounts'))
-            .then(() => client.account.read_account())
+            .then(() => client.account.read_account({ email: EMAIL }))
             .then(() => client.account.list_accounts())
             .then(() => client.account.get_account_sync_credentials_cache())
             .then(() => client.system.read_system())
@@ -63,6 +68,7 @@ mocha.describe('system_servers', function() {
                 name: EMAIL1,
                 email: EMAIL1,
                 password: PASSWORD,
+                access_keys: ACCESS_KEYS
             }))
             .then(() => client.system.read_system())
             .then(() => client.system.add_role({
@@ -112,7 +118,7 @@ mocha.describe('system_servers', function() {
             .then(() => client.system.update_system_certificate()
                 .catch(err => assert.deepEqual(err.rpc_code, 'TODO'))
             )
-            //.then(() => client.system.start_debug())
+            //.then(() => client.system.start_debug({level:0}))
             .then(() => client.system.diagnose())
             .then(() => client.system.create_system({
                 name: SYS1

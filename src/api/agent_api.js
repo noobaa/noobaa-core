@@ -159,6 +159,15 @@ module.exports = {
 
         set_debug_node: {
             method: 'POST',
+            params: {
+                type: 'object',
+                required: ['level'],
+                properties: {
+                    level: {
+                        type: 'integer'
+                    }
+                }
+            }
         },
 
         update_n2n_config: {

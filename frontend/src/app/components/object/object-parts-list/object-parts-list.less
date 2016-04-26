@@ -43,8 +43,8 @@ object-parts-list {
         box-sizing: content-box;
         word-break: break-all;
 
-        &:last-child > .row {            
-            border-bottom: none;    
+        &:last-child > .row {
+            border-bottom: none;
         }
 
         svg-icon {
@@ -86,6 +86,19 @@ object-parts-list {
         padding: .75em;
         padding-left: 3.5em;
         padding-right: 1.5em;
-        border-bottom: 1px solid @bg-color3;        
+        border-bottom: 1px solid @bg-color3;
+
+        .node-ip, .node-name {
+            margin: 0 .75em;
+            text-align: center;
+        }
+
+        .node-ip {
+            width: 8em;
+        }
+
+        .node-name {
+            width: 13em;
+        }
     }
 }

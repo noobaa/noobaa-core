@@ -6,16 +6,13 @@ let dbg = require('../util/debug_module')(__filename);
 let s3_util = require('../util/s3_utils');
 let s3_errors = require('./s3_errors');
 let express = require('express');
-let jstoxml = require('jstoxml');
+let moment = require('moment');
+let xml_utils = require('../util/xml_utils');
 //var S3Auth = require('aws-sdk/lib/signers/s3');
 //var s3_auth = new S3Auth();
 
 const S3_XML_ATTRS = Object.freeze({
     xmlns: 'http://doc.s3.amazonaws.com/2006-03-01'
-});
-const XML_OPTIONS = Object.freeze({
-    header: true,
-    indent: false
 });
 const BUCKET_QUERIES = Object.freeze([
     'acl',
@@ -123,12 +120,11 @@ function s3_rest(controller) {
                         res.status(200).end();
                     }
                 } else {
-                    let xml_root = _.map(reply, (val, key) => ({
-                        _name: key,
-                        _attrs: S3_XML_ATTRS,
+                    let xml_root = _.mapValues(reply, val => ({
+                        _attr: S3_XML_ATTRS,
                         _content: val
                     }));
-                    let xml_reply = jstoxml.toXML(xml_root, XML_OPTIONS);
+                    let xml_reply = xml_utils.encode_xml(xml_root);
                     dbg.log0('S3 XML REPLY', func_name, req.method, req.url,
                         JSON.stringify(req.headers), xml_reply);
                     res.status(200).send(xml_reply);
@@ -185,6 +181,14 @@ function s3_rest(controller) {
                 }
             }
 
+            // using moment to parse x-amz-date from string iso8601 or iso822.
+            // When using a signedURL we give an expiry of 7days, which will cover
+            // up the skew between the times, so we don't check it
+            let client_date = moment(req.headers.date || req.headers['x-amz-date']);
+            if (!req.query['X-Amz-Credential'] && Math.abs(moment().diff(client_date, 'seconds')) > 60) {
+                throw s3_errors.RequestTimeTooSkewed;
+            }
+
             next();
         } catch (err) {
             next(err);
@@ -216,12 +220,6 @@ function s3_rest(controller) {
      */
     function authenticate_s3_request(req, res, next) {
         P.fcall(function() {
-                dbg.log0('S3 request information. Time:', Date.now(),
-                    'url:', req.originalUrl,
-                    'method:', req.method,
-                    'headers:', req.headers,
-                    'query:', req.query);
-
                 if (req.headers.authorization) {
                     // Using noobaa's extraction function,
                     // due to compatibility problem in aws library with express.

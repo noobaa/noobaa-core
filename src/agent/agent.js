@@ -728,12 +728,15 @@ Agent.prototype.collect_diagnostics = function(req) {
 };
 
 Agent.prototype.set_debug_node = function(req) {
-    dbg.set_level(5, 'core');
-    dbg.log1('Recieved set debug req');
-    promise_utils.delay_unblocking(10 * 60 * 1000) // 10 minutes
-        .then(function() {
-            dbg.set_level(0, 'core');
-        });
+    dbg.set_level(req.rpc_params.level, 'core');
+    dbg.log1('Recieved set debug req ', req.rpc_params.level);
+    if (req.rpc_params.level > 0) { //If level was set, unset it after a T/O
+        promise_utils.delay_unblocking(10 * 60 * 1000) // 10 minutes
+            .then(function() {
+                dbg.set_level(0, 'core');
+            });
+    }
+    return;
 };
 
 Agent.prototype._test_latencies = function() {

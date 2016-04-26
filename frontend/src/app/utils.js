@@ -266,3 +266,15 @@ export function lastSegment(str, delimiter) {
 export function avgOp(avg, value, i) {
     return avg + (value - avg) / (i + 1);
 }
+
+export function shortString(str, maxLength = 25, suffixLengh = 5) {
+    if (str.length <= maxLength){
+        return str;
+    }
+
+    return `${
+        str.substr(0, maxLength - (suffixLengh + 3))
+    }...${
+        str.substr(-suffixLengh)
+    }`;
+}

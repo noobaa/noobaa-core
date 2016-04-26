@@ -4,7 +4,7 @@ var _ = require('lodash');
 var fs = require('fs');
 var P = require('../../util/promise');
 var promise_utils = require('../../util/promise_utils');
-var config = require('../../../../config.js');
+var config = require('../../../config.js');
 
 module.exports = SupervisorCtrl;
 

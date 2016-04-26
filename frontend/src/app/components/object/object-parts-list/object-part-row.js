@@ -1,5 +1,5 @@
 import ko from 'knockout';
-import { formatSize, dblEncode } from 'utils';
+import { shortString, formatSize, dblEncode } from 'utils';
 
 const partStateMapping = Object.freeze({
     available: {
@@ -17,14 +17,15 @@ const partStateMapping = Object.freeze({
 });
 
 class BlockRowViewModel {
-    constructor({ adminfo }) {
+    constructor({ adminfo }, index, count) {
         let { online, node_ip, node_name, pool_name } = adminfo;
 
+        this.label = `Replica ${index + 1} of ${count}`
         this.nodeStateToolTip = online ? 'online' : 'offline';
         this.nodeStateIcon = `/fe/assets/icons.svg#node-${online ? 'online' : 'offline'}`;
         this.nodeIp = node_ip;
-        this.nodeName = node_name;
-        this.href = `/fe/systems/:system/pools/${
+        this.nodeName = shortString(node_name);
+        this.nodeUrl = `/fe/systems/:system/pools/${
                 dblEncode(pool_name)
             }/nodes/${
                 dblEncode(node_name)
@@ -45,7 +46,7 @@ export default class ObjectPartRowViewModel {
         this.size = size;
         this.blocks = blocks;
         this.blocks = blocks.map(
-            block =>  new BlockRowViewModel(block)
+            (block, i) =>  new BlockRowViewModel(block, i, blocks.length)
         );
 
         this.isExpended = ko.observable(partNumber === 0);

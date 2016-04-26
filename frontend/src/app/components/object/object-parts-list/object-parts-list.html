@@ -24,9 +24,17 @@
                         <svg-icon params="uri: nodeStateIcon" 
                             data-bind="attr: { title: nodeStateToolTip }"></svg-icon>
 
-                        <span class="pull-right emphasized" data-bind="text: nodeIp">
-                        </span>
-                        <a class="link" href data-bind="text: nodeName, href: href"></a>
+                        <a class="pull-right link node-ip" data-bind="
+                            text: nodeIp, 
+                            href: nodeUrl
+                        "></a>
+
+                        <a class="pull-right link node-name" data-bind="
+                            text: nodeName,
+                            href: nodeUrl
+                        "></a>
+
+                        <a data-bind="text: label"></a>
                     </div>
                 </li>
             </ul>

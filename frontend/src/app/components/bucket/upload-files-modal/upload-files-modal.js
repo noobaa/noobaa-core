@@ -6,8 +6,6 @@ import { makeArray } from 'utils'
 import { recentUploads } from 'model';
 import { uploadFiles } from 'actions';
 
-
-
 class UploadFilesModalViewModel {
     constructor({ bucketName, onClose }){
         this.bucketName = bucketName;

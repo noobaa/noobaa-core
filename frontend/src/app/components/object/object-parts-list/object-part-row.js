@@ -24,7 +24,8 @@ class BlockRowViewModel {
         this.nodeStateToolTip = online ? 'online' : 'offline';
         this.nodeStateIcon = `/fe/assets/icons.svg#node-${online ? 'online' : 'offline'}`;
         this.nodeIp = node_ip;
-        this.nodeName = shortString(node_name);
+        this.nodeName = node_name;
+        this.shortenNodeName = shortString(node_name);
         this.nodeUrl = `/fe/systems/:system/pools/${
                 dblEncode(pool_name)
             }/nodes/${

@@ -24,13 +24,11 @@ class BlockRowViewModel {
         this.nodeStateToolTip = online ? 'online' : 'offline';
         this.nodeStateIcon = `/fe/assets/icons.svg#node-${online ? 'online' : 'offline'}`;
         this.nodeIp = node_ip;
+        this.poolName = pool_name;
+        this.poolUrl = `/fe/systems/:system/pools/${dblEncode(pool_name)}`;
         this.nodeName = node_name;
         this.shortenNodeName = shortString(node_name);
-        this.nodeUrl = `/fe/systems/:system/pools/${
-                dblEncode(pool_name)
-            }/nodes/${
-                dblEncode(node_name)
-            }`;
+        this.nodeUrl = `${this.poolUrl}/nodes/${dblEncode(node_name)}`;
     }
 }
 

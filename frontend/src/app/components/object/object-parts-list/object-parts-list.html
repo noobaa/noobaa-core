@@ -5,8 +5,13 @@
     <ul class="list-no-style" data-bind="foreach: rows">
         <li>
             <div class="row" data-bind="click: toggleExpend">
-                <button class="expend-btn btn-flat pull-right text-tech" 
-                    data-bind="text: isExpended() ? '-' : '+'"></button>
+                <button class="expand-btn btn-flat pull-right rotate no-outline" data-bind="
+                    css: { 'deg-90': !isExpended() }
+                ">
+                    <svg-icon class="expand-icon icon-small" params="
+                        uri: '/fe/assets/icons.svg#expand'
+                    "></svg-icon>
+                </button>
 
                 <svg-icon params="uri: stateIcon" data-bind="attr: { title: stateToolTip }">
                 </svg-icon>
@@ -15,30 +20,40 @@
                 (<span class="emphasized" data-bind="text: size"></span>)
             </div>
             
-            <ul class="block-list list-no-style" data-bind="
-                foreach: blocks,
-                css: { expended: isExpended  }
-            ">
-                <li>
-                    <div class="sub-row">
-                        <svg-icon params="uri: nodeStateIcon" 
-                            data-bind="attr: { title: nodeStateToolTip }"></svg-icon>
-
-                        <a class="pull-right link node-ip" data-bind="
-                            text: nodeIp, 
-                            href: nodeUrl
-                        "></a>
-
-                        <a class="pull-right link node-name" data-bind="
-                            text: shortenNodeName,
-                            attr: { title: nodeName },
-                            href: nodeUrl
-                        "></a>
-
-                        <a data-bind="text: label"></a>
-                    </div>
-                </li>
-            </ul>
+            <div class="blocks-table" data-bind="expand: isExpended">
+                <table>
+                    <tbody data-bind="foreach: blocks">
+                        <tr>
+                            <td class="replica-col text-left">
+                                <svg-icon params="uri: nodeStateIcon" data-bind="
+                                    attr: { title: nodeStateToolTip }
+                                "></svg-icon>
+                                <span data-bind="text: label"></span>
+                            </td>
+                            <td class="node-name-col">
+                                <a class="link" data-bind="
+                                    text: shortenNodeName,
+                                    attr: { title: nodeName },
+                                    href: nodeUrl
+                                "></a>
+                            </td>
+                            <td class="node-ip-col">
+                                <a class="link" data-bind="
+                                    text: nodeIp,
+                                    href: nodeUrl
+                                "></a>
+                            </td>
+                            <td class="pool-col no-wrap">
+                                <a class="link" data-bind="
+                                    text: poolName,
+                                    attr: { title: poolName },
+                                    href: poolUrl
+                                "></a>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
         </li>
     </ul>
 </div>

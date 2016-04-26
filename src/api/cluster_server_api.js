@@ -92,14 +92,16 @@ module.exports = {
             params: {
                 type: 'object',
                 required: ['IPs', 'cluster_id'],
-                IPs: {
-                    type: 'array',
-                    items: {
-                        type: 'string',
+                properties: {
+                    IPs: {
+                        type: 'array',
+                        items: {
+                            type: 'string',
+                        },
                     },
-                },
-                cluster_id: {
-                    type: 'string'
+                    cluster_id: {
+                        type: 'string'
+                    },
                 },
             },
         },

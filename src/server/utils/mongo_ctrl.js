@@ -4,8 +4,8 @@ var _ = require('lodash');
 var mongo_client = require('./mongo_client');
 var P = require('../../util/promise');
 var super_ctrl = require('./supervisor_ctrl');
-var dbg = require('../util/debug_module')(__filename);
-var config = require('../../../../config.js');
+var dbg = require('../../util/debug_module')(__filename);
+var config = require('../../../config.js');
 
 module.exports = MongoCtrl;
 

@@ -3,13 +3,6 @@ object-parts-list {
     position: relative;
     height: 100%;
 
-    .text(
-        @font-type2, 
-        @font-weight-light, 
-        @font-size-normal, 
-        @text-color4
-    );
-
     .list-wrapper {
         margin-top: 4em;
 
@@ -43,10 +36,6 @@ object-parts-list {
         box-sizing: content-box;
         word-break: break-all;
 
-        &:last-child > .row {
-            border-bottom: none;
-        }
-
         svg-icon {
             margin-right: .5em;
         }
@@ -58,15 +47,11 @@ object-parts-list {
 
     .row {
         padding: .75em 1.5em;
-        border-bottom: 1px solid @bg-color4;
         cursor: @cursor-pointer;
 
-        .expend-btn {
-            font-size: @font-size-normal;
-        }
-
-        svg-icon {
-            vertical-align: middle;
+        .expand-btn {
+            padding: 0;
+            fill: @text-color4;
         }
 
         + ul li:last-child > .sub-row {
@@ -75,35 +60,38 @@ object-parts-list {
     }
 
     .block-list {
-        display: none;
-
         &.expended {
             display: block;
-        }    
-    }    
+        }
+    }
 
-    .sub-row {
-        padding: .75em;
-        padding-left: 3.5em;
-        padding-right: 1.5em;
-        border-bottom: 1px solid @bg-color3;
-        vertical-align: middle;
-
-        .pool-name, .node-name, .node-ip {
-            display: inline-block;
-            vertical-align: top;
+    .blocks-table {
+        width: 100%;
+        text-align: center;
+        padding: 0 1.5em .75em 3.5em;
+        
+        tr {
+            width: 100%;
         }
 
-        .pool-name {
-            width: 10em
+        td {
+            padding: .5em;
         }
 
-        .node-ip {
-            width: 8em;
+        .replica-col {
+            width: 100%;
         }
 
-        .node-name {
-            width: 13em;
+        .node-name-col {
+            min-width: 14em;
+        }
+
+        .node-ip-col {
+            min-width: 8em;
+        }
+
+        .pool-col {
+            min-width: 10em;
         }
     }
 }

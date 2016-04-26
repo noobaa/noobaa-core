@@ -1,4 +1,5 @@
 import template from './upload-files-modal.html';
+import ko from 'knockout';
 import UploadRowViewModel from './upload-row';
 import { paginationPageSize } from 'config';
 import { makeArray } from 'utils'
@@ -12,14 +13,20 @@ class UploadFilesModalViewModel {
         this.bucketName = bucketName;
         this.onClose = onClose;
         
+        let recentUploadsToBucket = ko.pureComputed(
+            () => recentUploads().filter(
+                ({ targetBucket }) => targetBucket === ko.unwrap(bucketName)
+            )
+        );
+
         this.files = makeArray(
             paginationPageSize,
-            i => new UploadRowViewModel(() => recentUploads()[i])
+            i => new UploadRowViewModel(() => recentUploadsToBucket()[i])
         );
     }
 
     upload(files) {
-        uploadFiles(this.bucketName(), files);
+        uploadFiles(ko.unwrap(this.bucketName), files);
     }
 
     close() {

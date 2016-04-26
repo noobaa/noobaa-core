@@ -41,14 +41,14 @@ export default class ObjectPartRowViewModel {
 
         this.stateToolTip = stateMapping.toolTip;
         this.stateIcon = stateMapping.icon;
-        this.name = `Part ${partNumber} of ${partsCount}`;
+        this.name = `Part ${partNumber + 1} of ${partsCount}`;
         this.size = size;
         this.blocks = blocks;
         this.blocks = blocks.map(
             block =>  new BlockRowViewModel(block)
         );
 
-        this.isExpended = ko.observable(false);
+        this.isExpended = ko.observable(partNumber === 0);
     }
 
     toggleExpend() {

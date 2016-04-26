@@ -15,11 +15,8 @@
                     <th class="name-col text-left" data-bind="css: orderClassFor('name')">
                         <a href data-bind="click: () => orderBy('name')">node name</a>
                     </th>
-                    <th class="disk-read-col">
-                        Disk Read
-                    </th>
-                    <th class="disk-write-col">
-                        Disk Write
+                    <th class="disk-read-write-col">
+                        Disk Read / write
                     </th>
                     <th class="rtt-col">
                         RTT
@@ -43,8 +40,7 @@
                     <td class="name-col text-left" >
                         <a class="link" data-bind="text: name, href: href"></a>
                     </td>
-                    <td class="disk-read-col " data-bind="text: diskRead"></td>
-                    <td class="disk-write-col" data-bind="text: diskWrite"></td>
+                    <td class="disk-read-write-col" data-bind="text: diskReadWrite"></td>
                     <td class="rtt-col " data-bind="text: RTT"></td>
                     <td class="ip-col" data-bind="text: ip"></td>
                     <td class="capacity-col" data-bind="text: capacity"></td>

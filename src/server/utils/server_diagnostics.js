@@ -25,22 +25,22 @@ function collect_server_diagnostics(req) {
             return collect_supervisor_logs();
         })
         .then(function() {
-            return promise_utils.promised_exec('cp -f /var/log/noobaa_deploy* ' + TMP_WORK_DIR,true);
+            return promise_utils.promised_exec('cp -f /var/log/noobaa_deploy* ' + TMP_WORK_DIR, true);
         })
         .then(function() {
-            return promise_utils.promised_exec('cp -f /var/log/noobaa.log* ' + TMP_WORK_DIR,true);
+            return promise_utils.promised_exec('cp -f /var/log/noobaa.log* ' + TMP_WORK_DIR, true);
         })
         .then(function() {
-            return promise_utils.promised_spawn('cp', ['-f', process.cwd() + '/.env', TMP_WORK_DIR + '/env'], process.cwd(),true);
+            return promise_utils.promised_spawn('cp', ['-f', process.cwd() + '/.env', TMP_WORK_DIR + '/env'], process.cwd(), true);
         })
         .then(function() {
             return os_utils.top_single(TMP_WORK_DIR + '/top.out');
         })
-        .catch(function(err) {
-            console.error('Failed to collect top ', err.stack || err);
+        .then(function() {
+            return promise_utils.promised_exec('cp -f /etc/noobaa* ' + TMP_WORK_DIR, true);
         })
         .then(function() {
-            return promise_utils.promised_exec('lsof &> ' + TMP_WORK_DIR + '/lsof.out',true);
+            return promise_utils.promised_exec('lsof &> ' + TMP_WORK_DIR + '/lsof.out', true);
         })
         .then(function() {
             if (stats_aggregator) {

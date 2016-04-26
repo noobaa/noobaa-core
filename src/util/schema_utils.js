@@ -70,8 +70,10 @@ function make_strict_schema(schema, base) {
         _.each(schema.allOf, val => make_strict_schema(val, base));
     } else if (schema.$ref) {
         check_schema_extra_keywords(schema, base, '$ref');
+    } else if (schema.type === 'null') {
+        check_schema_extra_keywords(schema, base, 'type');
     } else {
-        illegal_json_schema(schema, base, 'missing type/$ref/oneOf/allOf/anyOf');
+        illegal_json_schema(schema, base, 'make_strict_schema: missing type/$ref/oneOf/allOf/anyOf');
     }
 }
 

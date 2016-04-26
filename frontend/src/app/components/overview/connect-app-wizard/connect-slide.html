@@ -1,40 +1,29 @@
-<h2 class="heading3">Connect your client</h2>
-<p class="paragraph">
-    Use the following information to config a connection between NooBaa
-    and the client.
-</p>
-<div class="box">
-    <table>
-        <tr>
-            <td class="field-name">Storage Type:</td>
-            <td class="field-value">S3 Compatible Storage</td>
-        </tr>
-        <tr>
-            <td class="field-name">REST Endpoint:</td>
-            <td class="field-value" data-bind="text: endpoint"></td>
-            <td class="copy-btn">
-                <button class="btn-flat" title="copy to clipboard" data-bind="click: () => copyToClipboard(endpoint)">
-                    <svg-icon class="icon-small" params="uri: '/fe/assets/icons.svg#copy'"></svg-icon>
-                </button>
-            </td>
-        </tr>                
-        <tr>
-            <td class="field-name">Access Key:</td>
-            <td class="field-value" data-bind="text: accessKey"></td>
-            <td class="copy-btn">
-                <button class="btn-flat" title="copy to clipboard" data-bind="click: () => copyToClipboard(accessKey)">
-                    <svg-icon class="icon-small" params="uri: '/fe/assets/icons.svg#copy'"></svg-icon>
-                </button>
-            </td>
-        </tr>                
-        <tr>
-            <td class="field-name">Secret Key:</td>
-            <td class="field-value" data-bind="text: secretKey"></td>
-            <td class="copy-btn">
-                <button class="btn-flat" title="copy to clipboard" data-bind="click: () => copyToClipboard(secretKey)">
-                    <svg-icon class="icon-small" params="uri: '/fe/assets/icons.svg#copy'"></svg-icon>
-                </button>
-            </td>
-        </tr>                
-    </table>
-</div>        
+<section class="container">
+    <h2 class="heading3">
+        Choose an account to connect with
+    </h2>
+
+    <dropdown params="
+        options: accountOptions,
+        selected: selectedAccount,
+        placeholder: 'select account',
+    "></dropdown>
+</section>
+
+<section class="container">
+    <h2 class="heading3">
+        Use the following infromation to config your application
+    </h2>
+
+    <property-sheet class="container" params="properties: details"></property-sheet>
+    
+    <p class="paragraph">
+        <svg-icon class="icon-small" params="uri: '/fe/assets/icons.svg#notif-info'"></svg-icon>
+        to create a new account go to System Managemnet >
+        <a class="link" data-bind="
+            href: '/fe/systems/:system/management/accounts'
+        ">
+            Accounts
+        </a>
+    </p>
+</section>

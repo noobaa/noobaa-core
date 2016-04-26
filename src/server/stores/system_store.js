@@ -6,7 +6,7 @@ let util = require('util');
 let Ajv = require('ajv');
 let EventEmitter = require('events').EventEmitter;
 let mongodb = require('mongodb');
-let mongo_client = require('./mongo_client');
+let mongo_client = require('../utils/mongo_client');
 let mongo_utils = require('../../util/mongo_utils');
 let js_utils = require('../../util/js_utils');
 let time_utils = require('../../util/time_utils');
@@ -203,8 +203,12 @@ class SystemStoreData {
             // filter only the buckets that were resolved to existing buckets
             // this is to handle deletions of buckets that currently do not
             // update all the accounts.
-            account.allowed_buckets =
-                _.filter(account.allowed_buckets, bucket => !!bucket._id);
+            if (account.allowed_buckets) {
+                account.allowed_buckets = _.filter(
+                    account.allowed_buckets, 
+                    bucket => !!bucket._id
+                );
+            }
         });
     }
 
@@ -383,6 +387,10 @@ class SystemStore extends EventEmitter {
 
     generate_id() {
         return new mongodb.ObjectId();
+    }
+
+    has_same_id(obj1, obj2) {
+        return String(obj1._id) === String(obj2._id);
     }
 
     /**

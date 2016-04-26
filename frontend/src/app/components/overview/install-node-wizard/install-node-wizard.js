@@ -1,43 +1,98 @@
 import template from './install-node-wizard.html';
-import downloadStepTemplate from './download-step.html';
-import runStepTemplate from './run-step.html';
+import selectStepTemplate from './select-step.html';
+import installStepTemplate from './install-step.html';
 import reviewStepTemplate from './review-step.html';
 import ko from 'knockout';
 import { defaultPoolName } from 'config';
-import { agentInstallationInfo as installInfo } from 'model';
-import { copyTextToClipboard } from 'utils';
+import { agentInstallationInfo as installInfo, systemInfo } from 'model';
+import { copyTextToClipboard, lastSegment } from 'utils';
 import { loadAgentInstallationInfo } from 'actions';
+
+const installCommands = {
+    NETWORK_WINDOWS(pkg, conf, server) {
+        return `Invoke-WebRequest ${server}:8080/public/${pkg} -OutFile C:\\${pkg}; C:\\${pkg} ${conf}`
+    },
+
+    NETWORK_LINUX(pkg, conf, server) {
+        return `wget ${server}:8080/public/${pkg} && chmod 755 ${pkg} && ./${pkg} ${conf}`;
+    },
+
+    LOCAL_WINDOWS(pkg, conf) {
+        return `${pkg} /S /config ${conf}`; 
+    },
+
+    LOCAL_LINUX(pkg, conf) {
+        return `${pkg} /S /config ${conf}`; 
+    }
+};
+
+const installationTypeOptions = [
+    { 
+        value: 'NETWORK', 
+        label: 'Network Installation (recommended)',
+        description: 'Choose this option to use NooBaa\'s distribution utilities to install the NooBaa daemon over the network. This option require direct access from the target machine to the NooBaa server'
+    },
+    { 
+        value: 'LOCAL', 
+        label: 'Local Installation',
+        description: 'Choose this option when your target machine does not have direct access to the NooBaa server'
+    }
+];
+
+const installationTargetOptions = [
+    { 
+        value: 'LINUX', 
+        label: 'Linux' 
+    },
+    { 
+        value: 'WINDOWS', 
+        label: 'Windows' 
+    }
+];
 
 class InstallNodeWizardViewModel {
     constructor({ onClose }) {
-        this.downloadStepTemplate = downloadStepTemplate;
-        this.runStepTemplate = runStepTemplate;
+        this.selectStepTemplate = selectStepTemplate;
+        this.installStepTemplate = installStepTemplate;
         this.reviewStepTemplate = reviewStepTemplate;
         this.onClose = onClose;
-        this.installationType = ko.observable('DIST_TOOL');
 
         this.dataReady = ko.pureComputed(
             () => !!installInfo()
         );
 
-        this.windowAgentUrl = ko.pureComputed(
-            () => installInfo().downloadUris.windows
+        this.installationTypeOptions = installationTypeOptions;
+        this.installationType = ko.observable(
+            installationTypeOptions[0].value
         );
 
-        this.linuxAgentUrl = ko.pureComputed(
-            () => installInfo().downloadUris.linux
+        this.installationTargetOptions = installationTargetOptions;
+        this.installationTarget = ko.observable(
+            installationTargetOptions[0].value
         );
 
-        this.distConf = ko.pureComputed(
-            () => `/S /config ${installInfo().agentConf}` 
+        this.commandSelector = ko.pureComputed(
+            () => `${this.installationType()}_${this.installationTarget()}`
         );
 
-        this.windowsInstallCommand = ko.pureComputed(
-             () => `${this._extractAgentName(this.windowAgentUrl())} ${this.distConf()}`
+        this.packageUrl = ko.pureComputed(
+            () => ({
+                LINUX: installInfo().downloadUris.linux,
+                WINDOWS: installInfo().downloadUris.windows
+            })[
+                this.installationTarget()
+            ]
         );
 
-        this.linuxInstallCommand = ko.pureComputed(
-             () => `${this._extractAgentName(this.linuxAgentUrl())} ${this.distConf()}`
+        this.selectedInstallCommand = ko.pureComputed(
+            () => {
+                let selector = this.commandSelector();
+                let pkg = lastSegment(this.packageUrl(), '/');
+                let conf = installInfo().agentConf;
+                let server = systemInfo().ipAddress;
+
+                return installCommands[selector](pkg, conf, server)
+            }
         );
 
         this.defaultPoolUrl = `/fe/systems/:system/pools/${defaultPoolName}`;
@@ -45,12 +100,10 @@ class InstallNodeWizardViewModel {
         loadAgentInstallationInfo();
     }
 
-    copyToClipboard(text) {
-        copyTextToClipboard(ko.unwrap(text));
-    }
-
-    _extractAgentName(url) {
-        return url.substr(url.lastIndexOf('/') + 1);
+    copyInstallCommand() {
+        copyTextToClipboard(
+            this.selectedInstallCommand()
+        );
     }
 }
 

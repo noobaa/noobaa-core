@@ -2,9 +2,9 @@ import template from './connect-app-wizard.html';
 import selectSlideTemplate from './select-slide.html';
 import connecSlideTemplate from './connect-slide.html';
 import ko from 'knockout';
-import { bucketList, systemInfo } from 'model';
+import { systemInfo, accountList } from 'model';
 import { copyTextToClipboard } from 'utils';
-import { loadBucketList } from 'actions';
+import { loadAccountList } from 'actions';
 
 const connectionTypes = Object.freeze([
     {
@@ -29,57 +29,55 @@ const connectionTypes = Object.freeze([
 class ConnectApplicationWizard {
     constructor({ onClose }) {
         this.onClose = onClose;
-         this.selectSlideTemplate = selectSlideTemplate;
-         this.connectSlideTemplate = connecSlideTemplate;
+        this.selectSlideTemplate = selectSlideTemplate;
+        this.connectSlideTemplate = connecSlideTemplate;
 
-         this.conTypes = connectionTypes;
-         this.selectedConType = ko.observable(this.conTypes[0]);
+        this.conTypes = connectionTypes;
+        this.selectedConType = ko.observable(this.conTypes[0]);
 
-        let buckets = bucketList.map(
-            bucket => bucket.name
+        this.accountOptions = accountList.map(
+            account => ({ label: account.email, value: account })
         );
 
-        this.selectedBucket = ko.observable();
-        this.buckets = buckets.map(
-            (name, i) => {
-                let item = {
-                    name: name,
-                    selected: ko.pureComputed({
-                        read: () => this.selectedBucket() === item,
-                        write: val => val === true && this.selectedBucket(item)
-                    }),
-                    icon: ko.pureComputed(
-                        () => `/fe/assets/icons.svg#bucket-${
-                            item.selected() ? 'selected' : 'unselected'
-                        }`
-                    )
-                }
+        this.selectedAccount = ko.observableWithDefault(
+            () => systemInfo() && accountList() && accountList().filter(
+                account => account.email === systemInfo().owner
+            )[0]
+        );
 
-                if (i() === 0) {
-                    item.selected(true);
-                }
+        let keys = ko.pureComputed(
+            () => this.selectedAccount() && this.selectedAccount().access_keys[0]
+        );
 
-                return item;
+        this.details = [
+            {
+                label: 'Storage Type', 
+                value: 'S3 compatible storage'
+            },
+            {
+                label: 'REST Endpoint', 
+                value: ko.pureComputed(
+                    () => systemInfo() && systemInfo().endpoint
+                ),
+                allowCopy: true
+            },
+            { 
+                label: 'Access Key', 
+                value: ko.pureComputed(
+                    () => keys() && keys().access_key
+                ),
+                allowCopy: true
+            },
+            { 
+                label: 'Secret Key', 
+                value: ko.pureComputed(
+                    () => keys() && keys().secret_key
+                ),
+                allowCopy: true
             }
-        );
-    
-         this.endpoint = ko.pureComputed(
-             () => systemInfo().endpoint
-         );
+        ];
 
-         this.accessKey = ko.pureComputed(
-             () => systemInfo().accessKey
-         );
-
-         this.secretKey = ko.pureComputed(
-             () => systemInfo().secretKey
-         );
-
-         loadBucketList();
-    }
-
-    copyToClipboard(text) {
-        copyTextToClipboard(ko.unwrap(text));
+        loadAccountList();
     }
 }
 

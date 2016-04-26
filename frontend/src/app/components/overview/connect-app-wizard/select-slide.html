@@ -18,21 +18,3 @@
         </li>
     </ul>
 </section>
-
-<section>
-    <h2 class="heading3">Select the bucket you want to connect to</h2>
-
-    <div class="box">
-        <ul class="list-no-style clear bucket-list" data-bind="foreach: buckets">
-            <li class="pull-left">
-                <button class="btn-flat bucket" data-bind="
-                    css: { selected: selected }, 
-                    click: () => selected(true)
-                ">
-                    <svg-icon params="uri: icon"></svg-icon>
-                    <div class="bucket-name" data-bind="text: name"></div>
-                </button>
-            </li>
-        </ul>
-    </div>
-</section>

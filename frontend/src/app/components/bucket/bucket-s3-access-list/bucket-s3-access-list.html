@@ -1,0 +1,31 @@
+<button class="btn3 pull-right" data-bind="click: openS3AccessModal">
+    Edit S3 Access
+</button>
+
+<h2 class="heading2 container">
+    Accounts with S3 access for this bucket
+</h2>
+
+<ul class="account-list list-no-style container" data-bind="foreach: accessList">
+    <li>
+        <span data-bind="text: $data"></span>
+        <button class="link pull-right" data-bind="
+            click: () => $component.openConnectionDetailsFor($data)">
+            Connection Details
+        </button>
+    </li>
+</ul>
+
+<!-- ko if: isS3AccessModalVisible -->
+<bucket-s3-access-modal params="
+    bucketName: bucketName,
+    onClose: () => closeS3AccessModal()
+"></bucket-s3-access-modal>
+<!-- /ko -->
+
+<!-- ko if: selectedAccount -->
+<s3-access-details-modal params="
+    account: selectedAccount, 
+    onClose: () => closeConnectionDetails()
+"></s3-access-details-modal>
+<!-- /ko -->

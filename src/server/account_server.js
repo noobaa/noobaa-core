@@ -10,10 +10,10 @@ var account_server = {
     create_account: create_account,
     read_account: read_account,
     update_account: update_account,
-    generate_account_keys: generate_account_keys,
-    update_buckets_permissions: update_buckets_permissions,
-    get_buckets_permissions: get_buckets_permissions,
     delete_account: delete_account,
+    generate_account_keys: generate_account_keys,
+    list_account_s3_acl: list_account_s3_acl,
+    update_account_s3_acl: update_account_s3_acl,
     list_accounts: list_accounts,
     accounts_status: accounts_status,
     get_system_roles: get_system_roles,
@@ -46,23 +46,14 @@ var AWS = require('aws-sdk');
  */
 function create_account(req) {
     var account = _.pick(req.rpc_params, 'name', 'email', 'password');
+    account.access_keys = [req.rpc_params.access_keys];
+
     account._id = system_store.generate_id();
     return P.fcall(function() {
             return bcrypt_password(account);
         })
         .then(function() {
             var changes;
-            let new_access_keys = [{
-                access_key: crypto.randomBytes(16).toString('hex'),
-                secret_key: crypto.randomBytes(32).toString('hex')
-            }];
-
-            if (req.rpc_params.name.toString() === 'demo' &&
-                req.rpc_params.email.toString() === 'demo@noobaa.com') {
-                new_access_keys[0].access_key = '123';
-                new_access_keys[0].secret_key = 'abc';
-            }
-            account.access_keys = new_access_keys;
 
             if (!req.system) {
                 changes = system_server.new_system_changes(account.name, account._id);
@@ -116,7 +107,14 @@ function create_account(req) {
  *
  */
 function read_account(req) {
-    return get_account_info(req.account);
+    let email = req.rpc_params.email;
+
+    let account = system_store.data.accounts_by_email[req.rpc_params.email];
+    if (!account) {
+        throw req.rpc_error('NO_SUCH_ACCOUNT', 'No such account email: ' + req.rpc_params.email);
+    }
+    
+    return get_account_info(account);
 }
 
 
@@ -162,7 +160,7 @@ function generate_account_keys(req) {
  * update_buckets_permissions
  *
  */
-function update_buckets_permissions(req) {
+function update_account_s3_acl(req) {
     var system = req.system;
     let account = system_store.data.accounts_by_email[req.rpc_params.email];
     if (!account) {
@@ -180,28 +178,34 @@ function update_buckets_permissions(req) {
     if (account.is_support) {
         throw req.forbidden('Cannot update support account');
     }
-    let updates = _.pick(account, '_id');
-    updates.allowed_buckets = account.allowed_buckets;
 
-    _.forEach(req.rpc_params.allowed_buckets, bucket => {
-        if (bucket.is_allowed) {
-            updates.allowed_buckets = _.unionWith(updates.allowed_buckets, [system.buckets_by_name[bucket.bucket_name]], _.isEqual);
-        } else {
-            _.remove(updates.allowed_buckets, remove_bucket =>
-                remove_bucket.name.toString() === bucket.bucket_name.toString());
-        }
-    });
-
-    updates.allowed_buckets = _.map(updates.allowed_buckets, bucket => bucket._id);
+    let allowed_buckets = null;
+    if (req.rpc_params.access_control) {
+        allowed_buckets = req.rpc_params.access_control
+            .reduce(
+                (list, record) => {
+                    let bucket = system.buckets_by_name[record.bucket_name];
+                    return record.is_allowed ?
+                        _.unionWith(list, [bucket], system_store.has_same_id) :
+                        _.differenceWith(list, [bucket], system_store.has_same_id)
+                },
+                account.allowed_buckets
+            )
+            .map(
+                bucket => bucket._id
+            );
+    }
 
     return system_store.make_changes({
             update: {
-                accounts: [updates]
+                accounts: [{
+                    _id: account._id,
+                    allowed_buckets: allowed_buckets
+                }]
             }
         })
         .return();
 }
-
 
 /**
  *
@@ -302,9 +306,15 @@ function list_accounts(req) {
         }
         let account_ids = _.map(req.system.roles_by_account, (roles, account_id) =>
             roles && roles.length ? account_id : null);
-        accounts = _.compact(_.map(account_ids, account_id =>
-            system_store.data.get_by_id(account_id)));
+
+        accounts = _.compact(
+            _.map(
+                account_ids, 
+                account_id => system_store.data.get_by_id(account_id)
+            )
+        );
     }
+
     return {
         accounts: _.map(accounts, get_account_info)
     };
@@ -393,7 +403,7 @@ function check_account_sync_credentials(req) {
  * get_buckets_permissions
  *
  */
-function get_buckets_permissions(req) {
+function list_account_s3_acl(req) {
     var system = req.system;
     let account = system_store.data.accounts_by_email[req.rpc_params.email];
     if (!account) {
@@ -433,6 +443,9 @@ function get_account_info(account) {
     if (account.access_keys) {
         info.access_keys = account.access_keys;
     }
+
+    info.has_s3_access = !!account.allowed_buckets;
+
     info.systems = _.compact(_.map(account.roles_by_system, function(roles, system_id) {
         var system = system_store.data.get_by_id(system_id);
         if (!system) {

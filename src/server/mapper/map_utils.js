@@ -26,10 +26,30 @@ module.exports = {
     sanitize_object_range: sanitize_object_range,
     find_consecutive_parts: find_consecutive_parts,
     block_access_sort: block_access_sort,
+    analyze_special_chunks: analyze_special_chunks,
 };
 
 const EMPTY_CONST_ARRAY = Object.freeze([]);
+const SPECIAL_CHUNK_CONTENT_TYPES = ['video/mp4', 'video/webm'];
+const SPECIAL_CHUNK_REPLICA_MULTIPLIER = 2;
 
+function analyze_special_chunks(chunks, parts, objects) {
+    _.forEach(chunks, chunk => {
+        chunk.is_special = false;
+        var tmp_parts = _.filter(parts, part => String(part.chunk) === String(chunk._id));
+        var tmp_objects = _.filter(objects, obj => _.find(tmp_parts, part => String(part.obj) === String(obj._id)));
+        _.forEach(tmp_objects, obj => {
+            if(_.includes(SPECIAL_CHUNK_CONTENT_TYPES, obj.content_type)) {
+                let obj_parts = _.filter(tmp_parts, part => String(part.obj) === String(obj._id));
+                _.forEach(obj_parts, part => {
+                    if(part.start === 0 || part.end === obj.size) {
+                        chunk.is_special = true;
+                    }
+                });
+            }
+        });
+    });
+}
 
 function get_chunk_status(chunk, tiering, ignore_cloud_pools) {
     // TODO handle multi-tiering
@@ -46,7 +66,7 @@ function get_chunk_status(chunk, tiering, ignore_cloud_pools) {
         _.filter(tier.pools, pool => _.isUndefined(pool.cloud_pool_info)) :
         tier.pools;
     const tier_pools_by_id = _.keyBy(participating_pools, '_id');
-    const replicas = tier.replicas;
+    var replicas = chunk.is_special? tier.replicas * SPECIAL_CHUNK_REPLICA_MULTIPLIER : tier.replicas;
     const now = Date.now();
 
     let missing_frags = get_missing_frags_in_chunk(chunk, tier);
@@ -59,10 +79,9 @@ function get_chunk_status(chunk, tiering, ignore_cloud_pools) {
     let deletions = [];
     let chunk_accessible = true;
 
-
     function check_blocks_group(blocks, alloc) {
         let required_replicas = replicas;
-        if (alloc.pools[0].cloud_pool_info) {
+        if (alloc && alloc.pools && alloc.pools[0].cloud_pool_info) {
             // for cloud_pools we only need one replica
             required_replicas = 1;
         }

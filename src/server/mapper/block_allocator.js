@@ -95,7 +95,7 @@ function refresh_pool_alloc(pool) {
  * @param avoid_nodes array of node ids to avoid
  *
  */
-function allocate_node(pools, avoid_nodes) {
+function allocate_node(pools, avoid_nodes, params) {
     let pool_set = _.map(pools, pool => pool._id.toString()).sort().join(',');
     let alloc_group =
         alloc_group_by_pool_set[pool_set] =
@@ -105,6 +105,14 @@ function allocate_node(pools, avoid_nodes) {
                 return group && group.nodes;
             })))
         };
+
+    // Used in map_builder, for content tiering
+    if (params && params.special_replica) {
+        alloc_group.nodes = _.sortBy(alloc_group.nodes, node =>
+            _.sum(node.latency_of_disk_read) / node.latency_of_disk_read.length
+        );
+    }
+
     let num_nodes = alloc_group ? alloc_group.nodes.length : 0;
     dbg.log1('allocate_node: pool_set', pool_set,
         'num_nodes', num_nodes,

@@ -464,6 +464,7 @@ function _prepare_auth_request(req) {
         /*if (req.role === 'admin' || account.is_support) {
             return true;
         }*/
+        // If the token includes S3 data, then we check for permissions
         if (req.auth_token && typeof req.auth_token === 'object') {
             return _.find(
                 account.allowed_buckets,

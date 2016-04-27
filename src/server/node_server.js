@@ -169,16 +169,37 @@ function delete_node(req) {
 function read_node_maps(req) {
     var node;
     return nodes_store.find_node_by_name(req)
-        .then(node_arg => {
-            node = node_arg;
-            var params = _.pick(req.rpc_params, 'skip', 'limit');
-            params.node = node;
-            return map_reader.read_node_mappings(params);
-        })
-        .then(objects => ({
-            node: get_node_full_info(node),
-            objects: objects,
-        }));
+        .then(
+            node_arg => {
+                node = node_arg;
+                var params = _.pick(req.rpc_params, 'skip', 'limit');
+                params.node = node;
+                return map_reader.read_node_mappings(params);
+            }
+        )
+        .then(
+            objects => {
+                if (req.rpc_params.adminfo) {
+                    return db.DataBlock.collection
+                        .count({ 
+                            node: node._id, 
+                            deleted: null
+                        })
+                        .then(
+                            count => ({
+                                node: get_node_full_info(node),
+                                objects: objects,
+                                total_count: count
+                            })
+                        );
+                } else {
+                    return {
+                        node: get_node_full_info(node),
+                        objects: objects
+                    };
+                }
+            }
+        );
 }
 
 /**

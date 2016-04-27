@@ -26,10 +26,30 @@ module.exports = {
     sanitize_object_range: sanitize_object_range,
     find_consecutive_parts: find_consecutive_parts,
     block_access_sort: block_access_sort,
+    analyze_special_chunks: analyze_special_chunks,
 };
 
 const EMPTY_CONST_ARRAY = Object.freeze([]);
+const SPECIAL_CHUNK_CONTENT_TYPES = ['video/mp4', 'video/webm'];
+const SPECIAL_CHUNK_REPLICA_MULTIPLIER = 2;
 
+function analyze_special_chunks(chunks, parts, objects) {
+    _.forEach(chunks, chunk => {
+        chunk.is_special = false;
+        var tmp_parts = _.filter(parts, part => String(part.chunk) === String(chunk._id));
+        var tmp_objects = _.filter(objects, obj => _.find(tmp_parts, part => String(part.obj) === String(obj._id)));
+        _.forEach(tmp_objects, obj => {
+            if(_.includes(SPECIAL_CHUNK_CONTENT_TYPES, obj.content_type)) {
+                let obj_parts = _.filter(tmp_parts, part => String(part.obj) === String(obj._id));
+                _.forEach(obj_parts, part => {
+                    if(part.start === 0 || part.end === obj.size) {
+                        chunk.is_special = true;
+                    }
+                });
+            }
+        });
+    });
+}
 
 function get_chunk_status(chunk, tiering, special_replication_chunk) {
     // TODO handle multi-tiering
@@ -40,8 +60,7 @@ function get_chunk_status(chunk, tiering, special_replication_chunk) {
     }
     const tier = tiering.tiers[0].tier;
     const tier_pools_by_id = _.keyBy(tier.pools, '_id');
-    console.warn('JEN is_special_replicas(special_replication_chunk): ', is_special_replicas(special_replication_chunk));
-    var replicas = is_special_replicas(special_replication_chunk)? tier.replicas*2 : tier.replicas;
+    var replicas = chunk.is_special? tier.replicas * SPECIAL_CHUNK_REPLICA_MULTIPLIER : tier.replicas;
     console.warn('JEN replicas: ', replicas);
     const now = Date.now();
 
@@ -54,35 +73,6 @@ function get_chunk_status(chunk, tiering, special_replication_chunk) {
     let allocations = [];
     let deletions = [];
     let chunk_accessible = true;
-
-    function is_special_replicas(special_replication_chunk) {
-        let result = false;
-        _.forEach(special_replication_chunk && special_replication_chunk.objects, obj => {
-            if(obj.content_type.indexOf('video') > -1) {
-                let obj_parts = _.filter(special_replication_chunk.parts, part => String(part.obj) === String(obj._id));
-                _.forEach(obj_parts, part => {
-                    if(part.start === 0 || part.end === obj.size) {
-                        result = true;
-                    }
-                });
-            }
-        });
-
-        return result;
-        /*let result = [];
-        _.forEach(chunks, chunk => {
-            console.warn('JEN CHUNK', chunk);
-            var tmp_parts = _.filter(parts, part => String(part.chunk) === String(chunk._id));
-            var tmp_objects = _.filter(objects, obj => _.find(tmp_parts, part => String(part.obj) === String(obj._id)));
-            console.warn('JEN PARTS', tmp_parts);
-            console.warn('JEN OBJECTS', tmp_objects);
-            result[chunk._id] = {
-                parts: tmp_parts,
-                objects: tmp_objects
-            };
-        });
-        return result;*/
-    }
 
     function check_blocks_group(blocks, alloc) {
         let num_good = 0;

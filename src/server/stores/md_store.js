@@ -1,5 +1,6 @@
 'use strict';
 
+let map_utils = require('../mapper/map_utils');
 let _ = require('lodash');
 let P = require('../../util/promise');
 let db = require('../db');
@@ -11,7 +12,7 @@ let nodes_store = require('../stores/nodes_store');
 module.exports = {
     load_chunks_by_digest: load_chunks_by_digest,
     load_blocks_for_chunks: load_blocks_for_chunks,
-    load_jenia_magic_for_chunks: load_jenia_magic_for_chunks,
+    load_parts_objects_for_chunks: load_parts_objects_for_chunks,
     make_md_id: make_md_id,
 };
 
@@ -56,7 +57,7 @@ function load_blocks_for_chunks(chunks) {
         });
 }
 
-function load_jenia_magic_for_chunks(chunks) {
+function load_parts_objects_for_chunks(chunks) {
     let parts, objects;
     if (!chunks || !chunks.length) return;
     return P.when(db.ObjectPart.collection.find({
@@ -79,25 +80,8 @@ function load_jenia_magic_for_chunks(chunks) {
             return;
         })
         .then(() => {
-            let result = [];
-            _.forEach(chunks, chunk => {
-                //console.warn('JEN CHUNK', chunk);
-                var tmp_parts = _.filter(parts, part => String(part.chunk) === String(chunk._id));
-                var tmp_objects = _.filter(objects, obj => _.find(tmp_parts, part => String(part.obj) === String(obj._id)));
-                //console.warn('JEN PARTS', tmp_parts);
-                //console.warn('JEN OBJECTS', tmp_objects);
-                result[chunk._id] = {
-                    parts: tmp_parts,
-                    objects: tmp_objects
-                };
-            });
-            return result;
+            return P.resolve(map_utils.analyze_special_chunks(chunks, parts, objects));
         });
-    /*.then(blocks => nodes_store.populate_nodes_for_map(blocks, 'node'))
-    .then(blocks => {
-        let blocks_by_chunk = _.groupBy(blocks, 'chunk');
-        _.each(chunks, chunk => chunk.blocks = blocks_by_chunk[chunk._id]);
-    });*/
 }
 
 

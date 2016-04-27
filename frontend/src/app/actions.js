@@ -678,10 +678,15 @@ export function loadNodeInfo(nodeName) {
 export function loadNodeStoredPartsList(nodeName, page) {
     logAction('loadNodeStoredPartsList', { nodeName, page });
 
-    api.node.read_node_maps({ name: nodeName })
+    api.node.read_node_maps({ 
+        name: nodeName,
+        skip: config.paginationPageSize * page,
+        limit: config.paginationPageSize,
+        adminfo: true
+    })
         .then(
-            reply => {
-                let parts = reply.objects
+            ({ objects, total_count }) => {
+                let parts = objects
                     .map(
                         obj => obj.parts.map(
                             part => {
@@ -701,15 +706,9 @@ export function loadNodeStoredPartsList(nodeName, page) {
                         []
                     );
 
-                // TODO: change to server side paganation when avaliable.
-                let pageParts = parts.slice(
-                    config.paginationPageSize * page,
-                    config.paginationPageSize * (page + 1),
-                );
-
-                model.nodeStoredPartList(pageParts);
+                model.nodeStoredPartList(parts);
                 model.nodeStoredPartList.page(page);
-                model.nodeStoredPartList.count(parts.length);
+                model.nodeStoredPartList.count(total_count);
             }
         )
         .done();

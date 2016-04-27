@@ -133,7 +133,7 @@ function post_upgrade {
   local curmd=$(md5sum /root/node_modules/noobaa-core/build/public/noobaa-setup*.exe | cut -f 1 -d' ')
   local prevmd=$(md5sum /backup/build/public/noobaa-setup*.exe | cut -f 1 -d' ')
 
-  deploy_log "Note: installed MD5 was ${prevmd}, new is ${curmd}"  
+  deploy_log "Note: installed MD5 was ${prevmd}, new is ${curmd}"
 
   # copy noobaa_syslog.conf to /etc/rsyslog.d/ which is included by rsyslog.conf
   cp -f ${CORE_DIR}/src/deploy/NVA_build/noobaa_syslog.conf /etc/rsyslog.d/
@@ -163,6 +163,12 @@ function post_upgrade {
       deploy_log "Note: MDs are the same, not updating agent version"
   fi
   echo "${AGENT_VERSION_VAR}" >> ${CORE_DIR}/.env
+
+	#if noobaa supervisor.conf is pre clustering, fix it
+	local FOUND=$(grep endprogram /etc/noobaa_supervisor.conf | wc -l)
+	if [ ${FOUND} -eq 0 ]; then
+		cp -f ${CORE_DIR}/src/deploy/NVA_build/noobaa_supervisor.conf /etc/noobaa_supervisor.conf
+	fi
 
 	#Fix login message
 	fix_etc_issue

@@ -239,14 +239,7 @@ export function execInOrder(list, executer) {
 
     return result;
 }
-export function avarageArrayValues(inArray) {
-    let total=0;
-    for(var i= 0; i < inArray.length; ++i)
-    {
-        total += inArray[i];
-    }
-    return total/inArray.length;
-}
+
 export function defineEnum(...values) {
     return Object.freeze(
         values.reduce(
@@ -268,4 +261,20 @@ export function generateAccessKeys() {
 
 export function lastSegment(str, delimiter) {
     return str.substr(str.lastIndexOf(delimiter) + 1);
+}
+
+export function avgOp(avg, value, i) {
+    return avg + (value - avg) / (i + 1);
+}
+
+export function shortString(str, maxLength = 25, suffixLengh = 5) {
+    if (str.length <= maxLength){
+        return str;
+    }
+
+    return `${
+        str.substr(0, maxLength - (suffixLengh + 3))
+    }...${
+        str.substr(-suffixLengh)
+    }`;
 }

@@ -110,6 +110,8 @@ class MapBuilder {
                     'digest_type',
                     'digest_b64');
                 block._id = md_store.make_md_id();
+                // We send an additional flag in order to allocate
+                // replicas of content tiering feature on the best read latency nodes
                 let node = block_allocator.allocate_node(alloc.pools, avoid_nodes, {
                     special_replica: true
                 });

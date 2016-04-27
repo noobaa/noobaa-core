@@ -22,6 +22,7 @@ const NODE_FIELDS_FOR_MAP = Object.freeze({
     heartbeat: 1,
     rpc_address: 1,
     storage: 1,
+    latency_of_disk_read: 1,
 });
 
 module.exports = {
@@ -175,7 +176,7 @@ function aggregate_nodes_by_pool(query) {
             }
         ))
         .then(res => {
-            var bins = {};              
+            var bins = {};
             _.each(res, r => {
                 var t = bins[r._id[0]] = bins[r._id[0]] || {};
                 t[r._id[1]] = r.value;

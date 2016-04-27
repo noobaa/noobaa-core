@@ -2,15 +2,10 @@ import template from './node-info.html';
 import ko from 'knockout';
 import moment from 'moment';
 import style from 'style';
-import {
-    formatSize,
-    avarageArrayValues
-} from 'utils';
+import { formatSize, avgOp } from 'utils';
 
 class NodeInfoViewModel {
-    constructor({
-        node
-    }) {
+    constructor({ node  }) {
         this.dataReady = ko.pureComputed(
             () => !!node()
         )
@@ -52,22 +47,25 @@ class NodeInfoViewModel {
         );
 
         this.diskRead = ko.pureComputed(
-            () => node() && (avarageArrayValues(node().latency_of_disk_read)).toFixed(1) + ' ms'
+            () => node() && `${
+                node().latency_of_disk_read.reduce(avgOp).toFixed(1)
+            } ms`
         );
 
         this.diskWrite = ko.pureComputed(
-            () => node() && (avarageArrayValues(node().latency_of_disk_write)).toFixed(1) + ' ms'
+            () => node() && `${
+                node().latency_of_disk_write.reduce(avgOp).toFixed(1)
+            } ms`
         );
 
         this.RTT = ko.pureComputed(
-            () => node() && (avarageArrayValues(node().latency_to_server)).toFixed(1) + ' ms'
+            () => node() && `${
+                node().latency_to_server.reduce(avgOp).toFixed(1)
+            } ms`
         );
-
     }
 
-    _mapCpus({
-        os_info
-    }) {
+    _mapCpus({ os_info }) {
         return `${os_info.cpus.length}x ${os_info.cpus[0].model}`;
     }
 
@@ -81,34 +79,29 @@ class NodeInfoViewModel {
     }
 
     _mapDrives(drives) {
-        return drives.map(({
-            mount,
-            storage
-        }) => {
-            let {
-                total,
-                used = 0,
-                free
-            } = storage;
-            let os = total - (used + free);
+        return drives.map(
+            ({ mount, storage}) => {
+                let { total, used = 0, free } = storage;
+                let os = total - (used + free);
 
-            return {
-                name: mount,
-                values: [{
-                    legend: `NooBaa: ${formatSize(used)}`,
-                    value: used,
-                    color: style['text-color6']
-                }, {
-                    legend: `Other: ${formatSize(os)}`,
-                    value: os,
-                    color: style['text-color2']
-                }, {
-                    legend: `Free: ${formatSize(free)}`,
-                    value: free,
-                    color: style['text-color5']
-                }]
-            };
-        });
+                return {
+                    name: mount,
+                    values: [{
+                        legend: `NooBaa: ${formatSize(used)}`,
+                        value: used,
+                        color: style['text-color6']
+                    }, {
+                        legend: `Other: ${formatSize(os)}`,
+                        value: os,
+                        color: style['text-color2']
+                    }, {
+                        legend: `Free: ${formatSize(free)}`,
+                        value: free,
+                        color: style['text-color5']
+                    }]
+                };
+            }
+        );
     }
 }
 

@@ -22,6 +22,17 @@ module.exports = {
             }
         },
 
+        create_cloud_pool: {
+            doc: 'Create Cloud Pool',
+            method: 'POST',
+            params: {
+                $ref: '#/definitions/cloud_pool_definition'
+            },
+            auth: {
+                system: 'admin'
+            }
+        },
+
         update_pool: {
             doc: 'Update Pool',
             method: 'POST',
@@ -83,6 +94,23 @@ module.exports = {
         },
 
         delete_pool: {
+            doc: 'Delete Pool',
+            method: 'POST',
+            params: {
+                type: 'object',
+                required: ['name'],
+                properties: {
+                    name: {
+                        type: 'string',
+                    },
+                }
+            },
+            auth: {
+                system: 'admin'
+            }
+        },
+
+        delete_cloud_pool: {
             doc: 'Delete Pool',
             method: 'POST',
             params: {
@@ -162,6 +190,32 @@ module.exports = {
                 }
             }
         },
+
+        cloud_pool_definition: {
+            type: 'object',
+            required: ['name', 'cloud_info'],
+            properties: {
+                name: {
+                    type: 'string',
+                },
+                cloud_info: {
+                    type: 'object',
+                    required: ['endpoint', 'target_bucket', 'access_keys'],
+                    properties: {
+                        endpoint: {
+                            type: 'string',
+                        },
+                        target_bucket: {
+                            type: 'string',
+                        },
+                        access_keys: {
+                            $ref: 'system_api#/definitions/access_keys',
+                        }
+                    }
+                }
+            }
+        },
+
 
         pool_extended_info: {
             type: 'object',

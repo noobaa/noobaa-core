@@ -1,5 +1,6 @@
 'use strict';
 
+let map_utils = require('../mapper/map_utils');
 let _ = require('lodash');
 let P = require('../../util/promise');
 let db = require('../db');
@@ -11,6 +12,7 @@ let nodes_store = require('../stores/nodes_store');
 module.exports = {
     load_chunks_by_digest: load_chunks_by_digest,
     load_blocks_for_chunks: load_blocks_for_chunks,
+    load_parts_objects_for_chunks: load_parts_objects_for_chunks,
     make_md_id: make_md_id,
 };
 
@@ -52,6 +54,33 @@ function load_blocks_for_chunks(chunks) {
         .then(blocks => {
             let blocks_by_chunk = _.groupBy(blocks, 'chunk');
             _.each(chunks, chunk => chunk.blocks = blocks_by_chunk[chunk._id]);
+        });
+}
+
+function load_parts_objects_for_chunks(chunks) {
+    let parts, objects;
+    if (!chunks || !chunks.length) return;
+    return P.when(db.ObjectPart.collection.find({
+            chunk: {
+                $in: mongo_utils.uniq_ids(chunks, '_id')
+            },
+            deleted: null,
+        }).toArray())
+        .then((res_parts) => {
+            parts = res_parts;
+            return db.ObjectMD.collection.find({
+                _id: {
+                    $in: mongo_utils.uniq_ids(res_parts, 'obj')
+                },
+                deleted: null,
+            }).toArray();
+        })
+        .then((res_objects) => {
+            objects = res_objects;
+            return;
+        })
+        .then(() => {
+            return P.resolve(map_utils.analyze_special_chunks(chunks, parts, objects));
         });
 }
 

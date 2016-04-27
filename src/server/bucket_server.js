@@ -81,8 +81,10 @@ function create_bucket(req) {
     }
     let tiering_policy;
     let changes = {
-        insert: {}
+        insert: {},
+        update: {}
     };
+
     if (req.rpc_params.tiering) {
         tiering_policy = resolve_tiering_policy(req, req.rpc_params.tiering);
     } else {
@@ -113,21 +115,17 @@ function create_bucket(req) {
         bucket: bucket._id,
     });
 
+    // Grant the account a full access for the newly created bucket.
+    changes.update.accounts = [{
+        _id: req.account._id,
+        allowed_buckets: req.account.allowed_buckets
+            .map(
+                bucket => bucket._id
+            )
+            .concat(bucket._id),
+    }];
+
     return system_store.make_changes(changes)
-        .then(
-            () => {
-                req.load_auth();
-                return server_rpc.client.bucket.update_bucket_s3_acl({
-                    name: bucket.name,
-                    access_control: [{
-                        account: req.account && req.account.email,
-                        is_allowed: true
-                    }]
-                }, {
-                    auth_token: req.auth_token
-                });
-            }
-        )
         .then(
             () => {
                 req.load_auth();
@@ -239,7 +237,7 @@ function list_bucket_s3_acl(req) {
     return system_store.data.accounts
         .filter(
             account => !account.is_support && account.allowed_buckets
-        ) 
+        )
         .map(
             account => {
                 return {
@@ -563,8 +561,7 @@ function find_cloud_sync_connection(req) {
     let conn = (account.sync_credentials_cache || [])
         .filter(
             conn => conn.name === conn_name
-        )
-        [0];
+        )[0];
 
     if (!conn) {
         dbg.error('CONNECTION NOT FOUND', account, conn_name);

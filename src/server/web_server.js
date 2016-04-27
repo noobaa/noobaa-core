@@ -43,7 +43,7 @@ var fs = require('fs');
 var cluster = require('cluster');
 var pkg = require('../../package.json');
 var db = require('../server/db');
-var mongo_client = require('./stores/mongo_client');
+var mongo_client = require('./utils/mongo_client');
 var rootdir = path.join(__dirname, '..', '..');
 var dev_mode = (process.env.DEV_MODE === 'true');
 
@@ -80,6 +80,7 @@ app.disable('x-powered-by');
 
 // configure app middleware handlers in the order to use them
 
+app.use(express_favicon(path.join(rootdir, 'frontend/dist/assets', 'noobaa_icon.ico')));
 app.use(express_morgan_logger(dev_mode ? 'dev' : 'combined'));
 app.use(function(req, res, next) {
     // HTTPS redirect:

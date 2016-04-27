@@ -65,7 +65,14 @@ function create_node(req) {
         free: 0,
     };
 
-    var pool = req.system.pools_by_name.default_pool;
+    var pool = {};
+    if (req.rpc_params.cloud_pool_name) {
+        pool = req.system.pools_by_name[req.rpc_params.cloud_pool_name];
+        dbg.log0('creating node in cloud pool', req.rpc_params.cloud_pool_name, pool);
+    } else {
+        pool = req.system.pools_by_name.default_pool;
+    }
+
     if (!pool) {
         throw req.rpc_error('NO_DEFAULT_POOL', 'No default pool');
     }

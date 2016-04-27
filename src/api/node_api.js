@@ -334,6 +334,9 @@ module.exports = {
                     debug_level: {
                         type: 'integer',
                     },
+                    cloud_pool_name: {
+                        type: 'string'
+                    }
                 }
             },
             reply: {
@@ -518,6 +521,9 @@ module.exports = {
                 },
                 srvmode: {
                     $ref: '#/definitions/srvmode'
+                },
+                cloud_pool_name: {
+                    type: 'string'
                 }
             }
         },

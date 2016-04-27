@@ -158,6 +158,7 @@ function heartbeat(req) {
         return server_rpc.client.node.create_node({
             name: req.rpc_params.name,
             geolocation: req.rpc_params.geolocation,
+            cloud_pool_name: req.rpc_params.cloud_pool_name
         }, {
             auth_token: req.auth_token
         }).catch(function(err) {

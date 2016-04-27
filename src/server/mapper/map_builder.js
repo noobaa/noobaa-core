@@ -195,9 +195,6 @@ class MapBuilder {
             'new_blocks', this.new_blocks && this.new_blocks.length || 0,
             'delete_blocks', this.delete_blocks && this.delete_blocks.length || 0);
 
-        console.warn('JEN UNSET: ', unset_special_chunk_ids);
-        console.warn('JEN SET: ', set_special_chunk_ids);
-
         return P.join(
             this.new_blocks && this.new_blocks.length &&
             P.when(db.DataBlock.collection.insertMany(this.new_blocks)),

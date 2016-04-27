@@ -1008,6 +1008,7 @@ export function uploadFiles(bucketName, files) {
                             // Create an entry in the recent uploaded list.
                             let entry = {
                                 name: file.name,
+                                targetBucket: bucketName,
                                 state: 'UPLOADING',
                                 progress: 0,
                                 error: null

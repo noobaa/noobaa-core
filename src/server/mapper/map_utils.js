@@ -51,7 +51,7 @@ function analyze_special_chunks(chunks, parts, objects) {
     });
 }
 
-function get_chunk_status(chunk, tiering, special_replication_chunk) {
+function get_chunk_status(chunk, tiering) {
     // TODO handle multi-tiering
     if (tiering.tiers.length !== 1) {
         throw new Error('analyze_chunk: ' +
@@ -61,7 +61,6 @@ function get_chunk_status(chunk, tiering, special_replication_chunk) {
     const tier = tiering.tiers[0].tier;
     const tier_pools_by_id = _.keyBy(tier.pools, '_id');
     var replicas = chunk.is_special? tier.replicas * SPECIAL_CHUNK_REPLICA_MULTIPLIER : tier.replicas;
-    console.warn('JEN replicas: ', replicas);
     const now = Date.now();
 
     let missing_frags = get_missing_frags_in_chunk(chunk, tier);

@@ -5,8 +5,8 @@ var _ = require('lodash');
 var P = require('../util/promise');
 var db = require('./db');
 var mime = require('mime');
-var MapAllocator = require('./mapper/map_allocator');
-var MapCopy = require('./mapper/map_copy');
+var map_allocator = require('./mapper/map_allocator');
+var map_copy = require('./mapper/map_copy');
 var map_writer = require('./mapper/map_writer');
 var map_reader = require('./mapper/map_reader');
 var map_deleter = require('./mapper/map_deleter');
@@ -222,7 +222,7 @@ function abort_object_upload(req) {
 function allocate_object_parts(req) {
     return find_cached_object_upload(req)
         .then(obj => {
-            let allocator = new MapAllocator(
+            let allocator = new map_allocator.MapAllocator(
                 req.bucket,
                 obj,
                 req.rpc_params.parts);
@@ -330,8 +330,8 @@ function copy_object(req) {
         })
         .then(() => db.ObjectMD.create(create_info))
         .then(() => {
-            let map_copy = new MapCopy(source_obj, create_info);
-            return map_copy.run();
+            let copy = new map_copy.MapCopy(source_obj, create_info);
+            return copy.run();
         })
         .then(() => {
             db.ActivityLog.create({

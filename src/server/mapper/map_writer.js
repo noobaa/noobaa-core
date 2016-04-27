@@ -14,14 +14,12 @@ var map_utils = require('./map_utils');
 var block_allocator = require('./block_allocator');
 var dbg = require('../../util/debug_module')(__filename);
 
-module.exports = {
-    finalize_object_parts: finalize_object_parts,
-    list_multipart_parts: list_multipart_parts,
-    fix_multipart_parts: fix_multipart_parts,
-    calc_multipart_md5: calc_multipart_md5,
-    set_multipart_part_md5: set_multipart_part_md5,
-    report_bad_block: report_bad_block,
-};
+exports.finalize_object_parts = finalize_object_parts;
+exports.list_multipart_parts = list_multipart_parts;
+exports.fix_multipart_parts = fix_multipart_parts;
+exports.calc_multipart_md5 = calc_multipart_md5;
+exports.set_multipart_part_md5 = set_multipart_part_md5;
+exports.report_bad_block = report_bad_block;
 
 
 /**

@@ -9,10 +9,8 @@ var config = require('../../../config.js');
 var dbg = require('../../util/debug_module')(__filename);
 var nodes_store = require('../stores/nodes_store');
 
-module.exports = {
-    refresh_tiering_alloc: refresh_tiering_alloc,
-    allocate_node: allocate_node,
-};
+exports.refresh_tiering_alloc = refresh_tiering_alloc;
+exports.allocate_node = allocate_node;
 
 var alloc_group_by_pool = {};
 var alloc_group_by_pool_set = {};

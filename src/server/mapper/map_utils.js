@@ -9,25 +9,23 @@ var dbg = require('../../util/debug_module')(__filename);
 var system_store = require('../stores/system_store');
 var nodes_store = require('../stores/nodes_store');
 
-module.exports = {
-    get_chunk_status: get_chunk_status,
-    set_chunk_frags_from_blocks: set_chunk_frags_from_blocks,
-    get_missing_frags_in_chunk: get_missing_frags_in_chunk,
-    is_block_good: is_block_good,
-    is_block_accessible: is_block_accessible,
-    is_chunk_good: is_chunk_good,
-    is_chunk_accessible: is_chunk_accessible,
-    get_part_info: get_part_info,
-    get_chunk_info: get_chunk_info,
-    get_frag_info: get_frag_info,
-    get_block_info: get_block_info,
-    get_block_md: get_block_md,
-    get_frag_key: get_frag_key,
-    sanitize_object_range: sanitize_object_range,
-    find_consecutive_parts: find_consecutive_parts,
-    block_access_sort: block_access_sort,
-    analyze_special_chunks: analyze_special_chunks,
-};
+exports.get_chunk_status = get_chunk_status;
+exports.set_chunk_frags_from_blocks = set_chunk_frags_from_blocks;
+exports.get_missing_frags_in_chunk = get_missing_frags_in_chunk;
+exports.is_block_good = is_block_good;
+exports.is_block_accessible = is_block_accessible;
+exports.is_chunk_good = is_chunk_good;
+exports.is_chunk_accessible = is_chunk_accessible;
+exports.get_part_info = get_part_info;
+exports.get_chunk_info = get_chunk_info;
+exports.get_frag_info = get_frag_info;
+exports.get_block_info = get_block_info;
+exports.get_block_md = get_block_md;
+exports.get_frag_key = get_frag_key;
+exports.sanitize_object_range = sanitize_object_range;
+exports.find_consecutive_parts = find_consecutive_parts;
+exports.block_access_sort = block_access_sort;
+exports.analyze_special_chunks = analyze_special_chunks;
 
 const EMPTY_CONST_ARRAY = Object.freeze([]);
 const SPECIAL_CHUNK_CONTENT_TYPES = ['video/mp4', 'video/webm'];

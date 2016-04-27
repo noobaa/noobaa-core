@@ -62,7 +62,7 @@ function get_chunk_status(chunk, tiering, ignore_cloud_pools) {
 
     function check_blocks_group(blocks, alloc) {
         let required_replicas = replicas;
-        if (alloc.pools[0].cloud_pool_info) {
+        if (alloc && alloc.pools && alloc.pools[0].cloud_pool_info) {
             // for cloud_pools we only need one replica
             required_replicas = 1;
         }

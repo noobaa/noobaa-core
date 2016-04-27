@@ -20,7 +20,7 @@ mkdir build\windows
 cd build\windows
 mkdir .\ssl\
 echo "copy files"
-copy ..\..\images\noobaa_icon24.ico .
+copy ..\..\frontend\src\assets\noobaa_icon24.ico .
 copy ..\..\src\deploy\7za.exe .
 copy ..\..\src\deploy\openssl.cnf  .\ssl\
 copy ..\..\src\deploy\wget.exe  .

@@ -270,7 +270,6 @@ function update_heartbeat(req, reply_token) {
         ])
         .spread(function(node_arg, storage_used) {
             node = node_arg;
-            dbg.log0('ETET:storage_used', storage_used);
             if (!node) {
                 // we don't fail here because failures would keep retrying
                 // to find this node, and the node is not in the db.
@@ -475,7 +474,7 @@ function collect_agent_diagnostics(req) {
 }
 
 function set_debug_node(req) {
-    var target = req.rpc_params.target;    
+    var target = req.rpc_params.target;
     return P.fcall(function() {
             return server_rpc.client.agent.set_debug_node({
                 level: req.rpc_params.level

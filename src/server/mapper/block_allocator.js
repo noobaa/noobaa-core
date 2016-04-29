@@ -91,9 +91,12 @@ function refresh_pool_alloc(pool) {
  * allocate_node
  *
  * @param avoid_nodes array of node ids to avoid
+ * @param content_tiering_params - in case of content tiering, the additional
+ * replicas will be saved in nodes that have the best disk read latency, but only
+ * from the chunk of nodes that we've received in pools.
  *
  */
-function allocate_node(pools, avoid_nodes) {
+function allocate_node(pools, avoid_nodes, content_tiering_params) {
     let pool_set = _.map(pools, pool => pool._id.toString()).sort().join(',');
     let alloc_group =
         alloc_group_by_pool_set[pool_set] =
@@ -103,6 +106,18 @@ function allocate_node(pools, avoid_nodes) {
                 return group && group.nodes;
             })))
         };
+
+    // If we are allocating a node for content tiering special replicas,
+    // we should run an additional sort, in order to get the best read latency nodes
+    if (content_tiering_params && content_tiering_params.special_replica) {
+        alloc_group.nodes = _.sortBy(alloc_group.nodes, node =>
+            // In order to sort the nodes by the best read latency values.
+            // We need to get the average of all the latency disk read values,
+            // and sort the nodes by the average that we've calculated.
+            _.sum(node.latency_of_disk_read) / node.latency_of_disk_read.length
+        );
+    }
+
     let num_nodes = alloc_group ? alloc_group.nodes.length : 0;
     dbg.log1('allocate_node: pool_set', pool_set,
         'num_nodes', num_nodes,

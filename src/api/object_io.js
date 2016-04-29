@@ -173,7 +173,17 @@ class ObjectIO {
                     .return(md5_digest);
             }, err => {
                 dbg.log0('upload_stream: error write stream', params.key, err);
-                throw err;
+                return params.client.object.delete_object(_.pick(params,
+                        'bucket',
+                        'key'))
+                    .then(() => {
+                        dbg.log0('removed partial object', params.key, 'from bucket', params.bucket);
+                        throw err;
+                    })
+                    .fail(() => {
+                        throw err;
+                    });
+
             });
     }
 
@@ -286,8 +296,7 @@ class ObjectIO {
         return pipeline.run()
             .then(() => {
                 var sha256_promise = '';
-                if(params.calculate_sha256)
-                {
+                if (params.calculate_sha256) {
                     sha256_promise = P.resolve(sha256_stream && sha256_stream.wait_digest());
                 }
                 return P.all([P.resolve(md5_stream && md5_stream.wait_digest()), sha256_promise])

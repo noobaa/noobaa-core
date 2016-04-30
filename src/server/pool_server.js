@@ -95,11 +95,6 @@ function create_cloud_pool(req) {
                 '--cloud_pool_name', name
             ];
 
-            // TODO: temporarily using spawn - agent start\stop needs to be handles through supervisor ctl
-            // let child = child_process.spawn('node', args, {
-            //     stdio: 'inherit'
-            // });
-            // dbg.log0('running agent (pid=' + child.pid + ' ): node', _.join(args));
             return SupervisorCtl.add_agent(name, _.join(args, ' '));
         })
         .then(() => {

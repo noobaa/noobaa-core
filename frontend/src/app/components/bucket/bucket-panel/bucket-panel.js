@@ -7,6 +7,10 @@ class BucketPanelViewModel {
         this.bucket = bucketInfo;
         this.objects = bucketObjectList;
 
+        this.ready = ko.pureComputed(
+            () => !!bucketInfo()
+        )
+
         this.bucketName = ko.pureComputed(
             () => bucketInfo() && bucketInfo().name
         );

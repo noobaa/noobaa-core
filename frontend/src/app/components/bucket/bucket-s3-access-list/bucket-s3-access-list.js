@@ -17,11 +17,9 @@ class BucketS3AccessListViewModel {
 
         this.bucketName = bucketName;
 
-        this.bucketNameSub = this.bucketName.subscribe(
-            name => loadBucketS3ACL(name)
-        );
-
         this.isS3AccessModalVisible = ko.observable(false);
+
+        loadBucketS3ACL(ko.unwrap(bucketName));
     }
 
     openS3AccessModal() {
@@ -38,10 +36,6 @@ class BucketS3AccessListViewModel {
 
     closeConnectionDetails() {
         this.selectedAccount(null);
-    }
-
-    dispose() {
-        this.bucketNameSub.dispose();
     }
 }
 

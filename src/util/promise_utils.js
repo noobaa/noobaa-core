@@ -220,7 +220,7 @@ function promised_spawn(command, args, cwd, ignore_rc) {
 
     proc.on('error', function(error) {
         if ((typeof ignore_rc !== 'undefined') && ignore_rc) {
-            dbg.warn(command + " " + args.join(" ") + " in " + cwd + " exited with error:" + error.message+" and ignored");
+            dbg.warn(command + " " + args.join(" ") + " in " + cwd + " exited with error:" + error.message + " and ignored");
             deferred.resolve(out);
         } else {
             deferred.reject(new Error(command + " " + args.join(" ") + " in " + cwd + " recieved error " + error.message));
@@ -239,7 +239,7 @@ function promised_spawn(command, args, cwd, ignore_rc) {
 
 }
 
-function promised_exec(command, ignore_rc) {
+function promised_exec(command, ignore_rc, return_stdout) {
     dbg.log2('promise exec', command, ignore_rc);
     if (!command) {
         return P.reject(new Error('Command must be given'));
@@ -247,16 +247,19 @@ function promised_exec(command, ignore_rc) {
 
     var deferred = P.defer();
 
-    child_process.exec(command,
-        {
-          maxBuffer: 5000*1024, //5MB, should be enough
+    child_process.exec(command, {
+            maxBuffer: 5000 * 1024, //5MB, should be enough
         },
         function(error, stdout, stderr) {
             if (error === null || ignore_rc) {
-                if (error!==null){
+                if (error !== null) {
                     dbg.warn(command + " exited with error " + error + " and ignored");
                 }
-                deferred.resolve();
+                if (return_stdout) {
+                    deferred.resolve(stdout);
+                } else {
+                    deferred.resolve();
+                }
             } else {
                 deferred.reject(new Error(command + " exited with error " + error));
             }

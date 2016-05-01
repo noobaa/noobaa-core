@@ -87,21 +87,17 @@ function create_cloud_pool(req) {
             }
         })
         .then(res => {
-            let args = ['src/agent/agent_cli.js',
+            let args = [
                 '--cloud_endpoint', cloud_info.endpoint,
                 '--cloud_bucket', cloud_info.target_bucket,
                 '--cloud_access_key', cloud_info.access_keys.access_key,
                 '--cloud_secret_key', cloud_info.access_keys.secret_key,
-                '--cloud_pool_name', name
+                '--cloud_pool_name', name,
+                '--internal_agent'
             ];
 
-            // TODO: temporarily using spawn - agent start\stop needs to be handles through supervisor ctl
-            let child = child_process.spawn('node', args, {
-                stdio: 'inherit'
-            });
-            dbg.log0('running agent (pid=' + child.pid + ' ): node', _.join(args));
-            // let super_ctl = new SupervisorCtl();
-            // return super_ctl.add_agent(name, _.join(args, ' '));
+            dbg.log0('adding agent to supervior with arguments:', _.join(args, ' '));
+            return SupervisorCtl.add_agent(name, _.join(args, ' '));
         })
         .then(() => {
             // TODO: should we add different event for cloud pool?
@@ -217,6 +213,7 @@ function delete_cloud_pool(req) {
                 }
             });
         })
+        .then(() => SupervisorCtl.remove_agent(pool.name))
         .then(() => nodes_store.delete_node_by_name({
             system: {
                 _id: req.system._id

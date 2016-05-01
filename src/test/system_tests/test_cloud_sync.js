@@ -138,6 +138,60 @@ function compare_object_lists(file_names, fail_msg, expected_len) {
         });
 }
 
+function verify_object_lists_after_delete(file_names, fail_msg, deleted_from_target) {
+    let timeout_ms = 3 * 60 * 1000; // 3 wait up to 3 minutes for changes to sync
+    let start_ts = Date.now();
+    let done = false;
+    var source_list;
+    var target_list;
+    return promise_utils.pwhile(
+            () => {
+                let diff = Date.now() - start_ts;
+                return (diff < timeout_ms && !done);
+            },
+            () => {
+                return client.object.list_objects({
+                        bucket: TEST_CTX.source_bucket
+                    })
+                    // get objects list on the source
+                    .then(function(source_objects) {
+                        source_list = _.map(source_objects.objects, 'key');
+                        return target_client.object.list_objects({
+                            bucket: TEST_CTX.target_bucket
+                        });
+                    })
+                    .then((target_objects) => {
+                        target_list = _.map(target_objects.objects, 'key');
+                        // sort all lists:
+                        source_list.sort();
+                        target_list.sort();
+                        done = (Math.abs(source_list.length - target_list.length) === file_names.length);
+                    })
+                    .delay(10000); // wait 10 seconds between each check
+            }
+        )
+        .then(function() {
+            let list_cmp;
+            file_names.sort();
+            if (deleted_from_target) {
+                list_cmp = _.difference(source_list, target_list);
+                list_cmp.sort();
+            } else {
+                list_cmp = _.difference(target_list, source_list);
+                list_cmp.sort();
+            }
+
+            assert(list_cmp.length === file_names.length, fail_msg + ': mismatch between lists length.');
+
+            for (var i = 0; i < list_cmp.length; i++) {
+                assert(list_cmp[i] === file_names[i], fail_msg + ': mismatch between sorce\\target objects:',
+                    list_cmp[i], file_names[i]);
+            }
+
+            console.log('source bucket and target bucket are synced. sync took ~', (Date.now() - start_ts) / 1000, 'seconds');
+        });
+}
+
 function main() {
     return run_test()
         .then(function() {
@@ -235,6 +289,124 @@ function run_test() {
             console.log('removing cloud_sync policy');
             return client.bucket.delete_cloud_sync({
                 name: 'files'
+            });
+        })
+        .then(() => {
+            // start cloud sync from source to target and check file list on the target.
+            let cloud_sync_params = {
+                n2c: true,
+                c2n: false,
+                deletions: false
+            };
+            return set_cloud_sync(cloud_sync_params)
+                .then(() => {
+                    console.log('set cloud_sync with these params:', cloud_sync_params, ' waiting for changes to sync');
+
+                })
+                .then(function() {
+                    //check target file list against local
+                    return compare_object_lists(file_names, 'sync source to target failed');
+                });
+        })
+        .then(() => P.all(_.map(file_sizes, ops.generate_random_file)))
+        .then(function(res_file_names) {
+            let i = 0;
+            file_names = res_file_names;
+            console.log('uploading files to  target bucket');
+            return promise_utils.pwhile(
+                () => i < file_sizes.length,
+                () => {
+                    let fname = file_names[i++];
+                    console.log('calling upload_file(', fname, ')');
+                    return ops.upload_file(TEST_CTX.source_ip, fname, TEST_CTX.source_bucket, fname)
+                        .delay(1000);
+                });
+        })
+        .then(() => console.log('uploaded files to target bucket. waiting for changes to sync'))
+        // .delay(60000 * 2)
+        .then(function() {
+            //check target file list against local
+            return compare_object_lists(file_names, 'sync target additions to source failed');
+        })
+        .then(function() {
+            let i = 0;
+            console.log('deleting from source files that were uploaded to target');
+            return promise_utils.pwhile(
+                () => i < file_sizes.length,
+                () => {
+                    let fname = file_names[i++];
+                    let obj_path = {
+                        bucket: 'files',
+                        key: fname
+                    };
+                    return client.object.delete_object(obj_path);
+                });
+        })
+        .then(() => verify_object_lists_after_delete(file_names, 'sync deletions from source to target failed', false))
+        .then(function() {
+            // remove cloud_sync policy
+            console.log('removing cloud_sync policy');
+            return client.bucket.delete_cloud_sync({
+                name: 'files'
+            });
+        })
+        .then(() => {
+            // start cloud sync from source to target and check file list on the target.
+            let cloud_sync_params = {
+                n2c: false,
+                c2n: true,
+                deletions: false
+            };
+            return set_cloud_sync(cloud_sync_params)
+                .then(() => {
+                    console.log('set cloud_sync with these params:', cloud_sync_params, ' waiting for changes to sync');
+
+                })
+                .then(function() {
+                    //check target file list against local
+                    return compare_object_lists(file_names, 'sync source to target failed');
+                });
+        })
+        .then(() => P.all(_.map(file_sizes, ops.generate_random_file)))
+        .then(function(res_file_names) {
+            let i = 0;
+            file_names = res_file_names;
+            console.log('uploading files to  target bucket');
+            return promise_utils.pwhile(
+                () => i < file_sizes.length,
+                () => {
+                    let fname = file_names[i++];
+                    console.log('calling upload_file(', fname, ')');
+                    return ops.upload_file(TEST_CTX.target_ip, fname, TEST_CTX.target_bucket, fname)
+                        .delay(1000);
+                });
+        })
+        .then(() => console.log('uploaded files to target bucket. waiting for changes to sync'))
+        // .delay(60000 * 2)
+        .then(function() {
+            //check target file list against local
+            return compare_object_lists(file_names, 'sync target additions to source failed');
+        })
+        .then(function() {
+            let i = 0;
+            console.log('deleting from source files that were uploaded to target');
+            return promise_utils.pwhile(
+                () => i < file_sizes.length,
+                () => {
+                    let fname = file_names[i++];
+                    let obj_path = {
+                        bucket: TEST_CTX.target_bucket,
+                        key: fname
+                    };
+                    return target_client.object.delete_object(obj_path);
+                });
+        })
+        .then(() => verify_object_lists_after_delete(file_names, 'sync deletions from source to target failed', true))
+        .then(function() {
+            // remove cloud_sync policy
+            console.log('removing cloud_sync policy');
+            return client.bucket.delete_cloud_sync({
+                name: TEST_CTX.source_bucket,
             });
         })
         .then(() => {

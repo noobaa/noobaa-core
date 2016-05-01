@@ -15,13 +15,13 @@ const connectionTypes = Object.freeze([
     {
         type: 'FS',
         label: 'Linux File Access (Using Fuse)',
-        description: 'Comming Soon...',
+        description: 'Coming Soon...',
         disabled: true
     },
     {
         type: 'HDFS',
         label: 'Big Data Access (HDFS)',
-        description: 'Comming Soon...',
+        description: 'Coming Soon...',
         disabled: true
     }
 ]);

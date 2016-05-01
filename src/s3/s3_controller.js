@@ -479,10 +479,7 @@ class S3Controller {
      * http://docs.aws.amazon.com/AmazonS3/latest/API/RESTObjectDELETE.html
      */
     delete_object(req) {
-        return req.rpc_client.object.delete_object({
-            bucket: req.params.bucket,
-            key: req.params.key
-        });
+        return req.rpc_client.object.delete_object(this._object_path(req));
     }
 
 

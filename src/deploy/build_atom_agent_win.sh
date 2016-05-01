@@ -54,7 +54,7 @@ else
         cd build/windows
         mkdir ./ssl/
         echo "copy files"
-        cp ../../images/noobaa_icon24.ico .
+        cp ../../frontend/src/assets/noobaa_icon24.ico .
         cp ../../src/deploy/7za.exe .
         #no longer needed with new openssl
         #cp ../../src/deploy/lib*.dll .

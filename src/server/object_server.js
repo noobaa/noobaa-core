@@ -153,6 +153,10 @@ function complete_object_upload(req) {
                         dbg.log0('aggregated_md5', obj_etag);
                         return map_writer.fix_multipart_parts(obj);
                     });
+            }else
+            {
+                dbg.log0('complete_object_upload no fix for',obj);
+                return obj.size;
             }
         })
         .then(object_size => {

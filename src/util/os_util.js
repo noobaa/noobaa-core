@@ -7,6 +7,9 @@ module.exports = {
     get_mount_of_path: get_mount_of_path,
     top_single: top_single,
     netstat_single: netstat_single,
+    set_manual_time: set_manual_time,
+    set_ntp: set_ntp,
+    get_time_config: get_time_config,
 };
 
 var _ = require('lodash');
@@ -131,7 +134,7 @@ function read_windows_drives() {
             return wmic('netuse')
                 .then(function(network_volumes) {
                     var all_drives = {};
-                    if (_.compact(network_volumes).length>0) {
+                    if (_.compact(network_volumes).length > 0) {
 
                         all_drives = _(windows_drives).concat(_.compact(_.map(network_volumes, function(network_vol) {
                             return {
@@ -204,6 +207,45 @@ function netstat_single(dst) {
         return promise_utils.promised_exec('netstat -nap' + file_redirect);
     } else {
         throw new Error('netstat_single ' + os.type + ' not supported');
+    }
+}
+
+function set_manual_time(time_epoch) {
+    if (os.type() === 'Linux') {
+        return promise_utils.promised_exec('/sbin/chkconfig ntpd off 2345')
+            .then(() =>  promise_utils.promised_exec('/etc/init.d/ntpd stop'))
+            .then(() => promise_utils.promised_exec('date +%s -s @' + time_epoch))
+            .then(() => restart_rsyslogd());
+    } else {
+        throw new Error('setting time/date not supported on non-Linux platforms');
+    }
+}
+
+function set_ntp(server, timez) {
+    if (os.type() === 'Linux') {
+        var tz_components = timez.split('/');
+        var command = "sed -i 's/.*NooBaa Configured NTP Server.*/server " + server + " iburst #NooBaa Configured NTP Server/' /etc/ntp.conf";
+
+        return promise_utils.promised_exec('/sbin/chkconfig ntpd on 2345')
+            .then(() => promise_utils.promised_exec('ln -sf /usr/share/zoneinfo/' +
+                tz_components[0] + '/' + tz_components[1] + ' /etc/localtime'))
+            .then(() => promise_utils.promised_exec('/etc/init.d/ntpd restart'))
+            .then(() => promise_utils.promised_exec(command))
+            .then(() => restart_rsyslogd());
+    } else {
+        throw new Error('setting NTP not supported on non-Linux platforms');
+    }
+}
+
+function restart_rsyslogd() {
+    return promise_utils.promised_exec('/etc/init.d/rsyslog restart');
+}
+
+function get_time_config() {
+    if (os.type() === 'Linux') {
+        return promise_utils.promised_exec('/usr/bin/ntpstat | head -1', false, true);
+    } else {
+        throw new Error('setting time/date not supported on non-Linux platforms');
     }
 }
 

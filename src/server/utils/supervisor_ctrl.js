@@ -82,7 +82,7 @@ SupervisorCtrl.prototype.add_agent = function(agent_name, args_str) {
     let prog = {};
     prog.directory = config.SUPERVISOR_DEFAULTS.DIRECTORY;
     prog.stopsignal = config.SUPERVISOR_DEFAULTS.STOPSIGNAL;
-    prog.command = '/usr/local/bin/node src/agent/agent_cli ' + args_str;
+    prog.command = '/usr/local/bin/node src/agent/agent_cli.js ' + args_str;
     prog.name = 'agent_' + agent_name;
     return P.when(self.init())
         .then(() => self.add_program(prog))
@@ -97,7 +97,7 @@ SupervisorCtrl.prototype.remove_agent = function(agent_name) {
                 return prog.name === ('agent_' + agent_name);
             });
             if (ind !== -1) {
-                delete self._programs[ind];
+                self._programs.splice(ind, 1);
                 return self.apply_changes();
             }
             return;

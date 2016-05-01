@@ -87,14 +87,16 @@ function create_cloud_pool(req) {
             }
         })
         .then(res => {
-            let args = ['src/agent/agent_cli.js',
+            let args = [
                 '--cloud_endpoint', cloud_info.endpoint,
                 '--cloud_bucket', cloud_info.target_bucket,
                 '--cloud_access_key', cloud_info.access_keys.access_key,
                 '--cloud_secret_key', cloud_info.access_keys.secret_key,
-                '--cloud_pool_name', name
+                '--cloud_pool_name', name,
+                '--internal_agent'
             ];
 
+            dbg.log0('adding agent to supervior with arguments:', _.join(args, ' '));
             return SupervisorCtl.add_agent(name, _.join(args, ' '));
         })
         .then(() => {

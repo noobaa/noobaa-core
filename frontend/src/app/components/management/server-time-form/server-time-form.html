@@ -1,0 +1,80 @@
+<h2 class="heading2" data-bind="click: () => expanded.toggle()">
+    <button class="btn-flat pull-right rotate no-outline" data-bind="
+        css: { 'deg-90': !expanded() }
+    ">
+        <svg-icon class="expand-icon" params="uri: '/fe/assets/icons.svg#expand'" ></svg-icon>
+    </button>
+    Server Date & Time
+</h2>
+
+<p class="summary container" data-bind="visible: !expanded()">
+    Current Server Time: 
+    <output class="text-tech emphasized" data-bind="text: serverTimeText"></output>
+</p>
+
+<div class="container" data-bind="expand: expanded">
+    <radio-group class="container" params="
+        options: configTypes, 
+        selected: selectedConfigType
+    "></radio-group>
+
+    <!-- ko if: usingManualTime -->
+    <section class="container">
+        <editor params="label: 'Time Zone'">
+            <dropdown params="options: timezones, selected: timezone"></dropdown>
+        </editor>
+
+        <editor params="label: 'Date', insertValMessages: false">
+            <dropdown class="fixed-width text-center" params="
+                options: months,
+                placeholder: 'month',
+                selected: month
+            "></dropdown>
+
+            <dropdown class="fixed-width text-center" params="
+                options: days,
+                placeholder: 'day',
+                selected: day
+            "></dropdown>
+
+            <dropdown class="fixed-width text-center" params="
+                options: years,
+                placeholder: 'year',
+                selected: year
+            "></dropdown>
+        </editor>
+
+        <editor params="label: 'Time', insertValMessages: false">
+            <input type="number" class="fixed-width" min="0" max="23" placeholder="HH"
+                data-bind="textInput: hour"/>
+
+            <input type="number" class="fixed-width" min="0" max="59"  placeholder="MM"
+                data-bind="textInput: minute"/>
+
+            <input type="number" class="fixed-width" min="0" max="59" placeholder="SS" 
+                data-bind="textInput: second"/>
+        </editor>
+    </section>
+    <!-- /ko -->
+
+    <!-- ko if: usingNTP -->
+    <section class="container">
+        <editor params="label: 'Time Zone'">
+            <dropdown params="options: timezones, selected: timezone"></dropdown>
+        </editor>
+
+        <editor params="label: 'NTP Server'">
+            <input type="text" placeholder="IP or DNS name" data-bind="
+                textInput: ntpServer
+            "/>
+        </editor>
+    </section>
+    <!-- /ko -->
+
+    <div class="container text-left">
+        <button class="btn2" data-bind="click: applyChanges">
+            Apply Changes
+        </button>
+    </div>
+
+</div>

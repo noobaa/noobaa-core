@@ -378,7 +378,8 @@ export function loadSystemInfo() {
                     accessKey: access_key,
                     secretKey: secret_key,
                     P2PConfig: reply.n2n_config,
-                    owner: reply.owner.email
+                    owner: reply.owner.email,
+                    timeConfig: reply.time_config
                 });
             }
         )
@@ -1446,3 +1447,29 @@ export function updateAccountS3ACL(email, acl) {
         .then(loadAccountList)
         .done();
 }
+
+
+export function updateServerTime(timezone, epoch) {
+    logAction('updateServerTime', { timezone, epoch });
+
+    api.system.update_time_config({
+        config_type: 'MANUAL',
+        timezone: timezone,
+        epoch: epoch
+    })
+        .then(loadSystemInfo)
+        .done();
+}
+
+export function updateServerNTP(timezone, server) {
+    logAction('updateServerNTP', { timezone, server });
+
+    api.system.update_time_config({
+        config_type: 'NTP',
+        timezone: timezone,
+        server: server
+    })
+        .then(loadSystemInfo)
+        .done();
+}
+

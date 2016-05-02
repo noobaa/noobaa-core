@@ -468,7 +468,7 @@ module.exports = {
                             type: 'string'
                         },
                         synced: {
-                            type: 'string'
+                            type: 'boolean'
                         },
                         timezone: {
                             type: 'string'

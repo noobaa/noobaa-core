@@ -11,33 +11,39 @@ NOOBAASEC="/etc/noobaa_sec"
 
 function deploy_log {
 	if [ "$1" != "" ]; then
-			local now=$(date)
-			echo "${now} ${1}" >> ${LOG_FILE}
+		local now=$(date)
+		echo "${now} ${1}" >> ${LOG_FILE}
 	fi
 }
 
+#Add noobaa to suduers list
 function add_sudoers {
 	t=$(eval 'sudo grep -q noobaa /etc/sudoers; echo $? ')
 	if [ $t -ne 0 ]; then
-      deploy_log "adding noobaa to sudoers"
-	  sudo echo "noobaa ALL=(ALL)	NOPASSWD:ALL" >> /etc/sudoers
-	  tt=$(eval 'sudo grep –q noobaa /etc/sudoers; echo $? ')
-      if [ $tt -ne 0 ]; then
-	      deploy_log "failed to add noobaa to sudoers"
-   	  fi
-  fi
-  #unalias cp
+		deploy_log "adding noobaa to sudoers"
+		sudo echo "noobaa ALL=(ALL)	NOPASSWD:ALL" >> /etc/sudoers
+		tt=$(eval 'sudo grep –q noobaa /etc/sudoers; echo $? ')
+		if [ $tt -ne 0 ]; then
+			deploy_log "failed to add noobaa to sudoers"
+		fi
+	fi
+	useradd noobaa
+	echo Passw0rd | passwd noobaa --stdin
 }
 
 function build_node {
 	deploy_log "build_node start"
 	yum -y groupinstall "Development Tools"
 	export PATH=$PATH:/usr/local/bin
+
 	#Install Node.js / NPM
 	cd /usr/src
+
 	#install nvm use v4.2.2
-    curl -o- https://raw.githubusercontent.com/creationix/nvm/v0.30.2/install.sh | bash
-    nvm alias default 4.2.2
+  curl -o- https://raw.githubusercontent.com/creationix/nvm/v0.30.2/install.sh | bash
+	export NVM_DIR="$HOME/.nvm"
+	. /root/.nvm/nvm.sh
+  nvm alias default 4.2.2
 	nvm use 4.2.2
 	cd ~
 	deploy_log "build_node done"
@@ -67,6 +73,7 @@ function install_aux {
 
 }
 
+#install noobaa repos
 function install_repos {
 	deploy_log "install_repos start"
 	mkdir -p /root/node_modules
@@ -77,11 +84,15 @@ function install_repos {
 	deploy_log "install_repos done"
 }
 
+#npm install
 function setup_repos {
 	local runnpm=0
 	if [ "$1" == "runnpm" ]; then
 		runnpm=1
 	fi
+
+	#install npm
+	yum install -y npm
 
 	deploy_log "setup_repos start"
 	cd ~
@@ -94,15 +105,8 @@ function setup_repos {
 		deploy_log "setup_repos calling npm install"		+	deploy_log "setup_repos after deleted npm install"
 		$(npm install sse4_crc32 >> ${LOG_FILE})
 		$(npm install -dd >> ${LOG_FILE})
-
 	fi
 
-	#deploy_log "setting up crontab"
-	# Setup crontab job for upgrade checks
-	# once a day at HH = midnight + RAND[0,2], MM = RAND[0,59]
-	#local hour_skew=$(((RANDOM)%3))
-	#local minutes=$(((RANDOM)%60))
-	#crontab -l 2>/dev/null; echo "${minutes} ${hour_skew} * * * ${CORE_DIR}/src/deploy/NVA_build/upgrade.sh" | crontab -
 	deploy_log "setup_repos done"
 }
 
@@ -133,8 +137,8 @@ function setup_makensis {
 
 function install_mongo {
 	deploy_log "install_mongo start"
-	# create a Mongo 2.4 Repo file
-		cp -f ${CORE_DIR}/src/deploy/NVA_build/mongo.repo /etc/yum.repos.d/mongodb-org-3.2.repo
+	# create a Mongo 3.2 Repo file
+	cp -f ${CORE_DIR}/src/deploy/NVA_build/mongo.repo /etc/yum.repos.d/mongodb-org-3.2.repo
 
 	# install the needed RPM
 	yum install -y mongodb-org-3.2.1 mongodb-org-server-3.2.1 mongodb-org-shell-3.2.1 mongodb-org-mongos-3.2.1 mongodb-org-tools-3.2.1
@@ -174,8 +178,6 @@ function general_settings {
 	sysctl -e -p
 
 	#noobaa user & first install wizard
-	useradd noobaa
-	echo Passw0rd | passwd noobaa --stdin
 	cp -f ${CORE_DIR}/src/deploy/NVA_build/first_install_diaglog.sh /etc/profile.d/
 	chown root:root /etc/profile.d/first_install_diaglog.sh
 	chmod 4755 /etc/profile.d/first_install_diaglog.sh
@@ -223,6 +225,7 @@ function setup_syslog {
 	service rsyslog restart
 	# setup crontab to run logrotate every 15 minutes.
 	echo "*/15 * * * * /usr/sbin/logrotate /etc/logrotate.d/noobaa >/dev/null 2>&1" > /var/spool/cron/root
+}
 
 function fix_etc_issue {
 	local current_ip=$(ifconfig eth0  |grep 'inet addr' | cut -f 2 -d':' | cut -f 1 -d' ')
@@ -230,22 +233,23 @@ function fix_etc_issue {
 	if [ -f ${NOOBAASEC} ]; then
 		secret=$(cat ${NOOBAASEC})
 	else
-		secret="Not Configured"
+		uuidgen | cut -f 1 -d'-' > ${NOOBAASEC}
+		secret=$(cat ${NOOBAASEC})
 	fi
 
 	#Fix login message
 	echo -e "\x1b[0;35;40m" 																	> /etc/issue
 	echo  "  _   _            ______    "   									>> /etc/issue
-	echo  " | \\ | |           | ___ \\   "    								>> /etc/issue
-	echo  " |  \\| | ___   ___ | |_/ / __ _  __ _    " 				>> /etc/issue
-	echo  " | . \` |/ _ \\ / _ \\| ___ \\/ _\` |/ _\` |   " 	>> /etc/issue
-	echo  " | |\\  | (_) | (_) | |_/ / (_| | (_| |   " 				>> /etc/issue
-	echo  " \\\_| \\_/\\___/ \\___/\\____/ \\__,_|\\__,_|   "	>> /etc/issue
+	echo  " | \\\\ | |           | ___ \\\\   "    								>> /etc/issue
+	echo  " |  \\\\| | ___   ___ | |_/ / __ _  __ _    " 				>> /etc/issue
+	echo  " | . \` |/ _ \\\\ / _ \\\\| ___ \\\\/ _\` |/ _\` |   " 	>> /etc/issue
+	echo  " | |\\\\  | (_) | (_) | |_/ / (_| | (_| |   " 				>> /etc/issue
+	echo  " \\\\\_| \\\\_/\\\\___/ \\\\___/\\\\____/ \\\\__,_|\\\\__,_|   "	>> /etc/issue
 	echo -e "\x1b[0m" 																				>> /etc/issue
 
 	echo -e "\n\nWelcome to your \x1b[0;35;40mNooBaa\x1b[0m server.\n" >> /etc/issue
 
-  	echo -e "\nConfigured IP on this NooBaa Server \x1b[0;32;40m${current_ip}\x1b[0m.\nThis server's secret is \x1b[0;32;40m${secret}\x1b[0m" >> /etc/issue
+  echo -e "\nConfigured IP on this NooBaa Server \x1b[0;32;40m${current_ip}\x1b[0m.\nThis server's secret is \x1b[0;32;40m${secret}\x1b[0m" >> /etc/issue
 
 	echo -e "\nYou can set up a cluster member, configure IP, DNS, GW and Hostname by logging in using \x1b[0;32;40mnoobaa/Passw0rd\x1b[0m" >> /etc/issue
 }

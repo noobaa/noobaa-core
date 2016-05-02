@@ -141,7 +141,7 @@ function do_upgrade {
   sleep 5;
   restart_s3rver
   deploy_log "Restarted s3rver"
-      restart_webserver
+  restart_webserver
   deploy_log "Upgrade finished successfully!"
 }
 
@@ -158,11 +158,11 @@ if [ "$1" == "from_file" ]; then
   allargs="$@"
   shift
   if [ "$1" != "" ]; then
-      deploy_log "upgrade.sh called for package extraction"
-      cp -f $1 ${TMP_PATH}${PACKAGE_FILE_NAME}
-      extract_package
-      shift
-      ${NEW_UPGRADE_SCRIPT} do_upgrade $@
+    deploy_log "upgrade.sh called for package extraction"
+    cp -f $1 ${TMP_PATH}${PACKAGE_FILE_NAME}
+    extract_package
+    shift
+    ${NEW_UPGRADE_SCRIPT} do_upgrade $@
   else
     deploy_log "upgrade.sh called with ${allargs}"
     echo "Must supply path to upgrade package"

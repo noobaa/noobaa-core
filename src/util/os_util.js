@@ -210,10 +210,11 @@ function netstat_single(dst) {
     }
 }
 
-function set_manual_time(time_epoch) {
+function set_manual_time(time_epoch, timez) {
     if (os.type() === 'Linux') {
-        return promise_utils.promised_exec('/sbin/chkconfig ntpd off 2345')
-            .then(() =>  promise_utils.promised_exec('/etc/init.d/ntpd stop'))
+        return _set_time_zone(timez)
+            .then(() => promise_utils.promised_exec('/sbin/chkconfig ntpd off 2345'))
+            .then(() => promise_utils.promised_exec('/etc/init.d/ntpd stop'))
             .then(() => promise_utils.promised_exec('date +%s -s @' + time_epoch))
             .then(() => restart_rsyslogd());
     } else {
@@ -223,12 +224,9 @@ function set_manual_time(time_epoch) {
 
 function set_ntp(server, timez) {
     if (os.type() === 'Linux') {
-        var tz_components = timez.split('/');
         var command = "sed -i 's/.*NooBaa Configured NTP Server.*/server " + server + " iburst #NooBaa Configured NTP Server/' /etc/ntp.conf";
-
-        return promise_utils.promised_exec('/sbin/chkconfig ntpd on 2345')
-            .then(() => promise_utils.promised_exec('ln -sf /usr/share/zoneinfo/' +
-                tz_components[0] + '/' + tz_components[1] + ' /etc/localtime'))
+        return _set_time_zone(timez)
+            .then(() => promise_utils.promised_exec('/sbin/chkconfig ntpd on 2345'))
             .then(() => promise_utils.promised_exec('/etc/init.d/ntpd restart'))
             .then(() => promise_utils.promised_exec(command))
             .then(() => restart_rsyslogd());
@@ -242,11 +240,36 @@ function restart_rsyslogd() {
 }
 
 function get_time_config() {
+    var reply = {
+        srv_time: 0,
+        timezone: '',
+        status: 'not synched'
+    };
+
     if (os.type() === 'Linux') {
-        return promise_utils.promised_exec('/usr/bin/ntpstat | head -1', false, true);
+        return promise_utils.promised_exec('/usr/bin/ntpstat | head -1', false, true)
+            .then((res) => {
+                if (res.indexOf('synchronized to') !== -1) {
+                    reply.status = 'synched';
+                }
+                reply.srv_time = new Date().toISOString();
+                return promise_utils.promised_exec('ls -l /etc/localtime', false, true);
+            })
+            .then((tzone) => {
+                var symlink = tzone.split('>')[1].split('/');
+                var len = symlink.length;
+                reply.timezone = symlink[len - 2] + '/' + symlink[len - 1].substring(0, symlink[len - 1].length - 2);
+                return reply;
+            });
     } else {
-        throw new Error('setting time/date not supported on non-Linux platforms');
+        throw new Error('Getting time config only supported on linux based platforms');
     }
+}
+
+function _set_time_zone(tzone) {
+    //TODO:: Ugly Ugly, change to datectrl on centos7
+    return promise_utils.promised_exec('ln -sf /usr/share/zoneinfo/' +
+        tzone + ' /etc/localtime');
 }
 
 

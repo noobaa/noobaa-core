@@ -241,11 +241,15 @@ function post_upgrade {
   	  deploy_log "removed mongod service (supervised by supervisord)"
       rm -f /etc/init.d/mongod
   fi
-  # temporary - adding NTP package
 
+  # temporary - adding NTP package
   yum install -y ntp
   sudo /sbin/chkconfig ntpd on 2345
 	sudo /etc/init.d/ntpd start
+	local noobaa_ntp=$(grep 'NooBaa Configured NTP Server' /etc/ntp.conf | wc -l)
+	if [ ${noobaa_ntp} -eq 0 ]; then
+			echo "# Use NooBaa Configured Server"	 > /etc/ntp.conf
+	fi
 
   rm -f /tmp/*.tar.gz
   rm -rf /tmp/v*

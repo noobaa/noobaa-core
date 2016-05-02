@@ -7,6 +7,9 @@ module.exports = {
     get_mount_of_path: get_mount_of_path,
     top_single: top_single,
     netstat_single: netstat_single,
+    set_manual_time: set_manual_time,
+    set_ntp: set_ntp,
+    get_time_config: get_time_config,
 };
 
 var _ = require('lodash');
@@ -131,7 +134,7 @@ function read_windows_drives() {
             return wmic('netuse')
                 .then(function(network_volumes) {
                     var all_drives = {};
-                    if (_.compact(network_volumes).length>0) {
+                    if (_.compact(network_volumes).length > 0) {
 
                         all_drives = _(windows_drives).concat(_.compact(_.map(network_volumes, function(network_vol) {
                             return {
@@ -205,6 +208,68 @@ function netstat_single(dst) {
     } else {
         throw new Error('netstat_single ' + os.type + ' not supported');
     }
+}
+
+function set_manual_time(time_epoch, timez) {
+    if (os.type() === 'Linux') {
+        return _set_time_zone(timez)
+            .then(() => promise_utils.promised_exec('/sbin/chkconfig ntpd off 2345'))
+            .then(() => promise_utils.promised_exec('/etc/init.d/ntpd stop'))
+            .then(() => promise_utils.promised_exec('date +%s -s @' + time_epoch))
+            .then(() => restart_rsyslogd());
+    } else {
+        throw new Error('setting time/date not supported on non-Linux platforms');
+    }
+}
+
+function set_ntp(server, timez) {
+    if (os.type() === 'Linux') {
+        var command = "sed -i 's/.*NooBaa Configured NTP Server.*/server " + server + " iburst #NooBaa Configured NTP Server/' /etc/ntp.conf";
+        return _set_time_zone(timez)
+            .then(() => promise_utils.promised_exec('/sbin/chkconfig ntpd on 2345'))
+            .then(() => promise_utils.promised_exec('/etc/init.d/ntpd restart'))
+            .then(() => promise_utils.promised_exec(command))
+            .then(() => restart_rsyslogd());
+    } else {
+        throw new Error('setting NTP not supported on non-Linux platforms');
+    }
+}
+
+function restart_rsyslogd() {
+    return promise_utils.promised_exec('/etc/init.d/rsyslog restart');
+}
+
+function get_time_config() {
+    var reply = {
+        srv_time: 0,
+        timezone: '',
+        status: 'not synched'
+    };
+
+    if (os.type() === 'Linux') {
+        return promise_utils.promised_exec('/usr/bin/ntpstat | head -1', false, true)
+            .then((res) => {
+                if (res.indexOf('synchronized to') !== -1) {
+                    reply.status = 'synched';
+                }
+                reply.srv_time = new Date().toISOString();
+                return promise_utils.promised_exec('ls -l /etc/localtime', false, true);
+            })
+            .then((tzone) => {
+                var symlink = tzone.split('>')[1].split('/');
+                var len = symlink.length;
+                reply.timezone = symlink[len - 2] + '/' + symlink[len - 1].substring(0, symlink[len - 1].length - 2);
+                return reply;
+            });
+    } else {
+        throw new Error('Getting time config only supported on linux based platforms');
+    }
+}
+
+function _set_time_zone(tzone) {
+    //TODO:: Ugly Ugly, change to datectrl on centos7
+    return promise_utils.promised_exec('ln -sf /usr/share/zoneinfo/' +
+        tzone + ' /etc/localtime');
 }
 
 

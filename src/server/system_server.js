@@ -219,13 +219,14 @@ function read_system(req) {
         var n2n_config = system.n2n_config;
         var time_config = {
             srv_time: time_status.srv_time,
-            status: time_status.status,
+            synced: time_status.status,
         };
         if (system.ntp) {
-            time_config.ntp_server = system.ntp.server ? system.ntp.server : '';
+            if (time_config.ntp_server) {
+                time_config.ntp_server = system.ntp.server;
+            }
             time_config.timezone = system.ntp.timezone ? system.ntp.timezone : time_status.timezone;
         } else {
-            time_config.ntp_server = '';
             time_config.timezone = time_status.timezone;
         }
 

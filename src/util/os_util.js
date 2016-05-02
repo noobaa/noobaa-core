@@ -217,6 +217,8 @@ function set_manual_time(time_epoch, timez) {
             .then(() => promise_utils.promised_exec('/etc/init.d/ntpd stop'))
             .then(() => promise_utils.promised_exec('date +%s -s @' + time_epoch))
             .then(() => restart_rsyslogd());
+    } else if (os.type() === 'Darwin') { //Bypass for dev environment
+        return;
     } else {
         throw new Error('setting time/date not supported on non-Linux platforms');
     }
@@ -230,6 +232,8 @@ function set_ntp(server, timez) {
             .then(() => promise_utils.promised_exec('/etc/init.d/ntpd restart'))
             .then(() => promise_utils.promised_exec(command))
             .then(() => restart_rsyslogd());
+    } else if (os.type() === 'Darwin') { //Bypass for dev environment
+        return;
     } else {
         throw new Error('setting NTP not supported on non-Linux platforms');
     }
@@ -255,6 +259,16 @@ function get_time_config() {
                 reply.srv_time = new Date().toISOString();
                 return promise_utils.promised_exec('ls -l /etc/localtime', false, true);
             })
+            .then((tzone) => {
+                var symlink = tzone.split('>')[1].split('/');
+                var len = symlink.length;
+                reply.timezone = symlink[len - 2] + '/' + symlink[len - 1].substring(0, symlink[len - 1].length - 2);
+                return reply;
+            });
+    } else if (os.type() === 'Darwin') {
+        reply.status = 'synched';
+        reply.srv_time = new Date().toISOString();
+        return promise_utils.promised_exec('ls -l /etc/localtime', false, true)
             .then((tzone) => {
                 var symlink = tzone.split('>')[1].split('/');
                 var len = symlink.length;

@@ -36,7 +36,7 @@ SupervisorCtrl.prototype.apply_changes = function() {
     return P.when(self.init())
         .then(() => self._serialize())
         .then(function() {
-            return promise_utils.promised_exec('supervisorctl reload');
+            return promise_utils.promised_exec('supervisorctl update');
         });
 };
 

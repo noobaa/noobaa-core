@@ -260,9 +260,8 @@ function get_time_config() {
                 return promise_utils.promised_exec('ls -l /etc/localtime', false, true);
             })
             .then((tzone) => {
-                var symlink = tzone.split('>')[1].split('/');
-                var len = symlink.length;
-                reply.timezone = symlink[len - 2] + '/' + symlink[len - 1].substring(0, symlink[len - 1].length - 2);
+                var symlink = tzone.split('>')[1].split('/usr/share/zoneinfo/')[1].trim();
+                reply.timezone = symlink;
                 return reply;
             });
     } else if (os.type() === 'Darwin') {
@@ -270,9 +269,8 @@ function get_time_config() {
         reply.srv_time = new Date().toISOString();
         return promise_utils.promised_exec('ls -l /etc/localtime', false, true)
             .then((tzone) => {
-                var symlink = tzone.split('>')[1].split('/');
-                var len = symlink.length;
-                reply.timezone = symlink[len - 2] + '/' + symlink[len - 1].substring(0, symlink[len - 1]);
+                var symlink = tzone.split('>')[1].split('/usr/share/zoneinfo/')[1].trim();
+                reply.timezone = symlink;
                 return reply;
             });
     } else {

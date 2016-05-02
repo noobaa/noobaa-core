@@ -27,6 +27,8 @@ function add_sudoers {
 			deploy_log "failed to add noobaa to sudoers"
 		fi
 	fi
+	useradd noobaa
+	echo Passw0rd | passwd noobaa --stdin
 }
 
 function build_node {
@@ -39,6 +41,8 @@ function build_node {
 
 	#install nvm use v4.2.2
   curl -o- https://raw.githubusercontent.com/creationix/nvm/v0.30.2/install.sh | bash
+	export NVM_DIR="$HOME/.nvm"
+	. /root/.nvm/nvm.sh
   nvm alias default 4.2.2
 	nvm use 4.2.2
 	cd ~
@@ -86,6 +90,9 @@ function setup_repos {
 	if [ "$1" == "runnpm" ]; then
 		runnpm=1
 	fi
+
+	#install npm
+	yum install -y npm
 
 	deploy_log "setup_repos start"
 	cd ~
@@ -171,8 +178,6 @@ function general_settings {
 	sysctl -e -p
 
 	#noobaa user & first install wizard
-	useradd noobaa
-	echo Passw0rd | passwd noobaa --stdin
 	cp -f ${CORE_DIR}/src/deploy/NVA_build/first_install_diaglog.sh /etc/profile.d/
 	chown root:root /etc/profile.d/first_install_diaglog.sh
 	chmod 4755 /etc/profile.d/first_install_diaglog.sh
@@ -220,6 +225,7 @@ function setup_syslog {
 	service rsyslog restart
 	# setup crontab to run logrotate every 15 minutes.
 	echo "*/15 * * * * /usr/sbin/logrotate /etc/logrotate.d/noobaa >/dev/null 2>&1" > /var/spool/cron/root
+}
 
 function fix_etc_issue {
 	local current_ip=$(ifconfig eth0  |grep 'inet addr' | cut -f 2 -d':' | cut -f 1 -d' ')
@@ -227,7 +233,8 @@ function fix_etc_issue {
 	if [ -f ${NOOBAASEC} ]; then
 		secret=$(cat ${NOOBAASEC})
 	else
-		secret="Not Configured"
+		uuidgen | cut -f 1 -d'-' > ${NOOBAASEC}
+		secret=$(cat ${NOOBAASEC})
 	fi
 
 	#Fix login message

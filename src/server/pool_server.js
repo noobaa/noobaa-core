@@ -202,7 +202,8 @@ function delete_cloud_pool(req) {
 
     // construct the cloud node name according to convention 
     let cloud_node_name = 'noobaa-cloud-agent-' + os.hostname() + '-' + pool.name;
-    return P.when(function() {
+    return P.resolve()
+        .then(function() {
             var reason = check_cloud_pool_deletion(pool);
             if (reason) {
                 throw req.rpc_error(reason, 'Cannot delete pool');

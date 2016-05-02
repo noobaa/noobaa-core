@@ -46,13 +46,13 @@
 
         <editor params="label: 'Time', insertValMessages: false">
             <input type="number" class="fixed-width" min="0" max="23" placeholder="HH"
-                data-bind="value: hour"/>
+                data-bind="textInput: hour"/>
 
             <input type="number" class="fixed-width" min="0" max="59"  placeholder="MM"
-                data-bind="value: minute"/>
+                data-bind="textInput: minute"/>
 
             <input type="number" class="fixed-width" min="0" max="59" placeholder="SS" 
-                data-bind="value: second"/>
+                data-bind="textInput: second"/>
         </editor>
     </section>
     <!-- /ko -->

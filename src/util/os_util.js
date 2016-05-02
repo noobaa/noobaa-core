@@ -247,14 +247,14 @@ function get_time_config() {
     var reply = {
         srv_time: 0,
         timezone: '',
-        status: 'not synched'
+        status: false
     };
 
     if (os.type() === 'Linux') {
         return promise_utils.promised_exec('/usr/bin/ntpstat | head -1', false, true)
             .then((res) => {
                 if (res.indexOf('synchronized to') !== -1) {
-                    reply.status = 'synched';
+                    reply.status = true;
                 }
                 reply.srv_time = new Date().toISOString();
                 return promise_utils.promised_exec('ls -l /etc/localtime', false, true);
@@ -266,13 +266,13 @@ function get_time_config() {
                 return reply;
             });
     } else if (os.type() === 'Darwin') {
-        reply.status = 'synched';
+        reply.status = true;
         reply.srv_time = new Date().toISOString();
         return promise_utils.promised_exec('ls -l /etc/localtime', false, true)
             .then((tzone) => {
                 var symlink = tzone.split('>')[1].split('/');
                 var len = symlink.length;
-                reply.timezone = symlink[len - 2] + '/' + symlink[len - 1].substring(0, symlink[len - 1].length - 2);
+                reply.timezone = symlink[len - 2] + '/' + symlink[len - 1].substring(0, symlink[len - 1]);
                 return reply;
             });
     } else {

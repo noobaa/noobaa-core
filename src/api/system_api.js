@@ -467,8 +467,8 @@ module.exports = {
                         ntp_server: {
                             type: 'string'
                         },
-                        status: {
-                            type: 'string'
+                        synced: {
+                            type: 'boolean'
                         },
                         timezone: {
                             type: 'string'

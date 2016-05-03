@@ -720,7 +720,8 @@ Agent.prototype.collect_diagnostics = function(req) {
                     throw new Error('Agent Collect Diag Error on reading packges diag file');
                 });
         })
-        .then(null, function() {
+        .then(null, function(err) {
+            dbg.error('DIAGNOSTICS FAILED', err.stack || err);
             return {
                 data: new Buffer(),
             };

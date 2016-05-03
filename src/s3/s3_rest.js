@@ -185,7 +185,7 @@ function s3_rest(controller) {
             // When using a signedURL we give an expiry of 7days, which will cover
             // up the skew between the times, so we don't check it
             let client_date = moment(req.headers.date || req.headers['x-amz-date']);
-            if (!req.query['X-Amz-Credential'] && Math.abs(moment().diff(client_date, 'seconds')) > 60) {
+            if (!req.query['X-Amz-Credential'] && Math.abs(moment().diff(client_date, 'minutes')) > 2) {
                 throw s3_errors.RequestTimeTooSkewed;
             }
 

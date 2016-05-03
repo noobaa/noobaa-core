@@ -268,14 +268,30 @@ function promised_exec(command, ignore_rc, return_stdout) {
     return deferred.promise;
 }
 
-function full_dir_copy(src, dst) {
+function full_dir_copy(src, dst, filter_regex) {
     ncp.limit = 10;
-
+    let ncp_options = {};
+    if (filter_regex) {
+        //this regexp will filter out files that matches, except path.
+        var ncp_filter_regex = new RegExp(filter_regex);
+        var ncp_filter_function = function(input) {
+            if (input.indexOf('/') > 0) {
+                return false;
+            } else {
+                if (!ncp_filter_regex.test(input)) {
+                    return true;
+                } else {
+                    return false;
+                }
+            }
+        };
+        ncp_options.filter = ncp_filter_function;
+    }
     if (!src || !dst) {
         return P.reject(new Error('Both src and dst must be given'));
     }
 
-    return P.nfcall(ncp, src, dst).done(function(err) {
+    return P.nfcall(ncp, src, dst, ncp_options).done(function(err) {
         if (err) {
             return P.reject(new Error('full_dir_copy failed with ' + err));
         } else {

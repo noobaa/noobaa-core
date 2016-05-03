@@ -37,9 +37,7 @@ noobaa-core/deploy/NVA_build
 
       2.2) passwd -> current pass reverse change to roonoobaa
 
-  3) In the core repo dir, run gulp package_build.
-
-  4) SCP src/deploy/NVA_build/* and build/public/noobaa-NVA.tar.gz to the machine at /tmp
+  4) SCP src/deploy/NVA_build/* and the noobaa package (as noobaa-NVA.tar.gz) to the machine at /tmp
 
   5) run /tmp/deploy_base runinstall
 

@@ -87,6 +87,7 @@ function create_node(req) {
                 level: 'info',
                 event: 'node.create',
                 node: node._id,
+                actor: req.account && req.account._id,
             });
             var account_id = '';
             if (req.account) {
@@ -188,8 +189,8 @@ function read_node_maps(req) {
             objects => {
                 if (req.rpc_params.adminfo) {
                     return db.DataBlock.collection
-                        .count({ 
-                            node: node._id, 
+                        .count({
+                            node: node._id,
                             deleted: null
                         })
                         .then(

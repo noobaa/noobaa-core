@@ -43,6 +43,7 @@ function build_node {
   curl -o- https://raw.githubusercontent.com/creationix/nvm/v0.30.2/install.sh | bash
 	export NVM_DIR="$HOME/.nvm"
 	source /root/.nvm/nvm.sh
+	nvm install 4.2.2
   nvm alias default 4.2.2
 	nvm use 4.2.2
 	cd ~

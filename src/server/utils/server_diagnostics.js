@@ -19,7 +19,8 @@ var base_diagnostics = require('../../util/base_diagnostics');
 //TODO: Add temp collection dir as param
 function collect_server_diagnostics(req) {
     return P.fcall(function() {
-            return base_diagnostics.collect_basic_diagnostics();
+            let limit_logs_size = false;
+            return base_diagnostics.collect_basic_diagnostics(limit_logs_size);
         })
         .then(function() {
             return collect_supervisor_logs();

@@ -150,7 +150,7 @@ function news_config_servers(req) {
     TOPOLOGY.config_servers = req.rpc_params.IPs;
     return mongo_ctrl.add_new_mongos(TOPOLOGY.config_servers);
 
-    //TODO:: Update connection string for our mongo connections
+    //TODO:: NBNB Update connection string for our mongo connections
     //probably have something stored in mongo_ctrl and return it, need to update current connections
 }
 

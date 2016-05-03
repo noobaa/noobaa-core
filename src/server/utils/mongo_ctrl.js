@@ -22,19 +22,22 @@ function MongoCtrl() {
 
 MongoCtrl.prototype.add_replica_set_member = function(name) {
     let self = this;
-    return self._add_replica_set_member_supervisor(name)
+    return self._remove_single_mongo()
+        .then(() => self._add_replica_set_member_supervisor(name))
         .then(() => super_ctrl.apply_changes());
 };
 
 MongoCtrl.prototype.add_new_shard_server = function(name) {
     let self = this;
-    return self._add_new_shard_supervisor(name)
+    return self._remove_single_mongo()
+        .then(() => self._add_new_shard_supervisor(name))
         .then(() => super_ctrl.apply_changes());
 };
 
 MongoCtrl.prototype.add_new_mongos = function(cfg_array) {
     let self = this;
-    return self._add_new_mongos_supervisor(cfg_array)
+    return self._remove_single_mongo()
+        .then(() => self._add_new_mongos_supervisor(cfg_array))
         .then(() => super_ctrl.apply_changes())
         .then(function() {
             return mongo_client.update_connection_string(cfg_array);
@@ -58,6 +61,10 @@ MongoCtrl.prototype.add_member_to_replica_set = function(set, members) {
 
 MongoCtrl.prototype.add_member_to_shard = function(ip) {
     //sh.addShard( "mongodb0.example.net:27017" )
+};
+
+MongoCtrl.prototype.update_connection_string = function() {
+
 };
 
 
@@ -137,6 +144,10 @@ MongoCtrl.prototype._add_new_config_supervisor = function() {
     program_obj.priority = '1';
 
     return super_ctrl.add_program(program_obj);
+};
+
+MongoCtrl.prototype._remove_single_mongo = function() {
+    return super_ctrl.remove_program('mongodb');
 };
 
 MongoCtrl.prototype._refresh_services_list = function() {

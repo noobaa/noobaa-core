@@ -46,6 +46,22 @@ SupervisorCtrl.prototype.add_program = function(prog) {
         .then(() => self._programs.push(prog));
 };
 
+SupervisorCtrl.prototype.remove_program = function(prog_name) {
+    //TODO:: NBNB danny's code should call remove_program with 'agent_' + instead of remove_agent
+    let self = this;
+    return P.when(self.init())
+        .then(() => {
+            let ind = _.findIndex(this._programs, function(prog) {
+                return prog.name === (prog_name);
+            });
+            if (ind !== -1) {
+                delete this._programs[ind];
+                return this.apply_changes();
+            }
+            return;
+        });
+};
+
 SupervisorCtrl.prototype.get_mongo_services = function() {
     let self = this;
     let mongo_progs = {};
@@ -68,9 +84,9 @@ SupervisorCtrl.prototype.get_mongo_services = function() {
                         type: 'config',
                     });
                 } else if (prog.name.indexOf('mongodb') > 0) {
-                  mongo_progs.push({
-                      type: 'mongo_single',
-                  });
+                    mongo_progs.push({
+                        type: 'mongo_single',
+                    });
                 }
             });
         });
@@ -89,21 +105,6 @@ SupervisorCtrl.prototype.add_agent = function(agent_name, args_str) {
         .then(() => this.apply_changes());
 };
 
-SupervisorCtrl.prototype.remove_agent = function(agent_name) {
-    let self = this;
-    return P.when(self.init())
-        .then(() => {
-            let ind = _.findIndex(this._programs, function(prog) {
-                return prog.name === ('agent_' + agent_name);
-            });
-            if (ind !== -1) {
-                delete this._programs[ind];
-                return this.apply_changes();
-            }
-            return;
-        });
-};
-
 // Internals
 
 SupervisorCtrl.prototype._serialize = function() {
@@ -112,8 +113,8 @@ SupervisorCtrl.prototype._serialize = function() {
     _.each(self._programs, function(prog) {
         data += '[program:' + prog.name + ']\n';
         _.each(_.keys(prog), function(key) {
-            if (key !== 'name') {//skip name
-              data += key + '=' + prog[key] + '\n';
+            if (key !== 'name') { //skip name
+                data += key + '=' + prog[key] + '\n';
             }
         });
         data += config.SUPERVISOR_PROGRAM_SEPERATOR + '\n\n';
@@ -143,7 +144,7 @@ SupervisorCtrl.prototype._parse_config = function(data) {
             }
         });
         if (program_obj.name) {
-          self._programs.push(program_obj);
+            self._programs.push(program_obj);
         }
     });
 };

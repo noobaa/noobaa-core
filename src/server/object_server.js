@@ -165,6 +165,7 @@ function complete_object_upload(req) {
                 level: 'info',
                 event: 'obj.uploaded',
                 obj: obj,
+                actor: req.account && req.account._id,
             });
 
             return db.ObjectMD.collection.updateOne({
@@ -343,6 +344,7 @@ function copy_object(req) {
                 level: 'info',
                 event: 'obj.uploaded',
                 obj: create_info._id,
+                actor: req.account && req.account._id,
             });
             // mark the new object not in upload mode
             return db.ObjectMD.collection.updateOne({
@@ -482,12 +484,25 @@ function update_object_md(req) {
  */
 function delete_object(req) {
     load_bucket(req);
+    let obj_to_delete;
     return P.fcall(() => {
             var query = _.omit(object_md_query(req), 'deleted');
             return db.ObjectMD.findOne(query).exec();
         })
         .then(db.check_not_found(req, 'object'))
-        .then(obj => delete_object_internal(obj))
+        .then(obj => {
+            obj_to_delete=obj;
+            delete_object_internal(obj);
+        })
+        .then(()=>{
+            db.ActivityLog.create({
+                system: req.system,
+                level: 'info',
+                event: 'obj.deleted',
+                obj: obj_to_delete,
+                actor: req.account && req.account._id,
+            });
+        })
         .return();
 }
 

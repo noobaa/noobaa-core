@@ -36,6 +36,7 @@ var system_store = require('./stores/system_store');
 var system_server = require('./system_server');
 var crypto = require('crypto');
 var AWS = require('aws-sdk');
+var server_rpc = require('./server_rpc');
 // var dbg = require('../util/debug_module')(__filename);
 
 
@@ -96,6 +97,16 @@ function create_account(req) {
             return {
                 token: req.make_auth_token(auth),
             };
+        })
+        .then((token) => {
+            if (!req.system) {
+                return server_rpc.bg_client.hosted_agents.create_agent({
+                        name: 'agent_zero',
+                        scale: 3
+                    })
+                    .then(() => token);
+            }
+
         });
 }
 
@@ -113,7 +124,7 @@ function read_account(req) {
     if (!account) {
         throw req.rpc_error('NO_SUCH_ACCOUNT', 'No such account email: ' + req.rpc_params.email);
     }
-    
+
     return get_account_info(account);
 }
 
@@ -309,7 +320,7 @@ function list_accounts(req) {
 
         accounts = _.compact(
             _.map(
-                account_ids, 
+                account_ids,
                 account_id => system_store.data.get_by_id(account_id)
             )
         );

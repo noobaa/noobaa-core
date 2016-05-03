@@ -42,7 +42,7 @@ function build_node {
 	#install nvm use v4.2.2
   curl -o- https://raw.githubusercontent.com/creationix/nvm/v0.30.2/install.sh | bash
 	export NVM_DIR="$HOME/.nvm"
-	. /root/.nvm/nvm.sh
+	source /root/.nvm/nvm.sh
   nvm alias default 4.2.2
 	nvm use 4.2.2
 	cd ~
@@ -90,9 +90,6 @@ function setup_repos {
 	if [ "$1" == "runnpm" ]; then
 		runnpm=1
 	fi
-
-	#install npm
-	yum install -y npm
 
 	deploy_log "setup_repos start"
 	cd ~

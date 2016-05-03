@@ -44,6 +44,13 @@ function collect_basic_diagnostics(limit_logs_size) {
             }
         })
         .then(function() {
+            if (fs.existsSync('/var/log/noobaa_local_service.log')) {
+                    return promise_utils.promised_spawn('cp', ['-f', '/var/log/noobaa_local_service.log', TMP_WORK_DIR], process.cwd());
+            } else {
+                return;
+            }
+        })
+        .then(function() {
             return promise_utils.promised_spawn('cp', ['-f', process.cwd() + '/package.json', TMP_WORK_DIR], process.cwd());
         })
         .then(function() {

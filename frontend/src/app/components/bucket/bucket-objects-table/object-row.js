@@ -4,15 +4,15 @@ import { dblEncode } from 'utils';
 
 const statusIconMapping = Object.freeze({
     AVALIABLE: {
-        toolTip: 'avaliable',
+        toolTip: 'Avaliable',
         icon: '/fe/assets/icons.svg#object-healthy',
     },
     IN_PROCESS: {
-        toolTip: 'in process',
+        toolTip: 'In Process',
         icon: '/fe/assets/icons.svg#object-in-porcess'
     },
     UNAVALIABLE: {
-        toolTip: 'unavaliable',
+        toolTip: 'Unavaliable',
         icon: '/fe/assets/icons.svg#object-problem'
     }
 });

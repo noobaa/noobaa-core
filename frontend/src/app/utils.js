@@ -14,8 +14,16 @@ export function isNumber(value) {
     return typeof value === 'number' || value instanceof Number;
 }
 
+export function isString(value) {
+    return typeof value === 'string' || value instanceof String;
+}
+
 export function isFunction(value) {
     return typeof value === 'function';
+}
+
+export function isObject(value) {
+    return typeof value === 'object';
 }
 
 export function isUndefined(value) {

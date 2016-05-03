@@ -55,7 +55,7 @@ config.MONGO_DEFAULTS = {
 
 config.CLUSTERING_PATHS = {
     TOPOLOGY_FILE: '/etc/noobaa_cluster',
-    SECRET_FILE: 'noobaa_sec',
+    SECRET_FILE: '/etc/noobaa_sec',
     SUPER_FILE: '/etc/noobaa_supervisor.conf',
 };
 

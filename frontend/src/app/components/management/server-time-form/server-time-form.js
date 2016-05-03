@@ -150,7 +150,7 @@ class ServerTimeFormViewModel {
                 hours: this.hour(),
                 minutes: this.minute(),
                 seconds: this.second(),
-            });
+            }).unix();
 
             updateServerTime(this.timezone(), time.valueOf());
         }

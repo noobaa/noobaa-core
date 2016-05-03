@@ -1,7 +1,7 @@
 <button class="btn-flat" data-bind="
     enable: !ko.unwrap(disabled),
-    attr: { title: toolTip },
-    click: select
+    click: select,
+    tooltip: toolTip
 ">
     <svg-icon params="uri: deleteIcon"></svg-icon>
 </button>

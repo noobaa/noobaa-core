@@ -30,16 +30,14 @@
                 <tbody data-bind="foreach: rows">
                     <tr class="log-entry" data-bind="css: level">
                         <td class="time-col text-left" data-bind="text: date"></td>
-                        
-                        <td class="user-col no-wrap" data-bind="
-                            attr: { title: user },
-                            text: user
-                        "></td>
-                        
+                        <td class="user-col">
+                            <div class="no-wrap" data-bind="
+                                text: user || '---', 
+                                tooltip: user
+                            "></div>
+                        </td>
                         <td class="category-col" data-bind="text: category"></td>
-                        
                         <td class="event-col" data-bind="text: event"></td>
-                        
                         <td class="entity-col text-left" data-bind="text: entity"></td>
                     </tr>
                 </tbody>

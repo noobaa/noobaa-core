@@ -34,7 +34,7 @@
             <tbody data-bind="foreach: rows">
                 <!-- ko if: isVisible -->
                 <tr>
-                    <td class="state-col" data-bind="attr: { title: stateToolTip }">
+                    <td class="state-col" data-bind="tooltip: stateToolTip">
                         <svg-icon params="uri: stateIcon"></svg-icon>
                     </td>
                     <td class="name-col text-left" >

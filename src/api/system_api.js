@@ -321,6 +321,16 @@ module.exports = {
             }
         },
 
+        update_time_config: {
+            method: 'POST',
+            params: {
+                $ref: '#/definitions/time_config'
+            },
+            auth: {
+                system: 'admin',
+            }
+        },
+
         update_hostname: {
             method: 'POST',
             params: {
@@ -448,6 +458,23 @@ module.exports = {
                 version: {
                     type: 'string'
                 },
+                time_config: {
+                    type: 'object',
+                    properties: {
+                        srv_time: {
+                            type: 'string'
+                        },
+                        ntp_server: {
+                            type: 'string'
+                        },
+                        synced: {
+                            type: 'boolean'
+                        },
+                        timezone: {
+                            type: 'string'
+                        },
+                    }
+                }
             }
         },
 
@@ -520,7 +547,30 @@ module.exports = {
                     type: 'integer'
                 }
             }
-        }
+        },
 
+        time_config: {
+            type: 'object',
+            required: ['config_type', 'timezone'],
+            properties: {
+                config_type: {
+                    $ref: '#/definitions/time_config_type'
+                },
+                timezone: {
+                    type: 'string'
+                },
+                server: {
+                    type: 'string'
+                },
+                epoch: {
+                    type: 'number'
+                },
+            },
+        },
+
+        time_config_type: {
+            enum: ['NTP', 'MANUAL'],
+            type: 'string',
+        }
     }
 };

@@ -32,6 +32,7 @@ var system_server = {
     update_base_address: update_base_address,
     update_hostname: update_hostname,
     update_system_certificate: update_system_certificate,
+    update_time_config: update_time_config,
 };
 
 module.exports = system_server;
@@ -53,7 +54,7 @@ var system_store = require('./stores/system_store');
 var nodes_store = require('./stores/nodes_store');
 var size_utils = require('../util/size_utils');
 var mongo_functions = require('../util/mongo_functions');
-// var stun = require('../rpc/stun');
+var os_utils = require('../util/os_util');
 var promise_utils = require('../util/promise_utils');
 var dbg = require('../util/debug_module')(__filename);
 var pkg = require('../../package.json');
@@ -200,19 +201,35 @@ function read_system(req) {
                 }
             }, req);
             return bucket_server.get_cloud_sync_policy(new_req);
-        })
+        }),
+
+        os_utils.get_time_config()
 
     ).spread(function(
         nodes_aggregate_pool,
         objects_aggregate,
         blocks,
-        cloud_sync_by_bucket) {
+        cloud_sync_by_bucket,
+        time_status) {
 
         blocks = _.mapValues(_.keyBy(blocks, '_id'), 'value');
         var nodes_sys = nodes_aggregate_pool[''] || {};
         var objects_sys = objects_aggregate[''] || {};
         var ip_address = ip_module.address();
         var n2n_config = system.n2n_config;
+        var time_config = {
+            srv_time: time_status.srv_time,
+            synced: time_status.status,
+        };
+        if (system.ntp) {
+            if (time_config.ntp_server) {
+                time_config.ntp_server = system.ntp.server;
+            }
+            time_config.timezone = system.ntp.timezone ? system.ntp.timezone : time_status.timezone;
+        } else {
+            time_config.timezone = time_status.timezone;
+        }
+
         // TODO use n2n_config.stun_servers ?
         // var stun_address = 'stun://' + ip_address + ':' + stun.PORT;
         // var stun_address = 'stun://64.233.184.127:19302'; // === 'stun://stun.l.google.com:19302'
@@ -258,6 +275,7 @@ function read_system(req) {
             web_links: get_system_web_links(system),
             n2n_config: n2n_config,
             ip_address: ip_address,
+            time_config: time_config,
             base_address: system.base_address || 'wss://' + ip_address + ':' + process.env.SSL_PORT,
             version: pkg.version,
         };
@@ -703,6 +721,31 @@ function update_hostname(req) {
 
 function update_system_certificate(req) {
     throw req.rpc_error('TODO', 'update_system_certificate');
+}
+
+function update_time_config(req) {
+    dbg.log0('update_time_config', req.rpc_params);
+    var config = {
+        timezone: req.rpc_params.timezone,
+        server: (req.rpc_params.config_type === 'NTP') ?
+            req.rpc_params.server : ''
+    };
+
+    return system_store.make_changes({
+            update: {
+                systems: [{
+                    _id: req.system._id,
+                    ntp: config
+                }]
+            }
+        })
+        .then(() => {
+            if (req.rpc_params.config_type === 'NTP') { //set NTP
+                return os_utils.set_ntp(config.server, config.timezone);
+            } else { //manual set
+                return os_utils.set_manual_time(req.rpc_params.epoch, config.timezone);
+            }
+        });
 }
 
 

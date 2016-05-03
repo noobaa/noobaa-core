@@ -14,7 +14,8 @@ var TMP_WORK_DIR = '/tmp/diag';
 function collect_agent_diagnostics() {
     //mkdir c:\tmp ?
     return P.fcall(function() {
-            return base_diagnostics.collect_basic_diagnostics();
+            let limit_logs_size = true;
+            return base_diagnostics.collect_basic_diagnostics(limit_logs_size);
         })
         .then(function() {
             return fs_utils.list_directory_to_file(process.cwd() + '/agent_storage/', TMP_WORK_DIR + '/ls_agent_storage.out');

@@ -83,6 +83,7 @@ function create_node(req) {
                 level: 'info',
                 event: 'node.create',
                 node: node._id,
+                actor: req.account && req.account._id,
             });
             var account_id = '';
             if (req.account) {

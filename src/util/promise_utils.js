@@ -223,7 +223,7 @@ function promised_spawn(command, args, cwd, ignore_rc) {
 
     proc.on('error', function(error) {
         if ((typeof ignore_rc !== 'undefined') && ignore_rc) {
-            dbg.warn(command + " " + args.join(" ") + " in " + cwd + " exited with error:" + error.message+" and ignored");
+            dbg.warn(command + " " + args.join(" ") + " in " + cwd + " exited with error:" + error.message + " and ignored");
             deferred.resolve(out);
         } else {
             deferred.reject(new Error(command + " " + args.join(" ") + " in " + cwd + " recieved error " + error.message));
@@ -242,7 +242,7 @@ function promised_spawn(command, args, cwd, ignore_rc) {
 
 }
 
-function promised_exec(command, ignore_rc) {
+function promised_exec(command, ignore_rc, return_stdout) {
     dbg.log2('promise exec', command, ignore_rc);
     if (!command) {
         return P.reject(new Error('Command must be given'));
@@ -250,16 +250,19 @@ function promised_exec(command, ignore_rc) {
 
     var deferred = P.defer();
 
-    child_process.exec(command,
-        {
-          maxBuffer: 5000*1024, //5MB, should be enough
+    child_process.exec(command, {
+            maxBuffer: 5000 * 1024, //5MB, should be enough
         },
         function(error, stdout, stderr) {
             if (error === null || ignore_rc) {
-                if (error!==null){
+                if (error !== null) {
                     dbg.warn(command + " exited with error " + error + " and ignored");
                 }
-                deferred.resolve();
+                if (return_stdout) {
+                    deferred.resolve(stdout);
+                } else {
+                    deferred.resolve();
+                }
             } else {
                 deferred.reject(new Error(command + " exited with error " + error));
             }
@@ -268,14 +271,30 @@ function promised_exec(command, ignore_rc) {
     return deferred.promise;
 }
 
-function full_dir_copy(src, dst) {
+function full_dir_copy(src, dst, filter_regex) {
     ncp.limit = 10;
-
+    let ncp_options = {};
+    if (filter_regex) {
+        //this regexp will filter out files that matches, except path.
+        var ncp_filter_regex = new RegExp(filter_regex);
+        var ncp_filter_function = function(input) {
+            if (input.indexOf('/') > 0) {
+                return false;
+            } else {
+                if (!ncp_filter_regex.test(input)) {
+                    return true;
+                } else {
+                    return false;
+                }
+            }
+        };
+        ncp_options.filter = ncp_filter_function;
+    }
     if (!src || !dst) {
         return P.reject(new Error('Both src and dst must be given'));
     }
 
-    return P.nfcall(ncp, src, dst).done(function(err) {
+    return P.nfcall(ncp, src, dst, ncp_options).done(function(err) {
         if (err) {
             return P.reject(new Error('full_dir_copy failed with ' + err));
         } else {

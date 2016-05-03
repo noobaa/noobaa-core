@@ -30,7 +30,11 @@
                         
                         <td class="capacity-col" data-bind="text: capacity"></td>
 
-                        <td class="pool-col no-wrap" data-bind="text: currPool, attr: { title: currPool }">
+                        <td class="pool-col">
+                            <div class="no-wrap" data-bind="
+                                text: currPool, 
+                                tooltip: currPool
+                            "></div>
                         </td>
                     </tr>
                     <!-- /ko -->

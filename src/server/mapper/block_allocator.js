@@ -124,9 +124,6 @@ function allocate_node(pools, avoid_nodes, content_tiering_params) {
     dbg.log1('allocate_node: pool_set', pool_set,
         'num_nodes', num_nodes,
         'alloc_group', alloc_group);
-    if (pool_set) {
-
-    }
     if (pools[0].cloud_pool_info) {
         if (num_nodes !== config.NODES_PER_CLOUD_POOL) {
             throw new Error('allocate_node: cloud_pool allocations should have only one node (cloud node)');

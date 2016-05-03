@@ -28,8 +28,10 @@
     <!-- /ko -->
 
     <div class="box" >
-        <button class="copy-btn btn-flat pull-right" title="copy to clipboard" 
-            data-bind="click: () => copyInstallCommand()">
+        <button class="copy-btn btn-flat pull-right" data-bind="
+            tooltip: 'Copy to Clipboard',
+            click: () => copyInstallCommand()
+        ">
 
             <svg-icon class="icon-small" params="uri: '/fe/assets/icons.svg#copy'"></svg-icon>
         </button>

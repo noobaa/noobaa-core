@@ -24,9 +24,9 @@ mocha.describe('system_servers', function() {
     const EMAIL = SYS + EMAIL_DOMAIN;
     const EMAIL1 = SYS1 + EMAIL_DOMAIN;
     const PASSWORD = SYS + '-password';
-    const ACCESS_KEYS = { 
-        access_key: 'ydaydayda', 
-        secret_key: 'blablabla' 
+    const ACCESS_KEYS = {
+        access_key: 'ydaydayda',
+        secret_key: 'blablabla'
     };
     const CLOUD_SYNC_CONNECTION = 'Connection 1';
 
@@ -278,7 +278,6 @@ mocha.describe('system_servers', function() {
             ////////////
             //  MISC  //
             ////////////
-            .then(() => client.cluster_server.get_cluster_id())
             .then(() => client.debug.set_debug_level({
                 module: 'rpc',
                 level: 0

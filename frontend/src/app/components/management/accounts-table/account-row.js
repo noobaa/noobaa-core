@@ -43,7 +43,7 @@ export default class AccountRowViewModel {
         );
 
         this.deleteToolTip = ko.pureComputed(
-            () =>  this.isDeletable() ? 'delete user' : 'Cannot detete system owner'
+            () =>  this.isDeletable() ? 'delete user' : 'Cannot delete system owner'
         );
     }
 

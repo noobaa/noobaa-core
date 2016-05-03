@@ -51,8 +51,8 @@ function run_server() {
         .then(config_params => {
             // Just in case part of the information is missing, add default params.
             _.defaults(params, config_params, {
-                port: 80,
-                ssl_port: 443,
+                port: process.env.S3_PORT || 80,
+                ssl_port: process.env.S3_SSL_PORT || 443,
             });
             dbg.log0('Generating selfSigned SSL Certificate...');
             return P.nfcall(pem.createCertificate, {

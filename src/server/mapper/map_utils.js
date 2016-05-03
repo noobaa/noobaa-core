@@ -312,7 +312,7 @@ function get_block_md(block) {
 }
 
 function get_frag_key(f) {
-    return f.layer + '-' + f.frag;
+    return f.layer + f.frag;
 }
 
 // sanitizing start & end: we want them to be integers, positive, up to obj.size.

@@ -313,59 +313,6 @@ module.exports = {
             }
         },
 
-        report_bad_block: {
-            method: 'POST',
-            params: {
-                type: 'object',
-                required: [
-                    'bucket',
-                    'key',
-                    'start',
-                    'end',
-                    'block_id',
-                    'is_write'
-                ],
-                properties: {
-                    bucket: {
-                        type: 'string',
-                    },
-                    key: {
-                        type: 'string',
-                    },
-                    start: {
-                        type: 'integer',
-                    },
-                    end: {
-                        type: 'integer',
-                    },
-                    upload_part_number: {
-                        type: 'integer',
-                    },
-                    part_sequence_number: {
-                        type: 'integer',
-                    },
-                    block_id: {
-                        type: 'string',
-                    },
-                    is_write: {
-                        type: 'boolean',
-                    },
-                },
-            },
-            reply: {
-                type: 'object',
-                // required: [],
-                properties: {
-                    new_block: {
-                        $ref: 'agent_api#/definitions/block_md'
-                    }
-                }
-            },
-            auth: {
-                system: ['admin', 'user']
-            }
-        },
-
         copy_object: {
             method: 'PUT',
             params: {

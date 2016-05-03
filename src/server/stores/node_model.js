@@ -155,6 +155,10 @@ var node_schema = new Schema({
     latency_of_disk_read: [Number],
     latency_of_disk_write: [Number],
 
+    error_since_hb: {
+        type: Date
+    },
+
     debug_level: {
         type: Number,
     },

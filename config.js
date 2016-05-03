@@ -1,4 +1,9 @@
-var config = {};
+'use strict';
+
+// we populate the exports object but prefer to keep name referencing
+// with config.NAME so that it will be consistent with the code that imports it
+// and will make searching easier.
+var config = exports;
 
 // TODO take nodes min and free space reserve from system/pool config
 config.NODES_MIN_COUNT = 3;
@@ -7,19 +12,18 @@ config.NODES_FREE_SPACE_RESERVE = 10 * 1024 * 1024 * 1024;
 
 // WRITE CONCURRENCY
 config.WRITE_CONCURRENCY = 256;
-config.REPLICATE_CONCURRENCY = 32;
+config.REPLICATE_CONCURRENCY = 256;
 // READ CONCURRENCY
 config.READ_CONCURRENCY = 256;
 config.READ_RANGE_CONCURRENCY = 32;
 
 config.write_block_timeout = 20 * 1000;
 config.read_block_timeout = 10 * 1000;
-config.server_finalize_build_timeout = 120 * 1000;
 
 config.LONG_GONE_THRESHOLD = 3600000;
 config.SHORT_GONE_THRESHOLD = 300000;
 config.LONG_BUILD_THRESHOLD = 300000;
-config.MAX_OBJECT_PART_SIZE = 16 * 1024 * 1024;
+config.MAX_OBJECT_PART_SIZE = 64 * 1024 * 1024;
 
 config.dbg_log_level = 0;
 
@@ -65,5 +69,3 @@ config.SUPERVISOR_DEFAULTS = {
     STOPSIGNAL: 'KILL',
     DIRECTORY: '/root/node_modules/noobaa-core'
 };
-
-module.exports = config;

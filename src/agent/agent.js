@@ -435,7 +435,8 @@ Agent.prototype._do_heartbeat = function() {
             _.extend(params, latencies);
         })
         .then(function() {
-            dbg.log0('heartbeat params:', params, 'node', self.node_name);
+            dbg.log0('heartbeat for node', self.node_name);
+            dbg.log1('heartbeat params for node', self.node_name, 'params:', params);
             return self.client.node.heartbeat(params);
         })
         .then(function(res) {

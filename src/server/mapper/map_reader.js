@@ -1,9 +1,7 @@
 'use strict';
 
-module.exports = {
-    read_object_mappings: read_object_mappings,
-    read_node_mappings: read_node_mappings,
-};
+exports.read_object_mappings = read_object_mappings;
+exports.read_node_mappings = read_node_mappings;
 
 var _ = require('lodash');
 var P = require('../../util/promise');

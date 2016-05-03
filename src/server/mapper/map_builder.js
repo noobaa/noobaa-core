@@ -265,4 +265,4 @@ class MapBuilder {
 }
 
 
-module.exports = MapBuilder;
+exports.MapBuilder = MapBuilder;

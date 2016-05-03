@@ -1,14 +1,13 @@
 /* jshint node:true */
 'use strict';
 
-module.exports = {
-    heartbeat: heartbeat,
-    n2n_signal: n2n_signal,
-    redirect: redirect,
-    self_test_to_node_via_web: self_test_to_node_via_web,
-    collect_agent_diagnostics: collect_agent_diagnostics,
-    set_debug_node: set_debug_node,
-};
+exports.heartbeat = heartbeat;
+exports.n2n_signal = n2n_signal;
+exports.redirect = redirect;
+exports.self_test_to_node_via_web = self_test_to_node_via_web;
+exports.collect_agent_diagnostics = collect_agent_diagnostics;
+exports.set_debug_node = set_debug_node;
+exports.report_node_block_error = report_node_block_error;
 
 var _ = require('lodash');
 var P = require('../util/promise');
@@ -19,6 +18,7 @@ var promise_utils = require('../util/promise_utils');
 var server_rpc = require('./server_rpc');
 var system_server = require('./system_server');
 var nodes_store = require('./stores/nodes_store');
+var block_allocator = require('./mapper/block_allocator');
 var dbg = require('../util/debug_module')(__filename);
 var pkg = require('../../package.json');
 var current_pkg_version = pkg.version;
@@ -124,7 +124,8 @@ var heartbeat_update_node_timestamp_barrier = new Barrier({
  *
  */
 function heartbeat(req) {
-    dbg.log0('heartbeat:', 'ROLE', req.role, 'AUTH', req.auth, 'PARAMS', req.rpc_params);
+    dbg.log0('heartbeat:', JSON.stringify(req.auth),
+        'version', req.rpc_params.version);
     var extra = req.auth.extra || {};
 
     // since the heartbeat api is dynamic through new versions
@@ -197,8 +198,6 @@ function update_heartbeat(req, reply_token) {
     var node_id = nodes_store.make_node_id(params.node_id);
     var peer_id = params.peer_id;
     var node;
-
-    dbg.log0('HEARTBEAT node_id', node_id, 'process.env.AGENT_VERSION', process.env.AGENT_VERSION, '  params:', params);
 
     var hb_delay_ms = process.env.AGENT_HEARTBEAT_DELAY_MS || 60000;
     hb_delay_ms *= 1 + Math.random(); // jitter of 2x max
@@ -279,7 +278,7 @@ function update_heartbeat(req, reply_token) {
 
             var set_updates = {};
             var push_updates = {};
-            // var unset_updates = {};
+            var unset_updates = {};
 
             // TODO detect nodes that try to change ip, port too rapidly
             if (params.geolocation &&
@@ -367,11 +366,16 @@ function update_heartbeat(req, reply_token) {
                 set_updates.debug_level = params.debug_level || 0;
             }
 
+            // unset the error time since last heartbeat if any
+            if (node.error_since_hb) {
+                unset_updates.error_since_hb = true;
+            }
+
             // make the update object hold only updates that are not empty
             var updates = _.omitBy({
                 $set: set_updates,
                 $push: push_updates,
-                // $unset: unset_updates,
+                $unset: unset_updates,
             }, _.isEmpty);
 
             dbg.log0('NODE HEARTBEAT UPDATES', node_id, node.heartbeat, updates);
@@ -509,6 +513,38 @@ function set_debug_node(req) {
         });
 }
 
+
+/**
+ *
+ * report_node_block_error
+ *
+ * sent by object IO when failed to read/write to node agent.
+ *
+ */
+function report_node_block_error(req) {
+    let action = req.rpc_params.action;
+    let block_md = req.rpc_params.block_md;
+    let node_id = block_md.node;
+
+    if (action === 'write') {
+
+        // block_allocator keeps nodes in memory,
+        // and in the write path it allocated a block on a node that failed to write
+        // so we notify about the error to remove the node from next allocations
+        // until it will refresh the alloc and see the error_since_hb on the node too
+        block_allocator.report_node_error(node_id);
+
+        // update the node to mark the error
+        // this marking is transient and will be unset on next heartbeat
+        return nodes_store.update_node_by_id(node_id, {
+            $set: {
+                error_since_hb: new Date(),
+            }
+        }).return();
+    }
+}
+
+
 function _unregister_agent(connection, peer_id) {
     return P.when(server_rpc.bg_client.redirector.unregister_agent({
             peer_id: peer_id,
@@ -530,7 +566,7 @@ function _resync_agents() {
     dbg.log2('_resync_agents called');
 
     //Retry to resync redirector
-    return promise_utils.retry(Infinity, 1000, 0, function(attempt) {
+    return promise_utils.retry(Infinity, 1000, function(attempt) {
         var agents = server_rpc.rpc.get_n2n_addresses();
         var ts = Date.now();
         return server_rpc.bg_client.redirector.resync_agents({

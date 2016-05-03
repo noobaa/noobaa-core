@@ -459,11 +459,10 @@ function self_test_to_node_via_web(req) {
 function collect_agent_diagnostics(req) {
     var target = req.rpc_params.target;
 
-    return P.fcall(function() {
-            return server_rpc.client.agent.collect_diagnostics({}, {
-                address: target,
-            });
-        })
+
+    return P.when(server_rpc.client.agent.collect_diagnostics({}, {
+            address: target,
+        }))
         .then(function(data) {
             return system_server.diagnose_with_agent(data, req);
         })

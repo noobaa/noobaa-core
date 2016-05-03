@@ -21,7 +21,7 @@ var config = require('../../config.js');
 
 var TMP_WORK_DIR = '/tmp/diag';
 
-function collect_basic_diagnostics() {
+function collect_basic_diagnostics(limit_logs_size) {
     return P.fcall(function() {
             return promise_utils.promised_spawn('rm', ['-rf', TMP_WORK_DIR], process.cwd(), true);
         })
@@ -33,7 +33,12 @@ function collect_basic_diagnostics() {
         })
         .then(function() {
             if (fs.existsSync(process.cwd() + '/logs')) {
-                return promise_utils.full_dir_copy(process.cwd() + '/logs', TMP_WORK_DIR);
+                if (limit_logs_size){
+                    //will take only noobaa.log and the first 9 zipped logs
+                    return promise_utils.full_dir_copy(process.cwd() + '/logs', TMP_WORK_DIR,'noobaa?[1-9][0-9].log.gz');
+                }else{
+                    return promise_utils.full_dir_copy(process.cwd() + '/logs', TMP_WORK_DIR);
+                }
             } else {
                 return;
             }

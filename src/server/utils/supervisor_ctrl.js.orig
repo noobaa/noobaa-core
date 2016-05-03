@@ -105,6 +105,24 @@ SupervisorCtrl.prototype.add_agent = function(agent_name, args_str) {
         .then(() => self.apply_changes());
 };
 
+<<<<<<< HEAD
+=======
+SupervisorCtrl.prototype.remove_agent = function(agent_name) {
+    let self = this;
+    return P.when(self.init())
+        .then(() => {
+            let ind = _.findIndex(self._programs, function(prog) {
+                return prog.name === ('agent_' + agent_name);
+            });
+            if (ind !== -1) {
+                self._programs.splice(ind, 1);
+                return self.apply_changes();
+            }
+            return;
+        });
+};
+
+>>>>>>> master
 // Internals
 
 SupervisorCtrl.prototype._serialize = function() {

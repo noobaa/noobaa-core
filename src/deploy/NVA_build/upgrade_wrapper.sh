@@ -61,8 +61,8 @@ function fix_bashrc {
   fixfornvm=$(grep NVM_DIR ~/.bashrc | wc -l)
   if [ ${fixfornvm} -eq 0 ]; then
     deploy_log "Adding NVM to .bashrc"
-	echo 'export NVM_DIR="$HOME/.nvm"' >> ~/.bashrc
-	echo '[ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh" # This loads nvm' >> ~/.bashrc
+		echo 'export NVM_DIR="$HOME/.nvm"' >> ~/.bashrc
+		echo '[ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh" # This loads nvm' >> ~/.bashrc
   fi
 }
 
@@ -106,7 +106,6 @@ function pre_upgrade {
     fi
 
 	#install nvm use v4.2.2
-
 	rm -rf ~/.nvm
 	mkdir ~/.nvm
 	cp ${EXTRACTION_PATH}/noobaa-core/build/public/nvm.sh ~/.nvm/
@@ -139,6 +138,7 @@ function post_upgrade {
   cp -f ${CORE_DIR}/src/deploy/NVA_build/noobaa_syslog.conf /etc/rsyslog.d/
   cp -f ${CORE_DIR}/src/deploy/NVA_build/logrotate_noobaa.conf /etc/logrotate.d/noobaa
   service rsyslog restart
+
   # setup crontab to run logrotate every 15 minutes.
   echo "*/15 * * * * /usr/sbin/logrotate /etc/logrotate.d/noobaa >/dev/null 2>&1" > /var/spool/cron/root
 
@@ -201,27 +201,6 @@ function post_upgrade {
   export PATH=$PATH:/usr/local/bin
   export HOME=/root
 
-  # Removed  - we build binaries on centos machine now
-  # TODO:CLEANUP this section once we are stable
-  # deploy_log "before node-gyp build"
-  # cd ${CORE_DIR}
-  # which node-gyp
-  # if [ $? -ne 0 ]; then
-  #     deploy_log "installing node-gyp"
-  #     npm install -g node-gyp
-  # fi
-  # deploy_log "node-gyp rebuild from $(pwd)"
-  # node-gyp configure
-  # if [ $? -ne 0 ]; then
-  #     deploy_log "node-gyp configure failed with $?"
-  # fi
-  # node-gyp build
-  # if [ $? -ne 0 ]; then
-  #     deploy_log "node-gyp build failed with $?"
-  # fi
-  # deploy_log "$(find . -name *.node)"
-  # deploy_log "node-gyp rebuild done ${CORE_DIR}"
-
   deploy_log "list core dir"
   deploy_log "$(ls -R ${CORE_DIR}/build/)"
 
@@ -232,8 +211,7 @@ function post_upgrade {
 	  sudo grep noobaa /etc/sudoers
 	  if [ $? -ne 0 ]; then
 	      deploy_log "failed to add noobaa to sudoers"
-   	  fi
-
+   	fi
   fi
 
   if [ -f "/etc/init.d/mongod" ]
@@ -241,11 +219,16 @@ function post_upgrade {
   	  deploy_log "removed mongod service (supervised by supervisord)"
       rm -f /etc/init.d/mongod
   fi
-  # temporary - adding NTP package
 
+  # temporary - adding NTP package
   yum install -y ntp
   sudo /sbin/chkconfig ntpd on 2345
 	sudo /etc/init.d/ntpd start
+	local noobaa_ntp=$(grep 'NooBaa Configured NTP Server' /etc/ntp.conf | wc -l)
+	if [ ${noobaa_ntp} -eq 0 ]; then #was not configured yet, no tz config as well
+			echo "# Use NooBaa Configured Server"	 > /etc/ntp.conf
+			ln -sf /usr/share/zoneinfo/US/Pacific /etc/localtime
+	fi
 
   rm -f /tmp/*.tar.gz
   rm -rf /tmp/v*

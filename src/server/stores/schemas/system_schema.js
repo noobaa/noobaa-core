@@ -51,5 +51,18 @@ module.exports = {
         base_address: {
             type: 'string'
         },
+
+        //NTP configuration
+        ntp: {
+            type: 'object',
+            properties: {
+                server: {
+                    type: 'string'
+                },
+                timezone: {
+                    type: 'string'
+                },
+            }
+        }
     }
 };

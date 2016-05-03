@@ -199,16 +199,26 @@ export function makeArray(size, initializer) {
     return array;
 }
 
-export function makeRange(start, count) {
-    if (!isDefined(count)) {
-        count = start;
+export function makeRange(start, end) {
+    if (isUndefined(end)) {
+        if (start < 0) {
+            throw new TypeError('Invalid count');
+        }
+
+        end = start - 1;
         start = 0;
     }
 
-    let arr = makeArray(count);
-    for (let i = 0; i < count; arr[start + i++] = i);
-    return arr;
+    let dir = start > end ? -1 : 1; 
+    let count = Math.abs(end - start + dir)
+
+    return makeArray(
+        count,
+        i => i * dir + start
+    );
 }
+
+window.makeRange = makeRange;
 
 export function domFromHtml(html) {
     let parser = new DOMParser();

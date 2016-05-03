@@ -10,6 +10,8 @@ module.exports = {
     set_manual_time: set_manual_time,
     set_ntp: set_ntp,
     get_time_config: get_time_config,
+    get_local_ipv4_ips: get_local_ipv4_ips,
+    get_networking_info: get_networking_info,
 };
 
 var _ = require('lodash');
@@ -276,6 +278,27 @@ function get_time_config() {
     } else {
         throw new Error('Getting time config only supported on linux based platforms');
     }
+}
+
+function get_local_ipv4_ips() {
+    var ifaces = os.networkInterfaces();
+    var ips = [];
+    _.each(ifaces, function(iface) {
+        _.each(iface, function(ifname) {
+            //Don't count non IPv4 or Internals
+            if (ifname.family !== 'IPv4' ||
+                ifname.internal !== false) {
+                return;
+            }
+            ips.push(ifname.address);
+        });
+    });
+    return ips;
+}
+
+function get_networking_info() {
+    var ifaces = os.networkInterfaces();
+    return ifaces;
 }
 
 function _set_time_zone(tzone) {

@@ -201,9 +201,11 @@ function top_single(dst) {
 
 function netstat_single(dst) {
     var file_redirect = dst ? ' &> ' + dst : '';
-    if (os.type() === 'Darwin' || os.type() === 'Windows_NT') {
+    if (os.type() === 'Darwin' ){
         return promise_utils.promised_exec('netstat -na' + file_redirect);
-    } else if (os.type() === 'Linux') {
+    } else if (os.type() === 'Windows_NT') {
+        return promise_utils.promised_exec('netstat -na >'+dst);
+    }else if (os.type() === 'Linux') {
         return promise_utils.promised_exec('netstat -nap' + file_redirect);
     } else {
         throw new Error('netstat_single ' + os.type + ' not supported');

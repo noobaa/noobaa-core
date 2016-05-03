@@ -8,7 +8,7 @@ import { loadBucketList, createAccount } from 'actions';
 
 function makeUserMessage(loginInfo, S3AccessInfo) {
     return `
-<p class="paragraph">Hi, I created a noobaa user for you:</p>
+<p class="paragraph">Hi, I created a NooBaa user for you:</p>
 ${makeLoginMessage(loginInfo)}<br>
 ${S3AccessInfo ? makeS3AccessMessage(S3AccessInfo) : ''}
     `;
@@ -42,7 +42,7 @@ class CreateAccountWizardViewModel {
         this.detailsStepTemplate = detailsStepTemplate;
 
         this.emailAddress = ko.observable()
-            .extend({ 
+            .extend({
                 required: { message: 'Please enter an email address' },
                 email: { message: 'Please enter a valid email address' },
                 notIn: {
@@ -91,7 +91,7 @@ class CreateAccountWizardViewModel {
 
     validateStep(step) {
         switch (step) {
-            case 1: 
+            case 1:
                 if (this.nameAndPermissionsErrors().length > 0) {
                     this.nameAndPermissionsErrors.showAllMessages();
                     return false;
@@ -119,9 +119,9 @@ class CreateAccountWizardViewModel {
 
     create() {
         createAccount(
-            systemInfo().name, 
-            this.emailAddress(), 
-            this.password, 
+            systemInfo().name,
+            this.emailAddress(),
+            this.password,
             this.accessKeys,
             this.enableS3Access() ? this.selectedBuckets() : undefined
         );

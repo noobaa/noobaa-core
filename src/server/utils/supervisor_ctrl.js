@@ -34,9 +34,9 @@ SupervisorCtrl.prototype.init = function() {
 SupervisorCtrl.prototype.apply_changes = function() {
     var self = this;
     return P.when(self.init())
-        .then(self._serialize())
+        .then(() => self._serialize())
         .then(function() {
-            return promise_utils.promised_exec('supervisorctl reload');
+            return promise_utils.promised_exec('supervisorctl update');
         });
 };
 
@@ -68,9 +68,9 @@ SupervisorCtrl.prototype.get_mongo_services = function() {
                         type: 'config',
                     });
                 } else if (prog.name.indexOf('mongodb') > 0) {
-                  mongo_progs.push({
-                      type: 'mongo_single',
-                  });
+                    mongo_progs.push({
+                        type: 'mongo_single',
+                    });
                 }
             });
         });
@@ -82,23 +82,23 @@ SupervisorCtrl.prototype.add_agent = function(agent_name, args_str) {
     let prog = {};
     prog.directory = config.SUPERVISOR_DEFAULTS.DIRECTORY;
     prog.stopsignal = config.SUPERVISOR_DEFAULTS.STOPSIGNAL;
-    prog.command = '/usr/local/bin/node src/agent/agent_cli ' + args_str;
+    prog.command = '/usr/local/bin/node src/agent/agent_cli.js ' + args_str;
     prog.name = 'agent_' + agent_name;
     return P.when(self.init())
         .then(() => self.add_program(prog))
-        .then(() => this.apply_changes());
+        .then(() => self.apply_changes());
 };
 
 SupervisorCtrl.prototype.remove_agent = function(agent_name) {
     let self = this;
     return P.when(self.init())
         .then(() => {
-            let ind = _.findIndex(this._programs, function(prog) {
+            let ind = _.findIndex(self._programs, function(prog) {
                 return prog.name === ('agent_' + agent_name);
             });
             if (ind !== -1) {
-                delete this._programs[ind];
-                return this.apply_changes();
+                self._programs.splice(ind, 1);
+                return self.apply_changes();
             }
             return;
         });
@@ -112,8 +112,8 @@ SupervisorCtrl.prototype._serialize = function() {
     _.each(self._programs, function(prog) {
         data += '[program:' + prog.name + ']\n';
         _.each(_.keys(prog), function(key) {
-            if (key !== 'name') {//skip name
-              data += key + '=' + prog[key] + '\n';
+            if (key !== 'name') { //skip name
+                data += key + '=' + prog[key] + '\n';
             }
         });
         data += config.SUPERVISOR_PROGRAM_SEPERATOR + '\n\n';
@@ -143,7 +143,7 @@ SupervisorCtrl.prototype._parse_config = function(data) {
             }
         });
         if (program_obj.name) {
-          self._programs.push(program_obj);
+            self._programs.push(program_obj);
         }
     });
 };

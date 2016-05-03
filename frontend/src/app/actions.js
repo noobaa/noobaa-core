@@ -378,7 +378,8 @@ export function loadSystemInfo() {
                     accessKey: access_key,
                     secretKey: secret_key,
                     P2PConfig: reply.n2n_config,
-                    owner: reply.owner.email
+                    owner: reply.owner.email,
+                    timeConfig: reply.time_config
                 });
             }
         )
@@ -678,10 +679,15 @@ export function loadNodeInfo(nodeName) {
 export function loadNodeStoredPartsList(nodeName, page) {
     logAction('loadNodeStoredPartsList', { nodeName, page });
 
-    api.node.read_node_maps({ name: nodeName })
+    api.node.read_node_maps({ 
+        name: nodeName,
+        skip: config.paginationPageSize * page,
+        limit: config.paginationPageSize,
+        adminfo: true
+    })
         .then(
-            reply => {
-                let parts = reply.objects
+            ({ objects, total_count }) => {
+                let parts = objects
                     .map(
                         obj => obj.parts.map(
                             part => {
@@ -701,15 +707,9 @@ export function loadNodeStoredPartsList(nodeName, page) {
                         []
                     );
 
-                // TODO: change to server side paganation when avaliable.
-                let pageParts = parts.slice(
-                    config.paginationPageSize * page,
-                    config.paginationPageSize * (page + 1),
-                );
-
-                model.nodeStoredPartList(pageParts);
+                model.nodeStoredPartList(parts);
                 model.nodeStoredPartList.page(page);
-                model.nodeStoredPartList.count(parts.length);
+                model.nodeStoredPartList.count(total_count);
             }
         )
         .done();
@@ -1447,3 +1447,29 @@ export function updateAccountS3ACL(email, acl) {
         .then(loadAccountList)
         .done();
 }
+
+
+export function updateServerTime(timezone, epoch) {
+    logAction('updateServerTime', { timezone, epoch });
+
+    api.system.update_time_config({
+        config_type: 'MANUAL',
+        timezone: timezone,
+        epoch: epoch
+    })
+        .then(loadSystemInfo)
+        .done();
+}
+
+export function updateServerNTP(timezone, server) {
+    logAction('updateServerNTP', { timezone, server });
+
+    api.system.update_time_config({
+        config_type: 'NTP',
+        timezone: timezone,
+        server: server
+    })
+        .then(loadSystemInfo)
+        .done();
+}
+

@@ -1,7 +1,7 @@
-<h1 class="heading2">Noobaa Storage Solution</h1>
+<h1 class="heading2">Version Control</h1>
 
 <p class="container">
-    Current Version: 
+    Current Version:
     <output class="text-tech emphasized" data-bind="value: version"></output>
 </p>
 
@@ -14,10 +14,6 @@
         onFilesReady: files => upgrade(files)
     "></file-selector>
 </section>
-
-<div class="remark container">
-    &copy; 2016 NooBaa Ltd, All rights reserved.
-</div>
 
 <!-- ko if: isUpgradingModalVisible -->
 <upgrade-modal params="onClose: () => isUpgradingModalVisible(false)"></upgrade-modal>

@@ -10,11 +10,11 @@ import { loadAgentInstallationInfo } from 'actions';
 
 const installCommands = {
     NETWORK_WINDOWS(pkg, conf, server) {
-        return `Invoke-WebRequest ${server}:8080/public/${pkg} -OutFile C:\\${pkg}; C:\\${pkg} ${conf}`
+        return `Invoke-WebRequest ${server}:8080/public/${pkg} -OutFile C:\\${pkg}; C:\\${pkg} /S /config ${conf}`
     },
 
     NETWORK_LINUX(pkg, conf, server) {
-        return `wget ${server}:8080/public/${pkg} && chmod 755 ${pkg} && ./${pkg} ${conf}`;
+        return `wget ${server}:8080/public/${pkg} && chmod 755 ${pkg} && ./${pkg} /S /config ${conf}`;
     },
 
     LOCAL_WINDOWS(pkg, conf) {

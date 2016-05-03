@@ -395,22 +395,25 @@ AgentCLI.prototype.create_node_helper = function(current_node_path_info, cloud_n
                 return P.nfcall(fs.writeFile, token_path, self.create_node_token);
             })
             .then(function() {
-                // remove access_key and secret_key from agent_conf after a token was acquired
-                return P.nfcall(fs.readFile, 'agent_conf.json')
-                    .then(function(data) {
-                        let agent_conf = JSON.parse(data);
-                        delete agent_conf.access_key;
-                        delete agent_conf.secret_key;
-                        var write_data = JSON.stringify(agent_conf);
-                        return P.nfcall(fs.writeFile, 'agent_conf.json', write_data);
-                    })
-                    .catch(function(err) {
-                        if (err.code === 'ENOENT') {
-                            console.warn('No agent_conf.json file exists');
-                            return;
-                        }
-                        throw new Error(err);
-                    });
+                if (_.isUndefined(self.params.internal_agent)) {
+                    // remove access_key and secret_key from agent_conf after a token was acquired
+                    return P.nfcall(fs.readFile, 'agent_conf.json')
+                        .then(function(data) {
+                            let agent_conf = JSON.parse(data);
+                            delete agent_conf.access_key;
+                            delete agent_conf.secret_key;
+                            var write_data = JSON.stringify(agent_conf);
+                            return P.nfcall(fs.writeFile, 'agent_conf.json', write_data);
+                        })
+                        .catch(function(err) {
+                            if (err.code === 'ENOENT') {
+                                console.warn('No agent_conf.json file exists');
+                                return;
+                            }
+                            throw new Error(err);
+                        });
+
+                }
             })
             .then(function() {
                 dbg.log0('about to start node', node_path, 'with node name:', node_name);

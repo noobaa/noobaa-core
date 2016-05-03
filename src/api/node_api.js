@@ -101,6 +101,9 @@ module.exports = {
                     limit: {
                         type: 'integer'
                     },
+                    adminfo: {
+                        type: 'boolean'
+                    }
                 }
             },
             reply: {
@@ -130,6 +133,9 @@ module.exports = {
                                 }
                             }
                         }
+                    },
+                    total_count: {
+                        type: 'number'
                     }
                 }
             },

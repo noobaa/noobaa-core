@@ -194,6 +194,7 @@ function post_upgrade {
       id=$(uuidgen)
       /usr/bin/mongo nbcore --eval "db.clusters.insert({cluster_id: '${id}'})"
   fi
+	mkdir -p /var/lib/mongo/cluster/
 
   unset AGENT_VERSION
 

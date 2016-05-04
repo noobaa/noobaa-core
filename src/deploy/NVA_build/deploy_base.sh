@@ -134,6 +134,7 @@ function setup_makensis {
 
 function install_mongo {
 	deploy_log "install_mongo start"
+	mkdir -p /var/lib/mongo/cluster/
 	# create a Mongo 3.2 Repo file
 	cp -f ${CORE_DIR}/src/deploy/NVA_build/mongo.repo /etc/yum.repos.d/mongodb-org-3.2.repo
 

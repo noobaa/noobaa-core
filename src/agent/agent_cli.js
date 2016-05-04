@@ -112,6 +112,13 @@ AgentCLI.prototype.init = function() {
 
     }
 
+    if (self.params.access_key) {
+        self.params.access_key = self.params.access_key.toString();
+    }
+    if (self.params.secret_key) {
+        self.params.secret_key = self.params.secret_key.toString();
+    }
+
     return P.nfcall(fs.readFile, 'agent_conf.json')
         .then(function(data) {
             var agent_conf = JSON.parse(data);
@@ -436,17 +443,20 @@ AgentCLI.prototype.create_node_helper = function(current_node_path_info, cloud_n
  */
 AgentCLI.prototype.create = function(number_of_nodes) {
     var self = this;
-    //create root path last. First, create all other
+    //create root path last. First, create all other.
+    // for internal_agents only use root path
     return P.all(_.map(_.drop(self.params.all_storage_paths, 1), function(current_storage_path) {
-            return fs_utils.list_directory(current_storage_path.mount)
-                .then(function(files) {
-                    if (files.length > 0 && number_of_nodes === 0) {
-                        //if new HD introduced,  skip existing HD.
-                        return;
-                    } else {
-                        return self.create_node_helper(current_storage_path);
-                    }
-                });
+            if (_.isUndefined(self.params.internal_agent)) {
+                return fs_utils.list_directory(current_storage_path.mount)
+                    .then(function(files) {
+                        if (files.length > 0 && number_of_nodes === 0) {
+                            //if new HD introduced,  skip existing HD.
+                            return;
+                        } else {
+                            return self.create_node_helper(current_storage_path);
+                        }
+                    });
+            }
         }))
         .then(function() {
             //create root folder

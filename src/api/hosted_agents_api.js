@@ -20,6 +20,18 @@ module.exports = {
                     name: {
                         type: 'string',
                     },
+                    access_keys: {
+                        type: 'object',
+                        required: ['access_key', 'secret_key'],
+                        properties: {
+                            access_key: {
+                                type: 'string'
+                            },
+                            secret_key: {
+                                type: 'string'
+                            }
+                        }
+                    },
                     scale: {
                         type: 'integer'
                     },

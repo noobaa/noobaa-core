@@ -13,24 +13,30 @@ exports.remove_agent = remove_agent;
 
 
 function create_agent(req) {
-    let args = [];
+    let port = process.env.SSL_PORT || 5443;
+    let args = ['--address', 'wss://127.0.0.1:' + port, '--internal_agent'];
     if (_.isUndefined(req.params.cloud_info)) {
         // regular agents
-        args = ['--internal_agent', '--scale', req.params.scale.toString()];
+        args = args.concat(['--scale', req.params.scale.toString()]);
     } else {
         // cloud agents
-        args = [
+        args = args.concat([
             '--cloud_endpoint', req.params.cloud_info.endpoint,
             '--cloud_bucket', req.params.cloud_info.target_bucket,
             '--cloud_access_key', req.params.cloud_info.access_keys.access_key,
             '--cloud_secret_key', req.params.cloud_info.access_keys.secret_key,
-            '--cloud_pool_name', req.params.name,
-            '--internal_agent'
-        ];
+            '--cloud_pool_name', req.params.name
+        ]);
     }
 
     if (req.params.storage_limit) {
         args = args.concat(['--storage_limit', req.params.storage_limit.toString()]);
+    }
+    if (req.params.access_keys) {
+        args = args.concat([
+            '--access_key', req.params.access_keys.access_key,
+            '--secret_key', req.params.access_keys.secret_key
+        ]);
     }
     if (process.env.DEBUG_MODE === 'true') {
         args.splice(0, 0, 'src/agent/agent_cli.js');

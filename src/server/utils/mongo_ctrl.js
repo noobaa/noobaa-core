@@ -156,11 +156,11 @@ MongoCtrl.prototype._add_new_config_supervisor = function() {
 };
 
 MongoCtrl.prototype._remove_single_mongo = function() {
-    return SupervisorCtl.remove_program('mongodb');
+    return P.when(SupervisorCtl.remove_program('mongodb'));
 };
 
 MongoCtrl.prototype._refresh_services_list = function() {
     //TODO:: add real status form mongo per each
-    return P.when(this._super_ctrl.get_mongo_services())
+    return P.when(SupervisorCtl.get_mongo_services())
         .then(mongo_services => this._mongo_services = mongo_services);
 };

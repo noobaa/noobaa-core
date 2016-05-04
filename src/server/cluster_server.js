@@ -8,7 +8,6 @@
 var cluster_server = {
     _init: _init,
 
-    get_cluster_id: get_cluster_id,
     add_member_to_cluster: add_member_to_cluster,
     join_to_cluster: join_to_cluster,
     news_config_servers: news_config_servers,
@@ -20,22 +19,23 @@ module.exports = cluster_server;
 
 var _ = require('lodash');
 var fs = require('fs');
-var system_store = require('./stores/system_store');
+var uuid = require('node-uuid');
 var server_rpc = require('./server_rpc');
-var mongo_ctrl = require('./utils/mongo_ctrl');
+var MongoCtrl = require('./utils/mongo_ctrl');
 var P = require('../util/promise');
+var os_utils = require('../util/os_util');
 var dbg = require('../util/debug_module')(__filename);
 var config = require('../../config.js');
 
 var SECRET;
-var TOPOLOGY;
+var TOPOLOGY = {};
 
 function _init() {
+    // Read Secret
     return P.nfcall(fs.readFile, config.CLUSTERING_PATHS.SECRET_FILE)
         .then(function(data) {
             SECRET = data.toString();
             SECRET = SECRET.substring(0, SECRET.length - 1);
-            console.warn('NBNB:: SECRET is', SECRET);
         })
         .fail(function(err) {
             if (err.code === 'ENOENT') {
@@ -43,9 +43,11 @@ function _init() {
             }
             return;
         })
+        //verify Topology file exists, performed to get the appropriate ENOENT error
         .then(function() {
             return P.nfcall(fs.stat, config.CLUSTERING_PATHS.TOPOLOGY_FILE);
         })
+        //read Topology
         .then(function(exists) {
             return P.nfcall(fs.readFile, config.CLUSTERING_PATHS.TOPOLOGY_FILE);
         })
@@ -55,27 +57,31 @@ function _init() {
         .fail(function(err) {
             if (err.code !== 'ENOENT') {
                 console.error('Topology file corrupted');
-            } else { //Create a default structure in the memory
-                TOPOLOGY.cluster_id = '';
-                TOPOLOGY.shards = [];
+                return;
+            } else { //Create a default structure in the memory and in topology file
+                dbg.log0('No', config.CLUSTERING_PATHS.TOPOLOGY_FILE, 'exists, creating a default one');
+                TOPOLOGY.cluster_id = uuid().substring(0, 8);
+
+                TOPOLOGY.shards = [{
+                    name: 'shard1',
+                    servers: [os_utils.get_local_ipv4_ips()[0]], //TODO:: when moving to multiple interface, handle it
+                }];
                 TOPOLOGY.config_servers = [];
+                return P.nfcall(fs.writeFile, config.CLUSTERING_PATHS.TOPOLOGY_FILE, JSON.stringify(TOPOLOGY));
             }
+        })
+        .then(function() {
+            //init mongo control
+            return MongoCtrl.init();
         });
 }
 
 //
 //API
 //
-function get_cluster_id(req) {
-    var cluster = system_store.data.clusters[0];
-    return {
-        cluster_id: cluster && cluster.cluster_id || ''
-    };
-}
-
 function add_member_to_cluster(req) {
-    dbg.log0('Recieved add member to cluster req', req.rpc_params);
-    var id = get_cluster_id(req).cluster_id.toString();
+    dbg.log0('Recieved add member to cluster req', req.rpc_params, 'current topology', TOPOLOGY);
+    var id = TOPOLOGY.cluster_id;
 
     return server_rpc.client.cluster_server.join_to_cluster({
             ip: req.rpc_params.ip,
@@ -99,27 +105,24 @@ function add_member_to_cluster(req) {
 }
 
 function join_to_cluster(req) {
-    console.warn('NBNB:: got join_to_cluster', req.rpc_params);
+    console.warn('got join_to_cluster', req.rpc_params);
     if (req.rpc_params.secret !== SECRET) {
+        console.error('Secrets do not match!');
         throw new Error('Secrets do not match!');
     }
 
-    if (TOPOLOGY) {
-        if (TOPOLOGY.cluster_id !== req.rpc_params.cluster_id) {
-            console.error('Server already joined to a different cluster');
-            throw new Error('Server joined to a different cluster');
-        }
-        //TODO:: NBNB else {}
-        //Server is already part of this cluster, all is well
-
-        //TODO:: need to think regarding role switch: ReplicaSet chain vs. Shard (or switching between
-        //different ReplicaSet Chains)
-        //Easy path -> detach and re-attach as new role, though creates more hassle for the admin and
-        //overall lengthier process
-        return;
+    if (TOPOLOGY.shards.length !== 1 ||
+        TOPOLOGY.shards[0].servers.length !== 1) {
+        console.error('Server already joined to a cluster');
+        throw new Error('Server joined to a cluster');
     }
 
-    return P.nfcall(function() {
+    //TODO:: need to think regarding role switch: ReplicaSet chain vs. Shard (or switching between
+    //different ReplicaSet Chains)
+    //Easy path -> detach and re-attach as new role, though creates more hassle for the admin and
+    //overall lengthier process
+
+    return P.fcall(function() {
             if (req.rpc_params.role === 'SHARD') {
                 return _add_new_shard_member(req.rpc_params.shard, req.rpc_params.ip);
             } else if (req.rpc_params.role === 'REPLICA') {
@@ -148,10 +151,10 @@ function news_config_servers(req) {
 
     //We have a valid config replica set, start the mongos service
     TOPOLOGY.config_servers = req.rpc_params.IPs;
-    return mongo_ctrl.add_new_mongos(TOPOLOGY.config_servers);
+    return MongoCtrl.add_new_mongos(TOPOLOGY.config_servers);
 
     //TODO:: NBNB Update connection string for our mongo connections
-    //probably have something stored in mongo_ctrl and return it, need to update current connections
+    //probably have something stored in MongoCtrl and return it, need to update current connections
 }
 
 function news_updated_topology(req) {
@@ -177,19 +180,21 @@ function heartbeat(req) {
 function _add_new_shard_member(shardname, ip) {
     TOPOLOGY.shards.push({
         name: shardname,
-        servers: [ip],
+        servers: [ip]
     });
-    return mongo_ctrl.add_new_shard_server(shardname)
+    dbg.log0('Adding shard, new topology', TOPOLOGY);
+
+    return MongoCtrl.add_new_shard_server(shardname)
         .then(function() {
             //TODO:: must find a better solution than enforcing 3 shards when all user
             //wanted was actually two, maybe setup a 3rd config on one of the replica sets servers
             //if exists
 
             if (TOPOLOGY.config_servers.length === 3) { //Currently stay with a repset of 3 for config
-                return mongo_ctrl.add_new_mongos(TOPOLOGY.config_servers);
+                return MongoCtrl.add_new_mongos(TOPOLOGY.config_servers);
             } else { // < 3 since we don't add once we reach 3
                 TOPOLOGY.config_servers.push(ip);
-                return mongo_ctrl.add_new_config()
+                return MongoCtrl.add_new_config()
                     .then(function() {
                         return _publish_to_cluster('news_config_servers', TOPOLOGY.config_servers);
                     });
@@ -207,16 +212,19 @@ function _add_new_replicaset_member(shardname, ip) {
         throw new Error('Cannot add RS member to non-existing shard');
     }
 
-    return mongo_ctrl.add_replica_set_member(shardname)
+    TOPOLOGY.shards[shard_idx].servers.push(ip);
+    dbg.log0('Adding rs member, new topology', TOPOLOGY);
+
+    return MongoCtrl.add_replica_set_member(shardname)
         .then(function() {
             TOPOLOGY.shards[shard_idx].servers.push(ip);
             var rs_length = TOPOLOGY.shards[shard_idx].servers.length;
             if (rs_length === 3) {
                 //Initiate replica set and add all members
-                return mongo_ctrl.initiate_replica_set(shardname, TOPOLOGY.shards[shard_idx].servers);
+                return MongoCtrl.initiate_replica_set(shardname, TOPOLOGY.shards[shard_idx].servers);
             } else if (rs_length > 3) {
                 //joining an already existing and functioning replica set, add new member
-                return mongo_ctrl.add_member_to_replica_set(shardname, TOPOLOGY.shards[shard_idx].servers);
+                return MongoCtrl.add_member_to_replica_set(shardname, TOPOLOGY.shards[shard_idx].servers);
             } else {
                 //2 servers, nothing to be done yet. RS will be activated on the 3rd join
                 return;

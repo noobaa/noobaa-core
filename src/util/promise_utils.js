@@ -2,6 +2,7 @@
 'use strict';
 
 var _ = require('lodash');
+var fs = require('fs');
 var P = require('./promise');
 var child_process = require('child_process');
 require('setimmediate');
@@ -21,6 +22,7 @@ module.exports = {
     promised_spawn: promised_spawn,
     promised_exec: promised_exec,
     full_dir_copy: full_dir_copy,
+    folder_delete: folder_delete,
     wait_for_event: wait_for_event,
     pwhile: pwhile,
     auto: auto,
@@ -283,6 +285,21 @@ function full_dir_copy(src, dst) {
         }
     });
 }
+
+function folder_delete(path) {    
+     if( fs.existsSync(path) ) {
+         fs.readdirSync(path).forEach(function(file,index){
+           var curPath = path + "/" + file;
+           if(fs.lstatSync(curPath).isDirectory()) { // recurse
+             folder_delete(curPath);
+           } else { // delete file
+             fs.unlinkSync(curPath);
+           }
+         });
+         fs.rmdirSync(path);
+       }
+       return;
+ }
 
 function wait_for_event(emitter, event, timeout) {
     return new P(function(resolve, reject) {

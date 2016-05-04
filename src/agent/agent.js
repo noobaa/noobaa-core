@@ -407,7 +407,6 @@ Agent.prototype._do_heartbeat = function() {
         })
         .then(function(drives) {
             if (!drives) return;
-            params.drives = drives;
             // for now we only use a single drive,
             // so mark the usage on the drive of our storage folder.
             var used_drives = _.filter(drives, function(drive) {
@@ -425,7 +424,7 @@ Agent.prototype._do_heartbeat = function() {
                     return false;
                 }
             });
-            drives = used_drives;
+            params.drives = used_drives;
             dbg.log0('DRIVES:', drives, 'used drives', used_drives);
             // _.each(drives, function(drive) {
             //     if (self.storage_path_mount === drive.mount) {

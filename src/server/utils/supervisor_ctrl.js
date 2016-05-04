@@ -6,7 +6,7 @@ var P = require('../../util/promise');
 var promise_utils = require('../../util/promise_utils');
 var config = require('../../../config.js');
 
-module.exports = new SupervisorCtrl();
+module.exports = new SupervisorCtrl(); //Singleton
 
 function SupervisorCtrl() {
     this._inited = false;
@@ -42,21 +42,20 @@ SupervisorCtrl.prototype.apply_changes = function() {
 
 SupervisorCtrl.prototype.add_program = function(prog) {
     let self = this;
+
     return P.when(self.init())
         .then(() => self._programs.push(prog));
 };
 
 SupervisorCtrl.prototype.remove_program = function(prog_name) {
-    //TODO:: NBNB danny's code should call remove_program with 'agent_' + instead of remove_agent
     let self = this;
     return P.when(self.init())
         .then(() => {
-            let ind = _.findIndex(this._programs, function(prog) {
+            let ind = _.findIndex(self._programs, function(prog) {
                 return prog.name === (prog_name);
             });
             if (ind !== -1) {
-                delete this._programs[ind];
-                return this.apply_changes();
+                self._programs.splice(ind, 1);
             }
             return;
         });

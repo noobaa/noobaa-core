@@ -521,7 +521,8 @@ AgentCLI.prototype.start = function(node_name, node_path) {
             address: self.params.address,
             node_name: node_name,
             storage_path: node_path,
-            cloud_info: self.cloud_info
+            cloud_info: self.cloud_info,
+            storage_limit: self.params.storage_limit,
         });
 
         dbg.log0('agent inited', node_name, self.params.addres, self.params.port, self.params.secure_port, node_path);

@@ -23,6 +23,9 @@ module.exports = {
                     scale: {
                         type: 'integer'
                     },
+                    storage_limit: {
+                        type: 'integer',
+                    },
                     cloud_info: {
                         type: 'object',
                         required: ['endpoint', 'target_bucket', 'access_keys'],

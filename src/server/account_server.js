@@ -99,10 +99,14 @@ function create_account(req) {
             };
         })
         .then((token) => {
+            if (process.env.LOCAL_AGENTS_DISABLED === 'true') {
+                return token;
+            }
             if (!req.system) {
                 return server_rpc.bg_client.hosted_agents.create_agent({
                         name: 'agent_zero',
-                        scale: 3
+                        scale: 3,
+                        storage_limit: 100 * 1024 * 1024,
                     })
                     .then(() => token);
             }

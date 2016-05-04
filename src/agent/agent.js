@@ -59,12 +59,15 @@ function Agent(params) {
     self.node_name = params.node_name;
     self.token = params.token;
     self.storage_path = params.storage_path;
+    if (params.storage_limit) {
+        self.storage_limit = params.storage_limit;
+    }
 
     if (self.storage_path) {
         assert(!self.token, 'unexpected param: token. ' +
             'with storage_path the token is expected in the file <storage_path>/token');
         if (_.isUndefined(params.cloud_info)) {
-            self.store = new AgentStore(self.storage_path);
+            self.store = new AgentStore(self.storage_path, params.storage_limit);
         } else {
             self.cloud_info = params.cloud_info;
             self.store = new AgentStore.CloudStore(self.storage_path, self.cloud_info);
@@ -411,6 +414,12 @@ Agent.prototype._do_heartbeat = function() {
                 dbg.log0('used drives:', self.storage_path_mount, drive, store_stats.used);
                 if (self.storage_path_mount === drive.mount) {
                     drive.storage.used = store_stats.used;
+                    if (self.storage_limit) {
+                        let limited_total = config.NODES_FREE_SPACE_RESERVE + self.storage_limit;
+                        let limited_free = limited_total - store_stats.used;
+                        drive.storage.total = Math.min(limited_total, drive.storage.total);
+                        drive.storage.free = Math.min(limited_free, drive.storage.free);
+                    }
                     return true;
                 } else {
                     return false;

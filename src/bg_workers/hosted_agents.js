@@ -28,9 +28,13 @@ function create_agent(req) {
             '--internal_agent'
         ];
     }
+
+    if (req.params.storage_limit) {
+        args = args.concat(['--storage_limit', req.params.storage_limit.toString()]);
+    }
     if (process.env.DEBUG_MODE === 'true') {
         args.splice(0, 0, 'src/agent/agent_cli.js');
-        dbg.log0('executing agent_cli with arguments:', _.join(args, ' '));
+        dbg.log0('executing: node', _.join(args, ' '));
         let child = child_process.spawn('node', args, {
             stdio: 'inherit'
         });

@@ -444,7 +444,8 @@ Agent.prototype._do_heartbeat = function() {
             _.extend(params, latencies);
         })
         .then(function() {
-            dbg.log0('heartbeat params:', params, 'node', self.node_name);
+            dbg.log0('heartbeat for node', self.node_name);
+            dbg.log1('heartbeat params for node', self.node_name, 'params:', params);
             return self.client.node.heartbeat(params);
         })
         .then(function(res) {
@@ -729,7 +730,8 @@ Agent.prototype.collect_diagnostics = function(req) {
                     throw new Error('Agent Collect Diag Error on reading packges diag file');
                 });
         })
-        .then(null, function() {
+        .then(null, function(err) {
+            dbg.error('DIAGNOSTICS FAILED', err.stack || err);
             return {
                 data: new Buffer(),
             };

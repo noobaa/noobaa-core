@@ -6,7 +6,7 @@ module.exports = {
 
 var P = require('../util/promise');
 var db = require('../server/db');
-var MapBuilder = require('../server/mapper/map_builder');
+var map_builder = require('../server/mapper/map_builder');
 var dbg = require('../util/debug_module')(__filename);
 
 /**
@@ -67,7 +67,7 @@ function background_worker() {
 
             if (chunks.length) {
                 dbg.log0('BUILD_WORKER:', 'WORKING ON', chunks.length, 'CHUNKS');
-                let builder = new MapBuilder(chunks);
+                let builder = new map_builder.MapBuilder(chunks);
                 return builder.run();
             }
         })

@@ -499,7 +499,30 @@ module.exports = {
             auth: {
                 system: 'admin',
             }
-        }
+        },
+
+        report_node_block_error: {
+            method: 'POST',
+            params: {
+                type: 'object',
+                required: [
+                    'action',
+                    'block_md'
+                ],
+                properties: {
+                    action: {
+                        type: 'string',
+                        enum: ['write', 'read'],
+                    },
+                    block_md: {
+                        $ref: 'agent_api#/definitions/block_md'
+                    },
+                },
+            },
+            auth: {
+                system: ['admin', 'user', 'agent']
+            }
+        },
 
     },
 

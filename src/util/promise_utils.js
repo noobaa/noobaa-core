@@ -124,10 +124,9 @@ function pwhile(condition, body) {
  *
  * @param attempts number of attempts. can be Infinity.
  * @param delay number of milliseconds between retries
- * @param delay_increment numbner of milliseconds to add to delay after each retry
  * @param func with signature function(attempts), passing remaining attempts just fyi
  */
-function retry(attempts, delay, delay_increment, func) {
+function retry(attempts, delay, func, error_logger) {
 
     // call func and catch errors,
     // passing remaining attempts just fyi
@@ -140,9 +139,13 @@ function retry(attempts, delay, delay_increment, func) {
                 throw err;
             }
 
+            if (error_logger) {
+                error_logger(err);
+            }
+
             // delay and retry next attempt
             return P.delay(delay).then(function() {
-                return retry(attempts, delay + delay_increment, delay_increment, func);
+                return retry(attempts, delay, func, error_logger);
             });
 
         });
@@ -268,14 +271,30 @@ function promised_exec(command, ignore_rc, return_stdout) {
     return deferred.promise;
 }
 
-function full_dir_copy(src, dst) {
+function full_dir_copy(src, dst, filter_regex) {
     ncp.limit = 10;
-
+    let ncp_options = {};
+    if (filter_regex) {
+        //this regexp will filter out files that matches, except path.
+        var ncp_filter_regex = new RegExp(filter_regex);
+        var ncp_filter_function = function(input) {
+            if (input.indexOf('/') > 0) {
+                return false;
+            } else {
+                if (!ncp_filter_regex.test(input)) {
+                    return true;
+                } else {
+                    return false;
+                }
+            }
+        };
+        ncp_options.filter = ncp_filter_function;
+    }
     if (!src || !dst) {
         return P.reject(new Error('Both src and dst must be given'));
     }
 
-    return P.nfcall(ncp, src, dst).done(function(err) {
+    return P.nfcall(ncp, src, dst, ncp_options).done(function(err) {
         if (err) {
             return P.reject(new Error('full_dir_copy failed with ' + err));
         } else {

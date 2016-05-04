@@ -1,12 +1,6 @@
 import ko from 'knockout';
 import numeral from 'numeral';
 
-const uploadStateIconMapping = {
-    UPLOADING: '/fe/assets/icons.svg#object-in-process',
-    COMPLETED: '/fe/assets/icons.svg#object-healthy',
-    FAILED: '/fe/assets/icons.svg#object-problem'
-};
-
 export default class UploadRowViewModel {
     constructor(upload) {
         this.isVisible =  ko.pureComputed(
@@ -17,9 +11,6 @@ export default class UploadRowViewModel {
             () => upload().name 
         );
 
-        this.stateIcon = ko.pureComputed(
-            () => uploadStateIconMapping[upload().state]
-        );
 
         this.css = ko.pureComputed(
             () => upload().state.toLowerCase()
@@ -32,7 +23,7 @@ export default class UploadRowViewModel {
         );
 
         this.toolTip = ko.pureComputed(
-            () => upload().state === 'FAILED' ? upload().error : undefined
+            () => upload().state === 'FAILED' ? upload().error.message : undefined
         );
     }
 }

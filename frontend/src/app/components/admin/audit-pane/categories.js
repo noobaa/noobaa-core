@@ -20,6 +20,10 @@ export default {
             uploaded: {
                 message: 'Upload Completed',
                 entityId: ({ obj }) => obj && obj.key
+            },
+            deleted: {
+                message: 'Object Deleted',
+                entityId: ({ obj }) => obj && obj.key
             }
         }
     },

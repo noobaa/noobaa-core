@@ -1,4 +1,3 @@
-// this module is written for both nodejs.
 'use strict';
 
 var _ = require('lodash');
@@ -18,29 +17,26 @@ var dbg = require('../util/debug_module')(__filename);
  * NODE_SERVER
  *
  */
-var node_server = {
-    create_node: create_node,
-    read_node: read_node,
-    update_node: update_node,
-    delete_node: delete_node,
-    read_node_maps: read_node_maps,
+exports.create_node = create_node;
+exports.read_node = read_node;
+exports.update_node = update_node;
+exports.delete_node = delete_node;
+exports.read_node_maps = read_node_maps;
+exports.list_nodes = list_nodes;
+exports.list_nodes_int = list_nodes_int;
+exports.group_nodes = group_nodes;
+exports.max_node_capacity = max_node_capacity;
+exports.heartbeat = node_monitor.heartbeat;
+exports.redirect = node_monitor.redirect;
+exports.n2n_signal = node_monitor.n2n_signal;
+exports.self_test_to_node_via_web = node_monitor.self_test_to_node_via_web;
+exports.collect_agent_diagnostics = node_monitor.collect_agent_diagnostics;
+exports.set_debug_node = node_monitor.set_debug_node;
+exports.report_node_block_error = node_monitor.report_node_block_error;
+exports.test_latency_to_server = test_latency_to_server;
+exports.get_test_nodes = get_test_nodes;
 
-    list_nodes: list_nodes,
-    list_nodes_int: list_nodes_int,
-    group_nodes: group_nodes,
-    max_node_capacity: max_node_capacity,
 
-    heartbeat: node_monitor.heartbeat,
-    redirect: node_monitor.redirect,
-    n2n_signal: node_monitor.n2n_signal,
-    self_test_to_node_via_web: node_monitor.self_test_to_node_via_web,
-    collect_agent_diagnostics: node_monitor.collect_agent_diagnostics,
-    set_debug_node: node_monitor.set_debug_node,
-    test_latency_to_server: test_latency_to_server,
-    get_test_nodes: get_test_nodes,
-};
-
-module.exports = node_server;
 
 /**
  *

@@ -107,4 +107,4 @@ class MapAllocator {
 
 }
 
-module.exports = MapAllocator;
+exports.MapAllocator = MapAllocator;

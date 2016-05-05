@@ -241,6 +241,10 @@ function fix_etc_issue {
 
 if [ "$1" == "runinstall" ]; then
 	deploy_log "Running with runinstall"
+	acp=$(alias | grep cp | wc -l)
+	if [ "${acp}" == "1" ]; then
+		unalias cp
+	fi
 	set -e
 	add_sudoers
 	build_node

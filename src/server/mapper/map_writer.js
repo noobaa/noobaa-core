@@ -10,18 +10,14 @@ var nodes_store = require('../stores/nodes_store');
 var mongo_utils = require('../../util/mongo_utils');
 var time_utils = require('../../util/time_utils');
 var string_utils = require('../../util/string_utils');
-var map_utils = require('./map_utils');
-var block_allocator = require('./block_allocator');
+// var map_utils = require('./map_utils');
 var dbg = require('../../util/debug_module')(__filename);
 
-module.exports = {
-    finalize_object_parts: finalize_object_parts,
-    list_multipart_parts: list_multipart_parts,
-    fix_multipart_parts: fix_multipart_parts,
-    calc_multipart_md5: calc_multipart_md5,
-    set_multipart_part_md5: set_multipart_part_md5,
-    report_bad_block: report_bad_block,
-};
+exports.finalize_object_parts = finalize_object_parts;
+exports.list_multipart_parts = list_multipart_parts;
+exports.fix_multipart_parts = fix_multipart_parts;
+exports.calc_multipart_md5 = calc_multipart_md5;
+exports.set_multipart_part_md5 = set_multipart_part_md5;
 
 
 /**
@@ -333,93 +329,5 @@ function fix_multipart_parts(obj) {
             if (bulk_update.length) {
                 return P.ninvoke(bulk_update, 'execute').thenResolve(last_end);
             }
-        });
-}
-
-
-/**
- *
- * report_bad_block
- *
- * @params: obj, start, end, fragment, block_id, is_write
- *
- */
-function report_bad_block(params) {
-    return P.join(
-            db.DataBlock.collection.findOne({
-                _id: params.block_id
-            }),
-            db.ObjectPart.collection.findOne(_.extend({
-                system: params.obj.system,
-                obj: params.obj._id,
-            }, _.pick(params,
-                'start',
-                'end',
-                'upload_part_number',
-                'part_sequence_number')))
-            .then(part => mongo_utils.populate(part, 'chunk', db.DataChunk))
-        )
-        .spread(function(bad_block, part) {
-            if (!bad_block) {
-                dbg.error('report_bad_block: block not found', params);
-                throw new Error('report_bad_block: block not found');
-            }
-            if (!part) {
-                dbg.error('report_bad_block: part not found', params);
-                throw new Error('report_bad_block: part not found');
-            }
-            var chunk = part.chunk;
-            if (!chunk || String(bad_block.chunk) !== String(chunk._id)) {
-                dbg.error('report_bad_block: mismatching chunk for block', bad_block,
-                    'and part', part, 'params', params);
-                throw new Error('report_bad_block: mismatching chunk for block and part');
-            }
-
-            if (params.is_write) {
-                var new_block;
-
-                return P.when(db.DataBlock.collection.find({
-                        chunk: chunk,
-                        deleted: null,
-                    }).toArray())
-                    .then(blocks => nodes_store.populate_nodes_for_map(blocks, 'node'))
-                    .then(function(all_blocks) {
-                        var avoid_nodes = _.map(all_blocks, function(block) {
-                            return block.node._id.toString();
-                        });
-                        // TODO GGG report_bad_block
-                        return block_allocator.allocate_block(chunk, avoid_nodes);
-                    })
-                    .then(function(new_block_arg) {
-                        new_block = new_block_arg;
-                        if (!new_block) {
-                            throw new Error('report_bad_block: no nodes for allocation');
-                        }
-                        new_block.layer = bad_block.layer;
-                        new_block.layer_n = bad_block.layer_n;
-                        new_block.frag = bad_block.frag;
-                        new_block.size = bad_block.size;
-                        new_block.digest_type = bad_block.digest_type;
-                        new_block.digest_b64 = bad_block.digest_b64;
-                        return db.DataBlock.create(new_block);
-                    })
-                    .then(function() {
-                        // TODO GGG report_bad_block
-                        return block_allocator.remove_allocation([bad_block]);
-                    })
-                    .then(function() {
-                        dbg.log0('report_bad_block: DONE. create new_block', new_block,
-                            'params', params);
-                        return map_utils.get_block_md(new_block);
-                    }, function(err) {
-                        dbg.error('report_bad_block: ERROR params', params, err.stack || err);
-                        throw err;
-                    });
-
-            } else {
-                // TODO mark the block as bad for next reads and decide when to trigger rebuild
-                dbg.log0('report_bad_block: TODO! is_read not yet doing anything');
-            }
-
         });
 }

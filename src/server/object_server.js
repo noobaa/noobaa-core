@@ -5,8 +5,8 @@ var _ = require('lodash');
 var P = require('../util/promise');
 var db = require('./db');
 var mime = require('mime');
-var MapAllocator = require('./mapper/map_allocator');
-var MapCopy = require('./mapper/map_copy');
+var map_allocator = require('./mapper/map_allocator');
+var map_copy = require('./mapper/map_copy');
 var map_writer = require('./mapper/map_writer');
 var map_reader = require('./mapper/map_reader');
 var map_deleter = require('./mapper/map_deleter');
@@ -21,34 +21,25 @@ var mongo_functions = require('../util/mongo_functions');
  * OBJECT_SERVER
  *
  */
-var object_server = {
-
-    // object upload
-    create_object_upload: create_object_upload,
-    complete_object_upload: complete_object_upload,
-    abort_object_upload: abort_object_upload,
-    list_multipart_parts: list_multipart_parts,
-    allocate_object_parts: allocate_object_parts,
-    finalize_object_parts: finalize_object_parts,
-    complete_part_upload: complete_part_upload,
-    report_bad_block: report_bad_block,
-    copy_object: copy_object,
-
-    // read
-    read_object_mappings: read_object_mappings,
-
-    // object meta-data
-    read_object_md: read_object_md,
-    update_object_md: update_object_md,
-    delete_object: delete_object,
-    delete_multiple_objects: delete_multiple_objects,
-    list_objects: list_objects,
-
-    //cloud sync related
-    set_all_files_for_sync: set_all_files_for_sync
-};
-
-module.exports = object_server;
+// object upload
+exports.create_object_upload = create_object_upload;
+exports.complete_object_upload = complete_object_upload;
+exports.abort_object_upload = abort_object_upload;
+exports.list_multipart_parts = list_multipart_parts;
+exports.allocate_object_parts = allocate_object_parts;
+exports.finalize_object_parts = finalize_object_parts;
+exports.complete_part_upload = complete_part_upload;
+exports.copy_object = copy_object;
+// read
+exports.read_object_mappings = read_object_mappings;
+// object meta-data
+exports.read_object_md = read_object_md;
+exports.update_object_md = update_object_md;
+exports.delete_object = delete_object;
+exports.delete_multiple_objects = delete_multiple_objects;
+exports.list_objects = list_objects;
+// cloud sync related
+exports.set_all_files_for_sync = set_all_files_for_sync;
 
 
 
@@ -153,9 +144,8 @@ function complete_object_upload(req) {
                         dbg.log0('aggregated_md5', obj_etag);
                         return map_writer.fix_multipart_parts(obj);
                     });
-            }else
-            {
-                dbg.log0('complete_object_upload no fix for',obj);
+            } else {
+                dbg.log0('complete_object_upload no fix for', obj);
                 return obj.size;
             }
         })
@@ -227,7 +217,7 @@ function abort_object_upload(req) {
 function allocate_object_parts(req) {
     return find_cached_object_upload(req)
         .then(obj => {
-            let allocator = new MapAllocator(
+            let allocator = new map_allocator.MapAllocator(
                 req.bucket,
                 obj,
                 req.rpc_params.parts);
@@ -248,23 +238,6 @@ function finalize_object_parts(req) {
                 req.bucket,
                 obj,
                 req.rpc_params.parts);
-        });
-}
-
-
-function report_bad_block(req) {
-    return find_object_md(req)
-        .then(obj => {
-            var params = req.rpc_params;
-            params.obj = obj;
-            return map_writer.report_bad_block(params);
-        })
-        .then(new_block => {
-            if (new_block) {
-                return {
-                    new_block: new_block
-                };
-            }
         });
 }
 
@@ -335,8 +308,8 @@ function copy_object(req) {
         })
         .then(() => db.ObjectMD.create(create_info))
         .then(() => {
-            let map_copy = new MapCopy(source_obj, create_info);
-            return map_copy.run();
+            let copy = new map_copy.MapCopy(source_obj, create_info);
+            return copy.run();
         })
         .then(() => {
             db.ActivityLog.create({

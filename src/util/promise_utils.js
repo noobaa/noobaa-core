@@ -130,10 +130,9 @@ function pwhile(condition, body) {
  *
  * @param attempts number of attempts. can be Infinity.
  * @param delay number of milliseconds between retries
- * @param delay_increment numbner of milliseconds to add to delay after each retry
  * @param func with signature function(attempts), passing remaining attempts just fyi
  */
-function retry(attempts, delay, delay_increment, func) {
+function retry(attempts, delay, func, error_logger) {
 
     // call func and catch errors,
     // passing remaining attempts just fyi
@@ -146,9 +145,13 @@ function retry(attempts, delay, delay_increment, func) {
                 throw err;
             }
 
+            if (error_logger) {
+                error_logger(err);
+            }
+
             // delay and retry next attempt
             return P.delay(delay).then(function() {
-                return retry(attempts, delay + delay_increment, delay_increment, func);
+                return retry(attempts, delay, func, error_logger);
             });
 
         });

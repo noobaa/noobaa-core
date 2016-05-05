@@ -771,8 +771,19 @@ RPC.prototype._redirect = function(api, method, params, options) {
         target: options.address,
         request_params: params
     };
+    //if we have buffer, add it as raw data.
+    if (method.params && method.params.export_buffers) {
+        req.redirect_buffer = method.params.export_buffers(params);
+    }
+
     dbg.log3('redirecting ', req);
-    return P.fcall(this._send_redirection, req);
+    return P.fcall(this._send_redirection, req)
+        .then(res => {
+            if (method.reply.import_buffers) {
+                method.reply.import_buffers(res.redirect_reply, res.redirect_buffer);
+            }
+            return res.redirect_reply;
+        });
 };
 
 

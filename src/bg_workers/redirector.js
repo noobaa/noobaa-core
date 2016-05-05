@@ -101,7 +101,7 @@ function redirect(req) {
         if (scatter_redirect) {
             return {};
         } else {
-            throw new Error('Agent not registered ' + target_agent);
+            throw new Error('Agent not registered with ' +address+'target:'+ target_agent);
         }
     }
 }
@@ -225,7 +225,9 @@ function publish_to_cluster(req) {
         })
         .then(function(res) {
             return {
-                aggregated: res,
+                redirect_reply: {
+                    aggregated: res,
+                }
             };
         });
 }

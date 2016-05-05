@@ -6,8 +6,10 @@ var P = require('./promise');
 var child_process = require('child_process');
 require('setimmediate');
 var ncp = require('ncp').ncp;
+var fs = require('fs');
 var dbg = require('../util/debug_module')(__filename);
 
+var is_windows = (process.platform === "win32");
 
 module.exports = {
     join: join,
@@ -21,6 +23,10 @@ module.exports = {
     promised_spawn: promised_spawn,
     promised_exec: promised_exec,
     full_dir_copy: full_dir_copy,
+    file_copy: file_copy,
+    file_delete: file_delete,
+    folder_delete: folder_delete,
+    pack: pack,
     wait_for_event: wait_for_event,
     pwhile: pwhile,
     auto: auto,
@@ -204,7 +210,7 @@ function set_immediate() {
    TODO: The two following should be removed once we push to node 12 which has the spawnSync and execSync
 */
 function promised_spawn(command, args, cwd, ignore_rc) {
-    dbg.log2('promise spawn', command, args, cwd, ignore_rc);
+    dbg.log0('promise spawn', command, args, cwd, ignore_rc);
     if (!command || !cwd) {
         return P.reject(new Error('Both command and working directory must be given'));
     }
@@ -220,6 +226,7 @@ function promised_spawn(command, args, cwd, ignore_rc) {
         out = data;
         dbg.log2('on stdout', data);
     });
+
 
     proc.on('error', function(error) {
         if ((typeof ignore_rc !== 'undefined') && ignore_rc) {
@@ -269,6 +276,46 @@ function promised_exec(command, ignore_rc, return_stdout) {
         });
 
     return deferred.promise;
+}
+
+function pack(tar_file_name, source) {
+    console.log('pack windows?', is_windows);
+    if (is_windows) {
+        console.log('in windows','7za.exe a -ttar -so tmp.tar ' + source.replace(/\//g, '\\') + '| 7za.exe a -si ' + tar_file_name.replace(/\//g, '\\'));
+        return promised_exec('7za.exe a -ttar -so tmp.tar ' + source.replace(/\//g, '\\') + '| 7za.exe a -si ' + tar_file_name.replace(/\//g, '\\'));
+    } else {
+        console.log('not windows?', is_windows);
+        return promised_exec('tar -zcvf ' + tar_file_name + ' ' + source + '/*');
+    }
+}
+
+function file_copy(src, dst) {
+    if (is_windows) {
+        console.log('file copy ' + src.replace(/\//g, '\\')+' '+dst.replace(/\//g, '\\'));
+        return promised_exec('copy /Y  "'+src.replace(/\//g, '\\') +'" "'+ dst.replace(/\//g, '\\')+'"');
+    } else {
+        return promised_spawn('cp', ['-f', src, dst], process.cwd());
+    }
+}
+
+function folder_delete(path) {
+    if( fs.existsSync(path) ) {
+        fs.readdirSync(path).forEach(function(file,index){
+          var curPath = path + "/" + file;
+          if(fs.lstatSync(curPath).isDirectory()) { // recurse
+            folder_delete(curPath);
+          } else { // delete file
+            fs.unlinkSync(curPath);
+          }
+        });
+        fs.rmdirSync(path);
+      }
+}
+
+function file_delete(file_name) {
+    if( fs.existsSync(file_name) ) {
+        return fs.unlinkAsync(file_name);
+    }
 }
 
 function full_dir_copy(src, dst, filter_regex) {

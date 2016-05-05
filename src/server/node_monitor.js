@@ -431,13 +431,25 @@ function n2n_signal(req) {
 function redirect(req) {
     var target = req.rpc_params.target;
     var api = req.rpc_params.method_api.slice(0, -4); //Remove _api suffix
-    var method = req.rpc_params.method_name;
-    dbg.log3('node_monitor redirect', api + '.' + method, 'to', target,
-        'with params', req.rpc_params.request_params);
-    return server_rpc.client[api][method](req.rpc_params.request_params, {
+    var method_name = req.rpc_params.method_name;
+    var method = server_rpc.rpc.schema[req.rpc_params.method_api].methods[method_name];
+    dbg.log3('node_monitor redirect', api + '.' + method_name, 'to', target,
+        'with params', req.rpc_params.request_params,'method:',method);
+
+
+    if (method.params && method.params.import_buffers) {
+        method.params.import_buffers(req.rpc_params.request_params, req.rpc_params.redirect_buffer);
+    }
+    return server_rpc.client[api][method_name](req.rpc_params.request_params, {
         address: target,
-    }).then(function(res) {
-        return res || {};
+    }).then(function(reply) {
+        let res = {
+            redirect_reply: reply
+        };
+        if (method.reply && method.reply.export_buffers) {
+            res.redirect_buffer = method.reply.export_buffers(reply);
+        }
+        return res;
     });
 }
 
@@ -474,6 +486,7 @@ function collect_agent_diagnostics(req) {
             address: target,
         })
         .then(function(data) {
+
             return system_server.diagnose_with_agent(data, req);
         })
         .then(null, function(err) {

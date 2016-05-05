@@ -4,35 +4,51 @@ module.exports = {
     id: 'cluster_schema',
     type: 'object',
     required: [
-        '_id',
+        'owner_secret',
         'cluster_id',
     ],
     properties: {
-        _id: {
-            format: 'objectid'
+        owner_secret: {
+            type: 'string'
         },
         cluster_id: {
             type: 'string'
         },
-        members: {
+        shards: {
             type: 'array',
             items: {
                 type: 'object',
-                required: ['name', 'address'],
+                required: ['shardname'],
                 properties: {
-                    name: {
+                    shardname: {
                         type: 'string',
                     },
+                    servers: {
+                        type: 'array',
+                        items: {
+                            type: 'object',
+                            required: ['address'],
+                            properties: {
+                                address: {
+                                    type: 'string',
+                                },
+                            },
+                        },
+                    },
+                },
+            },
+        },
+        config_servers: {
+            type: 'array',
+            items: {
+                type: 'object',
+                required: ['address'],
+                properties: {
                     address: {
                         type: 'string',
                     },
-                    adminable_state: {
-                        type: 'string',
-                        enum: ['member', 'detaching', 'attaching'],
-                    }
-                }
-            }
-
-        }
+                },
+            },
+        },
     }
 };

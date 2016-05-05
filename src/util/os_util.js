@@ -12,15 +12,17 @@ module.exports = {
     get_time_config: get_time_config,
     get_local_ipv4_ips: get_local_ipv4_ips,
     get_networking_info: get_networking_info,
+    read_server_secret: read_server_secret,
 };
 
 var _ = require('lodash');
-var P = require('../util/promise');
 var os = require('os');
 var fs = require('fs');
 var child_process = require('child_process');
 var node_df = require('node-df');
+var P = require('./promise');
 var promise_utils = require('./promise_utils');
+var config = require('../../config.js');
 
 function os_info() {
 
@@ -307,6 +309,17 @@ function _set_time_zone(tzone) {
         tzone + ' /etc/localtime');
 }
 
+function read_server_secret() {
+    if (os.type() === 'Linux') {
+        return P.nfcall(fs.readFile, config.CLUSTERING_PATHS.SECRET_FILE)
+            .then(function(data) {
+                var sec = data.toString();
+                return sec.substring(0, sec.length - 1);
+            });
+    } else {
+        return P.when(os.hostname());
+    }
+}
 
 if (require.main === module) {
     read_drives().done(function(drives) {

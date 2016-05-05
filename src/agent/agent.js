@@ -63,6 +63,8 @@ function Agent(params) {
         self.storage_limit = params.storage_limit;
     }
 
+    self.is_internal_agent = params.is_internal_agent;
+
     if (self.storage_path) {
         assert(!self.token, 'unexpected param: token. ' +
             'with storage_path the token is expected in the file <storage_path>/token');
@@ -358,7 +360,8 @@ Agent.prototype._do_heartbeat = function() {
     var store_stats;
     var extended_hb = false;
     var ip = ip_module.address();
-    var EXTENDED_HB_PERIOD = 3600000;
+    // extended HB every 10 minutes
+    var EXTENDED_HB_PERIOD = 600000;
     // var EXTENDED_HB_PERIOD = 1000;
     if (!self.extended_hb_last_time ||
         Date.now() > self.extended_hb_last_time + EXTENDED_HB_PERIOD) {
@@ -376,6 +379,8 @@ Agent.prototype._do_heartbeat = function() {
     if (self.cloud_info && self.cloud_info.cloud_pool_name) {
         params.cloud_pool_name = self.cloud_info.cloud_pool_name;
     }
+
+    params.is_internal_agent = self.is_internal_agent;
 
     params.debug_level = dbg.get_module_level('core');
 
@@ -414,7 +419,8 @@ Agent.prototype._do_heartbeat = function() {
                 if (self.storage_path_mount === drive.mount) {
                     drive.storage.used = store_stats.used;
                     if (self.storage_limit) {
-                        let limited_total = config.NODES_FREE_SPACE_RESERVE + self.storage_limit;
+                        drive.storage.limit = self.storage_limit;
+                        let limited_total = self.storage_limit;
                         let limited_free = limited_total - store_stats.used;
                         drive.storage.total = Math.min(limited_total, drive.storage.total);
                         drive.storage.free = Math.min(limited_free, drive.storage.free);

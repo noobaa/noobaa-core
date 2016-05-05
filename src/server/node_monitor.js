@@ -321,12 +321,19 @@ function update_heartbeat(req, reply_token) {
                 set_updates.drives = params.drives;
                 var drives_total = 0;
                 var drives_free = 0;
+                var drives_limit = 0;
                 _.each(params.drives, function(drive) {
                     drives_total += drive.storage.total;
                     drives_free += drive.storage.free;
+                    if (drive.storage.limit) {
+                        drives_limit += drive.storage.limit;
+                    }
                 });
                 set_updates['storage.total'] = drives_total;
                 set_updates['storage.free'] = drives_free;
+                if (drives_limit > 0) {
+                    set_updates['storage.limit'] = drives_limit;
+                }
             }
             if (params.os_info) {
                 set_updates.os_info = params.os_info;

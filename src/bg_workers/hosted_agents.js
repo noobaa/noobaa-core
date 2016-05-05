@@ -17,7 +17,7 @@ function create_agent(req) {
     let args = ['--address', 'wss://127.0.0.1:' + port, '--internal_agent'];
     if (_.isUndefined(req.params.cloud_info)) {
         // regular agents
-        args = args.concat(['--scale', req.params.scale.toString()]);
+        args = args.concat(['--scale', req.params.scale.toString(), '--node_name', req.params.name]);
     } else {
         // cloud agents
         args = args.concat([

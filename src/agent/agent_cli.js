@@ -347,7 +347,8 @@ AgentCLI.prototype.create_node_helper = function(current_node_path_info, cloud_n
 
     return P.fcall(function() {
         var current_node_path = current_node_path_info.mount;
-        var node_name = cloud_node_name || os.hostname() + '-' + uuid();
+        let name_prefix = self.params.node_name || os.hostname();
+        var node_name = cloud_node_name || name_prefix + '-' + uuid();
         var path_modification = current_node_path.replace('/agent_storage/', '').replace('/', '').replace('.', '');
         //windows
         path_modification = path_modification.replace('\\agent_storage\\', '');
@@ -533,6 +534,7 @@ AgentCLI.prototype.start = function(node_name, node_path) {
             storage_path: node_path,
             cloud_info: self.cloud_info,
             storage_limit: self.params.storage_limit,
+            is_internal_agent: !!self.params.internal_agent
         });
 
         dbg.log0('agent inited', node_name, self.params.addres, self.params.port, self.params.secure_port, node_path);

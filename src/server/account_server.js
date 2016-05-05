@@ -104,7 +104,7 @@ function create_account(req) {
             }
             if (!req.system) {
                 return server_rpc.bg_client.hosted_agents.create_agent({
-                        name: 'agent_zero',
+                        name: req.rpc_params.name + '-local-agent',
                         access_keys: req.rpc_params.access_keys,
                         scale: 3,
                         storage_limit: 100 * 1024 * 1024,

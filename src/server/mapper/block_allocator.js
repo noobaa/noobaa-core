@@ -48,9 +48,22 @@ function refresh_pool_alloc(pool) {
             heartbeat: {
                 $gt: nodes_store.get_minimum_alloc_heartbeat()
             },
-            'storage.free': {
-                $gt: config.NODES_FREE_SPACE_RESERVE
-            },
+            $or: [{
+                'storage.free': {
+                    $gt: config.NODES_FREE_SPACE_RESERVE
+                }
+            }, {
+                $and: [{
+                    'storage.free': {
+                        $gt: 0
+                    }
+                }, {
+                    'storage.limit': {
+                        $exists: true
+                    }
+                }]
+            }],
+
             deleted: null,
             srvmode: null,
         }, {
@@ -69,7 +82,10 @@ function refresh_pool_alloc(pool) {
     ).spread((nodes, nodes_aggregate_pool) => {
         group.last_refresh = new Date();
         group.promise = null;
-        group.nodes = nodes;
+	// filter out nodes that exceeded the storage limit
+        group.nodes = _.filter(nodes, function(node) {
+            return _.isUndefined(node.storage.limit) || node.storage.limit > node.storage.used;
+        });
         group.aggregate = nodes_aggregate_pool[pool._id];
         dbg.log1('refresh_pool_alloc: updated pool', pool._id,
             'nodes', group.nodes, 'aggregate', group.aggregate);

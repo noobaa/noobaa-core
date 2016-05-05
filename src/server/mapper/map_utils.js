@@ -37,10 +37,10 @@ function analyze_special_chunks(chunks, parts, objects) {
         var tmp_parts = _.filter(parts, part => String(part.chunk) === String(chunk._id));
         var tmp_objects = _.filter(objects, obj => _.find(tmp_parts, part => String(part.obj) === String(obj._id)));
         _.forEach(tmp_objects, obj => {
-            if(_.includes(SPECIAL_CHUNK_CONTENT_TYPES, obj.content_type)) {
+            if (_.includes(SPECIAL_CHUNK_CONTENT_TYPES, obj.content_type)) {
                 let obj_parts = _.filter(tmp_parts, part => String(part.obj) === String(obj._id));
                 _.forEach(obj_parts, part => {
-                    if(part.start === 0 || part.end === obj.size) {
+                    if (part.start === 0 || part.end === obj.size) {
                         chunk.is_special = true;
                     }
                 });
@@ -64,7 +64,7 @@ function get_chunk_status(chunk, tiering, ignore_cloud_pools) {
         _.filter(tier.pools, pool => _.isUndefined(pool.cloud_pool_info)) :
         tier.pools;
     const tier_pools_by_id = _.keyBy(participating_pools, '_id');
-    var replicas = chunk.is_special? tier.replicas * SPECIAL_CHUNK_REPLICA_MULTIPLIER : tier.replicas;
+    var replicas = chunk.is_special ? tier.replicas * SPECIAL_CHUNK_REPLICA_MULTIPLIER : tier.replicas;
     const now = Date.now();
 
     let missing_frags = get_missing_frags_in_chunk(chunk, tier);
@@ -197,11 +197,19 @@ function is_block_good(block, now, tier_pools_by_id) {
     if (!tier_pools_by_id[block.node.pool]) {
         return false;
     }
+
+
     // detect nodes that are full in terms of free space policy
     // to be deleted once they are not needed as source
-    if (block.node.storage.free <= config.NODES_FREE_SPACE_RESERVE) {
+    if (block.node.storage.limit) {
+        if (block.node.storage.limit <= block.node.storage.used) {
+            return false;
+        }
+    } else if (block.node.storage.free <= config.NODES_FREE_SPACE_RESERVE) {
         return false;
     }
+
+
     return true;
 }
 

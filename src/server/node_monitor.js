@@ -440,7 +440,7 @@ function redirect(req) {
             redirect_reply: reply
         };
         if (method.reply && method.reply.export_buffers) {
-            res.redirect_buffer = method.method_api.reply.export_buffers(reply);
+            res.redirect_buffer = method.reply.export_buffers(reply);
         }
         return res;
     });

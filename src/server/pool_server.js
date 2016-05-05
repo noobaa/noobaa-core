@@ -12,6 +12,8 @@ var child_process = require('child_process');
 var P = require('../util/promise');
 var os = require('os');
 var SupervisorCtl = require('../server/utils/supervisor_ctrl');
+var server_rpc = require('./server_rpc');
+
 
 /**
  *
@@ -87,17 +89,16 @@ function create_cloud_pool(req) {
             }
         })
         .then(res => {
-            let args = [
-                '--cloud_endpoint', cloud_info.endpoint,
-                '--cloud_bucket', cloud_info.target_bucket,
-                '--cloud_access_key', cloud_info.access_keys.access_key,
-                '--cloud_secret_key', cloud_info.access_keys.secret_key,
-                '--cloud_pool_name', name,
-                '--internal_agent'
-            ];
-
-            dbg.log0('adding agent to supervior with arguments:', _.join(args, ' '));
-            return SupervisorCtl.add_agent(name, _.join(args, ' '));
+            let sys_access_keys = system_store.data.accounts[1].access_keys[0];
+            return server_rpc.bg_client.hosted_agents.create_agent({
+                name: req.rpc_params.name,
+                access_keys: sys_access_keys,
+                cloud_info: {
+                    endpoint: cloud_info.endpoint,
+                    target_bucket: cloud_info.target_bucket,
+                    access_keys: cloud_info.access_keys
+                },
+            });
         })
         .then(() => {
             // TODO: should we add different event for cloud pool?

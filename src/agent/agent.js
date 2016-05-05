@@ -697,7 +697,9 @@ Agent.prototype.self_test_peer = function(req) {
 
 Agent.prototype.collect_diagnostics = function(req) {
     dbg.log1('Recieved diag req', req);
-    var inner_path = '/tmp/agent_diag.tgz';
+    var is_windows = (process.platform === "win32");
+    var inner_path = is_windows ? process.env.ProgramData + '/agent_diag.tgz' : '/tmp/agent_diag.tgz';
+
     return P.fcall(function() {
             return diag.collect_agent_diagnostics();
         })

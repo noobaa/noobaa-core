@@ -392,10 +392,10 @@ module.exports = {
         redirect: {
             method: 'POST',
             params: {
-                $ref: '#/definitions/signal_params'
+                $ref: 'redirector_api#/definitions/redirect_params'
             },
             reply: {
-                $ref: '#/definitions/signal_reply'
+                $ref: 'redirector_api#/definitions/redirect_reply'
             },
             auth: {
                 system: false

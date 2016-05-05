@@ -312,7 +312,7 @@ TestRunner.prototype._write_coverage = function() {
         })
         .then(function(res) {
             //Add all recieved data to the collector
-            _.each(res.aggregated, function(r) {
+            _.each(res.redirect_reply.aggregated, function(r) {
                 if (r.data) {
                     var to_add = r.data;
                     collector.add(JSON.parse(to_add));

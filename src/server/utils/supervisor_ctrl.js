@@ -112,13 +112,12 @@ SupervisorCtrl.prototype._serialize = function() {
     _.each(self._programs, function(prog) {
         data += '[program:' + prog.name + ']\n';
         _.each(_.keys(prog), function(key) {
-            if (key !== 'name') { //skip name
+            if (key !== 'name') { //skip no names
                 data += key + '=' + prog[key] + '\n';
             }
         });
         data += config.SUPERVISOR_PROGRAM_SEPERATOR + '\n\n';
-    });
-    console.warn('Serializing', config.CLUSTERING_PATHS.SUPER_FILE, data);
+    });    
 
     return fs.writeFileAsync(config.CLUSTERING_PATHS.SUPER_FILE, data);
 };

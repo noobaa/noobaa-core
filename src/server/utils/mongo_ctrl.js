@@ -39,8 +39,7 @@ MongoCtrl.prototype.add_new_shard_server = function(name) {
 
 MongoCtrl.prototype.add_new_mongos = function(cfg_array) {
     let self = this;
-    return self._remove_single_mongo()
-        .then(() => self._add_new_mongos_supervisor(cfg_array))
+    return self._add_new_mongos_supervisor(cfg_array)
         .then(() => SupervisorCtl.apply_changes())
         .then(function() {
             return mongo_client.update_connection_string(cfg_array);
@@ -135,7 +134,8 @@ MongoCtrl.prototype._add_new_mongos_supervisor = function(cfg_array) {
     program_obj.autostart = 'true';
     program_obj.priority = '1';
 
-    return SupervisorCtl.add_program(program_obj);
+    return SupervisorCtl.remove_program('mongos') //remove old mongos with old cfg_array
+        .then(() => SupervisorCtl.add_program(program_obj));
 };
 
 MongoCtrl.prototype._add_new_config_supervisor = function() {

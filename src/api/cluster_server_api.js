@@ -90,6 +90,9 @@ module.exports = {
                     },
                 },
             },
+            auth: {
+                system: false
+            }
         },
 
         news_updated_topology: {
@@ -100,6 +103,9 @@ module.exports = {
                 additionalProperties: true,
                 properties: {}
             },
+            auth: {
+                system: false
+            }
         },
 
         heartbeat: {

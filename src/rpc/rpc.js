@@ -779,7 +779,7 @@ RPC.prototype._redirect = function(api, method, params, options) {
     dbg.log3('redirecting ', req);
     return P.fcall(this._send_redirection, req)
         .then(res => {
-            if (method.reply.import_buffers) {
+            if (method.reply && method.reply.import_buffers) {
                 method.reply.import_buffers(res.redirect_reply, res.redirect_buffer);
             }
             return res.redirect_reply;

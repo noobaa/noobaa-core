@@ -50,6 +50,11 @@ var dev_mode = (process.env.DEV_MODE === 'true');
 
 // Temporary removed - causes issues with upgrade.
 var numCPUs = Math.ceil(require('os').cpus().length / 2);
+if (process.env.DEBUGGER === 'true') {
+    // if debugger env is set use only one process in the cluster
+    console.log('process.env.DEBUGGER is set. running with numCpus = 1');
+    numCPUs = 1;
+}
 if (cluster.isMaster && process.env.MD_CLUSTER_DISABLED !== 'true') {
     // Fork MD Servers
     for (var i = 0; i < numCPUs; i++) {

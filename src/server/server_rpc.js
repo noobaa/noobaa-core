@@ -62,6 +62,8 @@ class ServerRpc {
         });
         rpc.register_service(schema.cloud_sync_api,
             require('../bg_workers/cloud_sync_rpc'), options);
+        rpc.register_service(schema.hosted_agents_api,
+            require('../bg_workers/hosted_agents_rpc'), options);
     }
 
     register_common_servers() {

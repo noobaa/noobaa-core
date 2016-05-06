@@ -30,8 +30,8 @@ setInterval(function() {
     dbg.log0('memory usage', process.memoryUsage());
 }, 30000);
 
-if (argv.cloud_pool_name) {
-    dbg.set_process_name(argv.cloud_pool_name + '-Agent');
+if (argv.node_name) {
+    dbg.set_process_name('Internal-Agent-' + argv.node_name);
 } else {
     dbg.set_process_name('Agent');
 }
@@ -82,24 +82,6 @@ AgentCLI.prototype.init = function() {
 
 
     if (self.params.cloud_endpoint) {
-        // if we got endpoint then verify all params exist and set cloud_info object.
-
-        let verify_param = function(param) {
-            if (_.isUndefined(self.params[param])) {
-                dbg.error('cloud agent init: missing ' + param + '. cloud_endpoint=', self.params.cloud_endpoint);
-                return false;
-            }
-            return true;
-        };
-
-        if (!(
-                verify_param('cloud_bucket') &&
-                verify_param('cloud_access_key') &&
-                verify_param('cloud_secret_key') &&
-                verify_param('cloud_pool_name'))) {
-            process.exit(1);
-        }
-
         self.cloud_info = {
             endpoint: self.params.cloud_endpoint,
             target_bucket: self.params.cloud_bucket,
@@ -107,10 +89,19 @@ AgentCLI.prototype.init = function() {
                 access_key: self.params.cloud_access_key,
                 secret_key: self.params.cloud_secret_key
             },
-            cloud_pool_name: self.params.cloud_pool_name
+            cloud_pool_name: self.params.node_name
         };
-
     }
+
+    if (self.params.access_key) {
+        self.params.access_key = self.params.access_key.toString();
+    }
+    if (self.params.secret_key) {
+        self.params.secret_key = self.params.secret_key.toString();
+    }
+
+    // for now node name is passed only for internal agents.
+    self.params.internal_agent = !!self.params.node_name;
 
     return P.nfcall(fs.readFile, 'agent_conf.json')
         .then(function(data) {
@@ -214,24 +205,35 @@ AgentCLI.prototype.init.helper = function() {
 AgentCLI.prototype.load = function() {
     var self = this;
 
-    let cloud_agent_prefix = 'noobaa-cloud-agent-';
-    // if this is a cloud agent, check if its path exists already, and start the agent
-    if (self.cloud_info) {
-        dbg.log0('loading agent with cloud_info: ', self.cloud_info);
+    let internal_agent_prefix = 'noobaa-internal-agent-';
+    // if this is an internal agent check if its path already exists, and restart it.
+    // otherwise create one.
+    if (self.params.internal_agent) {
+        let node_name = internal_agent_prefix + self.params.node_name;
+        let internal_nodes_names = [];
+        if (self.params.scale) {
+            for (var i = 0; i < self.params.scale; i++) {
+                internal_nodes_names.push(node_name + '-' + (i + 1).toString());
+            }
+        } else {
+            internal_nodes_names.push(node_name);
+        }
+        dbg.log0('loading agents with cloud_info: ', self.cloud_info);
         let storage_path = self.params.all_storage_paths[0].mount;
-        let node_name = cloud_agent_prefix + os.hostname() + '-' + self.cloud_info.cloud_pool_name;
         return P.nfcall(mkdirp, storage_path)
             .then(() => P.nfcall(fs.readdir, storage_path))
             .then(nodes_names => {
-                if (nodes_names.indexOf(node_name) >= 0) {
-                    // cloud node already exist. start it
-                    let node_path = path.join(storage_path, node_name);
-                    dbg.log0('loading existing cloud agent. node_path=', node_path);
-                    return self.start(node_name, node_path);
-                } else {
-                    dbg.log0('starting new cloud agent. node_name = ', node_name);
-                    return self.create_node_helper(self.params.all_storage_paths[0], node_name);
-                }
+                return P.all(internal_nodes_names.map(name => {
+                    if (nodes_names.indexOf(name) >= 0) {
+                        // cloud node already exist. start it
+                        let node_path = path.join(storage_path, name);
+                        dbg.log0('loading existing internal agent. node_path=', node_path);
+                        return self.start(name, node_path);
+                    } else {
+                        dbg.log0('starting new internal agent. name = ', name);
+                        return self.create_node_helper(self.params.all_storage_paths[0], name);
+                    }
+                }));
             });
     }
 
@@ -256,7 +258,7 @@ AgentCLI.prototype.load = function() {
                 })
                 .then(function(nodes_names) {
                     // filter out cloud agents:
-                    let regular_node_names = _.reject(nodes_names, name => name.startsWith(cloud_agent_prefix));
+                    let regular_node_names = _.reject(nodes_names, name => name.startsWith(internal_agent_prefix));
 
                     dbg.log0('nodes_names:', regular_node_names);
                     return P.all(_.map(regular_node_names, function(node_name) {
@@ -335,12 +337,12 @@ AgentCLI.prototype.load.helper = function() {
     dbg.log0("create token, start nodes ");
 };
 
-AgentCLI.prototype.create_node_helper = function(current_node_path_info, cloud_node_name) {
+AgentCLI.prototype.create_node_helper = function(current_node_path_info, internal_node_name) {
     var self = this;
 
     return P.fcall(function() {
         var current_node_path = current_node_path_info.mount;
-        var node_name = cloud_node_name || os.hostname() + '-' + uuid();
+        var node_name = internal_node_name || os.hostname() + '-' + uuid();
         var path_modification = current_node_path.replace('/agent_storage/', '').replace('/', '').replace('.', '');
         //windows
         path_modification = path_modification.replace('\\agent_storage\\', '');
@@ -436,17 +438,20 @@ AgentCLI.prototype.create_node_helper = function(current_node_path_info, cloud_n
  */
 AgentCLI.prototype.create = function(number_of_nodes) {
     var self = this;
-    //create root path last. First, create all other
+    //create root path last. First, create all other.
+    // for internal_agents only use root path
     return P.all(_.map(_.drop(self.params.all_storage_paths, 1), function(current_storage_path) {
-            return fs_utils.list_directory(current_storage_path.mount)
-                .then(function(files) {
-                    if (files.length > 0 && number_of_nodes === 0) {
-                        //if new HD introduced,  skip existing HD.
-                        return;
-                    } else {
-                        return self.create_node_helper(current_storage_path);
-                    }
-                });
+            if (_.isUndefined(self.params.internal_agent)) {
+                return fs_utils.list_directory(current_storage_path.mount)
+                    .then(function(files) {
+                        if (files.length > 0 && number_of_nodes === 0) {
+                            //if new HD introduced,  skip existing HD.
+                            return;
+                        } else {
+                            return self.create_node_helper(current_storage_path);
+                        }
+                    });
+            }
         }))
         .then(function() {
             //create root folder
@@ -521,7 +526,9 @@ AgentCLI.prototype.start = function(node_name, node_path) {
             address: self.params.address,
             node_name: node_name,
             storage_path: node_path,
-            cloud_info: self.cloud_info
+            cloud_info: self.cloud_info,
+            storage_limit: self.params.storage_limit,
+            is_internal_agent: self.params.internal_agent
         });
 
         dbg.log0('agent inited', node_name, self.params.addres, self.params.port, self.params.secure_port, node_path);

@@ -99,7 +99,7 @@ function create_account(req) {
             };
         })
         .then((token) => {
-            if (process.env.LOCAL_AGENTS_DISABLED === 'true') {
+            if (process.env.LOCAL_AGENTS_ENABLED !== 'true') {
                 return token;
             }
             if (!req.system) {

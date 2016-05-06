@@ -552,12 +552,14 @@ AgentStore.CloudStore = CloudStore;
 function MemoryStore() {
     this._alloc = 0;
     this._used = 0;
+    this._free = 20 * 1024 * 1024 * 1024;
     this._count = 0;
     this._blocks = {};
     this.get_stats = function() {
         return {
             alloc: this._alloc,
             used: this._used,
+            free: (this._free - this._used),
             count: this._count,
         };
     };

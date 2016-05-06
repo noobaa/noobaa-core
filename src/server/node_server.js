@@ -489,7 +489,7 @@ function get_node_full_info(node) {
     if (node.srvmode) {
         info.srvmode = node.srvmode;
     }
-    if (node.storage.free <= config.NODES_FREE_SPACE_RESERVE) {
+    if (node.storage.free <= config.NODES_FREE_SPACE_RESERVE && !(node.storage.limit && node.storage.free>0) ) {
         info.storage_full = true;
     }
     info.pool = node.pool.name;

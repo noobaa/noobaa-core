@@ -227,7 +227,6 @@ Agent.prototype._init_node = function() {
         })
         .then(function(storage_path_mount) {
             self.storage_path_mount = storage_path_mount;
-            dbg.log0('storage_path_mount', storage_path_mount);
 
             // if not using storage_path, a token should be provided
             if (!self.storage_path) return self.token;
@@ -401,7 +400,8 @@ Agent.prototype._do_heartbeat = function() {
             dbg.log0('store_stats:', store_stats);
             params.storage = {
                 alloc: store_stats.alloc,
-                used: store_stats.used
+                used: store_stats.used,
+                free: store_stats.free || 0
             };
         })
         .then(function() {
@@ -416,7 +416,8 @@ Agent.prototype._do_heartbeat = function() {
             // so mark the usage on the drive of our storage folder.
             var used_drives = _.filter(drives, function(drive) {
                 dbg.log0('used drives:', self.storage_path_mount, drive, store_stats.used);
-                if (self.storage_path_mount === drive.mount) {
+                //if there is no self.storage_path_mount, it's a memory agent for testing.
+                if (self.storage_path_mount === drive.mount || !self.storage_path_mount) {
                     drive.storage.used = store_stats.used;
                     if (self.storage_limit) {
                         drive.storage.limit = self.storage_limit;
@@ -490,10 +491,10 @@ Agent.prototype._do_heartbeat = function() {
                 self.rpc_address = res.rpc_address;
                 promises.push(self._start_stop_server());
             }
-
             if (res.storage) {
                 // report only if used storage mismatch
                 // TODO compare with some accepted error and handle
+
                 if (store_stats.used !== res.storage.used) {
                     dbg.log0('used storage not in sync ',
                         store_stats.used, ' expected ', res.storage.used);

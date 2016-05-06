@@ -147,6 +147,10 @@ class MapBuilder {
                     _.filter(f.blocks, block => map_utils.is_block_accessible(block, now));
                 f.next_source = f.next_source || 0;
                 let source_block = f.accessible_blocks[f.next_source];
+                //if no accessible_blocks - skip replication
+                if (!source_block){
+                    return;
+                }
                 f.next_source = (f.next_source + 1) % f.accessible_blocks.length;
 
                 let target = map_utils.get_block_md(block);

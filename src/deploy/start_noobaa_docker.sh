@@ -18,4 +18,4 @@ cut -d'>' -f 2|
 awk 'NR > 0{gsub(/.*->/,"",$1); print $1}' |
 awk 'NR > 1{gsub(/\/tcp,/,"",$1); print $1}'|
 sort -un |
-awk -v n=$portnum '$0 < n {next}; $0 == n {n++; next}; {exit}; END { system("sudo echo "n">/noobaa/port.txt") system("sudo docker run --net=weave -t -p "n":"n" -p "n"2:22 noobaa <ENV_PLACEHOLDER> "n "&")}'
+awk -v n=$portnum '$0 < n {next}; $0 == n {n++; next}; {exit}; END { system("sudo echo "n">/noobaa/port.txt") system("sudo docker run --net=weave -t -p "n":60100 -p "n"2:22 noobaa <ENV_PLACEHOLDER> "n "&")}'

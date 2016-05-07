@@ -1,10 +1,10 @@
 'use strict';
 
 // var _ = require('lodash');
-var P = require('../util/promise');
+var P = require('../../util/promise');
 var mocha = require('mocha');
 var assert = require('assert');
-var WaitQueue = require('../util/wait_queue');
+var WaitQueue = require('../../util/wait_queue');
 
 mocha.describe('wait_queue', function() {
 

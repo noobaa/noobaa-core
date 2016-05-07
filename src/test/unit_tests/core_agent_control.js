@@ -1,9 +1,9 @@
 'use strict';
 
 var _ = require('lodash');
-var P = require('../util/promise');
-var Agent = require('../agent/agent');
-// var dbg = require('../util/debug_module')(__filename);
+var P = require('../../util/promise');
+var Agent = require('../../agent/agent');
+// var dbg = require('../../util/debug_module')(__filename);
 
 var agntCtlConfig = {
     use_local: true,

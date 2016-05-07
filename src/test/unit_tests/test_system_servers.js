@@ -1,11 +1,11 @@
 'use strict';
 
 // let _ = require('lodash');
-let P = require('../util/promise');
+let P = require('../../util/promise');
 var mocha = require('mocha');
 let assert = require('assert');
 let coretest = require('./coretest');
-let promise_utils = require('../util/promise_utils');
+let promise_utils = require('../../util/promise_utils');
 var S3Auth = require('aws-sdk/lib/signers/s3');
 var s3_auth = new S3Auth();
 var dotenv = require('dotenv');
@@ -24,9 +24,9 @@ mocha.describe('system_servers', function() {
     const EMAIL = SYS + EMAIL_DOMAIN;
     const EMAIL1 = SYS1 + EMAIL_DOMAIN;
     const PASSWORD = SYS + '-password';
-    const ACCESS_KEYS = { 
-        access_key: 'ydaydayda', 
-        secret_key: 'blablabla' 
+    const ACCESS_KEYS = {
+        access_key: 'ydaydayda',
+        secret_key: 'blablabla'
     };
     const CLOUD_SYNC_CONNECTION = 'Connection 1';
 

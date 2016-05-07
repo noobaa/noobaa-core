@@ -1,11 +1,11 @@
 'use strict';
 
 var _ = require('lodash');
-var P = require('../util/promise');
+var P = require('../../util/promise');
 var mocha = require('mocha');
 var assert = require('assert');
 var fs = require('fs');
-var DebugModule = require('../util/debug_module');
+var DebugModule = require('../../util/debug_module');
 
 var processType;
 
@@ -110,7 +110,7 @@ mocha.describe('debug_module', function() {
         dbg.set_level(2, 'util');
         dbg.log2("test_debug_module: log2 setting a higher level module level should affect current");
         dbg.set_level(0, 'util');
-        return file_content_verify("text", "core.blabla.asd.lll:: test_debug_module: log2 setting a higher level module level should affect current");        
+        return file_content_verify("text", "core.blabla.asd.lll:: test_debug_module: log2 setting a higher level module level should affect current");
     });
 
     mocha.it('formatted string should be logged correctly (string substitutions)', function() {

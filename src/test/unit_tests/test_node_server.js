@@ -1,12 +1,12 @@
 'use strict';
 
 // var _ = require('lodash');
-var P = require('../util/promise');
+var P = require('../../util/promise');
 var mocha = require('mocha');
 // var assert = require('assert');
-var size_utils = require('../util/size_utils');
+var size_utils = require('../../util/size_utils');
 var coretest = require('./coretest');
-var os_util = require('../util/os_util');
+var os_util = require('../../util/os_util');
 
 mocha.describe('node_server', function() {
 
@@ -15,10 +15,10 @@ mocha.describe('node_server', function() {
     const SYS = 'test-node-system';
     const EMAIL = SYS + '@coretest.coretest';
     const PASSWORD = 'tululu';
-    const ACCESS_KEYS = { 
-        access_key: 'ydaydayda', 
-        secret_key: 'blablabla' 
-    };    
+    const ACCESS_KEYS = {
+        access_key: 'ydaydayda',
+        secret_key: 'blablabla'
+    };
     const NODE = 'test-node';
 
     mocha.it('works', function() {
@@ -38,7 +38,7 @@ mocha.describe('node_server', function() {
             .then(res => client.options.auth_token = res.token)
             .then(() => client.node.heartbeat({
                 name: NODE,
-                version: require('../../package.json').version,
+                version: require('../../../package.json').version,
                 port: 0,
                 storage: {
                     alloc: 10 * size_utils.GIGABYTE,

@@ -1,10 +1,9 @@
-#noobaa-core tests
+#noobaa-core Unit Tests
 ===========
-###Core Tests Table of Contents:
+###Unit Tests Table of Contents:
 
 * [core_agent_control](#core_agent_control) - Agent Control Testing Infrastructure
 * [coretest](#coretest) - Core Test Infrastructure
-* [system_tests](https://github.com/noobaa/noobaa-core/blob/master/src/test/system_tests/README.md)
 
 
 * ###core_agent_control

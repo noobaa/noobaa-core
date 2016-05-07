@@ -3,7 +3,7 @@
 // var _ = require('lodash');
 var mocha = require('mocha');
 var assert = require('assert');
-var LinkedList = require('../util/linked_list');
+var LinkedList = require('../../util/linked_list');
 
 mocha.describe('linked_list', function() {
 

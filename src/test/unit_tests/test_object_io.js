@@ -1,20 +1,20 @@
 'use strict';
 
 let _ = require('lodash');
-let P = require('../util/promise');
+let P = require('../../util/promise');
 let mocha = require('mocha');
 let assert = require('assert');
 let argv = require('minimist')(process.argv);
-let promise_utils = require('../util/promise_utils');
+let promise_utils = require('../../util/promise_utils');
 let coretest = require('./coretest');
-let ObjectIO = require('../api/object_io');
-let SliceReader = require('../util/slice_reader');
+let ObjectIO = require('../../api/object_io');
+let SliceReader = require('../../util/slice_reader');
+let dbg = require('../../util/debug_module')(__filename);
 
 let chance_seed = argv.seed || Date.now();
 console.log('using seed', chance_seed);
 let chance = require('chance')(chance_seed);
 
-let dbg = require('../util/debug_module')(__filename);
 dbg.set_level(5, 'core');
 
 mocha.describe('object_io', function() {
@@ -28,10 +28,10 @@ mocha.describe('object_io', function() {
     const KEY = 'test-object-key';
     const EMAIL = 'test-object-email@mail.mail';
     const PASSWORD = 'test-object-password';
-    const ACCESS_KEYS = { 
-        access_key: 'ydaydayda', 
-        secret_key: 'blablabla' 
-    };     
+    const ACCESS_KEYS = {
+        access_key: 'ydaydayda',
+        secret_key: 'blablabla'
+    };
     const NODE = 'test-node';
 
     mocha.before(function() {

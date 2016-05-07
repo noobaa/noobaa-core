@@ -556,11 +556,12 @@ RPC.prototype._new_connection = function(addr_url) {
  */
 RPC.prototype._accept_new_connection = function(conn) {
     var self = this;
-    if (self._disconnected_state) {
-        throw new Error('RPC IN DISCONNECTED STATE');
-    }
     conn._sent_requests = {};
     conn._received_requests = {};
+    if (self._disconnected_state) {
+        conn.close();
+        throw new Error('RPC IN DISCONNECTED STATE - rejecting connection ' + conn.connid);
+    }
     conn.on('message', function(msg) {
         return self._connection_receive(conn, msg);
     });

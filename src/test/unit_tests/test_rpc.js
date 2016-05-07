@@ -1,12 +1,12 @@
 'use strict';
 
 var _ = require('lodash');
-var P = require('../util/promise');
+var P = require('../../util/promise');
 var mocha = require('mocha');
 var assert = require('assert');
-let pem = require('../util/pem');
-var RPC = require('../rpc/rpc');
-var RpcSchema = require('../rpc/rpc_schema');
+let pem = require('../../util/pem');
+var RPC = require('../../rpc/rpc');
+var RpcSchema = require('../../rpc/rpc_schema');
 
 mocha.describe('RPC', function() {
 

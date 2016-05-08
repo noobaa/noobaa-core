@@ -6,7 +6,7 @@ import { isDefined } from 'utils';
 const INPUT_THROTTLE = 1000;
 
 function defaultSearchSelector({ label }, input) {
-    return label.toLowerCase().startsWith(input);
+    return label.toString().toLowerCase().startsWith(input);
 }
 
 class DropdownViewModel {

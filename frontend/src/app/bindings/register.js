@@ -11,5 +11,6 @@ export default function register(ko) {
     ko.bindingHandlers.transition   = require('./transition');
     ko.bindingHandlers.animation    = require('./animation');
     ko.bindingHandlers.expand       = require('./expand');
-    ko.bindingHandlers.tooltip       = require('./tooltip');
+    ko.bindingHandlers.tooltip      = require('./tooltip');
+    ko.bindingHandlers.scrollTo     = require('./scroll-to');
 }

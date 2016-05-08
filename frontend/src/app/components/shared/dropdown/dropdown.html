@@ -1,5 +1,6 @@
 <div class="dropdown-wrapper no-outline" data-bind="
     click: () => active(true) && true,
+    event: { keypress: (_, evt) => scrollTo(evt) },
     hasFocus: focused,
     attr: { tabindex: !ko.unwrap(disabled) && '0' },
     css: { disabled: disabled, active: active },
@@ -17,7 +18,7 @@
         visible: active(), 
         event: { change: () => active(false) && true }
     ">
-        <ul class="list-no-style" data-bind="foreach: options">
+        <ul class="list-no-style" data-bind="foreach: options, scrollTo: selectedIndex">
             <li data-bind="css: { seperator: !$data }, if: $data">
                 <label class="option">
                     <input type="radio" data-bind="

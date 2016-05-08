@@ -5,7 +5,7 @@ var gulp = require('gulp');
 var gutil = require('gulp-util');
 // var gulp_debug = require('gulp-debug');
 // var gulp_filter = require('gulp-filter');
-var gulp_size = require('gulp-size');
+// var gulp_size = require('gulp-size');
 var gulp_cached = require('gulp-cached');
 var gulp_plumber = require('gulp-plumber');
 var gulp_notify = require('gulp-notify');
@@ -70,7 +70,7 @@ process.on("SIGTERM", leave_no_wounded);
 
 
 var PATHS = {
-    test_all: 'src/test/all.js',
+    unit_tests_main: 'src/test/unit_tests/index.js',
     js_for_lint: ['src/**/*.js', '*.js'],
     js_for_coverage: [
         'src/**/*.js',
@@ -395,7 +395,7 @@ gulp.task('mocha', ['coverage_hook'], function() {
             dir: cov_dir,
         };
     }
-    return gulp.src(PATHS.test_all, SRC_DONT_READ)
+    return gulp.src(PATHS.unit_tests_main, SRC_DONT_READ)
         .pipe(gulp_mocha(mocha_options)
         .on('error', function(err) {
             console.log('Mocha Failed With Error', err.toString());

@@ -4,8 +4,9 @@
             <td class="emphasized no-wrap" data-bind="text: label + ':'"></td>
             <td class="greedy" data-bind="text: value"></td>
             <td class="copy-btn" data-bind="if: !!$data.allowCopy">
-                <button class="btn-flat" title="copy to clipboard" data-bind="
-                    click: () => $component.copyToClipboard(value)
+                <button class="btn-flat" data-bind="
+                    click: () => $component.copyToClipboard(value),
+                    tooltip: 'Copy to Clipboard'
                 ">
                     <svg-icon class="icon-small" params="uri: '/fe/assets/icons.svg#copy'"></svg-icon>
                 </button>

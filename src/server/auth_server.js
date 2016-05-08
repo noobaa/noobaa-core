@@ -346,7 +346,7 @@ function authorize(req) {
     }
 
     if (req.method_api.auth !== false) {
-        dbg.log0('authorize:', req.method_api.auth, req.srv);
+        dbg.log1('authorize:', req.method_api.auth, req.srv);
         req.load_auth();
 
         //console.warn('AUTHORIZE S3 AUTH auth_token_obj: ', auth_token_obj);
@@ -371,12 +371,12 @@ function authorize(req) {
 
             }
             //var s3_signature = s3_auth.sign(secret_key, string_to_sign);
-            dbg.log0('signature for access key:', account.access_keys[0].access_key, 'string:', auth_token_obj.string_to_sign, ' is', s3_signature);
+            dbg.log1('signature for access key:', account.access_keys[0].access_key, 'string:', auth_token_obj.string_to_sign, ' is', s3_signature);
 
             //TODO:bring back ASAP!!!! - temporary for V4 "Support"
             //
             if (auth_token_obj.signature === s3_signature) {
-                dbg.log0('s3 authentication test passed!!!');
+                dbg.log1('s3 authentication test passed!!!');
             } else {
                 throw req.unauthorized('SignatureDoesNotMatch');
             }

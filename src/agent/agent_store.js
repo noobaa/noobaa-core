@@ -22,12 +22,15 @@ AgentStore.TAMPERING_ERROR = 'TAMPERING';
  * AgentStore
  *
  */
-function AgentStore(root_path) {
+function AgentStore(root_path, storage_limit) {
     this.root_path = root_path;
     this.blocks_path = path.join(this.root_path, 'blocks');
     this.meta_path = path.join(this.root_path, '.meta');
     mkdirp.sync(this.blocks_path);
     mkdirp.sync(this.meta_path);
+    if (storage_limit) {
+        this._storage_limit = storage_limit;
+    }
 }
 
 
@@ -166,20 +169,28 @@ AgentStore.prototype.write_block = function(block_md, data) {
             throw new Error('BLOCK DIGEST MISMATCH ON WRITE');
         }
     }
+    let block_md_data = JSON.stringify(block_md_to_store);
+
+    if (self._storage_limit) {
+        let free_space = self._storage_limit - self._usage.size;
+        let required_space = data.length + block_md_data.length;
+        if (free_space < required_space) {
+            throw new Error('used space exceeded the storage limit of ' + self._storage_limit + ' bytes');
+        }
+    }
 
     return P.when(self._stat_block_path(block_path, true))
         .then(function(stats) {
             file_stats = stats;
             dbg.log1('fs write block', block_path, data.length, typeof(data), file_stats);
-
             // create/replace the block on fs
             return P.join(
                 self._write_internal(block_path, data),
-                self._write_internal(meta_path, JSON.stringify(block_md_to_store)));
+                self._write_internal(meta_path, block_md_data));
         })
         .then(function() {
             if (self._usage) {
-                self._usage.size += data.length;
+                self._usage.size += data.length + block_md_data.length;
                 self._usage.count += 1;
                 if (file_stats) {
                     self._usage.size -= file_stats.size;
@@ -541,12 +552,14 @@ AgentStore.CloudStore = CloudStore;
 function MemoryStore() {
     this._alloc = 0;
     this._used = 0;
+    this._free = 20 * 1024 * 1024 * 1024;
     this._count = 0;
     this._blocks = {};
     this.get_stats = function() {
         return {
             alloc: this._alloc,
             used: this._used,
+            free: (this._free - this._used),
             count: this._count,
         };
     };

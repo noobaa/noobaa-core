@@ -47,4 +47,4 @@ class MapCopy {
 
 }
 
-module.exports = MapCopy;
+exports.MapCopy = MapCopy;

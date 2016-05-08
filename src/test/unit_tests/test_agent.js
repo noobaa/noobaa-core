@@ -1,7 +1,7 @@
 'use strict';
 
 // var _ = require('lodash');
-var P = require('../util/promise');
+var P = require('../../util/promise');
 var mocha = require('mocha');
 // var assert = require('assert');
 var coretest = require('./coretest');
@@ -13,9 +13,9 @@ mocha.describe('agent', function() {
     const SYS = 'test-agent-system';
     const EMAIL = SYS + '@coretest.coretest';
     const PASSWORD = 'tululu';
-    const ACCESS_KEYS = { 
-        access_key: 'ydaydayda', 
-        secret_key: 'blablabla' 
+    const ACCESS_KEYS = {
+        access_key: 'ydaydayda',
+        secret_key: 'blablabla'
     };
 
     mocha.it('should run agents', function() {

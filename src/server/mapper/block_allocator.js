@@ -9,10 +9,10 @@ var config = require('../../../config.js');
 var dbg = require('../../util/debug_module')(__filename);
 var nodes_store = require('../stores/nodes_store');
 
-module.exports = {
-    refresh_tiering_alloc: refresh_tiering_alloc,
-    allocate_node: allocate_node,
-};
+exports.refresh_tiering_alloc = refresh_tiering_alloc;
+exports.refresh_pool_alloc = refresh_pool_alloc;
+exports.allocate_node = allocate_node;
+exports.report_node_error = report_node_error;
 
 var alloc_group_by_pool = {};
 var alloc_group_by_pool_set = {};
@@ -48,9 +48,22 @@ function refresh_pool_alloc(pool) {
             heartbeat: {
                 $gt: nodes_store.get_minimum_alloc_heartbeat()
             },
-            'storage.free': {
-                $gt: config.NODES_FREE_SPACE_RESERVE
-            },
+            $or: [{
+                'storage.free': {
+                    $gt: config.NODES_FREE_SPACE_RESERVE
+                }
+            }, {
+                $and: [{
+                    'storage.free': {
+                        $gt: 0
+                    }
+                }, {
+                    'storage.limit': {
+                        $exists: true
+                    }
+                }]
+            }],
+
             deleted: null,
             srvmode: null,
         }, {
@@ -59,7 +72,7 @@ function refresh_pool_alloc(pool) {
                 // sorting with lowest used storage nodes first
                 'storage.used': 1
             },
-            limit: 100
+            limit: 1000
         }),
         nodes_store.aggregate_nodes_by_pool({
             system: pool.system._id,
@@ -69,7 +82,10 @@ function refresh_pool_alloc(pool) {
     ).spread((nodes, nodes_aggregate_pool) => {
         group.last_refresh = new Date();
         group.promise = null;
-        group.nodes = nodes;
+	// filter out nodes that exceeded the storage limit
+        group.nodes = _.filter(nodes, function(node) {
+            return _.isUndefined(node.storage.limit) || node.storage.limit > node.storage.used;
+        });
         group.aggregate = nodes_aggregate_pool[pool._id];
         dbg.log1('refresh_pool_alloc: updated pool', pool._id,
             'nodes', group.nodes, 'aggregate', group.aggregate);
@@ -131,9 +147,22 @@ function allocate_node(pools, avoid_nodes, content_tiering_params) {
     } else if (num_nodes < config.NODES_MIN_COUNT) {
         throw new Error('allocate_node: not enough online nodes in pool set ' + pool_set);
     }
-    for (var i = 0; i < num_nodes; ++i) {
-        var node = get_round_robin(alloc_group.nodes);
-        if (!_.includes(avoid_nodes, node._id.toString())) {
+
+    // allocate first tries from nodes with no error,
+    // but if non can be found then it will try to allocate from nodes with error.
+    // this allows pools with small number of nodes to overcome transient errors
+    // without failing to allocate.
+    // nodes with error that are indeed offline they will eventually
+    // be filtered by refresh_pool_alloc.
+    return allocate_from_list(alloc_group.nodes, avoid_nodes, false) ||
+        allocate_from_list(alloc_group.nodes, avoid_nodes, true);
+}
+
+function allocate_from_list(nodes, avoid_nodes, use_nodes_with_errors) {
+    for (var i = 0; i < nodes.length; ++i) {
+        var node = get_round_robin(nodes);
+        if (Boolean(use_nodes_with_errors) === Boolean(node.error_since_hb) &&
+            !_.includes(avoid_nodes, node._id.toString())) {
             dbg.log1('allocate_node: allocated node', node.name,
                 'avoid_nodes', avoid_nodes);
             return node;
@@ -145,4 +174,17 @@ function get_round_robin(nodes) {
     var rr = (nodes.rr || 0) % nodes.length;
     nodes.rr = rr + 1;
     return nodes[rr];
+}
+
+/**
+ * find the node in the memory groups and mark the error time
+ */
+function report_node_error(node_id) {
+    _.each(alloc_group_by_pool, (group, pool_id) => {
+        _.each(group.nodes, node => {
+            if (String(node._id) === String(node_id)) {
+                node.error_since_hb = new Date();
+            }
+        });
+    });
 }

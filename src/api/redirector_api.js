@@ -130,13 +130,24 @@ module.exports = {
                     additionalProperties: true,
                     properties: {}
                 },
+                redirect_buffer: {
+                    format: 'buffer'
+                },
             },
         },
 
         redirect_reply: {
             type: 'object',
-            additionalProperties: true,
-            properties: {}
+            properties: {
+                redirect_reply: {
+                    type: 'object',
+                    additionalProperties: true,
+                    properties: {}
+                },
+                redirect_buffer: {
+                    format: 'buffer'
+                },
+            }
         },
     }
 };

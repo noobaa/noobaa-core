@@ -63,7 +63,9 @@ function redirect(req) {
             .then(function(res) {
                 if (scatter_redirect) {
                     return {
-                        scatter_res: res,
+                        redirect_reply: {
+                            scatter_res: res,
+                        }
                     };
                 } else {
                     return res;
@@ -89,8 +91,8 @@ function redirect(req) {
                 .then(function(res) {
                     var reply = {};
                     _.each(res, function(r) {
-                        if (r.scatter_res) {
-                            reply = r.scatter_res;
+                        if (r.redirect_reply && r.redirect_reply.scatter_res) {
+                            reply = r.redirect_reply.scatter_res;
                             dbg.log3('Got back scatter response', reply);
                         }
                     });
@@ -101,7 +103,7 @@ function redirect(req) {
         if (scatter_redirect) {
             return {};
         } else {
-            throw new Error('Agent not registered ' + target_agent);
+            throw new Error('Agent not registered with ' + address + 'target:' + target_agent);
         }
     }
 }
@@ -225,7 +227,9 @@ function publish_to_cluster(req) {
         })
         .then(function(res) {
             return {
-                aggregated: res,
+                redirect_reply: {
+                    aggregated: res,
+                }
             };
         });
 }

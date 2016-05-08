@@ -5,12 +5,12 @@ import { deleteBucket } from'actions';
 
 const stateMapping = Object.freeze({
     true: {
-        toolTip: 'healthy',
+        toolTip: 'Healthy',
         icon: '/fe/assets/icons.svg#bucket-healthy'
     },
 
     false: {
-        toolTip: 'problem',
+        toolTip: 'Problem',
         icon: '/fe/assets/icons.svg#bucket-problam'
     }
 });

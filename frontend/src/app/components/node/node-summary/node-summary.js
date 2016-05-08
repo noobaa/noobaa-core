@@ -28,7 +28,7 @@ class NodeSummaryViewModel {
             extended_state = '. Not enough free space. Read-Only mode';
         }
         this.state = ko.pureComputed(
-            () => node().online ? 'Online' : 'Offline' + extended_state
+            () => node().online ? 'Online' + extended_state : 'Offline' + extended_state
         );
 
         this.heartbeat = ko.pureComputed(

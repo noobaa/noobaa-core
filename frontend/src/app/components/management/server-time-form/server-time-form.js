@@ -1,7 +1,8 @@
 import template from './server-time-form.html';
 import ko from 'knockout';
 import moment from 'moment';
-import { makeRange } from 'utils';
+import numeral from 'numeral';
+import { makeRange, toOwnKeyValuePair } from 'utils';
 import { systemInfo } from 'model';
 import timezones from './timezones';
 import { updateServerTime, updateServerNTP } from 'actions';
@@ -10,6 +11,12 @@ const configTypes =  Object.freeze([
     { label: 'Manual Time', value: 'MANUAL' },
     { label: 'Network Time (NTP)', value: 'NTP' }
 ]);
+
+function timezoneSearchSelector({ label }, input) {
+    return label.toLowerCase().split('/').some(
+        part => part.startsWith(input)
+    );
+}
 
 class ServerTimeFormViewModel {
     constructor() {
@@ -110,10 +117,10 @@ class ServerTimeFormViewModel {
                 }
             });
 
-        this.timezones = Object.keys(timezones).map(
-            name => ({ 
-                label: `${name.replace(/\_/g, ' ')} (GMT${timezones[name]})`, 
-                value: name
+        this.timezones = timezones.map(
+            ({ key, value }) => ({
+                label: `${key.replace(/\_/g, ' ')} (GMT${value})`,
+                value: key
             })
         );
 
@@ -133,6 +140,8 @@ class ServerTimeFormViewModel {
         this.ntpErrors = ko.validation.group({
             ntpServer: this.ntpServer
         });
+
+        this.timezoneSearchSelector = timezoneSearchSelector;
     }
 
     applyChanges() {

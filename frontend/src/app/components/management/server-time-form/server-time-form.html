@@ -21,7 +21,11 @@
     <!-- ko if: usingManualTime -->
     <section class="container">
         <editor params="label: 'Time Zone'">
-            <dropdown params="options: timezones, selected: timezone"></dropdown>
+            <dropdown params="
+                options: timezones, 
+                selected: timezone,
+                searchSelector: timezoneSearchSelector
+            "></dropdown>
         </editor>
 
         <editor params="label: 'Date', insertValMessages: false">

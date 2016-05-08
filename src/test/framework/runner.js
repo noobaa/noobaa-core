@@ -30,7 +30,41 @@ function TestRunner(argv) {
 /**************************
  *   Common Functionality
  **************************/
+TestRunner.prototype.wait_for_server_to_start = function(max_seconds_to_wait) {
+    var isNotListening = true;
+    var MAX_RETRIES = max_seconds_to_wait;
+    var wait_counter = 1;
+    //wait up to 10 seconds
+    return promise_utils.pwhile(
+            function() {
+                return isNotListening;
+            },
+            function() {
+                return P.ninvoke(request, 'get', {
+                    url: 'http://127.0.0.1:8080/',
+                    rejectUnauthorized: false,
+                }).spread(function(res, body) {
+                    console.log('server started after ' + wait_counter + ' seconds');
+                    isNotListening = false;
+                }, function(err) {
+                    console.log('waiting for server to start');
+                    wait_counter += 1;
+                    if (wait_counter >= MAX_RETRIES) {
+                        console.Error('Too many retries after restart server');
+                        throw new Error('Too many retries');
+                    }
+                    return P.delay(1000);
+                });
+                //one more delay for reconnection of other processes
+            }).delay(2000)
+        .then(function() {
+            return;
+        });
+};
+
 TestRunner.prototype.restore_db_defaults = function() {
+    var self = this;
+
     return promise_utils.promised_exec(
             'mongo nbcore /root/node_modules/noobaa-core/src/test/system_tests/mongodb_defaults.js')
         .fail(function(err) {
@@ -41,35 +75,7 @@ TestRunner.prototype.restore_db_defaults = function() {
             return promise_utils.promised_exec('supervisorctl restart webserver');
         })
         .then(function() {
-            var isNotListening = true;
-            var MAX_RETRIES = 10;
-            var wait_counter = 1;
-            //wait up to 10 seconds
-            return promise_utils.pwhile(
-                    function() {
-                        return isNotListening;
-                    },
-                    function() {
-                        return P.ninvoke(request, 'get', {
-                            url: 'http://127.0.0.1:8080/',
-                            rejectUnauthorized: false,
-                        }).spread(function(res, body) {
-                            console.log('server started after ' + wait_counter + ' seconds');
-                            isNotListening = false;
-                        }, function(err) {
-                            console.log('waiting for server to start');
-                            wait_counter += 1;
-                            if (wait_counter >= MAX_RETRIES) {
-                                console.Error('Too many retries after restart server');
-                                throw new Error('Too many retries');
-                            }
-                            return P.delay(1000);
-                        });
-                        //one more delay for reconnection of other processes
-                    }).delay(2000)
-                .then(function() {
-                    return;
-                });
+            return self.wait_for_server_to_start(30);
         })
         .fail(function(err) {
             console.log('Failed restarting webserver');
@@ -147,9 +153,16 @@ TestRunner.prototype.complete_run = function() {
             return self._restart_services(false);
         })
         .then(function() {
+            return self.wait_for_server_to_start(30);
+        })
+        .then(function() {
             console.log('Uploading results file');
             //Save package on current NooBaa system
             return ops.upload_file('127.0.0.1', dst, 'files', 'report_' + self._version + '.tgz');
+        })
+        .fail(function(err) {
+            console.log('Failed restarting webserver');
+            throw new Error('Failed restarting webserver');
         });
 };
 
@@ -312,7 +325,7 @@ TestRunner.prototype._write_coverage = function() {
         })
         .then(function(res) {
             //Add all recieved data to the collector
-            _.each(res.aggregated, function(r) {
+            _.each(res.redirect_reply.aggregated, function(r) {
                 if (r.data) {
                     var to_add = r.data;
                     collector.add(JSON.parse(to_add));

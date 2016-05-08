@@ -556,11 +556,12 @@ RPC.prototype._new_connection = function(addr_url) {
  */
 RPC.prototype._accept_new_connection = function(conn) {
     var self = this;
-    if (self._disconnected_state) {
-        throw new Error('RPC IN DISCONNECTED STATE');
-    }
     conn._sent_requests = {};
     conn._received_requests = {};
+    if (self._disconnected_state) {
+        conn.close();
+        throw new Error('RPC IN DISCONNECTED STATE - rejecting connection ' + conn.connid);
+    }
     conn.on('message', function(msg) {
         return self._connection_receive(conn, msg);
     });
@@ -771,8 +772,19 @@ RPC.prototype._redirect = function(api, method, params, options) {
         target: options.address,
         request_params: params
     };
+    //if we have buffer, add it as raw data.
+    if (method.params && method.params.export_buffers) {
+        req.redirect_buffer = method.params.export_buffers(params);
+    }
+
     dbg.log3('redirecting ', req);
-    return P.fcall(this._send_redirection, req);
+    return P.fcall(this._send_redirection, req)
+        .then(res => {
+            if (method.reply && method.reply.import_buffers) {
+                method.reply.import_buffers(res.redirect_reply, res.redirect_buffer);
+            }
+            return res.redirect_reply;
+        });
 };
 
 

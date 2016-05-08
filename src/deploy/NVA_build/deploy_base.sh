@@ -87,23 +87,10 @@ function install_repos {
 
 #npm install
 function setup_repos {
-	local runnpm=0
-	if [ "$1" == "runnpm" ]; then
-		runnpm=1
-	fi
-
 	deploy_log "setup_repos start"
 	cd ~
 	# Setup Repos
 	cp -f ${CORE_DIR}/src/deploy/NVA_build/env.orig ${CORE_DIR}/.env
-	cd ${CORE_DIR}
-	deploy_log "setup_repos before deleted npm install"
-
-	if [ ${runnpm} -eq 1 ]; then
-		deploy_log "setup_repos calling npm install"		+	deploy_log "setup_repos after deleted npm install"
-		$(npm install sse4_crc32 >> ${LOG_FILE})
-		$(npm install -dd >> ${LOG_FILE})
-	fi
 
 	deploy_log "setup_repos done"
 }
@@ -254,12 +241,16 @@ function fix_etc_issue {
 
 if [ "$1" == "runinstall" ]; then
 	deploy_log "Running with runinstall"
+	acp=$(alias | grep cp | wc -l)
+	if [ "${acp}" == "1" ]; then
+		unalias cp
+	fi
 	set -e
 	add_sudoers
 	build_node
 	install_aux
 	install_repos
-	setup_repos runnpm
+	setup_repos
 	install_mongo
 	setup_mongo
 	general_settings

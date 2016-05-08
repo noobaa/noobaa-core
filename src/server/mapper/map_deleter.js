@@ -9,9 +9,7 @@ var mongo_utils = require('../../util/mongo_utils');
 var dbg = require('../../util/debug_module')(__filename);
 
 
-module.exports = {
-    delete_object_mappings: delete_object_mappings
-};
+exports.delete_object_mappings = delete_object_mappings;
 
 
 /**

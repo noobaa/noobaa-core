@@ -145,10 +145,6 @@ class SystemStoreData {
         return id ? this.idmap[id.toString()] : null;
     }
 
-    get_local_cluster_info() {
-      return this['clusters']
-    }
-
     resolve_object_ids_paths(item, paths, allow_missing) {
         return mongo_utils.resolve_object_ids_paths(this.idmap, item, paths, allow_missing);
     }
@@ -528,8 +524,20 @@ class SystemStore extends EventEmitter {
         }
     }
 
+    get_local_cluster_info() {
+        console.warn('NBNB:: get_local_cluster_info this is');
+        let owner_secret = this.get_server_secret();
+        let reply;
+        _.each(this.data.clusters, function(cluster_info) {
+            if (cluster_info.owner_secret === owner_secret) {
+                reply = cluster_info;
+            }
+        });
+        return reply;
+    }
+
     get_server_secret() {
-      return this._server_secret;
+        return this._server_secret;
     }
 
 }

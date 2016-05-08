@@ -58,14 +58,14 @@ type package.json  | findstr /v forever-service | findstr /v istanbul | findstr 
 del /Q package.json
 rename package.json_s package.json
 copy ..\..\binding.gyp .
-nvm use 4.2.2 32
+nvm use 4.4.4 32
 call nvm list
 
 call npm install
 xcopy /Y/I/E .\build\Release .\build\Release-32
 
 del /q/s .\build\Release
-nvm use 4.2.2 64
+nvm use 4.4.4 64
 nvm list
 
 call .\node_modules\.bin\node-gyp --arch=x64 configure
@@ -75,10 +75,10 @@ rd /q/s .\node_modules\node-gyp
 
 xcopy /Y/I/E .\build\Release .\build\Release-64
 
-call curl -L https://nodejs.org/dist/v4.2.2/win-x86/node.exe > node-32.exe
-call curl -L https://nodejs.org/dist/v4.2.2/win-x64/node.exe > node-64.exe
-call curl -L https://indy.fulgan.com/SSL/openssl-1.0.2d-i386-win32.zip > openssl_32.zip
-call curl -L https://indy.fulgan.com/SSL/openssl-1.0.2d-x64_86-win64.zip > openssl_64.zip
+call curl -L https://nodejs.org/dist/v4.4.4/win-x86/node.exe > node-32.exe
+call curl -L https://nodejs.org/dist/v4.4.4/win-x64/node.exe > node-64.exe
+call curl -L https://indy.fulgan.com/SSL/openssl-1.0.2h-i386-win32.zip > openssl_32.zip
+call curl -L https://indy.fulgan.com/SSL/openssl-1.0.2h-x64_86-win64.zip > openssl_64.zip
 
 mkdir .\32
 mkdir .\64

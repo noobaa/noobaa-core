@@ -1,7 +1,8 @@
 import template from './server-time-form.html';
 import ko from 'knockout';
 import moment from 'moment';
-import { makeRange } from 'utils';
+import numeral from 'numeral';
+import { makeRange, toOwnKeyValuePair } from 'utils';
 import { systemInfo } from 'model';
 import timezones from './timezones';
 import { updateServerTime, updateServerNTP } from 'actions';
@@ -110,10 +111,10 @@ class ServerTimeFormViewModel {
                 }
             });
 
-        this.timezones = Object.keys(timezones).map(
-            name => ({ 
-                label: `${name.replace(/\_/g, ' ')} (GMT${timezones[name]})`, 
-                value: name
+        this.timezones = timezones.map(
+            ({ key, value }) => ({
+                label: `${key.replace(/\_/g, ' ')} (GMT${value})`,
+                value: key
             })
         );
 

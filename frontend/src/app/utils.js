@@ -296,3 +296,10 @@ export function shortString(str, maxLength = 25, suffixLengh = 5) {
         str.substr(-suffixLengh)
     }`;
 }
+
+export function toOwnKeyValuePair(obj) {
+    return Object.keys(obj)
+        .map(
+            key => ({ key: key, value: obj[key] })
+        );
+}

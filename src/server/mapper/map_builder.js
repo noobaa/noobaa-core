@@ -125,8 +125,6 @@ class MapBuilder {
                 block.system = chunk.system;
                 block.chunk = chunk;
                 alloc.block = block;
-                this.new_blocks = this.new_blocks || [];
-                this.new_blocks.push(block);
                 avoid_nodes.push(node._id.toString());
             });
         });
@@ -166,6 +164,8 @@ class MapBuilder {
                         address: target.address,
                     });
                 }).then(() => {
+                    this.new_blocks = this.new_blocks || [];
+                    this.new_blocks.push(block);
                     dbg.log1('MapBuilder.replicate_blocks: replicated block',
                         block._id, 'to', target.address, 'from', source.address);
                 }, err => {

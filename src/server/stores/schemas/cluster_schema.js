@@ -8,6 +8,9 @@ module.exports = {
         'cluster_id',
     ],
     properties: {
+        _id: {
+            format: 'objectid'
+        },
         owner_secret: {
             type: 'string'
         },

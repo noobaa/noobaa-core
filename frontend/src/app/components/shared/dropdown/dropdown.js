@@ -3,16 +3,29 @@ import { randomString } from 'utils';
 import ko from 'knockout';
 import { isDefined } from 'utils';
 
+const INPUT_THROTTLE = 1000;
+
+function defaultSearchSelector({ label }, input) {
+    return label.toLowerCase().startsWith(input);
+}
+
 class DropdownViewModel {
     constructor({ 
         selected = ko.observable(), 
         options = [], 
         placeholder = '', 
-        disabled = false 
+        disabled = false,
+        searchSelector = defaultSearchSelector
     }) {
         this.name = randomString(5);
         this.options = options;
         this.selected = selected;
+        this.selectedIndex = ko.pureComputed(
+            () => ko.unwrap(options).findIndex(
+                opt => opt.value === ko.unwrap(selected)
+            )
+        );
+
         this.disabled = disabled;
         this.focused = ko.observable(false);
 
@@ -33,6 +46,27 @@ class DropdownViewModel {
                     placeholder;
             }
         );
+
+        this.searchSelector = searchSelector;
+        this.searchInput = '';
+        this.lastInput = 0;
+    }
+
+    scrollTo({ which }) {
+        let char = String.fromCharCode(which).toLowerCase();
+        this.searchInput = Date.now() - this.lastInput <= INPUT_THROTTLE ?
+            this.searchInput + char : 
+            char;
+
+        let option = ko.unwrap(this.options).find(
+            option => this.searchSelector(option, this.searchInput)
+        );
+
+        if (option) {
+            this.selected(option.value);
+        }
+
+        this.lastInput = Date.now();
     }
 }
 

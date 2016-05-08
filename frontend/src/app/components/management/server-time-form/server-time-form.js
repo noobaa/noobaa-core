@@ -12,6 +12,12 @@ const configTypes =  Object.freeze([
     { label: 'Network Time (NTP)', value: 'NTP' }
 ]);
 
+function timezoneSearchSelector({ label }, input) {
+    return label.toLowerCase().split('/').some(
+        part => part.startsWith(input)
+    );
+}
+
 class ServerTimeFormViewModel {
     constructor() {
         this.expanded = ko.observable(false);
@@ -134,6 +140,8 @@ class ServerTimeFormViewModel {
         this.ntpErrors = ko.validation.group({
             ntpServer: this.ntpServer
         });
+
+        this.timezoneSearchSelector = timezoneSearchSelector;
     }
 
     applyChanges() {

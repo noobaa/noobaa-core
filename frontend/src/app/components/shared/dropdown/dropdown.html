@@ -7,11 +7,11 @@
 ">
     <svg-icon class="pull-right" params="uri: '/fe/assets/icons.svg#expand'"></svg-icon>
     
-    <output type="text" class="value" data-bind="
+    <div type="text" class="value" data-bind="
         value: selected, 
         text: selectedLabel,
-        css: { placeholder: typeof selected() === 'undefined' }
-    "></output>
+        css: { placeholder: selected() == null }
+    "></div>
 
     <div class="options" data-bind="
         visible: active(), 

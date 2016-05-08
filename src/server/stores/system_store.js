@@ -524,8 +524,7 @@ class SystemStore extends EventEmitter {
         }
     }
 
-    get_local_cluster_info() {
-        console.warn('NBNB:: get_local_cluster_info this is');
+    get_local_cluster_info() {        
         let owner_secret = this.get_server_secret();
         let reply;
         _.each(this.data.clusters, function(cluster_info) {

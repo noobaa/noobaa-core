@@ -14,6 +14,10 @@ let js_utils = require('../../util/js_utils');
 let config = require('../../../config.js');
 let Semaphore = require('../../util/semaphore');
 let dbg = require('../../util/debug_module')(__filename);
+var map_deleter = require('./map_deleter');
+var nodes_store = require('../stores/nodes_store');
+
+
 
 let replicate_block_sem = new Semaphore(config.REPLICATE_CONCURRENCY);
 
@@ -146,7 +150,7 @@ class MapBuilder {
                 f.next_source = f.next_source || 0;
                 let source_block = f.accessible_blocks[f.next_source];
                 //if no accessible_blocks - skip replication
-                if (!source_block){
+                if (!source_block) {
                     return;
                 }
                 f.next_source = (f.next_source + 1) % f.accessible_blocks.length;
@@ -217,6 +221,20 @@ class MapBuilder {
                     deleted: new Date()
                 }
             })),
+            //delete actual blocks from agents.
+            this.delete_blocks && this.delete_blocks.length &&
+            P.when(db.DataBlock.collection.find({
+                _id: {
+                    $in: mongo_utils.uniq_ids(this.delete_blocks, '_id')
+                }
+            }).toArray())
+            .then(blocks => nodes_store.populate_nodes_for_map(blocks, 'node'))
+            .then(deleted_blocks => {
+                //TODO: If the overload of these calls is too big, we should protect
+                //ourselves in a similar manner to the replication
+                var blocks_by_node = _.groupBy(deleted_blocks, block => block.node._id);
+                return P.all(_.map(blocks_by_node, map_deleter.agent_delete_call));
+            }),
 
             success_chunk_ids.length &&
             db.DataChunk.collection.updateMany({

@@ -207,6 +207,28 @@ function run_test() {
     let file_names = [];
     let expected_after_del = 0;
     return authenticate()
+        .then(() => {
+            let should_create_bucket = _.isUndefined(argv.target_bucket);
+            if (should_create_bucket) {
+                client.tier.create_tier({
+                        name: 'tier1',
+                        pools: ['default_pool'],
+                        data_placement: 'SPREAD'
+                    })
+                    .then(() =>
+                        client.tiering_policy.create_policy({
+                            name: 'tiering1',
+                            tiers: [{
+                                order: 0,
+                                tier: 'tier1'
+                            }]
+                        }))
+                    .then(() => client.bucket.create_bucket({
+                        name: 'target',
+                        tiering: 'tiering1',
+                    }));
+            }
+        })
         .then(() => P.all(_.map(file_sizes, ops.generate_random_file)))
         .then(function(res_file_names) {
             let i = 0;

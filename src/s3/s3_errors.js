@@ -1,6 +1,7 @@
 'use strict';
 
 let _ = require('lodash');
+let xml_utils = require('../util/xml_utils');
 
 class S3Error {
 
@@ -14,13 +15,14 @@ class S3Error {
     }
 
     reply(resource, request_id) {
-        return `<?xml version="1.0" encoding="UTF-8"?>
-<Error>
- <Code>${this.code}</Code>
- <Message>${this.message}</Message>
- <Resource>${resource || ''}</Resource>
- <RequestId>${request_id || ''}</RequestId>
-</Error>`;
+        return xml_utils.encode_xml({
+            Error:{
+                Code:this.code,
+                Message:this.message,
+                Resource:resource ||'',
+                RequestId: request_id||''
+            }
+        });
     }
 
 }

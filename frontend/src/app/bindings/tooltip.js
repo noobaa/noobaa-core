@@ -78,7 +78,11 @@ export default {
 
         ko.utils.domNodeDisposal.addDisposeCallback(
             target,
-            () => params.dispose()
+            () => {
+                clearTimeout(handle);
+                tooltip.parentElement && document.body.removeChild(tooltip);
+                params.dispose();
+            }
         );
     }
-}   
+}

@@ -10,6 +10,7 @@ var dbg = require('../../util/debug_module')(__filename);
 
 
 exports.delete_object_mappings = delete_object_mappings;
+exports.agent_delete_call = agent_delete_call;
 
 
 /**

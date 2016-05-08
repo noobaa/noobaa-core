@@ -1,10 +1,10 @@
 {
   "name": "noobaa-core",
-  "version": "0.4.4",
+  "version": "0.4.5",
   "private": true,
   "description": "noobaa-core ===========",
   "engines": {
-    "node": "4.2.2"
+    "node": "4.4.4"
   },
   "main": "index.js",
   "scripts": {

@@ -105,23 +105,23 @@ function pre_upgrade {
         deploy_log "$agent_conf not found."
     fi
 
-	#install nvm use v4.2.2
+	#install nvm use v4.4.4
 	rm -rf ~/.nvm
 	mkdir ~/.nvm
 	cp ${EXTRACTION_PATH}/noobaa-core/build/public/nvm.sh ~/.nvm/
 	chmod 777 ~/.nvm/nvm.sh
-	mkdir /tmp/v4.2.2
-	cp ${EXTRACTION_PATH}/noobaa-core/build/public/node-v4.2.2-linux-x64.tar.xz /tmp/
-	tar -xJf /tmp/node-v4.2.2-linux-x64.tar.xz -C /tmp/v4.2.2 --strip-components 1
-	mkdir -p ~/.nvm/versions/node/v4.2.2/
-	mv /tmp/v4.2.2/* ~/.nvm/versions/node/v4.2.2/
+	mkdir /tmp/v4.4.4
+	cp ${EXTRACTION_PATH}/noobaa-core/build/public/node-v4.4.4-linux-x64.tar.xz /tmp/
+	tar -xJf /tmp/node-v4.4.4-linux-x64.tar.xz -C /tmp/v4.4.4 --strip-components 1
+	mkdir -p ~/.nvm/versions/node/v4.4.4/
+	mv /tmp/v4.4.4/* ~/.nvm/versions/node/v4.4.4/
 	export NVM_DIR="$HOME/.nvm"
 	. "$NVM_DIR/nvm.sh"
-	export PATH=~/.nvm/versions/node/v4.2.2/bin:$PATH
+	export PATH=~/.nvm/versions/node/v4.4.4/bin:$PATH
 	rm -f /usr/local/bin/node
-	ln -s  ~/.nvm/versions/node/v4.2.2/bin/node /usr/local/bin/node
-	nvm alias default 4.2.2
-	nvm use 4.2.2
+	ln -s  ~/.nvm/versions/node/v4.4.4/bin/node /usr/local/bin/node
+	nvm alias default 4.4.4
+	nvm use 4.4.4
 
 }
 

@@ -39,13 +39,13 @@ function build_node {
 	#Install Node.js / NPM
 	cd /usr/src
 
-	#install nvm use v4.2.2
+	#install nvm use v4.4.4
   curl -o- https://raw.githubusercontent.com/creationix/nvm/v0.30.2/install.sh | bash
 	export NVM_DIR="$HOME/.nvm"
 	source /root/.nvm/nvm.sh
-	nvm install 4.2.2
-  nvm alias default 4.2.2
-	nvm use 4.2.2
+	nvm install 4.4.4
+  nvm alias default 4.4.4
+	nvm use 4.4.4
 	cd ~
 	deploy_log "build_node done"
 }

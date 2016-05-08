@@ -19,15 +19,11 @@ let TEST_CTX = {
     connection_name: 'test_connection',
     source_ip: '127.0.0.1',
     source_bucket: 'files',
-    target_ip: argv.target_ip,
-    target_port: argv.target_port,
+    target_ip: argv.target_ip || '127.0.0.1',
+    target_port: argv.target_port || process.env.PORT,
     target_bucket: argv.target_bucket || 'target'
 };
 
-if (!TEST_CTX.target_ip || !TEST_CTX.target_port) {
-    console.error('missing command line argument: target_ip or target_port');
-    process.exit(1);
-}
 
 
 var client = rpc.new_client({

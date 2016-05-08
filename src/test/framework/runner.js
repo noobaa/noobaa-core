@@ -75,7 +75,7 @@ TestRunner.prototype.restore_db_defaults = function() {
             return promise_utils.promised_exec('supervisorctl restart webserver');
         })
         .then(function() {
-            return self.wait_for_server_to_start(10);
+            return self.wait_for_server_to_start(30);
         })
         .fail(function(err) {
             console.log('Failed restarting webserver');
@@ -153,7 +153,7 @@ TestRunner.prototype.complete_run = function() {
             return self._restart_services(false);
         })
         .then(function() {
-            return self.wait_for_server_to_start(10);
+            return self.wait_for_server_to_start(30);
         })
         .then(function() {
             console.log('Uploading results file');

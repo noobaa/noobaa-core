@@ -49,7 +49,7 @@ function add_member_to_cluster(req) {
                         return srv.address === myip;
                     }) === -1) {
                     dbg.log0('Current server is the first on cluster and still has single mongo running, updating');
-                    return _add_new_shard_member('shard1', myip);
+                    return _add_new_shard_member('shard1', myip, true /*first_shard*/);
                 }
             } else {
                 return P.resolve();
@@ -168,35 +168,41 @@ function heartbeat(req) {
 //
 //Internals Cluster Control
 //
-function _add_new_shard_member(shardname, ip) {
-    dbg.log0('Adding shard, new topology', _get_topology());
+function _add_new_shard_member(shardname, ip, first_shard) {
+    // "chache" current topology until all changes take affect
+    let current_topology = _get_topology();
+    let topology_updates  = {};
+    dbg.log0('Adding shard, new topology', current_topology);
 
-    return P.when(MongoCtrl.add_new_shard_server(shardname))
+
+    return P.when(MongoCtrl.add_new_shard_server(shardname, first_shard))
         .then(function() {
             //TODO:: must find a better solution than enforcing 3 shards when all user
             //wanted was actually two, maybe setup a 3rd config on one of the replica sets servers
             //if exists
-            dbg.log('Checking current config servers set, currently contains', _get_topology().config_servers.length, 'servers');
-            if (_get_topology().config_servers.length === 3) { //Currently stay with a repset of 3 for config
+            dbg.log('Checking current config servers set, currently contains', current_topology.config_servers.length, 'servers');
+            if (current_topology.config_servers.length === 3) { //Currently stay with a repset of 3 for config
                 return MongoCtrl.add_new_mongos(_extract_servers_ip(
-                    _get_topology().config_servers
+                    current_topology.config_servers
                 ));
             } else { // < 3 since we don't add once we reach 3
-                var updated_cfg = _get_topology().config_servers;
+                var updated_cfg = current_topology.config_servers;
                 updated_cfg.push({
                     address: ip
                 });
-                _update_cluster_info({
-                    config_servers: updated_cfg
-                });
+                topology_updates.config_servers = updated_cfg;
+
                 //TODO:: NBNB need to call _add_new_config
                 //we don't simply add a new config, we need to initiate and create the replicas set for config
                 return P.when(MongoCtrl.add_new_config())
                     .then(function() {
+                        return _update_cluster_info(topology_updates);
+                    })
+                    .then(function() {
                         dbg.log0('Added', ip, 'as a config server publish to cluster');
                         return _publish_to_cluster('news_config_servers', {
-                            IPs: _get_topology().config_servers,
-                            cluster_id: _get_topology().cluster_id
+                            IPs: updated_cfg,
+                            cluster_id: current_topology.cluster_id
                         });
                     });
             }

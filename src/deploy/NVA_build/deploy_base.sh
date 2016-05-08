@@ -134,7 +134,7 @@ function setup_makensis {
 
 function install_mongo {
 	deploy_log "install_mongo start"
-	mkdir -p /var/lib/mongo/cluster/
+	mkdir -p /var/lib/mongo/cluster/shard1
 	# create a Mongo 3.2 Repo file
 	cp -f ${CORE_DIR}/src/deploy/NVA_build/mongo.repo /etc/yum.repos.d/mongodb-org-3.2.repo
 
@@ -145,13 +145,6 @@ function install_mongo {
 	echo "exclude=mongodb-org,mongodb-org-server,mongodb-org-shell,mongodb-org-mongos,mongodb-org-tools" >> /etc/yum.conf
 	rm -f /etc/init.d/mongod
 	deploy_log "install_mongo done"
-}
-
-function setup_mongo {
-	deploy_log "setup_mongo start"
-	mkdir -p /data
-	mkdir -p /data/db
-	deploy_log "setup_mongo done"
 }
 
 function general_settings {
@@ -261,7 +254,6 @@ if [ "$1" == "runinstall" ]; then
 	install_repos
 	setup_repos runnpm
 	install_mongo
-	setup_mongo
 	general_settings
 	setup_supervisors
 	setup_syslog

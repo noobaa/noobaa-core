@@ -30,10 +30,10 @@ MongoCtrl.prototype.add_replica_set_member = function(name) {
         .then(() => SupervisorCtl.apply_changes());
 };
 
-MongoCtrl.prototype.add_new_shard_server = function(name) {
+MongoCtrl.prototype.add_new_shard_server = function(name, first_shard) {
     let self = this;
     return self._remove_single_mongo()
-        .then(() => self._add_new_shard_supervisor(name))
+        .then(() => self._add_new_shard_supervisor(name, first_shard))
         .then(() => SupervisorCtl.apply_changes());
 };
 
@@ -93,7 +93,7 @@ MongoCtrl.prototype._add_replica_set_member_supervisor = function(name) {
         .then(() => SupervisorCtl.add_program(program_obj));
 };
 
-MongoCtrl.prototype._add_new_shard_supervisor = function(name) {
+MongoCtrl.prototype._add_new_shard_supervisor = function(name, first_shard) {
     if (!name) {
         throw new Error('port and name must be supplied to add new shard');
     }
@@ -101,7 +101,7 @@ MongoCtrl.prototype._add_new_shard_supervisor = function(name) {
     var program_obj = {};
     let dbpath = config.MONGO_DEFAULTS.COMMON_PATH + '/' + name;
     program_obj.name = 'mongoshard-' + name;
-    program_obj.command = 'mongod --configsvr ' +
+    program_obj.command = 'mongod ' +
         ' --port ' + config.MONGO_DEFAULTS.SHARD_SRV_PORT +
         ' --dbpath ' + dbpath;
     program_obj.directory = '/usr/bin';
@@ -109,8 +109,13 @@ MongoCtrl.prototype._add_new_shard_supervisor = function(name) {
     program_obj.autostart = 'true';
     program_obj.priority = '1';
 
-    return fs_utils.create_fresh_path(dbpath)
-        .then(() => SupervisorCtl.add_program(program_obj));
+    if (first_shard) { //If shard1 (this means this is the first servers which will be the base of the cluster)
+                        //use the original server`s data (i.e. dbpath/shard1)
+        return SupervisorCtl.add_program(program_obj);
+    } else {
+        return fs_utils.create_fresh_path(dbpath)
+            .then(() => SupervisorCtl.add_program(program_obj));
+    }
 };
 
 MongoCtrl.prototype._add_new_mongos_supervisor = function(cfg_array) {

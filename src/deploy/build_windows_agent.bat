@@ -58,6 +58,7 @@ type package.json  | findstr /v forever-service | findstr /v istanbul | findstr 
 del /Q package.json
 rename package.json_s package.json
 copy ..\..\binding.gyp .
+nvm install 4.4.4 32
 nvm use 4.4.4 32
 call nvm list
 
@@ -65,6 +66,7 @@ call npm install
 xcopy /Y/I/E .\build\Release .\build\Release-32
 
 del /q/s .\build\Release
+nvm install 4.4.4 64
 nvm use 4.4.4 64
 nvm list
 

@@ -342,7 +342,7 @@ AgentCLI.prototype.create_node_helper = function(current_node_path_info, interna
 
     return P.fcall(function() {
         var current_node_path = current_node_path_info.mount;
-        var node_name = internal_node_name || os.hostname() + '-' + uuid();
+        var node_name = internal_node_name || os.hostname() + '-' + uuid().split('-')[0];
         var path_modification = current_node_path.replace('/agent_storage/', '').replace('/', '').replace('.', '');
         //windows
         path_modification = path_modification.replace('\\agent_storage\\', '');

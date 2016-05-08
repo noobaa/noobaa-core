@@ -5,23 +5,29 @@ var P = require('../../util/promise');
 var api = require('../../api');
 var argv = require('minimist')(process.argv);
 var _ = require('lodash');
+var dotenv = require('dotenv');
+dotenv.load();
 
 argv.ip = argv.ip || '127.0.0.1';
 argv.access_key = argv.access_key || '123';
 argv.secret_key = argv.secret_key || 'abc';
 var rpc = api.new_rpc();
 var client = rpc.new_client({
-    address: 'ws://' + argv.ip + ':5001'
+    address: 'ws://' + argv.ip + ':' + process.env.PORT
 });
+
+module.exports = {
+    run_test: run_test
+};
 
 // Does the Auth and returns the nodes in the system
 function get_nodes_auth() {
+    var auth_params = {
+        email: 'demo@noobaa.com',
+        password: 'DeMo',
+        system: 'demo'
+    };
     return P.fcall(function() {
-            var auth_params = {
-                email: 'demo@noobaa.com',
-                password: 'DeMo',
-                system: 'demo'
-            };
             return client.create_auth_token(auth_params);
         })
         .then(function() {
@@ -33,14 +39,15 @@ function get_nodes_auth() {
         });
 }
 
-function main() {
+function run_test() {
     // Used in order to get the nodes of the system
     var sys_nodes;
     // Used in order to get the key of the file
     var fkey = null;
 
     // Starting the test chain
-    get_nodes_auth().then(function(res) {
+    return get_nodes_auth()
+        .then(function(res) {
             sys_nodes = res;
             if (sys_nodes.total_count < 6) {
                 return P.reject("Not Enough Nodes For 2 Pools");
@@ -77,7 +84,12 @@ function main() {
             fkey = fl;
             return basic_server_ops.upload_file(argv.ip, fkey, 'bucket1', fkey);
         })
-        .delay(60000).then(() => {
+        .delay(3000)
+        .fail(function(err) {
+            console.log('Failed uploading file (SPREAD)', err);
+            throw new Error('Failed uploading file (SPREAD) ' + err);
+        })
+        .then(() => {
             return client.object.read_object_mappings({
                 bucket: 'bucket1',
                 key: fkey,
@@ -102,7 +114,12 @@ function main() {
             fkey = fl;
             return basic_server_ops.upload_file(argv.ip, fkey, 'bucket1', fkey);
         })
-        .delay(60000).then(() => {
+        .delay(3000)
+        .fail(function(err) {
+            console.log('Failed uploading file (MIRROR)', err);
+            throw new Error('Failed uploading file (MIRROR) ' + err);
+        })
+        .then(() => {
             return client.object.read_object_mappings({
                 bucket: 'bucket1',
                 key: fkey,
@@ -125,9 +142,25 @@ function main() {
                 if (pool1_count !== 3 && pool2_count !== 3)
                     throw new Error("MIRROR NOT CORRECT!");
             });
+            rpc.disconnect_all();
             return P.resolve("Test Passed! Everything Seems To Be Fine...");
         })
-        .then(console.log, console.error).done();
+        .catch(err => {
+            console.error('test_files_spread FAILED: ', err.stack || err);
+            rpc.disconnect_all();
+            throw new Error('test_files_spread FAILED: ', err);
+        })
+        .then(console.log, console.error);
+}
+
+function main() {
+    return run_test()
+        .then(function() {
+            process.exit(0);
+        })
+        .fail(function(err) {
+            process.exit(1);
+        });
 }
 
 if (require.main === module) {

@@ -1,4 +1,16 @@
 install-node-wizard {
+    .modal-content {
+        width: 45em;
+    }
+
+    .step {
+        height: 22em;
+    }
+
+    .option-desc {
+        margin-top: .5em;
+    }
+
     .configure-step {
         .addr-type {
             line-height: 2em;
@@ -10,19 +22,7 @@ install-node-wizard {
         }
     }
 
-    .download-step {
-        padding-top: 4em;
-
-        .download-btn {
-            margin: .5em;
-            width: 11em;
-        }        
-
-    }
-
-    .run-step {
-        word-break: break-all;
-
+    .install-step {
         .copy-btn {
             padding-right: 0;
             padding-left: .5em;
@@ -30,12 +30,13 @@ install-node-wizard {
         }
 
         output {
+            word-break: break-all;
             display: block;
         }
     }
 
     .review-step {
-        padding-top: 2em;
+        padding-top: 1.5em;
 
         .remark {
             display: block;

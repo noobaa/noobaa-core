@@ -1,76 +1,79 @@
 import ko from 'knockout';
 
 // Hold the current ui state.
-export let uiState = ko.observable({
+export const uiState = ko.observable({
     layout: 'empty'
 });
 
 // Hold a refresh counter that allows view models to act when it
 // changes.
-export let refreshCounter = ko.observable(0);
+export const refreshCounter = ko.observable(0);
 
 // Hold the current route context.
-export let routeContext = ko.observable();
+export const routeContext = ko.observable();
 
 // Hold login state information.
-export let loginInfo = ko.observable({
+export const loginInfo = ko.observable({
     retryCount: 0
 });
 
 // Hold current session information.
-export let sessionInfo = ko.observable();
+export const sessionInfo = ko.observable();
 
 // Hold the state of the server.
-export let serverInfo = ko.observable();
+export const serverInfo = ko.observable();
 
 // Hold current system information.
-export let systemInfo = ko.observable();
+export const systemInfo = ko.observable();
 
 // Hold summary information on the current system.
-export let systemSummary = ko.observable();
+export const systemSummary = ko.observable();
 
 // Hold agent installation information.
-export let agentInstallationInfo = ko.observable();
+export const agentInstallationInfo = ko.observable();
 
 // Hold the current bucket list. deriv`ed` from system info.
-export let bucketList = ko.observableArray(); 
+export const bucketList = ko.observableArray(); 
 bucketList.sortedBy = ko.observable('name')
 bucketList.order = ko.observable(1);
 
 // Hold the current bucket info.
-export let bucketInfo = ko.observable();
+export const bucketInfo = ko.observable();
 
 // Hold the current bucket object list.
-export let bucketObjectList = ko.observableArray();
+export const bucketObjectList = ko.observableArray();
 bucketObjectList.count = ko.observable(0);
 bucketObjectList.sortedBy = ko.observable('name');
 bucketObjectList.order = ko.observable(1);
 bucketObjectList.filter = ko.observable();
 bucketObjectList.page = ko.observable(0);
 
+// Hold the current bucket S3 access permissions.
+export const bucketS3ACL = ko.observableArray();
+
 // Hold the current tier information.
-export let tierInfo = ko.observable();
+export const tierInfo = ko.observable();
 
 // Hold the current cloud sync information.
-export let cloudSyncInfo = ko.observable();
-export let awsCredentialsList = ko.observableArray();
-
-export let awsBucketList = ko.observableArray();
-awsBucketList.credentials = ko.observable();
+export const cloudSyncInfo = ko.observable();
+export const S3Connections = ko.observableArray();
+export const S3BucketList = ko.observableArray();
+export const isS3ConnectionValid = ko.observable(true)
+    .extend({ notify: 'always' });
 
 // Hold the current pool list. derived from system info.
-export let poolList = ko.observableArray();
+export const poolList = ko.observableArray();
 poolList.sortedBy = ko.observable('name');
 poolList.order = ko.observable(1);
 
 // Hold the current pool info.
-export let poolInfo = ko.observable();
+export const poolInfo = ko.observable();
 
 // Hold a list of all the nodes in the system.
-export let nodeList = ko.observableArray(null);
+export const nodeList = ko.observableArray(null);
 
 // Hold the current pool node list.
-export let poolNodeList = ko.observableArray();
+export const poolNodeList = ko.observableArray();
 poolNodeList.count = ko.observable(0);
 poolNodeList.sortedBy = ko.observable('name');
 poolNodeList.order = ko.observable(1);
@@ -79,39 +82,44 @@ poolNodeList.page = ko.observable(0);
 
 
 // Hold the current node info.
-export let nodeInfo = ko.observable();
+export const nodeInfo = ko.observable();
 
 // Hold the parts that are stored on the curr node.
-export let nodeStoredPartList = ko.observableArray();
+export const nodeStoredPartList = ko.observableArray();
 nodeStoredPartList.page = ko.observable(0);
 nodeStoredPartList.count = ko.observable(0);
 
 // Hold the current node info.
-export let objectInfo = ko.observable();
+export const objectInfo = ko.observable();
 
 // Hold the parts of the curr object.
-export let objectPartList = ko.observableArray();
+export const objectPartList = ko.observableArray();
 objectPartList.count = ko.observable(0);
 objectPartList.page = ko.observable(0);
 
 // Hold the recent uploads.
-export let recentUploads = ko.observableArray();
+export const recentUploads = ko.observableArray();
 
 // Hold the audit log 
-export let auditLog = ko.observableArray();
+export const auditLog = ko.observableArray();
 auditLog.loadedCategories = ko.observableArray();
 
 // Hold the current account list
-export let accountList = ko.observableArray();
+export const accountList = ko.observableArray();
+
+// Hold current account information.
+export const accountInfo = ko.observable();
+
+export const accountS3ACL = ko.observableArray();
 
 // Hold node test information.
-export let nodeTestInfo = ko.observable();
+export const nodeTestInfo = ko.observable();
 
 // hold system upgrade status.
-export let upgradeStatus = ko.observable();
+export const upgradeStatus = ko.observable();
 
 // Hold debug collection info.
-export let debugCollectionInfo = ko.observable();
+export const debugCollectionInfo = ko.observable();
 
 // Hold the last notifiction.
-export let lastNotification = ko.observable();
+export const lastNotification = ko.observable();

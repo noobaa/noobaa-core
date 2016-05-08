@@ -23,7 +23,7 @@ var dbg = require('../util/debug_module')(__filename);
 var agents_address_map = new Map();
 var cluster_connections = new Set();
 
-var CLUSTER_TOPOLOGY;
+var CLUSTER_TOPOLOGY = {};
 var CLUSTER_TOPOLOGY_FILE = '/etc/noobaa_cluster';
 
 /*
@@ -63,7 +63,9 @@ function redirect(req) {
             .then(function(res) {
                 if (scatter_redirect) {
                     return {
-                        scatter_res: res,
+                        redirect_reply: {
+                            scatter_res: res,
+                        }
                     };
                 } else {
                     return res;
@@ -89,8 +91,8 @@ function redirect(req) {
                 .then(function(res) {
                     var reply = {};
                     _.each(res, function(r) {
-                        if (r.scatter_res) {
-                            reply = r.scatter_res;
+                        if (r.redirect_reply && r.redirect_reply.scatter_res) {
+                            reply = r.redirect_reply.scatter_res;
                             dbg.log3('Got back scatter response', reply);
                         }
                     });
@@ -101,7 +103,7 @@ function redirect(req) {
         if (scatter_redirect) {
             return {};
         } else {
-            throw new Error('Agent not registered ' + target_agent);
+            throw new Error('Agent not registered with ' + address + 'target:' + target_agent);
         }
     }
 }
@@ -218,8 +220,16 @@ function publish_to_cluster(req) {
     addresses = _.uniq(addresses);
     dbg.log0('publish_to_cluster:', addresses);
     return P.map(addresses, function(address) {
-        return server_rpc.client[api_name][method](req.rpc_params.request_params, {
-            address: address
+            return server_rpc.client[api_name][method](req.rpc_params.request_params, {
+                address: address,
+                auth_token: req.auth_token,
+            });
+        })
+        .then(function(res) {
+            return {
+                redirect_reply: {
+                    aggregated: res,
+                }
+            };
         });
-    }).return({});
 }

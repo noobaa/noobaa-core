@@ -6,13 +6,13 @@ import { signIn } from 'actions';
 class SignInFormViewModel {
     constructor() {
         this.email = ko.observable()
-            .extend({ 
+            .extend({
                 required: { message: 'Please enter an email address' },
-                email: { message: 'Please enter a proper email address' }
+                email: { message: 'Please enter a valid email address' }
             });
-        
+
         this.password = ko.observable()
-            .extend({ 
+            .extend({
                 required: { message: 'Please enter a password' }
             });
 
@@ -23,7 +23,7 @@ class SignInFormViewModel {
         this.isDirty = ko.observable(false);
 
         this.showInvalidMessage = ko.pureComputed(
-            () => !this.isDirty() && retryCount() > 0 
+            () => !this.isDirty() && retryCount() > 0
         );
 
         let temp = this.temp = ko.observable(0);
@@ -33,7 +33,7 @@ class SignInFormViewModel {
                 return retryCount() > temp()
             },
             write: val => val === false && temp(retryCount())
-        });        
+        });
 
         this.errors = ko.validation.group(this);
     }
@@ -41,7 +41,7 @@ class SignInFormViewModel {
     signIn() {
         if (this.errors().length === 0) {
             this.isDirty(false);
-            signIn(this.email(), this.password(), uiState().returnUrl);    
+            signIn(this.email(), this.password(), uiState().returnUrl);
 
         } else {
             this.errors.showAllMessages();

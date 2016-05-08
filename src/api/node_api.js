@@ -101,6 +101,9 @@ module.exports = {
                     limit: {
                         type: 'integer'
                     },
+                    adminfo: {
+                        type: 'boolean'
+                    }
                 }
             },
             reply: {
@@ -130,6 +133,9 @@ module.exports = {
                                 }
                             }
                         }
+                    },
+                    total_count: {
+                        type: 'number'
                     }
                 }
             },
@@ -328,6 +334,12 @@ module.exports = {
                     debug_level: {
                         type: 'integer',
                     },
+                    cloud_pool_name: {
+                        type: 'string'
+                    },
+                    is_internal_agent: {
+                        type: 'boolean'
+                    }
                 }
             },
             reply: {
@@ -383,10 +395,10 @@ module.exports = {
         redirect: {
             method: 'POST',
             params: {
-                $ref: '#/definitions/signal_params'
+                $ref: 'redirector_api#/definitions/redirect_params'
             },
             reply: {
-                $ref: '#/definitions/signal_reply'
+                $ref: 'redirector_api#/definitions/redirect_reply'
             },
             auth: {
                 system: false
@@ -429,12 +441,15 @@ module.exports = {
             method: 'POST',
             params: {
                 type: 'object',
-                required: ['target'],
+                required: ['target', 'level'],
                 properties: {
                     target: {
                         type: 'string',
+                    },
+                    level: {
+                        type: 'integer',
                     }
-                }
+                },
             },
             auth: {
                 system: 'admin',
@@ -487,7 +502,30 @@ module.exports = {
             auth: {
                 system: 'admin',
             }
-        }
+        },
+
+        report_node_block_error: {
+            method: 'POST',
+            params: {
+                type: 'object',
+                required: [
+                    'action',
+                    'block_md'
+                ],
+                properties: {
+                    action: {
+                        type: 'string',
+                        enum: ['write', 'read'],
+                    },
+                    block_md: {
+                        $ref: 'agent_api#/definitions/block_md'
+                    },
+                },
+            },
+            auth: {
+                system: ['admin', 'user', 'agent']
+            }
+        },
 
     },
 
@@ -509,6 +547,9 @@ module.exports = {
                 },
                 srvmode: {
                     $ref: '#/definitions/srvmode'
+                },
+                cloud_pool_name: {
+                    type: 'string'
                 }
             }
         },
@@ -607,6 +648,9 @@ module.exports = {
                 target: {
                     type: 'string'
                 },
+                //Passing params to the actual API done via
+                //request_params: {
+                //}
             },
         },
 

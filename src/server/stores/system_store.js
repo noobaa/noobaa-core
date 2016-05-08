@@ -6,7 +6,7 @@ let util = require('util');
 let Ajv = require('ajv');
 let EventEmitter = require('events').EventEmitter;
 let mongodb = require('mongodb');
-let mongo_client = require('./mongo_client');
+let mongo_client = require('../utils/mongo_client');
 let mongo_utils = require('../../util/mongo_utils');
 let js_utils = require('../../util/js_utils');
 let time_utils = require('../../util/time_utils');
@@ -147,6 +147,7 @@ class SystemStoreData {
         this.rebuild_idmap();
         this.rebuild_object_links();
         this.rebuild_indexes();
+        this.rebuild_allowed_buckets_links();
     }
 
     rebuild_idmap() {
@@ -194,6 +195,20 @@ class SystemStoreData {
                     }
                 }
             });
+        });
+    }
+
+    rebuild_allowed_buckets_links() {
+        _.each(this.accounts, (account) => {
+            // filter only the buckets that were resolved to existing buckets
+            // this is to handle deletions of buckets that currently do not
+            // update all the accounts.
+            if (account.allowed_buckets) {
+                account.allowed_buckets = _.filter(
+                    account.allowed_buckets, 
+                    bucket => !!bucket._id
+                );
+            }
         });
     }
 
@@ -351,6 +366,9 @@ class SystemStore extends EventEmitter {
                     .then(res => dbg.log0('SystemStore indexes of',
                         collection, _.map(res, 'name')))
                 ));
+            })
+            .then(null, function(err) {
+                console.warn('ignoring error in _init_db:', err);
             });
         return this._init_db_promise;
     }
@@ -369,6 +387,10 @@ class SystemStore extends EventEmitter {
 
     generate_id() {
         return new mongodb.ObjectId();
+    }
+
+    has_same_id(obj1, obj2) {
+        return String(obj1._id) === String(obj2._id);
     }
 
     /**

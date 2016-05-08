@@ -4,18 +4,6 @@
     </h1>
 
     <section class="container box">
-        <editor params="label: 'AWS Access Key'">
-            <span class="emphasized" data-bind="text: accessKey"></span>
-        </editor>
-
-        <editor params="label: 'Target S3 Bucket'">
-            <span class="emphasized" data-bind="text: awsBucket"></span>
-        </editor>
-
-        <editor params="label: 'NooBaa Bucket'">
-            <span class="emphasized" data-bind="text: bucketName"></span>
-        </editor>
-
         <editor params="label: 'Sync Status'">
             <span class="emphasized" data-bind="
                 css: syncStatus().css,
@@ -23,11 +11,27 @@
             "></span>
         </editor>
 
-        <editor params="label: 'Sync Frequency'">
+        <editor params="label: 'Source Bucket'">
+            <span class="emphasized" data-bind="text: sourceBucket"></span>
+        </editor>
+
+        <editor params="label: 'Target Endpoint'">
+            <span class="emphasized" data-bind="text: targetEndpoint"></span>
+        </editor>
+
+        <editor params="label: 'Target Access Key'">
+            <span class="emphasized" data-bind="text: targetAccessKey"></span>
+        </editor>
+
+        <editor params="label: 'Target Bucket'">
+            <span class="emphasized" data-bind="text: targetBucket"></span>
+        </editor>
+
+        <editor params="label: 'Frequency'">
             <span class="emphasized" data-bind="text: syncFrequency"></span>
         </editor>
 
-        <editor params="label: 'Sync Direction'">
+        <editor params="label: 'Direction'">
             <span class="emphasized" data-bind="text: syncDirection"></span>
         </editor>
 

@@ -20,11 +20,11 @@ checkbox {
 
         &[disabled] {
             ~ .checkbox-box {
-                background-position-x: -2 * @size;    
+                background-position-x: -2 * @size;
             }
 
             &:checked ~ .checkbox-box {
-                background-position-x: -3 * @size;            
+                background-position-x: -3 * @size;
             }
 
             ~ .checkbox-label {
@@ -37,7 +37,7 @@ checkbox {
         }
 
         &:focus + .checkbox-box{
-            outline: @outline;
+            .focused(-2px);
         }
     }
 

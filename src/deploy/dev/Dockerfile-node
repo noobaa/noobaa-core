@@ -1,0 +1,35 @@
+FROM node:4
+
+# replace default linux shell with bash
+RUN mv /bin/sh /bin/sh.original && ln -s /bin/bash /bin/sh
+
+# declare build arguments
+ARG USER_NAME=noobaa
+
+# create a new user (useradd is the non interactive mode of adduser)
+RUN useradd -ms /bin/bash ${USER_NAME}
+
+# create a target folder for the project sources
+RUN mkdir -p /home/${USER_NAME}/core
+
+# change the working dir of the image to the project
+WORKDIR /home/${USER_NAME}/core
+
+# copy all the files of the build context to the project
+COPY . .
+
+# since COPY/ADD always use the root credentials, he have to RUN separate chown
+# see https://github.com/docker/docker/issues/6119
+RUN chown -R ${USER_NAME} .
+
+# switch to use the new user
+# this is because many commands like npm and bower do not allow to run as root
+USER ${USER_NAME}
+
+# install dependencies
+RUN npm install --quiet --ignore-scripts
+
+# build native extensions
+RUN ./node_modules/.bin/node-gyp rebuild
+
+CMD bash

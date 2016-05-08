@@ -20,7 +20,7 @@ mkdir build\windows
 cd build\windows
 mkdir .\ssl\
 echo "copy files"
-copy ..\..\images\noobaa_icon24.ico .
+copy ..\..\frontend\src\assets\noobaa_icon24.ico .
 copy ..\..\src\deploy\7za.exe .
 copy ..\..\src\deploy\openssl.cnf  .\ssl\
 copy ..\..\src\deploy\wget.exe  .
@@ -53,7 +53,7 @@ sed -i 's/%current_version_line%/\"version\": \"%current_package_version%-%GIT_C
 
 REM
 REM remove irrelevant packages
-type package.json  | findstr /v forever-service | findstr /v babel-preset | findstr /v mongoose | findstr /v heapdump | findstr /v selectize | findstr /v jsonwebtoken | findstr /v forever | findstr /v eslint | findstr /v googleapis | findstr /v gulp | findstr /v bower | findstr /v bootstrap | findstr /v browserify | findstr /v rebuild | findstr /v eslint| findstr /v nodetime| findstr /v newrelic > package.json_s
+type package.json  | findstr /v forever-service | findstr /v istanbul | findstr /v babel-preset | findstr /v mongoose | findstr /v heapdump | findstr /v selectize | findstr /v jsonwebtoken | findstr /v forever | findstr /v eslint | findstr /v googleapis | findstr /v gulp | findstr /v bower | findstr /v bootstrap | findstr /v browserify | findstr /v rebuild | findstr /v eslint| findstr /v nodetime| findstr /v newrelic > package.json_s
 
 del /Q package.json
 rename package.json_s package.json
@@ -70,6 +70,8 @@ nvm list
 
 call .\node_modules\.bin\node-gyp --arch=x64 configure
 call .\node_modules\.bin\node-gyp --arch=x64 build
+
+rd /q/s .\node_modules\node-gyp
 
 xcopy /Y/I/E .\build\Release .\build\Release-64
 

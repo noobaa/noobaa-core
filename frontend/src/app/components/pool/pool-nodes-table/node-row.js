@@ -1,5 +1,5 @@
 import ko from 'knockout';
-import { formatSize,avarageArrayValues } from 'utils';
+import { formatSize, avgOp, dblEncode } from 'utils';
 
 export default class NodeRowViewModel {
     constructor(node) {
@@ -21,20 +21,30 @@ export default class NodeRowViewModel {
             () => node() && node().name
         );
 
-        this.diskRead = ko.pureComputed(
-            () => node() && (avarageArrayValues(node().latency_of_disk_read)).toFixed(1) + ' ms'
+        let diskRead = ko.pureComputed(
+            () => node() && node().latency_of_disk_read
+                .reduce(avgOp)
+                .toFixed(1)
         );
 
-        this.diskWrite = ko.pureComputed(
-            () => node() && (avarageArrayValues(node().latency_of_disk_write)).toFixed(1) + ' ms'
+        let diskWrite = ko.pureComputed(
+            () => node() && node().latency_of_disk_write
+                .reduce(avgOp)
+                .toFixed(1)
+        );
+
+        this.diskReadWrite = ko.pureComputed(
+            () => node() && `${diskRead()}/${diskWrite()} ms`
         );
 
         this.RTT = ko.pureComputed(
-            () => node() && (avarageArrayValues(node().latency_to_server)).toFixed(1) + ' ms'
+            () => node() && `${node().latency_to_server.reduce(avgOp).toFixed(1)} ms`
         );
 
         this.href = ko.pureComputed(
-            () => node() && `/fe/systems/:system/pools/:pool/nodes/${node().name}`
+            () => node() && `/fe/systems/:system/pools/:pool/nodes/${
+                dblEncode(node().name)
+            }`
         );
 
         this.ip = ko.pureComputed(

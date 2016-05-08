@@ -1,7 +1,7 @@
 import template from './node-summary.html';
 import ko from 'knockout';
 import moment from 'moment';
-import { raiseNodeDebugLevel, downloadDiagnosticPack } from 'actions';
+import { raiseNodeDebugLevel, downloadNodeDiagnosticPack } from 'actions';
 import { formatSize } from 'utils';
 import style from 'style';
 
@@ -28,7 +28,7 @@ class NodeSummaryViewModel {
             extended_state = '. Not enough free space. Read-Only mode';
         }
         this.state = ko.pureComputed(
-            () => node().online ? 'Online' : 'Offline' + extended_state
+            () => node().online ? 'Online' + extended_state : 'Offline' + extended_state
         );
 
         this.heartbeat = ko.pureComputed(
@@ -100,7 +100,7 @@ class NodeSummaryViewModel {
     }
 
     downloadDiagnosticPack() {
-        downloadDiagnosticPack(this.name());
+        downloadNodeDiagnosticPack(this.name());
     }
 }
 

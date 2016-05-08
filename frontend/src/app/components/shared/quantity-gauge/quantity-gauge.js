@@ -19,7 +19,6 @@ class CapacityGaugeViewModel {
         this.canvasWidth = canvasWidth;
         this.canvasHeight = canvasHeight;
         this.values = values;
-        console.log('valuessss:'+JSON.stringify(values));
         this.tweened = values.map(
             ({ value }) => ko.pureComputed(
                 () => ko.unwrap(value)

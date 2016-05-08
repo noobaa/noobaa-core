@@ -1,6 +1,6 @@
 dropdown {
     position: relative;
-    min-width: 7em;
+    width: 20em;
     display: inline-block;
     cursor: @cursor-pointer;
     vertical-align: middle;
@@ -10,6 +10,7 @@ dropdown {
     .dropdown-wrapper {
         vertical-align: middle;
         fill: @text-color4;
+        width: inherit;
 
         &:focus {
             fill: @text-color2;
@@ -36,10 +37,15 @@ dropdown {
 
     .value {
         border-bottom: 1px solid @bg-color7;
-        padding: 1px 0;
-        padding-right: 3em;
+        padding: 1px 2px;
+        padding-right: 2em;
         line-height: 1.4;
         color: @text-color2;
+        width: 100%;
+
+        &.invalid {
+            border-color: @red-mid;
+        }
     }
 
     .value, .option-label {
@@ -63,17 +69,19 @@ dropdown {
     }
 
     .options {
-        position: absolute;
-        width: 100%;
+        position: fixed;
+        width: inherit;
         background-color: @bg-color5;
         padding: .25em;
         margin-top: -2px;
         z-index: 1;
         box-shadow: 1px 1px 1px @bg-color2;
 
+
         > ul {
             min-height: 2em;
             max-height: 17em;
+            padding-right: .25em;
             overflow-y: auto;
         }
     }

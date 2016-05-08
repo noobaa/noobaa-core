@@ -18,7 +18,7 @@ module.exports = {
             method: 'POST',
             params: {
                 type: 'object',
-                required: ['name', 'email', 'password'],
+                required: ['name', 'email', 'password', 'access_keys'],
                 properties: {
                     name: {
                         type: 'string',
@@ -28,6 +28,23 @@ module.exports = {
                     },
                     password: {
                         type: 'string',
+                    },
+                    access_keys: {
+                        type: 'object',
+                        properties: {
+                            access_key: {
+                                type: 'string'
+                            },
+                            secret_key: {
+                                type: 'string'
+                            }
+                        }
+                    },
+                    allowed_buckets: {
+                        type: 'array',
+                        items: {
+                            type: 'string',
+                        }
                     },
                 },
             },
@@ -49,6 +66,15 @@ module.exports = {
         read_account: {
             doc: 'Read the info of the authorized account',
             method: 'GET',
+            params: {
+                type: 'object',
+                required: ['email'],
+                properties: {
+                    email: {
+                        type: 'string'
+                    }
+                }
+            },
             reply: {
                 $ref: '#/definitions/account_info'
             },
@@ -80,6 +106,68 @@ module.exports = {
             },
             auth: {
                 system: false
+            }
+        },
+
+        generate_account_keys: {
+            doc: 'Generate new account keys',
+            method: 'PUT',
+            params: {
+                type: 'object',
+                required: ['email'],
+                properties: {
+                    email: {
+                        type: 'string',
+                    }
+                },
+            },
+            reply: {
+                type: 'array',
+                items: {
+                    $ref: 'system_api#/definitions/access_keys'
+                }
+            },
+            auth: {
+                system: 'admin'
+            }
+        },
+
+        list_account_s3_acl: {
+            method: 'GET',
+            params: {
+                type: 'object',
+                required: ['email'],
+                properties: {
+                    email: {
+                        type: 'string',
+                    },
+                }
+            },
+            reply: {
+                $ref: '#/definitions/account_acl'
+            },
+            auth: {
+                system: 'admin'
+            }
+        },
+
+        update_account_s3_acl: {
+            doc: 'Update bucket access permissions',
+            method: 'PUT',
+            params: {
+                type: 'object',
+                required: ['email', 'access_control'],
+                properties: {
+                    email: {
+                        type: 'string',
+                    },
+                    access_control: {
+                        $ref: '#/definitions/account_acl'
+                    },
+                },
+            },
+            auth: {
+                system: 'admin'
             }
         },
 
@@ -142,16 +230,19 @@ module.exports = {
             method: 'PUT',
             params: {
                 type: 'object',
-                // required: [],
+                required: ['name', 'access_key', 'secret_key', 'endpoint'],
                 properties: {
-                    access_key: {
-                        type: 'string',
-                    },
-                    secret_key: {
-                        type: 'string',
+                    name: {
+                        type: 'string'
                     },
                     endpoint: {
-                        type: 'string',
+                        type: 'string'
+                    },
+                    access_key: {
+                        type: 'string'
+                    },
+                    secret_key: {
+                        type: 'string'
                     }
                 }
             },
@@ -167,15 +258,15 @@ module.exports = {
                 items: {
                     type: 'object',
                     properties: {
-                        access_key: {
-                            type: 'string',
-                        },
-                        secret_key: {
-                            type: 'string',
+                        name: {
+                            type: 'string'
                         },
                         endpoint: {
-                            type: 'string',
+                            type: 'string'
                         },
+                        access_key: {
+                            type: 'string'
+                        }
                     }
                 }
             },
@@ -184,11 +275,35 @@ module.exports = {
             }
         },
 
+        check_account_sync_credentials: {
+            method: 'GET',
+            params: {
+                type: 'object',
+                required: ['access_key', 'secret_key', 'endpoint'],
+                properties: {
+                    endpoint: {
+                        type: 'string'
+                    },
+                    access_key: {
+                        type: 'string'
+                    },
+
+                    secret_key: {
+                        type: 'string'
+                    }
+                }
+            },
+            reply: {
+                type: 'boolean'
+            },
+            auth: {
+                system: 'admin'
+            }
+        }
     },
 
 
     definitions: {
-
         account_info: {
             type: 'object',
             required: ['name', 'email'],
@@ -201,6 +316,15 @@ module.exports = {
                 },
                 is_support: {
                     type: 'boolean',
+                },
+                access_keys: {
+                    type: 'array',
+                    items: {
+                        $ref: 'system_api#/definitions/access_keys'
+                    }
+                },
+                has_s3_access: {
+                    type: 'boolean'
                 },
                 systems: {
                     type: 'array',
@@ -222,8 +346,29 @@ module.exports = {
                     }
                 }
             },
+        },
+
+        account_acl: {
+            anyOf: [
+                {
+                    type: 'null'
+                },
+                {
+                    type: 'array',
+                    items: {
+                        type: 'object',
+                        required: ['bucket_name', 'is_allowed'],
+                        properties: {
+                            bucket_name: {
+                                type: 'string'
+                            },
+                            is_allowed: {
+                                type: 'boolean'
+                            }
+                        }
+                    }
+                }
+            ]
         }
-
     }
-
 };

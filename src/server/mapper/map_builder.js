@@ -39,6 +39,7 @@ class MapBuilder {
             .then(() => P.join(
                 system_store.refresh(),
                 md_store.load_blocks_for_chunks(this.chunks),
+                md_store.load_parts_objects_for_chunks(this.chunks),
                 this.mark_building()
             ))
             .then(() => this.analyze_chunks())
@@ -76,7 +77,7 @@ class MapBuilder {
         _.each(this.chunks, chunk => {
             let bucket = system_store.data.get_by_id(chunk.bucket);
             map_utils.set_chunk_frags_from_blocks(chunk, chunk.blocks);
-            chunk.status = map_utils.get_chunk_status(chunk, bucket.tiering);
+            chunk.status = map_utils.get_chunk_status(chunk, bucket.tiering, /*ignore_cloud_pools=*/ false);
             // only delete blocks if the chunk is in good shape,
             // that is no allocations needed, and is accessible.
             if (chunk.status.accessible &&
@@ -109,7 +110,11 @@ class MapBuilder {
                     'digest_type',
                     'digest_b64');
                 block._id = md_store.make_md_id();
-                let node = block_allocator.allocate_node(alloc.pools, avoid_nodes);
+                // We send an additional flag in order to allocate
+                // replicas of content tiering feature on the best read latency nodes
+                let node = block_allocator.allocate_node(alloc.pools, avoid_nodes, {
+                    special_replica: true
+                });
                 if (!node) {
                     dbg.error('MapBuilder: no nodes for allocation');
                     chunk.had_errors = true;
@@ -142,6 +147,10 @@ class MapBuilder {
                     _.filter(f.blocks, block => map_utils.is_block_accessible(block, now));
                 f.next_source = f.next_source || 0;
                 let source_block = f.accessible_blocks[f.next_source];
+                //if no accessible_blocks - skip replication
+                if (!source_block){
+                    return;
+                }
                 f.next_source = (f.next_source + 1) % f.accessible_blocks.length;
 
                 let target = map_utils.get_block_md(block);
@@ -181,6 +190,11 @@ class MapBuilder {
             _.reject(this.chunks, 'had_errors'), '_id');
         let failed_chunk_ids = mongo_utils.uniq_ids(
             _.filter(this.chunks, 'had_errors'), '_id');
+
+        let unset_special_chunk_ids = mongo_utils.uniq_ids(
+            _.filter(this.chunks, chunk => chunk.special_replica && !chunk.is_special), '_id');
+        let set_special_chunk_ids = mongo_utils.uniq_ids(
+            _.filter(this.chunks, chunk => chunk.is_special && chunk.is_special !== chunk.special_replica), '_id');
 
         dbg.log1('MapBuilder.update_db:',
             'chunks', this.chunks.length,
@@ -227,10 +241,32 @@ class MapBuilder {
                 $unset: {
                     building: true
                 }
+            }),
+
+            set_special_chunk_ids.length &&
+            db.DataChunk.collection.updateMany({
+                _id: {
+                    $in: set_special_chunk_ids
+                }
+            }, {
+                $set: {
+                    special_replica: true,
+                }
+            }),
+
+            unset_special_chunk_ids.length &&
+            db.DataChunk.collection.updateMany({
+                _id: {
+                    $in: unset_special_chunk_ids
+                }
+            }, {
+                $unset: {
+                    special_replica: true,
+                }
             })
         );
     }
 }
 
 
-module.exports = MapBuilder;
+exports.MapBuilder = MapBuilder;

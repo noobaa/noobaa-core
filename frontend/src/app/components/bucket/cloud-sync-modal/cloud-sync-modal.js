@@ -16,22 +16,26 @@ const syncStatusMapping = Object.freeze({
 
 class CloudSyncModalViewModel {
     constructor({ bucketName, onClose }) {
-        this.bucketName = bucketName;
+        this.sourceBucket = bucketName;
         this.onClose = onClose;
-
-        let policy = ko.pureComputed(
-            () => cloudSyncInfo() && cloudSyncInfo().policy
-        );
 
         this.syncStatus = ko.pureComputed(
             () => syncStatusMapping[cloudSyncInfo() && cloudSyncInfo().status]
         );
 
-        this.accessKey = ko.pureComputed(
-            () => policy() && policy().access_keys[0].access_key
+        this.targetEndpoint = ko.pureComputed(
+            () => cloudSyncInfo() && cloudSyncInfo().endpoint
         );
 
-        this.awsBucket = ko.pureComputed(
+        this.targetAccessKey = ko.pureComputed(
+            () => cloudSyncInfo() && cloudSyncInfo().access_key
+        );
+
+        let policy = ko.pureComputed(
+            () => cloudSyncInfo() && cloudSyncInfo().policy
+        );
+
+        this.targetBucket = ko.pureComputed(
             () => policy() && policy().target_bucket
         );
 
@@ -47,8 +51,8 @@ class CloudSyncModalViewModel {
 
                 let { n2c_enabled, c2n_enabled } = policy();
                 return n2c_enabled ?
-                    (c2n_enabled ? 'Bi-Direcitonal' : 'AWS to NooBaa') :
-                    'NooBaa to AWS';
+                    (c2n_enabled ? 'Bi-Direcitonal' : 'Source to Target') :
+                    'Target to Source';
             }
         );
 
@@ -56,11 +60,11 @@ class CloudSyncModalViewModel {
             () => policy() && !policy().additions_only
         );
 
-        loadCloudSyncInfo(ko.unwrap(bucketName));
+        loadCloudSyncInfo(ko.unwrap(this.sourceBucket));
     }
 
     removePolicy() {
-        removeCloudSyncPolicy(ko.unwrap(this.bucketName));
+        removeCloudSyncPolicy(ko.unwrap(this.sourceBucket));
         this.onClose();
     }
 

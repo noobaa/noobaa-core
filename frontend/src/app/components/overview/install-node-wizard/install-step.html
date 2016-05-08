@@ -1,0 +1,41 @@
+<section class="container">
+    <h2 class="heading3"/>Start your installation process</h2>
+
+    <radio-group params="
+        options: installationTargetOptions,
+        selected: installationTarget,
+    "></radio-group>
+</section>
+<section class="container">
+    <!-- ko if: commandSelector() === 'NETWORK_WINDOWS' -->
+    <p>Open Powershell to a target machine and run the following command</p>
+    <!-- /ko -->
+
+    <!-- ko if: commandSelector() === 'NETWORK_LINUX' -->
+    <p>Open a linux shell to a target  machine and run the following command</p>
+    <!-- /ko -->
+
+    <!-- ko if: commandSelector() === 'LOCAL_WINDOWS' -->
+    <p>Download the Windows installation package and copy it to the target machine.</p>
+    <a class="btn3" download data-bind="href: packageUrl">Download Windows Package</a>
+    <p>Open a CMD window on target machine and run the following command (you must have admin privileges)</p>
+    <!-- /ko -->
+
+    <!-- ko if: commandSelector() === 'LOCAL_LINUX' -->
+    <p>Download the Linux installation package and copy it to the target machine.</p>
+    <a class="btn3" download data-bind="href: packageUrl">Download Linux Package</a>
+    <p>Run the following command on target machine shell (you must have root privileges)</p>
+    <!-- /ko -->
+
+    <div class="box" >
+        <button class="copy-btn btn-flat pull-right" data-bind="
+            tooltip: 'Copy to Clipboard',
+            click: () => copyInstallCommand()
+        ">
+
+            <svg-icon class="icon-small" params="uri: '/fe/assets/icons.svg#copy'"></svg-icon>
+        </button>
+        
+        <output class="text-tech" data-bind="text: selectedInstallCommand"></output>
+    </div>
+</section>

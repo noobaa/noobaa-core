@@ -52,7 +52,7 @@ else
         mkdir ./ssl/
         echo "copy files"
         cp ../../binding.gyp .
-        cp ../../images/noobaa_icon24.ico .
+        cp ../../frontend/src/assets/noobaa_icon24.ico .
         cp ../../src/deploy/7za.exe .
         cp ../../src/deploy/wget.exe  .
         curl -L http://nodejs.org/dist/v0.10.33/openssl-cli.exe > openssl.exe

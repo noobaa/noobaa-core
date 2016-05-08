@@ -52,7 +52,11 @@ function background_worker() {
                         return;
                     }
                     should_update_time = true;
-                    return update_work_list(policy);
+                    return update_work_list(policy)
+                        .fail(function(error) {
+                            dbg.error('update_work_list failed for policy:', policy);
+                            return;
+                        });
                 }
             }));
         })
@@ -124,12 +128,12 @@ function get_policy_status(req) {
 }
 
 function refresh_policy(req) {
-    dbg.log2('refresh policy', req.rpc_params.bucketid, req.rpc_params.sysid, req.rpc_params.force_stop);
+    dbg.log2('refresh policy', req.rpc_params);
     var policy = _.find(CLOUD_SYNC.configured_policies, function(p) {
         return (p.system._id.toString() === req.rpc_params.sysid &&
             p.bucket._id.toString() === req.rpc_params.bucketid.toString());
     });
-    if (!policy && !req.rpc_params.bucket_deleted) {
+    if (!policy && !req.rpc_params.skip_load) {
         dbg.log0('policy not found, loading it');
         return system_store.refresh().then(function() {
             load_single_policy(system_store.data.get_by_id(req.rpc_params.bucketid));
@@ -386,8 +390,8 @@ function load_single_policy(bucket) {
         endpoint: 'http://127.0.0.1',
         s3ForcePathStyle: true,
         sslEnabled: false,
-        accessKeyId: policy.system.access_keys[0].access_key,
-        secretAccessKey: policy.system.access_keys[0].secret_key,
+        accessKeyId: policy.system.owner.access_keys[0].access_key,
+        secretAccessKey: policy.system.owner.access_keys[0].secret_key,
         maxRedirects: 10,
     });
 

@@ -23,13 +23,16 @@
 #ifndef __UTP_TYPES_H__
 #define __UTP_TYPES_H__
 
-#ifdef __GNUC__
+// Allow libutp consumers or prerequisites to override PACKED_ATTRIBUTE
+#ifndef PACKED_ATTRIBUTE
+#if defined BROKEN_GCC_STRUCTURE_PACKING && defined __GNUC__
 	// Used for gcc tool chains accepting but not supporting pragma pack
 	// See http://gcc.gnu.org/onlinedocs/gcc/Type-Attributes.html
 	#define PACKED_ATTRIBUTE __attribute__((__packed__))
 #else
 	#define PACKED_ATTRIBUTE
-#endif
+#endif // defined BROKEN_GCC_STRUCTURE_PACKING && defined __GNUC__
+#endif // ndef PACKED_ATTRIBUTE
 
 #ifdef __GNUC__
 	#define ALIGNED_ATTRIBUTE(x)  __attribute__((aligned (x)))
@@ -61,8 +64,8 @@
 	#endif
 #endif
 
-// see uv-win.h from libuv
-#ifdef WIN32 && !defined(_SSIZE_T_) && !defined(_SSIZE_T_DEFINED)
+// GUYM MOD - see uv-win.h from libuv
+#if defined(WIN32) && !defined(_SSIZE_T_) && !defined(_SSIZE_T_DEFINED)
 	typedef intptr_t ssize_t;
 	# define _SSIZE_T_
 	# define _SSIZE_T_DEFINED
@@ -78,11 +81,13 @@
 	#define I64u "%Lu"
 #endif
 
-// snprintf is already defined with visual studio c++ 14.00 (2015)
+// GUYM MOD - snprintf is already defined with visual studio c++ 14.00 (2015)
 #if defined(_MSC_VER) && _MSC_VER < 1400
 	#define snprintf _snprintf
 #endif
 
+
+// GUYM MOD - use stdint.h instead of own defs
 #include <stdint.h>
 typedef uint8_t byte;
 typedef uint8_t uint8;

@@ -268,6 +268,15 @@ module.exports = {
 
         start_debug: {
             method: 'POST',
+            params: {
+                type: 'object',
+                required: ['level'],
+                properties: {
+                    level: {
+                        type: 'integer',
+                    },
+                },
+            },
             auth: {
                 system: 'admin',
             }
@@ -307,6 +316,16 @@ module.exports = {
 
         update_system_certificate: {
             method: 'POST',
+            auth: {
+                system: 'admin',
+            }
+        },
+
+        update_time_config: {
+            method: 'POST',
+            params: {
+                $ref: '#/definitions/time_config'
+            },
             auth: {
                 system: 'admin',
             }
@@ -356,7 +375,7 @@ module.exports = {
                 'nodes',
                 'buckets',
                 'objects',
-                'access_keys'
+                'owner',
             ],
             properties: {
                 name: {
@@ -367,6 +386,9 @@ module.exports = {
                     items: {
                         $ref: '#/definitions/role_info'
                     }
+                },
+                owner: {
+                    $ref: 'account_api#/definitions/account_info'
                 },
                 tiers: {
                     type: 'array',
@@ -395,12 +417,12 @@ module.exports = {
                 objects: {
                     type: 'integer'
                 },
-                access_keys: {
+                /*access_keys: {
                     type: 'array',
                     items: {
                         $ref: '#/definitions/access_keys'
                     }
-                },
+                },*/
                 ssl_port: {
                     type: 'string'
                 },
@@ -436,6 +458,23 @@ module.exports = {
                 version: {
                     type: 'string'
                 },
+                time_config: {
+                    type: 'object',
+                    properties: {
+                        srv_time: {
+                            type: 'string'
+                        },
+                        ntp_server: {
+                            type: 'string'
+                        },
+                        synced: {
+                            type: 'boolean'
+                        },
+                        timezone: {
+                            type: 'string'
+                        },
+                    }
+                }
             }
         },
 
@@ -490,7 +529,6 @@ module.exports = {
             properties: {
                 access_key: {
                     type: 'string',
-
                 },
                 secret_key: {
                     type: 'string',
@@ -509,7 +547,30 @@ module.exports = {
                     type: 'integer'
                 }
             }
-        }
+        },
 
+        time_config: {
+            type: 'object',
+            required: ['config_type', 'timezone'],
+            properties: {
+                config_type: {
+                    $ref: '#/definitions/time_config_type'
+                },
+                timezone: {
+                    type: 'string'
+                },
+                server: {
+                    type: 'string'
+                },
+                epoch: {
+                    type: 'number'
+                },
+            },
+        },
+
+        time_config_type: {
+            enum: ['NTP', 'MANUAL'],
+            type: 'string',
+        }
     }
 };

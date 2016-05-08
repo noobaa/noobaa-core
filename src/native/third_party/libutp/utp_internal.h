@@ -129,6 +129,7 @@ struct struct_utp_context {
 	struct_utp_context();
 	~struct_utp_context();
 
+	// GUYM MOD - inlined should_log
 	inline bool should_log(int level) {
 		switch (level) {
 			case UTP_LOG_NORMAL:	if (!log_normal) return false;

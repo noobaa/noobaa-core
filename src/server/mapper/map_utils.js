@@ -9,29 +9,47 @@ var dbg = require('../../util/debug_module')(__filename);
 var system_store = require('../stores/system_store');
 var nodes_store = require('../stores/nodes_store');
 
-module.exports = {
-    get_chunk_status: get_chunk_status,
-    set_chunk_frags_from_blocks: set_chunk_frags_from_blocks,
-    get_missing_frags_in_chunk: get_missing_frags_in_chunk,
-    is_block_good: is_block_good,
-    is_block_accessible: is_block_accessible,
-    is_chunk_good: is_chunk_good,
-    is_chunk_accessible: is_chunk_accessible,
-    get_part_info: get_part_info,
-    get_chunk_info: get_chunk_info,
-    get_frag_info: get_frag_info,
-    get_block_info: get_block_info,
-    get_block_md: get_block_md,
-    get_frag_key: get_frag_key,
-    sanitize_object_range: sanitize_object_range,
-    find_consecutive_parts: find_consecutive_parts,
-    block_access_sort: block_access_sort,
-};
+exports.get_chunk_status = get_chunk_status;
+exports.set_chunk_frags_from_blocks = set_chunk_frags_from_blocks;
+exports.get_missing_frags_in_chunk = get_missing_frags_in_chunk;
+exports.is_block_good = is_block_good;
+exports.is_block_accessible = is_block_accessible;
+exports.is_chunk_good = is_chunk_good;
+exports.is_chunk_accessible = is_chunk_accessible;
+exports.get_part_info = get_part_info;
+exports.get_chunk_info = get_chunk_info;
+exports.get_frag_info = get_frag_info;
+exports.get_block_info = get_block_info;
+exports.get_block_md = get_block_md;
+exports.get_frag_key = get_frag_key;
+exports.sanitize_object_range = sanitize_object_range;
+exports.find_consecutive_parts = find_consecutive_parts;
+exports.block_access_sort = block_access_sort;
+exports.analyze_special_chunks = analyze_special_chunks;
 
 const EMPTY_CONST_ARRAY = Object.freeze([]);
+const SPECIAL_CHUNK_CONTENT_TYPES = ['video/mp4', 'video/webm'];
+const SPECIAL_CHUNK_REPLICA_MULTIPLIER = 2;
 
+function analyze_special_chunks(chunks, parts, objects) {
+    _.forEach(chunks, chunk => {
+        chunk.is_special = false;
+        var tmp_parts = _.filter(parts, part => String(part.chunk) === String(chunk._id));
+        var tmp_objects = _.filter(objects, obj => _.find(tmp_parts, part => String(part.obj) === String(obj._id)));
+        _.forEach(tmp_objects, obj => {
+            if (_.includes(SPECIAL_CHUNK_CONTENT_TYPES, obj.content_type)) {
+                let obj_parts = _.filter(tmp_parts, part => String(part.obj) === String(obj._id));
+                _.forEach(obj_parts, part => {
+                    if (part.start === 0 || part.end === obj.size) {
+                        chunk.is_special = true;
+                    }
+                });
+            }
+        });
+    });
+}
 
-function get_chunk_status(chunk, tiering) {
+function get_chunk_status(chunk, tiering, ignore_cloud_pools) {
     // TODO handle multi-tiering
     if (tiering.tiers.length !== 1) {
         throw new Error('analyze_chunk: ' +
@@ -39,8 +57,14 @@ function get_chunk_status(chunk, tiering) {
             tiering.tiers.length);
     }
     const tier = tiering.tiers[0].tier;
-    const tier_pools_by_id = _.keyBy(tier.pools, '_id');
-    const replicas = tier.replicas;
+    // when allocating blocks for upload we want to ignore cloud_pools
+    // so the client is not blocked until all blocks are uploded to the cloud.
+    // on build_chunks flow we will not ignore cloud pools.
+    const participating_pools = ignore_cloud_pools ?
+        _.filter(tier.pools, pool => _.isUndefined(pool.cloud_pool_info)) :
+        tier.pools;
+    const tier_pools_by_id = _.keyBy(participating_pools, '_id');
+    var replicas = chunk.is_special ? tier.replicas * SPECIAL_CHUNK_REPLICA_MULTIPLIER : tier.replicas;
     const now = Date.now();
 
     let missing_frags = get_missing_frags_in_chunk(chunk, tier);
@@ -53,15 +77,19 @@ function get_chunk_status(chunk, tiering) {
     let deletions = [];
     let chunk_accessible = true;
 
-
     function check_blocks_group(blocks, alloc) {
+        let required_replicas = replicas;
+        if (alloc && alloc.pools && alloc.pools[0].cloud_pool_info) {
+            // for cloud_pools we only need one replica
+            required_replicas = 1;
+        }
         let num_good = 0;
         let num_accessible = 0;
         _.each(blocks, block => {
             if (is_block_accessible(block, now)) {
                 num_accessible += 1;
             }
-            if (num_good < replicas &&
+            if (num_good < required_replicas &&
                 is_block_good(block, now, tier_pools_by_id)) {
                 num_good += 1;
             } else {
@@ -69,7 +97,7 @@ function get_chunk_status(chunk, tiering) {
             }
         });
         if (alloc) {
-            let num_missing = Math.max(0, replicas - num_good);
+            let num_missing = Math.max(0, required_replicas - num_good);
             _.times(num_missing, () => allocations.push(_.clone(alloc)));
         }
         return num_accessible;
@@ -84,7 +112,7 @@ function get_chunk_status(chunk, tiering) {
 
         if (tier.data_placement === 'MIRROR') {
             let blocks_by_pool = _.groupBy(blocks, block => block.node.pool);
-            _.each(tier.pools, pool => {
+            _.each(participating_pools, pool => {
                 num_accessible += check_blocks_group(blocks_by_pool[pool._id], {
                     pools: [pool],
                     fragment: f
@@ -94,10 +122,21 @@ function get_chunk_status(chunk, tiering) {
             _.each(blocks_by_pool, blocks => check_blocks_group(blocks, null));
 
         } else { // SPREAD
+            let pools_partitions = _.partition(participating_pools, pool => _.isUndefined(pool.cloud_pool_info));
             num_accessible += check_blocks_group(blocks, {
-                pools: tier.pools,
+                pools: pools_partitions[0], // only spread data on regular pools, and not cloud_pools
                 fragment: f
             });
+            if (pools_partitions[1].length > 0) {
+                let blocks_by_pool = _.groupBy(blocks, block => block.node.pool);
+                //now mirror to cloud_pools:
+                _.each(pools_partitions[1], cloud_pool => {
+                    num_accessible += check_blocks_group(blocks_by_pool[cloud_pool._id], {
+                        pools: [cloud_pool],
+                        fragment: f
+                    });
+                });
+            }
         }
 
         if (!num_accessible) {
@@ -158,11 +197,19 @@ function is_block_good(block, now, tier_pools_by_id) {
     if (!tier_pools_by_id[block.node.pool]) {
         return false;
     }
+
+
     // detect nodes that are full in terms of free space policy
     // to be deleted once they are not needed as source
-    if (block.node.storage.free <= config.NODES_FREE_SPACE_RESERVE) {
+    if (block.node.storage.limit) {
+        if (block.node.storage.limit <= block.node.storage.used) {
+            return false;
+        }
+    } else if (block.node.storage.free <= config.NODES_FREE_SPACE_RESERVE) {
         return false;
     }
+
+
     return true;
 }
 
@@ -273,7 +320,7 @@ function get_block_md(block) {
 }
 
 function get_frag_key(f) {
-    return f.layer + '-' + f.frag;
+    return f.layer + f.frag;
 }
 
 // sanitizing start & end: we want them to be integers, positive, up to obj.size.

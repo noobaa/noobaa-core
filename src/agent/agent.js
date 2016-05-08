@@ -59,11 +59,21 @@ function Agent(params) {
     self.node_name = params.node_name;
     self.token = params.token;
     self.storage_path = params.storage_path;
+    if (params.storage_limit) {
+        self.storage_limit = params.storage_limit;
+    }
+
+    self.is_internal_agent = params.is_internal_agent;
 
     if (self.storage_path) {
         assert(!self.token, 'unexpected param: token. ' +
             'with storage_path the token is expected in the file <storage_path>/token');
-        self.store = new AgentStore(self.storage_path);
+        if (_.isUndefined(params.cloud_info)) {
+            self.store = new AgentStore(self.storage_path, params.storage_limit);
+        } else {
+            self.cloud_info = params.cloud_info;
+            self.store = new AgentStore.CloudStore(self.storage_path, self.cloud_info);
+        }
         self.store_cache = new LRUCache({
             name: 'AgentBlocksCache',
             max_usage: 200 * 1024 * 1024, // 200 MB
@@ -217,7 +227,6 @@ Agent.prototype._init_node = function() {
         })
         .then(function(storage_path_mount) {
             self.storage_path_mount = storage_path_mount;
-            dbg.log0('storage_path_mount', storage_path_mount);
 
             // if not using storage_path, a token should be provided
             if (!self.storage_path) return self.token;
@@ -350,7 +359,8 @@ Agent.prototype._do_heartbeat = function() {
     var store_stats;
     var extended_hb = false;
     var ip = ip_module.address();
-    var EXTENDED_HB_PERIOD = 3600000;
+    // extended HB every 10 minutes
+    var EXTENDED_HB_PERIOD = 600000;
     // var EXTENDED_HB_PERIOD = 1000;
     if (!self.extended_hb_last_time ||
         Date.now() > self.extended_hb_last_time + EXTENDED_HB_PERIOD) {
@@ -364,6 +374,12 @@ Agent.prototype._do_heartbeat = function() {
         version: current_pkg_version || '',
         extended_hb: extended_hb,
     };
+
+    if (self.cloud_info && self.cloud_info.cloud_pool_name) {
+        params.cloud_pool_name = self.cloud_info.cloud_pool_name;
+    }
+
+    params.is_internal_agent = self.is_internal_agent;
 
     params.debug_level = dbg.get_module_level('core');
 
@@ -384,7 +400,8 @@ Agent.prototype._do_heartbeat = function() {
             dbg.log0('store_stats:', store_stats);
             params.storage = {
                 alloc: store_stats.alloc,
-                used: store_stats.used
+                used: store_stats.used,
+                free: store_stats.free || 0
             };
         })
         .then(function() {
@@ -395,19 +412,26 @@ Agent.prototype._do_heartbeat = function() {
         })
         .then(function(drives) {
             if (!drives) return;
-            params.drives = drives;
             // for now we only use a single drive,
             // so mark the usage on the drive of our storage folder.
             var used_drives = _.filter(drives, function(drive) {
-                dbg.log0('used drives:',self.storage_path_mount ,drive,store_stats.used);
-                if (self.storage_path_mount === drive.mount) {
+                dbg.log0('used drives:', self.storage_path_mount, drive, store_stats.used);
+                //if there is no self.storage_path_mount, it's a memory agent for testing.
+                if (self.storage_path_mount === drive.mount || !self.storage_path_mount) {
                     drive.storage.used = store_stats.used;
+                    if (self.storage_limit) {
+                        drive.storage.limit = self.storage_limit;
+                        let limited_total = self.storage_limit;
+                        let limited_free = limited_total - store_stats.used;
+                        drive.storage.total = Math.min(limited_total, drive.storage.total);
+                        drive.storage.free = Math.min(limited_free, drive.storage.free);
+                    }
                     return true;
                 } else {
                     return false;
                 }
             });
-            drives = used_drives;
+            params.drives = used_drives;
             dbg.log0('DRIVES:', drives, 'used drives', used_drives);
             // _.each(drives, function(drive) {
             //     if (self.storage_path_mount === drive.mount) {
@@ -426,7 +450,8 @@ Agent.prototype._do_heartbeat = function() {
             _.extend(params, latencies);
         })
         .then(function() {
-            dbg.log0('heartbeat params:', params, 'node', self.node_name);
+            dbg.log0('heartbeat for node', self.node_name);
+            dbg.log1('heartbeat params for node', self.node_name, 'params:', params);
             return self.client.node.heartbeat(params);
         })
         .then(function(res) {
@@ -466,10 +491,10 @@ Agent.prototype._do_heartbeat = function() {
                 self.rpc_address = res.rpc_address;
                 promises.push(self._start_stop_server());
             }
-
             if (res.storage) {
                 // report only if used storage mismatch
                 // TODO compare with some accepted error and handle
+
                 if (store_stats.used !== res.storage.used) {
                     dbg.log0('used storage not in sync ',
                         store_stats.used, ' expected ', res.storage.used);
@@ -687,7 +712,9 @@ Agent.prototype.self_test_peer = function(req) {
 
 Agent.prototype.collect_diagnostics = function(req) {
     dbg.log1('Recieved diag req', req);
-    var inner_path = '/tmp/agent_diag.tgz';
+    var is_windows = (process.platform === "win32");
+    var inner_path = is_windows ? process.env.ProgramData + '/agent_diag.tgz' : '/tmp/agent_diag.tgz';
+
     return P.fcall(function() {
             return diag.collect_agent_diagnostics();
         })
@@ -711,7 +738,8 @@ Agent.prototype.collect_diagnostics = function(req) {
                     throw new Error('Agent Collect Diag Error on reading packges diag file');
                 });
         })
-        .then(null, function() {
+        .then(null, function(err) {
+            dbg.error('DIAGNOSTICS FAILED', err.stack || err);
             return {
                 data: new Buffer(),
             };
@@ -719,12 +747,15 @@ Agent.prototype.collect_diagnostics = function(req) {
 };
 
 Agent.prototype.set_debug_node = function(req) {
-    dbg.set_level(5, 'core');
-    dbg.log1('Recieved set debug req');
-    promise_utils.delay_unblocking(10 * 60 * 1000) // 10 minutes
-        .then(function() {
-            dbg.set_level(0, 'core');
-        });
+    dbg.set_level(req.rpc_params.level, 'core');
+    dbg.log1('Recieved set debug req ', req.rpc_params.level);
+    if (req.rpc_params.level > 0) { //If level was set, unset it after a T/O
+        promise_utils.delay_unblocking(10 * 60 * 1000) // 10 minutes
+            .then(function() {
+                dbg.set_level(0, 'core');
+            });
+    }
+    return;
 };
 
 Agent.prototype._test_latencies = function() {

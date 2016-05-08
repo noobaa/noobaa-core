@@ -10,6 +10,7 @@ var mkdirp = require('mkdirp');
 var fs_utils = require('../util/fs_utils');
 var Semaphore = require('../util/semaphore');
 var dbg = require('../util/debug_module')(__filename);
+var AWS = require('aws-sdk');
 
 module.exports = AgentStore;
 
@@ -21,12 +22,15 @@ AgentStore.TAMPERING_ERROR = 'TAMPERING';
  * AgentStore
  *
  */
-function AgentStore(root_path) {
+function AgentStore(root_path, storage_limit) {
     this.root_path = root_path;
     this.blocks_path = path.join(this.root_path, 'blocks');
     this.meta_path = path.join(this.root_path, '.meta');
     mkdirp.sync(this.blocks_path);
     mkdirp.sync(this.meta_path);
+    if (storage_limit) {
+        this._storage_limit = storage_limit;
+    }
 }
 
 
@@ -114,8 +118,8 @@ AgentStore.prototype.read_block = function(block_md) {
     var meta_path = self._get_block_meta_path(block_md.id);
     dbg.log1('fs read block', block_path);
     return P.join(
-            fs.readFileAsync(block_path),
-            fs.readFileAsync(meta_path))
+            self._read_internal(block_path),
+            self._read_internal(meta_path))
         .spread(function(data, meta) {
             var block_md_from_store = JSON.parse(meta);
             if (block_md_from_store.id !== block_md.id ||
@@ -165,20 +169,28 @@ AgentStore.prototype.write_block = function(block_md, data) {
             throw new Error('BLOCK DIGEST MISMATCH ON WRITE');
         }
     }
+    let block_md_data = JSON.stringify(block_md_to_store);
+
+    if (self._storage_limit) {
+        let free_space = self._storage_limit - self._usage.size;
+        let required_space = data.length + block_md_data.length;
+        if (free_space < required_space) {
+            throw new Error('used space exceeded the storage limit of ' + self._storage_limit + ' bytes');
+        }
+    }
 
     return P.when(self._stat_block_path(block_path, true))
         .then(function(stats) {
             file_stats = stats;
             dbg.log1('fs write block', block_path, data.length, typeof(data), file_stats);
-
             // create/replace the block on fs
             return P.join(
-                fs.writeFileAsync(block_path, data),
-                fs.writeFileAsync(meta_path, JSON.stringify(block_md_to_store)));
+                self._write_internal(block_path, data),
+                self._write_internal(meta_path, block_md_data));
         })
         .then(function() {
             if (self._usage) {
-                self._usage.size += data.length;
+                self._usage.size += data.length + block_md_data.length;
                 self._usage.count += 1;
                 if (file_stats) {
                     self._usage.size -= file_stats.size;
@@ -266,6 +278,17 @@ AgentStore.prototype._delete_block = function(block_id) {
 };
 
 
+
+AgentStore.prototype._write_internal = function(path, data) {
+    return fs.writeFileAsync(path, data);
+};
+
+AgentStore.prototype._read_internal = function(path) {
+    return fs.readFileAsync(path);
+};
+
+
+
 /**
  *
  * _get_block_data_path
@@ -344,6 +367,181 @@ AgentStore.prototype._count_usage = function() {
 };
 
 
+/**
+ *
+ * CloudStore - underlying store which uses s3 cloud storage
+ *
+ */
+class CloudStore extends AgentStore {
+
+    constructor(root_path, cloud_info) {
+        super(root_path);
+        this.cloud_info = cloud_info;
+        this.block_path = cloud_info.block_path || "noobaa_blocks/";
+    }
+
+    _write_internal(path, data) {
+        var self = this;
+
+        if (!self.s3cloud) {
+            self._create_s3cloud();
+        }
+
+        var params = {
+            Bucket: self.cloud_info.target_bucket,
+            Key: path,
+            Body: data
+        };
+
+        return P.ninvoke(self.s3cloud, 'putObject', params)
+            .fail(function(error) {
+                dbg.error('CloudStore write failed:', error.statusCode, self.cloud_info);
+                if (error.statusCode === 400 ||
+                    error.statusCode === 301) {
+                    dbg.log0('Resetting (put object) signature type and region to eu-central-1 and v4', params);
+                    // change default region from US to EU due to restricted signature of v4 and end point
+                    //TODO: maybe we should add support here for cloud sync from noobaa to noobaa after supporting v4.
+                    self.s3clouds = new AWS.S3({
+                        accessKeyId: self.cloud_info.access_keys.access_key,
+                        secretAccessKey: self.cloud_info.access_keys.secret_key,
+                        signatureVersion: 'v4',
+                        region: 'eu-central-1'
+                    });
+                    return P.ninvoke(self.s3clouds, 'putObject', params)
+                        .fail(function(err) {
+                            dbg.error('CloudStore write failed', error.statusCode, self.cloud_info);
+                            throw new Error('failed to upload chunk to cloud pool');
+                        });
+                } else {
+                    dbg.error('CloudStore write failed:', error.statusCode, self.cloud_info);
+                    throw new Error('failed to write to CloudStore: ' + self.cloud_info);
+                }
+            });
+
+
+    }
+
+    _read_internal(path) {
+        var self = this;
+        if (!self.s3cloud) {
+            self._create_s3cloud();
+        }
+
+        var params = {
+            Bucket: self.cloud_info.target_bucket,
+            Key: path,
+        };
+        return P.ninvoke(self.s3cloud, 'getObject', params)
+            .then(data => data.Body)
+            .fail(function(error) {
+                dbg.error('CloudStore read failed:', error.statusCode, self.cloud_info);
+                if (error.statusCode === 400 ||
+                    error.statusCode === 301) {
+                    dbg.log0('Resetting (put object) signature type and region to eu-central-1 and v4', params);
+                    // change default region from US to EU due to restricted signature of v4 and end point
+                    //TODO: maybe we should add support here for cloud sync from noobaa to noobaa after supporting v4.
+                    self.s3clouds = new AWS.S3({
+                        accessKeyId: self.cloud_info.access_keys.access_key,
+                        secretAccessKey: self.cloud_info.access_keys.secret_key,
+                        signatureVersion: 'v4',
+                        region: 'eu-central-1'
+                    });
+                    return P.ninvoke(self.s3clouds, 'getObject', params)
+                        .then(data => data.Body)
+                        .fail(function(err) {
+                            dbg.error('CloudStore read failed', error.statusCode, self.cloud_info);
+                            throw new Error('failed to read chunk from cloud pool');
+                        });
+                } else {
+                    dbg.error('CloudStore read failed:', error.statusCode, self.cloud_info);
+                    throw new Error('failed to read from CloudStore: ' + self.cloud_info);
+                }
+            });
+    }
+
+    _delete_block(block_id) {
+        var self = this;
+        if (!self.s3cloud) {
+            self._create_s3cloud();
+        }
+
+        var block_path = self._get_block_data_path(block_id);
+        var meta_path = self._get_block_meta_path(block_id);
+
+        var params = {
+            Bucket: self.cloud_info.target_bucket,
+            Delete: {
+                Objects: [{
+                    Key: block_path
+                }, {
+                    Key: meta_path
+                }]
+            }
+        };
+
+        return P.ninvoke(self.s3cloud, 'deleteObjects', params)
+            .fail(function(error) {
+                dbg.error('CloudStore read failed:', error, self.cloud_info);
+                if (error.statusCode === 400 ||
+                    error.statusCode === 301) {
+                    dbg.log0('Resetting (put object) signature type and region to eu-central-1 and v4', params);
+                    // change default region from US to EU due to restricted signature of v4 and end point
+                    //TODO: maybe we should add support here for cloud sync from noobaa to noobaa after supporting v4.
+                    self.s3clouds = new AWS.S3({
+                        accessKeyId: self.cloud_info.access_keys.access_key,
+                        secretAccessKey: self.cloud_info.access_keys.secret_key,
+                        signatureVersion: 'v4',
+                        region: 'eu-central-1'
+                    });
+                    return P.ninvoke(self.s3clouds, 'getObject', params)
+                        .fail(function(err) {
+                            dbg.error('CloudStore delete failed', error, self.cloud_info);
+                            throw new Error('failed to delete chunk from cloud pool');
+                        });
+                } else {
+                    dbg.error('CloudStore read failed:', error, self.cloud_info);
+                    throw new Error('failed to delete from CloudStore: ' + self.cloud_info);
+                }
+            })
+            .then(() => 0);
+    }
+
+
+    _create_s3cloud() {
+        let endpoint = this.cloud_info.endpoint;
+
+        // upload copy to s3 cloud storage.
+        if (endpoint === 'https://s3.amazonaws.com') {
+            this.s3cloud = new AWS.S3({
+                endpoint: endpoint,
+                accessKeyId: this.cloud_info.access_keys.access_key,
+                secretAccessKey: this.cloud_info.access_keys.secret_key,
+                region: 'us-east-1'
+            });
+        } else {
+            this.s3cloud = new AWS.S3({
+                endpoint: endpoint,
+                sslEnabled: false,
+                s3ForcePathStyle: true,
+                accessKeyId: this.cloud_info.access_keys.access_key,
+                secretAccessKey: this.cloud_info.access_keys.secret_key,
+            });
+        }
+    }
+
+    _stat_block_path(block_path, resolve_missing) {
+        return;
+    }
+
+    _count_usage() {
+        //TODO: get usage count
+        return 0;
+    }
+
+}
+
+AgentStore.CloudStore = CloudStore;
+
 
 /**
  *
@@ -354,12 +552,14 @@ AgentStore.prototype._count_usage = function() {
 function MemoryStore() {
     this._alloc = 0;
     this._used = 0;
+    this._free = 20 * 1024 * 1024 * 1024;
     this._count = 0;
     this._blocks = {};
     this.get_stats = function() {
         return {
             alloc: this._alloc,
             used: this._used,
+            free: (this._free - this._used),
             count: this._count,
         };
     };

@@ -24,7 +24,14 @@ export default function register(ko) {
         },
 
         notIn: {
-            validator(value, { list = [], compareFunc = (a,b) => a === b }) {
+            validator(value, params) {
+                params = ko.unwrap(params);
+                if (params instanceof Array) {
+                  params = { list: params }
+                }
+
+                let { list = [], compareFunc = (a,b) => a === b } = params;
+
                 return ko.unwrap(list).every(
                     item => !compareFunc(value, item)
                 )
@@ -32,11 +39,13 @@ export default function register(ko) {
 
             message: 'Value already exists'
         },
+
         isURI:{
-            validator: function(val, required) {
+            validator(val, required) {
                 if (!val) {
                   return !required
                 }
+
                 val = val.replace(/^\s+|\s+$/, ''); //Strip whitespace
                 //Regex by Diego Perini from: http://mathiasbynens.be/demo/url-regex
                 //Modified regex - removed the restrictions for private ip ranges
@@ -72,8 +81,9 @@ export default function register(ko) {
                   "$", "i"
                 );
                 return val.match(re_weburl);
-              },
-              message: 'This field has to be a valid URL'
+            },
+              
+            message: 'Please enter a valid URI'
         }
     });
 

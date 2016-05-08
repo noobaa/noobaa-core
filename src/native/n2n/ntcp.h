@@ -30,7 +30,7 @@ private:
     static void _callback_read(uv_stream_t* handle, ssize_t nread, const uv_buf_t* buf);
 
 private:
-    static const int MAX_MSG_LEN = 16 * 1024 * 1024;
+    static const int MAX_MSG_LEN = 64 * 1024 * 1024;
     static const int MSG_MAGIC_LEN = 4;
     static const char MSG_HDR_MAGIC[MSG_MAGIC_LEN];
 

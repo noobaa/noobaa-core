@@ -37,19 +37,10 @@ module.exports = {
                     xattr: {
                         $ref: '#/definitions/xattr',
                     },
-                    // conditions for overwriting existing object of this key
-                    if_modified_since: {
-                        format: 'idate'
-                    },
-                    if_unmodified_since: {
-                        format: 'idate'
-                    },
-                    if_match_etag: {
-                        type: 'string'
-                    },
-                    if_none_match_etag: {
-                        type: 'string'
-                    },
+                    overwrite_if: {
+                        // conditions on target key if exists
+                        $ref: '#/definitions/md_conditions',
+                    }
                 }
             },
             reply: {
@@ -322,17 +313,15 @@ module.exports = {
             }
         },
 
-        report_bad_block: {
-            method: 'POST',
+        copy_object: {
+            method: 'PUT',
             params: {
                 type: 'object',
                 required: [
                     'bucket',
                     'key',
-                    'start',
-                    'end',
-                    'block_id',
-                    'is_write'
+                    'source_bucket',
+                    'source_key',
                 ],
                 properties: {
                     bucket: {
@@ -341,32 +330,37 @@ module.exports = {
                     key: {
                         type: 'string',
                     },
-                    start: {
-                        type: 'integer',
+                    source_bucket: {
+                        type: 'string'
                     },
-                    end: {
-                        type: 'integer',
+                    source_key: {
+                        type: 'string'
                     },
-                    upload_part_number: {
-                        type: 'integer',
-                    },
-                    part_sequence_number: {
-                        type: 'integer',
-                    },
-                    block_id: {
+                    content_type: {
                         type: 'string',
                     },
-                    is_write: {
-                        type: 'boolean',
+                    xattr: {
+                        $ref: '#/definitions/xattr',
                     },
-                },
+                    xattr_copy: {
+                        type: 'boolean'
+                    },
+                    overwrite_if: {
+                        // conditions on target key if exists
+                        $ref: '#/definitions/md_conditions',
+                    },
+                    source_if: {
+                        // conditions on source key
+                        $ref: '#/definitions/md_conditions',
+                    }
+                }
             },
             reply: {
                 type: 'object',
                 // required: [],
                 properties: {
-                    new_block: {
-                        $ref: 'agent_api#/definitions/block_md'
+                    source_md: {
+                        $ref: '#/definitions/object_info'
                     }
                 }
             },
@@ -406,10 +400,10 @@ module.exports = {
             },
             reply: {
                 type: 'object',
-                required: ['size', 'parts'],
+                required: ['object_md', 'parts'],
                 properties: {
-                    size: {
-                        type: 'integer'
+                    object_md: {
+                        $ref: '#/definitions/object_info'
                     },
                     parts: {
                         type: 'array',
@@ -556,6 +550,9 @@ module.exports = {
                     order: {
                         type: 'integer',
                     },
+                    upload_mode: {
+                        type: 'boolean'
+                    },
                 }
             },
             reply: {
@@ -608,6 +605,25 @@ module.exports = {
                 },
                 key: {
                     type: 'string',
+                },
+            }
+        },
+
+        // metadata if's - conditions to use metadata
+        md_conditions: {
+            type: 'object',
+            properties: {
+                if_modified_since: {
+                    format: 'idate'
+                },
+                if_unmodified_since: {
+                    format: 'idate'
+                },
+                if_match_etag: {
+                    type: 'string'
+                },
+                if_none_match_etag: {
+                    type: 'string'
                 },
             }
         },

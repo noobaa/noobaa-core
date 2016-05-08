@@ -70,8 +70,10 @@ function make_strict_schema(schema, base) {
         _.each(schema.allOf, val => make_strict_schema(val, base));
     } else if (schema.$ref) {
         check_schema_extra_keywords(schema, base, '$ref');
+    } else if (schema.type === 'null') {
+        check_schema_extra_keywords(schema, base, 'type');
     } else {
-        illegal_json_schema(schema, base, 'missing type/$ref/oneOf/allOf/anyOf');
+        illegal_json_schema(schema, base, 'make_strict_schema: missing type/$ref/oneOf/allOf/anyOf');
     }
 }
 
@@ -135,10 +137,10 @@ function prepare_buffers_in_schema(schema, base, path) {
          * so can't use array of buffers or a additionalProperties which is not listed
          * in schema.properties while this preparation code runs.
          */
-        var efn = genfun()('function export_buffers(obj) {');
         if (base.buffers) {
             // create a concatenated buffer from all the buffers
             // and replace each of the original paths with the buffer length
+            var efn = genfun()('function export_buffers(obj) {');
             efn('var buffers = [];');
             efn('var buf;');
             _.each(base.buffers, b => {
@@ -149,12 +151,12 @@ function prepare_buffers_in_schema(schema, base, path) {
                 efn('}');
             });
             efn('return buffers;');
+            base.export_buffers = efn('}').toFunction();
         }
-        base.export_buffers = efn('}').toFunction();
 
         // the import_buffers counterpart
-        var ifn = genfun()('function import_buffers(obj, data) {');
         if (base.buffers) {
+            var ifn = genfun()('function import_buffers(obj, data) {');
             ifn('var start = 0;');
             ifn('var end = 0;');
             ifn('var len;');
@@ -167,8 +169,8 @@ function prepare_buffers_in_schema(schema, base, path) {
                 ifn(' obj%s = data.slice(start, end);', b.jspath);
                 ifn('}');
             });
+            base.import_buffers = ifn('}').toFunction();
         }
-        base.import_buffers = ifn('}').toFunction();
         if (base.buffers) {
             // dbg.log1('SCHEMA BUFFERS', base.id, base.buffers,
             // base.export_buffers.toString(),

@@ -6,7 +6,8 @@ import { hostname } from 'server-conf';
 
 import {
     isDefined, isUndefined, encodeBase64, cmpStrings, cmpInts, cmpBools,
-    randomString, last, clamp,  makeArray, execInOrder, realizeUri, downloadFile
+    randomString, last, clamp,  makeArray, execInOrder, realizeUri, downloadFile,
+    generateAccessKeys
 } from 'utils';
 
 // TODO: resolve browserify issue with export of the aws-sdk module.
@@ -363,7 +364,7 @@ export function loadSystemInfo() {
     api.system.read_system()
         .then(
             reply => {
-                let { access_key, secret_key } = reply.access_keys[0];
+                let { access_key, secret_key } = reply.owner.access_keys[0];
 
                 model.systemInfo({
                     status: 'active',
@@ -376,7 +377,9 @@ export function loadSystemInfo() {
                     sslPort: reply.ssl_port,
                     accessKey: access_key,
                     secretKey: secret_key,
-                    P2PConfig: reply.n2n_config
+                    P2PConfig: reply.n2n_config,
+                    owner: reply.owner.email,
+                    timeConfig: reply.time_config
                 });
             }
         )
@@ -474,7 +477,7 @@ export function loadAgentInstallationInfo() {
     api.system.read_system()
         .then(
             reply => {
-                let keys = reply.access_keys[0];
+                let keys = reply.owner.access_keys[0];
 
                 agentInstallationInfo({
                     agentConf: encodeBase64({
@@ -556,7 +559,7 @@ export function loadObjectMetadata(bucketName, objectName) {
     let S3Promise = api.system.read_system()
         .then(
             reply => {
-                let { access_key, secret_key } = reply.access_keys[0];
+                let { access_key, secret_key } = reply.owner.access_keys[0];
 
                 return new AWS.S3({
                     endpoint: endpoint,
@@ -566,6 +569,8 @@ export function loadObjectMetadata(bucketName, objectName) {
                     },
                     s3ForcePathStyle: true,
                     sslEnabled: false,
+                    signatureVersion: 'v4',
+                    region: 'eu-central-1'
                 })
             }
         );
@@ -578,7 +583,7 @@ export function loadObjectMetadata(bucketName, objectName) {
                 info: objInfo,
                 s3Url: s3.getSignedUrl(
                     'getObject',
-                    { Bucket: bucketName, Key: objectName }
+                    { Bucket: bucketName, Key: objectName, Expires: 604800 }
                 )
             })
         );
@@ -674,10 +679,15 @@ export function loadNodeInfo(nodeName) {
 export function loadNodeStoredPartsList(nodeName, page) {
     logAction('loadNodeStoredPartsList', { nodeName, page });
 
-    api.node.read_node_maps({ name: nodeName })
+    api.node.read_node_maps({ 
+        name: nodeName,
+        skip: config.paginationPageSize * page,
+        limit: config.paginationPageSize,
+        adminfo: true
+    })
         .then(
-            reply => {
-                let parts = reply.objects
+            ({ objects, total_count }) => {
+                let parts = objects
                     .map(
                         obj => obj.parts.map(
                             part => {
@@ -697,15 +707,9 @@ export function loadNodeStoredPartsList(nodeName, page) {
                         []
                     );
 
-                // TODO: change to server side paganation when avaliable.
-                let pageParts = parts.slice(
-                    config.paginationPageSize * page,
-                    config.paginationPageSize * (page + 1),
-                );
-
-                model.nodeStoredPartList(pageParts);
+                model.nodeStoredPartList(parts);
                 model.nodeStoredPartList.page(page);
-                model.nodeStoredPartList.count(parts.length);
+                model.nodeStoredPartList.count(total_count);
             }
         )
         .done();
@@ -774,6 +778,16 @@ export function loadAccountList() {
         .done()
 }
 
+export function loadAccountInfo(email) {
+    logAction('loadAccountInfo', { email });
+
+    api.account.read_account({
+        email: email
+    })
+        .then(model.accountInfo)
+        .done();
+}
+
 export function loadTier(name) {
     logAction('loadTier', { name });
 
@@ -790,25 +804,23 @@ export function loadCloudSyncInfo(bucket) {
         .done();
 }
 
-export function loadAccountAwsCredentials() {
-    logAction('loadAccountAwsCredentials');
+export function loadS3Connections() {
+    logAction('loadS3Connections');
 
     api.account.get_account_sync_credentials_cache()
-        .then(model.awsCredentialsList)
+        .then(model.S3Connections)
         .done();
 }
 
-export function loadAwsBucketList(accessKey, secretKey,endPoint) {
-    logAction('loadAwsBucketList', { accessKey, secretKey,endPoint})
+export function loadS3BucketList(connection) {
+    logAction('loadS3BucketList', { connection })
 
     api.bucket.get_cloud_buckets({
-        endpoint: endPoint,
-        access_key: accessKey,
-        secret_key: secretKey
+        connection: connection
     })
         .then(
-            model.awsBucketList,
-            () => model.awsBucketList(null)
+            model.S3BucketList,
+            () => model.S3BucketList(null)
         )
         .done();
 }
@@ -818,8 +830,17 @@ export function loadAwsBucketList(accessKey, secretKey,endPoint) {
 // -----------------------------------------------------
 export function createSystemAccount(systemName, email, password, dnsName) {
     logAction('createSystemAccount', { systemName, email, password, dnsName });
+    
+    let accessKeys = systemName === 'demo' && email === 'demo@noobaa.com' ? 
+        { access_key: '123', secret_key: 'abc' } :
+        generateAccessKeys();
 
-    api.account.create_account({ name: systemName, email: email, password: password })
+    api.account.create_account({
+        name: systemName, 
+        email: email, 
+        password: password,
+        access_keys: accessKeys
+    })
         .then(
             ({ token }) => {
                 api.options.auth_token = token;
@@ -842,10 +863,16 @@ export function createSystemAccount(systemName, email, password, dnsName) {
         .done();
 }
 
-export function createAccount(name, email, password) {
-    logAction('createAccount', { name, email, password });
+export function createAccount(name, email, password, accessKeys, S3AccessList) {
+    logAction('createAccount', { name, email, password, accessKeys,     S3AccessList });
 
-    api.account.create_account({ name, email, password })
+    api.account.create_account({ 
+        name: name, 
+        email: email, 
+        password: password,
+        access_keys: accessKeys,
+        allowed_buckets: S3AccessList
+    })
         .then(loadAccountList)
         .done();
 }
@@ -958,7 +985,7 @@ export function uploadFiles(bucketName, files) {
     api.system.read_system()
         .then(
             reply => {
-                let { access_key, secret_key } = reply.access_keys[0];
+                let { access_key, secret_key } = reply.owner.access_keys[0];
 
                 return new AWS.S3({
                     endpoint: endpoint,
@@ -968,6 +995,8 @@ export function uploadFiles(bucketName, files) {
                     },
                     s3ForcePathStyle: true,
                     sslEnabled: false,
+                    //signatureVersion: 'v4',
+                    //region: 'eu-central-1'
                 })
             }
         )
@@ -979,6 +1008,7 @@ export function uploadFiles(bucketName, files) {
                             // Create an entry in the recent uploaded list.
                             let entry = {
                                 name: file.name,
+                                targetBucket: bucketName,
                                 state: 'UPLOADING',
                                 progress: 0,
                                 error: null
@@ -1048,6 +1078,7 @@ export function testNode(source, testSet) {
     logAction('testNode', { source, testSet });
 
     let { nodeTestInfo } = model;
+
     nodeTestInfo({
         source: source,
         tests: testSet,
@@ -1266,7 +1297,7 @@ export function upgradeSystem(upgradePackage) {
     xhr.send(formData);
 }
 
-export function downloadDiagnosticPack(nodeName) {
+export function downloadNodeDiagnosticPack(nodeName) {
     logAction('downloadDiagnosticFile', { nodeName });
 
     api.node.read_node({ name: nodeName })
@@ -1279,12 +1310,24 @@ export function downloadDiagnosticPack(nodeName) {
         .done();
 }
 
+
+export function downloadSystemDiagnosticPack() {
+    logAction('downloadSystemDiagnosticPack');
+
+    api.system.diagnose()
+        .then(
+            url => downloadFile(url)
+        )
+        .done();
+}
+
 export function raiseNodeDebugLevel(node) {
     logAction('raiseNodeDebugLevel', { node });
 
     api.node.read_node({ name: node })
         .then(
             node => api.node.set_debug_node({
+                level: 5,
                 target: node.rpc_address
             })
         )
@@ -1294,19 +1337,14 @@ export function raiseNodeDebugLevel(node) {
         .done();
 }
 
-export function setCloudSyncPolicy(bucket, awsBucket, credentials, direction, frequency, sycDeletions) {
-    logAction('setCloudSyncPolicy', { bucket, awsBucket, credentials, direction, frequency,
-        sycDeletions });
-
-    let policy_endpoint =  credentials.endpoint||'https://s3.amazonaws.com';
-    delete credentials.endpoint;
+export function setCloudSyncPolicy(bucket, connection, targetBucket, direction, frequency, sycDeletions) {
+    logAction('setCloudSyncPolicy', { bucket, connection, targetBucket, direction, frequency, sycDeletions });
 
     api.bucket.set_cloud_sync({
         name: bucket,
+        connection: connection,
         policy: {
-            endpoint:policy_endpoint,
-            target_bucket: awsBucket,
-            access_keys: [ credentials ],
+            target_bucket: targetBucket,
             c2n_enabled: direction === 'AWS2NB' || direction === 'BI',
             n2c_enabled: direction === 'NB2AWS' || direction === 'BI',
             schedule: frequency,
@@ -1328,28 +1366,110 @@ export function removeCloudSyncPolicy(bucket) {
         .done();
 }
 
-export function addAWSCredentials(accessKey, secretKey, endPoint) {
-    logAction('addAWSCredentials', { accessKey, secretKey, endPoint });
+export function checkS3Connection(endpoint, accessKey, secretKey) {
+    logAction('checkS3Connection', { endpoint, accessKey, secretKey });
 
     let credentials = {
-        endpoint: endPoint,
+        endpoint: endpoint,
         access_key: accessKey,
         secret_key: secretKey
     };
 
-    // TODO: the call to get_cloud_sync is used here to check that the keys are valid,
-    // and the server can access S3 using this keys. Need to replace this with a sort of
-    // s3 ping when avaliable in server side.
-    api.bucket.get_cloud_buckets(credentials)
-        .then(
-            () => api.account.add_account_sync_credentials_cache(credentials)
-        )
-        .then(loadAccountAwsCredentials)
+    api.account.check_account_sync_credentials(credentials)
+        .then(model.isS3ConnectionValid)
         .done();
 }
 
+export function addS3Connection(name, endpoint, accessKey, secretKey) {
+    logAction('addS3Connection', { name, endpoint, accessKey, secretKey });
+
+    let credentials = {
+        name: name,
+        endpoint: endpoint,
+        access_key: accessKey,
+        secret_key: secretKey
+    };
+
+    api.account.add_account_sync_credentials_cache(credentials)
+        .then(loadS3Connections)
+        .done()
+}
+
 export function notify(message, severity = 'INFO') {
-    logAction('notifyInfo', { message, severity });
+    logAction('notify', { message, severity });
 
     model.lastNotification({ message, severity });
 }
+
+export function loadBucketS3ACL(bucketName) {
+    logAction('loadBucketS3ACL', { bucketName });
+
+    api.bucket.list_bucket_s3_acl({
+        name: bucketName
+    })
+        .then(model.bucketS3ACL)
+        .done();
+}
+
+export function updateBucketS3ACL(bucketName, acl) {
+    logAction('updateBucketS3ACL', { bucketName, acl });
+
+    api.bucket.update_bucket_s3_acl({
+        name: bucketName,
+        access_control: acl
+    })
+        .then(
+            () => model.bucketS3ACL(acl)
+        )
+        .done();
+}
+
+export function loadAccountS3ACL(email) {
+    logAction('loadAccountS3ACL', { email });
+
+    api.account.list_account_s3_acl({
+        email: email
+    })
+        .then(model.accountS3ACL)
+        .done();
+}
+
+export function updateAccountS3ACL(email, acl) {
+    logAction('updateAccountS3ACL', { email, acl });
+
+    api.account.update_account_s3_acl({
+        email: email,
+        access_control: acl
+    })
+        .then(
+            () => model.accountS3ACL
+        )
+        .then(loadAccountList)
+        .done();
+}
+
+
+export function updateServerTime(timezone, epoch) {
+    logAction('updateServerTime', { timezone, epoch });
+
+    api.system.update_time_config({
+        config_type: 'MANUAL',
+        timezone: timezone,
+        epoch: epoch
+    })
+        .then(loadSystemInfo)
+        .done();
+}
+
+export function updateServerNTP(timezone, server) {
+    logAction('updateServerNTP', { timezone, server });
+
+    api.system.update_time_config({
+        config_type: 'NTP',
+        timezone: timezone,
+        server: server
+    })
+        .then(loadSystemInfo)
+        .done();
+}
+

@@ -8,6 +8,12 @@ var nodes_store = require('./stores/nodes_store');
 var size_utils = require('../util/size_utils');
 var config = require('../../config');
 var db = require('./db');
+var child_process = require('child_process');
+var P = require('../util/promise');
+var os = require('os');
+var SupervisorCtl = require('../server/utils/supervisor_ctrl');
+var server_rpc = require('./server_rpc');
+
 
 /**
  *
@@ -18,10 +24,12 @@ var pool_server = {
     new_pool_defaults: new_pool_defaults,
     get_pool_info: get_pool_info,
     create_pool: create_pool,
+    create_cloud_pool: create_cloud_pool,
     update_pool: update_pool,
     list_pool_nodes: list_pool_nodes,
     read_pool: read_pool,
     delete_pool: delete_pool,
+    delete_cloud_pool: delete_cloud_pool,
     assign_nodes_to_pool: assign_nodes_to_pool,
     get_associated_buckets: get_associated_buckets,
 };
@@ -65,6 +73,47 @@ function create_pool(req) {
             return res;
         });
 }
+
+
+function create_cloud_pool(req) {
+    var name = req.rpc_params.name;
+    var cloud_info = req.rpc_params.cloud_info;
+
+    var pool = new_pool_defaults(name, req.system._id);
+    dbg.log0('Creating new cloud_pool', pool);
+    pool.cloud_pool_info = cloud_info;
+
+    return system_store.make_changes({
+            insert: {
+                pools: [pool]
+            }
+        })
+        .then(res => {
+            let sys_access_keys = system_store.data.accounts[1].access_keys[0];
+            return server_rpc.bg_client.hosted_agents.create_agent({
+                name: req.rpc_params.name,
+                access_keys: sys_access_keys,
+                cloud_info: {
+                    endpoint: cloud_info.endpoint,
+                    target_bucket: cloud_info.target_bucket,
+                    access_keys: cloud_info.access_keys
+                },
+            });
+        })
+        .then(() => {
+            // TODO: should we add different event for cloud pool?
+            db.ActivityLog.create({
+                event: 'pool.create',
+                level: 'info',
+                system: req.system._id,
+                actor: req.account && req.account._id,
+                pool: pool._id,
+            });
+        })
+        .return();
+}
+
+
 
 function update_pool(req) {
     var name = req.rpc_params.name;
@@ -145,6 +194,48 @@ function delete_pool(req) {
         })
         .return();
 }
+
+
+
+function delete_cloud_pool(req) {
+    dbg.log0('Deleting cloud pool', req.rpc_params.name);
+    var pool = find_pool_by_name(req);
+
+    // construct the cloud node name according to convention 
+    let cloud_node_name = 'noobaa-cloud-agent-' + os.hostname() + '-' + pool.name;
+    return P.resolve()
+        .then(function() {
+            var reason = check_cloud_pool_deletion(pool);
+            if (reason) {
+                throw req.rpc_error(reason, 'Cannot delete pool');
+            }
+            return system_store.make_changes({
+                remove: {
+                    pools: [pool._id]
+                }
+            });
+        })
+        .then(() => SupervisorCtl.remove_agent(pool.name))
+        .then(() => nodes_store.delete_node_by_name({
+            system: {
+                _id: req.system._id
+            },
+            rpc_params: {
+                name: cloud_node_name
+            }
+        }))
+        .then((res) => {
+            db.ActivityLog.create({
+                event: 'pool.delete',
+                level: 'info',
+                system: req.system._id,
+                actor: req.account && req.account._id,
+                pool: pool._id,
+            });
+        })
+        .return();
+}
+
 
 function _assign_nodes_to_pool(system_id, pool_id, nodes_names) {
     return nodes_store.update_nodes({
@@ -239,6 +330,16 @@ function check_pool_deletion(pool, nodes_aggregate_pool) {
     if (n.count) {
         return 'NOT_EMPTY';
     }
+
+    //Verify pool is not used by any bucket/tier
+    var buckets = get_associated_buckets_int(pool);
+    if (buckets.length) {
+        return 'IN_USE';
+    }
+}
+
+
+function check_cloud_pool_deletion(pool) {
 
     //Verify pool is not used by any bucket/tier
     var buckets = get_associated_buckets_int(pool);

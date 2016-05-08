@@ -21,21 +21,6 @@ module.exports = {
         owner: {
             format: 'objectid' // account id
         },
-        access_keys: {
-            type: 'array',
-            items: {
-                type: 'object',
-                required: ['access_key', 'secret_key'],
-                properties: {
-                    access_key: {
-                        type: 'string'
-                    },
-                    secret_key: {
-                        type: 'string'
-                    }
-                }
-            }
-        },
         // links to system resources used for storing install packages
         resources: {
             type: 'object',
@@ -66,5 +51,18 @@ module.exports = {
         base_address: {
             type: 'string'
         },
+
+        //NTP configuration
+        ntp: {
+            type: 'object',
+            properties: {
+                server: {
+                    type: 'string'
+                },
+                timezone: {
+                    type: 'string'
+                },
+            }
+        }
     }
 };

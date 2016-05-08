@@ -5,7 +5,7 @@ var _ = require('lodash');
 module.exports = FrameStream;
 
 const DEFAULT_MSG_MAGIC = "FramStrm";
-const DEFAULT_MAX_MSG_LEN = 16 * 1024 * 1024;
+const DEFAULT_MAX_MSG_LEN = 64 * 1024 * 1024;
 const MAX_SEQ = (1 << 16);
 
 /**

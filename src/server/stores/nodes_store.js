@@ -4,7 +4,7 @@ var _ = require('lodash');
 var P = require('../../util/promise');
 var db = require('../db');
 // var dbg = require('../../util/debug_module')(__filename);
-var size_utils = require('../../util/size_utils');
+// var size_utils = require('../../util/size_utils');
 var mongo_utils = require('../../util/mongo_utils');
 var mongo_functions = require('../../util/mongo_functions');
 var system_store = require('./system_store');
@@ -22,32 +22,32 @@ const NODE_FIELDS_FOR_MAP = Object.freeze({
     heartbeat: 1,
     rpc_address: 1,
     storage: 1,
+    latency_of_disk_read: 1,
 });
 
-module.exports = {
-    // single node ops
-    make_node_id: make_node_id,
-    create_node: create_node,
-    find_node_by_name: find_node_by_name,
-    find_node_by_address: find_node_by_address,
-    update_node_by_name: update_node_by_name,
-    delete_node_by_name: delete_node_by_name,
-    update_node_by_id: update_node_by_id,
-    // multi node ops
-    find_nodes: find_nodes,
-    count_nodes: count_nodes,
-    populate_nodes_full: populate_nodes_full,
-    populate_nodes_for_map: populate_nodes_for_map,
-    update_nodes: update_nodes,
-    aggregate_nodes_by_pool: aggregate_nodes_by_pool,
-    // utils
-    get_minimum_online_heartbeat: get_minimum_online_heartbeat,
-    get_minimum_alloc_heartbeat: get_minimum_alloc_heartbeat,
-    is_online_node: is_online_node,
-    resolve_node_object_ids: resolve_node_object_ids,
-    test_code_delete_all_nodes: test_code_delete_all_nodes,
-    NODE_FIELDS_FOR_MAP: NODE_FIELDS_FOR_MAP,
-};
+// single node ops
+exports.make_node_id = make_node_id;
+exports.create_node = create_node;
+exports.find_node_by_name = find_node_by_name;
+exports.find_node_by_address = find_node_by_address;
+exports.update_node_by_name = update_node_by_name;
+exports.delete_node_by_name = delete_node_by_name;
+exports.update_node_by_id = update_node_by_id;
+// multi node op
+exports.find_nodes = find_nodes;
+exports.count_nodes = count_nodes;
+exports.populate_nodes_full = populate_nodes_full;
+exports.populate_nodes_for_map = populate_nodes_for_map;
+exports.update_nodes = update_nodes;
+exports.aggregate_nodes_by_pool = aggregate_nodes_by_pool;
+// util
+exports.get_minimum_online_heartbeat = get_minimum_online_heartbeat;
+exports.get_minimum_alloc_heartbeat = get_minimum_alloc_heartbeat;
+exports.is_online_node = is_online_node;
+exports.resolve_node_object_ids = resolve_node_object_ids;
+exports.test_code_delete_all_nodes = test_code_delete_all_nodes;
+exports.NODE_FIELDS_FOR_MAP = NODE_FIELDS_FOR_MAP;
+
 
 /////////////////////
 // single node ops //
@@ -175,7 +175,7 @@ function aggregate_nodes_by_pool(query) {
             }
         ))
         .then(res => {
-            var bins = {};              
+            var bins = {};
             _.each(res, r => {
                 var t = bins[r._id[0]] = bins[r._id[0]] || {};
                 t[r._id[1]] = r.value;

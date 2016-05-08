@@ -1,6 +1,7 @@
 import template from "./dropdown.html";
 import { randomString } from 'utils';
 import ko from 'knockout';
+import { isDefined } from 'utils';
 
 class DropdownViewModel {
     constructor({ 
@@ -14,7 +15,7 @@ class DropdownViewModel {
         this.selected = selected;
         this.disabled = disabled;
         this.focused = ko.observable(false);
-        
+
         let _active = ko.observable(false);
         this.active = ko.pureComputed({
             read: () => this.focused() && _active(),
@@ -23,7 +24,7 @@ class DropdownViewModel {
 
         this.selectedLabel = ko.pureComputed(
             () => {
-                let selectedOpt = !!selected() ? ko.unwrap(options).find( 
+                let selectedOpt = isDefined(selected()) ? ko.unwrap(options).find( 
                     opt => !!opt && opt.value === this.selected()
                 ) : null;
 

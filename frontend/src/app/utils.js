@@ -14,8 +14,16 @@ export function isNumber(value) {
     return typeof value === 'number' || value instanceof Number;
 }
 
+export function isString(value) {
+    return typeof value === 'string' || value instanceof String;
+}
+
 export function isFunction(value) {
     return typeof value === 'function';
+}
+
+export function isObject(value) {
+    return typeof value === 'object';
 }
 
 export function isUndefined(value) {
@@ -199,16 +207,26 @@ export function makeArray(size, initializer) {
     return array;
 }
 
-export function makeRange(start, count) {
-    if (!isDefined(count)) {
-        count = start;
+export function makeRange(start, end) {
+    if (isUndefined(end)) {
+        if (start < 0) {
+            throw new TypeError('Invalid count');
+        }
+
+        end = start - 1;
         start = 0;
     }
 
-    let arr = makeArray(count);
-    for (let i = 0; i < count; arr[start + i++] = i);
-    return arr;
+    let dir = start > end ? -1 : 1; 
+    let count = Math.abs(end - start + dir)
+
+    return makeArray(
+        count,
+        i => i * dir + start
+    );
 }
+
+window.makeRange = makeRange;
 
 export function domFromHtml(html) {
     let parser = new DOMParser();
@@ -239,17 +257,7 @@ export function execInOrder(list, executer) {
 
     return result;
 }
-export function avarageArrayValues(inArray) {
-    let total=0;
-    console.log('inarray',inArray);
-    for(var i= 0; i < inArray.length; ++i)
-    {
-        console.log('item:'+i+'::'+inArray[i]+':::'+total);
-        total += inArray[i];
-    }
-    console.log('total:'+total);
-    return total/inArray.length;
-}
+
 export function defineEnum(...values) {
     return Object.freeze(
         values.reduce(
@@ -260,4 +268,31 @@ export function defineEnum(...values) {
             {}
         )
     );
+}
+
+export function generateAccessKeys() {
+    return {
+        access_key: randomString(16),
+        secret_key: randomString(32)
+    };
+}
+
+export function lastSegment(str, delimiter) {
+    return str.substr(str.lastIndexOf(delimiter) + 1);
+}
+
+export function avgOp(avg, value, i) {
+    return avg + (value - avg) / (i + 1);
+}
+
+export function shortString(str, maxLength = 25, suffixLengh = 5) {
+    if (str.length <= maxLength){
+        return str;
+    }
+
+    return `${
+        str.substr(0, maxLength - (suffixLengh + 3))
+    }...${
+        str.substr(-suffixLengh)
+    }`;
 }

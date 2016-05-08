@@ -1,5 +1,11 @@
 #! /bin/bash
 #
+if [[ "$(fdisk -l /dev/sda1 | grep '^Disk.*10\.[0-9] GB' | sed 's/.*, \([0-9]*\) bytes$/\1/')" -eq 10735321600 ]]; then
+  echo -e "c\nu\nd\nn\np\n1\n\n\nw\n" | fdisk /dev/sda
+  reboot
+elif [[ "$(df -P /dev/sda1 | tail -n +2 | awk '{print $2}')" -le 10319160 ]]; then
+  resize2fs /dev/sda1
+fi
 if [ ! -d "/noobaa" ]; then
 	mkdir /noobaa
 	cd /noobaa
@@ -18,7 +24,7 @@ if [ ! -d "/noobaa" ]; then
 	wget -qO- https://get.docker.com/ | sh
 
 	sudo usermod -aG docker "root"
-
+    #deprecated - need to check why it's not acceptable any more
 	network=$(curl http://metadata/computeMetadata/v1/instance/attributes/network -H "Metadata-Flavor: Google")
 	if [ $? -ne 0 ]; then
 			network=1
@@ -36,9 +42,9 @@ if [ ! -d "/noobaa" ]; then
 
 	#sudo restart docker
 	if [ $router != "0.0.0.0" ] ; then
-		sudo weave launch --ipalloc-range 10.2.0.$network/16 --trusted-subnets 10.2.0.0/16 $router #104.155.2.195
+		sudo weave launch --ipalloc-range 10.2.0.0/16 --trusted-subnets 10.2.0.0/16 $router #104.155.2.195
 	else
-		sudo weave launch --ipalloc-range 10.2.0.1/16 --trusted-subnets 10.2.0.0/16 --connlimit  200
+		sudo weave launch --ipalloc-range 10.2.0.0/16 --trusted-subnets 10.2.0.0/16 --connlimit  200
 	fi
 
 	curl http://noobaa-download.s3.amazonaws.com/DockerClientAmazon.zip >DockerClientAmazon.zip
@@ -78,9 +84,9 @@ else
 	#remove weave and launch new one
 	sudo docker rm  $(sudo docker ps -a |grep weave|awk '{print $1}')
 	if [ $router != "0.0.0.0" ] ; then
-		sudo weave launch --ipalloc-range 10.2.0.$network/16 --trusted-subnets 10.2.0.0/16 $router #104.155.2.195
+		sudo weave launch --ipalloc-range 10.2.0.0/16 --trusted-subnets 10.2.0.0/16 $router #104.155.2.195
 	else
-		sudo weave launch --ipalloc-range 10.2.0.1/16 --trusted-subnets 10.2.0.0/16
+		sudo weave launch --ipalloc-range 10.2.0.0/16 --trusted-subnets 10.2.0.0/16
 	fi
 	sudo docker start  $(sudo docker ps -a|grep noobaa|awk '{print $1}')
 

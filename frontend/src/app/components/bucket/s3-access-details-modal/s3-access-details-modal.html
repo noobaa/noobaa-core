@@ -1,0 +1,17 @@
+<modal params="onClose: () => close()">
+    <h1 class="heading2 container">
+        Connection Details
+    </h1>
+
+    <section class="container">
+        <h2 class="heading3">
+            Use the following details to connect your S3 application
+        </h2>
+
+        <property-sheet params="properties: details"></property-sheet>
+    </section>
+
+    <div class="container action-line pull-right">
+        <button class="action btn2" data-bind="click: close">close</button>
+    </div>
+</modal>

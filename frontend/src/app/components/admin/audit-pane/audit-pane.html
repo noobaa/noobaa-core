@@ -21,7 +21,7 @@
                 <thead>
                     <tr>
                         <th class="time-col">Time</th>
-                        <th class="user-col">User</th>
+                        <th class="user-col">Account</th>
                         <th class="category-col">Category</th>
                         <th class="event-col">Event</th>
                         <th class="entity-col text-left">Entity</th>
@@ -30,19 +30,15 @@
                 <tbody data-bind="foreach: rows">
                     <tr class="log-entry" data-bind="css: level">
                         <td class="time-col text-left" data-bind="text: date"></td>
-                        
-                        <td class="user-col no-wrap" data-bind="
-                            attr: { title: user },
-                            text: user
-                        "></td>
-                        
-                        <td class="category-col" data-bind="text: category"></td>
-                        
-                        <td class="event-col" data-bind="text: event"></td>
-                        
-                        <td class="entity-col text-left">
-                            <a href class="link" data-bind="text: entity"></a>
+                        <td class="user-col">
+                            <div class="no-wrap" data-bind="
+                                text: user || '---', 
+                                tooltip: user
+                            "></div>
                         </td>
+                        <td class="category-col" data-bind="text: category"></td>
+                        <td class="event-col" data-bind="text: event"></td>
+                        <td class="entity-col text-left" data-bind="text: entity"></td>
                     </tr>
                 </tbody>
             </table>

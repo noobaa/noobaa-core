@@ -10,10 +10,10 @@
             </section>
         </li>
 
-        <li data-bind="css: { selected: isTabSelected('network') }">
-            <a class="tab-header" data-bind="href: '/fe/systems/:system/management/network'">
+        <li data-bind="css: { selected: isTabSelected('settings') }">
+            <a class="tab-header" data-bind="href: '/fe/systems/:system/management/settings'">
                 <svg-icon params="uri: '/fe/assets/icons.svg#network'"></svg-icon>
-                Network
+                Settings
             </a>
 
             <section class="tab-content">
@@ -22,6 +22,10 @@
                 <hr class="seperator"/>
 
                 <server-dns-form class="container"></server-dns-form>
+
+                <hr>
+
+                <server-time-form class="container"></server-time-form>
             </section>
         </li>        
         <li data-bind="css: { selected: isTabSelected('about') }">
@@ -33,35 +37,14 @@
                 <about-form></about-form>
             </section>
         </li>
-
-        <!-- <li data-bind="css: { selected: isTabSelected('alerts') }">
-            <a class="tab-header" data-bind="href: '/fe/systems/:system/management/alerts'">
-                Alerts
+        <li data-bind="css: { selected: isTabSelected('diagnostics') }">
+            <a class="tab-header" data-bind="href: '/fe/systems/:system/management/diagnostics'">
+                <svg-icon params="uri: '/fe/assets/icons.svg#diagnose', fill: '#526D7C'"></svg-icon>
+                <span>Diagnostics</span>
             </a>
-
             <section class="tab-content">
-                this is the alerting tab
+                <diagnostics-form></diagnostics-form>
             </section>
-        </li> -->
-
-<!--         <li data-bind="css: { selected: isTabSelected('cluster') }">
-            <a class="tab-header" data-bind="href: '/fe/systems/:system/management/cluster'">
-                Cluster
-            </a>
-
-            <section class="tab-content">
-                this is the cluster tab
-            </section>
-        </li>     -->            
-
-<!--         <li data-bind="css: { selected: isTabSelected('policies') }">
-            <a class="tab-header" data-bind="href: '/fe/systems/:system/management/policies'">
-                Policies
-            </a>
-
-            <section class="tab-content">
-                this is the policies tab
-            </section>
-        </li>                 -->
+        </li>
     </ul>
 </div>

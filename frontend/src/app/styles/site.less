@@ -70,8 +70,7 @@ output {
 }
 
 :focus {
-    outline: @outline;
-    outline-offset: -1px;
+    .focused();
 }   
 
 .no-outline {
@@ -186,6 +185,7 @@ input[type="search"] {
     overflow: hidden;
 }
 
+
 .heading1 {
     margin-bottom : .5em;
 
@@ -254,8 +254,12 @@ input[type="search"] {
         @font-type2, 
         @font-weight-normal, 
         @font-size-normal, 
-        @text-color3            
+        @text-color3
     );
+}
+
+.greedy {
+    width: 100%;
 }
 
 .disabeld {
@@ -263,7 +267,7 @@ input[type="search"] {
         @font-type2, 
         @font-weight-light, 
         @font-size-normal, 
-        @text-color5        
+        @text-color5
     );  
 }
 
@@ -285,13 +289,15 @@ input[type="search"] {
     border: none;
     background: none;
     text-decoration: none;
+    display: inline;
+    padding: 0;
 
     a&[href], button& {
-        cursor: @cursor-pointer;    
+        cursor: @cursor-pointer;
         
-        &:hover {va
+        &:hover {
             text-decoration: underline; 
-        }       
+        }
     }
 }
 
@@ -305,6 +311,10 @@ input[type="search"] {
         @text-color9,
         @text-color1
     );
+
+    &:disabled {
+        color: @text-color5;
+    }
 }
 
 .link-small {
@@ -506,7 +516,7 @@ input[type="search"] {
         th, td {
             box-sizing: content-box;
             word-break: break-all;
-            padding: .75em 1.5em;       
+            padding: .75em .75em;
             vertical-align: top;
         }
 
@@ -544,34 +554,34 @@ input[type="search"] {
     .tab-header {
         position: relative;
         display: inline-block;
-        text-align: center;     
+        text-align: center;
         margin-top: 2px;
         padding: 1em;
         width: 10em;
         line-height: 2.5;
         border-left: 4px solid transparent;
         cursor: @cursor-pointer;
-        z-index: 0;
+        z-index: 2;
 
         svg-icon {
             width: @font-size-xlarge;
             height: @font-size-xlarge;
             margin: 0 auto;
-            display: block;         
+            display: block;
         }
     }
 
     .tab-content {
         display: none;
         position: absolute;
-        left: 10em;
+        left: 9.9em;
         top: 2px;
         right: 0;
         bottom: 0;
         background-color: @bg-color2;
         box-shadow: 0 0 4px 0px @shadow-color;
         padding: 1em 2em;
-        overflow-y: auto;   
+        overflow-y: auto;
     }
 
     .selected {
@@ -579,7 +589,7 @@ input[type="search"] {
             background-color: @bg-color2;
             border-color: @text-color6;
             color: @text-color6;
-            box-shadow: -2px 0 4px 0px @shadow-color;
+            box-shadow: -3px 0 4px 0px @shadow-color;
             cursor: default;
         }
 
@@ -716,7 +726,7 @@ input[type="search"] {
 .box {
     display: block;
     background-color: @bg-color2;
-    padding: 1em 1.25em;        
+    padding: 1em 1.25em;
 }
 
 .status-line {
@@ -740,30 +750,30 @@ input[type="search"] {
     transition: transform 250ms ease-out;
     
     &.deg0, &.deg360, &.deg-360 {
-        transform: rotate(0deg) 
+        transform: rotate(0deg);
     }
 
     &.deg90 {
-        transform: rotate(90deg)
+        transform: rotate(90deg);
     }
 
     &.deg180 {
-        transform: rotate(180deg)
+        transform: rotate(180deg);
     }
 
     &.deg270 {
-        transform: rotate(270deg)
+        transform: rotate(270deg);
     }
 
     &.deg-90 {
-        transform: rotate(-90deg)
+        transform: rotate(-90deg);
     }
 
     &.deg-180 {
-        transform: rotate(-180deg)
+        transform: rotate(-180deg);
     }
 
     &.deg-270 {
-        transform: rotate(-270deg)
+        transform: rotate(-270deg);
     }
 }

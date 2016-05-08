@@ -84,18 +84,26 @@ function extract_package {
   cp ${TMP_PATH}${PACKAGE_FILE_NAME} .
   tar -xzvf ./${PACKAGE_FILE_NAME} >& /dev/null
 
-  #If package can't be extracted, clean 
+  #If package can't be extracted, clean
   if [ $? -ne 0 ]; then
     deploy_log "Corrupted package file, could not open"
     rm -rf ${EXTRACTION_PATH}*
     exit 1
   fi
 
-  #test if package contains expected locations/files, for example src/deploy/NVA_build/env.orig
-  if [ -f "${EXTRACTION_PATH}noobaa-core/src/deploy/NVA_build/env.orig" ]; then
-    deploy_log "env.orig exists in temp extraction point, continue with upgrade"
+  #test if package contains expected locations/files, for example build/Release/native_core.node
+  if [ -f "${EXTRACTION_PATH}noobaa-core/build/Release/native_core.node" ]; then
+          deploy_log "native_core.node exists in temp extraction point, continue with upgrade"
+          #test if build time is newer than current version build time
+          if [ "${EXTRACTION_PATH}noobaa-core/build/Release/native_core.node" -nt "/root/node_modules/noobaa-core/build/Release/native_core.node" ]; then
+              deploy_log "native_core.node exists and its newer than current version, continue with upgrade"
+         else
+             deploy_log "build time is older than current version, abort upgrade"
+             rm -rf ${EXTRACTION_PATH}*
+             exit 1
+          fi
   else
-    deploy_log "env.orig does not exists, abort upgrade"
+    deploy_log "native_core.node does not exists, abort upgrade"
     rm -rf ${EXTRACTION_PATH}*
     exit 1
   fi
@@ -133,7 +141,7 @@ function do_upgrade {
   sleep 5;
   restart_s3rver
   deploy_log "Restarted s3rver"
-      restart_webserver
+  restart_webserver
   deploy_log "Upgrade finished successfully!"
 }
 
@@ -150,11 +158,11 @@ if [ "$1" == "from_file" ]; then
   allargs="$@"
   shift
   if [ "$1" != "" ]; then
-      deploy_log "upgrade.sh called for package extraction"
-      cp -f $1 ${TMP_PATH}${PACKAGE_FILE_NAME}
-      extract_package
-      shift
-      ${NEW_UPGRADE_SCRIPT} do_upgrade $@
+    deploy_log "upgrade.sh called for package extraction"
+    cp -f $1 ${TMP_PATH}${PACKAGE_FILE_NAME}
+    extract_package
+    shift
+    ${NEW_UPGRADE_SCRIPT} do_upgrade $@
   else
     deploy_log "upgrade.sh called with ${allargs}"
     echo "Must supply path to upgrade package"

@@ -1,22 +1,22 @@
 <ul class="list-no-style status-line">
-    <li title="ip">
-        <svg-icon params="uri: '/fe/assets/icons.svg#location'"></svg-icon>
+    <li>
+        <svg-icon params="uri: '/fe/assets/icons.svg#location'" data-bind="tooltip: 'IP'"></svg-icon>
         <span data-bind="text: ip"></span>
     </li>
-    <li title="heartbeat">
-        <svg-icon params="uri: '/fe/assets/icons.svg#heartbeat'"></svg-icon>
+    <li>
+        <svg-icon params="uri: '/fe/assets/icons.svg#heartbeat'" data-bind="tooltip: 'Heartbeat'"></svg-icon>
         <span data-bind="text: heartbeat"></span>
     </li>
-    <li title="state">
-        <svg-icon params="uri: stateIcon"></svg-icon>
+    <li>
+        <svg-icon params="uri: stateIcon" data-bind="tooltip: 'State'"></svg-icon>
         <span data-bind="text: state"></span>
     </li>
-    <li title="trust">
-        <svg-icon params="uri: trustIcon"></svg-icon>
+    <li>
+        <svg-icon params="uri: trustIcon" data-bind="tooltip: 'Trust'"></svg-icon>
         <span data-bind="text: trust"></span>
     </li>
-    <li title="debug level" class="debug-level" data-bind="css: debugLevelCss">
-        <svg-icon params="uri: '/fe/assets/icons.svg#diagnose'"></svg-icon>
+    <li class="debug-level" data-bind="css: debugLevelCss">
+        <svg-icon params="uri: '/fe/assets/icons.svg#diagnose'" data-bind="tooltip: 'Debug Level'"></svg-icon>
         <span data-bind="text: debugLevel"></span>
     </li>
 </ul>

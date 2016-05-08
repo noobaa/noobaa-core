@@ -40,7 +40,7 @@
 
         <tbody data-bind="foreach: visibleRows">
             <tr>
-                <td class="state-col" data-bind="attr: { title: stateToolTip }">
+                <td class="state-col" data-bind="tooltip: stateToolTip">
                     <svg-icon params="uri: stateIcon"></svg-icon>
                 </td>
 
@@ -57,7 +57,7 @@
                 <td class="cloudsync-col" data-bind="
                     text: cloudSyncStatus().label, 
                     css: cloudSyncStatus().css"
-                ></td>                
+                ></td>
 
                 <td class="delete-col">
                     <delete-button params="

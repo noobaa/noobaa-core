@@ -55,7 +55,7 @@ private:
     static NAUV_UDP_RECEIVE_CB_WRAP(uv_callback_receive_wrap, uv_callback_receive);
 
 private:
-    static const int MAX_MSG_LEN = 16 * 1024 * 1024;
+    static const int MAX_MSG_LEN = 64 * 1024 * 1024;
     static const int MSG_MAGIC_LEN = 4;
     static const char MSG_HDR_MAGIC[MSG_MAGIC_LEN];
 

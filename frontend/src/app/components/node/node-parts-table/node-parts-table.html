@@ -1,4 +1,6 @@
 
+<paginator params="pageSize: pageSize, itemCount: count, page: page" class="pull-right">
+</paginator>
 
 <section class="table-wrapper">
     <div class="data-table">
@@ -11,18 +13,13 @@
                     <th class="start-col">Start Offset</th>
                     <th class="end-col">End Offset</th>
                     <th class="size-col">Part Size</th>
-                    <th class="pagingation-col">
-                        <paginator params="pageSize: pageSize, itemCount: count, page: page" class="pull-right">
-                        </paginator>
-
-                    </th>
                 </tr>
             </thead>
 
             <tbody  data-bind="foreach: rows">
                 <!-- ko if: isVisible -->
                 <tr>
-                    <td class="state-col" data-bind="attr: { title: stateToolTip }">
+                    <td class="state-col" data-bind="tooltip: stateToolTip">
                         <svg-icon params="uri: stateIcon"></svg-icon>
                     </td>
 
@@ -35,8 +32,6 @@
                     <td class="start-col" data-bind="text: startOffset"></td>
                     <td class="end-col" data-bind="text: endOffset"></td>
                     <td class="size-col" data-bind="text: size"></td>
-                    <td class="pagingation-col">
-                    </td>
                 </tr>
                 <!-- /ko -->
             </tbody>

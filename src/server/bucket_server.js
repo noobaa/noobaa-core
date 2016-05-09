@@ -47,6 +47,8 @@ var mongo_utils = require('../util/mongo_utils');
 var dbg = require('../util/debug_module')(__filename);
 var P = require('../util/promise');
 var js_utils = require('../util/js_utils');
+var https = require('https');
+
 
 const VALID_BUCKET_NAME_REGEXP =
     /^(([a-z0-9]|[a-z0-9][a-z0-9\-]*[a-z0-9])\.)*([a-z0-9]|[a-z0-9][a-z0-9\-]*[a-z0-9])$/;
@@ -537,7 +539,11 @@ function get_cloud_buckets(req) {
             endpoint: connection.endpoint,
             accessKeyId: connection.access_key,
             secretAccessKey: connection.secret_key,
-            sslEnabled: false
+            httpOptions: {
+              agent: new https.Agent({
+                rejectUnauthorized: false,
+              })
+            }
         });
         return P.ninvoke(s3, "listBuckets");
     }).then(function(data) {

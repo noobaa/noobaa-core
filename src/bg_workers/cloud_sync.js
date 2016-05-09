@@ -12,6 +12,7 @@ var AWS = require('aws-sdk');
 var db = require('../server/db');
 var system_store = require('../server/stores/system_store');
 var dbg = require('../util/debug_module')(__filename);
+var https = require('https');
 
 var CLOUD_SYNC = {
     //Policy was changed, list of policies should be refreshed
@@ -387,12 +388,16 @@ function load_single_policy(bucket) {
     };
     //Create a corresponding local bucket s3 object and a cloud bucket object
     policy.s3rver = new AWS.S3({
-        endpoint: 'http://127.0.0.1',
+        endpoint: 'https://127.0.0.1',
         s3ForcePathStyle: true,
-        sslEnabled: false,
         accessKeyId: policy.system.owner.access_keys[0].access_key,
         secretAccessKey: policy.system.owner.access_keys[0].secret_key,
         maxRedirects: 10,
+        httpOptions: {
+          agent: new https.Agent({
+            rejectUnauthorized: false,
+          })
+        }
     });
 
     if (policy.endpoint === "https://s3.amazonaws.com") {
@@ -407,10 +412,14 @@ function load_single_policy(bucket) {
         //S3 compatible
         policy.s3cloud = new AWS.S3({
             endpoint: policy.endpoint,
-            sslEnabled: false,
             s3ForcePathStyle: true,
             accessKeyId: policy.access_keys.access_key,
             secretAccessKey: policy.access_keys.secret_key,
+            httpOptions: {
+              agent: new https.Agent({
+                rejectUnauthorized: false,
+              })
+            }
         });
 
     }
@@ -606,7 +615,7 @@ function sync_single_file_to_cloud(policy, object, target) {
                 });
                 return P.ninvoke(policy.s3cloud, 'upload', params)
                     .fail(function(err) {
-                        dbg.error('Error sync_single_file_to_noobaa', object.key, '->', policy.bucket.name + '/' + object.key,
+                        dbg.error('Error (upload) sync_single_file_to_noobaa', object.key, '->', policy.bucket.name + '/' + object.key,
                             err, err.stack);
                     });
             } else {

@@ -72,7 +72,7 @@ function install_aux {
 	# install NTP server
 	yum install -y ntp
 	# By Default, NTP is disabled, set local TZ to US Pacific
-	echo "# Use NooBaa Configured Server"	 >> /etc/ntp.conf
+	echo "# NooBaa Configured NTP Server"	 >> /etc/ntp.conf
 	sed -i 's:\(^server.*\):#\1:g' /etc/ntp.conf
 	ln -sf /usr/share/zoneinfo/US/Pacific /etc/localtime
 

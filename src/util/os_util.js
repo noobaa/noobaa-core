@@ -270,7 +270,7 @@ function get_time_config() {
             });
     } else if (os.type() === 'Darwin') {
         reply.status = true;
-        reply.srv_time = new Date().toISOString();
+        reply.srv_time = moment().format();
         return promise_utils.promised_exec('ls -l /etc/localtime', false, true)
             .then((tzone) => {
                 var symlink = tzone.split('>')[1].split('/usr/share/zoneinfo/')[1].trim();

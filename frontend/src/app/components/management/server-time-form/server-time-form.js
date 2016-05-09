@@ -45,7 +45,7 @@ class ServerTimeFormViewModel {
         );
 
         this.serverTimeText = ko.pureComputed(
-            () => moment.parseZone(serverTime()).format('MM/DD/YYYY hh:mm:ss ([GMT]Z)')
+            () => moment.parseZone(serverTime()).format('MM/DD/YYYY HH:mm:ss ([GMT]Z)')
         );
 
         this.timezone = ko.observableWithDefault(
@@ -53,15 +53,15 @@ class ServerTimeFormViewModel {
         );
 
         this.year = ko.observableWithDefault(
-            () => moment(serverTime()).year()
+            () => moment.parseZone(serverTime()).year()
         );
 
         this.month = ko.observableWithDefault(
-            () => moment(serverTime()).month()
+            () => moment.parseZone(serverTime()).month()
         );
 
         let day = ko.observableWithDefault(
-            () => moment(serverTime()).date()
+            () => moment.parseZone(serverTime()).date()
         );
 
         this.day = ko.pureComputed({
@@ -70,17 +70,17 @@ class ServerTimeFormViewModel {
         });
 
         this.hour = ko.observableWithDefault(
-            () => moment(serverTime()).hour()
+            () => moment.parseZone(serverTime()).hour()
         )
             .extend({ required: true, min: 0, max: 23 });
 
         this.minute = ko.observableWithDefault(
-            () => moment(serverTime()).minute()
+            () => moment.parseZone(serverTime()).minute()
         )
             .extend({ required: true, min: 0, max: 59 });
 
         this.second = ko.observableWithDefault(
-            () => moment(serverTime()).second()
+            () => moment.parseZone(serverTime()).second()
         )
             .extend({ required: true, min: 0, max: 59 });
 
@@ -126,7 +126,7 @@ class ServerTimeFormViewModel {
 
         this.autoIncHandle = setInterval(
             () => serverTime(
-                moment(serverTime()).add(1, 'second').toISOString()
+                moment.parseZone(serverTime()).add(1, 'second').format()
             ),
             1000
         );
@@ -152,16 +152,17 @@ class ServerTimeFormViewModel {
         if (this.manualErrors().length > 0) {
             this.manualErrors.showAllMessages();
         } else {
-            let time = moment().utc({
+            let epoch = moment.utc({
                 years: this.year(),
                 months: this.month(),
                 date: this.day(),
                 hours: this.hour(),
                 minutes: this.minute(),
                 seconds: this.second(),
-            });
+            })
+            .unix();
 
-            updateServerTime(this.timezone(), time.unix());
+            updateServerTime(this.timezone(), epoch);
         }
     }
 

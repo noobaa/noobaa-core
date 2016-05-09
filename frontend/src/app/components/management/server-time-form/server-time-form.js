@@ -13,8 +13,8 @@ const configTypes =  Object.freeze([
 ]);
 
 function timezoneSearchSelector({ label }, input) {
-    return label.toLowerCase().split('/').some(
-        part => part.startsWith(input)
+    return !!label.toLowerCase().match(
+        new RegExp(`\\b${input.replace('/', '\\/')}`)
     );
 }
 
@@ -45,7 +45,7 @@ class ServerTimeFormViewModel {
         );
 
         this.serverTimeText = ko.pureComputed(
-            () => moment(serverTime()).format('MM/DD/YYYY hh:mm:ss Z (GMT)')
+            () => moment.parseZone(serverTime()).format('MM/DD/YYYY hh:mm:ss ([GMT]Z)')
         );
 
         this.timezone = ko.observableWithDefault(
@@ -119,7 +119,7 @@ class ServerTimeFormViewModel {
 
         this.timezones = timezones.map(
             ({ key, value }) => ({
-                label: `${key.replace(/\_/g, ' ')} (GMT${value})`,
+                label: `(GMT${value}) ${key.replace(/\_/g, ' ')}`,
                 value: key
             })
         );

@@ -57,5 +57,6 @@ function create_agent(req) {
 
 
 function remove_agent(req) {
-    supervisor.remove_agent(req.params.name);
+    return supervisor.remove_program(req.params.name)
+        .then(() => supervisor.apply_changes());
 }

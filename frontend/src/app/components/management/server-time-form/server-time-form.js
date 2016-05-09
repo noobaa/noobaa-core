@@ -152,16 +152,16 @@ class ServerTimeFormViewModel {
         if (this.manualErrors().length > 0) {
             this.manualErrors.showAllMessages();
         } else {
-            let time = moment({
+            let time = moment().utc({
                 years: this.year(),
                 months: this.month(),
                 date: this.day(),
                 hours: this.hour(),
                 minutes: this.minute(),
                 seconds: this.second(),
-            }).unix();
+            });
 
-            updateServerTime(this.timezone(), time.valueOf());
+            updateServerTime(this.timezone(), time.unix());
         }
     }
 

@@ -12,7 +12,7 @@ exports.get_all_cluster_members = get_all_cluster_members;
 
 var _ = require('lodash');
 var system_store = require('../stores/system_store');
-var dbg = require('../util/debug_module')(__filename);
+var dbg = require('../../util/debug_module')(__filename);
 
 
 function get_topology() {

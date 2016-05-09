@@ -194,6 +194,7 @@ function post_upgrade {
       id=$(uuidgen)
       /usr/bin/mongo nbcore --eval "db.clusters.insert({cluster_id: '${id}'})"
   fi
+	mkdir -p /var/lib/mongo/cluster/shard1
 
   unset AGENT_VERSION
 
@@ -226,7 +227,8 @@ function post_upgrade {
 	sudo /etc/init.d/ntpd start
 	local noobaa_ntp=$(grep 'NooBaa Configured NTP Server' /etc/ntp.conf | wc -l)
 	if [ ${noobaa_ntp} -eq 0 ]; then #was not configured yet, no tz config as well
-			echo "# Use NooBaa Configured Server"	 > /etc/ntp.conf
+			echo "# Use NooBaa Configured Server"	 >> /etc/ntp.conf
+			sed -i 's:\(^server.*\):#\1:g' /etc/ntp.conf
 			ln -sf /usr/share/zoneinfo/US/Pacific /etc/localtime
 	fi
 

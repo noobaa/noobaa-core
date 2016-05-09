@@ -19,8 +19,8 @@ module.exports = cluster_server;
 
 var _ = require('lodash');
 var server_rpc = require('./server_rpc');
-var system_store = require('./stores/system_store');
 var MongoCtrl = require('./utils/mongo_ctrl');
+var cutil = require('./utils/clustering_utils');
 var P = require('../util/promise');
 var os_utils = require('../util/os_util');
 var dbg = require('../util/debug_module')(__filename);
@@ -41,15 +41,15 @@ function _init() {
 
 //Initiate process of adding a server to the cluster
 function add_member_to_cluster(req) {
-    dbg.log0('Recieved add member to cluster req', req.rpc_params, 'current topology', _get_topology());
-    var id = _get_topology().cluster_id;
+    dbg.log0('Recieved add member to cluster req', req.rpc_params, 'current topology', cutil.get_topology());
+    var id = cutil.get_topology().cluster_id;
 
     return P.fcall(function() {
             if (req.rpc_params.role === 'SHARD') {
                 let myip = os_utils.get_local_ipv4_ips()[0];
                 //If adding shard, and current server does not have config on it, add
                 //This is the case on the addition of the first shard
-                if (_.findIndex(_get_topology().config_servers, function(srv) {
+                if (_.findIndex(cutil.get_topology().config_servers, function(srv) {
                         return srv.address === myip;
                     }) === -1) {
                     dbg.log0('Current server is the first on cluster and still has single mongo running, updating');
@@ -64,7 +64,7 @@ function add_member_to_cluster(req) {
             //Send the a join_to_cluster command to the new joining server
             return server_rpc.client.cluster_server.join_to_cluster({
                 ip: req.rpc_params.ip,
-                topology: _get_topology(),
+                topology: cutil.get_topology(),
                 cluster_id: id,
                 secret: req.rpc_params.secret,
                 role: req.rpc_params.role,
@@ -79,7 +79,7 @@ function add_member_to_cluster(req) {
             throw new Error('Failed adding members to cluster');
         })
         .then(function() {
-            dbg.log0('Added member', req.rpc_params.ip, 'to cluster. New topology', _get_topology());
+            dbg.log0('Added member', req.rpc_params.ip, 'to cluster. New topology', cutil.get_topology());
             return;
         });
 }
@@ -94,8 +94,8 @@ function join_to_cluster(req) {
 
     //Verify we are not already joined to a cluster
     //TODO:: think how do we want to handle it, if at all
-    if (_get_topology().shards.length !== 1 ||
-        _get_topology().shards[0].servers.length !== 1) {
+    if (cutil.get_topology().shards.length !== 1 ||
+        cutil.get_topology().shards[0].servers.length !== 1) {
         console.error('Server already joined to a cluster');
         throw new Error('Server joined to a cluster');
     }
@@ -105,13 +105,13 @@ function join_to_cluster(req) {
     //Easy path -> don't support it, make admin detach and re-attach as new role,
     //though this creates more hassle for the admin and overall lengthier process
 
-    dbg.log0('Replacing current topology', _get_topology(), 'with', req.rpc_params.topology);
-    _update_cluster_info(req.rpc_params.topology);
+    dbg.log0('Replacing current topology', cutil.get_topology(), 'with', req.rpc_params.topology);
+    cutil.update_cluster_info(req.rpc_params.topology);
     return P.fcall(function() {
             if (req.rpc_params.role === 'SHARD') {
                 //Server is joining as a new shard, update the shard topology
-                _update_cluster_info(
-                    _get_topology.shards.push({
+                cutil.update_cluster_info(
+                    cutil.get_topology().shards.push({
                         name: req.rpc_params.shard,
                         servers: [{
                             address: req.rpc_params.ip
@@ -132,20 +132,17 @@ function join_to_cluster(req) {
         .then(function() {
             dbg.log0('Added member, publishing updated topology');
             //Mongo servers are up, update entire cluster with the new topology
-            return _publish_to_cluster('news_updated_topology', _get_topology());
+            return _publish_to_cluster('news_updated_topology', cutil.get_topology());
         });
 }
 
 function news_config_servers(req) {
     dbg.log0('Recieved news_config_servers', req.rpc_params);
     //Verify we recieved news on the cluster we are joined to
-    if (_get_topology().cluster_id !== req.rpc_params.cluster_id) {
-        dbg.error('ClusterID mismatch: has', _get_topology().cluster_id, ' recieved:', req.rpc_params.cluster_id);
-        throw new Error('ClusterID mismatch');
-    }
+    cutil.verify_cluster_id(req.rpc_params.cluster_id);
 
     //Update our view of the topology
-    _update_cluster_info({
+    cutil.update_cluster_info({
         config_servers: req.rpc_params.IPs
     });
 
@@ -155,8 +152,8 @@ function news_config_servers(req) {
     }
 
     //We have a valid config replica set, start the mongos service
-    return MongoCtrl.add_new_mongos(_extract_servers_ip(
-        _get_topology().config_servers
+    return MongoCtrl.add_new_mongos(cutil.extract_servers_ip(
+        cutil.get_topology().config_servers
     ));
 
     //TODO:: NBNB Update connection string for our mongo connections, currently only seems needed for
@@ -168,13 +165,10 @@ function news_config_servers(req) {
 function news_updated_topology(req) {
     dbg.log0('Recieved news_updated_topology', req.rpc_params);
     //Verify we recieved news on the cluster we are joined to
-    if (_get_topology().cluster_id !== req.rpc_params.cluster_id) {
-        dbg.error('ClusterID mismatch: has', _get_topology().cluster_id, ' recieved:', req.rpc_params.cluster_id);
-        throw new Error('ClusterID mismatch');
-    }
+    cutil.verify_cluster_id(req.rpc_params.cluster_id);
 
     //Update our view of the topology
-    _update_cluster_info(req.rpc_params.topology);
+    cutil.update_cluster_info(req.rpc_params.topology);
     return;
 }
 
@@ -190,7 +184,7 @@ function heartbeat(req) {
 function _add_new_shard_member(shardname, ip, first_shard) {
     // "cache" current topology until all changes take affect, since we are about to lose mongo
     // until the process is done
-    let current_topology = _get_topology();
+    let current_topology = cutil.get_topology();
     let topology_updates  = {};
     dbg.log0('Adding shard, new topology', current_topology);
 
@@ -200,7 +194,7 @@ function _add_new_shard_member(shardname, ip, first_shard) {
             dbg.log0('Checking current config servers set, currently contains', current_topology.config_servers.length, 'servers');
             if (current_topology.config_servers.length === 3) { //Currently stay with a repset of 3 for config
                 //We already have a config replica set of 3, simply set up a mongos instance
-                return MongoCtrl.add_new_mongos(_extract_servers_ip(
+                return MongoCtrl.add_new_mongos(cutil.extract_servers_ip(
                     current_topology.config_servers
                 ));
             } else { // < 3 since we don't add once we reach 3, add this server as config as well
@@ -210,10 +204,10 @@ function _add_new_shard_member(shardname, ip, first_shard) {
                 });
                 topology_updates.config_servers = updated_cfg;
 
-                return _add_new_config(_extract_servers_ip(updated_cfg), first_shard)
+                return _add_new_config(cutil.extract_servers_ip(updated_cfg), first_shard)
                     .then(function() {
                         dbg.log0('Updating topology in mongo');
-                        return _update_cluster_info(topology_updates);
+                        return cutil.update_cluster_info(topology_updates);
                     })
                     .then(function() {
                         dbg.log0('Added', ip, 'as a config server publish to cluster');
@@ -227,7 +221,7 @@ function _add_new_shard_member(shardname, ip, first_shard) {
 }
 
 function _add_new_replicaset_member(shardname, ip) {
-    var shard_idx = _.findIndex(_get_topology().shards, function(s) {
+    var shard_idx = _.findIndex(cutil.get_topology().shards, function(s) {
         return shardname === s.name;
     });
 
@@ -236,8 +230,8 @@ function _add_new_replicaset_member(shardname, ip) {
         throw new Error('Cannot add RS member to non-existing shard');
     }
 
-    _update_cluster_info(
-        _get_topology.shards[shard_idx].servers.push({
+    cutil.update_cluster_info(
+        cutil.get_topology().shards[shard_idx].servers.push({
             address: ip
         })
     );
@@ -245,16 +239,16 @@ function _add_new_replicaset_member(shardname, ip) {
     return MongoCtrl.add_replica_set_member(shardname)
         .then(function() {
 
-            var rs_length = _get_topology.shards[shard_idx].servers.length;
+            var rs_length = cutil.get_topology().shards[shard_idx].servers.length;
             if (rs_length === 3) {
                 //Initiate replica set and add all members
-                return MongoCtrl.initiate_replica_set(shardname, _extract_servers_ip(
-                    _get_topology.shards[shard_idx].servers
+                return MongoCtrl.initiate_replica_set(shardname, cutil.extract_servers_ip(
+                    cutil.get_topology().shards[shard_idx].servers
                 ));
             } else if (rs_length > 3) {
                 //joining an already existing and functioning replica set, add new member
-                return MongoCtrl.add_member_to_replica_set(shardname, _extract_servers_ip(
-                    _get_topology.shards[shard_idx].servers
+                return MongoCtrl.add_member_to_replica_set(shardname, cutil._extract_servers_ip(
+                    cutil._get_topology().shards[shard_idx].servers
                 ));
             } else {
                 //2 servers, nothing to be done yet. RS will be activated on the 3rd join
@@ -282,7 +276,7 @@ function _add_new_config(cfg_array, first_shard) {
 
 function _publish_to_cluster(apiname, req_params) {
     var servers = [];
-    _.each(_get_topology().shards, function(shard) {
+    _.each(cutil.get_topology().shards, function(shard) {
         _.each(shard.servers, function(single_srv) {
             servers.push(single_srv.address);
         });
@@ -303,33 +297,4 @@ function _publish_to_cluster(apiname, req_params) {
 
 function _get_secret() {
     return this._secret;
-}
-
-function _get_topology() {
-    return system_store.get_local_cluster_info();
-}
-
-function _update_cluster_info(params) {
-    var current_clustering = system_store.get_local_cluster_info();
-    var owner_secret = current_clustering.oowner_secret;
-    var update = _.defaults(_.pick(params, _.keys(current_clustering)), current_clustering);
-    update.owner_secret = owner_secret; //Keep original owner_secret
-
-    dbg.log0('Updating local cluster info for', owner_secret, 'previous cluster info',
-        current_clustering, 'new cluster info', update);
-
-    return system_store.make_changes({
-        update: {
-            clusters: [update]
-        }
-    });
-}
-
-//Recieves array in the cluster info form ([{address:X},{address:y}]) and returns the array of IPs
-function _extract_servers_ip(arr) {
-    var ips = [];
-    _.each(arr, function(srv) {
-        ips.push(srv.address);
-    });
-    return ips;
 }

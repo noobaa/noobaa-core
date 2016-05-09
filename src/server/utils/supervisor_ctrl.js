@@ -6,7 +6,7 @@ var P = require('../../util/promise');
 var promise_utils = require('../../util/promise_utils');
 var config = require('../../../config.js');
 
-module.exports = new SupervisorCtrl();
+module.exports = new SupervisorCtrl(); //Singleton
 
 function SupervisorCtrl() {
     this._inited = false;
@@ -42,8 +42,23 @@ SupervisorCtrl.prototype.apply_changes = function() {
 
 SupervisorCtrl.prototype.add_program = function(prog) {
     let self = this;
+
     return P.when(self.init())
         .then(() => self._programs.push(prog));
+};
+
+SupervisorCtrl.prototype.remove_program = function(prog_name) {
+    let self = this;
+    return P.when(self.init())
+        .then(() => {
+            let ind = _.findIndex(self._programs, function(prog) {
+                return prog.name === (prog_name);
+            });
+            if (ind !== -1) {
+                self._programs.splice(ind, 1);
+            }
+            return;
+        });
 };
 
 SupervisorCtrl.prototype.get_mongo_services = function() {
@@ -89,21 +104,6 @@ SupervisorCtrl.prototype.add_agent = function(agent_name, args_str) {
         .then(() => self.apply_changes());
 };
 
-SupervisorCtrl.prototype.remove_agent = function(agent_name) {
-    let self = this;
-    return P.when(self.init())
-        .then(() => {
-            let ind = _.findIndex(self._programs, function(prog) {
-                return prog.name === ('agent_' + agent_name);
-            });
-            if (ind !== -1) {
-                self._programs.splice(ind, 1);
-                return self.apply_changes();
-            }
-            return;
-        });
-};
-
 // Internals
 
 SupervisorCtrl.prototype._serialize = function() {
@@ -112,13 +112,12 @@ SupervisorCtrl.prototype._serialize = function() {
     _.each(self._programs, function(prog) {
         data += '[program:' + prog.name + ']\n';
         _.each(_.keys(prog), function(key) {
-            if (key !== 'name') { //skip name
+            if (key !== 'name') { //skip no names
                 data += key + '=' + prog[key] + '\n';
             }
         });
         data += config.SUPERVISOR_PROGRAM_SEPERATOR + '\n\n';
-    });
-    console.warn('Serializing', config.CLUSTERING_PATHS.SUPER_FILE, data);
+    });    
 
     return fs.writeFileAsync(config.CLUSTERING_PATHS.SUPER_FILE, data);
 };

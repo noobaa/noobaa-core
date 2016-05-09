@@ -10,15 +10,19 @@ module.exports = {
     set_manual_time: set_manual_time,
     set_ntp: set_ntp,
     get_time_config: get_time_config,
+    get_local_ipv4_ips: get_local_ipv4_ips,
+    get_networking_info: get_networking_info,
+    read_server_secret: read_server_secret,
 };
 
 var _ = require('lodash');
-var P = require('../util/promise');
 var os = require('os');
 var fs = require('fs');
 var child_process = require('child_process');
 var node_df = require('node-df');
+var P = require('./promise');
 var promise_utils = require('./promise_utils');
+var config = require('../../config.js');
 
 function os_info() {
 
@@ -280,12 +284,44 @@ function get_time_config() {
     }
 }
 
+function get_local_ipv4_ips() {
+    var ifaces = os.networkInterfaces();
+    var ips = [];
+    _.each(ifaces, function(iface) {
+        _.each(iface, function(ifname) {
+            //Don't count non IPv4 or Internals
+            if (ifname.family !== 'IPv4' ||
+                ifname.internal !== false) {
+                return;
+            }
+            ips.push(ifname.address);
+        });
+    });
+    return ips;
+}
+
+function get_networking_info() {
+    var ifaces = os.networkInterfaces();
+    return ifaces;
+}
+
 function _set_time_zone(tzone) {
     //TODO:: Ugly Ugly, change to datectrl on centos7
     return promise_utils.promised_exec('ln -sf /usr/share/zoneinfo/' +
         tzone + ' /etc/localtime');
 }
 
+function read_server_secret() {
+    if (os.type() === 'Linux') {
+        return P.nfcall(fs.readFile, config.CLUSTERING_PATHS.SECRET_FILE)
+            .then(function(data) {
+                var sec = data.toString();
+                return sec.substring(0, sec.length - 1);
+            });
+    } else {
+        return P.when(os.hostname());
+    }
+}
 
 if (require.main === module) {
     read_drives().done(function(drives) {

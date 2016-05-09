@@ -201,7 +201,7 @@ function delete_cloud_pool(req) {
     dbg.log0('Deleting cloud pool', req.rpc_params.name);
     var pool = find_pool_by_name(req);
 
-    // construct the cloud node name according to convention 
+    // construct the cloud node name according to convention
     let cloud_node_name = 'noobaa-cloud-agent-' + os.hostname() + '-' + pool.name;
     return P.resolve()
         .then(function() {
@@ -215,7 +215,8 @@ function delete_cloud_pool(req) {
                 }
             });
         })
-        .then(() => SupervisorCtl.remove_agent(pool.name))
+        .then(() => SupervisorCtl.remove_program('agent_' + pool.name))
+        .then(() => SupervisorCtl.apply_changes())
         .then(() => nodes_store.delete_node_by_name({
             system: {
                 _id: req.system._id

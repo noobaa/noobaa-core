@@ -39,10 +39,9 @@ module.exports = system_server;
 
 var _ = require('lodash');
 var P = require('../util/promise');
-//var crypto = require('crypto');
 var ip_module = require('ip');
 var url = require('url');
-// var AWS = require('aws-sdk');
+var uuid = require('node-uuid');
 var diag = require('./utils/server_diagnostics');
 var db = require('./db');
 var server_rpc = require('./server_rpc');
@@ -111,6 +110,17 @@ function new_system_changes(name, owner_account_id) {
         system: system._id,
         role: 'admin'
     };
+    var cluster = {
+        owner_secret: system_store.get_server_secret(),
+        cluster_id: uuid().substring(0, 8),
+        shards: [{
+            shardname: 'shard1',
+            servers: [{
+                address: os_utils.get_local_ipv4_ips()[0] //TODO:: on multiple nics support, fix this
+            }],
+        }],
+        config_servers: [],
+    };
 
     db.ActivityLog.create({
         event: 'conf.create_system',
@@ -127,6 +137,7 @@ function new_system_changes(name, owner_account_id) {
             tiers: [tier],
             pools: [pool],
             roles: [role],
+            clusters: [cluster],
         }
     };
 }

@@ -1,7 +1,8 @@
 'use strict';
 
 // var _ = require('lodash');
-var P = require('../util/promise');
+var P = require('./promise');
+var promise_utils = require('./promise_utils');
 var fs = require('fs');
 var path = require('path');
 var readdirp = require('readdirp');
@@ -12,6 +13,7 @@ module.exports = {
     disk_usage: disk_usage,
     list_directory: list_directory,
     list_directory_to_file: list_directory_to_file,
+    create_fresh_path: create_fresh_path,
 };
 
 
@@ -114,4 +116,9 @@ function list_directory_to_file(path, outfile) {
         .then(function(files) {
             return fs.writeFileAsync(outfile, JSON.stringify(files, null, '\n'));
         });
+}
+
+function create_fresh_path(path) {
+    return P.when(promise_utils.folder_delete(path))
+        .then(() => fs.mkdir(path));
 }

@@ -278,7 +278,6 @@ mocha.describe('system_servers', function() {
             ////////////
             //  MISC  //
             ////////////
-            .then(() => client.cluster_server.get_cluster_id())
             .then(() => client.debug.set_debug_level({
                 module: 'rpc',
                 level: 0

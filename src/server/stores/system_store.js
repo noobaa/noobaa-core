@@ -11,10 +11,10 @@ let mongo_utils = require('../../util/mongo_utils');
 let js_utils = require('../../util/js_utils');
 let time_utils = require('../../util/time_utils');
 let size_utils = require('../../util/size_utils');
+let os_utils = require('../../util/os_util');
 let schema_utils = require('../../util/schema_utils');
 let server_rpc = require('../server_rpc');
 let dbg = require('../../util/debug_module')(__filename);
-// let promise_utils = require('../../util/promise_utils');
 
 const COLLECTIONS = Object.freeze({
     clusters: require('./schemas/cluster_schema'),
@@ -69,6 +69,10 @@ const INDEXES = js_utils.deep_freeze([{
     key: 'system._id',
     val: 'role',
     val_array: true,
+}, {
+    name: 'cluster_by_server',
+    collection: 'clusters',
+    key: 'owner_secret'
 }]);
 
 const DB_INDEXES = js_utils.deep_freeze([{
@@ -116,6 +120,12 @@ const DB_INDEXES = js_utils.deep_freeze([{
         system: 1,
         name: 1,
         deleted: 1
+    }
+}, {
+    collection: 'clusters',
+    unique: true,
+    fields: {
+        owner_secret: 1,
     }
 }]);
 
@@ -205,7 +215,7 @@ class SystemStoreData {
             // update all the accounts.
             if (account.allowed_buckets) {
                 account.allowed_buckets = _.filter(
-                    account.allowed_buckets, 
+                    account.allowed_buckets,
                     bucket => !!bucket._id
                 );
             }
@@ -290,7 +300,9 @@ class SystemStore extends EventEmitter {
         this._load_promise =
             P.fcall(() => this._register_for_changes())
             .then(() => this._read_data_from_db(new_data))
-            .then(() => {
+            .then(() => os_utils.read_server_secret())
+            .then((secret) => {
+                this._server_secret = secret;
                 dbg.log0('SystemStore: fetch took', time_utils.millitook(millistamp));
                 dbg.log0('SystemStore: fetch size', size_utils.human_size(JSON.stringify(new_data).length));
                 dbg.log0('SystemStore: fetch data', util.inspect(new_data, {
@@ -510,6 +522,21 @@ class SystemStore extends EventEmitter {
                 this.make_changes(bg_changes);
             }, 3000);
         }
+    }
+
+    get_local_cluster_info() {        
+        let owner_secret = this.get_server_secret();
+        let reply;
+        _.each(this.data.clusters, function(cluster_info) {
+            if (cluster_info.owner_secret === owner_secret) {
+                reply = cluster_info;
+            }
+        });
+        return reply;
+    }
+
+    get_server_secret() {
+        return this._server_secret;
     }
 
 }

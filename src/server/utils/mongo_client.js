@@ -2,6 +2,7 @@
 
 var _ = require('lodash');
 var P = require('../../util/promise');
+var config = require('../../../config.js');
 var mongodb = require('mongodb');
 var EventEmitter = require('events').EventEmitter;
 
@@ -78,30 +79,40 @@ class MongoClient extends EventEmitter {
         }
     }
 
-    initiate_replica_set(set, members) {
+    initiate_replica_set(set, members, is_config_set) {
         var rep_config = this._build_replica_config(set, members);
-        return P.when(this.db.admin.command({
+        var command = {
             replSetInitiate: rep_config
-        }));
+        };
+        if (!is_config_set) { //connect the mongod server
+            return P.when(this.db.admin.command(command));
+        } else { //connect the server running the config replica set
+            return this._send_command_config_rs(command);
+        }
     }
 
-    replica_update_members(set, members) {
+    replica_update_members(set, members, is_config_set) {
         var rep_config = this._build_replica_config(set, members);
-        return P.when(this.db.admin.command({
+        var command = {
             replSetReconfig: rep_config
-        }));
+        };
+        if (!is_config_set) { //connect the mongod server
+            return P.when(this.db.admin.command(command));
+        } else { //connect the server running the config replica set
+            return this._send_command_config_rs(command);
+        }
     }
 
-    add_shard() {
-        //{ addShard: "<hostname><:port>", maxSize: <size>, name: "<shard_name>" }
-        /*return P.when(this.db.admin.command({
-            addShard: rep_config
+    add_shard(host, port) {
+        return P.when(this.db.admin.command({
+            addShard: host + ':' + port
         }));
-        */
     }
 
     update_connection_string(cfg_array) {
-        //Currently seems for replica set only ... 
+        //TODO:: fill this out
+        //Currently seems for replica set only ...
+        return;
     }
 
     _build_replica_config(set, members) {
@@ -119,6 +130,16 @@ class MongoClient extends EventEmitter {
         });
 
         return rep_config;
+    }
+
+    _send_command_config_rs(command) {
+        return mongodb.MongoClient.connect('mongodb://127.0.0.1:' + config.MONGO_DEFAULTS.CFG_PORT + '/config0', this.config)
+            .then(confdb => {
+                return P.when(confdb.admin.command(command))
+                    .then(() => confdb.close());
+            }, err => {
+                console.error('MongoClient: connecting to config rs failed', err.message);
+            });
     }
 }
 

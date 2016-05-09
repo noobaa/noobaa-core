@@ -41,9 +41,7 @@ MongoCtrl.prototype.add_new_mongos = function(cfg_array) {
     let self = this;
     return self._add_new_mongos_supervisor(cfg_array)
         .then(() => SupervisorCtl.apply_changes())
-        .then(function() {
-            return mongo_client.update_connection_string(cfg_array);
-        });
+        .then(() => mongo_client.update_connection_string(cfg_array));
 };
 
 MongoCtrl.prototype.add_new_config = function() {
@@ -52,21 +50,21 @@ MongoCtrl.prototype.add_new_config = function() {
         .then(() => SupervisorCtl.apply_changes());
 };
 
-MongoCtrl.prototype.initiate_replica_set = function(set, members) {
-    return mongo_client.initiate_replica_set(set, members);
+MongoCtrl.prototype.initiate_replica_set = function(set, members, is_config_set) {
+    return mongo_client.initiate_replica_set(set, members, is_config_set);
 };
 
-MongoCtrl.prototype.add_member_to_replica_set = function(set, members) {
-    return mongo_client.replica_update_members(set, members);
+MongoCtrl.prototype.add_member_to_replica_set = function(set, members, is_config_set) {
+    return mongo_client.replica_update_members(set, members, is_config_set);
 
 };
 
 MongoCtrl.prototype.add_member_to_shard = function(ip) {
-    //sh.addShard( "mongodb0.example.net:27017" )
+    return mongo_client.add_shard(ip, config.MONGO_DEFAULTS.SHARD_SRV_PORT);
 };
 
 MongoCtrl.prototype.update_connection_string = function() {
-
+    return mongo_client.update_connection_string();
 };
 
 
@@ -110,7 +108,7 @@ MongoCtrl.prototype._add_new_shard_supervisor = function(name, first_shard) {
     program_obj.priority = '1';
 
     if (first_shard) { //If shard1 (this means this is the first servers which will be the base of the cluster)
-                        //use the original server`s data (i.e. dbpath/shard1)
+        //use the original server`s data (i.e. dbpath/shard1)
         return SupervisorCtl.add_program(program_obj);
     } else {
         return fs_utils.create_fresh_path(dbpath)
@@ -119,9 +117,11 @@ MongoCtrl.prototype._add_new_shard_supervisor = function(name, first_shard) {
 };
 
 MongoCtrl.prototype._add_new_mongos_supervisor = function(cfg_array) {
+    /*
+    TODO :: NBNB verify insead mongos can run with < 3 servers
     if (!cfg_array || cfg_array.length !== 3) {
         throw new Error('config array must contain exactly 3 servers');
-    }
+    }*/
 
     let config_string = '';
     _.each(cfg_array, function(srv) {

@@ -24,6 +24,7 @@ var MongoCtrl = require('./utils/mongo_ctrl');
 var P = require('../util/promise');
 var os_utils = require('../util/os_util');
 var dbg = require('../util/debug_module')(__filename);
+var config = require('../../config.js');
 
 function _init() {
     var self = this;
@@ -37,6 +38,8 @@ function _init() {
 //
 //API
 //
+
+//Initiate process of adding a server to the cluster
 function add_member_to_cluster(req) {
     dbg.log0('Recieved add member to cluster req', req.rpc_params, 'current topology', _get_topology());
     var id = _get_topology().cluster_id;
@@ -45,11 +48,12 @@ function add_member_to_cluster(req) {
             if (req.rpc_params.role === 'SHARD') {
                 let myip = os_utils.get_local_ipv4_ips()[0];
                 //If adding shard, and current server does not have config on it, add
+                //This is the case on the addition of the first shard
                 if (_.findIndex(_get_topology().config_servers, function(srv) {
                         return srv.address === myip;
                     }) === -1) {
                     dbg.log0('Current server is the first on cluster and still has single mongo running, updating');
-                    return _add_new_shard_member('shard1', myip, true /*first_shard*/);
+                    return _add_new_shard_member('shard1', myip, true /*first_shard*/ );
                 }
             } else {
                 return P.resolve();
@@ -57,6 +61,7 @@ function add_member_to_cluster(req) {
         })
         .then(function() {
             dbg.log0('Sending join_to_cluster to', req.rpc_params.ip);
+            //Send the a join_to_cluster command to the new joining server
             return server_rpc.client.cluster_server.join_to_cluster({
                 ip: req.rpc_params.ip,
                 topology: _get_topology(),
@@ -81,11 +86,14 @@ function add_member_to_cluster(req) {
 
 function join_to_cluster(req) {
     dbg.log0('Got join_to_cluster request', req.rpc_params);
+    //Verify secrets match
     if (req.rpc_params.secret !== _get_secret()) {
         console.error('Secrets do not match!');
         throw new Error('Secrets do not match!');
     }
 
+    //Verify we are not already joined to a cluster
+    //TODO:: think how do we want to handle it, if at all
     if (_get_topology().shards.length !== 1 ||
         _get_topology().shards[0].servers.length !== 1) {
         console.error('Server already joined to a cluster');
@@ -94,13 +102,14 @@ function join_to_cluster(req) {
 
     //TODO:: need to think regarding role switch: ReplicaSet chain vs. Shard (or switching between
     //different ReplicaSet Chains)
-    //Easy path -> detach and re-attach as new role, though creates more hassle for the admin and
-    //overall lengthier process
+    //Easy path -> don't support it, make admin detach and re-attach as new role,
+    //though this creates more hassle for the admin and overall lengthier process
 
     dbg.log0('Replacing current topology', _get_topology(), 'with', req.rpc_params.topology);
     _update_cluster_info(req.rpc_params.topology);
     return P.fcall(function() {
             if (req.rpc_params.role === 'SHARD') {
+                //Server is joining as a new shard, update the shard topology
                 _update_cluster_info(
                     _get_topology.shards.push({
                         name: req.rpc_params.shard,
@@ -109,8 +118,11 @@ function join_to_cluster(req) {
                         }]
                     })
                 );
+                //Add the new shard server
                 return _add_new_shard_member(req.rpc_params.shard, req.rpc_params.ip);
             } else if (req.rpc_params.role === 'REPLICA') {
+                //Server is joining as a replica set member to an existing shard, update shard chain topology
+                //And add an appropriate server
                 return _add_new_replicaset_member(req.rpc_params.shard, req.rpc_params.ip);
             } else {
                 dbg.error('Unknown role', req.rpc_params.role, 'recieved, ignoring');
@@ -119,17 +131,20 @@ function join_to_cluster(req) {
         })
         .then(function() {
             dbg.log0('Added member, publishing updated topology');
+            //Mongo servers are up, update entire cluster with the new topology
             return _publish_to_cluster('news_updated_topology', _get_topology());
         });
 }
 
 function news_config_servers(req) {
     dbg.log0('Recieved news_config_servers', req.rpc_params);
+    //Verify we recieved news on the cluster we are joined to
     if (_get_topology().cluster_id !== req.rpc_params.cluster_id) {
         dbg.error('ClusterID mismatch: has', _get_topology().cluster_id, ' recieved:', req.rpc_params.cluster_id);
         throw new Error('ClusterID mismatch');
     }
 
+    //Update our view of the topology
     _update_cluster_info({
         config_servers: req.rpc_params.IPs
     });
@@ -144,24 +159,28 @@ function news_config_servers(req) {
         _get_topology().config_servers
     ));
 
-    //TODO:: NBNB Update connection string for our mongo connections
-    //probably have something stored in MongoCtrl and return it, need to update current connections
+    //TODO:: NBNB Update connection string for our mongo connections, currently only seems needed for
+    //Replica sets =>
+    //Need to close current connections and re-open (bg_worker, all webservers)
+    //probably best to use publish_to_cluster
 }
 
 function news_updated_topology(req) {
     dbg.log0('Recieved news_updated_topology', req.rpc_params);
+    //Verify we recieved news on the cluster we are joined to
     if (_get_topology().cluster_id !== req.rpc_params.cluster_id) {
         dbg.error('ClusterID mismatch: has', _get_topology().cluster_id, ' recieved:', req.rpc_params.cluster_id);
         throw new Error('ClusterID mismatch');
     }
 
+    //Update our view of the topology
     _update_cluster_info(req.rpc_params.topology);
     return;
 }
 
 function heartbeat(req) {
     //TODO:: ...
-    dbg.log('Clustering HB currently not implemented');
+    dbg.warn('Clustering HB currently not implemented');
 }
 
 
@@ -169,33 +188,31 @@ function heartbeat(req) {
 //Internals Cluster Control
 //
 function _add_new_shard_member(shardname, ip, first_shard) {
-    // "chache" current topology until all changes take affect
+    // "cache" current topology until all changes take affect, since we are about to lose mongo
+    // until the process is done
     let current_topology = _get_topology();
     let topology_updates  = {};
     dbg.log0('Adding shard, new topology', current_topology);
 
-
+    //Actually add a new mongo shard instance
     return P.when(MongoCtrl.add_new_shard_server(shardname, first_shard))
         .then(function() {
-            //TODO:: must find a better solution than enforcing 3 shards when all user
-            //wanted was actually two, maybe setup a 3rd config on one of the replica sets servers
-            //if exists
-            dbg.log('Checking current config servers set, currently contains', current_topology.config_servers.length, 'servers');
+            dbg.log0('Checking current config servers set, currently contains', current_topology.config_servers.length, 'servers');
             if (current_topology.config_servers.length === 3) { //Currently stay with a repset of 3 for config
+                //We already have a config replica set of 3, simply set up a mongos instance
                 return MongoCtrl.add_new_mongos(_extract_servers_ip(
                     current_topology.config_servers
                 ));
-            } else { // < 3 since we don't add once we reach 3
+            } else { // < 3 since we don't add once we reach 3, add this server as config as well
                 var updated_cfg = current_topology.config_servers;
                 updated_cfg.push({
                     address: ip
                 });
                 topology_updates.config_servers = updated_cfg;
 
-                //TODO:: NBNB need to call _add_new_config
-                //we don't simply add a new config, we need to initiate and create the replicas set for config
-                return P.when(MongoCtrl.add_new_config())
+                return _add_new_config(_extract_servers_ip(updated_cfg), first_shard)
                     .then(function() {
+                        dbg.log0('Updating topology in mongo');
                         return _update_cluster_info(topology_updates);
                     })
                     .then(function() {
@@ -246,21 +263,32 @@ function _add_new_replicaset_member(shardname, ip) {
         });
 }
 
-function _add_new_config() {
-    //To be called from _add_new_shard_member
-    //  return MongoCtrl.add_new_config()
-    //similar to wahat we do in rset, if length of config is 3, >3 etc.
+function _add_new_config(cfg_array, first_shard) {
+    dbg.log0('Adding new local config server');
+    return P.when(MongoCtrl.add_new_config())
+        .then(function() {
+            dbg.log0('Adding mongos on config array', cfg_array);
+            return MongoCtrl.add_new_mongos(cfg_array);
+        })
+        .then(function() {
+            dbg.log0('Updating config replica set, initiate_replica_set=', first_shard ? 'true' : 'false');
+            if (first_shard) {
+                return MongoCtrl.initiate_replica_set(config.MONGO_DEFAULTS.CFG_RSET_NAME, cfg_array, true /*config set*/ );
+            } else {
+                return MongoCtrl.add_member_to_replica_set(config.MONGO_DEFAULTS.CFG_RSET_NAME, cfg_array, true /*config set*/ );
+            }
+        });
 }
 
 function _publish_to_cluster(apiname, req_params) {
-    dbg.log0('Sending cluster news', apiname);
     var servers = [];
     _.each(_get_topology().shards, function(shard) {
         _.each(shard.servers, function(single_srv) {
             servers.push(single_srv.address);
         });
     });
-    console.warn('NBNB:: sending', apiname, 'to the following servers', servers, 'with', req_params);
+
+    dbg.log0('Sending cluster news', apiname, 'to', servers, 'with', req_params);
     return P.each(servers, function(server) {
         return server_rpc.client.cluster_server[apiname](req_params, {
             address: 'ws://' + server + ':8080',

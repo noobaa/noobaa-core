@@ -260,20 +260,20 @@ function get_time_config() {
                 if (res.indexOf('synchronized to') !== -1) {
                     reply.status = true;
                 }
-                reply.srv_time = moment().format();
                 return promise_utils.promised_exec('ls -l /etc/localtime', false, true);
             })
             .then((tzone) => {
                 var symlink = tzone.split('>')[1].split('/usr/share/zoneinfo/')[1].trim();
+                reply.srv_time = moment().tz(symlink).format();
                 reply.timezone = symlink;
                 return reply;
             });
     } else if (os.type() === 'Darwin') {
         reply.status = true;
-        reply.srv_time = moment().format();
         return promise_utils.promised_exec('ls -l /etc/localtime', false, true)
             .then((tzone) => {
                 var symlink = tzone.split('>')[1].split('/usr/share/zoneinfo/')[1].trim();
+                reply.srv_time = moment().tz(symlink).format();
                 reply.timezone = symlink;
                 return reply;
             });

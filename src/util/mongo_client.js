@@ -1,11 +1,16 @@
 'use strict';
 
 var _ = require('lodash');
-var P = require('../../util/promise');
+var P = require('./promise');
 var mongodb = require('mongodb');
 var EventEmitter = require('events').EventEmitter;
 
 class MongoClient extends EventEmitter {
+
+    static get_instance() {
+        MongoClient._client = MongoClient._client || new MongoClient();
+        return MongoClient._client;
+    }
 
     constructor() {
         super();
@@ -101,7 +106,7 @@ class MongoClient extends EventEmitter {
     }
 
     update_connection_string(cfg_array) {
-        //Currently seems for replica set only ... 
+        //Currently seems for replica set only ...
     }
 
     _build_replica_config(set, members) {
@@ -122,4 +127,6 @@ class MongoClient extends EventEmitter {
     }
 }
 
-module.exports = new MongoClient(); // singleton
+// EXPORTS
+exports.MongoClient = MongoClient;
+exports.get_instance = MongoClient.get_instance;

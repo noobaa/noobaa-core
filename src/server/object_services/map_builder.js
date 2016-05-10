@@ -3,20 +3,19 @@
 let _ = require('lodash');
 let P = require('../../util/promise');
 let db = require('../db');
-let map_utils = require('./map_utils');
-let block_allocator = require('./block_allocator');
-let md_store = require('../object_services/md_store');
-let system_store = require('../stores/system_store');
-let server_rpc = require('../server_rpc');
-let mongo_utils = require('../../util/mongo_utils');
-let js_utils = require('../../util/js_utils');
-// let promise_utils = require('../../util/promise_utils');
-let config = require('../../../config.js');
-let Semaphore = require('../../util/semaphore');
 let dbg = require('../../util/debug_module')(__filename);
+let config = require('../../../config.js');
+let md_store = require('../object_services/md_store');
+let js_utils = require('../../util/js_utils');
+let map_utils = require('./map_utils');
+let Semaphore = require('../../util/semaphore');
+let server_rpc = require('../server_rpc');
 var map_deleter = require('./map_deleter');
+let mongo_utils = require('../../util/mongo_utils');
 var nodes_store = require('../node_services/nodes_store');
-
+let system_store = require('../system_services/system_store').get_instance();
+let node_allocator = require('../node_services/node_allocator');
+// let promise_utils = require('../../util/promise_utils');
 
 
 let replicate_block_sem = new Semaphore(config.REPLICATE_CONCURRENCY);
@@ -97,7 +96,7 @@ class MapBuilder {
         let bucket_ids = mongo_utils.uniq_ids(this.chunks, 'bucket');
         let buckets = _.map(bucket_ids, id => system_store.data.get_by_id(id));
         return P.map(buckets,
-            bucket => block_allocator.refresh_tiering_alloc(bucket.tiering)
+            bucket => node_allocator.refresh_tiering_alloc(bucket.tiering)
         );
     }
 
@@ -116,7 +115,7 @@ class MapBuilder {
                 block._id = md_store.make_md_id();
                 // We send an additional flag in order to allocate
                 // replicas of content tiering feature on the best read latency nodes
-                let node = block_allocator.allocate_node(alloc.pools, avoid_nodes, {
+                let node = node_allocator.allocate_node(alloc.pools, avoid_nodes, {
                     special_replica: true
                 });
                 if (!node) {

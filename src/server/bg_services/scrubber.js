@@ -6,8 +6,8 @@ module.exports = {
 
 var P = require('../../util/promise');
 var db = require('../db');
-var map_builder = require('../mapper/map_builder');
 var dbg = require('../../util/debug_module')(__filename);
+var map_builder = require('../object_services/map_builder');
 
 /**
  *

@@ -1,4 +1,5 @@
 'use strict';
+
 // load .env file before any other modules so that it will contain
 // all the arguments even when the modules are loading.
 console.log('loading .env file');
@@ -21,28 +22,29 @@ require('../util/panic');
 require('heapdump');
 
 var _ = require('lodash');
-var P = require('../util/promise');
+var fs = require('fs');
 var path = require('path');
+var util = require('util');
 var http = require('http');
 var https = require('https');
+var multer = require('multer');
 var express = require('express');
 var express_favicon = require('serve-favicon');
-var express_morgan_logger = require('morgan');
+var express_compress = require('compression');
 var express_body_parser = require('body-parser');
+var express_morgan_logger = require('morgan');
 var express_cookie_parser = require('cookie-parser');
 var express_cookie_session = require('cookie-session');
 var express_method_override = require('method-override');
-var express_compress = require('compression');
-var util = require('util');
-var config = require('../../config.js');
-var dbg = require('../util/debug_module')(__filename);
-var time_utils = require('../util/time_utils');
-var pem = require('../util/pem');
-var multer = require('multer');
-var fs = require('fs');
-var pkg = require('../../package.json');
+var P = require('../util/promise');
 var db = require('../server/db');
-var mongo_client = require('./utils/mongo_client');
+var dbg = require('../util/debug_module')(__filename);
+var pem = require('../util/pem');
+var pkg = require('../../package.json');
+var config = require('../../config.js');
+var time_utils = require('../util/time_utils');
+var mongo_client = require('../util/mongo_client').get_instance();
+
 var rootdir = path.join(__dirname, '..', '..');
 var dev_mode = (process.env.DEV_MODE === 'true');
 

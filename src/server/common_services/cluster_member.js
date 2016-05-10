@@ -5,7 +5,7 @@
  */
 'use strict';
 
-var system_store = require('../stores/system_store');
+var system_store = require('../system_services/system_store').get_instance();
 
 /**
  *

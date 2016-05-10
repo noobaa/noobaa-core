@@ -12,15 +12,15 @@ exports.report_node_block_error = report_node_block_error;
 var _ = require('lodash');
 var P = require('../../util/promise');
 var db = require('../db');
-var Barrier = require('../../util/barrier');
-var mongo_functions = require('../../util/mongo_functions');
-var promise_utils = require('../../util/promise_utils');
-var server_rpc = require('../server_rpc');
-var system_server = require('../system_services/system_server');
-var nodes_store = require('./nodes_store');
-var block_allocator = require('../mapper/block_allocator');
 var dbg = require('../../util/debug_module')(__filename);
 var pkg = require('../../../package.json');
+var Barrier = require('../../util/barrier');
+var server_rpc = require('../server_rpc');
+var nodes_store = require('./nodes_store');
+var system_server = require('../system_services/system_server');
+var promise_utils = require('../../util/promise_utils');
+var node_allocator = require('./node_allocator');
+var mongo_functions = require('../../util/mongo_functions');
 var current_pkg_version = pkg.version;
 
 server_rpc.rpc.on('reconnect', _on_reconnect);
@@ -548,11 +548,11 @@ function report_node_block_error(req) {
 
     if (action === 'write') {
 
-        // block_allocator keeps nodes in memory,
+        // node_allocator keeps nodes in memory,
         // and in the write path it allocated a block on a node that failed to write
         // so we notify about the error to remove the node from next allocations
         // until it will refresh the alloc and see the error_since_hb on the node too
-        block_allocator.report_node_error(node_id);
+        node_allocator.report_node_error(node_id);
 
         // update the node to mark the error
         // this marking is transient and will be unset on next heartbeat

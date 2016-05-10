@@ -20,7 +20,7 @@ module.exports = cluster_server;
 
 var _ = require('lodash');
 var fs = require('fs');
-var system_store = require('../stores/system_store');
+var system_store = require('../system_services/system_store').get_instance();
 var server_rpc = require('../server_rpc');
 var mongo_ctrl = require('../utils/mongo_ctrl');
 var P = require('../../util/promise');
@@ -55,7 +55,8 @@ function _init() {
         .fail(function(err) {
             if (err.code !== 'ENOENT') {
                 console.error('Topology file corrupted');
-            } else { //Create a default structure in the memory
+            } else if (TOPOLOGY) {
+                //Create a default structure in the memory
                 TOPOLOGY.cluster_id = '';
                 TOPOLOGY.shards = [];
                 TOPOLOGY.config_servers = [];

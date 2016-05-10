@@ -86,64 +86,6 @@ module.exports = {
             }
         },
 
-        read_node_maps: {
-            method: 'GET',
-            params: {
-                type: 'object',
-                required: ['name'],
-                properties: {
-                    name: {
-                        type: 'string'
-                    },
-                    skip: {
-                        type: 'integer'
-                    },
-                    limit: {
-                        type: 'integer'
-                    },
-                    adminfo: {
-                        type: 'boolean'
-                    }
-                }
-            },
-            reply: {
-                type: 'object',
-                required: ['node', 'objects'],
-                properties: {
-                    node: {
-                        $ref: '#/definitions/node_full_info'
-                    },
-                    objects: {
-                        type: 'array',
-                        items: {
-                            type: 'object',
-                            // required: [],
-                            properties: {
-                                key: {
-                                    type: 'string'
-                                },
-                                bucket: {
-                                    type: 'string'
-                                },
-                                parts: {
-                                    type: 'array',
-                                    items: {
-                                        $ref: 'object_api#/definitions/part_info'
-                                    }
-                                }
-                            }
-                        }
-                    },
-                    total_count: {
-                        type: 'number'
-                    }
-                }
-            },
-            auth: {
-                system: 'admin'
-            }
-        },
-
         list_nodes: {
             method: 'GET',
             params: {

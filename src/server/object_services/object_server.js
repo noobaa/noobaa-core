@@ -1,26 +1,26 @@
-/* jshint node:true */
-'use strict';
-
-var _ = require('lodash');
-var P = require('../../util/promise');
-var db = require('../db');
-var mime = require('mime');
-var map_allocator = require('../mapper/map_allocator');
-var map_copy = require('../mapper/map_copy');
-var map_writer = require('../mapper/map_writer');
-var map_reader = require('../mapper/map_reader');
-var map_deleter = require('../mapper/map_deleter');
-var system_store = require('../stores/system_store');
-var glob_to_regexp = require('glob-to-regexp');
-var dbg = require('../../util/debug_module')(__filename);
-var string_utils = require('../../util/string_utils');
-var mongo_functions = require('../../util/mongo_functions');
-
 /**
  *
  * OBJECT_SERVER
  *
  */
+'use strict';
+
+var _ = require('lodash');
+var mime = require('mime');
+var glob_to_regexp = require('glob-to-regexp');
+var P = require('../../util/promise');
+var db = require('../db');
+var dbg = require('../../util/debug_module')(__filename);
+var map_copy = require('./map_copy');
+var map_writer = require('./map_writer');
+var map_reader = require('./map_reader');
+var map_deleter = require('./map_deleter');
+var map_allocator = require('./map_allocator');
+var nodes_store = require('../node_services/nodes_store');
+var system_store = require('../system_services/system_store').get_instance();
+var string_utils = require('../../util/string_utils');
+var mongo_functions = require('../../util/mongo_functions');
+
 // object upload
 exports.create_object_upload = create_object_upload;
 exports.complete_object_upload = complete_object_upload;
@@ -32,6 +32,7 @@ exports.complete_part_upload = complete_part_upload;
 exports.copy_object = copy_object;
 // read
 exports.read_object_mappings = read_object_mappings;
+exports.read_node_mappings = read_node_mappings;
 // object meta-data
 exports.read_object_md = read_object_md;
 exports.update_object_md = update_object_md;
@@ -338,7 +339,7 @@ function copy_object(req) {
 
 /**
  *
- * READ_OBJECT_MAPPING
+ * READ_OBJECT_MAPPINGS
  *
  */
 function read_object_mappings(req) {
@@ -398,6 +399,40 @@ function read_object_mappings(req) {
         .return(reply);
 }
 
+
+/**
+ *
+ * READ_NODE_MAPPINGS
+ *
+ */
+function read_node_mappings(req) {
+    var node;
+    return nodes_store.find_node_by_name(req)
+        .then(
+            node_arg => {
+                node = node_arg;
+                var params = _.pick(req.rpc_params, 'skip', 'limit');
+                params.node = node;
+                return map_reader.read_node_mappings(params);
+            }
+        )
+        .then(objects => {
+            if (req.rpc_params.adminfo) {
+                return db.DataBlock.collection.count({
+                        node: node._id,
+                        deleted: null
+                    })
+                    .then(count => ({
+                        objects: objects,
+                        total_count: count
+                    }));
+            } else {
+                return {
+                    objects: objects
+                };
+            }
+        });
+}
 
 
 /**
@@ -464,10 +499,10 @@ function delete_object(req) {
         })
         .then(db.check_not_found(req, 'object'))
         .then(obj => {
-            obj_to_delete=obj;
+            obj_to_delete = obj;
             delete_object_internal(obj);
         })
-        .then(()=>{
+        .then(() => {
             db.ActivityLog.create({
                 system: req.system,
                 level: 'info',

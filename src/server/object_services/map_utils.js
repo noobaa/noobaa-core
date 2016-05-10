@@ -6,7 +6,7 @@ var db = require('../db');
 // var js_utils = require('../../util/js_utils');
 var config = require('../../../config.js');
 var dbg = require('../../util/debug_module')(__filename);
-var system_store = require('../stores/system_store');
+var system_store = require('../system_services/system_store').get_instance();
 var nodes_store = require('../node_services/nodes_store');
 
 exports.get_chunk_status = get_chunk_status;

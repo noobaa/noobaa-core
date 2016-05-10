@@ -2,13 +2,12 @@
 
 var _ = require('lodash');
 var P = require('../../util/promise');
-var string_utils = require('../../util/string_utils');
-var map_reader = require('..//mapper/map_reader');
-var node_monitor = require('./node_monitor');
-var nodes_store = require('./nodes_store');
-var config = require('../../../config');
 var db = require('../db');
 var dbg = require('../../util/debug_module')(__filename);
+var config = require('../../../config');
+var nodes_store = require('./nodes_store');
+var node_monitor = require('./node_monitor');
+var string_utils = require('../../util/string_utils');
 
 /**
  *
@@ -19,7 +18,6 @@ exports.create_node = create_node;
 exports.read_node = read_node;
 exports.update_node = update_node;
 exports.delete_node = delete_node;
-exports.read_node_maps = read_node_maps;
 exports.list_nodes = list_nodes;
 exports.list_nodes_int = list_nodes_int;
 exports.max_node_capacity = max_node_capacity;
@@ -159,49 +157,6 @@ function delete_node(req) {
         .return();
 }
 
-
-
-
-/**
- *
- * READ_NODE_MAPS
- *
- */
-function read_node_maps(req) {
-    var node;
-    return nodes_store.find_node_by_name(req)
-        .then(
-            node_arg => {
-                node = node_arg;
-                var params = _.pick(req.rpc_params, 'skip', 'limit');
-                params.node = node;
-                return map_reader.read_node_mappings(params);
-            }
-        )
-        .then(
-            objects => {
-                if (req.rpc_params.adminfo) {
-                    return db.DataBlock.collection
-                        .count({
-                            node: node._id,
-                            deleted: null
-                        })
-                        .then(
-                            count => ({
-                                node: get_node_full_info(node),
-                                objects: objects,
-                                total_count: count
-                            })
-                        );
-                } else {
-                    return {
-                        node: get_node_full_info(node),
-                        objects: objects
-                    };
-                }
-            }
-        );
-}
 
 /**
  *

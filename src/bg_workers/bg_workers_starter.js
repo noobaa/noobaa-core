@@ -24,10 +24,10 @@ var dbg = require('../util/debug_module')(__filename);
 var scrubber = require('../server/bg_services/scrubber');
 var server_rpc = require('../server/server_rpc');
 var cloud_sync = require('../server/bg_services/cloud_sync');
-var system_store = require('../server/stores/system_store');
-var mongo_client = require('../server/utils/mongo_client');
-var account_server = require('../server/system_services/account_server');
+var system_store = require('../server/system_services/system_store').get_instance();
+var mongo_client = require('../util/mongo_client').get_instance();
 var promise_utils = require('../util/promise_utils');
+var account_server = require('../server/system_services/account_server');
 
 
 dbg.set_process_name('BGWorkers');

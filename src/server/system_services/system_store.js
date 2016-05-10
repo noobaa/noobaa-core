@@ -1,19 +1,19 @@
 'use strict';
 
 let _ = require('lodash');
-let P = require('../../util/promise');
-let util = require('util');
 let Ajv = require('ajv');
-let EventEmitter = require('events').EventEmitter;
+let util = require('util');
 let mongodb = require('mongodb');
-let mongo_client = require('../utils/mongo_client');
-let mongo_utils = require('../../util/mongo_utils');
+let EventEmitter = require('events').EventEmitter;
+let server_rpc = require('../server_rpc');
+let P = require('../../util/promise');
+let dbg = require('../../util/debug_module')(__filename);
 let js_utils = require('../../util/js_utils');
 let time_utils = require('../../util/time_utils');
 let size_utils = require('../../util/size_utils');
+let mongo_utils = require('../../util/mongo_utils');
+let mongo_client = require('../../util/mongo_client').get_instance();
 let schema_utils = require('../../util/schema_utils');
-let server_rpc = require('../server_rpc');
-let dbg = require('../../util/debug_module')(__filename);
 // let promise_utils = require('../../util/promise_utils');
 
 const COLLECTIONS = Object.freeze({
@@ -241,6 +241,11 @@ class SystemStoreData {
  *
  */
 class SystemStore extends EventEmitter {
+
+    static get_instance() {
+        SystemStore._instance = SystemStore._instance || new SystemStore();
+        return SystemStore._instance;
+    }
 
     constructor() {
         super();
@@ -515,5 +520,6 @@ class SystemStore extends EventEmitter {
 }
 
 
-// export a singleton
-module.exports = new SystemStore();
+// EXPORTS
+exports.SystemStore = SystemStore;
+exports.get_instance = SystemStore.get_instance;

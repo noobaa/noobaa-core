@@ -38,26 +38,26 @@ var system_server = {
 module.exports = system_server;
 
 var _ = require('lodash');
-var P = require('../../util/promise');
-//var crypto = require('crypto');
-var ip_module = require('ip');
 var url = require('url');
 var net = require('net');
 // var AWS = require('aws-sdk');
+//var crypto = require('crypto');
+var ip_module = require('ip');
+var P = require('../../util/promise');
 var db = require('../db');
+var pkg = require('../../../package.json');
+var dbg = require('../../util/debug_module')(__filename);
 var diag = require('../utils/server_diagnostics');
+var os_utils = require('../../util/os_util');
+var size_utils = require('../../util/size_utils');
 var server_rpc = require('../server_rpc');
-var bucket_server = require('./bucket_server');
 var pool_server = require('./pool_server');
 var tier_server = require('./tier_server');
-var account_server = require('./account_server');
-var system_store = require('../stores/system_store');
 var nodes_store = require('../node_services/nodes_store');
-var size_utils = require('../../util/size_utils');
-var os_utils = require('../../util/os_util');
+var system_store = require('../system_services/system_store').get_instance();
 var promise_utils = require('../../util/promise_utils');
-var dbg = require('../../util/debug_module')(__filename);
-var pkg = require('../../../package.json');
+var bucket_server = require('./bucket_server');
+var account_server = require('./account_server');
 
 
 function new_system_defaults(name, owner_account_id) {

@@ -31,7 +31,7 @@ var Histogram = require('../../util/histogram');
 var dbg = require('../../util/debug_module')(__filename);
 var config = require('../../../config.js');
 var system_server = require('./system_server');
-var system_store = require('../stores/system_store');
+var system_store = require('../system_services/system_store').get_instance();
 var node_server = require('../node_services/node_server');
 var nodes_store = require('../node_services/nodes_store');
 

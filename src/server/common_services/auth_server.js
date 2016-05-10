@@ -12,7 +12,7 @@ var S3Auth = require('aws-sdk/lib/signers/s3');
 var P = require('../../util/promise');
 var dbg = require('../../util/debug_module')(__filename);
 var s3_util = require('../../util/s3_utils');
-var system_store = require('../stores/system_store');
+var system_store = require('../system_services/system_store').get_instance();
 var s3_auth = new S3Auth();
 
 

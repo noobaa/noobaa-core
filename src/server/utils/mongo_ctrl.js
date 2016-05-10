@@ -1,11 +1,11 @@
 'use strict';
 
 var _ = require('lodash');
-var mongo_client = require('./mongo_client');
 var P = require('../../util/promise');
-var super_ctrl = require('./supervisor_ctrl');
 var dbg = require('../../util/debug_module')(__filename);
 var config = require('../../../config.js');
+var super_ctrl = require('./supervisor_ctrl');
+var mongo_client = require('../../util/mongo_client').get_instance();
 
 module.exports = MongoCtrl;
 

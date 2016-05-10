@@ -4,11 +4,11 @@ var _ = require('lodash');
 var P = require('../../util/promise');
 var dbg = require('../../util/debug_module')(__filename);
 var config = require('../../../config.js');
-var time_utils = require('../../util/time_utils');
-var range_utils = require('../../util/range_utils');
-var block_allocator = require('./block_allocator');
 var md_store = require('../object_services/md_store');
 var map_utils = require('./map_utils');
+var time_utils = require('../../util/time_utils');
+var range_utils = require('../../util/range_utils');
+var node_allocator = require('../node_services/node_allocator');
 
 // dbg.set_level(5);
 
@@ -32,7 +32,7 @@ class MapAllocator {
         dbg.log1('MapAllocator: start');
         return P.join(
                 this.find_dups(),
-                block_allocator.refresh_tiering_alloc(this.bucket.tiering)
+                node_allocator.refresh_tiering_alloc(this.bucket.tiering)
             )
             .then(() => this.allocate_blocks())
             .then(() => {
@@ -93,7 +93,7 @@ class MapAllocator {
                     'digest_type',
                     'digest_b64');
                 block._id = md_store.make_md_id();
-                let node = block_allocator.allocate_node(alloc.pools, avoid_nodes);
+                let node = node_allocator.allocate_node(alloc.pools, avoid_nodes);
                 if (!node) {
                     throw new Error('MapAllocator: no nodes for allocation');
                 }

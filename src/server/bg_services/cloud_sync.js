@@ -12,7 +12,7 @@ var https = require('https');
 var P = require('../../util/promise');
 var db = require('../db');
 var dbg = require('../../util/debug_module')(__filename);
-var system_store = require('../stores/system_store');
+var system_store = require('../system_services/system_store').get_instance();
 
 var CLOUD_SYNC = {
     //Policy was changed, list of policies should be refreshed

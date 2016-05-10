@@ -6,16 +6,16 @@ process.env.MONGODB_URL = CORETEST_MONGODB_URL;
 process.env.JWT_SECRET = 'coretest';
 
 var _ = require('lodash');
-var P = require('../../util/promise');
 var mocha = require('mocha');
 var assert = require('assert');
 var mongoose = require('mongoose');
-var mongo_client = require('../../server/utils/mongo_client');
-var nodes_store = require('../../server/node_services/nodes_store');
-var server_rpc = require('../../server/server_rpc');
-var config = require('../../../config.js');
+var P = require('../../util/promise');
 var db = require('../../server/db');
+var config = require('../../../config.js');
 var agentctl = require('./core_agent_control');
+var server_rpc = require('../../server/server_rpc');
+var nodes_store = require('../../server/node_services/nodes_store');
+var mongo_client = require('../../util/mongo_client').get_instance();
 
 P.longStackTraces();
 config.test_mode = true;

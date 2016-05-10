@@ -39,7 +39,7 @@ var net = require('net');
 var object_server = require('../object_services/object_server');
 var tier_server = require('./tier_server');
 var server_rpc = require('../server_rpc');
-var system_store = require('../stores/system_store');
+var system_store = require('../system_services/system_store').get_instance();
 var nodes_store = require('../node_services/nodes_store');
 var cloud_sync_utils = require('../utils/cloud_sync_utils');
 var size_utils = require('../../util/size_utils');
@@ -245,7 +245,7 @@ function list_bucket_s3_acl(req) {
                 return {
                     account: account.email,
                     is_allowed: _.includes(account.allowed_buckets, bucket)
-                }
+                };
             }
         );
 }
@@ -265,7 +265,7 @@ function update_bucket_s3_acl(req) {
                     allowed_buckets: allowed_buckets.map(
                         bucket => bucket._id
                     )
-                }
+                };
             }
         );
 

@@ -15,7 +15,7 @@ class ServerRpc {
     }
 
     get_server_options() {
-        let system_store = require('./stores/system_store');
+        let system_store = require('./system_services/system_store').get_instance();
         let auth_server = require('./common_services/auth_server');
         return {
             middleware: [

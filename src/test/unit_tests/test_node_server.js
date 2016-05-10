@@ -58,7 +58,7 @@ mocha.describe('node_server', function() {
                 name: NODE,
                 geolocation: 'here i am'
             }))
-            .then(() => client.node.read_node_maps({
+            .then(() => client.object.read_node_mappings({
                 name: NODE,
             }))
             .then(() => client.node.max_node_capacity())

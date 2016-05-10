@@ -60,7 +60,7 @@ function create_pool(req) {
             }
         })
         .then(function() {
-            return _assign_nodes_to_pool(req.system._id, pool._id, nodes);
+            return _assign_nodes_to_pool(req, pool);
         })
         .then((res) => {
             db.ActivityLog.create({
@@ -69,6 +69,7 @@ function create_pool(req) {
                 system: req.system._id,
                 actor: req.account && req.account._id,
                 pool: pool._id,
+                desc: `${name} was created by ${req.account && req.account.email}`,
             });
             return res;
         });
@@ -108,6 +109,7 @@ function create_cloud_pool(req) {
                 system: req.system._id,
                 actor: req.account && req.account._id,
                 pool: pool._id,
+                desc: `${pool.name} was created by ${req.account && req.account.email}`,
             });
         })
         .return();
@@ -189,6 +191,7 @@ function delete_pool(req) {
                 system: req.system._id,
                 actor: req.account && req.account._id,
                 pool: pool._id,
+                desc: `${pool.name} was deleted by ${req.account && req.account.email}`,
             });
             return res;
         })
@@ -201,7 +204,7 @@ function delete_cloud_pool(req) {
     dbg.log0('Deleting cloud pool', req.rpc_params.name);
     var pool = find_pool_by_name(req);
 
-    // construct the cloud node name according to convention 
+    // construct the cloud node name according to convention
     let cloud_node_name = 'noobaa-cloud-agent-' + os.hostname() + '-' + pool.name;
     return P.resolve()
         .then(function() {
@@ -231,37 +234,64 @@ function delete_cloud_pool(req) {
                 system: req.system._id,
                 actor: req.account && req.account._id,
                 pool: pool._id,
+                desc: `${pool.name} was deleted by ${req.account && req.account.email}`,
             });
         })
         .return();
 }
 
 
-function _assign_nodes_to_pool(system_id, pool_id, nodes_names) {
-    return nodes_store.update_nodes({
-        system: system_id,
-        name: {
-            $in: nodes_names
-        }
-    }, {
-        $set: {
-            pool: pool_id,
-        }
-    }).return();
+function _assign_nodes_to_pool(req, pool) {
+    var assign_nodes = req.rpc_params.nodes;
+    var nodes_before_change;
+    return nodes_store.find_nodes({
+            deleted: null,
+            name: {
+                $in: assign_nodes
+            },
+        }, {
+            fields: {
+                pool: 1,
+                name: 1,
+            }
+        })
+        .then(nodes_res => {
+            nodes_before_change = nodes_res;
+            return nodes_store.update_nodes({
+                    system: req.system._id,
+                    name: {
+                        $in: assign_nodes
+                    }
+                }, {
+                    $set: {
+                        pool: pool._id,
+                    }
+                })
+                .then(res => {
+                    let desc_string = [];
+                    desc_string.push(`${assign_nodes && assign_nodes.length} Nodes were assigned to ${pool.name} successfully by ${req.account && req.account.email}`);
+                    _.forEach(nodes_before_change, node => {
+                        desc_string.push(`${node.name} was assigned from ${node.pool.name} to ${pool.name}`);
+                    });
+                    db.ActivityLog.create({
+                        event: 'pool.assign_nodes',
+                        level: 'info',
+                        system: req.system._id,
+                        actor: req.account && req.account._id,
+                        pool: pool._id,
+                        desc: desc_string.join('\n'),
+                    });
+                    return res;
+                })
+        })
+        .return();
 }
 
 
 function assign_nodes_to_pool(req) {
     dbg.log0('Adding nodes to pool', req.rpc_params.name, 'nodes', req.rpc_params.nodes);
     var pool = find_pool_by_name(req);
-    db.ActivityLog.create({
-        event: 'pool.assign_nodes',
-        level: 'info',
-        system: req.system._id,
-        actor: req.account && req.account._id,
-        pool: pool._id,
-    });
-    return _assign_nodes_to_pool(req.system._id, pool._id, req.rpc_params.nodes);
+    return _assign_nodes_to_pool(req, pool);
 }
 
 

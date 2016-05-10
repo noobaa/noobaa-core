@@ -219,6 +219,15 @@ module.exports = {
                                         }
                                     }
                                 },
+                                pool: {
+                                    type: 'object',
+                                    required: ['name'],
+                                    properties: {
+                                        name: {
+                                            type: 'string'
+                                        }
+                                    }
+                                },
                                 obj: {
                                     type: 'object',
                                     required: ['key'],
@@ -244,6 +253,12 @@ module.exports = {
                                         email: {
                                             type: 'string'
                                         }
+                                    }
+                                },
+                                desc: {
+                                    type: 'array',
+                                    items: {
+                                        type: 'string',
                                     }
                                 },
                             }

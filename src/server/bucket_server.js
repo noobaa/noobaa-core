@@ -113,6 +113,7 @@ function create_bucket(req) {
         system: req.system._id,
         actor: req.account && req.account._id,
         bucket: bucket._id,
+        desc: `${bucket.name} was created by ${req.account && req.account.email}`,
     });
 
     // Grant the account a full access for the newly created bucket.
@@ -250,6 +251,10 @@ function list_bucket_s3_acl(req) {
 
 function update_bucket_s3_acl(req) {
     let bucket = find_bucket(req);
+    // This is a hack not proud of it
+    let original_bucket_accounts = list_bucket_s3_acl(req)
+        .filter(acl => acl.is_allowed)
+        .map(acl => acl.account);
     let updates = req.rpc_params.access_control
         .map(
             record => {
@@ -271,7 +276,27 @@ function update_bucket_s3_acl(req) {
         update: {
             accounts: updates
         }
-    });
+    })
+    .then(() => {
+        let new_allowed_accounts = req.rpc_params.access_control.filter(acl => acl.is_allowed).map(acl => acl.account);
+        let desc_string = [];
+        let added_accounts = [];
+        let removed_accounts = [];
+        desc_string.push(`${bucket.name} S3 access was updated by ${req.account && req.account.email}`);
+        added_accounts = _.difference(new_allowed_accounts, original_bucket_accounts);
+        removed_accounts = _.difference(original_bucket_accounts, new_allowed_accounts);
+        added_accounts.length && desc_string.push(`Added accounts: ${added_accounts}`);
+        removed_accounts.length && desc_string.push(`Removed accounts: ${removed_accounts}`);
+        db.ActivityLog.create({
+            event: 'bucket.s3_access_updated',
+            level: 'info',
+            system: req.system._id,
+            actor: req.account && req.account._id,
+            bucket: bucket._id,
+            desc: desc_string.join('\n'),
+        });
+    })
+    .return();
 }
 
 
@@ -288,13 +313,7 @@ function delete_bucket(req) {
     if (_.map(req.system.buckets_by_name).length === 1) {
         throw req.rpc_error('BAD_REQUEST', 'Cannot delete last bucket');
     }
-    db.ActivityLog.create({
-        event: 'bucket.delete',
-        level: 'info',
-        system: req.system._id,
-        actor: req.account && req.account._id,
-        bucket: bucket._id,
-    });
+
     return P.when(db.ObjectMD.aggregate_objects({
             system: req.system._id,
             bucket: bucket._id,
@@ -306,6 +325,14 @@ function delete_bucket(req) {
             if (objects_aggregate_bucket.count) {
                 throw req.rpc_error('BUCKET_NOT_EMPTY', 'Bucket not empty: ' + bucket.name);
             }
+            db.ActivityLog.create({
+                event: 'bucket.delete',
+                level: 'info',
+                system: req.system._id,
+                actor: req.account && req.account._id,
+                bucket: bucket._id,
+                desc: `${bucket.name} was deleted by ${req.account && req.account.email}`,
+            });
             return system_store.make_changes({
                 remove: {
                     buckets: [bucket._id],
@@ -434,6 +461,7 @@ function delete_cloud_sync(req) {
                 system: req.system._id,
                 actor: req.account && req.account._id,
                 bucket: bucket._id,
+                desc: `Cloud sync was removed from ${bucket.name} by ${req.account && req.account.name}`,
             });
             return res;
         })
@@ -506,12 +534,28 @@ function set_cloud_sync(req) {
             });
         })
         .then((res) => {
+            let desc_string = [];
+            let sync_direction = cloud_sync.c2n_enabled && cloud_sync.n2c_enabled ? 'Bi-Directional' :
+                (cloud_sync.c2n_enabled ? 'Target To Source' :
+                    (cloud_sync.n2c_enabled ? 'Source To Target' : 'None'));
+            desc_string.push(`Cloud sync was set in ${bucket.name}:`);
+            desc_string.push(`Connection details:`);
+            desc_string.push(`Name: ${connection.name}`);
+            desc_string.push(`Target bucket: ${cloud_sync.target_bucket}`);
+            desc_string.push(`Endpoint: ${cloud_sync.endpoint}`);
+            desc_string.push(`Access key: ${cloud_sync.access_keys.access_key}`);
+            desc_string.push(`Sync configurations:`);
+            desc_string.push(`Frequency: Every ${cloud_sync.schedule_min} mins`);
+            desc_string.push(`Direction: ${sync_direction}`);
+            desc_string.push(`Sync Deletions: ${!cloud_sync.additions_only}`);
+
             db.ActivityLog.create({
                 event: 'bucket.set_cloud_sync',
                 level: 'info',
                 system: req.system._id,
                 actor: req.account && req.account._id,
                 bucket: bucket._id,
+                desc: desc_string.join('\n'),
             });
             return res;
         })

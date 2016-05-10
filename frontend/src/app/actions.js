@@ -679,7 +679,7 @@ export function loadNodeInfo(nodeName) {
 export function loadNodeStoredPartsList(nodeName, page) {
     logAction('loadNodeStoredPartsList', { nodeName, page });
 
-    api.node.read_node_maps({ 
+    api.node.read_node_maps({
         name: nodeName,
         skip: config.paginationPageSize * page,
         limit: config.paginationPageSize,
@@ -830,14 +830,14 @@ export function loadS3BucketList(connection) {
 // -----------------------------------------------------
 export function createSystemAccount(systemName, email, password, dnsName) {
     logAction('createSystemAccount', { systemName, email, password, dnsName });
-    
-    let accessKeys = systemName === 'demo' && email === 'demo@noobaa.com' ? 
+
+    let accessKeys = systemName === 'demo' && email === 'demo@noobaa.com' ?
         { access_key: '123', secret_key: 'abc' } :
         generateAccessKeys();
 
     api.account.create_account({
-        name: systemName, 
-        email: email, 
+        name: systemName,
+        email: email,
         password: password,
         access_keys: accessKeys
     })
@@ -866,9 +866,9 @@ export function createSystemAccount(systemName, email, password, dnsName) {
 export function createAccount(name, email, password, accessKeys, S3AccessList) {
     logAction('createAccount', { name, email, password, accessKeys,     S3AccessList });
 
-    api.account.create_account({ 
-        name: name, 
-        email: email, 
+    api.account.create_account({
+        name: name,
+        email: email,
         password: password,
         access_keys: accessKeys,
         allowed_buckets: S3AccessList
@@ -1089,7 +1089,8 @@ export function testNode(source, testSet) {
 
     let { targetCount, testSettings } = config.nodeTest;
     api.node.get_test_nodes({
-        count: targetCount
+        count: targetCount,
+        source: source
     })
         .then(
             // Aggregate selected tests.
@@ -1302,7 +1303,7 @@ export function downloadNodeDiagnosticPack(nodeName) {
 
     api.node.read_node({ name: nodeName })
         .then(
-            node => api.node.collect_agent_diagnostics({ target: node.rpc_address })
+            node => api.node.collect_agent_diagnostics(node)
         )
         .then(
             url => downloadFile(url)
@@ -1472,4 +1473,3 @@ export function updateServerNTP(timezone, server) {
         .then(loadSystemInfo)
         .done();
 }
-

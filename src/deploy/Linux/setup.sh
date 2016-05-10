@@ -21,9 +21,5 @@ else
       exit 1
    fi
 fi
-#make sure we can use node for forever-service (uses /usr/bin/env node)
-if [ ! -f /usr/bin/node ]; then
-   ln -s /usr/local/noobaa/node /usr/bin/node
-fi
 
 ./noobaa-installer --keep --target /usr/local/noobaa

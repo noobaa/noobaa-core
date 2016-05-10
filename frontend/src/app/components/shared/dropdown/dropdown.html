@@ -1,6 +1,6 @@
 <div class="dropdown-wrapper no-outline" data-bind="
-    click: () => active(true) && true,
-    event: { keypress: (_, evt) => scrollTo(evt) },
+    click: () => active.toggle(),
+    event: { keydown: (_, evt) => handleKeyPress(evt) },
     hasFocus: focused,
     attr: { tabindex: !ko.unwrap(disabled) && '0' },
     css: { disabled: disabled, active: active },
@@ -8,7 +8,7 @@
 ">
     <svg-icon class="pull-right" params="uri: '/fe/assets/icons.svg#expand'"></svg-icon>
     
-    <div type="text" class="value" data-bind="
+    <div type="text" class="value no-wrap" data-bind="
         value: selected, 
         text: selectedLabel,
         css: { placeholder: selected() == null }
@@ -16,7 +16,8 @@
 
     <div class="options" data-bind="
         visible: active(), 
-        event: { change: () => active(false) && true }
+        click: () => active(false) && true,
+        clickBubble: false
     ">
         <ul class="list-no-style" data-bind="foreach: options, scrollTo: selectedIndex">
             <li data-bind="css: { seperator: !$data }, if: $data">

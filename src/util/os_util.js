@@ -13,12 +13,14 @@ module.exports = {
 };
 
 var _ = require('lodash');
+var promise_utils = require('./promise_utils');
 var P = require('../util/promise');
 var os = require('os');
 var fs = require('fs');
 var child_process = require('child_process');
 var node_df = require('node-df');
-var promise_utils = require('./promise_utils');
+var moment = require('moment-timezone');
+
 
 function os_info() {
 
@@ -201,11 +203,11 @@ function top_single(dst) {
 
 function netstat_single(dst) {
     var file_redirect = dst ? ' &> ' + dst : '';
-    if (os.type() === 'Darwin' ){
+    if (os.type() === 'Darwin') {
         return promise_utils.promised_exec('netstat -na' + file_redirect);
     } else if (os.type() === 'Windows_NT') {
-        return promise_utils.promised_exec('netstat -na >'+dst);
-    }else if (os.type() === 'Linux') {
+        return promise_utils.promised_exec('netstat -na >' + dst);
+    } else if (os.type() === 'Linux') {
         return promise_utils.promised_exec('netstat -nap' + file_redirect);
     } else {
         throw new Error('netstat_single ' + os.type + ' not supported');
@@ -258,20 +260,20 @@ function get_time_config() {
                 if (res.indexOf('synchronized to') !== -1) {
                     reply.status = true;
                 }
-                reply.srv_time = new Date().toISOString();
                 return promise_utils.promised_exec('ls -l /etc/localtime', false, true);
             })
             .then((tzone) => {
                 var symlink = tzone.split('>')[1].split('/usr/share/zoneinfo/')[1].trim();
+                reply.srv_time = moment().tz(symlink).format();
                 reply.timezone = symlink;
                 return reply;
             });
     } else if (os.type() === 'Darwin') {
         reply.status = true;
-        reply.srv_time = new Date().toISOString();
         return promise_utils.promised_exec('ls -l /etc/localtime', false, true)
             .then((tzone) => {
                 var symlink = tzone.split('>')[1].split('/usr/share/zoneinfo/')[1].trim();
+                reply.srv_time = moment().tz(symlink).format();
                 reply.timezone = symlink;
                 return reply;
             });

@@ -347,7 +347,7 @@ function package_build_task() {
             return promise_utils.promised_exec('curl -o- https://raw.githubusercontent.com/creationix/nvm/master/nvm.sh >build/public/nvm.sh', [], process.cwd());
         })
         .then(function() {
-            return promise_utils.promised_exec('curl -o- https://nodejs.org/dist/v4.2.2/node-v4.2.2-linux-x64.tar.xz >build/public/node-v4.2.2-linux-x64.tar.xz', [], process.cwd());
+            return promise_utils.promised_exec('curl -o- https://nodejs.org/dist/v4.4.4/node-v4.4.4-linux-x64.tar.xz >build/public/node-v4.4.4-linux-x64.tar.xz', [], process.cwd());
         })
         .then(function() {
             //call for packing

@@ -35,6 +35,7 @@ var bcrypt = require('bcrypt');
 var system_store = require('./stores/system_store');
 var system_server = require('./system_server');
 var crypto = require('crypto');
+var https = require('https');
 var AWS = require('aws-sdk');
 var server_rpc = require('./server_rpc');
 // var dbg = require('../util/debug_module')(__filename);
@@ -125,9 +126,9 @@ function create_account(req) {
 function read_account(req) {
     let email = req.rpc_params.email;
 
-    let account = system_store.data.accounts_by_email[req.rpc_params.email];
+    let account = system_store.data.accounts_by_email[email];
     if (!account) {
-        throw req.rpc_error('NO_SUCH_ACCOUNT', 'No such account email: ' + req.rpc_params.email);
+        throw req.rpc_error('NO_SUCH_ACCOUNT', 'No such account email: ' + email);
     }
 
     return get_account_info(account);
@@ -203,7 +204,7 @@ function update_account_s3_acl(req) {
                     let bucket = system.buckets_by_name[record.bucket_name];
                     return record.is_allowed ?
                         _.unionWith(list, [bucket], system_store.has_same_id) :
-                        _.differenceWith(list, [bucket], system_store.has_same_id)
+                        _.differenceWith(list, [bucket], system_store.has_same_id);
                 },
                 account.allowed_buckets
             );
@@ -427,7 +428,11 @@ function check_account_sync_credentials(req) {
             endpoint: params.endpoint,
             accessKeyId: params.access_key,
             secretAccessKey: params.secret_key,
-            sslEnabled: false
+            httpOptions: {
+              agent: new https.Agent({
+                rejectUnauthorized: false,
+              })
+            }
         });
 
         return P.ninvoke(s3, "listBuckets");

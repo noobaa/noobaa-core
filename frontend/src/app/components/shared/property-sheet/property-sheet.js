@@ -8,7 +8,7 @@ class PropertySheetViewModel {
     }
 
     copyToClipboard(text) {
-        copyTextToClipboard(text);
+        copyTextToClipboard(ko.unwrap(text));
     }
 }
 

@@ -187,13 +187,6 @@ function read_system(req) {
         // objects - size, count
         db.ObjectMD.aggregate_objects(by_system_id_undeleted),
 
-        // blocks
-        db.DataBlock.mapReduce({
-            query: by_system_id_undeleted,
-            map: mongo_functions.map_size,
-            reduce: mongo_functions.reduce_sum
-        }),
-
         promise_utils.all_obj(system.buckets_by_name, function(bucket) {
             // TODO this is a hacky "pseudo" rpc request. really should avoid.
             let new_req = _.defaults({
@@ -209,11 +202,9 @@ function read_system(req) {
     ).spread(function(
         nodes_aggregate_pool,
         objects_aggregate,
-        blocks,
         cloud_sync_by_bucket,
         time_status) {
 
-        blocks = _.mapValues(_.keyBy(blocks, '_id'), 'value');
         var nodes_sys = nodes_aggregate_pool[''] || {};
         var objects_sys = objects_aggregate[''] || {};
         var ip_address = ip_module.address();
@@ -223,9 +214,7 @@ function read_system(req) {
             synced: time_status.status,
         };
         if (system.ntp) {
-            if (time_config.ntp_server) {
-                time_config.ntp_server = system.ntp.server;
-            }
+            time_config.ntp_server = system.ntp.server;
             time_config.timezone = system.ntp.timezone ? system.ntp.timezone : time_status.timezone;
         } else {
             time_config.timezone = time_status.timezone;
@@ -264,7 +253,7 @@ function read_system(req) {
                 free: nodes_sys.free,
                 alloc: nodes_sys.alloc,
                 used: objects_sys.size,
-                real: blocks.size,
+                real: nodes_sys.used,
             }),
             nodes: {
                 count: nodes_sys.count || 0,

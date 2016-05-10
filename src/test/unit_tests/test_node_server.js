@@ -81,9 +81,10 @@ mocha.describe('node_server', function() {
                 target: nodes[0].rpc_address,
                 level: 0,
             }))
-            .then(() => client.node.collect_agent_diagnostics({
-                target: nodes[0].rpc_address,
-            }))
+            .then(() => client.node.collect_agent_diagnostics(nodes[0]))//{
+                //name: nodes[0].name,
+                //target: nodes[0].rpc_address,
+            //}))
             .then(() => client.node.redirect({
                 target: nodes[0].rpc_address,
                 request_params: {

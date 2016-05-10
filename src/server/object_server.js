@@ -156,6 +156,7 @@ function complete_object_upload(req) {
                 event: 'obj.uploaded',
                 obj: obj,
                 actor: req.account && req.account._id,
+                desc: `${obj.key} was uploaded by ${req.account && req.account.email}`,
             });
 
             return db.ObjectMD.collection.updateOne({
@@ -318,6 +319,7 @@ function copy_object(req) {
                 event: 'obj.uploaded',
                 obj: create_info._id,
                 actor: req.account && req.account._id,
+                desc: `${create_info.key} was copied by ${req.account && req.account.email}`,
             });
             // mark the new object not in upload mode
             return db.ObjectMD.collection.updateOne({
@@ -474,6 +476,7 @@ function delete_object(req) {
                 event: 'obj.deleted',
                 obj: obj_to_delete,
                 actor: req.account && req.account._id,
+                desc: `${obj_to_delete.key} was deleted by ${req.account && req.account.email}`,
             });
         })
         .return();

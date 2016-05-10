@@ -21,11 +21,11 @@ function get_topology() {
 
 function update_cluster_info(params) {
     var current_clustering = system_store.get_local_cluster_info();
-    var owner_secret = current_clustering.oowner_secret;
+    var owner_secret = current_clustering.owner_secret;
     var update = _.defaults(_.pick(params, _.keys(current_clustering)), current_clustering);
     update.owner_secret = owner_secret; //Keep original owner_secret
 
-    dbg.log0('Updating local cluster info for', owner_secret, 'previous cluster info',
+    dbg.log0('Updating local cluster info for owner', owner_secret, 'previous cluster info',
         current_clustering, 'new cluster info', update);
 
     return system_store.make_changes({

@@ -36,7 +36,8 @@ SupervisorCtrl.prototype.apply_changes = function() {
     return P.when(self.init())
         .then(() => self._serialize())
         .then(function() {
-            return promise_utils.promised_exec('supervisorctl update');
+            return promise_utils.promised_exec('supervisorctl update')
+            .delay(5000); //TODO:: Better solution
         });
 };
 
@@ -117,7 +118,7 @@ SupervisorCtrl.prototype._serialize = function() {
             }
         });
         data += config.SUPERVISOR_PROGRAM_SEPERATOR + '\n\n';
-    });    
+    });
 
     return fs.writeFileAsync(config.CLUSTERING_PATHS.SUPER_FILE, data);
 };

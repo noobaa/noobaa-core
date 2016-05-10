@@ -19,7 +19,8 @@
     "knockout-validation": "~2.0.3",
     "moment": "~2.10.6",
     "aws-sdk": "aws-sdk-js#~2.2.26",
-    "shifty": "~1.5.1"
+    "shifty": "~1.5.1",
+    "moment-timezone": "^0.5.4"
   },
   "resolutions": {
     "knockout": "~3.4.0"

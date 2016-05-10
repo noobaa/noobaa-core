@@ -212,9 +212,7 @@ function read_system(req) {
             synced: time_status.status,
         };
         if (system.ntp) {
-            if (time_config.ntp_server) {
-                time_config.ntp_server = system.ntp.server;
-            }
+            time_config.ntp_server = system.ntp.server;
             time_config.timezone = system.ntp.timezone ? system.ntp.timezone : time_status.timezone;
         } else {
             time_config.timezone = time_status.timezone;

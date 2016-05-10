@@ -59,6 +59,7 @@ var promise_utils = require('../util/promise_utils');
 var dbg = require('../util/debug_module')(__filename);
 var pkg = require('../../package.json');
 var net = require('net');
+var moment = require('moment');
 
 
 function new_system_defaults(name, owner_account_id) {
@@ -758,6 +759,22 @@ function update_time_config(req) {
             } else { //manual set
                 return os_utils.set_manual_time(req.rpc_params.epoch, config.timezone);
             }
+        })
+        .then((res) => {
+            let desc_string = [];
+            desc_string.push(`Date and Time was updated to ${req.rpc_params.config_type} time by ${req.account && req.account.email}`);
+            desc_string.push(`Timezone was set to ${req.rpc_params.timezone}`);
+            req.rpc_params.server && desc_string.push(`NTP server ${req.rpc_params.server}`);
+            let date = req.rpc_params.epoch && moment.unix(req.rpc_params.epoch).tz(req.rpc_params.timezone);
+            date && desc_string.push(`Date and Time set to ${date}`);
+            db.ActivityLog.create({
+                event: 'conf.server_date_time_updated',
+                level: 'info',
+                system: req.system,
+                actor: req.account && req.account._id,
+                desc: desc_string.join('\n'),
+            });
+            return res;
         });
 }
 

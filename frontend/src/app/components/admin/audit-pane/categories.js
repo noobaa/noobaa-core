@@ -136,10 +136,10 @@ export default {
                 entityId: ({ conf }) => ''
             },
 
-            /*server_date_time_updated: {
+            server_date_time_updated: {
                 message: 'Server Date And Time Updated',
                 entityId: ({ conf }) => ''
-            },*/
+            },
 
             dns_address: {
                 message: 'Set/Edit DNS Address',

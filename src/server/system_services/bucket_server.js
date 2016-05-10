@@ -33,20 +33,20 @@ module.exports = {
 
 var _ = require('lodash');
 var AWS = require('aws-sdk');
-var db = require('./db');
+var db = require('../db');
 var net = require('net');
-var crypto = require('crypto');
-var object_server = require('./object_server');
+// var crypto = require('crypto');
+var object_server = require('../object_services/object_server');
 var tier_server = require('./tier_server');
-var server_rpc = require('./server_rpc');
-var system_store = require('./stores/system_store');
-var nodes_store = require('./stores/nodes_store');
-var cloud_sync_utils = require('./utils/cloud_sync_utils');
-var size_utils = require('../util/size_utils');
-var mongo_utils = require('../util/mongo_utils');
-var dbg = require('../util/debug_module')(__filename);
-var P = require('../util/promise');
-var js_utils = require('../util/js_utils');
+var server_rpc = require('../server_rpc');
+var system_store = require('../stores/system_store');
+var nodes_store = require('../node_services/nodes_store');
+var cloud_sync_utils = require('../utils/cloud_sync_utils');
+var size_utils = require('../../util/size_utils');
+var mongo_utils = require('../../util/mongo_utils');
+var dbg = require('../../util/debug_module')(__filename);
+var P = require('../../util/promise');
+var js_utils = require('../../util/js_utils');
 var https = require('https');
 
 
@@ -316,7 +316,7 @@ function delete_bucket(req) {
                 }
             });
         })
-        .then(() => server_rpc.bg_client.cloud_sync.refresh_policy({
+        .then(() => server_rpc.client.cloud_sync.refresh_policy({
             sysid: req.system._id.toString(),
             bucketid: bucket._id.toString(),
             force_stop: true,
@@ -361,7 +361,7 @@ function get_cloud_sync_policy(req, bucket) {
     if (!bucket.cloud_sync || !bucket.cloud_sync.target_bucket) {
         return {};
     }
-    return P.when(server_rpc.bg_client.cloud_sync.get_policy_status({
+    return P.when(server_rpc.client.cloud_sync.get_policy_status({
             sysid: bucket.system._id.toString(),
             bucketid: bucket._id.toString()
         }, {
@@ -420,7 +420,7 @@ function delete_cloud_sync(req) {
             }
         })
         .then(function() {
-            return server_rpc.bg_client.cloud_sync.refresh_policy({
+            return server_rpc.client.cloud_sync.refresh_policy({
                 sysid: req.system._id.toString(),
                 bucketid: bucket._id.toString(),
                 force_stop: true,
@@ -499,7 +499,7 @@ function set_cloud_sync(req) {
             return object_server.set_all_files_for_sync(req.system._id, bucket._id);
         })
         .then(function() {
-            return server_rpc.bg_client.cloud_sync.refresh_policy({
+            return server_rpc.client.cloud_sync.refresh_policy({
                 sysid: req.system._id.toString(),
                 bucketid: bucket._id.toString(),
                 force_stop: force_stop,

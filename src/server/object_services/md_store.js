@@ -6,7 +6,7 @@ let P = require('../../util/promise');
 let db = require('../db');
 let mongodb = require('mongodb');
 let mongo_utils = require('../../util/mongo_utils');
-let nodes_store = require('../stores/nodes_store');
+let nodes_store = require('../node_services/nodes_store');
 // let dbg = require('../../util/debug_module')(__filename);
 
 module.exports = {

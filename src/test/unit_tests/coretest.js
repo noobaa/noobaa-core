@@ -11,7 +11,7 @@ var mocha = require('mocha');
 var assert = require('assert');
 var mongoose = require('mongoose');
 var mongo_client = require('../../server/utils/mongo_client');
-var nodes_store = require('../../server/stores/nodes_store');
+var nodes_store = require('../../server/node_services/nodes_store');
 var server_rpc = require('../../server/server_rpc');
 var config = require('../../../config.js');
 var db = require('../../server/db');
@@ -21,9 +21,11 @@ P.longStackTraces();
 config.test_mode = true;
 
 // register api servers and bg_worker servers locally too
-server_rpc.register_md_servers();
-server_rpc.register_bg_servers();
-server_rpc.register_common_servers();
+server_rpc.register_system_services();
+server_rpc.register_node_services();
+server_rpc.register_object_services();
+server_rpc.register_bg_services();
+server_rpc.register_common_services();
 server_rpc.rpc.set_request_logger(function() {
     return console.info.apply(console,
         _.map(arguments, arg => require('util').inspect(arg, {

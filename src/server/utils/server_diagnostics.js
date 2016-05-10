@@ -8,7 +8,7 @@ module.exports = {
 
 var TMP_WORK_DIR = '/tmp/diag';
 
-var stats_aggregator = require('../stats_aggregator');
+var stats_aggregator = require('../system_services/stats_aggregator');
 var P = require('../../util/promise');
 var os = require('os');
 var fs = require('fs');

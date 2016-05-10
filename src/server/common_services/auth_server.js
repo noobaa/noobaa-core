@@ -1,36 +1,19 @@
-// this module is written for both nodejs.
-'use strict';
-
-var _ = require('lodash');
-var P = require('../util/promise');
-var jwt = require('jsonwebtoken');
-var dbg = require('../util/debug_module')(__filename);
-var system_store = require('./stores/system_store');
-var bcrypt = require('bcrypt');
-var S3Auth = require('aws-sdk/lib/signers/s3');
-var s3_util = require('../util/s3_utils');
-var s3_auth = new S3Auth();
-
 /**
  *
  * AUTH_SERVER
  *
  */
-var auth_server = {
+'use strict';
 
-    create_auth: create_auth,
-    read_auth: read_auth,
-    create_access_key_auth: create_access_key_auth,
-
-    /**
-     * authorize is exported to be used as an express middleware
-     * it reads and prepares the authorized info on the request (req.auth).
-     */
-    authorize: authorize
-};
-
-module.exports = auth_server;
-
+var _ = require('lodash');
+var jwt = require('jsonwebtoken');
+var bcrypt = require('bcrypt');
+var S3Auth = require('aws-sdk/lib/signers/s3');
+var P = require('../../util/promise');
+var dbg = require('../../util/debug_module')(__filename);
+var s3_util = require('../../util/s3_utils');
+var system_store = require('../stores/system_store');
+var s3_auth = new S3Auth();
 
 
 /**
@@ -545,6 +528,10 @@ function _prepare_auth_request(req) {
 }
 
 
-
-
-// UTILS //////////////////////////////////////////////////////////
+// EXPORTS
+exports.create_auth = create_auth;
+exports.read_auth = read_auth;
+exports.create_access_key_auth = create_access_key_auth;
+// authorize is exported to be used as an express middleware
+// it reads and prepares the authorized info on the request (req.auth).
+exports.authorize = authorize;

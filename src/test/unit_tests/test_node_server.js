@@ -67,11 +67,6 @@ mocha.describe('node_server', function() {
             .then(() => client.node.get_test_nodes({
                 count: 10
             }))
-            .then(() => client.node.group_nodes({
-                group_by: {
-                    pool: true
-                }
-            }))
             .then(() => client.node.test_latency_to_server())
             .then(() => coretest.init_test_nodes(client, SYS, 3))
             .then(() => client.node.list_nodes({}))

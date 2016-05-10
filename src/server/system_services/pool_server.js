@@ -1,18 +1,18 @@
 'use strict';
 
 var _ = require('lodash');
-// var P = require('../util/promise');
-var dbg = require('../util/debug_module')(__filename);
-var system_store = require('./stores/system_store');
-var nodes_store = require('./stores/nodes_store');
-var size_utils = require('../util/size_utils');
-var config = require('../../config');
-var db = require('./db');
-var child_process = require('child_process');
-var P = require('../util/promise');
+// var P = require('../../util/promise');
+var dbg = require('../../util/debug_module')(__filename);
+var system_store = require('../stores/system_store');
+var nodes_store = require('../node_services/nodes_store');
+var size_utils = require('../../util/size_utils');
+var config = require('../../../config');
+var db = require('../db');
+// var child_process = require('child_process');
+var P = require('../../util/promise');
 var os = require('os');
-var SupervisorCtl = require('../server/utils/supervisor_ctrl');
-var server_rpc = require('./server_rpc');
+var SupervisorCtl = require('../utils/supervisor_ctrl');
+var server_rpc = require('../server_rpc');
 
 
 /**
@@ -90,7 +90,7 @@ function create_cloud_pool(req) {
         })
         .then(res => {
             let sys_access_keys = system_store.data.accounts[1].access_keys[0];
-            return server_rpc.bg_client.hosted_agents.create_agent({
+            return server_rpc.client.hosted_agents.create_agent({
                 name: req.rpc_params.name,
                 access_keys: sys_access_keys,
                 cloud_info: {
@@ -201,7 +201,7 @@ function delete_cloud_pool(req) {
     dbg.log0('Deleting cloud pool', req.rpc_params.name);
     var pool = find_pool_by_name(req);
 
-    // construct the cloud node name according to convention 
+    // construct the cloud node name according to convention
     let cloud_node_name = 'noobaa-cloud-agent-' + os.hostname() + '-' + pool.name;
     return P.resolve()
         .then(function() {

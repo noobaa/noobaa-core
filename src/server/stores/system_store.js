@@ -205,7 +205,7 @@ class SystemStoreData {
             // update all the accounts.
             if (account.allowed_buckets) {
                 account.allowed_buckets = _.filter(
-                    account.allowed_buckets, 
+                    account.allowed_buckets,
                     bucket => !!bucket._id
                 );
             }
@@ -317,11 +317,11 @@ class SystemStore extends EventEmitter {
             server_rpc.rpc.on('reconnect', conn => this._on_reconnect(conn));
             this._registered_for_reconnect = true;
         }
-        return server_rpc.bg_client.redirector.register_to_cluster();
+        return server_rpc.client.redirector.register_to_cluster();
     }
 
     _on_reconnect(conn) {
-        if (conn.url.href === server_rpc.rpc.router.bg) {
+        if (conn.url.href === server_rpc.rpc.router.default) {
             dbg.log0('_on_reconnect:', conn.url.href);
             this.load();
         }
@@ -487,7 +487,7 @@ class SystemStore extends EventEmitter {
             })
             .then(() =>
                 // notify all the cluster (including myself) to reload
-                server_rpc.bg_client.redirector.publish_to_cluster({
+                server_rpc.client.redirector.publish_to_cluster({
                     method_api: 'cluster_member_api',
                     method_name: 'load_system_store',
                     target: ''

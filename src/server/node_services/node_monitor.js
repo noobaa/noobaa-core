@@ -10,17 +10,17 @@ exports.set_debug_node = set_debug_node;
 exports.report_node_block_error = report_node_block_error;
 
 var _ = require('lodash');
-var P = require('../util/promise');
-var db = require('./db');
-var Barrier = require('../util/barrier');
-var mongo_functions = require('../util/mongo_functions');
-var promise_utils = require('../util/promise_utils');
-var server_rpc = require('./server_rpc');
-var system_server = require('./system_server');
-var nodes_store = require('./stores/nodes_store');
-var block_allocator = require('./mapper/block_allocator');
-var dbg = require('../util/debug_module')(__filename);
-var pkg = require('../../package.json');
+var P = require('../../util/promise');
+var db = require('../db');
+var Barrier = require('../../util/barrier');
+var mongo_functions = require('../../util/mongo_functions');
+var promise_utils = require('../../util/promise_utils');
+var server_rpc = require('../server_rpc');
+var system_server = require('../system_services/system_server');
+var nodes_store = require('./nodes_store');
+var block_allocator = require('../mapper/block_allocator');
+var dbg = require('../../util/debug_module')(__filename);
+var pkg = require('../../../package.json');
 var current_pkg_version = pkg.version;
 
 server_rpc.rpc.on('reconnect', _on_reconnect);
@@ -219,7 +219,7 @@ function update_heartbeat(req, reply_token) {
         if (notify_redirector) {
             conn.on('close', () => P.fcall(_unregister_agent, conn, peer_id));
             P.fcall(function() {
-                    return server_rpc.bg_client.redirector.register_agent({
+                    return server_rpc.client.redirector.register_agent({
                         peer_id: peer_id,
                     });
                 })
@@ -566,7 +566,7 @@ function report_node_block_error(req) {
 
 
 function _unregister_agent(connection, peer_id) {
-    return P.when(server_rpc.bg_client.redirector.unregister_agent({
+    return P.when(server_rpc.client.redirector.unregister_agent({
             peer_id: peer_id,
         }))
         .fail(function(error) {
@@ -576,7 +576,7 @@ function _unregister_agent(connection, peer_id) {
 }
 
 function _on_reconnect(conn) {
-    if (conn.url.href === server_rpc.rpc.router.bg) {
+    if (conn.url.href === server_rpc.rpc.router.default) {
         dbg.log0('_on_reconnect:', conn.url.href);
         _resync_agents();
     }
@@ -589,7 +589,7 @@ function _resync_agents() {
     return promise_utils.retry(Infinity, 1000, function(attempt) {
         var agents = server_rpc.rpc.get_n2n_addresses();
         var ts = Date.now();
-        return server_rpc.bg_client.redirector.resync_agents({
+        return server_rpc.client.redirector.resync_agents({
                 agents: agents,
                 timestamp: ts,
             })

@@ -10,14 +10,17 @@ let child_process = require('child_process');
  *
  */
 const SERVICES = [{
-    path: './src/bg_workers/bg_workers_starter.js'
+    fork: './src/bg_workers/bg_workers_starter.js'
 }, {
-    path: './src/server/web_server.js'
+    fork: './src/server/web_server.js'
 }, {
-    path: './src/s3/s3rver.js'
+    fork: './src/s3/s3rver.js'
 }, {
-    path: './src/agent/agent_cli.js',
+    fork: './src/agent/agent_cli.js',
     args: ['--scale', '6'],
+}, {
+    spawn: 'mongod',
+    args: ['-f', 'mongod.conf']
 }];
 
 if (require.main === module) {
@@ -58,8 +61,10 @@ function run_service(srv) {
         return;
     }
 
-    console.log('SERVICE: running', srv.path, srv.args);
-    srv.child = child_process.fork(srv.path, srv.args, srv.opts)
+    console.log('SERVICE: running', srv.fork || srv.spawn, srv.args || '');
+    srv.child = (srv.fork ?
+            child_process.fork(srv.fork, srv.args, srv.opts) :
+            child_process.spawn(srv.spawn, srv.args, srv.opts))
         .on('exit', (code, signal) => {
             console.warn('SERVICE: EXIT CODE', code, 'SIGNAL', signal);
             srv.child = null;

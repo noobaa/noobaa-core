@@ -5,7 +5,7 @@ let P = require('../../util/promise');
 let db = require('../db');
 let map_utils = require('./map_utils');
 let block_allocator = require('./block_allocator');
-let md_store = require('../stores/md_store');
+let md_store = require('../object_services/md_store');
 let system_store = require('../stores/system_store');
 let server_rpc = require('../server_rpc');
 let mongo_utils = require('../../util/mongo_utils');
@@ -15,7 +15,7 @@ let config = require('../../../config.js');
 let Semaphore = require('../../util/semaphore');
 let dbg = require('../../util/debug_module')(__filename);
 var map_deleter = require('./map_deleter');
-var nodes_store = require('../stores/nodes_store');
+var nodes_store = require('../node_services/nodes_store');
 
 
 

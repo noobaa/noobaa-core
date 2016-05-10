@@ -20,12 +20,12 @@ module.exports = cluster_server;
 
 var _ = require('lodash');
 var fs = require('fs');
-var system_store = require('./stores/system_store');
-var server_rpc = require('./server_rpc');
-var mongo_ctrl = require('./utils/mongo_ctrl');
-var P = require('../util/promise');
-var dbg = require('../util/debug_module')(__filename);
-var config = require('../../config.js');
+var system_store = require('../stores/system_store');
+var server_rpc = require('../server_rpc');
+var mongo_ctrl = require('../utils/mongo_ctrl');
+var P = require('../../util/promise');
+var dbg = require('../../util/debug_module')(__filename);
+var config = require('../../../config.js');
 
 var SECRET;
 var TOPOLOGY;

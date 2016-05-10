@@ -29,16 +29,16 @@ var account_server = {
 module.exports = account_server;
 
 var _ = require('lodash');
-var P = require('../util/promise');
-var db = require('./db');
+var P = require('../../util/promise');
+var db = require('../db');
 var bcrypt = require('bcrypt');
-var system_store = require('./stores/system_store');
+var system_store = require('../stores/system_store');
 var system_server = require('./system_server');
 var crypto = require('crypto');
 var https = require('https');
 var AWS = require('aws-sdk');
-var server_rpc = require('./server_rpc');
-// var dbg = require('../util/debug_module')(__filename);
+var server_rpc = require('../server_rpc');
+// var dbg = require('../../util/debug_module')(__filename);
 
 
 /**
@@ -104,7 +104,7 @@ function create_account(req) {
                 return token;
             }
             if (!req.system) {
-                return server_rpc.bg_client.hosted_agents.create_agent({
+                return server_rpc.client.hosted_agents.create_agent({
                         name: req.rpc_params.name,
                         access_keys: req.rpc_params.access_keys,
                         scale: 3,

@@ -7,7 +7,7 @@ var moment = require('moment');
 var chance = require('chance')();
 var config = require('../../../config.js');
 var dbg = require('../../util/debug_module')(__filename);
-var nodes_store = require('../stores/nodes_store');
+var nodes_store = require('../node_services/nodes_store');
 
 exports.refresh_tiering_alloc = refresh_tiering_alloc;
 exports.refresh_pool_alloc = refresh_pool_alloc;

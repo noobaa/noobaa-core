@@ -49,9 +49,12 @@ function new_router(base_address) {
         'protocol', 'hostname', 'port', 'slashes');
     let base_addr = url.format(base_url);
     base_url.port = parseInt(base_url.port, 10) + 1;
+    let md_addr = url.format(base_url);
+    base_url.port = parseInt(base_url.port, 10) + 1;
     let bg_addr = url.format(base_url);
     let router = {
         default: base_addr,
+        md: md_addr,
         bg: bg_addr
     };
     console.log('ROUTER', router);
@@ -61,7 +64,12 @@ function new_router(base_address) {
 function new_rpc(base_address) {
     let rpc = new RPC({
         schema: api_schema,
-        router: new_router(base_address)
+        router: new_router(base_address),
+        api_routes: {
+            // object_api: 'md',
+            cloud_sync_api: 'bg',
+            hosted_agents_api: 'bg'
+        }
     });
     return rpc;
 }

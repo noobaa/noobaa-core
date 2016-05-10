@@ -7,7 +7,7 @@ var db = require('../db');
 var config = require('../../../config.js');
 var dbg = require('../../util/debug_module')(__filename);
 var system_store = require('../stores/system_store');
-var nodes_store = require('../stores/nodes_store');
+var nodes_store = require('../node_services/nodes_store');
 
 exports.get_chunk_status = get_chunk_status;
 exports.set_chunk_frags_from_blocks = set_chunk_frags_from_blocks;

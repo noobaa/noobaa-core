@@ -7,7 +7,7 @@ var config = require('../../../config.js');
 var time_utils = require('../../util/time_utils');
 var range_utils = require('../../util/range_utils');
 var block_allocator = require('./block_allocator');
-var md_store = require('../stores/md_store');
+var md_store = require('../object_services/md_store');
 var map_utils = require('./map_utils');
 
 // dbg.set_level(5);

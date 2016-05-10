@@ -1,16 +1,14 @@
 'use strict';
 
 var _ = require('lodash');
-var P = require('../util/promise');
-var size_utils = require('../util/size_utils');
-var string_utils = require('../util/string_utils');
-var mongo_functions = require('../util/mongo_functions');
-var map_reader = require('./mapper/map_reader');
+var P = require('../../util/promise');
+var string_utils = require('../../util/string_utils');
+var map_reader = require('..//mapper/map_reader');
 var node_monitor = require('./node_monitor');
-var nodes_store = require('./stores/nodes_store');
-var config = require('../../config');
-var db = require('./db');
-var dbg = require('../util/debug_module')(__filename);
+var nodes_store = require('./nodes_store');
+var config = require('../../../config');
+var db = require('../db');
+var dbg = require('../../util/debug_module')(__filename);
 
 /**
  *
@@ -24,7 +22,6 @@ exports.delete_node = delete_node;
 exports.read_node_maps = read_node_maps;
 exports.list_nodes = list_nodes;
 exports.list_nodes_int = list_nodes_int;
-exports.group_nodes = group_nodes;
 exports.max_node_capacity = max_node_capacity;
 exports.heartbeat = node_monitor.heartbeat;
 exports.redirect = node_monitor.redirect;
@@ -319,60 +316,6 @@ function list_nodes_int(system_id, query, skip, limit, pagination, sort, order, 
 }
 
 
-
-/**
- *
- * TODO REMOVE GROUP_NODES API. UNUSED IN NEW UI
- *
- */
-function group_nodes(req) {
-    return P.fcall(function() {
-            var minimum_online_heartbeat = nodes_store.get_minimum_online_heartbeat();
-            var reduce_sum = size_utils.reduce_sum;
-            var group_by = req.rpc_params.group_by;
-            var by_system = {
-                system: req.system._id,
-                deleted: null,
-            };
-
-            let NodeModel = require('./stores/node_model');
-            return NodeModel.mapReduce({
-                query: by_system,
-                scope: {
-                    // have to pass variables to map/reduce with a scope
-                    minimum_online_heartbeat: minimum_online_heartbeat,
-                    group_by: group_by,
-                    reduce_sum: reduce_sum,
-                },
-                map: mongo_functions.map_nodes_groups,
-                reduce: mongo_functions.reduce_nodes_groups
-            });
-        })
-        .then(function(res) {
-            console.log('GROUP NODES', res);
-            return {
-                groups: _.map(res, function(r) {
-                    var group = {
-                        count: r.value.c,
-                        online: r.value.o,
-                        storage: {
-                            alloc: r.value.a,
-                            used: r.value.u,
-                        }
-                    };
-                    if (r._id.p) {
-                        group.pool = String(r._id.p);
-                    }
-                    if (r._id.g) {
-                        group.geolocation = r._id.g;
-                    }
-                    return group;
-                })
-            };
-        });
-}
-
-
 function test_latency_to_server(req) {
     // nothing to do.
     // the caller is just testing round trip time to the server.
@@ -444,22 +387,6 @@ function get_test_nodes(req) {
 
 // UTILS //////////////////////////////////////////////////////////
 
-
-/*
-function count_node_storage_used(node_id) {
-    return P.when(db.DataBlock.mapReduce({
-            query: {
-                node: node_id,
-                deleted: null,
-            },
-            map: mongo_functions.map_size,
-            reduce: mongo_functions.reduce_sum
-        }))
-        .then(function(res) {
-            return res && res[0] && res[0].value || 0;
-        });
-}
-*/
 
 const NODE_INFO_PICK_FIELDS = [
     'name',

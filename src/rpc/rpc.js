@@ -69,6 +69,7 @@ function RPC(options) {
     // public properties
     this.schema = options.schema;
     this.router = options.router;
+    this.api_routes = options.api_routes;
 }
 
 RPC.Client = Client;
@@ -437,8 +438,9 @@ RPC.prototype.handle_response = function(conn, msg) {
 RPC.prototype._assign_connection = function(req, options) {
     var address = options.address;
     if (!address) {
-        address = this.router[options.domain || 'default'];
-        dbg.log3('RPC ROUTER', options.domain || 'default', '=>', address);
+        let domain = options.domain || this.api_routes[req.api.id] || 'default';
+        address = this.router[domain];
+        dbg.log3('RPC ROUTER', domain, '=>', address);
     }
     assert(address, 'No RPC Address/Domain');
     var addr_url = this._address_to_url_cache[address];
@@ -696,9 +698,8 @@ RPC.prototype._connection_closed = function(conn) {
 
     // using _.startsWith() since in some cases url.parse will add a trailing /
     // specifically in http urls for some strange reason...
-    if (!conn._no_reconnect && (
-            _.startsWith(conn.url.href, this.router.default) ||
-            _.startsWith(conn.url.href, this.router.bg))) {
+    if (!conn._no_reconnect &&
+        _.startsWith(conn.url.href, this.router.default)) {
         self._reconnect(conn.url, conn._reconn_backoff);
     }
 };

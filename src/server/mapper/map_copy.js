@@ -2,7 +2,7 @@
 
 var _ = require('lodash');
 var P = require('../../util/promise');
-var md_store = require('../stores/md_store');
+var md_store = require('../object_services/md_store');
 // var map_utils = require('./map_utils');
 // var dbg = require('../../util/debug_module')(__filename);
 var db = require('../db');

@@ -212,61 +212,6 @@ module.exports = {
             }
         },
 
-        group_nodes: {
-            method: 'GET',
-            params: {
-                type: 'object',
-                // required: [],
-                properties: {
-                    group_by: {
-                        type: 'object',
-                        // required: [],
-                        properties: {
-                            pool: {
-                                type: 'boolean'
-                            },
-                            geolocation: {
-                                type: 'boolean'
-                            },
-                        }
-                    },
-                }
-            },
-            reply: {
-                type: 'object',
-                required: ['groups'],
-                properties: {
-                    groups: {
-                        type: 'array',
-                        items: {
-                            type: 'object',
-                            required: ['count'],
-                            properties: {
-                                pool: {
-                                    type: 'string'
-                                },
-                                geolocation: {
-                                    type: 'string'
-                                },
-                                count: {
-                                    type: 'integer'
-                                },
-                                online: {
-                                    type: 'integer'
-                                },
-                                storage: {
-                                    $ref: 'common_api#/definitions/storage_info'
-                                },
-                            }
-                        }
-                    }
-                }
-            },
-            auth: {
-                system: 'admin'
-            }
-        },
-
 
         heartbeat: {
             method: 'PUT',

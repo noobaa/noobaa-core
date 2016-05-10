@@ -13,11 +13,11 @@ module.exports = {
 };
 
 var _ = require('lodash');
-var util = require('util');
 var fs = require('fs');
-var P = require('../util/promise');
-var server_rpc = require('../server/server_rpc');
-var dbg = require('../util/debug_module')(__filename);
+var util = require('util');
+var P = require('../../util/promise');
+var dbg = require('../../util/debug_module')(__filename);
+var server_rpc = require('../server_rpc');
 // dbg.set_level(5);
 
 var agents_address_map = new Map();
@@ -79,7 +79,7 @@ function redirect(req) {
             //TODO:: Don't call myself
             return P.all(_.map(CLUSTER_TOPOLOGY.servers, function(srv) {
                     dbg.log3('scatter redirect calling', 'ws://' + srv + ':8081');
-                    return P.when(server_rpc.bg_client.redirector.redirect(req.rpc_params, {
+                    return P.when(server_rpc.client.redirector.redirect(req.rpc_params, {
                             //TODO:: port and ws/wss decision
                             address: 'ws://' + srv + ':8081',
                         }))

@@ -7,12 +7,12 @@ module.exports = {
 };
 
 var _ = require('lodash');
-var P = require('../util/promise');
 var AWS = require('aws-sdk');
-var db = require('../server/db');
-var system_store = require('../server/stores/system_store');
-var dbg = require('../util/debug_module')(__filename);
 var https = require('https');
+var P = require('../../util/promise');
+var db = require('../db');
+var dbg = require('../../util/debug_module')(__filename);
+var system_store = require('../stores/system_store');
 
 var CLOUD_SYNC = {
     //Policy was changed, list of policies should be refreshed

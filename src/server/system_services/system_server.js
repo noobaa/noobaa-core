@@ -38,27 +38,26 @@ var system_server = {
 module.exports = system_server;
 
 var _ = require('lodash');
-var P = require('../util/promise');
+var P = require('../../util/promise');
 //var crypto = require('crypto');
 var ip_module = require('ip');
 var url = require('url');
+var net = require('net');
 // var AWS = require('aws-sdk');
-var diag = require('./utils/server_diagnostics');
-var db = require('./db');
-var server_rpc = require('./server_rpc');
+var db = require('../db');
+var diag = require('../utils/server_diagnostics');
+var server_rpc = require('../server_rpc');
 var bucket_server = require('./bucket_server');
 var pool_server = require('./pool_server');
 var tier_server = require('./tier_server');
 var account_server = require('./account_server');
-var system_store = require('./stores/system_store');
-var nodes_store = require('./stores/nodes_store');
-var size_utils = require('../util/size_utils');
-var mongo_functions = require('../util/mongo_functions');
-var os_utils = require('../util/os_util');
-var promise_utils = require('../util/promise_utils');
-var dbg = require('../util/debug_module')(__filename);
-var pkg = require('../../package.json');
-var net = require('net');
+var system_store = require('../stores/system_store');
+var nodes_store = require('../node_services/nodes_store');
+var size_utils = require('../../util/size_utils');
+var os_utils = require('../../util/os_util');
+var promise_utils = require('../../util/promise_utils');
+var dbg = require('../../util/debug_module')(__filename);
+var pkg = require('../../../package.json');
 
 
 function new_system_defaults(name, owner_account_id) {
@@ -571,35 +570,27 @@ function diagnose_with_agent(data, req) {
 
 function start_debug(req) {
     dbg.log0('Recieved start_debug req');
-    return P.when(server_rpc.client.debug.set_debug_level({
-            level: req.rpc_params.level,
-            module: 'core'
-        }, {
-            auth_token: req.auth_token
-        }))
-        .then(function() {
-            return P.when(server_rpc.bg_client.debug.set_debug_level({
+    return server_rpc.client.redirector.publish_to_cluster({
+            target: '', // required but irrelevant
+            method_api: 'debug_api',
+            method_name: 'set_debug_level',
+            request_params: {
                 level: req.rpc_params.level,
                 module: 'core'
-            }, {
-                auth_token: req.auth_token
-            }));
+            }
         })
         .then(function() {
             if (req.rpc_params.level > 0) { //If level was set, remove it after 10m
                 promise_utils.delay_unblocking(1000 * 60 * 10) //10m
-                    .then(function() {
-                        return P.when(server_rpc.client.debug.set_debug_level({
+                    .then(() => server_rpc.client.redirector.publish_to_cluster({
+                        target: '', // required but irrelevant
+                        method_api: 'debug_api',
+                        method_name: 'set_debug_level',
+                        request_params: {
                             level: 0,
                             module: 'core'
-                        }));
-                    })
-                    .then(function() {
-                        return P.when(server_rpc.bg_client.debug.set_debug_level({
-                            level: 0,
-                            module: 'core'
-                        }));
-                    });
+                        }
+                    }));
             }
             return;
         });

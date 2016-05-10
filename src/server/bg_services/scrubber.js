@@ -4,10 +4,10 @@ module.exports = {
     background_worker: background_worker,
 };
 
-var P = require('../util/promise');
-var db = require('../server/db');
-var map_builder = require('../server/mapper/map_builder');
-var dbg = require('../util/debug_module')(__filename);
+var P = require('../../util/promise');
+var db = require('../db');
+var map_builder = require('../mapper/map_builder');
+var dbg = require('../../util/debug_module')(__filename);
 
 /**
  *

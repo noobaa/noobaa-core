@@ -22,18 +22,18 @@ var stats_aggregator = {
 module.exports = stats_aggregator;
 
 var _ = require('lodash');
-var P = require('../util/promise');
+var P = require('../../util/promise');
 var request = require('request');
 var FormData = require('form-data');
 // var util = require('util');
-var promise_utils = require('../util/promise_utils');
-var Histogram = require('../util/histogram');
-var dbg = require('../util/debug_module')(__filename);
-var config = require('../../config.js');
+var promise_utils = require('../../util/promise_utils');
+var Histogram = require('../../util/histogram');
+var dbg = require('../../util/debug_module')(__filename);
+var config = require('../../../config.js');
 var system_server = require('./system_server');
-var node_server = require('./node_server');
-var system_store = require('./stores/system_store');
-var nodes_store = require('./stores/nodes_store');
+var system_store = require('../stores/system_store');
+var node_server = require('../node_services/node_server');
+var nodes_store = require('../node_services/nodes_store');
 
 
 var ops_aggregation = {};

@@ -19,15 +19,15 @@ require('../util/panic');
 
 var _ = require('lodash');
 var url = require('url');
-var promise_utils = require('../util/promise_utils');
-var cloud_sync = require('./cloud_sync');
-var system_store = require('../server/stores/system_store');
-var account_server = require('../server/account_server');
-var scrubber = require('./scrubber');
-var server_rpc = require('../server/server_rpc');
-var dbg = require('../util/debug_module')(__filename);
 var db = require('../server/db');
+var dbg = require('../util/debug_module')(__filename);
+var scrubber = require('../server/bg_services/scrubber');
+var server_rpc = require('../server/server_rpc');
+var cloud_sync = require('../server/bg_services/cloud_sync');
+var system_store = require('../server/stores/system_store');
 var mongo_client = require('../server/utils/mongo_client');
+var account_server = require('../server/system_services/account_server');
+var promise_utils = require('../util/promise_utils');
 
 
 dbg.set_process_name('BGWorkers');
@@ -38,8 +38,8 @@ register_rpc();
 
 
 function register_rpc() {
-    server_rpc.register_bg_servers();
-    server_rpc.register_common_servers();
+    server_rpc.register_bg_services();
+    server_rpc.register_common_services();
     let http_port = url.parse(server_rpc.rpc.router.bg).port;
     return server_rpc.rpc.start_http_server({
         port: http_port,

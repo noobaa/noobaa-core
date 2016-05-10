@@ -4,7 +4,7 @@ var _ = require('lodash');
 var P = require('../../util/promise');
 var db = require('../db');
 var server_rpc = require('../server_rpc');
-var nodes_store = require('../stores/nodes_store');
+var nodes_store = require('../node_services/nodes_store');
 var mongo_utils = require('../../util/mongo_utils');
 var dbg = require('../../util/debug_module')(__filename);
 

@@ -2,13 +2,13 @@
 'use strict';
 
 var _ = require('lodash');
-// var P = require('../util/promise');
-var dbg = require('../util/debug_module')(__filename);
-var system_store = require('./stores/system_store');
-var nodes_store = require('./stores/nodes_store');
-var size_utils = require('../util/size_utils');
-var mongo_utils = require('../util/mongo_utils');
-var db = require('./db');
+// var P = require('../../util/promise');
+var dbg = require('../../util/debug_module')(__filename);
+var system_store = require('../stores/system_store');
+var nodes_store = require('../node_services/nodes_store');
+var size_utils = require('../../util/size_utils');
+var mongo_utils = require('../../util/mongo_utils');
+var db = require('../db');
 
 /**
  *

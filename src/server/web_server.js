@@ -40,33 +40,11 @@ var time_utils = require('../util/time_utils');
 var pem = require('../util/pem');
 var multer = require('multer');
 var fs = require('fs');
-var cluster = require('cluster');
 var pkg = require('../../package.json');
 var db = require('../server/db');
 var mongo_client = require('./utils/mongo_client');
 var rootdir = path.join(__dirname, '..', '..');
 var dev_mode = (process.env.DEV_MODE === 'true');
-
-
-// Temporary removed - causes issues with upgrade.
-var numCPUs = Math.ceil(require('os').cpus().length / 2);
-if (process.env.DEBUGGER === 'true') {
-    // if debugger env is set use only one process in the cluster
-    console.log('process.env.DEBUGGER is set. running with numCpus = 1');
-    numCPUs = 1;
-}
-if (cluster.isMaster && process.env.MD_CLUSTER_DISABLED !== 'true') {
-    // Fork MD Servers
-    for (var i = 0; i < numCPUs; i++) {
-        console.warn('Spawning MD Server', i + 1);
-        cluster.fork();
-    }
-
-    cluster.on('exit', function(worker, code, signal) {
-        console.log('MD Server ' + worker.process.pid + ' died');
-    });
-    return;
-}
 
 dbg.set_process_name('WebServer');
 db.mongoose_connect();
@@ -141,8 +119,10 @@ function use_exclude(path, middleware) {
 
 // register RPC services and transports
 var server_rpc = require('./server_rpc');
-server_rpc.register_md_servers();
-server_rpc.register_common_servers();
+server_rpc.register_system_services();
+server_rpc.register_node_services();
+server_rpc.register_object_services();
+server_rpc.register_common_services();
 server_rpc.rpc.register_http_transport(app);
 server_rpc.client.options.address = 'fcall://fcall';
 
@@ -276,18 +256,24 @@ app.get('/get_latest_version*', function(req, res) {
 app.post('/set_log_level*', function(req, res) {
     console.log('req.module', req.param('module'), 'req.level', req.param('level'));
     if (typeof req.param('module') === 'undefined' || typeof req.param('level') === 'undefined') {
-        res.status(400).send({});
+        res.status(400).end();
     }
 
     dbg.log0('Change log level requested for', req.param('module'), 'to', req.param('level'));
     dbg.set_level(req.param('level'), req.param('module'));
-    // TODO what about all the other instances of the server???
-    return P.when(server_rpc.bg_client.debug.set_debug_level({
-        level: req.param('level'),
-        module: req.param('module')
-    })).then(function() {
-        res.status(200).send({});
-    });
+
+    return server_rpc.client.redirector.publish_to_cluster({
+            target: '', // required but irrelevant
+            method_api: 'debug_api',
+            method_name: 'set_debug_level',
+            request_params: {
+                level: req.param('level'),
+                module: req.param('module')
+            }
+        })
+        .then(function() {
+            res.status(200).end();
+        });
 });
 
 //Log level getter

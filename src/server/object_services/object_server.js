@@ -2,19 +2,19 @@
 'use strict';
 
 var _ = require('lodash');
-var P = require('../util/promise');
-var db = require('./db');
+var P = require('../../util/promise');
+var db = require('../db');
 var mime = require('mime');
-var map_allocator = require('./mapper/map_allocator');
-var map_copy = require('./mapper/map_copy');
-var map_writer = require('./mapper/map_writer');
-var map_reader = require('./mapper/map_reader');
-var map_deleter = require('./mapper/map_deleter');
-var system_store = require('./stores/system_store');
+var map_allocator = require('../mapper/map_allocator');
+var map_copy = require('../mapper/map_copy');
+var map_writer = require('../mapper/map_writer');
+var map_reader = require('../mapper/map_reader');
+var map_deleter = require('../mapper/map_deleter');
+var system_store = require('../stores/system_store');
 var glob_to_regexp = require('glob-to-regexp');
-var dbg = require('../util/debug_module')(__filename);
-var string_utils = require('../util/string_utils');
-var mongo_functions = require('../util/mongo_functions');
+var dbg = require('../../util/debug_module')(__filename);
+var string_utils = require('../../util/string_utils');
+var mongo_functions = require('../../util/mongo_functions');
 
 /**
  *

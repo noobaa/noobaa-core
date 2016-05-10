@@ -97,9 +97,6 @@ TestRunner.prototype.init_run = function() {
 
     self._rpc = api.new_rpc();
     self._client = self._rpc.new_client();
-    self._bg_client = self._rpc.new_client({
-        domain: 'bg'
-    });
 
     return P.fcall(function() {
             var auth_params = {
@@ -316,7 +313,7 @@ TestRunner.prototype._write_coverage = function() {
     var collector = new istanbul.Collector();
     var reporter = new istanbul.Reporter(null, COVERAGE_DIR + '/istanbul');
     //Get all collectors data
-    return this._bg_client.redirector.publish_to_cluster({
+    return this._client.redirector.publish_to_cluster({
             method_api: 'debug_api',
             method_name: 'get_istanbul_collector',
             target: ''

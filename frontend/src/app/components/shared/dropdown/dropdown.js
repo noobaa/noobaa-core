@@ -5,7 +5,7 @@ import { isDefined } from 'utils';
 
 const INPUT_THROTTLE = 1000;
 
-function defaultSearchSelector({ label }, input) {
+function matchByPrefix({ label }, input) {
     return label.toString().toLowerCase().startsWith(input);
 }
 
@@ -15,7 +15,7 @@ class DropdownViewModel {
         options = [], 
         placeholder = '', 
         disabled = false,
-        searchSelector = defaultSearchSelector
+        matchOperator = matchByPrefix
     }) {
         this.name = randomString(5);
         this.options = options;
@@ -47,7 +47,7 @@ class DropdownViewModel {
             }
         );
 
-        this.searchSelector = searchSelector;
+        this.matchOperator = matchOperator;
         this.searchInput = '';
         this.lastInput = 0;
     }
@@ -100,7 +100,7 @@ class DropdownViewModel {
             char;
 
         let option = ko.unwrap(this.options).find(
-            option => this.searchSelector(option, this.searchInput)
+            option => this.matchOperator(option, this.searchInput)
         );
 
         if (option) {

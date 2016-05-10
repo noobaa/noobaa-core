@@ -24,6 +24,7 @@ let libs = [
     { name: 'numeral',              path: './src/lib/numeral/numeral.js' },
     { name: 'page',                 path: './src/lib/page/page.js' },
     { name: 'moment',               path: './src/lib/moment/moment.js' },
+    { name: 'moment-timezone',      path: './src/lib/moment-timezone/builds/moment-timezone-with-data.js' },
     { name: 'shifty',               path: './src/lib/shifty/dist/shifty.js' },
     { name: 'aws-sdk',              path: './src/lib/aws-sdk/dist/aws-sdk.js' },
 ];

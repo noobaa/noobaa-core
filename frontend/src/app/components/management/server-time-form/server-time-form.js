@@ -1,10 +1,10 @@
 import template from './server-time-form.html';
 import ko from 'knockout';
 import moment from 'moment';
+import 'moment-timezone';
 import numeral from 'numeral';
 import { makeRange, toOwnKeyValuePair } from 'utils';
 import { systemInfo } from 'model';
-import timezones from './timezones';
 import { updateServerTime, updateServerNTP } from 'actions';
 
 const configTypes =  Object.freeze([
@@ -13,8 +13,8 @@ const configTypes =  Object.freeze([
 ]);
 
 function timezoneSearchSelector({ label }, input) {
-    return label.toLowerCase().split('/').some(
-        part => part.startsWith(input)
+    return !!label.toLowerCase().match(
+        new RegExp(`\\b${input.replace('/', '\\/')}`)
     );
 }
 
@@ -45,7 +45,7 @@ class ServerTimeFormViewModel {
         );
 
         this.serverTimeText = ko.pureComputed(
-            () => moment(serverTime()).format('MM/DD/YYYY hh:mm:ss Z (GMT)')
+            () => moment.parseZone(serverTime()).format('MM/DD/YYYY HH:mm:ss ([GMT]Z)')
         );
 
         this.timezone = ko.observableWithDefault(
@@ -53,15 +53,15 @@ class ServerTimeFormViewModel {
         );
 
         this.year = ko.observableWithDefault(
-            () => moment(serverTime()).year()
+            () => moment.parseZone(serverTime()).year()
         );
 
         this.month = ko.observableWithDefault(
-            () => moment(serverTime()).month()
+            () => moment.parseZone(serverTime()).month()
         );
 
         let day = ko.observableWithDefault(
-            () => moment(serverTime()).date()
+            () => moment.parseZone(serverTime()).date()
         );
 
         this.day = ko.pureComputed({
@@ -70,17 +70,17 @@ class ServerTimeFormViewModel {
         });
 
         this.hour = ko.observableWithDefault(
-            () => moment(serverTime()).hour()
+            () => moment.parseZone(serverTime()).hour()
         )
             .extend({ required: true, min: 0, max: 23 });
 
         this.minute = ko.observableWithDefault(
-            () => moment(serverTime()).minute()
+            () => moment.parseZone(serverTime()).minute()
         )
             .extend({ required: true, min: 0, max: 59 });
 
         this.second = ko.observableWithDefault(
-            () => moment(serverTime()).second()
+            () => moment.parseZone(serverTime()).second()
         )
             .extend({ required: true, min: 0, max: 59 });
 
@@ -117,16 +117,31 @@ class ServerTimeFormViewModel {
                 }
             });
 
-        this.timezones = timezones.map(
-            ({ key, value }) => ({
-                label: `${key.replace(/\_/g, ' ')} (GMT${value})`,
-                value: key
-            })
-        );
+        this.timezones = moment.tz.names()
+            .map(
+                name => ({ 
+                    name: name, 
+                    offset: moment.tz(name).utcOffset() 
+                })
+            )
+            .sort(
+                (tz1, tz2) => tz1.offset - tz2.offset 
+            )
+            .map(
+                ({ name, offset }) => {
+                    let offsetText = moment().tz(name).format('[GMT]Z');
+                    let label = name.replace(/\_/g, ' ');
+
+                    return {
+                        label: `(${offsetText}) ${label}`,
+                        value: name
+                    };
+                }
+            );
 
         this.autoIncHandle = setInterval(
             () => serverTime(
-                moment(serverTime()).add(1, 'second').toISOString()
+                moment.parseZone(serverTime()).add(1, 'second').format()
             ),
             1000
         );
@@ -152,16 +167,20 @@ class ServerTimeFormViewModel {
         if (this.manualErrors().length > 0) {
             this.manualErrors.showAllMessages();
         } else {
-            let time = moment({
-                years: this.year(),
-                months: this.month(),
-                date: this.day(),
-                hours: this.hour(),
-                minutes: this.minute(),
-                seconds: this.second(),
-            }).unix();
+            let epoch = moment.tz(
+                {
+                    years: this.year(),
+                    months: this.month(),
+                    date: this.day(),
+                    hours: this.hour(),
+                    minutes: this.minute(),
+                    seconds: this.second(),
+                },
+                this.timezone()
+            )
+            .unix();
 
-            updateServerTime(this.timezone(), time.valueOf());
+            updateServerTime(this.timezone(), epoch);
         }
     }
 

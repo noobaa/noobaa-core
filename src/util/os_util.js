@@ -19,7 +19,7 @@ var os = require('os');
 var fs = require('fs');
 var child_process = require('child_process');
 var node_df = require('node-df');
-var moment = require('moment');
+var moment = require('moment-timezone');
 
 
 function os_info() {

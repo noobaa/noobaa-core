@@ -24,7 +24,7 @@
             <dropdown params="
                 options: timezones, 
                 selected: timezone,
-                searchSelector: timezoneSearchSelector
+                matchOperator: matchByTimezoneName
             "></dropdown>
         </editor>
 
@@ -64,7 +64,11 @@
     <!-- ko if: usingNTP -->
     <section class="container">
         <editor params="label: 'Time Zone'">
-            <dropdown params="options: timezones, selected: timezone"></dropdown>
+            <dropdown params="
+                options: timezones, 
+                selected: timezone,
+                matchOperator: matchByTimezoneName
+            "></dropdown>
         </editor>
 
         <editor params="label: 'NTP Server'">

@@ -55,32 +55,37 @@ function create_account(req) {
             return bcrypt_password(account);
         })
         .then(function() {
-            var changes;
-
-            if (!req.system) {
-                changes = system_server.new_system_changes(account.name, account._id);
-                account.allowed_buckets = [changes.insert.buckets[0]._id];
-                changes.insert.accounts = [account];
-            } else {
-                if (req.rpc_params.allowed_buckets) {
-                    account.allowed_buckets = _.map(req.rpc_params.allowed_buckets,
-                        bucket => req.system.buckets_by_name[bucket]._id);
-                }
-                changes = {
-                    insert: {
-                        accounts: [account],
-                        roles: [{
-                            _id: system_store.generate_id(),
-                            account: account._id,
-                            system: req.system._id,
-                            role: 'admin',
-                        }]
+            return P.fcall(function() {
+                    if (!req.system) {
+                        return system_server.new_system_changes(account.name, account._id)
+                            .then(changes => {
+                                account.allowed_buckets = [changes.insert.buckets[0]._id];
+                                changes.insert.accounts = [account];
+                                return changes;
+                            });
+                    } else {
+                        if (req.rpc_params.allowed_buckets) {
+                            account.allowed_buckets = _.map(req.rpc_params.allowed_buckets,
+                                bucket => req.system.buckets_by_name[bucket]._id);
+                        }
+                        return {
+                            insert: {
+                                accounts: [account],
+                                roles: [{
+                                    _id: system_store.generate_id(),
+                                    account: account._id,
+                                    system: req.system._id,
+                                    role: 'admin',
+                                }]
+                            }
+                        };
                     }
-                };
-            }
+                })
+                .then(changes => {
+                    create_activity_log_entry(req, 'create', account);
+                    return system_store.make_changes(changes);
+                });
 
-            create_activity_log_entry(req, 'create', account);
-            return system_store.make_changes(changes);
         })
         .then(function() {
             var created_account = system_store.data.get_by_id(account._id);
@@ -405,9 +410,9 @@ function check_account_sync_credentials(req) {
             accessKeyId: params.access_key,
             secretAccessKey: params.secret_key,
             httpOptions: {
-              agent: new https.Agent({
-                rejectUnauthorized: false,
-              })
+                agent: new https.Agent({
+                    rejectUnauthorized: false,
+                })
             }
         });
 

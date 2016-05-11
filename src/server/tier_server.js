@@ -140,6 +140,17 @@ function update_tier(req) {
         })
         .then((res) => {
             var bucket = find_bucket_by_tier(req);
+            let desc_string = [];
+            let policy_type_change = String(tier.data_placement) === String(req.rpc_params.data_placement) ? 'No changes' :
+                `Changed to ${req.rpc_params.data_placement} from ${tier.data_placement}`;
+            let tier_pools = _.map(tier.pools, pool => pool.name);
+            let added_pools = [] || _.difference(req.rpc_params.pools, tier_pools);
+            let removed_pools = [] || _.difference(tier_pools, req.rpc_params.pools);
+            desc_string.push(`Bucket policy was changed by: ${req.account && req.account.email}`);
+            desc_string.push(`Policy type: ${policy_type_change}`);
+            added_pools.length && desc_string.push(`Added pools: ${added_pools}`);
+            removed_pools.length && desc_string.push(`Removed pools: ${removed_pools}`);
+
             if (bucket != null) {
                 db.ActivityLog.create({
                     event: 'bucket.edit_policy',
@@ -147,6 +158,7 @@ function update_tier(req) {
                     system: req.system._id,
                     actor: req.account && req.account._id,
                     bucket: bucket._id,
+                    desc: desc_string.join('\n'),
                 });
             }
             return res;

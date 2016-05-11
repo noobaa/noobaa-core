@@ -480,8 +480,7 @@ function self_test_to_node_via_web(req) {
  * COLLECT_AGENT_DIAGNOSTICS
  */
 function collect_agent_diagnostics(req) {
-    var target = req.rpc_params.target;
-
+    var target = req.rpc_params.rpc_address;
     return server_rpc.client.agent.collect_diagnostics({}, {
             address: target,
         })
@@ -525,7 +524,8 @@ function set_debug_node(req) {
                         level: 'info',
                         event: 'dbg.set_debug_node',
                         actor: req.account && req.account._id,
-                        node: node._id
+                        node: node._id,
+                        desc: `${node.name} debug level was raised by ${req.account && req.account.email}`,
                     });
                     dbg.log1('set_debug_node for agent', target, req.rpc_params.level, 'was successful');
                     return '';

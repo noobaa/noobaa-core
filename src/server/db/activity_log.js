@@ -37,6 +37,10 @@ var activity_log_schema = new Schema({
         required: true,
     },
 
+    desc: {
+        type: String,
+    },
+
     tier: {
         // ref: 'Tier',
         type: types.ObjectId,

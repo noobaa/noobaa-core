@@ -59,6 +59,7 @@ var promise_utils = require('../util/promise_utils');
 var dbg = require('../util/debug_module')(__filename);
 var pkg = require('../../package.json');
 var net = require('net');
+var moment = require('moment');
 
 
 function new_system_defaults(name, owner_account_id) {
@@ -128,6 +129,7 @@ function new_system_changes(name, owner_account_id) {
             level: 'info',
             system: system._id,
             actor: owner_account_id,
+	    desc: `${name} was created by ${owner_account && owner_account.email}`,
         });
 
         return {
@@ -500,9 +502,18 @@ function read_activity_log(req) {
                     l.node = _.pick(log_item.node, 'name');
                 }
 
+                if (log_item.desc) {
+                    l.desc = log_item.desc.split('\n');
+                }
+
                 let bucket = log_item.bucket && system_store.data.get_by_id(log_item.bucket);
                 if (bucket) {
                     l.bucket = _.pick(bucket, 'name');
+                }
+
+                let pool = log_item.pool && system_store.data.get_by_id(log_item.pool);
+                if (pool) {
+                    l.pool = _.pick(pool, 'name');
                 }
 
                 if (log_item.obj) {
@@ -537,20 +548,21 @@ function diagnose(req) {
     return P.fcall(function() {
             return diag.collect_server_diagnostics(req);
         })
-        .then((res) => {
-            db.ActivityLog.create({
-                event: 'conf.diagnose_system',
-                level: 'info',
-                system: req.system._id,
-                actor: req.account && req.account._id,
-            });
-            return res;
-        })
         .then(function() {
             return diag.pack_diagnostics(inner_path);
         })
         .then(function() {
             return out_path;
+        })
+        .then((res) => {
+            db.ActivityLog.create({
+                event: 'dbg.diagnose_system',
+                level: 'info',
+                system: req.system._id,
+                actor: req.account && req.account._id,
+                desc: `${req.system.name} diagnostics package was exported by ${req.account && req.account.email}`,
+            });
+            return res;
         })
         .then(null, function(err) {
             dbg.log0('Error while collecting diagnostics', err, err.stack);
@@ -573,6 +585,17 @@ function diagnose_with_agent(data, req) {
         })
         .then(function() {
             return out_path;
+        })
+        .then(res => {
+            db.ActivityLog.create({
+                event: 'dbg.diagnose_node',
+                level: 'info',
+                system: req.system && req.system._id,
+                actor: req.account && req.account._id,
+                node: req.rpc_params && req.rpc_params.id,
+                desc: `${req.rpc_params.name} diagnostics package was exported by ${req.account && req.account.email}`,
+            });
+            return res;
         })
         .then(null, function(err) {
             dbg.log0('Error while collecting diagnostics with agent', err, err.stack);
@@ -662,6 +685,7 @@ function update_n2n_config(req) {
 
 function update_base_address(req) {
     dbg.log0('update_base_address', req.rpc_params);
+    var prior_base_address = req.system && req.system.base_address;
     return system_store.make_changes({
             update: {
                 systems: [{
@@ -706,6 +730,7 @@ function update_base_address(req) {
                 level: 'info',
                 system: req.system,
                 actor: req.account && req.account._id,
+                desc: `DNS Address was changed from ${prior_base_address} to ${req.rpc_params.base_address}`,
             });
             return res;
         });
@@ -747,6 +772,22 @@ function update_time_config(req) {
             } else { //manual set
                 return os_utils.set_manual_time(req.rpc_params.epoch, config.timezone);
             }
+        })
+        .then((res) => {
+            let desc_string = [];
+            desc_string.push(`Date and Time was updated to ${req.rpc_params.config_type} time by ${req.account && req.account.email}`);
+            desc_string.push(`Timezone was set to ${req.rpc_params.timezone}`);
+            req.rpc_params.server && desc_string.push(`NTP server ${req.rpc_params.server}`);
+            let date = req.rpc_params.epoch && moment.unix(req.rpc_params.epoch).tz(req.rpc_params.timezone);
+            date && desc_string.push(`Date and Time set to ${date}`);
+            db.ActivityLog.create({
+                event: 'conf.server_date_time_updated',
+                level: 'info',
+                system: req.system,
+                actor: req.account && req.account._id,
+                desc: desc_string.join('\n'),
+            });
+            return res;
         });
 }
 

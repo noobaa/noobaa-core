@@ -82,7 +82,7 @@ function create_account(req) {
                     }
                 })
                 .then(changes => {
-                    create_activity_log_entry(req, 'create', account);
+                    create_activity_log_entry(req, 'create', account, `${account.email} was created ${req.account && `by ${req.account.email}`}`);
                     return system_store.make_changes(changes);
                 });
 
@@ -184,7 +184,7 @@ function generate_account_keys(req) {
  */
 function update_account_s3_acl(req) {
     var system = req.system;
-    let account = system_store.data.accounts_by_email[req.rpc_params.email];
+    let account = _.cloneDeep(system_store.data.accounts_by_email[req.rpc_params.email]);
     if (!account) {
         throw req.rpc_error('NO_SUCH_ACCOUNT', 'No such account email: ' + req.rpc_params.email);
     }
@@ -212,9 +212,6 @@ function update_account_s3_acl(req) {
                         _.differenceWith(list, [bucket], system_store.has_same_id);
                 },
                 account.allowed_buckets
-            )
-            .map(
-                bucket => bucket._id
             );
     }
 
@@ -222,9 +219,36 @@ function update_account_s3_acl(req) {
             update: {
                 accounts: [{
                     _id: account._id,
-                    allowed_buckets: allowed_buckets
+                    allowed_buckets: allowed_buckets && allowed_buckets.map(
+                        bucket => bucket._id
+                    )
                 }]
             }
+        })
+        .then(() => {
+            let new_allowed_buckets = allowed_buckets && allowed_buckets.map(bucket => bucket.name);
+            let origin_allowed_buckets = account.allowed_buckets && account.allowed_buckets.map(bucket => bucket.name);
+            let desc_string = [];
+            let added_buckets = [];
+            let removed_buckets = [];
+            desc_string.push(`${account.email} S3 access was updated by ${req.account && req.account.email}`);
+            if (req.rpc_params.access_control) {
+                added_buckets = _.difference(new_allowed_buckets, origin_allowed_buckets);
+                removed_buckets = _.difference(origin_allowed_buckets, new_allowed_buckets);
+                // Here we need a new toggle or something instead of just null
+                // In order to know that we activated and know the removed_buckets and not only added
+                // Because how it works right now is that we will only know what we added and not removed
+                // Since the array will be always null
+                if (!origin_allowed_buckets) {
+                    desc_string.push(`S3 permissions was changed to enabled`);
+                }
+            }
+            else {
+                desc_string.push(`S3 permissions was changed to disabled`);
+            }
+            added_buckets.length && desc_string.push(`Added buckets: ${added_buckets}`);
+            removed_buckets.length && desc_string.push(`Removed buckets: ${removed_buckets}`);
+            return create_activity_log_entry(req, 's3_access_updated', account, desc_string.join('\n'));
         })
         .return();
 }
@@ -258,7 +282,7 @@ function update_account(req) {
                 }
             });
         })
-        .then(() => create_activity_log_entry(req, 'update', account))
+        .then(() => create_activity_log_entry(req, 'update', account, `${account.email} was updated by ${req.account && req.account.email}: reset password`))
         .return();
 }
 
@@ -300,11 +324,11 @@ function delete_account(req) {
         })
         .then(
             val => {
-                create_activity_log_entry(req, 'delete', account_to_delete);
+                create_activity_log_entry(req, 'delete', account_to_delete, `${account_to_delete.email} was deleted by ${req.account && req.account.email}`);
                 return val;
             },
             err => {
-                create_activity_log_entry(req, 'delete', account_to_delete, 'alert');
+                create_activity_log_entry(req, 'delete', account_to_delete, 'Error', alert);
                 throw err;
             }
         )
@@ -549,12 +573,13 @@ function is_support_or_admin_or_me(system, account, target_account) {
         );
 }
 
-function create_activity_log_entry(req, event, account, level) {
+function create_activity_log_entry(req, event, account, description, level) {
     db.ActivityLog.create({
         event: 'account.' + event,
         level: level || 'info',
         system: req.system ? req.system._id : undefined,
         actor: req.account ? req.account._id : undefined,
         account: account._id,
+        desc: description,
     });
 }

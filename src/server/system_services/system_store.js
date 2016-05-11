@@ -192,27 +192,25 @@ class SystemStoreData {
                 if (index.val_array) {
                     map[key] = map[key] || [];
                     map[key].push(val);
+                } else if (key in map) {
+                    dbg.error('SystemStoreData:', index.name,
+                        'collision on key', key, val, map[key]);
                 } else {
-                    if (key in map) {
-                        dbg.error('SystemStoreData:', index.name,
-                            'collision on key', key, val, map[key]);
-                    } else {
-                        map[key] = val;
-                    }
+                    map[key] = val;
                 }
             });
         });
     }
 
     rebuild_allowed_buckets_links() {
-        _.each(this.accounts, (account) => {
+        _.each(this.accounts, account => {
             // filter only the buckets that were resolved to existing buckets
             // this is to handle deletions of buckets that currently do not
             // update all the accounts.
             if (account.allowed_buckets) {
                 account.allowed_buckets = _.filter(
                     account.allowed_buckets,
-                    bucket => !!bucket._id
+                    bucket => Boolean(bucket._id)
                 );
             }
         });
@@ -314,7 +312,9 @@ class SystemStore extends EventEmitter {
                 this.emit('load');
                 return this.data;
             })
-            .finally(() => this._load_promise = null)
+            .finally(() => {
+                this._load_promise = null;
+            })
             .catch(err => {
                 dbg.error('SystemStore: load failed', err.stack || err);
                 throw err;
@@ -346,7 +346,9 @@ class SystemStore extends EventEmitter {
             .then(() => {
                 return P.all(_.map(COLLECTIONS, (schema, collection) =>
                     mongo_client.db.collection(collection).find(non_deleted_query).toArray()
-                    .then(res => target[collection] = res)
+                    .then(res => {
+                        target[collection] = res;
+                    })
                     .then(res => _.each(res, item => this._check_schema(collection, item, 'read')))
                 ));
             });

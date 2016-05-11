@@ -60,7 +60,9 @@ function run_server() {
             return P.nfcall(pem.createCertificate, {
                 days: 365 * 100,
                 selfSigned: true
-            }).then(certificate => params.certificate = certificate);
+            }).then(certificate => {
+                params.certificate = certificate;
+            });
         })
         .then(() => app.use(s3_rest(new S3Controller(params))))
         .then(() => dbg.log0('Starting HTTP', params.port))

@@ -243,7 +243,7 @@ function add_sample_point(opname, duration) {
     ops_aggregation[opname].add_value(duration);
 }
 
-send_stats_payload; // lint unused bypass
+_.noop(send_stats_payload); // lint unused bypass
 
 function send_stats_payload(payload) {
     var form = new FormData();

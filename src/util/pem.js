@@ -1,3 +1,4 @@
+/* eslint-disable */
 'use strict';
 var _ = require('lodash');
 var spawn = require('child_process').spawn;

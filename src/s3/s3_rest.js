@@ -112,15 +112,7 @@ function s3_rest(controller) {
                     return;
                 }
                 dbg.log1('S3 REPLY', func_name, req.method, req.url, reply);
-                if (!reply) {
-                    dbg.log0('S3 EMPTY REPLY', func_name, req.method, req.url,
-                        JSON.stringify(req.headers));
-                    if (req.method === 'DELETE') {
-                        res.status(204).end();
-                    } else {
-                        res.status(200).end();
-                    }
-                } else {
+                if (reply) {
                     let xml_root = _.mapValues(reply, val => ({
                         _attr: S3_XML_ATTRS,
                         _content: val
@@ -129,6 +121,14 @@ function s3_rest(controller) {
                     dbg.log0('S3 XML REPLY', func_name, req.method, req.url,
                         JSON.stringify(req.headers), xml_reply);
                     res.status(200).send(xml_reply);
+                } else {
+                    dbg.log0('S3 EMPTY REPLY', func_name, req.method, req.url,
+                        JSON.stringify(req.headers));
+                    if (req.method === 'DELETE') {
+                        res.status(204).end();
+                    } else {
+                        res.status(200).end();
+                    }
                 }
             })
             .catch(err => next(err));
@@ -139,6 +139,7 @@ function s3_rest(controller) {
             _.each(req.headers, (val, key) => {
                 // test for non printable characters
                 // 403 is required for unreadable headers
+                // eslint-disable-next-line no-control-regex
                 if (/[\x00-\x1F]/.test(val) || /[\x00-\x1F]/.test(key)) {
                     if (key.startsWith('x-amz-meta-')) {
                         throw s3_errors.InvalidArgument;

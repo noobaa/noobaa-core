@@ -33,31 +33,31 @@ function create_account(req) {
             return bcrypt_password(account);
         })
         .then(function() {
-                var changes;
-
-                if (!req.system) {
-                    changes = system_server.new_system_changes(account.name, account);
-                    account.allowed_buckets = [changes.insert.buckets[0]._id];
-                    changes.insert.accounts = [account];
-                } else {
-                    if (req.rpc_params.allowed_buckets) {
-                        account.allowed_buckets = _.map(req.rpc_params.allowed_buckets,
-                            bucket => req.system.buckets_by_name[bucket]._id);
-                    }
-                    changes = {
-                        insert: {
-                            accounts: [account],
-                            roles: [{
-                                _id: system_store.generate_id(),
-                                account: account._id,
-                                system: req.system._id,
-                                role: 'admin',
-                            }]
-                        }
-                    };
+            var changes;
+            if (!req.system) {
+                changes = system_server.new_system_changes(account.name, account);
+                account.allowed_buckets = [changes.insert.buckets[0]._id];
+                changes.insert.accounts = [account];
+            } else {
+                if (req.rpc_params.allowed_buckets) {
+                    account.allowed_buckets = _.map(
+                        req.rpc_params.allowed_buckets,
+                        bucket => req.system.buckets_by_name[bucket]._id);
                 }
-
-                create_activity_log_entry(req, 'create', account, `${account.email} was created ${req.account && `by ${req.account.email}`}`);
+                changes = {
+                    insert: {
+                        accounts: [account],
+                        roles: [{
+                            _id: system_store.generate_id(),
+                            account: account._id,
+                            system: req.system._id,
+                            role: 'admin',
+                        }]
+                    }
+                };
+            }
+            create_activity_log_entry(req, 'create', account,
+                `${account.email} was created ${req.account && 'by ' + req.account.email}`);
             return system_store.make_changes(changes);
         })
         .then(function() {
@@ -77,7 +77,7 @@ function create_account(req) {
                 token: req.make_auth_token(auth),
             };
         })
-        .then((token) => {
+        .then(token => {
             if (process.env.LOCAL_AGENTS_ENABLED !== 'true') {
                 return token;
             }
@@ -165,10 +165,8 @@ function update_account_s3_acl(req) {
         if (!is_support_or_admin_or_me(req.system, req.account, account)) {
             throw req.unauthorized('Cannot update account');
         }
-    } else {
-        if (!req.system) {
-            system = system_store.data.systems_by_name[req.rpc_params.name];
-        }
+    } else if (!req.system) {
+        system = system_store.data.systems_by_name[req.rpc_params.name];
     }
     if (account.is_support) {
         throw req.forbidden('Cannot update support account');
@@ -215,12 +213,15 @@ function update_account_s3_acl(req) {
                 if (!origin_allowed_buckets) {
                     desc_string.push(`S3 permissions was changed to enabled`);
                 }
-            }
-            else {
+            } else {
                 desc_string.push(`S3 permissions was changed to disabled`);
             }
-            added_buckets.length && desc_string.push(`Added buckets: ${added_buckets}`);
-            removed_buckets.length && desc_string.push(`Removed buckets: ${removed_buckets}`);
+            if (added_buckets.length) {
+                desc_string.push(`Added buckets: ${added_buckets}`);
+            }
+            if (removed_buckets.length) {
+                desc_string.push(`Removed buckets: ${removed_buckets}`);
+            }
             return create_activity_log_entry(req, 's3_access_updated', account, desc_string.join('\n'));
         })
         .return();
@@ -350,7 +351,7 @@ function accounts_status(req) {
         return !account.is_support;
     });
     return {
-        has_accounts: !!any_non_support_account
+        has_accounts: Boolean(any_non_support_account)
     };
 }
 
@@ -435,10 +436,8 @@ function list_account_s3_acl(req) {
         if (!is_support_or_admin_or_me(req.system, req.account, account)) {
             throw req.unauthorized('No permission to get allowed buckets');
         }
-    } else {
-        if (!req.system) {
-            req.system = system_store.data.get_by_id(req.auth && req.auth.system_id);
-        }
+    } else if (!req.system) {
+        req.system = system_store.data.get_by_id(req.auth && req.auth.system_id);
     }
     if (account.is_support) {
         throw req.forbidden('No allowed buckets for support account');
@@ -447,7 +446,8 @@ function list_account_s3_acl(req) {
     reply = _.map(system_store.data.buckets,
         bucket => ({
             bucket_name: bucket.name,
-            is_allowed: _.find(account.allowed_buckets, allowed_bucket => (allowed_bucket === bucket)) ? true : false
+            is_allowed: Boolean(_.find(account.allowed_buckets,
+                allowed_bucket => (allowed_bucket === bucket)))
         }));
 
     return reply;
@@ -466,7 +466,7 @@ function get_account_info(account) {
         info.access_keys = account.access_keys;
     }
 
-    info.has_s3_access = !!account.allowed_buckets;
+    info.has_s3_access = Boolean(account.allowed_buckets);
 
     info.systems = _.compact(_.map(account.roles_by_system, function(roles, system_id) {
         var system = system_store.data.get_by_id(system_id);
@@ -493,7 +493,7 @@ function ensure_support_account() {
     return system_store.refresh()
         .then(function() {
             var support_account = _.find(system_store.data.accounts, function(account) {
-                return !!account.is_support;
+                return Boolean(account.is_support);
             });
             if (support_account) {
                 return;

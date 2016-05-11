@@ -6,9 +6,9 @@ var rpc = api.new_rpc();
 var argv = require('minimist')(process.argv);
 var P = require('../../util/promise');
 var basic_server_ops = require('./basic_server_ops');
-var _ = require('lodash');
-var assert = require('assert');
-var promise_utils = require('../../util/promise_utils');
+// var _ = require('lodash');
+// var assert = require('assert');
+// var promise_utils = require('../../util/promise_utils');
 var dotenv = require('dotenv');
 var http = require('http');
 dotenv.load();
@@ -61,6 +61,7 @@ function test_s3_connection() {
         );
 }
 
+/*
 function list_buckets() {
     return P.fcall(function() {
             var s3 = new AWS.S3({
@@ -81,6 +82,7 @@ function list_buckets() {
             }
         );
 }
+*/
 
 function getSignedUrl(bucket, obj, expiry) {
     console.log('GENERATE SIGNED_URL OBJECT: ', obj, ' FROM BUCKET: ', bucket);
@@ -121,8 +123,8 @@ function httpGetAsPromise(url) {
             } else {
                 resolve(res);
             }
-        })
-    })
+        });
+    });
 }
 
 function create_bucket(name) {
@@ -147,7 +149,7 @@ function create_bucket(name) {
                 return data;
             }
         });
-    })
+    });
 }
 
 function create_folder(bucket, folder) {
@@ -173,7 +175,7 @@ function create_folder(bucket, folder) {
                 return data;
             }
         });
-    })
+    });
 }
 
 function head_object(bucket, key) {
@@ -199,7 +201,7 @@ function head_object(bucket, key) {
                 return data;
             }
         });
-    })
+    });
 }
 
 function get_object(bucket, key) {
@@ -225,7 +227,7 @@ function get_object(bucket, key) {
                 return data;
             }
         });
-    })
+    });
 }
 
 function delete_object(bucket, key) {
@@ -251,8 +253,8 @@ function delete_object(bucket, key) {
                 } else {
                     return data;
                 }
-            })
-    })
+            });
+    });
 }
 
 function delete_bucket(name) {
@@ -277,7 +279,7 @@ function delete_bucket(name) {
                 return (data);
             }
         });
-    })
+    });
 }
 
 function delete_folder(bucket, folder) {
@@ -303,7 +305,7 @@ function delete_folder(bucket, folder) {
                 return data;
             }
         });
-    })
+    });
 }
 
 function main() {

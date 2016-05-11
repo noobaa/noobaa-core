@@ -42,13 +42,13 @@ config.on_premise = {
 
 var is_windows = (process.platform === "win32");
 
-if (!is_windows){
+if (!is_windows) {
     process.env.ProgramData = '/tmp';
 }
 config.central_stats = {
     send_stats: true,
     central_listener: '127.0.0.1',
-    previous_diag_packs_dir:  process.env.ProgramData+'/prev_diags',
+    previous_diag_packs_dir: process.env.ProgramData + '/prev_diags',
     previous_diag_packs_count: 3 //TODO: We might want to split between agent and server
 };
 

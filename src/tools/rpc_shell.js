@@ -23,7 +23,8 @@ function RPCShell() {
 
 function construct_rpc_arguments(str_args) {
     var ret_json = {};
-    var words, i;
+    var words;
+    var i;
     //parse each argument on =
     //left of it is the key name, right is the values.
     //if right contains {}, its a complex value, call construct again on it

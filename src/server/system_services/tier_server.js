@@ -64,8 +64,8 @@ function create_tier(req) {
         })
         .then(function() {
             req.load_auth();
-            var create_tier = find_tier_by_name(req);
-            return get_tier_info(create_tier);
+            var created_tier = find_tier_by_name(req);
+            return get_tier_info(created_tier);
         });
 }
 
@@ -115,7 +115,7 @@ function update_tier(req) {
                 tiers: [updates]
             }
         })
-        .then((res) => {
+        .then(res => {
             var bucket = find_bucket_by_tier(req);
             let desc_string = [];
             let policy_type_change = String(tier.data_placement) === String(req.rpc_params.data_placement) ? 'No changes' :
@@ -125,8 +125,12 @@ function update_tier(req) {
             let removed_pools = [] || _.difference(tier_pools, req.rpc_params.pools);
             desc_string.push(`Bucket policy was changed by: ${req.account && req.account.email}`);
             desc_string.push(`Policy type: ${policy_type_change}`);
-            added_pools.length && desc_string.push(`Added pools: ${added_pools}`);
-            removed_pools.length && desc_string.push(`Removed pools: ${removed_pools}`);
+            if (added_pools.length) {
+                desc_string.push(`Added pools: ${added_pools}`);
+            }
+            if (removed_pools.length) {
+                desc_string.push(`Removed pools: ${removed_pools}`);
+            }
 
             if (bucket) {
                 ActivityLog.create({

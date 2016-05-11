@@ -6,7 +6,7 @@ console.log('loading .env file');
 require('dotenv').load();
 
 //If test mode, use Istanbul for coverage
-for (var i = 0; i < process.argv.length; ++i) {
+for (let i = 0; i < process.argv.length; ++i) {
     if (process.argv[i] === '--TESTRUN') {
         process.env.TESTRUN = true;
     }
@@ -104,9 +104,9 @@ app.use(express_cookie_session({
 }));
 app.use(express_compress());
 
-function use_exclude(path, middleware) {
+function use_exclude(route_path, middleware) {
     return function(req, res, next) {
-        if (_.startsWith(req.path, path)) {
+        if (_.startsWith(req.path, route_path)) {
             return next();
         } else {
             return middleware(req, res, next);
@@ -180,7 +180,7 @@ app.get('/agent/package.json', function(req, res) {
         },
         scripts: {
             start: 'node node_modules/noobaa-agent/agent/agent_cli.js ' +
-                ' --prod --address ' + 'wss://' + req.get('host')
+                ' --prod --address wss://' + req.get('host')
         },
         dependencies: {
             'noobaa-agent': req.protocol + '://' + req.get('host') + '/public/noobaa-agent.tar.gz'
@@ -408,13 +408,13 @@ function is_latest_version(query_version) {
     var len = Math.min(srv_version_parts.length, query_version_parts.length);
 
     // Compare common parts
-    for (var i = 0; i < len; i++) {
+    for (let i = 0; i < len; i++) {
         //current part of server is greater, query version is outdated
-        if (parseInt(srv_version_parts[i]) > parseInt(query_version_parts[i])) {
+        if (parseInt(srv_version_parts[i], 10) > parseInt(query_version_parts[i], 10)) {
             return false;
         }
 
-        if (parseInt(srv_version_parts[i]) < parseInt(query_version_parts[i])) {
+        if (parseInt(srv_version_parts[i], 10) < parseInt(query_version_parts[i], 10)) {
             console.error('BUG?! Queried version (', query_version, ') is higher than server version(',
                 srv_version, ') ! How can this happen?');
             return true;

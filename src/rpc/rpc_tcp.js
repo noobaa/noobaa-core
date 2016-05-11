@@ -20,9 +20,7 @@ const TCP_FRAME_CONFIG = {
  */
 class RpcTcpConnection extends RpcBaseConnection {
 
-    constructor(addr_url) {
-        super(addr_url);
-    }
+    // constructor(addr_url) { super(addr_url); }
 
     /**
      *

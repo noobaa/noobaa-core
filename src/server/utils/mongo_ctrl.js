@@ -142,5 +142,7 @@ MongoCtrl.prototype._add_new_config_supervisor = function() {
 MongoCtrl.prototype._refresh_services_list = function() {
     //TODO:: add real status form mongo per each
     P.when(this._super_ctrl.get_mongo_services())
-        .then(mongo_services => this._mongo_services = mongo_services);
+        .then(mongo_services => {
+            this._mongo_services = mongo_services;
+        });
 };

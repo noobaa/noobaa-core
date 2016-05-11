@@ -98,20 +98,16 @@ function create_bucket(req) {
     changes.update.accounts = [{
         _id: req.account._id,
         allowed_buckets: req.account.allowed_buckets
-            .map(
-                bucket => bucket._id
-            )
+            .map(bkt => bkt._id)
             .concat(bucket._id),
     }];
 
     return system_store.make_changes(changes)
-        .then(
-            () => {
-                req.load_auth();
-                let created_bucket = find_bucket(req);
-                return get_bucket_info(created_bucket);
-            }
-        );
+        .then(() => {
+            req.load_auth();
+            let created_bucket = find_bucket(req);
+            return get_bucket_info(created_bucket);
+        });
 }
 
 /**
@@ -243,38 +239,40 @@ function update_bucket_s3_acl(req) {
 
                 return {
                     _id: account._id,
-                    allowed_buckets: allowed_buckets.map(
-                        bucket => bucket._id
-                    )
+                    allowed_buckets: allowed_buckets.map(bkt => bkt._id)
                 };
             }
         );
 
     system_store.make_changes({
-        update: {
-            accounts: updates
-        }
-    })
-    .then(() => {
-        let new_allowed_accounts = req.rpc_params.access_control.filter(acl => acl.is_allowed).map(acl => acl.account);
-        let desc_string = [];
-        let added_accounts = [];
-        let removed_accounts = [];
-        desc_string.push(`${bucket.name} S3 access was updated by ${req.account && req.account.email}`);
-        added_accounts = _.difference(new_allowed_accounts, original_bucket_accounts);
-        removed_accounts = _.difference(original_bucket_accounts, new_allowed_accounts);
-        added_accounts.length && desc_string.push(`Added accounts: ${added_accounts}`);
-        removed_accounts.length && desc_string.push(`Removed accounts: ${removed_accounts}`);
-        ActivityLog.create({
-            event: 'bucket.s3_access_updated',
-            level: 'info',
-            system: req.system._id,
-            actor: req.account && req.account._id,
-            bucket: bucket._id,
-            desc: desc_string.join('\n'),
-        });
-    })
-    .return();
+            update: {
+                accounts: updates
+            }
+        })
+        .then(() => {
+            let new_allowed_accounts = req.rpc_params.access_control.filter(acl => acl.is_allowed).map(acl => acl.account);
+            let desc_string = [];
+            let added_accounts = [];
+            let removed_accounts = [];
+            desc_string.push(`${bucket.name} S3 access was updated by ${req.account && req.account.email}`);
+            added_accounts = _.difference(new_allowed_accounts, original_bucket_accounts);
+            removed_accounts = _.difference(original_bucket_accounts, new_allowed_accounts);
+            if (added_accounts.length) {
+                desc_string.push(`Added accounts: ${added_accounts}`);
+            }
+            if (removed_accounts.length) {
+                desc_string.push(`Removed accounts: ${removed_accounts}`);
+            }
+            ActivityLog.create({
+                event: 'bucket.s3_access_updated',
+                level: 'info',
+                system: req.system._id,
+                actor: req.account && req.account._id,
+                bucket: bucket._id,
+                desc: desc_string.join('\n'),
+            });
+        })
+        .return();
 }
 
 
@@ -327,7 +325,7 @@ function delete_bucket(req) {
         }, {
             auth_token: req.auth_token
         }))
-        .then((res) => {
+        .then(res => {
             //TODO NEED TO INSERT CODE THAT DELETES BUCKET ID FROM ALL ACCOUNT PERMISSIONS;
             return res;
         })
@@ -432,7 +430,7 @@ function delete_cloud_sync(req) {
                 auth_token: req.auth_token
             });
         })
-        .then((res) => {
+        .then(res => {
             ActivityLog.create({
                 event: 'bucket.remove_cloud_sync',
                 level: 'info',
@@ -511,11 +509,18 @@ function set_cloud_sync(req) {
                 auth_token: req.auth_token
             });
         })
-        .then((res) => {
+        .then(res => {
             let desc_string = [];
-            let sync_direction = cloud_sync.c2n_enabled && cloud_sync.n2c_enabled ? 'Bi-Directional' :
-                (cloud_sync.c2n_enabled ? 'Target To Source' :
-                    (cloud_sync.n2c_enabled ? 'Source To Target' : 'None'));
+            let sync_direction;
+            if (cloud_sync.c2n_enabled && cloud_sync.n2c_enabled) {
+                sync_direction = 'Bi-Directional';
+            } else if (cloud_sync.c2n_enabled) {
+                sync_direction = 'Target To Source';
+            } else if (cloud_sync.n2c_enabled) {
+                sync_direction = 'Source To Target';
+            } else {
+                sync_direction = 'None';
+            }
             desc_string.push(`Cloud sync was set in ${bucket.name}:`);
             desc_string.push(`Connection details:`);
             desc_string.push(`Name: ${connection.name}`);
@@ -585,9 +590,7 @@ function find_cloud_sync_connection(req) {
     let account = req.account;
     let conn_name = req.rpc_params.connection;
     let conn = (account.sync_credentials_cache || [])
-        .filter(
-            conn => conn.name === conn_name
-        )[0];
+        .filter(sync_conn => sync_conn.name === conn_name)[0];
 
     if (!conn) {
         dbg.error('CONNECTION NOT FOUND', account, conn_name);

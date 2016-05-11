@@ -77,12 +77,15 @@ function load_blocks_for_chunks(chunks) {
         .then(blocks => nodes_store.populate_nodes_for_map(blocks, 'node'))
         .then(blocks => {
             let blocks_by_chunk = _.groupBy(blocks, 'chunk');
-            _.each(chunks, chunk => chunk.blocks = blocks_by_chunk[chunk._id]);
+            _.each(chunks, chunk => {
+                chunk.blocks = blocks_by_chunk[chunk._id];
+            });
         });
 }
 
 function load_parts_objects_for_chunks(chunks) {
-    let parts, objects;
+    let parts;
+    let objects;
     if (!chunks || !chunks.length) return;
     return P.when(ObjectPart.collection.find({
             chunk: {
@@ -90,7 +93,7 @@ function load_parts_objects_for_chunks(chunks) {
             },
             deleted: null,
         }).toArray())
-        .then((res_parts) => {
+        .then(res_parts => {
             parts = res_parts;
             return ObjectMD.collection.find({
                 _id: {
@@ -99,11 +102,8 @@ function load_parts_objects_for_chunks(chunks) {
                 deleted: null,
             }).toArray();
         })
-        .then((res_objects) => {
+        .then(res_objects => {
             objects = res_objects;
-            return;
-        })
-        .then(() => {
             return P.resolve(map_utils.analyze_special_chunks(chunks, parts, objects));
         });
 }

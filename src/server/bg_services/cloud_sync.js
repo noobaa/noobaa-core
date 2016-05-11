@@ -99,7 +99,8 @@ function get_policy_status(req) {
             wl.bucketid.toString() === req.rpc_params.bucketid.toString();
     });
 
-    var status, health;
+    var status;
+    var health;
 
     if (!is_empty_sync_worklist(work_list)) {
         status = 'SYNCING';
@@ -260,10 +261,10 @@ function mark_cloud_synced(object) {
  *************** Cloud Sync Logic
  */
 function diff_worklists(wl1, wl2, sync_time) {
-    var uniq_1 = [],
-        uniq_2 = [];
-    var pos1 = 0,
-        pos2 = 0;
+    var uniq_1 = [];
+    var uniq_2 = [];
+    var pos1 = 0;
+    var pos2 = 0;
 
     var comp = function(a, b, sync_time) {
         if (_.isUndefined(a) && !_.isUndefined(b)) {
@@ -274,14 +275,12 @@ function diff_worklists(wl1, wl2, sync_time) {
             return -1;
         } else if (a.key > b.key) {
             return 1;
+        } else if (a.create_time > sync_time) {
+            return 2;
+        } else if (b.create_time > sync_time) {
+            return -2;
         } else {
-            if (a.create_time > sync_time) {
-                return 2;
-            } else if (b.create_time > sync_time) {
-                return -2;
-            } else {
-                return 0;
-            }
+            return 0;
         }
     };
 
@@ -487,7 +486,8 @@ function update_c2n_worklist(policy) {
 
     //Take a list from the cloud, list from the bucket, keep only key and ETag
     //Compare the two for diffs of additions/deletions
-    var cloud_object_list, bucket_object_list;
+    var cloud_object_list;
+    var bucket_object_list;
     return P.ninvoke(policy.s3cloud, 'listObjects', params)
         .fail(function(error) {
             dbg.error('ERROR statusCode', error.statusCode, error.statusCode === 400, error.statusCode === 301);
@@ -800,7 +800,7 @@ function update_bucket_last_sync(bucket) {
     return system_store.make_changes({
         update: {
             buckets: [{
-                _id: bucket._id,
+                '_id': bucket._id,
                 'cloud_sync.last_sync': new Date()
             }]
         }

@@ -54,15 +54,15 @@ function create_node(req) {
 
     dbg.log0('CREATE NODE', node);
     return nodes_store.create_node(req, node)
-        .then(function(node) {
+        .then(function(created_node) {
             // create async
             ActivityLog.create({
                 system: req.system,
                 level: 'info',
                 event: 'node.create',
-                node: node._id,
+                node: created_node._id,
                 actor: req.account && req.account._id,
-                desc: `${node.name} was added by ${req.account && req.account.email}`,
+                desc: `${created_node.name} was added by ${req.account && req.account.email}`,
             });
             var account_id = '';
             if (req.account) {
@@ -74,14 +74,14 @@ function create_node(req) {
                 system_id: req.system._id,
                 role: 'agent',
                 extra: {
-                    node_id: node._id,
-                    peer_id: node.peer_id,
+                    node_id: created_node._id,
+                    peer_id: created_node.peer_id,
                 }
             });
 
             return {
-                id: String(node._id),
-                peer_id: String(node.peer_id),
+                id: String(created_node._id),
+                peer_id: String(created_node.peer_id),
                 token: token
             };
         });
@@ -185,9 +185,9 @@ function list_nodes_int(system_id, query, skip, limit, pagination, sort, order, 
             query = query || {};
             if (query.name) {
                 info.$or = [{
-                    'name': new RegExp(query.name, 'i')
+                    name: new RegExp(query.name, 'i')
                 }, {
-                    'ip': new RegExp(string_utils.escapeRegExp(query.name), 'i')
+                    ip: new RegExp(string_utils.escapeRegExp(query.name), 'i')
                 }];
             }
             if (query.geolocation) {
@@ -200,8 +200,8 @@ function list_nodes_int(system_id, query, skip, limit, pagination, sort, order, 
                         info.heartbeat = {
                             $gt: minimum_online_heartbeat
                         };
-                        info['storage.free'] =  {
-                                $gt: config.NODES_FREE_SPACE_RESERVE
+                        info['storage.free'] = {
+                            $gt: config.NODES_FREE_SPACE_RESERVE
                         };
                         break;
                     case 'READ_ONLY':
@@ -209,7 +209,7 @@ function list_nodes_int(system_id, query, skip, limit, pagination, sort, order, 
                         info.heartbeat = {
                             $gt: minimum_online_heartbeat
                         };
-                        info['storage.free'] =  {
+                        info['storage.free'] = {
                             $lt: config.NODES_FREE_SPACE_RESERVE
                         };
                         break;
@@ -225,14 +225,16 @@ function list_nodes_int(system_id, query, skip, limit, pagination, sort, order, 
                             info.$or = offline_or_conditions;
                         }
                         break;
+                    default:
+                        break;
                 }
             }
             //mock up - TODO: replace with real state.
             if (query.filter) {
                 info.$or = [{
-                    'name': new RegExp(query.filter, 'i')
+                    name: new RegExp(query.filter, 'i')
                 }, {
-                    'ip': new RegExp(string_utils.escapeRegExp(query.filter), 'i')
+                    ip: new RegExp(string_utils.escapeRegExp(query.filter), 'i')
                 }];
             }
             //mock up - TODO: replace with real state.
@@ -240,12 +242,13 @@ function list_nodes_int(system_id, query, skip, limit, pagination, sort, order, 
                 switch (query.trust_level) {
                     case 'TRUSTED':
                         info.geolocation = 'Ireland';
-
                         break;
                     case 'UNTRUSTED':
                         info.geolocation = {
                             $ne: 'Ireland'
                         };
+                        break;
+                    default:
                         break;
                 }
             }
@@ -269,7 +272,7 @@ function list_nodes_int(system_id, query, skip, limit, pagination, sort, order, 
                         info.heartbeat = {
                             $gt: minimum_online_heartbeat
                         };
-                        info['storage.free'] =  {
+                        info['storage.free'] = {
                             $gt: config.NODES_FREE_SPACE_RESERVE
                         };
                         break;
@@ -284,6 +287,8 @@ function list_nodes_int(system_id, query, skip, limit, pagination, sort, order, 
                         } else {
                             info.$or = offline_or_conditions;
                         }
+                        break;
+                    default:
                         break;
                 }
             }
@@ -307,6 +312,8 @@ function list_nodes_int(system_id, query, skip, limit, pagination, sort, order, 
                         } else {
                             info.$or = offline_or_conditions;
                         }
+                        break;
+                    default:
                         break;
                 }
             }

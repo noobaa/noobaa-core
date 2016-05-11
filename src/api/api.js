@@ -33,11 +33,15 @@ api_schema.compile();
  */
 RPC.Client.prototype.create_auth_token = function(params) {
     return this.auth.create_auth(params)
-        .tap(res => this.options.auth_token = res.token);
+        .tap(res => {
+            this.options.auth_token = res.token;
+        });
 };
 RPC.Client.prototype.create_access_key_auth = function(params) {
     return this.auth.create_access_key_auth(params)
-        .tap(res => this.options.auth_token = res.token);
+        .tap(res => {
+            this.options.auth_token = res.token;
+        });
 };
 
 function new_router(base_address) {

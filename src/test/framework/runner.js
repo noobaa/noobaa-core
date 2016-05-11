@@ -219,23 +219,23 @@ TestRunner.prototype._run_current_step = function(current_step, step_res) {
         !current_step.lib_test) {
         step_res = '        No Action Defined!!!';
         return;
-    } else {
-        if (current_step.common) {
-            var ts = new Date();
-            return P.invoke(self, current_step.common)
-                .then(function() {
-                    return step_res + ' - Successeful ( took ' +
-                        ((new Date() - ts) / 1000) + 's )';
-                    //return step_res;
-                });
-        } else if (current_step.action) {
-            return self._run_action(current_step, step_res);
-        } else if (current_step.lib_test) {
-            return self._run_lib_test(current_step, step_res);
-        } else {
-            throw new Error('Undefined step');
-        }
     }
+    if (current_step.common) {
+        var ts = new Date();
+        return P.invoke(self, current_step.common)
+            .then(function() {
+                return step_res + ' - Successeful ( took ' +
+                    ((new Date() - ts) / 1000) + 's )';
+                //return step_res;
+            });
+    } else if (current_step.action) {
+        return self._run_action(current_step, step_res);
+    } else if (current_step.lib_test) {
+        return self._run_lib_test(current_step, step_res);
+    } else {
+        throw new Error('Undefined step');
+    }
+
 };
 
 TestRunner.prototype._run_action = function(current_step, step_res) {

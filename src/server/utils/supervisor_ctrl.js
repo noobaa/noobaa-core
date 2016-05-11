@@ -28,7 +28,9 @@ SupervisorCtrl.prototype.init = function() {
                     return self._parse_config(data.toString());
                 });
         })
-        .then(() => self._inited = true);
+        .then(() => {
+            self._inited = true;
+        });
 };
 
 SupervisorCtrl.prototype.apply_changes = function() {

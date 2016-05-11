@@ -21,7 +21,7 @@ var config = require('../../config.js');
 
 var is_windows = (process.platform === "win32");
 
-var TMP_WORK_DIR = is_windows ? process.env.ProgramData+'/diag' : '/tmp/diag';
+var TMP_WORK_DIR = is_windows ? process.env.ProgramData + '/diag' : '/tmp/diag';
 
 function collect_basic_diagnostics(limit_logs_size) {
     return P.fcall(function() {
@@ -33,7 +33,7 @@ function collect_basic_diagnostics(limit_logs_size) {
             //return promise_utils.promised_spawn('rm', ['-rf', process.cwd() + '/build/public/diagnose.tgz'], process.cwd(), true);
         })
         .then(function() {
-            console.log('creating ',TMP_WORK_DIR);
+            console.log('creating ', TMP_WORK_DIR);
             return mkdirp.sync(TMP_WORK_DIR);
         })
         .then(function() {
@@ -57,7 +57,7 @@ function collect_basic_diagnostics(limit_logs_size) {
             }
         })
         .then(function() {
-            return promise_utils.file_copy( process.cwd() + '/package.json', TMP_WORK_DIR);
+            return promise_utils.file_copy(process.cwd() + '/package.json', TMP_WORK_DIR);
             //return promise_utils.promised_spawn('cp', ['-f', process.cwd() + '/package.json', TMP_WORK_DIR], process.cwd());
         })
         .then(function() {
@@ -78,11 +78,11 @@ function write_agent_diag_file(data) {
 
 function pack_diagnostics(dst) {
     return P.fcall(function() {
-        return promise_utils.file_delete(dst);
-    }).then(function(){
-        console.log('pack - ',dst);
-        return promise_utils.pack(dst,TMP_WORK_DIR);
-//            return promise_utils.promised_exec('tar -zcvf ' + dst + ' ' + TMP_WORK_DIR + '/*');
+            return promise_utils.file_delete(dst);
+        }).then(function() {
+            console.log('pack - ', dst);
+            return promise_utils.pack(dst, TMP_WORK_DIR);
+            //            return promise_utils.promised_exec('tar -zcvf ' + dst + ' ' + TMP_WORK_DIR + '/*');
         })
         .then(function() {
             return archive_diagnostics_pack(dst);
@@ -92,16 +92,16 @@ function pack_diagnostics(dst) {
             //We had a case where it failed due to file change during the file.
             //This flag can help, but not all the distributions support it
             //This is not valid for windows where we have our own executable
-            console.error("failed to tar, an attempt to ignore file changes",err);
+            console.error("failed to tar, an attempt to ignore file changes", err);
             return P.fcall(function() {
                     return promise_utils.promised_exec('tar --warning=no-file-changed -zcvf ' + dst + ' ' + TMP_WORK_DIR + '/*');
                 })
                 .then(function() {
                     return archive_diagnostics_pack(dst);
                 })
-                .then(null, function(err) {
-                    console.error('Error in packing diagnostics', err);
-                    throw new Error('Error in packing diagnostics ' + err);
+                .then(null, function(err2) {
+                    console.error('Error in packing diagnostics', err2);
+                    throw new Error('Error in packing diagnostics ' + err2);
                 });
         });
 }
@@ -142,7 +142,7 @@ function archive_diagnostics_pack(dst) {
             //Archive the current pack
             var now = new Date();
             var tail = now.getDate() + '-' + (now.getMonth() + 1) + '_' + now.getHours() + '-' + now.getMinutes();
-            return promise_utils.file_copy(dst,config.central_stats.previous_diag_packs_dir + '/DiagPack_' + tail + '.tgz');
+            return promise_utils.file_copy(dst, config.central_stats.previous_diag_packs_dir + '/DiagPack_' + tail + '.tgz');
             //return promise_utils.file_copy('cp ' + dst + ' ' + config.central_stats.previous_diag_packs_dir + '/DiagPack_' + tail + '.tgz');
         })
         .then(null, function(err) {

@@ -32,7 +32,7 @@ mocha.describe('object_io', function() {
         access_key: 'ydaydayda',
         secret_key: 'blablabla'
     };
-    const NODE = 'test-node';
+    // const NODE = 'test-node';
 
     mocha.before(function() {
         this.timeout(30000);
@@ -43,7 +43,9 @@ mocha.describe('object_io', function() {
                 password: PASSWORD,
                 access_keys: ACCESS_KEYS
             }))
-            .then(res => client.options.auth_token = res.token)
+            .then(res => {
+                client.options.auth_token = res.token;
+            })
             .then(() => coretest.init_test_nodes(client, SYS, 5));
     });
 
@@ -116,7 +118,8 @@ mocha.describe('object_io', function() {
         mocha.it('should write and read object data', function() {
             this.timeout(30000);
             let key = KEY + Date.now();
-            let size, data;
+            let size;
+            let data;
             return P.fcall(function() {
                     return client.node.list_nodes({});
                 })

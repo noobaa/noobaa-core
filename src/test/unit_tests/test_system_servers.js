@@ -46,10 +46,14 @@ mocha.describe('system_servers', function() {
                 password: PASSWORD,
                 access_keys: ACCESS_KEYS
             }))
-            .then(res => client.options.auth_token = res.token)
+            .then(res => {
+                client.options.auth_token = res.token;
+            })
             .then(() => client.account.accounts_status())
             .then(res => assert(res.has_accounts, 'has_accounts'))
-            .then(() => client.account.read_account({ email: EMAIL }))
+            .then(() => client.account.read_account({
+                email: EMAIL
+            }))
             .then(() => client.account.list_accounts())
             .then(() => client.account.get_account_sync_credentials_cache())
             .then(() => client.system.read_system())

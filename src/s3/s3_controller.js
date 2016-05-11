@@ -104,12 +104,12 @@ class S3Controller {
             .then(reply => {
                 return {
                     ListBucketResult: [{
-                            Name: req.params.bucket,
-                            Prefix: req.query.prefix,
-                            Delimiter: req.query.delimiter,
-                            MaxKeys: req.query['max-keys'],
-                            Marker: req.query.marker,
-                            IsTruncated: false,
+                            'Name': req.params.bucket,
+                            'Prefix': req.query.prefix,
+                            'Delimiter': req.query.delimiter,
+                            'MaxKeys': req.query['max-keys'],
+                            'Marker': req.query.marker,
+                            'IsTruncated': false,
                             'Encoding-Type': req.query['encoding-type'],
                         },
                         _.map(reply.objects, obj => ({
@@ -153,15 +153,15 @@ class S3Controller {
             .then(reply => {
                 return {
                     ListVersionsResult: [{
-                            Name: req.params.bucket,
-                            Prefix: req.query.prefix,
-                            Delimiter: req.query.delimiter,
-                            MaxKeys: req.query['max-keys'],
-                            KeyMarker: req.query['key-marker'],
-                            VersionIdMarker: req.query['version-id-marker'],
-                            IsTruncated: false,
-                            // NextKeyMarker: ...
-                            // NextVersionIdMarker: ...
+                            'Name': req.params.bucket,
+                            'Prefix': req.query.prefix,
+                            'Delimiter': req.query.delimiter,
+                            'MaxKeys': req.query['max-keys'],
+                            'KeyMarker': req.query['key-marker'],
+                            'VersionIdMarker': req.query['version-id-marker'],
+                            'IsTruncated': false,
+                            // 'NextKeyMarker': ...
+                            // 'NextVersionIdMarker': ...
                             'Encoding-Type': req.query['encoding-type'],
                         },
                         _.map(reply.objects, obj => ({
@@ -206,13 +206,13 @@ class S3Controller {
             .then(reply => {
                 return {
                     ListMultipartUploadsResult: [{
-                            Bucket: req.params.bucket,
-                            Prefix: req.query.prefix,
-                            Delimiter: req.query.delimiter,
-                            MaxUploads: req.query['max-uploads'],
-                            KeyMarker: req.query['key-marker'],
-                            UploadIdMarker: req.query['upload-id-marker'],
-                            IsTruncated: false,
+                            'Bucket': req.params.bucket,
+                            'Prefix': req.query.prefix,
+                            'Delimiter': req.query.delimiter,
+                            'MaxUploads': req.query['max-uploads'],
+                            'KeyMarker': req.query['key-marker'],
+                            'UploadIdMarker': req.query['upload-id-marker'],
+                            'IsTruncated': false,
                             'Encoding-Type': req.query['encoding-type'],
                         },
                         _.map(reply.objects, obj => ({
@@ -402,7 +402,7 @@ class S3Controller {
             xattr: get_request_xattr(req),
             source_stream: req,
             calculate_md5: true,
-            calculate_sha256: (!_.isUndefined(req.content_sha256)) ? true : false
+            calculate_sha256: !_.isUndefined(req.content_sha256)
         };
         this._set_md_conditions(req, params, 'overwrite_if');
         return this.object_io.upload_stream(params)
@@ -649,7 +649,7 @@ class S3Controller {
                 size: req.content_length,
                 source_stream: req,
                 calculate_md5: true,
-                calculate_sha256: (!_.isUndefined(req.content_sha256)) ? true : false
+                calculate_sha256: !_.isUndefined(req.content_sha256)
             })
             .then(md5_digest => {
                 let etag = md5_digest.md5.toString('hex');

@@ -30,7 +30,8 @@ module.exports = {
 // so that lint tools will not give warnings.
 let emit;
 let minimum_online_heartbeat;
-let prefix, delimiter;
+let prefix;
+let delimiter;
 let group_by;
 
 function map_size() {
@@ -105,10 +106,10 @@ function reduce_sum(key, values) {
             peta += 1;
         }
     });
-    return !peta ? n : {
+    return peta ? {
         n: n,
         peta: peta,
-    };
+    } : n;
 }
 
 function reduce_noop() {}

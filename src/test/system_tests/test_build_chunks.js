@@ -101,15 +101,14 @@ function test_uploaded_object_has_expected_num_blocks(expected_num_blocks) {
                                 }
                                 return P.delay(500);
 
+                            }
+                            if (first_iteration) {
+                                console.log('success: object has ' + expected_num_blocks + ' blocks as expected');
+                                // console.log(blk_info);
                             } else {
-                                if (first_iteration) {
-                                    console.log('success: object has ' + expected_num_blocks + ' blocks as expected');
-                                    // console.log(blk_info);
-                                } else {
-                                    let diff = (Date.now() - start_ts) / 1000;
-                                    console.warn('object has ' + expected_num_blocks + ' blocks after ' + diff + ' seconds');
-                                    // console.log(blk_info);
-                                }
+                                let diff = (Date.now() - start_ts) / 1000;
+                                console.warn('object has ' + expected_num_blocks + ' blocks after ' + diff + ' seconds');
+                                // console.log(blk_info);
                             }
                         });
                 }
@@ -169,7 +168,7 @@ function run_test() {
     return authenticate()
         .then(() => upload_random_file(1))
         .then(() => test_uploaded_object_has_expected_num_blocks(3))
-        .then((obj_mapping) => move_one_block_to_different_pool(obj_mapping))
+        .then(obj_mapping => move_one_block_to_different_pool(obj_mapping))
         .then(() => test_uploaded_object_has_expected_num_blocks(3))
         .then(() => {
             rpc.disconnect_all();

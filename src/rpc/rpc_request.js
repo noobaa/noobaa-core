@@ -61,9 +61,9 @@ class RpcRequest {
         let header = JSON.parse(msg_buffer.slice(4, 4 + len).toString());
         // let header = JSON.parse(zlib.inflateRawSync(msg_buffer.slice(4, 4 + len)).toString());
         let buffer = (4 + len < msg_buffer.length) ? msg_buffer.slice(4 + len) : null;
-         if (msg_buffer && buffer){
-             dbg.log3('decode_message with buffer', msg_buffer.length, len,'HEADER',header,'Buffer',buffer.length);
-         }
+        if (msg_buffer && buffer) {
+            dbg.log3('decode_message with buffer', msg_buffer.length, len, 'HEADER', header, 'Buffer', buffer.length);
+        }
         return {
             header: header,
             buffer: buffer

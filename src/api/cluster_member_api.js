@@ -9,7 +9,7 @@
 module.exports = {
 
     id: 'cluster_member_api',
-    
+
     methods: {
         load_system_store: {
             method: 'POST',

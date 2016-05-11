@@ -181,8 +181,8 @@ function create_access_key_auth(req) {
         'string_to_sign', string_to_sign,
         'signature', signature);
 
-    var role = _.find(system_store.data.roles, function(role) {
-        return role.account._id.toString() === account._id.toString();
+    var role = _.find(system_store.data.roles, function(r) {
+        return r.account._id.toString() === account._id.toString();
     });
 
     if (!role || role.deleted) {
@@ -283,8 +283,8 @@ function authorize(req) {
                     throw req.unauthorized('account not found');
                 }
 
-                var role = _.find(system_store.data.roles, function(role) {
-                    return role.account._id.toString() === account._id.toString();
+                var role = _.find(system_store.data.roles, function(r) {
+                    return r.account._id.toString() === account._id.toString();
                 });
 
                 if (!role || role.deleted) {
@@ -301,8 +301,7 @@ function authorize(req) {
                 req.auth.system_id = system && system._id;
                 auth_token_obj.account_id = req.auth.account_id = account && account._id;
                 req.auth.role = role && role.role;
-            }
-            else {
+            } else {
                 req.auth = jwt.verify(req.auth_token, process.env.JWT_SECRET);
                 //auth_token_obj = req.auth;
             }
@@ -322,10 +321,7 @@ function authorize(req) {
 
         } catch (err) {
             dbg.error('AUTH JWT VERIFY FAILED', req, err);
-            throw {
-                statusCode: 401,
-                data: 'unauthorized'
-            };
+            throw req.unauthorized('verify auth failed');
         }
     }
 

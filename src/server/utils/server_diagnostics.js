@@ -98,7 +98,7 @@ function collect_ntp_diagnostics() {
         .then(() => promise_utils.promised_exec('echo "\n\nntpdate:" &>>' + ntp_diag, true))
         .then(() => promise_utils.promised_exec('ntpdate &>>' + ntp_diag, true))
         .then(() => promise_utils.promised_exec('echo "\n\nntptime:" &>>' + ntp_diag, true))
-        .then(() => promise_utils.promised_exec('ntptime &>>' + ntp_diag, true))
+        .then(() => promise_utils.promised_exec('ntptime &>>' + ntp_diag, true));
 }
 
 //Collect supervisor logs, only do so on linux platforms and not on OSX (WA for local server run)

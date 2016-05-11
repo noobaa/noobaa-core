@@ -291,15 +291,14 @@ class ObjectIO {
 
         return pipeline.run()
             .then(() => {
-                var sha256_promise = '';
-                if (params.calculate_sha256) {
-                    sha256_promise = P.resolve(sha256_stream && sha256_stream.wait_digest());
-                }
-                return P.all([P.resolve(md5_stream && md5_stream.wait_digest()), sha256_promise])
-                    .then((values) => {
+                var md5_promise = md5_stream && md5_stream.wait_digest();
+                var sha256_promise = params.calculate_sha256 &&
+                    sha256_stream && sha256_stream.wait_digest();
+                return P.join(md5_promise, sha256_promise)
+                    .spread((md5, sha256) => {
                         return {
-                            md5: values[0],
-                            sha256: values[1]
+                            md5: md5 || '',
+                            sha256: sha256 || ''
                         };
                     });
             });
@@ -396,7 +395,9 @@ class ObjectIO {
                 dbg.log1('UPLOAD:', params.desc,
                     'allocate parts', range_utils.human_range(range),
                     'took', time_utils.millitook(millistamp));
-                _.each(parts, (part, i) => part.alloc_part = res.parts[i]);
+                _.each(parts, (part, i) => {
+                    part.alloc_part = res.parts[i];
+                });
                 return parts;
             });
     }
@@ -511,12 +512,12 @@ class ObjectIO {
         return promise_utils.retry(WRITE_BLOCK_RETRIES, RETRY_DELAY_MS, () =>
                 this._write_block(
                     params, buffer, source_block.block_md, desc))
-            .catch(err => this._report_node_block_error(params, source_block.block_md))
+            .catch(() => this._report_node_block_error(params, source_block.block_md))
             .then(() => P.map(blocks_to_replicate, b => {
                 return promise_utils.retry(REPLICATE_BLOCK_RETRIES, RETRY_DELAY_MS, () =>
                         this._replicate_block(
                             params, source_block.block_md, b.block_md, desc))
-                    .catch(err => this._report_node_block_error(params, b.block_md));
+                    .catch(() => this._report_node_block_error(params, b.block_md));
             }));
     }
 

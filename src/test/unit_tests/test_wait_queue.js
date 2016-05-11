@@ -1,6 +1,6 @@
 'use strict';
 
-// var _ = require('lodash');
+var _ = require('lodash');
 var P = require('../../util/promise');
 var mocha = require('mocha');
 var assert = require('assert');
@@ -10,7 +10,7 @@ mocha.describe('wait_queue', function() {
 
     mocha.it('should create ok', function() {
         var wq = new WaitQueue('a long name just for spite');
-        wq = wq; // lint unused bypass
+        _.noop(wq); // lint unused bypass
     });
 
     mocha.it('should return null when no items', function() {

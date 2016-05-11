@@ -310,12 +310,12 @@ function list_systems(req) {
 function list_systems_int(account, get_ids) {
     // support gets to see all systems
     var roles;
-    if (!account) {
-        roles = system_store.data.roles;
-    } else {
+    if (account) {
         roles = _.filter(system_store.data.roles, function(role) {
             return String(role.account._id) === String(account._id);
         });
+    } else {
+        roles = system_store.data.roles;
     }
     return {
         systems: _.map(roles, function(role) {
@@ -510,7 +510,7 @@ function diagnose(req) {
         .then(function() {
             return out_path;
         })
-        .then((res) => {
+        .then(res => {
             ActivityLog.create({
                 event: 'dbg.diagnose_system',
                 level: 'info',
@@ -672,7 +672,7 @@ function update_base_address(req) {
                 })
                 .return(reply);
         })
-        .then((res) => {
+        .then(res => {
             ActivityLog.create({
                 event: 'conf.dns_address',
                 level: 'info',
@@ -721,13 +721,18 @@ function update_time_config(req) {
                 return os_utils.set_manual_time(req.rpc_params.epoch, config.timezone);
             }
         })
-        .then((res) => {
+        .then(res => {
             let desc_string = [];
             desc_string.push(`Date and Time was updated to ${req.rpc_params.config_type} time by ${req.account && req.account.email}`);
             desc_string.push(`Timezone was set to ${req.rpc_params.timezone}`);
-            req.rpc_params.server && desc_string.push(`NTP server ${req.rpc_params.server}`);
-            let date = req.rpc_params.epoch && moment.unix(req.rpc_params.epoch).tz(req.rpc_params.timezone);
-            date && desc_string.push(`Date and Time set to ${date}`);
+            if (req.rpc_params.server) {
+                desc_string.push(`NTP server ${req.rpc_params.server}`);
+            }
+            let date = req.rpc_params.epoch &&
+                moment.unix(req.rpc_params.epoch).tz(req.rpc_params.timezone);
+            if (date) {
+                desc_string.push(`Date and Time set to ${date}`);
+            }
             ActivityLog.create({
                 event: 'conf.server_date_time_updated',
                 level: 'info',

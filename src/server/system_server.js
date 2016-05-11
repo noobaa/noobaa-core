@@ -94,21 +94,21 @@ function new_system_defaults(name, owner_account_id) {
     return system;
 }
 
-function new_system_changes(name, owner_account_id) {
-    return fs_utils.find_line_in_file('/etc/noobaa_supervisor.conf', '#NooBaa Configured NTP Server')
+function new_system_changes(name, owner_account) {
+    return fs_utils.find_line_in_file('/etc/ntp.conf', '#NooBaa Configured NTP Server')
 
     .then(line => {
 
         const default_pool_name = 'default_pool';
         const default_bucket_name = 'files';
         const bucket_with_suffix = default_bucket_name + '#' + Date.now().toString(36);
-        var system = new_system_defaults(name, owner_account_id);
+    var system = new_system_defaults(name, owner_account._id);
         if (line) {
             let ntp_server = line.split(' ')[1];
             system.ntp = {
                 server: ntp_server
             };
-            dbg.log0('');
+            dbg.log0('found configured NTP server in ntp.conf:', ntp_server);
         }
         var pool = pool_server.new_pool_defaults(default_pool_name, system._id);
         var tier = tier_server.new_tier_defaults(bucket_with_suffix, system._id, [pool._id]);
@@ -119,7 +119,7 @@ function new_system_changes(name, owner_account_id) {
         var bucket = bucket_server.new_bucket_defaults(default_bucket_name, system._id, policy._id);
         var role = {
             _id: system_store.generate_id(),
-            account: owner_account_id,
+        account: owner_account._id,
             system: system._id,
             role: 'admin'
         };
@@ -128,8 +128,8 @@ function new_system_changes(name, owner_account_id) {
             event: 'conf.create_system',
             level: 'info',
             system: system._id,
-            actor: owner_account_id,
-	    desc: `${name} was created by ${owner_account && owner_account.email}`,
+        actor: owner_account._id,
+            desc: `${name} was created by ${owner_account && owner_account.email}`,
         });
 
         return {

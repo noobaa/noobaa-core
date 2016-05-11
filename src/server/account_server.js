@@ -57,7 +57,7 @@ function create_account(req) {
         .then(function() {
             return P.fcall(function() {
                     if (!req.system) {
-                        return system_server.new_system_changes(account.name, account._id)
+                        return system_server.new_system_changes(account.name, account)
                             .then(changes => {
                                 account.allowed_buckets = [changes.insert.buckets[0]._id];
                                 changes.insert.accounts = [account];

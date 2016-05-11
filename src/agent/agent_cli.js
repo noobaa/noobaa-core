@@ -441,7 +441,7 @@ AgentCLI.prototype.create = function(number_of_nodes) {
     //create root path last. First, create all other.
     // for internal_agents only use root path
     return P.all(_.map(_.drop(self.params.all_storage_paths, 1), function(current_storage_path) {
-            if (_.isUndefined(self.params.internal_agent)) {
+            if (_.isUndefined(self.params.internal_agent) || !self.params.internal_agent) {
                 return fs_utils.list_directory(current_storage_path.mount)
                     .then(function(files) {
                         if (files.length > 0 && number_of_nodes === 0) {

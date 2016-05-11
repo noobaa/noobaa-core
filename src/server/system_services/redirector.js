@@ -1,30 +1,25 @@
+/**
+ *
+ * REDIRECTOR
+ *
+ */
 'use strict';
 
-module.exports = {
-    _init: _init,
+const _ = require('lodash');
+const fs = require('fs');
+const util = require('util');
 
-    redirect: redirect,
-    register_agent: register_agent,
-    unregister_agent: unregister_agent,
-    resync_agents: resync_agents,
-    print_registered_agents: print_registered_agents,
-    register_to_cluster: register_to_cluster,
-    publish_to_cluster: publish_to_cluster,
-};
+const P = require('../../util/promise');
+const dbg = require('../../util/debug_module')(__filename);
+const server_rpc = require('../server_rpc');
 
-var _ = require('lodash');
-var fs = require('fs');
-var util = require('util');
-var P = require('../../util/promise');
-var dbg = require('../../util/debug_module')(__filename);
-var server_rpc = require('../server_rpc');
 // dbg.set_level(5);
 
-var agents_address_map = new Map();
-var cluster_connections = new Set();
+const agents_address_map = new Map();
+const cluster_connections = new Set();
 
-var CLUSTER_TOPOLOGY = {};
-var CLUSTER_TOPOLOGY_FILE = '/etc/noobaa_cluster';
+let CLUSTER_TOPOLOGY = {};
+const CLUSTER_TOPOLOGY_FILE = '/etc/noobaa_cluster';
 
 /*
  * Init
@@ -233,3 +228,14 @@ function publish_to_cluster(req) {
             };
         });
 }
+
+
+// EXPORTS
+exports._init = _init;
+exports.redirect = redirect;
+exports.register_agent = register_agent;
+exports.unregister_agent = unregister_agent;
+exports.resync_agents = resync_agents;
+exports.print_registered_agents = print_registered_agents;
+exports.register_to_cluster = register_to_cluster;
+exports.publish_to_cluster = publish_to_cluster;

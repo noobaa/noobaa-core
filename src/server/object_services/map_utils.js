@@ -1,31 +1,14 @@
 'use strict';
 
-var _ = require('lodash');
-var P = require('../../util/promise');
-var db = require('../db');
-// var js_utils = require('../../util/js_utils');
-var config = require('../../../config.js');
-var dbg = require('../../util/debug_module')(__filename);
-var system_store = require('../system_services/system_store').get_instance();
-var nodes_store = require('../node_services/nodes_store');
+const _ = require('lodash');
 
-exports.get_chunk_status = get_chunk_status;
-exports.set_chunk_frags_from_blocks = set_chunk_frags_from_blocks;
-exports.get_missing_frags_in_chunk = get_missing_frags_in_chunk;
-exports.is_block_good = is_block_good;
-exports.is_block_accessible = is_block_accessible;
-exports.is_chunk_good = is_chunk_good;
-exports.is_chunk_accessible = is_chunk_accessible;
-exports.get_part_info = get_part_info;
-exports.get_chunk_info = get_chunk_info;
-exports.get_frag_info = get_frag_info;
-exports.get_block_info = get_block_info;
-exports.get_block_md = get_block_md;
-exports.get_frag_key = get_frag_key;
-exports.sanitize_object_range = sanitize_object_range;
-exports.find_consecutive_parts = find_consecutive_parts;
-exports.block_access_sort = block_access_sort;
-exports.analyze_special_chunks = analyze_special_chunks;
+const P = require('../../util/promise');
+const dbg = require('../../util/debug_module')(__filename);
+const config = require('../../../config.js');
+const md_store = require('./md_store');
+const nodes_store = require('../node_services/nodes_store');
+const system_store = require('../system_services/system_store').get_instance();
+// const js_utils = require('../../util/js_utils');
 
 const EMPTY_CONST_ARRAY = Object.freeze([]);
 const SPECIAL_CHUNK_CONTENT_TYPES = ['video/mp4', 'video/webm'];
@@ -363,7 +346,7 @@ function find_consecutive_parts(obj, parts) {
         }
         pos = part.end;
     });
-    return P.when(db.ObjectPart.collection.find({
+    return P.when(md_store.ObjectPart.collection.find({
         system: obj.system,
         obj: obj._id,
         upload_part_number: upload_part_number,
@@ -398,3 +381,23 @@ function block_access_sort(block1, block2) {
     }
     return block2.node.heartbeat.getTime() - block1.node.heartbeat.getTime();
 }
+
+
+// EXPORTS
+exports.get_chunk_status = get_chunk_status;
+exports.set_chunk_frags_from_blocks = set_chunk_frags_from_blocks;
+exports.get_missing_frags_in_chunk = get_missing_frags_in_chunk;
+exports.is_block_good = is_block_good;
+exports.is_block_accessible = is_block_accessible;
+exports.is_chunk_good = is_chunk_good;
+exports.is_chunk_accessible = is_chunk_accessible;
+exports.get_part_info = get_part_info;
+exports.get_chunk_info = get_chunk_info;
+exports.get_frag_info = get_frag_info;
+exports.get_block_info = get_block_info;
+exports.get_block_md = get_block_md;
+exports.get_frag_key = get_frag_key;
+exports.sanitize_object_range = sanitize_object_range;
+exports.find_consecutive_parts = find_consecutive_parts;
+exports.block_access_sort = block_access_sort;
+exports.analyze_special_chunks = analyze_special_chunks;

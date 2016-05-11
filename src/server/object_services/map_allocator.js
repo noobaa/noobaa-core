@@ -1,14 +1,15 @@
 'use strict';
 
-var _ = require('lodash');
-var P = require('../../util/promise');
-var dbg = require('../../util/debug_module')(__filename);
-var config = require('../../../config.js');
-var md_store = require('../object_services/md_store');
-var map_utils = require('./map_utils');
-var time_utils = require('../../util/time_utils');
-var range_utils = require('../../util/range_utils');
-var node_allocator = require('../node_services/node_allocator');
+const _ = require('lodash');
+
+const P = require('../../util/promise');
+const dbg = require('../../util/debug_module')(__filename);
+const config = require('../../../config.js');
+const md_store = require('../object_services/md_store');
+const map_utils = require('./map_utils');
+const time_utils = require('../../util/time_utils');
+const range_utils = require('../../util/range_utils');
+const node_allocator = require('../node_services/node_allocator');
 
 // dbg.set_level(5);
 

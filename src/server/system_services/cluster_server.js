@@ -1,31 +1,17 @@
-/* jshint node:true */
-'use strict';
-
-/*
+/**
  * Cluster Server
  */
+'use strict';
 
-var cluster_server = {
-    _init: _init,
+const _ = require('lodash');
+const fs = require('fs');
 
-    get_cluster_id: get_cluster_id,
-    add_member_to_cluster: add_member_to_cluster,
-    join_to_cluster: join_to_cluster,
-    news_config_servers: news_config_servers,
-    news_updated_topology: news_updated_topology,
-    heartbeat: heartbeat,
-};
-
-module.exports = cluster_server;
-
-var _ = require('lodash');
-var fs = require('fs');
-var system_store = require('../system_services/system_store').get_instance();
-var server_rpc = require('../server_rpc');
-var mongo_ctrl = require('../utils/mongo_ctrl');
-var P = require('../../util/promise');
-var dbg = require('../../util/debug_module')(__filename);
-var config = require('../../../config.js');
+const P = require('../../util/promise');
+const dbg = require('../../util/debug_module')(__filename);
+const config = require('../../../config.js');
+const system_store = require('../system_services/system_store').get_instance();
+const server_rpc = require('../server_rpc');
+const mongo_ctrl = require('../utils/mongo_ctrl');
 
 var SECRET;
 var TOPOLOGY;
@@ -239,3 +225,13 @@ function _publish_to_cluster(apiname, req_params) {
         });
     });
 }
+
+
+// EXPORTS
+exports._init = _init;
+exports.get_cluster_id = get_cluster_id;
+exports.add_member_to_cluster = add_member_to_cluster;
+exports.join_to_cluster = join_to_cluster;
+exports.news_config_servers = news_config_servers;
+exports.news_updated_topology = news_updated_topology;
+exports.heartbeat = heartbeat;

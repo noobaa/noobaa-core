@@ -5,7 +5,7 @@
  */
 'use strict';
 
-var dbg = require('../../util/debug_module')(__filename);
+const dbg = require('../../util/debug_module')(__filename);
 
 
 function set_debug_level(req) {

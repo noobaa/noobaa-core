@@ -1,10 +1,3 @@
-/* jshint node:true */
-'use strict';
-
-var mongoose = require('mongoose');
-var Schema = mongoose.Schema;
-var types = mongoose.Schema.Types;
-
 /**
  *
  * DATA_BLOCK SCHEMA
@@ -12,7 +5,13 @@ var types = mongoose.Schema.Types;
  * block is a part of a data chunk, and defines storage node.
  *
  */
-var data_block_schema = new Schema({
+'use strict';
+
+const mongoose = require('mongoose');
+const Schema = mongoose.Schema;
+const types = mongoose.Schema.Types;
+
+const data_block_schema = new Schema({
 
     // system is copied from the chunk/node to allow filtering
     system: {

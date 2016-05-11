@@ -1,27 +1,20 @@
-/* jshint node:true */
 'use strict';
 
-exports.heartbeat = heartbeat;
-exports.n2n_signal = n2n_signal;
-exports.redirect = redirect;
-exports.self_test_to_node_via_web = self_test_to_node_via_web;
-exports.collect_agent_diagnostics = collect_agent_diagnostics;
-exports.set_debug_node = set_debug_node;
-exports.report_node_block_error = report_node_block_error;
+const _ = require('lodash');
 
-var _ = require('lodash');
-var P = require('../../util/promise');
-var db = require('../db');
-var dbg = require('../../util/debug_module')(__filename);
-var pkg = require('../../../package.json');
-var Barrier = require('../../util/barrier');
-var server_rpc = require('../server_rpc');
-var nodes_store = require('./nodes_store');
-var system_server = require('../system_services/system_server');
-var promise_utils = require('../../util/promise_utils');
-var node_allocator = require('./node_allocator');
-var mongo_functions = require('../../util/mongo_functions');
-var current_pkg_version = pkg.version;
+const P = require('../../util/promise');
+const dbg = require('../../util/debug_module')(__filename);
+const pkg = require('../../../package.json');
+const Barrier = require('../../util/barrier');
+const md_store = require('../object_services/md_store');
+const server_rpc = require('../server_rpc');
+const nodes_store = require('./nodes_store');
+const ActivityLog = require('../analytic_services/activity_log');
+const system_server = require('../system_services/system_server');
+const promise_utils = require('../../util/promise_utils');
+const node_allocator = require('./node_allocator');
+const mongo_functions = require('../../util/mongo_functions');
+const current_pkg_version = pkg.version;
 
 server_rpc.rpc.on('reconnect', _on_reconnect);
 
@@ -29,7 +22,7 @@ server_rpc.rpc.on('reconnect', _on_reconnect);
  * finding node by id for heatbeat requests uses a barrier for merging DB calls.
  * this is a DB query barrier to issue a single query for concurrent heartbeat requests.
  */
-var heartbeat_find_node_by_id_barrier = new Barrier({
+const heartbeat_find_node_by_id_barrier = new Barrier({
     max_length: 200,
     expiry_ms: 500, // milliseconds to wait for others to join
     process: function(node_ids) {
@@ -68,12 +61,12 @@ var heartbeat_find_node_by_id_barrier = new Barrier({
  * counting node used storage for heatbeat requests uses a barrier for merging DB calls.
  * this is a DB query barrier to issue a single query for concurrent heartbeat requests.
  */
-var heartbeat_count_node_storage_barrier = new Barrier({
+const heartbeat_count_node_storage_barrier = new Barrier({
     max_length: 200,
     expiry_ms: 500, // milliseconds to wait for others to join
     process: function(node_ids) {
         dbg.log2('heartbeat_count_node_storage_barrier', node_ids.length);
-        return P.when(db.DataBlock.mapReduce({
+        return P.when(md_store.DataBlock.mapReduce({
                 query: {
                     deleted: null,
                     node: {
@@ -100,7 +93,7 @@ var heartbeat_count_node_storage_barrier = new Barrier({
  * updating node timestamp for heatbeat requests uses a barrier for merging DB calls.
  * this is a DB query barrier to issue a single query for concurrent heartbeat requests.
  */
-var heartbeat_update_node_timestamp_barrier = new Barrier({
+const heartbeat_update_node_timestamp_barrier = new Barrier({
     max_length: 200,
     expiry_ms: 500, // milliseconds to wait for others to join
     process: function(node_ids) {
@@ -520,7 +513,7 @@ function set_debug_node(req) {
         .then(function() {
             return nodes_store.find_node_by_address(req)
                 .then((node) => {
-                    db.ActivityLog.create({
+                    ActivityLog.create({
                         system: req.system._id,
                         level: 'info',
                         event: 'dbg.set_debug_node',
@@ -599,3 +592,13 @@ function _resync_agents() {
             });
     });
 }
+
+
+// EXPORTS
+exports.heartbeat = heartbeat;
+exports.n2n_signal = n2n_signal;
+exports.redirect = redirect;
+exports.self_test_to_node_via_web = self_test_to_node_via_web;
+exports.collect_agent_diagnostics = collect_agent_diagnostics;
+exports.set_debug_node = set_debug_node;
+exports.report_node_block_error = report_node_block_error;

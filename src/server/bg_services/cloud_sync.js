@@ -1,20 +1,15 @@
 'use strict';
 
-module.exports = {
-    background_worker: background_worker,
-    get_policy_status: get_policy_status,
-    refresh_policy: refresh_policy,
-};
+const _ = require('lodash');
+const AWS = require('aws-sdk');
+const https = require('https');
 
-var _ = require('lodash');
-var AWS = require('aws-sdk');
-var https = require('https');
-var P = require('../../util/promise');
-var db = require('../db');
-var dbg = require('../../util/debug_module')(__filename);
-var system_store = require('../system_services/system_store').get_instance();
+const P = require('../../util/promise');
+const dbg = require('../../util/debug_module')(__filename);
+const md_store = require('../object_services/md_store');
+const system_store = require('../system_services/system_store').get_instance();
 
-var CLOUD_SYNC = {
+const CLOUD_SYNC = {
     //Policy was changed, list of policies should be refreshed
     refresh_list: false,
 
@@ -203,8 +198,7 @@ function pretty_policy(policy) {
 //TODO:: add limit and skip
 //Preferably move part of list_objects to a mutual function called by both
 function list_all_objects(sysid, bucket) {
-    return P.when(db.ObjectMD
-            .find({
+    return P.when(md_store.ObjectMD.find({
                 system: sysid,
                 bucket: bucket,
                 deleted: null
@@ -223,8 +217,7 @@ function list_need_sync(sysid, bucket) {
         added: [],
     };
 
-    return P.when(db.ObjectMD
-            .find({
+    return P.when(md_store.ObjectMD.find({
                 system: sysid,
                 bucket: bucket,
                 cloud_synced: false
@@ -247,8 +240,7 @@ function list_need_sync(sysid, bucket) {
 
 //set cloud_sync to true on given object
 function mark_cloud_synced(object) {
-    return P.when(db.ObjectMD
-            .findOne({
+    return P.when(md_store.ObjectMD.findOne({
                 system: object.system,
                 bucket: object.bucket,
                 key: object.key,
@@ -394,9 +386,9 @@ function load_single_policy(bucket) {
         secretAccessKey: policy.system.owner.access_keys[0].secret_key,
         maxRedirects: 10,
         httpOptions: {
-          agent: new https.Agent({
-            rejectUnauthorized: false,
-          })
+            agent: new https.Agent({
+                rejectUnauthorized: false,
+            })
         }
     });
 
@@ -416,9 +408,9 @@ function load_single_policy(bucket) {
             accessKeyId: policy.access_keys.access_key,
             secretAccessKey: policy.access_keys.secret_key,
             httpOptions: {
-              agent: new https.Agent({
-                rejectUnauthorized: false,
-              })
+                agent: new https.Agent({
+                    rejectUnauthorized: false,
+                })
             }
         });
 
@@ -814,3 +806,9 @@ function update_bucket_last_sync(bucket) {
         }
     });
 }
+
+
+// EXPORTS
+exports.background_worker = background_worker;
+exports.get_policy_status = get_policy_status;
+exports.refresh_policy = refresh_policy;

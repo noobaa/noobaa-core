@@ -1,16 +1,16 @@
 'use strict';
 
-var _ = require('lodash');
-var P = require('../../util/promise');
-var db = require('../db');
-// var dbg = require('../../util/debug_module')(__filename);
-// var size_utils = require('../../util/size_utils');
-var mongo_utils = require('../../util/mongo_utils');
-var mongo_functions = require('../../util/mongo_functions');
-var system_store = require('../system_services/system_store').get_instance();
-var mongodb = require('mongodb');
-var moment = require('moment');
-var NodeModel = require('./node_model');
+const _ = require('lodash');
+const moment = require('moment');
+const mongodb = require('mongodb');
+
+const P = require('../../util/promise');
+const NodeModel = require('./node_model');
+const mongo_utils = require('../../util/mongo_utils');
+const mongo_functions = require('../../util/mongo_functions');
+const system_store = require('../system_services/system_store').get_instance();
+// const dbg = require('../../util/debug_module')(__filename);
+// const size_utils = require('../../util/size_utils');
 
 const NODE_FIELDS_FOR_MAP = Object.freeze({
     _id: 1,
@@ -25,29 +25,6 @@ const NODE_FIELDS_FOR_MAP = Object.freeze({
     latency_of_disk_read: 1,
 });
 
-// single node ops
-exports.make_node_id = make_node_id;
-exports.create_node = create_node;
-exports.find_node_by_name = find_node_by_name;
-exports.find_node_by_address = find_node_by_address;
-exports.update_node_by_name = update_node_by_name;
-exports.delete_node_by_name = delete_node_by_name;
-exports.update_node_by_id = update_node_by_id;
-// multi node op
-exports.find_nodes = find_nodes;
-exports.count_nodes = count_nodes;
-exports.populate_nodes_full = populate_nodes_full;
-exports.populate_nodes_for_map = populate_nodes_for_map;
-exports.update_nodes = update_nodes;
-exports.aggregate_nodes_by_pool = aggregate_nodes_by_pool;
-// util
-exports.get_minimum_online_heartbeat = get_minimum_online_heartbeat;
-exports.get_minimum_alloc_heartbeat = get_minimum_alloc_heartbeat;
-exports.is_online_node = is_online_node;
-exports.resolve_node_object_ids = resolve_node_object_ids;
-exports.test_code_delete_all_nodes = test_code_delete_all_nodes;
-exports.NODE_FIELDS_FOR_MAP = NODE_FIELDS_FOR_MAP;
-
 
 /////////////////////
 // single node ops //
@@ -61,7 +38,7 @@ function make_node_id(id_str) {
 function create_node(req, node) {
     node._id = make_node_id();
     return P.when(NodeModel.collection.insertOne(node))
-        .catch(db.check_already_exists(req, 'node'))
+        .catch(err => mongo_utils.check_duplicate_key_conflict(req, 'node', err))
         .return(node);
 }
 
@@ -71,7 +48,7 @@ function find_node_by_name(req) {
             name: req.rpc_params.name,
             deleted: null,
         }))
-        .then(db.check_not_deleted(req, 'node'))
+        .then(node => mongo_utils.check_entity_not_deleted(req, 'node', node))
         .then(resolve_node_object_ids);
 }
 
@@ -81,7 +58,7 @@ function find_node_by_address(req) {
             rpc_address: req.rpc_params.target,
             deleted: null,
         }))
-        .then(db.check_not_deleted(req, 'node'))
+        .then(node => mongo_utils.check_entity_not_deleted(req, 'node', node))
         .then(resolve_node_object_ids);
 }
 
@@ -94,7 +71,7 @@ function update_node_by_name(req, updates) {
             name: req.rpc_params.name,
             deleted: null,
         }, updates))
-        .then(db.check_not_deleted(req, 'node'));
+        .then(node => mongo_utils.check_entity_not_deleted(req, 'node', node));
 }
 
 function delete_node_by_name(req) {
@@ -107,7 +84,7 @@ function delete_node_by_name(req) {
                 deleted: new Date()
             }
         }))
-        .then(db.check_not_found(req, 'node'));
+        .then(node => mongo_utils.check_entity_not_found(req, 'node', node));
 }
 
 function update_node_by_id(node_id, updates) {
@@ -215,3 +192,28 @@ function resolve_node_object_ids(node, allow_missing) {
 function test_code_delete_all_nodes() {
     return P.when(NodeModel.collection.deleteMany({}));
 }
+
+
+// EXPORTS
+// single node ops
+exports.make_node_id = make_node_id;
+exports.create_node = create_node;
+exports.find_node_by_name = find_node_by_name;
+exports.find_node_by_address = find_node_by_address;
+exports.update_node_by_name = update_node_by_name;
+exports.delete_node_by_name = delete_node_by_name;
+exports.update_node_by_id = update_node_by_id;
+// multi node op
+exports.find_nodes = find_nodes;
+exports.count_nodes = count_nodes;
+exports.populate_nodes_full = populate_nodes_full;
+exports.populate_nodes_for_map = populate_nodes_for_map;
+exports.update_nodes = update_nodes;
+exports.aggregate_nodes_by_pool = aggregate_nodes_by_pool;
+// util
+exports.get_minimum_online_heartbeat = get_minimum_online_heartbeat;
+exports.get_minimum_alloc_heartbeat = get_minimum_alloc_heartbeat;
+exports.is_online_node = is_online_node;
+exports.resolve_node_object_ids = resolve_node_object_ids;
+exports.test_code_delete_all_nodes = test_code_delete_all_nodes;
+exports.NODE_FIELDS_FOR_MAP = NODE_FIELDS_FOR_MAP;

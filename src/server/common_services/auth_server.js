@@ -5,15 +5,16 @@
  */
 'use strict';
 
-var _ = require('lodash');
-var jwt = require('jsonwebtoken');
-var bcrypt = require('bcrypt');
-var S3Auth = require('aws-sdk/lib/signers/s3');
-var P = require('../../util/promise');
-var dbg = require('../../util/debug_module')(__filename);
-var s3_util = require('../../util/s3_utils');
-var system_store = require('../system_services/system_store').get_instance();
-var s3_auth = new S3Auth();
+const _ = require('lodash');
+const jwt = require('jsonwebtoken');
+const bcrypt = require('bcrypt');
+const S3Auth = require('aws-sdk/lib/signers/s3');
+
+const P = require('../../util/promise');
+const dbg = require('../../util/debug_module')(__filename);
+const s3_util = require('../../util/s3_utils');
+const system_store = require('../system_services/system_store').get_instance();
+const s3_auth = new S3Auth();
 
 
 /**

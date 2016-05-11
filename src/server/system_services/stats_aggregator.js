@@ -1,49 +1,33 @@
-/* jshint node:true */
+/**
+ *
+ * STATS_AGGREGATOR
+ *
+ */
 'use strict';
 
-/*
- * Stats Aggregator Server
- */
+const _ = require('lodash');
+// const util = require('util');
+const request = require('request');
+const FormData = require('form-data');
 
-var stats_aggregator = {
-    //stats getters
-    get_systems_stats: get_systems_stats,
-    get_nodes_stats: get_nodes_stats,
-    get_ops_stats: get_ops_stats,
-    get_pool_stats: get_pool_stats,
-    get_tier_stats: get_tier_stats,
-    get_all_stats: get_all_stats,
+const P = require('../../util/promise');
+const dbg = require('../../util/debug_module')(__filename);
+const config = require('../../../config.js');
+const Histogram = require('../../util/histogram');
+const nodes_store = require('../node_services/nodes_store');
+const node_server = require('../node_services/node_server');
+const system_store = require('../system_services/system_store').get_instance();
+const system_server = require('./system_server');
+const promise_utils = require('../../util/promise_utils');
 
-    //OP stats collection
-    register_histogram: register_histogram,
-    add_sample_point: add_sample_point,
-};
-
-module.exports = stats_aggregator;
-
-var _ = require('lodash');
-var P = require('../../util/promise');
-var request = require('request');
-var FormData = require('form-data');
-// var util = require('util');
-var promise_utils = require('../../util/promise_utils');
-var Histogram = require('../../util/histogram');
-var dbg = require('../../util/debug_module')(__filename);
-var config = require('../../../config.js');
-var system_server = require('./system_server');
-var system_store = require('../system_services/system_store').get_instance();
-var node_server = require('../node_services/node_server');
-var nodes_store = require('../node_services/nodes_store');
-
-
-var ops_aggregation = {};
-var SCALE_BYTES_TO_GB = 1024 * 1024 * 1024;
-var SCALE_SEC_TO_DAYS = 60 * 60 * 24;
+const ops_aggregation = {};
+const SCALE_BYTES_TO_GB = 1024 * 1024 * 1024;
+const SCALE_SEC_TO_DAYS = 60 * 60 * 24;
 
 /*
  * Stats Collction API
  */
-var SYSTEM_STATS_DEFAULTS = {
+const SYSTEM_STATS_DEFAULTS = {
     clusterid: '',
     version: '',
     agent_version: '',
@@ -51,7 +35,7 @@ var SYSTEM_STATS_DEFAULTS = {
     systems: [],
 };
 
-var SINGLE_SYS_DEFAULTS = {
+const SINGLE_SYS_DEFAULTS = {
     tiers: 0,
     buckets: 0,
     chunks: 0,
@@ -355,3 +339,16 @@ if ((config.central_stats.send_stats !== 'true') &&
         }
     });
 }
+
+
+// EXPORTS
+//stats getters
+exports.get_systems_stats = get_systems_stats;
+exports.get_nodes_stats = get_nodes_stats;
+exports.get_ops_stats = get_ops_stats;
+exports.get_pool_stats = get_pool_stats;
+exports.get_tier_stats = get_tier_stats;
+exports.get_all_stats = get_all_stats;
+//OP stats collection
+exports.register_histogram = register_histogram;
+exports.add_sample_point = add_sample_point;

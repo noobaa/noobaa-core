@@ -1,13 +1,9 @@
 'use strict';
 
-module.exports = {
-    background_worker: background_worker,
-};
-
-var P = require('../../util/promise');
-var db = require('../db');
-var dbg = require('../../util/debug_module')(__filename);
-var map_builder = require('../object_services/map_builder');
+const P = require('../../util/promise');
+const dbg = require('../../util/debug_module')(__filename);
+const md_store = require('../object_services/md_store');
+const map_builder = require('../object_services/map_builder');
 
 /**
  *
@@ -17,6 +13,7 @@ var map_builder = require('../object_services/map_builder');
  *
  */
 function background_worker() {
+    /* jshint validthis: true */
     var self = this;
     return P.fcall(function() {
             var now = Date.now();
@@ -48,8 +45,12 @@ function background_worker() {
             }
             query.deleted = null;
 
-            return P.when(db.DataChunk.find(query).limit(self.batch_size).sort('-_id').lean().exec());
-            // return P.when(db.DataChunk.collection.find(query, {
+            return P.when(md_store.DataChunk.find(query)
+                .limit(self.batch_size)
+                .sort('-_id')
+                .lean()
+                .exec());
+            // return P.when(md_store.DataChunk.collection.find(query, {
             //     limit: self.batch_size,
             //     sort: {
             //         _id: -1
@@ -86,3 +87,7 @@ function background_worker() {
             return 10000;
         });
 }
+
+
+// EXPORTS
+exports.background_worker = background_worker;

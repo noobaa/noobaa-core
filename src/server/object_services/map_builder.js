@@ -1,24 +1,24 @@
 'use strict';
 
-let _ = require('lodash');
-let P = require('../../util/promise');
-let db = require('../db');
-let dbg = require('../../util/debug_module')(__filename);
-let config = require('../../../config.js');
-let md_store = require('../object_services/md_store');
-let js_utils = require('../../util/js_utils');
-let map_utils = require('./map_utils');
-let Semaphore = require('../../util/semaphore');
-let server_rpc = require('../server_rpc');
-var map_deleter = require('./map_deleter');
-let mongo_utils = require('../../util/mongo_utils');
-var nodes_store = require('../node_services/nodes_store');
-let system_store = require('../system_services/system_store').get_instance();
-let node_allocator = require('../node_services/node_allocator');
-// let promise_utils = require('../../util/promise_utils');
+const _ = require('lodash');
+
+const P = require('../../util/promise');
+const dbg = require('../../util/debug_module')(__filename);
+const config = require('../../../config.js');
+const md_store = require('./md_store');
+const js_utils = require('../../util/js_utils');
+const map_utils = require('./map_utils');
+const Semaphore = require('../../util/semaphore');
+const server_rpc = require('../server_rpc');
+const map_deleter = require('./map_deleter');
+const mongo_utils = require('../../util/mongo_utils');
+const nodes_store = require('../node_services/nodes_store');
+const system_store = require('../system_services/system_store').get_instance();
+const node_allocator = require('../node_services/node_allocator');
+// const promise_utils = require('../../util/promise_utils');
 
 
-let replicate_block_sem = new Semaphore(config.REPLICATE_CONCURRENCY);
+const replicate_block_sem = new Semaphore(config.REPLICATE_CONCURRENCY);
 
 
 /**
@@ -65,7 +65,7 @@ class MapBuilder {
     mark_building() {
         let chunks_need_update_to_building = _.reject(this.chunks, 'building');
         return chunks_need_update_to_building.length &&
-            P.when(db.DataChunk.collection.updateMany({
+            P.when(md_store.DataChunk.collection.updateMany({
                 _id: {
                     $in: _.map(chunks_need_update_to_building, '_id')
                 }
@@ -208,10 +208,10 @@ class MapBuilder {
 
         return P.join(
             this.new_blocks && this.new_blocks.length &&
-            P.when(db.DataBlock.collection.insertMany(this.new_blocks)),
+            P.when(md_store.DataBlock.collection.insertMany(this.new_blocks)),
 
             this.delete_blocks && this.delete_blocks.length &&
-            P.when(db.DataBlock.collection.updateMany({
+            P.when(md_store.DataBlock.collection.updateMany({
                 _id: {
                     $in: mongo_utils.uniq_ids(this.delete_blocks, '_id')
                 }
@@ -222,7 +222,7 @@ class MapBuilder {
             })),
             //delete actual blocks from agents.
             this.delete_blocks && this.delete_blocks.length &&
-            P.when(db.DataBlock.collection.find({
+            P.when(md_store.DataBlock.collection.find({
                 _id: {
                     $in: mongo_utils.uniq_ids(this.delete_blocks, '_id')
                 }
@@ -236,7 +236,7 @@ class MapBuilder {
             }),
 
             success_chunk_ids.length &&
-            db.DataChunk.collection.updateMany({
+            md_store.DataChunk.collection.updateMany({
                 _id: {
                     $in: success_chunk_ids
                 }
@@ -250,7 +250,7 @@ class MapBuilder {
             }),
 
             failed_chunk_ids.length &&
-            db.DataChunk.collection.updateMany({
+            md_store.DataChunk.collection.updateMany({
                 _id: {
                     $in: failed_chunk_ids
                 }
@@ -261,7 +261,7 @@ class MapBuilder {
             }),
 
             set_special_chunk_ids.length &&
-            db.DataChunk.collection.updateMany({
+            md_store.DataChunk.collection.updateMany({
                 _id: {
                     $in: set_special_chunk_ids
                 }
@@ -272,7 +272,7 @@ class MapBuilder {
             }),
 
             unset_special_chunk_ids.length &&
-            db.DataChunk.collection.updateMany({
+            md_store.DataChunk.collection.updateMany({
                 _id: {
                     $in: unset_special_chunk_ids
                 }

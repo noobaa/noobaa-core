@@ -1,11 +1,10 @@
 'use strict';
 
-var _ = require('lodash');
-var P = require('../../util/promise');
-var md_store = require('../object_services/md_store');
-// var map_utils = require('./map_utils');
-// var dbg = require('../../util/debug_module')(__filename);
-var db = require('../db');
+const _ = require('lodash');
+
+const P = require('../../util/promise');
+const md_store = require('./md_store');
+// const dbg = require('../../util/debug_module')(__filename);
 
 // dbg.set_level(5);
 
@@ -24,7 +23,7 @@ class MapCopy {
 
     run() {
         return P.fcall(() => {
-                return db.ObjectPart.collection.find({
+                return md_store.ObjectPart.collection.find({
                     system: this.source_obj.system,
                     obj: this.source_obj._id,
                     deleted: null
@@ -39,7 +38,7 @@ class MapCopy {
                     }, part);
                 });
                 if (new_parts.length) {
-                    return db.ObjectPart.collection.insertMany(new_parts);
+                    return md_store.ObjectPart.collection.insertMany(new_parts);
                 }
             });
     }

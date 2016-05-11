@@ -1,21 +1,17 @@
-/* jshint node:true */
 'use strict';
 
-var _ = require('lodash');
-var P = require('../../util/promise');
-var moment = require('moment');
-var chance = require('chance')();
-var config = require('../../../config.js');
-var dbg = require('../../util/debug_module')(__filename);
-var nodes_store = require('../node_services/nodes_store');
+const _ = require('lodash');
+const moment = require('moment');
+const chance = require('chance')();
 
-exports.refresh_tiering_alloc = refresh_tiering_alloc;
-exports.refresh_pool_alloc = refresh_pool_alloc;
-exports.allocate_node = allocate_node;
-exports.report_node_error = report_node_error;
+const P = require('../../util/promise');
+const dbg = require('../../util/debug_module')(__filename);
+const config = require('../../../config.js');
+const nodes_store = require('../node_services/nodes_store');
 
-var alloc_group_by_pool = {};
-var alloc_group_by_pool_set = {};
+const alloc_group_by_pool = {};
+const alloc_group_by_pool_set = {};
+
 
 function refresh_tiering_alloc(tiering) {
     let pools = _.flatten(_.map(tiering.tiers,
@@ -82,7 +78,7 @@ function refresh_pool_alloc(pool) {
     ).spread((nodes, nodes_aggregate_pool) => {
         group.last_refresh = new Date();
         group.promise = null;
-	// filter out nodes that exceeded the storage limit
+        // filter out nodes that exceeded the storage limit
         group.nodes = _.filter(nodes, function(node) {
             return _.isUndefined(node.storage.limit) || node.storage.limit > node.storage.used;
         });
@@ -188,3 +184,10 @@ function report_node_error(node_id) {
         });
     });
 }
+
+
+// EXPORTS
+exports.refresh_tiering_alloc = refresh_tiering_alloc;
+exports.refresh_pool_alloc = refresh_pool_alloc;
+exports.allocate_node = allocate_node;
+exports.report_node_error = report_node_error;

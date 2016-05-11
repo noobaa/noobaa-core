@@ -1,4 +1,5 @@
 'use strict';
+
 require('../util/panic');
 
 // load .env file before any other modules so that it will contain
@@ -6,20 +7,21 @@ require('../util/panic');
 console.log('loading .env file');
 require('dotenv').load();
 
-let _ = require('lodash');
-let P = require('../util/promise');
-let fs = require('fs');
-let util = require('util');
-let http = require('http');
-let https = require('https');
-let express = require('express');
-let dbg = require('../util/debug_module')(__filename);
-let argv = require('minimist')(process.argv);
-let pem = require('../util/pem');
-let s3_rest = require('./s3_rest');
-var S3Controller = require('./s3_controller');
-let cluster = require('cluster');
-let numCPUs = require('os').cpus().length;
+const _ = require('lodash');
+const fs = require('fs');
+const util = require('util');
+const argv = require('minimist')(process.argv);
+const http = require('http');
+const https = require('https');
+const express = require('express');
+const cluster = require('cluster');
+const numCPUs = require('os').cpus().length;
+
+const P = require('../util/promise');
+const dbg = require('../util/debug_module')(__filename);
+const pem = require('../util/pem');
+const s3_rest = require('./s3_rest');
+const S3Controller = require('./s3_controller');
 
 dbg.set_process_name('S3rver');
 

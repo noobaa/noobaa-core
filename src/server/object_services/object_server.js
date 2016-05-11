@@ -5,43 +5,25 @@
  */
 'use strict';
 
-var _ = require('lodash');
-var mime = require('mime');
-var glob_to_regexp = require('glob-to-regexp');
-var P = require('../../util/promise');
-var db = require('../db');
-var dbg = require('../../util/debug_module')(__filename);
-var map_copy = require('./map_copy');
-var map_writer = require('./map_writer');
-var map_reader = require('./map_reader');
-var map_deleter = require('./map_deleter');
-var map_allocator = require('./map_allocator');
-var nodes_store = require('../node_services/nodes_store');
-var system_store = require('../system_services/system_store').get_instance();
-var string_utils = require('../../util/string_utils');
-var mongo_functions = require('../../util/mongo_functions');
+const _ = require('lodash');
+const mime = require('mime');
+const glob_to_regexp = require('glob-to-regexp');
 
-// object upload
-exports.create_object_upload = create_object_upload;
-exports.complete_object_upload = complete_object_upload;
-exports.abort_object_upload = abort_object_upload;
-exports.list_multipart_parts = list_multipart_parts;
-exports.allocate_object_parts = allocate_object_parts;
-exports.finalize_object_parts = finalize_object_parts;
-exports.complete_part_upload = complete_part_upload;
-exports.copy_object = copy_object;
-// read
-exports.read_object_mappings = read_object_mappings;
-exports.read_node_mappings = read_node_mappings;
-// object meta-data
-exports.read_object_md = read_object_md;
-exports.update_object_md = update_object_md;
-exports.delete_object = delete_object;
-exports.delete_multiple_objects = delete_multiple_objects;
-exports.list_objects = list_objects;
-// cloud sync related
-exports.set_all_files_for_sync = set_all_files_for_sync;
-
+const P = require('../../util/promise');
+const dbg = require('../../util/debug_module')(__filename);
+const LRUCache = require('../../util/lru_cache');
+const md_store = require('./md_store');
+const map_copy = require('./map_copy');
+const map_writer = require('./map_writer');
+const map_reader = require('./map_reader');
+const map_deleter = require('./map_deleter');
+const map_allocator = require('./map_allocator');
+const ActivityLog = require('../analytic_services/activity_log');
+const mongo_utils = require('../../util/mongo_utils');
+const nodes_store = require('../node_services/nodes_store');
+const system_store = require('../system_services/system_store').get_instance();
+const string_utils = require('../../util/string_utils');
+const mongo_functions = require('../../util/mongo_functions');
 
 
 /**
@@ -53,7 +35,7 @@ function create_object_upload(req) {
     dbg.log0('create_object_upload:', req.rpc_params);
     load_bucket(req);
     var info = {
-        _id: db.new_object_id(),
+        _id: md_store.make_md_id(),
         system: req.system._id,
         bucket: req.bucket._id,
         key: req.rpc_params.key,
@@ -70,7 +52,7 @@ function create_object_upload(req) {
     if (req.rpc_params.xattr) {
         info.xattr = req.rpc_params.xattr;
     }
-    return P.when(db.ObjectMD.findOne({
+    return P.when(md_store.ObjectMD.findOne({
             system: req.system._id,
             bucket: req.bucket._id,
             key: req.rpc_params.key,
@@ -84,7 +66,7 @@ function create_object_upload(req) {
                 return delete_object_internal(existing_obj);
             }
         })
-        .then(() => db.ObjectMD.create(info))
+        .then(() => md_store.ObjectMD.create(info))
         .return({
             upload_id: String(info._id)
         });
@@ -151,7 +133,7 @@ function complete_object_upload(req) {
             }
         })
         .then(object_size => {
-            db.ActivityLog.create({
+            ActivityLog.create({
                 system: req.system,
                 level: 'info',
                 event: 'obj.uploaded',
@@ -159,7 +141,7 @@ function complete_object_upload(req) {
                 actor: req.account && req.account._id,
             });
 
-            return db.ObjectMD.collection.updateOne({
+            return md_store.ObjectMD.collection.updateOne({
                 _id: obj._id
             }, {
                 $set: {
@@ -259,13 +241,13 @@ function copy_object(req) {
     var existing_obj;
     var source_obj;
     return P.join(
-            db.ObjectMD.findOne({
+            md_store.ObjectMD.findOne({
                 system: req.system._id,
                 bucket: req.bucket._id,
                 key: req.rpc_params.key,
                 deleted: null
             }),
-            db.ObjectMD.findOne({
+            md_store.ObjectMD.findOne({
                 system: req.system._id,
                 bucket: source_bucket._id,
                 key: req.rpc_params.source_key,
@@ -280,7 +262,7 @@ function copy_object(req) {
                     ' ' + req.rpc_params.source_key);
             }
             create_info = {
-                _id: db.new_object_id(),
+                _id: md_store.make_md_id(),
                 system: req.system._id,
                 bucket: req.bucket._id,
                 key: req.rpc_params.key,
@@ -307,13 +289,13 @@ function copy_object(req) {
                 return delete_object_internal(existing_obj);
             }
         })
-        .then(() => db.ObjectMD.create(create_info))
+        .then(() => md_store.ObjectMD.create(create_info))
         .then(() => {
             let copy = new map_copy.MapCopy(source_obj, create_info);
             return copy.run();
         })
         .then(() => {
-            db.ActivityLog.create({
+            ActivityLog.create({
                 system: req.system,
                 level: 'info',
                 event: 'obj.uploaded',
@@ -321,7 +303,7 @@ function copy_object(req) {
                 actor: req.account && req.account._id,
             });
             // mark the new object not in upload mode
-            return db.ObjectMD.collection.updateOne({
+            return md_store.ObjectMD.collection.updateOne({
                 _id: create_info._id
             }, {
                 $unset: {
@@ -369,7 +351,7 @@ function read_object_mappings(req) {
             // so that viewing the mapping in the ui will not increase read count
             // We do count the number of parts and return them
             if (req.rpc_params.adminfo) {
-                return P.when(db.ObjectPart.collection.count({
+                return P.when(md_store.ObjectPart.collection.count({
                         obj: obj._id,
                         deleted: null,
                     }))
@@ -387,7 +369,7 @@ function read_object_mappings(req) {
                         }]
                     }
                 });
-                return P.when(db.ObjectMD.collection.updateOne({
+                return P.when(md_store.ObjectMD.collection.updateOne({
                     _id: obj._id
                 }, {
                     $inc: {
@@ -418,7 +400,7 @@ function read_node_mappings(req) {
         )
         .then(objects => {
             if (req.rpc_params.adminfo) {
-                return db.DataBlock.collection.count({
+                return md_store.DataBlock.collection.count({
                         node: node._id,
                         deleted: null
                     })
@@ -453,7 +435,7 @@ function read_object_md(req) {
             if (!req.rpc_params.get_parts_count) {
                 return info;
             } else {
-                return P.when(db.ObjectPart.count({
+                return P.when(md_store.ObjectPart.count({
                         obj: objid,
                         deleted: null,
                     }))
@@ -479,7 +461,7 @@ function update_object_md(req) {
             var updates = _.pick(req.rpc_params, 'content_type', 'xattr');
             return obj.update(updates).exec();
         })
-        .then(db.check_not_deleted(req, 'object'))
+        .then(obj => mongo_utils.check_entity_not_deleted(req, 'object', obj))
         .thenResolve();
 }
 
@@ -495,15 +477,15 @@ function delete_object(req) {
     let obj_to_delete;
     return P.fcall(() => {
             var query = _.omit(object_md_query(req), 'deleted');
-            return db.ObjectMD.findOne(query).exec();
+            return md_store.ObjectMD.findOne(query).exec();
         })
-        .then(db.check_not_found(req, 'object'))
+        .then(obj => mongo_utils.check_entity_not_found(req, 'object', obj))
         .then(obj => {
             obj_to_delete = obj;
             delete_object_internal(obj);
         })
         .then(() => {
-            db.ActivityLog.create({
+            ActivityLog.create({
                 system: req.system,
                 level: 'info',
                 event: 'obj.deleted',
@@ -532,9 +514,9 @@ function delete_multiple_objects(req) {
                         bucket: req.bucket._id,
                         key: key
                     };
-                    return db.ObjectMD.findOne(query).exec();
+                    return md_store.ObjectMD.findOne(query).exec();
                 })
-                .then(db.check_not_found(req, 'object'))
+                .then(obj => mongo_utils.check_entity_not_found(req, 'object', obj))
                 .then(obj => delete_object_internal(obj));
         }))
         .return();
@@ -587,7 +569,7 @@ function list_objects(req) {
                 // the emitted key will be just tumtum.
                 // this is used by s3 protocol to return folder structure
                 // even if there is no explicit empty object with the folder name.
-                common_prefixes_query = db.ObjectMD.collection.mapReduce(
+                common_prefixes_query = md_store.ObjectMD.collection.mapReduce(
                     mongo_functions.map_key_with_prefix_delimiter,
                     mongo_functions.reduce_noop, {
                         query: {
@@ -626,7 +608,7 @@ function list_objects(req) {
             var skip = req.rpc_params.skip;
             var limit = req.rpc_params.limit;
             dbg.log0('list_objects params:', req.rpc_params, 'query:', info);
-            var find = db.ObjectMD.find(info);
+            var find = md_store.ObjectMD.find(info);
             if (skip) {
                 find.skip(skip);
             }
@@ -643,7 +625,7 @@ function list_objects(req) {
 
             return P.join(
                 find.exec(),
-                req.rpc_params.pagination && db.ObjectMD.count(info),
+                req.rpc_params.pagination && md_store.ObjectMD.count(info),
                 common_prefixes_query
             );
         })
@@ -685,7 +667,7 @@ function list_objects(req) {
 function set_all_files_for_sync(sysid, bucketid) {
     dbg.log2('marking all objects on sys', sysid, 'bucket', bucketid, 'as sync needed');
     //Mark all "live" objects to be cloud synced
-    return P.fcall(() => db.ObjectMD.update({
+    return P.fcall(() => md_store.ObjectMD.update({
             system: sysid,
             bucket: bucketid,
             cloud_synced: true,
@@ -695,7 +677,7 @@ function set_all_files_for_sync(sysid, bucketid) {
         }, {
             multi: true
         }).exec())
-        .then(() => db.ObjectMD.update({
+        .then(() => md_store.ObjectMD.update({
             //Mark all "previous" deleted objects as not needed for cloud sync
             system: sysid,
             bucket: bucketid,
@@ -749,16 +731,16 @@ function object_md_query(req) {
 function find_object_md(req) {
     load_bucket(req);
     return P.fcall(() => {
-            return db.ObjectMD.findOne(object_md_query(req)).exec();
+            return md_store.ObjectMD.findOne(object_md_query(req)).exec();
         })
-        .then(db.check_not_deleted(req, 'object'));
+        .then(obj => mongo_utils.check_entity_not_deleted(req, 'object', obj));
 }
 
 function find_object_upload(req) {
     load_bucket(req);
     return P.fcall(() => {
-            return db.ObjectMD.findOne({
-                _id: db.new_object_id(req.rpc_params.upload_id),
+            return md_store.ObjectMD.findOne({
+                _id: md_store.make_md_id(req.rpc_params.upload_id),
                 system: req.system._id,
                 bucket: req.bucket._id,
                 deleted: null
@@ -767,10 +749,25 @@ function find_object_upload(req) {
         .then(obj => check_object_upload_mode(req, obj));
 }
 
+// short living cache for objects
+// the purpose is to reduce hitting the DB many many times per second during upload/download.
+const object_md_cache = new LRUCache({
+    name: 'ObjectMDCache',
+    max_usage: 1000,
+    expiry_ms: 1000, // 1 second of blissfull ignorance
+    load: function(object_id) {
+        console.log('ObjectMDCache: load', object_id);
+        return P.when(md_store.ObjectMD.findOne({
+            _id: object_id,
+            deleted: null,
+        }).exec());
+    }
+});
+
 function find_cached_object_upload(req) {
     load_bucket(req);
     return P.fcall(() => {
-            return db.ObjectMDCache.get_with_cache(req.rpc_params.upload_id);
+            return object_md_cache.get_with_cache(req.rpc_params.upload_id);
         })
         .then(obj => check_object_upload_mode(req, obj));
 }
@@ -830,3 +827,26 @@ function check_md_conditions(req, conditions, obj) {
         }
     }
 }
+
+
+// EXPORTS
+// object upload
+exports.create_object_upload = create_object_upload;
+exports.complete_object_upload = complete_object_upload;
+exports.abort_object_upload = abort_object_upload;
+exports.list_multipart_parts = list_multipart_parts;
+exports.allocate_object_parts = allocate_object_parts;
+exports.finalize_object_parts = finalize_object_parts;
+exports.complete_part_upload = complete_part_upload;
+exports.copy_object = copy_object;
+// read
+exports.read_object_mappings = read_object_mappings;
+exports.read_node_mappings = read_node_mappings;
+// object meta-data
+exports.read_object_md = read_object_md;
+exports.update_object_md = update_object_md;
+exports.delete_object = delete_object;
+exports.delete_multiple_objects = delete_multiple_objects;
+exports.list_objects = list_objects;
+// cloud sync related
+exports.set_all_files_for_sync = set_all_files_for_sync;

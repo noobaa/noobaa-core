@@ -1,13 +1,10 @@
 'use strict';
 
-var _ = require('lodash');
-var child_process = require('child_process');
-var dbg = require('../../util/debug_module')(__filename);
-var supervisor = require('../utils/supervisor_ctrl.js');
+const _ = require('lodash');
+const child_process = require('child_process');
 
-
-exports.create_agent = create_agent;
-exports.remove_agent = remove_agent;
+const dbg = require('../../util/debug_module')(__filename);
+const supervisor = require('../utils/supervisor_ctrl.js');
 
 
 function create_agent(req) {
@@ -57,3 +54,8 @@ function create_agent(req) {
 function remove_agent(req) {
     supervisor.remove_agent(req.params.name);
 }
+
+
+// EXPORTS
+exports.create_agent = create_agent;
+exports.remove_agent = remove_agent;

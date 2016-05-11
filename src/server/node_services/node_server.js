@@ -1,36 +1,19 @@
-'use strict';
-
-var _ = require('lodash');
-var P = require('../../util/promise');
-var db = require('../db');
-var dbg = require('../../util/debug_module')(__filename);
-var config = require('../../../config');
-var nodes_store = require('./nodes_store');
-var node_monitor = require('./node_monitor');
-var string_utils = require('../../util/string_utils');
-
 /**
  *
  * NODE_SERVER
  *
  */
-exports.create_node = create_node;
-exports.read_node = read_node;
-exports.update_node = update_node;
-exports.delete_node = delete_node;
-exports.list_nodes = list_nodes;
-exports.list_nodes_int = list_nodes_int;
-exports.max_node_capacity = max_node_capacity;
-exports.heartbeat = node_monitor.heartbeat;
-exports.redirect = node_monitor.redirect;
-exports.n2n_signal = node_monitor.n2n_signal;
-exports.self_test_to_node_via_web = node_monitor.self_test_to_node_via_web;
-exports.collect_agent_diagnostics = node_monitor.collect_agent_diagnostics;
-exports.set_debug_node = node_monitor.set_debug_node;
-exports.report_node_block_error = node_monitor.report_node_block_error;
-exports.test_latency_to_server = test_latency_to_server;
-exports.get_test_nodes = get_test_nodes;
+'use strict';
 
+const _ = require('lodash');
+
+const P = require('../../util/promise');
+const dbg = require('../../util/debug_module')(__filename);
+const config = require('../../../config');
+const ActivityLog = require('../analytic_services/activity_log');
+const nodes_store = require('./nodes_store');
+const node_monitor = require('./node_monitor');
+const string_utils = require('../../util/string_utils');
 
 
 /**
@@ -46,7 +29,7 @@ function create_node(req) {
     );
     node.system = req.system._id;
     node.heartbeat = new Date(0);
-    node.peer_id = db.new_object_id();
+    node.peer_id = nodes_store.make_node_id();
 
     // storage info will be updated by heartbeat
     node.storage = {
@@ -73,7 +56,7 @@ function create_node(req) {
     return nodes_store.create_node(req, node)
         .then(function(node) {
             // create async
-            db.ActivityLog.create({
+            ActivityLog.create({
                 system: req.system,
                 level: 'info',
                 event: 'node.create',
@@ -330,7 +313,7 @@ function get_test_nodes(req) {
             });
         })
         .then((res) => {
-            db.ActivityLog.create({
+            ActivityLog.create({
                 system: req.system._id,
                 actor: req.account && req.account._id,
                 level: 'info',
@@ -371,7 +354,7 @@ function get_node_full_info(node) {
     if (node.srvmode) {
         info.srvmode = node.srvmode;
     }
-    if (node.storage.free <= config.NODES_FREE_SPACE_RESERVE && !(node.storage.limit && node.storage.free>0) ) {
+    if (node.storage.free <= config.NODES_FREE_SPACE_RESERVE && !(node.storage.limit && node.storage.free > 0)) {
         info.storage_full = true;
     }
     info.pool = node.pool.name;
@@ -404,3 +387,22 @@ function get_storage_info(storage) {
         limit: storage.limit || 0
     };
 }
+
+
+// EXPORTS
+exports.create_node = create_node;
+exports.read_node = read_node;
+exports.update_node = update_node;
+exports.delete_node = delete_node;
+exports.list_nodes = list_nodes;
+exports.list_nodes_int = list_nodes_int;
+exports.max_node_capacity = max_node_capacity;
+exports.heartbeat = node_monitor.heartbeat;
+exports.redirect = node_monitor.redirect;
+exports.n2n_signal = node_monitor.n2n_signal;
+exports.self_test_to_node_via_web = node_monitor.self_test_to_node_via_web;
+exports.collect_agent_diagnostics = node_monitor.collect_agent_diagnostics;
+exports.set_debug_node = node_monitor.set_debug_node;
+exports.report_node_block_error = node_monitor.report_node_block_error;
+exports.test_latency_to_server = test_latency_to_server;
+exports.get_test_nodes = get_test_nodes;

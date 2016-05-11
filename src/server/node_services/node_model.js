@@ -1,14 +1,11 @@
-/* jshint node:true */
 'use strict';
 
-// var _ = require('lodash');
-var mongoose = require('mongoose');
-var Schema = mongoose.Schema;
-var types = mongoose.Schema.Types;
-// var size_utils = require('../../util/size_utils');
+const mongoose = require('mongoose');
+const Schema = mongoose.Schema;
+const types = mongoose.Schema.Types;
 
 // schema of storage info for node/srive
-var storage_stat_schema = {
+const storage_stat_schema = {
 
     // total amount of storage space on the node/drive
     total: {

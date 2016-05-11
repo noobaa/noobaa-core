@@ -1,18 +1,15 @@
 'use strict';
 
-exports.read_object_mappings = read_object_mappings;
-exports.read_node_mappings = read_node_mappings;
+const _ = require('lodash');
 
-var _ = require('lodash');
-var P = require('../../util/promise');
-var db = require('../db');
-var map_utils = require('./map_utils');
-var system_store = require('../system_services/system_store').get_instance();
-var nodes_store = require('../node_services/nodes_store');
-var mongo_utils = require('../../util/mongo_utils');
-var dbg = require('../../util/debug_module')(__filename);
-var config = require('../../../config.js');
-
+const P = require('../../util/promise');
+const dbg = require('../../util/debug_module')(__filename);
+const config = require('../../../config.js');
+const map_utils = require('./map_utils');
+const mongo_utils = require('../../util/mongo_utils');
+const md_store = require('./md_store');
+const nodes_store = require('../node_services/nodes_store');
+const system_store = require('../system_services/system_store').get_instance();
 
 
 /**
@@ -35,7 +32,7 @@ function read_object_mappings(params) {
 
     return P.fcall(function() {
             // find parts intersecting the [start,end) range
-            return db.ObjectPart.collection.find({
+            return md_store.ObjectPart.collection.find({
                 obj: params.obj._id,
                 start: {
                     // since end is not indexed we query start with both
@@ -55,7 +52,7 @@ function read_object_mappings(params) {
                 limit: params.limit || 0
             }).toArray();
         })
-        .then(parts => mongo_utils.populate(parts, 'chunk', db.DataChunk))
+        .then(parts => mongo_utils.populate(parts, 'chunk', md_store.DataChunk))
         .then(function(parts) {
             return read_parts_mappings({
                 parts: parts,
@@ -76,7 +73,7 @@ function read_node_mappings(params) {
     var parts_per_obj_id = {};
 
     return P.fcall(function() {
-            return db.DataBlock.collection.find({
+            return md_store.DataBlock.collection.find({
                 node: params.node._id,
                 deleted: null,
             }, {
@@ -89,7 +86,7 @@ function read_node_mappings(params) {
             dbg.warn('read_node_mappings: SLOW QUERY',
                 'ObjectPart.find(chunk $in array).',
                 'adding chunk index?');
-            return db.ObjectPart.collection.find({
+            return md_store.ObjectPart.collection.find({
                 chunk: {
                     $in: mongo_utils.uniq_ids(blocks, 'chunk')
                 },
@@ -97,8 +94,8 @@ function read_node_mappings(params) {
             }).toArray();
         })
         .then(parts => P.join(
-            mongo_utils.populate(parts, 'chunk', db.DataChunk),
-            mongo_utils.populate(parts, 'obj', db.ObjectMD)
+            mongo_utils.populate(parts, 'chunk', md_store.DataChunk),
+            mongo_utils.populate(parts, 'obj', md_store.ObjectMD)
         ).return(parts))
         .then(function(parts) {
             return read_parts_mappings({
@@ -141,7 +138,7 @@ function read_parts_mappings(params) {
     var chunk_ids = mongo_utils.uniq_ids(chunks, '_id');
 
     // find all blocks of the resulting parts
-    return P.when(db.DataBlock.collection.find({
+    return P.when(md_store.DataBlock.collection.find({
             chunk: {
                 $in: chunk_ids
             },
@@ -168,3 +165,8 @@ function read_parts_mappings(params) {
             });
         });
 }
+
+
+// EXPORTS
+exports.read_object_mappings = read_object_mappings;
+exports.read_node_mappings = read_node_mappings;

@@ -1,44 +1,22 @@
-// this module is written for both nodejs.
-'use strict';
-
 /**
  *
  * ACCOUNT_SERVER
  *
  */
-var account_server = {
-    create_account: create_account,
-    read_account: read_account,
-    update_account: update_account,
-    delete_account: delete_account,
-    generate_account_keys: generate_account_keys,
-    list_account_s3_acl: list_account_s3_acl,
-    update_account_s3_acl: update_account_s3_acl,
-    list_accounts: list_accounts,
-    accounts_status: accounts_status,
-    get_system_roles: get_system_roles,
-    add_account_sync_credentials_cache: add_account_sync_credentials_cache,
-    get_account_sync_credentials_cache: get_account_sync_credentials_cache,
-    check_account_sync_credentials: check_account_sync_credentials,
-    get_account_info: get_account_info,
+'use strict';
 
-    // utility to create the support account from bg_workers
-    ensure_support_account: ensure_support_account,
-};
+const _ = require('lodash');
+const AWS = require('aws-sdk');
+const https = require('https');
+const crypto = require('crypto');
+const bcrypt = require('bcrypt');
 
-module.exports = account_server;
-
-var _ = require('lodash');
-var P = require('../../util/promise');
-var db = require('../db');
-var bcrypt = require('bcrypt');
-var system_store = require('../system_services/system_store').get_instance();
-var system_server = require('./system_server');
-var crypto = require('crypto');
-var https = require('https');
-var AWS = require('aws-sdk');
-var server_rpc = require('../server_rpc');
-// var dbg = require('../../util/debug_module')(__filename);
+const P = require('../../util/promise');
+// const dbg = require('../../util/debug_module')(__filename);
+const server_rpc = require('../server_rpc');
+const ActivityLog = require('../analytic_services/activity_log');
+const system_store = require('../system_services/system_store').get_instance();
+const system_server = require('./system_server');
 
 
 /**
@@ -405,9 +383,9 @@ function check_account_sync_credentials(req) {
             accessKeyId: params.access_key,
             secretAccessKey: params.secret_key,
             httpOptions: {
-              agent: new https.Agent({
-                rejectUnauthorized: false,
-              })
+                agent: new https.Agent({
+                    rejectUnauthorized: false,
+                })
             }
         });
 
@@ -545,7 +523,7 @@ function is_support_or_admin_or_me(system, account, target_account) {
 }
 
 function create_activity_log_entry(req, event, account, level) {
-    db.ActivityLog.create({
+    ActivityLog.create({
         event: 'account.' + event,
         level: level || 'info',
         system: req.system ? req.system._id : undefined,
@@ -553,3 +531,22 @@ function create_activity_log_entry(req, event, account, level) {
         account: account._id,
     });
 }
+
+
+// EXPORTS
+exports.create_account = create_account;
+exports.read_account = read_account;
+exports.update_account = update_account;
+exports.delete_account = delete_account;
+exports.generate_account_keys = generate_account_keys;
+exports.list_account_s3_acl = list_account_s3_acl;
+exports.update_account_s3_acl = update_account_s3_acl;
+exports.list_accounts = list_accounts;
+exports.accounts_status = accounts_status;
+exports.get_system_roles = get_system_roles;
+exports.add_account_sync_credentials_cache = add_account_sync_credentials_cache;
+exports.get_account_sync_credentials_cache = get_account_sync_credentials_cache;
+exports.check_account_sync_credentials = check_account_sync_credentials;
+exports.get_account_info = get_account_info;
+// utility to create the support account from bg_workers
+exports.ensure_support_account = ensure_support_account;

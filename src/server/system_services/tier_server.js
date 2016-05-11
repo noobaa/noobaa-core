@@ -1,42 +1,19 @@
-// this module is written for both nodejs.
-'use strict';
-
-var _ = require('lodash');
-// var P = require('../../util/promise');
-var db = require('../db');
-var dbg = require('../../util/debug_module')(__filename);
-var size_utils = require('../../util/size_utils');
-var mongo_utils = require('../../util/mongo_utils');
-var nodes_store = require('../node_services/nodes_store');
-var system_store = require('../system_services/system_store').get_instance();
-
 /**
  *
  * TIER_SERVER
  *
  */
-var tier_server = {
-    new_tier_defaults: new_tier_defaults,
-    new_policy_defaults: new_policy_defaults,
-    get_tier_info: get_tier_info,
-    get_tiering_policy_info: get_tiering_policy_info,
+'use strict';
 
-    //Tiers
-    create_tier: create_tier,
-    read_tier: read_tier,
-    update_tier: update_tier,
-    delete_tier: delete_tier,
+const _ = require('lodash');
 
-    //Tiering Policy
-    create_policy: create_policy,
-    update_policy: update_policy,
-    get_policy_pools: get_policy_pools,
-    read_policy: read_policy,
-    delete_policy: delete_policy
-};
-
-module.exports = tier_server;
-
+// const P = require('../../util/promise');
+const dbg = require('../../util/debug_module')(__filename);
+const size_utils = require('../../util/size_utils');
+const mongo_utils = require('../../util/mongo_utils');
+const nodes_store = require('../node_services/nodes_store');
+const ActivityLog = require('../analytic_services/activity_log');
+const system_store = require('../system_services/system_store').get_instance();
 
 
 function new_tier_defaults(name, system_id, pool_ids) {
@@ -140,8 +117,8 @@ function update_tier(req) {
         })
         .then((res) => {
             var bucket = find_bucket_by_tier(req);
-            if (bucket != null) {
-                db.ActivityLog.create({
+            if (bucket) {
+                ActivityLog.create({
                     event: 'bucket.edit_policy',
                     level: 'info',
                     system: req.system._id,
@@ -323,3 +300,21 @@ function get_tiering_policy_info(tiering_policy, nodes_aggregate_pool) {
     }
     return info;
 }
+
+
+// EXPORTS
+exports.new_tier_defaults = new_tier_defaults;
+exports.new_policy_defaults = new_policy_defaults;
+exports.get_tier_info = get_tier_info;
+exports.get_tiering_policy_info = get_tiering_policy_info;
+//Tiers
+exports.create_tier = create_tier;
+exports.read_tier = read_tier;
+exports.update_tier = update_tier;
+exports.delete_tier = delete_tier;
+//Tiering Policy
+exports.create_policy = create_policy;
+exports.update_policy = update_policy;
+exports.get_policy_pools = get_policy_pools;
+exports.read_policy = read_policy;
+exports.delete_policy = delete_policy;

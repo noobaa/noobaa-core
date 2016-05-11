@@ -1,20 +1,26 @@
+/**
+ *
+ * SYSTEM_STORE
+ *
+ */
 'use strict';
 
-let _ = require('lodash');
-let Ajv = require('ajv');
-let util = require('util');
-let mongodb = require('mongodb');
-let EventEmitter = require('events').EventEmitter;
-let server_rpc = require('../server_rpc');
-let P = require('../../util/promise');
-let dbg = require('../../util/debug_module')(__filename);
-let js_utils = require('../../util/js_utils');
-let time_utils = require('../../util/time_utils');
-let size_utils = require('../../util/size_utils');
-let mongo_utils = require('../../util/mongo_utils');
-let mongo_client = require('../../util/mongo_client').get_instance();
-let schema_utils = require('../../util/schema_utils');
-// let promise_utils = require('../../util/promise_utils');
+const _ = require('lodash');
+const Ajv = require('ajv');
+const util = require('util');
+const mongodb = require('mongodb');
+const EventEmitter = require('events').EventEmitter;
+
+const P = require('../../util/promise');
+const dbg = require('../../util/debug_module')(__filename);
+const js_utils = require('../../util/js_utils');
+const server_rpc = require('../server_rpc');
+const time_utils = require('../../util/time_utils');
+const size_utils = require('../../util/size_utils');
+const mongo_utils = require('../../util/mongo_utils');
+const mongo_client = require('../../util/mongo_client').get_instance();
+const schema_utils = require('../../util/schema_utils');
+// const promise_utils = require('../../util/promise_utils');
 
 const COLLECTIONS = Object.freeze({
     clusters: require('./schemas/cluster_schema'),
@@ -237,7 +243,7 @@ class SystemStoreData {
  *
  * SystemStore
  *
- * loads date from the database and keeps in memory optimized way.
+ * loads data from the database and keeps in memory optimized way.
  *
  */
 class SystemStore extends EventEmitter {
@@ -522,4 +528,5 @@ class SystemStore extends EventEmitter {
 
 // EXPORTS
 exports.SystemStore = SystemStore;
+exports.SystemStoreData = SystemStoreData;
 exports.get_instance = SystemStore.get_instance;

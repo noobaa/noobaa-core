@@ -10,12 +10,12 @@ var mocha = require('mocha');
 var assert = require('assert');
 var mongoose = require('mongoose');
 var P = require('../../util/promise');
-var db = require('../../server/db');
 var config = require('../../../config.js');
 var agentctl = require('./core_agent_control');
 var server_rpc = require('../../server/server_rpc');
 var nodes_store = require('../../server/node_services/nodes_store');
 var mongo_client = require('../../util/mongo_client').get_instance();
+var mongoose_utils = require('../../util/mongoose_utils');
 
 P.longStackTraces();
 config.test_mode = true;
@@ -51,10 +51,10 @@ function new_test_client() {
 mocha.before('coretest-before', function() {
     _.each(server_rpc.rpc._services, (service, srv) => api_coverage.add(srv));
     return P.resolve()
-        .then(() => db.mongoose_connect())
-        .then(() => db.mongoose_wait_connected())
+        .then(() => mongoose_utils.mongoose_connect())
+        .then(() => mongoose_utils.mongoose_wait_connected())
         .then(() => P.npost(mongoose.connection.db, 'dropDatabase'))
-        .then(() => db.mongoose_ensure_indexes())
+        .then(() => mongoose_utils.mongoose_ensure_indexes())
         .then(() => mongo_client.connect())
         .then(() => server_rpc.rpc.start_http_server({
             port: http_port,

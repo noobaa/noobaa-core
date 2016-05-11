@@ -1,13 +1,13 @@
 'use strict';
 
-let _ = require('lodash');
-// let P = require('../util/promise');
-let api = require('../api');
-let dbg = require('../util/debug_module')(__filename);
-let ObjectIO = require('../api/object_io');
-let s3_errors = require('./s3_errors');
-let xml2js = require('xml2js');
-let P = require('../util/promise');
+const _ = require('lodash');
+const xml2js = require('xml2js');
+
+const P = require('../util/promise');
+const dbg = require('../util/debug_module')(__filename);
+const api = require('../api');
+const ObjectIO = require('../api/object_io');
+const s3_errors = require('./s3_errors');
 
 dbg.set_level(5);
 

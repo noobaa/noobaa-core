@@ -1,63 +1,33 @@
-// this module is written for nodejs.
-'use strict';
-
-//Set exports prior to requires to prevent circular dependency issues
 /**
  *
  * SYSTEM_SERVER
  *
  */
-var system_server = {
-    new_system_defaults: new_system_defaults,
-    new_system_changes: new_system_changes,
+'use strict';
 
-    create_system: create_system,
-    read_system: read_system,
-    update_system: update_system,
-    delete_system: delete_system,
+const _ = require('lodash');
+const url = require('url');
+const net = require('net');
+// const AWS = require('aws-sdk');
+//const crypto = require('crypto');
+const ip_module = require('ip');
 
-    list_systems: list_systems,
-    list_systems_int: list_systems_int,
-
-    add_role: add_role,
-    remove_role: remove_role,
-
-    read_activity_log: read_activity_log,
-
-    diagnose: diagnose,
-    diagnose_with_agent: diagnose_with_agent,
-    start_debug: start_debug,
-
-    update_n2n_config: update_n2n_config,
-    update_base_address: update_base_address,
-    update_hostname: update_hostname,
-    update_system_certificate: update_system_certificate,
-    update_time_config: update_time_config,
-};
-
-module.exports = system_server;
-
-var _ = require('lodash');
-var url = require('url');
-var net = require('net');
-// var AWS = require('aws-sdk');
-//var crypto = require('crypto');
-var ip_module = require('ip');
-var P = require('../../util/promise');
-var db = require('../db');
-var pkg = require('../../../package.json');
-var dbg = require('../../util/debug_module')(__filename);
-var diag = require('../utils/server_diagnostics');
-var os_utils = require('../../util/os_util');
-var size_utils = require('../../util/size_utils');
-var server_rpc = require('../server_rpc');
-var pool_server = require('./pool_server');
-var tier_server = require('./tier_server');
-var nodes_store = require('../node_services/nodes_store');
-var system_store = require('../system_services/system_store').get_instance();
-var promise_utils = require('../../util/promise_utils');
-var bucket_server = require('./bucket_server');
-var account_server = require('./account_server');
+const P = require('../../util/promise');
+const pkg = require('../../../package.json');
+const dbg = require('../../util/debug_module')(__filename);
+const diag = require('../utils/server_diagnostics');
+const md_store = require('../object_services/md_store');
+const os_utils = require('../../util/os_util');
+const size_utils = require('../../util/size_utils');
+const server_rpc = require('../server_rpc');
+const pool_server = require('./pool_server');
+const tier_server = require('./tier_server');
+const ActivityLog = require('../analytic_services/activity_log');
+const nodes_store = require('../node_services/nodes_store');
+const system_store = require('../system_services/system_store').get_instance();
+const promise_utils = require('../../util/promise_utils');
+const bucket_server = require('./bucket_server');
+const account_server = require('./account_server');
 
 
 function new_system_defaults(name, owner_account_id) {
@@ -111,7 +81,7 @@ function new_system_changes(name, owner_account_id) {
         role: 'admin'
     };
 
-    db.ActivityLog.create({
+    ActivityLog.create({
         event: 'conf.create_system',
         level: 'info',
         system: system._id,
@@ -183,7 +153,7 @@ function read_system(req) {
         nodes_store.aggregate_nodes_by_pool(by_system_id_undeleted),
 
         // objects - size, count
-        db.ObjectMD.aggregate_objects(by_system_id_undeleted),
+        md_store.aggregate_objects(by_system_id_undeleted),
 
         promise_utils.all_obj(system.buckets_by_name, function(bucket) {
             // TODO this is a hacky "pseudo" rpc request. really should avoid.
@@ -440,7 +410,7 @@ function get_system_web_links(system) {
  *
  */
 function read_activity_log(req) {
-    var q = db.ActivityLog.find({
+    var q = ActivityLog.find({
         system: req.system._id,
     });
 
@@ -524,7 +494,7 @@ function diagnose(req) {
             return diag.collect_server_diagnostics(req);
         })
         .then((res) => {
-            db.ActivityLog.create({
+            ActivityLog.create({
                 event: 'conf.diagnose_system',
                 level: 'info',
                 system: req.system._id,
@@ -679,7 +649,7 @@ function update_base_address(req) {
                 .return(reply);
         })
         .then((res) => {
-            db.ActivityLog.create({
+            ActivityLog.create({
                 event: 'conf.dns_address',
                 level: 'info',
                 system: req.system,
@@ -747,3 +717,31 @@ function find_account_by_email(req) {
     }
     return account;
 }
+
+
+// EXPORTS
+exports.new_system_defaults = new_system_defaults;
+exports.new_system_changes = new_system_changes;
+
+exports.create_system = create_system;
+exports.read_system = read_system;
+exports.update_system = update_system;
+exports.delete_system = delete_system;
+
+exports.list_systems = list_systems;
+exports.list_systems_int = list_systems_int;
+
+exports.add_role = add_role;
+exports.remove_role = remove_role;
+
+exports.read_activity_log = read_activity_log;
+
+exports.diagnose = diagnose;
+exports.diagnose_with_agent = diagnose_with_agent;
+exports.start_debug = start_debug;
+
+exports.update_n2n_config = update_n2n_config;
+exports.update_base_address = update_base_address;
+exports.update_hostname = update_hostname;
+exports.update_system_certificate = update_system_certificate;
+exports.update_time_config = update_time_config;

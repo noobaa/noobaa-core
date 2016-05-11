@@ -1,57 +1,33 @@
-/* jshint node:true */
-'use strict';
-
 /**
  *
  * BUCKET_SERVER
  *
  */
+'use strict';
 
-module.exports = {
-    new_bucket_defaults: new_bucket_defaults,
-    get_bucket_info: get_bucket_info,
+const _ = require('lodash');
+const AWS = require('aws-sdk');
+const net = require('net');
+const https = require('https');
+// const crypto = require('crypto');
 
-    //Bucket Management
-    create_bucket: create_bucket,
-    read_bucket: read_bucket,
-    update_bucket: update_bucket,
-    delete_bucket: delete_bucket,
-    list_buckets: list_buckets,
-    //generate_bucket_access: generate_bucket_access,
-    list_bucket_s3_acl: list_bucket_s3_acl,
-    update_bucket_s3_acl: update_bucket_s3_acl,
-
-    //Cloud Sync policies
-    get_cloud_sync_policy: get_cloud_sync_policy,
-    get_all_cloud_sync_policies: get_all_cloud_sync_policies,
-    delete_cloud_sync: delete_cloud_sync,
-    set_cloud_sync: set_cloud_sync,
-
-    //Temporary - TODO: move to new server
-    get_cloud_buckets: get_cloud_buckets
-};
-
-var _ = require('lodash');
-var AWS = require('aws-sdk');
-var db = require('../db');
-var net = require('net');
-// var crypto = require('crypto');
-var object_server = require('../object_services/object_server');
-var tier_server = require('./tier_server');
-var server_rpc = require('../server_rpc');
-var system_store = require('../system_services/system_store').get_instance();
-var nodes_store = require('../node_services/nodes_store');
-var cloud_sync_utils = require('../utils/cloud_sync_utils');
-var size_utils = require('../../util/size_utils');
-var mongo_utils = require('../../util/mongo_utils');
-var dbg = require('../../util/debug_module')(__filename);
-var P = require('../../util/promise');
-var js_utils = require('../../util/js_utils');
-var https = require('https');
-
+const P = require('../../util/promise');
+const dbg = require('../../util/debug_module')(__filename);
+const md_store = require('../object_services/md_store');
+const js_utils = require('../../util/js_utils');
+const size_utils = require('../../util/size_utils');
+const server_rpc = require('../server_rpc');
+const tier_server = require('./tier_server');
+const mongo_utils = require('../../util/mongo_utils');
+const nodes_store = require('../node_services/nodes_store');
+const ActivityLog = require('../analytic_services/activity_log');
+const system_store = require('../system_services/system_store').get_instance();
+const object_server = require('../object_services/object_server');
+const cloud_sync_utils = require('../utils/cloud_sync_utils');
 
 const VALID_BUCKET_NAME_REGEXP =
     /^(([a-z0-9]|[a-z0-9][a-z0-9\-]*[a-z0-9])\.)*([a-z0-9]|[a-z0-9][a-z0-9\-]*[a-z0-9])$/;
+
 
 function new_bucket_defaults(name, system_id, tiering_policy_id) {
     return {
@@ -67,7 +43,7 @@ function new_bucket_defaults(name, system_id, tiering_policy_id) {
 }
 
 /**
- *3
+ *
  * CREATE_BUCKET
  *
  */
@@ -109,7 +85,7 @@ function create_bucket(req) {
         req.system._id,
         tiering_policy._id);
     changes.insert.buckets = [bucket];
-    db.ActivityLog.create({
+    ActivityLog.create({
         event: 'bucket.create',
         level: 'info',
         system: req.system._id,
@@ -150,7 +126,7 @@ function read_bucket(req) {
     var pool_ids = mongo_utils.uniq_ids(pools, '_id');
     return P.join(
         // objects - size, count
-        db.ObjectMD.aggregate_objects({
+        md_store.aggregate_objects({
             system: req.system._id,
             bucket: bucket._id,
             deleted: null,
@@ -290,14 +266,14 @@ function delete_bucket(req) {
     if (_.map(req.system.buckets_by_name).length === 1) {
         throw req.rpc_error('BAD_REQUEST', 'Cannot delete last bucket');
     }
-    db.ActivityLog.create({
+    ActivityLog.create({
         event: 'bucket.delete',
         level: 'info',
         system: req.system._id,
         actor: req.account && req.account._id,
         bucket: bucket._id,
     });
-    return P.when(db.ObjectMD.aggregate_objects({
+    return P.when(md_store.aggregate_objects({
             system: req.system._id,
             bucket: bucket._id,
             deleted: null,
@@ -430,7 +406,7 @@ function delete_cloud_sync(req) {
             });
         })
         .then((res) => {
-            db.ActivityLog.create({
+            ActivityLog.create({
                 event: 'bucket.remove_cloud_sync',
                 level: 'info',
                 system: req.system._id,
@@ -508,7 +484,7 @@ function set_cloud_sync(req) {
             });
         })
         .then((res) => {
-            db.ActivityLog.create({
+            ActivityLog.create({
                 event: 'bucket.set_cloud_sync',
                 level: 'info',
                 system: req.system._id,
@@ -540,9 +516,9 @@ function get_cloud_buckets(req) {
             accessKeyId: connection.access_key,
             secretAccessKey: connection.secret_key,
             httpOptions: {
-              agent: new https.Agent({
-                rejectUnauthorized: false,
-              })
+                agent: new https.Agent({
+                    rejectUnauthorized: false,
+                })
             }
         });
         return P.ninvoke(s3, "listBuckets");
@@ -613,3 +589,24 @@ function resolve_tiering_policy(req, policy_name) {
     }
     return tiering_policy;
 }
+
+
+// EXPORTS
+exports.new_bucket_defaults = new_bucket_defaults;
+exports.get_bucket_info = get_bucket_info;
+//Bucket Management
+exports.create_bucket = create_bucket;
+exports.read_bucket = read_bucket;
+exports.update_bucket = update_bucket;
+exports.delete_bucket = delete_bucket;
+exports.list_buckets = list_buckets;
+//exports.generate_bucket_access = generate_bucket_access;
+exports.list_bucket_s3_acl = list_bucket_s3_acl;
+exports.update_bucket_s3_acl = update_bucket_s3_acl;
+//Cloud Sync policies
+exports.get_cloud_sync_policy = get_cloud_sync_policy;
+exports.get_all_cloud_sync_policies = get_all_cloud_sync_policies;
+exports.delete_cloud_sync = delete_cloud_sync;
+exports.set_cloud_sync = set_cloud_sync;
+//Temporary - TODO: move to new server
+exports.get_cloud_buckets = get_cloud_buckets;

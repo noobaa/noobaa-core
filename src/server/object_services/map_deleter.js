@@ -1,16 +1,13 @@
 'use strict';
 
-var _ = require('lodash');
-var P = require('../../util/promise');
-var db = require('../db');
-var server_rpc = require('../server_rpc');
-var nodes_store = require('../node_services/nodes_store');
-var mongo_utils = require('../../util/mongo_utils');
-var dbg = require('../../util/debug_module')(__filename);
+const _ = require('lodash');
 
-
-exports.delete_object_mappings = delete_object_mappings;
-exports.agent_delete_call = agent_delete_call;
+const P = require('../../util/promise');
+const dbg = require('../../util/debug_module')(__filename);
+const md_store = require('./md_store');
+const server_rpc = require('../server_rpc');
+const nodes_store = require('../node_services/nodes_store');
+const mongo_utils = require('../../util/mongo_utils');
 
 
 /**
@@ -22,16 +19,16 @@ function delete_object_mappings(obj) {
     // find parts intersecting the [start,end) range
     var deleted_parts;
     var all_chunk_ids;
-    return P.when(db.ObjectPart.collection.find({
+    return P.when(md_store.ObjectPart.collection.find({
             system: obj.system,
             obj: obj._id,
             deleted: null,
         }).toArray())
-        .then(parts => mongo_utils.populate(parts, 'chunk', db.DataChunk))
+        .then(parts => mongo_utils.populate(parts, 'chunk', md_store.DataChunk))
         .then(parts => {
             deleted_parts = parts;
             //Mark parts as deleted
-            return db.ObjectPart.collection.updateMany({
+            return md_store.ObjectPart.collection.updateMany({
                 _id: {
                     $in: mongo_utils.uniq_ids(parts, '_id')
                 }
@@ -45,7 +42,7 @@ function delete_object_mappings(obj) {
             var chunks = _.map(deleted_parts, 'chunk');
             all_chunk_ids = mongo_utils.uniq_ids(chunks, '_id');
             //For every chunk, verify if its no longer referenced
-            return db.ObjectPart.collection.find({
+            return md_store.ObjectPart.collection.find({
                 chunk: {
                     $in: all_chunk_ids
                 },
@@ -71,12 +68,12 @@ function delete_object_mappings(obj) {
                 deleted: new Date()
             };
             return P.join(
-                db.DataChunk.collection.updateMany({
+                md_store.DataChunk.collection.updateMany({
                     _id: in_chunk_ids
                 }, {
                     $set: set_deleted_time
                 }),
-                db.DataBlock.collection.updateMany({
+                md_store.DataBlock.collection.updateMany({
                     chunk: in_chunk_ids
                 }, {
                     $set: set_deleted_time
@@ -93,7 +90,7 @@ function delete_object_mappings(obj) {
  */
 function delete_objects_from_agents(deleted_chunk_ids) {
     //Find the deleted data blocks and their nodes
-    P.when(db.DataBlock.collection.find({
+    P.when(md_store.DataBlock.collection.find({
             chunk: {
                 $in: deleted_chunk_ids
             },
@@ -133,3 +130,8 @@ function agent_delete_call(del_blocks, node_id) {
             'block_ids', block_ids.length, err);
     });
 }
+
+
+// EXPORTS
+exports.delete_object_mappings = delete_object_mappings;
+exports.agent_delete_call = agent_delete_call;

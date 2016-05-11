@@ -1,10 +1,3 @@
-/* jshint node:true */
-'use strict';
-
-var mongoose = require('mongoose');
-var Schema = mongoose.Schema;
-var types = mongoose.Schema.Types;
-
 /**
  *
  * OBJECT_PART SCHEMA
@@ -13,7 +6,13 @@ var types = mongoose.Schema.Types;
  * allows to share data chunks between objects.
  *
  */
-var object_part_schema = new Schema({
+'use strict';
+
+const mongoose = require('mongoose');
+const Schema = mongoose.Schema;
+const types = mongoose.Schema.Types;
+
+const object_part_schema = new Schema({
 
     system: {
         // ref: 'System',

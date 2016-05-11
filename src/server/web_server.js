@@ -37,19 +37,19 @@ var express_cookie_parser = require('cookie-parser');
 var express_cookie_session = require('cookie-session');
 var express_method_override = require('method-override');
 var P = require('../util/promise');
-var db = require('../server/db');
 var dbg = require('../util/debug_module')(__filename);
 var pem = require('../util/pem');
 var pkg = require('../../package.json');
 var config = require('../../config.js');
 var time_utils = require('../util/time_utils');
 var mongo_client = require('../util/mongo_client').get_instance();
+var mongoose_utils = require('../util/mongoose_utils');
 
 var rootdir = path.join(__dirname, '..', '..');
 var dev_mode = (process.env.DEV_MODE === 'true');
 
 dbg.set_process_name('WebServer');
-db.mongoose_connect();
+mongoose_utils.mongoose_connect();
 mongo_client.connect();
 
 // create express app

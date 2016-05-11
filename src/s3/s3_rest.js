@@ -1,15 +1,17 @@
 'use strict';
 
-let _ = require('lodash');
-let P = require('../util/promise');
-let dbg = require('../util/debug_module')(__filename);
-let s3_util = require('../util/s3_utils');
-let s3_errors = require('./s3_errors');
-let express = require('express');
-let moment = require('moment');
-let xml_utils = require('../util/xml_utils');
-//var S3Auth = require('aws-sdk/lib/signers/s3');
-//var s3_auth = new S3Auth();
+const _ = require('lodash');
+const moment = require('moment');
+const express = require('express');
+
+const P = require('../util/promise');
+const dbg = require('../util/debug_module')(__filename);
+const s3_util = require('../util/s3_utils');
+const s3_errors = require('./s3_errors');
+const xml_utils = require('../util/xml_utils');
+
+//const S3Auth = require('aws-sdk/lib/signers/s3');
+//const s3_auth = new S3Auth();
 
 const S3_XML_ATTRS = Object.freeze({
     xmlns: 'http://doc.s3.amazonaws.com/2006-03-01'
@@ -47,7 +49,6 @@ const RPC_ERRORS_TO_S3 = Object.freeze({
     IF_NONE_MATCH_ETAG: s3_errors.PreconditionFailed,
 });
 
-module.exports = s3_rest;
 
 function s3_rest(controller) {
 
@@ -421,3 +422,6 @@ function handle_testme(req, res, next) {
         next();
     }
 }
+
+// EXPORTS
+module.exports = s3_rest;

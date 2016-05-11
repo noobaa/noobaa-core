@@ -1,10 +1,3 @@
-/* jshint node:true */
-'use strict';
-
-var mongoose = require('mongoose');
-var Schema = mongoose.Schema;
-var types = mongoose.Schema.Types;
-
 /**
  *
  * DATA_CHUNK SCHEMA
@@ -14,7 +7,13 @@ var types = mongoose.Schema.Types;
  * chunks are mapped by partitioning to k data blocks.
  *
  */
-var data_chunk_schema = new Schema({
+'use strict';
+
+const mongoose = require('mongoose');
+const Schema = mongoose.Schema;
+const types = mongoose.Schema.Types;
+
+const data_chunk_schema = new Schema({
 
     // system is copied from the tier
     system: {

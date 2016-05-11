@@ -1,40 +1,24 @@
-'use strict';
-
-var _ = require('lodash');
-// var P = require('../../util/promise');
-var dbg = require('../../util/debug_module')(__filename);
-var system_store = require('../system_services/system_store').get_instance();
-var nodes_store = require('../node_services/nodes_store');
-var size_utils = require('../../util/size_utils');
-var config = require('../../../config');
-var db = require('../db');
-// var child_process = require('child_process');
-var P = require('../../util/promise');
-var os = require('os');
-var SupervisorCtl = require('../utils/supervisor_ctrl');
-var server_rpc = require('../server_rpc');
-
-
 /**
  *
  * POOL_SERVER
  *
  */
-var pool_server = {
-    new_pool_defaults: new_pool_defaults,
-    get_pool_info: get_pool_info,
-    create_pool: create_pool,
-    create_cloud_pool: create_cloud_pool,
-    update_pool: update_pool,
-    list_pool_nodes: list_pool_nodes,
-    read_pool: read_pool,
-    delete_pool: delete_pool,
-    delete_cloud_pool: delete_cloud_pool,
-    assign_nodes_to_pool: assign_nodes_to_pool,
-    get_associated_buckets: get_associated_buckets,
-};
+'use strict';
 
-module.exports = pool_server;
+const _ = require('lodash');
+const os = require('os');
+// const child_process = require('child_process');
+
+const P = require('../../util/promise');
+const dbg = require('../../util/debug_module')(__filename);
+const config = require('../../../config');
+const size_utils = require('../../util/size_utils');
+const server_rpc = require('../server_rpc');
+const ActivityLog = require('../analytic_services/activity_log');
+const nodes_store = require('../node_services/nodes_store');
+const system_store = require('../system_services/system_store').get_instance();
+const SupervisorCtl = require('../utils/supervisor_ctrl');
+
 
 function new_pool_defaults(name, system_id) {
     return {
@@ -63,7 +47,7 @@ function create_pool(req) {
             return _assign_nodes_to_pool(req.system._id, pool._id, nodes);
         })
         .then((res) => {
-            db.ActivityLog.create({
+            ActivityLog.create({
                 event: 'pool.create',
                 level: 'info',
                 system: req.system._id,
@@ -102,7 +86,7 @@ function create_cloud_pool(req) {
         })
         .then(() => {
             // TODO: should we add different event for cloud pool?
-            db.ActivityLog.create({
+            ActivityLog.create({
                 event: 'pool.create',
                 level: 'info',
                 system: req.system._id,
@@ -183,7 +167,7 @@ function delete_pool(req) {
             });
         })
         .then((res) => {
-            db.ActivityLog.create({
+            ActivityLog.create({
                 event: 'pool.delete',
                 level: 'info',
                 system: req.system._id,
@@ -225,7 +209,7 @@ function delete_cloud_pool(req) {
             }
         }))
         .then((res) => {
-            db.ActivityLog.create({
+            ActivityLog.create({
                 event: 'pool.delete',
                 level: 'info',
                 system: req.system._id,
@@ -254,7 +238,7 @@ function _assign_nodes_to_pool(system_id, pool_id, nodes_names) {
 function assign_nodes_to_pool(req) {
     dbg.log0('Adding nodes to pool', req.rpc_params.name, 'nodes', req.rpc_params.nodes);
     var pool = find_pool_by_name(req);
-    db.ActivityLog.create({
+    ActivityLog.create({
         event: 'pool.assign_nodes',
         level: 'info',
         system: req.system._id,
@@ -347,3 +331,17 @@ function check_cloud_pool_deletion(pool) {
         return 'IN_USE';
     }
 }
+
+
+// EXPORTS
+exports.new_pool_defaults = new_pool_defaults;
+exports.get_pool_info = get_pool_info;
+exports.create_pool = create_pool;
+exports.create_cloud_pool = create_cloud_pool;
+exports.update_pool = update_pool;
+exports.list_pool_nodes = list_pool_nodes;
+exports.read_pool = read_pool;
+exports.delete_pool = delete_pool;
+exports.delete_cloud_pool = delete_cloud_pool;
+exports.assign_nodes_to_pool = assign_nodes_to_pool;
+exports.get_associated_buckets = get_associated_buckets;

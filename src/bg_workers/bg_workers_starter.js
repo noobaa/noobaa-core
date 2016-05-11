@@ -19,19 +19,19 @@ require('../util/panic');
 
 var _ = require('lodash');
 var url = require('url');
-var db = require('../server/db');
 var dbg = require('../util/debug_module')(__filename);
 var scrubber = require('../server/bg_services/scrubber');
 var server_rpc = require('../server/server_rpc');
 var cloud_sync = require('../server/bg_services/cloud_sync');
 var system_store = require('../server/system_services/system_store').get_instance();
 var mongo_client = require('../util/mongo_client').get_instance();
+var mongoose_utils = require('../util/mongoose_utils');
 var promise_utils = require('../util/promise_utils');
 var account_server = require('../server/system_services/account_server');
 
 
 dbg.set_process_name('BGWorkers');
-db.mongoose_connect();
+mongoose_utils.mongoose_connect();
 mongo_client.connect();
 system_store.on('load', account_server.ensure_support_account);
 register_rpc();

@@ -1,13 +1,3 @@
-/* jshint node:true */
-'use strict';
-
-var _ = require('lodash');
-var mongoose = require('mongoose');
-var Schema = mongoose.Schema;
-var types = mongoose.Schema.Types;
-var mongo_functions = require('../../util/mongo_functions');
-
-
 /**
  *
  * OBJECT_MD SCHEMA
@@ -15,7 +5,13 @@ var mongo_functions = require('../../util/mongo_functions');
  * the object meta-data (aka inode).
  *
  */
-var objmd_schema = new Schema({
+'use strict';
+
+const mongoose = require('mongoose');
+const Schema = mongoose.Schema;
+const types = mongoose.Schema.Types;
+
+const objmd_schema = new Schema({
 
     system: {
         // ref: 'System',
@@ -107,31 +103,5 @@ objmd_schema.index({
 }, {
     unique: false
 });
-
-/**
- *
- * aggregate_objects
- *
- * counts the number of objects and sum of sizes, both for the entire query, and per bucket.
- *
- * @return <Object> buckets - the '' key represents the entire query and others are bucket ids.
- *      each bucket value is an object with properties: size, count.
- *
- */
-objmd_schema.statics.aggregate_objects = function(query) {
-    return this.mapReduce({
-        query: query,
-        map: mongo_functions.map_aggregate_objects,
-        reduce: mongo_functions.reduce_sum
-    }).then(function(res) {
-        var buckets = {};
-        _.each(res, function(r) {
-            var b = buckets[r._id[0]] = buckets[r._id[0]] || {};
-            b[r._id[1]] = r.value;
-        });
-        return buckets;
-    });
-};
-
 
 module.exports = mongoose.model('ObjectMD', objmd_schema);

@@ -84,6 +84,7 @@ function create_node(req) {
                 event: 'node.create',
                 node: node._id,
                 actor: req.account && req.account._id,
+                desc: `${node.name} was added by ${req.account && req.account.email}`,
             });
             var account_id = '';
             if (req.account) {
@@ -499,11 +500,15 @@ function max_node_capacity(req) {
  */
 function get_test_nodes(req) {
     var count = req.rpc_params.count;
+    var source = req.rpc_params.source;
     var minimum_online_heartbeat = nodes_store.get_minimum_online_heartbeat();
     return nodes_store.count_nodes({
             system: req.system._id,
             heartbeat: {
                 $gt: minimum_online_heartbeat
+            },
+            rpc_address: {
+                $ne: source
             },
             deleted: null,
         })
@@ -514,6 +519,9 @@ function get_test_nodes(req) {
                 system: req.system._id,
                 heartbeat: {
                     $gt: minimum_online_heartbeat
+                },
+                rpc_address: {
+                    $ne: source
                 },
                 deleted: null,
             }, {
@@ -526,15 +534,32 @@ function get_test_nodes(req) {
                 limit: count
             });
         })
-        .then((res) => {
-            db.ActivityLog.create({
-                system: req.system._id,
-                actor: req.account && req.account._id,
-                level: 'info',
-                event: 'node.test_node'
-            });
-            return res;
-        });
+        .then(test_nodes => {
+            return nodes_store.find_nodes({
+                    system: req.system._id,
+                    rpc_address: {
+                        $eq: source
+                    },
+                    deleted: null,
+                }, {
+                    fields: {
+                        _id: 0,
+                        name: 1,
+                    },
+                    limit: 1
+                })
+                .then(res_node => {
+                    db.ActivityLog.create({
+                        system: req.system._id,
+                        actor: req.account && req.account._id,
+                        level: 'info',
+                        event: 'node.test_node',
+                        node: res_node._id,
+                        desc: `${res_node && res_node[0].name} was tested by ${req.account && req.account.email}`,
+                    });
+                    return test_nodes;
+                })
+        })
 }
 
 // UTILS //////////////////////////////////////////////////////////

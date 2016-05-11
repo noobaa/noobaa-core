@@ -12,12 +12,6 @@ const configTypes =  Object.freeze([
     { label: 'Network Time (NTP)', value: 'NTP' }
 ]);
 
-function timezoneSearchSelector({ label }, input) {
-    return !!label.toLowerCase().match(
-        new RegExp(`\\b${input.replace('/', '\\/')}`)
-    );
-}
-
 class ServerTimeFormViewModel {
     constructor() {
         this.expanded = ko.observable(false);
@@ -156,7 +150,11 @@ class ServerTimeFormViewModel {
             ntpServer: this.ntpServer
         });
 
-        this.timezoneSearchSelector = timezoneSearchSelector;
+        this.matchByTimezoneName = function({ label }, input) {
+            return !!label.toLowerCase().match(
+            new RegExp(`\\b${input.replace('/', '\\/')}`)
+        );
+};
     }
 
     applyChanges() {

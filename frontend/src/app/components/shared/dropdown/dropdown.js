@@ -5,7 +5,7 @@ import { isDefined } from 'utils';
 
 const INPUT_THROTTLE = 1000;
 
-function defaultSearchSelector({ label }, input) {
+function matchByPrefix({ label }, input) {
     return label.toString().toLowerCase().startsWith(input);
 }
 
@@ -15,7 +15,7 @@ class DropdownViewModel {
         options = [], 
         placeholder = '', 
         disabled = false,
-        searchSelector = defaultSearchSelector
+        matchOperator = matchByPrefix
     }) {
         this.name = randomString(5);
         this.options = options;
@@ -47,19 +47,60 @@ class DropdownViewModel {
             }
         );
 
-        this.searchSelector = searchSelector;
+        this.matchOperator = matchOperator;
         this.searchInput = '';
         this.lastInput = 0;
     }
 
-    scrollTo({ which }) {
-        let char = String.fromCharCode(which).toLowerCase();
+    handleKeyPress({ which }) {
+        switch(which) {
+            case 9: /* tab */
+            case 13: /* enter */
+                this.searchInput = '';
+                this.active(false);
+
+                break;
+
+            case 38: /* up arrow */
+                this.active(true);
+                this.selectPrevOption();
+                break;
+
+            case 40: /* down arrow */
+                this.active(true);
+                this.selectNextOption()
+                break;
+
+            default:
+                this.sreachBy(which);
+                break;
+        }
+
+        return true;
+    }
+
+    selectPrevOption() {
+        let options = ko.unwrap(this.options);
+        let prev = options[Math.max(this.selectedIndex() - 1, 0)];
+        this.selected(prev.value);
+        this.searchInput = ''; 
+    }
+
+    selectNextOption() {
+        let options = ko.unwrap(this.options);
+        let next = options[Math.min(this.selectedIndex() + 1, options.length - 1)];
+        this.selected(next.value);
+        this.searchInput = '';
+    }
+
+    sreachBy(keyCode) {
+        let char = String.fromCharCode(keyCode).toLowerCase();
         this.searchInput = Date.now() - this.lastInput <= INPUT_THROTTLE ?
             this.searchInput + char : 
             char;
 
         let option = ko.unwrap(this.options).find(
-            option => this.searchSelector(option, this.searchInput)
+            option => this.matchOperator(option, this.searchInput)
         );
 
         if (option) {

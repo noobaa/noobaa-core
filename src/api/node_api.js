@@ -447,13 +447,14 @@ module.exports = {
         collect_agent_diagnostics: {
             method: 'GET',
             params: {
-                type: 'object',
-                required: ['target'],
+                //type: 'object',
+                $ref: '#/definitions/node_full_info',
+                /*required: ['target'],
                 properties: {
                     target: {
                         type: 'string'
                     }
-                },
+                },*/
             },
             reply: {
                 type: 'string',
@@ -503,10 +504,13 @@ module.exports = {
             method: 'GET',
             params: {
                 type: 'object',
-                required: ['count'],
+                required: ['count', 'source'],
                 properties: {
                     count: {
                         type: 'integer',
+                    },
+                    source: {
+                        type: 'string',
                     },
                 }
             },

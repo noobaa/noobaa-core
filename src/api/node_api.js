@@ -172,6 +172,31 @@ module.exports = {
                                 type: 'string',
                                 enum: ['online', 'offline']
                             },
+                            filter: {
+                                type: 'string'
+                            },
+                            trust_level: {
+                                type: 'string',
+                                enum: ['TRUSTED', 'UNTRUSTED']
+                            },
+                            accessibility: {
+                                type: 'string',
+                                enum: ['FULL_ACCESS', 'READ_ONLY', 'NO_ACCESS']
+                            },
+                            data_activity: {
+                                type: 'object',
+                                properties: {
+                                    EVACUATING: {
+                                        type: 'boolean'
+                                    },
+                                    REBUILDING: {
+                                        type: 'boolean'
+                                    },
+                                    MIGRATING: {
+                                        type: 'boolean'
+                                    }
+                                }
+                            },
                         }
                     },
                     skip: {
@@ -189,7 +214,8 @@ module.exports = {
                     },
                     order: {
                         type: 'integer',
-                    },
+                    }
+
                 }
             },
             reply: {

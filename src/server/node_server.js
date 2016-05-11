@@ -232,6 +232,16 @@ function list_nodes(req) {
 function list_nodes_int(system_id, query, skip, limit, pagination, sort, order, req) {
     var info;
     var sort_opt = {};
+    var minimum_online_heartbeat = nodes_store.get_minimum_online_heartbeat();
+    var offline_or_conditions = [{
+        srvmode: {
+            $exists: true
+        }
+    }, {
+        heartbeat: {
+            $lte: minimum_online_heartbeat
+        }
+    }];
     return P.fcall(function() {
             info = {
                 system: system_id,
@@ -248,8 +258,101 @@ function list_nodes_int(system_id, query, skip, limit, pagination, sort, order, 
             if (query.geolocation) {
                 info.geolocation = new RegExp(query.geolocation);
             }
+            if (query.accessibility) {
+                switch (query.accessibility) {
+                    case 'FULL_ACCESS':
+                        info.srvmode = null;
+                        info.heartbeat = {
+                            $gt: minimum_online_heartbeat
+                        };
+                        info['storage.free'] =  {
+                                $gt: config.NODES_FREE_SPACE_RESERVE
+                        };
+                        break;
+                    case 'READ_ONLY':
+                        info.srvmode = null;
+                        info.heartbeat = {
+                            $gt: minimum_online_heartbeat
+                        };
+                        info['storage.free'] =  {
+                            $lt: config.NODES_FREE_SPACE_RESERVE
+                        };
+                        break;
+                    case 'NO_ACCESS':
+                        if (info.$or) {
+                            info.$and = [{
+                                $or: info.$or
+                            }, {
+                                $or: offline_or_conditions
+                            }];
+                            delete info.$or;
+                        } else {
+                            info.$or = offline_or_conditions;
+                        }
+                        break;
+                }
+            }
+            //mock up - TODO: replace with real state.
+            if (query.filter) {
+                info.$or = [{
+                    'name': new RegExp(query.filter, 'i')
+                }, {
+                    'ip': new RegExp(string_utils.escapeRegExp(query.filter), 'i')
+                }];
+            }
+            //mock up - TODO: replace with real state.
+            if (query.trust_level) {
+                switch (query.trust_level) {
+                    case 'TRUSTED':
+                        info.geolocation = 'Ireland';
+
+                        break;
+                    case 'UNTRUSTED':
+                        info.geolocation = {
+                            $ne: 'Ireland'
+                        };
+                        break;
+                }
+            }
+            //mock up - TODO: replace with real state.
+            if (query.data_activity) {
+                switch (query.data_activity) {
+                    case 'EVACUATING':
+                        if (info.$or) {
+                            info.$and = [{
+                                $or: info.$or
+                            }, {
+                                $or: offline_or_conditions
+                            }];
+                            delete info.$or;
+                        } else {
+                            info.$or = offline_or_conditions;
+                        }
+                        break;
+                    case 'REBUILDING':
+                        info.srvmode = null;
+                        info.heartbeat = {
+                            $gt: minimum_online_heartbeat
+                        };
+                        info['storage.free'] =  {
+                            $gt: config.NODES_FREE_SPACE_RESERVE
+                        };
+                        break;
+                    case 'MIGRATING':
+                        if (info.$or) {
+                            info.$and = [{
+                                $or: info.$or
+                            }, {
+                                $or: offline_or_conditions
+                            }];
+                            delete info.$or;
+                        } else {
+                            info.$or = offline_or_conditions;
+                        }
+                        break;
+                }
+            }
             if (query.state) {
-                var minimum_online_heartbeat = nodes_store.get_minimum_online_heartbeat();
                 switch (query.state) {
                     case 'online':
                         info.srvmode = null;
@@ -258,15 +361,6 @@ function list_nodes_int(system_id, query, skip, limit, pagination, sort, order, 
                         };
                         break;
                     case 'offline':
-                        var offline_or_conditions = [{
-                            srvmode: {
-                                $exists: true
-                            }
-                        }, {
-                            heartbeat: {
-                                $lte: minimum_online_heartbeat
-                            }
-                        }];
                         // merge with previous $or condition
                         if (info.$or) {
                             info.$and = [{
@@ -296,6 +390,7 @@ function list_nodes_int(system_id, query, skip, limit, pagination, sort, order, 
                     $in: pools_ids
                 };
             }
+            dbg.log0("ETET nodes", info);
             return P.join(
                 nodes_store.find_nodes(info, {
                     sort: sort_opt,

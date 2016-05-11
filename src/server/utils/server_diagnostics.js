@@ -44,6 +44,12 @@ function collect_server_diagnostics(req) {
             return promise_utils.promised_exec('lsof &> ' + TMP_WORK_DIR + '/lsof.out', true);
         })
         .then(function() {
+            return promise_utils.promised_exec('chkconfig &> ' + TMP_WORK_DIR + '/chkconfig.out', true);
+        })
+        .then(function() {
+            return collect_ntp_diagnostics();
+        })
+        .then(function() {
             if (stats_aggregator) {
                 return stats_aggregator.get_all_stats(req);
             } else {
@@ -76,6 +82,23 @@ function pack_diagnostics(dst) {
 
 function write_agent_diag_file(data) {
     return base_diagnostics.write_agent_diag_file(data);
+}
+
+function collect_ntp_diagnostics() {
+    let ntp_diag = TMP_WORK_DIR + '/ntp.diag';
+    return promise_utils.promised_exec('echo "### NTP diagnostics ###" >' + ntp_diag, true)
+        .then(() => promise_utils.promised_exec('echo "\ncontent of /etc/ntp.conf:" &>>' + ntp_diag, true))
+        .then(() => promise_utils.promised_exec('cat /etc/ntp.conf &>>' + ntp_diag, true))
+        .then(() => promise_utils.promised_exec('echo "\n\n" &>>' + ntp_diag, true))
+        .then(() => promise_utils.promised_exec('ls -l /etc/localtime &>>' + ntp_diag, true))
+        .then(() => promise_utils.promised_exec('echo "\n\nntpstat:" &>>' + ntp_diag, true))
+        .then(() => promise_utils.promised_exec('ntpstat &>>' + ntp_diag, true))
+        .then(() => promise_utils.promised_exec('echo "\n\ndate:" &>>' + ntp_diag, true))
+        .then(() => promise_utils.promised_exec('date &>>' + ntp_diag, true))
+        .then(() => promise_utils.promised_exec('echo "\n\nntpdate:" &>>' + ntp_diag, true))
+        .then(() => promise_utils.promised_exec('ntpdate &>>' + ntp_diag, true))
+        .then(() => promise_utils.promised_exec('echo "\n\nntptime:" &>>' + ntp_diag, true))
+        .then(() => promise_utils.promised_exec('ntptime &>>' + ntp_diag, true))
 }
 
 //Collect supervisor logs, only do so on linux platforms and not on OSX (WA for local server run)

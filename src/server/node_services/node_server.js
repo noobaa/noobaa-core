@@ -62,6 +62,7 @@ function create_node(req) {
                 event: 'node.create',
                 node: node._id,
                 actor: req.account && req.account._id,
+                desc: `${node.name} was added by ${req.account && req.account.email}`,
             });
             var account_id = '';
             if (req.account) {
@@ -166,6 +167,16 @@ function list_nodes(req) {
 function list_nodes_int(system_id, query, skip, limit, pagination, sort, order, req) {
     var info;
     var sort_opt = {};
+    var minimum_online_heartbeat = nodes_store.get_minimum_online_heartbeat();
+    var offline_or_conditions = [{
+        srvmode: {
+            $exists: true
+        }
+    }, {
+        heartbeat: {
+            $lte: minimum_online_heartbeat
+        }
+    }];
     return P.fcall(function() {
             info = {
                 system: system_id,
@@ -182,8 +193,101 @@ function list_nodes_int(system_id, query, skip, limit, pagination, sort, order, 
             if (query.geolocation) {
                 info.geolocation = new RegExp(query.geolocation);
             }
+            if (query.accessibility) {
+                switch (query.accessibility) {
+                    case 'FULL_ACCESS':
+                        info.srvmode = null;
+                        info.heartbeat = {
+                            $gt: minimum_online_heartbeat
+                        };
+                        info['storage.free'] =  {
+                                $gt: config.NODES_FREE_SPACE_RESERVE
+                        };
+                        break;
+                    case 'READ_ONLY':
+                        info.srvmode = null;
+                        info.heartbeat = {
+                            $gt: minimum_online_heartbeat
+                        };
+                        info['storage.free'] =  {
+                            $lt: config.NODES_FREE_SPACE_RESERVE
+                        };
+                        break;
+                    case 'NO_ACCESS':
+                        if (info.$or) {
+                            info.$and = [{
+                                $or: info.$or
+                            }, {
+                                $or: offline_or_conditions
+                            }];
+                            delete info.$or;
+                        } else {
+                            info.$or = offline_or_conditions;
+                        }
+                        break;
+                }
+            }
+            //mock up - TODO: replace with real state.
+            if (query.filter) {
+                info.$or = [{
+                    'name': new RegExp(query.filter, 'i')
+                }, {
+                    'ip': new RegExp(string_utils.escapeRegExp(query.filter), 'i')
+                }];
+            }
+            //mock up - TODO: replace with real state.
+            if (query.trust_level) {
+                switch (query.trust_level) {
+                    case 'TRUSTED':
+                        info.geolocation = 'Ireland';
+
+                        break;
+                    case 'UNTRUSTED':
+                        info.geolocation = {
+                            $ne: 'Ireland'
+                        };
+                        break;
+                }
+            }
+            //mock up - TODO: replace with real state.
+            if (query.data_activity) {
+                switch (query.data_activity) {
+                    case 'EVACUATING':
+                        if (info.$or) {
+                            info.$and = [{
+                                $or: info.$or
+                            }, {
+                                $or: offline_or_conditions
+                            }];
+                            delete info.$or;
+                        } else {
+                            info.$or = offline_or_conditions;
+                        }
+                        break;
+                    case 'REBUILDING':
+                        info.srvmode = null;
+                        info.heartbeat = {
+                            $gt: minimum_online_heartbeat
+                        };
+                        info['storage.free'] =  {
+                            $gt: config.NODES_FREE_SPACE_RESERVE
+                        };
+                        break;
+                    case 'MIGRATING':
+                        if (info.$or) {
+                            info.$and = [{
+                                $or: info.$or
+                            }, {
+                                $or: offline_or_conditions
+                            }];
+                            delete info.$or;
+                        } else {
+                            info.$or = offline_or_conditions;
+                        }
+                        break;
+                }
+            }
             if (query.state) {
-                var minimum_online_heartbeat = nodes_store.get_minimum_online_heartbeat();
                 switch (query.state) {
                     case 'online':
                         info.srvmode = null;
@@ -192,15 +296,6 @@ function list_nodes_int(system_id, query, skip, limit, pagination, sort, order, 
                         };
                         break;
                     case 'offline':
-                        var offline_or_conditions = [{
-                            srvmode: {
-                                $exists: true
-                            }
-                        }, {
-                            heartbeat: {
-                                $lte: minimum_online_heartbeat
-                            }
-                        }];
                         // merge with previous $or condition
                         if (info.$or) {
                             info.$and = [{
@@ -230,6 +325,7 @@ function list_nodes_int(system_id, query, skip, limit, pagination, sort, order, 
                     $in: pools_ids
                 };
             }
+            dbg.log0("ETET nodes", info);
             return P.join(
                 nodes_store.find_nodes(info, {
                     sort: sort_opt,
@@ -285,11 +381,15 @@ function max_node_capacity(req) {
  */
 function get_test_nodes(req) {
     var count = req.rpc_params.count;
+    var source = req.rpc_params.source;
     var minimum_online_heartbeat = nodes_store.get_minimum_online_heartbeat();
     return nodes_store.count_nodes({
             system: req.system._id,
             heartbeat: {
                 $gt: minimum_online_heartbeat
+            },
+            rpc_address: {
+                $ne: source
             },
             deleted: null,
         })
@@ -300,6 +400,9 @@ function get_test_nodes(req) {
                 system: req.system._id,
                 heartbeat: {
                     $gt: minimum_online_heartbeat
+                },
+                rpc_address: {
+                    $ne: source
                 },
                 deleted: null,
             }, {
@@ -312,14 +415,31 @@ function get_test_nodes(req) {
                 limit: count
             });
         })
-        .then((res) => {
-            ActivityLog.create({
-                system: req.system._id,
-                actor: req.account && req.account._id,
-                level: 'info',
-                event: 'node.test_node'
-            });
-            return res;
+        .then(test_nodes => {
+            return nodes_store.find_nodes({
+                    system: req.system._id,
+                    rpc_address: {
+                        $eq: source
+                    },
+                    deleted: null,
+                }, {
+                    fields: {
+                        _id: 0,
+                        name: 1,
+                    },
+                    limit: 1
+                })
+                .then(res_node => {
+                    ActivityLog.create({
+                        system: req.system._id,
+                        actor: req.account && req.account._id,
+                        level: 'info',
+                        event: 'node.test_node',
+                        node: res_node._id,
+                        desc: `${res_node && res_node[0].name} was tested by ${req.account && req.account.email}`,
+                    });
+                    return test_nodes;
+                });
         });
 }
 

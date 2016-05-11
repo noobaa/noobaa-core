@@ -63,9 +63,9 @@ mocha.describe('node_server', function() {
             }))
             .then(() => client.node.max_node_capacity())
             .then(() => client.node.list_nodes({}))
-            .then(nodes => console.log('NODES1', nodes))
-            .then(() => client.node.get_test_nodes({
-                count: 10
+            .then((res) => client.node.get_test_nodes({
+                    count: 10,
+                    source: res.nodes && res.nodes[0].rpc_address,
             }))
             .then(() => client.node.test_latency_to_server())
             .then(() => coretest.init_test_nodes(client, SYS, 3))
@@ -76,9 +76,10 @@ mocha.describe('node_server', function() {
                 target: nodes[0].rpc_address,
                 level: 0,
             }))
-            .then(() => client.node.collect_agent_diagnostics({
-                target: nodes[0].rpc_address,
-            }))
+            .then(() => client.node.collect_agent_diagnostics(nodes[0])) //{
+            //name: nodes[0].name,
+            //target: nodes[0].rpc_address,
+            //}))
             .then(() => client.node.redirect({
                 target: nodes[0].rpc_address,
                 request_params: {

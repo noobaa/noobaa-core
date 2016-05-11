@@ -1089,7 +1089,8 @@ export function testNode(source, testSet) {
 
     let { targetCount, testSettings } = config.nodeTest;
     api.node.get_test_nodes({
-        count: targetCount
+        count: targetCount,
+        source: source
     })
         .then(
             // Aggregate selected tests.
@@ -1302,7 +1303,7 @@ export function downloadNodeDiagnosticPack(nodeName) {
 
     api.node.read_node({ name: nodeName })
         .then(
-            node => api.node.collect_agent_diagnostics({ target: node.rpc_address })
+            node => api.node.collect_agent_diagnostics(node)
         )
         .then(
             url => downloadFile(url)

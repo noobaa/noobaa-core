@@ -114,6 +114,31 @@ module.exports = {
                                 type: 'string',
                                 enum: ['online', 'offline']
                             },
+                            filter: {
+                                type: 'string'
+                            },
+                            trust_level: {
+                                type: 'string',
+                                enum: ['TRUSTED', 'UNTRUSTED']
+                            },
+                            accessibility: {
+                                type: 'string',
+                                enum: ['FULL_ACCESS', 'READ_ONLY', 'NO_ACCESS']
+                            },
+                            data_activity: {
+                                type: 'object',
+                                properties: {
+                                    EVACUATING: {
+                                        type: 'boolean'
+                                    },
+                                    REBUILDING: {
+                                        type: 'boolean'
+                                    },
+                                    MIGRATING: {
+                                        type: 'boolean'
+                                    }
+                                }
+                            },
                         }
                     },
                     skip: {
@@ -131,7 +156,8 @@ module.exports = {
                     },
                     order: {
                         type: 'integer',
-                    },
+                    }
+
                 }
             },
             reply: {
@@ -308,13 +334,14 @@ module.exports = {
         collect_agent_diagnostics: {
             method: 'GET',
             params: {
-                type: 'object',
-                required: ['target'],
+                //type: 'object',
+                $ref: '#/definitions/node_full_info',
+                /*required: ['target'],
                 properties: {
                     target: {
                         type: 'string'
                     }
-                },
+                },*/
             },
             reply: {
                 type: 'string',
@@ -364,10 +391,13 @@ module.exports = {
             method: 'GET',
             params: {
                 type: 'object',
-                required: ['count'],
+                required: ['count', 'source'],
                 properties: {
                     count: {
                         type: 'integer',
+                    },
+                    source: {
+                        type: 'string',
                     },
                 }
             },

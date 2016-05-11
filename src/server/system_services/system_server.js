@@ -10,6 +10,7 @@ const url = require('url');
 const net = require('net');
 // const AWS = require('aws-sdk');
 //const crypto = require('crypto');
+const moment = require('moment');
 const ip_module = require('ip');
 
 const P = require('../../util/promise');
@@ -62,11 +63,11 @@ function new_system_defaults(name, owner_account_id) {
     return system;
 }
 
-function new_system_changes(name, owner_account_id) {
+function new_system_changes(name, owner_account) {
     const default_pool_name = 'default_pool';
     const default_bucket_name = 'files';
     const bucket_with_suffix = default_bucket_name + '#' + Date.now().toString(36);
-    var system = new_system_defaults(name, owner_account_id);
+    var system = new_system_defaults(name, owner_account._id);
     var pool = pool_server.new_pool_defaults(default_pool_name, system._id);
     var tier = tier_server.new_tier_defaults(bucket_with_suffix, system._id, [pool._id]);
     var policy = tier_server.new_policy_defaults(bucket_with_suffix, system._id, [{
@@ -76,7 +77,7 @@ function new_system_changes(name, owner_account_id) {
     var bucket = bucket_server.new_bucket_defaults(default_bucket_name, system._id, policy._id);
     var role = {
         _id: system_store.generate_id(),
-        account: owner_account_id,
+        account: owner_account._id,
         system: system._id,
         role: 'admin'
     };
@@ -85,7 +86,8 @@ function new_system_changes(name, owner_account_id) {
         event: 'conf.create_system',
         level: 'info',
         system: system._id,
-        actor: owner_account_id,
+        actor: owner_account._id,
+        desc: `${name} was created by ${owner_account && owner_account.email}`,
     });
 
     return {
@@ -108,7 +110,7 @@ function new_system_changes(name, owner_account_id) {
  */
 function create_system(req) {
     var name = req.rpc_params.name;
-    var changes = new_system_changes(name, req.account && req.account._id);
+    var changes = new_system_changes(name, req.account);
     return system_store.make_changes(changes)
         .then(function() {
             if (process.env.ON_PREMISE === 'true') {
@@ -456,9 +458,18 @@ function read_activity_log(req) {
                     l.node = _.pick(log_item.node, 'name');
                 }
 
+                if (log_item.desc) {
+                    l.desc = log_item.desc.split('\n');
+                }
+
                 let bucket = log_item.bucket && system_store.data.get_by_id(log_item.bucket);
                 if (bucket) {
                     l.bucket = _.pick(bucket, 'name');
+                }
+
+                let pool = log_item.pool && system_store.data.get_by_id(log_item.pool);
+                if (pool) {
+                    l.pool = _.pick(pool, 'name');
                 }
 
                 if (log_item.obj) {
@@ -493,20 +504,21 @@ function diagnose(req) {
     return P.fcall(function() {
             return diag.collect_server_diagnostics(req);
         })
-        .then((res) => {
-            ActivityLog.create({
-                event: 'conf.diagnose_system',
-                level: 'info',
-                system: req.system._id,
-                actor: req.account && req.account._id,
-            });
-            return res;
-        })
         .then(function() {
             return diag.pack_diagnostics(inner_path);
         })
         .then(function() {
             return out_path;
+        })
+        .then((res) => {
+            ActivityLog.create({
+                event: 'dbg.diagnose_system',
+                level: 'info',
+                system: req.system._id,
+                actor: req.account && req.account._id,
+                desc: `${req.system.name} diagnostics package was exported by ${req.account && req.account.email}`,
+            });
+            return res;
         })
         .then(null, function(err) {
             dbg.log0('Error while collecting diagnostics', err, err.stack);
@@ -529,6 +541,17 @@ function diagnose_with_agent(data, req) {
         })
         .then(function() {
             return out_path;
+        })
+        .then(res => {
+            ActivityLog.create({
+                event: 'dbg.diagnose_node',
+                level: 'info',
+                system: req.system && req.system._id,
+                actor: req.account && req.account._id,
+                node: req.rpc_params && req.rpc_params.id,
+                desc: `${req.rpc_params.name} diagnostics package was exported by ${req.account && req.account.email}`,
+            });
+            return res;
         })
         .then(null, function(err) {
             dbg.log0('Error while collecting diagnostics with agent', err, err.stack);
@@ -610,6 +633,7 @@ function update_n2n_config(req) {
 
 function update_base_address(req) {
     dbg.log0('update_base_address', req.rpc_params);
+    var prior_base_address = req.system && req.system.base_address;
     return system_store.make_changes({
             update: {
                 systems: [{
@@ -654,6 +678,7 @@ function update_base_address(req) {
                 level: 'info',
                 system: req.system,
                 actor: req.account && req.account._id,
+                desc: `DNS Address was changed from ${prior_base_address} to ${req.rpc_params.base_address}`,
             });
             return res;
         });
@@ -695,6 +720,22 @@ function update_time_config(req) {
             } else { //manual set
                 return os_utils.set_manual_time(req.rpc_params.epoch, config.timezone);
             }
+        })
+        .then((res) => {
+            let desc_string = [];
+            desc_string.push(`Date and Time was updated to ${req.rpc_params.config_type} time by ${req.account && req.account.email}`);
+            desc_string.push(`Timezone was set to ${req.rpc_params.timezone}`);
+            req.rpc_params.server && desc_string.push(`NTP server ${req.rpc_params.server}`);
+            let date = req.rpc_params.epoch && moment.unix(req.rpc_params.epoch).tz(req.rpc_params.timezone);
+            date && desc_string.push(`Date and Time set to ${date}`);
+            ActivityLog.create({
+                event: 'conf.server_date_time_updated',
+                level: 'info',
+                system: req.system,
+                actor: req.account && req.account._id,
+                desc: desc_string.join('\n'),
+            });
+            return res;
         });
 }
 

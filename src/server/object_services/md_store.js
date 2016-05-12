@@ -80,7 +80,7 @@ function load_blocks_for_chunks(chunks) {
             // and consider these blocks just like deleted blocks
             let orphan_blocks = _.remove(blocks,
                 block => !block.node || !block.node._id);
-            if (orphan_blocks) {
+            if (orphan_blocks.length) {
                 console.log('ORPHAN BLOCKS (ignoring)', orphan_blocks);
             }
             let blocks_by_chunk = _.groupBy(blocks, 'chunk');

@@ -41,7 +41,7 @@ function background_worker() {
                     $lt: self.last_chunk_id
                 };
             } else {
-                dbg.log0('BUILD_WORKER:', 'BEGIN');
+                dbg.log0('SCRUBBER:', 'BEGIN');
             }
             query.deleted = null;
 
@@ -67,23 +67,26 @@ function background_worker() {
             }
 
             if (chunks.length) {
-                dbg.log0('BUILD_WORKER:', 'WORKING ON', chunks.length, 'CHUNKS');
+                dbg.log0('SCRUBBER:', 'WORKING ON', chunks.length, 'CHUNKS');
                 let builder = new map_builder.MapBuilder(chunks);
-                return builder.run();
+                return builder.run()
+                    .catch(function(err) {
+                        dbg.error('SCRUBBER:', 'BUILD ERROR', err, err.stack);
+                    });
             }
         })
         .then(function() {
             // return the delay before next batch
             if (self.last_chunk_id) {
-                dbg.log0('BUILD_WORKER:', 'CONTINUE', self.last_chunk_id);
+                dbg.log0('SCRUBBER:', 'CONTINUE', self.last_chunk_id);
                 return 100;
             } else {
-                dbg.log0('BUILD_WORKER:', 'END');
+                dbg.log0('SCRUBBER:', 'END');
                 return 60000;
             }
         }, function(err) {
             // return the delay before next batch
-            dbg.error('BUILD_WORKER:', 'ERROR', err, err.stack);
+            dbg.error('SCRUBBER:', 'ERROR', err, err.stack);
             return 10000;
         });
 }

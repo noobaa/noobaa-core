@@ -50,15 +50,18 @@ function get_chunk_status(chunk, tiering, ignore_cloud_pools) {
     var replicas = chunk.is_special ? tier.replicas * SPECIAL_CHUNK_REPLICA_MULTIPLIER : tier.replicas;
     const now = Date.now();
 
-    let missing_frags = get_missing_frags_in_chunk(chunk, tier);
-    if (missing_frags && missing_frags.length) {
-        console.error('get_chunk_status: missing fragments', chunk, missing_frags);
-        throw new Error('get_chunk_status: missing fragments');
-    }
-
     let allocations = [];
     let deletions = [];
     let chunk_accessible = true;
+
+    let missing_frags = get_missing_frags_in_chunk(chunk, tier);
+    if (missing_frags && missing_frags.length) {
+        // for now just log the error and mark as not accessible,
+        // but no point in throwing as the caller
+        // will not know how to handle and what is wrong
+        console.error('get_chunk_status: missing fragments', chunk, missing_frags);
+        chunk_accessible = false;
+    }
 
     function check_blocks_group(blocks, alloc) {
         let required_replicas = replicas;

@@ -71,6 +71,7 @@ mocha.describe('semaphore', function() {
 
     mocha.it('should surround', function() {
         var sem;
+        var err = new Error();
         return P.fcall(function() {
             sem = new Semaphore(10);
             assert.strictEqual(sem.length, 0);
@@ -83,7 +84,7 @@ mocha.describe('semaphore', function() {
                 }), sem.surround(10, function() {
                     assert.strictEqual(sem.length, 1);
                     assert.strictEqual(sem.value, 0);
-                    throw 42;
+                    throw err;
                 }), sem.surround(4, function() {
                     assert.strictEqual(sem.length, 0);
                     assert.strictEqual(sem.value, 6);
@@ -94,7 +95,7 @@ mocha.describe('semaphore', function() {
             assert(results[0].isFulfilled());
             assert(results[0].value() === 11);
             assert(results[1].isRejected());
-            assert(results[1].reason() === 42);
+            assert(results[1].reason() === err);
             assert(results[2].isFulfilled());
             assert(results[2].value() === 22);
             assert.strictEqual(sem.length, 0);

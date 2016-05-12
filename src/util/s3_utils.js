@@ -22,25 +22,25 @@ module.exports = {
 
 
 var subResources = {
-    'acl': 1,
-    'cors': 1,
-    'lifecycle': 1,
-    'delete': 1,
-    'location': 1,
-    'logging': 1,
-    'notification': 1,
-    'partNumber': 1,
-    'policy': 1,
-    'requestPayment': 1,
-    'restore': 1,
-    'tagging': 1,
-    'torrent': 1,
-    'uploadId': 1,
-    'uploads': 1,
-    'versionId': 1,
-    'versioning': 1,
-    'versions': 1,
-    'website': 1
+    acl: 1,
+    cors: 1,
+    lifecycle: 1,
+    delete: 1,
+    location: 1,
+    logging: 1,
+    notification: 1,
+    partNumber: 1,
+    policy: 1,
+    requestPayment: 1,
+    restore: 1,
+    tagging: 1,
+    torrent: 1,
+    uploadId: 1,
+    uploads: 1,
+    versionId: 1,
+    versioning: 1,
+    versions: 1,
+    website: 1
 };
 
 function canonicalizedResource(request) {
@@ -191,8 +191,8 @@ function noobaa_string_to_sign_v4(req) {
 }
 
 function canonicalString(req) {
-    var parts = [],
-        pathname = req.path;
+    let parts = [];
+    let pathname = req.path;
     let querystr = queryParse(req);
     //console.warn('THE QUERRY STRING: ', querystr);
 
@@ -321,7 +321,7 @@ function queryParse(req) {
             querystring = [];
             s3_util.arrayEach(resources, function(res) {
                 if (res.value === undefined) {
-                    querystring.push(res.name + '=' + '');
+                    querystring.push(res.name + '=');
                 } else {
                     querystring.push(res.name + '=' + res.value);
                 }

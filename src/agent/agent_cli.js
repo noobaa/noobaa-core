@@ -21,7 +21,6 @@ var dbg = require('../util/debug_module')(__filename);
 var child_process = require('child_process');
 var S3Auth = require('aws-sdk/lib/signers/s3');
 var uuid = require('node-uuid');
-var os = require('os');
 var os_util = require('../util/os_util');
 
 module.exports = AgentCLI;
@@ -101,7 +100,7 @@ AgentCLI.prototype.init = function() {
     }
 
     // for now node name is passed only for internal agents.
-    self.params.internal_agent = !!self.params.node_name;
+    self.params.internal_agent = Boolean(self.params.node_name);
 
     return P.nfcall(fs.readFile, 'agent_conf.json')
         .then(function(data) {
@@ -273,11 +272,11 @@ AgentCLI.prototype.load = function() {
             var number_of_new_paths = 0;
             var existing_nodes_count = 0;
             _.each(storage_path_nodes, function(nodes) {
-                //assumes same amount of nodes per each HD. we will take the last one.
-                if (!nodes.length) {
-                    number_of_new_paths += 1;
-                } else {
+                // assumes same amount of nodes per each HD. we will take the last one.
+                if (nodes.length) {
                     existing_nodes_count = nodes.length;
+                } else {
+                    number_of_new_paths += 1;
                 }
             });
             // we create a new node for every new drive (detects as a storage path without nodes)
@@ -354,10 +353,8 @@ AgentCLI.prototype.create_node_helper = function(current_node_path_info, interna
 
         if (os.type().indexOf('Windows') >= 0) {
             node_name = node_name + '-' + current_node_path_info.drive_id.replace(':', '');
-        } else {
-            if (!_.isEmpty(path_modification)) {
-                node_name = node_name + '-' + path_modification.replace('/', '');
-            }
+        } else if (!_.isEmpty(path_modification)) {
+            node_name = node_name + '-' + path_modification.replace('/', '');
         }
         dbg.log0('create new node for node name', node_name, ' path:', node_path, ' token path:', token_path);
 
@@ -465,12 +462,10 @@ AgentCLI.prototype.create = function(number_of_nodes) {
                             return self.create_node_helper(self.params.all_storage_paths[0]);
                         }
                     });
+            } else if (number_of_nodes === 0) {
+                return;
             } else {
-                if (number_of_nodes === 0) {
-                    return;
-                } else {
-                    return self.create_node_helper(self.params.all_storage_paths[0]);
-                }
+                return self.create_node_helper(self.params.all_storage_paths[0]);
             }
         })
         .then(null, function(err) {

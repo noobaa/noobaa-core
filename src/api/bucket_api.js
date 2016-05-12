@@ -139,7 +139,7 @@ module.exports = {
         update_bucket_s3_acl: {
             method: 'PUT',
             params: {
-                type: 'object', 
+                type: 'object',
                 required: ['name', 'access_control'],
                 properties: {
                     name: {

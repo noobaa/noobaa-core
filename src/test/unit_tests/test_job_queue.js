@@ -1,6 +1,6 @@
 'use strict';
 
-// var _ = require('lodash');
+var _ = require('lodash');
 var P = require('../../util/promise');
 var mocha = require('mocha');
 var assert = require('assert');
@@ -11,7 +11,7 @@ mocha.describe('job_queue', function() {
 
     mocha.it('should create ok', function() {
         var q = new JobQueue();
-        q = q; // lint unused bypass
+        _.noop(q); // lint unused bypass
     });
 
 

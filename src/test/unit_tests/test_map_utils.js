@@ -3,7 +3,7 @@
 var _ = require('lodash');
 var mocha = require('mocha');
 var assert = require('assert');
-var map_utils = require('../../server/mapper/map_utils');
+var map_utils = require('../../server/object_services/map_utils');
 
 mocha.describe('map_utils', function() {
 

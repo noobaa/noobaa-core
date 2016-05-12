@@ -490,13 +490,11 @@ function add_region_instances(region_name, count, is_docker_host, number_of_dock
                     if (is_docker_host) {
                         startup_script = 'http://noobaa-download.s3.amazonaws.com/docker_setup.sh';
                         machine_type = 'https://www.googleapis.com/compute/v1/projects/' + NooBaaProject + '/zones/' + region_name + '/machineTypes/n1-highmem-8';
-                    } else {
-                        if (is_win) {
-                            disk_size = 50;
-                            startup_script = 'http://noobaa-download.s3.amazonaws.com/init_agent.bat';
-                            machine_type = 'https://www.googleapis.com/compute/v1/projects/' + NooBaaProject + '/zones/' + region_name + '/machineTypes/n1-highcpu-2';
-                            source_image = 'https://www.googleapis.com/compute/v1/projects/windows-cloud/global/images/windows-server-2012-r2-dc-v20150511';
-                        }
+                    } else if (is_win) {
+                        disk_size = 50;
+                        startup_script = 'http://noobaa-download.s3.amazonaws.com/init_agent.bat';
+                        machine_type = 'https://www.googleapis.com/compute/v1/projects/' + NooBaaProject + '/zones/' + region_name + '/machineTypes/n1-highcpu-2';
+                        source_image = 'https://www.googleapis.com/compute/v1/projects/windows-cloud/global/images/windows-server-2012-r2-dc-v20150511';
                     }
                     if (_.isUndefined(number_of_dockers)) {
                         number_of_dockers = 0;
@@ -505,7 +503,7 @@ function add_region_instances(region_name, count, is_docker_host, number_of_dock
                     if (router_address === "0.0.0.0" && is_docker_host) {
                         machine_type = 'https://www.googleapis.com/compute/v1/projects/' + NooBaaProject + '/zones/' + region_name + '/machineTypes/n1-highcpu-2';
                         instance_name = 'router-for-' + app_name.replace(/\./g, "-");
-                        disk_size=50;
+                        disk_size = 50;
                     } else {
                         instance_name = 'agent-instance-for-' + app_name.replace(/\./g, "-");
                     }
@@ -590,7 +588,7 @@ function add_region_instances(region_name, count, is_docker_host, number_of_dock
                             var instanceName = pieces_array[pieces_array.length - 1];
                             console.log('New instance name:' + JSON.stringify(instanceName));
 
-                            if (1 === 1) {
+                            if (true) {
                                 //waiting until the instance is running.
                                 //Disk dependecy can be added only after the instance is up and running.
                                 var interval = setInterval(function() {

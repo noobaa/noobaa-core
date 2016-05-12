@@ -48,10 +48,10 @@ function process_folder(dir) {
             }
         });
         if (!json_files.length && !license_files.length) return;
-        read_all_files(dir, json_files, function(err, res1) {
-            fatal_error(err);
-            read_all_files(dir, license_files, function(err, res2) {
-                fatal_error(err);
+        read_all_files(dir, json_files, function(err1, res1) {
+            fatal_error(err1);
+            read_all_files(dir, license_files, function(err2, res2) {
+                fatal_error(err2);
                 dbg('Process', dir);
                 var pkg = {
                     licenses: [],
@@ -219,9 +219,8 @@ function detect_license_text(input_text, name) {
     if (best_distance < 0.50 * input_index.words.length) {
         dbg('Detected by distance', best_distance, best_license, '@', name);
         return best_license;
-    } else {
-        dbg('Could not detect by distance', best_distance, best_license, '@', name);
     }
+    dbg('Could not detect by distance', best_distance, best_license, '@', name);
 }
 
 function init_detectable_licenses() {
@@ -300,7 +299,9 @@ function levenshtein_distance(s, t, stop_marker) {
     // initialize v0 (the previous row of distances)
     // this row is A[0][i]: edit distance for an empty s
     // the distance is just the number of characters to delete from t
-    for (var i = 0; i < v0.length; ++i) {
+    var i;
+    var j;
+    for (i = 0; i < v0.length; ++i) {
         v0[i] = i;
     }
 
@@ -312,7 +313,7 @@ function levenshtein_distance(s, t, stop_marker) {
         v1[0] = i + 1;
 
         // use formula to fill in the rest of the row
-        for (var j = 0; j < t.length; ++j) {
+        for (j = 0; j < t.length; ++j) {
             var cost = (s[i] === t[j]) ? 0 : 1;
             v1[j + 1] = Math.min(v1[j] + 1, v0[j + 1] + 1, v0[j] + cost);
         }

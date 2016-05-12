@@ -123,7 +123,7 @@ class LinkedList {
         }
 
         var cur = this.get_front();
-        var str = '' + cur;
+        var str = String(cur);
         while (cur) {
             cur = this.get_next(cur);
             str += ', ' + cur;

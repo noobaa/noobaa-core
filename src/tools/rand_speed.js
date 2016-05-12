@@ -37,8 +37,12 @@ function main() {
         let gzip = zlib.createGzip();
         let plain_size = 0;
         let compressed_size = 0;
-        input.on('data', data => plain_size += data.length);
-        gzip.on('data', data => compressed_size += data.length);
+        input.on('data', data => {
+            plain_size += data.length;
+        });
+        gzip.on('data', data => {
+            compressed_size += data.length;
+        });
         input.pipe(gzip);
         setInterval(() => {
             console.log('GZIP Compressed-vs-Data ratio:',

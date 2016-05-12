@@ -8,7 +8,7 @@ module.exports = {
     quick_parse: quick_parse,
 };
 
-var QUICK_PARSE_REGEXP = /^\s*(\w+\:)?(\/\/)?(([^:/\[\]]*)|\[([a-fA-F0-9:.]*)\])?(\:\d*)?(\/[^?#]*)?(\?[^\#]*)?(\#.*)?\s*$/;
+var QUICK_PARSE_REGEXP = /^\s*(\w+:)?(\/\/)?(([^:/\[\]]*)|\[([a-fA-F0-9:.]*)\])?(:\d*)?(\/[^?#]*)?(\?[^#]*)?(#.*)?\s*$/;
 
 /**
  * parse url string much faster than url.parse() - reduce the time to 1/10.
@@ -33,7 +33,7 @@ function quick_parse(url_string, parse_query_string) {
     u.pathname = match[7] || null;
     u.search = match[8] || '';
     u.query = match[8] ? match[8].slice(1) : null;
-    u.path = (match[7] + '') + (match[8] || '');
+    u.path = (match[7] || '') + (match[8] || '');
     u.hash = match[9] || null;
     // u.auth = null;
     if (parse_query_string && u.query) {
@@ -49,8 +49,8 @@ function benchmark() {
     var testing_url = process.argv[2] || "http://127.0.0.1:4545/";
     var url_parse_res = url.parse(testing_url, true);
     var quick_parse_res = quick_parse(testing_url, true);
-    console.log('\nurl.parse(\"' + testing_url + '\") = ', url_parse_res);
-    console.log('\nquick_parse(\"' + testing_url + '\") = ', quick_parse_res);
+    console.log('\nurl.parse("' + testing_url + '") = ', url_parse_res);
+    console.log('\nquick_parse("' + testing_url + '") = ', quick_parse_res);
     console.log(' ');
     _.forIn(url_parse_res, function(v1, k) {
         var v2 = quick_parse_res[k];

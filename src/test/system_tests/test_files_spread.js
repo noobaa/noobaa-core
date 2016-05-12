@@ -99,8 +99,9 @@ function run_test() {
         .then((res) => {
             _.each(res.parts, part => {
                 _.each(part.chunk.frags, frag => {
-                    if (frag.blocks.length !== 3)
+                    if (frag.blocks.length !== 3) {
                         throw new Error("SPREAD NOT CORRECT!");
+                    }
                 });
             });
             return P.resolve();
@@ -139,8 +140,9 @@ function run_test() {
                         }
                     });
                 });
-                if (pool1_count !== 3 && pool2_count !== 3)
+                if (pool1_count !== 3 && pool2_count !== 3) {
                     throw new Error("MIRROR NOT CORRECT!");
+                }
             });
             rpc.disconnect_all();
             return P.resolve("Test Passed! Everything Seems To Be Fine...");

@@ -14,9 +14,7 @@ let native_core = require('../util/native_core');
  */
 class RpcNtcpConnection extends RpcBaseConnection {
 
-    constructor(addr_url) {
-        super(addr_url);
-    }
+    // constructor(addr_url) { super(addr_url); }
 
     /**
      *

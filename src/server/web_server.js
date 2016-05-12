@@ -1,11 +1,12 @@
 'use strict';
+
 // load .env file before any other modules so that it will contain
 // all the arguments even when the modules are loading.
 console.log('loading .env file');
 require('dotenv').load();
 
 //If test mode, use Istanbul for coverage
-for (var i = 0; i < process.argv.length; ++i) {
+for (let i = 0; i < process.argv.length; ++i) {
     if (process.argv[i] === '--TESTRUN') {
         process.env.TESTRUN = true;
     }
@@ -21,55 +22,34 @@ require('../util/panic');
 require('heapdump');
 
 var _ = require('lodash');
-var P = require('../util/promise');
+var fs = require('fs');
 var path = require('path');
+var util = require('util');
 var http = require('http');
 var https = require('https');
+var multer = require('multer');
 var express = require('express');
 var express_favicon = require('serve-favicon');
-var express_morgan_logger = require('morgan');
+var express_compress = require('compression');
 var express_body_parser = require('body-parser');
+var express_morgan_logger = require('morgan');
 var express_cookie_parser = require('cookie-parser');
 var express_cookie_session = require('cookie-session');
 var express_method_override = require('method-override');
-var express_compress = require('compression');
-var util = require('util');
-var config = require('../../config.js');
+var P = require('../util/promise');
 var dbg = require('../util/debug_module')(__filename);
-var time_utils = require('../util/time_utils');
 var pem = require('../util/pem');
-var multer = require('multer');
-var fs = require('fs');
-var cluster = require('cluster');
 var pkg = require('../../package.json');
-var db = require('../server/db');
-var mongo_client = require('./utils/mongo_client');
+var config = require('../../config.js');
+var time_utils = require('../util/time_utils');
+var mongo_client = require('../util/mongo_client').get_instance();
+var mongoose_utils = require('../util/mongoose_utils');
+
 var rootdir = path.join(__dirname, '..', '..');
 var dev_mode = (process.env.DEV_MODE === 'true');
 
-
-// Temporary removed - causes issues with upgrade.
-var numCPUs = Math.ceil(require('os').cpus().length / 2);
-if (process.env.DEBUGGER === 'true') {
-    // if debugger env is set use only one process in the cluster
-    console.log('process.env.DEBUGGER is set. running with numCpus = 1');
-    numCPUs = 1;
-}
-if (cluster.isMaster && process.env.MD_CLUSTER_DISABLED !== 'true') {
-    // Fork MD Servers
-    for (var i = 0; i < numCPUs; i++) {
-        console.warn('Spawning MD Server', i + 1);
-        cluster.fork();
-    }
-
-    cluster.on('exit', function(worker, code, signal) {
-        console.log('MD Server ' + worker.process.pid + ' died');
-    });
-    return;
-}
-
 dbg.set_process_name('WebServer');
-db.mongoose_connect();
+mongoose_utils.mongoose_connect();
 mongo_client.connect();
 
 // create express app
@@ -124,9 +104,9 @@ app.use(express_cookie_session({
 }));
 app.use(express_compress());
 
-function use_exclude(path, middleware) {
+function use_exclude(route_path, middleware) {
     return function(req, res, next) {
-        if (_.startsWith(req.path, path)) {
+        if (_.startsWith(req.path, route_path)) {
             return next();
         } else {
             return middleware(req, res, next);
@@ -141,8 +121,10 @@ function use_exclude(path, middleware) {
 
 // register RPC services and transports
 var server_rpc = require('./server_rpc');
-server_rpc.register_md_servers();
-server_rpc.register_common_servers();
+server_rpc.register_system_services();
+server_rpc.register_node_services();
+server_rpc.register_object_services();
+server_rpc.register_common_services();
 server_rpc.rpc.register_http_transport(app);
 server_rpc.client.options.address = 'fcall://fcall';
 
@@ -198,7 +180,7 @@ app.get('/agent/package.json', function(req, res) {
         },
         scripts: {
             start: 'node node_modules/noobaa-agent/agent/agent_cli.js ' +
-                ' --prod --address ' + 'wss://' + req.get('host')
+                ' --prod --address wss://' + req.get('host')
         },
         dependencies: {
             'noobaa-agent': req.protocol + '://' + req.get('host') + '/public/noobaa-agent.tar.gz'
@@ -276,18 +258,24 @@ app.get('/get_latest_version*', function(req, res) {
 app.post('/set_log_level*', function(req, res) {
     console.log('req.module', req.param('module'), 'req.level', req.param('level'));
     if (typeof req.param('module') === 'undefined' || typeof req.param('level') === 'undefined') {
-        res.status(400).send({});
+        res.status(400).end();
     }
 
     dbg.log0('Change log level requested for', req.param('module'), 'to', req.param('level'));
     dbg.set_level(req.param('level'), req.param('module'));
-    // TODO what about all the other instances of the server???
-    return P.when(server_rpc.bg_client.debug.set_debug_level({
-        level: req.param('level'),
-        module: req.param('module')
-    })).then(function() {
-        res.status(200).send({});
-    });
+
+    return server_rpc.client.redirector.publish_to_cluster({
+            target: '', // required but irrelevant
+            method_api: 'debug_api',
+            method_name: 'set_debug_level',
+            request_params: {
+                level: req.param('level'),
+                module: req.param('module')
+            }
+        })
+        .then(function() {
+            res.status(200).end();
+        });
 });
 
 //Log level getter
@@ -379,7 +367,21 @@ app.use(function(err, req, res, next) {
         } else {
             e.data = ctx.data;
         }
-        return res.render('error.html', e);
+        return res.end(`<html>
+<head>
+    <style>
+        body {
+            color: #242E35;
+        }
+    </style>
+</head>
+<body>
+    <h1>NooBaa</h1>
+    <h2>${e.message}</h2>
+    <h3>(Error Code ${e.statusCode})</h3>
+    <p><a href="/">Take me back ...</a></p>
+</body>
+</html>`);
     } else if (req.accepts('json')) {
         return res.json(e);
     } else {
@@ -420,13 +422,13 @@ function is_latest_version(query_version) {
     var len = Math.min(srv_version_parts.length, query_version_parts.length);
 
     // Compare common parts
-    for (var i = 0; i < len; i++) {
+    for (let i = 0; i < len; i++) {
         //current part of server is greater, query version is outdated
-        if (parseInt(srv_version_parts[i]) > parseInt(query_version_parts[i])) {
+        if (parseInt(srv_version_parts[i], 10) > parseInt(query_version_parts[i], 10)) {
             return false;
         }
 
-        if (parseInt(srv_version_parts[i]) < parseInt(query_version_parts[i])) {
+        if (parseInt(srv_version_parts[i], 10) < parseInt(query_version_parts[i], 10)) {
             console.error('BUG?! Queried version (', query_version, ') is higher than server version(',
                 srv_version, ') ! How can this happen?');
             return true;

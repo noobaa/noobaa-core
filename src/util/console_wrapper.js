@@ -57,7 +57,7 @@ exports.original_console = function() {
     //browser doesn't hold a "regular" console object
     //need special handling => simply switch objectd instead of funcsa
     try {
-        if (typeof window !== 'undefined') {
+        if (global.window === global) {
             global.console = origConsole;
             return;
         }
@@ -75,10 +75,10 @@ exports.original_console = function() {
 exports.wrapper_console = function() {
     //See above
     try {
-        if (typeof window !== 'undefined') {
+        if (global.window === global) {
             global.console = wrapperConsole;
             return;
-        } 
+        }
     } catch (ex) {
         if (!log_once_exception) {
             clonedConsole.log(" Caught exception trying to set global.console, mockup window?", ex);

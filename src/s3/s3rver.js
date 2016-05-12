@@ -9,6 +9,7 @@ require('dotenv').load();
 
 const _ = require('lodash');
 const fs = require('fs');
+const url = require('url');
 const util = require('util');
 const argv = require('minimist')(process.argv);
 const http = require('http');
@@ -66,11 +67,17 @@ function run_server() {
             });
         })
         .then(() => {
-            if (params.address) {
-                return api.new_rpc(params.address);
-            } else {
+            const addr_url = url.parse(params.address || '');
+            const is_local_address =
+                addr_url.hostname === '127.0.0.1' ||
+                addr_url.hostname === 'localhost';
+            if (is_local_address) {
+                dbg.log0('Initialize S3 RPC with MDServer');
                 const md_server = require('../server/md_server');
                 return md_server.register_rpc();
+            } else {
+                dbg.log0('Initialize S3 RPC to address', params.address);
+                return api.new_rpc(params.address);
             }
         })
         .then(s3_rpc => app.use(s3_rest(new S3Controller(s3_rpc))))

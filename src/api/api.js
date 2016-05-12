@@ -70,7 +70,7 @@ function new_rpc(base_address) {
         schema: api_schema,
         router: new_router(base_address),
         api_routes: {
-            // object_api: 'md',
+            object_api: 'md',
             cloud_sync_api: 'bg',
             hosted_agents_api: 'bg'
         }

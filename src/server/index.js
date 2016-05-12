@@ -18,6 +18,7 @@ const SERVICES = [{
 }, {
     fork: './src/agent/agent_cli.js',
     args: ['--scale', '6'],
+    boot_delay: 5000
 }, {
     spawn: 'mongod',
     args: ['-f', 'mongod.conf']
@@ -58,6 +59,11 @@ function run_service(srv) {
                 }
             }, 10000);
         }
+        return;
+    }
+
+    if (srv.boot_delay && !srv.boot_timeout) {
+        srv.boot_timeout = setTimeout(() => run_service(srv), srv.boot_delay);
         return;
     }
 

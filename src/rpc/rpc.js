@@ -495,6 +495,7 @@ RPC.prototype._get_connection = function(addr_url, srv, force_redirect) {
 
     if (!conn || force_redirect) {
         if (this._send_redirection &&
+            !this.n2n_agent &&
             addr_url.protocol === 'n2n:') {
             dbg.log2('RPC redirecting',
                 'address', addr_url.href,

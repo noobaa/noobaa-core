@@ -20,6 +20,7 @@ const numCPUs = require('os').cpus().length;
 const P = require('../util/promise');
 const dbg = require('../util/debug_module')(__filename);
 const pem = require('../util/pem');
+const api = require('../api');
 const s3_rest = require('./s3_rest');
 const S3Controller = require('./s3_controller');
 
@@ -64,7 +65,15 @@ function run_server() {
                 params.certificate = certificate;
             });
         })
-        .then(() => app.use(s3_rest(new S3Controller(params))))
+        .then(() => {
+            if (params.address) {
+                return api.new_rpc(params.address);
+            } else {
+                const md_server = require('../server/md_server');
+                return md_server.register_rpc();
+            }
+        })
+        .then(s3_rpc => app.use(s3_rest(new S3Controller(s3_rpc))))
         .then(() => dbg.log0('Starting HTTP', params.port))
         .then(() => listen_http(params.port, http.createServer(app)))
         .then(() => dbg.log0('Starting HTTPS', params.ssl_port))

@@ -5,7 +5,6 @@ const xml2js = require('xml2js');
 
 const P = require('../util/promise');
 const dbg = require('../util/debug_module')(__filename);
-const api = require('../api');
 const ObjectIO = require('../api/object_io');
 const s3_errors = require('./s3_errors');
 
@@ -19,8 +18,8 @@ const DEFAULT_S3_USER = Object.freeze({
 
 class S3Controller {
 
-    constructor(params) {
-        this.rpc = api.new_rpc(params.address);
+    constructor(rpc) {
+        this.rpc = rpc;
         this.object_io = new ObjectIO();
         let signal_client = this.rpc.new_client();
         let n2n_agent = this.rpc.register_n2n_transport(signal_client.node.n2n_signal);

@@ -367,7 +367,21 @@ app.use(function(err, req, res, next) {
         } else {
             e.data = ctx.data;
         }
-        return res.render('error.html', e);
+        return res.end(`<html>
+<head>
+    <style>
+        body {
+            color: #242E35;
+        }
+    </style>
+</head>
+<body>
+    <h1>NooBaa</h1>
+    <h2>${e.message}</h2>
+    <h3>(Error Code ${e.statusCode})</h3>
+    <p><a href="/">Take me back ...</a></p>
+</body>
+</html>`);
     } else if (req.accepts('json')) {
         return res.json(e);
     } else {

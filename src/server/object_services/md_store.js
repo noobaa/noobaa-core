@@ -76,6 +76,13 @@ function load_blocks_for_chunks(chunks) {
         }).toArray())
         .then(blocks => nodes_store.populate_nodes_for_map(blocks, 'node'))
         .then(blocks => {
+            // remove from the list blocks that their node is not found
+            // and consider these blocks just like deleted blocks
+            let orphan_blocks = _.remove(blocks,
+                block => !block.node || !block.node._id);
+            if (orphan_blocks) {
+                console.log('ORPHAN BLOCKS (ignoring)', orphan_blocks);
+            }
             let blocks_by_chunk = _.groupBy(blocks, 'chunk');
             _.each(chunks, chunk => {
                 chunk.blocks = blocks_by_chunk[chunk._id];

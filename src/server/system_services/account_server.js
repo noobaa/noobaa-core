@@ -18,6 +18,7 @@ const ActivityLog = require('../analytic_services/activity_log');
 const system_store = require('../system_services/system_store').get_instance();
 const system_server = require('./system_server');
 
+system_store.on('load', ensure_support_account);
 
 /**
  *

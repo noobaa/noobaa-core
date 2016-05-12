@@ -18,6 +18,7 @@ const pkg = require('../../../package.json');
 const dbg = require('../../util/debug_module')(__filename);
 const diag = require('../utils/server_diagnostics');
 const md_store = require('../object_services/md_store');
+const fs_utils = require('../../util/fs_utils');
 const os_utils = require('../../util/os_util');
 const size_utils = require('../../util/size_utils');
 const server_rpc = require('../server_rpc');
@@ -64,42 +65,53 @@ function new_system_defaults(name, owner_account_id) {
 }
 
 function new_system_changes(name, owner_account) {
-    const default_pool_name = 'default_pool';
-    const default_bucket_name = 'files';
-    const bucket_with_suffix = default_bucket_name + '#' + Date.now().toString(36);
-    var system = new_system_defaults(name, owner_account._id);
-    var pool = pool_server.new_pool_defaults(default_pool_name, system._id);
-    var tier = tier_server.new_tier_defaults(bucket_with_suffix, system._id, [pool._id]);
-    var policy = tier_server.new_policy_defaults(bucket_with_suffix, system._id, [{
-        tier: tier._id,
-        order: 0
-    }]);
-    var bucket = bucket_server.new_bucket_defaults(default_bucket_name, system._id, policy._id);
-    var role = {
-        _id: system_store.generate_id(),
-        account: owner_account._id,
-        system: system._id,
-        role: 'admin'
-    };
+    return fs_utils.find_line_in_file('/etc/ntp.conf', '#NooBaa Configured NTP Server')
+        .then(line => {
+            const default_pool_name = 'default_pool';
+            const default_bucket_name = 'files';
+            const bucket_with_suffix = default_bucket_name + '#' + Date.now().toString(36);
+            var system = new_system_defaults(name, owner_account._id);
+            if (line) {
+                let ntp_server = line.split(' ')[1];
+                system.ntp = {
+                    server: ntp_server
+                };
+                dbg.log0('found configured NTP server in ntp.conf:', ntp_server);
+            }
+            var pool = pool_server.new_pool_defaults(default_pool_name, system._id);
+            var tier = tier_server.new_tier_defaults(bucket_with_suffix, system._id, [pool._id]);
+            var policy = tier_server.new_policy_defaults(bucket_with_suffix, system._id, [{
+                tier: tier._id,
+                order: 0
+            }]);
+            var bucket = bucket_server.new_bucket_defaults(default_bucket_name, system._id, policy._id);
+            var role = {
+                _id: system_store.generate_id(),
+                account: owner_account._id,
+                system: system._id,
+                role: 'admin'
+            };
 
-    ActivityLog.create({
-        event: 'conf.create_system',
-        level: 'info',
-        system: system._id,
-        actor: owner_account._id,
-        desc: `${name} was created by ${owner_account && owner_account.email}`,
-    });
+            ActivityLog.create({
+                event: 'conf.create_system',
+                level: 'info',
+                system: system._id,
+                actor: owner_account._id,
+                desc: `${name} was created by ${owner_account && owner_account.email}`,
+            });
 
-    return {
-        insert: {
-            systems: [system],
-            buckets: [bucket],
-            tieringpolicies: [policy],
-            tiers: [tier],
-            pools: [pool],
-            roles: [role],
-        }
-    };
+            return {
+                insert: {
+                    systems: [system],
+                    buckets: [bucket],
+                    tieringpolicies: [policy],
+                    tiers: [tier],
+                    pools: [pool],
+                    roles: [role],
+                }
+            };
+
+        });
 }
 
 
@@ -110,8 +122,8 @@ function new_system_changes(name, owner_account) {
  */
 function create_system(req) {
     var name = req.rpc_params.name;
-    var changes = new_system_changes(name, req.account);
-    return system_store.make_changes(changes)
+    return new_system_changes(name, req.account && req.account._id)
+        .then(changes => system_store.make_changes(changes))
         .then(function() {
             if (process.env.ON_PREMISE === 'true') {
                 return P.fcall(function() {

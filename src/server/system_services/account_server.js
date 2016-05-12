@@ -33,18 +33,12 @@ function create_account(req) {
             return bcrypt_password(account);
         })
         .then(function() {
-            var changes;
-            if (!req.system) {
-                changes = system_server.new_system_changes(account.name, account);
-                account.allowed_buckets = [changes.insert.buckets[0]._id];
-                changes.insert.accounts = [account];
-            } else {
+            if (req.system) {
                 if (req.rpc_params.allowed_buckets) {
-                    account.allowed_buckets = _.map(
-                        req.rpc_params.allowed_buckets,
+                    account.allowed_buckets = _.map(req.rpc_params.allowed_buckets,
                         bucket => req.system.buckets_by_name[bucket]._id);
                 }
-                changes = {
+                return {
                     insert: {
                         accounts: [account],
                         roles: [{
@@ -56,6 +50,14 @@ function create_account(req) {
                     }
                 };
             }
+            return system_server.new_system_changes(account.name, account)
+                .then(changes => {
+                    account.allowed_buckets = [changes.insert.buckets[0]._id];
+                    changes.insert.accounts = [account];
+                    return changes;
+                });
+        })
+        .then(changes => {
             create_activity_log_entry(req, 'create', account,
                 `${account.email} was created ${req.account && 'by ' + req.account.email}`);
             return system_store.make_changes(changes);

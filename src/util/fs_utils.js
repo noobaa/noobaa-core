@@ -12,6 +12,7 @@ module.exports = {
     disk_usage: disk_usage,
     list_directory: list_directory,
     list_directory_to_file: list_directory_to_file,
+    find_line_in_file: find_line_in_file
 };
 
 
@@ -113,5 +114,16 @@ function list_directory_to_file(path, outfile) {
     return list_directory(path)
         .then(function(files) {
             return fs.writeFileAsync(outfile, JSON.stringify(files, null, '\n'));
+        });
+}
+
+// returns the first line in the file that contains the substring
+function find_line_in_file(file_name, line_sub_string) {
+    return fs.readFileAsync(file_name, 'utf8')
+        .then((data) => {
+            let line = data.split('\n').find(line => {
+                return line.indexOf(line_sub_string) > -1;
+            });
+            return line;
         });
 }

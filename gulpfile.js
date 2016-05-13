@@ -6,7 +6,7 @@ var gutil = require('gulp-util');
 // var gulp_debug = require('gulp-debug');
 // var gulp_filter = require('gulp-filter');
 // var gulp_size = require('gulp-size');
-var gulp_cached = require('gulp-cached');
+// var gulp_cached = require('gulp-cached');
 var gulp_plumber = require('gulp-plumber');
 var gulp_notify = require('gulp-notify');
 var gulp_rename = require('gulp-rename');
@@ -226,7 +226,6 @@ gulp.task('eslint', function() {
 gulp.task('jshint', function() {
     return gulp.src(PATHS.js_for_lint)
         .pipe(gulp_plumber(PLUMB_CONF))
-        .pipe(gulp_cached('jshint'))
         .pipe(gulp_jshint.extract())
         .pipe(gulp_jshint())
         .pipe(gulp_jshint.reporter(jshint_stylish))

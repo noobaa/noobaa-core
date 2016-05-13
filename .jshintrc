@@ -10,7 +10,7 @@
     "noarg": true,
     "newcap": true,
     "nonew": true,
-    "strict": true,
+    "strict": false,
     "trailing": true,
     "immed": true,
     "undef": true,

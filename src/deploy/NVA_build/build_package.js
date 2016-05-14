@@ -22,7 +22,8 @@ var token = '92a46eb3c399aaafb250a04633a9c3ee64f2396d';
 var cd_command = 'cd C:\\Users\\Administrator\\Documents\\GitHub\\noobaa-core ';
 var git_command = '&& "C:\\Program Files (x86)\\Git\\bin\\git.exe" ';
 
-var current_version, next_version;
+var current_version;
+var next_version;
 
 function advance_version(current_version, increment) {
     var current_version_parts = current_version.toString().split('.');
@@ -35,7 +36,8 @@ function advance_version(current_version, increment) {
     for (var i = 0; i < len; i++) {
         //if current part of increment is not 0, increment
         if (increment_version_parts[i] !== '0') {
-            new_part = parseInt(current_version_parts[i]) + parseInt(increment_version_parts[i]);
+            new_part = parseInt(current_version_parts[i], 10) +
+                parseInt(increment_version_parts[i], 10);
         } else {
             new_part = current_version_parts[i];
         }
@@ -64,7 +66,8 @@ function advance_version(current_version, increment) {
 
 //Assuming git config credential.helper store was called and password is not required anymore
 function create_branch(next_version) {
-    var git_flags, out;
+    var git_flags;
+    var out;
 
     git_flags = 'pull';
     out = child_proc.execSync(cd_command + git_command + git_flags);

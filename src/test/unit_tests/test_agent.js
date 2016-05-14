@@ -27,7 +27,9 @@ mocha.describe('agent', function() {
                 password: PASSWORD,
                 access_keys: ACCESS_KEYS
             }))
-            .then(res => client.options.auth_token = res.token)
+            .then(res => {
+                client.options.auth_token = res.token;
+            })
             .then(() => coretest.init_test_nodes(client, SYS, 5))
             .then(() => coretest.clear_test_nodes());
     });

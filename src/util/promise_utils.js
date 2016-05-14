@@ -281,7 +281,7 @@ function promised_exec(command, ignore_rc, return_stdout) {
 function pack(tar_file_name, source) {
     console.log('pack windows?', is_windows);
     if (is_windows) {
-        console.log('in windows','7za.exe a -ttar -so tmp.tar ' + source.replace(/\//g, '\\') + '| 7za.exe a -si ' + tar_file_name.replace(/\//g, '\\'));
+        console.log('in windows', '7za.exe a -ttar -so tmp.tar ' + source.replace(/\//g, '\\') + '| 7za.exe a -si ' + tar_file_name.replace(/\//g, '\\'));
         return promised_exec('7za.exe a -ttar -so tmp.tar ' + source.replace(/\//g, '\\') + '| 7za.exe a -si ' + tar_file_name.replace(/\//g, '\\'));
     } else {
         console.log('not windows?', is_windows);
@@ -291,29 +291,29 @@ function pack(tar_file_name, source) {
 
 function file_copy(src, dst) {
     if (is_windows) {
-        console.log('file copy ' + src.replace(/\//g, '\\')+' '+dst.replace(/\//g, '\\'));
-        return promised_exec('copy /Y  "'+src.replace(/\//g, '\\') +'" "'+ dst.replace(/\//g, '\\')+'"');
+        console.log('file copy ' + src.replace(/\//g, '\\') + ' ' + dst.replace(/\//g, '\\'));
+        return promised_exec('copy /Y  "' + src.replace(/\//g, '\\') + '" "' + dst.replace(/\//g, '\\') + '"');
     } else {
         return promised_spawn('cp', ['-f', src, dst], process.cwd());
     }
 }
 
 function folder_delete(path) {
-    if( fs.existsSync(path) ) {
-        fs.readdirSync(path).forEach(function(file,index){
-          var curPath = path + "/" + file;
-          if(fs.lstatSync(curPath).isDirectory()) { // recurse
-            folder_delete(curPath);
-          } else { // delete file
-            fs.unlinkSync(curPath);
-          }
+    if (fs.existsSync(path)) {
+        fs.readdirSync(path).forEach(function(file, index) {
+            var curPath = path + "/" + file;
+            if (fs.lstatSync(curPath).isDirectory()) { // recurse
+                folder_delete(curPath);
+            } else { // delete file
+                fs.unlinkSync(curPath);
+            }
         });
         fs.rmdirSync(path);
-      }
+    }
 }
 
 function file_delete(file_name) {
-    if( fs.existsSync(file_name) ) {
+    if (fs.existsSync(file_name)) {
         return fs.unlinkAsync(file_name);
     }
 }
@@ -327,12 +327,10 @@ function full_dir_copy(src, dst, filter_regex) {
         var ncp_filter_function = function(input) {
             if (input.indexOf('/') > 0) {
                 return false;
+            } else if (ncp_filter_regex.test(input)) {
+                return false;
             } else {
-                if (!ncp_filter_regex.test(input)) {
-                    return true;
-                } else {
-                    return false;
-                }
+                return true;
             }
         };
         ncp_options.filter = ncp_filter_function;
@@ -421,7 +419,9 @@ function all_obj(obj, func) {
     func = func || ((val, key) => val);
     return P.all(_.map(obj, (val, key) => {
             return P.fcall(func, val, key)
-                .then(res => new_obj[key] = res);
+                .then(res => {
+                    new_obj[key] = res;
+                });
         }))
         .return(new_obj);
 }

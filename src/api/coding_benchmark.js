@@ -206,9 +206,9 @@ function test() {
     }
 
     function test_allocate_parts() {
-        var concur = parseInt(process.argv[4]);
+        var concur = parseInt(process.argv[4], 10);
         concur = _.isNaN(concur) ? 1 : concur;
-        var nparts = parseInt(process.argv[5]);
+        var nparts = parseInt(process.argv[5], 10);
         nparts = _.isNaN(nparts) ? 1 : nparts;
         console.log('CONCUR', concur, 'NPARTS', nparts);
         init_api()
@@ -247,34 +247,34 @@ function test() {
                             key: path.basename(filename),
                             parts: _.times(nparts, function() {
                                 var p = {
-                                    'start': i * 1024 * 1024,
-                                    'end': (i + 1) * 1024 * 1024,
-                                    'upload_part_number': 0,
-                                    'part_sequence_number': i
+                                    start: i * 1024 * 1024,
+                                    end: (i + 1) * 1024 * 1024,
+                                    upload_part_number: 0,
+                                    part_sequence_number: i
                                 };
                                 p.chunk = {
-                                    'size': 1024 * 1024,
-                                    'digest_type': 'sha384',
-                                    'compress_type': 'snappy',
-                                    'compress_size': 1024 * 1024,
-                                    'cipher_type': 'aes-256-gcm',
-                                    'data_frags': 1,
-                                    'lrc_frags': 0,
-                                    'digest_b64': chance.string({
+                                    size: 1024 * 1024,
+                                    digest_type: 'sha384',
+                                    compress_type: 'snappy',
+                                    compress_size: 1024 * 1024,
+                                    cipher_type: 'aes-256-gcm',
+                                    data_frags: 1,
+                                    lrc_frags: 0,
+                                    digest_b64: chance.string({
                                         length: 48
                                     }),
-                                    'cipher_key_b64': chance.string({
+                                    cipher_key_b64: chance.string({
                                         length: 32
                                     }),
                                 };
                                 p.frags = _.times(1, function(j) {
                                     return {
-                                        'size': 1024 * 1024,
-                                        'layer': 'D',
-                                        'layer_n': 0,
-                                        'frag': j,
-                                        'digest_type': 'sha1',
-                                        'digest_b64': chance.string({
+                                        size: 1024 * 1024,
+                                        layer: 'D',
+                                        layer_n: 0,
+                                        frag: j,
+                                        digest_type: 'sha1',
+                                        digest_b64: chance.string({
                                             length: 20
                                         })
                                     };
@@ -306,7 +306,7 @@ function test() {
     }
 
     function test_write_block() {
-        var concur = parseInt(process.argv[4]);
+        var concur = parseInt(process.argv[4], 10);
         concur = _.isNaN(concur) ? 1 : concur;
         var write_bytes = 300000;
         init_api()
@@ -339,7 +339,7 @@ function test() {
                         next_node_rr = (next_node_rr + 1) % nodes.length;
                         return client.agent.write_block({
                             block_md: {
-                                id: '' + Math.random(),
+                                id: String(Math.random()),
                                 address: next_node.rpc_address,
                                 digest_type: digest_type,
                                 digest_b64: digest_b64

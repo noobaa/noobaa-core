@@ -35,7 +35,7 @@ module.exports = {
                 type: 'object',
                 required: ['data'],
                 properties: {
-                    data: {                        
+                    data: {
                         type: 'string',
                     },
                 },

@@ -1,1 +1,1 @@
-return require('./rpc');
+module.exports = require('./rpc');

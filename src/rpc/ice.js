@@ -828,9 +828,7 @@ Ice.prototype._find_session_to_activate = function(force) {
             highest_non_closed_priority = session.remote.priority;
         }
         if (!session.is_ready()) return;
-        if (!best_session) {
-            best_session = session;
-        } else {
+        if (best_session) {
             // in case of priority tie, we pick in arbitrary way to break tie
             // so here we compare key lexical order
             if (session.remote.priority === best_session.remote.priority) {
@@ -840,6 +838,8 @@ Ice.prototype._find_session_to_activate = function(force) {
             } else if (session.remote.priority > best_session.remote.priority) {
                 best_session = session;
             }
+        } else {
+            best_session = session;
         }
     });
 

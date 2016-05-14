@@ -33,6 +33,7 @@ server_rpc.rpc.set_request_logger(function() {
         })));
 });
 server_rpc.rpc.router.default =
+    server_rpc.rpc.router.md =
     server_rpc.rpc.router.bg =
     'fcall://fcall';
 

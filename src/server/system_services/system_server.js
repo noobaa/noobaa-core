@@ -127,9 +127,7 @@ function create_system(req) {
         .then(function() {
             if (process.env.ON_PREMISE === 'true') {
                 return P.fcall(function() {
-                        return promise_utils.promised_spawn(
-                            'supervisorctl', ['restart', 's3rver'], process.cwd()
-                        );
+                        return promise_utils.promised_exec('supervisorctl restart s3rver');
                     })
                     .then(null, function(err) {
                         dbg.error('Failed to restart s3rver', err);

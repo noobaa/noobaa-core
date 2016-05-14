@@ -3,8 +3,10 @@ var steps = [
     {
         //Run unit tests
         name: 'Unit Tests',
-        action: './node_modules/.bin/gulp mocha',
+        action: './node_modules/.bin/gulp',
         params: [{
+            arg: 'mocha',
+        }, {
             arg: '--COV_DIR',
         }, {
             arg: './report/cov/mocha',

@@ -19,11 +19,13 @@ function get_istanbul_collector(req) {
     if (process.env.TESTRUN !== 'true') {
         console.error('Coverage only applicable in TESTRUN mode');
         throw new Error('Coverage only applicable in TESTRUN mode');
-    } else {
-        return {
-            data: JSON.stringify(global.NOOBAA_COV),
-        };
     }
+    if (!global.NOOBAA_COV) {
+        return {};
+    }
+    return {
+        data: JSON.stringify(global.NOOBAA_COV),
+    };
 }
 
 // EXPORTS

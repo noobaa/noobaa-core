@@ -1,50 +1,53 @@
-<div class="management-panel">
-    <ul class="tabs">
-        <li data-bind="css: { selected: isTabSelected('accounts') }">
-            <a class="tab-header" data-bind="href: '/fe/systems/:system/management/accounts'">
-                <svg-icon params="uri: '/fe/assets/icons.svg#account'"></svg-icon>
-                Accounts
-            </a>
-            <section class="tab-content">
-                <accounts-table></accounts-table>
-            </section>
-        </li>
+<div class="greedy tabs">
+    <nav>
+        <a data-bind="
+            href: '/fe/systems/:system/management/accounts',
+            css: { selected: isTabSelected('accounts') }
+        ">
+            Accounts
+        </a>
+        <a data-bind="
+            href: '/fe/systems/:system/management/settings',
+            css: { selected: isTabSelected('settings') }
+        ">
+            Settings
+        </a>
 
-        <li data-bind="css: { selected: isTabSelected('settings') }">
-            <a class="tab-header" data-bind="href: '/fe/systems/:system/management/settings'">
-                <svg-icon params="uri: '/fe/assets/icons.svg#network'"></svg-icon>
-                Settings
-            </a>
+        <a data-bind="
+            href: '/fe/systems/:system/management/about',
+            css: { selected: isTabSelected('about') }
+        ">
+            Version
+        </a>
+        <a data-bind="
+            href: '/fe/systems/:system/management/diagnostics',
+            css: { selected: isTabSelected('diagnostics') }
+        ">
+            Diagnostics
+        </a>
+    </nav>
 
-            <section class="tab-content">
-                <p2p-form class="container"></p2p-form>
-                
-                <hr class="seperator"/>
+    <div class="tabs-row">
+        <accounts-table class="tab" data-bind="
+            css: { selected: isTabSelected('accounts') }
+        "></accounts-table>
 
-                <server-dns-form class="container"></server-dns-form>
+        <section class="tab" data-bind="
+            css: { selected: isTabSelected('settings') }
+        ">
+            <p2p-form></p2p-form>
+            <hr />
+            <server-dns-form></server-dns-form>
+            <hr />
+            <server-time-form></server-time-form>
+        </section>
 
-                <hr>
+        <about-form class="tab" data-bind="
+            css: { selected: isTabSelected('about') }
+        "></about-form>
 
-                <server-time-form class="container"></server-time-form>
-            </section>
-        </li>        
-        <li data-bind="css: { selected: isTabSelected('about') }">
-            <a class="tab-header" data-bind="href: '/fe/systems/:system/management/about'">
-                <svg-icon params="uri: '/fe/assets/icons.svg#upgrade'"></svg-icon>
-                <span>Version</span>
-            </a>
-            <section class="tab-content">
-                <about-form></about-form>
-            </section>
-        </li>
-        <li data-bind="css: { selected: isTabSelected('diagnostics') }">
-            <a class="tab-header" data-bind="href: '/fe/systems/:system/management/diagnostics'">
-                <svg-icon params="uri: '/fe/assets/icons.svg#diagnose', fill: '#526D7C'"></svg-icon>
-                <span>Diagnostics</span>
-            </a>
-            <section class="tab-content">
-                <diagnostics-form></diagnostics-form>
-            </section>
-        </li>
-    </ul>
+        <diagnostics-form class="tab" data-bind="
+            css: { selected: isTabSelected('diagnostics') }
+        "></diagnostics-form>
+    </div>
 </div>

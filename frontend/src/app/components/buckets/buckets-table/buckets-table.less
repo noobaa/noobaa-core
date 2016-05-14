@@ -1,26 +1,4 @@
-
-@keyframes row-enter {
-    from { 
-        transform: translateX(100%);
-    }
-
-    to {
-        transform: translateX(0);
-    }
-}
-
 buckets-table {
-    display: block;
-    padding: 2em 3.5em;
-
-    .delete-btn {
-        padding: 0;
-
-        &[disabled] {
-            cursor: default;
-        }
-    }
-
     .state-col,
     .totalsize-col,
     .freesize-col {
@@ -33,7 +11,7 @@ buckets-table {
     }
 
     .cloudsync-col {
-        min-width: 7em;
+        min-width: 8em;
     }
 
     .name-col{

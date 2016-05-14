@@ -3,8 +3,12 @@
 }
 
 html, body {
+    height: 100%;
     margin: 0;
     padding: 0;
+}
+
+html, body {
     background-color: @bg-color3;
 
     .text(
@@ -48,17 +52,22 @@ ul, ol {
     line-height: 1.7;
 }
 
-table {
-    line-height: 1.5;
-}
-
 label {
     cursor: @cursor-pointer;
 }
 
 hr {
     border: none;
-    border-top: 1px solid @bg-color3;
+    margin: 0;
+    height: 1px;
+    background-color: @bg-color6;
+    margin: @gutter 0;
+}
+
+vr {
+    width: 1px;
+    background-color: @bg-color6;
+    margin: @gutter/2 @gutter;
 }
 
 output {
@@ -177,6 +186,7 @@ input[type="search"] {
     list-style-type: none;
     margin: 0;
     padding: 0;
+    line-height: 1;
 }
 
 .no-wrap {
@@ -256,10 +266,6 @@ input[type="search"] {
         @font-size-normal, 
         @text-color3
     );
-}
-
-.greedy {
-    width: 100%;
 }
 
 .disabeld {
@@ -435,11 +441,111 @@ input[type="search"] {
     border-bottom: 1px solid @text-color4;
 }
 
+.data-table {
+    .column();
+    .greedy();
+    position: relative;
+    text-align: center;
+
+    table {
+        display: block;
+        border-collapse: collapse;
+        overflow-y: auto;
+    }
+
+    .text(
+        @font-type2, 
+        @font-weight-light, 
+        @font-size-normal, 
+        @text-color4
+    );
+
+    table {
+        margin-top: 41px;
+
+        &::before, &::after {
+            content: '';
+            display: block;
+            position: absolute;
+            height: 2em;
+            left: 0;
+            right: 10px;
+
+        }
+
+        &::before {
+            pointer-events: none;
+            background: linear-gradient(to bottom, @bg-color2, transparent);
+        }
+
+        &::after {
+            pointer-events: none;
+            bottom: 0;
+            background: linear-gradient(to bottom, transparent, @bg-color2);
+        }
+    }
+    
+    thead {
+        position: absolute;
+        top: 0;
+
+        > tr {
+            border-bottom: 1px solid @bg-color4;
+        }
+    }
+
+    tbody > tr {
+        border-bottom: 1px solid @bg-color3;
+
+        &:last-child {
+            border: none;
+        };
+    }
+    
+
+    th {
+        text-transform: uppercase;
+
+        /*&.asc, &.des {
+            > a::after {
+                content: '';
+                vertical-align: middle;
+                margin-left: .5em;
+                margin-top: .5em;
+                display: inline-block;
+                border: 5px solid transparent;
+            }
+        }
+
+        &.asc > a::after {
+            border-bottom: none;
+            border-top-color: @text-color4;
+        }*/
+
+        &.des > a::after {
+            border-top: none;
+            border-bottom-color: @text-color4;
+        }
+    }
+
+    th, td {
+        padding: @gutter/2;
+    }
+
+    > .empty-message {
+        position: absolute;
+        top : 2em;
+        width: 100%;
+        font-size: @font-size-large;
+        margin-top: @font-size-large/2;
+        color: @text-color5;
+    }
+}
+
+/*
 .data-table
 {
-    height: 100%;
     position: relative;
-
     padding-top: 3.2em;
 
     &.no-head {
@@ -487,32 +593,6 @@ input[type="search"] {
             border-color: @bg-color4;
         }
 
-        th {
-            text-transform: uppercase;
-
-            &.asc, &.des {
-                > a::after {
-                    content: '';
-                    position: absolute;
-                    vertical-align: middle;
-                    margin-left: .5em;
-                    margin-top: .5em;
-                    display: inline-block;
-                    border: 5px solid transparent;
-                }
-            }
-
-            &.asc > a::after {
-                border-bottom: none;
-                border-top-color: @text-color4;
-            }
-
-            &.des > a::after {
-                border-top: none;
-                border-bottom-color: @text-color4;
-            }
-        }
-
         th, td {
             box-sizing: content-box;
             word-break: break-all;
@@ -541,60 +621,70 @@ input[type="search"] {
         margin-top: @font-size-large/2;
         color: @text-color5;
     }
-}
+}*/
 
 .tabs {
-    text-align: left;
-    position: relative;
-    list-style-type: none;
-    margin: 0;
-    padding: 0;
-    background-color: @bg-color1;
+    .box();
+    .column();
+    
+    > nav {
+        .row();
+        .push-next();
 
-    .tab-header {
-        position: relative;
-        display: inline-block;
-        text-align: center;
-        margin-top: 2px;
-        padding: 1em;
-        width: 10em;
-        line-height: 2.5;
-        border-left: 4px solid transparent;
-        cursor: @cursor-pointer;
-        z-index: 2;
+        background-color: @bg-color1;
+        margin: -@gutter;
+        margin-bottom: @gutter;
+        padding: 0 4px;
 
-        svg-icon {
-            width: @font-size-xlarge;
-            height: @font-size-xlarge;
-            margin: 0 auto;
-            display: block;
+        > a {
+            .no-outline();
+            position: relative;
+            padding: @gutter;
+
+            &::after {
+                content: '';
+                position: absolute;
+                height: 4px;
+                left: 51%;
+                right: 51%;
+                bottom: 0;
+                background-color: @bg-color11;
+                transition: 300ms;
+            }
+
+            &.selected {
+                color: @text-color6;
+
+                &::after {
+                    left: 0;
+                    right: 0;
+                }
+            }
         }
     }
 
-    .tab-content {
-        display: none;
-        position: absolute;
-        left: 9.9em;
-        top: 2px;
-        right: 0;
-        bottom: 0;
-        background-color: @bg-color2;
-        box-shadow: 0 0 4px 0px @shadow-color;
-        padding: 1em 2em;
+    > .tabs-row {
+        .row();
+        .greedy();
+        overflow-x: hidden;
         overflow-y: auto;
-    }
 
-    .selected {
-        .tab-header {
-            background-color: @bg-color2;
-            border-color: @text-color6;
-            color: @text-color6;
-            box-shadow: -3px 0 4px 0px @shadow-color;
-            cursor: default;
-        }
+        > .tab {
+            .column();
+            min-width :100%;
+            margin-left: -100%;
+            opacity: 0;
+            transition: all 500ms;
 
-        .tab-content {
-            display: block;
+            &.selected {
+                margin-left: 0;
+                opacity: 1;
+
+                + .tab {
+                    margin-left: 100%;
+                    opacity: 0;
+                }
+            }
         }
     }
 }
@@ -624,18 +714,6 @@ input[type="search"] {
         color: @text-color2;
         vertical-align: top;
     }
-}
-
-.details-pane  {
-    position: absolute;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    top: 260px;
-
-    tabs {
-        height: 100%;
-    }   
 }
 
 .val-msg {
@@ -726,7 +804,16 @@ input[type="search"] {
 .box {
     display: block;
     background-color: @bg-color2;
-    padding: 1em 1.25em;
+    padding: @gutter;
+
+    > .box-heading {
+        margin: -@gutter;
+        margin-bottom: @gutter;
+        padding: @gutter;
+        background-color: @bg-color1;
+        font-size: @font-size-normal;
+        font-weight: normal;
+    }
 }
 
 .status-line {
@@ -744,6 +831,66 @@ input[type="search"] {
             }
         }
     }   
+}
+
+.row {
+    display: flex;
+    flex-direction: row;
+
+    > .push-prev {
+        margin-right: @gutter;
+    }
+
+    > .push-next {
+        margin-right: @gutter;
+    }
+
+    > .push-both {
+        margin-right: @gutter;
+        margin-left: @gutter;
+    }
+}
+
+.column {
+    display: flex;
+    flex-direction: column;
+
+    > .push-prev {
+        margin-top: @gutter;
+    }
+
+    > .push-next {
+        margin-bottom: @gutter;
+    }
+
+    > .push-both {
+        margin-bottom: @gutter;
+        margin-top: @gutter;
+    }
+}
+
+.greedy {
+    flex-basis: 0;
+    flex-grow: 999;
+}
+
+.bounded {
+    width: 100%;
+    max-width: @content-max-width;
+    padding: 0 @gutter;
+    align-self: center;
+}
+
+.align-start {
+    align-self: flex-start;
+}
+
+.align-end {
+    align-self: flex-end;
+}
+
+.align-center {
+    align-self: center;
 }
 
 .rotate {

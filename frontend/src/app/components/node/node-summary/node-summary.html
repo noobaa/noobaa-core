@@ -1,68 +1,72 @@
-<ul class="list-no-style status-line">
-    <li>
-        <svg-icon params="uri: '/fe/assets/icons.svg#location'" data-bind="tooltip: 'IP'"></svg-icon>
-        <span data-bind="text: ip"></span>
-    </li>
-    <li>
-        <svg-icon params="uri: '/fe/assets/icons.svg#heartbeat'" data-bind="tooltip: 'Heartbeat'"></svg-icon>
-        <span data-bind="text: heartbeat"></span>
-    </li>
-    <li>
-        <svg-icon params="uri: stateIcon" data-bind="tooltip: 'State'"></svg-icon>
-        <span data-bind="text: state"></span>
-    </li>
-    <li>
-        <svg-icon params="uri: trustIcon" data-bind="tooltip: 'Trust'"></svg-icon>
-        <span data-bind="text: trust"></span>
-    </li>
-    <li class="debug-level" data-bind="css: debugLevelCss">
-        <svg-icon params="uri: '/fe/assets/icons.svg#diagnose'" data-bind="tooltip: 'Debug Level'"></svg-icon>
-        <span data-bind="text: debugLevel"></span>
-    </li>
-</ul>
+<h2 class="box-heading">General Information</h2>
 
-<div class="text-center">
-    <section class="gauge-legend">
-        <h3 class="heading3 underline">
-            Node Storage Capacity:
-            <span data-bind="text: totalText"></span>
-        </h3>
+<div>
+    <ul class="list-no-style status-line">
+        <li>
+            <svg-icon params="uri: '/fe/assets/icons.svg#location'" data-bind="tooltip: 'IP'"></svg-icon>
+            <span data-bind="text: ip"></span>
+        </li>
+        <li>
+            <svg-icon params="uri: '/fe/assets/icons.svg#heartbeat'" data-bind="tooltip: 'Heartbeat'"></svg-icon>
+            <span data-bind="text: heartbeat"></span>
+        </li>
+        <li>
+            <svg-icon params="uri: stateIcon" data-bind="tooltip: 'State'"></svg-icon>
+            <span data-bind="text: state"></span>
+        </li>
+        <li>
+            <svg-icon params="uri: trustIcon" data-bind="tooltip: 'Trust'"></svg-icon>
+            <span data-bind="text: trust"></span>
+        </li>
+        <li class="debug-level" data-bind="css: debugLevelCss">
+            <svg-icon params="uri: '/fe/assets/icons.svg#diagnose'" data-bind="tooltip: 'Debug Level'"></svg-icon>
+            <span data-bind="text: debugLevel"></span>
+        </li>
+    </ul>
 
-        <ul class="list-no-style">
-            <li class="used-legend">
-                NooBaa:
-                <span class="emphasized" data-bind="text: usedText"></span>
-            </li>
-            <li class="os-legend">
-                Other:
-                <span class="emphasized" data-bind="text: osText"></span>
-            </li>
-            <li class="free-legend">
-                Free Space:
-                <span class="emphasized" data-bind="text: freeText"></span>
-            </li>
-        </ul>
-    </section>
+    <div class="text-center">
+        <section class="gauge-legend">
+            <h3 class="heading3 underline">
+                Node Storage Capacity:
+                <span data-bind="text: totalText"></span>
+            </h3>
 
-    <quantity-gauge params="values: gaugeValues"></quantity-gauge>
+            <ul class="list-no-style">
+                <li class="used-legend">
+                    NooBaa:
+                    <span class="emphasized" data-bind="text: usedText"></span>
+                </li>
+                <li class="os-legend">
+                    Other:
+                    <span class="emphasized" data-bind="text: osText"></span>
+                </li>
+                <li class="free-legend">
+                    Free Space:
+                    <span class="emphasized" data-bind="text: freeText"></span>
+                </li>
+            </ul>
+        </section>
 
-    <section class="action-list">
-        <button class="action btn2" data-bind="click: () => isTestModalVisible(true)">
-            <svg-icon params="uri: '/fe/assets/icons.svg#node-test'"></svg-icon>
-            Test Node
-        </button>
+        <quantity-gauge params="values: gaugeValues"></quantity-gauge>
 
-        <button class="action btn3" data-bind="click: () => raiseDebugLevel()">
-            <svg-icon params="uri: '/fe/assets/icons.svg#diagnose'"></svg-icon>
-            Raise Debug Level
-        </button>
+        <section class="action-list">
+            <button class="action btn2" data-bind="click: () => isTestModalVisible(true)">
+                <svg-icon params="uri: '/fe/assets/icons.svg#node-test'"></svg-icon>
+                Test Node
+            </button>
 
-        <a class="action btn3" data-bind="click: () => downloadDiagnosticPack()"
-            target="_blank">
-            <svg-icon params="uri: '/fe/assets/icons.svg#download'"></svg-icon>
-            Export Diag Pack
-        </a>
-    </section>
+            <button class="action btn3" data-bind="click: () => raiseDebugLevel()">
+                <svg-icon params="uri: '/fe/assets/icons.svg#diagnose'"></svg-icon>
+                Raise Debug Level
+            </button>
+
+            <a class="action btn3" data-bind="click: () => downloadDiagnosticPack()"
+                target="_blank">
+                <svg-icon params="uri: '/fe/assets/icons.svg#download'"></svg-icon>
+                Export Diag Pack
+            </a>
+        </section>
+    </div>
 </div>
 
 <!-- ko if: isTestModalVisible -->

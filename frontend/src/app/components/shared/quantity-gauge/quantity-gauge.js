@@ -5,7 +5,7 @@ import style from 'style';
 
 const radius = 98;
 const canvasWidth = radius * 2;
-const canvasHeight = radius * 2;
+const canvasHeight = radius * 2 - 30;
 const lineWidth = 4;
 const emphasiseWidth = 19;
 const lineMargin = 3;

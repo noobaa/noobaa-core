@@ -1,38 +1,27 @@
-<ul class="clear pull-right">
-    <li>
-        <button class="btn-flat action"  data-bind="
-            click: refresh, 
-            tooltip: 'Refresh'
-        ">
-            <svg-icon params="uri: '/fe/assets/icons.svg#refresh'"></svg-icon>
-        </button>
-    </li>    
+<button class="btn-flat action"  data-bind="
+    click: refresh, 
+    tooltip: 'Refresh'
+">
+    <svg-icon params="uri: '/fe/assets/icons.svg#refresh'"></svg-icon>
+</button>
 
-    <li>
-        <a class="btn-flat action" data-bind="
-            href: '/fe/systems/:system/management', 
-            tooltip: 'Management'
-        ">
-            <svg-icon params="uri: '/fe/assets/icons.svg#manage'"></svg-icon>
-        </a>
-    </li>
+<a class="btn-flat action" data-bind="
+    href: '/fe/systems/:system\/management', 
+    tooltip: 'Management'
+">
+    <svg-icon params="uri: '/fe/assets/icons.svg#manage'"></svg-icon>
+</a>
 
-    <li>
-        <button class="btn-flat action" data-bind="
-            click: showAuditLog,
-            tooltip: 'Audit'
-        ">
-            <svg-icon params="uri: '/fe/assets/icons.svg#log'"></svg-icon>
-        </button>
+<button class="btn-flat action" data-bind="
+    click: showAuditLog,
+    tooltip: 'Audit'
+">
+    <svg-icon params="uri: '/fe/assets/icons.svg#log'"></svg-icon>
+</button>
         
-    </li>
-
-    <li>
-        <button class="btn-flat action" data-bind="
-            click: signOut,
-            tooltip: { text: 'Sign Out', align: 'right' }
-        ">
-            <svg-icon params="uri: '/fe/assets/icons.svg#signout'"></svg-icon>
-        </button>
-    </li>
-</ul>
+<button class="btn-flat action" data-bind="
+    click: signOut,
+    tooltip: { text: 'Sign Out', align: 'right' }
+">
+    <svg-icon params="uri: '/fe/assets/icons.svg#signout'"></svg-icon>
+</button>

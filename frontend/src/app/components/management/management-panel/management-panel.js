@@ -6,7 +6,7 @@ class ManagementPanelViewModel {
     constructor() {
         this.selectedTab = ko.pureComputed(
             () => uiState().tab
-        );    
+        );
     }
 
     isTabSelected(tab) {

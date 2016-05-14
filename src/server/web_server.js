@@ -8,7 +8,7 @@ require('dotenv').load();
 //If test mode, use Istanbul for coverage
 for (let i = 0; i < process.argv.length; ++i) {
     if (process.argv[i] === '--TESTRUN') {
-        process.env.TESTRUN = true;
+        process.env.TESTRUN = 'true'; // must be string
     }
 }
 if (process.env.TESTRUN === 'true') {

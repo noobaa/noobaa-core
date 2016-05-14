@@ -10,7 +10,7 @@ var Prefetch = require('../../util/prefetch');
 mocha.describe('prefetch', function() {
 
     mocha.it('should work', function() {
-        var pr;
+        var pr = {};
         return P.fcall(function() {
                 var id = 0;
                 pr = new Prefetch({

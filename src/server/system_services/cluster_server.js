@@ -3,9 +3,9 @@
  */
 'use strict';
 
-
-
 const _ = require('lodash');
+const uuid = require('node-uuid');
+const system_store = require('./system_store').get_instance();
 const server_rpc = require('../server_rpc');
 const MongoCtrl = require('../utils/mongo_ctrl');
 const cutil = require('../utils/clustering_utils');
@@ -29,6 +29,27 @@ function _init() {
 //API
 //
 
+//Return new cluster info, if doesn't exists in db
+function new_cluster_info() {
+    if (system_store.get_local_cluster_info()) {
+        return;
+    }
+
+    var cluster = {
+        owner_secret: system_store.get_server_secret(),
+        cluster_id: uuid().substring(0, 8),
+        shards: [{
+            shardname: 'shard1',
+            servers: [{
+                address: os_utils.get_local_ipv4_ips()[0] //TODO:: on multiple nics support, fix this
+            }],
+        }],
+        config_servers: [],
+    };
+
+    return cluster;
+}
+
 //Initiate process of adding a server to the cluster
 function add_member_to_cluster(req) {
     if (!os_utils.is_supervised_env()) {
@@ -48,7 +69,7 @@ function add_member_to_cluster(req) {
                         return srv.address === myip;
                     }) === -1) {
                     dbg.log0('Current server is the first on cluster and still has single mongo running, updating');
-                    return _add_new_shard_member('shard1', myip, true/*first_shard*/);
+                    return _add_new_shard_member('shard1', myip, true); ///3rd param *first_shard*/
                 }
             } else {
                 return P.resolve();
@@ -266,9 +287,9 @@ function _add_new_config(cfg_array, first_shard) {
         .then(function() {
             dbg.log0('Updating config replica set, initiate_replica_set=', first_shard ? 'true' : 'false');
             if (first_shard) {
-                return MongoCtrl.initiate_replica_set(config.MONGO_DEFAULTS.CFG_RSET_NAME, cfg_array, true/*config set*/);
+                return MongoCtrl.initiate_replica_set(config.MONGO_DEFAULTS.CFG_RSET_NAME, cfg_array, true); //3rd param /*config set*/
             } else {
-                return MongoCtrl.add_member_to_replica_set(config.MONGO_DEFAULTS.CFG_RSET_NAME, cfg_array, true/*config set*/);
+                return MongoCtrl.add_member_to_replica_set(config.MONGO_DEFAULTS.CFG_RSET_NAME, cfg_array, true); //3rd param /*config set*/
             }
         });
 }
@@ -300,6 +321,7 @@ function _get_secret() {
 
 // EXPORTS
 exports._init = _init;
+exports.new_cluster_info = new_cluster_info;
 exports.add_member_to_cluster = add_member_to_cluster;
 exports.join_to_cluster = join_to_cluster;
 exports.news_config_servers = news_config_servers;

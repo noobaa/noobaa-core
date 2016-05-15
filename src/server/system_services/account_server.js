@@ -17,6 +17,7 @@ const server_rpc = require('../server_rpc');
 const ActivityLog = require('../analytic_services/activity_log');
 const system_store = require('../system_services/system_store').get_instance();
 const system_server = require('./system_server');
+const cluster_server = require('./cluster_server');
 
 system_store.on('load', ensure_support_account);
 
@@ -55,6 +56,13 @@ function create_account(req) {
                 .then(changes => {
                     account.allowed_buckets = [changes.insert.buckets[0]._id];
                     changes.insert.accounts = [account];
+                    return changes;
+                })
+                .then(changes => {
+                    var cluster_info = cluster_server.new_cluster_info();
+                    if (cluster_info) {
+                        changes.insert.clusters = [cluster_info];
+                    }
                     return changes;
                 });
         })

@@ -67,7 +67,7 @@ function run_server() {
             });
         })
         .then(() => {
-            const addr_url = url.parse(params.address || '');
+            const addr_url = url.parse(params.address || 'wss://127.0.0.1:'+process.env.SSL_PORT||5443);
             const is_local_address =
                 addr_url.hostname === '127.0.0.1' ||
                 addr_url.hostname === 'localhost';

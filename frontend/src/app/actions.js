@@ -667,10 +667,31 @@ export function loadNodeInfo(nodeName) {
     }
 
     api.node.read_node({ name: nodeName })
+        //.then(model.nodeInfo)
         .then(
             // TODO: remove assign after implementing trusted in the server.
             nodeInfo => model.nodeInfo(
-                Object.assign(nodeInfo, { trusted: true })
+                Object.assign(
+                    nodeInfo, 
+                    { 
+                        trusted: !(Math.random() * 2 | 0),
+                        accessibility: [
+                            'FULL_ACCESS', 'READ_ONLY', 'NO_ACCESS'
+                        ][Math.random() * 3 | 0],
+                        connectivity_type: [
+                            'UNKNOWN', 'UDP', 'TCP'
+                        ][Math.random() * 3 | 0],
+                        data_activity: {
+                            type: [
+                                'EVACUATING', 'REBUILDING', 'MIGRATING'
+                            ][Math.random() * 3 | 0],
+                            total_size: Math.random() * 1234567890 | 0,
+                            completed_size: Math.random() * 1234567890 | 0,
+                            start_time: Date.now(),
+                            eta: Date.now() + Math.random() * 1234567890
+                        }
+                    }
+                )
             )
         )
         .done();

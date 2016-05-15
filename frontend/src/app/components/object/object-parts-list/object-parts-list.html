@@ -1,58 +1,64 @@
-<paginator class="align-end push-next" params="
+<paginator class="push-next align-end" params="
     page: page, itemCount: count, pageSize: pageSize
 "></paginator>
 
-<ul class="" style="display: none" data-bind="foreach: rows">
+<ul class="part-list greedy" data-bind="foreach: rows">
     <li>
-        <div class="row" data-bind="click: toggleExpend">
-            <button class="expand-btn btn-flat pull-right rotate no-outline" data-bind="
+        <div class="row content-middle" data-bind="click: toggleExpend">
+            <svg-icon class="push-next" params="uri: stateIcon" data-bind="
+                tooltip: stateToolTip
+            "></svg-icon>
+
+            <div class="greedy">
+                <span data-bind="text: name"></span>
+                (<span class="emphasized" data-bind="text: size"></span>)
+            </div>
+
+            <button class="expand-btn btn-flat rotate no-outline" data-bind="
                 css: { 'deg-90': !isExpended() }
             ">
                 <svg-icon class="expand-icon icon-small" params="
                     uri: '/fe/assets/icons.svg#expand'
                 "></svg-icon>
             </button>
-
-            <svg-icon params="uri: stateIcon" data-bind="tooltip: stateToolTip">
-            </svg-icon>
-
-            <span data-bind="text: name"></span>
-            (<span class="emphasized" data-bind="text: size"></span>)
         </div>
-        
-        <div class="blocks-table" data-bind="expand: isExpended">
-            <table>
-                <tbody data-bind="foreach: blocks">
-                    <tr>
-                        <td class="replica-col text-left">
-                            <svg-icon params="uri: nodeStateIcon" data-bind="
-                                tooltip: nodeStateToolTip
-                            "></svg-icon>
-                            <span data-bind="text: label"></span>
-                        </td>
-                        <td class="node-name-col">
-                            <a class="link" data-bind="
-                                text: shortenNodeName,
-                                tooltip: nodeName,
-                                href: nodeUrl
-                            "></a>
-                        </td>
-                        <td class="node-ip-col">
-                            <a class="link" data-bind="
-                                text: nodeIp,
-                                href: nodeUrl
-                            "></a>
-                        </td>
-                        <td class="pool-col no-wrap">
-                            <a class="link" data-bind="
-                                text: poolName,
-                                tooltip: poolName,
-                                href: poolUrl
-                            "></a>
-                        </td>
-                    </tr>
-                </tbody>
-            </table>
-        </div>
+
+        <table data-bind="expand: isExpended">
+            <tbody data-bind="foreach: blocks">
+                <tr content-middle">
+                    <td class="status-col">
+                        <svg-icon params="uri: nodeStateIcon" data-bind="
+                            tooltip: nodeStateToolTip
+                        "></svg-icon>
+                    </td>
+
+                    <td class="replica-col text-left" data-bind="text: label">
+                    </td>
+
+                    <td class="node-name-col" >
+                        <a class="link" data-bind="
+                            text: shortenNodeName,
+                            tooltip: nodeName,
+                            href: nodeUrl
+                        "></a>
+                    </td>
+
+                    <td class="node-ip-col">
+                        <a class="link" data-bind="
+                            text: nodeIp,
+                            href: nodeUrl
+                        "></a>
+                    </td>
+
+                    <td class="pool-col no-wrap">
+                        <a class="link" data-bind="
+                            text: poolName,
+                            tooltip: poolName,
+                            href: poolUrl
+                        "></a>
+                    </td>
+                </tr>
+            </tbody>
+        </table>
     </li>
 </ul>

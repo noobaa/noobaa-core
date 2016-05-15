@@ -4,6 +4,12 @@ import moment from 'moment';
 import style from 'style';
 import { formatSize, avgOp } from 'utils';
 
+const conactivityTypeMapping = Object.freeze({
+    UNKNOWN: 'Unknown',
+    TCP: 'TCP',
+    UDP: 'UDP'
+});
+
 class NodeInfoViewModel {
     constructor({ node  }) {
         this.dataReady = ko.pureComputed(
@@ -12,6 +18,28 @@ class NodeInfoViewModel {
 
         this.version = ko.pureComputed(
             () => node().version
+        );
+
+        this.lastHeartbeat = ko.pureComputed(
+            () => moment(node().heartbeat).fromNow()
+        );
+
+        this.ip = ko.pureComputed(
+            () => node().ip
+        );
+
+        this.p2pConactivityType = ko.pureComputed(
+            () => conactivityTypeMapping[node().connectivity_type]
+        );
+        
+        this.RTT = ko.pureComputed(
+            () => node() && `${
+                node().latency_to_server.reduce(avgOp).toFixed(1)
+            } ms`
+        );
+
+        this.isUDPWarningVisible = ko.pureComputed(
+            () => node().connectivity_type === 'UDP'
         );
 
         this.hostname = ko.pureComputed(
@@ -34,17 +62,13 @@ class NodeInfoViewModel {
             () => formatSize(node().os_info.totalmem)
         );
 
-        this.totalSize = ko.pureComputed(
-            () => formatSize(node().storage.total)
+        this.mountName = ko.pureComputed(
+            () => node().drives[0].mount
         );
 
-        this.networks = ko.pureComputed(
-            () => this._mapNetwotkInterfaces(node().os_info.networkInterfaces)
-        );
-
-        this.drives = ko.pureComputed(
-            () => this._mapDrives(node().drives)
-        );
+        this.blockDevice = ko.pureComputed(
+            () => node().drives[0].drive_id
+        );        
 
         this.diskRead = ko.pureComputed(
             () => node() && `${
@@ -57,51 +81,10 @@ class NodeInfoViewModel {
                 node().latency_of_disk_write.reduce(avgOp).toFixed(1)
             } ms`
         );
-
-        this.RTT = ko.pureComputed(
-            () => node() && `${
-                node().latency_to_server.reduce(avgOp).toFixed(1)
-            } ms`
-        );
     }
 
     _mapCpus({ os_info }) {
         return `${os_info.cpus.length}x ${os_info.cpus[0].model}`;
-    }
-
-    _mapNetwotkInterfaces(networkInterfaces) {
-        return Object.keys(networkInterfaces).map(controller => {
-            return {
-                controller: controller,
-                interfaces: networkInterfaces[controller].map(addr => addr.address)
-            };
-        });
-    }
-
-    _mapDrives(drives) {
-        return drives.map(
-            ({ mount, storage}) => {
-                let { total, used = 0, free } = storage;
-                let os = total - (used + free);
-
-                return {
-                    name: mount,
-                    values: [{
-                        legend: `NooBaa: ${formatSize(used)}`,
-                        value: used,
-                        color: style['text-color6']
-                    }, {
-                        legend: `Other: ${formatSize(os)}`,
-                        value: os,
-                        color: style['text-color2']
-                    }, {
-                        legend: `Free: ${formatSize(free)}`,
-                        value: free,
-                        color: style['text-color5']
-                    }]
-                };
-            }
-        );
     }
 }
 

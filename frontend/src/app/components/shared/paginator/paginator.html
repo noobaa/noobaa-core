@@ -1,14 +1,21 @@
-<span class="page-indicator" data-bind="ifnot: noResults">
-    <span class="highlight" data-bind="text: pageStart"></span>
+<div class="page-indicator" data-bind="ifnot: noResults">
+    <span class="emphasized" data-bind="text: pageStart"></span>
     -
-    <span class="highlight" data-bind="text: pageEnd"></span>
+    <span class="emphasized" data-bind="text: pageEnd"></span>
     of
-    <span class="highlight" data-bind="text: count"></span>
-</span>
+    <span class="emphasized" data-bind="text: count"></span>
+</div>
 
-<button class="page-btn btn3" data-bind="click: pageBackward, attr: { disabled: isFirstPage}">
-    <svg-icon params="uri: backwardIcon"></svg-icon>
+<button class="btn3" data-bind="
+    click: pageBackward, 
+    attr: { disabled: isFirstPage}
+">
+    <svg-icon class="icon-small" params="uri: backwardIcon"></svg-icon>
 </button>
-<button class="page-btn btn3" data-bind="click: pageForward, attr: { disabled: isLastPage}">
-    <svg-icon params="uri: forwardIcon"></svg-icon>
+
+<button class="btn3" data-bind="
+    click: pageForward, 
+    attr: { disabled: isLastPage }
+">
+    <svg-icon class="icon-small" params="uri: forwardIcon"></svg-icon>
 </button>

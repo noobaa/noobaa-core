@@ -1,30 +1,17 @@
 node-summary {
-    .debug-level  {
+    .status > li {
+        margin-bottom: @gutter;
+    }
+
+    .used {
+        color: @text-color6;
+    }
+
+    .other {
         color: @text-color4;
-        
-        > svg-icon {
-            fill: @text-color4;
-        }
-
-        &.dl-high {
-            color: @text-color10;
-            
-            > svg-icon {
-                fill: @text-color10;    
-            }
-            
-        }
     }
 
-    .used-legend::before {
-        background-color: @text-color6;
-    }
-
-    .os-legend::before {
-        background-color: @text-color4;
-    }
-
-    .free-legend::before {
-        background-color: @text-color5;
+    .free {
+        color: @text-color5;
     }
 }

@@ -1,16 +1,13 @@
 paginator {
-    display: block;
+    .row();
+    .content-middle;
 
-    .page-indicator {
-        margin-right: @gutter;
-
-        .highlight {
-            font-weight: @font-weight-medium;
-        }
+    > .page-indicator {
+        margin-right: @gutter/2;
     }
 
-    .page-btn svg-icon {
-        width: @gutter;
-        height: @gutter;
+    > .btn3 {
+        padding: 6px;
+        margin: 2px;
     }
 }

@@ -11,7 +11,7 @@ const emphasiseWidth = 19;
 const lineMargin = 3;
 const emptyColor = style['text-color5'];
 
-const textFont = `${style['font-size-large']} ${style['font-type2']}`;
+const textFont = `${style['font-size-xlarge']} ${style['font-type2']}`;
 const textColor = style['gray-lv6'];
 
 class CapacityGaugeViewModel {
@@ -43,7 +43,7 @@ class CapacityGaugeViewModel {
                 (item, i) => {
                     let value = this.tweened[i]();
                     let ratio = value/total;
-                    this._drawSection(ctx, offset, ratio, item.color, true);
+                    this._drawSection(ctx, offset, ratio, item.color, item.emphasize);
                     offset += ratio;
                     sum += item.emphasize ? value : 0;
                 }

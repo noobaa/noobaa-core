@@ -64,8 +64,9 @@ hr {
 
 vr {
     width: 1px;
+    min-width: 1px;
     background-color: @bg-color6;
-    margin: @gutter/2 @gutter;
+    margin: 0 2 * @gutter;
 }
 
 output {
@@ -184,7 +185,6 @@ input[type="search"] {
     list-style-type: none;
     margin: 0;
     padding: 0;
-    line-height: 1;
 }
 
 .no-wrap {
@@ -217,11 +217,9 @@ input[type="search"] {
 }
 
 .heading3 {
-    margin-bottom: .5em;
-
     .text(
         @font-type2, 
-        @font-weight-light, 
+        @font-weight-thin, 
         @font-size-medium, 
         @text-color2
     );
@@ -232,7 +230,7 @@ input[type="search"] {
 
     .text(
         @font-type2, 
-        @font-weight-medium, 
+        @font-weight-thin, 
         @font-size-normal, 
         @text-color2
     );  
@@ -249,7 +247,7 @@ input[type="search"] {
         @font-type2, 
         @font-weight-light, 
         @font-size-small, 
-        @text-color4        
+        @text-color4
     );
 
     .link {
@@ -264,6 +262,15 @@ input[type="search"] {
         @font-size-normal, 
         @text-color3
     );
+}
+
+.warning {
+    .text(
+        @font-type2, 
+        @font-weight-thin, 
+        @font-size-normal, 
+        @text-color10
+    );   
 }
 
 .disabeld {
@@ -547,8 +554,8 @@ input[type="search"] {
         .push-next();
 
         background-color: @bg-color1;
-        margin: -@gutter;
-        margin-bottom: @gutter;
+        margin: -1.5 * @gutter;
+        margin-bottom: 1.5 * @gutter;
         padding: 0 4px;
 
         > a {
@@ -557,6 +564,7 @@ input[type="search"] {
             padding: @gutter;
             min-width: 100px;
             text-align: center;
+            cursor: @cursor-pointer;
 
             &::after {
                 content: '';
@@ -721,11 +729,11 @@ input[type="search"] {
 .box {
     display: block;
     background-color: @bg-color2;
-    padding: @gutter;
+    padding: 1.5* @gutter;
 
     > .box-header {
-        margin: -@gutter;
-        margin-bottom: @gutter;
+        margin: -1.5 * @gutter;
+        margin-bottom: 1.5 * @gutter;
         padding: @gutter;
         background-color: @bg-color1;
         font-size: @font-size-normal;
@@ -753,6 +761,10 @@ input[type="search"] {
 .row {
     display: flex;
     flex-direction: row;
+
+    &.multiline {
+        flex-wrap: wrap;
+    }
 
     > .push-prev {
         margin-right: @gutter;
@@ -786,6 +798,16 @@ input[type="search"] {
     }
 }
 
+.define-c(@i) when (@i > 0) {
+    .c@{i} {
+        flex-basis: 100% / 12 * @i;
+    }
+
+    .define-c(@i - 1);
+}
+
+.define-c(12);
+
 .greedy {
     flex-basis: 0;
     flex-grow: 999;
@@ -806,8 +828,25 @@ input[type="search"] {
     align-self: flex-end;
 }
 
-.align-center {
+.align-middle {
     align-self: center;
+}
+
+.content-start {
+    align-items: flex-start;
+}
+
+.content-middle {
+    align-items: center;
+}
+
+.content-end {
+    align-items: flex-end; 
+}
+
+.scrollable {
+    overflow: auto;
+    padding-right: 10px;
 }
 
 .rotate {

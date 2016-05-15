@@ -1,67 +1,66 @@
-<ul class="list-no-style status-line">
-    <li>
-        <svg-icon params="uri: '/fe/assets/icons.svg#location'" data-bind="tooltip: 'IP'"></svg-icon>
-        <span data-bind="text: ip"></span>
-    </li>
-    <li>
-        <svg-icon params="uri: '/fe/assets/icons.svg#heartbeat'" data-bind="tooltip: 'Heartbeat'"></svg-icon>
-        <span data-bind="text: heartbeat"></span>
-    </li>
-    <li>
-        <svg-icon params="uri: stateIcon" data-bind="tooltip: 'State'"></svg-icon>
-        <span data-bind="text: state"></span>
-    </li>
-    <li>
-        <svg-icon params="uri: trustIcon" data-bind="tooltip: 'Trust'"></svg-icon>
-        <span data-bind="text: trust"></span>
-    </li>
-    <li class="debug-level" data-bind="css: debugLevelCss">
-        <svg-icon params="uri: '/fe/assets/icons.svg#diagnose'" data-bind="tooltip: 'Debug Level'"></svg-icon>
-        <span data-bind="text: debugLevel"></span>
-    </li>
-</ul>
-
-<div class="text-center">
-    <section class="gauge-legend">
-        <h3 class="heading3 underline">
-            Node Storage Capacity:
+<div class="row">
+    <section class="c3 column">
+        <h3 class="heading4 push-next">
+            Node Capacity:
             <span data-bind="text: totalText"></span>
         </h3>
 
-        <ul class="list-no-style">
-            <li class="used-legend">
-                NooBaa:
-                <span class="emphasized" data-bind="text: usedText"></span>
+        <div class="row content-middle">
+            <ul class="c7 column list-no-style legend">
+                <li class="row used">
+                    <span class="c6 emphasized">Noobaa:</span>
+                    <span data-bind="text: usedText"></span>
+                </li>
+                <li class="row other">
+                    <span class="c6 emphasized">Other:</span>
+                    <span data-bind="text: otherText"></span>
+                </li>
+                <li class="row free">
+                    <span class="c6 emphasized">Free:</span>
+                    <span data-bind="text: freeText"></span>
+                </li>
+            </ul>
+
+            <quantity-gauge class="c5" params="values: gaugeValues"></quantity-gauge>
+        </div>
+    </section>
+
+    <vr></vr>
+
+    <section class="c3 column">
+        <h3 class="heading4 push-next">Status</h3>
+        <ul class="list-no-style row multiline status">
+            <li class="c6 row">
+                <svg-icon class="push-next" params="uri: stateIcon" data-bind="
+                    tooltip: 'State'
+                "></svg-icon>
+                <span data-bind="text: stateText"></span>
             </li>
-            <li class="os-legend">
-                Other:
-                <span class="emphasized" data-bind="text: osText"></span>
+            <li class="c6 row">
+                <svg-icon class="push-next" params="uri: trustIcon" data-bind="
+                    tooltip: 'Trust'
+                "></svg-icon>
+                <span data-bind="text: trustText"></span>
             </li>
-            <li class="free-legend">
-                Free Space:
-                <span class="emphasized" data-bind="text: freeText"></span>
+
+            <li class="c12 row">
+                <svg-icon class="push-next" params="uri: accessibilityIcon" data-bind="
+                    tooltip: 'Accessibility'
+                "></svg-icon>
+                <span data-bind="text: accessibilityText"></span>
             </li>
         </ul>
     </section>
 
-    <quantity-gauge params="values: gaugeValues"></quantity-gauge>
+    <vr></vr>
 
-    <section class="action-list">
-        <button class="action btn2" data-bind="click: () => isTestModalVisible(true)">
-            <svg-icon params="uri: '/fe/assets/icons.svg#node-test'"></svg-icon>
-            Test Node
-        </button>
-
-        <button class="action btn3" data-bind="click: () => raiseDebugLevel()">
-            <svg-icon params="uri: '/fe/assets/icons.svg#diagnose'"></svg-icon>
-            Raise Debug Level
-        </button>
-
-        <a class="action btn3" data-bind="click: () => downloadDiagnosticPack()"
-            target="_blank">
-            <svg-icon params="uri: '/fe/assets/icons.svg#download'"></svg-icon>
-            Export Diag Pack
-        </a>
+    <section class="column greedy">
+        <h3 class="heading4 push-next">Activity</h3>
+        <p class="paragraph" data-bind="with: dataActivity">
+            <span data-bind="text: row1"></span>
+            <br>
+            <span class="used" data-bind="text: row2"></span>
+        </p>
     </section>
 </div>
 

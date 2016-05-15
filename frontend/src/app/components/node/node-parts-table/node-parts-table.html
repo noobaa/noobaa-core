@@ -1,7 +1,14 @@
 
-<paginator  class="align-end push-next" params="
-    pageSize: pageSize, itemCount: count, page: page
-"></paginator>
+<div class="row push-next content-middle">
+    <h3 class="heading3 greedy">
+        File parts stored on this node: 
+        <span data-bind="text: 30"></span>
+    </h3>
+
+    <paginator  class="align-end" params="
+        pageSize: pageSize, itemCount: count, page: page
+    "></paginator>
+</div>
 
 <div class="data-table greedy">
     <table>

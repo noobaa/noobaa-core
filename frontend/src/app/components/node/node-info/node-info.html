@@ -1,96 +1,93 @@
 <!-- ko if: dataReady -->
-<ul class="prop-sheet">
-    <li class="prop">
-        <span class="prop-name">Version:</span>
-        <span class="prop-value" data-bind="text: version"></span>
-    </li>
-</ul>
+<div class="scorllabel">
+    <section class="column">
+        <h3 class="heading3 push-next">Agent Information</h3>
+        <ul class="list-no-style">
+            <li class="row">
+                <span class="c3">Installed Version:</span>
+                <span class="c10" data-bind="text: version"></span>
+            </li>
+            <li class="row">
+                <span class="c3">Heartbeat:</span>
+                <span class="c10" data-bind="text: lastHeartbeat"></span>
+            </li>
+            <li class="row">
+                <span class="c3">Communication IP:</span>
+                <span class="c10" data-bind="text: ip"></span>
+            </li>
+            <li class="row">
+                <span class="c3">Peer to Peer Connectivity:</span>
+                <span class="c10">
+                    <span data-bind="text: p2pConactivityType"></span>
+                    <span class="warning" data-bind="visible: isUDPWarningVisible">
+                        (Not optimized for performance)
+                    </span>
+                </span>
+            </li>
+            </li>
+            <li class="row">
+                <span class="c3">Round Trip Time:</span>
+                <span class="c10" data-bind="text: RTT"></span>
+            </li>
+        </ul>
+    </section>
 
-<hr />
+    <hr>
 
-<section class="system">
-    <h3 class="heading3">System</h3>
-    <ul class="prop-sheet">
-        <li class="prop">
-            <span class="prop-name">Host Name:</span>
-            <span class="prop-value" data-bind="text: hostname"></span>
-        </li>
+    <section class="column">
+        <h3 class="heading3 push-next">System Information</h3>
+        <ul class="list-no-style">
+            <li class="row">
+                <span class="c3">Host Name:</span>
+                <span class="c10" data-bind="text: hostname"></span>
+            </li>
+            <li class="row">
+                <span class="c3">Up Time:</span>
+                <span class="c10" data-bind="text: upTime"></span>
+            </li>
+            <li class="row">
+                <span class="c3">OS Type:</span>
+                <span class="c10" data-bind="text: osType"></span>
+            </li>
+            <li class="row">
+                <span class="c3">CPUs:</span>
+                <span class="c10">
+                    <span data-bind="text: p2pConactivityType"></span>
+                    <ul class="list-no-style column" data-bind="foreach: cpus">
+                        <li class="text: $data"></li>
+                    </ul>
+                </span>
+            </li>
+            <li class="row">
+                <span class="c3">Memory:</span>
+                <span class="c10" data-bind="text: memory"></span>
+            </li>
+        </ul>
+    </section>
 
-        <li class="prop">
-            <span class="prop-name">CPUs:</span>
-            <span class="prop-value" data-bind="text: cpus"></span>
-        </li>
+    <hr>
 
-        <li class="prop">
-            <span class="prop-name">Up Time:</span>
-            <span class="prop-value" data-bind="text: upTime"></span>
-        </li>
-
-        <li class="prop">
-            <span class="prop-name">Memory:</span>
-            <span class="prop-value" data-bind="text: memory"></span>
-        </li>
-
-        <li class="prop">
-            <span class="prop-name">OS Type:</span>
-            <span class="prop-value" data-bind="text: osType"></span>
-        </li>
-        <li class="prop">
-            <span class="prop-name">RTT:</span>
-            <span class="prop-value" data-bind="text: RTT"></span>
-        </li>
-        <li class="prop">
-            <span class="prop-name">Disk Read:</span>
-            <span class="prop-value" data-bind="text: diskRead"></span>
-        </li>
-        <li class="prop">
-            <span class="prop-name">Disk Write:</span>
-            <span class="prop-value" data-bind="text: diskWrite"></span>
-        </li>
-
-    </ul>
-</section>
-
-<hr />
-
-<section class="drives">
-    <h3 class="heading3">
-        Drives | Total <span data-bind="text: totalSize"></span>
-    </h3>
-
-    <ul class ="drive-list list-no-style" data-bind="foreach: drives">
-        <li>
-            <div class="drive-icon">
-                <svg-icon params="uri: '/fe/assets/icons.svg#drive'"></svg-icon>
-            </div>
-
-            <span class="no-wrap drive-name" data-bind="text: name"></span>
-
-            <div class="drive-capacity">
-                <div data-bind="foreach: values">
-                    <span class="legend" data-bind="
-                        style: { color: color },
-                        text: legend
-                    "></span>
-                </div>
-                <bar params="values: values"></bar>
-            </div>
-        </li>
-    </ul>
-</section>
-
-<hr />
-
-<section class="networks">
-    <h3 class="heading3">Network Adapters</h3>
-
-    <ul class="prop-sheet" data-bind="foreach: networks">
-        <li class="prop clear">
-            <span class="controller-name prop-name" data-bind="text: controller"></span>
-            <ul class="prop-value list-no-style address-list clear" data-bind="foreach: interfaces">
-                <li data-bind="text: $data"></li>
-            </ul>
-        </li>
-    </ul>
-</section>
+    <section class="column">
+        <h3 class="heading3 push-next">Drive</h3>
+        <ul class="list-no-style">
+            <li class="row">
+                <span class="c3">Mount:</span>
+                <span class="c10" data-bind="text: mountName"></span>
+            </li>
+            <li class="row">
+                <span class="c3">Block Device:</span>
+                <span class="c10" data-bind="text: blockDevice"></span>
+            </li>        
+            <li class="row">
+                <span class="c3">Read Latency:</span>
+                <span class="c10" data-bind="text: diskRead"></span>
+            </li>
+            <li class="row">
+                <span class="c3">Write Latency:</span>
+                <span class="c10" data-bind="text: diskWrite"></span>
+            </li>
+        </ul>
+    </section>
+</div>
 <!-- /ko -->
+

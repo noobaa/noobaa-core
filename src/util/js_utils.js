@@ -87,12 +87,10 @@ function append_buffer_or_array(buffer_or_array, item) {
         } else {
             buffer_or_array.push(item);
         }
+    } else if (_.isArray(item)) {
+        buffer_or_array = Buffer.concat(array_push_all([buffer_or_array], item));
     } else {
-        if (_.isArray(item)) {
-            buffer_or_array = Buffer.concat(array_push_all([buffer_or_array], item));
-        } else {
-            buffer_or_array = Buffer.concat([buffer_or_array, item]);
-        }
+        buffer_or_array = Buffer.concat([buffer_or_array, item]);
     }
     return buffer_or_array;
 }

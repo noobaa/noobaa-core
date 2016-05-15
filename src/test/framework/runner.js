@@ -97,9 +97,6 @@ TestRunner.prototype.init_run = function() {
 
     self._rpc = api.new_rpc();
     self._client = self._rpc.new_client();
-    self._bg_client = self._rpc.new_client({
-        domain: 'bg'
-    });
 
     return P.fcall(function() {
             var auth_params = {
@@ -222,23 +219,23 @@ TestRunner.prototype._run_current_step = function(current_step, step_res) {
         !current_step.lib_test) {
         step_res = '        No Action Defined!!!';
         return;
-    } else {
-        if (current_step.common) {
-            var ts = new Date();
-            return P.invoke(self, current_step.common)
-                .then(function() {
-                    return step_res + ' - Successeful ( took ' +
-                        ((new Date() - ts) / 1000) + 's )';
-                    //return step_res;
-                });
-        } else if (current_step.action) {
-            return self._run_action(current_step, step_res);
-        } else if (current_step.lib_test) {
-            return self._run_lib_test(current_step, step_res);
-        } else {
-            throw new Error('Undefined step');
-        }
     }
+    if (current_step.common) {
+        var ts = new Date();
+        return P.invoke(self, current_step.common)
+            .then(function() {
+                return step_res + ' - Successeful ( took ' +
+                    ((new Date() - ts) / 1000) + 's )';
+                //return step_res;
+            });
+    } else if (current_step.action) {
+        return self._run_action(current_step, step_res);
+    } else if (current_step.lib_test) {
+        return self._run_lib_test(current_step, step_res);
+    } else {
+        throw new Error('Undefined step');
+    }
+
 };
 
 TestRunner.prototype._run_action = function(current_step, step_res) {
@@ -246,21 +243,19 @@ TestRunner.prototype._run_action = function(current_step, step_res) {
     var ts = new Date();
     //Build execution context from action and arguments
     var command = current_step.action;
-    if (current_step.params && current_step.params.length > 0) {
-        _.each(current_step.params, function(p) {
-            if (p.arg) {
-                command += ' ' + p.arg;
-            } else if (p.input_arg) {
-                if (self._argv[p.input_arg]) {
-                    command += ' ' + self._argv[p.input_arg];
-                } else {
-                    fs.appendFileSync(REPORT_PATH, 'No argument recieved for ' + p.input_args + '\n');
-                }
+    var args = _.compact(_.map(current_step.params, function(p) {
+        if (p.arg) {
+            return p.arg;
+        } else if (p.input_arg) {
+            if (self._argv[p.input_arg]) {
+                return self._argv[p.input_arg];
+            } else {
+                fs.appendFileSync(REPORT_PATH, 'No argument recieved for ' + p.input_args + '\n');
             }
-        });
-    }
+        }
+    }));
 
-    return promise_utils.promised_exec(command)
+    return promise_utils.promised_spawn(command, args)
         .then(function(res) {
             step_res = '        ' + step_res + ' - Successeful ( took ' +
                 ((new Date() - ts) / 1000) + 's )';
@@ -316,7 +311,7 @@ TestRunner.prototype._write_coverage = function() {
     var collector = new istanbul.Collector();
     var reporter = new istanbul.Reporter(null, COVERAGE_DIR + '/istanbul');
     //Get all collectors data
-    return this._bg_client.redirector.publish_to_cluster({
+    return this._client.redirector.publish_to_cluster({
             method_api: 'debug_api',
             method_name: 'get_istanbul_collector',
             target: ''

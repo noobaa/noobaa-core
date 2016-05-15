@@ -1,4 +1,5 @@
 'use strict';
+
 require('../util/panic');
 
 // load .env file before any other modules so that it will contain
@@ -6,20 +7,23 @@ require('../util/panic');
 console.log('loading .env file');
 require('dotenv').load();
 
-let _ = require('lodash');
-let P = require('../util/promise');
-let fs = require('fs');
-let util = require('util');
-let http = require('http');
-let https = require('https');
-let express = require('express');
-let dbg = require('../util/debug_module')(__filename);
-let argv = require('minimist')(process.argv);
-let pem = require('../util/pem');
-let s3_rest = require('./s3_rest');
-var S3Controller = require('./s3_controller');
-let cluster = require('cluster');
-let numCPUs = require('os').cpus().length;
+const _ = require('lodash');
+const fs = require('fs');
+const url = require('url');
+const util = require('util');
+const argv = require('minimist')(process.argv);
+const http = require('http');
+const https = require('https');
+const express = require('express');
+const cluster = require('cluster');
+const numCPUs = require('os').cpus().length;
+
+const P = require('../util/promise');
+const dbg = require('../util/debug_module')(__filename);
+const pem = require('../util/pem');
+const api = require('../api');
+const s3_rest = require('./s3_rest');
+const S3Controller = require('./s3_controller');
 
 dbg.set_process_name('S3rver');
 
@@ -58,9 +62,25 @@ function run_server() {
             return P.nfcall(pem.createCertificate, {
                 days: 365 * 100,
                 selfSigned: true
-            }).then(certificate => params.certificate = certificate);
+            }).then(certificate => {
+                params.certificate = certificate;
+            });
         })
-        .then(() => app.use(s3_rest(new S3Controller(params))))
+        .then(() => {
+            const addr_url = url.parse(params.address || '');
+            const is_local_address =
+                addr_url.hostname === '127.0.0.1' ||
+                addr_url.hostname === 'localhost';
+            if (is_local_address) {
+                dbg.log0('Initialize S3 RPC with MDServer');
+                const md_server = require('../server/md_server');
+                return md_server.register_rpc();
+            } else {
+                dbg.log0('Initialize S3 RPC to address', params.address);
+                return api.new_rpc(params.address);
+            }
+        })
+        .then(s3_rpc => app.use(s3_rest(new S3Controller(s3_rpc))))
         .then(() => dbg.log0('Starting HTTP', params.port))
         .then(() => listen_http(params.port, http.createServer(app)))
         .then(() => dbg.log0('Starting HTTPS', params.ssl_port))

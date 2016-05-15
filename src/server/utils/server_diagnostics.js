@@ -8,7 +8,7 @@ module.exports = {
 
 var TMP_WORK_DIR = '/tmp/diag';
 
-var stats_aggregator = require('../stats_aggregator');
+var stats_aggregator = require('../system_services/stats_aggregator');
 var P = require('../../util/promise');
 var os = require('os');
 var fs = require('fs');
@@ -32,7 +32,7 @@ function collect_server_diagnostics(req) {
             return promise_utils.promised_exec('cp -f /var/log/noobaa.log* ' + TMP_WORK_DIR, true);
         })
         .then(function() {
-            return promise_utils.promised_spawn('cp', ['-f', process.cwd() + '/.env', TMP_WORK_DIR + '/env'], process.cwd(), true);
+            return promise_utils.promised_exec('cp -f ' + process.cwd() + '/.env ' + TMP_WORK_DIR + '/env', true);
         })
         .then(function() {
             return os_utils.top_single(TMP_WORK_DIR + '/top.out');
@@ -98,7 +98,7 @@ function collect_ntp_diagnostics() {
         .then(() => promise_utils.promised_exec('echo "\n\nntpdate:" &>>' + ntp_diag, true))
         .then(() => promise_utils.promised_exec('ntpdate &>>' + ntp_diag, true))
         .then(() => promise_utils.promised_exec('echo "\n\nntptime:" &>>' + ntp_diag, true))
-        .then(() => promise_utils.promised_exec('ntptime &>>' + ntp_diag, true))
+        .then(() => promise_utils.promised_exec('ntptime &>>' + ntp_diag, true));
 }
 
 //Collect supervisor logs, only do so on linux platforms and not on OSX (WA for local server run)

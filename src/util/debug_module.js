@@ -31,13 +31,16 @@ try {
 
 //Detect our context, node/atom/browser
 //Different context requires different handling, for example winston usage or console wrapping
-var processType;
+var processType; // eslint-disable-line no-unused-vars
+var winston;
+var syslog;
+var console_wrapper;
 if (typeof process !== 'undefined' &&
     process.versions &&
     process.versions['atom-shell']) { //atom shell
-    var winston = require('winston');
+    winston = require('winston');
     processType = "atom";
-    var con = require('./console_wrapper');
+    console_wrapper = require('./console_wrapper');
 } else if (!global.document) {
     // node
 
@@ -54,14 +57,15 @@ if (typeof process !== 'undefined' &&
 
     if (should_log_to_syslog) {
         console.log('creating syslog');
-        var syslog = (new require('./native_core')().Syslog());
+        var native_core = require('./native_core')();
+        syslog = new native_core.Syslog();
     } else {
         console.log('creating winston');
-        var winston = require('winston');
+        winston = require('winston');
     }
 
     processType = "node";
-    var con = require('./console_wrapper');
+    console_wrapper = require('./console_wrapper');
 } else {
     //browser
     processType = "browser";
@@ -69,25 +73,12 @@ if (typeof process !== 'undefined' &&
 
 var int_dbg = new InternalDebugLogger();
 
-var MONTHS = {
-    "1": "Jan",
-    "2": "Feb",
-    "3": "Mar",
-    "4": "Apr",
-    "5": "May",
-    "6": "Jun",
-    "7": "Jul",
-    "8": "Aug",
-    "9": "Sep",
-    "10": "Oct",
-    "11": "Nov",
-    "12": "Dec",
-};
+var MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
 // Pretty time format
 function formatted_time() {
     var now = new Date();
-    var timemsg = MONTHS[now.getMonth() + 1] + '-' + now.getDate() + ' ' + now.getHours() + ':';
+    var timemsg = MONTHS[now.getMonth()] + '-' + now.getDate() + ' ' + now.getHours() + ':';
     //not pretty but more effecient than convert to array and slice
     timemsg += (now.getMinutes() < 10 ? "0" : "") + now.getMinutes();
     timemsg += ":" + (now.getSeconds() < 10 ? "0" : "") + now.getSeconds();
@@ -147,16 +138,16 @@ function InternalDebugLogger() {
     };
 
     self._levels = {
-        'ERROR': 0,
-        'WARN': 1,
-        'INFO': 2,
-        'LOG': 3,
-        'TRACE': 4,
-        'L0': 5,
-        'L1': 6,
-        'L2': 7,
-        'L3': 8,
-        'L4': 9
+        ERROR: 0,
+        WARN: 1,
+        INFO: 2,
+        LOG: 3,
+        TRACE: 4,
+        L0: 5,
+        L1: 6,
+        L2: 7,
+        L3: 8,
+        L4: 9
     };
 
     // map the levels we use to syslog protocol levels
@@ -164,16 +155,16 @@ function InternalDebugLogger() {
     // WARN --> LOG_WARNING (4)
     // INFO\LOG\TRACE\L[0-4] --> LOG_NOTICE (5)
     self._levels_to_syslog = {
-        'ERROR': 3,
-        'WARN': 4,
-        'INFO': 5,
-        'LOG': 5,
-        'TRACE': 5,
-        'L0': 5,
-        'L1': 5,
-        'L2': 5,
-        'L3': 5,
-        'L4': 5
+        ERROR: 3,
+        WARN: 4,
+        INFO: 5,
+        LOG: 5,
+        TRACE: 5,
+        L0: 5,
+        L1: 5,
+        L2: 5,
+        L3: 5,
+        L4: 5
     };
 
     self._proc_name = '';
@@ -292,7 +283,7 @@ InternalDebugLogger.prototype.populate_subtree = function(mod, level) {
     });
 };
 
-//Setting level for a node in the tree sets all the subtree to the same level
+// Setting level for a node in the tree sets all the subtree to the same level
 InternalDebugLogger.prototype.set_level = function(mod, level) {
     var parts = mod.split(".");
     var tmp_mod = this._modules;
@@ -300,9 +291,9 @@ InternalDebugLogger.prototype.set_level = function(mod, level) {
     //find the desired node to set level for
     for (var ind = 0; ind < parts.length; ++ind) {
         if (!tmp_mod[parts[ind]]) {
-            con && con.original_console();
+            if (console_wrapper) console_wrapper.original_console();
             console.log("No such module " + mod + " registered");
-            con && con.wrapper_console();
+            if (console_wrapper) console_wrapper.wrapper_console();
             return;
         }
         tmp_mod = tmp_mod[parts[ind]];
@@ -322,9 +313,9 @@ InternalDebugLogger.prototype.get_level = function(mod) {
     //find the desired node to set level for
     for (var ind = 0; ind < parts.length; ++ind) {
         if (!tmp_mod[parts[ind]]) {
-            con && con.original_console();
+            if (console_wrapper) console_wrapper.original_console();
             console.log("No such module " + mod + " registered");
-            con && con.wrapper_console();
+            if (console_wrapper) console_wrapper.wrapper_console();
             return;
         }
         tmp_mod = tmp_mod[parts[ind]];
@@ -363,7 +354,7 @@ function syslog_formatter(self, level, args) {
 InternalDebugLogger.prototype.log_internal = function(level) {
     var self = this;
     var args;
-    con && con.original_console();
+    if (console_wrapper) console_wrapper.original_console();
     if (!_.isUndefined(syslog)) {
         // syslog path
         let msg = syslog_formatter(self, level, arguments);
@@ -394,7 +385,7 @@ InternalDebugLogger.prototype.log_internal = function(level) {
         // }
         console[logfunc].apply(console, args);
     }
-    con && con.wrapper_console();
+    if (console_wrapper) console_wrapper.wrapper_console();
 };
 
 /*
@@ -470,7 +461,7 @@ for (i = 0; i < 5; ++i) {
 }
 
 /*
- * Populate syslog levels logging functions. i.e warn/info/error ...
+ * Populate syslog levels logging functions. i.e warn/info/error ...
  */
 function log_syslog_builder(syslevel) {
     return function() {
@@ -485,14 +476,15 @@ function log_syslog_builder(syslevel) {
     };
 }
 
-if (!con) {
+if (console_wrapper) {
+    for (i = 0; i < console_wrapper.syslog_levels.length; ++i) {
+        DebugLogger.prototype[console_wrapper.syslog_levels[i]] =
+            log_syslog_builder(console_wrapper.syslog_levels[i]);
+    }
+} else {
     var syslog_levels = ["trace", "log", "info", "error", "warn"];
     for (i = 0; i < syslog_levels.length; ++i) {
         DebugLogger.prototype[syslog_levels[i]] = log_syslog_builder(syslog_levels[i]);
-    }
-} else {
-    for (i = 0; i < con.syslog_levels.length; ++i) {
-        DebugLogger.prototype[con.syslog_levels[i]] = log_syslog_builder(con.syslog_levels[i]);
     }
 }
 
@@ -536,8 +528,8 @@ DebugLogger.prototype.log_progress = function(fraction) {
     }
 };
 
-if (con) {
+if (console_wrapper) {
     //Register a "console" module DebugLogger for the console wrapper
     var conlogger = new DebugLogger("CONSOLE.js");
-    con.register_logger(conlogger);
+    console_wrapper.register_logger(conlogger);
 }

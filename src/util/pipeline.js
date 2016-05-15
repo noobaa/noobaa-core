@@ -52,6 +52,6 @@ Pipeline.prototype.on_close = function() {
     });
 };
 
-Pipeline.prototype.notify = function(progress){
+Pipeline.prototype.notify = function(progress) {
     this._defer.notify(progress);
 };

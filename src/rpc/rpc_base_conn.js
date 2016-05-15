@@ -107,7 +107,7 @@ class RpcBaseConnection extends EventEmitter {
         this.emit('close');
         clearTimeout(this._connect_timeout);
         if (this.connecting_defer) {
-            this.connecting_defer.reject('RPC CONN CLOSED ' + this.connid);
+            this.connecting_defer.reject(new Error('RPC CONN CLOSED ' + this.connid));
             this.connecting_defer = null;
         }
         this._close();

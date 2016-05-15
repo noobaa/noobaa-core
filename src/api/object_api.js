@@ -421,6 +421,61 @@ module.exports = {
             }
         },
 
+        read_node_mappings: {
+            method: 'GET',
+            params: {
+                type: 'object',
+                required: ['name'],
+                properties: {
+                    name: {
+                        type: 'string'
+                    },
+                    skip: {
+                        type: 'integer'
+                    },
+                    limit: {
+                        type: 'integer'
+                    },
+                    adminfo: {
+                        type: 'boolean'
+                    }
+                }
+            },
+            reply: {
+                type: 'object',
+                required: ['objects'],
+                properties: {
+                    objects: {
+                        type: 'array',
+                        items: {
+                            type: 'object',
+                            // required: [],
+                            properties: {
+                                key: {
+                                    type: 'string'
+                                },
+                                bucket: {
+                                    type: 'string'
+                                },
+                                parts: {
+                                    type: 'array',
+                                    items: {
+                                        $ref: '#/definitions/part_info'
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    total_count: {
+                        type: 'number'
+                    }
+                }
+            },
+            auth: {
+                system: 'admin'
+            }
+        },
+
         read_object_md: {
             method: 'GET',
             params: {

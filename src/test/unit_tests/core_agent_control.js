@@ -94,7 +94,9 @@ function cleanup_agents() {
             return stop_all_agents();
         })
         .then(() => {
-            _.each(agntCtlConfig.allocated_agents, id => id.agent = null);
+            _.each(agntCtlConfig.allocated_agents, id => {
+                id.agent = null;
+            });
             agntCtlConfig.allocated_agents = {};
             agntCtlConfig.num_allocated = 0;
         });

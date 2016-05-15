@@ -1,6 +1,6 @@
 'use strict';
 
-// var _ = require('lodash');
+var _ = require('lodash');
 var mocha = require('mocha');
 var assert = require('assert');
 var LinkedList = require('../../util/linked_list');
@@ -9,7 +9,7 @@ mocha.describe('linked_list', function() {
 
     mocha.it('should create ok', function() {
         var ll = new LinkedList();
-        ll = ll; // lint unused bypass
+        _.noop(ll); // lint unused bypass
     });
 
     mocha.it('should handle single item', function() {

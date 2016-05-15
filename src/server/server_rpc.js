@@ -7,20 +7,16 @@ class ServerRpc {
     constructor() {
         this.rpc = api.new_rpc();
         this.client = this.rpc.new_client();
-        this.bg_client = this.rpc.new_client({
-            domain: 'bg'
-        });
         // redirection function is used by the node_server
         // to forward calls using the redirector server
         // to reach the specific node_server instance that has
         // a direct connection to the agent.
-        this.rpc.register_redirector_transport(this.bg_client.redirector.redirect);
-
+        this.rpc.register_redirector_transport(this.client.redirector.redirect);
     }
 
     get_server_options() {
-        let system_store = require('./stores/system_store');
-        let auth_server = require('./auth_server');
+        let system_store = require('./system_services/system_store').get_instance();
+        let auth_server = require('./common_services/auth_server');
         return {
             middleware: [
                 // refresh the system_store on request arrival
@@ -31,47 +27,74 @@ class ServerRpc {
         };
     }
 
-    register_md_servers() {
+    register_system_services() {
         let rpc = this.rpc;
         let schema = rpc.schema;
         let options = this.get_server_options();
-        rpc.register_service(schema.auth_api, require('./auth_server'), options);
-        rpc.register_service(schema.account_api, require('./account_server'), options);
-        rpc.register_service(schema.system_api, require('./system_server'), options);
-        rpc.register_service(schema.tier_api, require('./tier_server'), options);
-        rpc.register_service(schema.tiering_policy_api, require('./tier_server'), options);
-        rpc.register_service(schema.node_api, require('./node_server'), options);
-        rpc.register_service(schema.bucket_api, require('./bucket_server'), options);
-        rpc.register_service(schema.object_api, require('./object_server'), options);
-        rpc.register_service(schema.pool_api, require('./pool_server'), options);
-        rpc.register_service(schema.stats_api, require('./stats_aggregator'), options);
-        rpc.register_service(schema.cluster_server_api, require('./cluster_server'), options);
-    }
+        rpc.register_service(schema.account_api,
+            require('./system_services/account_server'), options);
+        rpc.register_service(schema.system_api,
+            require('./system_services/system_server'), options);
+        rpc.register_service(schema.tier_api,
+            require('./system_services/tier_server'), options);
+        rpc.register_service(schema.tiering_policy_api,
+            require('./system_services/tier_server'), options);
+        rpc.register_service(schema.bucket_api,
+            require('./system_services/bucket_server'), options);
+        rpc.register_service(schema.pool_api,
+            require('./system_services/pool_server'), options);
+        rpc.register_service(schema.stats_api,
+            require('./system_services/stats_aggregator'), options);
+        rpc.register_service(schema.cluster_server_api,
+            require('./system_services/cluster_server'), options);
 
-    register_bg_servers() {
-        let rpc = this.rpc;
-        let schema = rpc.schema;
-        let options = this.get_server_options();
-        rpc.register_service(schema.redirector_api, require('../bg_workers/redirector'), {
+        rpc.register_service(schema.redirector_api,
+            require('./system_services/redirector'), {
             // the redirector should not try refresh system_store
             // because it doesn't use it and system_store calls the redirector,
             // so would deadlock.
             middleware: [
-                require('./auth_server').authorize
+                require('./common_services/auth_server').authorize
             ]
         });
-        rpc.register_service(schema.cloud_sync_api,
-            require('../bg_workers/cloud_sync_rpc'), options);
-        rpc.register_service(schema.hosted_agents_api,
-            require('../bg_workers/hosted_agents_rpc'), options);
     }
 
-    register_common_servers() {
+    register_node_services() {
         let rpc = this.rpc;
         let schema = rpc.schema;
         let options = this.get_server_options();
-        rpc.register_service(schema.debug_api, require('./debug_server'), options);
-        rpc.register_service(schema.cluster_member_api, require('./cluster_member'), options);
+        rpc.register_service(schema.node_api,
+            require('./node_services/node_server'), options);
+    }
+
+    register_object_services() {
+        let rpc = this.rpc;
+        let schema = rpc.schema;
+        let options = this.get_server_options();
+        rpc.register_service(schema.object_api,
+            require('./object_services/object_server'), options);
+    }
+
+    register_bg_services() {
+        let rpc = this.rpc;
+        let schema = rpc.schema;
+        let options = this.get_server_options();
+        rpc.register_service(schema.cloud_sync_api,
+            require('./bg_services/cloud_sync'), options);
+        rpc.register_service(schema.hosted_agents_api,
+            require('./bg_services/hosted_agents'), options);
+    }
+
+    register_common_services() {
+        let rpc = this.rpc;
+        let schema = rpc.schema;
+        let options = this.get_server_options();
+        rpc.register_service(schema.auth_api,
+            require('./common_services/auth_server'), options);
+        rpc.register_service(schema.debug_api,
+            require('./common_services/debug_server'), options);
+        rpc.register_service(schema.cluster_member_api,
+            require('./common_services/cluster_member'), options);
     }
 
 }

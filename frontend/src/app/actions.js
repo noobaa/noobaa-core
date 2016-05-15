@@ -679,7 +679,7 @@ export function loadNodeInfo(nodeName) {
 export function loadNodeStoredPartsList(nodeName, page) {
     logAction('loadNodeStoredPartsList', { nodeName, page });
 
-    api.node.read_node_maps({
+    api.object.read_node_mappings({ 
         name: nodeName,
         skip: config.paginationPageSize * page,
         limit: config.paginationPageSize,

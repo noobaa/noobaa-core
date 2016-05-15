@@ -368,29 +368,29 @@ function get_file() {
 
 
 function print_usage() {
-    console.log(
-        'Usage: \n' +
-        '  --help               show this usage \n' +
-        'General S3 Flags: \n' +
-        '  --endpoint <host>    (default is 127.0.0.1)  \n' +
-        '  --access_key <key>   (default is 123)        \n' +
-        '  --secret_key <key>   (default is abc)        \n' +
-        '  --bucket <name>      (default is "files")    \n' +
-        'List Objects Flags: \n' +
-        '  --list/ls            run list objects \n' +
-        '  --long/ll            run list objects with long output \n' +
-        '  --prefix <path>      prefix used for list objects \n' +
-        '  --delimiter <key>    delimiter used for list objects \n' +
-        'Upload Flags: \n' +
-        '  --upload <key>       upload (multipart) to key (key can be omited)\n' +
-        '  --put <key>          put (single) to key (key can be omited)\n' +
-        '  --copy <key>         copy source key from same bucket \n' +
-        '  --file <path>        use source file from local path \n' +
-        '  --size <MB>          if no file path, generate random data of size (default 10 GB) \n' +
-        '  --part_size <MB>     multipart size \n' +
-        '  --concur <num>       multipart concurrency \n' +
-        'Get Flags: \n' +
-        '  --get <key>          get key name \n' +
-        '  --head <key>         head key name \n' +
-        '');
+    console.log(`
+Usage:
+  --help               show this usage
+General S3 Flags:
+  --endpoint <host>    (default is 127.0.0.1)
+  --access_key <key>   (default is 123)
+  --secret_key <key>   (default is abc)
+  --bucket <name>      (default is "files")
+List Objects Flags:
+  --list/ls            run list objects
+  --long/ll            run list objects with long output
+  --prefix <path>      prefix used for list objects
+  --delimiter <key>    delimiter used for list objects
+Upload Flags:
+  --upload <key>       upload (multipart) to key (key can be omited
+  --put <key>          put (single) to key (key can be omited
+  --copy <key>         copy source key from same bucket
+  --file <path>        use source file from local path
+  --size <MB>          if no file path, generate random data of size (default 10 GB)
+  --part_size <MB>     multipart size
+  --concur <num>       multipart concurrency
+Get Flags:
+  --get <key>          get key name
+  --head <key>         head key name
+`);
 }

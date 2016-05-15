@@ -28,7 +28,7 @@ function start_istanbul_coverage() {
 
     _istTransformer = function(code, file) {
         if (file.startsWith(basepath)) {
-            file = file.slice(basepath.length +1 /*for / seperator*/);
+            file = file.slice(basepath.length + 1); // +1 for / seperator
         }
         return _instrumenter.instrumentSync(code, file);
     };

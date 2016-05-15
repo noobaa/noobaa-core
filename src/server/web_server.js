@@ -126,7 +126,7 @@ server_rpc.register_node_services();
 server_rpc.register_object_services();
 server_rpc.register_common_services();
 server_rpc.rpc.register_http_transport(app);
-server_rpc.client.options.address = 'fcall://fcall';
+server_rpc.rpc.router.default = 'fcall://fcall';
 
 var http_port = process.env.PORT = process.env.PORT || 5001;
 var https_port = process.env.SSL_PORT = process.env.SSL_PORT || 5443;

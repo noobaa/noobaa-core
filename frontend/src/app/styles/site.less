@@ -58,9 +58,7 @@ label {
 
 hr {
     border: none;
-    margin: 0;
-    height: 1px;
-    background-color: @bg-color6;
+    border-top: 1px solid @bg-color4;
     margin: @gutter 0;
 }
 
@@ -533,95 +531,12 @@ input[type="search"] {
     }
 
     > .empty-message {
-        position: absolute;
-        top : 2em;
-        width: 100%;
+        position: relative;
+        text-align: left;
         font-size: @font-size-large;
-        margin-top: @font-size-large/2;
         color: @text-color5;
     }
 }
-
-/*
-.data-table
-{
-    position: relative;
-    padding-top: 3.2em;
-
-    &.no-head {
-        padding-top: 0;
-    }
-
-    > table {
-        border-collapse: collapse;
-        text-align: center; 
-        height: inherit;
-        display: block;
-        overflow: auto;
-        
-        .text(
-            @font-type2, 
-            @font-weight-light, 
-            @font-size-normal, 
-            @text-color4
-        );
-        
-        &::before, &::after {
-            content: '';
-            display: block;
-            position: absolute;
-            height: 2em;
-            left: 0;
-            right: 10px;
-
-        }
-
-        &::before {
-            pointer-events: none;
-            background: linear-gradient(to bottom, @bg-color2, transparent);
-        }
-
-        &::after {
-            pointer-events: none;
-            bottom: 0;
-            background: linear-gradient(to bottom, transparent, @bg-color2);
-        }
-
-        thead > tr {
-            position: absolute;
-            top: 0;
-            border-color: @bg-color4;
-        }
-
-        th, td {
-            box-sizing: content-box;
-            word-break: break-all;
-            padding: .75em .75em;
-            vertical-align: top;
-        }
-
-        tr {
-            border-bottom: 1px solid @bg-color3;
-
-            &.disabled {
-                opacity: 0.5;
-            }
-        }
-
-        tbody > tr:last-child {
-            border-bottom: none;
-        }
-    }
-
-    > .empty-message {
-        position: absolute;
-        top : 2em;
-        width: 100%;
-        font-size: @font-size-large;
-        margin-top: @font-size-large/2;
-        color: @text-color5;
-    }
-}*/
 
 .tabs {
     .box();
@@ -640,6 +555,8 @@ input[type="search"] {
             .no-outline();
             position: relative;
             padding: @gutter;
+            min-width: 100px;
+            text-align: center;
 
             &::after {
                 content: '';
@@ -806,7 +723,7 @@ input[type="search"] {
     background-color: @bg-color2;
     padding: @gutter;
 
-    > .box-heading {
+    > .box-header {
         margin: -@gutter;
         margin-bottom: @gutter;
         padding: @gutter;

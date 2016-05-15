@@ -1,9 +1,8 @@
 paginator {
     display: block;
-    height: 30px;
 
     .page-indicator {
-        margin-right: 1em;
+        margin-right: @gutter;
 
         .highlight {
             font-weight: @font-weight-medium;
@@ -11,7 +10,7 @@ paginator {
     }
 
     .page-btn svg-icon {
-        width: 1em;
-        height: 1em;
+        width: @gutter;
+        height: @gutter;
     }
 }

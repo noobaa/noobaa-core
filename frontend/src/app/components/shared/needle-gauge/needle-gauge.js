@@ -5,7 +5,7 @@ import style from 'style';
 
 const radius = 98;
 const canvasWidth = radius * 2;
-const canvasHeight = radius * 2;
+const canvasHeight = radius * 2 - 20;
 const lineWidth = 4;
 const outlineColor = style['gray-lv5'];
 

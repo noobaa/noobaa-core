@@ -1,43 +1,42 @@
 
-<paginator params="pageSize: pageSize, itemCount: count, page: page" class="pull-right">
-</paginator>
+<paginator  class="align-end push-next" params="
+    pageSize: pageSize, itemCount: count, page: page
+"></paginator>
 
-<section class="table-wrapper">
-    <div class="data-table">
-        <table>
-            <thead>
-                <tr>
-                    <th class="state-col">State</th>
-                    <th class="name-col text-left">File Name</th>
-                    <th class="bucket-col">Bucket</th>
-                    <th class="start-col">Start Offset</th>
-                    <th class="end-col">End Offset</th>
-                    <th class="size-col">Part Size</th>
-                </tr>
-            </thead>
+<div class="data-table greedy">
+    <table>
+        <thead>
+            <tr>
+                <th class="state-col">State</th>
+                <th class="name-col text-left">File Name</th>
+                <th class="bucket-col">Bucket</th>
+                <th class="start-col">Start Offset</th>
+                <th class="end-col">End Offset</th>
+                <th class="size-col">Part Size</th>
+            </tr>
+        </thead>
 
-            <tbody  data-bind="foreach: rows">
-                <!-- ko if: isVisible -->
-                <tr>
-                    <td class="state-col" data-bind="tooltip: stateToolTip">
-                        <svg-icon params="uri: stateIcon"></svg-icon>
-                    </td>
+        <tbody  data-bind="foreach: rows">
+            <!-- ko if: isVisible -->
+            <tr>
+                <td class="state-col" data-bind="tooltip: stateToolTip">
+                    <svg-icon params="uri: stateIcon"></svg-icon>
+                </td>
 
-                    <td class="name-col text-left">
-                        <a class="link" data-bind="href: href, text: object"></a>
-                    </td>
+                <td class="name-col text-left">
+                    <a class="link" data-bind="href: href, text: object"></a>
+                </td>
 
-                    <td class="bucket-col no-wrap" data-bind="text: bucket"></td>
+                <td class="bucket-col no-wrap" data-bind="text: bucket"></td>
 
-                    <td class="start-col" data-bind="text: startOffset"></td>
-                    <td class="end-col" data-bind="text: endOffset"></td>
-                    <td class="size-col" data-bind="text: size"></td>
-                </tr>
-                <!-- /ko -->
-            </tbody>
-        </table>
-        <p class="empty-message" data-bind="visible: !hasParts()">
-            No file parts stored on the node
-        </p>
+                <td class="start-col" data-bind="text: startOffset"></td>
+                <td class="end-col" data-bind="text: endOffset"></td>
+                <td class="size-col" data-bind="text: size"></td>
+            </tr>
+            <!-- /ko -->
+        </tbody>
+    </table>
+    <div class="empty-message" data-bind="visible: !hasParts()">
+        No file parts are stored on the node
     </div>
-</section>
+</div>

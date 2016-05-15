@@ -1,26 +1,34 @@
 <!-- ko if: ready -->
-<node-summary  class="box" params="node: node"></node-summary>
+<div class="box push-next">
+    <h2 class="box-header">General Infromation</h2>
+    <node-summary params="node: node"></node-summary>
+</div>
 
-<ul style="display: none">
-    <li data-bind="css: { selected: selectedTab() === 'info' }">
-        <a class="tab-header" data-bind="href: '/fe/systems/:system/pools/:pool/nodes/:node/info'">
-            <svg-icon params="uri: '/fe/assets/icons.svg#info-dark'"></svg-icon>
+<div class="tabs greedy">
+    <nav>
+        <a data-bind="
+            href: '/fe/systems/:system/pools/:pool/nodes/:node/info',
+            css: { selected: isTabSelected('info') }
+        ">
             Info
         </a>
 
-        <section class="tab-content">
-            <node-info params="node: node"></node-info>
-        </section>
-    </li>
-    <li data-bind="css: { selected: selectedTab() === 'parts' }">
-        <a class="tab-header" data-bind="href: '/fe/systems/:system/pools/:pool/nodes/:node/parts'">
-            <svg-icon params="uri: '/fe/assets/icons.svg#part-dark'"></svg-icon>
+        <a data-bind="
+            href: '/fe/systems/:system/pools/:pool/nodes/:node/parts',
+            css: { selected: isTabSelected('parts') }
+        ">
             Stored File Parts
         </a>
+    </nav>
 
-        <section class="tab-content">
-            <node-parts-table params="parts: storedParts"></node-parts-table>
-        </section>
-    </li>
-</ul>
+    <div class="tabs-row">
+        <node-info class="tab" params="node: node" data-bind="
+            css: { selected: isTabSelected('info') }
+        "></node-info>
+
+        <node-parts-table class="tab" params="parts: storedParts" data-bind="
+            css: { selected: isTabSelected('parts') }
+        "></node-parts-table>
+    </div>
+</div>
 <!-- /ko -->

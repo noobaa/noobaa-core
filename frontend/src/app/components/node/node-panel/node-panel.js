@@ -15,6 +15,10 @@ class NodePanelViewModel {
             () => uiState().tab
         );
     }
+
+    isTabSelected(name) {
+        return this.selectedTab() === name;
+    }
 }
 
 export default {

@@ -10,7 +10,14 @@
             href: '/fe/systems/:system/management/settings',
             css: { selected: isTabSelected('settings') }
         ">
-            Settings
+            Configuration
+        </a>
+
+        <a data-bind="
+            href: '/fe/systems/:system/management/diagnostics',
+            css: { selected: isTabSelected('diagnostics') }
+        ">
+            Support &amp; Diagnose
         </a>
 
         <a data-bind="
@@ -18,12 +25,6 @@
             css: { selected: isTabSelected('about') }
         ">
             Version
-        </a>
-        <a data-bind="
-            href: '/fe/systems/:system/management/diagnostics',
-            css: { selected: isTabSelected('diagnostics') }
-        ">
-            Diagnostics
         </a>
     </nav>
 
@@ -42,12 +43,12 @@
             <server-time-form></server-time-form>
         </section>
 
-        <about-form class="tab" data-bind="
-            css: { selected: isTabSelected('about') }
-        "></about-form>
-
         <diagnostics-form class="tab" data-bind="
             css: { selected: isTabSelected('diagnostics') }
         "></diagnostics-form>
+
+        <about-form class="tab" data-bind="
+            css: { selected: isTabSelected('about') }
+        "></about-form>
     </div>
 </div>

@@ -32,7 +32,7 @@ function collect_server_diagnostics(req) {
             return promise_utils.promised_exec('cp -f /var/log/noobaa.log* ' + TMP_WORK_DIR, true);
         })
         .then(function() {
-            return promise_utils.promised_spawn('cp', ['-f', process.cwd() + '/.env', TMP_WORK_DIR + '/env'], process.cwd(), true);
+            return promise_utils.promised_exec('cp -f ' + process.cwd() + '/.env ' + TMP_WORK_DIR + '/env', true);
         })
         .then(function() {
             return os_utils.top_single(TMP_WORK_DIR + '/top.out');

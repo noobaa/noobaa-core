@@ -243,21 +243,19 @@ TestRunner.prototype._run_action = function(current_step, step_res) {
     var ts = new Date();
     //Build execution context from action and arguments
     var command = current_step.action;
-    if (current_step.params && current_step.params.length > 0) {
-        _.each(current_step.params, function(p) {
-            if (p.arg) {
-                command += ' ' + p.arg;
-            } else if (p.input_arg) {
-                if (self._argv[p.input_arg]) {
-                    command += ' ' + self._argv[p.input_arg];
-                } else {
-                    fs.appendFileSync(REPORT_PATH, 'No argument recieved for ' + p.input_args + '\n');
-                }
+    var args = _.compact(_.map(current_step.params, function(p) {
+        if (p.arg) {
+            return p.arg;
+        } else if (p.input_arg) {
+            if (self._argv[p.input_arg]) {
+                return self._argv[p.input_arg];
+            } else {
+                fs.appendFileSync(REPORT_PATH, 'No argument recieved for ' + p.input_args + '\n');
             }
-        });
-    }
+        }
+    }));
 
-    return promise_utils.promised_exec(command)
+    return promise_utils.promised_spawn(command, args)
         .then(function(res) {
             step_res = '        ' + step_res + ' - Successeful ( took ' +
                 ((new Date() - ts) / 1000) + 's )';

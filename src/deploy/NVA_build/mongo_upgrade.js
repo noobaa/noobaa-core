@@ -408,8 +408,7 @@ function upgrade_cluster() {
         return;
     }
 
-    //TODO NBNB:: add this
-    /*db.clusters.insert({
+    db.clusters.insert({
         owner_secret: param_secret,
         cluster_id: params_cluster_id,
         shards: [{
@@ -420,5 +419,5 @@ function upgrade_cluster() {
         }],
         config_servers: [],
 
-    });*/
+    });
 }

@@ -41,7 +41,7 @@ function add_member_to_cluster(req) {
                         return srv.address === myip;
                     }) === -1) {
                     dbg.log0('Current server is the first on cluster and still has single mongo running, updating');
-                    return _add_new_shard_member('shard1', myip, true /*first_shard*/ );
+                    return _add_new_shard_member('shard1', myip, true/*first_shard*/);
                 }
             } else {
                 return P.resolve();
@@ -173,7 +173,7 @@ function _add_new_shard_member(shardname, ip, first_shard) {
     // "cache" current topology until all changes take affect, since we are about to lose mongo
     // until the process is done
     let current_topology = cutil.get_topology();
-    let topology_updates  = {};
+    let topology_updates = {};
     dbg.log0('Adding shard, new topology', current_topology);
 
     //Actually add a new mongo shard instance
@@ -259,9 +259,9 @@ function _add_new_config(cfg_array, first_shard) {
         .then(function() {
             dbg.log0('Updating config replica set, initiate_replica_set=', first_shard ? 'true' : 'false');
             if (first_shard) {
-                return MongoCtrl.initiate_replica_set(config.MONGO_DEFAULTS.CFG_RSET_NAME, cfg_array, true /*config set*/ );
+                return MongoCtrl.initiate_replica_set(config.MONGO_DEFAULTS.CFG_RSET_NAME, cfg_array, true/*config set*/);
             } else {
-                return MongoCtrl.add_member_to_replica_set(config.MONGO_DEFAULTS.CFG_RSET_NAME, cfg_array, true /*config set*/ );
+                return MongoCtrl.add_member_to_replica_set(config.MONGO_DEFAULTS.CFG_RSET_NAME, cfg_array, true/*config set*/);
             }
         });
 }

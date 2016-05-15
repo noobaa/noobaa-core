@@ -6,38 +6,17 @@
 'use strict';
 
 const _ = require('lodash');
-const fs = require('fs');
 const util = require('util');
-
+const server_rpc = require('../server_rpc');
+var cutil = require('../utils/clustering_utils');
 const P = require('../../util/promise');
 const dbg = require('../../util/debug_module')(__filename);
-const server_rpc = require('../server_rpc');
 
 // dbg.set_level(5);
 
 const agents_address_map = new Map();
 const cluster_connections = new Set();
 
-let CLUSTER_TOPOLOGY = {};
-const CLUSTER_TOPOLOGY_FILE = '/etc/noobaa_cluster';
-
-/*
- * Init
- */
-function _init() {
-    return P.nfcall(fs.stat, CLUSTER_TOPOLOGY_FILE)
-        .then(function(exists) {
-            return P.nfcall(fs.readFile, CLUSTER_TOPOLOGY_FILE);
-        })
-        .then(function(top) {
-            CLUSTER_TOPOLOGY = JSON.parse(top);
-        })
-        .fail(function(err) {
-            if (err.code !== 'ENOENT') {
-                console.error('Topology file corrupted');
-            }
-        });
-}
 
 /*
  * REDIRECTOR API
@@ -69,11 +48,12 @@ function redirect(req) {
     } else {
         //If part of a cluster, & not already a scatter redirect
         //try to scattershot ther other redirectors
-        if (CLUSTER_TOPOLOGY.servers && !scatter_redirect) {
+        if (!cutil.is_single_server() && !scatter_redirect) {
+            dbg.log3('Local agent was not found, scatter redirecting');
             req.rpc_params.stop_redirect = true;
             //TODO:: Don't call myself
-            return P.all(_.map(CLUSTER_TOPOLOGY.servers, function(srv) {
-                    dbg.log3('scatter redirect calling', 'ws://' + srv + ':8081');
+            return P.all(_.map(cutil.get_all_cluster_members(), function(srv) {
+                    dbg.log4('scatter redirect calling', 'ws://' + srv + ':8081');
                     return P.when(server_rpc.client.redirector.redirect(req.rpc_params, {
                             //TODO:: port and ws/wss decision
                             address: 'ws://' + srv + ':8081',
@@ -231,7 +211,6 @@ function publish_to_cluster(req) {
 
 
 // EXPORTS
-exports._init = _init;
 exports.redirect = redirect;
 exports.register_agent = register_agent;
 exports.unregister_agent = unregister_agent;

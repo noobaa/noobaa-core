@@ -2,11 +2,11 @@
 'use strict';
 
 var _ = require('lodash');
-var P = require('./promise');
+var fs = require('fs');
 var child_process = require('child_process');
 require('setimmediate');
 var ncp = require('ncp').ncp;
-var fs = require('fs');
+var P = require('./promise');
 var dbg = require('../util/debug_module')(__filename);
 
 var is_windows = (process.platform === "win32");

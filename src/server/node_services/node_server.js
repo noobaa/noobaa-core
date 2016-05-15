@@ -332,7 +332,6 @@ function list_nodes_int(system_id, query, skip, limit, pagination, sort, order, 
                     $in: pools_ids
                 };
             }
-            dbg.log0("ETET nodes", info);
             return P.join(
                 nodes_store.find_nodes(info, {
                     sort: sort_opt,

@@ -4,7 +4,7 @@
 //Since its using the system_store, its located under server/utils
 
 var _ = require('lodash');
-var system_store = require('../stores/system_store');
+var system_store = require('../system_services/system_store');
 var dbg = require('../../util/debug_module')(__filename);
 
 

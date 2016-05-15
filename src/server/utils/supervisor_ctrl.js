@@ -4,6 +4,7 @@ var _ = require('lodash');
 var fs = require('fs');
 var P = require('../../util/promise');
 var promise_utils = require('../../util/promise_utils');
+var os_utils = require('../../util/os_util');
 var config = require('../../../config.js');
 
 module.exports = new SupervisorCtrl(); //Singleton
@@ -15,6 +16,10 @@ function SupervisorCtrl() {
 SupervisorCtrl.prototype.init = function() {
     let self = this;
     if (self._inited) {
+        return;
+    }
+    self._supervised = os_utils.is_supervised_env();
+    if (!self._supervised) {
         return;
     }
     return fs.statAsync(config.CLUSTERING_PATHS.SUPER_FILE)
@@ -35,6 +40,10 @@ SupervisorCtrl.prototype.init = function() {
 
 SupervisorCtrl.prototype.apply_changes = function() {
     var self = this;
+    if (!self._supervised) {
+        return;
+    }
+
     return P.when(self.init())
         .then(() => self._serialize())
         .then(function() {
@@ -45,6 +54,9 @@ SupervisorCtrl.prototype.apply_changes = function() {
 
 SupervisorCtrl.prototype.add_program = function(prog) {
     let self = this;
+    if (!self._supervised) {
+        return;
+    }
 
     return P.when(self.init())
         .then(() => self._programs.push(prog));
@@ -52,6 +64,10 @@ SupervisorCtrl.prototype.add_program = function(prog) {
 
 SupervisorCtrl.prototype.remove_program = function(prog_name) {
     let self = this;
+    if (!self._supervised) {
+        return;
+    }
+
     return P.when(self.init())
         .then(() => {
             let ind = _.findIndex(self._programs, function(prog) {
@@ -66,6 +82,10 @@ SupervisorCtrl.prototype.remove_program = function(prog_name) {
 
 SupervisorCtrl.prototype.get_mongo_services = function() {
     let self = this;
+    if (!self._supervised) {
+        return;
+    }
+
     let mongo_progs = {};
     return P.when(self.init())
         .then(() => {
@@ -97,6 +117,10 @@ SupervisorCtrl.prototype.get_mongo_services = function() {
 
 SupervisorCtrl.prototype.add_agent = function(agent_name, args_str) {
     let self = this;
+    if (!self._supervised) {
+        return;
+    }
+
     let prog = {};
     prog.directory = config.SUPERVISOR_DEFAULTS.DIRECTORY;
     prog.stopsignal = config.SUPERVISOR_DEFAULTS.STOPSIGNAL;
@@ -112,6 +136,10 @@ SupervisorCtrl.prototype.add_agent = function(agent_name, args_str) {
 SupervisorCtrl.prototype._serialize = function() {
     let data = '';
     let self = this;
+    if (!self._supervised) {
+        return;
+    }
+
     _.each(self._programs, function(prog) {
         data += '[program:' + prog.name + ']\n';
         _.each(_.keys(prog), function(key) {
@@ -127,6 +155,10 @@ SupervisorCtrl.prototype._serialize = function() {
 
 SupervisorCtrl.prototype._parse_config = function(data) {
     let self = this;
+    if (!self._supervised) {
+        return;
+    }
+
     self._programs = [];
     //run target by target and create the services structure
     var programs = _.split(data, config.SUPERVISOR_PROGRAM_SEPERATOR);

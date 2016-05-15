@@ -16,11 +16,13 @@ const config = require('../../../config.js');
 
 function _init() {
     var self = this;
-    return os_utils.read_server_secret()
-        .then((sec) => {
-            self._secret = sec;
-            return P.when(MongoCtrl.init());
-        });
+    if (os_utils.is_supervised_env()) {
+        return os_utils.read_server_secret()
+            .then((sec) => {
+                self._secret = sec;
+                return P.when(MongoCtrl.init());
+            });
+    }
 }
 
 //
@@ -29,6 +31,11 @@ function _init() {
 
 //Initiate process of adding a server to the cluster
 function add_member_to_cluster(req) {
+    if (!os_utils.is_supervised_env()) {
+        console.warn('Environment is not a supervised one, currently not allowing clustering operations');
+        throw new Error('Environment is not a supervised one, currently not allowing clustering operations');
+    }
+
     dbg.log0('Recieved add member to cluster req', req.rpc_params, 'current topology', cutil.get_topology());
     var id = cutil.get_topology().cluster_id;
 

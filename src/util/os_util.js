@@ -13,6 +13,7 @@ module.exports = {
     get_local_ipv4_ips: get_local_ipv4_ips,
     get_networking_info: get_networking_info,
     read_server_secret: read_server_secret,
+    is_supervised_env: is_supervised_env,
 };
 
 var _ = require('lodash');
@@ -322,6 +323,13 @@ function read_server_secret() {
     } else {
         return P.when(os.hostname());
     }
+}
+
+function is_supervised_env() {
+    if (os.type() === 'Linux') {
+        return true;
+    }
+    return false;
 }
 
 if (require.main === module) {

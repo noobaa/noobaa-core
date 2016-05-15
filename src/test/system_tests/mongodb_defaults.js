@@ -9,7 +9,7 @@ db.datablocks.remove({});
 db.datachunks.remove({});
 db.objectparts.remove({});
 db.objectmds.remove({});
-db.tiers.update({
+db.tiers.update({name: {$nin:[/files#.*/]}} ,{$set:{pool: db.pools.find({name:'default_pool'})[0]._id}});
     name: {
         $nin: [/files#.*/]
     }

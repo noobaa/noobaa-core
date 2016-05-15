@@ -8,11 +8,9 @@
 const _ = require('lodash');
 const url = require('url');
 const net = require('net');
-// const AWS = require('aws-sdk');
-//const crypto = require('crypto');
 const moment = require('moment');
 const ip_module = require('ip');
-
+const uuid = require('node-uuid');
 const P = require('../../util/promise');
 const pkg = require('../../../package.json');
 const dbg = require('../../util/debug_module')(__filename);
@@ -91,6 +89,17 @@ function new_system_changes(name, owner_account) {
                 system: system._id,
                 role: 'admin'
             };
+            var cluster = {
+                owner_secret: system_store.get_server_secret(),
+                cluster_id: uuid().substring(0, 8),
+                shards: [{
+                    shardname: 'shard1',
+                    servers: [{
+                        address: os_utils.get_local_ipv4_ips()[0] //TODO:: on multiple nics support, fix this
+                    }],
+                }],
+                config_servers: [],
+            };
 
             ActivityLog.create({
                 event: 'conf.create_system',
@@ -108,6 +117,7 @@ function new_system_changes(name, owner_account) {
                     tiers: [tier],
                     pools: [pool],
                     roles: [role],
+                    clusters: [cluster],
                 }
             };
 

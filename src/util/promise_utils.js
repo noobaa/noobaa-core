@@ -2,6 +2,7 @@
 'use strict';
 
 var _ = require('lodash');
+var fs = require('fs');
 var P = require('./promise');
 var child_process = require('child_process');
 require('setimmediate');

@@ -408,6 +408,7 @@ function upgrade_cluster() {
         return;
     }
 
+    /*global param_secret:true, params_cluster_id:true, param_ip:true*/
     db.clusters.insert({
         owner_secret: param_secret,
         cluster_id: params_cluster_id,

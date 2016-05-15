@@ -25,16 +25,20 @@ MongoCtrl.prototype.init = function() {
 
 MongoCtrl.prototype.add_replica_set_member = function(name) {
     let self = this;
+    mongo_client.disconnect(); //Disconnect and reconnect to mongo, process changed
     return self._remove_single_mongo()
         .then(() => self._add_replica_set_member_supervisor(name))
-        .then(() => SupervisorCtl.apply_changes());
+        .then(() => SupervisorCtl.apply_changes())
+        .then(() => mongo_client.connect());
 };
 
 MongoCtrl.prototype.add_new_shard_server = function(name, first_shard) {
     let self = this;
+    mongo_client.disconnect(); //Disconnect and reconnect to mongo, process changed
     return self._remove_single_mongo()
         .then(() => self._add_new_shard_supervisor(name, first_shard))
-        .then(() => SupervisorCtl.apply_changes());
+        .then(() => SupervisorCtl.apply_changes())
+        .then(() => mongo_client.connect());
 };
 
 MongoCtrl.prototype.add_new_mongos = function(cfg_array) {
@@ -59,8 +63,8 @@ MongoCtrl.prototype.add_member_to_replica_set = function(set, members, is_config
 
 };
 
-MongoCtrl.prototype.add_member_to_shard = function(ip) {
-    return mongo_client.add_shard(ip, config.MONGO_DEFAULTS.SHARD_SRV_PORT);
+MongoCtrl.prototype.add_member_shard = function(name, ip) {
+    return mongo_client.add_shard(ip, config.MONGO_DEFAULTS.SHARD_SRV_PORT, name);
 };
 
 MongoCtrl.prototype.update_connection_string = function() {

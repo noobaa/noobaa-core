@@ -2,8 +2,10 @@
 
 var _ = require('lodash');
 var P = require('../../util/promise');
+var dbg = require('../../util/debug_module')(__filename);
 var config = require('../../../config.js');
 var mongodb = require('mongodb');
+var util = require('util');
 var EventEmitter = require('events').EventEmitter;
 
 class MongoClient extends EventEmitter {
@@ -60,7 +62,10 @@ class MongoClient extends EventEmitter {
         return mongodb.MongoClient.connect(this.url, this.config)
             .then(db => {
                 console.log('MongoClient: connected', this.url);
-                db.on('reconnect', () => this.emit('reconnect'));
+                db.on('reconnect', () => {
+                    this.emit('reconnect');
+                    console.log('MongoClient: reconnect', this.url);
+                });
                 this.db = db;
                 return db;
             }, err => {
@@ -80,12 +85,18 @@ class MongoClient extends EventEmitter {
     }
 
     initiate_replica_set(set, members, is_config_set) {
-        var rep_config = this._build_replica_config(set, members);
+        var port = is_config_set ? config.MONGO_DEFAULTS.CFG_PORT : config.MONGO_DEFAULTS.SHARD_SRV_PORT;
+        var rep_config = this._build_replica_config(set, members, port);
         var command = {
             replSetInitiate: rep_config
         };
+        dbg.log0('mongo_client initiate_replica_set', util.inspect(command, false, null));
         if (!is_config_set) { //connect the mongod server
-            return P.when(this.db.admin.command(command));
+            return P.when(this.db.admin().command(command))
+                .fail((err) => {
+                    console.error('Failed initiate_replica_set', set, members, 'with', err.message);
+                    throw err;
+                });
         } else { //connect the server running the config replica set
             return this._send_command_config_rs(command);
         }
@@ -96,17 +107,28 @@ class MongoClient extends EventEmitter {
         var command = {
             replSetReconfig: rep_config
         };
+        dbg.log0('mongo_client replica_update_members', util.inspect(command, false, null));
         if (!is_config_set) { //connect the mongod server
-            return P.when(this.db.admin.command(command));
+            return P.when(this.db.admin().command(command))
+                .fail((err) => {
+                    console.error('Failed replica_update_members', set, members, 'with', err.message);
+                    throw err;
+                });
         } else { //connect the server running the config replica set
             return this._send_command_config_rs(command);
         }
     }
 
-    add_shard(host, port) {
-        return P.when(this.db.admin.command({
-            addShard: host + ':' + port
-        }));
+    add_shard(host, port, shardname) {
+        dbg.log0('mongo_client add_shard', shardname, host, port);
+        return P.when(this.db.admin().command({
+                addShard: host + ':' + port,
+                name: shardname
+            }))
+            .fail((err) => {
+                console.error('Failed add_shard', host + ':' + port, shardname, 'with', err.message);
+                throw err;
+            });
     }
 
     update_connection_string(cfg_array) {
@@ -115,7 +137,7 @@ class MongoClient extends EventEmitter {
         return;
     }
 
-    _build_replica_config(set, members) {
+    _build_replica_config(set, members, port) {
         var rep_config = {
             _id: set,
             members: []
@@ -124,7 +146,7 @@ class MongoClient extends EventEmitter {
         _.each(members, function(m) {
             rep_config.members.push({
                 _id: id,
-                host: m,
+                host: m + ':' + port,
             });
             ++id;
         });
@@ -133,12 +155,14 @@ class MongoClient extends EventEmitter {
     }
 
     _send_command_config_rs(command) {
+        //TODO:: keep connection to the cfg as well, if not inited, init
         return mongodb.MongoClient.connect('mongodb://127.0.0.1:' + config.MONGO_DEFAULTS.CFG_PORT + '/config0', this.config)
             .then(confdb => {
-                return P.when(confdb.admin.command(command))
+                return P.when(confdb.admin().command(command))
                     .then(() => confdb.close());
             }, err => {
                 console.error('MongoClient: connecting to config rs failed', err.message);
+                throw err;
             });
     }
 }

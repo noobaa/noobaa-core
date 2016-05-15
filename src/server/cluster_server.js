@@ -75,7 +75,7 @@ function add_member_to_cluster(req) {
             });
         })
         .fail(function(err) {
-            console.warn('Failed adding members to cluster', req.rpc_params, 'with', err);
+            console.error('Failed adding members to cluster', req.rpc_params, 'with', err);
             throw new Error('Failed adding members to cluster');
         })
         .then(function() {
@@ -174,7 +174,7 @@ function news_updated_topology(req) {
 
 function heartbeat(req) {
     //TODO:: ...
-    dbg.warn('Clustering HB currently not implemented');
+    dbg.error('Clustering HB currently not implemented');
 }
 
 
@@ -217,6 +217,10 @@ function _add_new_shard_member(shardname, ip, first_shard) {
                         });
                     });
             }
+        })
+        .then(function() {
+            //All and done, add the new shard in the mongo configuration
+            return P.when(MongoCtrl.add_member_shard(shardname, ip));
         });
 }
 

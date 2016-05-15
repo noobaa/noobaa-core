@@ -29,10 +29,15 @@ function update_cluster_info(params) {
         current_clustering, 'new cluster info', update);
 
     return system_store.make_changes({
-        update: {
-            clusters: [update]
-        }
-    });
+            update: {
+                clusters: [update]
+            }
+        })
+        .then(() => dbg.log0('local cluster info updates successfully'))
+        .fail((err) => {
+            console.error('failed on local cluster info update with', err.message);
+            throw err;
+        });
 }
 
 //Recieves array in the cluster info form ([{address:X},{address:y}]) and returns the array of IPs

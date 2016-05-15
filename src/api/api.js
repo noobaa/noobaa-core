@@ -25,6 +25,7 @@ api_schema.register_api(require('./tiering_policy_api'));
 api_schema.register_api(require('./pool_api'));
 api_schema.register_api(require('./cluster_server_api'));
 api_schema.register_api(require('./cluster_member_api'));
+api_schema.register_api(require('./hosted_agents_api'));
 api_schema.compile();
 
 /**
@@ -32,11 +33,15 @@ api_schema.compile();
  */
 RPC.Client.prototype.create_auth_token = function(params) {
     return this.auth.create_auth(params)
-        .tap(res => this.options.auth_token = res.token);
+        .tap(res => {
+            this.options.auth_token = res.token;
+        });
 };
 RPC.Client.prototype.create_access_key_auth = function(params) {
     return this.auth.create_access_key_auth(params)
-        .tap(res => this.options.auth_token = res.token);
+        .tap(res => {
+            this.options.auth_token = res.token;
+        });
 };
 
 function new_router(base_address) {
@@ -48,9 +53,12 @@ function new_router(base_address) {
         'protocol', 'hostname', 'port', 'slashes');
     let base_addr = url.format(base_url);
     base_url.port = parseInt(base_url.port, 10) + 1;
+    let md_addr = url.format(base_url);
+    base_url.port = parseInt(base_url.port, 10) + 1;
     let bg_addr = url.format(base_url);
     let router = {
         default: base_addr,
+        md: md_addr,
         bg: bg_addr
     };
     console.log('ROUTER', router);
@@ -60,7 +68,12 @@ function new_router(base_address) {
 function new_rpc(base_address) {
     let rpc = new RPC({
         schema: api_schema,
-        router: new_router(base_address)
+        router: new_router(base_address),
+        api_routes: {
+            object_api: 'md',
+            cloud_sync_api: 'bg',
+            hosted_agents_api: 'bg'
+        }
     });
     return rpc;
 }

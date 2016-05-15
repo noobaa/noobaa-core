@@ -313,59 +313,6 @@ module.exports = {
             }
         },
 
-        report_bad_block: {
-            method: 'POST',
-            params: {
-                type: 'object',
-                required: [
-                    'bucket',
-                    'key',
-                    'start',
-                    'end',
-                    'block_id',
-                    'is_write'
-                ],
-                properties: {
-                    bucket: {
-                        type: 'string',
-                    },
-                    key: {
-                        type: 'string',
-                    },
-                    start: {
-                        type: 'integer',
-                    },
-                    end: {
-                        type: 'integer',
-                    },
-                    upload_part_number: {
-                        type: 'integer',
-                    },
-                    part_sequence_number: {
-                        type: 'integer',
-                    },
-                    block_id: {
-                        type: 'string',
-                    },
-                    is_write: {
-                        type: 'boolean',
-                    },
-                },
-            },
-            reply: {
-                type: 'object',
-                // required: [],
-                properties: {
-                    new_block: {
-                        $ref: 'agent_api#/definitions/block_md'
-                    }
-                }
-            },
-            auth: {
-                system: ['admin', 'user']
-            }
-        },
-
         copy_object: {
             method: 'PUT',
             params: {
@@ -471,6 +418,61 @@ module.exports = {
             },
             auth: {
                 system: ['admin', 'user', 'viewer']
+            }
+        },
+
+        read_node_mappings: {
+            method: 'GET',
+            params: {
+                type: 'object',
+                required: ['name'],
+                properties: {
+                    name: {
+                        type: 'string'
+                    },
+                    skip: {
+                        type: 'integer'
+                    },
+                    limit: {
+                        type: 'integer'
+                    },
+                    adminfo: {
+                        type: 'boolean'
+                    }
+                }
+            },
+            reply: {
+                type: 'object',
+                required: ['objects'],
+                properties: {
+                    objects: {
+                        type: 'array',
+                        items: {
+                            type: 'object',
+                            // required: [],
+                            properties: {
+                                key: {
+                                    type: 'string'
+                                },
+                                bucket: {
+                                    type: 'string'
+                                },
+                                parts: {
+                                    type: 'array',
+                                    items: {
+                                        $ref: '#/definitions/part_info'
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    total_count: {
+                        type: 'number'
+                    }
+                }
+            },
+            auth: {
+                system: 'admin'
             }
         },
 

@@ -30,7 +30,41 @@ function TestRunner(argv) {
 /**************************
  *   Common Functionality
  **************************/
+TestRunner.prototype.wait_for_server_to_start = function(max_seconds_to_wait) {
+    var isNotListening = true;
+    var MAX_RETRIES = max_seconds_to_wait;
+    var wait_counter = 1;
+    //wait up to 10 seconds
+    return promise_utils.pwhile(
+            function() {
+                return isNotListening;
+            },
+            function() {
+                return P.ninvoke(request, 'get', {
+                    url: 'http://127.0.0.1:8080/',
+                    rejectUnauthorized: false,
+                }).spread(function(res, body) {
+                    console.log('server started after ' + wait_counter + ' seconds');
+                    isNotListening = false;
+                }, function(err) {
+                    console.log('waiting for server to start');
+                    wait_counter += 1;
+                    if (wait_counter >= MAX_RETRIES) {
+                        console.Error('Too many retries after restart server');
+                        throw new Error('Too many retries');
+                    }
+                    return P.delay(1000);
+                });
+                //one more delay for reconnection of other processes
+            }).delay(2000)
+        .then(function() {
+            return;
+        });
+};
+
 TestRunner.prototype.restore_db_defaults = function() {
+    var self = this;
+
     return promise_utils.promised_exec(
             'mongo nbcore /root/node_modules/noobaa-core/src/test/system_tests/mongodb_defaults.js')
         .fail(function(err) {
@@ -41,35 +75,7 @@ TestRunner.prototype.restore_db_defaults = function() {
             return promise_utils.promised_exec('supervisorctl restart webserver');
         })
         .then(function() {
-            var isNotListening = true;
-            var MAX_RETRIES = 10;
-            var wait_counter = 1;
-            //wait up to 10 seconds
-            return promise_utils.pwhile(
-                    function() {
-                        return isNotListening;
-                    },
-                    function() {
-                        return P.ninvoke(request, 'get', {
-                            url: 'http://127.0.0.1:8080/',
-                            rejectUnauthorized: false,
-                        }).spread(function(res, body) {
-                            console.log('server started after ' + wait_counter + ' seconds');
-                            isNotListening = false;
-                        }, function(err) {
-                            console.log('waiting for server to start');
-                            wait_counter += 1;
-                            if (wait_counter >= MAX_RETRIES) {
-                                console.Error('Too many retries after restart server');
-                                throw new Error('Too many retries');
-                            }
-                            return P.delay(1000);
-                        });
-                        //one more delay for reconnection of other processes
-                    }).delay(2000)
-                .then(function() {
-                    return;
-                });
+            return self.wait_for_server_to_start(30);
         })
         .fail(function(err) {
             console.log('Failed restarting webserver');
@@ -91,9 +97,6 @@ TestRunner.prototype.init_run = function() {
 
     self._rpc = api.new_rpc();
     self._client = self._rpc.new_client();
-    self._bg_client = self._rpc.new_client({
-        domain: 'bg'
-    });
 
     return P.fcall(function() {
             var auth_params = {
@@ -147,9 +150,16 @@ TestRunner.prototype.complete_run = function() {
             return self._restart_services(false);
         })
         .then(function() {
+            return self.wait_for_server_to_start(30);
+        })
+        .then(function() {
             console.log('Uploading results file');
             //Save package on current NooBaa system
             return ops.upload_file('127.0.0.1', dst, 'files', 'report_' + self._version + '.tgz');
+        })
+        .fail(function(err) {
+            console.log('Failed restarting webserver');
+            throw new Error('Failed restarting webserver');
         });
 };
 
@@ -209,23 +219,23 @@ TestRunner.prototype._run_current_step = function(current_step, step_res) {
         !current_step.lib_test) {
         step_res = '        No Action Defined!!!';
         return;
-    } else {
-        if (current_step.common) {
-            var ts = new Date();
-            return P.invoke(self, current_step.common)
-                .then(function() {
-                    return step_res + ' - Successeful ( took ' +
-                        ((new Date() - ts) / 1000) + 's )';
-                    //return step_res;
-                });
-        } else if (current_step.action) {
-            return self._run_action(current_step, step_res);
-        } else if (current_step.lib_test) {
-            return self._run_lib_test(current_step, step_res);
-        } else {
-            throw new Error('Undefined step');
-        }
     }
+    if (current_step.common) {
+        var ts = new Date();
+        return P.invoke(self, current_step.common)
+            .then(function() {
+                return step_res + ' - Successeful ( took ' +
+                    ((new Date() - ts) / 1000) + 's )';
+                //return step_res;
+            });
+    } else if (current_step.action) {
+        return self._run_action(current_step, step_res);
+    } else if (current_step.lib_test) {
+        return self._run_lib_test(current_step, step_res);
+    } else {
+        throw new Error('Undefined step');
+    }
+
 };
 
 TestRunner.prototype._run_action = function(current_step, step_res) {
@@ -233,21 +243,19 @@ TestRunner.prototype._run_action = function(current_step, step_res) {
     var ts = new Date();
     //Build execution context from action and arguments
     var command = current_step.action;
-    if (current_step.params && current_step.params.length > 0) {
-        _.each(current_step.params, function(p) {
-            if (p.arg) {
-                command += ' ' + p.arg;
-            } else if (p.input_arg) {
-                if (self._argv[p.input_arg]) {
-                    command += ' ' + self._argv[p.input_arg];
-                } else {
-                    fs.appendFileSync(REPORT_PATH, 'No argument recieved for ' + p.input_args + '\n');
-                }
+    var args = _.compact(_.map(current_step.params, function(p) {
+        if (p.arg) {
+            return p.arg;
+        } else if (p.input_arg) {
+            if (self._argv[p.input_arg]) {
+                return self._argv[p.input_arg];
+            } else {
+                fs.appendFileSync(REPORT_PATH, 'No argument recieved for ' + p.input_args + '\n');
             }
-        });
-    }
+        }
+    }));
 
-    return promise_utils.promised_exec(command)
+    return promise_utils.promised_spawn(command, args)
         .then(function(res) {
             step_res = '        ' + step_res + ' - Successeful ( took ' +
                 ((new Date() - ts) / 1000) + 's )';
@@ -303,7 +311,7 @@ TestRunner.prototype._write_coverage = function() {
     var collector = new istanbul.Collector();
     var reporter = new istanbul.Reporter(null, COVERAGE_DIR + '/istanbul');
     //Get all collectors data
-    return this._bg_client.redirector.publish_to_cluster({
+    return this._client.redirector.publish_to_cluster({
             method_api: 'debug_api',
             method_name: 'get_istanbul_collector',
             target: ''
@@ -312,7 +320,7 @@ TestRunner.prototype._write_coverage = function() {
         })
         .then(function(res) {
             //Add all recieved data to the collector
-            _.each(res.aggregated, function(r) {
+            _.each(res.redirect_reply.aggregated, function(r) {
                 if (r.data) {
                     var to_add = r.data;
                     collector.add(JSON.parse(to_add));

@@ -33,9 +33,7 @@ let WS_SEND_OPTIONS = {
  */
 class RpcWsConnection extends RpcBaseConnection {
 
-    constructor(addr_url) {
-        super(addr_url);
-    }
+    // constructor(addr_url) { super(addr_url); }
 
     _connect() {
         let ws = new WS(this.url.href, null, WS_CONNECT_OPTIONS);

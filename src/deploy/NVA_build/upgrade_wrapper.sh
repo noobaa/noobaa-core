@@ -105,23 +105,23 @@ function pre_upgrade {
         deploy_log "$agent_conf not found."
     fi
 
-	#install nvm use v4.2.2
+	#install nvm use v4.4.4
 	rm -rf ~/.nvm
 	mkdir ~/.nvm
 	cp ${EXTRACTION_PATH}/noobaa-core/build/public/nvm.sh ~/.nvm/
 	chmod 777 ~/.nvm/nvm.sh
-	mkdir /tmp/v4.2.2
-	cp ${EXTRACTION_PATH}/noobaa-core/build/public/node-v4.2.2-linux-x64.tar.xz /tmp/
-	tar -xJf /tmp/node-v4.2.2-linux-x64.tar.xz -C /tmp/v4.2.2 --strip-components 1
-	mkdir -p ~/.nvm/versions/node/v4.2.2/
-	mv /tmp/v4.2.2/* ~/.nvm/versions/node/v4.2.2/
+	mkdir /tmp/v4.4.4
+	cp ${EXTRACTION_PATH}/noobaa-core/build/public/node-v4.4.4-linux-x64.tar.xz /tmp/
+	tar -xJf /tmp/node-v4.4.4-linux-x64.tar.xz -C /tmp/v4.4.4 --strip-components 1
+	mkdir -p ~/.nvm/versions/node/v4.4.4/
+	mv /tmp/v4.4.4/* ~/.nvm/versions/node/v4.4.4/
 	export NVM_DIR="$HOME/.nvm"
 	. "$NVM_DIR/nvm.sh"
-	export PATH=~/.nvm/versions/node/v4.2.2/bin:$PATH
+	export PATH=~/.nvm/versions/node/v4.4.4/bin:$PATH
 	rm -f /usr/local/bin/node
-	ln -s  ~/.nvm/versions/node/v4.2.2/bin/node /usr/local/bin/node
-	nvm alias default 4.2.2
-	nvm use 4.2.2
+	ln -s  ~/.nvm/versions/node/v4.4.4/bin/node /usr/local/bin/node
+	nvm alias default 4.4.4
+	nvm use 4.4.4
 
 }
 
@@ -194,6 +194,7 @@ function post_upgrade {
       id=$(uuidgen)
       /usr/bin/mongo nbcore --eval "db.clusters.insert({cluster_id: '${id}'})"
   fi
+	mkdir -p /var/lib/mongo/cluster/shard1
 
   unset AGENT_VERSION
 
@@ -226,7 +227,8 @@ function post_upgrade {
 	sudo /etc/init.d/ntpd start
 	local noobaa_ntp=$(grep 'NooBaa Configured NTP Server' /etc/ntp.conf | wc -l)
 	if [ ${noobaa_ntp} -eq 0 ]; then #was not configured yet, no tz config as well
-			echo "# Use NooBaa Configured Server"	 > /etc/ntp.conf
+			echo "# NooBaa Configured NTP Server"	 >> /etc/ntp.conf
+			sed -i 's:\(^server.*\):#\1:g' /etc/ntp.conf
 			ln -sf /usr/share/zoneinfo/US/Pacific /etc/localtime
 	fi
 

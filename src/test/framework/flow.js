@@ -1,35 +1,46 @@
 var steps = [
     //Upgrade moved externally to be run from the jenkins prior to the framework run
-{
-    //Run unit tests
-    name: 'Unit Tests',
-    action: './node_modules/.bin/gulp mocha',
-    params: [{
-        arg: '--COV_DIR',
+    {
+        //Run unit tests
+        name: 'Unit Tests',
+        action: './node_modules/.bin/gulp',
+        params: [{
+            arg: 'mocha',
+        }, {
+            arg: '--COV_DIR',
+        }, {
+            arg: './report/cov/mocha',
+        }],
     }, {
-        arg: './report/cov/mocha',
-    }],
-}, {
-    //Restore DB to defaults
-    name: 'Restore DB Defaults',
-    common: 'restore_db_defaults',
-}, {
-    //Test Data Placement according to policy
-    name: 'Pools Data Placement Test',
-    lib_test: '/src/test/system_tests/test_files_spread',
-}, {
-    //Restore DB to defaults
-    name: 'Restore DB Defaults',
-    common: 'restore_db_defaults',
-}, {
-    //Test Data Rebuild and Eviction
-    name: 'Rebuild and Eviction Test',
-    lib_test: '/src/test/system_tests//test_build_chunks',
-}, {
-    //Restore DB to defaults
-    name: 'Restore DB Defaults',
-    common: 'restore_db_defaults',
-}];
+        //Restore DB to defaults
+        name: 'Restore DB Defaults',
+        common: 'restore_db_defaults',
+    }, {
+        //Test Data Placement according to policy
+        name: 'Pools Data Placement Test',
+        lib_test: '/src/test/system_tests/test_files_spread',
+    }, {
+        //Restore DB to defaults
+        name: 'Restore DB Defaults',
+        common: 'restore_db_defaults',
+    }, {
+        //Test Data Rebuild and Eviction
+        name: 'Rebuild and Eviction Test',
+        lib_test: '/src/test/system_tests//test_build_chunks',
+    }, {
+        //Restore DB to defaults
+        name: 'Restore DB Defaults',
+        common: 'restore_db_defaults',
+    }, {
+        //Test cloud sync functionality
+        name: 'Cloud Sync Test',
+        lib_test: 'src/test/system_tests/test_cloud_sync.js',
+    }, {
+        //Restore DB to defaults
+        name: 'Restore DB Defaults',
+        common: 'restore_db_defaults',
+    }
+];
 
 module.exports = steps;
 

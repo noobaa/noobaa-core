@@ -33,9 +33,8 @@ module.exports = {
             method: 'GET',
             reply: {
                 type: 'object',
-                required: ['data'],
                 properties: {
-                    data: {                        
+                    data: {
                         type: 'string',
                     },
                 },

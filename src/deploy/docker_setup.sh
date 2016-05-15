@@ -1,5 +1,11 @@
 #! /bin/bash
 #
+if [[ "$(fdisk -l /dev/sda1 | grep '^Disk.*10\.[0-9] GB' | sed 's/.*, \([0-9]*\) bytes$/\1/')" -eq 10735321600 ]]; then
+  echo -e "c\nu\nd\nn\np\n1\n\n\nw\n" | fdisk /dev/sda
+  reboot
+elif [[ "$(df -P /dev/sda1 | tail -n +2 | awk '{print $2}')" -le 10319160 ]]; then
+  resize2fs /dev/sda1
+fi
 if [ ! -d "/noobaa" ]; then
 	mkdir /noobaa
 	cd /noobaa

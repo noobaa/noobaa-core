@@ -9,3 +9,62 @@
         max-height: 1000px;
     }
 }
+
+.tooltip {
+    position: fixed;
+    top: 0;
+    left: 0;
+    z-index: 999;
+    padding: .5em;
+    margin: 0;
+    font-size: @font-size-small;
+    background-color: black;
+    border: 1px solid white;
+    border-radius: .25em;
+    color: white;
+    pointer-events: none;
+    text-align: center;
+    animation: fade-in 250ms;
+    max-width: 13em;
+
+    &::before, &::after {
+        content: '';
+        position: absolute;
+        border: .5em solid transparent;
+    }
+
+    &::before {
+        top: -1.1em;
+        border-bottom-color:  white;
+    }
+
+    &::after {
+        top: -1em;
+        border-bottom-color:  black;
+    }
+
+    &.left {
+        transform: translate(-1em, .75em);
+
+        &::before, &::after {
+            left: .5em;
+        }
+    }
+
+    &.center {
+        transform: translateY(.75em);
+
+        &::before, &::after {
+            left: 50%;
+            transform: translateX(-.5em);
+        }
+    }
+
+    &.right {
+        transform: translate(1em, .75em);
+
+        &::before, &::after {
+            right: .5em;
+        }        
+    }
+}

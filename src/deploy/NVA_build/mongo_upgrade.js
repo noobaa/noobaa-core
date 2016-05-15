@@ -37,7 +37,7 @@ function upgrade_systems() {
             };
         }
         var updated_access_keys = system.access_keys;
-        if (updated_access_keys){
+        if (updated_access_keys) {
             for (var i = 0; i < updated_access_keys.length; ++i) {
                 if (updated_access_keys[i]._id) {
                     delete updated_access_keys[i]._id;
@@ -54,7 +54,7 @@ function upgrade_systems() {
             }, {
                 $set: updates,
                 $unset: {
-                    '__v': 1
+                    __v: 1
                 }
             });
 
@@ -145,9 +145,9 @@ function upgrade_system(system) {
         }
     }).forEach(function(bucket) {
         print('\n*** update bucket with endpoint and target bucket', bucket.name);
-        if (bucket.cloud_sync.target_bucket){
+        if (bucket.cloud_sync.target_bucket) {
             print('\n*** nothing to upgrade for ', bucket.name);
-        }else{
+        } else {
 
             var target_bucket = bucket.cloud_sync.endpoint;
             db.buckets.update({
@@ -172,18 +172,17 @@ function upgrade_system(system) {
             _id: bucket._id
         }, {
             $unset: {
-                '__v': 1
+                __v: 1
             }
         });
     });
 
-    db.accounts.find().
-    forEach(function(account){
+    db.accounts.find().forEach(function(account) {
         if (account.sync_credentials_cache &&
-            account.sync_credentials_cache.length>0 ) {
+            account.sync_credentials_cache.length > 0) {
             var updated_access_keys = account.sync_credentials_cache;
             //print('\n ** update accounts with credentials cache***',account);
-           //printjson(account);
+            //printjson(account);
             for (var i = 0; i < updated_access_keys.length; ++i) {
                 if (updated_access_keys[i]._id) {
                     delete updated_access_keys[i]._id;
@@ -324,7 +323,7 @@ function upgrade_chunks_add_ref_to_bucket() {
     var bucket;
     var chunk;
     var bucket_to_chunks = {};
-    for (chunk in map_chunk_to_bucket) {
+    for (chunk in map_chunk_to_bucket) { // eslint-disable-line guard-for-in
         bucket = map_chunk_to_bucket[chunk];
         bucket_to_chunks[bucket] = bucket_to_chunks[bucket] || [];
         // notice we have to convert the strings back to object id
@@ -332,7 +331,7 @@ function upgrade_chunks_add_ref_to_bucket() {
         bucket_to_chunks[bucket].push(new ObjectId(chunk));
     }
 
-    for (bucket in bucket_to_chunks) {
+    for (bucket in bucket_to_chunks) { // eslint-disable-line guard-for-in
         var chunks = bucket_to_chunks[bucket];
         print('\nupdating bucket', bucket, 'for all these chunks:');
         printjson(chunks);
@@ -383,7 +382,7 @@ function upgrade_system_access_keys() {
             }, {
                 $set: updates,
                 $unset: {
-                    '__v': 1
+                    __v: 1
                 }
             });
 
@@ -391,8 +390,8 @@ function upgrade_system_access_keys() {
                 _id: system._id
             }, {
                 $unset: {
-                    'access_keys': 1,
-                    '__v': 1
+                    access_keys: 1,
+                    __v: 1
                 }
             });
         }

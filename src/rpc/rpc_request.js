@@ -51,7 +51,6 @@ class RpcRequest {
         if (buffers) {
             msg_buffers = msg_buffers.concat(buffers);
         }
-        dbg.log3('encode_message', msg_buffers[1].length, msg_buffers.length);
         msg_buffers[0].writeUInt32BE(msg_buffers[1].length, 0);
         return msg_buffers;
     }
@@ -62,6 +61,9 @@ class RpcRequest {
         let header = JSON.parse(msg_buffer.slice(4, 4 + len).toString());
         // let header = JSON.parse(zlib.inflateRawSync(msg_buffer.slice(4, 4 + len)).toString());
         let buffer = (4 + len < msg_buffer.length) ? msg_buffer.slice(4 + len) : null;
+        if (msg_buffer && buffer) {
+            dbg.log3('decode_message with buffer', msg_buffer.length, len, 'HEADER', header, 'Buffer', buffer.length);
+        }
         return {
             header: header,
             buffer: buffer
@@ -80,7 +82,7 @@ class RpcRequest {
             header.auth_token = this.auth_token;
         }
         let buffers;
-        if (this.method_api.params) {
+        if (this.method_api.params && this.method_api.params.export_buffers) {
             buffers = this.method_api.params.export_buffers(this.params);
         }
         return RpcRequest.encode_message(header, buffers);
@@ -95,10 +97,8 @@ class RpcRequest {
         this.auth_token = msg.header.auth_token;
         this.srv = (api ? api.id : '?') +
             '.' + (method_api ? method_api.name : '?');
-        if (method_api) {
-            if (method_api.params) {
-                method_api.params.import_buffers(this.params, msg.buffer);
-            }
+        if (method_api && method_api.params && method_api.params.import_buffers) {
+            method_api.params.import_buffers(this.params, msg.buffer);
         }
     }
 
@@ -114,7 +114,7 @@ class RpcRequest {
             header.error = _.pick(this.error, 'rpc_code', 'message');
         } else {
             header.reply = this.reply;
-            if (this.method_api.reply) {
+            if (this.method_api.reply && this.method_api.reply.export_buffers) {
                 buffers = this.method_api.reply.export_buffers(this.reply);
             }
         }
@@ -133,7 +133,7 @@ class RpcRequest {
             });
         } else {
             this.reply = msg.header.reply;
-            if (this.method_api.reply) {
+            if (this.method_api.reply && this.method_api.reply.import_buffers) {
                 this.method_api.reply.import_buffers(this.reply, msg.buffer);
             }
             this.response_defer.resolve(this.reply);

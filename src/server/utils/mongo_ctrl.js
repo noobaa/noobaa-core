@@ -1,11 +1,11 @@
 'use strict';
 
 var _ = require('lodash');
-var mongo_client = require('./mongo_client');
 var P = require('../../util/promise');
-var super_ctrl = require('./supervisor_ctrl');
 var dbg = require('../../util/debug_module')(__filename);
 var config = require('../../../config.js');
+var super_ctrl = require('./supervisor_ctrl');
+var mongo_client = require('../../util/mongo_client').get_instance();
 
 module.exports = MongoCtrl;
 
@@ -142,5 +142,7 @@ MongoCtrl.prototype._add_new_config_supervisor = function() {
 MongoCtrl.prototype._refresh_services_list = function() {
     //TODO:: add real status form mongo per each
     P.when(this._super_ctrl.get_mongo_services())
-        .then(mongo_services => this._mongo_services = mongo_services);
+        .then(mongo_services => {
+            this._mongo_services = mongo_services;
+        });
 };

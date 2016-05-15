@@ -22,9 +22,7 @@ let express_compress = require('compression');
  */
 class RpcHttpServer extends EventEmitter {
 
-    constructor() {
-        super();
-    }
+    // constructor() { super(); }
 
     /**
      *

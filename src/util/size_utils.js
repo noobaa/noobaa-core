@@ -246,5 +246,5 @@ function human_offset(offset) {
         i++;
     }
 
-    return sign + res;
+    return sign + res || '0';
 }

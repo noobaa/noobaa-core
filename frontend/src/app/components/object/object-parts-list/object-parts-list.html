@@ -13,7 +13,7 @@
                     "></svg-icon>
                 </button>
 
-                <svg-icon params="uri: stateIcon" data-bind="attr: { title: stateToolTip }">
+                <svg-icon params="uri: stateIcon" data-bind="tooltip: stateToolTip">
                 </svg-icon>
 
                 <span data-bind="text: name"></span>
@@ -26,14 +26,14 @@
                         <tr>
                             <td class="replica-col text-left">
                                 <svg-icon params="uri: nodeStateIcon" data-bind="
-                                    attr: { title: nodeStateToolTip }
+                                    tooltip: nodeStateToolTip
                                 "></svg-icon>
                                 <span data-bind="text: label"></span>
                             </td>
                             <td class="node-name-col">
                                 <a class="link" data-bind="
                                     text: shortenNodeName,
-                                    attr: { title: nodeName },
+                                    tooltip: nodeName,
                                     href: nodeUrl
                                 "></a>
                             </td>
@@ -46,7 +46,7 @@
                             <td class="pool-col no-wrap">
                                 <a class="link" data-bind="
                                     text: poolName,
-                                    attr: { title: poolName },
+                                    tooltip: poolName,
                                     href: poolUrl
                                 "></a>
                             </td>

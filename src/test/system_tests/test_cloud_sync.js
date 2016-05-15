@@ -19,15 +19,11 @@ let TEST_CTX = {
     connection_name: 'test_connection',
     source_ip: '127.0.0.1',
     source_bucket: 'files',
-    target_ip: argv.target_ip,
-    target_port: argv.target_port,
+    target_ip: argv.target_ip || '127.0.0.1',
+    target_port: argv.target_port || process.env.PORT,
     target_bucket: argv.target_bucket || 'target'
 };
 
-if (!TEST_CTX.target_ip || !TEST_CTX.target_port) {
-    console.error('missing command line argument: target_ip or target_port');
-    process.exit(1);
-}
 
 
 var client = rpc.new_client({
@@ -111,15 +107,15 @@ function compare_object_lists(file_names, fail_msg, expected_len) {
                             bucket: TEST_CTX.target_bucket
                         });
                     })
-                    .then((target_objects) => {
+                    .then(target_objects => {
                         target_list = _.map(target_objects.objects, 'key');
                         // sort all lists:
                         source_list.sort();
                         target_list.sort();
-                        if (!_.isUndefined(expected_len)) {
-                            done = (source_list.length === expected_len && target_list.length === expected_len);
-                        } else {
+                        if (_.isUndefined(expected_len)) {
                             done = (target_list.length === source_list.length);
+                        } else {
+                            done = (source_list.length === expected_len && target_list.length === expected_len);
                         }
                     })
                     .delay(10000); // wait 10 seconds between each check
@@ -160,7 +156,7 @@ function verify_object_lists_after_delete(file_names, fail_msg, deleted_from_tar
                             bucket: TEST_CTX.target_bucket
                         });
                     })
-                    .then((target_objects) => {
+                    .then(target_objects => {
                         target_list = _.map(target_objects.objects, 'key');
                         // sort all lists:
                         source_list.sort();
@@ -207,6 +203,28 @@ function run_test() {
     let file_names = [];
     let expected_after_del = 0;
     return authenticate()
+        .then(() => {
+            let should_create_bucket = _.isUndefined(argv.target_bucket);
+            if (should_create_bucket) {
+                client.tier.create_tier({
+                        name: 'tier1',
+                        pools: ['default_pool'],
+                        data_placement: 'SPREAD'
+                    })
+                    .then(() =>
+                        client.tiering_policy.create_policy({
+                            name: 'tiering1',
+                            tiers: [{
+                                order: 0,
+                                tier: 'tier1'
+                            }]
+                        }))
+                    .then(() => client.bucket.create_bucket({
+                        name: 'target',
+                        tiering: 'tiering1',
+                    }));
+            }
+        })
         .then(() => P.all(_.map(file_sizes, ops.generate_random_file)))
         .then(function(res_file_names) {
             let i = 0;
@@ -278,7 +296,7 @@ function run_test() {
             });
 
         })
-        .then((obj_list) => {
+        .then(obj_list => {
             expected_after_del = obj_list.objects.length;
             console.log('waiting for deletions to sync for 3 minutes..');
         })

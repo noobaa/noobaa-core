@@ -86,64 +86,6 @@ module.exports = {
             }
         },
 
-        read_node_maps: {
-            method: 'GET',
-            params: {
-                type: 'object',
-                required: ['name'],
-                properties: {
-                    name: {
-                        type: 'string'
-                    },
-                    skip: {
-                        type: 'integer'
-                    },
-                    limit: {
-                        type: 'integer'
-                    },
-                    adminfo: {
-                        type: 'boolean'
-                    }
-                }
-            },
-            reply: {
-                type: 'object',
-                required: ['node', 'objects'],
-                properties: {
-                    node: {
-                        $ref: '#/definitions/node_full_info'
-                    },
-                    objects: {
-                        type: 'array',
-                        items: {
-                            type: 'object',
-                            // required: [],
-                            properties: {
-                                key: {
-                                    type: 'string'
-                                },
-                                bucket: {
-                                    type: 'string'
-                                },
-                                parts: {
-                                    type: 'array',
-                                    items: {
-                                        $ref: 'object_api#/definitions/part_info'
-                                    }
-                                }
-                            }
-                        }
-                    },
-                    total_count: {
-                        type: 'number'
-                    }
-                }
-            },
-            auth: {
-                system: 'admin'
-            }
-        },
-
         list_nodes: {
             method: 'GET',
             params: {
@@ -172,6 +114,31 @@ module.exports = {
                                 type: 'string',
                                 enum: ['online', 'offline']
                             },
+                            filter: {
+                                type: 'string'
+                            },
+                            trust_level: {
+                                type: 'string',
+                                enum: ['TRUSTED', 'UNTRUSTED']
+                            },
+                            accessibility: {
+                                type: 'string',
+                                enum: ['FULL_ACCESS', 'READ_ONLY', 'NO_ACCESS']
+                            },
+                            data_activity: {
+                                type: 'object',
+                                properties: {
+                                    EVACUATING: {
+                                        type: 'boolean'
+                                    },
+                                    REBUILDING: {
+                                        type: 'boolean'
+                                    },
+                                    MIGRATING: {
+                                        type: 'boolean'
+                                    }
+                                }
+                            },
                         }
                     },
                     skip: {
@@ -189,7 +156,8 @@ module.exports = {
                     },
                     order: {
                         type: 'integer',
-                    },
+                    }
+
                 }
             },
             reply: {
@@ -203,61 +171,6 @@ module.exports = {
                         type: 'array',
                         items: {
                             $ref: '#/definitions/node_full_info'
-                        }
-                    }
-                }
-            },
-            auth: {
-                system: 'admin'
-            }
-        },
-
-        group_nodes: {
-            method: 'GET',
-            params: {
-                type: 'object',
-                // required: [],
-                properties: {
-                    group_by: {
-                        type: 'object',
-                        // required: [],
-                        properties: {
-                            pool: {
-                                type: 'boolean'
-                            },
-                            geolocation: {
-                                type: 'boolean'
-                            },
-                        }
-                    },
-                }
-            },
-            reply: {
-                type: 'object',
-                required: ['groups'],
-                properties: {
-                    groups: {
-                        type: 'array',
-                        items: {
-                            type: 'object',
-                            required: ['count'],
-                            properties: {
-                                pool: {
-                                    type: 'string'
-                                },
-                                geolocation: {
-                                    type: 'string'
-                                },
-                                count: {
-                                    type: 'integer'
-                                },
-                                online: {
-                                    type: 'integer'
-                                },
-                                storage: {
-                                    $ref: 'common_api#/definitions/storage_info'
-                                },
-                            }
                         }
                     }
                 }
@@ -336,6 +249,9 @@ module.exports = {
                     },
                     cloud_pool_name: {
                         type: 'string'
+                    },
+                    is_internal_agent: {
+                        type: 'boolean'
                     }
                 }
             },
@@ -392,10 +308,10 @@ module.exports = {
         redirect: {
             method: 'POST',
             params: {
-                $ref: '#/definitions/signal_params'
+                $ref: 'redirector_api#/definitions/redirect_params'
             },
             reply: {
-                $ref: '#/definitions/signal_reply'
+                $ref: 'redirector_api#/definitions/redirect_reply'
             },
             auth: {
                 system: false
@@ -418,13 +334,14 @@ module.exports = {
         collect_agent_diagnostics: {
             method: 'GET',
             params: {
-                type: 'object',
-                required: ['target'],
+                //type: 'object',
+                $ref: '#/definitions/node_full_info',
+                /*required: ['target'],
                 properties: {
                     target: {
                         type: 'string'
                     }
-                },
+                },*/
             },
             reply: {
                 type: 'string',
@@ -474,10 +391,13 @@ module.exports = {
             method: 'GET',
             params: {
                 type: 'object',
-                required: ['count'],
+                required: ['count', 'source'],
                 properties: {
                     count: {
                         type: 'integer',
+                    },
+                    source: {
+                        type: 'string',
                     },
                 }
             },
@@ -499,7 +419,30 @@ module.exports = {
             auth: {
                 system: 'admin',
             }
-        }
+        },
+
+        report_node_block_error: {
+            method: 'POST',
+            params: {
+                type: 'object',
+                required: [
+                    'action',
+                    'block_md'
+                ],
+                properties: {
+                    action: {
+                        type: 'string',
+                        enum: ['write', 'read'],
+                    },
+                    block_md: {
+                        $ref: 'agent_api#/definitions/block_md'
+                    },
+                },
+            },
+            auth: {
+                system: ['admin', 'user', 'agent']
+            }
+        },
 
     },
 

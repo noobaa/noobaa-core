@@ -69,6 +69,7 @@ function RPC(options) {
     // public properties
     this.schema = options.schema;
     this.router = options.router;
+    this.api_routes = options.api_routes;
 }
 
 RPC.Client = Client;
@@ -437,8 +438,9 @@ RPC.prototype.handle_response = function(conn, msg) {
 RPC.prototype._assign_connection = function(req, options) {
     var address = options.address;
     if (!address) {
-        address = this.router[options.domain || 'default'];
-        dbg.log3('RPC ROUTER', options.domain || 'default', '=>', address);
+        let domain = options.domain || this.api_routes[req.api.id] || 'default';
+        address = this.router[domain];
+        dbg.log3('RPC ROUTER', domain, '=>', address);
     }
     assert(address, 'No RPC Address/Domain');
     var addr_url = this._address_to_url_cache[address];
@@ -493,6 +495,7 @@ RPC.prototype._get_connection = function(addr_url, srv, force_redirect) {
 
     if (!conn || force_redirect) {
         if (this._send_redirection &&
+            !this.n2n_agent &&
             addr_url.protocol === 'n2n:') {
             dbg.log2('RPC redirecting',
                 'address', addr_url.href,
@@ -556,11 +559,12 @@ RPC.prototype._new_connection = function(addr_url) {
  */
 RPC.prototype._accept_new_connection = function(conn) {
     var self = this;
-    if (self._disconnected_state) {
-        throw new Error('RPC IN DISCONNECTED STATE');
-    }
     conn._sent_requests = {};
     conn._received_requests = {};
+    if (self._disconnected_state) {
+        conn.close();
+        throw new Error('RPC IN DISCONNECTED STATE - rejecting connection ' + conn.connid);
+    }
     conn.on('message', function(msg) {
         return self._connection_receive(conn, msg);
     });
@@ -695,9 +699,8 @@ RPC.prototype._connection_closed = function(conn) {
 
     // using _.startsWith() since in some cases url.parse will add a trailing /
     // specifically in http urls for some strange reason...
-    if (!conn._no_reconnect && (
-            _.startsWith(conn.url.href, this.router.default) ||
-            _.startsWith(conn.url.href, this.router.bg))) {
+    if (!conn._no_reconnect &&
+        _.startsWith(conn.url.href, this.router.default)) {
         self._reconnect(conn.url, conn._reconn_backoff);
     }
 };
@@ -771,8 +774,19 @@ RPC.prototype._redirect = function(api, method, params, options) {
         target: options.address,
         request_params: params
     };
+    //if we have buffer, add it as raw data.
+    if (method.params && method.params.export_buffers) {
+        req.redirect_buffer = method.params.export_buffers(params);
+    }
+
     dbg.log3('redirecting ', req);
-    return P.fcall(this._send_redirection, req);
+    return P.fcall(this._send_redirection, req)
+        .then(res => {
+            if (method.reply && method.reply.import_buffers) {
+                method.reply.import_buffers(res.redirect_reply, res.redirect_buffer);
+            }
+            return res.redirect_reply;
+        });
 };
 
 

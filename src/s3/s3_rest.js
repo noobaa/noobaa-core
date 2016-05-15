@@ -1,15 +1,17 @@
 'use strict';
 
-let _ = require('lodash');
-let P = require('../util/promise');
-let dbg = require('../util/debug_module')(__filename);
-let s3_util = require('../util/s3_utils');
-let s3_errors = require('./s3_errors');
-let express = require('express');
-let moment = require('moment');
-let xml_utils = require('../util/xml_utils');
-//var S3Auth = require('aws-sdk/lib/signers/s3');
-//var s3_auth = new S3Auth();
+const _ = require('lodash');
+const moment = require('moment');
+const express = require('express');
+
+const P = require('../util/promise');
+const dbg = require('../util/debug_module')(__filename);
+const s3_util = require('../util/s3_utils');
+const s3_errors = require('./s3_errors');
+const xml_utils = require('../util/xml_utils');
+
+//const S3Auth = require('aws-sdk/lib/signers/s3');
+//const s3_auth = new S3Auth();
 
 const S3_XML_ATTRS = Object.freeze({
     xmlns: 'http://doc.s3.amazonaws.com/2006-03-01'
@@ -47,7 +49,6 @@ const RPC_ERRORS_TO_S3 = Object.freeze({
     IF_NONE_MATCH_ETAG: s3_errors.PreconditionFailed,
 });
 
-module.exports = s3_rest;
 
 function s3_rest(controller) {
 
@@ -111,15 +112,7 @@ function s3_rest(controller) {
                     return;
                 }
                 dbg.log1('S3 REPLY', func_name, req.method, req.url, reply);
-                if (!reply) {
-                    dbg.log0('S3 EMPTY REPLY', func_name, req.method, req.url,
-                        JSON.stringify(req.headers));
-                    if (req.method === 'DELETE') {
-                        res.status(204).end();
-                    } else {
-                        res.status(200).end();
-                    }
-                } else {
+                if (reply) {
                     let xml_root = _.mapValues(reply, val => ({
                         _attr: S3_XML_ATTRS,
                         _content: val
@@ -128,6 +121,14 @@ function s3_rest(controller) {
                     dbg.log0('S3 XML REPLY', func_name, req.method, req.url,
                         JSON.stringify(req.headers), xml_reply);
                     res.status(200).send(xml_reply);
+                } else {
+                    dbg.log0('S3 EMPTY REPLY', func_name, req.method, req.url,
+                        JSON.stringify(req.headers));
+                    if (req.method === 'DELETE') {
+                        res.status(204).end();
+                    } else {
+                        res.status(200).end();
+                    }
                 }
             })
             .catch(err => next(err));
@@ -138,6 +139,7 @@ function s3_rest(controller) {
             _.each(req.headers, (val, key) => {
                 // test for non printable characters
                 // 403 is required for unreadable headers
+                // eslint-disable-next-line no-control-regex
                 if (/[\x00-\x1F]/.test(val) || /[\x00-\x1F]/.test(key)) {
                     if (key.startsWith('x-amz-meta-')) {
                         throw s3_errors.InvalidArgument;
@@ -185,7 +187,7 @@ function s3_rest(controller) {
             // When using a signedURL we give an expiry of 7days, which will cover
             // up the skew between the times, so we don't check it
             let client_date = moment(req.headers.date || req.headers['x-amz-date']);
-            if (!req.query['X-Amz-Credential'] && Math.abs(moment().diff(client_date, 'seconds')) > 60) {
+            if (!req.query['X-Amz-Credential'] && Math.abs(moment().diff(client_date, 'minutes')) > 2) {
                 throw s3_errors.RequestTimeTooSkewed;
             }
 
@@ -421,3 +423,6 @@ function handle_testme(req, res, next) {
         next();
     }
 }
+
+// EXPORTS
+module.exports = s3_rest;

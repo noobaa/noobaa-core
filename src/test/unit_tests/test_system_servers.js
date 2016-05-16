@@ -104,7 +104,7 @@ mocha.describe('system_servers', function() {
             }))
             .then(() => {
                 return P.resolve(client.system.read_system())
-                    .then((res) => client.auth.create_access_key_auth({
+                    .then(res => client.auth.create_access_key_auth({
                         access_key: res.owner.access_keys[0].access_key,
                         string_to_sign: '',
                         signature: s3_auth.sign(res.owner.access_keys[0].secret_key, '')
@@ -141,9 +141,17 @@ mocha.describe('system_servers', function() {
             ////////////
             //  POOL  //
             ////////////
-            .then(() => promise_utils.loop(10,
-                i => client.node.create_node({
+            .then(() => client.create_auth_token({
+                email: EMAIL,
+                password: PASSWORD,
+                system: SYS,
+                role: 'create_node'
+            }))
+            .then(create_node_token => promise_utils.loop(10,
+                i => client.node.heartbeat({
                     name: 'node' + i
+                }, {
+                    auth_token: create_node_token
                 })))
             .then(() => client.pool.create_pool({
                 name: POOL,

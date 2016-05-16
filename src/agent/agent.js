@@ -149,11 +149,6 @@ class Agent {
             'Belgium',
             'Taiwan',
         ]);
-
-        // If test, add test APIs
-        if (config.test_mode) {
-            this._add_test_apis();
-        }
     }
 
     start() {

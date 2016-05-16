@@ -30,31 +30,8 @@ module.exports = {
             reply: {
                 $ref: '#/definitions/heartbeat_schema_for_upgrade_compatibility'
             },
-            auth: {}
-        },
-
-        create_node: {
-            method: 'POST',
-            params: {
-                $ref: '#/definitions/node_config'
-            },
-            reply: {
-                type: 'object',
-                required: ['id', 'peer_id', 'token'],
-                properties: {
-                    id: {
-                        type: 'string'
-                    },
-                    peer_id: {
-                        type: 'string'
-                    },
-                    token: {
-                        type: 'string'
-                    }
-                }
-            },
             auth: {
-                system: ['admin', 'create_node']
+                system: false
             }
         },
 

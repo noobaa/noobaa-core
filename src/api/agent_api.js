@@ -120,14 +120,14 @@ module.exports = {
         test_disk_write: {
             method: 'POST',
             reply: {
-                $ref: '#/definitions/latency_array'
+                $ref: 'node_api#/definitions/latency_array'
             }
         },
 
         test_disk_read: {
             method: 'POST',
             reply: {
-                $ref: '#/definitions/latency_array'
+                $ref: 'node_api#/definitions/latency_array'
             }
         },
 

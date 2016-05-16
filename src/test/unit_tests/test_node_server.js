@@ -34,12 +34,6 @@ mocha.describe('node_server', function() {
             .then(res => {
                 client.options.auth_token = res.token;
             })
-            .then(() => client.node.create_node({
-                name: NODE
-            }))
-            .then(res => {
-                client.options.auth_token = res.token;
-            })
             .then(() => client.node.heartbeat({
                 name: NODE,
                 version: require('../../../package.json').version,

@@ -79,14 +79,6 @@ class NodeSummaryViewModel {
             () => node().data_activity && mapActivity(node().data_activity)
         );
 
-        // this.debugLevel = ko.pureComputed(
-        //     () => node().debug_level === 0 ? 'Low' : 'High'
-        // );
-
-        // this.debugLevelCss = ko.pureComputed(
-        //   () => node().debug_level === 0 ? 'dl-low' : 'dl-high'
-        // );
-
         this.total = ko.pureComputed(
             () => node().storage.total
         );

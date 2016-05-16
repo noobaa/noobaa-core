@@ -1,0 +1,40 @@
+<section class="column">
+    <div class="row">
+        <h3 class="heading3 greedy push-next">Diagnostics</h3>
+        <button class="btn3 push-next" data-bind="
+            click: raiseDebugLevel, 
+            disable: debugLevel
+        ">
+            Raise Debug Level
+        </button>
+        <button class="btn3" data-bind="click: downloadDiagnosticPack">
+            Export Diagnostics
+        </button>
+    </div>
+    <div>
+        Debug Level:
+        <span data-bind="text: debugLevelText"></span>
+        <span data-bind="visible: debugLevel()" class="warning">
+            (May cause agent slowdown)
+        </span>
+    </div>
+</section>
+
+<hr />
+
+<section class="column">
+    <div class="row">
+        <h3 class="heading3 greedy push-next">Test Node</h3>
+        <button class="btn3 c2" data-bind="click: showTestNodeModal">
+            Run Test
+        </button>
+    </div>
+    <span class="row">This is a short description about the test tool</span>
+</section>
+
+<!-- ko if: isTestNodeModalVisible -->
+<test-node-modal params="
+    sourceRpcAddress: rpcAddress,
+    onClose: () => hideTestNodeModal()
+"></test-node-modal>
+<!-- /ko -->

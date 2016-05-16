@@ -19,7 +19,15 @@
         ">
             Stored File Parts
         </a>
+
+        <a data-bind="
+            href: '/fe/systems/:system/pools/:pool/nodes/:node/diagnostics',
+            css: { selected: isTabSelected('diagnostics') }
+        ">
+            Test &amp; Diagnostics
+        </a>
     </nav>
+
 
     <div class="tabs-row">
         <node-info class="tab" params="node: node" data-bind="
@@ -29,6 +37,10 @@
         <node-parts-table class="tab" params="parts: storedParts" data-bind="
             css: { selected: isTabSelected('parts') }
         "></node-parts-table>
+
+        <node-diagnostics-form class="tab" params="node: node" data-bind="
+            css: { selected: isTabSelected('diagnostics') }
+        "></node-diagnostics-form>
     </div>
 </div>
 <!-- /ko -->

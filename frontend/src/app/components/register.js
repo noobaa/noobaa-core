@@ -80,12 +80,14 @@ export default function register(ko) {
     // -------------------------------
     // Node
     // -------------------------------
-    ko.components.register('node-panel',        require('./node/node-panel/node-panel'));
-    ko.components.register('node-summary',      require('./node/node-summary/node-summary'));
-    ko.components.register('node-parts-table',  require('./node/node-parts-table/node-parts-table'));
-    ko.components.register('node-info',         require('./node/node-info/node-info'));
-    ko.components.register('test-node-modal',   require('./node/test-node-modal/test-node-modal'));
-    ko.components.register('diagnose-modal',    require('./node/diagnose-modal/diagnose-modal'));
+    ko.components.register('node-panel',            require('./node/node-panel/node-panel'));
+    ko.components.register('node-summary',          require('./node/node-summary/node-summary'));
+    ko.components.register('node-parts-table',      require('./node/node-parts-table/node-parts-table'));
+    ko.components.register('node-info',             require('./node/node-info/node-info'));
+    ko.components.register('node-diagnostics-form', require('./node/node-diagnostics-form/node-diagnostics-form'));
+    ko.components.register('test-node-modal',       require('./node/test-node-modal/test-node-modal'));
+    ko.components.register('diagnose-modal',        require('./node/diagnose-modal/diagnose-modal'));
+    
 
     // -------------------------------
     // Management

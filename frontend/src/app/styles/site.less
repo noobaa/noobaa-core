@@ -347,10 +347,6 @@ input[type="search"] {
     cursor: @cursor-pointer;
     padding: .75em 1em;
 
-    svg-icon {
-        //margin-right: .5em;
-    }
-
     &[disabled] {
         cursor: default;
     }
@@ -384,7 +380,7 @@ input[type="search"] {
         @bg-color7
     );
 
-    text-transform: uppercase;  
+    text-transform: uppercase;
 }
 
 .btn2 {
@@ -400,13 +396,15 @@ input[type="search"] {
     .bg-color(
         @bg-color8,
         @bg-color9,
-        @bg-color10,    
+        @bg-color10,
         @bg-color7
     );  
 }
 
 .btn3 {
     .btn-base;
+    min-width: 160px;
+    max-width: 160px;
 
     .text(
         @font-type2,
@@ -421,6 +419,10 @@ input[type="search"] {
         @bg-color6,
         @bg-color3
     );
+
+    &:disabled {
+        color: @text-color4;
+    }
 }
 
 .alert {

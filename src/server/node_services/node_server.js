@@ -425,9 +425,7 @@ function get_test_nodes(req) {
         .then(test_nodes => {
             return nodes_store.find_nodes({
                     system: req.system._id,
-                    rpc_address: {
-                        $eq: source
-                    },
+                    rpc_address: source,
                     deleted: null,
                 }, {
                     fields: {

@@ -68,7 +68,7 @@ function run_server() {
         })
         .then(() => {
             const addr_url = url.parse(params.address || '');
-            const is_local_address =
+            const is_local_address = !params.address ||
                 addr_url.hostname === '127.0.0.1' ||
                 addr_url.hostname === 'localhost';
             if (is_local_address) {

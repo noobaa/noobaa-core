@@ -1,5 +1,71 @@
 <!-- ko if: dataReady -->
-<ul class="list-no-style status-line">
+<section class="c3 column">
+    <h3 class="heading4 push-next">
+        Storage Capacity:
+        <span data-bind="text: totalText"></span>
+    </h3>
+
+    <div class="row content-middle">
+        <ul class="c7 column list-no-style legend">
+            <li class="row">
+                <span class="c6 emphasized">Used:</span>
+                <span class="highlight" data-bind="text: usedText"></span>
+            </li>
+            <li class="row">
+                <span class="c6 emphasized">Free:</span>
+                <span data-bind="text: freeText"></span>
+            </li>
+        </ul>
+
+        <quantity-gauge class="c5" params="values: gaugeValues"></quantity-gauge>
+    </div>
+</section>
+
+<vr></vr>
+
+<section class="c3 column">
+    <h3 class="heading4 push-next">Status</h3>
+    <div class="push-next">
+        <svg-icon params="uri: stateIcon" data-bind="
+            tooltip: 'State'
+        "></svg-icon>
+        <span data-bind="text: stateText"></span>
+    </div>
+
+    <h3 class="heading4 push-both">
+        Nodes in Pool:
+        <span data-bind="text: nodeCount"></span>
+    </h3>
+    <div class="row">
+        <div class="c6 push-next">
+            <svg-icon params="uri: onlineIcon" data-bind="
+                tooltip: 'Online Nodes'
+            "></svg-icon>
+            <span data-bind="text: onlineText"></span>
+        </div>
+        <div class="c6">
+            <svg-icon params="uri: offlineIcon" data-bind="
+                tooltip: 'Online Nodes'
+            "></svg-icon>
+            <span data-bind="text: offlineText"></span>
+        </div>
+    </div>
+</section>
+
+<vr></vr>
+
+<section class="column greedy">
+    <h3 class="heading4 push-next">Activity</h3>
+    <!-- ko foreach: dataActivities -->
+    <p class="paragraph">
+        <span data-bind="text: row1"></span>
+        <br>
+        <span class="highlight" data-bind="text: row2"></span>
+    </p>
+    <!-- /ko -->
+</section>
+
+<!-- <ul class="list-no-style status-line">
     <li>
         <svg-icon params="uri: '/fe/assets/icons.svg#node-online'"></svg-icon>
         <span data-bind="text: onlineCount"></span>
@@ -37,7 +103,7 @@
             Assign Nodes
         </button>     
     </section>
-</div>
+</div> -->
 <!-- /ko -->
 
 <!-- ko if: isAssignNodeModalVisible -->

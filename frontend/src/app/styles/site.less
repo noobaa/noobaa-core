@@ -258,9 +258,18 @@ input[type="search"] {
 .emphasized {
     .text(
         @font-type2, 
-        @font-weight-normal, 
+        @font-weight-light, 
         @font-size-normal, 
         @text-color3
+    );
+}
+
+.highlight {
+    .text(
+        @font-type2,
+        @font-weight-light, 
+        @font-size-normal, 
+        @text-color6
     );
 }
 
@@ -270,6 +279,15 @@ input[type="search"] {
         @font-weight-thin, 
         @font-size-normal, 
         @text-color10
+    );   
+}
+
+.error {
+    .text(
+        @font-type2, 
+        @font-weight-thin, 
+        @font-size-normal, 
+        @text-color8
     );   
 }
 

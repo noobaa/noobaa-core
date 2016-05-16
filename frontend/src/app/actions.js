@@ -617,7 +617,39 @@ export function loadPoolInfo(name) {
     }
 
     api.pool.read_pool({ name })
-        .then(model.poolInfo)
+        //.then(model.poolInfo)
+        .then(
+            // TODO: remove assign after implementing trusted in the server.
+            poolInfo => model.poolInfo(
+                Object.assign(
+                    poolInfo,
+                    {
+                        data_activities: [
+                            {
+                                type: [
+                                    'EVACUATING', 'REBUILDING', 'MIGRATING'
+                                ][Math.random() * 3 | 0],
+                                total_size: Math.random() * 1234567890 | 0,
+                                completed_size: Math.random() * 1234567890 | 0,
+                                start_time: Date.now(),
+                                eta: Date.now() + Math.random() * 1234567890,
+                                node_count: Math.random() * 255 | 0
+                            },
+                            {
+                                type: [
+                                    'EVACUATING', 'REBUILDING', 'MIGRATING'
+                                ][Math.random() * 3 | 0],
+                                total_size: Math.random() * 1234567890 | 0,
+                                completed_size: Math.random() * 1234567890 | 0,
+                                start_time: Date.now(),
+                                eta: Date.now() + Math.random() * 1234567890,
+                                node_count: Math.random() * 255 | 0
+                            }
+                        ]
+                    }
+                )
+            )
+        )
         .done();
 }
 
@@ -637,6 +669,33 @@ export function loadPoolNodeList(poolName, filter, sortBy, order, page) {
     })
         .then(
             reply => {
+                // TODO: remove assign after implementing trusted in the server.
+                reply.nodes = reply.nodes.map(
+                    node => Object.assign(
+                        node, 
+                        { 
+                            trusted: !(Math.random() * 2 | 0),
+                            accessibility: [
+                                'FULL_ACCESS', 'READ_ONLY', 'NO_ACCESS'
+                            ][Math.random() * 3 | 0],
+                            connectivity_type: [
+                                'UNKNOWN', 'UDP', 'TCP'
+                            ][Math.random() * 3 | 0],
+                            data_activity: (Math.random() * 2 | 0) ?
+                                null :
+                                {
+                                    type: [
+                                        'EVACUATING', 'REBUILDING', 'MIGRATING'
+                                    ][Math.random() * 3 | 0],
+                                    total_size: Math.random() * 1234567890 | 0,
+                                    completed_size: Math.random() * 1234567890 | 0,
+                                    start_time: Date.now(),
+                                    eta: Date.now() + Math.random() * 1234567890
+                                }
+                        }
+                    )
+                );
+
                 model.poolNodeList(reply.nodes);
                 model.poolNodeList.count(reply.total_count);
                 model.poolNodeList.filter(filter);

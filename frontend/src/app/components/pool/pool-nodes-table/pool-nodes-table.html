@@ -18,19 +18,25 @@
                 <th class="name-col text-left" data-bind="css: orderClassFor('name')">
                     <a href data-bind="click: () => orderBy('name')">node name</a>
                 </th>
-                <th class="disk-read-write-col">
-                    Disk Read/write
-                </th>
-                <th class="rtt-col">
-                    RTT
-                </th>
 
                 <th class="ip-col" data-bind="css: orderClassFor('ip')">
                     <a href data-bind="click: () => orderBy('ip')">ip</a>
                 </th>
 
                 <th class="capacity-col" data-bind="css: orderClassFor('capacity')">
-                    <a href data-bind="click: () => orderBy('capacity')">capacity</a>
+                    <a href data-bind="click: () => orderBy('capacity')">used capacity</a>
+                </th>
+
+                <th class="data-access-col">
+                    data access
+                </th>
+
+                <th class="trust-level-col">
+                    trust level
+                </th>
+
+                <th class="data-activity-col text-left">
+                    data activity
                 </th>
             </tr>
         </thead>
@@ -43,10 +49,20 @@
                 <td class="name-col text-left" >
                     <a class="link" data-bind="text: name, href: href"></a>
                 </td>
-                <td class="disk-read-write-col" data-bind="text: diskReadWrite"></td>
-                <td class="rtt-col " data-bind="text: RTT"></td>
+
                 <td class="ip-col" data-bind="text: ip"></td>
                 <td class="capacity-col" data-bind="text: capacity"></td>
+                <td class="data-access-col" data-bind="
+                    text: dataAccessText, 
+                    css: dataAccessClass
+                "></td>
+                <td class="trust-level-col" data-bind="text: trustLevel"></td>
+                <td class="data-activity-col text-left">
+                    <span data-bind="text: activityLabel"></span>
+                    <span class="highlight" data-bind="visible: hasActivity">
+                        (<span data-bind="text: activityCompilation"></span>)
+                    </span>
+                </td>
             </tr>
             <!-- /ko -->
         </tbody>

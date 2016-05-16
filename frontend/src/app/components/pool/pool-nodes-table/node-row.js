@@ -1,5 +1,18 @@
 import ko from 'knockout';
+import numeral from 'numeral';
 import { formatSize, avgOp, dblEncode } from 'utils';
+
+const accessibilityMapping = Object.freeze({
+    FULL_ACCESS: { text: 'Read & Write' },
+    READ_ONLY: { text: 'Read Only', css: 'warning' },
+    NO_ACCESS: { text: 'No Access', css: 'error' } 
+});
+
+const activityLabelMapping = Object.freeze({
+    EVACUATING: 'Evacuating',
+    REBUILDING: 'Rebuilding',
+    MIGRATING: 'Migrating'
+})
 
 export default class NodeRowViewModel {
     constructor(node) {
@@ -21,26 +34,6 @@ export default class NodeRowViewModel {
             () => node() && node().name
         );
 
-        let diskRead = ko.pureComputed(
-            () => node() && node().latency_of_disk_read
-                .reduce(avgOp)
-                .toFixed(1)
-        );
-
-        let diskWrite = ko.pureComputed(
-            () => node() && node().latency_of_disk_write
-                .reduce(avgOp)
-                .toFixed(1)
-        );
-
-        this.diskReadWrite = ko.pureComputed(
-            () => node() && `${diskRead()}/${diskWrite()} ms`
-        );
-
-        this.RTT = ko.pureComputed(
-            () => node() && `${node().latency_to_server.reduce(avgOp).toFixed(1)} ms`
-        );
-
         this.href = ko.pureComputed(
             () => node() && `/fe/systems/:system/pools/:pool/nodes/${
                 dblEncode(node().name)
@@ -52,7 +45,48 @@ export default class NodeRowViewModel {
         );
 
         this.capacity = ko.pureComputed(
-            () => node() && (node().storage ? formatSize(node().storage.total) : 'N/A')
+            () => node() && (node().storage ? formatSize(node().storage.used) : 'N/A')
+        );
+
+        let dataAccess = ko.pureComputed(
+            () => node() && accessibilityMapping[node().accessibility]
+        );
+
+        this.dataAccessText = ko.pureComputed(
+            () => dataAccess() && dataAccess().text
+        );
+
+        this.dataAccessClass = ko.pureComputed(
+            () => dataAccess() &&  dataAccess().css
+        );
+
+        this.trustLevel = ko.pureComputed(
+            () => node() && node().trusted ? 'Trusted' : 'Untrusted'
+        );
+
+        let dataActivity = ko.pureComputed(
+            () => node() && node().data_activity
+        );
+
+        this.hasActivity = ko.pureComputed(
+            () => !!dataActivity() 
+        );
+
+        this.activityLabel = ko.pureComputed(
+            () => this.hasActivity() ? 
+                activityLabelMapping[dataActivity().type] :
+                'No Activity'
+        );
+
+        this.activityCompilation = ko.pureComputed(
+            () => {
+                if (!dataActivity()) {
+                    return;
+                }
+
+                let { completed_size, total_size } = dataActivity();
+                return numeral(completed_size / total_size).format('0%');
+            }
         );
     }
 }

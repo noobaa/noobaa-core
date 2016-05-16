@@ -1,5 +1,3 @@
-'use strict';
-
 /**
  *
  * NODE API
@@ -10,11 +8,30 @@
  * the heartbeat is sent from an agent to the web server
  *
  */
+'use strict';
+
 module.exports = {
 
     id: 'node_api',
 
     methods: {
+
+        heartbeat: {
+            // do not define/require more fields!
+            // read this explaination -
+            // the heartbeat request/reply should not require or verify any fields
+            // since on upgrades the agents are still running old version
+            // and the heartbeat is the one that should let them know they
+            // should pull the new version, so it should not fail on missing/extra fields.
+            method: 'PUT',
+            params: {
+                $ref: '#/definitions/heartbeat_schema_for_upgrade_compatibility'
+            },
+            reply: {
+                $ref: '#/definitions/heartbeat_schema_for_upgrade_compatibility'
+            },
+            auth: {}
+        },
 
         create_node: {
             method: 'POST',
@@ -180,118 +197,6 @@ module.exports = {
             }
         },
 
-
-        heartbeat: {
-            method: 'PUT',
-            params: {
-                type: 'object',
-                required: [
-                    'version',
-                    // do not require more fields! see explaination -
-                    // the heartbeat request should require the minimal fields
-                    // since on upgrades the agents are still running old version
-                    // and the heartbeat is the one that should let them know they
-                    // should pull the new version, so it should not fail on missing/extra fields.
-                ],
-                properties: {
-                    //0.4 backward compatibility. allows id and port for old agents
-                    //will return simple reply that will result with agent upgrade
-                    id: {
-                        type: 'string'
-                    },
-                    port: {
-                        type: 'integer'
-                    },
-                    name: {
-                        type: 'string'
-                    },
-                    geolocation: {
-                        type: 'string'
-                    },
-                    ip: {
-                        type: 'string'
-                    },
-                    base_address: {
-                        type: 'string'
-                    },
-                    rpc_address: {
-                        type: 'string'
-                    },
-                    version: {
-                        type: 'string'
-                    },
-                    extended_hb: {
-                        type: 'boolean'
-                    },
-                    storage: {
-                        $ref: 'common_api#/definitions/storage_info'
-                    },
-                    drives: {
-                        type: 'array',
-                        items: {
-                            $ref: 'common_api#/definitions/drive_info'
-                        }
-                    },
-                    os_info: {
-                        $ref: 'common_api#/definitions/os_info'
-                    },
-                    latency_to_server: {
-                        $ref: '#/definitions/latency_array'
-                    },
-                    latency_of_disk_write: {
-                        $ref: '#/definitions/latency_array'
-                    },
-                    latency_of_disk_read: {
-                        $ref: '#/definitions/latency_array'
-                    },
-                    debug_level: {
-                        type: 'integer',
-                    },
-                    cloud_pool_name: {
-                        type: 'string'
-                    },
-                    is_internal_agent: {
-                        type: 'boolean'
-                    }
-                }
-            },
-            reply: {
-                type: 'object',
-                required: [
-                    'version',
-                    // do not require more fields! see explaination -
-                    // the heartbeat reply should require the minimal fields
-                    // since on upgrades the agents are still running old version
-                    // and the heartbeat is the one that should let them know they
-                    // should pull the new version, so it should not fail on missing/extra fields.
-                ],
-                properties: {
-                    auth_token: {
-                        // auth token will only be sent back if new node was created
-                        type: 'string'
-                    },
-                    rpc_address: {
-                        type: 'string'
-                    },
-                    n2n_config: {
-                        $ref: 'common_api#/definitions/n2n_config'
-                    },
-                    version: {
-                        type: 'string'
-                    },
-                    delay_ms: {
-                        type: 'integer'
-                    },
-                    storage: {
-                        $ref: 'common_api#/definitions/storage_info'
-                    },
-                }
-            },
-            auth: {
-                system: ['admin', 'agent', 'create_node']
-            }
-        },
-
         n2n_signal: {
             method: 'POST',
             params: {
@@ -318,7 +223,7 @@ module.exports = {
             }
         },
 
-        self_test_to_node_via_web: {
+        test_node_network: {
             method: 'POST',
             params: {
                 $ref: 'agent_api#/definitions/self_test_params'
@@ -370,20 +275,10 @@ module.exports = {
             }
         },
 
-        test_latency_to_server: {
+        ping: {
             method: 'POST',
             auth: {
                 system: ['admin', 'agent', 'create_node']
-            }
-        },
-
-        max_node_capacity: {
-            method: 'GET',
-            reply: {
-                type: 'integer'
-            },
-            auth: {
-                system: 'admin',
             }
         },
 
@@ -435,7 +330,7 @@ module.exports = {
                         enum: ['write', 'read'],
                     },
                     block_md: {
-                        $ref: 'agent_api#/definitions/block_md'
+                        $ref: 'common_api#/definitions/block_md'
                     },
                 },
             },
@@ -581,6 +476,19 @@ module.exports = {
             type: 'array',
             items: {
                 type: 'number',
+            }
+        },
+
+        heartbeat_schema_for_upgrade_compatibility: {
+            type: 'object',
+            additionalProperties: true,
+            properties: {
+                // the only field we use now is version.
+                // however since we want to avoid any kind of upgrade
+                // compatibility issues in the future, we leave this schema
+                // completely open, so that both the upgraded server and the
+                // under-graded agent will not reject each others request/reply
+                // version: {type:'string'}
             }
         }
 

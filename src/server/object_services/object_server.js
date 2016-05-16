@@ -396,7 +396,7 @@ function read_node_mappings(req) {
             node_arg => {
                 node = node_arg;
                 var params = _.pick(req.rpc_params, 'skip', 'limit');
-                params.node = node;
+                params.node_id = node._id;
                 return map_reader.read_node_mappings(params);
             }
         )

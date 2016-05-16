@@ -679,7 +679,7 @@ export function loadNodeInfo(nodeName) {
 export function loadNodeStoredPartsList(nodeName, page) {
     logAction('loadNodeStoredPartsList', { nodeName, page });
 
-    api.object.read_node_mappings({ 
+    api.object.read_node_mappings({
         name: nodeName,
         skip: config.paginationPageSize * page,
         limit: config.paginationPageSize,
@@ -1162,7 +1162,7 @@ export function testNode(source, testSet) {
                                 return true;
                             }
 
-                            return api.node.self_test_to_node_via_web(stepRequest)
+                            return api.node.test_node_network(stepRequest)
                                 .then(
                                     ({ session }) => {
                                         result.session = session;

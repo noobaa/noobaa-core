@@ -1,44 +1,3 @@
-/* jshint node:true */
-'use strict';
-
-var _ = require('lodash');
-var P = require('../util/promise');
-var fs = require('fs');
-var pem = require('../util/pem');
-var path = require('path');
-var http = require('http');
-var https = require('https');
-var assert = require('assert');
-var crypto = require('crypto');
-var express = require('express');
-var express_morgan_logger = require('morgan');
-var express_body_parser = require('body-parser');
-var express_method_override = require('method-override');
-var express_compress = require('compression');
-var ip_module = require('ip');
-var api = require('../api');
-var dbg = require('../util/debug_module')(__filename);
-var LRUCache = require('../util/lru_cache');
-var size_utils = require('../util/size_utils');
-var js_utils = require('../util/js_utils');
-var url_utils = require('../util/url_utils');
-var time_utils = require('../util/time_utils');
-var promise_utils = require('../util/promise_utils');
-var os_util = require('../util/os_util');
-var diag = require('./agent_diagnostics');
-var AgentStore = require('./agent_store');
-var config = require('../../config.js');
-var pkg = require('../../package.json');
-var current_pkg_version = pkg.version;
-
-//var cluster = require('cluster');
-//var numCPUs = require('os').cpus().length;
-
-
-
-module.exports = Agent;
-
-
 /**
  *
  * AGENT
@@ -46,855 +5,619 @@ module.exports = Agent;
  * the glorious noobaa agent.
  *
  */
-function Agent(params) {
-    var self = this;
+'use strict';
 
-    dbg.log0('process.env.DEBUG_MODE=' + process.env.DEBUG_MODE);
+const _ = require('lodash');
+const fs = require('fs');
+const path = require('path');
+const http = require('http');
+const https = require('https');
+const assert = require('assert');
+const crypto = require('crypto');
+const express = require('express');
+const ip_module = require('ip');
+const express_compress = require('compression');
+const express_body_parser = require('body-parser');
+const express_morgan_logger = require('morgan');
+const express_method_override = require('method-override');
 
-    self.rpc = api.new_rpc(params.address);
-    self.client = self.rpc.new_client();
+const P = require('../util/promise');
+const pem = require('../util/pem');
+const api = require('../api');
+const pkg = require('../../package.json');
+const dbg = require('../util/debug_module')(__filename);
+const diag = require('./agent_diagnostics');
+const config = require('../../config.js');
+const os_utils = require('../util/os_utils');
+const js_utils = require('../util/js_utils');
+const url_utils = require('../util/url_utils');
+const size_utils = require('../util/size_utils');
+const time_utils = require('../util/time_utils');
+const BlockStoreFs = require('./block_store_fs').BlockStoreFs;
+const BlockStoreS3 = require('./block_store_s3').BlockStoreS3;
+const BlockStoreMem = require('./block_store_mem').BlockStoreMem;
+const promise_utils = require('../util/promise_utils');
 
-    self.rpc.on('reconnect', conn => self._on_rpc_reconnect(conn));
-    assert(params.node_name, 'missing param: node_name');
-    self.node_name = params.node_name;
-    self.token = params.token;
-    self.storage_path = params.storage_path;
-    if (params.storage_limit) {
-        self.storage_limit = params.storage_limit;
-    }
 
-    self.is_internal_agent = params.is_internal_agent;
+class Agent {
 
-    if (self.storage_path) {
-        assert(!self.token, 'unexpected param: token. ' +
-            'with storage_path the token is expected in the file <storage_path>/token');
-        if (_.isUndefined(params.cloud_info)) {
-            self.store = new AgentStore(self.storage_path, params.storage_limit);
-        } else {
-            self.cloud_info = params.cloud_info;
-            self.store = new AgentStore.CloudStore(self.storage_path, self.cloud_info);
+    constructor(params) {
+        dbg.log0('process.env.DEBUG_MODE=' + process.env.DEBUG_MODE);
+
+        this.rpc = api.new_rpc(params.address);
+        this.client = this.rpc.new_client();
+
+        this.rpc.on('reconnect', conn => this._on_rpc_reconnect(conn));
+        assert(params.node_name, 'missing param: node_name');
+        this.node_name = params.node_name;
+        this.token = params.token;
+        this.storage_path = params.storage_path;
+        if (params.storage_limit) {
+            this.storage_limit = params.storage_limit;
         }
-        self.store_cache = new LRUCache({
-            name: 'AgentBlocksCache',
-            max_usage: 200 * 1024 * 1024, // 200 MB
-            item_usage: (data, params) => data.data.length,
-            expiry_ms: 0, // no expiry
-            make_key: params => params.id,
-            load: key => self.store.read_block(key)
-        });
-    } else {
-        assert(self.token, 'missing param: token. ' +
-            'without storage_path the token must be provided as agent param');
-        self.store = new AgentStore.MemoryStore();
-        self.store_cache = new LRUCache({
-            name: 'AgentBlocksCache',
-            max_usage: 0,
-            item_usage: (data, params) => data.data.length,
-            expiry_ms: 0, // no expiry
-            make_key: params => params.id,
-            load: key => self.store.read_block(key),
-        });
-    }
 
-    self.agent_app = (function() {
-        var app = express();
-        app.use(express_morgan_logger('dev'));
-        app.use(express_body_parser.json());
-        app.use(express_body_parser.raw({
-            // increase size limit on raw requests to allow serving data blocks
-            limit: 4 * size_utils.MEGABYTE
-        }));
-        app.use(express_body_parser.text());
-        app.use(express_body_parser.urlencoded({
-            extended: false
-        }));
-        app.use(express_method_override());
-        app.use(express_compress());
-        return app;
-    })();
+        this.is_internal_agent = params.is_internal_agent;
 
-    const AGENT_RPC_METHODS = [
-        'write_block',
-        'read_block',
-        'replicate_block',
-        'delete_blocks',
-        'kill_agent',
-        'n2n_signal',
-        'self_test_io',
-        'self_test_peer',
-        'collect_diagnostics',
-        'set_debug_node',
-        'update_n2n_config',
-        'update_base_address',
-    ];
-
-    // using self bind for fast bind of the rpc methods to this instance
-    js_utils.self_bind(self, AGENT_RPC_METHODS);
-
-    // register rpc to serve the agent_api
-    self.rpc.register_service(self.rpc.schema.agent_api, self, {
-        // TODO should we verify authorized tokens in agent?
-        // middleware: [ ... ]
-    });
-    // register rpc http server
-    self.rpc.register_http_transport(self.agent_app);
-    // register rpc n2n
-    self.n2n_agent = self.rpc.register_n2n_transport(self.client.node.n2n_signal);
-
-    // TODO these sample geolocations are just for testing
-    self.geolocation = _.sample([
-        // aws
-        'North Virginia',
-        'North California',
-        'Oregon',
-        'Ireland',
-        'Frankfurt',
-        'Singapore',
-        'Sydney',
-        'Tokyo',
-        'Sao Paulo',
-        // google cloud
-        'Iowa',
-        'Belgium',
-        'Taiwan',
-    ]);
-
-    // If test, add test APIs
-    if (config.test_mode) {
-        self._add_test_APIs();
-    }
-}
-
-
-/**
- *
- * START
- *
- */
-Agent.prototype.start = function() {
-    var self = this;
-
-    self.is_started = true;
-    self.rpc.set_disconnected_state(false);
-
-    return P.fcall(function() {
-            return self._init_node();
-        })
-        .then(function() {
-            return self._do_heartbeat();
-        })
-        .then(null, function(err) {
-            dbg.error('server failed to start', err.stack || err);
-            self.stop();
-            throw err;
-        });
-};
-
-
-/**
- *
- * STOP
- *
- */
-Agent.prototype.stop = function() {
-    var self = this;
-    dbg.log0('stop agent ' + self.node_name);
-    self.is_started = false;
-    self._start_stop_server();
-    self._start_stop_heartbeats();
-    // mark the rpc state as disconnected to close and reject incoming connections
-    self.rpc.set_disconnected_state(true);
-    // reset the n2n config to close any open ports
-    self.n2n_agent.update_n2n_config({
-        tcp_permanent_passive: false
-    });
-};
-
-
-
-/**
- *
- * _init_node
- *
- */
-Agent.prototype._init_node = function() {
-    var self = this;
-
-    return P.fcall(function() {
-            if (self.storage_path) {
-                return os_util.get_mount_of_path(self.storage_path);
+        const block_store_options = {
+            node_name: this.node_name,
+            rpc_client: this.client,
+            storage_limit: params.storage_limit,
+        };
+        if (this.storage_path) {
+            assert(!this.token, 'unexpected param: token. ' +
+                'with storage_path the token is expected in the file <storage_path>/token');
+            if (params.cloud_info) {
+                this.cloud_info = params.cloud_info;
+                block_store_options.cloud_info = params.cloud_info;
+                this.block_store = new BlockStoreS3(block_store_options);
+            } else {
+                block_store_options.root_path = this.storage_path;
+                this.block_store = new BlockStoreFs(block_store_options);
             }
-        })
-        .then(function(storage_path_mount) {
-            self.storage_path_mount = storage_path_mount;
+        } else {
+            assert(this.token, 'missing param: token. ' +
+                'without storage_path the token must be provided as agent param');
+            this.block_store = new BlockStoreMem(block_store_options);
+        }
 
-            // if not using storage_path, a token should be provided
-            if (!self.storage_path) return self.token;
+        this.agent_app = (() => {
+            const app = express();
+            app.use(express_morgan_logger('dev'));
+            app.use(express_body_parser.json());
+            app.use(express_body_parser.raw({
+                // increase size limit on raw requests to allow serving data blocks
+                limit: 4 * size_utils.MEGABYTE
+            }));
+            app.use(express_body_parser.text());
+            app.use(express_body_parser.urlencoded({
+                extended: false
+            }));
+            app.use(express_method_override());
+            app.use(express_compress());
+            return app;
+        })();
 
-            // load the token file
-            var token_path = path.join(self.storage_path, 'token');
-            return fs.readFileAsync(token_path);
-        })
-        .then(function(token) {
-            // use the token as authorization (either 'create_node' or 'agent' role)
-            self.client.options.auth_token = token.toString();
-            return P.nfcall(pem.createCertificate, {
-                days: 365 * 100,
-                selfSigned: true
+        // AGENT API methods - bind to self
+        // (rpc registration requires bound functions)
+        js_utils.self_bind(this, [
+            'get_agent_info',
+            'update_auth_token',
+            'update_rpc_address',
+            'update_base_address',
+            'update_n2n_config',
+            'n2n_signal',
+            'test_disk_write',
+            'test_disk_read',
+            'test_network_io',
+            'test_network_to_peer',
+            'collect_diagnostics',
+            'set_debug_node',
+        ]);
+
+        // register rpc to serve the apis
+        this.rpc.register_service(
+            this.rpc.schema.agent_api,
+            this, {
+                // verify every agent_api request is on the server connection only
+                middleware: [req => this._verify_server_connection(req)]
             });
-        })
-        .then(function(pem_cert) {
-            self.ssl_cert = {
-                key: pem_cert.serviceKey,
-                cert: pem_cert.certificate
-            };
-            // update the n2n ssl to use my certificate
-            self.n2n_agent.set_ssl_context(self.ssl_cert);
-        });
-};
+        this.rpc.register_service(
+            this.rpc.schema.block_store_api,
+            this.block_store, {
+                // TODO verify requests for block store?
+                // middleware: [ ... ]
+            });
+        // register rpc http server
+        this.rpc.register_http_transport(this.agent_app);
+        // register rpc n2n
+        this.n2n_agent = this.rpc.register_n2n_transport(this.client.node.n2n_signal);
 
+        // TODO these sample geolocations are just for testing
+        this.geolocation = _.sample([
+            // aws
+            'North Virginia',
+            'North California',
+            'Oregon',
+            'Ireland',
+            'Frankfurt',
+            'Singapore',
+            'Sydney',
+            'Tokyo',
+            'Sao Paulo',
+            // google cloud
+            'Iowa',
+            'Belgium',
+            'Taiwan',
+        ]);
 
-// RPC SERVER /////////////////////////////////////////////////////////////////
-
-
-/**
- *
- * _start_stop_server
- *
- */
-Agent.prototype._start_stop_server = function() {
-    var self = this;
-
-    // in any case we stop
-    self.n2n_agent.reset_rpc_address();
-    if (self.server) {
-        self.server.close();
-        self.server = null;
+        // If test, add test APIs
+        if (config.test_mode) {
+            this._add_test_apis();
+        }
     }
 
-    if (!self.is_started) return;
-    if (!self.rpc_address) return;
+    start() {
+        this.is_started = true;
+        this.rpc.set_disconnected_state(false);
 
-    var addr_url = url_utils.quick_parse(self.rpc_address);
-    switch (addr_url.protocol) {
-        case 'n2n:':
-            self.n2n_agent.set_rpc_address(addr_url.href);
-            break;
-        case 'http:':
-        case 'ws:':
-            var http_server = http.createServer(self.agent_app)
-                .on('error', function(err) {
+        return P.resolve()
+            .then(() => this._init_node())
+            .then(() => this._do_heartbeat())
+            .catch(err => {
+                dbg.error('server failed to start', err.stack || err);
+                this.stop();
+                throw err;
+            });
+    }
+
+    stop() {
+        dbg.log0('stop agent ' + this.node_name);
+        this.is_started = false;
+        // mark the rpc state as disconnected to close and reject incoming connections
+        this.rpc.set_disconnected_state(true);
+        this._start_stop_server();
+        // reset the n2n config to close any open ports
+        this.n2n_agent.update_n2n_config({
+            tcp_permanent_passive: false
+        });
+    }
+
+    _init_node() {
+        return P.resolve()
+            .then(() => {
+                if (this.storage_path) {
+                    return os_utils.get_mount_of_path(this.storage_path);
+                }
+            })
+            .then(storage_path_mount => {
+                this.storage_path_mount = storage_path_mount;
+
+                // if not using storage_path, a token should be provided
+                if (!this.storage_path) return this.token;
+
+                // load the token file
+                const token_path = path.join(this.storage_path, 'token');
+                return fs.readFileAsync(token_path);
+            })
+            .then(token => {
+                // use the token as authorization (either 'create_node' or 'agent' role)
+                this.client.options.auth_token = token.toString();
+                return P.nfcall(pem.createCertificate, {
+                    days: 365 * 100,
+                    selfSigned: true
+                });
+            })
+            .then(pem_cert => {
+                this.ssl_cert = {
+                    key: pem_cert.serviceKey,
+                    cert: pem_cert.certificate
+                };
+                // update the n2n ssl to use my certificate
+                this.n2n_agent.set_ssl_context(this.ssl_cert);
+            });
+    }
+
+    _do_heartbeat() {
+        if (!this.is_started) return;
+
+        return this.client.node.heartbeat({
+                version: pkg.version
+            }, {
+                return_rpc_req: true
+            }).then(req => {
+                const res = req.reply;
+                const conn = req.connection;
+                this._server_connection = conn;
+                if (res.version !== pkg.version) {
+                    dbg.warn('exit no version change:',
+                        'res.version', res.version,
+                        'pkg.version', pkg.version);
+                    process.exit(0);
+                }
+                conn.on('close', () => {
+                    if (this._server_connection === conn) {
+                        this._server_connection = null;
+                    }
+                    P.delay(1000).then(() => this._do_heartbeat());
+                });
+            })
+            .catch(err => {
+                dbg.error('heartbeat failed', err);
+                return P.delay(1000).then(() => this._do_heartbeat());
+            });
+    }
+
+    _start_stop_server() {
+
+        // in any case we stop
+        this.n2n_agent.reset_rpc_address();
+        if (this.server) {
+            this.server.close();
+            this.server = null;
+        }
+
+        if (!this.is_started) return;
+        if (!this.rpc_address) return;
+
+        const retry = () => {
+            if (this.is_started) {
+                setTimeout(() => this._start_stop_server(), 1000);
+            }
+        };
+
+        const addr_url = url_utils.quick_parse(this.rpc_address);
+        if (addr_url.protocol === 'n2n:') {
+            this.n2n_agent.set_rpc_address(addr_url.href);
+        } else if (addr_url.protocol === 'ws:' || addr_url.protocol === 'http:') {
+            const http_server = http.createServer(this.agent_app)
+                .on('error', err => {
                     dbg.error('AGENT HTTP SERVER ERROR', err.stack || err);
                     http_server.close();
                 })
-                .on('close', function() {
+                .on('close', () => {
                     dbg.warn('AGENT HTTP SERVER CLOSED');
                     retry();
                 })
                 .listen(addr_url.port);
             if (addr_url.protocol === 'ws:') {
-                self.rpc.register_ws_transport(http_server);
+                this.rpc.register_ws_transport(http_server);
             }
-            self.server = http_server;
-            break;
-        case 'https:':
-        case 'wss:':
-            var https_server = https.createServer(self.ssl_cert, self.agent_app)
-                .on('error', function(err) {
+            this.server = http_server;
+        } else if (addr_url.protocol === 'wss:' || addr_url.protocol === 'https:') {
+            const https_server = https.createServer(this.ssl_cert, this.agent_app)
+                .on('error', err => {
                     dbg.error('AGENT HTTPS SERVER ERROR', err.stack || err);
                     https_server.close();
                 })
-                .on('close', function() {
+                .on('close', () => {
                     dbg.warn('AGENT HTTPS SERVER CLOSED');
                     retry();
                 })
                 .listen(addr_url.port);
             if (addr_url.protocol === 'wss:') {
-                self.rpc.register_ws_transport(https_server);
+                this.rpc.register_ws_transport(https_server);
             }
-            self.server = https_server;
-            break;
-        case 'tcp:':
-            var tcp_server = self.rpc.register_tcp_transport(addr_url.port);
-            tcp_server.on('close', function() {
+            this.server = https_server;
+        } else if (addr_url.protocol === 'tcp:') {
+            const tcp_server = this.rpc.register_tcp_transport(addr_url.port);
+            tcp_server.on('close', () => {
                 dbg.warn('AGENT TCP SERVER CLOSED');
                 retry();
             });
-            self.server = tcp_server;
-            break;
-        case 'tls:':
-            var tls_server = self.rpc.register_tcp_transport(addr_url.port, self.ssl_cert);
-            tls_server.on('close', function() {
+            this.server = tcp_server;
+        } else if (addr_url.protocol === 'tls:') {
+            const tls_server = this.rpc.register_tcp_transport(addr_url.port, this.ssl_cert);
+            tls_server.on('close', () => {
                 dbg.warn('AGENT TLS SERVER CLOSED');
                 retry();
             });
-            self.server = tls_server;
-            break;
-        default:
+            this.server = tls_server;
+        } else {
             dbg.error('UNSUPPORTED AGENT PROTOCOL', addr_url);
-            break;
-    }
-
-    function retry() {
-        if (self.is_started) {
-            setTimeout(self._start_stop_server.bind(self), 1000);
         }
     }
-};
 
-
-
-
-// HEARTBEATS /////////////////////////////////////////////////////////////////
-
-
-
-/**
- *
- * _do_heartbeat
- *
- */
-Agent.prototype._do_heartbeat = function() {
-    var self = this;
-    var store_stats;
-    var extended_hb = false;
-    var ip = ip_module.address();
-    // extended HB every 10 minutes
-    var EXTENDED_HB_PERIOD = 600000;
-    // var EXTENDED_HB_PERIOD = 1000;
-    if (!self.extended_hb_last_time ||
-        Date.now() > self.extended_hb_last_time + EXTENDED_HB_PERIOD) {
-        extended_hb = true;
-    }
-    var params = {
-        name: self.node_name || '',
-        geolocation: self.geolocation,
-        ip: ip,
-        base_address: self.rpc.router.default,
-        version: current_pkg_version || '',
-        extended_hb: extended_hb,
-    };
-
-    if (self.cloud_info && self.cloud_info.cloud_pool_name) {
-        params.cloud_pool_name = self.cloud_info.cloud_pool_name;
+    _verify_server_connection(req) {
+        if (req.connection !== this._server_connection) {
+            dbg.error('AGENT API requests only allowed from server',
+                req.connection && req.connection.connid,
+                this._server_connection && this._server_connection.connid);
+            throw req.rpc_error('FORBIDDEN', 'AGENT API requests only allowed from server');
+        }
     }
 
-    params.is_internal_agent = self.is_internal_agent;
 
-    params.debug_level = dbg.get_module_level('core');
-
-    if (self.rpc_address) {
-        params.rpc_address = self.rpc_address;
-    }
-    if (extended_hb) {
-        params.os_info = os_util.os_info();
-    }
-
-    dbg.log0('send heartbeat from node', self.node_name);
-
-    return P.fcall(function() {
-            return self.store.get_stats();
-        })
-        .then(function(store_stats_arg) {
-            store_stats = store_stats_arg;
-            dbg.log0('store_stats:', store_stats);
-            params.storage = {
-                alloc: store_stats.alloc,
-                used: store_stats.used,
-                free: store_stats.free || 0
-            };
-        })
-        .then(function() {
-            return extended_hb && os_util.read_drives()
-                .catch(function(err) {
-                    dbg.error('read_drives: ERROR', err.stack || err);
-                });
-        })
-        .then(function(drives) {
-            if (!drives) return;
-            // for now we only use a single drive,
-            // so mark the usage on the drive of our storage folder.
-            var used_drives = _.filter(drives, function(drive) {
-                dbg.log0('used drives:', self.storage_path_mount, drive, store_stats.used);
-                //if there is no self.storage_path_mount, it's a memory agent for testing.
-                if (self.storage_path_mount === drive.mount || !self.storage_path_mount) {
-                    drive.storage.used = store_stats.used;
-                    if (self.storage_limit) {
-                        drive.storage.limit = self.storage_limit;
-                        let limited_total = self.storage_limit;
-                        let limited_free = limited_total - store_stats.used;
-                        drive.storage.total = Math.min(limited_total, drive.storage.total);
-                        drive.storage.free = Math.min(limited_free, drive.storage.free);
-                    }
-                    return true;
-                } else {
-                    return false;
-                }
-            });
-            params.drives = used_drives;
-            dbg.log0('DRIVES:', drives, 'used drives', used_drives);
-            // _.each(drives, function(drive) {
-            //     if (self.storage_path_mount === drive.mount) {
-            //         drive.storage.used = store_stats.used;
-            //     }
-            // });
-        })
-        .then(function() {
-            return extended_hb && self._test_latencies()
-                .catch(function(err) {
-                    dbg.error('_test_latencies: ERROR', err.stack || err);
-                });
-        })
-        .then(function(latencies) {
-            dbg.log0('LATENCIES', latencies);
-            _.extend(params, latencies);
-        })
-        .then(function() {
-            dbg.log0('heartbeat for node', self.node_name);
-            dbg.log1('heartbeat params for node', self.node_name, 'params:', params);
-            return self.client.node.heartbeat(params);
-        })
-        .then(function(res) {
-            dbg.log0('heartbeat: res.version', res.version,
-                'current_pkg_version', current_pkg_version,
-                'node', self.node_name);
-
-            if (res.version && current_pkg_version && current_pkg_version !== res.version) {
-                dbg.log0('version changed, exiting');
-                process.exit(0);
-            }
-
-            self.heartbeat_delay_ms = res.delay_ms;
-            if (extended_hb) {
-                self.extended_hb_last_time = Date.now();
-            }
-
-            if (res.n2n_config) {
-                console.log('HEARTBEAT GOT UPDATE N2N CONFIG', res.n2n_config);
-                self.n2n_agent.update_n2n_config(res.n2n_config);
-            }
-
-            var promises = [];
-
-            if (res.auth_token) {
-                dbg.log0('got node token', self.node_name);
-                self.client.options.auth_token = res.auth_token;
-                if (self.storage_path) {
-                    var token_path = path.join(self.storage_path, 'token');
-                    promises.push(fs.writeFileAsync(token_path, res.auth_token));
-                }
-            }
-
-            if (self.rpc_address !== res.rpc_address) {
-                dbg.log0('got rpc address', res.rpc_address,
-                    'previously was', self.rpc_address);
-                self.rpc_address = res.rpc_address;
-                promises.push(self._start_stop_server());
-            }
-            if (res.storage) {
-                // report only if used storage mismatch
-                // TODO compare with some accepted error and handle
-
-                if (store_stats.used !== res.storage.used) {
-                    dbg.log0('used storage not in sync ',
-                        store_stats.used, ' expected ', res.storage.used);
-                }
-
-                // update the store when allocated size change
-                if (store_stats.alloc !== res.storage.alloc) {
-                    dbg.log0('update alloc storage from ',
-                        store_stats.alloc, ' to ', res.storage.alloc);
-                    self.store.set_alloc(res.storage.alloc);
-                }
-            }
-
-            return P.all(promises);
-        })
-        .catch(function(err) {
-
-            dbg.error('HEARTBEAT FAILED', err, err.stack, 'node', self.node_name);
-
-            // schedule delay to retry on error
-            self.heartbeat_delay_ms = 30000 * (1 + Math.random());
-
-        }).fin(function() {
-            self._start_stop_heartbeats();
-        });
-};
+    // AGENT API //////////////////////////////////////////////////////////////////
 
 
-/**
- *
- * _start_stop_heartbeats
- *
- */
-Agent.prototype._start_stop_heartbeats = function() {
-    var self = this;
-
-    // first clear the timer
-    clearTimeout(self.heartbeat_timeout);
-    self.heartbeat_timeout = null;
-
-    // set the timer when started
-    if (self.is_started) {
-        var ms = self.heartbeat_delay_ms;
-        ms = ms || (60000 * (1 + Math.random())); // default 1 minute
-        ms = Math.max(ms, 1000); // force above 1 second
-        ms = Math.min(ms, 300000); // force below 5 minutes
-        self.heartbeat_timeout = setTimeout(self._do_heartbeat.bind(self), ms);
-    }
-};
-
-
-/**
- *
- * _on_rpc_reconnect
- *
- * rpc will notify on reconnect so we can send new heartbeat
- * this will make sure that the server will recognize the connection with us,
- * which is needed for signaling to work.
- *
- */
-Agent.prototype._on_rpc_reconnect = function(conn) {
-
-    // NOTE: reconnect even is only triggered for the base address by rpc,
-    // so we don't need to check that again here.
-
-    // 1 ms just to be small but non zero to run immediately
-    this.heartbeat_delay_ms = 1;
-    this._start_stop_heartbeats();
-};
-
-
-
-// AGENT API //////////////////////////////////////////////////////////////////
-
-
-Agent.prototype.read_block = function(req) {
-    var self = this;
-    var block_md = req.rpc_params.block_md;
-    dbg.log1('read_block', block_md.id, 'node', self.node_name);
-    return self.store_cache.get_with_cache(block_md)
-        .then(function(block_from_cache) {
-            // must clone before returning to rpc encoding
-            // since it mutates the object for encoding buffers
-            return _.clone(block_from_cache);
-        }, function(err) {
-            if (err === AgentStore.TAMPERING_ERROR) {
-                err = req.rpc_error('INTERNAL', 'TAMPERING');
-            }
-            throw err;
-        });
-};
-
-Agent.prototype.write_block = function(req) {
-    var self = this;
-    var block_md = req.rpc_params.block_md;
-    var data = req.rpc_params.data;
-    dbg.log1('write_block', block_md.id, data.length, 'node', self.node_name);
-    return P.when(self.store.write_block(block_md, data))
-        .then(function() {
-            self.store_cache.put_in_cache(block_md, {
-                block_md: block_md,
-                data: data
-            });
-        }, function() {
-            self.store_cache.invalidate(block_md);
-        });
-};
-
-Agent.prototype.replicate_block = function(req) {
-    var self = this;
-    var target = req.rpc_params.target;
-    var source = req.rpc_params.source;
-    dbg.log1('replicate_block', target.id, 'node', self.node_name);
-
-    // read from source agent
-    return self.client.agent.read_block({
-            block_md: source
-        }, {
-            address: source.address,
-        })
-        .then(function(res) {
-            self.store_cache.invalidate(target);
-            return self.store.write_block(target, res.data);
-        });
-};
-
-Agent.prototype.delete_blocks = function(req) {
-    var self = this;
-    var blocks = req.rpc_params.blocks;
-    dbg.log0('delete_blocks', blocks, 'node', self.node_name);
-    self.store_cache.multi_invalidate(blocks);
-    return self.store.delete_blocks(blocks);
-};
-
-Agent.prototype.kill_agent = function(req) {
-    dbg.log0('kill requested, exiting');
-    process.exit();
-};
-
-Agent.prototype.n2n_signal = function(req) {
-    return this.rpc.accept_n2n_signal(req.rpc_params);
-};
-
-Agent.prototype.self_test_io = function(req) {
-    var self = this;
-    var data = req.rpc_params.data;
-    var req_len = data ? data.length : 0;
-    var res_len = req.rpc_params.response_length;
-
-    dbg.log1('SELF_TEST_IO',
-        'req_len', req_len,
-        'res_len', res_len,
-        'source', req.rpc_params.source,
-        'target', req.rpc_params.target);
-
-    if (req.rpc_params.target !== self.rpc_address) {
-        throw new Error('SELF_TEST_IO wrong address ' +
-            req.rpc_params.target + ' mine is ' + self.rpc_address);
-    }
-
-    return {
-        data: new Buffer(res_len)
-    };
-};
-
-Agent.prototype.self_test_peer = function(req) {
-    var self = this;
-    var target = req.rpc_params.target;
-    var source = req.rpc_params.source;
-    var req_len = req.rpc_params.request_length;
-    var res_len = req.rpc_params.response_length;
-    var count = req.rpc_params.count;
-    var concur = req.rpc_params.concur;
-
-    dbg.log0('SELF_TEST_PEER',
-        'source', source,
-        'target', target,
-        'req_len', req_len,
-        'res_len', res_len,
-        'count', count,
-        'concur', concur);
-
-    if (source !== self.rpc_address) {
-        throw new Error('SELF_TEST_PEER wrong address ' +
-            source + ' mine is ' + self.rpc_address);
-    }
-    var reply = {};
-    return P.all(_.times(concur, next)).return(reply);
-
-    function next() {
-        if (count <= 0) return;
-        count -= 1;
-        // read/write from target agent
-        return self.client.agent.self_test_io({
-                source: source,
-                target: target,
-                data: new Buffer(req_len),
-                response_length: res_len,
-            }, {
-                address: target,
-                return_rpc_req: true // we want to check req.connection
-            })
-            .then(function(req) {
-                var data = req.reply.data;
-                if (((!data || !data.length) && res_len > 0) ||
-                    (data && data.length && data.length !== res_len)) {
-                    throw new Error('SELF TEST PEER response_length mismatch');
-                }
-                var session = req.connection.session;
-                reply.session = session && session.key;
-                return next();
-            });
-    }
-};
-
-Agent.prototype.collect_diagnostics = function(req) {
-    dbg.log1('Recieved diag req', req);
-    var is_windows = (process.platform === "win32");
-    var inner_path = is_windows ? process.env.ProgramData + '/agent_diag.tgz' : '/tmp/agent_diag.tgz';
-
-    return P.fcall(function() {
-            return diag.collect_agent_diagnostics();
-        })
-        .then(function() {
-            return diag.pack_diagnostics(inner_path);
-        })
-        .fail(function(err) {
-            dbg.error('DIAGNOSTICS COLLECTION FAILED', err.stack || err);
-            throw new Error('Agent Collect Diag Error on collecting diagnostics');
-        })
-        .then(function() {
-            dbg.log1('Reading packed file');
-            return fs.readFileAsync(inner_path)
-                .then(function(data) {
-                    return {
-                        data: new Buffer(data),
-                    };
-                })
-                .then(null, function(err) {
-                    dbg.error('DIAGNOSTICS READ FAILED', err.stack || err);
-                    throw new Error('Agent Collect Diag Error on reading packges diag file');
-                });
-        })
-        .then(null, function(err) {
-            dbg.error('DIAGNOSTICS FAILED', err.stack || err);
-            return {
-                data: new Buffer(),
-            };
-        });
-};
-
-Agent.prototype.set_debug_node = function(req) {
-    dbg.set_level(req.rpc_params.level, 'core');
-    dbg.log1('Recieved set debug req ', req.rpc_params.level);
-    if (req.rpc_params.level > 0) { //If level was set, unset it after a T/O
-        promise_utils.delay_unblocking(10 * 60 * 1000) // 10 minutes
-            .then(function() {
-                dbg.set_level(0, 'core');
-            });
-    }
-    return;
-};
-
-Agent.prototype._test_latencies = function() {
-    var self = this;
-    var res = {};
-    return P.invoke(self, '_test_latency_to_server')
-        .catch(function(err) {})
-        .then(function(latency_to_server) {
-            res.latency_to_server = latency_to_server;
-            return P.invoke(self, '_test_latency_of_disk_read');
-        })
-        .catch(function(err) {})
-        .then(function(latency_of_disk_read) {
-            res.latency_of_disk_read = latency_of_disk_read;
-            return P.invoke(self, '_test_latency_of_disk_write');
-        })
-        .catch(function(err) {})
-        .then(function(latency_of_disk_write) {
-            res.latency_of_disk_write = latency_of_disk_write;
-            return res;
-        });
-};
-
-Agent.prototype._test_latency_to_server = function() {
-    var self = this;
-    return test_average_latency(function() {
-        return self.client.node.test_latency_to_server();
-    });
-};
-
-Agent.prototype._test_latency_of_disk_read = function() {
-    var self = this;
-    var data = crypto.randomBytes(1024);
-    var block_md = {
-        id: '_test_latency_of_disk_read',
-        digest_type: 'sha1'
-    };
-    block_md.digest_b64 = crypto.createHash(block_md.digest_type).update(data).digest('base64');
-    return self.store.write_block(block_md, data)
-        .then(function() {
-            return test_average_latency(function() {
-                return self.store.read_block(block_md);
-            });
-        });
-};
-
-Agent.prototype._test_latency_of_disk_write = function() {
-    var self = this;
-    return test_average_latency(function() {
-        var data = crypto.randomBytes(1024);
-        var block_md = {
-            id: '_test_latency_of_disk_write',
-            digest_type: 'sha1'
+    get_agent_info(req) {
+        const extended_hb = true;
+        const ip = ip_module.address();
+        const reply = {
+            version: pkg.version || '',
+            name: this.node_name || '',
+            ip: ip,
+            rpc_address: this.rpc_address || '',
+            base_address: this.rpc.router.default,
+            geolocation: this.geolocation,
+            is_internal_agent: this.is_internal_agent,
+            debug_level: dbg.get_module_level('core'),
         };
-        block_md.digest_b64 = crypto.createHash(block_md.digest_type).update(data).digest('base64');
-        return self.store.write_block(block_md, data);
-    });
-};
+        if (this.cloud_info && this.cloud_info.cloud_pool_name) {
+            reply.cloud_pool_name = this.cloud_info.cloud_pool_name;
+        }
+        if (extended_hb) {
+            reply.os_info = os_utils.os_info();
+        }
 
+        return P.resolve()
+            .then(() => this.block_store.get_storage_info())
+            .then(storage_info => {
+                dbg.log0('storage_info:', storage_info);
+                reply.storage = storage_info;
+            })
+            .then(() => extended_hb && os_utils.read_drives()
+                .catch(err => {
+                    dbg.error('read_drives: ERROR', err.stack || err);
+                }))
+            .then(drives => {
+                if (!drives) return;
+                // for now we only use a single drive,
+                // so mark the usage on the drive of our storage folder.
+                const used_size = reply.storage.used;
+                const used_drives = _.filter(drives, drive => {
+                    dbg.log0('used drives:', this.storage_path_mount, drive, used_size);
+                    //if there is no this.storage_path_mount, it's a memory agent for testing.
+                    if (this.storage_path_mount === drive.mount || !this.storage_path_mount) {
+                        drive.storage.used = used_size;
+                        if (this.storage_limit) {
+                            drive.storage.limit = this.storage_limit;
+                            let limited_total = this.storage_limit;
+                            let limited_free = limited_total - used_size;
+                            drive.storage.total = Math.min(limited_total, drive.storage.total);
+                            drive.storage.free = Math.min(limited_free, drive.storage.free);
+                        }
+                        return true;
+                    } else {
+                        return false;
+                    }
+                });
+                reply.drives = used_drives;
+                dbg.log0('DRIVES:', drives, 'used drives', used_drives);
+                // _.each(drives, drive => {
+                //     if (this.storage_path_mount === drive.mount) {
+                //         drive.storage.used = used_size;
+                //     }
+                // });
+            })
+            .return(reply);
+    }
 
-function test_average_latency(func) {
-    var results = [];
-    return promise_utils.loop(6, function() {
-            var start = time_utils.millistamp();
-            return P.fcall(func).then(function() {
-                results.push(time_utils.millistamp() - start);
-                // use some jitter delay to avoid serializing on cpu when
-                // multiple tests are run together.
-                return P.delay(200 * (0.5 + Math.random()));
+    update_auth_token(req) {
+        const auth_token = req.rpc_params.auth_token;
+        return P.resolve()
+            .then(() => {
+                if (this.storage_path) {
+                    const token_path = path.join(this.storage_path, 'token');
+                    return fs.writeFileAsync(token_path, auth_token);
+                }
+            })
+            .then(() => {
+                this.client.options.auth_token = auth_token;
             });
-        })
-        .then(function() {
-            // throw the first result which is sometimes skewed
-            return results.slice(1);
-        });
-}
+    }
 
-Agent.prototype.update_n2n_config = function(req) {
-    var self = this;
-    console.log('AGENT GOT UPDATE N2N CONFIG', req.rpc_params);
-    var n2n_config = req.rpc_params;
-    self.n2n_agent.update_n2n_config(n2n_config);
-};
+    update_rpc_address(req) {
+        const rpc_address = req.rpc_params.rpc_address;
+        const prev_rpc_address = this.rpc_address;
+        dbg.log0('update_rpc_address to', rpc_address,
+            'was', prev_rpc_address);
+        this.rpc_address = rpc_address;
+        return this._start_stop_server();
+    }
 
-Agent.prototype.update_base_address = function(req) {
-    var self = this;
-    var base_address = req.rpc_params.base_address;
-    var existing_base_address = self.rpc.router.default;
-    dbg.log0('update_base_address: to -', base_address, 'was -', existing_base_address);
-    return P.fcall(function() {
-            // test this new address first by pinging it
-            return self.client.node.test_latency_to_server(null, {
+    update_base_address(req) {
+        const base_address = req.rpc_params.base_address;
+        const existing_base_address = this.rpc.router.default;
+        dbg.log0('update_base_address: to -', base_address, 'was -', existing_base_address);
+        return P.resolve()
+            .then(() => this.client.node.ping(null, {
+                // test this new address first by pinging it
                 address: base_address
-            });
-        })
-        .then(function() {
-            return P.nfcall(fs.readFile, 'agent_conf.json')
-                .then(function(data) {
-                    var agent_conf = JSON.parse(data);
+            }))
+            .then(() => P.nfcall(fs.readFile, 'agent_conf.json')
+                .then(data => {
+                    const agent_conf = JSON.parse(data);
                     dbg.log0('update_base_address: old address in agent_conf.json was -', agent_conf.address);
                     return agent_conf;
-                }, function(err) {
+                }, err => {
                     if (err.code === 'ENOENT') {
                         dbg.log0('update_base_address: no agent_conf.json file. creating new one...');
                         return {};
                     } else {
                         throw err;
                     }
-                });
-        })
-        .then(function(agent_conf) {
-            agent_conf.address = base_address;
-            var data = JSON.stringify(agent_conf);
-            return P.nfcall(fs.writeFile, 'agent_conf.json', data);
-        })
-        .then(function() {
-            dbg.log0('update_base_address: done -', base_address);
-            self.rpc.router = api.new_router(base_address);
-            // self.rpc.disconnect_all();
-            self._do_heartbeat();
+                }))
+            .then(agent_conf => {
+                agent_conf.address = base_address;
+                const data = JSON.stringify(agent_conf);
+                return P.nfcall(fs.writeFile, 'agent_conf.json', data);
+            })
+            .then(() => {
+                dbg.log0('update_base_address: done -', base_address);
+                this.rpc.router = api.new_router(base_address);
+                // this.rpc.disconnect_all();
+                this._do_heartbeat();
+            });
+    }
+
+    update_n2n_config(req) {
+        console.log('AGENT GOT UPDATE N2N CONFIG', req.rpc_params);
+        const n2n_config = req.rpc_params;
+        this.n2n_agent.update_n2n_config(n2n_config);
+    }
+
+    n2n_signal(req) {
+        return this.rpc.accept_n2n_signal(req.rpc_params);
+    }
+
+    test_disk_read() {
+        const data = crypto.randomBytes(1024);
+        const block_md = {
+            id: '_test_latency_of_disk_read',
+            digest_type: 'sha1'
+        };
+        block_md.digest_b64 = crypto.createHash(block_md.digest_type).update(data).digest('base64');
+        return this.block_store.write_block(block_md, data)
+            .then(() => {
+                return test_average_latency(() => this.block_store.read_block(block_md));
+            });
+    }
+
+    test_disk_write() {
+        return test_average_latency(() => {
+            const data = crypto.randomBytes(1024);
+            const block_md = {
+                id: '_test_latency_of_disk_write',
+                digest_type: 'sha1'
+            };
+            block_md.digest_b64 = crypto.createHash(block_md.digest_type).update(data).digest('base64');
+            return this.block_store.write_block(block_md, data);
         });
-};
+    }
+
+    test_network_io(req) {
+        const data = req.rpc_params.data;
+        const req_len = data ? data.length : 0;
+        const res_len = req.rpc_params.response_length;
+
+        dbg.log1('test_network_io:',
+            'req_len', req_len,
+            'res_len', res_len,
+            'source', req.rpc_params.source,
+            'target', req.rpc_params.target);
+
+        if (req.rpc_params.target !== this.rpc_address) {
+            throw new Error('test_network_io: wrong address ' +
+                req.rpc_params.target + ' mine is ' + this.rpc_address);
+        }
+
+        return {
+            data: new Buffer(res_len)
+        };
+    }
+
+    test_network_to_peer(req) {
+        const target = req.rpc_params.target;
+        const source = req.rpc_params.source;
+        const req_len = req.rpc_params.request_length;
+        const res_len = req.rpc_params.response_length;
+        const concur = req.rpc_params.concur;
+        let count = req.rpc_params.count;
+
+        dbg.log0('test_network_to_peer:',
+            'source', source,
+            'target', target,
+            'req_len', req_len,
+            'res_len', res_len,
+            'count', count,
+            'concur', concur);
+
+        if (source !== this.rpc_address) {
+            throw new Error('test_network_to_peer: wrong address ' +
+                source + ' mine is ' + this.rpc_address);
+        }
+        const reply = {};
+
+        const next = () => {
+            if (count <= 0) return;
+            count -= 1;
+            // read/write from target agent
+            return this.client.agent.test_network_io({
+                    source: source,
+                    target: target,
+                    data: new Buffer(req_len),
+                    response_length: res_len,
+                }, {
+                    address: target,
+                    return_rpc_req: true // we want to check req.connection
+                })
+                .then(io_req => {
+                    const data = io_req.reply.data;
+                    if (((!data || !data.length) && res_len > 0) ||
+                        (data && data.length && data.length !== res_len)) {
+                        throw new Error('test_network_to_peer: response_length mismatch');
+                    }
+                    const session = io_req.connection.session;
+                    reply.session = session && session.key;
+                    return next();
+                });
+        };
+
+        return P.all(_.times(concur, next)).return(reply);
+    }
+
+    collect_diagnostics(req) {
+        dbg.log1('Recieved diag req', req);
+        const is_windows = (process.platform === "win32");
+        const inner_path = is_windows ? process.env.ProgramData + '/agent_diag.tgz' : '/tmp/agent_diag.tgz';
+
+        return P.resolve()
+            .then(() => diag.collect_agent_diagnostics())
+            .then(() => diag.pack_diagnostics(inner_path))
+            .catch(err => {
+                dbg.error('DIAGNOSTICS COLLECTION FAILED', err.stack || err);
+                throw new Error('Agent Collect Diag Error on collecting diagnostics');
+            })
+            .then(() => {
+                dbg.log1('Reading packed file');
+                return fs.readFileAsync(inner_path)
+                    .then(data => ({
+                        data: new Buffer(data),
+                    }))
+                    .catch(err => {
+                        dbg.error('DIAGNOSTICS READ FAILED', err.stack || err);
+                        throw new Error('Agent Collect Diag Error on reading packges diag file');
+                    });
+            })
+            .catch(err => {
+                dbg.error('DIAGNOSTICS FAILED', err.stack || err);
+                return {
+                    data: new Buffer(),
+                };
+            });
+    }
+
+    set_debug_node(req) {
+        dbg.set_level(req.rpc_params.level, 'core');
+        dbg.log1('Recieved set debug req ', req.rpc_params.level);
+        if (req.rpc_params.level > 0) { //If level was set, unset it after a T/O
+            promise_utils.delay_unblocking(10 * 60 * 1000) // 10 minutes
+                .then(() => {
+                    dbg.set_level(0, 'core');
+                });
+        }
+    }
+
+}
 
 
-// AGENT TEST API /////////////////////////////////////////////////////////////
+function test_average_latency(func) {
+    const results = [];
+    return promise_utils.loop(6, () => {
+            const start = time_utils.millistamp();
+            return P.fcall(func).then(() => {
+                results.push(time_utils.millistamp() - start);
+                // use some jitter delay to avoid serializing on cpu when
+                // multiple tests are run together.
+                return P.delay(200 * (0.5 + Math.random()));
+            });
+        })
+        .then(() => {
+            // throw the first result which is sometimes skewed
+            return results.slice(1);
+        });
+}
 
-Agent.prototype._add_test_APIs = function() {
-    dbg.warn("Adding test APIs for Agent prototype");
 
-    Agent.prototype.corrupt_blocks = function(req) {
-        var self = this;
-        var blocks = req.rpc_params.blocks;
-        dbg.log0('TEST API corrupt_blocks', blocks);
-        return self.store.corrupt_blocks(blocks);
-    };
-
-    Agent.prototype.list_blocks = function() {
-        var self = this;
-        dbg.log0('TEST API list_blocks');
-        return self.store.list_blocks();
-    };
-};
+module.exports = Agent;

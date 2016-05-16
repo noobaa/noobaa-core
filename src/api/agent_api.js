@@ -1,5 +1,3 @@
-'use strict';
-
 /**
  *
  * AGENT API
@@ -7,85 +5,106 @@
  * commands that are sent to an agent (read/write/replicate)
  *
  */
+'use strict';
+
 module.exports = {
 
     id: 'agent_api',
 
     methods: {
 
-        write_block: {
-            method: 'POST',
-            param_raw: 'data',
-            params: {
-                type: 'object',
-                required: ['block_md', 'data'],
-                properties: {
-                    block_md: {
-                        $ref: '#/definitions/block_md'
-                    },
-                    data: {
-                        format: 'buffer'
-                    }
-                },
-            },
-        },
-
-        read_block: {
-            method: 'GET',
-            params: {
-                type: 'object',
-                required: ['block_md'],
-                properties: {
-                    block_md: {
-                        $ref: '#/definitions/block_md'
-                    },
-                },
-            },
+        get_agent_info: {
+            method: 'PUT',
             reply: {
                 type: 'object',
-                required: ['block_md', 'data'],
                 properties: {
-                    block_md: {
-                        $ref: '#/definitions/block_md'
+                    version: {
+                        type: 'string'
                     },
-                    data: {
-                        format: 'buffer'
+                    name: {
+                        type: 'string'
                     },
-                },
+                    ip: {
+                        type: 'string'
+                    },
+                    base_address: {
+                        type: 'string'
+                    },
+                    rpc_address: {
+                        type: 'string'
+                    },
+                    geolocation: {
+                        type: 'string'
+                    },
+                    storage: {
+                        $ref: 'common_api#/definitions/storage_info'
+                    },
+                    drives: {
+                        type: 'array',
+                        items: {
+                            $ref: 'common_api#/definitions/drive_info'
+                        }
+                    },
+                    os_info: {
+                        $ref: 'common_api#/definitions/os_info'
+                    },
+                    debug_level: {
+                        type: 'integer',
+                    },
+                    cloud_pool_name: {
+                        type: 'string'
+                    },
+                    is_internal_agent: {
+                        type: 'boolean'
+                    },
+                }
             },
         },
 
-
-        replicate_block: {
+        update_auth_token: {
             method: 'POST',
             params: {
                 type: 'object',
-                required: ['target', 'source'],
+                required: ['auth_token'],
                 properties: {
-                    target: {
-                        $ref: '#/definitions/block_md'
-                    },
-                    source: {
-                        $ref: '#/definitions/block_md'
+                    auth_token: {
+                        type: 'string'
                     }
-                },
-            },
+                }
+            }
         },
 
-        delete_blocks: {
-            method: 'DELETE',
+        update_rpc_address: {
+            method: 'POST',
             params: {
                 type: 'object',
-                required: ['blocks'],
+                required: ['rpc_address'],
                 properties: {
-                    blocks: {
-                        type: 'array',
-                        items: {
-                            type: 'string'
-                        }
+                    rpc_address: {
+                        type: 'string'
                     }
-                },
-            },
+                }
+            }
+        },
+
+        update_base_address: {
+            method: 'POST',
+            params: {
+                type: 'object',
+                required: ['base_address'],
+                properties: {
+                    base_address: {
+                        type: 'string'
+                    }
+                }
+            }
+        },
+
+        update_n2n_config: {
+            method: 'POST',
+            params: {
+                $ref: 'common_api#/definitions/n2n_config'
+            }
         },
 
         n2n_signal: {
@@ -98,7 +117,21 @@ module.exports = {
             },
         },
 
-        self_test_io: {
+        test_disk_write: {
+            method: 'POST',
+            reply: {
+                $ref: '#/definitions/latency_array'
+            }
+        },
+
+        test_disk_read: {
+            method: 'POST',
+            reply: {
+                $ref: '#/definitions/latency_array'
+            }
+        },
+
+        test_network_io: {
             method: 'POST',
             param_raw: 'data',
             params: {
@@ -130,7 +163,7 @@ module.exports = {
             },
         },
 
-        self_test_peer: {
+        test_network_to_peer: {
             method: 'POST',
             params: {
                 $ref: '#/definitions/self_test_params'
@@ -138,10 +171,6 @@ module.exports = {
             reply: {
                 $ref: '#/definitions/self_test_reply'
             },
-        },
-
-        kill_agent: {
-            method: 'POST',
         },
 
         collect_diagnostics: {
@@ -170,54 +199,9 @@ module.exports = {
             }
         },
 
-        update_n2n_config: {
-            method: 'POST',
-            params: {
-                $ref: 'common_api#/definitions/n2n_config'
-            }
-        },
-
-        update_base_address: {
-            method: 'POST',
-            params: {
-                type: 'object',
-                required: ['base_address'],
-                properties: {
-                    base_address: {
-                        type: 'string'
-                    }
-                }
-            }
-        }
-
     },
 
     definitions: {
-
-        block_md: {
-            type: 'object',
-            required: ['id'],
-            properties: {
-                id: {
-                    type: 'string'
-                },
-                address: {
-                    type: 'string'
-                },
-                node: {
-                    type: 'string'
-                },
-                size: {
-                    type: 'integer'
-                },
-                digest_type: {
-                    type: 'string'
-                },
-                digest_b64: {
-                    type: 'string'
-                },
-            }
-        },
 
         self_test_params: {
             type: 'object',

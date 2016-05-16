@@ -6,7 +6,7 @@ var mocha = require('mocha');
 // var assert = require('assert');
 var size_utils = require('../../util/size_utils');
 var coretest = require('./coretest');
-var os_util = require('../../util/os_util');
+var os_utils = require('../../util/os_utils');
 
 mocha.describe('node_server', function() {
 
@@ -48,7 +48,7 @@ mocha.describe('node_server', function() {
                     alloc: 10 * size_utils.GIGABYTE,
                     used: size_utils.GIGABYTE,
                 },
-                os_info: os_util.os_info(),
+                os_info: os_utils.os_info(),
             }))
             .then(() => client.create_auth_token({
                 system: SYS,
@@ -65,13 +65,12 @@ mocha.describe('node_server', function() {
             .then(() => client.object.read_node_mappings({
                 name: NODE,
             }))
-            .then(() => client.node.max_node_capacity())
             .then(() => client.node.list_nodes({}))
             .then(res => client.node.get_test_nodes({
                 count: 10,
                 source: res.nodes && res.nodes[0].rpc_address,
             }))
-            .then(() => client.node.test_latency_to_server())
+            .then(() => client.node.ping())
             .then(() => coretest.init_test_nodes(client, SYS, 3))
             .then(() => client.node.list_nodes({}))
             .then(res => {
@@ -98,7 +97,7 @@ mocha.describe('node_server', function() {
             //     target: nodes[0].rpc_address,
             //     secret_signal_info: 'shhh'
             // }))
-            .then(() => client.node.self_test_to_node_via_web({
+            .then(() => client.node.test_node_network({
                 source: nodes[0].rpc_address,
                 target: nodes[1].rpc_address,
                 request_length: 1024,

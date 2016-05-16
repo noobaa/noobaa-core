@@ -66,7 +66,7 @@ function read_object_mappings(params) {
  *
  * read_node_mappings
  *
- * @params: node, skip, limit
+ * @params: node_id, skip, limit
  */
 function read_node_mappings(params) {
     var objects = {};
@@ -74,7 +74,7 @@ function read_node_mappings(params) {
 
     return P.fcall(function() {
             return md_store.DataBlock.collection.find({
-                node: params.node._id,
+                node: params.node_id,
                 deleted: null,
             }, {
                 sort: '-_id',

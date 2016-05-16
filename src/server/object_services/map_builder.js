@@ -160,7 +160,7 @@ class MapBuilder {
                 dbg.log1('MapBuilder.replicate_blocks: replicating to', target,
                     'from', source, 'chunk', chunk);
                 return replicate_block_sem.surround(() => {
-                    return server_rpc.client.agent.replicate_block({
+                    return server_rpc.client.block_store.replicate_block({
                         target: target,
                         source: source
                     }, {

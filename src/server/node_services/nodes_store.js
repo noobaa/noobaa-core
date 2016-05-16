@@ -1,3 +1,8 @@
+/**
+ *
+ * NODES STORE
+ *
+ */
 'use strict';
 
 const _ = require('lodash');

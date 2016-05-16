@@ -213,7 +213,32 @@ module.exports = {
         undeletable_enum: {
             enum: ['SYSTEM_ENTITY', 'NOT_EMPTY', 'IN_USE'],
             type: 'string',
-        }
+        },
+
+        block_md: {
+            type: 'object',
+            required: ['id'],
+            properties: {
+                id: {
+                    type: 'string'
+                },
+                address: {
+                    type: 'string'
+                },
+                node: {
+                    type: 'string'
+                },
+                size: {
+                    type: 'integer'
+                },
+                digest_type: {
+                    type: 'string'
+                },
+                digest_b64: {
+                    type: 'string'
+                },
+            }
+        },
 
     }
 };

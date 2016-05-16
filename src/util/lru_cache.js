@@ -69,14 +69,21 @@ class LRUCache {
     }
 
     /**
-     * remove multiple keys from the cache
+     * remove multiple items from the cache
      */
     multi_invalidate(params) {
         return _.map(params, p => this.invalidate(p));
     }
 
     /**
-     * remove the key from the cache
+     * remove multiple items from the cache
+     */
+    multi_invalidate_keys(keys) {
+        return _.map(keys, key => this.invalidate_key(key));
+    }
+
+    /**
+     * remove item from the cache
      */
     invalidate(params) {
         var key = this.make_key(params);

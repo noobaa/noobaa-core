@@ -5,6 +5,33 @@ import { paginationPageSize } from 'config';
 import { makeArray, throttle} from 'utils';
 import { redirectTo } from 'actions';
 
+const dataAccessOptions = Object.freeze([
+    { value: null, label: 'All data access' },
+    { value: 'FULL_ACCESS', label: 'Read & write' },
+    { value: 'READ_ONLY', label: 'Read only' },
+    { value: 'NO_ACCESS', label: 'No access' }
+]);
+
+const trustOptions = Object.freeze([
+    { value: null, label: 'All trust levels' },
+    { value: true, label: 'Trusted' },
+    { value: false, label: 'Untrusted' }
+]);
+
+const stateOptions = Object.freeze([
+    { value: null, label: 'All states'},
+    { value: true, label: 'Online' },
+    { value: false, label: 'Offline' }
+]);
+
+const activityOptions = Object.freeze([
+    { value: null, label: 'All activities' },
+    { value: 'EVACUATING', label: 'Evacuating' },
+    { value: 'REBUILDING',  label: 'Rebuilding' },
+    { value: 'MIGRATING', label: 'Migrating' }
+]);
+
+
 class PoolNodesTableViewModel {
     constructor({ nodes }) {
         this.pageSize = paginationPageSize;
@@ -29,7 +56,26 @@ class PoolNodesTableViewModel {
 
         this.hasNodes = ko.pureComputed(
             () => nodes().length > 0
-        );        
+        );
+
+        this.dataAccessOptions = [
+            { value: 'FULL_ACCESS', label: 'Read & Write' },
+            { value: 'READ_ONLY', label: 'Read Only' },
+            { value: 'NO_ACCESS', label: 'No Access' }
+        ];
+
+        this.dataAccessOptions = dataAccessOptions;
+        this.dataAccessFilter = ko.observable(null);
+
+        this.trustOptions = trustOptions;
+        this.trustFilter = ko.observable(null);
+
+        this.stateOptions = stateOptions;
+        this.stateFilter = ko.observable(null);
+
+        this.activityOptions = activityOptions;
+        this.activityFilter = ko.observable(null);
+
     }
 
     pageTo(page) {

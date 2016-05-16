@@ -7,8 +7,6 @@
 
 const _ = require('lodash');
 const os = require('os');
-// const child_process = require('child_process');
-
 const P = require('../../util/promise');
 const dbg = require('../../util/debug_module')(__filename);
 const config = require('../../../config');
@@ -202,7 +200,8 @@ function delete_cloud_pool(req) {
                 }
             });
         })
-        .then(() => SupervisorCtl.remove_agent(pool.name))
+        .then(() => SupervisorCtl.remove_program('agent_' + pool.name))
+        .then(() => SupervisorCtl.apply_changes())
         .then(() => nodes_store.delete_node_by_name({
             system: {
                 _id: req.system._id

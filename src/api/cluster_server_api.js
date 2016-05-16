@@ -12,25 +12,6 @@ module.exports = {
     id: 'cluster_server_api',
 
     methods: {
-
-        get_cluster_id: {
-            doc: 'Read cluster id',
-            method: 'GET',
-
-            reply: {
-                type: 'object',
-                required: ['cluster_id'],
-                properties: {
-                    cluster_id: {
-                        type: 'string'
-                    }
-                }
-            },
-            auth: {
-                system: 'admin'
-            }
-        },
-
         add_member_to_cluster: {
             doc: 'Add new member to the cluster',
             method: 'POST',
@@ -78,7 +59,12 @@ module.exports = {
                     },
                     shard: {
                         type: 'string',
-                    }
+                    },
+                    topology: {
+                        type: 'object',
+                        additionalProperties: true,
+                        properties: {}
+                    },
                 }
             },
             auth: {
@@ -104,6 +90,9 @@ module.exports = {
                     },
                 },
             },
+            auth: {
+                system: false
+            }
         },
 
         news_updated_topology: {
@@ -114,6 +103,9 @@ module.exports = {
                 additionalProperties: true,
                 properties: {}
             },
+            auth: {
+                system: false
+            }
         },
 
         heartbeat: {

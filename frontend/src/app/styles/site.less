@@ -120,6 +120,7 @@ input[type="password"] {
 input[type="search"] {
     .textfield();
 
+    margin: 0;
     line-height: 1.4;
     font-size: @font-size-medium;
     padding-left: 2em;
@@ -821,6 +822,14 @@ input[type="search"] {
 .define-c(@i) when (@i > 0) {
     .c@{i} {
         flex-basis: 100% / 12 * @i;
+    }
+
+    .row > .c@{i} {
+        width: 100% / 12 * @i;
+    }
+
+    .col > .c@{i} {
+        height: 100% / 12 * @i;
     }
 
     .define-c(@i - 1);

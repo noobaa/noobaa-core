@@ -8,6 +8,7 @@ upgrade();
 /* Upade mongo structures and values with new things since the latest version*/
 function upgrade() {
     upgrade_systems();
+    upgrade_cluster();
     upgrade_chunks_add_ref_to_bucket();
     upgrade_system_access_keys();
     print('\nUPGRADE DONE.');
@@ -395,5 +396,29 @@ function upgrade_system_access_keys() {
                 }
             });
         }
+    });
+}
+
+function upgrade_cluster() {
+    print('\n*** upgrade_cluster ...');
+
+    var clusters = db.clusters.find();
+    if (clusters.shards) {
+        print('\n*** Clusters up to date');
+        return;
+    }
+
+    /*global param_secret:true, params_cluster_id:true, param_ip:true*/
+    db.clusters.insert({
+        owner_secret: param_secret,
+        cluster_id: params_cluster_id,
+        shards: [{
+            shardname: 'shard1',
+            servers: [{
+                address: param_ip
+            }]
+        }],
+        config_servers: [],
+
     });
 }

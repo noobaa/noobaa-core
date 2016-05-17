@@ -1,4 +1,4 @@
-import template from './node-info.html';
+import template from './node-details-form.html';
 import ko from 'knockout';
 import moment from 'moment';
 import style from 'style';

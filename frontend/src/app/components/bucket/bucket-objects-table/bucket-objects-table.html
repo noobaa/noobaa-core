@@ -1,3 +1,12 @@
+<div class="row content-middle  push-next">
+    <h3 class="heading3 greedy push-next">
+        Files in this bucket: 
+        <span data-bind="text: count"></span>
+    </h3>
+
+    <button class="btn3" data-bind="click: () => showUploadFilesModal()">Upload Files</button>
+</div>
+
 <div class="row push-next">
     <div class="greedy">
         <input type="search" placeholder="Filter Files" data-bind="
@@ -46,3 +55,8 @@
         No files in bucket
     </div>
 </div>
+
+<!-- ko if: isUploadFilesModalVisible -->
+<upload-files-modal params="bucketName: name, onClose: () => hideUploadFilesModal()">
+</upload-files-modal>
+<!-- /ko -->    

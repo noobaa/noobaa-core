@@ -1,11 +1,11 @@
 <!-- ko if: dataReady -->
-<section class="c3 column">
+<section class="c4 column">
     <h3 class="heading4 push-next">
         Storage Capacity:
         <span data-bind="text: totalText"></span>
     </h3>
 
-    <div class="row content-middle">
+    <div class="row">
         <ul class="c7 column list-no-style legend">
             <li class="row">
                 <span class="c6 emphasized">Used:</span>
@@ -32,7 +32,7 @@
         <span data-bind="text: stateText"></span>
     </div>
 
-    <h3 class="heading4 push-both">
+    <h3 class="heading4 push-next">
         Nodes in Pool:
         <span data-bind="text: nodeCount"></span>
     </h3>
@@ -54,7 +54,7 @@
 
 <vr></vr>
 
-<section class="column greedy">
+<section class="column c5">
     <h3 class="heading4 push-next">Activity</h3>
     <!-- ko foreach: dataActivities -->
     <p class="paragraph">
@@ -64,51 +64,4 @@
     </p>
     <!-- /ko -->
 </section>
-
-<!-- <ul class="list-no-style status-line">
-    <li>
-        <svg-icon params="uri: '/fe/assets/icons.svg#node-online'"></svg-icon>
-        <span data-bind="text: onlineCount"></span>
-    </li>
-    <li>
-        <svg-icon params="uri: '/fe/assets/icons.svg#node-offline'"></svg-icon>
-        <span data-bind="text: offlineCount"></span>
-    </li>
-</ul>
-
-<div class="text-center">
-    <section class="gauge-legend">
-        <h3 class="heading3 underline">
-            Potential Capacity: 
-            <span data-bind="text: totalText"></span>
-        </h3>
-
-        <ul class="list-no-style">
-            <li class="used-legend">
-                Used: 
-                <span class="emphasized" data-bind="text: usedText"></span>
-            </li>
-            <li class="free-legend">
-                Free: 
-                <span class="emphasized" data-bind="text: freeText"></span>
-            </li>
-        </ul>        
-    </section>
-
-    <quantity-gauge params="values: gaugeValues"></quantity-gauge>
-
-    <section class="action-list">
-        <button class="action btn2" data-bind="click: () => isAssignNodeModalVisible(true)">
-            <svg-icon params="uri: '/fe/assets/icons.svg#move-nodes'"></svg-icon>
-            Assign Nodes
-        </button>     
-    </section>
-</div> -->
-<!-- /ko -->
-
-<!-- ko if: isAssignNodeModalVisible -->
-    <assign-nodes-modal params="
-        poolName: poolName,
-        onClose: () => isAssignNodeModalVisible(false)
-    "></assign-nodes-modal>
 <!-- /ko -->

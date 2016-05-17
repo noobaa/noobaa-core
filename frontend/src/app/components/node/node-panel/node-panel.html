@@ -7,8 +7,8 @@
 <div class="tabs greedy">
     <nav>
         <a data-bind="
-            href: '/fe/systems/:system/pools/:pool/nodes/:node/info',
-            css: { selected: isTabSelected('info') }
+            href: '/fe/systems/:system/pools/:pool/nodes/:node/details',
+            css: { selected: isTabSelected('details') }
         ">
             Details
         </a>
@@ -30,9 +30,9 @@
 
 
     <div class="tabs-row">
-        <node-info class="tab" params="node: node" data-bind="
-            css: { selected: isTabSelected('info') }
-        "></node-info>
+        <node-details-form class="tab" params="node: node" data-bind="
+            css: { selected: isTabSelected('details') }
+        "></node-details-form>
 
         <node-parts-table class="tab" params="parts: storedParts" data-bind="
             css: { selected: isTabSelected('parts') }

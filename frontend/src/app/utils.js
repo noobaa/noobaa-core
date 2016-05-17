@@ -126,6 +126,7 @@ export function realizeUri(uri, params = {}, query = {}) {
     let base = uri
         .split('/')
         .map(part => part[0] === ':' ? params[part.substr(1)] : part)
+        .map(dblEncode)
         .join('/');
 
     let search = stringifyQueryString(query);

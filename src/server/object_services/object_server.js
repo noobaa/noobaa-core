@@ -698,7 +698,10 @@ function set_all_files_for_sync(sysid, bucketid) {
 
 
 function get_object_info(md) {
-    var info = _.pick(md, 'size', 'content_type', 'etag', 'xattr');
+    var info = _.pick(md, 'size', 'content_type', 'etag', 'xattr', 'key' ,'cloud_synced');
+    var bucket = system_store.data.get_by_id(md.bucket);
+
+    info.bucket = bucket.name;
     info.version_id = String(md._id);
     info.size = info.size || 0;
     info.content_type = info.content_type || 'application/octet-stream';

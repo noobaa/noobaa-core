@@ -1,6 +1,6 @@
 import ko from 'knockout';
 import numeral from 'numeral';
-import { formatSize, avgOp, dblEncode } from 'utils';
+import { formatSize, avgOp } from 'utils';
 
 const accessibilityMapping = Object.freeze({
     FULL_ACCESS: { text: 'Read & Write' },
@@ -35,9 +35,7 @@ export default class NodeRowViewModel {
         );
 
         this.href = ko.pureComputed(
-            () => node() && `/fe/systems/:system/pools/:pool/nodes/${
-                dblEncode(node().name)
-            }`
+            () => node() && `/fe/systems/:system/pools/:pool/nodes/${node().name}`
         );
 
         this.ip = ko.pureComputed(

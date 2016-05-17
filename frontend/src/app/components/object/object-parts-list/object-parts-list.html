@@ -1,6 +1,15 @@
-<paginator class="push-next align-end" params="
-    page: page, itemCount: count, pageSize: pageSize
-"></paginator>
+<div class="row">
+    <h3 class="heading3 greedy push-next">
+        Part count for this file:
+        <span data-bind="text: count"></span>
+    </h3>
+
+    <paginator class="push-next" params="
+        page: page, itemCount: count, pageSize: pageSize
+    "></paginator>
+</div>
+
+<hr>
 
 <ul class="part-list greedy" data-bind="foreach: rows">
     <li>

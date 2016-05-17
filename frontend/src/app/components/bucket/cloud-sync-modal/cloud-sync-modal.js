@@ -9,7 +9,7 @@ const syncStatusMapping = Object.freeze({
     NOTSET:         { label: 'Not Set',         css: 'no-set'         },
     UNSYNCED:       { label: 'Unsynced',        css: 'unsynced'       },
     SYNCING:        { label: 'Syncing',         css: 'syncing'        },
-    PASUED:         { label: 'Paused',          css: 'paused'         },
+    PAUSED:         { label: 'Paused',          css: 'paused'         },
     SYNCED:         { label: 'Synced',          css: 'synced'         },
     UNABLE:         { label: 'Unable To Sync',  css: 'unable-to-sync' }
 });

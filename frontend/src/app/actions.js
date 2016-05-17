@@ -171,8 +171,10 @@ export function showObject() {
     logAction('showObject');
 
     let ctx = model.routeContext();
-    let { object, bucket, tab = 'parts' } = ctx.params;
+    let { object, bucket, tab = 'details' } = ctx.params;
     let { page = 0 } = ctx.query;
+
+//    object =  decodeURIComponent(decodeURIComponent(object))
 
     model.uiState({
         layout: 'main-layout',
@@ -236,7 +238,7 @@ export function showNode() {
     logAction('showNode');
 
     let ctx = model.routeContext();
-    let { pool, node, tab = 'info' } = ctx.params;
+    let { pool, node, tab = 'details' } = ctx.params;
     let { page = 0 } = ctx.query;
 
     model.uiState({
@@ -546,7 +548,7 @@ export function loadObjectMetadata(bucketName, objectName) {
     logAction('loadObjectMetadata', { bucketName, objectName });
 
     // Drop previous data if of diffrent object.
-    if (!!model.objectInfo() && model.objectInfo().name !== objectName) {
+    if (!!model.objectInfo() && model.objectInfo().key !== objectName) {
         model.objectInfo(null);
     }
 
@@ -577,15 +579,16 @@ export function loadObjectMetadata(bucketName, objectName) {
 
     Promise.all([objInfoPromise, S3Promise])
         .then(
-            ([objInfo, s3]) => model.objectInfo({
-                name: objectName,
-                bucket: bucketName,
-                info: objInfo,
-                s3Url: s3.getSignedUrl(
+            ([objInfo, s3]) => {
+                let s3_signed_url = s3.getSignedUrl(
                     'getObject',
                     { Bucket: bucketName, Key: objectName, Expires: 604800 }
-                )
-            })
+                );
+
+                model.objectInfo(
+                    Object.assign(objInfo, { s3_signed_url })
+                );
+            }
         );
 }
 

@@ -6,7 +6,11 @@ import ObjectRowViewModel from './object-row';
 import { redirectTo } from 'actions';
 
 class BucketObjectsTableViewModel {
-    constructor({ objects }) {
+    constructor({ bucket, objects }) {
+        this.bucketName = ko.pureComputed(
+            () => bucket() && bucket().name
+        );
+
         this.pageSize = paginationPageSize;
         this.count = objects.count;
         this.sortedBy = objects.sortedBy;
@@ -32,6 +36,16 @@ class BucketObjectsTableViewModel {
                 () => objects()[i]
             )
         );
+
+        this.isUploadFilesModalVisible = ko.observable(false);
+    }
+
+    showUploadFilesModal() {
+        this.isUploadFilesModalVisible(true);
+    }
+
+    hideUploadFilesModal() {
+        this.isUploadFilesModalVisible(false);
     }
 
     pageTo(page) {

@@ -1,6 +1,5 @@
 import { formatSize } from 'utils';
 import ko from 'knockout';
-import { dblEncode } from 'utils';
 
 const statusIconMapping = Object.freeze({
     AVALIABLE: {
@@ -40,9 +39,7 @@ export default class ObjectRowViewModel {
         );
 
         this.href = ko.pureComputed(
-            () => `/fe/systems/:system/buckets/:bucket/objects/${
-                dblEncode(this.name())
-            }`
+            () => `/fe/systems/:system/buckets/:bucket/objects/${this.name()}`
         );
 
         this.size = ko.pureComputed(

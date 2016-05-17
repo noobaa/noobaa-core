@@ -2,26 +2,40 @@ import template from './object-summary.html';
 import ko from 'knockout';
 import { formatSize } from 'utils';
 
-class ObjectSummaryViewModel {
-    constructor({ object }) {
-        this.dataReady = ko.pureComputed(
-            () => !!object()
-        );
+const objectStateMapping = Object.freeze({
+    true: { label: 'Available', icon: 'object-healthy'},
+    false: { label: 'Unavailable', icon: 'object-problem' }
+});
 
-        this.s3Url = ko.pureComputed(
-            () => object().s3Url
+class ObjectSummaryViewModel {
+    constructor({ obj }) {
+        this.dataReady = ko.pureComputed(
+            () => !!obj()
         );
 
         this.reads = ko.pureComputed(
-            () => object().info.stats.reads
+            () => obj() && obj().stats.reads
         );
 
-        this.size = ko.pureComputed(
-            () => `Size: ${formatSize(object().info.size)}`
+        // TODO: change to actual state/availability when available
+        this.state = ko.pureComputed(
+            () => obj() && objectStateMapping[true]
         );
 
-        this.partsCount = ko.pureComputed(
-            () => `Parts Count: ${object().info.total_parts_count || 'N/A'}`
+        this.stateLabel = ko.pureComputed(
+            () => this.state() && this.state().label
+        );
+
+        this.stateIcon = ko.pureComputed(
+            () => this.state() && `/fe/assets/icons.svg#${this.state().icon}`
+        );
+
+        this.sizeLabel = ko.pureComputed(
+            () => obj() && `Size: ${formatSize(obj().size)}`
+        );
+
+        this.sizeIcon = ko.pureComputed(
+            () => `/fe/assets/icons.svg#no-entry`
         );
 
         this.isPreviewModalVisible = ko.observable(false);

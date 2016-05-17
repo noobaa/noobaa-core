@@ -122,8 +122,6 @@ class PoolSummaryViewModel {
         this.dataActivities = ko.pureComputed(
             () => pool().data_activities.map(mapActivity)
         );
-
-        this.isAssignNodeModalVisible = ko.observable(false);
     }
 }
 

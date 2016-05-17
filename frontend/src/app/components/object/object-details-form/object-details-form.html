@@ -1,0 +1,46 @@
+<div class="row push-next content-middle">
+    <h3 class="heading3 greedy">
+        File Information
+    </h3>
+
+    <a class="btn3 push-next" download data-bind="attr: { href: s3SignedUrl }" >
+        Download
+    </a>
+
+    <button class="btn3" data-bind="click: () => showPreviewModal()">
+        Preview
+    </button>
+</div>
+
+<ul class="list-no-style">
+    <li class="row">
+        <span class="c2">Name:</span>
+        <span class="c10" data-bind="text: name"></span>
+    </li>
+    <li class="row">
+        <span class="c2">Bucket:</span>
+        <span class="c10" data-bind="text: bucketName"></span>
+    </li>
+    <li class="row">
+        <span class="c2">Creation date:</span>
+        <span class="c10" data-bind="text: creationTime"></span>
+    </li>
+    <li class="row">
+        <span class="c2">Content Type:</span>
+        <span class="c10" data-bind="text: contentType"></span>
+    </li>
+    <li class="row">
+        <span class="c2">Synced with cloud:</span>
+        <span class="c10" data-bind="text: cloudSynced"></span>
+    </li>    
+</ul>
+
+<!-- ko if: isPreviewModalVisible -->
+<object-preview-modal params="
+    onClose: () => hidePreviewModal(), 
+    uri: s3SignedUrl
+"></object-preview-modal>
+<!-- /ko -->
+
+
+

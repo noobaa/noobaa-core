@@ -3,7 +3,9 @@
         placeholder="Filter by Node Name or IP" 
         data-bind=" textInput: filter"/>
 
-    <button class="btn3">Assign Nodes</button>
+    <button class="btn3" data-bind="click: () => showAssignNodesModal()">
+        Assign Nodes
+    </button>
 </div>
 
 <div class="row push-next content-middle">
@@ -34,7 +36,7 @@
     </div>
 </div>
 
-<div class="data-table greedy push-prev">
+<div class="data-table greedy">
     <table>
         <thead>
             <tr>
@@ -99,3 +101,10 @@
         Pool does not contain any nodes
     </div>
 </div>
+
+<!-- ko if: isAssignNodeModalVisible -->
+    <assign-nodes-modal params="
+        poolName: poolName,
+        onClose: () => hideAssignNodesModal()
+    "></assign-nodes-modal>
+<!-- /ko -->

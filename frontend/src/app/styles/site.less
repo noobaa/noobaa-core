@@ -422,6 +422,7 @@ input[type="search"] {
 
 .btn3 {
     .btn-base;
+    text-align: center;
     min-width: 160px;
     max-width: 160px;
 
@@ -575,14 +576,15 @@ input[type="search"] {
         .push-next();
 
         background-color: @bg-color1;
-        margin: -1.5 * @gutter;
-        margin-bottom: 1.5 * @gutter;
+        margin: -@gutter;
+        margin-bottom: @gutter;
         padding: 0 4px;
 
         > a {
             .no-outline();
             position: relative;
-            padding: @gutter;
+            padding: 0 @gutter;
+            line-height: 44px;
             min-width: 100px;
             text-align: center;
             cursor: @cursor-pointer;
@@ -626,7 +628,7 @@ input[type="search"] {
                 margin-left: 0;
                 opacity: 1;
 
-                + .tab {
+                ~ .tab {
                     margin-left: 100%;
                     opacity: 0;
                 }
@@ -750,12 +752,14 @@ input[type="search"] {
 .box {
     display: block;
     background-color: @bg-color2;
-    padding: 1.5* @gutter;
+    padding: @gutter;
+    box-shadow: 0px 2px 2px @bg-color1;
 
     > .box-header {
-        margin: -1.5 * @gutter;
-        margin-bottom: 1.5 * @gutter;
-        padding: @gutter;
+        margin: -@gutter;
+        margin-bottom: @gutter;
+        padding: 0 @gutter;
+        line-height: 44px;
         background-color: @bg-color1;
         font-size: @font-size-normal;
         font-weight: normal;
@@ -828,7 +832,7 @@ input[type="search"] {
         width: 100% / 12 * @i;
     }
 
-    .col > .c@{i} {
+    .column > .c@{i} {
         height: 100% / 12 * @i;
     }
 

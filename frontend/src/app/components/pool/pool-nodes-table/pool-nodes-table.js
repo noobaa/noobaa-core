@@ -33,7 +33,12 @@ const activityOptions = Object.freeze([
 
 
 class PoolNodesTableViewModel {
-    constructor({ nodes }) {
+    constructor({ pool, nodes }) {
+        this.poolName = ko.pureComputed(
+            () => pool() && pool().name
+        );
+
+
         this.pageSize = paginationPageSize;
         this.count = nodes.count;
         this.sortedBy = nodes.sortedBy;
@@ -76,6 +81,16 @@ class PoolNodesTableViewModel {
         this.activityOptions = activityOptions;
         this.activityFilter = ko.observable(null);
 
+    
+        this.isAssignNodeModalVisible = ko.observable(false);
+    }
+
+    showAssignNodesModal() {
+        this.isAssignNodeModalVisible(true);
+    }
+
+    hideAssignNodesModal() {
+        this.isAssignNodeModalVisible(false);
     }
 
     pageTo(page) {

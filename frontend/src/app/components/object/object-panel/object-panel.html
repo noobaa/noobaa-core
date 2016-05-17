@@ -1,22 +1,36 @@
 <!-- ko if: ready -->
 <div class="column box push-next">
     <h2 class="box-header">General Infromation</h2>
-    <object-summary params="object: object" class="center clear"></object-summary>
+    <object-summary params="obj: obj"></object-summary>
 </div>
 
 <div class="tabs greedy">
     <nav>
-        <a class="selected" data-bind="
-            href: '/:system/buckets/:bucket/objects/:object/parts'
+        <a data-bind="
+            href: '/fe/systems/:system/buckets/:bucket/objects/:object/details',
+            css: { selected: isTabSelected('details') }
+        ">
+            Details
+        </a>
+
+        <a data-bind="
+            href: '/fe/systems/:system/buckets/:bucket/objects/:object/parts',
+            css: { selected: isTabSelected('parts') }
         ">
             File Parts
         </a>
     </nav>
 
     <div class="tabs-row">
-        <object-parts-list class="selected greedy" params="
-            object: object, parts: parts
-        "></object-parts-list>
-    </div>
+        <object-details-form class="tab"
+            data-bind="css: { selected: isTabSelected('details') }",
+            params="obj: obj"
+        "></object-details-form>
+
+        <object-parts-list class="tab" 
+            data-bind="css: { selected: isTabSelected('parts') }",
+            params="parts: parts"
+        ></object-parts-list>
+    </div>    
 </div>
 <!-- /ko -->

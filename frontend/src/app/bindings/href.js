@@ -1,5 +1,5 @@
 import ko from 'knockout';
-import { realizeUri, dblEncode } from 'utils';
+import { realizeUri } from 'utils';
 import { routeContext } from 'model';
 
 export default {

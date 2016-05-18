@@ -222,6 +222,10 @@ function _add_new_shard_member(shardname, ip, first_shard) {
 
                 return _add_new_config(cutil.extract_servers_ip(updated_cfg), first_shard)
                     .then(function() {
+                      //add the new shard in the mongo configuration
+                      return P.when(MongoCtrl.add_member_shard(shardname, ip));
+                    })
+                    .then(function() {
                         dbg.log0('Updating topology in mongo');
                         return cutil.update_cluster_info(topology_updates);
                     })
@@ -233,10 +237,6 @@ function _add_new_shard_member(shardname, ip, first_shard) {
                         });
                     });
             }
-        })
-        .then(function() {
-            //All and done, add the new shard in the mongo configuration
-            return P.when(MongoCtrl.add_member_shard(shardname, ip));
         });
 }
 

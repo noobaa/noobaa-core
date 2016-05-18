@@ -58,6 +58,7 @@ class MongoClient extends EventEmitter {
      * mongodb_url is optional and by default takes from env or local db.
      */
     connect() {
+        dbg.log0('connect called');
         this._disconnected_state = false;
         if (this.promise) return this.promise;
         this.promise = this._connect('db', this.url, this.config);
@@ -67,12 +68,17 @@ class MongoClient extends EventEmitter {
     _connect(access_db, url, config) {
         if (this._disconnected_state) return;
         if (this[access_db]) return this[access_db];
+        dbg.log0('_connect called with', url, config);
         return mongodb.MongoClient.connect(url, config)
             .then(db => {
-                console.log('MongoClient: connected', url);
+                dbg.log0('MongoClient: connected', url);
                 db.on('reconnect', () => {
                     this.emit('reconnect');
-                    console.log('MongoClient: reconnect', url);
+                    console.log('MongoClient: got reconnect', url);
+                });
+                db.on('close', () => {
+                    this.emit('close');
+                    console.warn('MongoClient: got close', url);
                 });
                 this[access_db] = db;
                 return db;
@@ -85,7 +91,9 @@ class MongoClient extends EventEmitter {
     }
 
     disconnect() {
+        dbg.log0('disconnect called');
         this._disconnected_state = true;
+        this.promise = null;
         if (this.db) {
             this.db.close();
             this.db = null;
@@ -132,11 +140,17 @@ class MongoClient extends EventEmitter {
     }
 
     add_shard(host, port, shardname) {
-        dbg.log0('Calling add_shard', shardname, host, port);
-        return P.when(this.db.admin().command({
-                addShard: host + ':' + port,
-                name: shardname
-            }))
+        dbg.log0('Calling add_shard', shardname, host + ':' + port);
+
+        this.disconnect();
+        return P.when(this.connect())
+            .then(() => {
+                dbg.log0('add_shard connected, calling db.admin addShard{}');
+                return P.when(this.db.admin().command({
+                    addShard: host + ':' + port,
+                    name: shardname
+                }));
+            })
             .fail((err) => {
                 console.error('Failed add_shard', host + ':' + port, shardname, 'with', err.message);
                 throw err;

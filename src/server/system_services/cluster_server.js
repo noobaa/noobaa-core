@@ -69,7 +69,7 @@ function add_member_to_cluster(req) {
                         return srv.address === myip;
                     }) === -1) {
                     dbg.log0('Current server is the first on cluster and still has single mongo running, updating');
-                    return _add_new_shard_member('shard1', myip, true); ///3rd param *first_shard*/
+                    return _add_new_shard_on_server('shard1', myip, true); ///3rd param *first_shard*/
                 }
             } else {
                 return P.resolve();
@@ -135,11 +135,11 @@ function join_to_cluster(req) {
                     })
                 );
                 //Add the new shard server
-                return _add_new_shard_member(req.rpc_params.shard, req.rpc_params.ip);
+                return _add_new_shard_on_server(req.rpc_params.shard, req.rpc_params.ip);
             } else if (req.rpc_params.role === 'REPLICA') {
                 //Server is joining as a replica set member to an existing shard, update shard chain topology
                 //And add an appropriate server
-                return _add_new_replicaset_member(req.rpc_params.shard, req.rpc_params.ip);
+                return _add_new_replicaset_on_server(req.rpc_params.shard, req.rpc_params.ip);
             } else {
                 dbg.error('Unknown role', req.rpc_params.role, 'recieved, ignoring');
                 throw new Error('Unknown server role ' + req.rpc_params.role);
@@ -197,7 +197,7 @@ function heartbeat(req) {
 //
 //Internals Cluster Control
 //
-function _add_new_shard_member(shardname, ip, first_shard) {
+function _add_new_shard_on_server(shardname, ip, first_shard) {
     // "cache" current topology until all changes take affect, since we are about to lose mongo
     // until the process is done
     let current_topology = cutil.get_topology();
@@ -220,7 +220,11 @@ function _add_new_shard_member(shardname, ip, first_shard) {
                 });
                 topology_updates.config_servers = updated_cfg;
 
-                return _add_new_config(cutil.extract_servers_ip(updated_cfg), first_shard)
+                return _add_new_config_on_server(cutil.extract_servers_ip(updated_cfg), first_shard)
+                    .then(function() {
+                      //add the new shard in the mongo configuration
+                      return P.when(MongoCtrl.add_member_shard(shardname, ip));
+                    })
                     .then(function() {
                         dbg.log0('Updating topology in mongo');
                         return cutil.update_cluster_info(topology_updates);
@@ -233,14 +237,10 @@ function _add_new_shard_member(shardname, ip, first_shard) {
                         });
                     });
             }
-        })
-        .then(function() {
-            //All and done, add the new shard in the mongo configuration
-            return P.when(MongoCtrl.add_member_shard(shardname, ip));
         });
 }
 
-function _add_new_replicaset_member(shardname, ip) {
+function _add_new_replicaset_on_server(shardname, ip) {
     var shard_idx = _.findIndex(cutil.get_topology().shards, function(s) {
         return shardname === s.name;
     });
@@ -277,7 +277,7 @@ function _add_new_replicaset_member(shardname, ip) {
         });
 }
 
-function _add_new_config(cfg_array, first_shard) {
+function _add_new_config_on_server(cfg_array, first_shard) {
     dbg.log0('Adding new local config server');
     return P.when(MongoCtrl.add_new_config())
         .then(function() {

@@ -74,18 +74,18 @@ class MongoClient extends EventEmitter {
                 dbg.log0('MongoClient: connected', url);
                 db.on('reconnect', () => {
                     this.emit('reconnect');
-                    console.log('MongoClient: got reconnect', url);
+                    dbg.log('MongoClient: got reconnect', url);
                 });
                 db.on('close', () => {
                     this.emit('close');
-                    console.warn('MongoClient: got close', url);
+                    dbg.warn('MongoClient: got close', url);
                 });
                 this[access_db] = db;
                 return db;
             }, err => {
                 // autoReconnect only works once initial connection is created,
                 // so we need to handle retry in initial connect.
-                console.error('MongoClient: initial connect failed, will retry', err.message);
+                dbg.error('MongoClient: initial connect failed, will retry', err.message);
                 return P.delay(3000).then(() => this._connect(access_db, url, config));
             });
     }
@@ -114,7 +114,7 @@ class MongoClient extends EventEmitter {
         if (!is_config_set) { //connect the mongod server
             return P.when(this.db.admin().command(command))
                 .fail((err) => {
-                    console.error('Failed initiate_replica_set', set, members, 'with', err.message);
+                    dbg.error('Failed initiate_replica_set', set, members, 'with', err.message);
                     throw err;
                 });
         } else { //connect the server running the config replica set
@@ -131,7 +131,7 @@ class MongoClient extends EventEmitter {
         if (!is_config_set) { //connect the mongod server
             return P.when(this.db.admin().command(command))
                 .fail((err) => {
-                    console.error('Failed replica_update_members', set, members, 'with', err.message);
+                    dbg.error('Failed replica_update_members', set, members, 'with', err.message);
                     throw err;
                 });
         } else { //connect the server running the config replica set
@@ -152,7 +152,7 @@ class MongoClient extends EventEmitter {
                 }));
             })
             .fail((err) => {
-                console.error('Failed add_shard', host + ':' + port, shardname, 'with', err.message);
+                dbg.error('Failed add_shard', host + ':' + port, shardname, 'with', err.message);
                 throw err;
             });
     }
@@ -183,7 +183,7 @@ class MongoClient extends EventEmitter {
     _send_command_config_rs(command) {
         return P.when(this._connect('cfg_db', this.cfg_url, this.config))
             .fail((err) => {
-                console.error('MongoClient: connecting to config rs failed', err.message);
+                dbg.error('MongoClient: connecting to config rs failed', err.message);
                 throw err;
             })
             .then(confdb => P.when(confdb.admin().command(command)))
@@ -192,7 +192,7 @@ class MongoClient extends EventEmitter {
                 return;
             })
             .fail((err) => {
-                console.error('MongoClient: sendinbg command config rs failed', command, err.message);
+                dbg.error('MongoClient: sending command config rs failed', command, err.message);
                 throw err;
             });
     }

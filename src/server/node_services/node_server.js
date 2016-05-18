@@ -15,6 +15,10 @@ const nodes_store = require('./nodes_store');
 const node_monitor = require('./node_monitor');
 const string_utils = require('../../util/string_utils');
 
+const LIST_NODE_SORT_FIELD_MAPPING = Object.freeze({
+    used: 'storage.used',
+});
+
 
 /**
  *
@@ -472,10 +476,6 @@ const NODE_INFO_DEFAULT_FIELDS = {
     rpc_address: '',
     base_address: '',
 };
-
-const LIST_NODE_SORT_FIELD_MAPPING = Object.freeze({
-    used: 'storage.used',
-});
 
 function get_node_full_info(node) {
     var info = _.defaults(_.pick(node, NODE_INFO_PICK_FIELDS), NODE_INFO_DEFAULT_FIELDS);

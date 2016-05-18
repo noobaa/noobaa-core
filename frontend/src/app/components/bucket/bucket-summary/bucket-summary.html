@@ -49,46 +49,17 @@
 
 <vr></vr>
 
-<section class="row multiline c5 content-middle">
-        <!-- ko if: hasCloudSyncPolicy -->
-        <button class="btn3 push-next" data-bind="click: () => isViewCloudSyncModalVisible(true)">
-            View Cloud Sync
-        </button>
-        <!-- /ko -->
-
-        <!-- ko ifnot: hasCloudSyncPolicy -->
-        <button class="btn3 push-next" data-bind="click: () => isSetCloudSyncModalVisible(true)">
-            Set Cloud Sync
-        </button>
-        <!-- /ko -->
-
-        <button class="btn3 push-next" data-bind="click: () => isPolicyModalVisible(true)">
-            Edit Policy
-        </button>
+<section class="c5 column">
+    <h3 class="heading4 push-next">
+        Activity
+    </h3>
+    <span>No current data activity</span>
 </section>
 <!-- /ko -->
 
-<!-- ko if: isPolicyModalVisible -->
-<bucket-policy-modal params="
-    policy: policy, 
-    onClose: () => isPolicyModalVisible(false)
-"></bucket-policy-modal>
-<!-- /ko -->        
 
 
 
-<!-- ko if: isSetCloudSyncModalVisible -->
-<set-cloud-sync-modal params="
-    bucketName: name, 
-    onClose: () => isSetCloudSyncModalVisible(false)
-"></set-cloud-sync-modal>
-<!-- /ko -->  
 
-<!-- ko if: isViewCloudSyncModalVisible -->
-<cloud-sync-modal params="
-    bucketName: name, 
-    onClose: () => isViewCloudSyncModalVisible(false)
-"></cloud-sync-modal>
-<!-- /ko -->    
 
 

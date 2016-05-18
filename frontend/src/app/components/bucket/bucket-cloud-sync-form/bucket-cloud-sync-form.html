@@ -1,0 +1,88 @@
+<div class="row content-middle push-next">
+    <h3 class="heading2 greedy push-next">
+        Cloud sync policy
+    </h3>
+
+    <!-- ko if: hasCloudSyncPolicy -->
+    <button class="btn3 push-next" data-bind="click: removePolicy">
+        Remove
+    </button>
+    <!-- /ko -->
+
+    <!-- ko ifnot: hasCloudSyncPolicy -->
+    <button class="btn3" data-bind="click: showSetCloudSyncModal">
+        Set Policy
+    </button>
+    <!-- /ko -->
+</div>
+
+ <!-- ko if: hasCloudSyncPolicy -->
+<section class="column">
+    <h3 class="heading3 push-next">Status details</h3>
+    <ul class="list-no-style column">
+        <li class="row">
+            <span class="c2">Sync Status:</span>
+            <span class="c10" data-bind="text: syncStatus"></span>
+        </li>
+        <li class="row">
+            <span class="c2">Last synced time:</span>
+            <span class="c10" data-bind="text: lastSync"></span>
+        </li>
+        <li class="row">
+            <span class="c2">Next sync time:</span>
+            <span class="c10" data-bind="text: nextSync"></span>
+        </li>
+    </ul>
+</section>
+
+ <hr>
+
+<section class="column">
+    <h3 class="heading3 push-next">Conneciton details</h3>
+    <ul class="list-no-style column">
+        <li class="row">
+            <span class="c2">Name:</span>
+            <span class="c10" data-bind="text: connection"></span>
+        </li>
+        <li class="row">
+            <span class="c2">Target bucket:</span>
+            <span class="c10" data-bind="text: targetBucket"></span>
+        </li>
+        <li class="row">
+            <span class="c2">Access key:</span>
+            <span class="c10" data-bind="text: accessKey"></span>
+        </li>
+        <li class="row">
+            <span class="c2">Endpoint:</span>
+            <span class="c10" data-bind="text: endpoint"></span>
+        </li>
+    </ul>
+</section>
+
+ <hr>
+
+<section class="column">
+    <h3 class="heading3 push-next">Sync Configuration</h3>
+    <ul class="list-no-style column">
+        <li class="row">
+            <span class="c2">Frequency:</span>
+            <span class="c10" data-bind="text: frequancy"></span>
+        </li>
+        <li class="row">
+            <span class="c2">Direction:</span>
+            <span class="c10" data-bind="text: syncDirection"></span>
+        </li>
+        <li class="row">
+            <span class="c2">Sync Deletions:</span>
+            <span class="c10" data-bind="text: syncDeletions"></span>
+        </li>
+    </ul>
+</section>
+<!-- /ko -->
+
+<!-- ko if: isSetCloudSyncModalVisible -->
+<set-cloud-sync-modal params="
+    bucketName: bucketName, 
+    onClose: () => hideSetCloudSyncModal()
+"></set-cloud-sync-modal>
+<!-- /ko -->

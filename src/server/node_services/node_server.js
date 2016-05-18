@@ -319,6 +319,7 @@ function list_nodes_int(system_id, query, skip, limit, pagination, sort, order, 
             }
 
             if (sort) {
+                sort = LIST_NODE_SORT_FIELD_MAPPING[sort] || sort;
                 var sort_order = (order === -1) ? -1 : 1;
                 sort_opt[sort] = sort_order;
             }
@@ -463,6 +464,7 @@ const NODE_INFO_PICK_FIELDS = [
     'latency_of_disk_write',
     'debug_level',
 ];
+
 const NODE_INFO_DEFAULT_FIELDS = {
     ip: '0.0.0.0',
     version: '',
@@ -470,6 +472,10 @@ const NODE_INFO_DEFAULT_FIELDS = {
     rpc_address: '',
     base_address: '',
 };
+
+const LIST_NODE_SORT_FIELD_MAPPING = Object.freeze({
+    used: 'storage.used',
+});
 
 function get_node_full_info(node) {
     var info = _.defaults(_.pick(node, NODE_INFO_PICK_FIELDS), NODE_INFO_DEFAULT_FIELDS);

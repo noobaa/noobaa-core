@@ -196,8 +196,6 @@ input[type="search"] {
 
 
 .heading1 {
-    margin-bottom : .5em;
-
     .text(
         @font-type1, 
         @font-weight-thin, 
@@ -207,8 +205,6 @@ input[type="search"] {
 }
 
 .heading2 {
-    margin-bottom: .5em;
-
     .text(
         @font-type2, 
         @font-weight-light, 
@@ -227,8 +223,6 @@ input[type="search"] {
 }
 
 .heading4 {
-    margin-bottom: .5em;
-
     .text(
         @font-type2, 
         @font-weight-thin, 
@@ -532,24 +526,30 @@ input[type="search"] {
 
     th {
         text-transform: uppercase;
+        font-weight:  @font-weight-light;
 
-        /*&.asc, &.des {
-            > a::after {
+        a {
+            display: inline-block;
+        }
+
+        &.asc, &.des {
+            &::after {
                 content: '';
                 vertical-align: middle;
-                margin-left: .5em;
-                margin-top: .5em;
+                margin-right: -1em;
                 display: inline-block;
                 border: 5px solid transparent;
             }
         }
 
-        &.asc > a::after {
+        &.asc::after {
+            margin-top: -2.5px;
             border-bottom: none;
             border-top-color: @text-color4;
-        }*/
+        }
 
-        &.des > a::after {
+        &.des::after {
+            margin-top: -4px;
             border-top: none;
             border-bottom-color: @text-color4;
         }

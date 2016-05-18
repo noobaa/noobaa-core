@@ -1,7 +1,7 @@
 <div class="row content-middle  push-next">
     <h3 class="heading3 greedy push-next">
         Files in this bucket: 
-        <span data-bind="text: count"></span>
+        <span data-bind="text: objectCount"></span>
     </h3>
 
     <button class="btn3" data-bind="click: () => showUploadFilesModal()">Upload Files</button>
@@ -14,7 +14,7 @@
         "/>
     </div>
 
-    <paginator params="pageSize: pageSize, itemCount: count, page: page">
+    <paginator params="pageSize: pageSize, itemCount: filteredObjectCount, page: page">
     </paginator>
 </div>
 

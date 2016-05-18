@@ -11,8 +11,12 @@ class BucketObjectsTableViewModel {
             () => bucket() && bucket().name
         );
 
+        this.objectCount = ko.pureComputed(
+            () => bucket() && bucket().num_objects
+        );
+
         this.pageSize = paginationPageSize;
-        this.count = objects.count;
+        this.filteredObjectCount = objects.count;
         this.sortedBy = objects.sortedBy;
         this.order = objects.order;
         

@@ -22,7 +22,7 @@ class DropdownViewModel {
         this.selected = selected;
         this.selectedIndex = ko.pureComputed(
             () => ko.unwrap(options).findIndex(
-                opt => opt.value === ko.unwrap(selected)
+                opt => opt && opt.value === ko.unwrap(selected)
             )
         );
 

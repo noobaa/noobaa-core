@@ -152,7 +152,7 @@ module.exports = {
                     },
                     sort: {
                         type: 'string',
-                        enum: ['state', 'name', 'ip', 'capacity', 'hd', 'trust', 'online']
+                        enum: ['state', 'name', 'ip', 'used', 'hd', 'trust', 'online']
                     },
                     order: {
                         type: 'integer',

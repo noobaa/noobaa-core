@@ -4,6 +4,8 @@ import api from 'services/api';
 import config from 'config';
 import { hostname } from 'server-conf';
 
+window.api = api;
+
 import {
     isDefined, isUndefined, encodeBase64, cmpStrings, cmpInts, cmpBools,
     randomString, last, clamp,  makeArray, execInOrder, realizeUri, downloadFile,
@@ -1028,6 +1030,9 @@ export function updateTier(name, dataPlacement, pools) {
         data_placement: dataPlacement,
         pools: pools
     })
+        .then(
+            () => loadTier(name)
+        )
         .done();
 }
 

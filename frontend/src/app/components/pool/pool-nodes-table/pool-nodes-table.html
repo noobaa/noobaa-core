@@ -52,8 +52,8 @@
                     <a href data-bind="click: () => orderBy('ip')">ip</a>
                 </th>
 
-                <th class="capacity-col" data-bind="css: orderClassFor('capacity')">
-                    <a href data-bind="click: () => orderBy('capacity')">used capacity</a>
+                <th class="used-col" data-bind="css: orderClassFor('used')">
+                    <a href data-bind="click: () => orderBy('used')">used capacity</a>
                 </th>
 
                 <th class="data-access-col">
@@ -80,7 +80,7 @@
                 </td>
 
                 <td class="ip-col" data-bind="text: ip"></td>
-                <td class="capacity-col" data-bind="text: capacity"></td>
+                <td class="used-col" data-bind="text: capacity"></td>
                 <td class="data-access-col" data-bind="
                     text: dataAccessText, 
                     css: dataAccessClass

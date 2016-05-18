@@ -26,28 +26,28 @@ MongoCtrl.prototype.init = function() {
 
 MongoCtrl.prototype.add_replica_set_member = function(name) {
     let self = this;
-    return self._remove_single_mongo()
-        .then(() => self._add_replica_set_member_supervisor(name))
+    return self._remove_single_mongo_program()
+        .then(() => self._add_replica_set_member_program(name))
         .then(() => SupervisorCtl.apply_changes());
 };
 
 MongoCtrl.prototype.add_new_shard_server = function(name, first_shard) {
     let self = this;
-    return self._remove_single_mongo()
-        .then(() => self._add_new_shard_supervisor(name, first_shard))
+    return self._remove_single_mongo_program()
+        .then(() => self._add_new_shard_program(name, first_shard))
         .then(() => SupervisorCtl.apply_changes());
 };
 
 MongoCtrl.prototype.add_new_mongos = function(cfg_array) {
     let self = this;
-    return P.when(self._add_new_mongos_supervisor(cfg_array))
+    return P.when(self._add_new_mongos_program(cfg_array))
         .then(() => SupervisorCtl.apply_changes())
         .then(() => mongo_client.update_connection_string(cfg_array));
 };
 
 MongoCtrl.prototype.add_new_config = function() {
     let self = this;
-    return self._add_new_config_supervisor()
+    return self._add_new_config_program()
         .then(() => SupervisorCtl.apply_changes());
 };
 
@@ -75,7 +75,7 @@ MongoCtrl.prototype.update_connection_string = function() {
 //
 //Internals
 //
-MongoCtrl.prototype._add_replica_set_member_supervisor = function(name) {
+MongoCtrl.prototype._add_replica_set_member_program = function(name) {
     if (!name) {
         throw new Error('port and name must be supplied to add new shard');
     }
@@ -95,7 +95,7 @@ MongoCtrl.prototype._add_replica_set_member_supervisor = function(name) {
         .then(() => SupervisorCtl.add_program(program_obj));
 };
 
-MongoCtrl.prototype._add_new_shard_supervisor = function(name, first_shard) {
+MongoCtrl.prototype._add_new_shard_program = function(name, first_shard) {
     if (!name) {
         throw new Error('port and name must be supplied to add new shard');
     }
@@ -120,7 +120,7 @@ MongoCtrl.prototype._add_new_shard_supervisor = function(name, first_shard) {
     }
 };
 
-MongoCtrl.prototype._add_new_mongos_supervisor = function(cfg_array) {
+MongoCtrl.prototype._add_new_mongos_program = function(cfg_array) {
     let config_string = '';
     _.each(cfg_array, function(srv) {
         if (config_string !== '') {
@@ -141,7 +141,7 @@ MongoCtrl.prototype._add_new_mongos_supervisor = function(cfg_array) {
         .then(() => SupervisorCtl.add_program(program_obj));
 };
 
-MongoCtrl.prototype._add_new_config_supervisor = function() {
+MongoCtrl.prototype._add_new_config_program = function() {
     let program_obj = {};
     let dbpath = config.MONGO_DEFAULTS.CFG_DB_PATH;
     program_obj.name = 'mongocfg';
@@ -158,7 +158,7 @@ MongoCtrl.prototype._add_new_config_supervisor = function() {
         .then(() => SupervisorCtl.add_program(program_obj));
 };
 
-MongoCtrl.prototype._remove_single_mongo = function() {
+MongoCtrl.prototype._remove_single_mongo_program = function() {
     return P.when(SupervisorCtl.remove_program('mongodb'));
 };
 

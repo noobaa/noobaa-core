@@ -2,13 +2,10 @@
 
 var api = require('../../api');
 var rpc = api.new_rpc();
-var target_rpc = api.new_rpc();
 var argv = require('minimist')(process.argv);
 var P = require('../../util/promise');
 var ops = require('./basic_server_ops');
-var _ = require('lodash');
 var assert = require('assert');
-var promise_utils = require('../../util/promise_utils');
 var dotenv = require('dotenv');
 var AWS = require('aws-sdk');
 var https = require('https');
@@ -176,7 +173,7 @@ function test_list_buckets_returns_allowed_buckets() {
 
 
 function test_bucket_write_allowed() {
-    // test upload for allowed user 
+    // test upload for allowed user
     return ops.generate_random_file(1)
         .then(fname => {
             // upload with full_access_user to both buckets:
@@ -192,7 +189,7 @@ function test_bucket_write_allowed() {
                 Body: fs.createReadStream(fname)
             };
             return P.ninvoke(server, 'upload', params1)
-                .then(resp => P.ninvoke(server, 'upload', params2))
+                .then(resp => P.ninvoke(server, 'upload', params2));
         })
         .then(() => {
             return ops.generate_random_file(1)
@@ -254,7 +251,7 @@ function test_bucket_list_allowed() {
 
 
 function test_bucket_write_denied() {
-    // test upload for allowed user 
+    // test upload for allowed user
     return ops.generate_random_file(1)
         .then(fname => {
             // upload with bucket1_user to bucket2
@@ -269,7 +266,7 @@ function test_bucket_write_denied() {
                     throw new Error('expecting upload to fail with statusCode 403- AccessDenied');
                 })
                 .catch(err => {
-                    assert(err.statusCode === 403, 'expecting upload to fail with statusCode 403- AccessDenied')
+                    assert(err.statusCode === 403, 'expecting upload to fail with statusCode 403- AccessDenied');
                     return;
                 });
         });
@@ -297,7 +294,7 @@ function test_bucket_read_denied() {
                             throw new Error('expecting read to fail with statusCode 403- AccessDenied');
                         })
                         .catch(err => {
-                            assert(err.statusCode === 403, 'expecting read to fail with statusCode 403- AccessDenied')
+                            assert(err.statusCode === 403, 'expecting read to fail with statusCode 403- AccessDenied');
                             return;
                         });
                 });
@@ -324,7 +321,7 @@ function test_bucket_list_denied() {
                             throw new Error('expecting read to fail with statusCode 403- AccessDenied');
                         })
                         .catch(err => {
-                            assert(err.statusCode === 403, 'expecting read to fail with statusCode 403- AccessDenied')
+                            assert(err.statusCode === 403, 'expecting read to fail with statusCode 403- AccessDenied');
                             return;
                         });
                 });

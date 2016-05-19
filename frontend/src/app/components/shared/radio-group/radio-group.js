@@ -13,7 +13,7 @@ class RadioGroupViewModel {
         this.selected = selected;
         this.options = options;
         this.disabled = disabled;
-        this.layoutClass = !!multiline ? 'block' : 'inline';
+        this.layoutClass = !!multiline ? 'column' : 'row';
     }
 }
 

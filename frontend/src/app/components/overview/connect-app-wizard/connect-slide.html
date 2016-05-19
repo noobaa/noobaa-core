@@ -1,29 +1,30 @@
-<section class="container">
-    <h2 class="heading3">
-        Choose an account to connect with
-    </h2>
+<h2 class="heading3">
+    Choose an account to connect with
+</h2>
 
-    <dropdown params="
-        options: accountOptions,
-        selected: selectedAccount,
-        placeholder: 'select account',
-    "></dropdown>
-</section>
+<dropdown class="push-next" params="
+    options: accountOptions,
+    selected: selectedAccount,
+    placeholder: 'select account',
+"></dropdown>
 
-<section class="container">
-    <h2 class="heading3">
-        Use the following infromation to config your application
-    </h2>
+<h2 class="heading3 push-prev">
+    Use the following infromation to config your application
+</h2>
 
-    <property-sheet class="container" params="properties: details"></property-sheet>
+<property-sheet class="push-next" params="properties: details">
+</property-sheet>
+
+<p >
+    <svg-icon class="icon-small" params="
+        uri: '/fe/assets/icons.svg#notif-info'
+    "></svg-icon>
+
+    to create a new account go to System Managemnet >
     
-    <p class="paragraph">
-        <svg-icon class="icon-small" params="uri: '/fe/assets/icons.svg#notif-info'"></svg-icon>
-        to create a new account go to System Managemnet >
-        <a class="link" data-bind="
-            href: '/fe/systems/:system/management/accounts'
-        ">
-            Accounts
-        </a>
-    </p>
-</section>
+    <a class="link" data-bind="
+        href: '/fe/systems/:system/management/accounts'
+    ">
+        Accounts
+    </a>
+</p>

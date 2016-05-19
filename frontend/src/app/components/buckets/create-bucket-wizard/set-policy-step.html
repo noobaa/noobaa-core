@@ -1,16 +1,16 @@
-<section class="container"P>
+<section class="column push-next">
     <h2 class="heading3">Policy Type</h2>
-    <ul class="list-no-style policy-types">
-        <li>
+    <ul class="list-no-style">
+        <li class="row push-next">
             <radio-btn  params="
                 group: 'policy-type',
                 value: 'SPREAD',
                 selected: dataPlacement,
-                label: 'Stripe'">
-            </radio-btn>
+                label: 'Stripe'
+            "></radio-btn>
             | Spreading the data across the chosen pools
         </li>
-        <li>
+        <li class="row">
             <radio-btn params="
                 group: 'policy-type',
                 value: 'MIRROR',
@@ -22,12 +22,16 @@
     </ul>
 </section>
 
-<section class="container">
-    <div class="pull-right">
-        <button class="link" data-bind="click: selectAllPools">Select all</button>
-        |
-        <button class="link" data-bind="click: clearAllPools">Clear</button>
+<section class="column">
+    <div class="row content-middle ">
+        <h2 class="heading3 greedy">Choose Pools for policy</h2>
+        <div>
+            <button class="link" data-bind="click: selectAllPools">Select all</button>
+            |
+            <button class="link" data-bind="click: clearAllPools">Clear</button>
+        </div>
     </div>
-    <h2 class="heading3">Choose Pools for policy</h2>
-    <multiselect class="pools" params="options: pools, selected: selectedPools"></multiselect>
+
+    <multiselect params="options: pools, selected: selectedPools">
+    </multiselect>
 </section>

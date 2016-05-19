@@ -6,6 +6,10 @@
     onComplete: () => createBucket(),
     onClose: onClose
 ">
-    <section data-bind="template: { html: chooseNameStepTemplate }"></section>
-    <section data-bind="template: { html: setPolicyStepTemplate }"></section>
+    <section class="column" data-bind="
+        template: { html: chooseNameStepTemplate }
+    "></section>
+    <section class="column" data-bind="
+        template: { html: setPolicyStepTemplate }
+    "></section>
 </wizard>

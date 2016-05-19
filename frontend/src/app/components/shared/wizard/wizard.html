@@ -2,7 +2,7 @@
     <h1 class="heading2 push-next" data-bind="text: heading"></h1>
     <stepper class="push-next" params="steps: steps, current: step"></stepper>
 
-    <div class="steps-row push-prev" data-bind="
+    <div class="steps-row push-next" data-bind="
         foreach: $parentContext.$parentContext.$componentTemplateNodes
     ">
         <div class="step" data-bind="
@@ -11,7 +11,7 @@
         "></div>
     </div>
 
-    <div class="row push-prev align-end content-middle">
+    <div class="row align-end content-middle">
         <button class="link push-next" data-bind="
             click: cancel, 
             visible: isCancelVisible
@@ -26,29 +26,17 @@
             Previous
         </button>
 
-        <button class="btn2 push-next" data-bind="
+        <button class="btn2" data-bind="
             click: next, 
             visible: isNextVisible
         ">
             Next
         </button>
         
-        <button class="btn2 push-next" data-bind="
+        <button class="btn2" data-bind="
             click: done, 
             visible: isDoneVisible, 
             text: actionLabel
         "></button>
     </div>
-
-    <!--<div class="steps" data-bind="
-        style: { transform: stepsTransform },
-        foreach: $parentContext.$parentContext.$componentTemplateNodes
-    ">
-        <div class="step" data-bind="
-            css: { current: $parent.step() === $index() },
-            template: { nodes: [$data], data: $parents[3] }
-        "></div>
-    </div>
-
-
 </modal>

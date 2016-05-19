@@ -152,6 +152,7 @@ function general_settings {
 	echo "alias ll='ls -lha'" >> ~/.bashrc
 	echo "alias less='less -R'" >> ~/.bashrc
 	echo "alias zless='zless -R'" >> ~/.bashrc
+	echo "alias nlog='logger -p local0.warn -t NooBaaBash[1]'"
 	echo "export GREP_OPTIONS='--color=auto'" >> ~/.bashrc
 
 	#Fix file descriptor limits

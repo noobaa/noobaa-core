@@ -22,10 +22,6 @@ class WizardViewModel {
         this.onComplete = onComplete;
         this.onClose = onClose;
 
-        this.stepsTransform = ko.pureComputed(
-            () => `translate(${this.step() * -100}%)`
-        );
-
         this.isCancelVisible = ko.pureComputed(
             () => this.step() === 0
         );
@@ -41,6 +37,10 @@ class WizardViewModel {
         this.isDoneVisible = ko.pureComputed(
             () => this.step() === this.steps.length - 1
         );
+    }
+
+    isInStep(stepNum) {
+        return this.step() === stepNum;
     }
 
     cancel() {

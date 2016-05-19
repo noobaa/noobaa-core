@@ -57,6 +57,8 @@
 </div>
 
 <!-- ko if: isUploadFilesModalVisible -->
-<upload-files-modal params="bucketName: name, onClose: () => hideUploadFilesModal()">
-</upload-files-modal>
+<upload-files-modal params="
+    bucketName: bucketName, 
+    onClose: () => hideUploadFilesModal()
+"></upload-files-modal>
 <!-- /ko -->    

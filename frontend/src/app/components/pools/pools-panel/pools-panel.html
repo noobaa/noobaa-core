@@ -2,16 +2,14 @@
     <h2 class="box-header">Pool List</h2>
 
     <button class="btn2 align-end push-next"
-        data-bind="click: () => isCreatePoolWizardVisible(true)">
+        data-bind="click: () => showCreatePoolWizard()">
         Create Pool
     </button>
 
-    <pools-table params="pools: pools"></pools-table>
+    <pools-table class="column greedy" params="pools: pools"></pools-table>
 <section>
 
 <!-- ko if: isCreatePoolWizardVisible -->
-<create-pool-wizard params="onClose: () => isCreatePoolWizardVisible(false)">
+<create-pool-wizard params="onClose: () => hideCreatePoolWizard()">
 </create-pool-wizard>
 <!-- /ko -->
-     
-     

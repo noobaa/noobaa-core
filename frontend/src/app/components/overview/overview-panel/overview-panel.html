@@ -1,9 +1,12 @@
-<h1 class="heading1 align-middle">OVERVIEW</h1>
+<h1 class="heading1 align-middle push-next">OVERVIEW</h1>
 
 <div class="row push-next bounded">
     <section class="column greedy">
         <!-- ko if: isReady -->
-        <pools-overview params="poolCount: poolCount, nodeCount: nodeCount">
+        <pools-overview class="push-next" params="
+            poolCount: poolCount, 
+            nodeCount: nodeCount
+        ">
         </pools-overview>
         <!-- /ko -->
         
@@ -21,8 +24,10 @@
 
     <section class="column greedy">
         <!-- ko if: isReady -->
-        <buckets-overview params="bucketCount: bucketCount, objectCount: objectCount">
-        </buckets-overview>
+        <buckets-overview class="push-next" params="
+            bucketCount: bucketCount, 
+            objectCount: objectCount
+        ">π</buckets-overview>
         <!-- /ko -->
         
         <button class="btn" data-bind="click: () => isConnectAppWizardVisible(true)">

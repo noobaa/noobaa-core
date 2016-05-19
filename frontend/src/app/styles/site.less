@@ -623,10 +623,14 @@ input[type="search"] {
             margin-left: -100%;
             opacity: 0;
             transition: all 500ms;
+            height: 0;
+            overflow: hidden;
 
             &.selected {
                 margin-left: 0;
                 opacity: 1;
+                height: initial;
+                overflow: auto;
 
                 ~ .tab {
                     margin-left: 100%;

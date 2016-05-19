@@ -150,7 +150,7 @@ export function showBucket() {
     logAction('showBucket');
 
     let ctx = model.routeContext();
-    let { bucket, tab = 'objects' } = ctx.params;
+    let { bucket, tab = 'data-placement' } = ctx.params;
     let { filter, sortBy = 'name', order = 1, page = 0 } = ctx.query;
 
     model.uiState({

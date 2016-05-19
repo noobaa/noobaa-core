@@ -15,14 +15,7 @@ const dbg = require('../../util/debug_module')(__filename);
 const config = require('../../../config.js');
 
 function _init() {
-    var self = this;
-    if (os_utils.is_supervised_env()) {
-        return os_utils.read_server_secret()
-            .then((sec) => {
-                self._secret = sec;
-                return P.when(MongoCtrl.init());
-            });
-    }
+    return P.when(MongoCtrl.init());
 }
 
 //
@@ -103,7 +96,7 @@ function add_member_to_cluster(req) {
 function join_to_cluster(req) {
     dbg.log0('Got join_to_cluster request', req.rpc_params);
     //Verify secrets match
-    if (req.rpc_params.secret !== _get_secret()) {
+    if (req.rpc_params.secret !== system_store.get_server_secret()) {
         console.error('Secrets do not match!');
         throw new Error('Secrets do not match!');
     }
@@ -222,8 +215,8 @@ function _add_new_shard_on_server(shardname, ip, first_shard) {
 
                 return _add_new_config_on_server(cutil.extract_servers_ip(updated_cfg), first_shard)
                     .then(function() {
-                      //add the new shard in the mongo configuration
-                      return P.when(MongoCtrl.add_member_shard(shardname, ip));
+                        //add the new shard in the mongo configuration
+                        return P.when(MongoCtrl.add_member_shard(shardname, ip));
                     })
                     .then(function() {
                         dbg.log0('Updating topology in mongo');
@@ -309,14 +302,6 @@ function _publish_to_cluster(apiname, req_params) {
             timeout: 60000 //60s
         });
     });
-}
-
-//
-//Internals Utiliy
-//
-
-function _get_secret() {
-    return this._secret;
 }
 
 // EXPORTS

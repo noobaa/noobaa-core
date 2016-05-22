@@ -1,5 +1,5 @@
 <modal params="onClose: () => close()">
-    <div class="column">
+
         <h1 class="heading1 text-center push-next">Test Node</h1>
 
         <h2 class="heading3">Test Type</h2>
@@ -20,7 +20,7 @@
             Test Results
             <span class="remark" data-bind="text: lastTestTime"></span>
         </h2>
-        <div class="results box column">
+        <div class="results box column greedy">
             <!-- ko ifnot: hasResults -->
             Click on the Run Test button to start the test
             <!-- /ko -->
@@ -57,5 +57,4 @@
         <button class="action btn2 align-end push-prev" data-bind="click: close">
             Close
         </button>
-    </div>
 </modal>

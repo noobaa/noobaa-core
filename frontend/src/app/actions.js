@@ -281,21 +281,19 @@ export function showCreateBucketWizard() {
     loadAction('showCreateBucketModal')
 }
 
-export function openAuditLog() {
-    logAction('openAuditLog');
+export function openDrawer() {
+    logAction('openDrawer');
 
     model.uiState(
-        Object.assign(model.uiState(), {
-            tray: { componentName: 'audit-pane' }
-        })
+        Object.assign(model.uiState(), { drawer: true })
     );
 }
 
-export function closeTray() {
-    logAction('closeTray');
+export function closeDrawer() {
+    logAction('closeDarwer');
 
     model.uiState(
-        Object.assign(model.uiState(), { tray: null })
+        Object.assign(model.uiState(), { drawer: false })
     );
 }
 

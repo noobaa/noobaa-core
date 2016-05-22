@@ -1,49 +1,65 @@
-.audit-pane {
-    position: relative;
-    height: 100%;
-    padding: 1em;
+audit-pane {
+    .column();
+    .greedy();
+    padding: @gutter;
 
-    .log {
-        position: absolute;
-        left: 1em;
-        right: 1em;
-        bottom: .5em;
-        top: 11em;
-    }
+    .audit-header {
+        background-color: @bg-color2;
+        padding: @gutter/2 @gutter;
+        margin: -@gutter;
+        margin-bottom: @gutter;
 
-    .log-entry {
-        &.alert {
-            color: @text-color8;
-        }
-
-        &.warning {
-            color: @text-color10;
+        > .btn-flat {
+            padding: 0;
         }
     }
-    
+ 
+
+    .audit-row {
+        cursor: @cursor-pointer;
+
+        &:hover {
+            background-color: fade(@bg-color11, 20%);
+        }
+
+        &.selected {
+            .highlight();
+            background-color: @bg-color1;
+            outline: 2px solid @bg-color11;
+            outline-offset: -4px;
+            z-index: 2;
+            position: relative;
+        }
+    }
+
+    .desc-box {
+        height: 10em;
+        overflow-y: auto;
+    }
+
     .time-col {
-        min-width: 6em;
+        min-width: 7em;
     }
 
     .user-col {
-        min-width: 5em;
-        max-width: 5em;
+        min-width: 6em;
+        max-width: 6em;
 
         > span {
             display: block;
         }
     }
 
-    .entity-col {
-        width: 100%;
-    }
-
     .category-col {
-        min-width: 6em;
+        min-width: 7em;
     }
 
     .event-col {
-        min-width: 7em;
+        min-width: 8em;
         word-break: break-word;
+    }
+
+    .entity-col {
+        width: 100%;
     }
 }

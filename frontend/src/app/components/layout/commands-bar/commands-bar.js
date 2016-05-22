@@ -1,12 +1,12 @@
 import template from './commands-bar.html'; 
 import ko from 'knockout';
 import { uiState } from 'model';
-import { refresh, signOut, openAuditLog, closeTray } from 'actions';
+import { refresh, signOut, openDrawer, closeDrawer } from 'actions';
 
 class CommandBarViewModel {
     constructor() {
-        this.isTrayOpen = ko.pureComputed(
-            () => !!uiState().tray
+        this.isDrawerOpen = ko.pureComputed(
+            () => !!uiState().drawer
         )
     }
 
@@ -15,7 +15,7 @@ class CommandBarViewModel {
     }
 
     showAuditLog() {
-        this.isTrayOpen() ? closeTray() : openAuditLog();
+        this.isDrawerOpen() ? closeDrawer() : openDrawer();
     }
 
     signOut() {

@@ -49,7 +49,6 @@ export default function register(ko) {
     ko.components.register('bucket-cloud-sync-form',        require('./bucket/bucket-cloud-sync-form/bucket-cloud-sync-form'));
     ko.components.register('bucket-policy-modal',           require('./bucket/bucket-policy-modal/bucket-policy-modal'));
     ko.components.register('upload-files-modal',            require('./bucket/upload-files-modal/upload-files-modal'));
-    ko.components.register('cloud-sync-modal',              require('./bucket/cloud-sync-modal/cloud-sync-modal'));
     ko.components.register('set-cloud-sync-modal',          require('./bucket/set-cloud-sync-modal/set-cloud-sync-modal'));
     ko.components.register('aws-credentials-modal',         require('./bucket/aws-credentials-modal/aws-credentials-modal'));
     ko.components.register('bucket-s3-access-list',         require('./bucket/bucket-s3-access-list/bucket-s3-access-list'));
@@ -89,8 +88,6 @@ export default function register(ko) {
     ko.components.register('node-details-form',     require('./node/node-details-form/node-details-form'));
     ko.components.register('node-diagnostics-form', require('./node/node-diagnostics-form/node-diagnostics-form'));
     ko.components.register('test-node-modal',       require('./node/test-node-modal/test-node-modal'));
-    ko.components.register('diagnose-modal',        require('./node/diagnose-modal/diagnose-modal'));
-    
 
     // -------------------------------
     // Management
@@ -132,7 +129,7 @@ export default function register(ko) {
     ko.components.register('slider',            require('./shared/slider/slider'));
     ko.components.register('wizard',            require('./shared/wizard/wizard'));
     ko.components.register('paginator',         require('./shared/paginator/paginator'));
-    ko.components.register('tray',              require('./shared/tray/tray'));
+    ko.components.register('drawer',            require('./shared/drawer/drawer'));
     ko.components.register('tiled-select',      require('./shared/tiled-select/tiled-select'));
     ko.components.register('delete-button',     require('./shared/delete-button/delete-button'));
     ko.components.register('file-selector',     require('./shared/file-selector/file-selector'));

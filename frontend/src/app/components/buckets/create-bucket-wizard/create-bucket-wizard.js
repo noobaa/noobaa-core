@@ -52,7 +52,6 @@ class CreateBucketWizardViewModel {
                 break;
 
             case 2: 
-                console.log('b;la',this.setPolicyErrors())
                 if (this.setPolicyErrors().length > 0) {
                     this.setPolicyErrors.showAllMessages();
                     return false;

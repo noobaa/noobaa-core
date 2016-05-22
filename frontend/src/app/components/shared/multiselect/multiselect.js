@@ -2,7 +2,12 @@ import template from './multiselect.html';
 import ko from 'knockout';
 
 class MultiSelectViewModel {
-    constructor({ options = [], selected = [], disabled = false }) {
+    constructor({ 
+        options = [], 
+        selected = [], 
+        disabled = false,
+        insertValidationMessage = false
+    }) {
         this.options = options.map(
             option => typeof ko.unwrap(option) === 'object' ? 
                 ko.unwrap(option) : 
@@ -11,6 +16,7 @@ class MultiSelectViewModel {
 
         this.selected = selected;
         this.disabled = disabled;
+        this.insertValidationMessage = insertValidationMessage
     }
 }
 

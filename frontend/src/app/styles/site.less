@@ -291,12 +291,7 @@ input[type="search"] {
 }
 
 .disabled {
-    .text(
-        @font-type2, 
-        @font-weight-light, 
-        @font-size-normal, 
-        @text-color5
-    );  
+    color: @text-color5;
 }
 
 .container {
@@ -674,6 +669,7 @@ input[type="search"] {
 
 .val-msg {
     display: block !important;
+    line-height: 2;
     height: 1.4em;
     margin-bottom: .25em;
     
@@ -890,6 +886,18 @@ input[type="search"] {
 .scrollable {
     overflow: auto;
     padding-right: 10px;
+}
+
+.inherit-width {
+    width: inherit;
+    min-width: inherit;
+    max-width: inherit;
+}
+
+.inherit-height {
+    height: inherit;
+    min-height: inherit;
+    max-height: inherit;
 }
 
 .rotate {

@@ -1,25 +1,30 @@
-<h2 class="heading2" data-bind="click: () => expanded.toggle()">
-    <button class="btn-flat pull-right rotate no-outline" data-bind="
-        css: { 'deg-90': !expanded() }
-    ">
-        <svg-icon class="expand-icon" params="uri: '/fe/assets/icons.svg#expand'" ></svg-icon>
-    </button>
-    Server Date & Time
-</h2>
 
-<p class="summary container" data-bind="visible: !expanded()">
+<div class="row content-middle" data-bind="click: () => expanded.toggle()">
+    <h2 class="heading2 greedy">
+        Server Date & Time
+    </h2>
+
+    <button class="btn-flat expand-btn no-outline">
+        <svg-icon class="rotate" 
+            params="uri: '/fe/assets/icons.svg#expand'" 
+            data-bind="css: { 'deg-90': !expanded() }">
+        </svg-icon>
+    </button>
+</div>
+
+<p data-bind="visible: !expanded()">
     Current Server Time: 
     <output class="text-tech emphasized" data-bind="text: serverTimeText"></output>
 </p>
 
-<div class="container" data-bind="expand: expanded">
-    <radio-group class="container" params="
+<div class="column" data-bind="expand: expanded">
+    <radio-group class="push-next" params="
         options: configTypes, 
         selected: selectedConfigType
     "></radio-group>
 
     <!-- ko if: usingManualTime -->
-    <section class="container">
+    <section class="push-next">
         <editor params="label: 'Time Zone'">
             <dropdown params="
                 options: timezones, 
@@ -62,7 +67,7 @@
     <!-- /ko -->
 
     <!-- ko if: usingNTP -->
-    <section class="container">
+    <section class="push-next">
         <editor params="label: 'Time Zone'">
             <dropdown params="
                 options: timezones, 
@@ -79,10 +84,7 @@
     </section>
     <!-- /ko -->
 
-    <div class="container text-left">
-        <button class="btn2" data-bind="click: applyChanges">
-            Apply Changes
-        </button>
-    </div>
-
+    <button class="btn2" data-bind="click: applyChanges">
+        Apply Changes
+    </button>
 </div>

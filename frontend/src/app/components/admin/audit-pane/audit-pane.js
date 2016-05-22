@@ -2,7 +2,7 @@ import template from './audit-pane.html';
 import AuditRowViewModel from './audit-row';
 import ko from 'knockout';
 import { auditLog } from 'model';
-import { loadAuditEntries, loadMoreAuditEntries } from 'actions';
+import { loadAuditEntries, loadMoreAuditEntries, closeDrawer } from 'actions';
 import categories from './categories';
 
 const pageSize = 25;
@@ -11,17 +11,25 @@ const scrollThrottle = 750;
 class AuditPaneViewModel {
     constructor() {
         this.categories = Object.keys(categories).map(
-            key => ({ value: key, label: categories[key].displayName })
+            key => ({ 
+                value: key, 
+                label: categories[key].displayName 
+            })
         );
 
         this.selectedCategories = ko.pureComputed({
             read: auditLog.loadedCategories,
-            write: categoryList => loadAuditEntries(categoryList, pageSize)
+            write: categoryList => {
+                this.selectedRow(null);
+                loadAuditEntries(categoryList, pageSize);
+            }
         });
 
         this.rows = auditLog.map(
             entry => new AuditRowViewModel(entry, this.categoreis)
         );
+
+        this.selectedRow = ko.observable();
 
         this.scroll = ko.observable()
             .extend({ 
@@ -35,7 +43,15 @@ class AuditPaneViewModel {
             pos => pos > .9 && loadMoreAuditEntries(pageSize)
         );
 
+        this.description = ko.pureComputed(
+            () => this.selectedRow() ? this.selectedRow().description : []
+        );
+        
         this.selectedCategories(Object.keys(categories))
+    }
+
+    isRowSelected(row) {
+        return this.selectedRow() === row;
     }
 
     selectAllCategories() {
@@ -46,6 +62,10 @@ class AuditPaneViewModel {
 
     clearAllCategories() {
         this.selectedCategories([]);
+    }
+
+    closeDrawer() {
+        closeDrawer()
     }
 }
 

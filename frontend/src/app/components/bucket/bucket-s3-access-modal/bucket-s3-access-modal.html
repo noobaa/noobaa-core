@@ -1,10 +1,13 @@
 <modal params="onClose: () => cancel()">
-    <h1 class="heading2 container">
+    <h1 class="heading2 push-next">
         Bucket S3 Access
     </h1>
 
-    <div class="container">
-        <div class="pull-right">
+    <div class="row content-middle">
+        <h2 class="heading3 greedy">
+            Select accounts to add or remove S3 access permissions
+        </h2>
+        <div>
             <button class="link" data-bind="click: selectAllAccounts">
                 Select all
             </button>
@@ -13,28 +16,25 @@
                 Clear
             </button>
         </div>
-        <h2 class="heading3">
-            Select accounts to add or remove S3 access permissions
-        </h2>        
-        <multiselect class="container cols2" params="
-            options: accounts, 
-            selected: selectedAccounts
-        "></multiselect>
-    
-        <p class="paragraph">
-            <svg-icon class="icon-small" params="uri: '/fe/assets/icons.svg#notif-info'"></svg-icon>
-            to create a new account go to System Managemnet >
-            <a class="link" data-bind="
-                href: '/fe/systems/:system/management/accounts'
-            ">
-                Accounts
-            </a>
-        </p>
     </div>
 
+    <multiselect class="push-next" params="
+        options: accounts, 
+        selected: selectedAccounts
+    "></multiselect>
+    
+    <p>
+        <svg-icon class="icon-small" params="uri: '/fe/assets/icons.svg#notif-info'"></svg-icon>
+        to create a new account go to System Managemnet >
+        <a class="link" data-bind="
+            href: '/fe/systems/:system/management/accounts'
+        ">
+            Accounts
+        </a>
+    </p>
 
-    <div class="container action-line pull-right">
-        <button class="action link" data-bind="click: cancel">Cancel</button>
-        <button class="action btn2" data-bind="click: save">Save</button>
+    <div class="row align-end">
+        <button class="link push-next" data-bind="click: cancel">Cancel</button>
+        <button class="btn2" data-bind="click: save">Save</button>
     </div>
 </modal>

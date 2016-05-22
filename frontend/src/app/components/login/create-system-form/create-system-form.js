@@ -43,7 +43,9 @@ class CreateSystemFormViewModel {
             ownerPassword: this.ownerPassword,
             confirmPassword: this.confirmPassword,
             systemName: this.systemName
-        });            
+        });
+
+        this.shake = ko.observable(false);
 
     }
 
@@ -52,6 +54,7 @@ class CreateSystemFormViewModel {
             createSystemAccount(this.systemName(), this.ownerEmail(), this.ownerPassword(), this.systemDNS());
         } else {
             this.errors.showAllMessages();
+            this.shake(true);
         }
     }
 }

@@ -26,16 +26,13 @@ class SignInFormViewModel {
             () => !this.isDirty() && retryCount() > 0
         );
 
-        let temp = this.temp = ko.observable(0);
-        this.shake = ko.pureComputed({
-            read: () => {
-                console.log(retryCount(), temp());
-                return retryCount() > temp()
-            },
-            write: val => val === false && temp(retryCount())
-        });
+        this.shake = ko.observable(false);
 
         this.errors = ko.validation.group(this);
+
+        this.countSub = retryCount.subscribe(
+            () => this.shake(true)
+        );
     }
 
     signIn() {
@@ -44,8 +41,13 @@ class SignInFormViewModel {
             signIn(this.email(), this.password(), uiState().returnUrl);
 
         } else {
+            this.shake(true);
             this.errors.showAllMessages();
         }
+    }
+
+    dispose() {
+        this.countSub.dispose();
     }
 }
 

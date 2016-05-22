@@ -28,6 +28,7 @@ system_store.on('load', ensure_support_account);
  */
 function create_account(req) {
     var account = _.pick(req.rpc_params, 'name', 'email', 'password');
+    validate_create_account_params(req);
     account.access_keys = [req.rpc_params.access_keys];
 
     account._id = system_store.generate_id();
@@ -567,6 +568,12 @@ function create_activity_log_entry(req, event, account, description, level) {
     });
 }
 
+
+function validate_create_account_params(req) {
+    if (req.rpc_params.name !== req.rpc_params.name.trim()) {
+        throw req.rpc_error('BAD_REQUEST', 'system name must not contain leading or trailing spaces');
+    }
+}
 
 // EXPORTS
 exports.create_account = create_account;

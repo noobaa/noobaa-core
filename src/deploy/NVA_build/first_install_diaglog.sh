@@ -185,10 +185,10 @@ is a short first install wizard to help configure \Z5\ZbNooBaa\Zn to best suit y
 function end_wizard {
   local current_ip=$(ifconfig eth0  |grep 'inet addr' | cut -f 2 -d':' | cut -f 1 -d' ')
   dialog --colors --nocancel --backtitle "NooBaa First Install" --title '\Z5\ZbNooBaa\Zn is Ready' --msgbox "\n\Z5\ZbNooBaa\Zn was configured and is ready to use. You can access \Z5\Zbhttp://${current_ip}:8080\Zn to start using your system." 7 65
-  date >> ${FIRST_INSTALL_MARK}
+  date | sudo tee -a ${FIRST_INSTALL_MARK}
   clear
 
-  fix_etc_issue
+  sudo sed -i "s:Configured IP on this NooBaa Server.*:Configured IP on this NooBaa Server \x1b[0;32;40m${current_ip}\x1b[0m:" /etc/issue
 
   trap 2 20
   exit 0

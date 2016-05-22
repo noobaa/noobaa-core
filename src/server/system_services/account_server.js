@@ -17,6 +17,7 @@ const server_rpc = require('../server_rpc');
 const ActivityLog = require('../analytic_services/activity_log');
 const system_store = require('../system_services/system_store').get_instance();
 const system_server = require('./system_server');
+const cluster_server = require('./cluster_server');
 
 system_store.on('load', ensure_support_account);
 
@@ -27,6 +28,7 @@ system_store.on('load', ensure_support_account);
  */
 function create_account(req) {
     var account = _.pick(req.rpc_params, 'name', 'email', 'password');
+    validate_create_account_params(req);
     account.access_keys = [req.rpc_params.access_keys];
 
     account._id = system_store.generate_id();
@@ -55,6 +57,13 @@ function create_account(req) {
                 .then(changes => {
                     account.allowed_buckets = [changes.insert.buckets[0]._id];
                     changes.insert.accounts = [account];
+                    return changes;
+                })
+                .then(changes => {
+                    var cluster_info = cluster_server.new_cluster_info();
+                    if (cluster_info) {
+                        changes.insert.clusters = [cluster_info];
+                    }
                     return changes;
                 });
         })
@@ -559,6 +568,12 @@ function create_activity_log_entry(req, event, account, description, level) {
     });
 }
 
+
+function validate_create_account_params(req) {
+    if (req.rpc_params.name !== req.rpc_params.name.trim()) {
+        throw req.rpc_error('BAD_REQUEST', 'system name must not contain leading or trailing spaces');
+    }
+}
 
 // EXPORTS
 exports.create_account = create_account;

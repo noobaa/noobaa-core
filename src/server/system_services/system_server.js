@@ -8,11 +8,8 @@
 const _ = require('lodash');
 const url = require('url');
 const net = require('net');
-// const AWS = require('aws-sdk');
-//const crypto = require('crypto');
 const moment = require('moment');
 const ip_module = require('ip');
-
 const P = require('../../util/promise');
 const pkg = require('../../../package.json');
 const dbg = require('../../util/debug_module')(__filename);
@@ -91,7 +88,6 @@ function new_system_changes(name, owner_account) {
                 system: system._id,
                 role: 'admin'
             };
-
             ActivityLog.create({
                 event: 'conf.create_system',
                 level: 'info',

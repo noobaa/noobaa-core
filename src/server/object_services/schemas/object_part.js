@@ -51,7 +51,7 @@ const object_part_schema = new Schema({
     // the sequence number, uniquely generated in the current upload for this part
     // combined with the objectId, forms a unique identifier
     part_sequence_number: {
-      type: Number,
+        type: Number,
     },
 
     // link to the data chunk, which might be shared by
@@ -95,6 +95,13 @@ object_part_schema.index({
     // in order to use the index efficiently and only scan the docs
     // that are indeed in the range.
     start: 1,
+    deleted: 1, // allow to filter deleted
+}, {
+    unique: false
+});
+
+object_part_schema.index({
+    chunk: 1,
     deleted: 1, // allow to filter deleted
 }, {
     unique: false

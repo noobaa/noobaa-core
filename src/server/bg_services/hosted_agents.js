@@ -2,7 +2,6 @@
 
 const _ = require('lodash');
 const child_process = require('child_process');
-
 const dbg = require('../../util/debug_module')(__filename);
 const supervisor = require('../utils/supervisor_ctrl.js');
 
@@ -52,10 +51,9 @@ function create_agent(req) {
 
 
 function remove_agent(req) {
-    supervisor.remove_agent(req.params.name);
+    return supervisor.remove_program(req.params.name)
+        .then(() => supervisor.apply_changes());
 }
-
-
 // EXPORTS
 exports.create_agent = create_agent;
 exports.remove_agent = remove_agent;

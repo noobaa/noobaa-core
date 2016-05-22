@@ -421,16 +421,16 @@ function DebugLogger(mod) {
 var fnName = "log";
 var i;
 
-function log_builder(i) {
+function log_builder(idx) {
     return function() {
-        if (this.should_log(i)) {
+        if (this.should_log(idx)) {
             var args = Array.prototype.slice.call(arguments);
             if (typeof(args[0]) === 'string') { //Keep string formatting if exists
                 args[0] = " " + this._name + ":: " + (args[0] ? args[0] : '');
             } else {
                 args.unshift(" " + this._name + ":: ");
             }
-            args.unshift("L" + i);
+            args.unshift("L" + idx);
             int_dbg.log_internal.apply(int_dbg, args);
         }
     };
@@ -439,9 +439,9 @@ for (i = 0; i < 5; ++i) {
     DebugLogger.prototype[fnName + i] = log_builder(i);
 }
 
-function log_bt_builder(i) {
+function log_bt_builder(idx) {
     return function() {
-        if (this.should_log(i)) {
+        if (this.should_log(idx)) {
             var err = new Error();
             var bt = err.stack.substr(err.stack.indexOf(")") + 1).replace(/(\r\n|\n|\r)/gm, " ");
             var args = Array.prototype.slice.call(arguments);
@@ -451,7 +451,7 @@ function log_bt_builder(i) {
                 args.unshift(" " + this._name + ":: ");
                 args.push(bt);
             }
-            args.unshift("L" + i);
+            args.unshift("L" + idx);
             int_dbg.log_internal.apply(int_dbg, args);
         }
     };

@@ -17,7 +17,9 @@ export default function register(ko) {
 
         isDNSName: {
             validator(value) {
-                return /^(?![0-9]+$)(?!-)[a-zA-Z0-9-]{1,63}(?!-)$/.test(value);
+                return !value || (
+                    value.length < 63 && /^[A-Za-z0-9][A-Za-z0-9-\.]*[A-Za-z0-9]$/.test(value)
+                );
             },
 
             message: 'Please provide a valid DNS name'
@@ -84,6 +86,14 @@ export default function register(ko) {
             },
               
             message: 'Please enter a valid URI'
+        },
+
+        noLeadingOrTrailingSpaces: {
+            validator(value) {
+                return value.trim() === value;
+            },
+
+            message: 'Value cannot start or end with spaces'
         }
     });
 

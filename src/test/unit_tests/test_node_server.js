@@ -31,11 +31,15 @@ mocha.describe('node_server', function() {
                 password: PASSWORD,
                 access_keys: ACCESS_KEYS
             }))
-            .then(res => client.options.auth_token = res.token)
+            .then(res => {
+                client.options.auth_token = res.token;
+            })
             .then(() => client.node.create_node({
                 name: NODE
             }))
-            .then(res => client.options.auth_token = res.token)
+            .then(res => {
+                client.options.auth_token = res.token;
+            })
             .then(() => client.node.heartbeat({
                 name: NODE,
                 version: require('../../../package.json').version,
@@ -58,32 +62,30 @@ mocha.describe('node_server', function() {
                 name: NODE,
                 geolocation: 'here i am'
             }))
-            .then(() => client.node.read_node_maps({
+            .then(() => client.object.read_node_mappings({
                 name: NODE,
             }))
             .then(() => client.node.max_node_capacity())
             .then(() => client.node.list_nodes({}))
-            .then(nodes => console.log('NODES1', nodes))
-            .then(() => client.node.get_test_nodes({
-                count: 10
-            }))
-            .then(() => client.node.group_nodes({
-                group_by: {
-                    pool: true
-                }
+            .then(res => client.node.get_test_nodes({
+                count: 10,
+                source: res.nodes && res.nodes[0].rpc_address,
             }))
             .then(() => client.node.test_latency_to_server())
             .then(() => coretest.init_test_nodes(client, SYS, 3))
             .then(() => client.node.list_nodes({}))
-            .then(res => nodes = res.nodes)
+            .then(res => {
+                nodes = res.nodes;
+            })
             .then(() => console.log('NODES', nodes))
             .then(() => client.node.set_debug_node({
                 target: nodes[0].rpc_address,
                 level: 0,
             }))
-            .then(() => client.node.collect_agent_diagnostics({
-                target: nodes[0].rpc_address,
-            }))
+            .then(() => client.node.collect_agent_diagnostics(nodes[0])) //{
+            //name: nodes[0].name,
+            //target: nodes[0].rpc_address,
+            //}))
             .then(() => client.node.redirect({
                 target: nodes[0].rpc_address,
                 request_params: {

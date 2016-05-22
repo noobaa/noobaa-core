@@ -7,8 +7,6 @@ var assert = require('assert');
 var fs = require('fs');
 var DebugModule = require('../../util/debug_module');
 
-var processType;
-
 // File Content Verifier according to given expected result (positive/negative)
 function file_content_verify(flag, expected) {
     return P.delay(1).then(function() {
@@ -29,7 +27,7 @@ mocha.describe('debug_module', function() {
     // shouldn't the module trim the base path ??
     mocha.it('should parse __filename', function() {
         //CI integration workaround
-        var filename = __filename.indexOf('noobaa-util') !== -1 ?
+        var filename = __filename.indexOf('noobaa-util') >= 0 ?
                       __filename :
                       '/Users/someuser/github/noobaa-util/test_debug_module.js';
 
@@ -115,9 +113,9 @@ mocha.describe('debug_module', function() {
 
     mocha.it('formatted string should be logged correctly (string substitutions)', function() {
         var dbg = new DebugModule('/web/noise/noobaa-core/src/blabla.asd/lll.asd');
-        var s1 = 'this',
-            s2 = 'should',
-            s3 = 'expected';
+        var s1 = 'this';
+        var s2 = 'should';
+        var s3 = 'expected';
         dbg.log0("%s string %s be logged as %s", s1, s2, s3);
         return file_content_verify("text", "core.blabla.asd.lll:: this string should be logged as expected");
     });
@@ -127,7 +125,7 @@ mocha.describe('debug_module', function() {
         return _.reduce(syslog_levels, function(promise, l) {
                 return promise.then(function() {
                     var dbg = new DebugModule('/web/noise/noobaa-core/src/blabla.asd/lll.asd');
-                    dbg = dbg; // lint unused bypass
+                    _.noop(dbg); // lint unused bypass
                     console[l]("console - %s - should be captured", l);
                     return file_content_verify("text", "CONSOLE:: console - " + l + " - should be captured");
                 });
@@ -136,10 +134,6 @@ mocha.describe('debug_module', function() {
 
     mocha.it('fake browser verify logging and console wrapping', function() {
         var dbg = new DebugModule('/web/noise/noobaa-core/src/blabla.asd/lll.asd');
-        // jshint proto:true
-        dbg.__proto__.set_t = function() {
-            processType = 'browser'; //global at the debug_module level, ignore
-        };
         dbg.log0("test_debug_module: browser should appear in the log");
         return file_content_verify("text", "core.blabla.asd.lll:: test_debug_module: browser should appear in the log");
     });

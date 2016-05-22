@@ -49,7 +49,10 @@ function restart_webserver {
 
     #MongoDB nbcore upgrade
     deploy_log "starting mongo data upgrade"
-    /usr/bin/mongo nbcore ${CORE_DIR}/src/deploy/NVA_build/mongo_upgrade.js
+    local sec=$(cat /etc/noobaa_sec)
+    local id=$(uuidgen | cut -f 1 -d'-')
+    local ip=$(/sbin/ifconfig eth0 | grep 'inet addr:' | cut -d: -f2 | cut -f 1 -d' ')
+    /usr/bin/mongo nbcore --eval "var param_secret=${sec}, params_cluster_id=${id}, param_ip=${ip}" ${CORE_DIR}/src/deploy/NVA_build/mongo_upgrade.js
     deploy_log "finished mongo data upgrade"
 
     ${SUPERCTL} start webserver

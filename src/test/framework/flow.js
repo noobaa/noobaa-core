@@ -3,8 +3,10 @@ var steps = [
     {
         //Run unit tests
         name: 'Unit Tests',
-        action: './node_modules/.bin/gulp mocha',
+        action: './node_modules/.bin/gulp',
         params: [{
+            arg: 'mocha',
+        }, {
             arg: '--COV_DIR',
         }, {
             arg: './report/cov/mocha',
@@ -33,6 +35,14 @@ var steps = [
         //Test cloud sync functionality
         name: 'Cloud Sync Test',
         lib_test: 'src/test/system_tests/test_cloud_sync.js',
+    }, {
+        //Restore DB to defaults
+        name: 'Restore DB Defaults',
+        common: 'restore_db_defaults',
+    }, {
+        //Test cloud sync functionality
+        name: 'Bucket Access Test',
+        lib_test: 'src/test/system_tests/test_bucket_access.js',
     }, {
         //Restore DB to defaults
         name: 'Restore DB Defaults',

@@ -6,24 +6,26 @@ process.env.MONGODB_URL = CORETEST_MONGODB_URL;
 process.env.JWT_SECRET = 'coretest';
 
 var _ = require('lodash');
-var P = require('../../util/promise');
 var mocha = require('mocha');
 var assert = require('assert');
 var mongoose = require('mongoose');
-var mongo_client = require('../../server/utils/mongo_client');
-var nodes_store = require('../../server/stores/nodes_store');
-var server_rpc = require('../../server/server_rpc');
+var P = require('../../util/promise');
 var config = require('../../../config.js');
-var db = require('../../server/db');
 var agentctl = require('./core_agent_control');
+var server_rpc = require('../../server/server_rpc');
+var nodes_store = require('../../server/node_services/nodes_store');
+var mongo_client = require('../../util/mongo_client').get_instance();
+var mongoose_utils = require('../../util/mongoose_utils');
 
 P.longStackTraces();
 config.test_mode = true;
 
 // register api servers and bg_worker servers locally too
-server_rpc.register_md_servers();
-server_rpc.register_bg_servers();
-server_rpc.register_common_servers();
+server_rpc.register_system_services();
+server_rpc.register_node_services();
+server_rpc.register_object_services();
+server_rpc.register_bg_services();
+server_rpc.register_common_services();
 server_rpc.rpc.set_request_logger(function() {
     return console.info.apply(console,
         _.map(arguments, arg => require('util').inspect(arg, {
@@ -31,6 +33,7 @@ server_rpc.rpc.set_request_logger(function() {
         })));
 });
 server_rpc.rpc.router.default =
+    server_rpc.rpc.router.md =
     server_rpc.rpc.router.bg =
     'fcall://fcall';
 
@@ -49,10 +52,10 @@ function new_test_client() {
 mocha.before('coretest-before', function() {
     _.each(server_rpc.rpc._services, (service, srv) => api_coverage.add(srv));
     return P.resolve()
-        .then(() => db.mongoose_connect())
-        .then(() => db.mongoose_wait_connected())
+        .then(() => mongoose_utils.mongoose_connect())
+        .then(() => mongoose_utils.mongoose_wait_connected())
         .then(() => P.npost(mongoose.connection.db, 'dropDatabase'))
-        .then(() => db.mongoose_ensure_indexes())
+        .then(() => mongoose_utils.mongoose_ensure_indexes())
         .then(() => mongo_client.connect())
         .then(() => server_rpc.rpc.start_http_server({
             port: http_port,

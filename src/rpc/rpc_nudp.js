@@ -16,9 +16,7 @@ let stun = require('./stun');
  */
 class RpcNudpConnection extends RpcBaseConnection {
 
-    constructor(addr_url) {
-        super(addr_url);
-    }
+    // constructor(addr_url) { super(addr_url); }
 
     _connect() {
         let Nudp = native_core().Nudp;

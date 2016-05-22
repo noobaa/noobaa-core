@@ -6,7 +6,7 @@ var gutil = require('gulp-util');
 // var gulp_debug = require('gulp-debug');
 // var gulp_filter = require('gulp-filter');
 // var gulp_size = require('gulp-size');
-var gulp_cached = require('gulp-cached');
+// var gulp_cached = require('gulp-cached');
 var gulp_plumber = require('gulp-plumber');
 var gulp_notify = require('gulp-notify');
 var gulp_rename = require('gulp-rename');
@@ -36,12 +36,12 @@ if (!process.env.PORT) {
 }
 
 var active_services = {};
-var skip_install = argv.skip_install ? true : false;
-var use_local_executable = argv.local ? true : false;
-var git_commit ='DEVONLY';
+var skip_install = Boolean(argv.skip_install);
+var use_local_executable = Boolean(argv.local);
+var git_commit = 'DEVONLY';
 var cov_dir = argv.COV_DIR || '';
 
-if  (argv.GIT_COMMIT) {
+if (argv.GIT_COMMIT) {
     git_commit = argv.GIT_COMMIT.substr(0, 7);
 }
 
@@ -131,7 +131,7 @@ function pack(dest, name) {
         })
         .pipe(gulp_rename(function(p) {
             p.dirname = path.join('src', p.dirname);
-        })) .on('error', gutil.log);
+        })).on('error', gutil.log);
     // TODO bring back uglify .pipe(gulp_uglify());
 
     var node_modules_stream = gulp.src([
@@ -144,7 +144,7 @@ function pack(dest, name) {
         })
         .pipe(gulp_rename(function(p) {
             p.dirname = path.join('node_modules', p.dirname);
-        })) .on('error', gutil.log);
+        })).on('error', gutil.log);
 
     var basejs_stream = gulp.src([
         'bower.json',
@@ -157,22 +157,22 @@ function pack(dest, name) {
     var agent_distro = gulp.src(['src/build/windows/noobaa_setup.exe'], {})
         .pipe(gulp_rename(function(p) {
             p.dirname = path.join('deployment', p.dirname);
-        })) .on('error', gutil.log);
+        })).on('error', gutil.log);
 
-    var build_stream = gulp.src(['build/public/**/*', ], {})
+    var build_stream = gulp.src(['build/public/**/*'], {})
         .pipe(gulp_rename(function(p) {
             p.dirname = path.join('build/public', p.dirname);
-        })) .on('error', gutil.log);
+        })).on('error', gutil.log);
 
-    var build_native_stream = gulp.src(['build/Release/**/*', ], {})
+    var build_native_stream = gulp.src(['build/Release/**/*'], {})
         .pipe(gulp_rename(function(p) {
             p.dirname = path.join('build/Release', p.dirname);
-        })) .on('error', gutil.log);
+        })).on('error', gutil.log);
 
     var build_fe_stream = gulp.src(['frontend/dist/**/*'], {})
         .pipe(gulp_rename(function(p) {
             p.dirname = path.join('frontend/dist', p.dirname);
-        })) .on('error', gutil.log);
+        })).on('error', gutil.log);
 
     return event_stream
         .merge(
@@ -188,17 +188,17 @@ function pack(dest, name) {
         .pipe(gulp_rename(function(p) {
             p.dirname = path.join('noobaa-core', p.dirname);
         }))
-         .on('error', gutil.log)
+        .on('error', gutil.log)
         .pipe(gulp_tar(name))
-         .on('error', gutil.log)
+        .on('error', gutil.log)
         .pipe(gulp_gzip())
-         .on('error', gutil.log)
+        .on('error', gutil.log)
         // .pipe(gulp_size({
         //     title: name
         // }))
         //  .on('error', gutil.log)
         .pipe(gulp.dest(dest))
-         .on('error', gutil.log);
+        .on('error', gutil.log);
 }
 
 var PLUMB_CONF = {
@@ -206,8 +206,8 @@ var PLUMB_CONF = {
 };
 
 gulp.task('lint', [
-    'jshint',
-    // 'eslint'
+    // 'jshint',
+    'eslint'
 ]);
 
 gulp.task('eslint', function() {
@@ -219,19 +219,17 @@ gulp.task('eslint', function() {
         // Alternatively use eslint.formatEach() (see Docs).
         .pipe(gulp_eslint.format())
         // To have the process exit with an error code (1) on
-        // lint error, return the stream and pipe to failOnError last.
-        .pipe(gulp_eslint.failOnError());
+        // lint error, return the stream and pipe to failAfterError last.
+        .pipe(gulp_eslint.failAfterError());
 });
 
 gulp.task('jshint', function() {
     return gulp.src(PATHS.js_for_lint)
         .pipe(gulp_plumber(PLUMB_CONF))
-        .pipe(gulp_cached('jshint'))
         .pipe(gulp_jshint.extract())
         .pipe(gulp_jshint())
-        .pipe(gulp_jshint.reporter(jshint_stylish));
-    // TODO uncomment once we fix issues
-    // .pipe(gulp_jshint.reporter('fail'));
+        .pipe(gulp_jshint.reporter(jshint_stylish))
+        .pipe(gulp_jshint.reporter('fail'));
 });
 
 gulp.task('agent', ['lint'], function() {
@@ -270,7 +268,7 @@ gulp.task('agent', ['lint'], function() {
         base: 'src'
     });
 
-    var basejs_stream = gulp.src(['config.js', ], {});
+    var basejs_stream = gulp.src(['config.js'], {});
 
     // TODO bring back uglify .pipe(gulp_uglify());
 
@@ -305,10 +303,11 @@ function gulp_spawn(cmd, args, options) {
         var proc = child_process.spawn(cmd, args, options);
         proc.on('error', reject);
         proc.on('exit', function(code) {
-            if (code !== 0) {
-                reject(new Error('"' + cmd + ' ' + args.join(' ') + '" exit with error code ' + code));
-            } else {
+            if (code === 0) {
                 resolve();
+            } else {
+                reject(new Error('"' + cmd + ' ' + args.join(' ') +
+                    '" exit with error code ' + code));
             }
         });
     });
@@ -334,12 +333,10 @@ function package_build_task() {
                     })
                     .then(function() {
                         return promise_utils.promised_exec('chmod 777 build/public/noobaa-setup*');
-                    }).fail(function(err){
-                        gutil.log('Failed to download packages. Aborting due to '+err.message+"     "+err.stack);
-                        throw new Error('Failed to download packages. Aborting due to '+err.message+"     "+err.stack);
+                    }).fail(function(err) {
+                        gutil.log('Failed to download packages. Aborting due to ' + err.message + "     " + err.stack);
+                        throw new Error('Failed to download packages. Aborting due to ' + err.message + "     " + err.stack);
                     });
-            } else {
-                return;
             }
         })
         .then(function() {
@@ -347,11 +344,11 @@ function package_build_task() {
             return promise_utils.promised_exec('curl -o- https://raw.githubusercontent.com/creationix/nvm/master/nvm.sh >build/public/nvm.sh', [], process.cwd());
         })
         .then(function() {
-            return promise_utils.promised_exec('curl -o- https://nodejs.org/dist/v4.2.2/node-v4.2.2-linux-x64.tar.xz >build/public/node-v4.2.2-linux-x64.tar.xz', [], process.cwd());
+            return promise_utils.promised_exec('curl -o- https://nodejs.org/dist/v4.4.4/node-v4.4.4-linux-x64.tar.xz >build/public/node-v4.4.4-linux-x64.tar.xz', [], process.cwd());
         })
         .then(function() {
             //call for packing
-            gutil.log('Packing '+DEST+' to '+NAME + "-" + current_pkg_version + '.tar');
+            gutil.log('Packing ' + DEST + ' to ' + NAME + "-" + current_pkg_version + '.tar');
             return pack(DEST, NAME + "-" + current_pkg_version + '.tar');
         })
         .then(null, function(error) {
@@ -373,7 +370,7 @@ gulp.task('coverage_hook', function() {
     return gulp.src(PATHS.js_for_coverage)
         .pipe(through2.obj(function(file, enc, callback) {
             if (file.path.startsWith(basepath)) {
-                file.path = file.path.slice(basepath.length + 1 /*for / seperator*/ );
+                file.path = file.path.slice(basepath.length + 1); // +1 for / seperator
             }
             this.push(file);
             callback();
@@ -397,10 +394,10 @@ gulp.task('mocha', ['coverage_hook'], function() {
     }
     return gulp.src(PATHS.unit_tests_main, SRC_DONT_READ)
         .pipe(gulp_mocha(mocha_options)
-        .on('error', function(err) {
-            console.log('Mocha Failed With Error', err.toString());
-            process.exit(1);
-        }))
+            .on('error', function(err) {
+                console.log('Mocha Failed With Error', err.toString());
+                process.exit(1);
+            }))
         .pipe(gulp_istanbul.writeReports(writer_options));
 });
 

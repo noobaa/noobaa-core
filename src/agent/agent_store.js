@@ -11,6 +11,7 @@ var fs_utils = require('../util/fs_utils');
 var Semaphore = require('../util/semaphore');
 var dbg = require('../util/debug_module')(__filename);
 var AWS = require('aws-sdk');
+var https = require('https');
 
 module.exports = AgentStore;
 
@@ -521,10 +522,14 @@ class CloudStore extends AgentStore {
         } else {
             this.s3cloud = new AWS.S3({
                 endpoint: endpoint,
-                sslEnabled: false,
                 s3ForcePathStyle: true,
                 accessKeyId: this.cloud_info.access_keys.access_key,
                 secretAccessKey: this.cloud_info.access_keys.secret_key,
+                httpOptions: {
+                  agent: new https.Agent({
+                    rejectUnauthorized: false,
+                  })
+                }
             });
         }
     }

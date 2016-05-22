@@ -7,9 +7,9 @@ source "$NVM_DIR/nvm.sh"
 echo "WARNING: devtoolset-2 is enabled!"
 . /opt/rh/devtoolset-2/enable
 
-nvm install 4.2.2
-nvm alias default 4.2.2
-nvm use 4.2.2
+nvm install 4.4.4
+nvm alias default 4.4.4
+nvm use 4.4.4
 
 CLEAN=true;
 GIT_COMMIT=0
@@ -59,7 +59,7 @@ if [ "$CLEAN" = true ] ; then
     echo "copy files"
     cp ../../package.json ./package/
     cp ../../config.js ./package/
-    cp ~/.nvm/versions/node/v4.2.2/bin/node ./package/
+    cp ~/.nvm/versions/node/v4.4.4/bin/node ./package/
     mkdir ./package/src/
     cp -R ../../src/agent ./package/src/
     cp -R ../../src/util ./package/src/

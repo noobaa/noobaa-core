@@ -39,13 +39,13 @@ function build_node {
 	#Install Node.js / NPM
 	cd /usr/src
 
-	#install nvm use v4.2.2
+	#install nvm use v4.4.4
   curl -o- https://raw.githubusercontent.com/creationix/nvm/v0.30.2/install.sh | bash
 	export NVM_DIR="$HOME/.nvm"
 	source /root/.nvm/nvm.sh
-	nvm install 4.2.2
-  nvm alias default 4.2.2
-	nvm use 4.2.2
+	nvm install 4.4.4
+  nvm alias default 4.4.4
+	nvm use 4.4.4
 	cd ~
 	deploy_log "build_node done"
 }
@@ -71,6 +71,10 @@ function install_aux {
 
 	# install NTP server
 	yum install -y ntp
+	# By Default, NTP is disabled, set local TZ to US Pacific
+	echo "# NooBaa Configured NTP Server"	 >> /etc/ntp.conf
+	sed -i 's:\(^server.*\):#\1:g' /etc/ntp.conf
+	ln -sf /usr/share/zoneinfo/US/Pacific /etc/localtime
 
 }
 
@@ -122,6 +126,7 @@ function setup_makensis {
 
 function install_mongo {
 	deploy_log "install_mongo start"
+	mkdir -p /var/lib/mongo/cluster/shard1
 	# create a Mongo 3.2 Repo file
 	cp -f ${CORE_DIR}/src/deploy/NVA_build/mongo.repo /etc/yum.repos.d/mongodb-org-3.2.repo
 
@@ -132,13 +137,6 @@ function install_mongo {
 	echo "exclude=mongodb-org,mongodb-org-server,mongodb-org-shell,mongodb-org-mongos,mongodb-org-tools" >> /etc/yum.conf
 	rm -f /etc/init.d/mongod
 	deploy_log "install_mongo done"
-}
-
-function setup_mongo {
-	deploy_log "setup_mongo start"
-	mkdir -p /data
-	mkdir -p /data/db
-	deploy_log "setup_mongo done"
 }
 
 function general_settings {
@@ -252,7 +250,6 @@ if [ "$1" == "runinstall" ]; then
 	install_repos
 	setup_repos
 	install_mongo
-	setup_mongo
 	general_settings
 	setup_supervisors
 	setup_syslog

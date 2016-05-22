@@ -1,6 +1,7 @@
 'use strict';
 
-let _ = require('lodash');
+const _ = require('lodash');
+const xml_utils = require('../util/xml_utils');
 
 class S3Error {
 
@@ -14,20 +15,21 @@ class S3Error {
     }
 
     reply(resource, request_id) {
-        return `<?xml version="1.0" encoding="UTF-8"?>
-<Error>
- <Code>${this.code}</Code>
- <Message>${this.message}</Message>
- <Resource>${resource || ''}</Resource>
- <RequestId>${request_id || ''}</RequestId>
-</Error>`;
+        return xml_utils.encode_xml({
+            Error: {
+                Code: this.code,
+                Message: this.message,
+                Resource: resource || '',
+                RequestId: request_id || ''
+            }
+        });
     }
 
 }
 
 // See http://docs.aws.amazon.com/AmazonS3/latest/API/ErrorResponses.html
 
-let errors_defs = [{
+const errors_defs = [{
     code: 'AccessDenied',
     message: 'Access Denied',
     http_code: 403,
@@ -348,7 +350,7 @@ let errors_defs = [{
 }];
 
 // return a map of code -> error object
-let errors_map = _.mapValues(
+const errors_map = _.mapValues(
     _.keyBy(errors_defs, 'code'),
     err => new S3Error(err)
 );

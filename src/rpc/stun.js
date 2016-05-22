@@ -248,6 +248,8 @@ function get_attrs_map(buffer) {
             case stun.ATTRS.ICE_CONTROLLING:
                 map.ice_controlling = attr.value;
                 break;
+            default:
+                break;
         }
     });
     return map;
@@ -520,7 +522,7 @@ function encode_attr_xor_mapped_addr(addr, buffer, offset, end) {
     ip_module.toBuffer(addr.address, buffer, offset + 4);
     var k = stun.XOR_KEY_OFFSET;
     for (var i = offset + 4; i < end; ++i) {
-        buffer[i] = buffer[i] ^ buffer[k++];
+        buffer[i] ^= buffer[k++];
     }
 }
 
@@ -566,31 +568,31 @@ function test() {
     socket.on('message', function(buffer, rinfo) {
         if (!is_stun_packet(buffer)) {
             console.log('NON STUN MESSAGE', buffer.toString(), 'from', rinfo);
-        } else {
-            console.log('STUN', get_method_name(buffer), 'from', rinfo.address + ':' + rinfo.port);
-            var attrs = decode_attrs(buffer);
-            _.each(attrs, function(attr) {
-                console.log('  *',
-                    attr.attr,
-                    '0x' + attr.type.toString(16),
-                    '[len ' + attr.length + ']',
-                    require('util').inspect(attr.value, {
-                        depth: null
-                    }));
-            });
-            var method = get_method_field(buffer);
-            if (method === stun.METHODS.REQUEST) {
-                var reply = new_packet(stun.METHODS.SUCCESS, [{
-                    type: stun.ATTRS.XOR_MAPPED_ADDRESS,
-                    value: {
-                        family: 'IPv4',
-                        port: rinfo.port,
-                        address: rinfo.address
-                    }
-                }], buffer);
-                P.ninvoke(socket, 'send', reply, 0, reply.length, rinfo.port, rinfo.address)
-                    .done();
-            }
+            return;
+        }
+        console.log('STUN', get_method_name(buffer), 'from', rinfo.address + ':' + rinfo.port);
+        var attrs = decode_attrs(buffer);
+        _.each(attrs, function(attr) {
+            console.log('  *',
+                attr.attr,
+                '0x' + attr.type.toString(16),
+                '[len ' + attr.length + ']',
+                require('util').inspect(attr.value, {
+                    depth: null
+                }));
+        });
+        var method = get_method_field(buffer);
+        if (method === stun.METHODS.REQUEST) {
+            var reply = new_packet(stun.METHODS.SUCCESS, [{
+                type: stun.ATTRS.XOR_MAPPED_ADDRESS,
+                value: {
+                    family: 'IPv4',
+                    port: rinfo.port,
+                    address: rinfo.address
+                }
+            }], buffer);
+            P.ninvoke(socket, 'send', reply, 0, reply.length, rinfo.port, rinfo.address)
+                .done();
         }
     });
     P.fcall(function() {

@@ -19,14 +19,12 @@ argv.system = argv.system || 'demo';
 function RPCShell() {
     this.rpc = api.new_rpc();
     this.client = this.rpc.new_client();
-    this.bg_client = this.rpc.new_client({
-        domain: 'bg'
-    });
 }
 
 function construct_rpc_arguments(str_args) {
     var ret_json = {};
-    var words, i;
+    var words;
+    var i;
     //parse each argument on =
     //left of it is the key name, right is the values.
     //if right contains {}, its a complex value, call construct again on it
@@ -127,11 +125,7 @@ RPCShell.prototype.call = function(str_args) {
 
     console.log('Invoking RPC', apiname + '.' + func + '(' + util.inspect(rpc_args) + ')');
     return P.fcall(function() {
-            if (apiname === 'redirector' || apiname === 'cloud_sync') {
-                return self.bg_client[apiname][func](rpc_args);
-            } else {
-                return self.client[apiname][func](rpc_args);
-            }
+            return self.client[apiname][func](rpc_args);
         })
         .fail(function(error) {
             if (error.rpc_code === 'BAD_REQUEST') {

@@ -6,15 +6,6 @@ let mongodb = require('mongodb');
 let mongoose = require('mongoose');
 let util = require('util');
 
-module.exports = {
-    obj_ids_difference: obj_ids_difference,
-    uniq_ids: uniq_ids,
-    populate: populate,
-    resolve_object_ids_recursive: resolve_object_ids_recursive,
-    resolve_object_ids_paths: resolve_object_ids_paths,
-    is_object_id: is_object_id,
-};
-
 /*
  *@param base - the array to subtract from
  *@param values - array of values to subtract from base
@@ -124,3 +115,51 @@ function is_object_id(id) {
     return (id instanceof mongodb.ObjectId) ||
         (id instanceof mongoose.Types.ObjectId);
 }
+
+function is_err_duplicate_key(err) {
+    return err && err.code === 11000;
+}
+
+function check_duplicate_key_conflict(req, entity, err) {
+    if (!is_err_duplicate_key(err)) {
+        throw err;
+    } else if (req) {
+        throw req.rpc_error('CONFLICT', entity + ' already exists');
+    } else {
+        throw new Error('CONFLICT', entity + ' already exists');
+    }
+}
+
+function check_entity_not_found(req, entity, doc) {
+    if (doc) {
+        return doc;
+    }
+    if (req) {
+        throw req.rpc_error('NO_SUCH_' + entity.toUpperCase(), 'No such ' + entity);
+    } else {
+        throw new Error('NO_SUCH_' + entity.toUpperCase());
+    }
+}
+
+function check_entity_not_deleted(req, entity, doc) {
+    if (doc && !doc.deleted) {
+        return doc;
+    }
+    if (req) {
+        throw req.rpc_error('NO_SUCH_' + entity.toUpperCase(), 'No such ' + entity);
+    } else {
+        throw new Error('NO_SUCH_' + entity.toUpperCase());
+    }
+}
+
+// EXPORTS
+exports.obj_ids_difference = obj_ids_difference;
+exports.uniq_ids = uniq_ids;
+exports.populate = populate;
+exports.resolve_object_ids_recursive = resolve_object_ids_recursive;
+exports.resolve_object_ids_paths = resolve_object_ids_paths;
+exports.is_object_id = is_object_id;
+exports.is_err_duplicate_key = is_err_duplicate_key;
+exports.check_duplicate_key_conflict = check_duplicate_key_conflict;
+exports.check_entity_not_found = check_entity_not_found;
+exports.check_entity_not_deleted = check_entity_not_deleted;

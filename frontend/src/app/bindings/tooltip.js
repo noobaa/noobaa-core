@@ -1,7 +1,7 @@
 import ko from 'knockout';
 import { isObject, isString, isDefined } from 'utils';
 
-const delay = 500;
+const delay = 350;
 
 const alignMapping = Object.freeze({
     left: 0,
@@ -78,7 +78,11 @@ export default {
 
         ko.utils.domNodeDisposal.addDisposeCallback(
             target,
-            () => params.dispose()
+            () => {
+                clearTimeout(handle);
+                tooltip.parentElement && document.body.removeChild(tooltip);
+                params.dispose();
+            }
         );
     }
-}   
+}

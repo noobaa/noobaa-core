@@ -54,6 +54,11 @@ export default {
             edit_policy: {
                 message: 'Bucket Edit Policy',
                 entityId: ({ bucket }) => bucket && bucket.name
+            },
+
+            s3_access_updated: {
+                message: 'Bucket S3 Access Updated',
+                entityId: ({ bucket }) => bucket && bucket.name
             }
         }
     },
@@ -73,6 +78,11 @@ export default {
 
             delete: {
                 message: 'Account Deleted',
+                entityId: ({ account }) => account && account.email
+            },
+
+            s3_access_updated: {
+                message: 'Account S3 Access Updated',
                 entityId: ({ account }) => account && account.email
             }
         }
@@ -104,6 +114,16 @@ export default {
             set_debug_node: {
                 message: 'Node Debug Level Changed',
                 entityId: ({ node }) => node && node.name
+            },
+
+            diagnose_node: {
+                message: 'Node Diagnose',
+                entityId: ({ node }) => node && node.name
+            },
+
+            diagnose_system: {
+                message: 'System Diagnose',
+                entityId: ({ dbg }) => ''
             }
         }
     },
@@ -116,13 +136,13 @@ export default {
                 entityId: ({ conf }) => ''
             },
 
-            dns_address: {
-                message: 'Set/Edit DNS Address',
+            server_date_time_updated: {
+                message: 'Server Date And Time Updated',
                 entityId: ({ conf }) => ''
             },
 
-            diagnose_system: {
-                message: 'System Diagnose',
+            dns_address: {
+                message: 'Set/Edit DNS Address',
                 entityId: ({ conf }) => ''
             }
         }

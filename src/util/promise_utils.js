@@ -2,11 +2,11 @@
 'use strict';
 
 var _ = require('lodash');
-var P = require('./promise');
+var fs = require('fs');
 var child_process = require('child_process');
 require('setimmediate');
 var ncp = require('ncp').ncp;
-var fs = require('fs');
+var P = require('./promise');
 var dbg = require('../util/debug_module')(__filename);
 
 var is_windows = (process.platform === "win32");
@@ -206,82 +206,66 @@ function set_immediate() {
     return defer.promise;
 }
 
-/* Run child process spawn wrapped by a promise
-   TODO: The two following should be removed once we push to node 12 which has the spawnSync and execSync
-*/
-function promised_spawn(command, args, cwd, ignore_rc) {
-    dbg.log0('promise spawn', command, args, cwd, ignore_rc);
-    if (!command || !cwd) {
-        return P.reject(new Error('Both command and working directory must be given'));
-    }
-
-    var deferred = P.defer();
-
-    var proc = child_process.spawn(command, args, {
-        cwd: cwd
+/*
+ * Run child process spawn wrapped by a promise
+ */
+function promised_spawn(command, args, options, ignore_rc) {
+    return new P((resolve, reject) => {
+        options = options || {};
+        dbg.log0('promised_spawn:', command, args.join(' '), options, ignore_rc);
+        options.stdio = options.stdio || 'inherit';
+        var proc = child_process.spawn(command, args, options);
+        proc.on('exit', function(code) {
+            if (code === 0 || ignore_rc) {
+                resolve();
+            } else {
+                reject(new Error('promised_spawn "' +
+                    command + ' ' + args.join(' ') +
+                    '" exit with error code ' + code));
+            }
+        });
+        proc.on('error', function(error) {
+            if (ignore_rc) {
+                dbg.warn('promised_spawn ' +
+                    command + ' ' + args.join(' ') +
+                    ' exited with error ' + error +
+                    ' and ignored');
+                resolve();
+            } else {
+                reject(new Error('promised_spawn ' +
+                    command + ' ' + args.join(' ') +
+                    ' exited with error ' + error));
+            }
+        });
     });
-
-    var out;
-    proc.stdout.on('data', function(data) {
-        out = data;
-        dbg.log2('on stdout', data);
-    });
-
-
-    proc.on('error', function(error) {
-        if ((typeof ignore_rc !== 'undefined') && ignore_rc) {
-            dbg.warn(command + " " + args.join(" ") + " in " + cwd + " exited with error:" + error.message + " and ignored");
-            deferred.resolve(out);
-        } else {
-            deferred.reject(new Error(command + " " + args.join(" ") + " in " + cwd + " recieved error " + error.message));
-        }
-    });
-
-    proc.on('exit', function(code) {
-        if (((typeof ignore_rc !== 'undefined') && ignore_rc) || code === 0) {
-            deferred.resolve(out);
-        } else {
-            deferred.reject(new Error(command + " " + args.join(" ") + " in " + cwd + " exited with rc " + code));
-        }
-    });
-
-    return deferred.promise;
-
 }
 
 function promised_exec(command, ignore_rc, return_stdout) {
-    dbg.log2('promise exec', command, ignore_rc);
-    if (!command) {
-        return P.reject(new Error('Command must be given'));
-    }
-
-    var deferred = P.defer();
-
-    child_process.exec(command, {
+    return new P((resolve, reject) => {
+        dbg.log2('promise exec', command, ignore_rc);
+        child_process.exec(command, {
             maxBuffer: 5000 * 1024, //5MB, should be enough
-        },
-        function(error, stdout, stderr) {
-            if (error === null || ignore_rc) {
-                if (error !== null) {
+        }, function(error, stdout, stderr) {
+            if (!error || ignore_rc) {
+                if (error) {
                     dbg.warn(command + " exited with error " + error + " and ignored");
                 }
                 if (return_stdout) {
-                    deferred.resolve(stdout);
+                    resolve(stdout);
                 } else {
-                    deferred.resolve();
+                    resolve();
                 }
             } else {
-                deferred.reject(new Error(command + " exited with error " + error));
+                reject(new Error(command + " exited with error " + error));
             }
         });
-
-    return deferred.promise;
+    });
 }
 
 function pack(tar_file_name, source) {
     console.log('pack windows?', is_windows);
     if (is_windows) {
-        console.log('in windows','7za.exe a -ttar -so tmp.tar ' + source.replace(/\//g, '\\') + '| 7za.exe a -si ' + tar_file_name.replace(/\//g, '\\'));
+        console.log('in windows', '7za.exe a -ttar -so tmp.tar ' + source.replace(/\//g, '\\') + '| 7za.exe a -si ' + tar_file_name.replace(/\//g, '\\'));
         return promised_exec('7za.exe a -ttar -so tmp.tar ' + source.replace(/\//g, '\\') + '| 7za.exe a -si ' + tar_file_name.replace(/\//g, '\\'));
     } else {
         console.log('not windows?', is_windows);
@@ -291,29 +275,29 @@ function pack(tar_file_name, source) {
 
 function file_copy(src, dst) {
     if (is_windows) {
-        console.log('file copy ' + src.replace(/\//g, '\\')+' '+dst.replace(/\//g, '\\'));
-        return promised_exec('copy /Y  "'+src.replace(/\//g, '\\') +'" "'+ dst.replace(/\//g, '\\')+'"');
+        console.log('file copy ' + src.replace(/\//g, '\\') + ' ' + dst.replace(/\//g, '\\'));
+        return promised_exec('copy /Y  "' + src.replace(/\//g, '\\') + '" "' + dst.replace(/\//g, '\\') + '"');
     } else {
-        return promised_spawn('cp', ['-f', src, dst], process.cwd());
+        return promised_exec('cp -f ' + src + ' ' + dst);
     }
 }
 
 function folder_delete(path) {
-    if( fs.existsSync(path) ) {
-        fs.readdirSync(path).forEach(function(file,index){
-          var curPath = path + "/" + file;
-          if(fs.lstatSync(curPath).isDirectory()) { // recurse
-            folder_delete(curPath);
-          } else { // delete file
-            fs.unlinkSync(curPath);
-          }
+    if (fs.existsSync(path)) {
+        fs.readdirSync(path).forEach(function(file, index) {
+            var curPath = path + "/" + file;
+            if (fs.lstatSync(curPath).isDirectory()) { // recurse
+                folder_delete(curPath);
+            } else { // delete file
+                fs.unlinkSync(curPath);
+            }
         });
         fs.rmdirSync(path);
-      }
+    }
 }
 
 function file_delete(file_name) {
-    if( fs.existsSync(file_name) ) {
+    if (fs.existsSync(file_name)) {
         return fs.unlinkAsync(file_name);
     }
 }
@@ -327,12 +311,10 @@ function full_dir_copy(src, dst, filter_regex) {
         var ncp_filter_function = function(input) {
             if (input.indexOf('/') > 0) {
                 return false;
+            } else if (ncp_filter_regex.test(input)) {
+                return false;
             } else {
-                if (!ncp_filter_regex.test(input)) {
-                    return true;
-                } else {
-                    return false;
-                }
+                return true;
             }
         };
         ncp_options.filter = ncp_filter_function;
@@ -421,7 +403,9 @@ function all_obj(obj, func) {
     func = func || ((val, key) => val);
     return P.all(_.map(obj, (val, key) => {
             return P.fcall(func, val, key)
-                .then(res => new_obj[key] = res);
+                .then(res => {
+                    new_obj[key] = res;
+                });
         }))
         .return(new_obj);
 }

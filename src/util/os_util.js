@@ -10,15 +10,21 @@ module.exports = {
     set_manual_time: set_manual_time,
     set_ntp: set_ntp,
     get_time_config: get_time_config,
+    get_local_ipv4_ips: get_local_ipv4_ips,
+    get_networking_info: get_networking_info,
+    read_server_secret: read_server_secret,
+    is_supervised_env: is_supervised_env,
 };
 
 var _ = require('lodash');
-var P = require('../util/promise');
+var moment = require('moment-timezone');
 var os = require('os');
 var fs = require('fs');
 var child_process = require('child_process');
 var node_df = require('node-df');
 var promise_utils = require('./promise_utils');
+var P = require('./promise');
+var config = require('../../config.js');
 
 function os_info() {
 
@@ -201,11 +207,11 @@ function top_single(dst) {
 
 function netstat_single(dst) {
     var file_redirect = dst ? ' &> ' + dst : '';
-    if (os.type() === 'Darwin' ){
+    if (os.type() === 'Darwin') {
         return promise_utils.promised_exec('netstat -na' + file_redirect);
     } else if (os.type() === 'Windows_NT') {
-        return promise_utils.promised_exec('netstat -na >'+dst);
-    }else if (os.type() === 'Linux') {
+        return promise_utils.promised_exec('netstat -na >' + dst);
+    } else if (os.type() === 'Linux') {
         return promise_utils.promised_exec('netstat -nap' + file_redirect);
     } else {
         throw new Error('netstat_single ' + os.type + ' not supported');
@@ -258,20 +264,20 @@ function get_time_config() {
                 if (res.indexOf('synchronized to') !== -1) {
                     reply.status = true;
                 }
-                reply.srv_time = new Date().toISOString();
                 return promise_utils.promised_exec('ls -l /etc/localtime', false, true);
             })
             .then((tzone) => {
                 var symlink = tzone.split('>')[1].split('/usr/share/zoneinfo/')[1].trim();
+                reply.srv_time = moment().tz(symlink).format();
                 reply.timezone = symlink;
                 return reply;
             });
     } else if (os.type() === 'Darwin') {
         reply.status = true;
-        reply.srv_time = new Date().toISOString();
         return promise_utils.promised_exec('ls -l /etc/localtime', false, true)
             .then((tzone) => {
                 var symlink = tzone.split('>')[1].split('/usr/share/zoneinfo/')[1].trim();
+                reply.srv_time = moment().tz(symlink).format();
                 reply.timezone = symlink;
                 return reply;
             });
@@ -280,12 +286,51 @@ function get_time_config() {
     }
 }
 
+function get_local_ipv4_ips() {
+    var ifaces = os.networkInterfaces();
+    var ips = [];
+    _.each(ifaces, function(iface) {
+        _.each(iface, function(ifname) {
+            //Don't count non IPv4 or Internals
+            if (ifname.family !== 'IPv4' ||
+                ifname.internal !== false) {
+                return;
+            }
+            ips.push(ifname.address);
+        });
+    });
+    return ips;
+}
+
+function get_networking_info() {
+    var ifaces = os.networkInterfaces();
+    return ifaces;
+}
+
 function _set_time_zone(tzone) {
     //TODO:: Ugly Ugly, change to datectrl on centos7
     return promise_utils.promised_exec('ln -sf /usr/share/zoneinfo/' +
         tzone + ' /etc/localtime');
 }
 
+function read_server_secret() {
+    if (os.type() === 'Linux') {
+        return P.nfcall(fs.readFile, config.CLUSTERING_PATHS.SECRET_FILE)
+            .then(function(data) {
+                var sec = data.toString();
+                return sec.substring(0, sec.length - 1);
+            });
+    } else {
+        return P.when(os.hostname());
+    }
+}
+
+function is_supervised_env() {
+    if (os.type() === 'Linux') {
+        return true;
+    }
+    return false;
+}
 
 if (require.main === module) {
     read_drives().done(function(drives) {

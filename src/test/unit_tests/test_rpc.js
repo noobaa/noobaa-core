@@ -249,7 +249,7 @@ mocha.describe('RPC', function() {
                         assert.deepEqual(res, REPLY);
                     }, function(err) {
                         console.log('UNEXPECTED ERROR', err, err.stack);
-                        throw 'UNEXPECTED ERROR';
+                        throw new Error('UNEXPECTED ERROR');
                     });
                 });
 
@@ -257,7 +257,7 @@ mocha.describe('RPC', function() {
                     reply_error = true;
                     return client.test[method_name](PARAMS).then(function(res) {
                         console.log('UNEXPECTED REPLY', res);
-                        throw 'UNEXPECTED REPLY';
+                        throw new Error('UNEXPECTED REPLY');
                     }, function(err) {
                         assert.deepEqual(err.rpc_code, ERROR_CODE);
                         assert.deepEqual(err.message, ERROR_MESSAGE);
@@ -336,10 +336,10 @@ mocha.describe('RPC', function() {
         return rpc.register_tcp_transport(0)
             .then(tcp_server_arg => {
                 tcp_server = tcp_server_arg;
-                var client = rpc.new_client({
+                var tcp_client = rpc.new_client({
                     address: 'tcp://127.0.0.1:' + tcp_server.port
                 });
-                return client.test.get(PARAMS);
+                return tcp_client.test.get(PARAMS);
             })
             .finally(() => {
                 if (tcp_server) tcp_server.close();
@@ -365,10 +365,10 @@ mocha.describe('RPC', function() {
             })
             .then(tls_server_arg => {
                 tls_server = tls_server_arg;
-                var client = rpc.new_client({
+                var tls_client = rpc.new_client({
                     address: 'tls://127.0.0.1:' + tls_server.port
                 });
-                return client.test.get(PARAMS);
+                return tls_client.test.get(PARAMS);
             })
             .finally(() => {
                 if (tls_server) tls_server.close();
@@ -419,10 +419,10 @@ mocha.describe('RPC', function() {
             return rpc.register_tcp_transport(0)
                 .then(tcp_server_arg => {
                     tcp_server = tcp_server_arg;
-                    var client = rpc.new_client({
+                    var n2n_client = rpc.new_client({
                         address: ADDR
                     });
-                    return client.test.get(PARAMS);
+                    return n2n_client.test.get(PARAMS);
                 })
                 .finally(() => {
                     if (tcp_server) tcp_server.close();

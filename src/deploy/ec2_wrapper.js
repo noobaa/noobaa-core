@@ -3,6 +3,7 @@
 var _ = require('lodash');
 var P = require('../util/promise');
 var fs = require('fs');
+var path = require('path');
 var util = require('util');
 var dotenv = require('dotenv');
 var argv = require('minimist')(process.argv);
@@ -61,7 +62,7 @@ if (!process.env.AWS_ACCESS_KEY_ID) {
 
 var KEY_PAIR_PARAMS = {
     KeyName: 'noobaa-demo',
-    PublicKeyMaterial: fs.readFileSync(__dirname + '/noobaa-demo.pub')
+    PublicKeyMaterial: fs.readFileSync(path.join(__dirname, 'noobaa-demo.pub'))
 };
 
 
@@ -73,7 +74,7 @@ var _ec2_per_region = {};
 
 var _cached_ami_image_id;
 
-var current_s3_target = '';
+var current_s3_target = ''; // eslint-disable-line no-unused-vars
 load_aws_config_env();
 
 
@@ -108,15 +109,17 @@ function describe_instances(params, filter, verbose) {
                                 (typeof instance.tags_map.Name !== 'undefined')) {
                                 if ((instance.tags_map.Name.indexOf(filter.filter_tags) !== -1) ||
                                     instance.tags_map.Name !== argv.tag) {
-                                    if (verbose)
+                                    if (verbose) {
                                         console.log('FILTERED exclude', instance.InstanceId, instance.tags_map.Name);
+                                    }
                                     return false;
                                 }
                             } else if (filter.match &&
                                 (typeof instance.tags_map.Name !== 'undefined')) {
                                 if (instance.tags_map.Name.indexOf(filter.match) === -1) {
-                                    if (verbose)
+                                    if (verbose) {
                                         console.log('FILTERED match', instance.InstanceId, instance.tags_map.Name);
+                                    }
                                     return false;
                                 }
                             }
@@ -366,7 +369,7 @@ function put_object(ip, source, bucket, key) {
         Key: key,
         Body: fs.createReadStream(source),
     };
-    console.log('about to upload object',params);
+    console.log('about to upload object', params);
     var start_ts = Date.now();
     return P.ninvoke(s3bucket, 'upload', params)
         .then(function(res) {
@@ -426,9 +429,7 @@ function get_object(ip, path) {
         Key: 'ec2_wrapper_test_upgrade.dat',
     };
 
-    if (path) {
-        var file = fs.createWriteStream(path);
-    }
+    var file = path && fs.createWriteStream(path);
 
     var start_ts = Date.now();
     console.log('about to download object');
@@ -530,13 +531,13 @@ function scale_agent_instances(count, allow_terminate, is_docker_host, number_of
 function add_agent_region_instances(region_name, count, is_docker_host, number_of_dockers, is_win, agent_conf) {
     var instance_type = 'c3.large';
     // the run script to send to started instances
-    var run_script = fs.readFileSync(__dirname + '/init_agent.sh', 'UTF8');
+    var run_script = fs.readFileSync(path.join(__dirname, 'init_agent.sh'), 'UTF8');
 
     var test_instances_counter;
 
     if (is_docker_host) {
         instance_type = 'm3.2xlarge';
-        run_script = fs.readFileSync(__dirname + '/docker_setup.sh', 'utf8');
+        run_script = fs.readFileSync(path.join(__dirname, 'docker_setup.sh'), 'utf8');
         //replace 'test' with the correct env name
         test_instances_counter = (run_script.match(/test/g) || []).length;
         var dockers_instances_counter = (run_script.match(/200/g) || []).length;
@@ -547,24 +548,20 @@ function add_agent_region_instances(region_name, count, is_docker_host, number_o
         run_script = run_script.replace('<agent_conf>', agent_conf);
         run_script = run_script.replace('test', app_name);
         run_script = run_script.replace('200', number_of_dockers);
+    } else if (is_win) {
+        run_script = fs.readFileSync(path.join(__dirname, 'init_agent.bat'), 'UTF8');
+        run_script = "<script>" + run_script + "</script>";
+        run_script = run_script.replace('${env_name}', app_name);
+        run_script = run_script.replace('$agent_conf', agent_conf);
+        instance_type = 'c3.large';
     } else {
-        if (is_win) {
-            run_script = fs.readFileSync(__dirname + '/init_agent.bat', 'UTF8');
-            run_script = "<script>" + run_script + "</script>";
-            run_script = run_script.replace('${env_name}', app_name);
-            run_script = run_script.replace('$agent_conf', agent_conf);
-            instance_type = 'c3.large';
-        } else {
-
-            run_script = run_script.replace('${env_name}', app_name);
-            run_script = run_script.replace('$agent_conf', agent_conf);
-            run_script = run_script.replace('$network', 1);
-            run_script = run_script.replace('$router', '0.0.0.0');
-
-            console.log('script:', run_script);
-        }
-
+        run_script = run_script.replace('${env_name}', app_name);
+        run_script = run_script.replace('$agent_conf', agent_conf);
+        run_script = run_script.replace('$network', 1);
+        run_script = run_script.replace('$router', '0.0.0.0');
+        console.log('script:', run_script);
     }
+
 
 
     return P.fcall(get_agent_ami_image_id, region_name, is_win)

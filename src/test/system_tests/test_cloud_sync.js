@@ -107,15 +107,15 @@ function compare_object_lists(file_names, fail_msg, expected_len) {
                             bucket: TEST_CTX.target_bucket
                         });
                     })
-                    .then((target_objects) => {
+                    .then(target_objects => {
                         target_list = _.map(target_objects.objects, 'key');
                         // sort all lists:
                         source_list.sort();
                         target_list.sort();
-                        if (!_.isUndefined(expected_len)) {
-                            done = (source_list.length === expected_len && target_list.length === expected_len);
-                        } else {
+                        if (_.isUndefined(expected_len)) {
                             done = (target_list.length === source_list.length);
+                        } else {
+                            done = (source_list.length === expected_len && target_list.length === expected_len);
                         }
                     })
                     .delay(10000); // wait 10 seconds between each check
@@ -156,7 +156,7 @@ function verify_object_lists_after_delete(file_names, fail_msg, deleted_from_tar
                             bucket: TEST_CTX.target_bucket
                         });
                     })
-                    .then((target_objects) => {
+                    .then(target_objects => {
                         target_list = _.map(target_objects.objects, 'key');
                         // sort all lists:
                         source_list.sort();
@@ -296,7 +296,7 @@ function run_test() {
             });
 
         })
-        .then((obj_list) => {
+        .then(obj_list => {
             expected_after_del = obj_list.objects.length;
             console.log('waiting for deletions to sync for 3 minutes..');
         })

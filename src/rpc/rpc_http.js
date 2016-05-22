@@ -30,9 +30,7 @@ if (http.Agent && http.Agent.defaultMaxSockets < 100) {
  */
 class RpcHttpConnection extends RpcBaseConnection {
 
-    constructor(addr_url) {
-        super(addr_url);
-    }
+    // constructor(addr_url) { super(addr_url); }
 
     /**
      * mark to rpc that this connection is transient

@@ -272,8 +272,8 @@ function wait_on_agents_upgrade(ip) {
 }
 
 function calc_md5(path) {
-    var hash = crypto.createHash('md5'),
-        stream = fs.createReadStream(path);
+    var hash = crypto.createHash('md5');
+    var stream = fs.createReadStream(path);
 
     stream.on('data', function(data) {
         hash.update(data, 'utf8');

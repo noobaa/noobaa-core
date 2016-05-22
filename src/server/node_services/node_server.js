@@ -428,7 +428,7 @@ function get_test_nodes(req) {
                     deleted: null,
                 }, {
                     fields: {
-                        _id: 0,
+                        _id: 1,
                         name: 1,
                     },
                     limit: 1
@@ -439,7 +439,7 @@ function get_test_nodes(req) {
                         actor: req.account && req.account._id,
                         level: 'info',
                         event: 'node.test_node',
-                        node: res_node._id,
+                        node: res_node && res_node[0]._id,
                         desc: `${res_node && res_node[0].name} was tested by ${req.account && req.account.email}`,
                     });
                     return test_nodes;

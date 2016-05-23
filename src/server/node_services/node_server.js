@@ -428,7 +428,7 @@ function get_test_nodes(req) {
                     deleted: null,
                 }, {
                     fields: {
-                        _id: 0,
+                        _id: 1,
                         name: 1,
                     },
                     limit: 1

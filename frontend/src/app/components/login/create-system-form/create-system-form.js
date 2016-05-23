@@ -24,21 +24,26 @@ class CreateSystemFormViewModel {
             });
 
         this.systemName = ko.observable()
-            .extend({ 
+            .extend({
                 required: { message: 'Please enter a system name' }, 
+                noLeadingOrTrailingSpaces: true,
                 maxLength: { 
                     params: 50, 
                     message: 'System name cannot be longer then 50 characters' 
                 }
             });
 
-        this.systemDNS = ko.observable();
+        this.systemDNS = ko.observable()
+            .extend({ 
+                isDNSName: true 
+            });
 
         this.errors = ko.validation.group({
             ownerEmail: this.ownerEmail,
             ownerPassword: this.ownerPassword,
             confirmPassword: this.confirmPassword,
-            systemName: this.systemName
+            systemName: this.systemName,
+            systemDNS: this.systemDNS
         });            
 
     }

@@ -11,7 +11,7 @@ const stateMapping = Object.freeze({
 
     false: {
         toolTip: 'Problem',
-        icon: '/fe/assets/icons.svg#bucket-problam'
+        icon: '/fe/assets/icons.svg#bucket-problem'
     }
 });
 

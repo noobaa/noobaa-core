@@ -5,10 +5,10 @@ import style from 'style';
 import { formatSize } from 'utils';
 
 const cloudSyncStatusMapping = Object.freeze({
-    UNSYNCED: { text: 'Sync Pending', icon: 'cloud-unsynced' } , 
+    UNSYNCED: { text: 'Sync Pending', icon: 'cloud-panding' } , 
     SYNCING: { text: 'Syncing', icon: 'cloud-syncing' }, 
     PASUED: { text: 'Sync Paused', icon: 'cloud-paused' }, 
-    UNABLE: { text: 'Unable to sync', icon: 'cloud-unable' }, 
+    UNABLE: { text: 'Unable to sync', icon: 'cloud-error' }, 
     SYNCED: { text: 'Sync Completed', icon: 'cloud-synced' }, 
     NOTSET: { text: 'Sync Policy not set', icon: 'cloud-not-set' }
 })
@@ -74,6 +74,7 @@ class BucketSummrayViewModel {
             () => bucket() && bucket().cloud_sync_status !== 'NOTSET'
         );
 
+        this.dataPlacementIcon = '/fe/assets/icons.svg#policy';
         this.isPolicyModalVisible = ko.observable(false);
         this.isSetCloudSyncModalVisible = ko.observable(false);
         this.isViewCloudSyncModalVisible = ko.observable(false);

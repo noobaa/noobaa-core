@@ -130,7 +130,6 @@ export default function register(ko) {
     ko.components.register('wizard',            require('./shared/wizard/wizard'));
     ko.components.register('paginator',         require('./shared/paginator/paginator'));
     ko.components.register('drawer',            require('./shared/drawer/drawer'));
-    ko.components.register('tiled-select',      require('./shared/tiled-select/tiled-select'));
     ko.components.register('delete-button',     require('./shared/delete-button/delete-button'));
     ko.components.register('file-selector',     require('./shared/file-selector/file-selector'));
     ko.components.register('autocomplete',      require('./shared/autocomplete/autocomplete'));

@@ -29,17 +29,7 @@ class PaginatorViewModel {
             () => (this.page() + 1) * pageSize >= this.count()
         );        
 
-        this.backwardIcon = ko.pureComputed(
-            () => `/fe/assets/icons.svg#backward${
-                this.isFirstPage() ? '-disabled' : '' 
-            }`
-        );
-
-        this.forwardIcon = ko.pureComputed(
-            () => `/fe/assets/icons.svg#forward${
-                this.isLastPage() ? '-disabled' : '' 
-            }`
-        );
+        this.icon = `/fe/assets/icons.svg#chevron`;
     }
 
     pageForward() {
@@ -50,7 +40,7 @@ class PaginatorViewModel {
 
     pageBackward() {
         if (!this.isFirstPage()) {
-            this.page(this.page() - 1);    
+            this.page(this.page() - 1);
         }
     }
 }

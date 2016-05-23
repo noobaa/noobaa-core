@@ -2,9 +2,9 @@ import template from './delete-button.html';
 import ko from 'knockout';
 import { noop } from 'utils';
 
-const disabledIcon =  '/fe/assets/icons.svg#trash-disabled';
-const closedIcon = '/fe/assets/icons.svg#trash-closed';
-const opendIcon = '/fe/assets/icons.svg#trash-opened';
+const disabledIcon =  'bin-disabled';
+const closedIcon = 'bin-closed';
+const opendIcon = 'bin-opened';
 
 class DeleteButtonViewModel {
     constructor({ 
@@ -29,9 +29,13 @@ class DeleteButtonViewModel {
         });
 
         this.deleteIcon = ko.pureComputed(
-            () => ko.unwrap(this.disabled) ? 
-                disabledIcon :
-                (this.isSelected() ? opendIcon : closedIcon)
+            () => {
+                let icon = ko.unwrap(this.disabled) ? 
+                    disabledIcon :
+                    (this.isSelected() ? opendIcon : closedIcon);
+            
+                return `/fe/assets/icons.svg#${icon}`
+            }
         );
     }
 

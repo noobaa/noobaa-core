@@ -3,8 +3,8 @@ import ko from 'knockout';
 import { formatSize } from 'utils';
 
 const objectStateMapping = Object.freeze({
-    true: { label: 'Available', icon: 'object-healthy'},
-    false: { label: 'Unavailable', icon: 'object-problem' }
+    true: { label: 'Available', icon: 'object-available'},
+    false: { label: 'Unavailable', icon: 'object-unavailable' }
 });
 
 class ObjectSummaryViewModel {
@@ -35,7 +35,7 @@ class ObjectSummaryViewModel {
         );
 
         this.sizeIcon = ko.pureComputed(
-            () => `/fe/assets/icons.svg#no-entry`
+            () => `/fe/assets/icons.svg#object-size`
         );
 
         this.isPreviewModalVisible = ko.observable(false);

@@ -9,7 +9,7 @@ class UpgradeModalViewModel {
         this.onClose = onClose;
 
         let step = ko.pureComputed(
-            () => upgradeStatus() && upgradeStatus().step
+            () => 'UPLOAD'//upgradeStatus() && upgradeStatus().step
         );
 
         this.progress = ko.pureComputed(
@@ -33,7 +33,7 @@ class UpgradeModalViewModel {
 
     close() {
         if (this.upgradeFailed()) {
-            this.onClose();
+            //this.onClose();
         }
     }
 }

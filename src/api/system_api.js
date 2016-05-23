@@ -99,6 +99,24 @@ module.exports = {
             }
         },
 
+        log_frontend_stack_trace: {
+            doc: 'Add frontend stack trace to logs',
+            method: 'POST',
+            params: {
+                type: 'object',
+                required: ['stack_trace'],
+                properties: {
+                    stack_trace: {
+                        type: 'object',
+                        additionalProperties: true,
+                        properties: {},
+                    },
+                }
+            },
+            auth: {
+                system: 'admin',
+            }
+        },
 
         add_role: {
             doc: 'Add role',
@@ -140,6 +158,22 @@ module.exports = {
             }
         },
 
+        set_last_stats_report_time: {
+            doc: 'Set last stats report sync time',
+            method: 'PUT',
+            params: {
+                type: 'object',
+                required: ['last_stats_report'],
+                properties: {
+                    last_stats_report: {
+                        format: 'idate',
+                    },
+                }
+            },
+            auth: {
+                system: 'admin',
+            }
+        },
 
         read_activity_log: {
             method: 'GET',

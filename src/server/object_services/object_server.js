@@ -24,7 +24,7 @@ const nodes_store = require('../node_services/nodes_store');
 const system_store = require('../system_services/system_store').get_instance();
 const string_utils = require('../../util/string_utils');
 const mongo_functions = require('../../util/mongo_functions');
-
+const ObjectStats = require('../analytic_services/object_stats');
 
 /**
  *
@@ -537,6 +537,60 @@ function one_level_delimiter(delimiter) {
     return '[^' + d + ']*' + d + '?$';
 }
 
+function add_s3_usage_report(req) {
+    return P.fcall(() => {
+            return ObjectStats.create({
+                system: req.system,
+                s3_usage_info: req.rpc_params.s3_usage_info,
+            });
+        }).return();
+}
+
+function remove_s3_usage_reports(req) {
+    console.warn('JEN remove_s3_usage_reports');
+    var q = ObjectStats.remove();
+    if (req.rpc_params.till_time) {
+        // query backwards from given time
+        req.rpc_params.till_time = new Date(req.rpc_params.till_time);
+        q.where('time').lte(req.rpc_params.till_time);
+    } else {
+        throw req.rpc_error('NO TILL_TIME', 'Parameters do not have till_time: ' + req.rpc_params);
+    }
+    //q.limit(req.rpc_params.limit || 10);
+    return P.when(q.exec())
+        .catch(err => {
+            throw req.rpc_error('COULD NOT DELETE REPORTS', 'Error Deleting Reports: ' + err);
+        })
+        .return();
+}
+
+function read_s3_usage_report(req) {
+    var q = ObjectStats.find({deleted: null}).lean();
+    if (req.rpc_params.from_time) {
+        // query backwards from given time
+        req.rpc_params.from_time = new Date(req.rpc_params.from_time);
+        q.where('time').gt(req.rpc_params.from_time).sort('-time');
+    } else {
+        // query backward from last time
+        q.sort('-time');
+    }
+    //q.limit(req.rpc_params.limit || 10);
+    return P.when(q.exec())
+        .then(reports => {
+            reports = _.map(reports, report_item => {
+                let report = _.pick(report_item, 'system', 's3_usage_info');
+                report.time = report_item.time.getTime();
+                return report;
+            });
+            // if (reverse) {
+            //     reports.reverse();
+            // }
+            return {
+                reports: reports
+            };
+        });
+}
+
 /**
  * common case is / as delimiter
  */
@@ -835,6 +889,9 @@ function check_md_conditions(req, conditions, obj) {
 // EXPORTS
 // object upload
 exports.create_object_upload = create_object_upload;
+exports.read_s3_usage_report = read_s3_usage_report;
+exports.add_s3_usage_report = add_s3_usage_report;
+exports.remove_s3_usage_reports = remove_s3_usage_reports;
 exports.complete_object_upload = complete_object_upload;
 exports.abort_object_upload = abort_object_upload;
 exports.list_multipart_parts = list_multipart_parts;

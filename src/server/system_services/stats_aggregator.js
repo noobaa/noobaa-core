@@ -6,10 +6,7 @@
 'use strict';
 
 const _ = require('lodash');
-// const util = require('util');
-const request = require('request');
-const FormData = require('form-data');
-
+const http = require('http');
 const P = require('../../util/promise');
 const dbg = require('../../util/debug_module')(__filename);
 const config = require('../../../config.js');
@@ -17,11 +14,16 @@ const Histogram = require('../../util/histogram');
 const nodes_store = require('../node_services/nodes_store');
 const node_server = require('../node_services/node_server');
 const system_store = require('../system_services/system_store').get_instance();
-const system_server = require('./system_server');
-const promise_utils = require('../../util/promise_utils');
+const system_server = require('../system_services/system_server');
+const object_server = require('../object_services/object_server');
+const bucket_server = require('../system_services/bucket_server');
+const zlib = require('zlib');
+//const promise_utils = require('../../util/promise_utils');
+var server_rpc = require('../server_rpc');
 
 const ops_aggregation = {};
 const SCALE_BYTES_TO_GB = 1024 * 1024 * 1024;
+const SCALE_BYTES_TO_MB = 1024 * 1024;
 const SCALE_SEC_TO_DAYS = 60 * 60 * 24;
 
 /*
@@ -100,6 +102,30 @@ var NODES_STATS_DEFAULTS = {
     },
 };
 
+const SYNC_STATS_DEFAULTS = {
+    bucket_count: 0,
+    sync_count: 0,
+    sync_type: {
+        bi_directional: 0,
+        n2c: 0,
+        c2n: 0,
+        additions_only: 0,
+        additions_and_deletions: 0,
+    },
+    sync_target: {
+        amazon: 0,
+        other: 0,
+    },
+};
+
+const CLOUD_POOL_STATS_DEFAULTS = {
+    pool_count: 0,
+    cloud_pool_count: 0,
+    cloud_pool_target: {
+        amazon: 0,
+        other: 0,
+    },
+};
 
 //Collect nodes related stats and usage
 function get_nodes_stats(req) {
@@ -144,6 +170,26 @@ function get_ops_stats(req) {
     return _.mapValues(ops_aggregation, val => val.get_string_data());
 }
 
+function get_bucket_sizes_stats(req) {
+    return P.all(_.map(system_store.data.buckets,
+            bucket => {
+                let new_req = req;
+                new_req.rpc_params.bucket = bucket.name;
+                return object_server.list_objects(new_req);
+            }
+        ))
+        .then(bucket_arr => {
+            let histo_arr = [];
+            for (var ibucket = 0; ibucket < bucket_arr.length; ++ibucket) {
+                let objects_histo = get_empty_objects_histo();
+                let objects = bucket_arr[ibucket].objects;
+                _.forEach(objects, obj => objects_histo.histo_size.add_value(obj.info.size / SCALE_BYTES_TO_MB));
+                histo_arr.push(_.mapValues(objects_histo, histo => histo.get_object_data(false)));
+            }
+            return histo_arr;
+        });
+}
+
 function get_pool_stats(req) {
     return nodes_store.aggregate_nodes_by_pool({
             deleted: null
@@ -154,6 +200,97 @@ function get_pool_stats(req) {
                 return a.count || 0;
             });
         });
+}
+
+function get_cloud_sync_stats(req) {
+    var sync_stats = _.cloneDeep(SYNC_STATS_DEFAULTS);
+    var sync_histo = get_empty_sync_histo();
+    //Per each system fill out the needed info
+    return P.all(_.map(system_store.data.systems,
+            system => {
+                let new_req = _.defaults({system: system}, req);
+                return bucket_server.get_all_cloud_sync_policies(new_req);
+            }
+        ))
+        .then(results => {
+            for (var isys = 0; isys < results.length; ++isys) {
+                for (var ipolicy = 0; ipolicy < results[isys].length; ++ipolicy) {
+                    let cloud_sync = results[isys][ipolicy];
+                    sync_stats.bucket_count++;
+                    if (Object.getOwnPropertyNames(cloud_sync).length) {
+                        sync_stats.sync_count++;
+                        if (cloud_sync.policy.additions_only) {
+                            sync_stats.sync_type.additions_only++;
+                        } else {
+                            sync_stats.sync_type.additions_and_deletions++;
+                        }
+
+                        if (cloud_sync.policy.n2c_enabled && cloud_sync.policy.c2n_enabled) {
+                            sync_stats.sync_type.bi_directional++;
+                        } else if (cloud_sync.policy.n2c_enabled) {
+                            sync_stats.sync_type.n2c++;
+                        } else if (cloud_sync.policy.c2n_enabled) {
+                            sync_stats.sync_type.c2n++;
+                        }
+
+                        if (cloud_sync.endpoint) {
+                            if (cloud_sync.endpoint.indexOf('amazonaws.com') > -1) {
+                                sync_stats.sync_target.amazon++;
+                            } else {
+                                sync_stats.sync_target.other++;
+                            }
+                        }
+                        sync_histo.histo_schedule.add_value(cloud_sync.policy.schedule);
+                    }
+                }
+            }
+            sync_stats.histograms = _.mapValues(sync_histo, histo => histo.get_object_data(false));
+            return sync_stats;
+        })
+        .catch(err => {
+            dbg.warn('Error in collecting sync stats,',
+                'skipping current sampling point', err.stack || err);
+            throw err;
+        });
+}
+
+function get_object_usage_stats(req) {
+    let new_req = req;
+    new_req.rpc_params.from_time = req.system.last_stats_report || new Date(0);
+    console.warn('JEN new_req.rpc_params.from_time', new_req.rpc_params.from_time);
+    return object_server.read_s3_usage_report(new_req)
+        .then(res => {
+            return _.map(res.reports, report => ({
+                    system: String(report.system),
+                    time: report.time,
+                    s3_usage_info: report.s3_usage_info
+            }));
+        })
+        .catch(err => {
+            dbg.warn('Error in collecting object usage stats,',
+                'skipping current sampling point', err.stack || err);
+            throw err;
+        });
+}
+
+function get_cloud_pool_stats(req) {
+    var cloud_pool_stats = _.cloneDeep(CLOUD_POOL_STATS_DEFAULTS);
+    //Per each system fill out the needed info
+    _.forEach(system_store.data.pools, pool => {
+        cloud_pool_stats.pool_count++;
+        if (pool.cloud_pool_info) {
+            cloud_pool_stats.cloud_pool_count++;
+            if (pool.cloud_pool_info.endpoint) {
+                if (pool.cloud_pool_info.endpoint.indexOf('amazonaws.com') > -1) {
+                    cloud_pool_stats.cloud_target.amazon++;
+                } else {
+                    cloud_pool_stats.cloud_target.other++;
+                }
+            }
+        }
+    });
+
+    return cloud_pool_stats;
 }
 
 function get_tier_stats(req) {
@@ -169,9 +306,13 @@ function get_all_stats(req) {
     var stats_payload = {
         systems_stats: null,
         nodes_stats: null,
+        cloud_sync_stats: null,
+        cloud_pool_stats: null,
+        bucket_sizes_stats: null,
         ops_stats: null,
         pools_stats: null,
         tier_stats: null,
+        object_usage_stats: null,
     };
 
     dbg.log2('SYSTEM_SERVER_STATS_AGGREGATOR:', 'BEGIN');
@@ -191,6 +332,26 @@ function get_all_stats(req) {
         })
         .then(pools_stats => {
             stats_payload.pools_stats = pools_stats;
+            dbg.log2('SYSTEM_SERVER_STATS_AGGREGATOR:', '  Collecting Cloud Pool');
+            return get_cloud_pool_stats(req);
+        })
+        .then(cloud_pool_stats => {
+            stats_payload.cloud_pool_stats = cloud_pool_stats;
+            dbg.log2('SYSTEM_SERVER_STATS_AGGREGATOR:', '  Collecting Cloud Sync');
+            return get_cloud_sync_stats(req);
+        })
+        .then(cloud_sync_stats => {
+            stats_payload.cloud_sync_stats = cloud_sync_stats;
+            dbg.log2('SYSTEM_SERVER_STATS_AGGREGATOR:', '  Collecting Bucket Sizes');
+            return get_bucket_sizes_stats(req);
+        })
+        .then(bucket_sizes_stats => {
+            stats_payload.bucket_sizes_stats = bucket_sizes_stats;
+            dbg.log2('SYSTEM_SERVER_STATS_AGGREGATOR:', '  Collecting Object Usage');
+            return get_object_usage_stats(req);
+        })
+        .then(object_usage_stats => {
+            stats_payload.object_usage_stats = object_usage_stats;
             dbg.log2('SYSTEM_SERVER_STATS_AGGREGATOR:', '  Collecting Tiers');
             return get_tier_stats(req);
         })
@@ -243,24 +404,161 @@ function add_sample_point(opname, duration) {
     ops_aggregation[opname].add_value(duration);
 }
 
-_.noop(send_stats_payload); // lint unused bypass
-
-function send_stats_payload(payload) {
-    var form = new FormData();
-    form.append('phdata', JSON.stringify(payload));
-
-    return P.ninvoke(request, 'post', {
-            url: config.central_stats.central_listener + '/phdata',
-            formData: form,
-            rejectUnauthorized: false,
-        })
-        .then((httpResponse, body) => {
-            dbg.log2('Phone Home data sent successfully');
-            return;
+function object_usage_scrubber(req) {
+    console.warn('JEN PROOF', req);
+    let new_req = req;
+    new_req.rpc_params.till_time = req.system.last_stats_report || new Date(0);
+    return object_server.remove_s3_usage_reports(new_req)
+        .then(() => {
+            console.warn('JEN object_usage_scrubber');
+            new_req.rpc_params.last_stats_report = new Date();
+            return system_server.set_last_stats_report_time(new_req);
         })
         .catch(err => {
-            dbg.warn('Phone Home data send failed', err.stack || err);
+            dbg.warn('Error in object usage scrubber,',
+                'skipping current deleting point', err.stack || err);
+            return;
+        })
+        .return();
+}
+
+//_.noop(send_stats_payload); // lint unused bypass
+
+function send_stats_payload(payload) {
+    //create a deferred object from Q
+	var deferred = P.defer();
+    //var promise_send = P.defer();
+    var data_to_send = {};
+    data_to_send.time_stamp = new Date();
+    data_to_send.system = system_store.data.systems[0]._id;
+    data_to_send.payload = payload;
+    //form.append('phdata', JSON.stringify(data_to_send));
+    console.warn('JEN JSON TO DANNY:', payload);
+    //let body = JSON.stringify(data_to_send);
+    //var body_buf = new Buffer(JSON.stringify(data_to_send), 'utf-8');   // Choose encoding for the string.
+    //console.warn('JEN zlib1', zlib);
+    var gzip_payload = zlib.createGzip(new Buffer(JSON.stringify(data_to_send), 'utf-8'));
+
+    var options = {
+        hostname: config.central_stats.central_listener,
+        port: 9090,
+        path: "/phdata",
+        method: "POST",
+        headers: {
+            "Content-Type": "application/gzip",
+            "Content-Encoding": "gzip",
+            "Content-Length": Buffer.byteLength(gzip_payload._buffer)
+        }
+    };
+
+	var req = http.request(options, function(response) {
+        //set the response encoding to parse json string
+        response.setEncoding('utf8');
+        var responseData = '';
+        //append data to responseData variable on the 'data' event emission
+        response.on('data', function(data) {
+            console.warn('JEN DANNY RESPONSE');
+            responseData += data;
         });
+        //listen to the 'end' event
+        response.on('end', function() {
+            console.warn('JEN DANNY RESPONSE2');
+            //resolve the deferred object with the response
+            deferred.resolve(responseData);
+        });
+	});
+
+    //listen to the 'error' event
+    req.on('error', function(err) {
+        console.warn('JEN DANNY RESPONSE3');
+        //if an error occurs reject the deferred
+        deferred.reject(err);
+    });
+    req.end(gzip_payload._buffer);
+	//we are returning a promise object
+	//if we returned the deferred object
+	//deferred object reject and resolve could potentially be modified
+	//violating the expected behavior of this function
+	return deferred.promise;
+
+    //TODO JEN STUFF
+    /*
+    //var form = new FormData();
+    var promise_send = P.defer();
+    var data_to_send = {};
+    data_to_send.time_stamp = new Date();
+    data_to_send.system = system_store.data.systems[0]._id;
+    data_to_send.payload = payload;
+    //form.append('phdata', JSON.stringify(data_to_send));
+    let body = JSON.stringify(data_to_send);
+
+    var options = {
+        hostname: config.central_stats.central_listener,
+        port: 9090,
+        path: "/phdata",
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+            "Content-Length": Buffer.byteLength(body)
+        }
+    };
+
+    // var request = new http.request({
+    //     hostname: config.central_stats.central_listener,
+    //     port: 9090,
+    //     path: "/phdata",
+    //     method: "POST",
+    //     headers: {
+    //         "Content-Type": "application/json",
+    //         "Content-Length": Buffer.byteLength(body)
+    //     }
+    // });
+
+    return P.ninvoke(http, 'request', options)
+        .then(() => {
+            request.on('error', function(err) {
+                console.warn('JEN REQUEST ERROR');
+                promise_send.reject(err);
+                //console.error(err);
+            });
+
+            request.on('end', function() {
+                console.warn('JEN REQUEST END');
+                promise_send.resolve('JEN Done');
+                //console.error(err);
+            });
+
+            return promise_send.promise;
+        })
+        .catch((err) => {
+            console.warn('JEN NINVOKE ERROR');
+        })
+
+    // request.on('error', function(err) {
+    //     promise_send.reject(err);
+    //     //console.error(err);
+    // });
+    //
+    // request.on('end', function() {
+    //     promise_send.resolve('JEN Done');
+    //     //console.error(err);
+    // });
+
+    //throw new Error('JEN ERROR');
+    // return P.ninvoke(request, 'end', body)
+    // // return P.ninvoke(request, 'post', {
+    // //         url: config.central_stats.central_listener + ':9090/phdata',
+    // //         //formData: form,
+    // //         rejectUnauthorized: false,
+    // //     })
+    //     .then((httpResponse) => {
+    //         dbg.log2('Phone Home data sent successfully');
+    //         console.warn('JEN YOU MAGICAL BASTARD', httpResponse);
+    //         return promise_send.promise;
+    //     })
+        // .catch(err => {
+        //    dbg.warn('Phone Home data send failed', err.stack || err);
+        // });*/
 }
 
 
@@ -314,32 +612,105 @@ function get_empty_nodes_histo() {
     return empty_nodes_histo;
 }
 
-/*
- * Background Wokrer
- */
-if ((config.central_stats.send_stats !== 'true') &&
-    (config.central_stats.central_listener)) {
-    dbg.log('Central Statistics gathering enabled');
-    promise_utils.run_background_worker({
-        name: 'system_server_stats_aggregator',
-        batch_size: 1,
-        time_since_last_build: 60000, // TODO increase...
-        building_timeout: 300000, // TODO increase...
-        delay: (60 * 60 * 1000), //60m
+function get_empty_sync_histo() {
+    //TODO: Add histogram for limit, once implemented
+    var empty_sync_histo = {};
+    empty_sync_histo.histo_schedule = new Histogram('SyncSchedule(Minutes)', [{
+        label: 'low',
+        start_val: 0
+    }, {
+        label: 'med',
+        start_val: 60 // 1 Hour
+    }, {
+        label: 'high',
+        start_val: 1440 // 1 Day
+    }]);
 
-        //Run the system statistics gatheting
-        run_batch: function() {
-            return P.fcall(() => get_all_stats({}))
-                .then(payload => {
-                    //  return send_stats_payload(payload);
-                })
-                .catch(err => {
-
-                });
-        }
-    });
+    return empty_sync_histo;
 }
 
+function get_empty_objects_histo() {
+    //TODO: Add histogram for limit, once implemented
+    var empty_objects_histo = {};
+    empty_objects_histo.histo_size = new Histogram('Size(MegaBytes)', [{
+        label: '0 MegaBytes - 5 MegaBytes',
+        start_val: 0
+    }, {
+        label: '5 MegaBytes - 100 MegaBytes',
+        start_val: 5
+    }, {
+        label: '100 MegaBytes - 1 GigaBytes',
+        start_val: 100
+    }, {
+        label: '1 GigaBytes - 100 GigaBytes',
+        start_val: 1000
+    }, {
+        label: '100 GigaBytes - 1 TeraBytes',
+        start_val: 100000
+    }, {
+        label: '1 TeraBytes - 10 TeraBytes',
+        start_val: 1000000
+    }, {
+        label: '10 TeraBytes - What?!',
+        start_val: 10000000
+    }]);
+
+    return empty_objects_histo;
+}
+
+function background_worker() {
+    /* jshint validthis: true */
+    //var self = this;
+    //return P.fcall(function() {
+        /*
+         * Background Wokrer
+         */
+        //if ((config.central_stats.send_stats === 'true') &&
+        //    (config.central_stats.central_listener)) {
+            dbg.log('Central Statistics gathering enabled');
+        //    promise_utils.run_background_worker({
+        //        name: 'system_server_stats_aggregator',
+    //            batch_size: 1,
+    //            time_since_last_build: 1000, // TODO increase...
+//                building_timeout: 2000, // TODO increase...
+            //    delay: (1 * 1 * 1000), //60m
+
+                //Run the system statistics gatheting
+                //run_batch: function() {
+                    return P.fcall(() => {
+                        if (!server_rpc.client.options.auth_token) {
+                            let system = system_store.data.systems[0];
+                            let auth_params = {
+                                email: 'support@noobaa.com',
+                                password: 'help',
+                                system: system.name,
+                            };
+                            return server_rpc.client.create_auth_token(auth_params);
+                        }
+                        return;
+                    })
+                    .then(() => server_rpc.client.stats.get_all_stats({}))
+                    .then((pay) => {
+                        console.warn('JEN OBJECT USAGE PAYLOAD:', pay.object_usage_stats);
+                        return pay;
+                    })
+                    .then(payload => send_stats_payload(payload))
+                    .then((res) => {
+                        console.warn('JEN RESPONSE', res);
+                        return server_rpc.client.stats.object_usage_scrubber({});
+                    })
+                    // .then(() => server_rpc.client.stats.object_usage_scrubber({}))
+                    .catch(err => {
+                        console.warn('JEN NOT MAGICAL');
+                        dbg.warn('Phone Home data send failed', err.stack || err);
+                        return;
+                    })
+                    .return();
+                //}
+            //});
+        //}
+    //});
+}
 
 // EXPORTS
 //stats getters
@@ -347,8 +718,14 @@ exports.get_systems_stats = get_systems_stats;
 exports.get_nodes_stats = get_nodes_stats;
 exports.get_ops_stats = get_ops_stats;
 exports.get_pool_stats = get_pool_stats;
+exports.get_cloud_sync_stats = get_cloud_sync_stats;
+exports.get_cloud_pool_stats = get_cloud_pool_stats;
 exports.get_tier_stats = get_tier_stats;
 exports.get_all_stats = get_all_stats;
+exports.get_bucket_sizes_stats = get_bucket_sizes_stats;
+exports.get_object_usage_stats = get_object_usage_stats;
 //OP stats collection
 exports.register_histogram = register_histogram;
 exports.add_sample_point = add_sample_point;
+exports.object_usage_scrubber = object_usage_scrubber;
+exports.background_worker = background_worker;

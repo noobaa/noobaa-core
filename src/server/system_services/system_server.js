@@ -236,6 +236,7 @@ function read_system(req) {
                 online: nodes_sys.online || 0,
             },
             owner: account_server.get_account_info(system_store.data.get_by_id(system._id).owner),
+            last_stats_report: system.last_stats_report && new Date(system.last_stats_report),
             ssl_port: process.env.SSL_PORT,
             web_port: process.env.PORT,
             web_links: get_system_web_links(system),
@@ -285,7 +286,13 @@ function delete_system(req) {
     }).return();
 }
 
-
+function log_frontend_stack_trace(req) {
+    return P.fcall(function() {
+            dbg.log0('Logging frontend stack trace:', JSON.stringify(req.rpc_params.stack_trace));
+            return;
+        })
+        .return();
+}
 
 /**
  *
@@ -410,7 +417,16 @@ function get_system_web_links(system) {
 }
 
 
-
+function set_last_stats_report_time(req) {
+    var updates = {};
+    updates._id = req.system._id;
+    updates.last_stats_report = new Date(req.rpc_params.last_stats_report);
+    return system_store.make_changes({
+        update: {
+            systems: [updates]
+        }
+    }).return();
+}
 
 /**
  *
@@ -791,6 +807,8 @@ exports.read_activity_log = read_activity_log;
 exports.diagnose = diagnose;
 exports.diagnose_with_agent = diagnose_with_agent;
 exports.start_debug = start_debug;
+exports.log_frontend_stack_trace = log_frontend_stack_trace;
+exports.set_last_stats_report_time = set_last_stats_report_time;
 
 exports.update_n2n_config = update_n2n_config;
 exports.update_base_address = update_base_address;

@@ -47,6 +47,9 @@ module.exports = {
             additionalProperties: true,
             properties: {}
         },
+        last_stats_report: {
+            format: 'idate'
+        },
         // the DNS name or IP address used for the server
         base_address: {
             type: 'string'

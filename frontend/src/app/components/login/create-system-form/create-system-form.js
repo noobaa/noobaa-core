@@ -42,7 +42,8 @@ class CreateSystemFormViewModel {
             ownerEmail: this.ownerEmail,
             ownerPassword: this.ownerPassword,
             confirmPassword: this.confirmPassword,
-            systemName: this.systemName
+            systemName: this.systemName,
+            systemDNS: this.systemDNS
         });            
 
     }

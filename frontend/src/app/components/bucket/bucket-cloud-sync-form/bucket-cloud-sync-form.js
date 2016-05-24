@@ -1,15 +1,24 @@
 import template from './bucket-cloud-sync-form.html';
 import ko from 'knockout';
+import moment from 'moment';
 import { cloudSyncInfo } from 'model';
 import{ removeCloudSyncPolicy, loadCloudSyncInfo } from 'actions';
 
-const cloudStatusMapping = Object.freeze({
-    UNSYNCED: { text: 'Sync Pending', icon: 'cloud-panding' } , 
-    SYNCING: { text: 'Syncing', icon: 'cloud-syncing' }, 
-    PASUED: { text: 'Sync Paused', icon: 'cloud-paused' }, 
-    UNABLE: { text: 'Unable to sync', icon: 'cloud-error' }, 
-    SYNCED: { text: 'Sync Completed', icon: 'cloud-synced' }, 
+const timeFormat = 'MMM, DD [at] hh:mm:ss';
+
+const syncStateMapping = Object.freeze({
+    UNSYNCED: 'Sync Pending',
+    SYNCING: 'Syncing',
+    PASUED: 'Sync Paused',
+    UNABLE: 'Unable to sync',
+    SYNCED: 'Sync Completed'
 });
+
+const directionMapping = Object.freeze({
+    '01': 'Target to source',
+    '10': 'Source to target',
+    '11': 'Bi Directionaxl'
+})
 
 class BucketCloudSyncFormViewModel {
     constructor({ bucket }) {
@@ -25,20 +34,28 @@ class BucketCloudSyncFormViewModel {
             () => !!bucket() && bucket().cloud_sync_status !== 'NOTSET'
         );
 
-        this.syncStatus = ko.pureComputed(
-            () => {
-                console.warn(cloudSyncInfo())
-                'Synced'
-            }
+        this.state = ko.pureComputed(
+            () => cloudSyncInfo() && syncStateMapping[cloudSyncInfo().status]
         );
 
+        let policy = ko.pureComputed(
+            () => cloudSyncInfo() && cloudSyncInfo().policy
+        )
+
         this.lastSync = ko.pureComputed(
-            () => 'Feb, 25 at 06:09:33'
+            () => !!cloudSyncInfo() ?
+                moment(cloudSyncInfo().last_sync).format(timeFormat) :
+                'N/A'
         );
 
         this.nextSync = ko.pureComputed(
-            () => 'Feb, 25 at 06:09:33'
-        );        
+            () => null
+        //     () => !!cloudSyncInfo() ?
+        //         moment(cloudSyncInfo().last_sync)
+        //             .add(policy().schedule, 'minutes')
+        //             .format(timeFormat) :
+        //         'N/A'
+        );
 
         this.connection = ko.pureComputed(
             () => 'Connection 1'
@@ -57,15 +74,22 @@ class BucketCloudSyncFormViewModel {
         );
 
         this.frequancy = ko.pureComputed(
-            () => 'Every 19 mins'
+            () => policy() && `Every ${
+                moment().add(policy().schedule, 'minutes')
+                    .fromNow(true)
+                    .replace(/^(a|an)\s+/, '')
+            }`
         );
 
         this.syncDirection = ko.pureComputed(
-            () => 'Bi-Directional'
+            () => null
+            // () => policy() && directionMapping[
+            //     policy().'Bi-Directional
+            // ]'
         );
 
         this.syncDeletions = ko.pureComputed(
-            () => 'Yes'
+            () => policy() && policy().additions_only ? 'No' : 'Yes'
         );
 
         this.isSetCloudSyncModalVisible = ko.observable(false);

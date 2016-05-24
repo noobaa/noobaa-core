@@ -884,6 +884,12 @@ export function loadCloudSyncInfo(bucket) {
 
     api.bucket.get_cloud_sync_policy({ name: bucket })
         .then(model.cloudSyncInfo)
+        .then(
+            () => model.bucketInfo() && 
+                model.bucketInfo().name === bucket) &&
+                loadBucketInfo(bucket)
+            }
+        )
         .done();
 }
 
@@ -1438,7 +1444,7 @@ export function setCloudSyncPolicy(bucket, connection, targetBucket, direction, 
             additions_only: !sycDeletions
         }
     })
-        .then(refresh)
+        .then(loadCloudSyncInfo)
         .done();
 }
 

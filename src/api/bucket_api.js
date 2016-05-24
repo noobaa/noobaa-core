@@ -273,6 +273,25 @@ module.exports = {
             }
         },
 
+        toggle_cloud_sync: {
+            method: 'PUT',
+            params: {
+                type: 'object',
+                required: ['name', 'pause'],
+                properties: {
+                    name: {
+                        type: 'string'
+                    },
+                    pause: {
+                        type: 'boolean'
+                    }
+                }
+            },
+            auth: {
+                system: 'admin'
+            }
+        },
+
         // TODO Removed by request of Ohad, because seems like we won't be using it
         /*generate_bucket_access: {
             method: 'PUT',
@@ -359,9 +378,6 @@ module.exports = {
                 },
                 schedule: {
                     type: 'integer'
-                },
-                paused: {
-                    type: 'boolean',
                 },
                 c2n_enabled: {
                     type: 'boolean',

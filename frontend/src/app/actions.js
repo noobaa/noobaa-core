@@ -885,9 +885,10 @@ export function loadCloudSyncInfo(bucket) {
     api.bucket.get_cloud_sync_policy({ name: bucket })
         .then(model.cloudSyncInfo)
         .then(
-            () => model.bucketInfo() && 
-                model.bucketInfo().name === bucket) &&
-                loadBucketInfo(bucket)
+            () => {
+                if (model.bucketInfo() && model.bucketInfo().name === bucket) {
+                    loadBucketInfo(bucket);
+                }
             }
         )
         .done();

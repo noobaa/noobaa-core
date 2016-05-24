@@ -77,7 +77,7 @@ function configure_networking_dialog {
         sudo bash -c "echo 'NETMASK=${mask}'>> /etc/sysconfig/network-scripts/ifcfg-eth0"
         sudo bash -c "echo 'GATEWAY=${gw}'>> /etc/sysconfig/network-scripts/ifcfg-eth0"
 
-        dialog --colors --nocancel --backtitle "NooBaa First Install" --title "DNS Configuration" --form "\nPlease supply a primary and secodnary DNS servers (Use \Z4\ZbUp/Down\Zn to navigate)." 12 80 4 "Primary DNS:" 1 1 "" 1 25 25 30 "Secondary DNS:" 2 1 "" 2 25 25 30 2> answer_dns
+        dialog --colors --nocancel --backtitle "NooBaa First Install" --title "DNS Configuration" --form "\nPlease supply a primary and secondary DNS servers (Use \Z4\ZbUp/Down\Zn to navigate)." 12 80 4 "Primary DNS:" 1 1 "" 1 25 25 30 "Secondary DNS:" 2 1 "" 2 25 25 30 2> answer_dns
 
         local dns1=$(head -1 answer_dns)
         local dns2=$(tail -1 answer_dns)
@@ -106,8 +106,8 @@ function configure_networking_dialog {
       local host=$(cat answer_host)
       rc=$(sudo sysctl kernel.hostname=${host})
       #sudo echo "First Install configure hostname ${host}, sysctl rc ${rc}" >> /var/log/noobaa_deploy.log
- 
-  
+
+
 }
 
 
@@ -130,7 +130,7 @@ function configure_ntp_dialog {
     if [ ${num_lines} -eq 0 ]; then
       return 0
     fi
-       
+
     # check server\time zone valid
     if [ -n "${ntp_server}" ]; then
       err_ntp=0
@@ -145,14 +145,14 @@ function configure_ntp_dialog {
     else
       err_tz_msg="\Z1Please enter a valid TZ value\Zn"
     fi
-    
+
   done
      echo "${ntp_server}" > /tmp/ntp
 
     sudo sed -i "s/.*NooBaa Configured NTP Server.*/server ${ntp_server} iburst #NooBaa Configured NTP Server/" /etc/ntp.conf
 
     echo "${tz}" > /tmp/tztz
-    sudo ln -sf "/usr/share/zoneinfo/${tz}" /etc/localtime 
+    sudo ln -sf "/usr/share/zoneinfo/${tz}" /etc/localtime
     sudo /sbin/chkconfig ntpd on 2345
     sudo /etc/init.d/ntpd restart
     sudo /etc/init.d/rsyslog restart
@@ -185,10 +185,10 @@ is a short first install wizard to help configure \Z5\ZbNooBaa\Zn to best suit y
 function end_wizard {
   local current_ip=$(ifconfig eth0  |grep 'inet addr' | cut -f 2 -d':' | cut -f 1 -d' ')
   dialog --colors --nocancel --backtitle "NooBaa First Install" --title '\Z5\ZbNooBaa\Zn is Ready' --msgbox "\n\Z5\ZbNooBaa\Zn was configured and is ready to use. You can access \Z5\Zbhttp://${current_ip}:8080\Zn to start using your system." 7 65
-  date >> ${FIRST_INSTALL_MARK}
+  date | sudo tee -a ${FIRST_INSTALL_MARK}
   clear
 
-  fix_etc_issue
+  sudo sed -i "s:Configured IP on this NooBaa Server.*:Configured IP on this NooBaa Server \x1b[0;32;40m${current_ip}\x1b[0m:" /etc/issue
 
   trap 2 20
   exit 0

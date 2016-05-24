@@ -39,6 +39,14 @@ var steps = [
         //Restore DB to defaults
         name: 'Restore DB Defaults',
         common: 'restore_db_defaults',
+    }, {
+        //Test cloud sync functionality
+        name: 'Bucket Access Test',
+        lib_test: 'src/test/system_tests/test_bucket_access.js',
+    }, {
+        //Restore DB to defaults
+        name: 'Restore DB Defaults',
+        common: 'restore_db_defaults',
     }
 ];
 

@@ -82,7 +82,12 @@ module.exports = {
                     IPs: {
                         type: 'array',
                         items: {
-                            type: 'string',
+                            type: 'object',
+                            properties: {
+                                address: {
+                                    type: 'string'
+                                },
+                            }
                         },
                     },
                     cluster_id: {

@@ -18,7 +18,7 @@ const stateMapping = Object.freeze({
 const cloudSyncStatusMapping = Object.freeze({
     [undefined]:    { label: 'N/A',             css: ''               },
     NOTSET:         { label: 'not set',         css: 'no-set'         },
-    UNSYNCED:       { label: 'unsynced',        css: 'unsynced'       },
+    PENDING:        { label: 'pending',         css: 'pending'       },
     SYNCING:        { label: 'syncing',         css: 'syncing'        },
     PAUSED:         { label: 'paused',          css: 'paused'         },
     SYNCED:         { label: 'synced',          css: 'synced'         },

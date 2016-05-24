@@ -187,6 +187,9 @@ module.exports = {
                     },
                     status: {
                         $ref: '#/definitions/api_cloud_sync_status'
+                    },
+                    last_sync: {
+                        format: 'idate'
                     }
                 }
             },
@@ -220,6 +223,9 @@ module.exports = {
                         },
                         status: {
                             $ref: '#/definitions/api_cloud_sync_status'
+                        },
+                        last_sync: {
+                            format: 'idate'
                         }
                     }
                 }
@@ -354,9 +360,6 @@ module.exports = {
                 schedule: {
                     type: 'integer'
                 },
-                last_sync: {
-                    format: 'idate'
-                },
                 paused: {
                     type: 'boolean',
                 },
@@ -389,7 +392,7 @@ module.exports = {
         },
 
         api_cloud_sync_status: {
-            enum: ['UNSYNCED', 'SYNCING', 'PASUED', 'UNABLE', 'SYNCED', 'NOTSET'],
+            enum: ['PENDING', 'SYNCING', 'PASUED', 'UNABLE', 'SYNCED', 'NOTSET'],
             type: 'string',
         },
 

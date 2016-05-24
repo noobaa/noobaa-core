@@ -370,6 +370,7 @@ function get_cloud_sync_policy(req, bucket) {
         }))
         .then(res => {
             bucket.cloud_sync.status = res.status;
+            bucket.cloud_sync.health = res.health;
 
             return {
                 name: bucket.name,
@@ -377,10 +378,10 @@ function get_cloud_sync_policy(req, bucket) {
                 access_key: bucket.cloud_sync.access_keys.access_key,
                 health: res.health,
                 status: cloud_sync_utils.resolve_cloud_sync_info(bucket.cloud_sync),
+                last_sync: bucket.cloud_sync.last_sync.getTime(),
                 policy: {
                     target_bucket: bucket.cloud_sync.target_bucket,
                     schedule: bucket.cloud_sync.schedule_min,
-                    last_sync: (new Date(bucket.cloud_sync.last_sync)).getTime(),
                     paused: bucket.cloud_sync.paused,
                     c2n_enabled: bucket.cloud_sync.c2n_enabled,
                     n2c_enabled: bucket.cloud_sync.n2c_enabled,

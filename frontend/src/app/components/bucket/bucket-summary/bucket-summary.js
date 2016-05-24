@@ -10,7 +10,7 @@ const cloudSyncStatusMapping = Object.freeze({
     PASUED: { text: 'Sync Paused', icon: 'cloud-paused' }, 
     UNABLE: { text: 'Unable to sync', icon: 'cloud-error' }, 
     SYNCED: { text: 'Sync Completed', icon: 'cloud-synced' }, 
-    NOTSET: { text: 'Sync Policy not set', icon: 'cloud-not-set' }
+    NOTSET: { text: 'Cloud sync not set', icon: 'cloud-not-set' }
 })
 
 class BucketSummrayViewModel {

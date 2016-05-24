@@ -3,6 +3,14 @@ import ko from 'knockout';
 import { cloudSyncInfo } from 'model';
 import{ removeCloudSyncPolicy, loadCloudSyncInfo } from 'actions';
 
+const cloudStatusMapping = Object.freeze({
+    UNSYNCED: { text: 'Sync Pending', icon: 'cloud-panding' } , 
+    SYNCING: { text: 'Syncing', icon: 'cloud-syncing' }, 
+    PASUED: { text: 'Sync Paused', icon: 'cloud-paused' }, 
+    UNABLE: { text: 'Unable to sync', icon: 'cloud-error' }, 
+    SYNCED: { text: 'Sync Completed', icon: 'cloud-synced' }, 
+});
+
 class BucketCloudSyncFormViewModel {
     constructor({ bucket }) {
         this.bucketName = ko.pureComputed(
@@ -18,7 +26,10 @@ class BucketCloudSyncFormViewModel {
         );
 
         this.syncStatus = ko.pureComputed(
-            () => 'Synced'
+            () => {
+                console.warn(cloudSyncInfo())
+                'Synced'
+            }
         );
 
         this.lastSync = ko.pureComputed(

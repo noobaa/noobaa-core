@@ -4,7 +4,7 @@ import { tierInfo, poolList } from 'model';
 import { loadTier, loadPoolList } from 'actions';
 import { formatSize } from 'utils';
 
-const PLACEMENT_TYPE_MAPPING = Object.freeze({
+const placementTypeMapping = Object.freeze({
     SPREAD: 'Spread',
     MIRROR: 'Mirror'
 });
@@ -29,7 +29,7 @@ class BucketDataPlacementFormViewModel {
         );
 
         this.placementType = ko.pureComputed(
-            () => tierInfo() && PLACEMENT_TYPE_MAPPING[
+            () => tierInfo() && placementTypeMapping[
                 tierInfo().data_placement
             ]
         );

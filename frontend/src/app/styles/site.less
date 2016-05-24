@@ -397,6 +397,9 @@ input[type="search"] {
 
 .btn2 {
     .btn-base;
+    text-align: center;
+    min-width: 165px;
+    max-width: 165px;
 
     .text(
         @font-type2,
@@ -416,8 +419,8 @@ input[type="search"] {
 .btn3 {
     .btn-base;
     text-align: center;
-    min-width: 160px;
-    max-width: 160px;
+    min-width: 165px;
+    max-width: 165px;
 
     .text(
         @font-type2,
@@ -617,18 +620,15 @@ input[type="search"] {
         overflow-y: auto;
 
         > .tab {
-            .column();
             min-width :100%;
             margin-left: -100%;
             opacity: 0;
-            height: 0;
             overflow: hidden;
             transition: all 500ms;
 
             &.selected {
                 margin-left: 0;
                 opacity: 1;
-                height: initial;
                 overflow: auto;
 
                 ~ .tab {

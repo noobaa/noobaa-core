@@ -2,7 +2,7 @@ import template from './delete-button.html';
 import ko from 'knockout';
 import { noop } from 'utils';
 
-const disabledIcon =  'bin-disabled';
+const disabledIcon =  'bin-disabled';``
 const closedIcon = 'bin-closed';
 const opendIcon = 'bin-opened';
 

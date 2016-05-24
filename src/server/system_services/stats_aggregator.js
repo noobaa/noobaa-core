@@ -208,7 +208,9 @@ function get_cloud_sync_stats(req) {
     //Per each system fill out the needed info
     return P.all(_.map(system_store.data.systems,
             system => {
-                let new_req = _.defaults({system: system}, req);
+                let new_req = _.defaults({
+                    system: system
+                }, req);
                 return bucket_server.get_all_cloud_sync_policies(new_req);
             }
         ))
@@ -261,9 +263,9 @@ function get_object_usage_stats(req) {
     return object_server.read_s3_usage_report(new_req)
         .then(res => {
             return _.map(res.reports, report => ({
-                    system: String(report.system),
-                    time: report.time,
-                    s3_usage_info: report.s3_usage_info
+                system: String(report.system),
+                time: report.time,
+                s3_usage_info: report.s3_usage_info
             }));
         })
         .catch(err => {
@@ -426,7 +428,7 @@ function object_usage_scrubber(req) {
 
 function send_stats_payload(payload) {
     //create a deferred object from Q
-	var deferred = P.defer();
+    var deferred = P.defer();
     //var promise_send = P.defer();
     var data_to_send = {};
     data_to_send.time_stamp = new Date();
@@ -437,49 +439,53 @@ function send_stats_payload(payload) {
     //let body = JSON.stringify(data_to_send);
     //var body_buf = new Buffer(JSON.stringify(data_to_send), 'utf-8');   // Choose encoding for the string.
     //console.warn('JEN zlib1', zlib);
-    var gzip_payload = zlib.createGzip(new Buffer(JSON.stringify(data_to_send), 'utf-8'));
+    // var gzip_payload = zlib.gzipSync(new Buffer(JSON.stringify(data_to_send), 'utf-8'));
+    return P.ninvoke(zlib, 'gzip', new Buffer(JSON.stringify(data_to_send), 'utf-8'))
+        .then(gzip_payload => {
+            console.log('JEN - ', gzip_payload);
 
-    var options = {
-        hostname: config.central_stats.central_listener,
-        port: 9090,
-        path: "/phdata",
-        method: "POST",
-        headers: {
-            "Content-Type": "application/gzip",
-            "Content-Encoding": "gzip",
-            "Content-Length": Buffer.byteLength(gzip_payload._buffer)
-        }
-    };
+            var options = {
+                hostname: config.central_stats.central_listener,
+                port: 9090,
+                path: '/phdata',
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/gzip',
+                    "Content-Encoding": "gzip",
+                    'Content-Length': Buffer.byteLength(gzip_payload)
+                }
+            };
 
-	var req = http.request(options, function(response) {
-        //set the response encoding to parse json string
-        response.setEncoding('utf8');
-        var responseData = '';
-        //append data to responseData variable on the 'data' event emission
-        response.on('data', function(data) {
-            console.warn('JEN DANNY RESPONSE');
-            responseData += data;
+            var req = http.request(options, function(response) {
+                //set the response encoding to parse json string
+                response.setEncoding('utf8');
+                var responseData = '';
+                //append data to responseData variable on the 'data' event emission
+                response.on('data', function(data) {
+                    console.warn('JEN DANNY RESPONSE');
+                    responseData += data;
+                });
+                //listen to the 'end' event
+                response.on('end', function() {
+                    console.warn('JEN DANNY RESPONSE2');
+                    //resolve the deferred object with the response
+                    deferred.resolve(responseData);
+                });
+            });
+
+            //listen to the 'error' event
+            req.on('error', function(err) {
+                console.warn('JEN DANNY RESPONSE3');
+                //if an error occurs reject the deferred
+                deferred.reject(err);
+            });
+            req.end(gzip_payload);
+            //we are returning a promise object
+            //if we returned the deferred object
+            //deferred object reject and resolve could potentially be modified
+            //violating the expected behavior of this function
+            return deferred.promise;
         });
-        //listen to the 'end' event
-        response.on('end', function() {
-            console.warn('JEN DANNY RESPONSE2');
-            //resolve the deferred object with the response
-            deferred.resolve(responseData);
-        });
-	});
-
-    //listen to the 'error' event
-    req.on('error', function(err) {
-        console.warn('JEN DANNY RESPONSE3');
-        //if an error occurs reject the deferred
-        deferred.reject(err);
-    });
-    req.end(gzip_payload._buffer);
-	//we are returning a promise object
-	//if we returned the deferred object
-	//deferred object reject and resolve could potentially be modified
-	//violating the expected behavior of this function
-	return deferred.promise;
 
     //TODO JEN STUFF
     /*
@@ -662,53 +668,53 @@ function background_worker() {
     /* jshint validthis: true */
     //var self = this;
     //return P.fcall(function() {
-        /*
-         * Background Wokrer
-         */
-        //if ((config.central_stats.send_stats === 'true') &&
-        //    (config.central_stats.central_listener)) {
-            dbg.log('Central Statistics gathering enabled');
-        //    promise_utils.run_background_worker({
-        //        name: 'system_server_stats_aggregator',
+    /*
+     * Background Wokrer
+     */
+    //if ((config.central_stats.send_stats === 'true') &&
+    //    (config.central_stats.central_listener)) {
+    dbg.log('Central Statistics gathering enabled');
+    //    promise_utils.run_background_worker({
+    //        name: 'system_server_stats_aggregator',
     //            batch_size: 1,
     //            time_since_last_build: 1000, // TODO increase...
-//                building_timeout: 2000, // TODO increase...
-            //    delay: (1 * 1 * 1000), //60m
+    //                building_timeout: 2000, // TODO increase...
+    //    delay: (1 * 1 * 1000), //60m
 
-                //Run the system statistics gatheting
-                //run_batch: function() {
-                    return P.fcall(() => {
-                        if (!server_rpc.client.options.auth_token) {
-                            let system = system_store.data.systems[0];
-                            let auth_params = {
-                                email: 'support@noobaa.com',
-                                password: 'help',
-                                system: system.name,
-                            };
-                            return server_rpc.client.create_auth_token(auth_params);
-                        }
-                        return;
-                    })
-                    .then(() => server_rpc.client.stats.get_all_stats({}))
-                    .then((pay) => {
-                        console.warn('JEN OBJECT USAGE PAYLOAD:', pay.object_usage_stats);
-                        return pay;
-                    })
-                    .then(payload => send_stats_payload(payload))
-                    .then((res) => {
-                        console.warn('JEN RESPONSE', res);
-                        return server_rpc.client.stats.object_usage_scrubber({});
-                    })
-                    // .then(() => server_rpc.client.stats.object_usage_scrubber({}))
-                    .catch(err => {
-                        console.warn('JEN NOT MAGICAL');
-                        dbg.warn('Phone Home data send failed', err.stack || err);
-                        return;
-                    })
-                    .return();
-                //}
-            //});
-        //}
+    //Run the system statistics gatheting
+    //run_batch: function() {
+    return P.fcall(() => {
+            if (!server_rpc.client.options.auth_token) {
+                let system = system_store.data.systems[0];
+                let auth_params = {
+                    email: 'support@noobaa.com',
+                    password: 'help',
+                    system: system.name,
+                };
+                return server_rpc.client.create_auth_token(auth_params);
+            }
+            return;
+        })
+        .then(() => server_rpc.client.stats.get_all_stats({}))
+        .then((pay) => {
+            console.warn('JEN OBJECT USAGE PAYLOAD:', pay.object_usage_stats);
+            return pay;
+        })
+        .then(payload => send_stats_payload(payload))
+        .then((res) => {
+            console.warn('JEN RESPONSE', res);
+            return server_rpc.client.stats.object_usage_scrubber({});
+        })
+        // .then(() => server_rpc.client.stats.object_usage_scrubber({}))
+        .catch(err => {
+            console.warn('JEN NOT MAGICAL');
+            dbg.warn('Phone Home data send failed', err.stack || err);
+            return;
+        })
+        .return();
+    //}
+    //});
+    //}
     //});
 }
 

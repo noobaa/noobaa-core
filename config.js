@@ -47,7 +47,7 @@ if (!is_windows) {
 }
 config.central_stats = {
     send_stats: 'true',
-    central_listener: '192.168.0.30',
+    central_listener: '127.0.0.1',
     previous_diag_packs_dir: process.env.ProgramData + '/prev_diags',
     previous_diag_packs_count: 3 //TODO: We might want to split between agent and server
 };

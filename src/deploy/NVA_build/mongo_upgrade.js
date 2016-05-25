@@ -11,7 +11,6 @@ function upgrade() {
     upgrade_cluster();
     upgrade_chunks_add_ref_to_bucket();
     upgrade_system_access_keys();
-    mark_deleted_chunks_in_building_as_built();
     print('\nUPGRADE DONE.');
 }
 
@@ -276,47 +275,6 @@ function upgrade_system(system) {
 
 }
 
-function mark_deleted_chunks_in_building_as_built() {
-    var chunks_list = [];
-    var num_parts = 0;
-    db.objectparts.find({
-        deleted: {
-            $exists: true
-        }
-    }, {
-        _id: 1,
-        obj: 1,
-        chunk: 1
-    }).forEach(function(deleted_part) {
-        num_parts += 1;
-        chunks_list.push(deleted_part.chunk);
-    });
-
-    print('deleted part:', num_parts);
-    var dchunks = db.datachunks.count({
-        _id: {
-            $in: chunks_list
-        },
-        deleted: null
-    });
-    print('\ndeleted chunks:' + dchunks);
-    db.datachunks.update({
-        _id: {
-            $in: chunks_list
-        },
-        deleted: null
-    }, {
-        $unset: {
-            building: 1
-        },
-        $currentDate: {
-            deleted: true
-        }
-    }, {
-        multi: true
-    });
-
-}
 
 function upgrade_chunks_add_ref_to_bucket() {
     print('\n*** upgrade_chunks_add_ref_to_bucket ...');
@@ -449,6 +407,11 @@ function upgrade_system_access_keys() {
                 }
             });
 
+            db.roles.update({}, {
+                $unset: {
+                    __v: 1
+                }
+            });
             db.systems.update({
                 _id: system._id
             }, {

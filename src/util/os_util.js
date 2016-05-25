@@ -267,10 +267,10 @@ function get_time_config() {
                 return promise_utils.promised_exec('ls -l /etc/localtime', false, true);
             })
             .then((tzone) => {
-                if (tzone && !tzone.split('>')[1]){
+                if (tzone && !tzone.split('>')[1]) {
                     reply.srv_time = moment().format();
                     reply.timezone = '';
-                }else{
+                } else {
                     var symlink = tzone.split('>')[1].split('/usr/share/zoneinfo/')[1].trim();
                     reply.srv_time = moment().tz(symlink).format();
                     reply.timezone = symlink;

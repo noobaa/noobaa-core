@@ -11,6 +11,7 @@ function upgrade() {
     upgrade_cluster();
     upgrade_chunks_add_ref_to_bucket();
     upgrade_system_access_keys();
+    mark_deleted_chunks_in_building_as_built();
     print('\nUPGRADE DONE.');
 }
 
@@ -179,6 +180,7 @@ function upgrade_system(system) {
     });
 
     db.accounts.find().forEach(function(account) {
+
         if (account.sync_credentials_cache &&
             account.sync_credentials_cache.length > 0) {
             var updated_access_keys = account.sync_credentials_cache;
@@ -188,6 +190,10 @@ function upgrade_system(system) {
                 if (updated_access_keys[i]._id) {
                     delete updated_access_keys[i]._id;
                 }
+                if (!updated_access_keys[i].endpoint) {
+                    print('\n*** update endpoint in sync_credentials_cache', updated_access_keys[i]);
+                    updated_access_keys[i].endpoint = "https://s3.amazonaws.com";
+                }
             }
             var updates = {};
             updates.sync_credentials_cache = updated_access_keys;
@@ -195,7 +201,21 @@ function upgrade_system(system) {
             db.accounts.update({
                 _id: account._id
             }, {
-                $set: updates
+                $set: updates,
+                $unset: {
+                    __v: 1
+                }
+
+            });
+
+        } else {
+            db.accounts.update({
+                _id: account._id
+            }, {
+                $unset: {
+                    __v: 1
+                }
+
             });
 
         }
@@ -252,6 +272,48 @@ function upgrade_system(system) {
                 tiering: tiering_policy._id
             }
         });
+    });
+
+}
+
+function mark_deleted_chunks_in_building_as_built() {
+    var chunks_list = [];
+    var num_parts = 0;
+    db.objectparts.find({
+        deleted: {
+            $exists: true
+        }
+    }, {
+        _id: 1,
+        obj: 1,
+        chunk: 1
+    }).forEach(function(deleted_part) {
+        num_parts += 1;
+        chunks_list.push(deleted_part.chunk);
+    });
+
+    print('deleted part:', num_parts);
+    var dchunks = db.datachunks.count({
+        _id: {
+            $in: chunks_list
+        },
+        deleted: null
+    });
+    print('\ndeleted chunks:' + dchunks);
+    db.datachunks.update({
+        _id: {
+            $in: chunks_list
+        },
+        deleted: null
+    }, {
+        $unset: {
+            building: 1
+        },
+        $currentDate: {
+            deleted: true
+        }
+    }, {
+        multi: true
     });
 
 }
@@ -408,17 +470,18 @@ function upgrade_cluster() {
         return;
     }
 
-    /*global param_secret:true, params_cluster_id:true, param_ip:true*/
-    db.clusters.insert({
-        owner_secret: param_secret,
-        cluster_id: params_cluster_id,
-        shards: [{
-            shardname: 'shard1',
-            servers: [{
-                address: param_ip
-            }]
-        }],
-        config_servers: [],
+    //global param_secret:true, params_cluster_id:true, param_ip:true
 
-    });
+    // db.clusters.insert({
+    //     owner_secret: param_secret,
+    //     cluster_id: params_cluster_id,
+    //     shards: [{
+    //         shardname: 'shard1',
+    //         servers: [{
+    //             address: param_ip
+    //         }]
+    //     }],
+    //     config_servers: [],
+    //
+    // });
 }

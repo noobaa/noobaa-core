@@ -18,16 +18,17 @@
 <section class="column">
     <div class="row content-middle">
         <h2 class="heading3 greedy">Diagnostics</h2>
-        <button class="btn3 align-start push-next" data-bind="click: downloadDiagnosticPack">
-            Raise Debug Level
-        </button>
+        <button class="btn3 align-start push-next" data-bind="
+            click: toogleDebugLevel,
+            text: toogleDebugLevelButtonText
+        "></button>
         <button class="btn3 align-start" data-bind="click: downloadDiagnosticPack">
-            Download diagnostics
+            Download Diagnostics
         </button>
     </div>
     <p class="row push-next">
         <span class="c2">Debug level:</span>
-        <span class="emphasized c10">Low</span>
+        <span class="emphasized c10" data-bind="text: debugLevelText"></span>
     </p>
 
 

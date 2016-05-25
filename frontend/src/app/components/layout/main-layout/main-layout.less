@@ -1,3 +1,23 @@
 .main-layout  {
+    position: relative;
     height: 100%;
+
+    &.debug-outline {
+        outline: 3px solid @yellow-mid;
+        outline-offset: -3px;
+
+
+        &::before {
+            content: 'System is in debug mode and might exsibit temporary performance degradation';
+            display: inline-block;
+            position: absolute;
+            top: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: @yellow-mid;
+            padding: @gutter/2 @gutter;
+            color: @text-color5;
+            font-size: @font-size-small;
+        }
+    }
 }

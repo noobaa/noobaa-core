@@ -381,7 +381,8 @@ export function loadSystemInfo() {
                     secretKey: secret_key,
                     P2PConfig: reply.n2n_config,
                     owner: reply.owner.email,
-                    timeConfig: reply.time_config
+                    timeConfig: reply.time_config,
+                    debugLevel: reply.debug_level
                 });
             }
         )
@@ -1421,6 +1422,14 @@ export function setNodeDebugLevel(node, level) {
         .then(
             () => loadNodeInfo(node)
         )
+        .done();
+}
+
+export function setSystemDebugLevel(level){
+    logAction('setSystemDebugLevel', { level })
+
+    api.system.set_debug_level({ level })
+        .then(loadSystemInfo)
         .done();
 }
 

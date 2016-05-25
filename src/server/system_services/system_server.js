@@ -570,60 +570,44 @@ function diagnose_with_agent(data, req) {
         });
 }
 
-function set_debug_level(req) {
-    dbg.log0('Recieved set_debug_level req. level =', req.params.level);
+function _set_debug_level_internal(id, level, auth_token) {
     return server_rpc.client.redirector.publish_to_cluster({
             target: '', // required but irrelevant
             method_api: 'debug_api',
             method_name: 'set_debug_level',
             request_params: {
-                level: req.params.level,
+                level: level,
                 module: 'core'
             }
         }, {
-            auth_token: req.auth_token
+            auth_token: auth_token
         })
         .then(() => {
-            if (req.system.debug_level === req.params.level) {
-                dbg.log0('requested to set debug level to the same as current level. skipping.. level =', req.params.level);
-                return;
-            } else {
-                system_store.make_changes({
-                        update: {
-                            systems: [{
-                                _id: req.system._id,
-                                debug_level: req.params.level
-                            }]
-                        }
-                    })
-                    .then(function() {
-                        if (req.params.level > 0) { //If level was set, remove it after 10m
-                            return promise_utils.delay_unblocking(config.DEBUG_MODE_PERIOD) //10m
-                                .then(() => server_rpc.client.redirector.publish_to_cluster({
-                                    target: '', // required but irrelevant
-                                    method_api: 'debug_api',
-                                    method_name: 'set_debug_level',
-                                    request_params: {
-                                        level: 0,
-                                        module: 'core'
-                                    }
-                                }, {
-                                    auth_token: req.auth_token
-                                }))
-                                .then(() => {
-                                    dbg.log0('setting debug level back to 0 after', (config.DEBUG_MODE_PERIOD / 60000), 'minutes');
-                                    return system_store.make_changes({
-                                        update: {
-                                            systems: [{
-                                                _id: req.system._id,
-                                                debug_level: 0
-                                            }]
-                                        }
-                                    });
-                                });
-                        }
-                        return;
-                    });
+            return system_store.make_changes({
+                update: {
+                    systems: [{
+                        _id: id,
+                        debug_level: level
+                    }]
+                }
+            });
+        });
+}
+
+function set_debug_level(req) {
+    let level = req.params.level;
+    let id = req.system._id;
+    dbg.log0('Recieved set_debug_level req. level =', level);
+    if (req.system.debug_level === level) {
+        dbg.log0('requested to set debug level to the same as current level. skipping.. level =', level);
+        return;
+    }
+
+    return _set_debug_level_internal(id, level, req.auth_token)
+        .then(() => {
+            if (level > 0) { //If level was set, remove it after 10m
+                return promise_utils.delay_unblocking(config.DEBUG_MODE_PERIOD) //10m
+                    .then(() => _set_debug_level_internal(id, 0, req.auth_token));
             }
         });
 }

@@ -34,6 +34,12 @@ function background_worker() {
                             $lt: new Date(now - self.building_timeout)
                         }
                     }]
+                },
+                //ignore old chunks without buckets
+                {
+                    bucket: {
+                        $exists: true
+                    }
                 }]
             };
             if (self.last_chunk_id) {

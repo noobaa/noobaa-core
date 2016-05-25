@@ -47,15 +47,23 @@ class NodeInfoViewModel {
         );
 
         this.diskRead = ko.pureComputed(
-            () => node() && `${
-                node().latency_of_disk_read.reduce(avgOp).toFixed(1)
-            } ms`
+            () => {
+                if (!node() || node().latency_of_disk_read.length === 0) {
+                    return 'N/A';
+                }
+
+                return `${node().latency_of_disk_read.reduce(avgOp).toFixed(1)} ms`;
+            }
         );
 
         this.diskWrite = ko.pureComputed(
-            () => node() && `${
-                node().latency_of_disk_write.reduce(avgOp).toFixed(1)
-            } ms`
+            () => {
+                if (!node() || node().latency_of_disk_write.length === 0) {
+                    return 'N/A';
+                }
+
+                return `${node().latency_of_disk_write.reduce(avgOp).toFixed(1)} ms`
+            }
         );
 
         this.RTT = ko.pureComputed(

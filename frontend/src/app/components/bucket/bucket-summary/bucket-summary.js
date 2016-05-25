@@ -5,9 +5,9 @@ import style from 'style';
 import { formatSize } from 'utils';
 
 const cloudSyncStatusMapping = Object.freeze({
-    UNSYNCED: { text: 'Sync Pending', icon: 'cloud-panding' } , 
+    PENDING: { text: 'Sync Pending', icon: 'cloud-pending' } , 
     SYNCING: { text: 'Syncing', icon: 'cloud-syncing' }, 
-    PASUED: { text: 'Sync Paused', icon: 'cloud-paused' }, 
+    PAUSED: { text: 'Sync Paused', icon: 'cloud-paused' }, 
     UNABLE: { text: 'Unable to sync', icon: 'cloud-error' }, 
     SYNCED: { text: 'Sync Completed', icon: 'cloud-synced' }, 
     NOTSET: { text: 'Cloud sync not set', icon: 'cloud-not-set' }

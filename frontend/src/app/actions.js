@@ -884,13 +884,6 @@ export function loadCloudSyncInfo(bucket) {
 
     api.bucket.get_cloud_sync_policy({ name: bucket })
         .then(model.cloudSyncInfo)
-        .then(
-            () => {
-                if (model.bucketInfo() && model.bucketInfo().name === bucket) {
-                    loadBucketInfo(bucket);
-                }
-            }
-        )
         .done();
 }
 
@@ -1415,13 +1408,13 @@ export function downloadSystemDiagnosticPack() {
         .done();
 }
 
-export function raiseNodeDebugLevel(node) {
-    logAction('raiseNodeDebugLevel', { node });
+export function setNodeDebugLevel(node, level) {
+    logAction('setNodeDebugLevel', { node, level });
 
     api.node.read_node({ name: node })
         .then(
             node => api.node.set_debug_node({
-                level: 5,
+                level: level,
                 target: node.rpc_address
             })
         )
@@ -1445,7 +1438,16 @@ export function setCloudSyncPolicy(bucket, connection, targetBucket, direction, 
             additions_only: !sycDeletions
         }
     })
-        .then(loadCloudSyncInfo)
+        .then(
+            () => {
+                loadCloudSyncInfo(bucket);
+
+                let bucketInfo = model.bucketInfo();
+                if (bucketInfo && bucketInfo.name === bucket) {
+                    loadBucketInfo(bucket);
+                }
+            }
+        )
         .done();
 }
 
@@ -1456,9 +1458,29 @@ export function removeCloudSyncPolicy(bucket) {
         .then(
             () => model.cloudSyncInfo(null)
         )
-        .then(refresh)
+        .then(refresh);
+}
+
+export function toogleCloudSync(bucket, pause) {
+    logAction('toogleCloudSync', { bucket, pause });
+
+    api.bucket.toggle_cloud_sync({ 
+        name: bucket, 
+        pause: pause 
+    })
+        .then(
+            () => {
+                loadCloudSyncInfo(bucket);
+
+                let bucketInfo = model.bucketInfo();
+                if (bucketInfo && bucketInfo.name === bucket) {
+                    loadBucketInfo(bucket);
+                }
+            }
+        )
         .done();
 }
+
 
 export function checkS3Connection(endpoint, accessKey, secretKey) {
     logAction('checkS3Connection', { endpoint, accessKey, secretKey });

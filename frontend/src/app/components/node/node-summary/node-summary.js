@@ -2,7 +2,6 @@ import template from './node-summary.html';
 import ko from 'knockout';
 import moment from 'moment';
 import numeral from 'numeral';
-import { raiseNodeDebugLevel, downloadNodeDiagnosticPack } from 'actions';
 import { formatSize } from 'utils';
 import style from 'style';
 
@@ -122,14 +121,6 @@ class NodeSummaryViewModel {
         );
 
         this.isTestModalVisible = ko.observable(false);
-    }
-
-    raiseDebugLevel() {
-        raiseNodeDebugLevel(this.name());
-    }
-
-    downloadDiagnosticPack() {
-        downloadNodeDiagnosticPack(this.name());
     }
 }
 

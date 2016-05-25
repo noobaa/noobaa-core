@@ -1,6 +1,7 @@
 import template from './node-diagnostics-form.html';
 import ko from 'knockout';
-import { raiseNodeDebugLevel, downloadNodeDiagnosticPack } from 'actions';
+import { setNodeDebugLevel, downloadNodeDiagnosticPack } from 'actions';
+import { isUndefined } from 'utils';
 
 class NodeDiagnosticsFormViewModel {
     constructor({ node }) {
@@ -13,7 +14,19 @@ class NodeDiagnosticsFormViewModel {
         );
 
         this.debugLevelText = ko.pureComputed(
-            () => this.debugLevel() === 0 ? 'Low' : 'High'
+            () => {
+                if (isUndefined(this.debugLevel())) {
+                    return 'N/A';
+                }
+
+                return this.debugLevel() > 0 ? 'High' : 'Low';
+            }
+        );
+
+        this.toggleDebugLevelButtonText = ko.pureComputed(
+            () => `${
+                    this.debugLevel() > 0 ? 'Lower' : 'Raise'
+                } Debug Level`
         );
 
         this.rpcAddress = ko.pureComputed(
@@ -23,9 +36,11 @@ class NodeDiagnosticsFormViewModel {
         this.isTestNodeModalVisible = ko.observable(false);
     }    
 
-    raiseDebugLevel() {
-        raiseNodeDebugLevel(this.nodeName());
+    toggleDebugLevel() {
+        let level = this.debugLevel() === 0 ? 5 : 0;
+        setNodeDebugLevel(this.nodeName(), level)
     }
+
 
     downloadDiagnosticPack() {
         downloadNodeDiagnosticPack(this.nodeName());

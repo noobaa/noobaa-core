@@ -1,12 +1,12 @@
 <section class="column">
     <div class="row">
         <h3 class="heading3 greedy push-next">Diagnostics</h3>
+
         <button class="btn3 push-next" data-bind="
-            click: raiseDebugLevel, 
-            disable: debugLevel
-        ">
-            Raise Debug Level
-        </button>
+            click: toggleDebugLevel, 
+            text: toggleDebugLevelButtonText
+        "></button>
+
         <button class="btn3" data-bind="click: downloadDiagnosticPack">
             Export Diagnostics
         </button>
@@ -14,7 +14,7 @@
     <div>
         Debug Level:
         <span data-bind="text: debugLevelText"></span>
-        <span data-bind="visible: debugLevel()" class="warning">
+        <span data-bind="visible: debugLevel() > 0" class="warning">
             (May cause agent slowdown)
         </span>
     </div>

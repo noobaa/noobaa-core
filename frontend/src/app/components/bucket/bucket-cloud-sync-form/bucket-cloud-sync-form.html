@@ -5,6 +5,11 @@
         </h3>
 
         <!-- ko if: hasCloudSyncPolicy -->
+        <button class="btn3 push-next" data-bind="
+            click: toggleSync, 
+            text: toggleSyncButtonLabel
+        "></button>
+
         <button class="btn3" data-bind="click: removePolicy">
             Remove
         </button>
@@ -30,11 +35,11 @@
                 <span class="c10" data-bind="text: state"></span>
             </li>
             <li class="row">
-                <span class="c2">Last sync time:</span>
+                <span class="c2">Last sync:</span>
                 <span class="c10" data-bind="text: lastSync"></span>
             </li>
             <li class="row">
-                <span class="c2">Next sync time:</span>
+                <span class="c2">Next sync:</span>
                 <span class="c10" data-bind="text: nextSync"></span>
             </li>
         </ul>
@@ -46,20 +51,16 @@
         <h3 class="heading3">Conneciton details</h3>
         <ul class="list-no-style column">
             <li class="row">
-                <span class="c2">Name:</span>
-                <span class="c10" data-bind="text: connection"></span>
-            </li>
-            <li class="row">
-                <span class="c2">Target bucket:</span>
-                <span class="c10" data-bind="text: targetBucket"></span>
+                <span class="c2">Endpoint:</span>
+                <span class="c10" data-bind="text: endpoint"></span>
             </li>
             <li class="row">
                 <span class="c2">Access key:</span>
                 <span class="c10" data-bind="text: accessKey"></span>
             </li>
             <li class="row">
-                <span class="c2">Endpoint:</span>
-                <span class="c10" data-bind="text: endpoint"></span>
+                <span class="c2">Target bucket:</span>
+                <span class="c10" data-bind="text: targetBucket"></span>
             </li>
         </ul>
     </section>

@@ -2,14 +2,14 @@ import template from './bucket-cloud-sync-form.html';
 import ko from 'knockout';
 import moment from 'moment';
 import { cloudSyncInfo } from 'model';
-import{ removeCloudSyncPolicy, loadCloudSyncInfo } from 'actions';
+import{ removeCloudSyncPolicy, loadCloudSyncInfo, toogleCloudSync } from 'actions';
 
 const timeFormat = 'MMM, DD [at] hh:mm:ss';
 
 const syncStateMapping = Object.freeze({
-    UNSYNCED: 'Sync Pending',
+    PENDING: 'Sync Pending',
     SYNCING: 'Syncing',
-    PASUED: 'Sync Paused',
+    PAUSED: 'Sync Paused',
     UNABLE: 'Unable to sync',
     SYNCED: 'Sync Completed'
 });
@@ -34,6 +34,12 @@ class BucketCloudSyncFormViewModel {
             () => !!bucket() && bucket().cloud_sync_status !== 'NOTSET'
         );
 
+        this.toggleSyncButtonLabel = ko.pureComputed(
+            () => cloudSyncInfo() && cloudSyncInfo().status === 'PAUSED' ?
+                'Resume' : 
+                'Pause'
+        );
+
         this.state = ko.pureComputed(
             () => cloudSyncInfo() && syncStateMapping[cloudSyncInfo().status]
         );
@@ -43,26 +49,32 @@ class BucketCloudSyncFormViewModel {
         )
 
         this.lastSync = ko.pureComputed(
-            () => !!cloudSyncInfo() ?
-                moment(cloudSyncInfo().last_sync).format(timeFormat) :
-                'N/A'
+            () => {
+                if (!cloudSyncInfo() || cloudSyncInfo().last_sync == 0) {
+                    return 'N/A';
+                }
+
+                return moment(cloudSyncInfo().last_sync).format(timeFormat);
+            }
         );
 
         this.nextSync = ko.pureComputed(
-            () => null
-        //     () => !!cloudSyncInfo() ?
-        //         moment(cloudSyncInfo().last_sync)
-        //             .add(policy().schedule, 'minutes')
-        //             .format(timeFormat) :
-        //         'N/A'
-        );
+            () => {
+                if (!cloudSyncInfo() || 
+                    cloudSyncInfo().status === 'PAUSED' || 
+                    cloudSyncInfo().last_sync == 0
+                ) {
+                    return 'N/A';
+                }
 
-        this.connection = ko.pureComputed(
-            () => 'Connection 1'
+                return moment(cloudSyncInfo().last_sync)
+                    .add(policy().schedule, 'minutes')
+                    .format(timeFormat);
+            }
         );
 
         this.targetBucket = ko.pureComputed(
-            () => 'other bucket'
+            () => policy() && policy().target_bucket
         )
 
         this.accessKey = ko.pureComputed(
@@ -83,9 +95,8 @@ class BucketCloudSyncFormViewModel {
 
         this.syncDirection = ko.pureComputed(
             () => null
-            // () => policy() && directionMapping[
-            //     policy().'Bi-Directional
-            // ]'
+            //() => policy() && directionMapping[
+            //]
         );
 
         this.syncDeletions = ko.pureComputed(
@@ -99,6 +110,15 @@ class BucketCloudSyncFormViewModel {
 
     removePolicy() {
         removeCloudSyncPolicy(this.bucketName());
+    }
+
+    toggleSync() {
+        if (!cloudSyncInfo() || cloudSyncInfo().status === 'NOTSET') {
+            return;
+        }
+
+        let pause = cloudSyncInfo().status !== 'PAUSED';
+        toogleCloudSync(this.bucketName(), pause);
     }
 
     showSetCloudSyncModal() {

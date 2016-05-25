@@ -71,15 +71,23 @@ class NodeInfoViewModel {
         );        
 
         this.diskRead = ko.pureComputed(
-            () => node() && `${
-                node().latency_of_disk_read.reduce(avgOp).toFixed(1)
-            } ms`
+            () => {
+                let avg = node() && node().latency_of_disk_read
+                    .reduce(avgOp, 0)
+                    .toFixed(1);
+
+                return avg === 0 ? 'N/A' : `${avg} ms`;
+            } 
         );
 
         this.diskWrite = ko.pureComputed(
-            () => node() && `${
-                node().latency_of_disk_write.reduce(avgOp).toFixed(1)
-            } ms`
+            () => {
+                let avg = node() && node().latency_of_disk_write
+                    .reduce(avgOp, 0)
+                    .toFixed(1);
+
+                return avg === 0 ? 'N/A' : `${avg} ms`
+            }
         );
     }
 

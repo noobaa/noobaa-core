@@ -1392,9 +1392,7 @@ export function downloadNodeDiagnosticPack(nodeName) {
         .then(
             node => api.node.collect_agent_diagnostics(node)
         )
-        .then(
-            url => downloadFile(url)
-        )
+        .then(downloadFile)
         .done();
 }
 
@@ -1403,9 +1401,7 @@ export function downloadSystemDiagnosticPack() {
     logAction('downloadSystemDiagnosticPack');
 
     api.system.diagnose()
-        .then(
-            url => downloadFile(url)
-        )
+        .then(downloadFile)
         .done();
 }
 

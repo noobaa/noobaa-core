@@ -1,7 +1,8 @@
 import ko from 'knockout';
 import numeral from 'numeral';
-import { formatSize, isDefined } from 'utils';
+import { isDefined } from 'utils';
 import { deleteBucket } from'actions';
+import style from 'style';
 
 const stateMapping = Object.freeze({
     true: {
@@ -61,22 +62,12 @@ export default class BucketRowViewModel {
             }
         );
 
-        this.totalSize = ko.pureComputed(
-            () => {
-                if (bucket()) {                
-                    let storage = bucket().storage;
-                    return isDefined(storage) ? formatSize(storage.total) : 'N/A';
-                }
-            }
+        this.total = ko.pureComputed(
+            () => bucket() && bucket().storage.total
         );
 
-        this.freeSize = ko.pureComputed(
-            () => {
-                if (bucket()) {
-                    let storage = bucket().storage;
-                    return isDefined(storage) ? formatSize(storage.free) : 'N/A';
-                }
-            }
+        this.used = ko.pureComputed(
+            () => bucket() && bucket().storage.used
         );
 
         this.cloudSyncStatus = ko.pureComputed(

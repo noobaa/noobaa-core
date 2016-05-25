@@ -1,6 +1,5 @@
 import ko from 'knockout';
 import numeral from 'numeral';
-import { formatSize } from 'utils';
 import { deletePool } from 'actions';
 
 const cannotDeleteReasons = Object.freeze({
@@ -37,12 +36,12 @@ export default class PoolRowViewModel {
             () => pool() && numeral(this.nodeCount() - this.onlineCount()).format('0,0')
         );
 
-        this.usage = ko.pureComputed(
-            () => pool() && (pool().storage ? formatSize(pool().storage.used) : 'N/A')
+        this.used = ko.pureComputed(
+            () => pool() && pool().storage.used
         );
 
-        this.capacity = ko.pureComputed(
-            () => pool() && (pool().storage ? formatSize(pool().storage.total) : 'N/A')
+        this.total = ko.pureComputed(
+            () => pool() && pool().storage.total
         );
 
         this.canBeDeleted = ko.pureComputed(

@@ -1,6 +1,6 @@
 import ko from 'knockout';
 import numeral from 'numeral';
-import { formatSize, avgOp } from 'utils';
+import { avgOp } from 'utils';
 
 const accessibilityMapping = Object.freeze({
     FULL_ACCESS: { text: 'Read & Write' },
@@ -42,9 +42,17 @@ export default class NodeRowViewModel {
             () => node() && node().ip
         );
 
-        this.usedCapacity = ko.pureComputed(
-            () => node() && (node().storage ? formatSize(node().storage.used) : 'N/A')
+        this.total = ko.pureComputed(
+            () => node() && node().storage.total
         );
+
+        this.used = ko.pureComputed(
+            ()=> node() && node().storage.used
+        );
+
+        // this.usedCapacity = ko.pureComputed(
+        //     () => node() && (node().storage ? formatSize(node().storage.used) : 'N/A')
+        // );
 
         let dataAccess = ko.pureComputed(
             () => node() && accessibilityMapping[node().accessibility]

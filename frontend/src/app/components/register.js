@@ -135,5 +135,5 @@ export default function register(ko) {
     ko.components.register('editor',            require('./shared/editor/editor'));
     ko.components.register('toggle-switch',     require('./shared/toggle-switch/toggle-switch'));
     ko.components.register('property-sheet',    require('./shared/property-sheet/property-sheet'));
-    ko.components.register('progress-bar',      require('./shared/progress-bar/progress-bar'));
+    ko.components.register('capacity-bar',      require('./shared/capacity-bar/capacity-bar'));
 }

@@ -274,7 +274,6 @@ function get_time_config() {
                     var symlink = tzone.split('>')[1].split('/usr/share/zoneinfo/')[1].trim();
                     reply.srv_time = moment().tz(symlink).format();
                     reply.timezone = symlink;
-
                 }
                 return reply;
             });

@@ -42,7 +42,7 @@ export default class NodeRowViewModel {
             () => node() && node().ip
         );
 
-        this.capacity = ko.pureComputed(
+        this.usedCapacity = ko.pureComputed(
             () => node() && (node().storage ? formatSize(node().storage.used) : 'N/A')
         );
 

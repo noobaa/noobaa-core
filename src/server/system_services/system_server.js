@@ -582,16 +582,14 @@ function _set_debug_level_internal(id, level, auth_token) {
         }, {
             auth_token: auth_token
         })
-        .then(() => {
-            return system_store.make_changes({
-                update: {
-                    systems: [{
-                        _id: id,
-                        debug_level: level
-                    }]
-                }
-            });
-        });
+        .then(() => system_store.make_changes({
+            update: {
+                systems: [{
+                    _id: id,
+                    debug_level: level
+                }]
+            }
+        }));
 }
 
 function set_debug_level(req) {
@@ -606,10 +604,11 @@ function set_debug_level(req) {
     return _set_debug_level_internal(id, level, req.auth_token)
         .then(() => {
             if (level > 0) { //If level was set, remove it after 10m
-                return promise_utils.delay_unblocking(config.DEBUG_MODE_PERIOD) //10m
+                promise_utils.delay_unblocking(config.DEBUG_MODE_PERIOD) //10m
                     .then(() => _set_debug_level_internal(id, 0, req.auth_token));
             }
-        });
+        })
+        .return();
 }
 
 

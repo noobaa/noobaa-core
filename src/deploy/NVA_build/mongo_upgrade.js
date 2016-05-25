@@ -188,6 +188,9 @@ function upgrade_system(system) {
                 if (updated_access_keys[i]._id) {
                     delete updated_access_keys[i]._id;
                 }
+                if (!updated_access_keys[i].endpoint) {
+                    updated_access_keys[i].endpoint = "https://s3.amazonaws.com";
+                }
             }
             var updates = {};
             updates.sync_credentials_cache = updated_access_keys;

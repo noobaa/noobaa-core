@@ -179,6 +179,7 @@ function upgrade_system(system) {
     });
 
     db.accounts.find().forEach(function(account) {
+
         if (account.sync_credentials_cache &&
             account.sync_credentials_cache.length > 0) {
             var updated_access_keys = account.sync_credentials_cache;
@@ -189,6 +190,7 @@ function upgrade_system(system) {
                     delete updated_access_keys[i]._id;
                 }
                 if (!updated_access_keys[i].endpoint) {
+                    print('\n*** update endpoint in sync_credentials_cache', updated_access_keys[i]);
                     updated_access_keys[i].endpoint = "https://s3.amazonaws.com";
                 }
             }
@@ -198,7 +200,21 @@ function upgrade_system(system) {
             db.accounts.update({
                 _id: account._id
             }, {
-                $set: updates
+                $set: updates,
+                $unset: {
+                    __v: 1
+                }
+
+            });
+
+        } else {
+            db.accounts.update({
+                _id: account._id
+            }, {
+                $unset: {
+                    __v: 1
+                }
+
             });
 
         }
@@ -411,17 +427,18 @@ function upgrade_cluster() {
         return;
     }
 
-    /*global param_secret:true, params_cluster_id:true, param_ip:true*/
-    db.clusters.insert({
-        owner_secret: param_secret,
-        cluster_id: params_cluster_id,
-        shards: [{
-            shardname: 'shard1',
-            servers: [{
-                address: param_ip
-            }]
-        }],
-        config_servers: [],
+    //global param_secret:true, params_cluster_id:true, param_ip:true
 
-    });
+    // db.clusters.insert({
+    //     owner_secret: param_secret,
+    //     cluster_id: params_cluster_id,
+    //     shards: [{
+    //         shardname: 'shard1',
+    //         servers: [{
+    //             address: param_ip
+    //         }]
+    //     }],
+    //     config_servers: [],
+    //
+    // });
 }

@@ -518,7 +518,9 @@ function set_debug_node(req) {
                         event: 'dbg.set_debug_node',
                         actor: req.account && req.account._id,
                         node: node._id,
-                        desc: `${node.name} debug level was set to ${req.rpc_params.level} by ${req.account && req.account.email}`,
+                        desc: `${node.name} debug level was ${
+                            req.rpc_params.level > 0 ? 'raised' : 'lowered'
+                        } by ${req.account && req.account.email}`,
                     });
                     dbg.log1('set_debug_node for agent', target, req.rpc_params.level, 'was successful');
                     return '';

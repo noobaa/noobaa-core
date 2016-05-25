@@ -25,10 +25,7 @@ export default function routing(page) {
     }
 
     function ensureSystemInfo(cxt, next) {
-        if (!systemInfo()) {
-            actions.loadSystemInfo();
-        }
-        
+        actions.loadSystemInfo();
         next();
     }
 

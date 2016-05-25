@@ -5,19 +5,19 @@
         <ul class="list-no-style">
             <li class="row">
                 <span class="c3">Installed Version:</span>
-                <span class="c9" data-bind="text: version"></span>
+                <span class="c9 emphasized" data-bind="text: version"></span>
             </li>
             <li class="row">
                 <span class="c3">Heartbeat:</span>
-                <span class="c9" data-bind="text: lastHeartbeat"></span>
+                <span class="c9 emphasized" data-bind="text: lastHeartbeat"></span>
             </li>
             <li class="row">
                 <span class="c3">Communication IP:</span>
-                <span class="c9" data-bind="text: ip"></span>
+                <span class="c9 emphasized" data-bind="text: ip"></span>
             </li>
             <li class="row">
                 <span class="c3">Peer to Peer Connectivity:</span>
-                <span class="c9">
+                <span class="c9 emphasized">
                     <span data-bind="text: p2pConactivityType"></span>
                     <span class="warning" data-bind="visible: isUDPWarningVisible">
                         (Not optimized for performance)
@@ -27,7 +27,7 @@
             </li>
             <li class="row">
                 <span class="c3">Round Trip Time:</span>
-                <span class="c9" data-bind="text: RTT"></span>
+                <span class="c9 emphasized" data-bind="text: RTT"></span>
             </li>
         </ul>
     </section>
@@ -39,19 +39,19 @@
         <ul class="list-no-style">
             <li class="row">
                 <span class="c3">Host Name:</span>
-                <span class="c9" data-bind="text: hostname"></span>
+                <span class="c9 emphasized" data-bind="text: hostname"></span>
             </li>
             <li class="row">
                 <span class="c3">Up Time:</span>
-                <span class="c9" data-bind="text: upTime"></span>
+                <span class="c9 emphasized" data-bind="text: upTime"></span>
             </li>
             <li class="row">
                 <span class="c3">OS Type:</span>
-                <span class="c9" data-bind="text: osType"></span>
+                <span class="c9 emphasized" data-bind="text: osType"></span>
             </li>
             <li class="row">
                 <span class="c3">CPUs:</span>
-                <span class="c9">
+                <span class="c9 emphasized">
                     <span data-bind="text: p2pConactivityType"></span>
                     <ul class="list-no-style column" data-bind="foreach: cpus">
                         <li class="text: $data"></li>
@@ -60,7 +60,7 @@
             </li>
             <li class="row">
                 <span class="c3">Memory:</span>
-                <span class="c9" data-bind="text: memory"></span>
+                <span class="c9 emphasized" data-bind="text: memory"></span>
             </li>
         </ul>
     </section>
@@ -72,19 +72,19 @@
         <ul class="list-no-style">
             <li class="row">
                 <span class="c3">Mount:</span>
-                <span class="c9" data-bind="text: mountName"></span>
+                <span class="c9 emphasized" data-bind="text: mountName"></span>
             </li>
             <li class="row">
                 <span class="c3">Block Device:</span>
-                <span class="c9" data-bind="text: blockDevice"></span>
+                <span class="c9 emphasized" data-bind="text: blockDevice"></span>
             </li>        
             <li class="row">
                 <span class="c3">Read Latency:</span>
-                <span class="c9" data-bind="text: diskRead"></span>
+                <span class="c9 emphasized" data-bind="text: diskRead"></span>
             </li>
             <li class="row">
                 <span class="c3">Write Latency:</span>
-                <span class="c9" data-bind="text: diskWrite"></span>
+                <span class="c9 emphasized" data-bind="text: diskWrite"></span>
             </li>
         </ul>
     </section>

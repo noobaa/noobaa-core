@@ -304,3 +304,10 @@ export function toOwnKeyValuePair(obj) {
             key => ({ key: key, value: obj[key] })
         );
 }
+
+export function bitsToNumber(...bits) {
+    return bits.reduce(
+        (number, bit) => number << 1 | (!!bit | 0),
+        0
+    );
+}

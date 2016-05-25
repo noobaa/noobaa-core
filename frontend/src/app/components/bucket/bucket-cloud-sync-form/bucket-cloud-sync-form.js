@@ -2,7 +2,8 @@ import template from './bucket-cloud-sync-form.html';
 import ko from 'knockout';
 import moment from 'moment';
 import { cloudSyncInfo } from 'model';
-import{ removeCloudSyncPolicy, loadCloudSyncInfo, toogleCloudSync } from 'actions';
+import { removeCloudSyncPolicy, loadCloudSyncInfo, toogleCloudSync } from 'actions';
+import { bitsToNumber } from 'utils'
 
 const timeFormat = 'MMM, DD [at] hh:mm:ss';
 
@@ -15,10 +16,10 @@ const syncStateMapping = Object.freeze({
 });
 
 const directionMapping = Object.freeze({
-    '01': 'Target to source',
-    '10': 'Source to target',
-    '11': 'Bi Directionaxl'
-})
+    1: 'Target to source',
+    2: 'Source to target',
+    3: 'Bi directional'
+});
 
 class BucketCloudSyncFormViewModel {
     constructor({ bucket }) {
@@ -94,9 +95,9 @@ class BucketCloudSyncFormViewModel {
         );
 
         this.syncDirection = ko.pureComputed(
-            () => null
-            //() => policy() && directionMapping[
-            //]
+            () => policy() && directionMapping[
+                bitsToNumber(policy().n2c_enabled, policy().c2n_enabled)
+            ]
         );
 
         this.syncDeletions = ko.pureComputed(

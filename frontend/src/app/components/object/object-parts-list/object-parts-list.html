@@ -36,9 +36,10 @@
             <tbody data-bind="foreach: blocks">
                 <tr content-middle">
                     <td class="status-col">
-                        <svg-icon params="uri: nodeStateIcon" data-bind="
-                            tooltip: nodeStateToolTip
-                        "></svg-icon>
+                        <svg-icon class="icon-small" 
+                            params="uri: nodeStateIcon" 
+                            data-bind="tooltip: nodeStateToolTip">
+                        </svg-icon>
                     </td>
 
                     <td class="replica-col text-left" data-bind="text: label">

@@ -27,6 +27,7 @@ const system_store = require('../system_services/system_store').get_instance();
 const promise_utils = require('../../util/promise_utils');
 const bucket_server = require('./bucket_server');
 const account_server = require('./account_server');
+const config = require('../../../config');
 
 
 function new_system_defaults(name, owner_account_id) {
@@ -57,6 +58,7 @@ function new_system_defaults(name, owner_account_id) {
             udp_dtls: true,
             udp_port: true,
         },
+        debug_level: 0,
     };
     return system;
 }
@@ -196,6 +198,8 @@ function read_system(req) {
             time_config.timezone = time_status.timezone;
         }
 
+        let debug_level = system.debug_level;
+
         // TODO use n2n_config.stun_servers ?
         // var stun_address = 'stun://' + ip_address + ':' + stun.PORT;
         // var stun_address = 'stun://64.233.184.127:19302'; // === 'stun://stun.l.google.com:19302'
@@ -244,6 +248,7 @@ function read_system(req) {
             time_config: time_config,
             base_address: system.base_address || 'wss://' + ip_address + ':' + process.env.SSL_PORT,
             version: pkg.version,
+            debug_level: debug_level,
         };
 
         if (system.base_address) {
@@ -565,31 +570,61 @@ function diagnose_with_agent(data, req) {
         });
 }
 
-function start_debug(req) {
-    dbg.log0('Recieved start_debug req');
+function set_debug_level(req) {
+    dbg.log0('Recieved set_debug_level req. level =', req.params.level);
     return server_rpc.client.redirector.publish_to_cluster({
             target: '', // required but irrelevant
             method_api: 'debug_api',
             method_name: 'set_debug_level',
             request_params: {
-                level: req.rpc_params.level,
+                level: req.params.level,
                 module: 'core'
             }
+        }, {
+            auth_token: req.auth_token
         })
-        .then(function() {
-            if (req.rpc_params.level > 0) { //If level was set, remove it after 10m
-                promise_utils.delay_unblocking(1000 * 60 * 10) //10m
-                    .then(() => server_rpc.client.redirector.publish_to_cluster({
-                        target: '', // required but irrelevant
-                        method_api: 'debug_api',
-                        method_name: 'set_debug_level',
-                        request_params: {
-                            level: 0,
-                            module: 'core'
+        .then(() => {
+            if (req.system.debug_level === req.params.level) {
+                dbg.log0('requested to set debug level to the same as current level. skipping.. level =', req.params.level);
+                return;
+            } else {
+                system_store.make_changes({
+                        update: {
+                            systems: [{
+                                _id: req.system._id,
+                                debug_level: req.params.level
+                            }]
                         }
-                    }));
+                    })
+                    .then(function() {
+                        if (req.params.level > 0) { //If level was set, remove it after 10m
+                            return promise_utils.delay_unblocking(config.DEBUG_MODE_PERIOD) //10m
+                                .then(() => server_rpc.client.redirector.publish_to_cluster({
+                                    target: '', // required but irrelevant
+                                    method_api: 'debug_api',
+                                    method_name: 'set_debug_level',
+                                    request_params: {
+                                        level: 0,
+                                        module: 'core'
+                                    }
+                                }, {
+                                    auth_token: req.auth_token
+                                }))
+                                .then(() => {
+                                    dbg.log0('setting debug level back to 0 after', (config.DEBUG_MODE_PERIOD / 60000), 'minutes');
+                                    return system_store.make_changes({
+                                        update: {
+                                            systems: [{
+                                                _id: req.system._id,
+                                                debug_level: 0
+                                            }]
+                                        }
+                                    });
+                                });
+                        }
+                        return;
+                    });
             }
-            return;
         });
 }
 
@@ -790,7 +825,7 @@ exports.read_activity_log = read_activity_log;
 
 exports.diagnose = diagnose;
 exports.diagnose_with_agent = diagnose_with_agent;
-exports.start_debug = start_debug;
+exports.set_debug_level = set_debug_level;
 
 exports.update_n2n_config = update_n2n_config;
 exports.update_base_address = update_base_address;

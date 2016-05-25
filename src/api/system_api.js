@@ -281,7 +281,7 @@ module.exports = {
             }
         },
 
-        start_debug: {
+        set_debug_level: {
             method: 'POST',
             params: {
                 type: 'object',
@@ -289,7 +289,7 @@ module.exports = {
                 properties: {
                     level: {
                         type: 'integer',
-                    },
+                    }
                 },
             },
             auth: {
@@ -489,7 +489,10 @@ module.exports = {
                             type: 'string'
                         },
                     }
-                }
+                },
+                debug_level: {
+                    type: 'integer'
+                },
             }
         },
 

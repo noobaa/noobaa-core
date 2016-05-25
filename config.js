@@ -25,6 +25,8 @@ config.SHORT_GONE_THRESHOLD = 300000;
 config.LONG_BUILD_THRESHOLD = 300000;
 config.MAX_OBJECT_PART_SIZE = 64 * 1024 * 1024;
 
+config.DEBUG_MODE_PERIOD = 10 * 60 * 1000; // 10 minutes for increased debug level
+
 config.dbg_log_level = 0;
 
 // TEST Mode

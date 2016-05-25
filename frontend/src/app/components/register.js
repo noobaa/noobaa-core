@@ -123,7 +123,6 @@ export default function register(ko) {
     ko.components.register('needle-gauge',      require('./shared/needle-gauge/needle-gauge'));
     ko.components.register('bar',               require('./shared/bar/bar'));
     ko.components.register('range-indicator',   require('./shared/range-indicator/range-indicator'));
-    ko.components.register('action-list',       require('./shared/action-list/action-list'));
     ko.components.register('stepper',           require('./shared/stepper/stepper'));
     ko.components.register('multiselect',       require('./shared/multiselect/multiselect'));
     ko.components.register('slider',            require('./shared/slider/slider'));

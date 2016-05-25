@@ -449,6 +449,12 @@ function upgrade_system_access_keys() {
                 }
             });
 
+            db.roles.update({}, {
+                $unset: {
+                    __v: 1
+                }
+            });
+            
             db.systems.update({
                 _id: system._id
             }, {

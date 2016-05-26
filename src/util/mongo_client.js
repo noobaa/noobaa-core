@@ -123,7 +123,8 @@ class MongoClient extends EventEmitter {
     }
 
     replica_update_members(set, members, is_config_set) {
-        var rep_config = this._build_replica_config(set, members);
+        var port = is_config_set ? config.MONGO_DEFAULTS.CFG_PORT : config.MONGO_DEFAULTS.SHARD_SRV_PORT;
+        var rep_config = this._build_replica_config(set, members, port);
         var command = {
             replSetReconfig: rep_config
         };
@@ -188,11 +189,11 @@ class MongoClient extends EventEmitter {
             })
             .then(confdb => P.when(confdb.admin().command(command)))
             .then(() => {
-                dbg.log0('successfully sent command to config rs', command);
+                dbg.log0('successfully sent command to config rs', util.inspect(command));
                 return;
             })
             .fail((err) => {
-                dbg.error('MongoClient: sending command config rs failed', command, err.message);
+                dbg.error('MongoClient: sending command config rs failed', util.inspect(command), err.message);
                 throw err;
             });
     }

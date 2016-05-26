@@ -158,15 +158,35 @@ module.exports = {
             }
         },
 
-        set_last_stats_report_time: {
-            doc: 'Set last stats report sync time',
-            method: 'PUT',
+        export_activity_log: {
+            method: 'GET',
             params: {
                 type: 'object',
-                required: ['last_stats_report'],
+                required: [],
                 properties: {
-                    last_stats_report: {
-                        format: 'idate',
+                    event: {
+                        type: 'string',
+                    },
+                    events: {
+                        type: 'array',
+                        items: {
+                            type: 'string'
+                        }
+                    },
+                    till: {
+                        format: 'idate'
+                    },
+                    since: {
+                        format: 'idate'
+                    }
+                }
+            },
+            reply: {
+                type: 'object',
+                required: ['csv_path'],
+                properties: {
+                    csv_path: {
+                        type: 'string'
                     },
                 }
             },

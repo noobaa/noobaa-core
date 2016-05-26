@@ -122,12 +122,17 @@ MongoCtrl.prototype._add_new_shard_program = function(name, first_shard) {
 
 MongoCtrl.prototype._add_new_mongos_program = function(cfg_array) {
     let config_string = '';
-    _.each(cfg_array, function(srv) {
-        if (config_string !== '') {
-            config_string += ',';
-        }
-        config_string += srv + ':' + config.MONGO_DEFAULTS.CFG_PORT;
-    });
+    //Mongos can only recieve an odd numbered config IPs, in case we are at 2, use the first one only
+    if (cfg_array.length < 3) {
+        config_string = cfg_array[0] + ':' + config.MONGO_DEFAULTS.CFG_PORT;
+    } else {
+        _.each(cfg_array, function(srv) {
+            if (config_string !== '') {
+                config_string += ',';
+            }
+            config_string += srv + ':' + config.MONGO_DEFAULTS.CFG_PORT;
+        });
+    }
 
     let program_obj = {};
     program_obj.name = 'mongos';

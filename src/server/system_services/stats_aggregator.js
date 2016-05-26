@@ -410,7 +410,7 @@ function object_usage_scrubber(req) {
     new_req.rpc_params.till_time = req.system.last_stats_report || new Date(0);
     return object_server.remove_s3_usage_reports(new_req)
         .then(() => {
-            new_req.rpc_params.last_stats_report = new Date();
+            new_req.rpc_params.last_stats_report = new_req.rpc_params.till_time;
             return system_server.set_last_stats_report_time(new_req);
         })
         .catch(err => {

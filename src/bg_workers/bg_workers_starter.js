@@ -64,10 +64,6 @@ if ((config.central_stats.send_stats === 'true') &&
     (config.central_stats.central_listener)) {
     register_bg_worker({
         name: 'system_server_stats_aggregator',
-        batch_size: 1,
-        time_since_last_build: 60000, // TODO increase?
-        building_timeout: 300000, // TODO increase?
-        delay: (1 * 10 * 1000), //60m
     }, stats_aggregator.background_worker);
 }
 

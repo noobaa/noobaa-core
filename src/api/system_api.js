@@ -439,6 +439,9 @@ module.exports = {
                 owner: {
                     $ref: 'account_api#/definitions/account_info'
                 },
+                last_stats_report: {
+                    format: 'idate',
+                },
                 tiers: {
                     type: 'array',
                     items: {
@@ -466,12 +469,6 @@ module.exports = {
                 objects: {
                     type: 'integer'
                 },
-                /*access_keys: {
-                    type: 'array',
-                    items: {
-                        $ref: '#/definitions/access_keys'
-                    }
-                },*/
                 ssl_port: {
                     type: 'string'
                 },

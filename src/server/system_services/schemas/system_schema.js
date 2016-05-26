@@ -66,6 +66,11 @@ module.exports = {
                     type: 'string'
                 },
             }
-        }
+        },
+
+        //Debug Level:
+        debug_level: {
+            type: 'integer'
+        },
     }
 };

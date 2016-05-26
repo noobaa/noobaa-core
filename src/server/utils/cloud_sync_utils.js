@@ -17,17 +17,14 @@ function resolve_cloud_sync_info(sync_policy) {
         //If sync time is epoch (never synced) change to never synced
         if (sync_policy.paused) {
             stat = 'PASUED';
-        }
-        if (!sync_policy.health) {
+        } else if (!sync_policy.health) {
             stat = 'UNABLE';
-        }
-        if (sync_policy.status === 'IDLE') {
+        } else if (sync_policy.last_sync.getTime() === 0) {
+            stat = 'PENDING';
+        } else if (sync_policy.status === 'IDLE') {
             stat = 'SYNCED';
         } else {
             stat = 'SYNCING';
-        }
-        if (sync_policy.last_sync === 0) {
-            stat = 'UNSYNCED';
         }
     } else {
         stat = 'NOTSET';

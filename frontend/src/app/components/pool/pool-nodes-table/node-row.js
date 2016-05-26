@@ -22,19 +22,24 @@ export default class NodeRowViewModel {
         );
 
         let diskRead = ko.pureComputed(
-            () => node() && node().latency_of_disk_read
-                .reduce(avgOp)
+            () => node() && node().latency_of_disk_read 
+                .reduce(avgOp, 0)
                 .toFixed(1)
         );
 
         let diskWrite = ko.pureComputed(
             () => node() && node().latency_of_disk_write
-                .reduce(avgOp)
+                .reduce(avgOp, 0)
                 .toFixed(1)
         );
 
         this.diskReadWrite = ko.pureComputed(
-            () => node() && `${diskRead()}/${diskWrite()} ms`
+            () => {
+                if (diskRead() == 0 || diskWrite() == 0) {
+                    return 'N/A'
+                } 
+                return `${diskRead()}/${diskWrite()} ms`;
+            }
         );
 
         this.RTT = ko.pureComputed(

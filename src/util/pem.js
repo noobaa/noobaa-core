@@ -161,10 +161,16 @@ function createCSR(options, callback) {
         '-key',
         '--TMPFILE--'
     ];
+    if (os.type() === 'Windows_NT') {
+        params.push('-config');
+        params.push('./ssl/openssl.cnf');
+
+    }
     var tmpfiles = [options.clientKey];
     var config = null;
 
     if (options.altNames) {
+
         params.push('-extensions');
         params.push('v3_req');
         params.push('-config');

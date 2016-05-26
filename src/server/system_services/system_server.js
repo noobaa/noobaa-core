@@ -27,6 +27,7 @@ const system_store = require('../system_services/system_store').get_instance();
 const promise_utils = require('../../util/promise_utils');
 const bucket_server = require('./bucket_server');
 const account_server = require('./account_server');
+const config = require('../../../config');
 
 
 function new_system_defaults(name, owner_account_id) {
@@ -57,6 +58,7 @@ function new_system_defaults(name, owner_account_id) {
             udp_dtls: true,
             udp_port: true,
         },
+        debug_level: 0,
     };
     return system;
 }
@@ -196,6 +198,8 @@ function read_system(req) {
             time_config.timezone = time_status.timezone;
         }
 
+        let debug_level = system.debug_level;
+
         // TODO use n2n_config.stun_servers ?
         // var stun_address = 'stun://' + ip_address + ':' + stun.PORT;
         // var stun_address = 'stun://64.233.184.127:19302'; // === 'stun://stun.l.google.com:19302'
@@ -245,6 +249,7 @@ function read_system(req) {
             time_config: time_config,
             base_address: system.base_address || 'wss://' + ip_address + ':' + process.env.SSL_PORT,
             version: pkg.version,
+            debug_level: debug_level,
         };
 
         if (system.base_address) {
@@ -581,32 +586,45 @@ function diagnose_with_agent(data, req) {
         });
 }
 
-function start_debug(req) {
-    dbg.log0('Recieved start_debug req');
+function _set_debug_level_internal(id, level, auth_token) {
     return server_rpc.client.redirector.publish_to_cluster({
             target: '', // required but irrelevant
             method_api: 'debug_api',
             method_name: 'set_debug_level',
             request_params: {
-                level: req.rpc_params.level,
+                level: level,
                 module: 'core'
             }
+        }, {
+            auth_token: auth_token
         })
-        .then(function() {
-            if (req.rpc_params.level > 0) { //If level was set, remove it after 10m
-                promise_utils.delay_unblocking(1000 * 60 * 10) //10m
-                    .then(() => server_rpc.client.redirector.publish_to_cluster({
-                        target: '', // required but irrelevant
-                        method_api: 'debug_api',
-                        method_name: 'set_debug_level',
-                        request_params: {
-                            level: 0,
-                            module: 'core'
-                        }
-                    }));
+        .then(() => system_store.make_changes({
+            update: {
+                systems: [{
+                    _id: id,
+                    debug_level: level
+                }]
             }
-            return;
-        });
+        }));
+}
+
+function set_debug_level(req) {
+    let level = req.params.level;
+    let id = req.system._id;
+    dbg.log0('Recieved set_debug_level req. level =', level);
+    if (req.system.debug_level === level) {
+        dbg.log0('requested to set debug level to the same as current level. skipping.. level =', level);
+        return;
+    }
+
+    return _set_debug_level_internal(id, level, req.auth_token)
+        .then(() => {
+            if (level > 0) { //If level was set, remove it after 10m
+                promise_utils.delay_unblocking(config.DEBUG_MODE_PERIOD) //10m
+                    .then(() => _set_debug_level_internal(id, 0, req.auth_token));
+            }
+        })
+        .return();
 }
 
 
@@ -806,9 +824,9 @@ exports.read_activity_log = read_activity_log;
 
 exports.diagnose = diagnose;
 exports.diagnose_with_agent = diagnose_with_agent;
-exports.start_debug = start_debug;
 exports.log_frontend_stack_trace = log_frontend_stack_trace;
 exports.set_last_stats_report_time = set_last_stats_report_time;
+exports.set_debug_level = set_debug_level;
 
 exports.update_n2n_config = update_n2n_config;
 exports.update_base_address = update_base_address;

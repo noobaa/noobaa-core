@@ -547,7 +547,6 @@ function add_s3_usage_report(req) {
 }
 
 function remove_s3_usage_reports(req) {
-    console.warn('JEN remove_s3_usage_reports');
     var q = ObjectStats.remove();
     if (req.rpc_params.till_time) {
         // query backwards from given time

@@ -259,7 +259,6 @@ function get_cloud_sync_stats(req) {
 function get_object_usage_stats(req) {
     let new_req = req;
     new_req.rpc_params.from_time = req.system.last_stats_report || new Date(0);
-    console.warn('JEN new_req.rpc_params.from_time', new_req.rpc_params.from_time);
     return object_server.read_s3_usage_report(new_req)
         .then(res => {
             return _.map(res.reports, report => ({
@@ -407,12 +406,10 @@ function add_sample_point(opname, duration) {
 }
 
 function object_usage_scrubber(req) {
-    console.warn('JEN PROOF', req);
     let new_req = req;
     new_req.rpc_params.till_time = req.system.last_stats_report || new Date(0);
     return object_server.remove_s3_usage_reports(new_req)
         .then(() => {
-            console.warn('JEN object_usage_scrubber');
             new_req.rpc_params.last_stats_report = new Date();
             return system_server.set_last_stats_report_time(new_req);
         })
@@ -427,23 +424,13 @@ function object_usage_scrubber(req) {
 //_.noop(send_stats_payload); // lint unused bypass
 
 function send_stats_payload(payload) {
-    //create a deferred object from Q
     var deferred = P.defer();
-    //var promise_send = P.defer();
     var data_to_send = {};
     data_to_send.time_stamp = new Date();
     data_to_send.system = system_store.data.systems[0]._id;
     data_to_send.payload = payload;
-    //form.append('phdata', JSON.stringify(data_to_send));
-    console.warn('JEN JSON TO DANNY:', payload);
-    //let body = JSON.stringify(data_to_send);
-    //var body_buf = new Buffer(JSON.stringify(data_to_send), 'utf-8');   // Choose encoding for the string.
-    //console.warn('JEN zlib1', zlib);
-    // var gzip_payload = zlib.gzipSync(new Buffer(JSON.stringify(data_to_send), 'utf-8'));
     return P.ninvoke(zlib, 'gzip', new Buffer(JSON.stringify(data_to_send), 'utf-8'))
         .then(gzip_payload => {
-            console.log('JEN - ', gzip_payload);
-
             var options = {
                 hostname: config.central_stats.central_listener,
                 port: 9090,
@@ -462,12 +449,10 @@ function send_stats_payload(payload) {
                 var responseData = '';
                 //append data to responseData variable on the 'data' event emission
                 response.on('data', function(data) {
-                    console.warn('JEN DANNY RESPONSE');
                     responseData += data;
                 });
                 //listen to the 'end' event
                 response.on('end', function() {
-                    console.warn('JEN DANNY RESPONSE2');
                     //resolve the deferred object with the response
                     deferred.resolve(responseData);
                 });
@@ -475,7 +460,6 @@ function send_stats_payload(payload) {
 
             //listen to the 'error' event
             req.on('error', function(err) {
-                console.warn('JEN DANNY RESPONSE3');
                 //if an error occurs reject the deferred
                 deferred.reject(err);
             });
@@ -486,85 +470,6 @@ function send_stats_payload(payload) {
             //violating the expected behavior of this function
             return deferred.promise;
         });
-
-    //TODO JEN STUFF
-    /*
-    //var form = new FormData();
-    var promise_send = P.defer();
-    var data_to_send = {};
-    data_to_send.time_stamp = new Date();
-    data_to_send.system = system_store.data.systems[0]._id;
-    data_to_send.payload = payload;
-    //form.append('phdata', JSON.stringify(data_to_send));
-    let body = JSON.stringify(data_to_send);
-
-    var options = {
-        hostname: config.central_stats.central_listener,
-        port: 9090,
-        path: "/phdata",
-        method: "POST",
-        headers: {
-            "Content-Type": "application/json",
-            "Content-Length": Buffer.byteLength(body)
-        }
-    };
-
-    // var request = new http.request({
-    //     hostname: config.central_stats.central_listener,
-    //     port: 9090,
-    //     path: "/phdata",
-    //     method: "POST",
-    //     headers: {
-    //         "Content-Type": "application/json",
-    //         "Content-Length": Buffer.byteLength(body)
-    //     }
-    // });
-
-    return P.ninvoke(http, 'request', options)
-        .then(() => {
-            request.on('error', function(err) {
-                console.warn('JEN REQUEST ERROR');
-                promise_send.reject(err);
-                //console.error(err);
-            });
-
-            request.on('end', function() {
-                console.warn('JEN REQUEST END');
-                promise_send.resolve('JEN Done');
-                //console.error(err);
-            });
-
-            return promise_send.promise;
-        })
-        .catch((err) => {
-            console.warn('JEN NINVOKE ERROR');
-        })
-
-    // request.on('error', function(err) {
-    //     promise_send.reject(err);
-    //     //console.error(err);
-    // });
-    //
-    // request.on('end', function() {
-    //     promise_send.resolve('JEN Done');
-    //     //console.error(err);
-    // });
-
-    //throw new Error('JEN ERROR');
-    // return P.ninvoke(request, 'end', body)
-    // // return P.ninvoke(request, 'post', {
-    // //         url: config.central_stats.central_listener + ':9090/phdata',
-    // //         //formData: form,
-    // //         rejectUnauthorized: false,
-    // //     })
-    //     .then((httpResponse) => {
-    //         dbg.log2('Phone Home data sent successfully');
-    //         console.warn('JEN YOU MAGICAL BASTARD', httpResponse);
-    //         return promise_send.promise;
-    //     })
-        // .catch(err => {
-        //    dbg.warn('Phone Home data send failed', err.stack || err);
-        // });*/
 }
 
 
@@ -665,24 +570,8 @@ function get_empty_objects_histo() {
 }
 
 function background_worker() {
-    /* jshint validthis: true */
-    //var self = this;
-    //return P.fcall(function() {
-    /*
-     * Background Wokrer
-     */
-    //if ((config.central_stats.send_stats === 'true') &&
-    //    (config.central_stats.central_listener)) {
     dbg.log('Central Statistics gathering enabled');
-    //    promise_utils.run_background_worker({
-    //        name: 'system_server_stats_aggregator',
-    //            batch_size: 1,
-    //            time_since_last_build: 1000, // TODO increase...
-    //                building_timeout: 2000, // TODO increase...
-    //    delay: (1 * 1 * 1000), //60m
-
     //Run the system statistics gatheting
-    //run_batch: function() {
     return P.fcall(() => {
             if (!server_rpc.client.options.auth_token) {
                 let system = system_store.data.systems[0];
@@ -696,26 +585,15 @@ function background_worker() {
             return;
         })
         .then(() => server_rpc.client.stats.get_all_stats({}))
-        .then((pay) => {
-            console.warn('JEN OBJECT USAGE PAYLOAD:', pay.object_usage_stats);
-            return pay;
-        })
         .then(payload => send_stats_payload(payload))
         .then((res) => {
-            console.warn('JEN RESPONSE', res);
             return server_rpc.client.stats.object_usage_scrubber({});
         })
-        // .then(() => server_rpc.client.stats.object_usage_scrubber({}))
         .catch(err => {
-            console.warn('JEN NOT MAGICAL');
             dbg.warn('Phone Home data send failed', err.stack || err);
             return;
         })
         .return();
-    //}
-    //});
-    //}
-    //});
 }
 
 // EXPORTS

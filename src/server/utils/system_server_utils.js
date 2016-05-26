@@ -4,7 +4,7 @@ module.exports = {
     system_in_maintenance: system_in_maintenance,
 };
 
-var system_store = require('../stores/system_store');
+var system_store = require('../system_services/system_store').get_instance();
 var moment = require('moment');
 
 function system_in_maintenance(system_id) {
@@ -14,7 +14,7 @@ function system_in_maintenance(system_id) {
         throw new Error('System with id: ' + system_id + ' was not found');
     }
 
-    if (system.maintenance_mode && moment().diff(system.maintenance_mode.till) < 0) {
+    if (moment().diff(system.maintenance_mode) < 0) {
         return true;
     }
 

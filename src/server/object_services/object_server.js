@@ -24,7 +24,7 @@ const nodes_store = require('../node_services/nodes_store');
 const system_store = require('../system_services/system_store').get_instance();
 const string_utils = require('../../util/string_utils');
 const mongo_functions = require('../../util/mongo_functions');
-const system_utils = require('./utils/system_server_utils');
+const system_utils = require('../utils/system_server_utils');
 
 /**
  *

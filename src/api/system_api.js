@@ -70,7 +70,7 @@ module.exports = {
             }
         },
 
-        set_maintenance_config: {
+        set_maintenance_mode: {
             doc: 'Configure system maintenance',
             method: 'PUT',
             params: {
@@ -298,25 +298,25 @@ module.exports = {
             }
         },
 
-        read_maintenance_config: {
-            method: 'GET',
-            params: {
-                type: 'object',
-                // System Name
-                required: ['name'],
-                properties: {
-                    name: {
-                        type: 'string',
-                    },
-                }
-            },
-            reply: {
-                type: 'boolean',
-            },
-            auth: {
-                system: 'admin',
-            }
-        },
+        // read_maintenance_config: {
+        //     method: 'GET',
+        //     params: {
+        //         type: 'object',
+        //         // System Name
+        //         required: ['name'],
+        //         properties: {
+        //             name: {
+        //                 type: 'string',
+        //             },
+        //         }
+        //     },
+        //     reply: {
+        //         type: 'boolean',
+        //     },
+        //     auth: {
+        //         system: 'admin',
+        //     }
+        // },
 
         set_debug_level: {
             method: 'POST',
@@ -569,13 +569,14 @@ module.exports = {
         },
 
         maintenance_mode: {
-            type: 'object',
-            required: ['till'],
-            properties: {
-                till: {
-                    format: 'idate'
-                },
-            }
+            // type: 'object',
+            // required: ['till'],
+            // properties: {
+            //     till: {
+            //         format: 'idate'
+            //     },
+            // }
+            format: 'idate',
         },
 
         nodes_info: {

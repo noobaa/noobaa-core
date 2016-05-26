@@ -475,6 +475,7 @@ const NODE_INFO_DEFAULT_FIELDS = {
     peer_id: '',
     rpc_address: '',
     base_address: '',
+    latency_to_server: [],
     latency_of_disk_read: [],
     latency_of_disk_write: []
 };

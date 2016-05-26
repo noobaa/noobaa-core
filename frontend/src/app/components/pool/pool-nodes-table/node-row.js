@@ -50,10 +50,6 @@ export default class NodeRowViewModel {
             ()=> node() && node().storage.used
         );
 
-        // this.usedCapacity = ko.pureComputed(
-        //     () => node() && (node().storage ? formatSize(node().storage.used) : 'N/A')
-        // );
-
         let dataAccess = ko.pureComputed(
             () => node() && accessibilityMapping[node().accessibility]
         );

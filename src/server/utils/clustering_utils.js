@@ -4,6 +4,7 @@
 //Since its using the system_store, its located under server/utils
 
 var _ = require('lodash');
+var util = require('util');
 var system_store = require('../system_services/system_store').get_instance();
 var dbg = require('../../util/debug_module')(__filename);
 
@@ -17,6 +18,7 @@ function update_cluster_info(params) {
     var owner_secret = current_clustering.owner_secret;
     var update = _.defaults(_.pick(params, _.keys(current_clustering)), current_clustering);
     update.owner_secret = owner_secret; //Keep original owner_secret
+    update._id = current_clustering._id;
 
     dbg.log0('Updating local cluster info for owner', owner_secret, 'previous cluster info',
         current_clustering, 'new cluster info', update);
@@ -26,7 +28,10 @@ function update_cluster_info(params) {
                 clusters: [update]
             }
         })
-        .then(() => dbg.log0('local cluster info updates successfully'))
+        .then(() => {
+            dbg.log0('local cluster info updates successfully');
+            return;
+        })
         .fail((err) => {
             console.error('failed on local cluster info update with', err.message);
             throw err;
@@ -74,6 +79,13 @@ function is_single_server() {
     return false;
 }
 
+function pretty_topology(topology) {
+    return util.inspect(topology, {
+        showHidden: false,
+        depth: 10
+    });
+}
+
 //Exports
 exports.get_topology = get_topology;
 exports.update_cluster_info = update_cluster_info;
@@ -81,3 +93,4 @@ exports.extract_servers_ip = extract_servers_ip;
 exports.verify_cluster_id = verify_cluster_id;
 exports.is_single_server = is_single_server;
 exports.get_all_cluster_members = get_all_cluster_members;
+exports.pretty_topology = pretty_topology;

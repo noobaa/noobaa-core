@@ -363,6 +363,22 @@ module.exports = {
             }
         },
 
+        update_phone_home_proxy_address: {
+            method: 'POST',
+            params: {
+                type: 'object',
+                required: ['phone_home_proxy'],
+                properties: {
+                    phone_home_proxy: {
+                        type: 'string'
+                    }
+                }
+            },
+            auth: {
+                system: 'admin',
+            }
+        },
+
         update_system_certificate: {
             method: 'POST',
             auth: {
@@ -493,6 +509,9 @@ module.exports = {
                     $ref: 'common_api#/definitions/n2n_config'
                 },
                 ip_address: {
+                    type: 'string'
+                },
+                phone_home_proxy: {
                     type: 'string'
                 },
                 dns_name: {

@@ -425,9 +425,10 @@ function object_usage_scrubber(req) {
 
 function send_stats_payload(payload) {
     var deferred = P.defer();
+    var system = system_store.data.systems[0];
     var data_to_send = {};
     data_to_send.time_stamp = new Date();
-    data_to_send.system = system_store.data.systems[0]._id;
+    data_to_send.system = system._id;
     data_to_send.payload = payload;
     return P.ninvoke(zlib, 'gzip', new Buffer(JSON.stringify(data_to_send), 'utf-8'))
         .then(gzip_payload => {
@@ -442,6 +443,13 @@ function send_stats_payload(payload) {
                     'Content-Length': Buffer.byteLength(gzip_payload)
                 }
             };
+
+            if (system.phone_home_proxy) {
+                let seperator_index = system.phone_home_proxy.indexOf(':');
+                options.hostname = system.phone_home_proxy.substr(0, seperator_index);
+                options.port = Number(system.phone_home_proxy.substr(seperator_index));
+                options.path = `${system.phone_home_proxy}/phdata`;
+            }
 
             var req = http.request(options, function(response) {
                 //set the response encoding to parse json string

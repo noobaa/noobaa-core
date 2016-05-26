@@ -47,6 +47,11 @@ module.exports = {
             additionalProperties: true,
             properties: {}
         },
+        maintenance_mode: {
+            type: 'object',
+            additionalProperties: true,
+            properties: {}
+        },
         // the DNS name or IP address used for the server
         base_address: {
             type: 'string'

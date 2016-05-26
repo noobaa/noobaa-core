@@ -70,6 +70,23 @@ module.exports = {
             }
         },
 
+        set_maintenance_config: {
+            doc: 'Configure system maintenance',
+            method: 'PUT',
+            params: {
+                type: 'object',
+                required: ['maintenance_mode'],
+                properties: {
+                    maintenance_mode: {
+                        $ref: '#/definitions/maintenance_mode',
+                    },
+                }
+            },
+            auth: {
+                system: 'admin',
+            }
+        },
+
         delete_system: {
             doc: 'Delete the authorized system',
             method: 'DELETE',
@@ -281,6 +298,26 @@ module.exports = {
             }
         },
 
+        read_maintenance_config: {
+            method: 'GET',
+            params: {
+                type: 'object',
+                // System Name
+                required: ['name'],
+                properties: {
+                    name: {
+                        type: 'string',
+                    },
+                }
+            },
+            reply: {
+                type: 'boolean',
+            },
+            auth: {
+                system: 'admin',
+            }
+        },
+
         set_debug_level: {
             method: 'POST',
             params: {
@@ -458,6 +495,9 @@ module.exports = {
                         },
                     }
                 },
+                maintenance_mode: {
+                    $ref: '#/definitions/maintenance_mode'
+                },
                 n2n_config: {
                     $ref: 'common_api#/definitions/n2n_config'
                 },
@@ -526,6 +566,16 @@ module.exports = {
         role_enum: {
             enum: ['admin', 'user', 'viewer'],
             type: 'string',
+        },
+
+        maintenance_mode: {
+            type: 'object',
+            required: ['till'],
+            properties: {
+                till: {
+                    format: 'idate'
+                },
+            }
         },
 
         nodes_info: {

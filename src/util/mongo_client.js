@@ -106,6 +106,8 @@ class MongoClient extends EventEmitter {
 
     initiate_replica_set(set, members, is_config_set) {
         var port = is_config_set ? config.MONGO_DEFAULTS.CFG_PORT : config.MONGO_DEFAULTS.SHARD_SRV_PORT;
+        dbg.log0('initiate_replica port', port, 'is_config_set', is_config_set, 'config.MONGO_DEFAULTS.CFG_PORT',
+          config.MONGO_DEFAULTS.CFG_PORT, 'config.MONGO_DEFAULTS.SHARD_SRV_PORT', config.MONGO_DEFAULTS.SHARD_SRV_PORT);
         var rep_config = this._build_replica_config(set, members, port);
         var command = {
             replSetInitiate: rep_config

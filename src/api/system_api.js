@@ -157,6 +157,43 @@ module.exports = {
             }
         },
 
+        export_activity_log: {
+            method: 'GET',
+            params: {
+                type: 'object',
+                required: [],
+                properties: {
+                    event: {
+                        type: 'string',
+                    },
+                    events: {
+                        type: 'array',
+                        items: {
+                            type: 'string'
+                        }
+                    },
+                    till: {
+                        format: 'idate'
+                    },
+                    since: {
+                        format: 'idate'
+                    }
+                }
+            },
+            reply: {
+                type: 'object',
+                required: ['csv_path'],
+                properties: {
+                    csv_path: {
+                        type: 'string'
+                    },
+                }
+            },
+            auth: {
+                system: 'admin',
+            }
+        },
+
 
         read_activity_log: {
             method: 'GET',

@@ -28,6 +28,7 @@ const promise_utils = require('../../util/promise_utils');
 const bucket_server = require('./bucket_server');
 const account_server = require('./account_server');
 const config = require('../../../config');
+const fs = require('fs');
 
 
 function new_system_defaults(name, owner_account_id) {
@@ -417,12 +418,7 @@ function get_system_web_links(system) {
 
 
 
-/**
- *
- * READ_ACTIVITY_LOG
- *
- */
-function read_activity_log(req) {
+function _read_activity_log_internal(req) {
     var q = ActivityLog.find({
         system: req.system._id,
     });
@@ -450,8 +446,14 @@ function read_activity_log(req) {
     if (req.rpc_params.events) {
         q.where('event').in(req.rpc_params.events);
     }
-    if (req.rpc_params.skip) q.skip(req.rpc_params.skip);
-    q.limit(req.rpc_params.limit || 10);
+    if (req.rpc_params.csv) {
+        //limit to million lines just in case (probably ~100MB of text)
+        q.limit(1000000);
+    } else {
+        if (req.rpc_params.skip) q.skip(req.rpc_params.skip);
+        q.limit(req.rpc_params.limit || 10);
+    }
+
     q.populate('node', 'name');
     q.populate('obj', 'key');
     return P.when(q.exec())
@@ -507,6 +509,65 @@ function read_activity_log(req) {
             };
         });
 }
+
+
+
+
+function export_activity_log(req) {
+    req.rpc_params.csv = true;
+    return _read_activity_log_internal(req)
+        .then(logs => {
+            // generate csv file name:
+            let file_name = 'audit.csv';
+            let out_path = '/public/' + file_name;
+            let inner_path = process.cwd() + '/build' + out_path;
+            var file = fs.createWriteStream(inner_path);
+            file.on('error', err => dbg.error('received error when writing to audit csv file:', inner_path, err));
+            let headline = 'time,level,account,event,entity,description\n';
+            let logs_arr = logs.logs;
+            dbg.log0('writing', logs_arr.length, 'lines to csv file', inner_path);
+            return file.writeAsync(headline, 'utf8')
+                .then(() => promise_utils.loop(logs_arr.length, i => {
+                    let line_entry = logs_arr[i];
+                    let time = new Date(line_entry.time);
+                    let level = line_entry.level;
+                    let account = line_entry.actor.email;
+                    let event = line_entry.event;
+                    let description = line_entry.desc[0];
+                    let entity_type = event.split('.')[0];
+                    let entity = '';
+                    if (line_entry[entity_type]) {
+                        if (entity_type === 'obj') {
+                            entity = line_entry[entity_type].key;
+                        } else {
+                            entity = line_entry[entity_type].name;
+                        }
+                    }
+                    let line = '"' + time.toISOString() + '",' + level + ',' + account + ',' + event + ',' + entity + ',"' + description + '"\n';
+                    return file.writeAsync(line, 'utf8');
+                }))
+                .then(() => file.end())
+                .then(() => ({
+                    csv_path: out_path
+                }));
+
+        });
+}
+
+
+
+
+/**
+ *
+ * READ_ACTIVITY_LOG
+ *
+ */
+function read_activity_log(req) {
+    return _read_activity_log_internal(req);
+}
+
+
+
 
 function diagnose(req) {
     dbg.log0('Recieved diag req');
@@ -805,6 +866,7 @@ exports.add_role = add_role;
 exports.remove_role = remove_role;
 
 exports.read_activity_log = read_activity_log;
+exports.export_activity_log = export_activity_log;
 
 exports.diagnose = diagnose;
 exports.diagnose_with_agent = diagnose_with_agent;

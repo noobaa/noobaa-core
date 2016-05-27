@@ -251,6 +251,7 @@ function read_system(req) {
             ip_address: ip_address,
             time_config: time_config,
             base_address: system.base_address || 'wss://' + ip_address + ':' + process.env.SSL_PORT,
+            phone_home_proxy: system.phone_home_proxy,
             version: pkg.version,
             debug_level: debug_level,
         };
@@ -810,6 +811,35 @@ function update_base_address(req) {
         });
 }
 
+
+function update_phone_home_proxy_address(req) {
+    dbg.log0('update_phone_home_proxy_address', req.rpc_params);
+    if (!req.rpc_params.phone_home_proxy) {
+        return system_store.make_changes({
+                update: {
+                    system: {
+                        _id: req.system._id,
+                        $unset: {
+                            phone_home_proxy: 1
+                        }
+                    }
+                }
+            });
+    } else {
+        return system_store.make_changes({
+                update: {
+                    system: {
+                        _id: req.system._id,
+                        $set: {
+                            phone_home_proxy: req.rpc_params.phone_home_proxy
+                        }
+                    }
+                }
+            });
+    }
+}
+
+
 function update_hostname(req) {
     // Helper function used to solve missing infromation on the client (SSL_PORT)
     // during create system process
@@ -917,6 +947,7 @@ exports.set_debug_level = set_debug_level;
 
 exports.update_n2n_config = update_n2n_config;
 exports.update_base_address = update_base_address;
+exports.update_phone_home_proxy_address = update_phone_home_proxy_address;
 exports.update_hostname = update_hostname;
 exports.update_system_certificate = update_system_certificate;
 exports.update_time_config = update_time_config;

@@ -28,6 +28,7 @@ const promise_utils = require('../../util/promise_utils');
 const bucket_server = require('./bucket_server');
 const account_server = require('./account_server');
 const config = require('../../../config');
+const system_utils = require('../utils/system_server_utils');
 const fs = require('fs');
 
 
@@ -241,6 +242,7 @@ function read_system(req) {
                 online: nodes_sys.online || 0,
             },
             owner: account_server.get_account_info(system_store.data.get_by_id(system._id).owner),
+            maintenance_mode: system_utils.system_in_maintenance(system._id) ? new Date(system.maintenance_mode) : undefined,
             ssl_port: process.env.SSL_PORT,
             web_port: process.env.PORT,
             web_links: get_system_web_links(system),
@@ -276,6 +278,29 @@ function update_system(req) {
         }
     }).return();
 }
+
+function set_maintenance_mode(req) {
+    var updates = {};
+    //let maintenance_mode = _.pick(req.rpc_params, 'maintenance_mode');
+    updates._id = req.system._id;
+    updates.maintenance_mode = new Date(req.rpc_params.maintenance_mode);/*{
+        till: new Date(maintenance_mode.till),
+    };*/
+    return system_store.make_changes({
+        update: {
+            systems: [updates]
+        }
+    }).return();
+}
+
+// function read_maintenance_config(req) {
+//     let system = system_store.data.systems_by_name[req.rpc_params.name];
+//     if (!system) {
+//         throw req.rpc_error('NOT FOUND', 'read_maintenance_config could not find the system: ' + req.rpc_params.name);
+//     } else {
+//         return system_utils.system_in_maintenance(system._id);
+//     }
+// }
 
 
 /**
@@ -877,3 +902,5 @@ exports.update_base_address = update_base_address;
 exports.update_hostname = update_hostname;
 exports.update_system_certificate = update_system_certificate;
 exports.update_time_config = update_time_config;
+exports.set_maintenance_mode = set_maintenance_mode;
+//exports.read_maintenance_config = read_maintenance_config

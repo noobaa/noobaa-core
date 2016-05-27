@@ -447,7 +447,7 @@ function send_stats_payload(payload) {
             if (system.phone_home_proxy) {
                 let seperator_index = system.phone_home_proxy.indexOf(':');
                 options.hostname = system.phone_home_proxy.substr(0, seperator_index);
-                options.port = Number(system.phone_home_proxy.substr(seperator_index));
+                options.port = Number(system.phone_home_proxy.substr(seperator_index + 1));
                 options.path = `${system.phone_home_proxy}/phdata`;
             }
 

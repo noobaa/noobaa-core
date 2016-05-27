@@ -28,6 +28,8 @@ const promise_utils = require('../../util/promise_utils');
 const bucket_server = require('./bucket_server');
 const account_server = require('./account_server');
 const config = require('../../../config');
+const system_utils = require('../utils/system_server_utils');
+const fs = require('fs');
 
 
 function new_system_defaults(name, owner_account_id) {
@@ -241,6 +243,7 @@ function read_system(req) {
             },
             owner: account_server.get_account_info(system_store.data.get_by_id(system._id).owner),
             last_stats_report: system.last_stats_report && new Date(system.last_stats_report),
+            maintenance_mode: system_utils.system_in_maintenance(system._id) ? new Date(system.maintenance_mode) : undefined,
             ssl_port: process.env.SSL_PORT,
             web_port: process.env.PORT,
             web_links: get_system_web_links(system),
@@ -276,6 +279,29 @@ function update_system(req) {
         }
     }).return();
 }
+
+function set_maintenance_mode(req) {
+    var updates = {};
+    //let maintenance_mode = _.pick(req.rpc_params, 'maintenance_mode');
+    updates._id = req.system._id;
+    updates.maintenance_mode = new Date(req.rpc_params.maintenance_mode);/*{
+        till: new Date(maintenance_mode.till),
+    };*/
+    return system_store.make_changes({
+        update: {
+            systems: [updates]
+        }
+    }).return();
+}
+
+// function read_maintenance_config(req) {
+//     let system = system_store.data.systems_by_name[req.rpc_params.name];
+//     if (!system) {
+//         throw req.rpc_error('NOT FOUND', 'read_maintenance_config could not find the system: ' + req.rpc_params.name);
+//     } else {
+//         return system_utils.system_in_maintenance(system._id);
+//     }
+// }
 
 
 /**
@@ -433,12 +459,7 @@ function set_last_stats_report_time(req) {
     }).return();
 }
 
-/**
- *
- * READ_ACTIVITY_LOG
- *
- */
-function read_activity_log(req) {
+function _read_activity_log_internal(req) {
     var q = ActivityLog.find({
         system: req.system._id,
     });
@@ -466,8 +487,14 @@ function read_activity_log(req) {
     if (req.rpc_params.events) {
         q.where('event').in(req.rpc_params.events);
     }
-    if (req.rpc_params.skip) q.skip(req.rpc_params.skip);
-    q.limit(req.rpc_params.limit || 10);
+    if (req.rpc_params.csv) {
+        //limit to million lines just in case (probably ~100MB of text)
+        q.limit(1000000);
+    } else {
+        if (req.rpc_params.skip) q.skip(req.rpc_params.skip);
+        q.limit(req.rpc_params.limit || 10);
+    }
+
     q.populate('node', 'name');
     q.populate('obj', 'key');
     return P.when(q.exec())
@@ -523,6 +550,65 @@ function read_activity_log(req) {
             };
         });
 }
+
+
+
+
+function export_activity_log(req) {
+    req.rpc_params.csv = true;
+    return _read_activity_log_internal(req)
+        .then(logs => {
+            // generate csv file name:
+            let file_name = 'audit.csv';
+            let out_path = '/public/' + file_name;
+            let inner_path = process.cwd() + '/build' + out_path;
+            var file = fs.createWriteStream(inner_path);
+            file.on('error', err => dbg.error('received error when writing to audit csv file:', inner_path, err));
+            let headline = 'time,level,account,event,entity,description\n';
+            let logs_arr = logs.logs;
+            dbg.log0('writing', logs_arr.length, 'lines to csv file', inner_path);
+            return file.writeAsync(headline, 'utf8')
+                .then(() => promise_utils.loop(logs_arr.length, i => {
+                    let line_entry = logs_arr[i];
+                    let time = new Date(line_entry.time);
+                    let level = line_entry.level;
+                    let account = line_entry.actor.email;
+                    let event = line_entry.event;
+                    let description = line_entry.desc[0];
+                    let entity_type = event.split('.')[0];
+                    let entity = '';
+                    if (line_entry[entity_type]) {
+                        if (entity_type === 'obj') {
+                            entity = line_entry[entity_type].key;
+                        } else {
+                            entity = line_entry[entity_type].name;
+                        }
+                    }
+                    let line = '"' + time.toISOString() + '",' + level + ',' + account + ',' + event + ',' + entity + ',"' + description + '"\n';
+                    return file.writeAsync(line, 'utf8');
+                }))
+                .then(() => file.end())
+                .then(() => ({
+                    csv_path: out_path
+                }));
+
+        });
+}
+
+
+
+
+/**
+ *
+ * READ_ACTIVITY_LOG
+ *
+ */
+function read_activity_log(req) {
+    return _read_activity_log_internal(req);
+}
+
+
+
 
 function diagnose(req) {
     dbg.log0('Recieved diag req');
@@ -821,6 +907,7 @@ exports.add_role = add_role;
 exports.remove_role = remove_role;
 
 exports.read_activity_log = read_activity_log;
+exports.export_activity_log = export_activity_log;
 
 exports.diagnose = diagnose;
 exports.diagnose_with_agent = diagnose_with_agent;
@@ -833,3 +920,5 @@ exports.update_base_address = update_base_address;
 exports.update_hostname = update_hostname;
 exports.update_system_certificate = update_system_certificate;
 exports.update_time_config = update_time_config;
+exports.set_maintenance_mode = set_maintenance_mode;
+//exports.read_maintenance_config = read_maintenance_config

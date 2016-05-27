@@ -67,9 +67,13 @@ class NodeInfoViewModel {
         );
 
         this.RTT = ko.pureComputed(
-            () => node() && `${
-                node().latency_to_server.reduce(avgOp).toFixed(1)
-            } ms`
+            () => {
+                if (!node() || node().latency_to_server.length === 0) {
+                    return 'N/A';
+                }
+
+                return `${node().latency_to_server.reduce(avgOp).toFixed(1)} ms`
+            }
         );
     }
 

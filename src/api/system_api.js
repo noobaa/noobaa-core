@@ -70,6 +70,23 @@ module.exports = {
             }
         },
 
+        set_maintenance_mode: {
+            doc: 'Configure system maintenance',
+            method: 'PUT',
+            params: {
+                type: 'object',
+                required: ['maintenance_mode'],
+                properties: {
+                    maintenance_mode: {
+                        $ref: '#/definitions/maintenance_mode',
+                    },
+                }
+            },
+            auth: {
+                system: 'admin',
+            }
+        },
+
         delete_system: {
             doc: 'Delete the authorized system',
             method: 'DELETE',
@@ -167,6 +184,43 @@ module.exports = {
                 properties: {
                     last_stats_report: {
                         format: 'idate',
+                    },
+                }
+            },
+            auth: {
+                system: 'admin',
+            }
+        },
+
+        export_activity_log: {
+            method: 'GET',
+            params: {
+                type: 'object',
+                required: [],
+                properties: {
+                    event: {
+                        type: 'string',
+                    },
+                    events: {
+                        type: 'array',
+                        items: {
+                            type: 'string'
+                        }
+                    },
+                    till: {
+                        format: 'idate'
+                    },
+                    since: {
+                        format: 'idate'
+                    }
+                }
+            },
+            reply: {
+                type: 'object',
+                required: ['csv_path'],
+                properties: {
+                    csv_path: {
+                        type: 'string'
                     },
                 }
             },
@@ -314,6 +368,26 @@ module.exports = {
                 system: 'admin',
             }
         },
+
+        // read_maintenance_config: {
+        //     method: 'GET',
+        //     params: {
+        //         type: 'object',
+        //         // System Name
+        //         required: ['name'],
+        //         properties: {
+        //             name: {
+        //                 type: 'string',
+        //             },
+        //         }
+        //     },
+        //     reply: {
+        //         type: 'boolean',
+        //     },
+        //     auth: {
+        //         system: 'admin',
+        //     }
+        // },
 
         set_debug_level: {
             method: 'POST',
@@ -489,6 +563,9 @@ module.exports = {
                         },
                     }
                 },
+                maintenance_mode: {
+                    $ref: '#/definitions/maintenance_mode'
+                },
                 n2n_config: {
                     $ref: 'common_api#/definitions/n2n_config'
                 },
@@ -557,6 +634,17 @@ module.exports = {
         role_enum: {
             enum: ['admin', 'user', 'viewer'],
             type: 'string',
+        },
+
+        maintenance_mode: {
+            // type: 'object',
+            // required: ['till'],
+            // properties: {
+            //     till: {
+            //         format: 'idate'
+            //     },
+            // }
+            format: 'idate',
         },
 
         nodes_info: {

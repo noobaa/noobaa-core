@@ -1,3 +1,5 @@
+rem run this only one time. instead of reinstall on restart
+if exist "c:\noobaa\*" exit
 mkdir  c:\noobaa
 cd c:\noobaa
 rem powershell wget https://s3.eu-central-1.amazonaws.com/noobaa-core/noobaa-setup.exe -OutFile noobaa-setup.exe

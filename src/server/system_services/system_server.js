@@ -242,6 +242,7 @@ function read_system(req) {
                 online: nodes_sys.online || 0,
             },
             owner: account_server.get_account_info(system_store.data.get_by_id(system._id).owner),
+            last_stats_report: system.last_stats_report && new Date(system.last_stats_report),
             maintenance_mode: system_utils.system_in_maintenance(system._id) ? new Date(system.maintenance_mode) : undefined,
             ssl_port: process.env.SSL_PORT,
             web_port: process.env.PORT,
@@ -316,7 +317,13 @@ function delete_system(req) {
     }).return();
 }
 
-
+function log_frontend_stack_trace(req) {
+    return P.fcall(function() {
+            dbg.log0('Logging frontend stack trace:', JSON.stringify(req.rpc_params.stack_trace));
+            return;
+        })
+        .return();
+}
 
 /**
  *
@@ -441,7 +448,16 @@ function get_system_web_links(system) {
 }
 
 
-
+function set_last_stats_report_time(req) {
+    var updates = {};
+    updates._id = req.system._id;
+    updates.last_stats_report = new Date(req.rpc_params.last_stats_report);
+    return system_store.make_changes({
+        update: {
+            systems: [updates]
+        }
+    }).return();
+}
 
 function _read_activity_log_internal(req) {
     var q = ActivityLog.find({
@@ -895,6 +911,8 @@ exports.export_activity_log = export_activity_log;
 
 exports.diagnose = diagnose;
 exports.diagnose_with_agent = diagnose_with_agent;
+exports.log_frontend_stack_trace = log_frontend_stack_trace;
+exports.set_last_stats_report_time = set_last_stats_report_time;
 exports.set_debug_level = set_debug_level;
 
 exports.update_n2n_config = update_n2n_config;

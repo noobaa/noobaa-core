@@ -21,11 +21,13 @@ var _ = require('lodash');
 var url = require('url');
 var dbg = require('../util/debug_module')(__filename);
 var scrubber = require('../server/bg_services/scrubber');
+var stats_aggregator = require('../server/system_services/stats_aggregator');
 var cloud_sync = require('../server/bg_services/cloud_sync');
 var server_rpc = require('../server/server_rpc');
 var mongo_client = require('../util/mongo_client').get_instance();
 var mongoose_utils = require('../util/mongoose_utils');
 var promise_utils = require('../util/promise_utils');
+var config = require('../../config.js');
 
 
 dbg.set_process_name('BGWorkers');
@@ -56,6 +58,13 @@ function register_bg_worker(options, run_batch_function) {
     dbg.log0('Registering', options.name, 'bg worker');
     options.run_batch = run_batch_function;
     promise_utils.run_background_worker(options);
+}
+
+if ((config.central_stats.send_stats === 'true') &&
+    (config.central_stats.central_listener)) {
+    register_bg_worker({
+        name: 'system_server_stats_aggregator',
+    }, stats_aggregator.background_worker);
 }
 
 register_bg_worker({

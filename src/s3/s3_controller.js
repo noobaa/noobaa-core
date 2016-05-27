@@ -7,8 +7,36 @@ const P = require('../util/promise');
 const dbg = require('../util/debug_module')(__filename);
 const ObjectIO = require('../api/object_io');
 const s3_errors = require('./s3_errors');
+const moment = require('moment');
 
 dbg.set_level(5);
+
+const S3_USAGE_INFO_DEFAULTS = {
+    prepare_request: 0,
+    list_buckets: 0,
+    head_bucket: 0,
+    get_bucket: 0,
+    get_bucket_versions: 0,
+    get_bucket_uploads: 0,
+    put_bucket: 0,
+    delete_bucket: 0,
+    post_bucket_delete: 0,
+    get_bucket_acl: 0,
+    put_bucket_acl: 0,
+    get_bucket_location: 0,
+    head_object: 0,
+    get_object: 0,
+    put_object: 0,
+    copy_object: 0,
+    delete_object: 0,
+    get_object_acl: 0,
+    put_object_acl: 0,
+    post_object_uploads: 0,
+    post_object_uploadId: 0,
+    delete_object_uploadId: 0,
+    get_object_uploadId: 0,
+    put_object_uploadId: 0,
+};
 
 const STORAGE_CLASS_STANDARD = 'Standard';
 const DEFAULT_S3_USER = Object.freeze({
@@ -19,6 +47,10 @@ const DEFAULT_S3_USER = Object.freeze({
 class S3Controller {
 
     constructor(rpc) {
+        this.usage_report = {
+            s3_usage_info: _.cloneDeep(S3_USAGE_INFO_DEFAULTS),
+            last_updated: new Date(),
+        };
         this.rpc = rpc;
         this.object_io = new ObjectIO();
         let signal_client = this.rpc.new_client();
@@ -27,6 +59,7 @@ class S3Controller {
     }
 
     prepare_request(req) {
+        this.usage_report.s3_usage_info.prepare_request++;
         req.rpc_client = this.rpc.new_client();
         req.rpc_client.options.auth_token = {
             access_key: req.access_key,
@@ -34,6 +67,14 @@ class S3Controller {
             signature: req.signature,
             extra: req.noobaa_v4
         };
+        // let self = this;
+        // return P.invoke(self, '_test_latency_to_server')
+        //     .catch(function(err) {})
+        //     .then(function(latency_to_server) {
+        //         res.latency_to_server = latency_to_server;
+        //         return P.invoke(self, '_test_latency_of_disk_read');
+        //     })
+        return this._update_usage_report(req);
     }
 
 
@@ -46,6 +87,7 @@ class S3Controller {
      * http://docs.aws.amazon.com/AmazonS3/latest/API/RESTServiceGET.html
      */
     list_buckets(req) {
+        this.usage_report.s3_usage_info.list_buckets++;
         return req.rpc_client.bucket.list_buckets()
             .then(reply => {
                 let date = to_s3_date(new Date());
@@ -73,6 +115,7 @@ class S3Controller {
      * http://docs.aws.amazon.com/AmazonS3/latest/API/RESTBucketHEAD.html
      */
     head_bucket(req) {
+        this.usage_report.s3_usage_info.head_bucket++;
         return req.rpc_client.bucket.read_bucket({
                 name: req.params.bucket
             })
@@ -88,6 +131,7 @@ class S3Controller {
      * (aka list objects)
      */
     get_bucket(req) {
+        this.usage_report.s3_usage_info.get_bucket++;
         // TODO GGG MUST implement Marker & MaxKeys & IsTruncated
         let params = {
             bucket: req.params.bucket,
@@ -137,6 +181,7 @@ class S3Controller {
      * (aka list object versions)
      */
     get_bucket_versions(req) {
+        this.usage_report.s3_usage_info.get_bucket_versions++;
         // TODO GGG MUST implement KeyMarker & VersionIdMarker & MaxKeys & IsTruncated
         let params = {
             bucket: req.params.bucket,
@@ -190,6 +235,7 @@ class S3Controller {
      * http://docs.aws.amazon.com/AmazonS3/latest/API/mpUploadListMPUpload.html
      */
     get_bucket_uploads(req) {
+        this.usage_report.s3_usage_info.get_bucket_uploads++;
         // TODO GGG MUST implement Marker & MaxKeys & IsTruncated
         let params = {
             bucket: req.params.bucket,
@@ -240,6 +286,7 @@ class S3Controller {
      * (aka create bucket)
      */
     put_bucket(req) {
+        this.usage_report.s3_usage_info.put_bucket++;
         return req.rpc_client.bucket.create_bucket({
             name: req.params.bucket
         }).return();
@@ -250,6 +297,7 @@ class S3Controller {
      * http://docs.aws.amazon.com/AmazonS3/latest/API/RESTBucketDELETE.html
      */
     delete_bucket(req, res) {
+        this.usage_report.s3_usage_info.delete_bucket++;
         return req.rpc_client.bucket.delete_bucket({
             name: req.params.bucket
         }).return();
@@ -261,6 +309,7 @@ class S3Controller {
      * (aka delete objects)
      */
     post_bucket_delete(req) {
+        this.usage_report.s3_usage_info.post_bucket_delete++;
         return P.ninvoke(xml2js, 'parseString', req.body)
             .then(function(data) {
                 var objects_to_delete = data.Delete.Object;
@@ -280,6 +329,7 @@ class S3Controller {
      * (aka get bucket permissions)
      */
     get_bucket_acl(req) {
+        this.usage_report.s3_usage_info.get_bucket_acl++;
         return req.rpc_client.bucket.read_bucket({
                 name: req.params.bucket
             })
@@ -304,6 +354,7 @@ class S3Controller {
      * (aka set bucket permissions)
      */
     put_bucket_acl(req) {
+        this.usage_report.s3_usage_info.put_bucket_acl++;
         // TODO GGG ignoring put_bucket_acl for now
     }
 
@@ -312,6 +363,7 @@ class S3Controller {
      * http://docs.aws.amazon.com/AmazonS3/latest/API/RESTBucketGETlocation.html
      */
     get_bucket_location(req) {
+        this.usage_report.s3_usage_info.get_bucket_location++;
         return req.rpc_client.bucket.read_bucket({
                 name: req.params.bucket
             })
@@ -333,6 +385,7 @@ class S3Controller {
      * (aka read object meta-data)
      */
     head_object(req, res) {
+        this.usage_report.s3_usage_info.head_object++;
         return req.rpc_client.object.read_object_md(this._object_path(req))
             .then(object_md => {
                 req.object_md = object_md;
@@ -355,6 +408,7 @@ class S3Controller {
      * (aka read object)
      */
     get_object(req, res) {
+        this.usage_report.s3_usage_info.get_object++;
         return this.head_object(req, res)
             .then(should_handle => {
                 if (should_handle === false) {
@@ -389,6 +443,7 @@ class S3Controller {
      * (aka upload object, or copy object)
      */
     put_object(req, res) {
+        this.usage_report.s3_usage_info.put_object++;
         if (req.headers['x-amz-copy-source']) {
             return this._copy_object(req, res);
         }
@@ -435,6 +490,7 @@ class S3Controller {
      * (aka copy object)
      */
     _copy_object(req, res) {
+        this.usage_report.s3_usage_info.copy_object++;
         let copy_source = decodeURIComponent(req.headers['x-amz-copy-source']);
         let slash_index = copy_source.indexOf('/');
         let start_index = 0;
@@ -478,6 +534,7 @@ class S3Controller {
      * http://docs.aws.amazon.com/AmazonS3/latest/API/RESTObjectDELETE.html
      */
     delete_object(req) {
+        this.usage_report.s3_usage_info.delete_object++;
         return req.rpc_client.object.delete_object(this._object_path(req));
     }
 
@@ -487,6 +544,7 @@ class S3Controller {
      * (aka get object acl)
      */
     get_object_acl(req) {
+        this.usage_report.s3_usage_info.get_object_acl++;
         return req.rpc_client.object.read_object_md(this._object_path(req))
             .then(object_md => {
                 return {
@@ -509,6 +567,7 @@ class S3Controller {
      * (aka set object acl)
      */
     put_object_acl(req) {
+        this.usage_report.s3_usage_info.put_object_acl++;
         // TODO GGG ignoring put_object_acl for now
     }
 
@@ -523,6 +582,7 @@ class S3Controller {
      * (aka start multipart upload)
      */
     post_object_uploads(req) {
+        this.usage_report.s3_usage_info.post_object_uploads++;
         let params = {
             bucket: req.params.bucket,
             key: req.params.key,
@@ -549,6 +609,7 @@ class S3Controller {
      * (aka complete multipart upload)
      */
     post_object_uploadId(req) {
+        this.usage_report.s3_usage_info.post_object_uploadId++;
         return req.rpc_client.object.complete_object_upload({
                 bucket: req.params.bucket,
                 key: req.params.key,
@@ -575,6 +636,7 @@ class S3Controller {
      * (aka abort multipart upload)
      */
     delete_object_uploadId(req) {
+        this.usage_report.s3_usage_info.delete_object_uploadId++;
         return req.rpc_client.object.abort_object_upload({
             bucket: req.params.bucket,
             key: req.params.key,
@@ -588,6 +650,7 @@ class S3Controller {
      * (aka list multipart upload parts)
      */
     get_object_uploadId(req) {
+        this.usage_report.s3_usage_info.get_object_uploadId++;
         let part_number_marker = parseInt(req.query['part-number-marker'], 10) || 1;
         let max_parts = parseInt(req.query['max-parts'], 10) || 1000;
         return req.rpc_client.object.list_multipart_parts({
@@ -630,6 +693,7 @@ class S3Controller {
      * (aka upload part)
      */
     put_object_uploadId(req, res) {
+        this.usage_report.s3_usage_info.put_object_uploadId++;
         let upload_part_number = parseInt(req.query.partNumber, 10);
 
         // TODO GGG IMPLEMENT COPY PART
@@ -749,6 +813,24 @@ class S3Controller {
         }
     }
 
+    _update_usage_report(req) {
+        if (//this.usage_report.s3_usage_info.prepare_request > 10 &&
+            Math.abs(moment().diff(this.usage_report.last_updated, 'Seconds')) > 10) {
+            return req.rpc_client.object.add_s3_usage_report({
+                    s3_usage_info: this.usage_report.s3_usage_info,
+                })
+                .then(() => {
+                    this.usage_report.s3_usage_info = _.cloneDeep(S3_USAGE_INFO_DEFAULTS);
+                    this.usage_report.last_updated = new Date();
+                    return;
+                })
+                .catch((err) => {
+                    console.error('Error Updating S3 Usage Report' ,err);
+                    return;
+                });
+        }
+        return;
+    }
 }
 
 

@@ -47,6 +47,9 @@ module.exports = {
             additionalProperties: true,
             properties: {}
         },
+        last_stats_report: {
+            format: 'idate'
+        },
         maintenance_mode: {
             // type: 'object',
             // additionalProperties: true,

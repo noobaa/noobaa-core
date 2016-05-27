@@ -14,7 +14,7 @@ function system_in_maintenance(system_id) {
         throw new Error('System with id: ' + system_id + ' was not found');
     }
 
-    if (moment().diff(system.maintenance_mode) < 0) {
+    if (system.maintenance_mode && moment().diff(system.maintenance_mode) < 0) {
         return true;
     }
 

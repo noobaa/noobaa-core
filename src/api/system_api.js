@@ -116,6 +116,24 @@ module.exports = {
             }
         },
 
+        log_frontend_stack_trace: {
+            doc: 'Add frontend stack trace to logs',
+            method: 'POST',
+            params: {
+                type: 'object',
+                required: ['stack_trace'],
+                properties: {
+                    stack_trace: {
+                        type: 'object',
+                        additionalProperties: true,
+                        properties: {},
+                    },
+                }
+            },
+            auth: {
+                system: 'admin',
+            }
+        },
 
         add_role: {
             doc: 'Add role',
@@ -149,6 +167,23 @@ module.exports = {
                     },
                     role: {
                         $ref: '#/definitions/role_enum'
+                    },
+                }
+            },
+            auth: {
+                system: 'admin',
+            }
+        },
+
+        set_last_stats_report_time: {
+            doc: 'Set last stats report sync time',
+            method: 'PUT',
+            params: {
+                type: 'object',
+                required: ['last_stats_report'],
+                properties: {
+                    last_stats_report: {
+                        format: 'idate',
                     },
                 }
             },
@@ -193,7 +228,6 @@ module.exports = {
                 system: 'admin',
             }
         },
-
 
         read_activity_log: {
             method: 'GET',
@@ -403,6 +437,22 @@ module.exports = {
             }
         },
 
+        update_phone_home_proxy_address: {
+            method: 'POST',
+            params: {
+                type: 'object',
+                required: ['phone_home_proxy'],
+                properties: {
+                    phone_home_proxy: {
+                        type: 'string'
+                    }
+                }
+            },
+            auth: {
+                system: 'admin',
+            }
+        },
+
         update_system_certificate: {
             method: 'POST',
             auth: {
@@ -479,6 +529,9 @@ module.exports = {
                 owner: {
                     $ref: 'account_api#/definitions/account_info'
                 },
+                last_stats_report: {
+                    format: 'idate',
+                },
                 tiers: {
                     type: 'array',
                     items: {
@@ -506,12 +559,6 @@ module.exports = {
                 objects: {
                     type: 'integer'
                 },
-                /*access_keys: {
-                    type: 'array',
-                    items: {
-                        $ref: '#/definitions/access_keys'
-                    }
-                },*/
                 ssl_port: {
                     type: 'string'
                 },
@@ -539,6 +586,9 @@ module.exports = {
                     $ref: 'common_api#/definitions/n2n_config'
                 },
                 ip_address: {
+                    type: 'string'
+                },
+                phone_home_proxy: {
                     type: 'string'
                 },
                 dns_name: {

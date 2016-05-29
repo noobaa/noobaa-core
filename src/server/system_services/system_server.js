@@ -14,6 +14,7 @@ const P = require('../../util/promise');
 const pkg = require('../../../package.json');
 const dbg = require('../../util/debug_module')(__filename);
 const diag = require('../utils/server_diagnostics');
+const cutil = require('../utils/clustering_utils');
 const md_store = require('../object_services/md_store');
 const fs_utils = require('../../util/fs_utils');
 const os_utils = require('../../util/os_util');
@@ -242,6 +243,7 @@ function read_system(req) {
                 online: nodes_sys.online || 0,
             },
             owner: account_server.get_account_info(system_store.data.get_by_id(system._id).owner),
+            last_stats_report: system.last_stats_report && new Date(system.last_stats_report),
             maintenance_mode: system_utils.system_in_maintenance(system._id) ? new Date(system.maintenance_mode) : undefined,
             ssl_port: process.env.SSL_PORT,
             web_port: process.env.PORT,
@@ -250,6 +252,7 @@ function read_system(req) {
             ip_address: ip_address,
             time_config: time_config,
             base_address: system.base_address || 'wss://' + ip_address + ':' + process.env.SSL_PORT,
+            phone_home_proxy: system.phone_home_proxy,
             version: pkg.version,
             debug_level: debug_level,
         };
@@ -283,9 +286,10 @@ function set_maintenance_mode(req) {
     var updates = {};
     //let maintenance_mode = _.pick(req.rpc_params, 'maintenance_mode');
     updates._id = req.system._id;
-    updates.maintenance_mode = new Date(req.rpc_params.maintenance_mode);/*{
-        till: new Date(maintenance_mode.till),
-    };*/
+    updates.maintenance_mode = new Date(req.rpc_params.maintenance_mode);
+    /*{
+            till: new Date(maintenance_mode.till),
+        };*/
     return system_store.make_changes({
         update: {
             systems: [updates]
@@ -316,7 +320,13 @@ function delete_system(req) {
     }).return();
 }
 
-
+function log_frontend_stack_trace(req) {
+    return P.fcall(function() {
+            dbg.log0('Logging frontend stack trace:', JSON.stringify(req.rpc_params.stack_trace));
+            return;
+        })
+        .return();
+}
 
 /**
  *
@@ -441,7 +451,16 @@ function get_system_web_links(system) {
 }
 
 
-
+function set_last_stats_report_time(req) {
+    var updates = {};
+    updates._id = req.system._id;
+    updates.last_stats_report = new Date(req.rpc_params.last_stats_report);
+    return system_store.make_changes({
+        update: {
+            systems: [updates]
+        }
+    }).return();
+}
 
 function _read_activity_log_internal(req) {
     var q = ActivityLog.find({
@@ -752,6 +771,7 @@ function update_base_address(req) {
                 }]
             }
         })
+        .then(() => cutil.update_host_address(req.rpc_params.base_address))
         .then(function() {
             return nodes_store.find_nodes({
                 system: req.system._id,
@@ -793,6 +813,35 @@ function update_base_address(req) {
             return res;
         });
 }
+
+// phone_home_proxy must be a full address like: http://(ip or hostname):(port)
+function update_phone_home_proxy_address(req) {
+    dbg.log0('update_phone_home_proxy_address', req.rpc_params);
+    if (!req.rpc_params.phone_home_proxy) {
+        return system_store.make_changes({
+            update: {
+                system: {
+                    _id: req.system._id,
+                    $unset: {
+                        phone_home_proxy: 1
+                    }
+                }
+            }
+        });
+    } else {
+        return system_store.make_changes({
+            update: {
+                system: {
+                    _id: req.system._id,
+                    $set: {
+                        phone_home_proxy: req.rpc_params.phone_home_proxy
+                    }
+                }
+            }
+        });
+    }
+}
+
 
 function update_hostname(req) {
     // Helper function used to solve missing infromation on the client (SSL_PORT)
@@ -895,10 +944,13 @@ exports.export_activity_log = export_activity_log;
 
 exports.diagnose = diagnose;
 exports.diagnose_with_agent = diagnose_with_agent;
+exports.log_frontend_stack_trace = log_frontend_stack_trace;
+exports.set_last_stats_report_time = set_last_stats_report_time;
 exports.set_debug_level = set_debug_level;
 
 exports.update_n2n_config = update_n2n_config;
 exports.update_base_address = update_base_address;
+exports.update_phone_home_proxy_address = update_phone_home_proxy_address;
 exports.update_hostname = update_hostname;
 exports.update_system_certificate = update_system_certificate;
 exports.update_time_config = update_time_config;

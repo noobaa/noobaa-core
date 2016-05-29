@@ -135,6 +135,13 @@ function do_upgrade {
   # Re-setup Repos
   setup_repos
 
+  if [ ! -d  /var/lib/mongo/cluster/shard1 ]; then
+      deploy_log "Moving mongo db files into new location"
+      mkdir -p /var/lib/mongo/cluster/shard1
+      chmod +x /var/lib/mongo/cluster/shard1
+      cp -r /data/db/* /var/lib/mongo/cluster/shard1/
+  fi
+
   deploy_log "Running post upgrade"
   ${WRAPPER_FILE_PATH}${WRAPPER_FILE_NAME} post ${FSUFFIX}
   deploy_log "Finished post upgrade"

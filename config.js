@@ -48,8 +48,9 @@ if (!is_windows) {
     process.env.ProgramData = '/tmp';
 }
 config.central_stats = {
-    send_stats: 'true',
-    central_listener: '127.0.0.1',
+    send_stats: 'false',
+    central_listener: 'http://104.155.66.69:9090/phdata',
+    send_time_cycle: 30 * 60000,
     previous_diag_packs_dir: process.env.ProgramData + '/prev_diags',
     previous_diag_packs_count: 3 //TODO: We might want to split between agent and server
 };

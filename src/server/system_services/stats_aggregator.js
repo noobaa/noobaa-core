@@ -7,6 +7,7 @@
 
 const _ = require('lodash');
 const http = require('http');
+const url = require('url');
 const P = require('../../util/promise');
 const dbg = require('../../util/debug_module')(__filename);
 const config = require('../../../config.js');
@@ -19,7 +20,7 @@ const object_server = require('../object_services/object_server');
 const bucket_server = require('../system_services/bucket_server');
 const zlib = require('zlib');
 //const promise_utils = require('../../util/promise_utils');
-var server_rpc = require('../server_rpc');
+const server_rpc = require('../server_rpc');
 
 const ops_aggregation = {};
 const SCALE_BYTES_TO_GB = 1024 * 1024 * 1024;
@@ -283,9 +284,9 @@ function get_cloud_pool_stats(req) {
             cloud_pool_stats.cloud_pool_count++;
             if (pool.cloud_pool_info.endpoint) {
                 if (pool.cloud_pool_info.endpoint.indexOf('amazonaws.com') > -1) {
-                    cloud_pool_stats.cloud_target.amazon++;
+                    cloud_pool_stats.cloud_pool_target.amazon++;
                 } else {
-                    cloud_pool_stats.cloud_target.other++;
+                    cloud_pool_stats.cloud_pool_target.other++;
                 }
             }
         }
@@ -410,7 +411,7 @@ function object_usage_scrubber(req) {
     new_req.rpc_params.till_time = req.system.last_stats_report || new Date(0);
     return object_server.remove_s3_usage_reports(new_req)
         .then(() => {
-            new_req.rpc_params.last_stats_report = new_req.rpc_params.till_time;
+            new_req.rpc_params.last_stats_report = new Date();
             return system_server.set_last_stats_report_time(new_req);
         })
         .catch(err => {
@@ -432,23 +433,25 @@ function send_stats_payload(payload) {
     data_to_send.payload = payload;
     return P.ninvoke(zlib, 'gzip', new Buffer(JSON.stringify(data_to_send), 'utf-8'))
         .then(gzip_payload => {
+            let central_listener = url.parse(config.central_stats.central_listener);
             var options = {
-                hostname: config.central_stats.central_listener,
-                port: 9090,
-                path: '/phdata',
+                hostname: central_listener.hostname,
+                port: Number(central_listener.port),
+                path: central_listener.path,
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/gzip',
-                    "Content-Encoding": "gzip",
+                    'Content-Encoding': 'gzip',
                     'Content-Length': Buffer.byteLength(gzip_payload)
                 }
             };
 
             if (system.phone_home_proxy) {
-                let seperator_index = system.phone_home_proxy.indexOf(':');
-                options.hostname = system.phone_home_proxy.substr(0, seperator_index);
-                options.port = Number(system.phone_home_proxy.substr(seperator_index + 1));
-                options.path = `${system.phone_home_proxy}/phdata`;
+                let proxy_listener = url.parse(system.phone_home_proxy);
+                options.hostname = proxy_listener.hostname;
+                options.port = Number(proxy_listener.port);
+                options.path = central_listener.href;
+                options.headers.host = central_listener.hostname;
             }
 
             var req = http.request(options, function(response) {

@@ -814,7 +814,7 @@ class S3Controller {
     }
 
     _update_usage_report(req) {
-        if (//this.usage_report.s3_usage_info.prepare_request > 10 &&
+        if (this.usage_report.s3_usage_info.prepare_request > 10 &&
             Math.abs(moment().diff(this.usage_report.last_updated, 'Seconds')) > 10) {
             return req.rpc_client.object.add_s3_usage_report({
                     s3_usage_info: this.usage_report.s3_usage_info,

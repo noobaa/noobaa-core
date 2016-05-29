@@ -61,6 +61,10 @@ module.exports = {
             type: 'string'
         },
 
+        phone_home_proxy: {
+            type: 'string'
+        },
+
         //NTP configuration
         ntp: {
             type: 'object',

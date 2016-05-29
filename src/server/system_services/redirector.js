@@ -6,11 +6,11 @@
 'use strict';
 
 const _ = require('lodash');
-const util = require('util');
-const server_rpc = require('../server_rpc');
-var cutil = require('../utils/clustering_utils');
 const P = require('../../util/promise');
 const dbg = require('../../util/debug_module')(__filename);
+const util = require('util');
+const server_rpc = require('../server_rpc');
+const clustering_utils = require('../utils/clustering_utils');
 
 // dbg.set_level(5);
 
@@ -48,11 +48,11 @@ function redirect(req) {
     } else {
         //If part of a cluster, & not already a scatter redirect
         //try to scattershot ther other redirectors
-        if (!cutil.is_single_server() && !scatter_redirect) {
+        if (!clustering_utils.is_single_server() && !scatter_redirect) {
             dbg.log3('Local agent was not found, scatter redirecting');
             req.rpc_params.stop_redirect = true;
             //TODO:: Don't call myself
-            return P.all(_.map(cutil.get_all_cluster_members(), function(srv) {
+            return P.all(_.map(clustering_utils.get_all_cluster_members(), function(srv) {
                     dbg.log4('scatter redirect calling', 'ws://' + srv + ':8081');
                     return P.when(server_rpc.client.redirector.redirect(req.rpc_params, {
                             //TODO:: port and ws/wss decision

@@ -13,6 +13,7 @@ const S3Auth = require('aws-sdk/lib/signers/s3');
 const P = require('../../util/promise');
 const dbg = require('../../util/debug_module')(__filename);
 const s3_util = require('../../util/s3_utils');
+const RpcError = require('../../rpc/rpc_error');
 const system_store = require('../system_services/system_store').get_instance();
 const s3_auth = new S3Auth();
 
@@ -51,7 +52,7 @@ function create_auth(req) {
 
         // consider email not found the same as bad password to avoid phishing attacks.
         target_account = system_store.data.accounts_by_email[email];
-        if (!target_account) throw req.unauthorized('credentials account not found');
+        if (!target_account) throw new RpcError('UNAUTHORIZED', 'credentials account not found');
 
         // when password is not provided it means we want to give authorization
         // by the currently authorized to another specific account instead of
@@ -61,7 +62,7 @@ function create_auth(req) {
         // use bcrypt to verify password
         return P.nfcall(bcrypt.compare, password, target_account.password)
             .then(function(match) {
-                if (!match) throw req.unauthorized('password mismatch');
+                if (!match) throw new RpcError('UNAUTHORIZED', 'password mismatch');
                 // authentication passed!
                 // so this account is the authenticated_account
                 authenticated_account = target_account;
@@ -74,7 +75,7 @@ function create_auth(req) {
         if (!authenticated_account || !target_account) {
             // find the current authorized account and assign
             if (!req.auth || !req.auth.account_id) {
-                throw req.unauthorized('no account_id in auth and no credetials');
+                throw new RpcError('UNAUTHORIZED', 'no account_id in auth and no credetials');
             }
 
             var account_arg = system_store.data.get_by_id(req.auth.account_id);
@@ -85,10 +86,10 @@ function create_auth(req) {
 
         // check the accounts are valid
         if (!authenticated_account || authenticated_account.deleted) {
-            throw req.unauthorized('authenticated account not found');
+            throw new RpcError('UNAUTHORIZED', 'authenticated account not found');
         }
         if (!target_account || target_account.deleted) {
-            throw req.unauthorized('target account not found');
+            throw new RpcError('UNAUTHORIZED', 'target account not found');
         }
 
         // system is optional, and will not be included in the token if not provided
@@ -96,7 +97,7 @@ function create_auth(req) {
 
             // find system by name
             system = system_store.data.systems_by_name[system_name];
-            if (!system || system.deleted) throw req.unauthorized('system not found');
+            if (!system || system.deleted) throw new RpcError('UNAUTHORIZED', 'system not found');
 
             // find the role of authenticated_account in the system
             var roles = system.roles_by_account &&
@@ -116,7 +117,7 @@ function create_auth(req) {
                 // "system admin" can use any role
                 role_name = role_name || 'admin';
             } else {
-                throw req.unauthorized('account role not allowed');
+                throw new RpcError('UNAUTHORIZED', 'account role not allowed');
             }
         }
 
@@ -173,7 +174,7 @@ function create_access_key_auth(req) {
     });
 
     if (!account || account.deleted) {
-        throw req.unauthorized('account not found');
+        throw new RpcError('UNAUTHORIZED', 'account not found');
     }
     dbg.log0('create_access_key_auth:',
         'account.name', account.email,
@@ -186,13 +187,13 @@ function create_access_key_auth(req) {
     });
 
     if (!role || role.deleted) {
-        throw req.unauthorized('role not found');
+        throw new RpcError('UNAUTHORIZED', 'role not found');
     }
 
     var system = role.system;
 
     if (!system) {
-        throw req.unauthorized('system not found');
+        throw new RpcError('UNAUTHORIZED', 'system not found');
     }
 
     var auth_extra;
@@ -280,7 +281,7 @@ function authorize(req) {
                 });
 
                 if (!account || account.deleted) {
-                    throw req.unauthorized('account not found');
+                    throw new RpcError('UNAUTHORIZED', 'account not found');
                 }
 
                 var role = _.find(system_store.data.roles, function(r) {
@@ -288,13 +289,13 @@ function authorize(req) {
                 });
 
                 if (!role || role.deleted) {
-                    throw req.unauthorized('role not found');
+                    throw new RpcError('UNAUTHORIZED', 'role not found');
                 }
 
                 var system = role.system;
 
                 if (!system) {
-                    throw req.unauthorized('system not found');
+                    throw new RpcError('UNAUTHORIZED', 'system not found');
                 }
 
                 req.auth = {};
@@ -321,7 +322,7 @@ function authorize(req) {
 
         } catch (err) {
             dbg.error('AUTH JWT VERIFY FAILED', req, err);
-            throw req.unauthorized('verify auth failed');
+            throw new RpcError('UNAUTHORIZED', 'verify auth failed');
         }
     }
 
@@ -358,7 +359,7 @@ function authorize(req) {
             if (auth_token_obj.signature === s3_signature) {
                 dbg.log1('s3 authentication test passed!!!');
             } else {
-                throw req.unauthorized('SignatureDoesNotMatch');
+                throw new RpcError('UNAUTHORIZED', 'SignatureDoesNotMatch');
             }
             // var secret_key = _.result(_.find(req.system.access_keys, 'access_key', auth_token_obj.access_key), 'secret_key');
             // var s3_signature = s3_auth.sign(secret_key, auth_token_obj.string_to_sign);
@@ -369,7 +370,7 @@ function authorize(req) {
             //     dbg.log3('Access key authentication (per request) test passed !!!');
             // } else {
             //     dbg.error('Signature for access key:', auth_token_obj.access_key, 'computed:', s3_signature, 'expected:', auth_token_obj.signature);
-            //     throw req.unauthorized('SignatureDoesNotMatch');
+            //     throw new RpcError('UNAUTHORIZED', 'SignatureDoesNotMatch');
             // }
         }
     }
@@ -421,19 +422,19 @@ function _prepare_auth_request(req) {
         if (!ignore_missing_account) {
             // check that auth has account
             if (!req.account) {
-                throw req.unauthorized('auth account not found ' + (req.auth && req.auth.account_id));
+                throw new RpcError('UNAUTHORIZED', 'auth account not found ' + (req.auth && req.auth.account_id));
             }
         }
         if (!ignore_missing_system) {
             // check that auth contains system
             if (!req.system) {
-                throw req.unauthorized('auth system not found ' + (req.auth && req.auth.system_id));
+                throw new RpcError('UNAUTHORIZED', 'auth system not found ' + (req.auth && req.auth.system_id));
             }
 
             // check that auth contains valid system role or the account is support
             if (!(req.account && req.account.is_support) &&
                 !_.includes(options.system, req.auth.role)) {
-                throw req.unauthorized('auth role not allowed in system');
+                throw new RpcError('UNAUTHORIZED', 'auth role not allowed in system');
             }
         }
         dbg.log3('load auth system:', req.system);
@@ -457,7 +458,7 @@ function _prepare_auth_request(req) {
 
     req.check_bucket_permission = function(bucket) {
         if (!req.has_bucket_permission(bucket)) {
-            throw req.unauthorized('No permission to access bucket');
+            throw new RpcError('UNAUTHORIZED', 'No permission to access bucket');
         }
     };
 
@@ -490,36 +491,6 @@ function _prepare_auth_request(req) {
         }
         // create and return the signed token
         return jwt.sign(auth, process.env.JWT_SECRET, jwt_options);
-    };
-
-
-    /**
-     *
-     * req.unauthorized()
-     *
-     * the auth server uses only unauthorized error to all auth failures
-     * without sending an explicit message, only server is logging the reason,
-     * to prevent phishing attacks.
-     *
-     */
-    req.unauthorized = function(reason) {
-        return req.rpc_error('UNAUTHORIZED', '', {
-            reason: reason
-        });
-    };
-
-
-    /**
-     *
-     * req.forbidden()
-     *
-     * reply that the request is not permitted.
-     *
-     */
-    req.forbidden = function(reason) {
-        return req.rpc_error('FORBIDDEN', '', {
-            reason: reason
-        });
     };
 
 }

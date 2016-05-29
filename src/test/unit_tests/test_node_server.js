@@ -52,10 +52,6 @@ mocha.describe('node_server', function() {
             .then(() => client.node.read_node({
                 name: NODE
             }))
-            .then(() => client.node.update_node({
-                name: NODE,
-                geolocation: 'here i am'
-            }))
             .then(() => client.object.read_node_mappings({
                 name: NODE,
             }))

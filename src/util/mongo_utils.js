@@ -1,10 +1,12 @@
 'use strict';
 
-let _ = require('lodash');
-let P = require('./promise');
-let mongodb = require('mongodb');
-let mongoose = require('mongoose');
-let util = require('util');
+const _ = require('lodash');
+const util = require('util');
+const mongodb = require('mongodb');
+const mongoose = require('mongoose');
+
+const P = require('./promise');
+const RpcError = require('../rpc/rpc_error');
 
 /*
  *@param base - the array to subtract from
@@ -120,36 +122,26 @@ function is_err_duplicate_key(err) {
     return err && err.code === 11000;
 }
 
-function check_duplicate_key_conflict(req, entity, err) {
-    if (!is_err_duplicate_key(err)) {
-        throw err;
-    } else if (req) {
-        throw req.rpc_error('CONFLICT', entity + ' already exists');
+function check_duplicate_key_conflict(err, entity) {
+    if (is_err_duplicate_key(err)) {
+        throw new RpcError('CONFLICT', entity + ' already exists');
     } else {
-        throw new Error('CONFLICT', entity + ' already exists');
+        throw err;
     }
 }
 
-function check_entity_not_found(req, entity, doc) {
+function check_entity_not_found(doc, entity) {
     if (doc) {
         return doc;
     }
-    if (req) {
-        throw req.rpc_error('NO_SUCH_' + entity.toUpperCase(), 'No such ' + entity);
-    } else {
-        throw new Error('NO_SUCH_' + entity.toUpperCase());
-    }
+    throw new RpcError('NO_SUCH_' + entity.toUpperCase());
 }
 
-function check_entity_not_deleted(req, entity, doc) {
+function check_entity_not_deleted(doc, entity) {
     if (doc && !doc.deleted) {
         return doc;
     }
-    if (req) {
-        throw req.rpc_error('NO_SUCH_' + entity.toUpperCase(), 'No such ' + entity);
-    } else {
-        throw new Error('NO_SUCH_' + entity.toUpperCase());
-    }
+    throw new RpcError('NO_SUCH_' + entity.toUpperCase());
 }
 
 // EXPORTS

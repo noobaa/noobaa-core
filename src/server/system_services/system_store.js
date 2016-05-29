@@ -413,6 +413,10 @@ class SystemStore extends EventEmitter {
         return new mongodb.ObjectId();
     }
 
+    make_system_id(id_str) {
+        return new mongodb.ObjectId(id_str);
+    }
+
     has_same_id(obj1, obj2) {
         return String(obj1._id) === String(obj2._id);
     }

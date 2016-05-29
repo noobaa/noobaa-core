@@ -7,6 +7,7 @@ const crypto = require('crypto');
 const dbg = require('../util/debug_module')(__filename);
 const js_utils = require('../util/js_utils');
 const LRUCache = require('../util/lru_cache');
+const RpcError = require('../rpc/rpc_error');
 
 class BlockStoreBase {
 
@@ -47,13 +48,6 @@ class BlockStoreBase {
                 // must clone before returning to rpc encoding
                 // since it mutates the object for encoding buffers
                 return _.clone(block);
-            })
-            .catch(err => {
-                // TODO notify server
-                if (err.tampering) {
-                    err = req.rpc_error('TAMPERING', block_md.id);
-                }
-                throw err;
             });
     }
 
@@ -113,9 +107,7 @@ class BlockStoreBase {
             if (block_md_from_store.id !== block_md.id ||
                 block_md_from_store.digest_type !== block_md.digest_type ||
                 block_md_from_store.digest_b64 !== block_md.digest_b64) {
-                const err = new Error('Block md mismatch');
-                err.tampering = true;
-                throw err;
+                throw new RpcError('TAMPERING', 'Block md mismatch ' + block_md.id);
             }
         }
 
@@ -125,9 +117,7 @@ class BlockStoreBase {
                 .update(data)
                 .digest('base64');
             if (digest_b64 !== block_md.digest_b64) {
-                const err = new Error('Block digest mismatch');
-                err.tampering = true;
-                throw err;
+                throw new RpcError('TAMPERING', 'Block digest mismatch ' + block_md.id);
             }
         }
     }

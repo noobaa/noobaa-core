@@ -10,11 +10,13 @@ const moment = require('moment');
 const mongodb = require('mongodb');
 
 const P = require('../../util/promise');
+const dbg = require('../../util/debug_module')(__filename);
+const Barrier = require('../../util/barrier');
+const md_store = require('../object_services/md_store');
 const NodeModel = require('./node_model');
 const mongo_utils = require('../../util/mongo_utils');
 const mongo_functions = require('../../util/mongo_functions');
 const system_store = require('../system_services/system_store').get_instance();
-// const dbg = require('../../util/debug_module')(__filename);
 // const size_utils = require('../../util/size_utils');
 
 const NODE_FIELDS_FOR_MAP = Object.freeze({
@@ -43,7 +45,7 @@ function make_node_id(id_str) {
 function create_node(req, node) {
     node._id = make_node_id();
     return P.when(NodeModel.collection.insertOne(node))
-        .catch(err => mongo_utils.check_duplicate_key_conflict(req, 'node', err))
+        .catch(err => mongo_utils.check_duplicate_key_conflict(err, 'node'))
         .return(node);
 }
 
@@ -53,7 +55,7 @@ function find_node_by_name(req) {
             name: req.rpc_params.name,
             deleted: null,
         }))
-        .then(node => mongo_utils.check_entity_not_deleted(req, 'node', node))
+        .then(node => mongo_utils.check_entity_not_deleted(node, 'node'))
         .then(resolve_node_object_ids);
 }
 
@@ -63,20 +65,19 @@ function find_node_by_address(req) {
             rpc_address: req.rpc_params.target,
             deleted: null,
         }))
-        .then(node => mongo_utils.check_entity_not_deleted(req, 'node', node))
+        .then(node => mongo_utils.check_entity_not_deleted(node, 'node'))
         .then(resolve_node_object_ids);
 }
 
 /**
  * returns the updated node
  */
-function update_node_by_name(req, updates) {
-    return P.when(NodeModel.collection.findOneAndUpdate({
+function update_node_by_name(req, updates, options) {
+    return P.when(NodeModel.collection.updateOne({
             system: req.system._id,
             name: req.rpc_params.name,
             deleted: null,
-        }, updates))
-        .then(node => mongo_utils.check_entity_not_deleted(req, 'node', node));
+        }, updates, options));
 }
 
 function delete_node_by_name(req) {
@@ -89,13 +90,13 @@ function delete_node_by_name(req) {
                 deleted: new Date()
             }
         }))
-        .then(node => mongo_utils.check_entity_not_found(req, 'node', node));
+        .then(node => mongo_utils.check_entity_not_found(node, 'node'));
 }
 
-function update_node_by_id(node_id, updates) {
-    return P.when(NodeModel.collection.findOneAndUpdate({
+function update_node_by_id(node_id, updates, options) {
+    return P.when(NodeModel.collection.updateOne({
         _id: make_node_id(node_id)
-    }, updates));
+    }, updates, options));
 }
 
 
@@ -199,6 +200,101 @@ function test_code_delete_all_nodes() {
 }
 
 
+/**
+ * finding node by id for heatbeat requests uses a barrier for merging DB calls.
+ * this is a DB query barrier to issue a single query for concurrent heartbeat requests.
+ */
+const heartbeat_find_node_by_id_barrier = new Barrier({
+    max_length: 200,
+    expiry_ms: 500, // milliseconds to wait for others to join
+    process: function(node_ids) {
+        dbg.log2('heartbeat_find_node_by_id_barrier', node_ids.length);
+        return find_nodes({
+                deleted: null,
+                _id: {
+                    $in: node_ids
+                },
+            }, {
+                // we are selective to reduce overhead
+                fields: {
+                    _id: 1,
+                    ip: 1,
+                    port: 1,
+                    peer_id: 1,
+                    storage: 1,
+                    geolocation: 1,
+                    rpc_address: 1,
+                    base_address: 1,
+                    version: 1,
+                    debug_level: 1,
+                }
+            })
+            .then(function(res) {
+                var nodes_by_id = _.keyBy(res, '_id');
+                return _.map(node_ids, function(node_id) {
+                    return nodes_by_id[node_id];
+                });
+            });
+    }
+});
+
+
+/**
+ * counting node used storage for heatbeat requests uses a barrier for merging DB calls.
+ * this is a DB query barrier to issue a single query for concurrent heartbeat requests.
+ */
+const heartbeat_count_node_storage_barrier = new Barrier({
+    max_length: 200,
+    expiry_ms: 500, // milliseconds to wait for others to join
+    process: function(node_ids) {
+        dbg.log2('heartbeat_count_node_storage_barrier', node_ids.length);
+        return P.when(md_store.DataBlock.mapReduce({
+                query: {
+                    deleted: null,
+                    node: {
+                        $in: node_ids
+                    },
+                },
+                map: mongo_functions.map_node_size,
+                reduce: mongo_functions.reduce_sum
+            }))
+            .then(function(res) {
+
+                // convert the map-reduce array to map of node_id -> sum of block sizes
+                var nodes_storage = _.mapValues(_.keyBy(res, '_id'), 'value');
+                return _.map(node_ids, function(node_id) {
+                    dbg.log2('heartbeat_count_node_storage_barrier', nodes_storage, 'for ', node_ids, ' nodes_storage[', node_id, '] ', nodes_storage[node_id]);
+                    return nodes_storage[node_id] || 0;
+                });
+            });
+    }
+});
+
+
+/**
+ * updating node timestamp for heatbeat requests uses a barrier for merging DB calls.
+ * this is a DB query barrier to issue a single query for concurrent heartbeat requests.
+ */
+const heartbeat_update_node_timestamp_barrier = new Barrier({
+    max_length: 200,
+    expiry_ms: 500, // milliseconds to wait for others to join
+    process: function(node_ids) {
+        dbg.log2('heartbeat_update_node_timestamp_barrier', node_ids);
+        return update_nodes({
+            deleted: null,
+            _id: {
+                $in: node_ids
+            },
+        }, {
+            $set: {
+                heartbeat: new Date()
+            }
+        }).return();
+    }
+});
+
+
+
 // EXPORTS
 // single node ops
 exports.make_node_id = make_node_id;
@@ -222,3 +318,6 @@ exports.is_online_node = is_online_node;
 exports.resolve_node_object_ids = resolve_node_object_ids;
 exports.test_code_delete_all_nodes = test_code_delete_all_nodes;
 exports.NODE_FIELDS_FOR_MAP = NODE_FIELDS_FOR_MAP;
+exports.heartbeat_find_node_by_id_barrier = heartbeat_find_node_by_id_barrier;
+exports.heartbeat_count_node_storage_barrier = heartbeat_count_node_storage_barrier;
+exports.heartbeat_update_node_timestamp_barrier = heartbeat_update_node_timestamp_barrier;

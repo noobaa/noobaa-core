@@ -18,7 +18,7 @@ module.exports = {
 
         heartbeat: {
             // do not define/require more fields!
-            // read this explaination -
+            // read this explanation -
             // the heartbeat request/reply should not require or verify any fields
             // since on upgrades the agents are still running old version
             // and the heartbeat is the one that should let them know they
@@ -48,16 +48,6 @@ module.exports = {
             },
             reply: {
                 $ref: '#/definitions/node_full_info'
-            },
-            auth: {
-                system: 'admin'
-            }
-        },
-
-        update_node: {
-            method: 'PUT',
-            params: {
-                $ref: '#/definitions/node_config'
             },
             auth: {
                 system: 'admin'

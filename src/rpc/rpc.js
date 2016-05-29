@@ -1,37 +1,36 @@
 'use strict';
 
-module.exports = RPC;
+const _ = require('lodash');
+const util = require('util');
+const assert = require('assert');
+// const ip_module = require('ip');
+const EventEmitter = require('events').EventEmitter;
 
-var _ = require('lodash');
-var P = require('../util/promise');
-var util = require('util');
-var assert = require('assert');
-// var ip_module = require('ip');
-// var time_utils = require('../util/time_utils');
-var url_utils = require('../util/url_utils');
-var dbg = require('../util/debug_module')(__filename);
-var RpcRequest = require('./rpc_request');
-var RpcWsConnection = require('./rpc_ws');
-var RpcWsServer = require('./rpc_ws_server');
-var RpcHttpConnection = require('./rpc_http');
-var RpcHttpServer = require('./rpc_http_server');
-var RpcTcpConnection = require('./rpc_tcp');
-var RpcTcpServer = require('./rpc_tcp_server');
-var RpcNtcpConnection = require('./rpc_ntcp');
-var RpcNtcpServer = require('./rpc_ntcp_server');
-var RpcNudpConnection = require('./rpc_nudp');
-var RpcN2NConnection = require('./rpc_n2n');
-var RpcN2NAgent = require('./rpc_n2n_agent');
-var RpcFcallConnection = require('./rpc_fcall');
-var EventEmitter = require('events').EventEmitter;
+const P = require('../util/promise');
+const dbg = require('../util/debug_module')(__filename);
+const RpcError = require('./rpc_error');
+const url_utils = require('../util/url_utils');
+// const time_utils = require('../util/time_utils');
+const RpcRequest = require('./rpc_request');
+const RpcWsServer = require('./rpc_ws_server');
+const RpcN2NAgent = require('./rpc_n2n_agent');
+const RpcTcpServer = require('./rpc_tcp_server');
+const RpcHttpServer = require('./rpc_http_server');
+const RpcNtcpServer = require('./rpc_ntcp_server');
+const RpcWsConnection = require('./rpc_ws');
+const RpcTcpConnection = require('./rpc_tcp');
+const RpcN2NConnection = require('./rpc_n2n');
+const RpcHttpConnection = require('./rpc_http');
+const RpcNudpConnection = require('./rpc_nudp');
+const RpcNtcpConnection = require('./rpc_ntcp');
+const RpcFcallConnection = require('./rpc_fcall');
+
+const RPC_PING_INTERVAL_MS = 20000;
+const RECONN_BACKOFF_BASE = 250;
+const RECONN_BACKOFF_MAX = 5000;
+const RECONN_BACKOFF_FACTOR = 1.2;
 
 // dbg.set_level(5, __dirname);
-
-var RPC_PING_INTERVAL_MS = 20000;
-var RECONN_BACKOFF_BASE = 250;
-var RECONN_BACKOFF_MAX = 5000;
-var RECONN_BACKOFF_FACTOR = 1.2;
-
 
 class Client {
     constructor(rpc, default_options) {
@@ -115,7 +114,7 @@ RPC.prototype.register_service = function(api, server, options) {
     });
 
     //Service was registered, call _init (if exists)
-    if (typeof(server._init) !== 'undefined') {
+    if (typeof(server._init) === 'function') {
         dbg.log0('RPC register_service: calling _init() for', api.id);
         server._init();
     } else {
@@ -155,9 +154,7 @@ RPC.prototype.client_request = function(api, method_api, params, options) {
         try {
             req.method_api.validate_params(req.params, 'CLIENT');
         } catch (err) {
-            throw req.rpc_error('BAD_REQUEST', err, {
-                nostack: true
-            });
+            return P.reject(new RpcError('BAD_REQUEST', err.message));
         }
     }
 
@@ -222,9 +219,7 @@ RPC.prototype.client_request = function(api, method_api, params, options) {
                 try {
                     req.method_api.validate_reply(reply, 'CLIENT');
                 } catch (err) {
-                    throw req.rpc_error('BAD_REPLY', err, {
-                        nostack: true
-                    });
+                    throw new RpcError('BAD_REPLY', err.message);
                 }
             }
 
@@ -295,9 +290,7 @@ RPC.prototype.handle_request = function(conn, msg) {
         dbg.warn('RPC handle_request: NOT FOUND', srv,
             'reqid', msg.header.reqid,
             'connid', conn.connid);
-        req.rpc_error('NO_SUCH_RPC_SERVICE', 'No such RPC Service ' + srv, {
-            nostack: true
-        });
+        req.error = new RpcError('NO_SUCH_RPC_SERVICE', 'No such RPC Service ' + srv);
         return conn.send(req.export_response_buffer(), 'res', req);
     }
 
@@ -310,9 +303,7 @@ RPC.prototype.handle_request = function(conn, msg) {
                 try {
                     req.method_api.validate_params(req.params, 'SERVER');
                 } catch (err) {
-                    throw req.rpc_error('BAD_REQUEST', err, {
-                        nostack: true
-                    });
+                    throw new RpcError('BAD_REQUEST', err.message);
                 }
             }
 
@@ -355,9 +346,7 @@ RPC.prototype.handle_request = function(conn, msg) {
                 try {
                     req.method_api.validate_reply(reply, 'SERVER');
                 } catch (err) {
-                    throw req.rpc_error('BAD_REPLY', err, {
-                        nostack: true
-                    });
+                    throw new RpcError('BAD_REPLY', err.message);
                 }
             }
 
@@ -385,10 +374,13 @@ RPC.prototype.handle_request = function(conn, msg) {
 
             // propagate rpc errors from inner rpc client calls (using err.rpc_code)
             // set default internal error if no other error was specified
-            if (!req.error) {
-                req.rpc_error(err.rpc_code, err.message, {
-                    quiet: true
-                });
+            if (err instanceof RpcError) {
+                req.error = err;
+            } else {
+                req.error = new RpcError(
+                    err.rpc_code || 'INTERNAL',
+                    err.message,
+                    err.retryable);
             }
 
             return conn.send(req.export_response_buffer(), 'res', req);
@@ -430,12 +422,7 @@ RPC.prototype.handle_response = function(conn, msg) {
 };
 
 
-/**
- *
- * _assign_connection
- *
- */
-RPC.prototype._assign_connection = function(req, options) {
+RPC.prototype._get_remote_address = function(req, options) {
     var address = options.address;
     if (!address) {
         let domain = options.domain || this.api_routes[req.api.id] || 'default';
@@ -448,8 +435,21 @@ RPC.prototype._assign_connection = function(req, options) {
         addr_url = url_utils.quick_parse(address, true);
         this._address_to_url_cache[address] = addr_url;
     }
-    var conn = this._get_connection(addr_url, req.srv, options.force_redirect);
-    if (conn !== null) {
+    return addr_url;
+};
+
+/**
+ *
+ * _assign_connection
+ *
+ */
+RPC.prototype._assign_connection = function(req, options) {
+    let conn = options.connection;
+    if (!conn) {
+        const addr_url = this._get_remote_address(req, options);
+        conn = this._get_connection(addr_url, req.srv, options.force_redirect);
+    }
+    if (conn) {
         req.connection = conn;
         req.reqid = conn._alloc_reqid();
         conn._sent_requests[req.reqid] = req;
@@ -681,10 +681,11 @@ RPC.prototype._connection_closed = function(conn) {
 
     // reject pending requests
     _.each(conn._sent_requests, function(req) {
-        req.rpc_error('DISCONNECTED', 'connection closed ' + conn.connid + ' reqid ' + req.reqid, {
-            level: 'warn',
-            nostack: true
-        });
+        req.error = new RpcError(
+            'DISCONNECTED',
+            'connection closed ' + conn.connid + ' reqid ' + req.reqid,
+            'retryable');
+        req.response_defer.reject(req.error);
     });
 
     if (conn._ping_interval) {
@@ -965,3 +966,7 @@ RPC.prototype.get_n2n_addresses = function() {
     });
     return addresses;
 };
+
+
+// EXPORTS
+module.exports = RPC;

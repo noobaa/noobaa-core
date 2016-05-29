@@ -15,6 +15,7 @@ const P = require('../../util/promise');
 const dbg = require('../../util/debug_module')(__filename);
 const md_store = require('../object_services/md_store');
 const js_utils = require('../../util/js_utils');
+const RpcError = require('../../rpc/rpc_error');
 const size_utils = require('../../util/size_utils');
 const server_rpc = require('../server_rpc');
 const tier_server = require('./tier_server');
@@ -52,10 +53,10 @@ function create_bucket(req) {
         req.rpc_params.name.length > 63 ||
         net.isIP(req.rpc_params.name) ||
         !VALID_BUCKET_NAME_REGEXP.test(req.rpc_params.name)) {
-        throw req.rpc_error('INVALID_BUCKET_NAME');
+        throw new RpcError('INVALID_BUCKET_NAME');
     }
     if (req.system.buckets_by_name[req.rpc_params.name]) {
-        throw req.rpc_error('BUCKET_ALREADY_EXISTS');
+        throw new RpcError('BUCKET_ALREADY_EXISTS');
     }
     let tiering_policy;
     let changes = {
@@ -173,7 +174,7 @@ function update_bucket(req) {
     var bucket = find_bucket(req);
 
     if (!bucket) {
-        throw req.rpc_error('INVALID_BUCKET_NAME');
+        throw new RpcError('INVALID_BUCKET_NAME');
     }
     var account_email = req.system.name + system_store.data.accounts.length + '@noobaa.com';
     //console.warn('Email Generated: ', account_email);
@@ -287,7 +288,7 @@ function delete_bucket(req) {
     let tiering_policy = bucket.tiering;
     let tier = tiering_policy.tiers[0].tier;
     if (_.map(req.system.buckets_by_name).length === 1) {
-        throw req.rpc_error('BAD_REQUEST', 'Cannot delete last bucket');
+        throw new RpcError('BAD_REQUEST', 'Cannot delete last bucket');
     }
 
     return P.when(md_store.aggregate_objects({
@@ -299,7 +300,7 @@ function delete_bucket(req) {
             objects_aggregate = objects_aggregate || {};
             var objects_aggregate_bucket = objects_aggregate[bucket._id] || {};
             if (objects_aggregate_bucket.count) {
-                throw req.rpc_error('BUCKET_NOT_EMPTY', 'Bucket not empty: ' + bucket.name);
+                throw new RpcError('BUCKET_NOT_EMPTY', 'Bucket not empty: ' + bucket.name);
             }
             ActivityLog.create({
                 event: 'bucket.delete',
@@ -594,7 +595,7 @@ function find_cloud_sync_connection(req) {
 
     if (!conn) {
         dbg.error('CONNECTION NOT FOUND', account, conn_name);
-        throw req.rpc_error('INVALID_CONNECTION', 'Connection dosn\'t exists: "' + conn_name + '"');
+        throw new RpcError('INVALID_CONNECTION', 'Connection dosn\'t exists: "' + conn_name + '"');
     }
 
     return conn;
@@ -604,7 +605,7 @@ function find_bucket(req) {
     var bucket = req.system.buckets_by_name[req.rpc_params.name];
     if (!bucket) {
         dbg.error('BUCKET NOT FOUND', req.rpc_params.name);
-        throw req.rpc_error('NO_SUCH_BUCKET', 'No such bucket: ' + req.rpc_params.name);
+        throw new RpcError('NO_SUCH_BUCKET', 'No such bucket: ' + req.rpc_params.name);
     }
     req.check_bucket_permission(bucket);
     return bucket;
@@ -632,7 +633,7 @@ function resolve_tiering_policy(req, policy_name) {
     var tiering_policy = req.system.tiering_policies_by_name[policy_name];
     if (!tiering_policy) {
         dbg.error('TIER POLICY NOT FOUND', policy_name);
-        throw req.rpc_error('INVALID_BUCKET_STATE', 'Bucket tiering policy not found');
+        throw new RpcError('INVALID_BUCKET_STATE', 'Bucket tiering policy not found');
     }
     return tiering_policy;
 }

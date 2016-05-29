@@ -2,6 +2,7 @@
 
 let _ = require('lodash');
 let dbg = require('../util/debug_module')(__filename);
+let RpcError = require('../rpc/rpc_error');
 
 /*
 // TODO zlib in browserify doesn't work?
@@ -128,9 +129,8 @@ class RpcRequest {
         }
         let err = msg.header.error;
         if (err) {
-            this.rpc_error(err.rpc_code, err.message, {
-                quiet: true
-            });
+            this.error = new RpcError(err.rpc_code, err.message, err.retryable);
+            this.response_defer.reject(this.error);
         } else {
             this.reply = msg.header.reply;
             if (this.method_api.reply && this.method_api.reply.import_buffers) {
@@ -139,32 +139,6 @@ class RpcRequest {
             this.response_defer.resolve(this.reply);
         }
         return is_pending;
-    }
-
-
-    /**
-     * mark this response with error.
-     * @return error object to be thrown by the caller as in: throw req.rpc_error(...)
-     */
-    rpc_error(rpc_code, message, info) {
-        let err = new Error('RPC ERROR');
-        err.rpc_code = (rpc_code || 'INTERNAL').toString();
-        err.message = (message || '').toString();
-        let quiet = info && info.quiet;
-        if (!quiet) {
-            let logger = info && info.level ? dbg[info.level] : dbg.error;
-            logger.call(dbg, 'RPC ERROR', this.srv, err.rpc_code, err.message,
-                info && info.reason || '', info && info.nostack ? '' : err.stack);
-        }
-        if (this.error) {
-            dbg.error('RPC MULTIPLE ERRORS, existing error', this.error);
-        } else {
-            this.error = err;
-        }
-        if (this.response_defer) {
-            this.response_defer.reject(err);
-        }
-        return err;
     }
 
 }

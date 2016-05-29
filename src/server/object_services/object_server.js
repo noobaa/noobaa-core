@@ -14,15 +14,16 @@ const dbg = require('../../util/debug_module')(__filename);
 const LRUCache = require('../../util/lru_cache');
 const md_store = require('./md_store');
 const map_copy = require('./map_copy');
+const RpcError = require('../../rpc/rpc_error');
 const map_writer = require('./map_writer');
 const map_reader = require('./map_reader');
 const map_deleter = require('./map_deleter');
-const map_allocator = require('./map_allocator');
 const ActivityLog = require('../analytic_services/activity_log');
 const mongo_utils = require('../../util/mongo_utils');
 const nodes_store = require('../node_services/nodes_store');
 const system_store = require('../system_services/system_store').get_instance();
 const string_utils = require('../../util/string_utils');
+const map_allocator = require('./map_allocator');
 const mongo_functions = require('../../util/mongo_functions');
 
 
@@ -236,7 +237,7 @@ function copy_object(req) {
     load_bucket(req);
     var source_bucket = req.system.buckets_by_name[req.rpc_params.source_bucket];
     if (!source_bucket) {
-        throw req.rpc_error('NO_SUCH_BUCKET', 'No such bucket: ' + req.rpc_params.source_bucket);
+        throw new RpcError('NO_SUCH_BUCKET', 'No such bucket: ' + req.rpc_params.source_bucket);
     }
     var create_info;
     var existing_obj;
@@ -258,7 +259,7 @@ function copy_object(req) {
             existing_obj = existing_obj_arg;
             source_obj = source_obj_arg;
             if (!source_obj) {
-                throw req.rpc_error('NO_SUCH_OBJECT',
+                throw new RpcError('NO_SUCH_OBJECT',
                     'No such object: ' + req.rpc_params.source_bucket +
                     ' ' + req.rpc_params.source_key);
             }
@@ -459,11 +460,11 @@ function read_object_md(req) {
 function update_object_md(req) {
     dbg.log0('update object md', req.rpc_params);
     return find_object_md(req)
-        .then((obj) => {
+        .then(obj => {
             var updates = _.pick(req.rpc_params, 'content_type', 'xattr');
             return obj.update(updates).exec();
         })
-        .then(obj => mongo_utils.check_entity_not_deleted(req, 'object', obj))
+        .then(obj => mongo_utils.check_entity_not_deleted(obj, 'object'))
         .thenResolve();
 }
 
@@ -481,7 +482,7 @@ function delete_object(req) {
             var query = _.omit(object_md_query(req), 'deleted');
             return md_store.ObjectMD.findOne(query).exec();
         })
-        .then(obj => mongo_utils.check_entity_not_found(req, 'object', obj))
+        .then(obj => mongo_utils.check_entity_not_found(obj, 'object'))
         .then(obj => {
             obj_to_delete = obj;
             delete_object_internal(obj);
@@ -519,7 +520,7 @@ function delete_multiple_objects(req) {
                     };
                     return md_store.ObjectMD.findOne(query).exec();
                 })
-                .then(obj => mongo_utils.check_entity_not_found(req, 'object', obj))
+                .then(obj => mongo_utils.check_entity_not_found(obj, 'object'))
                 .then(obj => delete_object_internal(obj));
         }))
         .return();
@@ -716,7 +717,7 @@ function get_object_info(md) {
 function load_bucket(req) {
     var bucket = req.system.buckets_by_name[req.rpc_params.bucket];
     if (!bucket) {
-        throw req.rpc_error('NO_SUCH_BUCKET', 'No such bucket: ' + req.rpc_params.bucket);
+        throw new RpcError('NO_SUCH_BUCKET', 'No such bucket: ' + req.rpc_params.bucket);
     }
     req.check_bucket_permission(bucket);
     req.bucket = bucket;
@@ -736,7 +737,7 @@ function find_object_md(req) {
     return P.fcall(() => {
             return md_store.ObjectMD.findOne(object_md_query(req)).exec();
         })
-        .then(obj => mongo_utils.check_entity_not_deleted(req, 'object', obj));
+        .then(obj => mongo_utils.check_entity_not_deleted(obj, 'object'));
 }
 
 function find_object_upload(req) {
@@ -777,11 +778,11 @@ function find_cached_object_upload(req) {
 
 function check_object_upload_mode(req, obj) {
     if (!obj || obj.deleted) {
-        throw req.rpc_error('NO_SUCH_UPLOAD',
+        throw new RpcError('NO_SUCH_UPLOAD',
             'No such upload id: ' + req.rpc_params.upload_id);
     }
     if (!_.isNumber(obj.upload_size)) {
-        throw req.rpc_error('NO_SUCH_UPLOAD',
+        throw new RpcError('NO_SUCH_UPLOAD',
             'Object not in upload mode: ' + obj.key +
             ' upload_size ' + obj.upload_size);
     }
@@ -806,27 +807,27 @@ function check_md_conditions(req, conditions, obj) {
     if (conditions.if_modified_since) {
         if (!obj ||
             conditions.if_modified_since < obj._id.getTimestamp().getTime()) {
-            throw req.rpc_error('IF_MODIFIED_SINCE');
+            throw new RpcError('IF_MODIFIED_SINCE');
         }
     }
     if (conditions.if_unmodified_since) {
         if (!obj ||
             conditions.if_unmodified_since > obj._id.getTimestamp().getTime()) {
-            throw req.rpc_error('IF_UNMODIFIED_SINCE');
+            throw new RpcError('IF_UNMODIFIED_SINCE');
         }
     }
     if (conditions.if_match_etag) {
         if (!obj ||
             (conditions.if_match_etag !== '*' &&
                 conditions.if_match_etag !== obj.etag)) {
-            throw req.rpc_error('IF_MATCH_ETAG');
+            throw new RpcError('IF_MATCH_ETAG');
         }
     }
     if (conditions.if_none_match_etag) {
         if (obj &&
             (conditions.if_none_match_etag === '*' ||
                 conditions.if_none_match_etag === obj.etag)) {
-            throw req.rpc_error('IF_NONE_MATCH_ETAG');
+            throw new RpcError('IF_NONE_MATCH_ETAG');
         }
     }
 }

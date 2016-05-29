@@ -13,6 +13,7 @@ const bcrypt = require('bcrypt');
 
 const P = require('../../util/promise');
 // const dbg = require('../../util/debug_module')(__filename);
+const RpcError = require('../../rpc/rpc_error');
 const server_rpc = require('../server_rpc');
 const ActivityLog = require('../analytic_services/activity_log');
 const system_store = require('../system_services/system_store').get_instance();
@@ -109,7 +110,7 @@ function read_account(req) {
 
     let account = system_store.data.accounts_by_email[email];
     if (!account) {
-        throw req.rpc_error('NO_SUCH_ACCOUNT', 'No such account email: ' + email);
+        throw new RpcError('NO_SUCH_ACCOUNT', 'No such account email: ' + email);
     }
 
     return get_account_info(account);
@@ -124,15 +125,15 @@ function read_account(req) {
 function generate_account_keys(req) {
     let account = system_store.data.accounts_by_email[req.rpc_params.email];
     if (!account) {
-        throw req.rpc_error('NO_SUCH_ACCOUNT', 'No such account email: ' + req.rpc_params.email);
+        throw new RpcError('NO_SUCH_ACCOUNT', 'No such account email: ' + req.rpc_params.email);
     }
     if (req.system && req.account) {
         if (!is_support_or_admin_or_me(req.system, req.account, account)) {
-            throw req.unauthorized('Cannot update account');
+            throw new RpcError('UNAUTHORIZED', 'Cannot update account');
         }
     }
     if (account.is_support) {
-        throw req.forbidden('Cannot update support account');
+        throw new RpcError('FORBIDDEN', 'Cannot update support account');
     }
     let updates = _.pick(account, '_id');
     let new_access_keys = [{
@@ -162,17 +163,17 @@ function update_account_s3_acl(req) {
     var system = req.system;
     let account = _.cloneDeep(system_store.data.accounts_by_email[req.rpc_params.email]);
     if (!account) {
-        throw req.rpc_error('NO_SUCH_ACCOUNT', 'No such account email: ' + req.rpc_params.email);
+        throw new RpcError('NO_SUCH_ACCOUNT', 'No such account email: ' + req.rpc_params.email);
     }
     if (req.system && req.account) {
         if (!is_support_or_admin_or_me(req.system, req.account, account)) {
-            throw req.unauthorized('Cannot update account');
+            throw new RpcError('UNAUTHORIZED', 'Cannot update account');
         }
     } else if (!req.system) {
         system = system_store.data.systems_by_name[req.rpc_params.name];
     }
     if (account.is_support) {
-        throw req.forbidden('Cannot update support account');
+        throw new RpcError('FORBIDDEN', 'Cannot update support account');
     }
 
     let allowed_buckets = null;
@@ -238,13 +239,13 @@ function update_account_s3_acl(req) {
 function update_account(req) {
     let account = system_store.data.accounts_by_email[req.rpc_params.email];
     if (!account) {
-        throw req.rpc_error('NO_SUCH_ACCOUNT', 'No such account email: ' + req.rpc_params.email);
+        throw new RpcError('NO_SUCH_ACCOUNT', 'No such account email: ' + req.rpc_params.email);
     }
     if (!is_support_or_admin_or_me(req.system, req.account, account)) {
-        throw req.unauthorized('Cannot update account');
+        throw new RpcError('UNAUTHORIZED', 'Cannot update account');
     }
     if (account.is_support) {
-        throw req.forbidden('Cannot update support account');
+        throw new RpcError('FORBIDDEN', 'Cannot update support account');
     }
     let updates = _.pick(req.rpc_params, 'name', 'password');
     updates._id = account._id;
@@ -273,16 +274,16 @@ function update_account(req) {
 function delete_account(req) {
     let account_to_delete = system_store.data.accounts_by_email[req.rpc_params.email];
     if (!account_to_delete) {
-        throw req.rpc_error('NO_SUCH_ACCOUNT', 'No such account email: ' + req.rpc_params.email);
+        throw new RpcError('NO_SUCH_ACCOUNT', 'No such account email: ' + req.rpc_params.email);
     }
     if (account_to_delete.is_support) {
-        throw req.rpc_error('BAD_REQUEST', 'Cannot delete support account');
+        throw new RpcError('BAD_REQUEST', 'Cannot delete support account');
     }
     if (String(account_to_delete._id) === String(req.system.owner._id)) {
-        throw req.rpc_error('BAD_REQUEST', 'Cannot delete system owner account');
+        throw new RpcError('BAD_REQUEST', 'Cannot delete system owner account');
     }
     if (!is_support_or_admin_or_me(req.system, req.account, account_to_delete)) {
-        throw req.unauthorized('Cannot delete account');
+        throw new RpcError('UNAUTHORIZED', 'Cannot delete account');
     }
 
     let roles_to_delete = system_store.data.roles
@@ -325,7 +326,7 @@ function list_accounts(req) {
     } else if (req.account) {
         // list system accounts - system admin can see all the system accounts
         if (!_.includes(req.account.roles_by_system[req.system._id], 'admin')) {
-            throw req.unauthorized('Must be system admin');
+            throw new RpcError('UNAUTHORIZED', 'Must be system admin');
         }
         let account_ids = _.map(req.system.roles_by_account, (roles, account_id) =>
             roles && roles.length ? account_id : null);
@@ -433,17 +434,17 @@ function check_account_sync_credentials(req) {
 function list_account_s3_acl(req) {
     let account = system_store.data.accounts_by_email[req.rpc_params.email];
     if (!account) {
-        throw req.rpc_error('NO_SUCH_ACCOUNT', 'No such account email: ' + req.rpc_params.email);
+        throw new RpcError('NO_SUCH_ACCOUNT', 'No such account email: ' + req.rpc_params.email);
     }
     if (req.system && req.account) {
         if (!is_support_or_admin_or_me(req.system, req.account, account)) {
-            throw req.unauthorized('No permission to get allowed buckets');
+            throw new RpcError('UNAUTHORIZED', 'No permission to get allowed buckets');
         }
     } else if (!req.system) {
         req.system = system_store.data.get_by_id(req.auth && req.auth.system_id);
     }
     if (account.is_support) {
-        throw req.forbidden('No allowed buckets for support account');
+        throw new RpcError('FORBIDDEN', 'No allowed buckets for support account');
     }
     let reply = [];
     reply = _.map(system_store.data.buckets,

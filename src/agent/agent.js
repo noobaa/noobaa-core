@@ -27,9 +27,9 @@ const api = require('../api');
 const pkg = require('../../package.json');
 const dbg = require('../util/debug_module')(__filename);
 const diag = require('./agent_diagnostics');
-const config = require('../../config.js');
 const os_utils = require('../util/os_utils');
 const js_utils = require('../util/js_utils');
+const RpcError = require('../rpc/rpc_error');
 const url_utils = require('../util/url_utils');
 const size_utils = require('../util/size_utils');
 const time_utils = require('../util/time_utils');
@@ -102,14 +102,11 @@ class Agent {
         js_utils.self_bind(this, [
             'get_agent_info',
             'update_auth_token',
-            'update_rpc_address',
-            'update_base_address',
-            'update_n2n_config',
+            'update_rpc_config',
             'n2n_signal',
-            'test_disk_write',
-            'test_disk_read',
-            'test_network_io',
-            'test_network_to_peer',
+            'test_store_perf',
+            'test_network_perf',
+            'test_network_perf_to_peer',
             'collect_diagnostics',
             'set_debug_node',
         ]);
@@ -317,7 +314,7 @@ class Agent {
             dbg.error('AGENT API requests only allowed from server',
                 req.connection && req.connection.connid,
                 this._server_connection && this._server_connection.connid);
-            throw req.rpc_error('FORBIDDEN', 'AGENT API requests only allowed from server');
+            throw new RpcError('FORBIDDEN', 'AGENT API requests only allowed from server');
         }
     }
 
@@ -334,6 +331,7 @@ class Agent {
             ip: ip,
             rpc_address: this.rpc_address || '',
             base_address: this.rpc.router.default,
+            n2n_config: this.n2n_agent.n2n_config,
             geolocation: this.geolocation,
             is_internal_agent: this.is_internal_agent,
             debug_level: dbg.get_module_level('core'),
@@ -402,98 +400,100 @@ class Agent {
             });
     }
 
-    update_rpc_address(req) {
+    update_rpc_config(req) {
+        const n2n_config = req.rpc_params.n2n_config;
         const rpc_address = req.rpc_params.rpc_address;
-        const prev_rpc_address = this.rpc_address;
-        dbg.log0('update_rpc_address to', rpc_address,
-            'was', prev_rpc_address);
-        this.rpc_address = rpc_address;
-        return this._start_stop_server();
-    }
-
-    update_base_address(req) {
+        const old_rpc_address = this.rpc_address;
         const base_address = req.rpc_params.base_address;
-        const existing_base_address = this.rpc.router.default;
-        dbg.log0('update_base_address: to -', base_address, 'was -', existing_base_address);
-        return P.resolve()
-            .then(() => this.client.node.ping(null, {
-                // test this new address first by pinging it
-                address: base_address
-            }))
-            .then(() => P.nfcall(fs.readFile, 'agent_conf.json')
-                .then(data => {
-                    const agent_conf = JSON.parse(data);
-                    dbg.log0('update_base_address: old address in agent_conf.json was -', agent_conf.address);
-                    return agent_conf;
-                }, err => {
-                    if (err.code === 'ENOENT') {
-                        dbg.log0('update_base_address: no agent_conf.json file. creating new one...');
-                        return {};
-                    } else {
-                        throw err;
-                    }
-                }))
-            .then(agent_conf => {
-                agent_conf.address = base_address;
-                const data = JSON.stringify(agent_conf);
-                return P.nfcall(fs.writeFile, 'agent_conf.json', data);
-            })
-            .then(() => {
-                dbg.log0('update_base_address: done -', base_address);
-                this.rpc.router = api.new_router(base_address);
-                // this.rpc.disconnect_all();
-                this._do_heartbeat();
-            });
-    }
+        const old_base_address = this.rpc.router.default;
+        dbg.log0('update_rpc_config', req.rpc_params);
 
-    update_n2n_config(req) {
-        console.log('AGENT GOT UPDATE N2N CONFIG', req.rpc_params);
-        const n2n_config = req.rpc_params;
-        this.n2n_agent.update_n2n_config(n2n_config);
+        if (n2n_config) {
+            this.n2n_agent.update_n2n_config(n2n_config);
+        }
+
+        if (rpc_address !== old_rpc_address) {
+            dbg.log0('new rpc_address', rpc_address,
+                'old', old_rpc_address);
+            this.rpc_address = rpc_address;
+            this._start_stop_server();
+        }
+
+        if (base_address !== old_base_address) {
+            dbg.log0('new base_address', base_address,
+                'old', old_base_address);
+            // test this new address first by pinging it
+            return P.fcall(() => this.client.node.ping(null, {
+                    address: base_address
+                }))
+                .then(() => P.nfcall(fs.readFile, 'agent_conf.json')
+                    .then(data => {
+                        const agent_conf = JSON.parse(data);
+                        dbg.log0('update_base_address: old address in agent_conf.json was -', agent_conf.address);
+                        return agent_conf;
+                    }, err => {
+                        if (err.code === 'ENOENT') {
+                            dbg.log0('update_base_address: no agent_conf.json file. creating new one...');
+                            return {};
+                        } else {
+                            throw err;
+                        }
+                    }))
+                .then(agent_conf => {
+                    agent_conf.address = base_address;
+                    const data = JSON.stringify(agent_conf);
+                    return P.nfcall(fs.writeFile, 'agent_conf.json', data);
+                })
+                .then(() => {
+                    dbg.log0('update_base_address: done -', base_address);
+                    this.rpc.router = api.new_router(base_address);
+                    // this.rpc.disconnect_all();
+                    this._do_heartbeat();
+                });
+        }
     }
 
     n2n_signal(req) {
         return this.rpc.accept_n2n_signal(req.rpc_params);
     }
 
-    test_disk_read() {
+    test_store_perf(req) {
+        const reply = {};
+        const count = req.rpc_params.count || 5;
+        const delay_ms = 200;
         const data = crypto.randomBytes(1024);
         const block_md = {
-            id: '_test_latency_of_disk_read',
-            digest_type: 'sha1'
+            id: '_test_store_perf',
+            digest_type: 'sha1',
+            digest_b64: crypto.createHash('sha1')
+                .update(data).digest('base64')
         };
-        block_md.digest_b64 = crypto.createHash(block_md.digest_type).update(data).digest('base64');
-        return this.block_store.write_block(block_md, data)
-            .then(() => {
-                return test_average_latency(() => this.block_store.read_block(block_md));
-            });
+        return test_average_latency(count, delay_ms, () =>
+                this.block_store._write_block(block_md, data))
+            .then(write_latencies => {
+                reply.write = write_latencies;
+            })
+            .then(() => test_average_latency(count, delay_ms, () =>
+                this.block_store._read_block(block_md)))
+            .then(read_latencies => {
+                reply.read = read_latencies;
+            })
+            .return(reply);
     }
 
-    test_disk_write() {
-        return test_average_latency(() => {
-            const data = crypto.randomBytes(1024);
-            const block_md = {
-                id: '_test_latency_of_disk_write',
-                digest_type: 'sha1'
-            };
-            block_md.digest_b64 = crypto.createHash(block_md.digest_type).update(data).digest('base64');
-            return this.block_store.write_block(block_md, data);
-        });
-    }
-
-    test_network_io(req) {
+    test_network_perf(req) {
         const data = req.rpc_params.data;
         const req_len = data ? data.length : 0;
         const res_len = req.rpc_params.response_length;
 
-        dbg.log1('test_network_io:',
+        dbg.log1('test_network_perf:',
             'req_len', req_len,
             'res_len', res_len,
             'source', req.rpc_params.source,
             'target', req.rpc_params.target);
 
         if (req.rpc_params.target !== this.rpc_address) {
-            throw new Error('test_network_io: wrong address ' +
+            throw new Error('test_network_perf: wrong address ' +
                 req.rpc_params.target + ' mine is ' + this.rpc_address);
         }
 
@@ -502,7 +502,7 @@ class Agent {
         };
     }
 
-    test_network_to_peer(req) {
+    test_network_perf_to_peer(req) {
         const target = req.rpc_params.target;
         const source = req.rpc_params.source;
         const req_len = req.rpc_params.request_length;
@@ -510,7 +510,7 @@ class Agent {
         const concur = req.rpc_params.concur;
         let count = req.rpc_params.count;
 
-        dbg.log0('test_network_to_peer:',
+        dbg.log0('test_network_perf_to_peer:',
             'source', source,
             'target', target,
             'req_len', req_len,
@@ -519,7 +519,7 @@ class Agent {
             'concur', concur);
 
         if (source !== this.rpc_address) {
-            throw new Error('test_network_to_peer: wrong address ' +
+            throw new Error('test_network_perf_to_peer: wrong address ' +
                 source + ' mine is ' + this.rpc_address);
         }
         const reply = {};
@@ -528,7 +528,7 @@ class Agent {
             if (count <= 0) return;
             count -= 1;
             // read/write from target agent
-            return this.client.agent.test_network_io({
+            return this.client.agent.test_network_perf({
                     source: source,
                     target: target,
                     data: new Buffer(req_len),
@@ -541,7 +541,7 @@ class Agent {
                     const data = io_req.reply.data;
                     if (((!data || !data.length) && res_len > 0) ||
                         (data && data.length && data.length !== res_len)) {
-                        throw new Error('test_network_to_peer: response_length mismatch');
+                        throw new Error('test_network_perf_to_peer: response_length mismatch');
                     }
                     const session = io_req.connection.session;
                     reply.session = session && session.key;
@@ -597,15 +597,16 @@ class Agent {
 }
 
 
-function test_average_latency(func) {
+function test_average_latency(count, delay_ms, func) {
     const results = [];
-    return promise_utils.loop(6, () => {
+    return promise_utils.loop(count + 1, () => {
             const start = time_utils.millistamp();
             return P.fcall(func).then(() => {
                 results.push(time_utils.millistamp() - start);
                 // use some jitter delay to avoid serializing on cpu when
                 // multiple tests are run together.
-                return P.delay(200 * (0.5 + Math.random()));
+                const jitter = 0.5 + Math.random(); // 0.5 - 1.5
+                return P.delay(delay_ms * jitter);
             });
         })
         .then(() => {

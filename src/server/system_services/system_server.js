@@ -8,9 +8,10 @@
 const _ = require('lodash');
 const url = require('url');
 const net = require('net');
+const uuid = require('node-uuid');
 const moment = require('moment');
 const ip_module = require('ip');
-const uuid = require('node-uuid');
+
 const P = require('../../util/promise');
 const pkg = require('../../../package.json');
 const dbg = require('../../util/debug_module')(__filename);
@@ -18,6 +19,7 @@ const diag = require('../utils/server_diagnostics');
 const md_store = require('../object_services/md_store');
 const fs_utils = require('../../util/fs_utils');
 const os_utils = require('../../util/os_utils');
+const RpcError = require('../../rpc/rpc_error');
 const size_utils = require('../../util/size_utils');
 const server_rpc = require('../server_rpc');
 const pool_server = require('./pool_server');
@@ -310,7 +312,8 @@ function list_systems(req) {
     console.log('List systems:', req.account);
     if (!req.account) {
         if (!req.system) {
-            throw req.rpc_error('FORBIDDEN', 'list_systems requires authentication with account or system');
+            throw new RpcError('FORBIDDEN',
+                'list_systems requires authentication with account or system');
         }
         return {
             systems: [get_system_info(req.system, false)]
@@ -715,7 +718,7 @@ function update_hostname(req) {
 }
 
 function update_system_certificate(req) {
-    throw req.rpc_error('TODO', 'update_system_certificate');
+    throw new RpcError('TODO', 'update_system_certificate');
 }
 
 function update_time_config(req) {
@@ -779,7 +782,7 @@ function get_system_info(system, get_id) {
 function find_account_by_email(req) {
     var account = system_store.data.accounts_by_email[req.rpc_params.email];
     if (!account) {
-        throw req.rpc_error('NO_SUCH_ACCOUNT', 'No such account email: ' + req.rpc_params.email);
+        throw new RpcError('NO_SUCH_ACCOUNT', 'No such account email: ' + req.rpc_params.email);
     }
     return account;
 }

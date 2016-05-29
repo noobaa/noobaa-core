@@ -1,6 +1,6 @@
 /**
  *
- * NODE_SERVER
+ * NODE SERVER
  *
  */
 'use strict';
@@ -8,137 +8,24 @@
 const _ = require('lodash');
 
 const P = require('../../util/promise');
+// const pkg = require('../../../package.json');
 const dbg = require('../../util/debug_module')(__filename);
 const config = require('../../../config');
 const ActivityLog = require('../analytic_services/activity_log');
 const nodes_store = require('./nodes_store');
-const node_monitor = require('./node_monitor');
 const string_utils = require('../../util/string_utils');
+const nodes_monitor = require('./node_monitor');
+
+const monitor = new nodes_monitor.NodesMonitor();
 
 
-/**
- *
- * CREATE_NODE
- *
- */
-function create_node(req) {
-    var node = _.pick(req.rpc_params,
-        'name',
-        'is_server',
-        'geolocation'
-    );
-    node.system = req.system._id;
-    node.heartbeat = new Date(0);
-    node.peer_id = nodes_store.make_node_id();
-
-    // storage info will be updated by heartbeat
-    node.storage = {
-        alloc: 0,
-        used: 0,
-        total: 0,
-        free: 0,
-    };
-
-    var pool = {};
-    if (req.rpc_params.cloud_pool_name) {
-        pool = req.system.pools_by_name[req.rpc_params.cloud_pool_name];
-        dbg.log0('creating node in cloud pool', req.rpc_params.cloud_pool_name, pool);
-    } else {
-        pool = req.system.pools_by_name.default_pool;
-    }
-
-    if (!pool) {
-        throw req.rpc_error('NO_DEFAULT_POOL', 'No default pool');
-    }
-    node.pool = pool._id;
-
-    dbg.log0('CREATE NODE', node);
-    return nodes_store.create_node(req, node)
-        .then(function(created_node) {
-            // create async
-            ActivityLog.create({
-                system: req.system,
-                level: 'info',
-                event: 'node.create',
-                node: created_node._id,
-                actor: req.account && req.account._id,
-                desc: `${created_node.name} was added by ${req.account && req.account.email}`,
-            });
-            var account_id = '';
-            if (req.account) {
-                account_id = req.account._id;
-            }
-            // a token for the agent authorized to use the new node id.
-            var token = req.make_auth_token({
-                account_id: account_id,
-                system_id: req.system._id,
-                role: 'agent',
-                extra: {
-                    node_id: created_node._id,
-                    peer_id: created_node.peer_id,
-                }
-            });
-
-            return {
-                id: String(created_node._id),
-                peer_id: String(created_node.peer_id),
-                token: token
-            };
-        });
+function _init() {
+    return monitor.start();
 }
 
 
-
-/**
- *
- * READ_NODE
- *
- */
-function read_node(req) {
-    return nodes_store.find_node_by_name(req).then(get_node_full_info);
-}
-
-
-
-/**
- *
- * UPDATE_NODE
- *
- */
-function update_node(req) {
-    var updates = {
-        $set: _.pick(req.rpc_params,
-            'is_server',
-            'geolocation',
-            'srvmode'
-        )
-    };
-
-    // to connect we remove the srvmode field
-    if (updates.$set.srvmode === 'connect') {
-        delete updates.$set.srvmode;
-        updates.$unset = {
-            srvmode: 1
-        };
-    }
-
-    return nodes_store.find_node_by_name(req)
-        .then(node => nodes_store.update_node_by_name(req, updates))
-        .return();
-}
-
-
-
-/**
- *
- * DELETE_NODE
- *
- */
-function delete_node(req) {
-    // TODO notify to initiate rebuild of blocks
-    return nodes_store.find_node_by_name(req)
-        .then(node => nodes_store.delete_node_by_name(req))
-        .return();
+function ping(req) {
+    // nothing to do - the caller is just testing it can reach the server.
 }
 
 
@@ -357,30 +244,8 @@ function list_nodes_int(system_id, query, skip, limit, pagination, sort, order, 
 }
 
 
-function test_latency_to_server(req) {
-    // nothing to do.
-    // the caller is just testing round trip time to the server.
-}
 
-/*
- * MAX_NODE_CAPACITY
- * Return maximal node capacity according to given filter
- */
-function max_node_capacity(req) {
-    //TODO:: once filter is mplemented in list_nodes, also add it here for the query
-    return nodes_store.find_nodes({
-            system: req.system._id,
-            deleted: null,
-        }, {
-            sort: {
-                'storage.total': 1
-            },
-            limit: 1
-        })
-        .then(nodes => {
-            return nodes && nodes[0] && nodes[0].storage.total || 0;
-        });
-}
+
 
 /*
  * GET_RANDOM_TEST_NODES
@@ -474,6 +339,7 @@ const NODE_INFO_DEFAULT_FIELDS = {
     base_address: '',
 };
 
+
 function get_node_full_info(node) {
     var info = _.defaults(_.pick(node, NODE_INFO_PICK_FIELDS), NODE_INFO_DEFAULT_FIELDS);
     info.id = String(node._id);
@@ -481,7 +347,8 @@ function get_node_full_info(node) {
     if (node.srvmode) {
         info.srvmode = node.srvmode;
     }
-    if (node.storage.free <= config.NODES_FREE_SPACE_RESERVE && !(node.storage.limit && node.storage.free > 0)) {
+    if (node.storage.free <= config.NODES_FREE_SPACE_RESERVE &&
+        !(node.storage.limit && node.storage.free > 0)) {
         info.storage_full = true;
     }
     info.pool = node.pool.name;
@@ -517,19 +384,19 @@ function get_storage_info(storage) {
 
 
 // EXPORTS
-exports.create_node = create_node;
-exports.read_node = read_node;
-exports.update_node = update_node;
-exports.delete_node = delete_node;
+exports._init = _init;
+exports.ping = ping;
 exports.list_nodes = list_nodes;
 exports.list_nodes_int = list_nodes_int;
-exports.max_node_capacity = max_node_capacity;
-exports.heartbeat = node_monitor.heartbeat;
-exports.redirect = node_monitor.redirect;
-exports.n2n_signal = node_monitor.n2n_signal;
-exports.self_test_to_node_via_web = node_monitor.self_test_to_node_via_web;
-exports.collect_agent_diagnostics = node_monitor.collect_agent_diagnostics;
-exports.set_debug_node = node_monitor.set_debug_node;
-exports.report_node_block_error = node_monitor.report_node_block_error;
-exports.test_latency_to_server = test_latency_to_server;
 exports.get_test_nodes = get_test_nodes;
+exports.heartbeat = req => monitor.heartbeat(req);
+exports.read_node = req => monitor.read_node_by_name(req.rpc_params.name);
+exports.delete_node = req => monitor.delete_node_by_name(req.rpc_params.name);
+exports.redirect = req => monitor.redirect(req);
+exports.n2n_signal = req => monitor.n2n_signal(req);
+exports.test_node_network = req => monitor.test_node_network(req);
+exports.set_debug_node = req => monitor.set_debug_node(req);
+exports.collect_agent_diagnostics = req =>
+    monitor.collect_agent_diagnostics(req.rpc_params.name);
+exports.report_node_block_error = req =>
+    monitor.report_node_block_error(req.rpc_params.block_md.address, req);

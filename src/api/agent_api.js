@@ -33,6 +33,9 @@ module.exports = {
                     rpc_address: {
                         type: 'string'
                     },
+                    n2n_config: {
+                        $ref: 'common_api#/definitions/n2n_config'
+                    },
                     geolocation: {
                         type: 'string'
                     },
@@ -74,7 +77,7 @@ module.exports = {
             }
         },
 
-        update_rpc_address: {
+        update_rpc_config: {
             method: 'POST',
             params: {
                 type: 'object',
@@ -82,28 +85,14 @@ module.exports = {
                 properties: {
                     rpc_address: {
                         type: 'string'
-                    }
-                }
-            }
-        },
-
-        update_base_address: {
-            method: 'POST',
-            params: {
-                type: 'object',
-                required: ['base_address'],
-                properties: {
+                    },
                     base_address: {
                         type: 'string'
+                    },
+                    n2n_config: {
+                        $ref: 'common_api#/definitions/n2n_config'
                     }
                 }
-            }
-        },
-
-        update_n2n_config: {
-            method: 'POST',
-            params: {
-                $ref: 'common_api#/definitions/n2n_config'
             }
         },
 
@@ -117,21 +106,30 @@ module.exports = {
             },
         },
 
-        test_disk_write: {
+        test_store_perf: {
             method: 'POST',
+            params: {
+                type: 'object',
+                properties: {
+                    count: {
+                        type: 'integer'
+                    }
+                }
+            },
             reply: {
-                $ref: 'node_api#/definitions/latency_array'
+                type: 'object',
+                properties: {
+                    write: {
+                        $ref: 'node_api#/definitions/latency_array'
+                    },
+                    read: {
+                        $ref: 'node_api#/definitions/latency_array'
+                    }
+                }
             }
         },
 
-        test_disk_read: {
-            method: 'POST',
-            reply: {
-                $ref: 'node_api#/definitions/latency_array'
-            }
-        },
-
-        test_network_io: {
+        test_network_perf: {
             method: 'POST',
             param_raw: 'data',
             params: {
@@ -163,7 +161,7 @@ module.exports = {
             },
         },
 
-        test_network_to_peer: {
+        test_network_perf_to_peer: {
             method: 'POST',
             params: {
                 $ref: '#/definitions/self_test_params'

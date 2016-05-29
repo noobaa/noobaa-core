@@ -445,7 +445,11 @@ module.exports = {
                 required: ['phone_home_proxy'],
                 properties: {
                     phone_home_proxy: {
-                        type: 'string'
+                        anyOf: [{
+                            type: 'null'
+                        }, {
+                            type: 'string'
+                        }]
                     }
                 }
             },

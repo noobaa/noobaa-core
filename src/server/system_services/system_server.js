@@ -814,7 +814,7 @@ function update_base_address(req) {
         });
 }
 
-
+// phone_home_proxy must be a full address like: http://(ip or hostname):(port)
 function update_phone_home_proxy_address(req) {
     dbg.log0('update_phone_home_proxy_address', req.rpc_params);
     if (!req.rpc_params.phone_home_proxy) {

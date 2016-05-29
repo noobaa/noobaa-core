@@ -28,6 +28,7 @@ const promise_utils = require('../../util/promise_utils');
 const bucket_server = require('./bucket_server');
 const account_server = require('./account_server');
 const config = require('../../../config');
+const system_utils = require('../utils/system_server_utils');
 const fs = require('fs');
 
 
@@ -241,6 +242,8 @@ function read_system(req) {
                 online: nodes_sys.online || 0,
             },
             owner: account_server.get_account_info(system_store.data.get_by_id(system._id).owner),
+            last_stats_report: system.last_stats_report && new Date(system.last_stats_report),
+            maintenance_mode: system_utils.system_in_maintenance(system._id) ? new Date(system.maintenance_mode) : undefined,
             ssl_port: process.env.SSL_PORT,
             web_port: process.env.PORT,
             web_links: get_system_web_links(system),
@@ -248,6 +251,7 @@ function read_system(req) {
             ip_address: ip_address,
             time_config: time_config,
             base_address: system.base_address || 'wss://' + ip_address + ':' + process.env.SSL_PORT,
+            phone_home_proxy: system.phone_home_proxy,
             version: pkg.version,
             debug_level: debug_level,
         };
@@ -277,6 +281,29 @@ function update_system(req) {
     }).return();
 }
 
+function set_maintenance_mode(req) {
+    var updates = {};
+    //let maintenance_mode = _.pick(req.rpc_params, 'maintenance_mode');
+    updates._id = req.system._id;
+    updates.maintenance_mode = new Date(req.rpc_params.maintenance_mode);/*{
+        till: new Date(maintenance_mode.till),
+    };*/
+    return system_store.make_changes({
+        update: {
+            systems: [updates]
+        }
+    }).return();
+}
+
+// function read_maintenance_config(req) {
+//     let system = system_store.data.systems_by_name[req.rpc_params.name];
+//     if (!system) {
+//         throw req.rpc_error('NOT FOUND', 'read_maintenance_config could not find the system: ' + req.rpc_params.name);
+//     } else {
+//         return system_utils.system_in_maintenance(system._id);
+//     }
+// }
+
 
 /**
  *
@@ -291,7 +318,13 @@ function delete_system(req) {
     }).return();
 }
 
-
+function log_frontend_stack_trace(req) {
+    return P.fcall(function() {
+            dbg.log0('Logging frontend stack trace:', JSON.stringify(req.rpc_params.stack_trace));
+            return;
+        })
+        .return();
+}
 
 /**
  *
@@ -416,7 +449,16 @@ function get_system_web_links(system) {
 }
 
 
-
+function set_last_stats_report_time(req) {
+    var updates = {};
+    updates._id = req.system._id;
+    updates.last_stats_report = new Date(req.rpc_params.last_stats_report);
+    return system_store.make_changes({
+        update: {
+            systems: [updates]
+        }
+    }).return();
+}
 
 function _read_activity_log_internal(req) {
     var q = ActivityLog.find({
@@ -769,6 +811,35 @@ function update_base_address(req) {
         });
 }
 
+
+function update_phone_home_proxy_address(req) {
+    dbg.log0('update_phone_home_proxy_address', req.rpc_params);
+    if (!req.rpc_params.phone_home_proxy) {
+        return system_store.make_changes({
+                update: {
+                    system: {
+                        _id: req.system._id,
+                        $unset: {
+                            phone_home_proxy: 1
+                        }
+                    }
+                }
+            });
+    } else {
+        return system_store.make_changes({
+                update: {
+                    system: {
+                        _id: req.system._id,
+                        $set: {
+                            phone_home_proxy: req.rpc_params.phone_home_proxy
+                        }
+                    }
+                }
+            });
+    }
+}
+
+
 function update_hostname(req) {
     // Helper function used to solve missing infromation on the client (SSL_PORT)
     // during create system process
@@ -870,10 +941,15 @@ exports.export_activity_log = export_activity_log;
 
 exports.diagnose = diagnose;
 exports.diagnose_with_agent = diagnose_with_agent;
+exports.log_frontend_stack_trace = log_frontend_stack_trace;
+exports.set_last_stats_report_time = set_last_stats_report_time;
 exports.set_debug_level = set_debug_level;
 
 exports.update_n2n_config = update_n2n_config;
 exports.update_base_address = update_base_address;
+exports.update_phone_home_proxy_address = update_phone_home_proxy_address;
 exports.update_hostname = update_hostname;
 exports.update_system_certificate = update_system_certificate;
 exports.update_time_config = update_time_config;
+exports.set_maintenance_mode = set_maintenance_mode;
+//exports.read_maintenance_config = read_maintenance_config

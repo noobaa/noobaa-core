@@ -47,8 +47,21 @@ module.exports = {
             additionalProperties: true,
             properties: {}
         },
+        last_stats_report: {
+            format: 'idate'
+        },
+        maintenance_mode: {
+            // type: 'object',
+            // additionalProperties: true,
+            // properties: {}
+            format: 'idate'
+        },
         // the DNS name or IP address used for the server
         base_address: {
+            type: 'string'
+        },
+
+        phone_home_proxy: {
             type: 'string'
         },
 

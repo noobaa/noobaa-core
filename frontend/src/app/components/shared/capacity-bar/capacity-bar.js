@@ -3,7 +3,7 @@ import ko from 'knockout';
 import { isDefined, formatSize } from 'utils';
 import style from 'style';
 
-const minUsedRatio = 1 / 50;
+const minUsedRatio = .03;
 
 class CapacityBarViewModel {
     constructor({ total, used }) {
@@ -29,7 +29,7 @@ class CapacityBarViewModel {
             () => {
                 let val = ko.unwrap(used);
                 return val > 0  ?
-                    Math.max(ko.unwrap(used), ko.unwrap(total) / * minUsedRatio) :
+                    Math.max(ko.unwrap(used), ko.unwrap(total) * minUsedRatio) :
                     0;
             }
         );

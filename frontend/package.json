@@ -25,12 +25,14 @@
     "gulp-uglify": "^1.4.1",
     "gulp-watch": "^4.3.5",
     "gulp-webserver": "^0.9.1",
+    "moment": "^2.13.0",
     "run-sequence": "^1.1.4",
     "stringify": "^3.1.0",
     "through2": "^0.6.5",
     "vinyl": "^1.1.0",
     "vinyl-buffer": "^1.0.0",
     "vinyl-source-stream": "^1.1.0",
+    "watchify": "^3.7.0",
     "yargs": "^3.27.0"
   },
   "scripts": {

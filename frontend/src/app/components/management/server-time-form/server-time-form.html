@@ -33,34 +33,38 @@
         </editor>
 
         <editor params="label: 'Date', insertValMessages: false">
-            <dropdown class="fixed-width text-center" params="
-                options: months,
-                placeholder: 'month',
-                selected: month
-            "></dropdown>
+            <div class="row editor-row">
+                <dropdown class="text-center push-next" params="
+                    options: months,
+                    placeholder: 'month',
+                    selected: month
+                "></dropdown>
 
-            <dropdown class="fixed-width text-center" params="
-                options: days,
-                placeholder: 'day',
-                selected: day
-            "></dropdown>
+                <dropdown class="text-center push-next" params="
+                    options: days,
+                    placeholder: 'day',
+                    selected: day
+                "></dropdown>
 
-            <dropdown class="fixed-width text-center" params="
-                options: years,
-                placeholder: 'year',
-                selected: year
-            "></dropdown>
+                <dropdown class="text-center" params="
+                    options: years,
+                    placeholder: 'year',
+                    selected: year
+                "></dropdown>
+            </div>
         </editor>
 
         <editor params="label: 'Time', insertValMessages: false">
-            <input type="number" class="fixed-width" min="0" max="23" placeholder="HH"
-                data-bind="textInput: hour"/>
+            <div class="row editor-row">
+                <input type="number" class="push-next" min="0" max="23" 
+                    placeholder="HH" data-bind="textInput: hour"/>
 
-            <input type="number" class="fixed-width" min="0" max="59"  placeholder="MM"
-                data-bind="textInput: minute"/>
+                <input type="number" class="push-next" min="0" max="59"  
+                    placeholder="MM" data-bind="textInput: minute"/>
 
-            <input type="number" class="fixed-width" min="0" max="59" placeholder="SS" 
-                data-bind="textInput: second"/>
+                <input type="number" min="0" max="59" 
+                    placeholder="SS" data-bind="textInput: second"/>
+            </div>
         </editor>
     </section>
     <!-- /ko -->

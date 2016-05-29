@@ -16,13 +16,18 @@ modal {
         transform: translate(-50%, -50%);
         background: @bg-color3;
         box-shadow: 0 0 20px black;
-        max-width: 90%;
+        max-width: 85%;
         padding: @gutter;
-        z-index: 999;
         line-height: normal;
 
         .heading2 {
             text-align: center;
         }
-    }    
+    }
+
+    @media screen and (min-width: 1280px) {
+        .modal-content {
+            max-width: .85 * 1280px;
+        }
+    }
 }

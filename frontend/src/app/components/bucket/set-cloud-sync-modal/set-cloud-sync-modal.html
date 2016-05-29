@@ -22,20 +22,22 @@
         <div class="val-msg" data-bind="validationMessage: targetBucket"></div>
     </editor>
 
-    <editor class="row push-next" params="
+    <editor class="push-next" params="
         label: 'Sync Bucket Every', 
         insertValMessages: false
-    ">
-        <input class="push-next" type="Number"  min="1" data-bind="
-            value: frequency, 
-            enable: targetBucket
-        "/>
+    "> 
+            <div class="row">
+                <input class="push-next" type="Number"  min="1" data-bind="
+                    value: frequency, 
+                    enable: targetBucket
+                "/>
 
-        <dropdown class="freq-unit" params="
-            selected: frequencyUnit, 
-            options: frequencyUnitOptions, 
-            disabled: !targetBucket()
-        "></dropdown>
+                <dropdown class="freq-unit" params="
+                    selected: frequencyUnit, 
+                    options: frequencyUnitOptions, 
+                    disabled: !targetBucket()
+                "></dropdown>
+            </div>
     </editor>
 
     <editor class="push-next" params="
@@ -49,7 +51,7 @@
         "></radio-group>
     </editor>
     
-    <checkbox params="
+    <checkbox class="push-next" params="
         label: 'Synchronize File Deletions', 
         checked: syncDeletions,
         disabled: !targetBucket() || direction() === 'BI'

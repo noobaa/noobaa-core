@@ -28,13 +28,15 @@ function new_cluster_info() {
         return;
     }
 
+    var address = os_utils.get_local_ipv4_ips()[0];
     var cluster = {
         owner_secret: system_store.get_server_secret(),
         cluster_id: uuid().substring(0, 8),
+        owner_address: address,
         shards: [{
             shardname: 'shard1',
             servers: [{
-                address: os_utils.get_local_ipv4_ips()[0] //TODO:: on multiple nics support, fix this
+                address: address //TODO:: on multiple nics support, fix this
             }],
         }],
         config_servers: [],

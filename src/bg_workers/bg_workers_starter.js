@@ -64,6 +64,7 @@ if ((config.central_stats.send_stats === 'true') &&
     (config.central_stats.central_listener)) {
     register_bg_worker({
         name: 'system_server_stats_aggregator',
+        delay: config.central_stats.send_time_cycle,
     }, stats_aggregator.background_worker);
 }
 

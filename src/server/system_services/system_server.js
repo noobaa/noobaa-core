@@ -820,7 +820,7 @@ function update_phone_home_proxy_address(req) {
     if (!req.rpc_params.phone_home_proxy) {
         return system_store.make_changes({
             update: {
-                system: {
+                systems: {
                     _id: req.system._id,
                     $unset: {
                         phone_home_proxy: 1
@@ -831,7 +831,7 @@ function update_phone_home_proxy_address(req) {
     } else {
         return system_store.make_changes({
             update: {
-                system: {
+                systems: {
                     _id: req.system._id,
                     $set: {
                         phone_home_proxy: req.rpc_params.phone_home_proxy

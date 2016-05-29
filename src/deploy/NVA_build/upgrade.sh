@@ -138,7 +138,8 @@ function do_upgrade {
   if [ ! -d  /var/lib/mongo/cluster/shard1 ]; then
       deploy_log "Moving mongo db files into new location"
       mkdir -p /var/lib/mongo/cluster/shard1
-      mv /data/db/* /var/lib/mongo/cluster/shard1/
+      chmod +x /var/lib/mongo/cluster/shard1
+      cp -r /data/db/* /var/lib/mongo/cluster/shard1/
   fi
 
   deploy_log "Running post upgrade"

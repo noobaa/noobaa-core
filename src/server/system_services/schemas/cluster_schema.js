@@ -17,6 +17,9 @@ module.exports = {
         cluster_id: {
             type: 'string'
         },
+        owner_address: {
+            type: 'string',
+        },
         shards: {
             type: 'array',
             items: {

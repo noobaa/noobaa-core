@@ -437,6 +437,7 @@ function upgrade_cluster() {
 
     // db.clusters.insert({
     //     owner_secret: param_secret,
+    //     owner_address: param_ip,
     //     cluster_id: params_cluster_id,
     //     shards: [{
     //         shardname: 'shard1',

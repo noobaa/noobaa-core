@@ -1,16 +1,34 @@
 'use strict';
 
-let _ = require('lodash');
-let P = require('../util/promise');
-// let fs = require('fs');
-// let dns = require('dns');
-let tls = require('tls');
-// let url = require('url');
-let dbg = require('../util/debug_module')(__filename);
-let url_utils = require('../util/url_utils');
-let native_core = require('../util/native_core');
-let EventEmitter = require('events').EventEmitter;
-let RpcN2NConnection = require('./rpc_n2n');
+const _ = require('lodash');
+const tls = require('tls');
+// const fs = require('fs');
+// const dns = require('dns');
+// const url = require('url');
+
+const P = require('../util/promise');
+const dbg = require('../util/debug_module')(__filename);
+const url_utils = require('../util/url_utils');
+const native_core = require('../util/native_core');
+const EventEmitter = require('events').EventEmitter;
+const RpcN2NConnection = require('./rpc_n2n');
+
+const N2N_CONFIG_PORT_PICK = ['min', 'max', 'port'];
+const N2N_CONFIG_FIELDS_PICK = [
+    'offer_ipv4',
+    'offer_ipv6',
+    'accept_ipv4',
+    'accept_ipv6',
+    'offer_internal',
+    'tcp_active',
+    'tcp_permanent_passive',
+    'tcp_transient_passive',
+    'tcp_simultaneous_open',
+    'tcp_tls',
+    'udp_port',
+    'udp_dtls',
+    'stun_servers',
+];
 
 let global_tcp_permanent_passive;
 
@@ -128,7 +146,7 @@ class RpcN2NAgent extends EventEmitter {
                 // then we need to check if the port range cofig changes, if not we ignore
                 // if it did then we have to start a new
                 let conf = this.n2n_config.tcp_permanent_passive;
-                let conf_val = _.pick(conf, 'min', 'max', 'port');
+                let conf_val = _.pick(conf, N2N_CONFIG_PORT_PICK);
                 dbg.log0('update_n2n_config: update tcp_permanent_passive old', conf_val, 'new', val);
                 if (!_.isEqual(conf_val, val)) {
                     if (conf.server) {
@@ -154,6 +172,14 @@ class RpcN2NAgent extends EventEmitter {
             dbg.warn('update_n2n_config: remaining listeners on reset_n2n event',
                 remaining_listeners, '(probably a connection that forgot to call close)');
         }
+    }
+
+    get_plain_n2n_config() {
+        const n2n_config =
+            _.pick(this.n2n_config, N2N_CONFIG_FIELDS_PICK);
+        n2n_config.tcp_permanent_passive =
+            _.pick(n2n_config.tcp_permanent_passive, N2N_CONFIG_PORT_PICK);
+        return n2n_config;
     }
 
     accept_signal(params) {

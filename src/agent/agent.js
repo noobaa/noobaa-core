@@ -331,7 +331,7 @@ class Agent {
             ip: ip,
             rpc_address: this.rpc_address || '',
             base_address: this.rpc.router.default,
-            n2n_config: this.n2n_agent.n2n_config,
+            n2n_config: this.n2n_agent.get_plain_n2n_config(),
             geolocation: this.geolocation,
             is_internal_agent: this.is_internal_agent,
             debug_level: dbg.get_module_level('core'),
@@ -412,14 +412,14 @@ class Agent {
             this.n2n_agent.update_n2n_config(n2n_config);
         }
 
-        if (rpc_address !== old_rpc_address) {
+        if (rpc_address && rpc_address !== old_rpc_address) {
             dbg.log0('new rpc_address', rpc_address,
                 'old', old_rpc_address);
             this.rpc_address = rpc_address;
             this._start_stop_server();
         }
 
-        if (base_address !== old_base_address) {
+        if (base_address && base_address !== old_base_address) {
             dbg.log0('new base_address', base_address,
                 'old', old_base_address);
             // test this new address first by pinging it

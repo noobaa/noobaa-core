@@ -27,9 +27,8 @@ const mongoose_utils = require('../../util/mongoose_utils');
 
 class NodesMonitor extends EventEmitter {
 
-    constructor(system_id) {
+    constructor() {
         super();
-        this.system_id = system_id;
         this.client = server_rpc.rpc.new_client();
     }
 
@@ -53,7 +52,6 @@ class NodesMonitor extends EventEmitter {
         if (!this._started) return;
         return mongoose_utils.mongoose_wait_connected()
             .then(() => nodes_store.find_nodes({
-                system: this.system_id,
                 deleted: null
             }))
             .then(nodes => {
@@ -106,7 +104,7 @@ class NodesMonitor extends EventEmitter {
         // new node heartbeat
         // create the node and then update the heartbeat
         if (!node_id && (req.role === 'create_node' || req.role === 'admin')) {
-            this._new_node(req.connection, extra.pool_id);
+            this._new_node(req.connection, req.system._id, extra.pool_id);
             return reply;
         }
 
@@ -121,13 +119,14 @@ class NodesMonitor extends EventEmitter {
         this._set_connection(item, conn);
     }
 
-    _new_node(conn, pool_id) {
+    _new_node(conn, system_id, pool_id) {
         dbg.log0('_new_node', 'new_node_id');
         const item = {
             connection: null,
             node: {
                 _id: nodes_store.make_node_id(),
                 peer_id: nodes_store.make_node_id(),
+                system: system_store.make_system_id(system_id),
                 pool: system_store.make_system_id(pool_id),
                 name: 'TODO-node-name', // TODO
             },
@@ -166,7 +165,7 @@ class NodesMonitor extends EventEmitter {
             P.resolve()
                 .then(() => this._run())
                 .finally(() => this._schedule_next_run());
-        }, 60000);
+        }, 10000);
     }
 
     _run() {
@@ -205,7 +204,7 @@ class NodesMonitor extends EventEmitter {
 
     _update_rpc_config(item) {
         if (!item.connection) return;
-        const system = system_store.get_by_id(this.system_id);
+        const system = system_store.data.get_by_id(item.node.system);
         const rpc_proto = process.env.AGENTS_PROTOCOL || 'n2n';
         const rpc_address = rpc_proto === 'n2n' ?
             'n2n://' + item.node.peer_id :
@@ -222,8 +221,8 @@ class NodesMonitor extends EventEmitter {
         // skip the update when no changes detected
         if (_.isEqual(rpc_config, old_config)) return;
         // clone to make sure we don't modify the system's n2n_config
-        const rpc_config_clone = _.deepClone(rpc_config);
-        return this.client.agent.update_rpc_address(rpc_config_clone, {
+        const rpc_config_clone = _.cloneDeep(rpc_config);
+        return this.client.agent.update_rpc_config(rpc_config_clone, {
             connection: item.connection
         });
     }
@@ -283,7 +282,6 @@ class NodesMonitor extends EventEmitter {
             updates.peer_id = nodes_store.make_node_id();
         }
         updates.heartbeat = new Date();
-        updates.system = this.system_id;
 
         let pool = {};
         if (req.rpc_params.cloud_pool_name) {

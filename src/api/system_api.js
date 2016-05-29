@@ -75,10 +75,11 @@ module.exports = {
             method: 'PUT',
             params: {
                 type: 'object',
-                required: ['maintenance_mode'],
+                required: ['duration'],
                 properties: {
-                    maintenance_mode: {
-                        $ref: '#/definitions/maintenance_mode',
+                    // Number of minutes
+                    duration: {
+                        type: 'number',
                     },
                 }
             },
@@ -580,7 +581,16 @@ module.exports = {
                     }
                 },
                 maintenance_mode: {
-                    $ref: '#/definitions/maintenance_mode'
+                    type: 'object',
+                    required: ['state'],
+                    properties: {
+                        state: {
+                            type: 'boolean',
+                        },
+                        till: {
+                            format: 'idate',
+                        },
+                    }
                 },
                 n2n_config: {
                     $ref: 'common_api#/definitions/n2n_config'
@@ -653,17 +663,6 @@ module.exports = {
         role_enum: {
             enum: ['admin', 'user', 'viewer'],
             type: 'string',
-        },
-
-        maintenance_mode: {
-            // type: 'object',
-            // required: ['till'],
-            // properties: {
-            //     till: {
-            //         format: 'idate'
-            //     },
-            // }
-            format: 'idate',
         },
 
         nodes_info: {

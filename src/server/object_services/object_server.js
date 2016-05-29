@@ -34,47 +34,46 @@ const system_utils = require('../utils/system_server_utils');
  */
 function create_object_upload(req) {
     dbg.log0('create_object_upload:', req.rpc_params);
-    if (req.system && !system_utils.system_in_maintenance(req.system._id)) {
-        load_bucket(req);
-        var info = {
-            _id: md_store.make_md_id(),
+    if (req.system && system_utils.system_in_maintenance(req.system._id)) {
+        throw req.rpc_error('SYSTEM_IN_MAINTENANCE', 'Cannot upload object when system in maintenance mode');
+    }
+    load_bucket(req);
+    var info = {
+        _id: md_store.make_md_id(),
+        system: req.system._id,
+        bucket: req.bucket._id,
+        key: req.rpc_params.key,
+        content_type: req.rpc_params.content_type ||
+            mime.lookup(req.rpc_params.key) ||
+            'application/octet-stream',
+        create_time: new Date(),
+        upload_size: 0,
+        cloud_synced: false,
+    };
+    if (req.rpc_params.size) {
+        info.size = req.rpc_params.size;
+    }
+    if (req.rpc_params.xattr) {
+        info.xattr = req.rpc_params.xattr;
+    }
+    return P.when(md_store.ObjectMD.findOne({
             system: req.system._id,
             bucket: req.bucket._id,
             key: req.rpc_params.key,
-            content_type: req.rpc_params.content_type ||
-                mime.lookup(req.rpc_params.key) ||
-                'application/octet-stream',
-            create_time: new Date(),
-            upload_size: 0,
-            cloud_synced: false,
-        };
-        if (req.rpc_params.size) {
-            info.size = req.rpc_params.size;
-        }
-        if (req.rpc_params.xattr) {
-            info.xattr = req.rpc_params.xattr;
-        }
-        return P.when(md_store.ObjectMD.findOne({
-                system: req.system._id,
-                bucket: req.bucket._id,
-                key: req.rpc_params.key,
-                deleted: null
-            }))
-            .then(existing_obj => {
-                // check if the conditions for overwrite are met, throws if not
-                check_md_conditions(req, req.rpc_params.overwrite_if, existing_obj);
-                // we passed the checks, so we can delete the existing object if exists
-                if (existing_obj) {
-                    return delete_object_internal(existing_obj);
-                }
-            })
-            .then(() => md_store.ObjectMD.create(info))
-            .return({
-                upload_id: String(info._id)
-            });
-    } else {
-        throw req.rpc_error('SYSTEM_IN_MAINTENANCE', 'Cannot upload object when system in maintenance mode');
-    }
+            deleted: null
+        }))
+        .then(existing_obj => {
+            // check if the conditions for overwrite are met, throws if not
+            check_md_conditions(req, req.rpc_params.overwrite_if, existing_obj);
+            // we passed the checks, so we can delete the existing object if exists
+            if (existing_obj) {
+                return delete_object_internal(existing_obj);
+            }
+        })
+        .then(() => md_store.ObjectMD.create(info))
+        .return({
+            upload_id: String(info._id)
+        });
 }
 
 
@@ -104,17 +103,16 @@ function list_multipart_parts(req) {
  */
 function complete_part_upload(req) {
     dbg.log1('complete_part_upload - etag', req.rpc_params.etag, 'req:', req);
-    if (req.system && !system_utils.system_in_maintenance(req.system._id)) {
-        return find_object_upload(req)
-            .then(obj => {
-                var params = _.pick(req.rpc_params,
-                    'upload_part_number', 'etag');
-                params.obj = obj;
-                return map_writer.set_multipart_part_md5(params);
-            });
-    } else {
-        throw req.rpc_error('SYSTEM_IN_MAINTENANCE', 'Cannot upload object parts when system in maintenance mode');
+    if (req.system && system_utils.system_in_maintenance(req.system._id)) {
+        throw req.rpc_error('SYSTEM_IN_MAINTENANCE', 'Cannot upload object when system in maintenance mode');
     }
+    return find_object_upload(req)
+        .then(obj => {
+            var params = _.pick(req.rpc_params,
+                'upload_part_number', 'etag');
+            params.obj = obj;
+            return map_writer.set_multipart_part_md5(params);
+        });
 }
 
 /**
@@ -125,66 +123,65 @@ function complete_part_upload(req) {
 function complete_object_upload(req) {
     var obj;
     var obj_etag = req.rpc_params.etag || '';
-    if (req.system && !system_utils.system_in_maintenance(req.system._id)) {
-        return find_object_upload(req)
-            .then(obj_arg => {
-                obj = obj_arg;
-                if (req.rpc_params.fix_parts_size) {
-                    return map_writer.calc_multipart_md5(obj)
-                        .then(aggregated_md5 => {
-                            obj_etag = aggregated_md5;
-                            dbg.log0('aggregated_md5', obj_etag);
-                            return map_writer.fix_multipart_parts(obj);
-                        });
-                } else {
-                    dbg.log0('complete_object_upload no fix for', obj);
-                    return obj.size;
-                }
-            })
-            .then(object_size => {
-                ActivityLog.create({
-                    system: req.system,
-                    level: 'info',
-                    event: 'obj.uploaded',
-                    obj: obj,
-                    actor: req.account && req.account._id,
-                    desc: `${obj.key} was uploaded by ${req.account && req.account.email}`,
-                });
-
-                return md_store.ObjectMD.collection.updateOne({
-                    _id: obj._id
-                }, {
-                    $set: {
-                        size: object_size || obj.size,
-                        etag: obj_etag
-                    },
-                    $unset: {
-                        upload_size: 1
-                    }
-                });
-            })
-            .then(() => {
-                system_store.make_changes_in_background({
-                    update: {
-                        buckets: [{
-                            _id: obj.bucket,
-                            $inc: {
-                                'stats.writes': 1
-                            }
-                        }]
-                    }
-                });
-                return {
-                    etag: obj_etag
-                };
-            })
-            .catch(err => {
-                dbg.error('complete_object_upload: ERROR', err.stack || err);
-                throw err;
-            });
-    } else {
-        throw req.rpc_error('SYSTEM_IN_MAINTENANCE', 'Cannot upload object parts when system in maintenance mode');
+    if (req.system && system_utils.system_in_maintenance(req.system._id)) {
+        throw req.rpc_error('SYSTEM_IN_MAINTENANCE', 'Cannot upload object when system in maintenance mode');
     }
+    return find_object_upload(req)
+        .then(obj_arg => {
+            obj = obj_arg;
+            if (req.rpc_params.fix_parts_size) {
+                return map_writer.calc_multipart_md5(obj)
+                    .then(aggregated_md5 => {
+                        obj_etag = aggregated_md5;
+                        dbg.log0('aggregated_md5', obj_etag);
+                        return map_writer.fix_multipart_parts(obj);
+                    });
+            } else {
+                dbg.log0('complete_object_upload no fix for', obj);
+                return obj.size;
+            }
+        })
+        .then(object_size => {
+            ActivityLog.create({
+                system: req.system,
+                level: 'info',
+                event: 'obj.uploaded',
+                obj: obj,
+                actor: req.account && req.account._id,
+                desc: `${obj.key} was uploaded by ${req.account && req.account.email}`,
+            });
+
+            return md_store.ObjectMD.collection.updateOne({
+                _id: obj._id
+            }, {
+                $set: {
+                    size: object_size || obj.size,
+                    etag: obj_etag
+                },
+                $unset: {
+                    upload_size: 1
+                }
+            });
+        })
+        .then(() => {
+            system_store.make_changes_in_background({
+                update: {
+                    buckets: [{
+                        _id: obj.bucket,
+                        $inc: {
+                            'stats.writes': 1
+                        }
+                    }]
+                }
+            });
+            return {
+                etag: obj_etag
+            };
+        })
+        .catch(err => {
+            dbg.error('complete_object_upload: ERROR', err.stack || err);
+            throw err;
+        });
 }
 
 
@@ -210,18 +207,17 @@ function abort_object_upload(req) {
  *
  */
 function allocate_object_parts(req) {
-    if (req.system && !system_utils.system_in_maintenance(req.system._id)) {
-        return find_cached_object_upload(req)
-            .then(obj => {
-                let allocator = new map_allocator.MapAllocator(
-                    req.bucket,
-                    obj,
-                    req.rpc_params.parts);
-                return allocator.run();
-            });
-    } else {
-        throw req.rpc_error('SYSTEM_IN_MAINTENANCE', 'Cannot allocate object parts when system in maintenance mode');
+    if (req.system && system_utils.system_in_maintenance(req.system._id)) {
+        throw req.rpc_error('SYSTEM_IN_MAINTENANCE', 'Cannot upload object when system in maintenance mode');
     }
+    return find_cached_object_upload(req)
+        .then(obj => {
+            let allocator = new map_allocator.MapAllocator(
+                req.bucket,
+                obj,
+                req.rpc_params.parts);
+            return allocator.run();
+        });
 }
 
 
@@ -231,17 +227,16 @@ function allocate_object_parts(req) {
  *
  */
 function finalize_object_parts(req) {
-    if (req.system && !system_utils.system_in_maintenance(req.system._id)) {
-        return find_cached_object_upload(req)
-            .then(obj => {
-                return map_writer.finalize_object_parts(
-                    req.bucket,
-                    obj,
-                    req.rpc_params.parts);
-            });
-    } else {
-        throw req.rpc_error('SYSTEM_IN_MAINTENANCE', 'Cannot upload object parts when system in maintenance mode');
+    if (req.system && system_utils.system_in_maintenance(req.system._id)) {
+        throw req.rpc_error('SYSTEM_IN_MAINTENANCE', 'Cannot upload object when system in maintenance mode');
     }
+    return find_cached_object_upload(req)
+        .then(obj => {
+            return map_writer.finalize_object_parts(
+                req.bucket,
+                obj,
+                req.rpc_params.parts);
+        });
 }
 
 
@@ -252,95 +247,94 @@ function finalize_object_parts(req) {
  */
 function copy_object(req) {
     dbg.log0('copy_object', req.rpc_params);
-    if (req.system && !system_utils.system_in_maintenance(req.system._id)) {
-        load_bucket(req);
-        var source_bucket = req.system.buckets_by_name[req.rpc_params.source_bucket];
-        if (!source_bucket) {
-            throw req.rpc_error('NO_SUCH_BUCKET', 'No such bucket: ' + req.rpc_params.source_bucket);
-        }
-        var create_info;
-        var existing_obj;
-        var source_obj;
-        return P.join(
-                md_store.ObjectMD.findOne({
-                    system: req.system._id,
-                    bucket: req.bucket._id,
-                    key: req.rpc_params.key,
-                    deleted: null
-                }),
-                md_store.ObjectMD.findOne({
-                    system: req.system._id,
-                    bucket: source_bucket._id,
-                    key: req.rpc_params.source_key,
-                    deleted: null
-                }))
-            .spread((existing_obj_arg, source_obj_arg) => {
-                existing_obj = existing_obj_arg;
-                source_obj = source_obj_arg;
-                if (!source_obj) {
-                    throw req.rpc_error('NO_SUCH_OBJECT',
-                        'No such object: ' + req.rpc_params.source_bucket +
-                        ' ' + req.rpc_params.source_key);
-                }
-                create_info = {
-                    _id: md_store.make_md_id(),
-                    system: req.system._id,
-                    bucket: req.bucket._id,
-                    key: req.rpc_params.key,
-                    size: source_obj.size,
-                    etag: source_obj.etag,
-                    create_time: new Date(),
-                    content_type: req.rpc_params.content_type ||
-                        source_obj.content_type ||
-                        mime.lookup(req.rpc_params.key) ||
-                        'application/octet-stream',
-                    upload_size: 0,
-                    cloud_synced: false,
-                };
-                if (req.rpc_params.xattr_copy) {
-                    create_info.xattr = source_obj.xattr;
-                } else if (req.rpc_params.xattr) {
-                    create_info.xattr = req.rpc_params.xattr;
-                }
-                // check if the conditions for overwrite are met, throws if not
-                check_md_conditions(req, req.rpc_params.overwrite_if, existing_obj);
-                check_md_conditions(req, req.rpc_params.source_if, source_obj);
-                // we passed the checks, so we can delete the existing object if exists
-                if (existing_obj) {
-                    return delete_object_internal(existing_obj);
-                }
-            })
-            .then(() => md_store.ObjectMD.create(create_info))
-            .then(() => {
-                let copy = new map_copy.MapCopy(source_obj, create_info);
-                return copy.run();
-            })
-            .then(() => {
-                ActivityLog.create({
-                    system: req.system,
-                    level: 'info',
-                    event: 'obj.uploaded',
-                    obj: create_info._id,
-                    actor: req.account && req.account._id,
-                    desc: `${create_info.key} was copied by ${req.account && req.account.email}`,
-                });
-                // mark the new object not in upload mode
-                return md_store.ObjectMD.collection.updateOne({
-                    _id: create_info._id
-                }, {
-                    $unset: {
-                        upload_size: 1
-                    }
-                });
-            })
-            .then(() => {
-                return {
-                    source_md: get_object_info(source_obj)
-                };
-            });
-    } else {
-        throw req.rpc_error('SYSTEM_IN_MAINTENANCE', 'Cannot upload object parts when system in maintenance mode');
+    if (req.system && system_utils.system_in_maintenance(req.system._id)) {
+        throw req.rpc_error('SYSTEM_IN_MAINTENANCE', 'Cannot upload object when system in maintenance mode');
     }
+    load_bucket(req);
+    var source_bucket = req.system.buckets_by_name[req.rpc_params.source_bucket];
+    if (!source_bucket) {
+        throw req.rpc_error('NO_SUCH_BUCKET', 'No such bucket: ' + req.rpc_params.source_bucket);
+    }
+    var create_info;
+    var existing_obj;
+    var source_obj;
+    return P.join(
+            md_store.ObjectMD.findOne({
+                system: req.system._id,
+                bucket: req.bucket._id,
+                key: req.rpc_params.key,
+                deleted: null
+            }),
+            md_store.ObjectMD.findOne({
+                system: req.system._id,
+                bucket: source_bucket._id,
+                key: req.rpc_params.source_key,
+                deleted: null
+            }))
+        .spread((existing_obj_arg, source_obj_arg) => {
+            existing_obj = existing_obj_arg;
+            source_obj = source_obj_arg;
+            if (!source_obj) {
+                throw req.rpc_error('NO_SUCH_OBJECT',
+                    'No such object: ' + req.rpc_params.source_bucket +
+                    ' ' + req.rpc_params.source_key);
+            }
+            create_info = {
+                _id: md_store.make_md_id(),
+                system: req.system._id,
+                bucket: req.bucket._id,
+                key: req.rpc_params.key,
+                size: source_obj.size,
+                etag: source_obj.etag,
+                create_time: new Date(),
+                content_type: req.rpc_params.content_type ||
+                    source_obj.content_type ||
+                    mime.lookup(req.rpc_params.key) ||
+                    'application/octet-stream',
+                upload_size: 0,
+                cloud_synced: false,
+            };
+            if (req.rpc_params.xattr_copy) {
+                create_info.xattr = source_obj.xattr;
+            } else if (req.rpc_params.xattr) {
+                create_info.xattr = req.rpc_params.xattr;
+            }
+            // check if the conditions for overwrite are met, throws if not
+            check_md_conditions(req, req.rpc_params.overwrite_if, existing_obj);
+            check_md_conditions(req, req.rpc_params.source_if, source_obj);
+            // we passed the checks, so we can delete the existing object if exists
+            if (existing_obj) {
+                return delete_object_internal(existing_obj);
+            }
+        })
+        .then(() => md_store.ObjectMD.create(create_info))
+        .then(() => {
+            let copy = new map_copy.MapCopy(source_obj, create_info);
+            return copy.run();
+        })
+        .then(() => {
+            ActivityLog.create({
+                system: req.system,
+                level: 'info',
+                event: 'obj.uploaded',
+                obj: create_info._id,
+                actor: req.account && req.account._id,
+                desc: `${create_info.key} was copied by ${req.account && req.account.email}`,
+            });
+            // mark the new object not in upload mode
+            return md_store.ObjectMD.collection.updateOne({
+                _id: create_info._id
+            }, {
+                $unset: {
+                    upload_size: 1
+                }
+            });
+        })
+        .then(() => {
+            return {
+                source_md: get_object_info(source_obj)
+            };
+        });
 }
 
 /**
@@ -480,17 +474,16 @@ function read_object_md(req) {
  */
 function update_object_md(req) {
     dbg.log0('update object md', req.rpc_params);
-    if (req.system && !system_utils.system_in_maintenance(req.system._id)) {
-        return find_object_md(req)
-            .then((obj) => {
-                var updates = _.pick(req.rpc_params, 'content_type', 'xattr');
-                return obj.update(updates).exec();
-            })
-            .then(obj => mongo_utils.check_entity_not_deleted(req, 'object', obj))
-            .thenResolve();
-    } else {
-        throw req.rpc_error('SYSTEM_IN_MAINTENANCE', 'Cannot update object when system in maintenance mode');
+    if (req.system && system_utils.system_in_maintenance(req.system._id)) {
+        throw req.rpc_error('SYSTEM_IN_MAINTENANCE', 'Cannot upload object when system in maintenance mode');
     }
+    return find_object_md(req)
+        .then((obj) => {
+            var updates = _.pick(req.rpc_params, 'content_type', 'xattr');
+            return obj.update(updates).exec();
+        })
+        .then(obj => mongo_utils.check_entity_not_deleted(req, 'object', obj))
+        .thenResolve();
 }
 
 
@@ -501,32 +494,31 @@ function update_object_md(req) {
  *
  */
 function delete_object(req) {
-    if (req.system && !system_utils.system_in_maintenance(req.system._id)) {
-        load_bucket(req);
-        let obj_to_delete;
-        return P.fcall(() => {
-                var query = _.omit(object_md_query(req), 'deleted');
-                return md_store.ObjectMD.findOne(query).exec();
-            })
-            .then(obj => mongo_utils.check_entity_not_found(req, 'object', obj))
-            .then(obj => {
-                obj_to_delete = obj;
-                delete_object_internal(obj);
-            })
-            .then(() => {
-                ActivityLog.create({
-                    system: req.system,
-                    level: 'info',
-                    event: 'obj.deleted',
-                    obj: obj_to_delete,
-                    actor: req.account && req.account._id,
-                    desc: `${obj_to_delete.key} was deleted by ${req.account && req.account.email}`,
-                });
-            })
-            .return();
-    } else {
-        throw req.rpc_error('SYSTEM_IN_MAINTENANCE', 'Cannot delete object when system in maintenance mode');
+    if (req.system && system_utils.system_in_maintenance(req.system._id)) {
+        throw req.rpc_error('SYSTEM_IN_MAINTENANCE', 'Cannot upload object when system in maintenance mode');
     }
+    load_bucket(req);
+    let obj_to_delete;
+    return P.fcall(() => {
+            var query = _.omit(object_md_query(req), 'deleted');
+            return md_store.ObjectMD.findOne(query).exec();
+        })
+        .then(obj => mongo_utils.check_entity_not_found(req, 'object', obj))
+        .then(obj => {
+            obj_to_delete = obj;
+            delete_object_internal(obj);
+        })
+        .then(() => {
+            ActivityLog.create({
+                system: req.system,
+                level: 'info',
+                event: 'obj.deleted',
+                obj: obj_to_delete,
+                actor: req.account && req.account._id,
+                desc: `${obj_to_delete.key} was deleted by ${req.account && req.account.email}`,
+            });
+        })
+        .return();
 }
 
 
@@ -538,25 +530,24 @@ function delete_object(req) {
  */
 function delete_multiple_objects(req) {
     dbg.log2('delete_multiple_objects: keys =', req.params.keys);
-    if (req.system && !system_utils.system_in_maintenance(req.system._id)) {
-        load_bucket(req);
-        // TODO: change it to perform changes in one transaction
-        return P.all(_.map(req.params.keys, function(key) {
-                return P.fcall(() => {
-                        var query = {
-                            system: req.system._id,
-                            bucket: req.bucket._id,
-                            key: key
-                        };
-                        return md_store.ObjectMD.findOne(query).exec();
-                    })
-                    .then(obj => mongo_utils.check_entity_not_found(req, 'object', obj))
-                    .then(obj => delete_object_internal(obj));
-            }))
-            .return();
-    } else {
-        throw req.rpc_error('SYSTEM_IN_MAINTENANCE', 'Cannot delete multiple objects when system in maintenance mode');
+    if (req.system && system_utils.system_in_maintenance(req.system._id)) {
+        throw req.rpc_error('SYSTEM_IN_MAINTENANCE', 'Cannot upload object when system in maintenance mode');
     }
+    load_bucket(req);
+    // TODO: change it to perform changes in one transaction
+    return P.all(_.map(req.params.keys, function(key) {
+            return P.fcall(() => {
+                    var query = {
+                        system: req.system._id,
+                        bucket: req.bucket._id,
+                        key: key
+                    };
+                    return md_store.ObjectMD.findOne(query).exec();
+                })
+                .then(obj => mongo_utils.check_entity_not_found(req, 'object', obj))
+                .then(obj => delete_object_internal(obj));
+        }))
+        .return();
 }
 
 
@@ -573,11 +564,11 @@ function one_level_delimiter(delimiter) {
 
 function add_s3_usage_report(req) {
     return P.fcall(() => {
-            return ObjectStats.create({
-                system: req.system,
-                s3_usage_info: req.rpc_params.s3_usage_info,
-            });
-        }).return();
+        return ObjectStats.create({
+            system: req.system,
+            s3_usage_info: req.rpc_params.s3_usage_info,
+        });
+    }).return();
 }
 
 function remove_s3_usage_reports(req) {
@@ -598,7 +589,9 @@ function remove_s3_usage_reports(req) {
 }
 
 function read_s3_usage_report(req) {
-    var q = ObjectStats.find({deleted: null}).lean();
+    var q = ObjectStats.find({
+        deleted: null
+    }).lean();
     if (req.rpc_params.from_time) {
         // query backwards from given time
         req.rpc_params.from_time = new Date(req.rpc_params.from_time);

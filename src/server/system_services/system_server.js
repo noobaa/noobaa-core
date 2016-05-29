@@ -286,7 +286,6 @@ function update_system(req) {
 
 function set_maintenance_mode(req) {
     var updates = {};
-    console.warn('JEN maintenance_mode', req.rpc_params);
     //let maintenance_mode = _.pick(req.rpc_params, 'maintenance_mode');
     updates._id = req.system._id;
     updates.maintenance_mode = moment().add(req.rpc_params.duration, 'm').toISOString();

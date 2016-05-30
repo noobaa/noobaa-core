@@ -819,28 +819,28 @@ function update_base_address(req) {
 // phone_home_proxy must be a full address like: http://(ip or hostname):(port)
 function update_phone_home_proxy_address(req) {
     dbg.log0('update_phone_home_proxy_address', req.rpc_params);
-    if (!req.rpc_params.phone_home_proxy) {
+    if (req.rpc_params.phone_home_proxy === null) {
         return system_store.make_changes({
-            update: {
-                systems: {
-                    _id: req.system._id,
-                    $unset: {
-                        phone_home_proxy: 1
-                    }
+                update: {
+                    systems: [{
+                        _id: req.system._id,
+                        $unset: {
+                            phone_home_proxy: 1
+                        }
+                    }]
                 }
-            }
-        });
+            })
+            .return();
     } else {
         return system_store.make_changes({
-            update: {
-                systems: {
-                    _id: req.system._id,
-                    $set: {
+                update: {
+                    systems: [{
+                        _id: req.system._id,
                         phone_home_proxy: req.rpc_params.phone_home_proxy
-                    }
+                    }]
                 }
-            }
-        });
+            })
+            .return();
     }
 }
 

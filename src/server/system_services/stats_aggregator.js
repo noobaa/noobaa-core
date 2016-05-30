@@ -451,7 +451,7 @@ function send_stats_payload(payload) {
                 options.hostname = proxy_listener.hostname;
                 options.port = Number(proxy_listener.port);
                 options.path = central_listener.href;
-                options.headers.host = central_listener.hostname;
+                options.headers.host = central_listener.host;
             }
 
             var req = http.request(options, function(response) {

@@ -311,28 +311,6 @@ module.exports = {
 
     definitions: {
 
-        node_config: {
-            type: 'object',
-            required: ['name'],
-            properties: {
-                name: {
-                    type: 'string',
-                },
-                is_server: {
-                    type: 'boolean',
-                },
-                geolocation: {
-                    type: 'string',
-                },
-                srvmode: {
-                    $ref: '#/definitions/srvmode'
-                },
-                cloud_pool_name: {
-                    type: 'string'
-                }
-            }
-        },
-
         srvmode: {
             type: 'string',
             enum: ['connect', 'disabled', 'decommissioning', 'decommissioned']

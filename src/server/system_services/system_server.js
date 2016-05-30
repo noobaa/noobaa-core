@@ -24,6 +24,7 @@ const size_utils = require('../../util/size_utils');
 const server_rpc = require('../server_rpc');
 const pool_server = require('./pool_server');
 const tier_server = require('./tier_server');
+const auth_server = require('../common_services/auth_server');
 const ActivityLog = require('../analytic_services/activity_log');
 const nodes_store = require('../node_services/nodes_store');
 const system_store = require('../system_services/system_store').get_instance();
@@ -150,7 +151,7 @@ function create_system(req) {
             var system = system_store.data.systems_by_name[name];
             return {
                 // a token for the new system
-                token: req.make_auth_token({
+                token: auth_server.make_auth_token({
                     account_id: req.account._id,
                     system_id: system._id,
                     role: 'admin',

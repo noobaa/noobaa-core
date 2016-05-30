@@ -15,6 +15,7 @@ const RpcError = require('../../rpc/rpc_error');
 const md_store = require('../object_services/md_store');
 const MapBuilder = require('../object_services/map_builder').MapBuilder;
 const server_rpc = require('../server_rpc');
+const auth_server = require('../common_services/auth_server');
 const nodes_store = require('./nodes_store');
 const mongo_utils = require('../../util/mongo_utils');
 const ActivityLog = require('../analytic_services/activity_log');
@@ -23,6 +24,20 @@ const system_server = require('../system_services/system_server');
 const promise_utils = require('../../util/promise_utils');
 const node_allocator = require('./node_allocator');
 const mongoose_utils = require('../../util/mongoose_utils');
+
+const AGENT_INFO_FIELDS_PICK = [
+    'name',
+    'version',
+    'ip',
+    'base_address',
+    'rpc_address',
+    'geolocation',
+    'storage',
+    'drives',
+    'os_info',
+    'debug_level',
+    'is_internal_agent'
+];
 
 
 class NodesMonitor extends EventEmitter {
@@ -50,9 +65,12 @@ class NodesMonitor extends EventEmitter {
 
     _load_from_store() {
         if (!this._started) return;
+        dbg.log0('_load_from_store ...');
         return mongoose_utils.mongoose_wait_connected()
             .then(() => nodes_store.find_nodes({
                 deleted: null
+            }, {
+                dont_resolve_object_ids: true
             }))
             .then(nodes => {
                 this._clear();
@@ -67,6 +85,7 @@ class NodesMonitor extends EventEmitter {
                 this._schedule_next_run();
             })
             .catch(err => {
+                dbg.log0('_load_from_store ERROR', err);
                 return P.delay(1000).then(() => this._load_from_store());
             });
     }
@@ -121,13 +140,21 @@ class NodesMonitor extends EventEmitter {
 
     _new_node(conn, system_id, pool_id) {
         dbg.log0('_new_node', 'new_node_id');
+        const system = system_store.data.get_by_id(system_id);
+        const pool =
+            system_store.data.get_by_id(pool_id) ||
+            system.pools_by_name.default_pool;
+        if (pool.system !== system) {
+            throw new Error('Node pool must belong to system');
+        }
         const item = {
             connection: null,
             node: {
                 _id: nodes_store.make_node_id(),
                 peer_id: nodes_store.make_node_id(),
-                system: system_store.make_system_id(system_id),
-                pool: system_store.make_system_id(pool_id),
+                system: system._id,
+                pool: pool._id,
+                heartbeat: new Date(),
                 name: 'TODO-node-name', // TODO
             },
         };
@@ -189,7 +216,7 @@ class NodesMonitor extends EventEmitter {
             // .then(() => this._test_store_perf(item))
             // .then(() => this._test_network_perf(item))
             // .then(() => this._update_status(item))
-            // .then(() => this._update_node_store(item));
+            .then(() => this._update_node_store(item));
     }
 
     _get_agent_info(item) {
@@ -219,6 +246,9 @@ class NodesMonitor extends EventEmitter {
             'base_address',
             'n2n_config');
         // skip the update when no changes detected
+        // TODO GUYM this check always fails because of system.base_address is undefined for dev,
+        // and n2n_config in agent has all fields while in system it is partial.
+        dbg.log0('rpc_config', rpc_config, 'old_config', old_config);
         if (_.isEqual(rpc_config, old_config)) return;
         // clone to make sure we don't modify the system's n2n_config
         const rpc_config_clone = _.cloneDeep(rpc_config);
@@ -266,50 +296,31 @@ class NodesMonitor extends EventEmitter {
     }
 
     _update_node_store(item) {
-        const updates = _.pick(item.agent_info,
-            'name',
-            'version',
-            'ip',
-            'base_address',
-            'rpc_address',
-            'geolocation',
-            'storage',
-            'drives',
-            'os_info',
-            'debug_level',
-            'is_internal_agent');
-        if (!item.node.peer_id) {
-            updates.peer_id = nodes_store.make_node_id();
-        }
+        const updates = _.pick(item.agent_info, AGENT_INFO_FIELDS_PICK);
         updates.heartbeat = new Date();
 
-        let pool = {};
-        if (req.rpc_params.cloud_pool_name) {
-            pool = req.system.pools_by_name[req.rpc_params.cloud_pool_name];
-            dbg.log0('creating node in cloud pool', req.rpc_params.cloud_pool_name, pool);
-        } else {
-            pool = req.system.pools_by_name.default_pool;
-        }
-        if (!pool) {
-            throw new RpcError('NO_DEFAULT_POOL', 'No default pool');
-        }
-        updates.pool = pool._id;
-
-        const auth_token = req.make_auth_token({
-            system_id: req.system._id,
+        item.auth_token = item.auth_token || auth_server.make_auth_token({
+            system_id: String(item.node.system),
             role: 'agent',
             extra: {
-                node_id: this.node._id
+                node_id: item.node._id
             }
         });
 
-        dbg.log0('UPDATE NODE', this.node, 'UPDATES', updates);
-        _.extend(this.node, updates);
-        return nodes_store.update_node_by_id(this.node._id, {
-                $set: updates
+        dbg.log0('UPDATE NODE', item.node, 'UPDATES', updates);
+        _.extend(item.node, updates);
+        item.node.drives = item.node.drives || [];
+        item.node.latency_to_server = item.node.latency_to_server || [];
+        item.node.latency_of_disk_read = item.node.latency_of_disk_read || [];
+        item.node.latency_of_disk_write = item.node.latency_of_disk_write || [];
+
+        return nodes_store.update_node_by_id(item.node._id, {
+                $set: item.node
+            }, {
+                upsert: true
             })
             .then(() => this.client.agent.update_auth_token({
-                auth_token: this.auth_token
+                auth_token: item.auth_token
             }, {
                 connection: item.connection
             }));

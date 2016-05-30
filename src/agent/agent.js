@@ -235,7 +235,7 @@ class Agent {
             })
             .catch(err => {
                 dbg.error('heartbeat failed', err);
-                return P.delay(1000).then(() => this._do_heartbeat());
+                return P.delay(3000).then(() => this._do_heartbeat());
             });
     }
 

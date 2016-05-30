@@ -121,7 +121,7 @@ function create_auth(req) {
             }
         }
 
-        var token = req.make_auth_token({
+        var token = make_auth_token({
             account_id: target_account._id,
             system_id: system && system._id,
             role: role_name,
@@ -208,7 +208,7 @@ function create_access_key_auth(req) {
         };
     }
 
-    var token = req.make_auth_token({
+    var token = make_auth_token({
         system_id: system && system._id,
         account_id: account._id,
         role: 'admin',
@@ -462,38 +462,38 @@ function _prepare_auth_request(req) {
         }
     };
 
-    /**
-     *
-     * req.make_auth_token()
-     *
-     * make jwt token (json web token) used for authorization.
-     *
-     * @param <Object> options:
-     *      - account_id
-     *      - system_id
-     *      - role
-     *      - extra
-     *      - expiry
-     * @return <String> token
-     */
-    req.make_auth_token = function(options) {
-        var auth = _.pick(options, 'account_id', 'system_id', 'role', 'extra');
-
-        // don't incude keys if value is falsy, to minimize the token size
-        auth = _.omitBy(auth, function(value) {
-            return !value;
-        });
-
-        // set expiry if provided
-        var jwt_options = {};
-        if (options.expiry) {
-            jwt_options.expiresInMinutes = options.expiry / 60;
-        }
-        // create and return the signed token
-        return jwt.sign(auth, process.env.JWT_SECRET, jwt_options);
-    };
-
 }
+
+
+/**
+ *
+ * make_auth_token
+ *
+ * make jwt token (json web token) used for authorization.
+ *
+ * @param <Object> options:
+ *      - account_id
+ *      - system_id
+ *      - role
+ *      - extra
+ *      - expiry
+ * @return <String> token
+ */
+function make_auth_token(options) {
+    var auth = _.pick(options, 'account_id', 'system_id', 'role', 'extra');
+
+    // don't incude keys if value is falsy, to minimize the token size
+    auth = _.omitBy(auth, value => !value);
+
+    // set expiry if provided
+    var jwt_options = {};
+    if (options.expiry) {
+        jwt_options.expiresInMinutes = options.expiry / 60;
+    }
+    // create and return the signed token
+    return jwt.sign(auth, process.env.JWT_SECRET, jwt_options);
+}
+
 
 
 // EXPORTS
@@ -503,3 +503,4 @@ exports.create_access_key_auth = create_access_key_auth;
 // authorize is exported to be used as an express middleware
 // it reads and prepares the authorized info on the request (req.auth).
 exports.authorize = authorize;
+exports.make_auth_token = make_auth_token;

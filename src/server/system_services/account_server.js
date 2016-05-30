@@ -15,6 +15,7 @@ const P = require('../../util/promise');
 // const dbg = require('../../util/debug_module')(__filename);
 const RpcError = require('../../rpc/rpc_error');
 const server_rpc = require('../server_rpc');
+const auth_server = require('../common_services/auth_server');
 const ActivityLog = require('../analytic_services/activity_log');
 const system_store = require('../system_services/system_store').get_instance();
 const system_server = require('./system_server');
@@ -78,7 +79,7 @@ function create_account(req) {
                 });
             }
             return {
-                token: req.make_auth_token(auth),
+                token: auth_server.make_auth_token(auth),
             };
         })
         .then(token => {

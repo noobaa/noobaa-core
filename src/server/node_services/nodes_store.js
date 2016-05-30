@@ -74,10 +74,10 @@ function find_node_by_address(req) {
  */
 function update_node_by_name(req, updates, options) {
     return P.when(NodeModel.collection.updateOne({
-            system: req.system._id,
-            name: req.rpc_params.name,
-            deleted: null,
-        }, updates, options));
+        system: req.system._id,
+        name: req.rpc_params.name,
+        deleted: null,
+    }, updates, options));
 }
 
 function delete_node_by_name(req) {
@@ -108,8 +108,10 @@ function update_node_by_id(node_id, updates, options) {
 function find_nodes(query, options) {
     return P.when(NodeModel.collection.find(query, options).toArray())
         .then(nodes => {
-            var allow_missing = options && options.fields;
-            _.each(nodes, node => resolve_node_object_ids(node, allow_missing));
+            if (!options.dont_resolve_object_ids) {
+                var allow_missing = options && options.fields;
+                _.each(nodes, node => resolve_node_object_ids(node, allow_missing));
+            }
             return nodes;
         });
 }

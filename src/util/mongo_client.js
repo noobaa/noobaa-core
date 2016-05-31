@@ -208,7 +208,7 @@ class MongoClient extends EventEmitter {
     _build_replica_config(set, members, port, is_config_set) {
         var rep_config = {
             _id: set,
-            configsvr: is_config_set ? true : false,
+            configsvr: is_config_set,
             members: []
         };
         var id = 0;

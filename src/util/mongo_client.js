@@ -68,7 +68,7 @@ class MongoClient extends EventEmitter {
     _connect(access_db, url, config) {
         if (this._disconnected_state) return;
         if (this[access_db]) return this[access_db];
-        dbg.log0('_connect called with', url, config);
+        dbg.log0('_connect called with', url);
         return mongodb.MongoClient.connect(url, config)
             .then(db => {
                 dbg.log0('MongoClient: connected', url);
@@ -106,7 +106,7 @@ class MongoClient extends EventEmitter {
 
     initiate_replica_set(set, members, is_config_set) {
         var port = is_config_set ? config.MONGO_DEFAULTS.CFG_PORT : config.MONGO_DEFAULTS.SHARD_SRV_PORT;
-        var rep_config = this._build_replica_config(set, members, port);
+        var rep_config = this._build_replica_config(set, members, port, is_config_set);
         var command = {
             replSetInitiate: rep_config
         };
@@ -124,20 +124,25 @@ class MongoClient extends EventEmitter {
 
     replica_update_members(set, members, is_config_set) {
         var port = is_config_set ? config.MONGO_DEFAULTS.CFG_PORT : config.MONGO_DEFAULTS.SHARD_SRV_PORT;
-        var rep_config = this._build_replica_config(set, members, port);
+        var rep_config = this._build_replica_config(set, members, port, is_config_set);
+
         var command = {
             replSetReconfig: rep_config
         };
-        dbg.log0('Calling replica_update_members', util.inspect(command, false, null));
-        if (!is_config_set) { //connect the mongod server
-            return P.when(this.db.admin().command(command))
-                .fail((err) => {
-                    dbg.error('Failed replica_update_members', set, members, 'with', err.message);
-                    throw err;
-                });
-        } else { //connect the server running the config replica set
-            return this._send_command_config_rs(command);
-        }
+        return P.when(this.get_rs_version(is_config_set))
+            .then((ver) => {
+                rep_config.version = ++ver;
+                dbg.log0('Calling replica_update_members', util.inspect(command, false, null));
+                if (!is_config_set) { //connect the mongod server
+                    return P.when(this.db.admin().command(command))
+                        .fail((err) => {
+                            dbg.error('Failed replica_update_members', set, members, 'with', err.message);
+                            throw err;
+                        });
+                } else { //connect the server running the config replica set
+                    return P.when(this._send_command_config_rs(command));
+                }
+            });
     }
 
     add_shard(host, port, shardname) {
@@ -164,9 +169,46 @@ class MongoClient extends EventEmitter {
         return;
     }
 
-    _build_replica_config(set, members, port) {
+    is_master(is_config_set, set_name) {
+        var command = {
+            isMaster: 1
+        };
+
+        if (is_config_set) {
+            return P.when(this.db.admin().command(command));
+        } else {
+            return P.when(this._send_command_config_rs(command));
+        }
+    }
+
+    get_rs_version(is_config_set) {
+        var self = this;
+        var command = {
+            replSetGetConfig: 1
+        };
+
+        return P.fcall(function() {
+                if (!is_config_set) { //connect the mongod server
+                    return P.when(self.db.admin().command(command))
+                        .fail((err) => {
+                            dbg.error('Failed get_rs_version with', err.message);
+                            throw err;
+                        });
+                } else { //connect the server running the config replica set
+                    return P.when(self._send_command_config_rs(command));
+                }
+            })
+            .then((res) => {
+                dbg.log0('Recieved replSetConfig', res, 'Returning RS version', res.config.version);
+                return res.config.version;
+            });
+
+    }
+
+    _build_replica_config(set, members, port, is_config_set) {
         var rep_config = {
             _id: set,
+            configsvr: is_config_set ? true : false,
             members: []
         };
         var id = 0;
@@ -178,6 +220,7 @@ class MongoClient extends EventEmitter {
             ++id;
         });
 
+
         return rep_config;
     }
 
@@ -188,9 +231,9 @@ class MongoClient extends EventEmitter {
                 throw err;
             })
             .then(confdb => P.when(confdb.admin().command(command)))
-            .then(() => {
+            .then((res) => {
                 dbg.log0('successfully sent command to config rs', util.inspect(command));
-                return;
+                return res;
             })
             .fail((err) => {
                 dbg.error('MongoClient: sending command config rs failed', util.inspect(command), err.message);

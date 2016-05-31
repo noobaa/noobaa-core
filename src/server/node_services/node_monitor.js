@@ -28,7 +28,7 @@ const system_server = require('../system_services/system_server');
 const node_allocator = require('./node_allocator');
 const mongoose_utils = require('../../util/mongoose_utils');
 
-const RUN_DELAY_MS = 30000;
+const RUN_DELAY_MS = 60000;
 const RUN_NODE_CONCUR = 50;
 const MAX_NUM_LATENCIES = 20;
 const UPDATE_STORE_MIN_ITEMS = 100;
@@ -106,7 +106,8 @@ class NodesMonitor extends EventEmitter {
                     this._add_existing_node(node);
                 }
                 this._loaded = true;
-                this._schedule_next_run(1);
+                // delay a bit before running to allow nodes to reconnect
+                this._schedule_next_run(3000);
             })
             .catch(err => {
                 dbg.log0('_load_from_store ERROR', err);
@@ -163,6 +164,13 @@ class NodesMonitor extends EventEmitter {
         item.node.latency_to_server = item.node.latency_to_server || [];
         item.node.latency_of_disk_read = item.node.latency_of_disk_read || [];
         item.node.latency_of_disk_write = item.node.latency_of_disk_write || [];
+        item.node.storage = _.defaults(item.node.storage, {
+            total: 0,
+            free: 0,
+            used: 0,
+            alloc: 0,
+            limit: 0
+        });
     }
 
     _connect_node(conn, node_id) {
@@ -179,11 +187,13 @@ class NodesMonitor extends EventEmitter {
         }
         item.connection = conn;
         conn.on('close', () => {
-            if (item.connection === conn) {
-                item.connection = null;
-            }
+            // if connection already replaced ignore the close event
+            if (item.connection !== conn) return;
+            item.connection = null;
             // TODO GUYM what to wakeup on disconnect?
+            setTimeout(() => this._run_node(item), 3000);
         });
+        setTimeout(() => this._run_node(item), 3000);
     }
 
     _schedule_next_run(delay_ms) {
@@ -232,6 +242,10 @@ class NodesMonitor extends EventEmitter {
             })
             .then(info => {
                 item.agent_info = info;
+                if (info.name !== item.node.name) {
+                    this._map_node_name.delete(String(item.node.name));
+                    this._map_node_name.set(String(info.name), item);
+                }
                 const updates = _.pick(info, AGENT_INFO_FIELDS_PICK);
                 updates.heartbeat = new Date();
                 _.extend(item.node, updates);
@@ -264,8 +278,12 @@ class NodesMonitor extends EventEmitter {
         // clone to make sure we don't modify the system's n2n_config
         const rpc_config_clone = _.cloneDeep(rpc_config);
         return this.client.agent.update_rpc_config(rpc_config_clone, {
-            connection: item.connection
-        });
+                connection: item.connection
+            })
+            .then(() => {
+                _.extend(item.node, rpc_config);
+                this._set_need_update.add(item);
+            });
     }
 
     _test_store_perf(item) {

@@ -115,8 +115,7 @@ class Agent {
         this.rpc.register_service(
             this.rpc.schema.agent_api,
             this, {
-                // verify every agent_api request is on the server connection only
-                middleware: [req => this._verify_server_connection(req)]
+                middleware: [req => this._authenticate_agent_api(req)]
             });
         this.rpc.register_service(
             this.rpc.schema.block_store_api,
@@ -309,22 +308,24 @@ class Agent {
         }
     }
 
-    _verify_server_connection(req) {
-        if (req.connection !== this._server_connection) {
-            const auth = req.method_api.auth;
-            if (auth && auth.n2n) {
-                if (req.connection.url.protocol !== 'n2n:') {
-                    dbg.error('AGENT API auth requires n2n connection',
-                        req.connection && req.connection.connid);
-                    throw new RpcError('FORBIDDEN', 'AGENT API auth requires n2n connection');
-                }
-            } else {
-                dbg.error('AGENT API requests only allowed from server',
-                    req.connection && req.connection.connid,
-                    this._server_connection && this._server_connection.connid);
-                throw new RpcError('FORBIDDEN', 'AGENT API requests only allowed from server');
-            }
+    _authenticate_agent_api(req) {
+        // agent_api request on the server connection are always allowed
+        if (req.connection === this._server_connection) return;
+
+        const auth = req.method_api.auth;
+        if (!auth || !auth.n2n) {
+            dbg.error('AGENT API requests only allowed from server',
+                req.connection && req.connection.connid,
+                this._server_connection && this._server_connection.connid);
+            throw new RpcError('FORBIDDEN', 'AGENT API requests only allowed from server');
         }
+
+        if (req.connection.url.protocol !== 'n2n:') {
+            dbg.error('AGENT API auth requires n2n connection',
+                req.connection && req.connection.connid);
+            throw new RpcError('FORBIDDEN', 'AGENT API auth requires n2n connection');
+        }
+        // otherwise it's good
     }
 
 

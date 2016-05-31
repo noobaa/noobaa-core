@@ -32,7 +32,6 @@ const config = require('../../../config');
 const system_utils = require('../utils/system_server_utils');
 const fs = require('fs');
 
-
 function new_system_defaults(name, owner_account_id) {
     var system = {
         _id: system_store.generate_id(),
@@ -243,8 +242,11 @@ function read_system(req) {
                 online: nodes_sys.online || 0,
             },
             owner: account_server.get_account_info(system_store.data.get_by_id(system._id).owner),
-            last_stats_report: system.last_stats_report && new Date(system.last_stats_report),
-            maintenance_mode: system_utils.system_in_maintenance(system._id) ? new Date(system.maintenance_mode) : undefined,
+            last_stats_report: system.last_stats_report && new Date(system.last_stats_report).getTime(),
+            maintenance_mode: {
+                state: system_utils.system_in_maintenance(system._id),
+                till: system_utils.system_in_maintenance(system._id) ? new Date(system.maintenance_mode).getTime() : undefined,
+            },
             ssl_port: process.env.SSL_PORT,
             web_port: process.env.PORT,
             web_links: get_system_web_links(system),
@@ -286,7 +288,7 @@ function set_maintenance_mode(req) {
     var updates = {};
     //let maintenance_mode = _.pick(req.rpc_params, 'maintenance_mode');
     updates._id = req.system._id;
-    updates.maintenance_mode = new Date(req.rpc_params.maintenance_mode);
+    updates.maintenance_mode = moment().add(req.rpc_params.duration, 'm').toISOString();
     /*{
             till: new Date(maintenance_mode.till),
         };*/
@@ -817,28 +819,28 @@ function update_base_address(req) {
 // phone_home_proxy must be a full address like: http://(ip or hostname):(port)
 function update_phone_home_proxy_address(req) {
     dbg.log0('update_phone_home_proxy_address', req.rpc_params);
-    if (!req.rpc_params.phone_home_proxy) {
+    if (req.rpc_params.phone_home_proxy === null) {
         return system_store.make_changes({
-            update: {
-                system: {
-                    _id: req.system._id,
-                    $unset: {
-                        phone_home_proxy: 1
-                    }
+                update: {
+                    systems: [{
+                        _id: req.system._id,
+                        $unset: {
+                            phone_home_proxy: 1
+                        }
+                    }]
                 }
-            }
-        });
+            })
+            .return();
     } else {
         return system_store.make_changes({
-            update: {
-                system: {
-                    _id: req.system._id,
-                    $set: {
+                update: {
+                    systems: [{
+                        _id: req.system._id,
                         phone_home_proxy: req.rpc_params.phone_home_proxy
-                    }
+                    }]
                 }
-            }
-        });
+            })
+            .return();
     }
 }
 

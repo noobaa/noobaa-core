@@ -348,18 +348,29 @@ class NodesMonitor extends EventEmitter {
         const set_of_current_bulk = this._set_need_update;
         this._set_need_update = new Set();
         const bulk = nodes_store.bulk();
+        let bulk_size = 0;
         for (const item of set_of_current_bulk) {
             if (item.node_from_store) {
-                new_nodes.push(item);
+                const updates = pick_object_updates(item.node, item.node_from_store);
+                if (_.isEmpty(updates)) continue;
                 bulk.find({
                     _id: item.node._id
                 }).updateOne({
-                    $set: item.node
+                    $set: updates
                 });
+                bulk_size += 1;
             } else {
+                new_nodes.push(item);
                 bulk.insert(item.node);
+                bulk_size += 1;
             }
         }
+
+        if (!bulk_size) return;
+
+        dbg.log0('_update_nodes_store:',
+            'executing bulk of', bulk_size, 'updates,',
+            'out of which', new_nodes.length, 'are new nodes');
 
         return P.resolve()
             .then(() => P.ninvoke(bulk, 'execute'))
@@ -938,6 +949,13 @@ function sort_compare_by(key_getter, order) {
         if (key1 > key2) return order;
         return 0;
     };
+}
+
+function pick_object_updates(current, prev) {
+    return _.pickBy(current, (value, key) => {
+        const prev_value = prev[key];
+        return !_.isEqual(value, prev_value);
+    });
 }
 
 // server_rpc.rpc.on('reconnect', _on_reconnect);

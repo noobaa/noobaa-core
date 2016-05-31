@@ -6,6 +6,7 @@
 'use strict';
 
 const _ = require('lodash');
+const chance = require('chance')();
 const EventEmitter = require('events').EventEmitter;
 
 const P = require('../../util/promise');
@@ -21,14 +22,13 @@ const auth_server = require('../common_services/auth_server');
 const nodes_store = require('./nodes_store');
 const mongo_utils = require('../../util/mongo_utils');
 const ActivityLog = require('../analytic_services/activity_log');
-const string_utils = require('../../util/string_utils');
 const system_store = require('../system_services/system_store').get_instance();
 const system_server = require('../system_services/system_server');
 // const promise_utils = require('../../util/promise_utils');
 const node_allocator = require('./node_allocator');
 const mongoose_utils = require('../../util/mongoose_utils');
 
-const RUN_DELAY_MS = 10000;
+const RUN_DELAY_MS = 30000;
 const RUN_NODE_CONCUR = 50;
 const MAX_NUM_LATENCIES = 20;
 const UPDATE_STORE_MIN_ITEMS = 100;
@@ -106,7 +106,7 @@ class NodesMonitor extends EventEmitter {
                     this._add_existing_node(node);
                 }
                 this._loaded = true;
-                this._schedule_next_run();
+                this._schedule_next_run(1);
             })
             .catch(err => {
                 dbg.log0('_load_from_store ERROR', err);
@@ -186,7 +186,7 @@ class NodesMonitor extends EventEmitter {
         });
     }
 
-    _schedule_next_run() {
+    _schedule_next_run(delay_ms) {
         // TODO GUYM _schedule_next_run should check if currently running?
         clearTimeout(this._next_run_timeout);
         if (!this._started) return;
@@ -194,7 +194,7 @@ class NodesMonitor extends EventEmitter {
             P.resolve()
                 .then(() => this._run())
                 .finally(() => this._schedule_next_run());
-        }, RUN_DELAY_MS);
+        }, delay_ms || RUN_DELAY_MS);
     }
 
     _run() {
@@ -255,9 +255,10 @@ class NodesMonitor extends EventEmitter {
             'rpc_address',
             'base_address',
             'n2n_config');
+        // TODO GUYM skip update_rpc_config doesnt work
+        // ... because of system.base_address is undefined for dev,
+        // ... and n2n_config in agent has all fields while in system it is partial.
         // skip the update when no changes detected
-        // TODO GUYM this check always fails because of system.base_address is undefined for dev,
-        // and n2n_config in agent has all fields while in system it is partial.
         dbg.log0('rpc_config', rpc_config, 'old_config', old_config);
         if (_.isEqual(rpc_config, old_config)) return;
         // clone to make sure we don't modify the system's n2n_config
@@ -450,29 +451,24 @@ class NodesMonitor extends EventEmitter {
     read_node_by_name(name) {
         if (!this._loaded) throw new RpcError('MONITOR_NOT_LOADED');
         const item = this._map_node_name.get(name);
-        if (!item) throw new RpcError('NO_SUCH_NODE');
+        if (!item) throw new RpcError('NO_SUCH_NODE', 'No node with name ' + name);
         return this.get_node_full_info(item);
     }
 
-    list_nodes(system_id, query, skip, limit, pagination, sort, order, req) {
-        system_id = String(system_id);
-        if (query.name) {
-            query.name = new RegExp(string_utils.escapeRegExp(query.name), 'i');
-        }
-        if (query.geolocation) {
-            query.geolocation = new RegExp(string_utils.escapeRegExp(query.geolocation), 'i');
-        }
-        if (query.pools) {
-            query.pools = new Set(_.map(query.pools, pool_name => {
-                const pool = req.system.pools_by_name[pool_name];
-                return String(pool._id);
-            }));
-        }
-        console.log('GGG system_id', system_id, 'QUERY', query);
+    read_node_by_address(address) {
+        if (!this._loaded) throw new RpcError('MONITOR_NOT_LOADED');
+        const item = this._map_peer_id.get(address.slice('n2n://'.length));
+        if (!item) throw new RpcError('NO_SUCH_NODE', 'No node with address ' + address);
+        return this.get_node_full_info(item);
+    }
+
+    list_nodes(query, options) {
+        console.log('list_nodes: query', query);
         // const minimum_online_heartbeat = nodes_store.get_minimum_online_heartbeat();
         const list = [];
         for (const item of this._map_node_id.values()) {
-            if (system_id !== String(item.node.system)) continue;
+            if (query.system &&
+                query.system !== String(item.node.system)) continue;
             if (query.pools &&
                 !query.pools.has(String(item.node.pool))) continue;
             if (query.name &&
@@ -480,6 +476,8 @@ class NodesMonitor extends EventEmitter {
                 !query.name.test(item.node.ip)) continue;
             if (query.geolocation &&
                 !query.geolocation.test(item.node.geolocation)) continue;
+            if (query.skip_address &&
+                query.skip_address === item.node.rpc_address) continue;
             if (query.state === 'online' && !item.connection) continue;
             else if (query.state === 'offline' && item.connection) continue;
             // TODO implement accessibility filter
@@ -493,22 +491,24 @@ class NodesMonitor extends EventEmitter {
             if (query.data_activity === 'EVACUATING' && false) continue;
             else if (query.data_activity === 'REBUILDING' && false) continue;
             else if (query.data_activity === 'MIGRATING' && false) continue;
-            console.log('GGG LIST NODE', item.node);
+            console.log('list_nodes: adding node', item.node.name);
             list.push(item);
         }
 
-        if (sort === 'name') {
-            list.sort(sort_compare_by(item => String(item.node.name), order));
-        } else if (sort === 'ip') {
-            list.sort(sort_compare_by(item => String(item.node.ip), order));
-        } else if (sort === 'online') {
-            list.sort(sort_compare_by(item => Boolean(item.connection), order));
+        if (options.sort === 'name') {
+            list.sort(sort_compare_by(item => String(item.node.name), options.order));
+        } else if (options.sort === 'ip') {
+            list.sort(sort_compare_by(item => String(item.node.ip), options.order));
+        } else if (options.sort === 'state') {
+            list.sort(sort_compare_by(item => Boolean(item.connection), options.order));
+        } else if (options.sort === 'shuffle') {
+            chance.shuffle(list);
         }
 
         let sliced_list = list;
-        if (skip || limit) {
-            skip = skip || 0;
-            limit = limit || list.length;
+        if (options.pagination) {
+            const skip = options.skip || 0;
+            const limit = options.limit || list.length;
             sliced_list = list.slice(skip, skip + limit);
         }
 
@@ -553,23 +553,33 @@ class NodesMonitor extends EventEmitter {
     }
 
 
-    delete_node(req) {
-        // TODO notify to initiate rebuild of blocks
-        return nodes_store.find_node_by_name(req)
-            .then(node => nodes_store.delete_node_by_name(req))
-            .return();
+    n2n_signal(req) {
+        dbg.log1('n2n_signal:', req.rpc_params.target);
+        const item = this._map_peer_id.get(
+            req.rpc_params.target.slice('n2n://'.length));
+        if (!item) throw new RpcError('NO_SUCH_NODE');
+        if (!item.connection) throw new RpcError('NODE_OFFLINE');
+        return this.client.agent.n2n_signal(req.rpc_params, {
+            connection: item.connection,
+        });
     }
 
-    n2n_signal(req) {
-        var target = req.rpc_params.target;
-        dbg.log1('n2n_signal', target);
-        return server_rpc.client.agent.n2n_signal(req.rpc_params, {
-            connection: this.connection,
+    test_node_network(req) {
+        dbg.log0('test_node_network:',
+            'target', req.rpc_params.target,
+            'source', req.rpc_params.source);
+        const item = this._map_peer_id.get(
+            req.rpc_params.source.slice('n2n://'.length));
+        if (!item) throw new RpcError('NO_SUCH_NODE', 'No node with address ' + req.rpc_params.source);
+        if (!item.connection) throw new RpcError('NODE_OFFLINE');
+        return this.client.agent.test_network_perf_to_peer(req.rpc_params, {
+            connection: item.connection,
         });
     }
 
 
     redirect(req) {
+        // TODO GUYM FIX redirect
         var target = req.rpc_params.target;
         var api = req.rpc_params.method_api.slice(0, -4); //Remove _api suffix
         var method_name = req.rpc_params.method_name;
@@ -594,22 +604,11 @@ class NodesMonitor extends EventEmitter {
         });
     }
 
-    test_node_network(req) {
-        var target = req.rpc_params.target;
-        var source = req.rpc_params.source;
-
-        dbg.log0('test_node_network: target', target, 'source', source);
-
-        return server_rpc.client.agent.test_network_perf_to_peer({
-            source: source,
-            target: target,
-            request_length: req.rpc_params.request_length,
-            response_length: req.rpc_params.response_length,
-            count: req.rpc_params.count,
-            concur: req.rpc_params.concur,
-        }, {
-            address: source,
-        });
+    delete_node(req) {
+        // TODO notify to initiate rebuild of blocks
+        return nodes_store.find_node_by_name(req)
+            .then(node => nodes_store.delete_node_by_name(req))
+            .return();
     }
 
     collect_agent_diagnostics(req) {

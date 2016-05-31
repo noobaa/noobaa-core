@@ -311,10 +311,19 @@ class Agent {
 
     _verify_server_connection(req) {
         if (req.connection !== this._server_connection) {
-            dbg.error('AGENT API requests only allowed from server',
-                req.connection && req.connection.connid,
-                this._server_connection && this._server_connection.connid);
-            throw new RpcError('FORBIDDEN', 'AGENT API requests only allowed from server');
+            const auth = req.method_api.auth;
+            if (auth && auth.n2n) {
+                if (req.connection.url.protocol !== 'n2n:') {
+                    dbg.error('AGENT API auth requires n2n connection',
+                        req.connection && req.connection.connid);
+                    throw new RpcError('FORBIDDEN', 'AGENT API auth requires n2n connection');
+                }
+            } else {
+                dbg.error('AGENT API requests only allowed from server',
+                    req.connection && req.connection.connid,
+                    this._server_connection && this._server_connection.connid);
+                throw new RpcError('FORBIDDEN', 'AGENT API requests only allowed from server');
+            }
         }
     }
 

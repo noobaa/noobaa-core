@@ -120,16 +120,17 @@ class RpcN2NAgent extends EventEmitter {
         };
     }
 
-    reset_rpc_address() {
-        this.rpc_address = '';
-    }
-
     set_rpc_address(rpc_address) {
+        console.log('set_rpc_address:', rpc_address, 'was', this.rpc_address);
         this.rpc_address = rpc_address;
     }
 
+    reset_rpc_address() {
+        this.set_rpc_address('');
+    }
+
     set_any_rpc_address() {
-        this.rpc_address = '*';
+        this.set_rpc_address('*');
     }
 
     set_ssl_context(secure_context_params) {

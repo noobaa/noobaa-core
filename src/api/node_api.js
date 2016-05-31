@@ -98,9 +98,6 @@ module.exports = {
                                 type: 'string',
                                 enum: ['online', 'offline']
                             },
-                            filter: {
-                                type: 'string'
-                            },
                             trust_level: {
                                 type: 'string',
                                 enum: ['TRUSTED', 'UNTRUSTED']

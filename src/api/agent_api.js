@@ -159,6 +159,9 @@ module.exports = {
                     },
                 },
             },
+            auth: {
+                n2n: true
+            }
         },
 
         test_network_perf_to_peer: {

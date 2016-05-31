@@ -35,15 +35,27 @@ function ping(req) {
  *
  */
 function list_nodes(req) {
-    return monitor.list_nodes(
-        req.system._id,
-        req.rpc_params.query,
-        req.rpc_params.skip,
-        req.rpc_params.limit,
-        req.rpc_params.pagination,
-        req.rpc_params.sort,
-        req.rpc_params.order,
-        req);
+    const query = req.rpc_params.query || {};
+    query.system = String(req.system._id);
+    if (query.name) {
+        query.name = new RegExp(string_utils.escapeRegExp(query.name), 'i');
+    }
+    if (query.geolocation) {
+        query.geolocation = new RegExp(string_utils.escapeRegExp(query.geolocation), 'i');
+    }
+    if (query.pools) {
+        query.pools = new Set(_.map(query.pools, pool_name => {
+            const pool = req.system.pools_by_name[pool_name];
+            return String(pool._id);
+        }));
+    }
+    const options = _.pick(req.rpc_params,
+        'pagination',
+        'skip',
+        'limit',
+        'sort',
+        'order');
+    return monitor.list_nodes(query, options);
 }
 
 
@@ -53,67 +65,17 @@ function list_nodes(req) {
  * return X random nodes for self test purposes
  */
 function get_test_nodes(req) {
-    var count = req.rpc_params.count;
-    var source = req.rpc_params.source;
-    var minimum_online_heartbeat = nodes_store.get_minimum_online_heartbeat();
-    return nodes_store.count_nodes({
-            system: req.system._id,
-            heartbeat: {
-                $gt: minimum_online_heartbeat
-            },
-            rpc_address: {
-                $ne: source
-            },
-            deleted: null,
-        })
-        .then(nodes_count => {
-            var rand_start = Math.floor(Math.random() *
-                (nodes_count - count > 0 ? nodes_count - count : 0));
-            return nodes_store.find_nodes({
-                system: req.system._id,
-                heartbeat: {
-                    $gt: minimum_online_heartbeat
-                },
-                rpc_address: {
-                    $ne: source
-                },
-                deleted: null,
-            }, {
-                fields: {
-                    _id: 0,
-                    name: 1,
-                    rpc_address: 1
-                },
-                skip: rand_start,
-                limit: count
-            });
-        })
-        .then(test_nodes => {
-            return nodes_store.find_nodes({
-                    system: req.system._id,
-                    rpc_address: {
-                        $eq: source
-                    },
-                    deleted: null,
-                }, {
-                    fields: {
-                        _id: 0,
-                        name: 1,
-                    },
-                    limit: 1
-                })
-                .then(res_node => {
-                    ActivityLog.create({
-                        system: req.system._id,
-                        actor: req.account && req.account._id,
-                        level: 'info',
-                        event: 'node.test_node',
-                        node: res_node._id,
-                        desc: `${res_node && res_node[0].name} was tested by ${req.account && req.account.email}`,
-                    });
-                    return test_nodes;
-                });
-        });
+    const list_res = monitor.list_nodes({
+        system: String(req.system._id),
+        state: 'online',
+        skip_address: req.rpc_params.source
+    }, {
+        pagination: true,
+        limit: req.rpc_params.count,
+        sort: 'shuffle'
+    });
+    return _.map(list_res.nodes,
+        node => _.pick(node, 'name', 'rpc_address'));
 }
 
 // UTILS //////////////////////////////////////////////////////////
@@ -125,8 +87,8 @@ function get_test_nodes(req) {
 exports._init = _init;
 exports.ping = ping;
 exports.list_nodes = list_nodes;
-// exports.list_nodes_int = list_nodes_int; // TODO list_nodes_int
 exports.get_test_nodes = get_test_nodes;
+// exports.list_nodes_int = list_nodes_int; // TODO list_nodes_int
 exports.heartbeat = req => monitor.heartbeat(req);
 exports.read_node = req => monitor.read_node_by_name(req.rpc_params.name);
 exports.delete_node = req => monitor.delete_node_by_name(req.rpc_params.name);

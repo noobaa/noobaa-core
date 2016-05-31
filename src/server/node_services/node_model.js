@@ -184,6 +184,13 @@ node_schema.index({
     unique: true
 });
 
+
+node_schema.index({
+    _id: 1,
+}, {
+    unique: true
+});
+
 node_schema.index({
     peer_id: 1,
     deleted: 1, // allow to filter deleted

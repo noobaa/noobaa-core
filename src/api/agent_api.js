@@ -81,7 +81,6 @@ module.exports = {
             method: 'POST',
             params: {
                 type: 'object',
-                required: ['rpc_address'],
                 properties: {
                     rpc_address: {
                         type: 'string'

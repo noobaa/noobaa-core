@@ -28,7 +28,7 @@ const system_server = require('../system_services/system_server');
 const node_allocator = require('./node_allocator');
 const mongoose_utils = require('../../util/mongoose_utils');
 
-const RUN_DELAY_MS = 60000;
+const RUN_DELAY_MS = 10000;
 const RUN_NODE_CONCUR = 50;
 const MAX_NUM_LATENCIES = 20;
 const UPDATE_STORE_MIN_ITEMS = 100;
@@ -191,9 +191,9 @@ class NodesMonitor extends EventEmitter {
             if (item.connection !== conn) return;
             item.connection = null;
             // TODO GUYM what to wakeup on disconnect?
-            setTimeout(() => this._run_node(item), 3000);
+            setTimeout(() => this._run_node(item), 1000);
         });
-        setTimeout(() => this._run_node(item), 3000);
+        setTimeout(() => this._run_node(item), 1000);
     }
 
     _schedule_next_run(delay_ms) {
@@ -223,7 +223,7 @@ class NodesMonitor extends EventEmitter {
 
     _run_node(item) {
         if (!this._started) return;
-        return P.resolve()
+        item.run_promise = item.run_promise || P.resolve()
             .then(() => this._get_agent_info(item))
             .then(() => this._update_rpc_config(item))
             .then(() => this._test_store_perf(item))
@@ -232,7 +232,11 @@ class NodesMonitor extends EventEmitter {
             .then(() => this._update_nodes_store())
             .catch(err => {
                 dbg.warn('_run_node ERROR', err.stack || err, 'node', item.node);
+            })
+            .finally(() => {
+                item.run_promise = null;
             });
+        return item.run_promise;
     }
 
     _get_agent_info(item) {
@@ -260,24 +264,26 @@ class NodesMonitor extends EventEmitter {
         const rpc_address = rpc_proto === 'n2n' ?
             'n2n://' + item.node.peer_id :
             rpc_proto + '://' + item.node.ip + ':' + (process.env.AGENT_PORT || 9999);
-        const rpc_config = {
-            rpc_address: rpc_address,
-            base_address: system.base_address,
-            n2n_config: system.n2n_config
-        };
-        const old_config = _.pick(item.agent_info,
-            'rpc_address',
-            'base_address',
-            'n2n_config');
-        // TODO GUYM skip update_rpc_config doesnt work
-        // ... because of system.base_address is undefined for dev,
-        // ... and n2n_config in agent has all fields while in system it is partial.
+        const rpc_config = {};
+        if (rpc_address !== item.agent_info.rpc_address) {
+            rpc_config.rpc_address = rpc_address;
+        }
+        // only update if the system defined a base address
+        // otherwise the agent is using the ip directly, so no update is needed
+        if (system.base_address && system.base_address !== item.agent_info.base_address) {
+            rpc_config.base_address = system.base_address;
+        }
+        // make sure we don't modify the system's n2n_config
+        const n2n_config = _.extend(null,
+            item.agent_info.n2n_config,
+            _.cloneDeep(system.n2n_config));
+        if (!_.isEqual(n2n_config, item.agent_info.n2n_config)) {
+            rpc_config.n2n_config = n2n_config;
+        }
         // skip the update when no changes detected
-        dbg.log0('rpc_config', rpc_config, 'old_config', old_config);
-        if (_.isEqual(rpc_config, old_config)) return;
-        // clone to make sure we don't modify the system's n2n_config
-        const rpc_config_clone = _.cloneDeep(rpc_config);
-        return this.client.agent.update_rpc_config(rpc_config_clone, {
+        if (_.isEmpty(rpc_config)) return;
+        dbg.log0('rpc_config', rpc_config);
+        return this.client.agent.update_rpc_config(rpc_config, {
                 connection: item.connection
             })
             .then(() => {
@@ -288,6 +294,7 @@ class NodesMonitor extends EventEmitter {
 
     _test_store_perf(item) {
         if (!item.connection) return;
+        // TODO check how much time passed since last test
         return this.client.agent.test_store_perf({
                 count: 5
             }, {

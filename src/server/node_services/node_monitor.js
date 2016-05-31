@@ -11,6 +11,7 @@ const EventEmitter = require('events').EventEmitter;
 const P = require('../../util/promise');
 const pkg = require('../../../package.json');
 const dbg = require('../../util/debug_module')(__filename);
+const config = require('../../../config');
 const js_utils = require('../../util/js_utils');
 const RpcError = require('../../rpc/rpc_error');
 const md_store = require('../object_services/md_store');
@@ -20,9 +21,10 @@ const auth_server = require('../common_services/auth_server');
 const nodes_store = require('./nodes_store');
 const mongo_utils = require('../../util/mongo_utils');
 const ActivityLog = require('../analytic_services/activity_log');
+const string_utils = require('../../util/string_utils');
 const system_store = require('../system_services/system_store').get_instance();
 const system_server = require('../system_services/system_server');
-const promise_utils = require('../../util/promise_utils');
+// const promise_utils = require('../../util/promise_utils');
 const node_allocator = require('./node_allocator');
 const mongoose_utils = require('../../util/mongoose_utils');
 
@@ -30,6 +32,7 @@ const RUN_DELAY_MS = 10000;
 const RUN_NODE_CONCUR = 50;
 const MAX_NUM_LATENCIES = 20;
 const UPDATE_STORE_MIN_ITEMS = 100;
+
 const AGENT_INFO_FIELDS_PICK = [
     'name',
     'version',
@@ -43,6 +46,26 @@ const AGENT_INFO_FIELDS_PICK = [
     'debug_level',
     'is_internal_agent'
 ];
+const NODE_INFO_PICK_FIELDS = [
+    'name',
+    'geolocation',
+    'ip',
+    'rpc_address',
+    'base_address',
+    'srvmode',
+    'version',
+    'latency_to_server',
+    'latency_of_disk_read',
+    'latency_of_disk_write',
+    'debug_level',
+];
+const NODE_INFO_DEFAULT_FIELDS = {
+    ip: '0.0.0.0',
+    version: '',
+    peer_id: '',
+    rpc_address: '',
+    base_address: '',
+};
 
 
 class NodesMonitor extends EventEmitter {
@@ -75,8 +98,6 @@ class NodesMonitor extends EventEmitter {
         return mongoose_utils.mongoose_wait_connected()
             .then(() => nodes_store.find_nodes({
                 deleted: null
-            }, {
-                dont_resolve_object_ids: true
             }))
             .then(nodes => {
                 if (!this._started) return;
@@ -91,47 +112,6 @@ class NodesMonitor extends EventEmitter {
                 dbg.log0('_load_from_store ERROR', err);
                 return P.delay(1000).then(() => this._load_from_store());
             });
-    }
-
-    heartbeat(req) {
-        const extra = req.auth.extra || {};
-        const node_id = String(extra.node_id || '');
-        const node_version = req.rpc_params.version;
-        const reply = {
-            version: pkg.version || '0',
-            delay_ms: 0 // delay_ms was required in 0.3.X
-        };
-
-        // since the heartbeat api is dynamic through new versions
-        // if we detect that this is a new version we return immediately
-        // with the new version so that the agent will update the code first
-        // and only after the upgrade we will run the heartbeat functionality
-        if (node_version !== pkg.version) {
-            dbg.log0('heartbeat: reply new version',
-                'node_id', node_id,
-                'node_version', node_version,
-                'pkg.version', pkg.version);
-            return reply;
-        }
-
-        if (!this._started) throw new RpcError('MONITOR_NOT_STARTED');
-        if (!this._loaded) throw new RpcError('MONITOR_NOT_LOADED');
-
-        // existing node heartbeat
-        if (node_id && (req.role === 'agent' || req.role === 'admin')) {
-            this._connect_node(req.connection, node_id);
-            return reply;
-        }
-
-        // new node heartbeat
-        // create the node and then update the heartbeat
-        if (!node_id && (req.role === 'create_node' || req.role === 'admin')) {
-            this._add_new_node(req.connection, req.system._id, extra.pool_id);
-            return reply;
-        }
-
-        dbg.error('heartbeat: BAD REQUEST', 'role', req.role, 'auth', req.auth);
-        throw new RpcError('FORBIDDEN', 'Bad heartbeat request');
     }
 
     _add_existing_node(node) {
@@ -237,9 +217,12 @@ class NodesMonitor extends EventEmitter {
             .then(() => this._get_agent_info(item))
             .then(() => this._update_rpc_config(item))
             .then(() => this._test_store_perf(item))
-            // .then(() => this._test_network_perf(item))
+            .then(() => this._test_network_perf(item))
             // .then(() => this._update_status(item))
-            .then(() => this._update_nodes_store());
+            .then(() => this._update_nodes_store())
+            .catch(err => {
+                dbg.warn('_run_node ERROR', err.stack || err, 'node', item.node);
+            });
     }
 
     _get_agent_info(item) {
@@ -304,6 +287,9 @@ class NodesMonitor extends EventEmitter {
         if (!item.connection) return;
         // TODO GUYM _test_network_perf with few other nodes
         // and detect if we have a NAT preventing TCP to this node
+        this._set_need_update.add(item);
+        item.node.latency_to_server = js_utils.array_push_keep_latest(
+            item.node.latency_to_server, [0], MAX_NUM_LATENCIES);
     }
 
     _update_status(item) {
@@ -416,6 +402,336 @@ class NodesMonitor extends EventEmitter {
 
 
 
+
+    //////////////////////////////////////////////////////////////
+
+
+    heartbeat(req) {
+        const extra = req.auth.extra || {};
+        const node_id = String(extra.node_id || '');
+        const node_version = req.rpc_params.version;
+        const reply = {
+            version: pkg.version || '0',
+            delay_ms: 0 // delay_ms was required in 0.3.X
+        };
+
+        // since the heartbeat api is dynamic through new versions
+        // if we detect that this is a new version we return immediately
+        // with the new version so that the agent will update the code first
+        // and only after the upgrade we will run the heartbeat functionality
+        if (node_version !== pkg.version) {
+            dbg.log0('heartbeat: reply new version',
+                'node_id', node_id,
+                'node_version', node_version,
+                'pkg.version', pkg.version);
+            return reply;
+        }
+
+        if (!this._started) throw new RpcError('MONITOR_NOT_STARTED');
+        if (!this._loaded) throw new RpcError('MONITOR_NOT_LOADED');
+
+        // existing node heartbeat
+        if (node_id && (req.role === 'agent' || req.role === 'admin')) {
+            this._connect_node(req.connection, node_id);
+            return reply;
+        }
+
+        // new node heartbeat
+        // create the node and then update the heartbeat
+        if (!node_id && (req.role === 'create_node' || req.role === 'admin')) {
+            this._add_new_node(req.connection, req.system._id, extra.pool_id);
+            return reply;
+        }
+
+        dbg.error('heartbeat: BAD REQUEST', 'role', req.role, 'auth', req.auth);
+        throw new RpcError('FORBIDDEN', 'Bad heartbeat request');
+    }
+
+    read_node_by_name(name) {
+        if (!this._loaded) throw new RpcError('MONITOR_NOT_LOADED');
+        const item = this._map_node_name.get(name);
+        if (!item) throw new RpcError('NO_SUCH_NODE');
+        return this.get_node_full_info(item);
+    }
+
+    list_nodes(system_id, query, skip, limit, pagination, sort, order, req) {
+        system_id = String(system_id);
+        if (query.name) {
+            query.name = new RegExp(string_utils.escapeRegExp(query.name), 'i');
+        }
+        if (query.geolocation) {
+            query.geolocation = new RegExp(string_utils.escapeRegExp(query.geolocation), 'i');
+        }
+        if (query.pools) {
+            query.pools = new Set(_.map(query.pools, pool_name => {
+                const pool = req.system.pools_by_name[pool_name];
+                return String(pool._id);
+            }));
+        }
+        console.log('GGG system_id', system_id, 'QUERY', query);
+        // const minimum_online_heartbeat = nodes_store.get_minimum_online_heartbeat();
+        const list = [];
+        for (const item of this._map_node_id.values()) {
+            if (system_id !== String(item.node.system)) continue;
+            if (query.pools &&
+                !query.pools.has(String(item.node.pool))) continue;
+            if (query.name &&
+                !query.name.test(item.node.name) &&
+                !query.name.test(item.node.ip)) continue;
+            if (query.geolocation &&
+                !query.geolocation.test(item.node.geolocation)) continue;
+            if (query.state === 'online' && !item.connection) continue;
+            else if (query.state === 'offline' && item.connection) continue;
+            // TODO implement accessibility filter
+            if (query.accessibility === 'FULL_ACCESS' && false) continue;
+            else if (query.accessibility === 'READ_ONLY' && true) continue;
+            else if (query.accessibility === 'NO_ACCESS' && true) continue;
+            // TODO implement trust_level filter
+            if (query.trust_level === 'TRUSTED' && false) continue;
+            else if (query.trust_level === 'UNTRUSTED' && true) continue;
+            // TODO implement data_activity filter
+            if (query.data_activity === 'EVACUATING' && false) continue;
+            else if (query.data_activity === 'REBUILDING' && false) continue;
+            else if (query.data_activity === 'MIGRATING' && false) continue;
+            console.log('GGG LIST NODE', item.node);
+            list.push(item);
+        }
+
+        if (sort === 'name') {
+            list.sort(sort_compare_by(item => String(item.node.name), order));
+        } else if (sort === 'ip') {
+            list.sort(sort_compare_by(item => String(item.node.ip), order));
+        } else if (sort === 'online') {
+            list.sort(sort_compare_by(item => Boolean(item.connection), order));
+        }
+
+        let sliced_list = list;
+        if (skip || limit) {
+            skip = skip || 0;
+            limit = limit || list.length;
+            sliced_list = list.slice(skip, skip + limit);
+        }
+
+        console.log('list_nodes', sliced_list.length, '/', list.length);
+        return {
+            total_count: list.length,
+            nodes: _.map(sliced_list, item => this.get_node_full_info(item))
+        };
+    }
+
+    get_node_full_info(item) {
+        const node = item.node;
+        var info = _.defaults(_.pick(node, NODE_INFO_PICK_FIELDS), NODE_INFO_DEFAULT_FIELDS);
+        info.id = String(node._id);
+        info.peer_id = String(node.peer_id);
+        if (node.srvmode) {
+            info.srvmode = node.srvmode;
+        }
+        if (node.storage.free <= config.NODES_FREE_SPACE_RESERVE &&
+            !(node.storage.limit && node.storage.free > 0)) {
+            info.storage_full = true;
+        }
+        info.pool = system_store.data.get_by_id(node.pool).name;
+        info.heartbeat = node.heartbeat.getTime();
+        info.storage = get_storage_info(node.storage);
+        info.drives = _.map(node.drives, drive => {
+            return {
+                mount: drive.mount,
+                drive_id: drive.drive_id,
+                storage: get_storage_info(drive.storage)
+            };
+        });
+        info.online = Boolean(item.connection);
+        info.os_info = _.defaults({}, node.os_info);
+        if (info.os_info.uptime) {
+            info.os_info.uptime = new Date(info.os_info.uptime).getTime();
+        }
+        if (info.os_info.last_update) {
+            info.os_info.last_update = new Date(info.os_info.last_update).getTime();
+        }
+        return info;
+    }
+
+
+    delete_node(req) {
+        // TODO notify to initiate rebuild of blocks
+        return nodes_store.find_node_by_name(req)
+            .then(node => nodes_store.delete_node_by_name(req))
+            .return();
+    }
+
+    n2n_signal(req) {
+        var target = req.rpc_params.target;
+        dbg.log1('n2n_signal', target);
+        return server_rpc.client.agent.n2n_signal(req.rpc_params, {
+            connection: this.connection,
+        });
+    }
+
+
+    redirect(req) {
+        var target = req.rpc_params.target;
+        var api = req.rpc_params.method_api.slice(0, -4); //Remove _api suffix
+        var method_name = req.rpc_params.method_name;
+        var method = server_rpc.rpc.schema[req.rpc_params.method_api].methods[method_name];
+        dbg.log3('node_monitor redirect', api + '.' + method_name, 'to', target,
+            'with params', req.rpc_params.request_params, 'method:', method);
+
+
+        if (method.params && method.params.import_buffers) {
+            method.params.import_buffers(req.rpc_params.request_params, req.rpc_params.redirect_buffer);
+        }
+        return server_rpc.client[api][method_name](req.rpc_params.request_params, {
+            address: target,
+        }).then(reply => {
+            let res = {
+                redirect_reply: reply
+            };
+            if (method.reply && method.reply.export_buffers) {
+                res.redirect_buffer = method.reply.export_buffers(reply);
+            }
+            return res;
+        });
+    }
+
+    test_node_network(req) {
+        var target = req.rpc_params.target;
+        var source = req.rpc_params.source;
+
+        dbg.log0('test_node_network: target', target, 'source', source);
+
+        return server_rpc.client.agent.test_network_perf_to_peer({
+            source: source,
+            target: target,
+            request_length: req.rpc_params.request_length,
+            response_length: req.rpc_params.response_length,
+            count: req.rpc_params.count,
+            concur: req.rpc_params.concur,
+        }, {
+            address: source,
+        });
+    }
+
+    collect_agent_diagnostics(req) {
+        var target = req.rpc_params.rpc_address;
+        return server_rpc.client.agent.collect_diagnostics({}, {
+                address: target,
+            })
+            .then(data => {
+                return system_server.diagnose_with_agent(data, req);
+            })
+            .catch(err => {
+                dbg.log0('Error on collect_agent_diagnostics', err);
+                return '';
+            });
+    }
+
+    set_debug_node(req) {
+        var target = req.rpc_params.target;
+        return P.fcall(() => {
+                return server_rpc.client.agent.set_debug_node({
+                    level: req.rpc_params.level
+                }, {
+                    address: target,
+                });
+            })
+            .then(() => {
+                var updates = {};
+                updates.debug_level = req.rpc_params.level;
+                return nodes_store.update_nodes({
+                    rpc_address: target
+                }, {
+                    $set: updates
+                });
+            })
+            .catch(err => {
+                dbg.log0('Error on set_debug_node', err);
+                return;
+            })
+            .then(() => {
+                return nodes_store.find_node_by_address(req)
+                    .then(node => {
+                        ActivityLog.create({
+                            system: req.system._id,
+                            level: 'info',
+                            event: 'dbg.set_debug_node',
+                            actor: req.account && req.account._id,
+                            node: node._id,
+                            desc: `${node.name} debug level was raised by ${req.account && req.account.email}`,
+                        });
+                        dbg.log1('set_debug_node for agent', target, req.rpc_params.level, 'was successful');
+                        return '';
+                    });
+            });
+    }
+
+
+    /**
+     *
+     * report_node_block_error
+     *
+     * sent by object IO when failed to read/write to node agent.
+     *
+     */
+    report_node_block_error(req) {
+        let action = req.rpc_params.action;
+        let block_md = req.rpc_params.block_md;
+        let node_id = block_md.node;
+
+        if (action === 'write') {
+
+            // node_allocator keeps nodes in memory,
+            // and in the write path it allocated a block on a node that failed to write
+            // so we notify about the error to remove the node from next allocations
+            // until it will refresh the alloc and see the error_since_hb on the node too
+            node_allocator.report_node_error(node_id);
+
+            // update the node to mark the error
+            // this marking is transient and will be unset on next heartbeat
+            return nodes_store.update_node_by_id(node_id, {
+                $set: {
+                    error_since_hb: new Date(),
+                }
+            }).return();
+        }
+    }
+
+    /*
+
+    _unregister_agent(connection, peer_id) {
+        return P.when(server_rpc.client.redirector.unregister_agent({
+                peer_id: peer_id,
+            }))
+            .fail(function(error) {
+                dbg.log0('Failed to unregister agent', error);
+                _resync_agents();
+            });
+    }
+
+    _on_reconnect(conn) {
+        if (conn.url.href === server_rpc.rpc.router.default) {
+            dbg.log0('_on_reconnect:', conn.url.href);
+            _resync_agents();
+        }
+    }
+
+    _resync_agents() {
+        dbg.log2('_resync_agents called');
+
+        //Retry to resync redirector
+        return promise_utils.retry(Infinity, 1000, function(attempt) {
+            var agents = server_rpc.rpc.get_n2n_addresses();
+            var ts = Date.now();
+            return server_rpc.client.redirector.resync_agents({
+                    agents: agents,
+                    timestamp: ts,
+                })
+                .fail(function(error) {
+                    dbg.log0('Failed resyncing agents to redirector', error);
+                    throw new Error('Failed resyncing agents to redirector');
+                });
+        });
+    }
 
     old_heartbeat(req) {
         var params = req.rpc_params;
@@ -569,190 +885,35 @@ class NodesMonitor extends EventEmitter {
         }
     }
 
-    read_node(req) {
-        // TODO
-    }
-
-    delete_node(req) {
-        // TODO notify to initiate rebuild of blocks
-        return nodes_store.find_node_by_name(req)
-            .then(node => nodes_store.delete_node_by_name(req))
-            .return();
-    }
-
-    n2n_signal(req) {
-        var target = req.rpc_params.target;
-        dbg.log1('n2n_signal', target);
-        return server_rpc.client.agent.n2n_signal(req.rpc_params, {
-            connection: this.connection,
-        });
-    }
+    */
+}
 
 
-    redirect(req) {
-        var target = req.rpc_params.target;
-        var api = req.rpc_params.method_api.slice(0, -4); //Remove _api suffix
-        var method_name = req.rpc_params.method_name;
-        var method = server_rpc.rpc.schema[req.rpc_params.method_api].methods[method_name];
-        dbg.log3('node_monitor redirect', api + '.' + method_name, 'to', target,
-            'with params', req.rpc_params.request_params, 'method:', method);
+function get_storage_info(storage) {
+    return {
+        total: storage.total || 0,
+        free: storage.free || 0,
+        used: storage.used || 0,
+        alloc: storage.alloc || 0,
+        limit: storage.limit || 0
+    };
+}
 
-
-        if (method.params && method.params.import_buffers) {
-            method.params.import_buffers(req.rpc_params.request_params, req.rpc_params.redirect_buffer);
-        }
-        return server_rpc.client[api][method_name](req.rpc_params.request_params, {
-            address: target,
-        }).then(function(reply) {
-            let res = {
-                redirect_reply: reply
-            };
-            if (method.reply && method.reply.export_buffers) {
-                res.redirect_buffer = method.reply.export_buffers(reply);
-            }
-            return res;
-        });
-    }
-
-    test_node_network(req) {
-        var target = req.rpc_params.target;
-        var source = req.rpc_params.source;
-
-        dbg.log0('test_node_network: target', target, 'source', source);
-
-        return server_rpc.client.agent.test_network_perf_to_peer({
-            source: source,
-            target: target,
-            request_length: req.rpc_params.request_length,
-            response_length: req.rpc_params.response_length,
-            count: req.rpc_params.count,
-            concur: req.rpc_params.concur,
-        }, {
-            address: source,
-        });
-    }
-
-    collect_agent_diagnostics(req) {
-        var target = req.rpc_params.rpc_address;
-        return server_rpc.client.agent.collect_diagnostics({}, {
-                address: target,
-            })
-            .then(function(data) {
-
-                return system_server.diagnose_with_agent(data, req);
-            })
-            .then(null, function(err) {
-                dbg.log0('Error on collect_agent_diagnostics', err);
-                return '';
-            });
-    }
-
-    set_debug_node(req) {
-        var target = req.rpc_params.target;
-        return P.fcall(function() {
-                return server_rpc.client.agent.set_debug_node({
-                    level: req.rpc_params.level
-                }, {
-                    address: target,
-                });
-            })
-            .then(function() {
-                var updates = {};
-                updates.debug_level = req.rpc_params.level;
-                return nodes_store.update_nodes({
-                    rpc_address: target
-                }, {
-                    $set: updates
-                });
-            })
-            .then(null, function(err) {
-                dbg.log0('Error on set_debug_node', err);
-                return;
-            })
-            .then(function() {
-                return nodes_store.find_node_by_address(req)
-                    .then((node) => {
-                        ActivityLog.create({
-                            system: req.system._id,
-                            level: 'info',
-                            event: 'dbg.set_debug_node',
-                            actor: req.account && req.account._id,
-                            node: node._id,
-                            desc: `${node.name} debug level was raised by ${req.account && req.account.email}`,
-                        });
-                        dbg.log1('set_debug_node for agent', target, req.rpc_params.level, 'was successful');
-                        return '';
-                    });
-            });
-    }
-
-
-    /**
-     *
-     * report_node_block_error
-     *
-     * sent by object IO when failed to read/write to node agent.
-     *
-     */
-    report_node_block_error(req) {
-        let action = req.rpc_params.action;
-        let block_md = req.rpc_params.block_md;
-        let node_id = block_md.node;
-
-        if (action === 'write') {
-
-            // node_allocator keeps nodes in memory,
-            // and in the write path it allocated a block on a node that failed to write
-            // so we notify about the error to remove the node from next allocations
-            // until it will refresh the alloc and see the error_since_hb on the node too
-            node_allocator.report_node_error(node_id);
-
-            // update the node to mark the error
-            // this marking is transient and will be unset on next heartbeat
-            return nodes_store.update_node_by_id(node_id, {
-                $set: {
-                    error_since_hb: new Date(),
-                }
-            }).return();
-        }
-    }
-
-
-    _unregister_agent(connection, peer_id) {
-        return P.when(server_rpc.client.redirector.unregister_agent({
-                peer_id: peer_id,
-            }))
-            .fail(function(error) {
-                dbg.log0('Failed to unregister agent', error);
-                _resync_agents();
-            });
-    }
-
-    _on_reconnect(conn) {
-        if (conn.url.href === server_rpc.rpc.router.default) {
-            dbg.log0('_on_reconnect:', conn.url.href);
-            _resync_agents();
-        }
-    }
-
-    _resync_agents() {
-        dbg.log2('_resync_agents called');
-
-        //Retry to resync redirector
-        return promise_utils.retry(Infinity, 1000, function(attempt) {
-            var agents = server_rpc.rpc.get_n2n_addresses();
-            var ts = Date.now();
-            return server_rpc.client.redirector.resync_agents({
-                    agents: agents,
-                    timestamp: ts,
-                })
-                .fail(function(error) {
-                    dbg.log0('Failed resyncing agents to redirector', error);
-                    throw new Error('Failed resyncing agents to redirector');
-                });
-        });
-    }
-
+/**
+ * returns a compare function for array.sort(compare_func)
+ * @param key_getter takes array item and returns a comparable key
+ * @param order should be 1 or -1
+ */
+function sort_compare_by(key_getter, order) {
+    key_getter = key_getter || (item => item);
+    order = order || 1;
+    return function(item1, item2) {
+        const key1 = key_getter(item1);
+        const key2 = key_getter(item2);
+        if (key1 < key2) return -order;
+        if (key1 > key2) return order;
+        return 0;
+    };
 }
 
 // server_rpc.rpc.on('reconnect', _on_reconnect);

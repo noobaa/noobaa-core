@@ -108,14 +108,7 @@ function update_node_by_id(node_id, updates, options) {
 
 
 function find_nodes(query, options) {
-    return P.when(NodeModel.collection.find(query, options).toArray())
-        .then(nodes => {
-            if (!options.dont_resolve_object_ids) {
-                var allow_missing = options && options.fields;
-                _.each(nodes, node => resolve_node_object_ids(node, allow_missing));
-            }
-            return nodes;
-        });
+    return P.when(NodeModel.collection.find(query, options).toArray());
 }
 
 function count_nodes(query) {

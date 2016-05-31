@@ -69,6 +69,10 @@ function refresh_pool_alloc(pool) {
                 'storage.used': 1
             },
             limit: 1000
+        }).then(nodes => {
+            // TODO not sure if really needed resolve_node_object_ids, but just in case
+            _.each(nodes, node => nodes_store.resolve_node_object_ids(node, 'allow_missing'));
+            return nodes;
         }),
         nodes_store.aggregate_nodes_by_pool({
             system: pool.system._id,

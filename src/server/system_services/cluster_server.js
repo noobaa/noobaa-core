@@ -131,7 +131,7 @@ function join_to_cluster(req) {
 
                 return P.when(cutil.update_cluster_info(
                         cutil.get_topology().shards.push({
-                            name: req.rpc_params.shard,
+                            shardname: req.rpc_params.shard,
                             servers: [{
                                 address: req.rpc_params.ip
                             }]
@@ -157,7 +157,8 @@ function join_to_cluster(req) {
             dbg.log0('Added member, publishing updated topology', cutil.pretty_topology(cutil.get_topology()));
             //Mongo servers are up, update entire cluster with the new topology
             return _publish_to_cluster('news_updated_topology', cutil.get_topology());
-        });
+        })
+        .return();
 }
 
 function news_config_servers(req) {
@@ -240,27 +241,15 @@ function _add_new_shard_on_server(shardname, ip, params) {
             return P.when(MongoCtrl.add_member_shard(shardname, ip));
         })
         .then(function() {
-            dbg.log0('Writing back old topology, for owner_secret reference', cutil.pretty_topology(current_topology));
-            //Write back old topology, was lost on transition to new shard server
-            return system_store.make_changes({
-                update: {
-                    clusters: [current_topology]
-                }
-            });
-        })
-        .then(function() {
             if (!params.first_shard) {
-                //Server shard join, update in the topology
-                let topology_updates = {};
-                topology_updates.shards = current_topology.shards;
-                topology_updates.shards.push({
-                    shardname: shardname,
-                    servers: [{
-                        address: ip,
-                    }]
+                //Write back old topology, was lost on transition to new shard server
+                dbg.log0('Writing back old topology, for owner_secret reference', cutil.pretty_topology(current_topology));
+                current_topology._id = system_store.generate_id();
+                return system_store.make_changes({
+                    insert: {
+                        clusters: [current_topology]
+                    }
                 });
-                dbg.log0('Updating topology in mongo to reflect new state', cutil.pretty_topology(topology_updates));
-                return P.when(cutil.update_cluster_info(topology_updates));
             } else {
                 return;
             }
@@ -356,7 +345,7 @@ function _publish_to_cluster(apiname, req_params) {
 function _update_config_if_needed(IPs) {
     var config_changes = cutil.config_array_changes(IPs.length);
     if (config_changes) {
-        return MongoCtrl.is_master(true)
+        return MongoCtrl.is_master(true) //true= Work on config RS
             .then((is_master) => {
                 if (is_master.ismaster) {
                     dbg.log0('Current server is master for config RS, Updating to', IPs);

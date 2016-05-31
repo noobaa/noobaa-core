@@ -175,9 +175,9 @@ class MongoClient extends EventEmitter {
         };
 
         if (is_config_set) {
-            return P.when(this.db.admin().command(command));
-        } else {
             return P.when(this._send_command_config_rs(command));
+        } else {
+            return P.when(this.db.admin().command(command));
         }
     }
 

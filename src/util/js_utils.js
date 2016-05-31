@@ -5,6 +5,7 @@ var _ = require('lodash');
 module.exports = {
     self_bind: self_bind,
     array_push_all: array_push_all,
+    array_push_keep_latest: array_push_keep_latest,
     named_array_push: named_array_push,
     append_buffer_or_array: append_buffer_or_array,
     deep_freeze: deep_freeze,
@@ -64,6 +65,12 @@ function array_push_all(array, items) {
     // to the push function which actually does: array.push(items[0], items[1], ...)
     _cached_array_push.apply(array, items);
     return array;
+}
+
+function array_push_keep_latest(array, items, limit) {
+    array = array || [];
+    array_push_all(array, items);
+    return array.length > limit ? array.slice(-limit) : array;
 }
 
 /**

@@ -43,7 +43,9 @@ function make_node_id(id_str) {
 }
 
 function create_node(req, node) {
-    node._id = make_node_id();
+    if (!node._id) {
+        node._id = make_node_id();
+    }
     return P.when(NodeModel.collection.insertOne(node))
         .catch(err => mongo_utils.check_duplicate_key_conflict(err, 'node'))
         .return(node);
@@ -130,6 +132,10 @@ function populate_nodes_for_map(docs, doc_path) {
 
 function update_nodes(query, updates) {
     return P.when(NodeModel.collection.updateMany(query, updates));
+}
+
+function bulk() {
+    return NodeModel.collection.initializeUnorderedBulkOp();
 }
 
 
@@ -312,6 +318,7 @@ exports.count_nodes = count_nodes;
 exports.populate_nodes_full = populate_nodes_full;
 exports.populate_nodes_for_map = populate_nodes_for_map;
 exports.update_nodes = update_nodes;
+exports.bulk = bulk;
 exports.aggregate_nodes_by_pool = aggregate_nodes_by_pool;
 // util
 exports.get_minimum_online_heartbeat = get_minimum_online_heartbeat;

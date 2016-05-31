@@ -11,6 +11,7 @@ const EventEmitter = require('events').EventEmitter;
 const P = require('../../util/promise');
 const pkg = require('../../../package.json');
 const dbg = require('../../util/debug_module')(__filename);
+const js_utils = require('../../util/js_utils');
 const RpcError = require('../../rpc/rpc_error');
 const md_store = require('../object_services/md_store');
 const MapBuilder = require('../object_services/map_builder').MapBuilder;
@@ -25,6 +26,10 @@ const promise_utils = require('../../util/promise_utils');
 const node_allocator = require('./node_allocator');
 const mongoose_utils = require('../../util/mongoose_utils');
 
+const RUN_DELAY_MS = 10000;
+const RUN_NODE_CONCUR = 50;
+const MAX_NUM_LATENCIES = 20;
+const UPDATE_STORE_MIN_ITEMS = 100;
 const AGENT_INFO_FIELDS_PICK = [
     'name',
     'version',
@@ -61,6 +66,7 @@ class NodesMonitor extends EventEmitter {
         this._map_node_id = new Map();
         this._map_peer_id = new Map();
         this._map_node_name = new Map();
+        this._set_need_update = new Set();
     }
 
     _load_from_store() {
@@ -73,14 +79,11 @@ class NodesMonitor extends EventEmitter {
                 dont_resolve_object_ids: true
             }))
             .then(nodes => {
+                if (!this._started) return;
                 this._clear();
-                _.each(nodes, node => {
-                    const item = {
-                        connection: null,
-                        node: node,
-                    };
-                    this._add_node(item);
-                });
+                for (const node of nodes) {
+                    this._add_existing_node(node);
+                }
                 this._loaded = true;
                 this._schedule_next_run();
             })
@@ -123,7 +126,7 @@ class NodesMonitor extends EventEmitter {
         // new node heartbeat
         // create the node and then update the heartbeat
         if (!node_id && (req.role === 'create_node' || req.role === 'admin')) {
-            this._new_node(req.connection, req.system._id, extra.pool_id);
+            this._add_new_node(req.connection, req.system._id, extra.pool_id);
             return reply;
         }
 
@@ -131,15 +134,18 @@ class NodesMonitor extends EventEmitter {
         throw new RpcError('FORBIDDEN', 'Bad heartbeat request');
     }
 
-    _connect_node(conn, node_id) {
-        dbg.log0('_connect_node:', 'node_id', node_id);
-        const item = this._map_node_id.get(String(node_id));
-        if (!item) throw new RpcError('NODE_NOT_FOUND', node_id);
-        this._set_connection(item, conn);
+    _add_existing_node(node) {
+        const item = {
+            connection: null,
+            node_from_store: node,
+            node: _.cloneDeep(node),
+        };
+        dbg.log0('_add_existing_node', item.node);
+        this._add_node_to_maps(item);
+        this._set_node_defaults(item);
     }
 
-    _new_node(conn, system_id, pool_id) {
-        dbg.log0('_new_node', 'new_node_id');
+    _add_new_node(conn, system_id, pool_id) {
         const system = system_store.data.get_by_id(system_id);
         const pool =
             system_store.data.get_by_id(pool_id) ||
@@ -149,25 +155,41 @@ class NodesMonitor extends EventEmitter {
         }
         const item = {
             connection: null,
+            node_from_store: null,
             node: {
                 _id: nodes_store.make_node_id(),
                 peer_id: nodes_store.make_node_id(),
                 system: system._id,
                 pool: pool._id,
                 heartbeat: new Date(),
-                name: 'TODO-node-name', // TODO
+                name: 'New-Node-' + Date.now().toString(36),
             },
         };
-        this._add_node(item);
+        dbg.log0('_add_new_node', item.node);
+        this._add_node_to_maps(item);
+        this._set_node_defaults(item);
         this._set_connection(item, conn);
+        this._set_need_update.add(item);
     }
 
-    _add_node(item) {
-        if (!this._started) return;
-        if (!this._loaded) return;
+    _add_node_to_maps(item) {
         this._map_node_id.set(String(item.node._id), item);
         this._map_peer_id.set(String(item.node.peer_id), item);
         this._map_node_name.set(String(item.node.name), item);
+    }
+
+    _set_node_defaults(item) {
+        item.node.drives = item.node.drives || [];
+        item.node.latency_to_server = item.node.latency_to_server || [];
+        item.node.latency_of_disk_read = item.node.latency_of_disk_read || [];
+        item.node.latency_of_disk_write = item.node.latency_of_disk_write || [];
+    }
+
+    _connect_node(conn, node_id) {
+        dbg.log0('_connect_node:', 'node_id', node_id);
+        const item = this._map_node_id.get(String(node_id));
+        if (!item) throw new RpcError('NODE_NOT_FOUND', node_id);
+        this._set_connection(item, conn);
     }
 
     _set_connection(item, conn) {
@@ -192,20 +214,21 @@ class NodesMonitor extends EventEmitter {
             P.resolve()
                 .then(() => this._run())
                 .finally(() => this._schedule_next_run());
-        }, 10000);
+        }, RUN_DELAY_MS);
     }
 
     _run() {
         if (!this._started) return;
         let next = 0;
         const queue = Array.from(this._map_node_id.values());
-        const concur = Math.min(queue.length, 50);
+        const concur = Math.min(queue.length, RUN_NODE_CONCUR);
         const worker = () => {
             if (next >= queue.length) return;
             const item = queue[next++];
             return this._run_node(item).then(worker);
         };
-        return P.all(_.times(concur, worker));
+        return P.all(_.times(concur, worker))
+            .then(() => this._update_nodes_store('force'));
     }
 
     _run_node(item) {
@@ -213,10 +236,10 @@ class NodesMonitor extends EventEmitter {
         return P.resolve()
             .then(() => this._get_agent_info(item))
             .then(() => this._update_rpc_config(item))
-            // .then(() => this._test_store_perf(item))
+            .then(() => this._test_store_perf(item))
             // .then(() => this._test_network_perf(item))
             // .then(() => this._update_status(item))
-            .then(() => this._update_node_store(item));
+            .then(() => this._update_nodes_store());
     }
 
     _get_agent_info(item) {
@@ -226,6 +249,10 @@ class NodesMonitor extends EventEmitter {
             })
             .then(info => {
                 item.agent_info = info;
+                const updates = _.pick(info, AGENT_INFO_FIELDS_PICK);
+                updates.heartbeat = new Date();
+                _.extend(item.node, updates);
+                this._set_need_update.add(item);
             });
     }
 
@@ -265,7 +292,11 @@ class NodesMonitor extends EventEmitter {
                 connection: item.connection
             })
             .then(res => {
-                // TODO add to node info
+                this._set_need_update.add(item);
+                item.node.latency_of_disk_read = js_utils.array_push_keep_latest(
+                    item.node.latency_of_disk_read, res.read, MAX_NUM_LATENCIES);
+                item.node.latency_of_disk_write = js_utils.array_push_keep_latest(
+                    item.node.latency_of_disk_write, res.write, MAX_NUM_LATENCIES);
             });
     }
 
@@ -295,35 +326,66 @@ class NodesMonitor extends EventEmitter {
         // }
     }
 
-    _update_node_store(item) {
-        const updates = _.pick(item.agent_info, AGENT_INFO_FIELDS_PICK);
-        updates.heartbeat = new Date();
+    _update_nodes_store(force) {
+        // skip the update if not forced and not enough coalescing
+        if (!this._set_need_update.size) return;
+        if (!force && this._set_need_update.size < UPDATE_STORE_MIN_ITEMS) return;
 
-        item.auth_token = item.auth_token || auth_server.make_auth_token({
-            system_id: String(item.node.system),
-            role: 'agent',
-            extra: {
-                node_id: item.node._id
+        // prepare a bulk update to the store
+        const new_nodes = [];
+        const set_of_current_bulk = this._set_need_update;
+        this._set_need_update = new Set();
+        const bulk = nodes_store.bulk();
+        for (const item of set_of_current_bulk) {
+            if (item.node_from_store) {
+                new_nodes.push(item);
+                bulk.find({
+                    _id: item.node._id
+                }).updateOne({
+                    $set: item.node
+                });
+            } else {
+                bulk.insert(item.node);
             }
-        });
+        }
 
-        dbg.log0('UPDATE NODE', item.node, 'UPDATES', updates);
-        _.extend(item.node, updates);
-        item.node.drives = item.node.drives || [];
-        item.node.latency_to_server = item.node.latency_to_server || [];
-        item.node.latency_of_disk_read = item.node.latency_of_disk_read || [];
-        item.node.latency_of_disk_write = item.node.latency_of_disk_write || [];
-
-        return nodes_store.update_node_by_id(item.node._id, {
-                $set: item.node
+        return P.resolve()
+            .then(() => P.ninvoke(bulk, 'execute'))
+            .then(() => P.map(new_nodes, item => {
+                return this.client.agent.update_auth_token({
+                        auth_token: auth_server.make_auth_token({
+                            system_id: String(item.node.system),
+                            role: 'agent',
+                            extra: {
+                                node_id: item.node._id
+                            }
+                        })
+                    }, {
+                        connection: item.connection
+                    })
+                    .catch(err => {
+                        dbg.warn('update_auth_token ERROR node', item.node._id, err);
+                        // TODO handle error of update_auth_token - disconnect? deleted from store?
+                    });
             }, {
-                upsert: true
+                concurrency: 10
+            }))
+            .then(() => {
+                // for all updated nodes we can consider the store updated
+                // if no new updates were requested while we were writing
+                for (const item of set_of_current_bulk) {
+                    if (!this._set_need_update.has(item)) {
+                        item.node_from_store = _.cloneDeep(item.node);
+                    }
+                }
             })
-            .then(() => this.client.agent.update_auth_token({
-                auth_token: item.auth_token
-            }, {
-                connection: item.connection
-            }));
+            .catch(err => {
+                dbg.error('_update_nodes_store ERROR', err);
+                // add all the failed nodes to set
+                for (const item of set_of_current_bulk) {
+                    this._set_need_update.add(item);
+                }
+            });
     }
 
     _run_activity() {

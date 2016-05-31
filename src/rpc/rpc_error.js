@@ -6,7 +6,7 @@ const _ = require('lodash');
 class RpcError extends Error {
 
     constructor(rpc_code, message, retryable) {
-        super(message);
+        super(message || rpc_code || 'UNKNOWN RPC ERROR');
         this.rpc_code = rpc_code;
         if (retryable) {
             this.retryable = true;

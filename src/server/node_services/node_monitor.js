@@ -121,7 +121,7 @@ class NodesMonitor extends EventEmitter {
             node_from_store: node,
             node: _.cloneDeep(node),
         };
-        dbg.log0('_add_existing_node', item.node);
+        dbg.log0('_add_existing_node', item.node.name);
         this._add_node_to_maps(item);
         this._set_node_defaults(item);
     }
@@ -600,6 +600,36 @@ class NodesMonitor extends EventEmitter {
         });
     }
 
+    n2n_proxy(req) {
+        dbg.log3('n2n_proxy: target', req.rpc_params.target,
+            'call', req.rpc_params.method_api + '.' + req.rpc_params.method_name,
+            'params', req.rpc_params.request_params);
+
+        const item = this._map_peer_id.get(
+            req.rpc_params.target.slice('n2n://'.length));
+        if (!item) throw new RpcError('NO_SUCH_NODE');
+        if (!item.connection) throw new RpcError('NODE_OFFLINE');
+        const api = req.rpc_params.method_api.slice(0, -4); //Remove _api suffix
+        const method_name = req.rpc_params.method_name;
+        const method = server_rpc.rpc.schema[req.rpc_params.method_api].methods[method_name];
+        if (method.params && method.params.import_buffers) {
+            method.params.import_buffers(req.rpc_params.request_params, req.rpc_params.proxy_buffer);
+        }
+
+        return this.client[api][method_name](req.rpc_params.request_params, {
+                connection: item.connection,
+            })
+            .then(reply => {
+                const res = {
+                    proxy_reply: reply
+                };
+                if (method.reply && method.reply.export_buffers) {
+                    res.proxy_buffer = method.reply.export_buffers(reply);
+                }
+                return res;
+            });
+    }
+
     test_node_network(req) {
         dbg.log0('test_node_network:',
             'target', req.rpc_params.target,
@@ -610,33 +640,6 @@ class NodesMonitor extends EventEmitter {
         if (!item.connection) throw new RpcError('NODE_OFFLINE');
         return this.client.agent.test_network_perf_to_peer(req.rpc_params, {
             connection: item.connection,
-        });
-    }
-
-
-    redirect(req) {
-        // TODO GUYM FIX redirect
-        var target = req.rpc_params.target;
-        var api = req.rpc_params.method_api.slice(0, -4); //Remove _api suffix
-        var method_name = req.rpc_params.method_name;
-        var method = server_rpc.rpc.schema[req.rpc_params.method_api].methods[method_name];
-        dbg.log3('node_monitor redirect', api + '.' + method_name, 'to', target,
-            'with params', req.rpc_params.request_params, 'method:', method);
-
-
-        if (method.params && method.params.import_buffers) {
-            method.params.import_buffers(req.rpc_params.request_params, req.rpc_params.redirect_buffer);
-        }
-        return server_rpc.client[api][method_name](req.rpc_params.request_params, {
-            address: target,
-        }).then(reply => {
-            let res = {
-                redirect_reply: reply
-            };
-            if (method.reply && method.reply.export_buffers) {
-                res.redirect_buffer = method.reply.export_buffers(reply);
-            }
-            return res;
         });
     }
 
@@ -732,41 +735,6 @@ class NodesMonitor extends EventEmitter {
     }
 
     /*
-
-    _unregister_agent(connection, peer_id) {
-        return P.when(server_rpc.client.redirector.unregister_agent({
-                peer_id: peer_id,
-            }))
-            .fail(function(error) {
-                dbg.log0('Failed to unregister agent', error);
-                _resync_agents();
-            });
-    }
-
-    _on_reconnect(conn) {
-        if (conn.url.href === server_rpc.rpc.router.default) {
-            dbg.log0('_on_reconnect:', conn.url.href);
-            _resync_agents();
-        }
-    }
-
-    _resync_agents() {
-        dbg.log2('_resync_agents called');
-
-        //Retry to resync redirector
-        return promise_utils.retry(Infinity, 1000, function(attempt) {
-            var agents = server_rpc.rpc.get_n2n_addresses();
-            var ts = Date.now();
-            return server_rpc.client.redirector.resync_agents({
-                    agents: agents,
-                    timestamp: ts,
-                })
-                .fail(function(error) {
-                    dbg.log0('Failed resyncing agents to redirector', error);
-                    throw new Error('Failed resyncing agents to redirector');
-                });
-        });
-    }
 
     old_heartbeat(req) {
         var params = req.rpc_params;

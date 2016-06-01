@@ -91,12 +91,12 @@ exports.get_test_nodes = get_test_nodes;
 // exports.list_nodes_int = list_nodes_int; // TODO list_nodes_int
 exports.heartbeat = req => monitor.heartbeat(req);
 exports.read_node = req => monitor.read_node_by_name(req.rpc_params.name);
-exports.delete_node = req => monitor.delete_node_by_name(req.rpc_params.name);
-exports.redirect = req => monitor.redirect(req);
 exports.n2n_signal = req => monitor.n2n_signal(req);
+exports.n2n_proxy = req => monitor.n2n_proxy(req);
 exports.test_node_network = req => monitor.test_node_network(req);
 exports.set_debug_node = req => monitor.set_debug_node(req);
 exports.collect_agent_diagnostics = req =>
     monitor.collect_agent_diagnostics(req.rpc_params.name);
 exports.report_node_block_error = req =>
     monitor.report_node_block_error(req.rpc_params.block_md.address, req);
+exports.delete_node = req => monitor.delete_node_by_name(req.rpc_params.name);

@@ -35,41 +35,6 @@ module.exports = {
             }
         },
 
-        read_node: {
-            method: 'GET',
-            params: {
-                type: 'object',
-                required: ['name'],
-                properties: {
-                    name: {
-                        type: 'string'
-                    }
-                }
-            },
-            reply: {
-                $ref: '#/definitions/node_full_info'
-            },
-            auth: {
-                system: 'admin'
-            }
-        },
-
-        delete_node: {
-            method: 'DELETE',
-            params: {
-                type: 'object',
-                required: ['name'],
-                properties: {
-                    name: {
-                        type: 'string',
-                    },
-                }
-            },
-            auth: {
-                system: 'admin'
-            }
-        },
-
         list_nodes: {
             method: 'GET',
             params: {
@@ -161,6 +126,41 @@ module.exports = {
             }
         },
 
+        read_node: {
+            method: 'GET',
+            params: {
+                type: 'object',
+                required: ['name'],
+                properties: {
+                    name: {
+                        type: 'string'
+                    }
+                }
+            },
+            reply: {
+                $ref: '#/definitions/node_full_info'
+            },
+            auth: {
+                system: 'admin'
+            }
+        },
+
+        delete_node: {
+            method: 'DELETE',
+            params: {
+                type: 'object',
+                required: ['name'],
+                properties: {
+                    name: {
+                        type: 'string',
+                    },
+                }
+            },
+            auth: {
+                system: 'admin'
+            }
+        },
+
         n2n_signal: {
             method: 'POST',
             params: {
@@ -174,13 +174,13 @@ module.exports = {
             }
         },
 
-        redirect: {
+        n2n_proxy: {
             method: 'POST',
             params: {
-                $ref: 'redirector_api#/definitions/redirect_params'
+                $ref: 'common_api#/definitions/proxy_params'
             },
             reply: {
-                $ref: 'redirector_api#/definitions/redirect_reply'
+                $ref: 'common_api#/definitions/proxy_reply'
             },
             auth: {
                 system: false

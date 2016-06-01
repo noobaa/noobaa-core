@@ -410,7 +410,7 @@ mocha.describe('RPC', function() {
             });
             let tcp_server;
             const ADDR = 'n2n://testrpc';
-            let n2n_agent = rpc.register_n2n_transport(
+            let n2n_agent = rpc.register_n2n_agent(
                 params => rpc.accept_n2n_signal(params)
             );
             n2n_agent.set_rpc_address(ADDR);

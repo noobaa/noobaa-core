@@ -221,7 +221,7 @@ function start() {
             });
 
             // register n2n and accept any peer_id
-            var n2n_agent = rpc.register_n2n_transport(client.rpcbench.n2n_signal);
+            var n2n_agent = rpc.register_n2n_agent(client.rpcbench.n2n_signal);
             n2n_agent.set_any_rpc_address();
         })
         .then(function() {

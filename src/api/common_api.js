@@ -240,5 +240,46 @@ module.exports = {
             }
         },
 
+        proxy_params: {
+            type: 'object',
+            required: ['target', 'method_api', 'method_name'],
+            properties: {
+                target: {
+                    type: 'string'
+                },
+                method_api: {
+                    type: 'string'
+                },
+                method_name: {
+                    type: 'string'
+                },
+                stop_proxy: {
+                    type: 'boolean',
+                },
+                request_params: {
+                    type: 'object',
+                    additionalProperties: true,
+                    properties: {}
+                },
+                proxy_buffer: {
+                    format: 'buffer'
+                },
+            },
+        },
+
+        proxy_reply: {
+            type: 'object',
+            properties: {
+                proxy_reply: {
+                    type: 'object',
+                    additionalProperties: true,
+                    properties: {}
+                },
+                proxy_buffer: {
+                    format: 'buffer'
+                },
+            }
+        },
+
     }
 };

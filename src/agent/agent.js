@@ -126,7 +126,7 @@ class Agent {
         // register rpc http server
         this.rpc.register_http_transport(this.agent_app);
         // register rpc n2n
-        this.n2n_agent = this.rpc.register_n2n_transport(this.client.node.n2n_signal);
+        this.n2n_agent = this.rpc.register_n2n_agent(this.client.node.n2n_signal);
 
         // TODO these sample geolocations are just for testing
         this.geolocation = _.sample([

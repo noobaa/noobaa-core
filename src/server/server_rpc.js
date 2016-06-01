@@ -7,11 +7,10 @@ class ServerRpc {
     constructor() {
         this.rpc = api.new_rpc();
         this.client = this.rpc.new_client();
-        // redirection function is used by the node_server
-        // to forward calls using the redirector server
-        // to reach the specific node_server instance that has
-        // a direct connection to the agent.
-        this.rpc.register_redirector_transport(this.client.redirector.redirect);
+        // n2n proxy allows any service reach n2n agents
+        // without registering an n2n agent by proxying requests
+        // using the node server
+        this.rpc.register_n2n_proxy(this.client.node.n2n_proxy);
     }
 
     get_server_options() {
@@ -50,13 +49,13 @@ class ServerRpc {
 
         rpc.register_service(schema.redirector_api,
             require('./system_services/redirector'), {
-            // the redirector should not try refresh system_store
-            // because it doesn't use it and system_store calls the redirector,
-            // so would deadlock.
-            middleware: [
-                require('./common_services/auth_server').authorize
-            ]
-        });
+                // the redirector should not try refresh system_store
+                // because it doesn't use it and system_store calls the redirector,
+                // so would deadlock.
+                middleware: [
+                    require('./common_services/auth_server').authorize
+                ]
+            });
     }
 
     register_node_services() {

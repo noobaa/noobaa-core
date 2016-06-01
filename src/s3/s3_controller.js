@@ -22,7 +22,7 @@ class S3Controller {
         this.rpc = rpc;
         this.object_io = new ObjectIO();
         let signal_client = this.rpc.new_client();
-        let n2n_agent = this.rpc.register_n2n_transport(signal_client.node.n2n_signal);
+        let n2n_agent = this.rpc.register_n2n_agent(signal_client.node.n2n_signal);
         n2n_agent.set_any_rpc_address();
     }
 

@@ -89,6 +89,7 @@ function get_chunk_status(chunk, tiering, ignore_cloud_pools) {
         return num_accessible;
     }
 
+
     _.each(chunk.frags, f => {
 
         dbg.log1('get_chunk_status:', 'chunk', chunk, 'fragment', f);
@@ -96,9 +97,12 @@ function get_chunk_status(chunk, tiering, ignore_cloud_pools) {
         let blocks = f.blocks || EMPTY_CONST_ARRAY;
         let num_accessible = 0;
 
-        if (tier.data_placement === 'MIRROR') {
-            let blocks_by_pool = _.groupBy(blocks, block => block.node.pool);
-            _.each(participating_pools, pool => {
+
+        // mirror blocks between the given pools.
+        // if necessary remove blocks from already mirrored blocks
+        function mirror_pools(mirrored_pools, mirrored_blocks) {
+            let blocks_by_pool = _.groupBy(mirrored_blocks, block => block.node.pool);
+            _.each(mirrored_pools, pool => {
                 num_accessible += check_blocks_group(blocks_by_pool[pool._id], {
                     pools: [pool],
                     fragment: f
@@ -106,22 +110,26 @@ function get_chunk_status(chunk, tiering, ignore_cloud_pools) {
                 delete blocks_by_pool[pool._id];
             });
             _.each(blocks_by_pool, blocks => check_blocks_group(blocks, null));
+        }
 
+        if (tier.data_placement === 'MIRROR') {
+            mirror_pools(participating_pools, blocks);
         } else { // SPREAD
             let pools_partitions = _.partition(participating_pools, pool => _.isUndefined(pool.cloud_pool_info));
-            num_accessible += check_blocks_group(blocks, {
-                pools: pools_partitions[0], // only spread data on regular pools, and not cloud_pools
+            let blocks_partitions = _.partition(blocks, block => !block.node.is_cloud_node);
+            let regular_pools = pools_partitions[0];
+            let regular_blocks = blocks_partitions[0];
+            num_accessible += check_blocks_group(regular_blocks, {
+                pools: regular_pools, // only spread data on regular pools, and not cloud_pools
                 fragment: f
             });
-            if (pools_partitions[1].length > 0) {
-                let blocks_by_pool = _.groupBy(blocks, block => block.node.pool);
-                //now mirror to cloud_pools:
-                _.each(pools_partitions[1], cloud_pool => {
-                    num_accessible += check_blocks_group(blocks_by_pool[cloud_pool._id], {
-                        pools: [cloud_pool],
-                        fragment: f
-                    });
-                });
+
+            // cloud pools are always used for mirroring.
+            // if there are any cloud pools or blocks written to cloud pools, handle them
+            let cloud_pools = pools_partitions[1];
+            let cloud_blocks = blocks_partitions[1];
+            if (cloud_pools.length || cloud_blocks.length) {
+                mirror_pools(cloud_pools, cloud_blocks);
             }
         }
 

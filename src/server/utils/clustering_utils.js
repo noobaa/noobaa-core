@@ -16,13 +16,12 @@ function get_topology() {
 
 function update_cluster_info(params) {
     var current_clustering = system_store.get_local_cluster_info();
-    var owner_secret = current_clustering.owner_secret;
     var update = _.defaults(_.pick(params, _.keys(current_clustering)), current_clustering);
-    update.owner_secret = owner_secret; //Keep original owner_secret
+    update.owner_secret = system_store.get_server_secret(); //Keep original owner_secret
     update._id = current_clustering._id;
 
-    dbg.log0('Updating local cluster info for owner', owner_secret, 'previous cluster info',
-        current_clustering, 'new cluster info', update);
+    dbg.log0('Updating local cluster info for owner', update.owner_secret, 'previous cluster info',
+        pretty_topology(current_clustering), 'new cluster info', pretty_topology(update));
 
     return system_store.make_changes({
             update: {
@@ -117,6 +116,25 @@ function pretty_topology(topology) {
     });
 }
 
+function config_array_changes(new_array) {
+    var current = extract_servers_ip(get_topology().config_servers).sort();
+    var changes = Array.from(new_array).sort();
+
+    if (current.length !== changes.length) {
+        return true;
+    }
+
+    var changed = false;
+    _.each(current, function(c_srv, i) {
+        if (c_srv !== changes[i]) {
+            changed = true;
+        }
+    });
+
+    return changed;
+
+}
+
 //Exports
 exports.get_topology = get_topology;
 exports.update_cluster_info = update_cluster_info;
@@ -126,3 +144,4 @@ exports.verify_cluster_id = verify_cluster_id;
 exports.is_single_server = is_single_server;
 exports.get_all_cluster_members = get_all_cluster_members;
 exports.pretty_topology = pretty_topology;
+exports.config_array_changes = config_array_changes;

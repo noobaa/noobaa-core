@@ -71,9 +71,9 @@ function read_object_mappings(params) {
 function read_node_mappings(params) {
     var objects = {};
     var parts_per_obj_id = {};
-
     return P.fcall(function() {
             return md_store.DataBlock.collection.find({
+                system: params.node.system._id,
                 node: params.node._id,
                 deleted: null,
             }, {

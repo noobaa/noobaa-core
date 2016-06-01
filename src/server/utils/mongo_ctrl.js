@@ -71,6 +71,10 @@ MongoCtrl.prototype.update_connection_string = function() {
     return mongo_client.update_connection_string();
 };
 
+MongoCtrl.prototype.is_master = function(is_config_set, set_name) {
+    return mongo_client.is_master(is_config_set, set_name);
+};
+
 
 //
 //Internals

@@ -42,9 +42,11 @@ function create_node(req) {
     var pool = {};
     if (req.rpc_params.cloud_pool_name) {
         pool = req.system.pools_by_name[req.rpc_params.cloud_pool_name];
+        node.is_cloud_node = true;
         dbg.log0('creating node in cloud pool', req.rpc_params.cloud_pool_name, pool);
     } else {
         pool = req.system.pools_by_name.default_pool;
+        node.is_cloud_node = false;
     }
 
     if (!pool) {

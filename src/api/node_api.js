@@ -249,9 +249,6 @@ module.exports = {
                     },
                     cloud_pool_name: {
                         type: 'string'
-                    },
-                    is_internal_agent: {
-                        type: 'boolean'
                     }
                 }
             },

@@ -454,7 +454,9 @@ function send_stats_payload(payload) {
                 options.headers.host = central_listener.host;
             }
 
+            dbg.log0('Phone Home Sending Post Request To Server:', options);
             var req = http.request(options, function(response) {
+                dbg.log0('Phone Home Received Response From Server');
                 //set the response encoding to parse json string
                 response.setEncoding('utf8');
                 var responseData = '';
@@ -464,6 +466,7 @@ function send_stats_payload(payload) {
                 });
                 //listen to the 'end' event
                 response.on('end', function() {
+                    dbg.log0('Phone Home Received End Response From Server', responseData);
                     //resolve the deferred object with the response
                     deferred.resolve(responseData);
                 });
@@ -471,6 +474,7 @@ function send_stats_payload(payload) {
 
             //listen to the 'error' event
             req.on('error', function(err) {
+                dbg.log0('Phone Home Received Error Response From Server', err);
                 //if an error occurs reject the deferred
                 deferred.reject(err);
             });
@@ -600,6 +604,7 @@ function background_worker() {
         .then((res) => {
             return server_rpc.client.stats.object_usage_scrubber({});
         })
+        .then(() => dbg.log('Phone Home data was send successfuly'))
         .catch(err => {
             dbg.warn('Phone Home data send failed', err.stack || err);
             return;

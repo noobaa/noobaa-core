@@ -14,7 +14,7 @@ const config = require('../../../config');
 const ActivityLog = require('../analytic_services/activity_log');
 const nodes_store = require('./nodes_store');
 const string_utils = require('../../util/string_utils');
-const nodes_monitor = require('./node_monitor');
+const nodes_monitor = require('./nodes_monitor');
 
 const monitor = new nodes_monitor.NodesMonitor();
 

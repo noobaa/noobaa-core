@@ -47,6 +47,14 @@ var steps = [
         //Restore DB to defaults
         name: 'Restore DB Defaults',
         common: 'restore_db_defaults',
+    }, {
+        //Test Ceph S3
+        name: 'Ceph S3 Test',
+        lib_test: '/src/test/system_tests/test_ceph_s3.js',
+    }, {
+        //Restore DB to defaults
+        name: 'Restore DB Defaults',
+        common: 'restore_db_defaults',
     }
 ];
 

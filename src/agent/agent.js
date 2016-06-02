@@ -379,7 +379,6 @@ Agent.prototype._do_heartbeat = function() {
         params.cloud_pool_name = self.cloud_info.cloud_pool_name;
     }
 
-    params.is_internal_agent = self.is_internal_agent;
 
     params.debug_level = dbg.get_module_level('core');
 

@@ -74,50 +74,41 @@ module.exports = {
             // the last agent version acknoledged
             type: 'string',
         },
-        srvmode: {
-            type: 'string',
-            enum: ['disabled', 'decommissioning', 'decommisioned']
+        untrusted: {
+            type: 'boolean'
         },
-        accessibility: {
-            type: 'string',
-            enum: ['FULL_ACCESS', 'READ_ONLY', 'NO_ACCEESS']
+        migrating_to_pool: {
+            type: 'boolean'
         },
-        trust_level: {
-            type: 'string',
-            enum: ['TRUSTED', 'UNTRUSTED']
+        decommissioning: {
+            type: 'boolean',
         },
-        connectivity_type: {
-            type: 'string',
-            enum: ['TCP', 'UDP', 'NONE', 'UNKNOWN']
+        decommissioned: {
+            type: 'boolean',
         },
-        data_activity: {
+        disabled: {
+            type: 'boolean',
+        },
+        rebuilding: {
             type: 'object',
             properties: {
-                activity: {
-                    type: 'string',
-                    enum: ['REBUILDING', 'EVEACUATING', 'MIGRATING'],
+                completed_size: {
+                    type: 'number',
+                },
+                remaining_size: {
+                    type: 'number',
                 },
                 start_time: {
                     format: 'idate'
                 },
-                total_size: {
-                    type: 'number',
+                remaining_time: {
+                    format: 'idate'
                 },
-                progress: {
-                    type: 'array',
-                    items: {
-                        type: 'object',
-                        properties: {
-                            time: {
-                                format: 'idate'
-                            },
-                            completed: {
-                                type: 'number',
-                            },
-                        }
-                    }
-                }
             }
+        },
+        connectivity_type: {
+            type: 'string',
+            enum: ['TCP', 'UDP', 'NONE', 'UNKNOWN']
         },
 
         // node storage stats - sum of drives

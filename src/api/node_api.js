@@ -59,31 +59,29 @@ module.exports = {
                                 // regexp
                                 type: 'string'
                             },
-                            state: {
-                                type: 'string',
-                                enum: ['online', 'offline']
+                            online: {
+                                type: 'boolean',
                             },
-                            trust_level: {
-                                type: 'string',
-                                enum: ['TRUSTED', 'UNTRUSTED']
+                            readable: {
+                                type: 'boolean',
                             },
-                            accessibility: {
-                                type: 'string',
-                                enum: ['FULL_ACCESS', 'READ_ONLY', 'NO_ACCESS']
+                            writable: {
+                                type: 'boolean',
                             },
-                            data_activity: {
-                                type: 'object',
-                                properties: {
-                                    EVACUATING: {
-                                        type: 'boolean'
-                                    },
-                                    REBUILDING: {
-                                        type: 'boolean'
-                                    },
-                                    MIGRATING: {
-                                        type: 'boolean'
-                                    }
-                                }
+                            trusted: {
+                                type: 'boolean',
+                            },
+                            migrating_to_pool: {
+                                type: 'boolean'
+                            },
+                            decommissioning: {
+                                type: 'boolean',
+                            },
+                            decommissioned: {
+                                type: 'boolean',
+                            },
+                            disabled: {
+                                type: 'boolean',
                             },
                         }
                     },
@@ -98,7 +96,7 @@ module.exports = {
                     },
                     sort: {
                         type: 'string',
-                        enum: ['state', 'name', 'ip', 'capacity', 'hd', 'trust', 'online']
+                        enum: ['name', 'ip', 'online']
                     },
                     order: {
                         type: 'integer',
@@ -308,11 +306,6 @@ module.exports = {
 
     definitions: {
 
-        srvmode: {
-            type: 'string',
-            enum: ['connect', 'disabled', 'decommissioning', 'decommissioned']
-        },
-
         node_full_info: {
             type: 'object',
             required: [
@@ -340,12 +333,6 @@ module.exports = {
                 geolocation: {
                     type: 'string'
                 },
-                srvmode: {
-                    $ref: '#/definitions/srvmode'
-                },
-                storage_full: {
-                    type: 'boolean'
-                },
                 rpc_address: {
                     type: 'string'
                 },
@@ -358,14 +345,52 @@ module.exports = {
                 ip: {
                     type: 'string'
                 },
-                online: {
-                    type: 'boolean',
+                version: {
+                    type: 'string'
                 },
                 heartbeat: {
                     format: 'idate'
                 },
-                version: {
-                    type: 'string'
+                online: {
+                    type: 'boolean',
+                },
+                readable: {
+                    type: 'boolean',
+                },
+                writable: {
+                    type: 'boolean',
+                },
+                untrusted: {
+                    type: 'boolean',
+                },
+                migrating_to_pool: {
+                    type: 'boolean'
+                },
+                decommissioning: {
+                    type: 'boolean',
+                },
+                decommissioned: {
+                    type: 'boolean',
+                },
+                disabled: {
+                    type: 'boolean',
+                },
+                rebuilding: {
+                    type: 'object',
+                    properties: {
+                        completed_size: {
+                            type: 'number',
+                        },
+                        remaining_size: {
+                            type: 'number',
+                        },
+                        start_time: {
+                            format: 'idate'
+                        },
+                        remaining_time: {
+                            format: 'idate'
+                        },
+                    }
                 },
                 storage: {
                     $ref: 'common_api#/definitions/storage_info'

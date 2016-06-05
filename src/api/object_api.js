@@ -889,9 +889,6 @@ module.exports = {
                         online: {
                             type: 'boolean'
                         },
-                        srvmode: {
-                            $ref: 'node_api#/definitions/srvmode'
-                        },
                     }
                 }
             }

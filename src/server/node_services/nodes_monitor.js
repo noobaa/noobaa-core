@@ -27,11 +27,14 @@ const system_server = require('../system_services/system_server');
 // const promise_utils = require('../../util/promise_utils');
 const node_allocator = require('./node_allocator');
 const mongoose_utils = require('../../util/mongoose_utils');
+const mongo_functions = require('../../util/mongo_functions');
 
 const RUN_DELAY_MS = 10000;
 const RUN_NODE_CONCUR = 50;
 const MAX_NUM_LATENCIES = 20;
 const UPDATE_STORE_MIN_ITEMS = 100;
+const NODE_REBUILD_WORKERS = 10;
+const REBUILD_CLIFF = 0; // 3 * 60000
 
 const AGENT_INFO_FIELDS_PICK = [
     'name',
@@ -52,8 +55,12 @@ const NODE_INFO_PICK_FIELDS = [
     'ip',
     'rpc_address',
     'base_address',
-    'srvmode',
     'version',
+    'untrusted',
+    'migrating_to_pool',
+    'decommissioning',
+    'decommissioned',
+    'disabled',
     'latency_to_server',
     'latency_of_disk_read',
     'latency_of_disk_write',
@@ -73,6 +80,9 @@ class NodesMonitor extends EventEmitter {
     constructor() {
         super();
         this.client = server_rpc.rpc.new_client();
+        this._started = false;
+        this._loaded = false;
+        this._num_running_rebuilds = 0;
     }
 
     start() {
@@ -90,6 +100,8 @@ class NodesMonitor extends EventEmitter {
         this._map_peer_id = new Map();
         this._map_node_name = new Map();
         this._set_need_update = new Set();
+        this._set_need_rebuild = new Set();
+        this._set_need_rebuild_iter = null;
     }
 
     _load_from_store() {
@@ -185,7 +197,6 @@ class NodesMonitor extends EventEmitter {
             dbg.warn('heartbeat: closing old connection', item.connection.connid);
             item.connection.close();
         }
-        item.connection = conn;
         conn.on('close', () => {
             // if connection already replaced ignore the close event
             if (item.connection !== conn) return;
@@ -193,6 +204,9 @@ class NodesMonitor extends EventEmitter {
             // TODO GUYM what to wakeup on disconnect?
             setTimeout(() => this._run_node(item), 1000);
         });
+        item.connection = conn;
+        item.node.heartbeat = new Date();
+        this._set_need_update.add(item);
         setTimeout(() => this._run_node(item), 1000);
     }
 
@@ -229,7 +243,7 @@ class NodesMonitor extends EventEmitter {
             .then(() => this._update_rpc_config(item))
             .then(() => this._test_store_perf(item))
             .then(() => this._test_network_perf(item))
-            // .then(() => this._update_status(item))
+            .then(() => this._update_status(item))
             .then(() => this._update_nodes_store())
             .catch(err => {
                 dbg.warn('_run_node ERROR', err.stack || err, 'node', item.node);
@@ -320,32 +334,34 @@ class NodesMonitor extends EventEmitter {
     }
 
     _update_status(item) {
-        if (!item.connection) {
-            item.node.accessibility = 'NO_ACCEESS';
-        } else if ((item.node.storage.limit &&
-                item.node.storage.limit <= item.node.storage.used) ||
-            (item.node.storage.free <= config.NODES_FREE_SPACE_RESERVE)) {
-            item.node.accessibility = 'READ_ONLY';
-        } else {
-            item.node.accessibility = 'FULL_ACCESS';
+        if (!item.node.connectivity_type) {
+            item.node.connectivity_type = 'UNKNOWN';
+            this._set_need_update.add(item);
         }
 
-        item.node.trust_level = 'TRUSTED';
-        item.node.connectivity_type = 'UNKNOWN';
+        item.readable = Boolean(item.connection);
+        item.writable = Boolean(item.connection &&
+            (!item.node.storage.limit || item.node.storage.used < item.node.storage.limit) &&
+            (item.node.storage.free > config.NODES_FREE_SPACE_RESERVE));
 
-        this._set_need_update.add(item);
-
-        // if (during pool migration) {
-        //
-        // }
-        //
-        // if (evacuating ? ? ? ) {
-        //
-        // }
-        //
-        // if (out of space) {
-        //
-        // }
+        if (item.connection && item.rebuilding) {
+            item.rebuiding = null;
+            this._set_need_rebuild.delete(item);
+        } else if (!item.connection && !item.rebuilding) {
+            const time_left = REBUILD_CLIFF - (Date.now() - item.node.heartbeat.getTime());
+            if (time_left > 0) {
+                setTimeout(() => this._run_node(item), time_left);
+            } else {
+                item.rebuilding = {
+                    completed_size: 0,
+                    remaining_size: -1,
+                    start_time: Date.now(),
+                    remaining_time: -1
+                };
+                this._set_need_rebuild.add(item);
+                this._wakeup_rebuild();
+            }
+        }
     }
 
     _update_nodes_store(force) {
@@ -401,30 +417,98 @@ class NodesMonitor extends EventEmitter {
             });
     }
 
-    _run_activity() {
-        this._throw_if_closed();
-        const act =
-            this.node.data_activity =
-            this.node.data_activity || {};
-        return P.resolve()
-            .then(() => md_store.DataBlock.collection.find({
-                node: this.node._id,
-                deleted: null
-            }, {
-                fields: {
-                    chunk: 1
-                },
-                limit: 1000
-            }).toArray())
-            .then(block_chunk_ids => md_store.DataChunk.find({
-                _id: {
-                    $in: mongo_utils.uniq_ids(block_chunk_ids, 'chunk')
-                }
-            }).toArray())
+    _wakeup_rebuild() {
+        const count = Math.min(NODE_REBUILD_WORKERS, this._set_need_rebuild.size);
+        for (let i = this._num_running_rebuilds; i < count; ++i) {
+            this._run_rebuild();
+        }
+    }
+
+    _run_rebuild() {
+        if (this._num_running_rebuilds >= this._set_need_rebuild.size) return;
+        let iter = this._set_need_rebuild_iter;
+        let next = iter && iter.next();
+        if (!next || next.done) {
+            iter = this._set_need_rebuild_iter = this._set_need_rebuild.values();
+            next = iter.next();
+        }
+        const item = next.value;
+        if (item) this._run_node_rebuild(item);
+    }
+
+    _run_node_rebuild(item) {
+        if (!this._started) return;
+        const r = item.rebuilding;
+        if (r.run_promise) return this._run_rebuild();
+        dbg.log0('_run_node_rebuild: start', r);
+        const blocks_query = {
+            node: item.node._id,
+            deleted: null
+        };
+        if (r.last_block_id) {
+            blocks_query._id = {
+                $lt: r.last_block_id
+            };
+        }
+        let blocks;
+        this._num_running_rebuilds += 1;
+        r.run_promise = P.join(
+                md_store.DataBlock.collection.mapReduce(
+                    mongo_functions.map_size,
+                    mongo_functions.reduce_sum, {
+                        query: blocks_query,
+                        out: {
+                            inline: 1
+                        }
+                    }),
+                md_store.DataBlock.collection.find(blocks_query, {
+                    sort: '-_id', // start with latest blocks and go back
+                    fields: {
+                        _id: 1,
+                        chunk: 1,
+                        size: 1
+                    },
+                    limit: 500
+                }).toArray())
+            .spread((remaining_size_res, blocks_res) => {
+                blocks = blocks_res;
+                r.remaining_size =
+                    remaining_size_res[0] &&
+                    remaining_size_res[0].value || 0;
+                r.total_size = r.completed_size + r.remaining_size;
+                return md_store.DataChunk.collection.find({
+                    _id: {
+                        $in: mongo_utils.uniq_ids(blocks, 'chunk')
+                    }
+                }).toArray();
+            })
             .then(chunks => {
                 const builder = new MapBuilder(chunks);
                 return builder.run();
+            })
+            .then(() => {
+                if (blocks.length) {
+                    r.last_block_id = blocks[blocks.length - 1]._id;
+                    r.completed_size += _.sumBy(blocks, 'size');
+                    r.remaining_time = (Date.now() - r.start_time) *
+                        r.total_size / r.completed_size;
+                } else {
+                    r.remaining_size = 0;
+                    r.remaining_time = 0;
+                    this._set_need_rebuild.delete(item);
+                    r.done = true;
+                }
+            })
+            .catch(err => {
+                dbg.warn('_run_node_rebuild ERROR', err.stack || err);
+            })
+            .finally(() => {
+                dbg.log0('_run_node_rebuild: continue', r);
+                r.run_promise = null;
+                this._num_running_rebuilds -= 1;
+                this._run_rebuild();
             });
+        return r.run_promise;
     }
 
 
@@ -504,19 +588,22 @@ class NodesMonitor extends EventEmitter {
                 !query.geolocation.test(item.node.geolocation)) continue;
             if (query.skip_address &&
                 query.skip_address === item.node.rpc_address) continue;
-            if (query.state === 'online' && !item.connection) continue;
-            else if (query.state === 'offline' && item.connection) continue;
-            // TODO implement accessibility filter
-            if (query.accessibility === 'FULL_ACCESS' && false) continue;
-            else if (query.accessibility === 'READ_ONLY' && true) continue;
-            else if (query.accessibility === 'NO_ACCESS' && true) continue;
-            // TODO implement trust_level filter
-            if (query.trust_level === 'TRUSTED' && false) continue;
-            else if (query.trust_level === 'UNTRUSTED' && true) continue;
-            // TODO implement data_activity filter
-            if (query.data_activity === 'EVACUATING' && false) continue;
-            else if (query.data_activity === 'REBUILDING' && false) continue;
-            else if (query.data_activity === 'MIGRATING' && false) continue;
+            if ('online' in query &&
+                Boolean(query.online) !== Boolean(item.connection)) continue;
+            if ('readable' in query &&
+                Boolean(query.readable) !== Boolean(item.readable)) continue;
+            if ('writable' in query &&
+                Boolean(query.writable) !== Boolean(item.writable)) continue;
+            if ('untrusted' in query &&
+                Boolean(query.untrusted) !== Boolean(item.node.untrusted)) continue;
+            if ('migrating_to_pool' in query &&
+                Boolean(query.migrating_to_pool) !== Boolean(item.node.migrating_to_pool)) continue;
+            if ('decommissioning' in query &&
+                Boolean(query.decommissioning) !== Boolean(item.node.decommissioning)) continue;
+            if ('decommissioned' in query &&
+                Boolean(query.decommissioned) !== Boolean(item.node.decommissioned)) continue;
+            if ('disabled' in query &&
+                Boolean(query.disabled) !== Boolean(item.node.disabled)) continue;
             console.log('list_nodes: adding node', item.node.name);
             list.push(item);
         }
@@ -525,7 +612,7 @@ class NodesMonitor extends EventEmitter {
             list.sort(js_utils.sort_compare_by(item => String(item.node.name), options.order));
         } else if (options.sort === 'ip') {
             list.sort(js_utils.sort_compare_by(item => String(item.node.ip), options.order));
-        } else if (options.sort === 'state') {
+        } else if (options.sort === 'online') {
             list.sort(js_utils.sort_compare_by(item => Boolean(item.connection), options.order));
         } else if (options.sort === 'shuffle') {
             chance.shuffle(list);
@@ -551,8 +638,17 @@ class NodesMonitor extends EventEmitter {
         info.id = String(node._id);
         info.peer_id = String(node.peer_id);
         info.pool = system_store.data.get_by_id(node.pool).name;
-        info.online = Boolean(item.connection);
         info.heartbeat = node.heartbeat.getTime();
+        info.online = Boolean(item.connection);
+        info.readable = Boolean(item.readable);
+        info.writable = Boolean(item.writable);
+        if (item.rebuilding) {
+            info.rebuilding = _.pick(item.rebuilding,
+                'completed_size',
+                'remaining_size',
+                'start_time',
+                'remaining_time');
+        }
         info.storage = get_storage_info(node.storage);
         if (node.storage.free <= config.NODES_FREE_SPACE_RESERVE &&
             !(node.storage.limit && node.storage.free > 0)) {

@@ -290,9 +290,6 @@ function get_block_info(block, adminfo) {
             node_ip: node.ip,
             online: nodes_store.is_online_node(node),
         };
-        if (node.srvmode) {
-            ret.adminfo.srvmode = node.srvmode;
-        }
     }
     return ret;
 }

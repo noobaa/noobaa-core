@@ -32,7 +32,25 @@ function analyze_special_chunks(chunks, parts, objects) {
     });
 }
 
-function get_chunk_status(chunk, tiering, ignore_cloud_pools) {
+
+function select_prefered_pools(tier) {
+    // first filter out cloud_pools.
+    let regular_pools = tier.pools.filter(pool => _.isUndefined(pool.cloud_pool_info));
+
+    // from the regular pools we should select the best pool
+    // for now we just take the first pool in the list.
+    if (tier.data_placement === 'MIRROR') {
+        if (!regular_pools[0]) {
+            throw new Error('could not find a pool for async mirroring');
+        }
+        return [regular_pools[0]];
+    } else {
+        return regular_pools;
+    }
+
+}
+
+function get_chunk_status(chunk, tiering, async_mirror) {
     // TODO handle multi-tiering
     if (tiering.tiers.length !== 1) {
         throw new Error('analyze_chunk: ' +
@@ -43,8 +61,8 @@ function get_chunk_status(chunk, tiering, ignore_cloud_pools) {
     // when allocating blocks for upload we want to ignore cloud_pools
     // so the client is not blocked until all blocks are uploded to the cloud.
     // on build_chunks flow we will not ignore cloud pools.
-    const participating_pools = ignore_cloud_pools ?
-        _.filter(tier.pools, pool => _.isUndefined(pool.cloud_pool_info)) :
+    const participating_pools = async_mirror ?
+        select_prefered_pools(tier) :
         tier.pools;
     const tier_pools_by_id = _.keyBy(participating_pools, '_id');
     var replicas = chunk.is_special ? tier.replicas * SPECIAL_CHUNK_REPLICA_MULTIPLIER : tier.replicas;
@@ -221,12 +239,12 @@ function is_block_accessible(block, now) {
 }
 
 function is_chunk_good(chunk, tiering) {
-    let status = get_chunk_status(chunk, tiering);
+    let status = get_chunk_status(chunk, tiering, /*async_mirror=*/ false);
     return status.accessible && !status.allocations.length;
 }
 
 function is_chunk_accessible(chunk, tiering) {
-    let status = get_chunk_status(chunk, tiering);
+    let status = get_chunk_status(chunk, tiering, /*async_mirror=*/ false);
     return status.accessible;
 }
 
@@ -259,7 +277,7 @@ function get_chunk_info(chunk, adminfo) {
     if (adminfo) {
         c.adminfo = {};
         let bucket = system_store.data.get_by_id(chunk.bucket);
-        let status = get_chunk_status(chunk, bucket.tiering);
+        let status = get_chunk_status(chunk, bucket.tiering, /*async_mirror=*/ false);
         if (!status.accessible) {
             c.adminfo.health = 'unavailable';
         } else if (status.allocations.length) {

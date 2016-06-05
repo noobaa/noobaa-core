@@ -21,7 +21,7 @@ const mongo_functions = require('../../util/mongo_functions');
 
 const NODES_COLLECTION = js_utils.deep_freeze({
     name: 'nodes',
-    schema: schema_utils.strictify(require('./node_model')),
+    schema: schema_utils.strictify(require('./node_schema')),
     db_indexes: [{
         fields: {
             system: 1,

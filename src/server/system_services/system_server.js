@@ -286,7 +286,6 @@ function update_system(req) {
 
 function set_maintenance_mode(req) {
     var updates = {};
-    console.warn('JEN maintenance_mode', req.rpc_params);
     //let maintenance_mode = _.pick(req.rpc_params, 'maintenance_mode');
     updates._id = req.system._id;
     updates.maintenance_mode = moment().add(req.rpc_params.duration, 'm').toISOString();
@@ -820,28 +819,28 @@ function update_base_address(req) {
 // phone_home_proxy must be a full address like: http://(ip or hostname):(port)
 function update_phone_home_proxy_address(req) {
     dbg.log0('update_phone_home_proxy_address', req.rpc_params);
-    if (!req.rpc_params.phone_home_proxy) {
+    if (req.rpc_params.phone_home_proxy === null) {
         return system_store.make_changes({
-            update: {
-                systems: {
-                    _id: req.system._id,
-                    $unset: {
-                        phone_home_proxy: 1
-                    }
+                update: {
+                    systems: [{
+                        _id: req.system._id,
+                        $unset: {
+                            phone_home_proxy: 1
+                        }
+                    }]
                 }
-            }
-        });
+            })
+            .return();
     } else {
         return system_store.make_changes({
-            update: {
-                systems: {
-                    _id: req.system._id,
-                    $set: {
+                update: {
+                    systems: [{
+                        _id: req.system._id,
                         phone_home_proxy: req.rpc_params.phone_home_proxy
-                    }
+                    }]
                 }
-            }
-        });
+            })
+            .return();
     }
 }
 

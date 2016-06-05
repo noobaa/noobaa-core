@@ -419,6 +419,7 @@ function read_node_mappings(req) {
         .then(objects => {
             if (req.rpc_params.adminfo) {
                 return md_store.DataBlock.collection.count({
+                        system: req.system._id,
                         node: node._id,
                         deleted: null
                     })

@@ -152,8 +152,9 @@ var node_schema = new Schema({
     latency_of_disk_read: [Number],
     latency_of_disk_write: [Number],
 
-    is_internal_agent: {
+    is_cloud_node: {
         type: Boolean,
+        required: true
     },
 
     error_since_hb: {
@@ -180,6 +181,13 @@ node_schema.index({
     pool: 1,
     name: 1,
     deleted: 1, // allow to filter deleted
+}, {
+    unique: true
+});
+
+
+node_schema.index({
+    _id: 1,
 }, {
     unique: true
 });

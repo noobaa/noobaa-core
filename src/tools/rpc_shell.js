@@ -11,6 +11,7 @@ var P = require('../util/promise');
 var argv = require('minimist')(process.argv);
 
 var repl_srv;
+var rpcshell = new RPCShell();
 
 argv.email = argv.email || 'demo@noobaa.com';
 argv.password = argv.password || 'DeMo';
@@ -22,23 +23,12 @@ function RPCShell() {
 }
 
 function construct_rpc_arguments(str_args) {
-    var ret_json = {};
-    var words;
-    var i;
-    //parse each argument on =
-    //left of it is the key name, right is the values.
-    //if right contains {}, its a complex value, call construct again on it
-    if (str_args.length === 1 &&
-        str_args[0].indexOf('=') !== -1) {
-        _.each(str_args, function(a) {
-            i = a.indexOf('=');
-            words = [a.slice(0, i), a.slice(i + 1)];
-            if (words[1][0] !== '{') {
-                ret_json[words[0]] = words[1];
-            } else {
-                ret_json[words[0]] = construct_rpc_arguments([words[1].substring(1, words[1].length - 1)]);
-            }
-        });
+    var ret_json;
+    try {
+        ret_json = JSON.parse(str_args);
+    } catch (err) {
+        console.error(err);
+        return null;
     }
     return ret_json;
 }
@@ -74,7 +64,9 @@ RPCShell.prototype.init = function() {
 //List of categories
 RPCShell.prototype.list = function() {
     console.log('\nAvailable APIs are:\n', _.keys(this.APIs));
-    repl_srv.displayPrompt();
+    if (!argv.run) {
+        repl_srv.displayPrompt();
+    }
 };
 
 //List of commands
@@ -82,24 +74,49 @@ RPCShell.prototype.list_functions = function() {
     var list_str = '\nAvailable commands are:\n' +
         '    .list - show available API\n' +
         '    .show - show all functions under a specific API\n' +
-        '    .call <API> <FUNC> [args] - invokes the RPC call API.FUNC and passes args as arguments';
+        '    .call <API> <FUNC> [args] - invokes the RPC call API.FUNC and passes args as arguments\n' +
+        '    .params <API> <FUNC> - show all parameters under function of a specific API';
     console.log(list_str);
-    repl_srv.displayPrompt();
+
+    list_str = '\nRun shell command using parameter --run (show/list/call/params)\n' +
+        '    --api - API to use\n' +
+        '    --func - Function to run under the specified API\n' +
+        '    --params - Parameters under Function of a specific API ( JSON String example: --params \'{ "key" : "val" }\' )';
+    console.log(list_str);
+    if (!argv.run) {
+        repl_srv.displayPrompt();
+    }
 };
 
 //Show all functions under a specific API
 RPCShell.prototype.show = function(apiname) {
+    if (argv.run) {
+        apiname = argv.api;
+    }
+
     if (this.APIs[apiname] === undefined) {
         console.log(apiname, 'API does not exist');
         return;
     }
     console.log('\nAvailable function for', apiname, 'API are:\n', this.APIs[apiname]);
-    repl_srv.displayPrompt();
+    if (!argv.run) {
+        repl_srv.displayPrompt();
+    }
 };
 
 RPCShell.prototype.call = function(str_args) {
-    var args = str_args.split(' ');
+    var args = [];
+    var params;
     var self = this;
+    if (argv.run) {
+        args[0] = argv.api;
+        args[1] = argv.func;
+        params = argv.params;
+    } else {
+        args = str_args.split(' ');
+        params = _.slice(args, 2).join('');
+    }
+    params = params || '{}';
 
     //Verify API name
     if (!args[0]) {
@@ -121,7 +138,11 @@ RPCShell.prototype.call = function(str_args) {
 
     var apiname = args[0];
     var func = this.APIs[args[0]][func_ind];
-    var rpc_args = construct_rpc_arguments(_.slice(args, 2));
+    var rpc_args = construct_rpc_arguments(params);
+    if (rpc_args === null) {
+        console.error('Invalid JSON String', params);
+        return;
+    }
 
     console.log('Invoking RPC', apiname + '.' + func + '(' + util.inspect(rpc_args) + ')');
     return P.fcall(function() {
@@ -133,40 +154,106 @@ RPCShell.prototype.call = function(str_args) {
             } else {
                 console.warn('Recieved error', error, error.stack);
             }
-            repl_srv.displayPrompt();
+            if (!argv.run) {
+                repl_srv.displayPrompt();
+            }
             return;
         })
         .then(function(res) {
             console.log('Got back result:\n', res);
-            repl_srv.displayPrompt();
+            if (!argv.run) {
+                repl_srv.displayPrompt();
+            }
+        });
+};
+
+RPCShell.prototype.params = function(str_args) {
+    var args = [];
+    var self = this;
+
+    if (argv.run) {
+        args[0] = argv.api;
+        args[1] = argv.func;
+        args[2] = argv.params;
+    } else {
+        args = str_args.split(' ');
+    }
+
+    //Verify API name
+    if (!args[0]) {
+        console.warn('API not supplied');
+    } else if (!this.APIs[args[0]]) {
+        console.log(args[0], 'API does not exist');
+        return;
+    }
+
+    //Verify Function
+    if (!args[1]) {
+        console.warn('Function name not supplied for', args[0]);
+    }
+    var func_ind = _.indexOf(this.APIs[args[0]], args[1]);
+    if (func_ind === -1) {
+        console.log(args[1], 'Function does not exist for', args[0]);
+        return;
+    }
+
+    var apiname = args[0];
+    var func = this.APIs[args[0]][func_ind];
+    return P.fcall(function() {
+            console.log(`Parameters of ${apiname}.${func} are:`, self.rpc.schema[apiname + '_api'].methods[func].params);
+            if (!argv.run) {
+                repl_srv.displayPrompt();
+            }
+            return;
+        })
+        .fail(function(error) {
+            if (error.rpc_code === 'BAD_REQUEST') {
+                console.warn('Bad request');
+            } else {
+                console.warn('Recieved error', error, error.stack);
+            }
+            if (!argv.run) {
+                repl_srv.displayPrompt();
+            }
+            return;
         });
 };
 
 function main() {
-    var rpcshell = new RPCShell();
-    rpcshell.init().done(function() {
-        // start a Read-Eval-Print-Loop
-        repl_srv = repl.start({
-            prompt: 'rpc-shell > ',
-            useGlobal: false,
-            ignoreUndefined: true
-        });
-        //Bind RPCshell functions to repl
-        _.forIn(rpcshell, function(val, key) {
-            if (typeof(val) === 'function') {
-                var action = val.bind(rpcshell);
-                repl_srv.defineCommand(key, {
-                    action: action
-                });
+    rpcshell.init().then(function() {
+        if (argv.run) {
+            rpcshell.list();
+            rpcshell.list_functions();
+            return rpcshell[argv.run]();
+        } else {
+            // start a Read-Eval-Print-Loop
+            repl_srv = repl.start({
+                prompt: 'rpc-shell > ',
+                useGlobal: false,
+                ignoreUndefined: true
+            });
+            //Bind RPCshell functions to repl
+            _.forIn(rpcshell, function(val, key) {
+                if (typeof(val) === 'function') {
+                    var action = val.bind(rpcshell);
+                    repl_srv.defineCommand(key, {
+                        action: action
+                    });
 
-            } else {
-                repl_srv.context[key] = val;
-            }
-        });
-        rpcshell.list();
-        rpcshell.list_functions();
+                } else {
+                    repl_srv.context[key] = val;
+                }
+            });
+            rpcshell.list();
+            rpcshell.list_functions();
+        }
     }, function(err) {
         console.error('init err:' + err);
+    })
+    .then(() => {
+        if (argv.run) {
+            process.exit();
+        }
     });
 }
 

@@ -64,10 +64,11 @@ const heartbeat_find_node_by_id_barrier = new Barrier({
 const heartbeat_count_node_storage_barrier = new Barrier({
     max_length: 200,
     expiry_ms: 500, // milliseconds to wait for others to join
-    process: function(node_ids) {
+    process: function(node_ids, system_id) {
         dbg.log2('heartbeat_count_node_storage_barrier', node_ids.length);
         return P.when(md_store.DataBlock.mapReduce({
                 query: {
+                    system: system_id,
                     deleted: null,
                     node: {
                         $in: node_ids
@@ -258,7 +259,7 @@ function update_heartbeat(req, reply_token) {
     // by using barriers that wait a bit for concurrent calls to join together.
     var promise = P.all([
             heartbeat_find_node_by_id_barrier.call(node_id),
-            heartbeat_count_node_storage_barrier.call(node_id)
+            heartbeat_count_node_storage_barrier.call(node_id, req.system._id)
         ])
         .spread(function(node_arg, storage_used) {
             node = node_arg;
@@ -427,7 +428,7 @@ function redirect(req) {
     var method_name = req.rpc_params.method_name;
     var method = server_rpc.rpc.schema[req.rpc_params.method_api].methods[method_name];
     dbg.log3('node_monitor redirect', api + '.' + method_name, 'to', target,
-        'with params', req.rpc_params.request_params,'method:',method);
+        'with params', req.rpc_params.request_params, 'method:', method);
 
 
     if (method.params && method.params.import_buffers) {

@@ -203,7 +203,7 @@ module.exports = {
             }
         },
 
-        is_internal_agent: {
+        is_cloud_node: {
             type: 'boolean',
         },
 

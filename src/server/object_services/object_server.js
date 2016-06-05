@@ -25,7 +25,8 @@ const system_store = require('../system_services/system_store').get_instance();
 const string_utils = require('../../util/string_utils');
 const map_allocator = require('./map_allocator');
 const mongo_functions = require('../../util/mongo_functions');
-
+const ObjectStats = require('../analytic_services/object_stats');
+const system_utils = require('../utils/system_server_utils');
 
 /**
  *
@@ -34,6 +35,7 @@ const mongo_functions = require('../../util/mongo_functions');
  */
 function create_object_upload(req) {
     dbg.log0('create_object_upload:', req.rpc_params);
+    throw_if_maintenance(req);
     load_bucket(req);
     var info = {
         _id: md_store.make_md_id(),
@@ -100,6 +102,7 @@ function list_multipart_parts(req) {
  */
 function complete_part_upload(req) {
     dbg.log1('complete_part_upload - etag', req.rpc_params.etag, 'req:', req);
+    throw_if_maintenance(req);
     return find_object_upload(req)
         .then(obj => {
             var params = _.pick(req.rpc_params,
@@ -117,7 +120,7 @@ function complete_part_upload(req) {
 function complete_object_upload(req) {
     var obj;
     var obj_etag = req.rpc_params.etag || '';
-
+    throw_if_maintenance(req);
     return find_object_upload(req)
         .then(obj_arg => {
             obj = obj_arg;
@@ -177,7 +180,6 @@ function complete_object_upload(req) {
 }
 
 
-
 /**
  *
  * abort_object_upload
@@ -200,6 +202,7 @@ function abort_object_upload(req) {
  *
  */
 function allocate_object_parts(req) {
+    throw_if_maintenance(req);
     return find_cached_object_upload(req)
         .then(obj => {
             let allocator = new map_allocator.MapAllocator(
@@ -217,6 +220,7 @@ function allocate_object_parts(req) {
  *
  */
 function finalize_object_parts(req) {
+    throw_if_maintenance(req);
     return find_cached_object_upload(req)
         .then(obj => {
             return map_writer.finalize_object_parts(
@@ -234,6 +238,7 @@ function finalize_object_parts(req) {
  */
 function copy_object(req) {
     dbg.log0('copy_object', req.rpc_params);
+    throw_if_maintenance(req);
     load_bucket(req);
     var source_bucket = req.system.buckets_by_name[req.rpc_params.source_bucket];
     if (!source_bucket) {
@@ -321,7 +326,6 @@ function copy_object(req) {
         });
 }
 
-
 /**
  *
  * READ_OBJECT_MAPPINGS
@@ -404,6 +408,7 @@ function read_node_mappings(req) {
         .then(objects => {
             if (req.rpc_params.adminfo) {
                 return md_store.DataBlock.collection.count({
+                        system: req.system._id,
                         node: node._id,
                         deleted: null
                     })
@@ -459,6 +464,7 @@ function read_object_md(req) {
  */
 function update_object_md(req) {
     dbg.log0('update object md', req.rpc_params);
+    throw_if_maintenance(req);
     return find_object_md(req)
         .then(obj => {
             var updates = _.pick(req.rpc_params, 'content_type', 'xattr');
@@ -476,6 +482,7 @@ function update_object_md(req) {
  *
  */
 function delete_object(req) {
+    throw_if_maintenance(req);
     load_bucket(req);
     let obj_to_delete;
     return P.fcall(() => {
@@ -509,6 +516,7 @@ function delete_object(req) {
  */
 function delete_multiple_objects(req) {
     dbg.log2('delete_multiple_objects: keys =', req.params.keys);
+    throw_if_maintenance(req);
     load_bucket(req);
     // TODO: change it to perform changes in one transaction
     return P.all(_.map(req.params.keys, function(key) {
@@ -536,6 +544,61 @@ function delete_multiple_objects(req) {
 function one_level_delimiter(delimiter) {
     var d = string_utils.escapeRegExp(delimiter[0]);
     return '[^' + d + ']*' + d + '?$';
+}
+
+function add_s3_usage_report(req) {
+    return P.fcall(() => {
+        return ObjectStats.create({
+            system: req.system,
+            s3_usage_info: req.rpc_params.s3_usage_info,
+        });
+    }).return();
+}
+
+function remove_s3_usage_reports(req) {
+    var q = ObjectStats.remove();
+    if (req.rpc_params.till_time) {
+        // query backwards from given time
+        req.rpc_params.till_time = new Date(req.rpc_params.till_time);
+        q.where('time').lte(req.rpc_params.till_time);
+    } else {
+        throw new RpcError('NO TILL_TIME', 'Parameters do not have till_time: ' + req.rpc_params);
+    }
+    //q.limit(req.rpc_params.limit || 10);
+    return P.when(q.exec())
+        .catch(err => {
+            throw new RpcError('COULD NOT DELETE REPORTS', 'Error Deleting Reports: ' + err);
+        })
+        .return();
+}
+
+function read_s3_usage_report(req) {
+    var q = ObjectStats.find({
+        deleted: null
+    }).lean();
+    if (req.rpc_params.from_time) {
+        // query backwards from given time
+        req.rpc_params.from_time = new Date(req.rpc_params.from_time);
+        q.where('time').gt(req.rpc_params.from_time).sort('-time');
+    } else {
+        // query backward from last time
+        q.sort('-time');
+    }
+    //q.limit(req.rpc_params.limit || 10);
+    return P.when(q.exec())
+        .then(reports => {
+            reports = _.map(reports, report_item => {
+                let report = _.pick(report_item, 'system', 's3_usage_info');
+                report.time = report_item.time.getTime();
+                return report;
+            });
+            // if (reverse) {
+            //     reports.reverse();
+            // }
+            return {
+                reports: reports
+            };
+        });
 }
 
 /**
@@ -832,10 +895,19 @@ function check_md_conditions(req, conditions, obj) {
     }
 }
 
+function throw_if_maintenance(req) {
+    if (req.system && system_utils.system_in_maintenance(req.system._id)) {
+        throw new RpcError('SYSTEM_IN_MAINTENANCE',
+            'Operation not supported during maintenance mode');
+    }
+}
 
 // EXPORTS
 // object upload
 exports.create_object_upload = create_object_upload;
+exports.read_s3_usage_report = read_s3_usage_report;
+exports.add_s3_usage_report = add_s3_usage_report;
+exports.remove_s3_usage_reports = remove_s3_usage_reports;
 exports.complete_object_upload = complete_object_upload;
 exports.abort_object_upload = abort_object_upload;
 exports.list_multipart_parts = list_multipart_parts;

@@ -42,11 +42,10 @@ class ServerRpc {
             require('./system_services/bucket_server'), options);
         rpc.register_service(schema.pool_api,
             require('./system_services/pool_server'), options);
-        rpc.register_service(schema.stats_api,
-            require('./system_services/stats_aggregator'), options);
         rpc.register_service(schema.cluster_server_api,
             require('./system_services/cluster_server'), options);
-
+        rpc.register_service(schema.stats_api,
+            require('./system_services/stats_aggregator'), options);
         rpc.register_service(schema.redirector_api,
             require('./system_services/redirector'), {
                 // the redirector should not try refresh system_store

@@ -70,6 +70,24 @@ module.exports = {
             }
         },
 
+        set_maintenance_mode: {
+            doc: 'Configure system maintenance',
+            method: 'PUT',
+            params: {
+                type: 'object',
+                required: ['duration'],
+                properties: {
+                    // Number of minutes
+                    duration: {
+                        type: 'number',
+                    },
+                }
+            },
+            auth: {
+                system: 'admin',
+            }
+        },
+
         delete_system: {
             doc: 'Delete the authorized system',
             method: 'DELETE',
@@ -99,6 +117,24 @@ module.exports = {
             }
         },
 
+        log_frontend_stack_trace: {
+            doc: 'Add frontend stack trace to logs',
+            method: 'POST',
+            params: {
+                type: 'object',
+                required: ['stack_trace'],
+                properties: {
+                    stack_trace: {
+                        type: 'object',
+                        additionalProperties: true,
+                        properties: {},
+                    },
+                }
+            },
+            auth: {
+                system: 'admin',
+            }
+        },
 
         add_role: {
             doc: 'Add role',
@@ -140,6 +176,59 @@ module.exports = {
             }
         },
 
+        set_last_stats_report_time: {
+            doc: 'Set last stats report sync time',
+            method: 'PUT',
+            params: {
+                type: 'object',
+                required: ['last_stats_report'],
+                properties: {
+                    last_stats_report: {
+                        format: 'idate',
+                    },
+                }
+            },
+            auth: {
+                system: 'admin',
+            }
+        },
+
+        export_activity_log: {
+            method: 'GET',
+            params: {
+                type: 'object',
+                required: [],
+                properties: {
+                    event: {
+                        type: 'string',
+                    },
+                    events: {
+                        type: 'array',
+                        items: {
+                            type: 'string'
+                        }
+                    },
+                    till: {
+                        format: 'idate'
+                    },
+                    since: {
+                        format: 'idate'
+                    }
+                }
+            },
+            reply: {
+                type: 'object',
+                required: ['csv_path'],
+                properties: {
+                    csv_path: {
+                        type: 'string'
+                    },
+                }
+            },
+            auth: {
+                system: 'admin',
+            }
+        },
 
         read_activity_log: {
             method: 'GET',
@@ -281,7 +370,27 @@ module.exports = {
             }
         },
 
-        start_debug: {
+        // read_maintenance_config: {
+        //     method: 'GET',
+        //     params: {
+        //         type: 'object',
+        //         // System Name
+        //         required: ['name'],
+        //         properties: {
+        //             name: {
+        //                 type: 'string',
+        //             },
+        //         }
+        //     },
+        //     reply: {
+        //         type: 'boolean',
+        //     },
+        //     auth: {
+        //         system: 'admin',
+        //     }
+        // },
+
+        set_debug_level: {
             method: 'POST',
             params: {
                 type: 'object',
@@ -289,7 +398,7 @@ module.exports = {
                 properties: {
                     level: {
                         type: 'integer',
-                    },
+                    }
                 },
             },
             auth: {
@@ -323,6 +432,26 @@ module.exports = {
             },
             reply: {
                 $ref: '#/definitions/system_nodes_update_reply'
+            },
+            auth: {
+                system: 'admin',
+            }
+        },
+
+        update_phone_home_proxy_address: {
+            method: 'POST',
+            params: {
+                type: 'object',
+                required: ['phone_home_proxy'],
+                properties: {
+                    phone_home_proxy: {
+                        anyOf: [{
+                            type: 'null'
+                        }, {
+                            type: 'string'
+                        }]
+                    }
+                }
             },
             auth: {
                 system: 'admin',
@@ -405,6 +534,9 @@ module.exports = {
                 owner: {
                     $ref: 'account_api#/definitions/account_info'
                 },
+                last_stats_report: {
+                    format: 'idate',
+                },
                 tiers: {
                     type: 'array',
                     items: {
@@ -432,12 +564,6 @@ module.exports = {
                 objects: {
                     type: 'integer'
                 },
-                /*access_keys: {
-                    type: 'array',
-                    items: {
-                        $ref: '#/definitions/access_keys'
-                    }
-                },*/
                 ssl_port: {
                     type: 'string'
                 },
@@ -458,10 +584,25 @@ module.exports = {
                         },
                     }
                 },
+                maintenance_mode: {
+                    type: 'object',
+                    required: ['state'],
+                    properties: {
+                        state: {
+                            type: 'boolean',
+                        },
+                        till: {
+                            format: 'idate',
+                        },
+                    }
+                },
                 n2n_config: {
                     $ref: 'common_api#/definitions/n2n_config'
                 },
                 ip_address: {
+                    type: 'string'
+                },
+                phone_home_proxy: {
                     type: 'string'
                 },
                 dns_name: {
@@ -489,7 +630,10 @@ module.exports = {
                             type: 'string'
                         },
                     }
-                }
+                },
+                debug_level: {
+                    type: 'integer'
+                },
             }
         },
 

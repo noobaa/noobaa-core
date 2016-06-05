@@ -1,7 +1,7 @@
 'use strict';
 
 const _ = require('lodash');
-
+const system_utils = require('../utils/system_server_utils');
 const P = require('../../util/promise');
 const dbg = require('../../util/debug_module')(__filename);
 const config = require('../../../config.js');
@@ -38,26 +38,28 @@ class MapBuilder {
 
     run() {
         dbg.log1('MapBuilder.run:', 'batch start', this.chunks.length, 'chunks');
-        return P.resolve()
-            .then(() => P.join(
-                system_store.refresh(),
-                md_store.load_blocks_for_chunks(this.chunks),
-                md_store.load_parts_objects_for_chunks(this.chunks),
-                this.mark_building()
-            ))
-            .then(() => this.analyze_chunks())
-            .then(() => this.refresh_alloc())
-            .then(() => this.allocate_blocks())
-            .then(() => this.replicate_blocks())
-            .then(() => this.update_db())
-            .then(() => {
-                // return error from the promise if any replication failed,
-                // so that caller will know the build isn't really complete,
-                // although it might partially succeeded
-                if (this.had_errors) {
-                    throw new Error('MapBuilder had errors');
-                }
-            });
+        if (this.chunks && !system_utils.system_in_maintenance(this.chunks[0].system)) {
+            return P.resolve()
+                .then(() => P.join(
+                    system_store.refresh(),
+                    md_store.load_blocks_for_chunks(this.chunks),
+                    md_store.load_parts_objects_for_chunks(this.chunks),
+                    this.mark_building()
+                ))
+                .then(() => this.analyze_chunks())
+                .then(() => this.refresh_alloc())
+                .then(() => this.allocate_blocks())
+                .then(() => this.replicate_blocks())
+                .then(() => this.update_db())
+                .then(() => {
+                    // return error from the promise if any replication failed,
+                    // so that caller will know the build isn't really complete,
+                    // although it might partially succeeded
+                    if (this.had_errors) {
+                        throw new Error('MapBuilder had errors');
+                    }
+                });
+        }
     }
 
 
@@ -80,7 +82,7 @@ class MapBuilder {
         _.each(this.chunks, chunk => {
             let bucket = system_store.data.get_by_id(chunk.bucket);
             map_utils.set_chunk_frags_from_blocks(chunk, chunk.blocks);
-            chunk.status = map_utils.get_chunk_status(chunk, bucket.tiering, /*ignore_cloud_pools=*/ false);
+            chunk.status = map_utils.get_chunk_status(chunk, bucket.tiering, /*async_mirror=*/ false);
             // only delete blocks if the chunk is in good shape,
             // that is no allocations needed, and is accessible.
             if (chunk.status.accessible &&

@@ -55,6 +55,7 @@ const NODE_FIELDS_FOR_MAP = js_utils.deep_freeze({
     rpc_address: 1,
     storage: 1,
     latency_of_disk_read: 1,
+    is_cloud_node: 1,
 });
 
 const NODE_OBJECT_IDS_PATHS = js_utils.deep_freeze([

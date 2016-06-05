@@ -158,6 +158,9 @@ class NodesMonitor extends EventEmitter {
                 name: 'New-Node-' + Date.now().toString(36),
             },
         };
+        if (pool.cloud_pool_info) {
+            item.node.is_cloud_node = true;
+        }
         dbg.log0('_add_new_node', item.node);
         this._add_node_to_maps(item);
         this._set_node_defaults(item);
@@ -381,6 +384,14 @@ class NodesMonitor extends EventEmitter {
         return P.resolve()
             .then(() => nodes_store.bulk_update(bulk_items))
             .then(() => P.map(new_nodes, item => {
+                ActivityLog.create({
+                    level: 'info',
+                    event: 'node.create',
+                    system: item.node.system,
+                    node: item.node._id,
+                    actor: item.account && item.account._id,
+                    desc: `${item.node.name} was added by ${item.account && item.account.email}`,
+                });
                 return this.client.agent.update_auth_token({
                         auth_token: auth_server.make_auth_token({
                             system_id: String(item.node.system),

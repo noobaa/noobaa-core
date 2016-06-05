@@ -283,10 +283,10 @@ mocha.describe('system_servers', function() {
             // /////////////
             // //  STATS  //
             // /////////////
-            .then(() => client.stats.get_systems_stats())
-            .then(() => client.stats.get_nodes_stats())
-            .then(() => client.stats.get_ops_stats())
-            .then(() => client.stats.get_all_stats())
+            .then(() => client.stats.get_systems_stats({}))
+            .then(() => client.stats.get_nodes_stats({}))
+            .then(() => client.stats.get_ops_stats({}))
+            .then(() => client.stats.get_all_stats({}))
             ////////////
             //  MISC  //
             ////////////

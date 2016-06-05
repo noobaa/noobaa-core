@@ -27,6 +27,7 @@ const api = require('../api');
 const pkg = require('../../package.json');
 const dbg = require('../util/debug_module')(__filename);
 const diag = require('./agent_diagnostics');
+const config = require('../../config');
 const os_utils = require('../util/os_utils');
 const js_utils = require('../util/js_utils');
 const RpcError = require('../rpc/rpc_error');
@@ -343,7 +344,6 @@ class Agent {
             base_address: this.rpc.router.default,
             n2n_config: this.n2n_agent.get_plain_n2n_config(),
             geolocation: this.geolocation,
-            is_internal_agent: this.is_internal_agent,
             debug_level: dbg.get_module_level('core'),
         };
         if (this.cloud_info && this.cloud_info.cloud_pool_name) {
@@ -597,7 +597,7 @@ class Agent {
         dbg.set_level(req.rpc_params.level, 'core');
         dbg.log1('Recieved set debug req ', req.rpc_params.level);
         if (req.rpc_params.level > 0) { //If level was set, unset it after a T/O
-            promise_utils.delay_unblocking(10 * 60 * 1000) // 10 minutes
+            promise_utils.delay_unblocking(config.DEBUG_MODE_PERIOD)
                 .then(() => {
                     dbg.set_level(0, 'core');
                 });

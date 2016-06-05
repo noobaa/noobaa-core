@@ -32,7 +32,25 @@ function analyze_special_chunks(chunks, parts, objects) {
     });
 }
 
-function get_chunk_status(chunk, tiering, ignore_cloud_pools) {
+
+function select_prefered_pools(tier) {
+    // first filter out cloud_pools.
+    let regular_pools = tier.pools.filter(pool => _.isUndefined(pool.cloud_pool_info));
+
+    // from the regular pools we should select the best pool
+    // for now we just take the first pool in the list.
+    if (tier.data_placement === 'MIRROR') {
+        if (!regular_pools[0]) {
+            throw new Error('could not find a pool for async mirroring');
+        }
+        return [regular_pools[0]];
+    } else {
+        return regular_pools;
+    }
+
+}
+
+function get_chunk_status(chunk, tiering, async_mirror) {
     // TODO handle multi-tiering
     if (tiering.tiers.length !== 1) {
         throw new Error('analyze_chunk: ' +
@@ -43,8 +61,8 @@ function get_chunk_status(chunk, tiering, ignore_cloud_pools) {
     // when allocating blocks for upload we want to ignore cloud_pools
     // so the client is not blocked until all blocks are uploded to the cloud.
     // on build_chunks flow we will not ignore cloud pools.
-    const participating_pools = ignore_cloud_pools ?
-        _.filter(tier.pools, pool => _.isUndefined(pool.cloud_pool_info)) :
+    const participating_pools = async_mirror ?
+        select_prefered_pools(tier) :
         tier.pools;
     const tier_pools_by_id = _.keyBy(participating_pools, '_id');
     var replicas = chunk.is_special ? tier.replicas * SPECIAL_CHUNK_REPLICA_MULTIPLIER : tier.replicas;
@@ -89,6 +107,7 @@ function get_chunk_status(chunk, tiering, ignore_cloud_pools) {
         return num_accessible;
     }
 
+
     _.each(chunk.frags, f => {
 
         dbg.log1('get_chunk_status:', 'chunk', chunk, 'fragment', f);
@@ -96,9 +115,12 @@ function get_chunk_status(chunk, tiering, ignore_cloud_pools) {
         let blocks = f.blocks || EMPTY_CONST_ARRAY;
         let num_accessible = 0;
 
-        if (tier.data_placement === 'MIRROR') {
-            let blocks_by_pool = _.groupBy(blocks, block => block.node.pool);
-            _.each(participating_pools, pool => {
+
+        // mirror blocks between the given pools.
+        // if necessary remove blocks from already mirrored blocks
+        function mirror_pools(mirrored_pools, mirrored_blocks) {
+            let blocks_by_pool = _.groupBy(mirrored_blocks, block => block.node.pool);
+            _.each(mirrored_pools, pool => {
                 num_accessible += check_blocks_group(blocks_by_pool[pool._id], {
                     pools: [pool],
                     fragment: f
@@ -106,22 +128,26 @@ function get_chunk_status(chunk, tiering, ignore_cloud_pools) {
                 delete blocks_by_pool[pool._id];
             });
             _.each(blocks_by_pool, blocks => check_blocks_group(blocks, null));
+        }
 
+        if (tier.data_placement === 'MIRROR') {
+            mirror_pools(participating_pools, blocks);
         } else { // SPREAD
             let pools_partitions = _.partition(participating_pools, pool => _.isUndefined(pool.cloud_pool_info));
-            num_accessible += check_blocks_group(blocks, {
-                pools: pools_partitions[0], // only spread data on regular pools, and not cloud_pools
+            let blocks_partitions = _.partition(blocks, block => !block.node.is_cloud_node);
+            let regular_pools = pools_partitions[0];
+            let regular_blocks = blocks_partitions[0];
+            num_accessible += check_blocks_group(regular_blocks, {
+                pools: regular_pools, // only spread data on regular pools, and not cloud_pools
                 fragment: f
             });
-            if (pools_partitions[1].length > 0) {
-                let blocks_by_pool = _.groupBy(blocks, block => block.node.pool);
-                //now mirror to cloud_pools:
-                _.each(pools_partitions[1], cloud_pool => {
-                    num_accessible += check_blocks_group(blocks_by_pool[cloud_pool._id], {
-                        pools: [cloud_pool],
-                        fragment: f
-                    });
-                });
+
+            // cloud pools are always used for mirroring.
+            // if there are any cloud pools or blocks written to cloud pools, handle them
+            let cloud_pools = pools_partitions[1];
+            let cloud_blocks = blocks_partitions[1];
+            if (cloud_pools.length || cloud_blocks.length) {
+                mirror_pools(cloud_pools, cloud_blocks);
             }
         }
 
@@ -213,12 +239,12 @@ function is_block_accessible(block, now) {
 }
 
 function is_chunk_good(chunk, tiering) {
-    let status = get_chunk_status(chunk, tiering);
+    let status = get_chunk_status(chunk, tiering, /*async_mirror=*/ false);
     return status.accessible && !status.allocations.length;
 }
 
 function is_chunk_accessible(chunk, tiering) {
-    let status = get_chunk_status(chunk, tiering);
+    let status = get_chunk_status(chunk, tiering, /*async_mirror=*/ false);
     return status.accessible;
 }
 
@@ -251,7 +277,7 @@ function get_chunk_info(chunk, adminfo) {
     if (adminfo) {
         c.adminfo = {};
         let bucket = system_store.data.get_by_id(chunk.bucket);
-        let status = get_chunk_status(chunk, bucket.tiering);
+        let status = get_chunk_status(chunk, bucket.tiering, /*async_mirror=*/ false);
         if (!status.accessible) {
             c.adminfo.health = 'unavailable';
         } else if (status.allocations.length) {

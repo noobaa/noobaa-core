@@ -5,9 +5,8 @@ import { loadCloudSyncInfo, removeCloudSyncPolicy } from 'actions';
 import { formatDuration } from 'utils';
 
 const syncStatusMapping = Object.freeze({
-    [undefined]:    { label: 'N/A',             css: ''               },
     NOTSET:         { label: 'Not Set',         css: 'no-set'         },
-    UNSYNCED:       { label: 'Unsynced',        css: 'unsynced'       },
+    PENDING:        { label: 'Pending',         css: 'pending'        },
     SYNCING:        { label: 'Syncing',         css: 'syncing'        },
     PASUED:         { label: 'Paused',          css: 'paused'         },
     SYNCED:         { label: 'Synced',          css: 'synced'         },
@@ -20,7 +19,13 @@ class CloudSyncModalViewModel {
         this.onClose = onClose;
 
         this.syncStatus = ko.pureComputed(
-            () => syncStatusMapping[cloudSyncInfo() && cloudSyncInfo().status]
+            () => {
+                if (!cloudSyncInfo()) {
+                    return { label: 'N/A', css : '' };
+                }
+
+                return syncStatusMapping[cloudSyncInfo().status];
+            }
         );
 
         this.targetEndpoint = ko.pureComputed(

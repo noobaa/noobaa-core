@@ -256,19 +256,9 @@ function read_auth(req) {
  *
  */
 function authorize(req) {
-    //console.warn('JEN AUTH REQ', req);
-    //console.warn('JEN AUTH REQ CLIENT', req.rpc_client);
     _prepare_auth_request(req);
     var auth_token_obj;
-
-    //console.warn('evg evg evg req.auth_token = ',req.auth_token);
-    //console.warn('evg evg evg req.noobaa_v4 = ',req.noobaa_v4);
-    //console.warn('evg evg evg req.rpc_params = ',req.rpc_params);
-    //console.warn('Auth Token Object1: ', auth_token_obj);
-
     if (req.auth_token) {
-        //console.warn('Auth Token Object2: ', auth_token_obj);
-
         try {
             if (typeof req.auth_token === 'object') {
                 auth_token_obj = req.auth_token;

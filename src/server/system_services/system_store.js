@@ -439,7 +439,7 @@ class SystemStore extends EventEmitter {
         let bulk_per_collection = {};
         let now = new Date();
         dbg.log0('SystemStore.make_changes:', util.inspect(changes, {
-            depth: 4
+            depth: 5
         }));
 
         let get_collection = name => {

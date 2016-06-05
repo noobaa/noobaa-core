@@ -67,6 +67,8 @@ module.exports = {
         'no-process-exit': 0,
         'no-underscore-dangle': 0,
         'no-constant-condition': 0,
-        'no-multiple-empty-lines': 0
+        'no-multiple-empty-lines': 0,
+        'eol-last': [0]
+
     }
 };

@@ -118,8 +118,16 @@ function pretty_topology(topology) {
     });
 }
 
-function config_array_changes(new_array) {
-    var current = extract_servers_ip(get_topology().config_servers).sort();
+function rs_array_changes(new_array, name, is_config) {
+    var current;
+    if (is_config) {
+        current = extract_servers_ip(get_topology().config_servers).sort();
+    } else {
+        var shard_idx = _.findIndex(get_topology().shards, function(s) {
+            return name === s.shardname;
+        });
+        current = extract_servers_ip(get_topology().shards[shard_idx]);
+    }
     var changes = Array.from(new_array).sort();
 
     if (current.length !== changes.length) {
@@ -146,4 +154,4 @@ exports.verify_cluster_id = verify_cluster_id;
 exports.is_single_server = is_single_server;
 exports.get_all_cluster_members = get_all_cluster_members;
 exports.pretty_topology = pretty_topology;
-exports.config_array_changes = config_array_changes;
+exports.rs_array_changes = rs_array_changes;

@@ -57,22 +57,18 @@ function add_member_to_cluster(req) {
     var id = cutil.get_topology().cluster_id;
 
     return P.fcall(function() {
-            //If Shard, and if this is the first shard we are adding, special handling is required
-            if (req.rpc_params.role === 'SHARD') {
-                let myip = os_utils.get_local_ipv4_ips()[0];
-                //If adding shard, and current server does not have config on it, add
-                //This is the case on the addition of the first shard
-                if (_.findIndex(cutil.get_topology().config_servers, function(srv) {
-                        return srv.address === myip;
-                    }) === -1) {
-                    dbg.log0('Current server is first on cluster and has single mongo running, updating');
-                    return _add_new_shard_on_server('shard1', myip, {
-                        first_shard: true,
-                        remote_server: false
-                    });
-                }
-            } else {
-                return P.resolve();
+            //If this is the first time we are adding to the cluster, special handling is required
+            let myip = os_utils.get_local_ipv4_ips()[0];
+            //If adding shard, and current server does not have config on it, add
+            //This is the case on the addition of the first shard
+            if (_.findIndex(cutil.get_topology().config_servers, function(srv) {
+                    return srv.address === myip;
+                }) === -1) {
+                dbg.log0('Current server is first on cluster and has single mongo running, updating');
+                return _add_new_shard_on_server('shard1', myip, {
+                    first_shard: true,
+                    remote_server: false
+                });
             }
         })
         .then(function() {
@@ -163,13 +159,13 @@ function join_to_cluster(req) {
 }
 
 function news_config_servers(req) {
-    dbg.log0('Recieved news_config_servers', req.rpc_params);
+    dbg.log0('Recieved news: news_config_servers', cutil.pretty_topology(req.rpc_params));
     //Verify we recieved news on the cluster we are joined to
     cutil.verify_cluster_id(req.rpc_params.cluster_id);
 
     //If config servers changed, update
     //Only the first server in the cfg array does so
-    return P.when(_update_config_if_needed(req.rpc_params.IPs))
+    return P.when(_update_rs_if_needed(req.rpc_params.IPs, config.MONGO_DEFAULTS.CFG_RSET_NAME, true))
         .then(() => {
             //Update our view of the topology
             return P.when(cutil.update_cluster_info({
@@ -189,8 +185,16 @@ function news_config_servers(req) {
         });
 }
 
+function news_replicaset_servers(req) {
+    dbg.log0('Recieved news: news_replicaset_servers', req.rpc_params);
+    //Verify we recieved news on the cluster we are joined to
+    cutil.verify_cluster_id(req.rpc_params.cluster_id);
+
+    return P.when(_update_rs_if_needed(req.rpc_params.IPs, req.rpc_params.name, false));
+}
+
 function news_updated_topology(req) {
-    dbg.log0('Recieved news_updated_topology', cutil.pretty_topology(req.rpc_params.topology));
+    dbg.log0('Recieved news: news_updated_topology', cutil.pretty_topology(req.rpc_params));
     //Verify we recieved news on the cluster we are joined to
     cutil.verify_cluster_id(req.rpc_params.cluster_id);
 
@@ -269,12 +273,14 @@ function _add_new_shard_on_server(shardname, ip, params) {
 }
 
 function _add_new_replicaset_on_server(shardname, ip) {
+    dbg.log0('Adding RS server to', shardname);
     var shard_idx = _.findIndex(cutil.get_topology().shards, function(s) {
-        return shardname === s.name;
+        return shardname === s.shardname;
     });
 
     //No Such shard
     if (shard_idx === -1) {
+        dbg.log0('Cannot add RS member to non-existing shard');
         throw new Error('Cannot add RS member to non-existing shard');
     }
 
@@ -300,7 +306,7 @@ function _add_new_replicaset_on_server(shardname, ip) {
                     cutil._get_topology().shards[shard_idx].servers
                 ));
             } else {
-                dbg.log0('Replica set consists servers, waiting for a viable set of 3');
+                dbg.log0('Replica set consists of', rs_length, 'servers, waiting for a viable set of 3');
                 //2 servers, nothing to be done yet. RS will be activated on the 3rd join
                 return;
             }
@@ -338,7 +344,7 @@ function _publish_to_cluster(apiname, req_params) {
         });
     });
 
-    dbg.log0('Sending cluster news', apiname, 'to', servers, 'with', req_params);
+    dbg.log0('Sending cluster news:', apiname, 'to:', servers, 'with:', req_params);
     return P.each(servers, function(server) {
         return server_rpc.client.cluster_server[apiname](req_params, {
             address: 'ws://' + server + ':8080',
@@ -347,17 +353,17 @@ function _publish_to_cluster(apiname, req_params) {
     });
 }
 
-function _update_config_if_needed(IPs) {
-    var config_changes = cutil.config_array_changes(IPs.length);
+function _update_rs_if_needed(IPs, name, is_config) {
+    var config_changes = cutil.rs_array_changes(IPs, name, is_config);
     if (config_changes) {
-        return MongoCtrl.is_master(true) //true= Work on config RS
+        return MongoCtrl.is_master(is_config)
             .then((is_master) => {
                 if (is_master.ismaster) {
                     dbg.log0('Current server is master for config RS, Updating to', IPs);
                     return MongoCtrl.add_member_to_replica_set(
-                        config.MONGO_DEFAULTS.CFG_RSET_NAME,
+                        name,
                         cutil.extract_servers_ip(IPs),
-                        true); //3rd param /*=config set*/
+                        is_config);
                 } else {
                     return;
                 }
@@ -373,4 +379,5 @@ exports.add_member_to_cluster = add_member_to_cluster;
 exports.join_to_cluster = join_to_cluster;
 exports.news_config_servers = news_config_servers;
 exports.news_updated_topology = news_updated_topology;
+exports.news_replicaset_servers = news_replicaset_servers;
 exports.heartbeat = heartbeat;

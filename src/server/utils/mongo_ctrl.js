@@ -34,7 +34,7 @@ MongoCtrl.prototype.add_replica_set_member = function(name) {
 MongoCtrl.prototype.add_new_shard_server = function(name, first_shard) {
     let self = this;
     return self._remove_single_mongo_program()
-        .then(() => self._add_new_shard_program(name, first_shard))
+        .then(() => self._add_new_shard_program(name, first_shard))        
         .then(() => SupervisorCtl.apply_changes());
 };
 
@@ -87,7 +87,7 @@ MongoCtrl.prototype._add_replica_set_member_program = function(name) {
     let program_obj = {};
     let dbpath = config.MONGO_DEFAULTS.COMMON_PATH + '/' + name + 'rs';
     program_obj.name = 'mongors-' + name;
-    program_obj.command = 'mongod --replSet ' +
+    program_obj.command = 'mongod ' +
         '--replSet ' + name +
         ' --dbpath ' + dbpath;
     program_obj.directory = '/usr/bin';
@@ -108,6 +108,7 @@ MongoCtrl.prototype._add_new_shard_program = function(name, first_shard) {
     let dbpath = config.MONGO_DEFAULTS.COMMON_PATH + '/' + name;
     program_obj.name = 'mongoshard-' + name;
     program_obj.command = 'mongod  --shardsvr' +
+        ' --replSet ' + name +
         ' --port ' + config.MONGO_DEFAULTS.SHARD_SRV_PORT +
         ' --dbpath ' + dbpath;
     program_obj.directory = '/usr/bin';

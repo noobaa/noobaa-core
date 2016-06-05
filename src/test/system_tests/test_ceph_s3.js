@@ -14,16 +14,16 @@ var CEPH_TEST = {
     ceph_config: 'ceph_s3_config.conf',
     ceph_deploy: 'ceph_s3_tests_deploy.sh',
     rpc_shell_file: 'src/tools/rpc_shell.js',
-    new_account_json: `'{
-        "name":"cephalt",
-        "email":"ceph.alt@noobaa.com",
-        "password":"ceph",
-        "access_keys":{
-            "access_key":"iam",
-            "secret_key":"sloth"
+    new_account_json: {
+        name: 'cephalt',
+        email: 'ceph.alt@noobaa.com',
+        password: 'ceph',
+        access_keys: {
+            access_key: 'iam',
+            secret_key: 'sloth'
         },
-        "allowed_buckets":[]
-    }'`,
+        allowed_buckets: []
+    },
 };
 
 const S3_CEPH_TEST_WHITELIST = [
@@ -201,76 +201,18 @@ const SYSTEM_CEPH_TEST_WHITELIST = [
     // 's3tests.tests.test_realistic:TestFiles:test_random_file_valid'
 ];
 
-// function show_usage() {
-//     console.log('usage: node test_files_ul.js --ip <S3 IP> --bucket <Bucket Name> --access <ACCESS_KEY> --secret <SECRET>');
-//     console.log('   example: node node test_files_ul.js --ip 10.0.0.1 --bucket files --access 123 --secret abc');
-//
-//     console.log('Optional Parameters:');
-//     console.log('   --filesize - File size to upload, in KB. Default: 512KB');
-//     console.log('                NOTE: Larger files sizes would take longer to generate');
-//     console.log('   --numfiles - Number of files to upload. Default: 1000');
-//     console.log('   --numthreads - Number of concurrent threads to use. Default: 10');
-//     console.log('   --skip_generation - Skip pre generation of files, use last generated files');
-//     console.log('   --skip_cleanup - Skip cleanup of files, can be used for another run');
-// }
-
-// function run_ceph_tests() {
-//     //var dirs = Math.ceil(UL_TEST.num_files / UL_TEST.files_per_dir);
-//     console.log('Starting Ceph Tests');
-//     return promise_utils.promised_exec(`git clone ${CEPH_TEST.git_ceph_link}`)
-//         .then(function() {
-//             console.log('Finished Downloading Ceph From Git');
-//             return;
-//             //return promise_utils.promised_exec('rm -rf ' + UL_TEST.base_dir + '/*');
-//         })
-//         // .then(function() {
-//         //     var i = 0;
-//         //     return promise_utils.pwhile(
-//         //         function() {
-//         //             return i < dirs;
-//         //         },
-//         //         function() {
-//         //             ++i;
-//         //             return promise_utils.promised_exec('mkdir -p ' + UL_TEST.base_dir + '/dir' + i);
-//         //         });
-//         // })
-//         // .fail(function(err) {
-//         //     console.error('Failed creating directory structure', err, err.stack);
-//         //     throw new Error('Failed creating directory structure');
-//         // })
-//         // .then(function() {
-//         //     console.log('Generating files (this might take some time) ...');
-//         //     var d = 0;
-//         //     return promise_utils.pwhile(
-//         //         function() {
-//         //             return d < dirs;
-//         //         },
-//         //         function() {
-//         //             ++d;
-//         //             var files = (d === dirs) ? UL_TEST.num_files % UL_TEST.files_per_dir : UL_TEST.files_per_dir;
-//         //             console.log(' generating batch', d, 'of', files, 'files');
-//         //             for (var i = 1; i <= files; ++i) {
-//         //                 UL_TEST.files.push(UL_TEST.base_dir + '/dir' + d + '/file_' + i);
-//         //             }
-//         //             return promise_utils.promised_exec('for i in `seq 1 ' + files + '` ; do' +
-//         //                 ' dd if=/dev/urandom of=' + UL_TEST.base_dir + '/dir' + d +
-//         //                 '/file_$i  bs=' + UL_TEST.file_size + 'k count=1 ; done');
-//         //         });
-//         // })
-//         .fail(function(err) {
-//             console.error('Failed Downloading Ceph From Git', err, err.stack);
-//             throw new Error('Failed Downloading Ceph From Git');
-//         });
-// }
-
 function deploy_ceph() {
-    return promise_utils.promised_exec(`chmod a+x ${CEPH_TEST.test_dir}${CEPH_TEST.ceph_deploy}`, false, true)
-        .then(() => {
+    var command = `chmod a+x ${CEPH_TEST.test_dir}${CEPH_TEST.ceph_deploy}`;
+    console.log(command);
+    return promise_utils.promised_exec(command, false, true)
+        .then((res) => {
             console.log('Starting Deployment Of Ceph Tests...');
-            return promise_utils.promised_exec(`cd ${CEPH_TEST.test_dir};./${CEPH_TEST.ceph_deploy}`, false, true)
+            command = `cd ${CEPH_TEST.test_dir};./${CEPH_TEST.ceph_deploy}`;
+            console.log(command);
+            return promise_utils.promised_exec(command, false, true)
         })
         .then((res) => {
-            return console.log(res);
+            return console.log('DEPLOY STUFF', res);
         })
         .fail(function(err) {
             console.error('Failed Deployment Of Ceph Tests', err, err.stack);
@@ -288,7 +230,8 @@ function s3_ceph_test() {
                 return i < S3_CEPH_TEST_WHITELIST.length;
             },
             function() {
-                return promise_utils.promised_exec(`S3TEST_CONF=${CEPH_TEST.test_dir}${CEPH_TEST.ceph_config} ./${CEPH_TEST.test_dir}${CEPH_TEST.s3_test_dir}virtualenv/bin/nosetests ${S3_CEPH_TEST_WHITELIST[i]}`, false, true)
+                var command = `S3TEST_CONF=${CEPH_TEST.test_dir}${CEPH_TEST.ceph_config} ./${CEPH_TEST.test_dir}${CEPH_TEST.s3_test_dir}virtualenv/bin/nosetests ${S3_CEPH_TEST_WHITELIST[i]}`;
+                return promise_utils.promised_exec(command, false, true)
                     .then(() => {
                         console.log('Test Passed:', S3_CEPH_TEST_WHITELIST[i]);
                     })
@@ -317,7 +260,8 @@ function system_ceph_test() {
                 return i < SYSTEM_CEPH_TEST_WHITELIST.length;
             },
             function() {
-                return promise_utils.promised_exec(`S3TEST_CONF=${CEPH_TEST.test_dir}${CEPH_TEST.ceph_config} ./${CEPH_TEST.test_dir}${CEPH_TEST.s3_test_dir}virtualenv/bin/nosetests -w ${process.cwd()}/${CEPH_TEST.test_dir}${CEPH_TEST.s3_test_dir} ${SYSTEM_CEPH_TEST_WHITELIST[i]}`, false, true)
+                var command = `S3TEST_CONF=${CEPH_TEST.test_dir}${CEPH_TEST.ceph_config} ./${CEPH_TEST.test_dir}${CEPH_TEST.s3_test_dir}virtualenv/bin/nosetests -w ${process.cwd()}/${CEPH_TEST.test_dir}${CEPH_TEST.s3_test_dir} ${SYSTEM_CEPH_TEST_WHITELIST[i]}`;
+                return promise_utils.promised_exec(command, false, true)
                     .then(() => {
                         console.log('Test Passed:', SYSTEM_CEPH_TEST_WHITELIST[i]);
                     })
@@ -337,12 +281,18 @@ function system_ceph_test() {
 }
 
 function main() {
+    var command = `node ${CEPH_TEST.rpc_shell_file} --run call --api account --func create_account --params '${JSON.stringify(CEPH_TEST.new_account_json)}'`;
+    console.log(command);
     return P.fcall(function() {
             return deploy_ceph();
         })
-        .then(() => promise_utils.promised_exec(`node ${CEPH_TEST.rpc_shell_file} --run call --api account --func create_account --params ${CEPH_TEST.new_account_json}`, false, true))
+        .then(() => console.warn('JEN Ceph Finished Deploy'))
+        .then(() => promise_utils.promised_exec(command, false, true))
+        .then(() => console.warn('JEN FINISH CREATE ACCOUNT'))
         .then(() => system_ceph_test())
+        .then(() => console.warn('JEN FINISH SYSTEM TESTS'))
         .then(() => s3_ceph_test())
+        .then(() => console.warn('JEN FINISH CEPH S3 TESTS'))
         .fail(function(err) {
             throw new Error('Ceph Tests Failed:', err);
         });

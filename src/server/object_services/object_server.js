@@ -402,6 +402,7 @@ function read_node_mappings(req) {
                 node = node_arg;
                 var params = _.pick(req.rpc_params, 'skip', 'limit');
                 params.node_id = node._id;
+                params.system = req.system;
                 return map_reader.read_node_mappings(params);
             }
         )

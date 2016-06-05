@@ -74,7 +74,7 @@ function read_node_mappings(params) {
 
     return P.fcall(function() {
             return md_store.DataBlock.collection.find({
-                system: params.node.system._id,
+                system: params.system._id,
                 node: params.node_id,
                 deleted: null,
             }, {

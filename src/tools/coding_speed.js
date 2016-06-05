@@ -64,7 +64,7 @@ function main() {
     speedometer.enable_cluster();
 
     let pipeline = new Pipeline(input);
-    pipeline.pipe(new ChunkStream(128 * 1024 * 1024, {
+    pipeline.pipe(new ChunkStream(20 * 1024 * 1024, {
         highWaterMark: 1,
         objectMode: true
     }));

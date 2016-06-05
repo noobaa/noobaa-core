@@ -57,6 +57,7 @@ function add_member_to_cluster(req) {
     var id = cutil.get_topology().cluster_id;
 
     return P.fcall(function() {
+            //If Shard, and if this is the first shard we are adding, special handling is required
             if (req.rpc_params.role === 'SHARD') {
                 let myip = os_utils.get_local_ipv4_ips()[0];
                 //If adding shard, and current server does not have config on it, add
@@ -284,18 +285,22 @@ function _add_new_replicaset_on_server(shardname, ip) {
         ))
         .then(() => MongoCtrl.add_replica_set_member(shardname))
         .then(() => {
+            dbg.log0('Adding new replica set member to the set');
             var rs_length = cutil.get_topology().shards[shard_idx].servers.length;
             if (rs_length === 3) {
                 //Initiate replica set and add all members
+                dbg.log0('Replica set reached minimum viable length of 3, calling initiate');
                 return MongoCtrl.initiate_replica_set(shardname, cutil.extract_servers_ip(
                     cutil.get_topology().shards[shard_idx].servers
                 ));
             } else if (rs_length > 3) {
+                dbg.log0('Replica set is over 3 servers, adding to current set');
                 //joining an already existing and functioning replica set, add new member
                 return MongoCtrl.add_member_to_replica_set(shardname, cutil._extract_servers_ip(
                     cutil._get_topology().shards[shard_idx].servers
                 ));
             } else {
+                dbg.log0('Replica set consists servers, waiting for a viable set of 3');
                 //2 servers, nothing to be done yet. RS will be activated on the 3rd join
                 return;
             }

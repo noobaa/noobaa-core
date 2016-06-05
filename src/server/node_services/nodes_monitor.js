@@ -19,7 +19,7 @@ const md_store = require('../object_services/md_store');
 const MapBuilder = require('../object_services/map_builder').MapBuilder;
 const server_rpc = require('../server_rpc');
 const auth_server = require('../common_services/auth_server');
-const nodes_store = require('./nodes_store');
+const nodes_store = require('./nodes_store').get_instance();
 const mongo_utils = require('../../util/mongo_utils');
 const ActivityLog = require('../analytic_services/activity_log');
 const system_store = require('../system_services/system_store').get_instance();
@@ -223,6 +223,7 @@ class NodesMonitor extends EventEmitter {
 
     _run_node(item) {
         if (!this._started) return;
+        // TODO schedule run for node should re-run if requested during run
         item.run_promise = item.run_promise || P.resolve()
             .then(() => this._get_agent_info(item))
             .then(() => this._update_rpc_config(item))
@@ -319,11 +320,20 @@ class NodesMonitor extends EventEmitter {
     }
 
     _update_status(item) {
-        if (item.connection) {
-            // online
+        if (!item.connection) {
+            item.node.accessibility = 'NO_ACCEESS';
+        } else if ((item.node.storage.limit &&
+                item.node.storage.limit <= item.node.storage.used) ||
+            (item.node.storage.free <= config.NODES_FREE_SPACE_RESERVE)) {
+            item.node.accessibility = 'READ_ONLY';
         } else {
-            // offline
+            item.node.accessibility = 'FULL_ACCESS';
         }
+
+        item.node.trust_level = 'TRUSTED';
+        item.node.connectivity_type = 'UNKNOWN';
+
+        this._set_need_update.add(item);
 
         // if (during pool migration) {
         //
@@ -343,37 +353,17 @@ class NodesMonitor extends EventEmitter {
         if (!this._set_need_update.size) return;
         if (!force && this._set_need_update.size < UPDATE_STORE_MIN_ITEMS) return;
 
-        // prepare a bulk update to the store
         const new_nodes = [];
-        const set_of_current_bulk = this._set_need_update;
+        const bulk_items = this._set_need_update;
         this._set_need_update = new Set();
-        const bulk = nodes_store.bulk();
-        let bulk_size = 0;
-        for (const item of set_of_current_bulk) {
-            if (item.node_from_store) {
-                const updates = pick_object_updates(item.node, item.node_from_store);
-                if (_.isEmpty(updates)) continue;
-                bulk.find({
-                    _id: item.node._id
-                }).updateOne({
-                    $set: updates
-                });
-                bulk_size += 1;
-            } else {
+        for (const item of bulk_items) {
+            if (!item.node_from_store) {
                 new_nodes.push(item);
-                bulk.insert(item.node);
-                bulk_size += 1;
             }
         }
 
-        if (!bulk_size) return;
-
-        dbg.log0('_update_nodes_store:',
-            'executing bulk of', bulk_size, 'updates,',
-            'out of which', new_nodes.length, 'are new nodes');
-
         return P.resolve()
-            .then(() => P.ninvoke(bulk, 'execute'))
+            .then(() => nodes_store.bulk_update(bulk_items))
             .then(() => P.map(new_nodes, item => {
                 return this.client.agent.update_auth_token({
                         auth_token: auth_server.make_auth_token({
@@ -396,7 +386,7 @@ class NodesMonitor extends EventEmitter {
             .then(() => {
                 // for all updated nodes we can consider the store updated
                 // if no new updates were requested while we were writing
-                for (const item of set_of_current_bulk) {
+                for (const item of bulk_items) {
                     if (!this._set_need_update.has(item)) {
                         item.node_from_store = _.cloneDeep(item.node);
                     }
@@ -405,7 +395,7 @@ class NodesMonitor extends EventEmitter {
             .catch(err => {
                 dbg.error('_update_nodes_store ERROR', err);
                 // add all the failed nodes to set
-                for (const item of set_of_current_bulk) {
+                for (const item of bulk_items) {
                     this._set_need_update.add(item);
                 }
             });
@@ -532,11 +522,11 @@ class NodesMonitor extends EventEmitter {
         }
 
         if (options.sort === 'name') {
-            list.sort(sort_compare_by(item => String(item.node.name), options.order));
+            list.sort(js_utils.sort_compare_by(item => String(item.node.name), options.order));
         } else if (options.sort === 'ip') {
-            list.sort(sort_compare_by(item => String(item.node.ip), options.order));
+            list.sort(js_utils.sort_compare_by(item => String(item.node.ip), options.order));
         } else if (options.sort === 'state') {
-            list.sort(sort_compare_by(item => Boolean(item.connection), options.order));
+            list.sort(js_utils.sort_compare_by(item => Boolean(item.connection), options.order));
         } else if (options.sort === 'shuffle') {
             chance.shuffle(list);
         }
@@ -557,19 +547,17 @@ class NodesMonitor extends EventEmitter {
 
     get_node_full_info(item) {
         const node = item.node;
-        var info = _.defaults(_.pick(node, NODE_INFO_PICK_FIELDS), NODE_INFO_DEFAULT_FIELDS);
+        const info = _.defaults(_.pick(node, NODE_INFO_PICK_FIELDS), NODE_INFO_DEFAULT_FIELDS);
         info.id = String(node._id);
         info.peer_id = String(node.peer_id);
-        if (node.srvmode) {
-            info.srvmode = node.srvmode;
-        }
-        if (node.storage.free <= config.NODES_FREE_SPACE_RESERVE &&
-            !(node.storage.limit && node.storage.free > 0)) {
-            info.storage_full = true;
-        }
         info.pool = system_store.data.get_by_id(node.pool).name;
+        info.online = Boolean(item.connection);
         info.heartbeat = node.heartbeat.getTime();
         info.storage = get_storage_info(node.storage);
+        if (node.storage.free <= config.NODES_FREE_SPACE_RESERVE &&
+            !(node.storage.limit && node.storage.free > 0)) {
+            info.out_of_space = true;
+        }
         info.drives = _.map(node.drives, drive => {
             return {
                 mount: drive.mount,
@@ -577,7 +565,6 @@ class NodesMonitor extends EventEmitter {
                 storage: get_storage_info(drive.storage)
             };
         });
-        info.online = Boolean(item.connection);
         info.os_info = _.defaults({}, node.os_info);
         if (info.os_info.uptime) {
             info.os_info.uptime = new Date(info.os_info.uptime).getTime();
@@ -651,7 +638,7 @@ class NodesMonitor extends EventEmitter {
     }
 
     collect_agent_diagnostics(req) {
-        var target = req.rpc_params.rpc_address;
+        const target = req.rpc_params.rpc_address;
         return server_rpc.client.agent.collect_diagnostics({}, {
                 address: target,
             })
@@ -665,7 +652,7 @@ class NodesMonitor extends EventEmitter {
     }
 
     set_debug_node(req) {
-        var target = req.rpc_params.target;
+        const target = req.rpc_params.target;
         return P.fcall(() => {
                 return server_rpc.client.agent.set_debug_node({
                     level: req.rpc_params.level
@@ -674,7 +661,7 @@ class NodesMonitor extends EventEmitter {
                 });
             })
             .then(() => {
-                var updates = {};
+                const updates = {};
                 updates.debug_level = req.rpc_params.level;
                 return nodes_store.update_nodes({
                     rpc_address: target
@@ -900,30 +887,6 @@ function get_storage_info(storage) {
         alloc: storage.alloc || 0,
         limit: storage.limit || 0
     };
-}
-
-/**
- * returns a compare function for array.sort(compare_func)
- * @param key_getter takes array item and returns a comparable key
- * @param order should be 1 or -1
- */
-function sort_compare_by(key_getter, order) {
-    key_getter = key_getter || (item => item);
-    order = order || 1;
-    return function(item1, item2) {
-        const key1 = key_getter(item1);
-        const key2 = key_getter(item2);
-        if (key1 < key2) return -order;
-        if (key1 > key2) return order;
-        return 0;
-    };
-}
-
-function pick_object_updates(current, prev) {
-    return _.pickBy(current, (value, key) => {
-        const prev_value = prev[key];
-        return !_.isEqual(value, prev_value);
-    });
 }
 
 // server_rpc.rpc.on('reconnect', _on_reconnect);

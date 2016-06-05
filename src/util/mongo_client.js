@@ -18,6 +18,7 @@ class MongoClient extends EventEmitter {
     constructor() {
         super();
         this.db = null; // will be set once connected
+        this.collections = {};
         this.url =
             process.env.MONGODB_URL ||
             process.env.MONGOHQ_URL ||
@@ -67,11 +68,13 @@ class MongoClient extends EventEmitter {
         return mongodb.MongoClient.connect(this.url, this.config)
             .then(db => {
                 console.log('MongoClient: connected', this.url);
-                db.on('reconnect', () => {
+                this.db = db;
+                this.db.on('reconnect', () => {
                     this.emit('reconnect');
+                    this._init_collections();
                     console.log('MongoClient: reconnect', this.url);
                 });
-                this.db = db;
+                this._init_collections();
                 return db;
             }, err => {
                 // autoReconnect only works once initial connection is created,
@@ -89,6 +92,39 @@ class MongoClient extends EventEmitter {
         }
     }
 
+    define_collection(col) {
+        if (col.name in this.collections) {
+            throw new Error('Collection already defined ' + col.name);
+        }
+        this.collections[col.name] = col;
+        return this._init_collection(col);
+    }
+
+    _init_collection(col) {
+        if (!this.db) return; // will be called when connected
+        return P.resolve()
+            .then(() => this.db.createCollection(col.name))
+            .then(() => P.map(col.db_indexes, index =>
+                this.db.collection(col.name).createIndex(index.fields, _.extend({
+                    background: true
+                }, index.options))
+                .then(res => dbg.log0('MongoClient index created', col.name, res))
+                .catch(err => dbg.error('MongoClient index FAILED', col.name, index, err))
+            ));
+    }
+
+    _init_collections() {
+        return P.all(_.map(this.collections, col => this._init_collection(col)))
+            .then(() => {
+                // now print the indexes just for fun
+                return P.all(_.map(this.collections, col => P.resolve()
+                    .then(() => this.db.collection(col.name).indexes())
+                    .then(res => dbg.log0('MongoClient indexes of', col.name, _.map(res, 'name')))
+                ));
+            })
+            .catch(err => dbg.warn('ignoring error in _init_collections:', err));
+    }
+
     initiate_replica_set(set, members, is_config_set) {
         var port = is_config_set ? config.MONGO_DEFAULTS.CFG_PORT : config.MONGO_DEFAULTS.SHARD_SRV_PORT;
         var rep_config = this._build_replica_config(set, members, port);
@@ -96,14 +132,16 @@ class MongoClient extends EventEmitter {
             replSetInitiate: rep_config
         };
         dbg.log0('mongo_client initiate_replica_set', util.inspect(command, false, null));
-        if (!is_config_set) { //connect the mongod server
+        if (is_config_set) {
+            // connect the server running the config replica set
+            return this._send_command_config_rs(command);
+        } else {
+            // connect the mongod server
             return P.when(this.db.admin().command(command))
-                .fail((err) => {
+                .fail(err => {
                     console.error('Failed initiate_replica_set', set, members, 'with', err.message);
                     throw err;
                 });
-        } else { //connect the server running the config replica set
-            return this._send_command_config_rs(command);
         }
     }
 
@@ -113,14 +151,16 @@ class MongoClient extends EventEmitter {
             replSetReconfig: rep_config
         };
         dbg.log0('mongo_client replica_update_members', util.inspect(command, false, null));
-        if (!is_config_set) { //connect the mongod server
+        if (is_config_set) {
+            //connect the server running the config replica set
+            return this._send_command_config_rs(command);
+        } else {
+            //connect the mongod server
             return P.when(this.db.admin().command(command))
-                .fail((err) => {
+                .fail(err => {
                     console.error('Failed replica_update_members', set, members, 'with', err.message);
                     throw err;
                 });
-        } else { //connect the server running the config replica set
-            return this._send_command_config_rs(command);
         }
     }
 
@@ -130,8 +170,9 @@ class MongoClient extends EventEmitter {
                 addShard: host + ':' + port,
                 name: shardname
             }))
-            .fail((err) => {
-                console.error('Failed add_shard', host + ':' + port, shardname, 'with', err.message);
+            .fail(err => {
+                console.error('Failed add_shard', host + ':' + port, shardname,
+                    'with', err.message);
                 throw err;
             });
     }

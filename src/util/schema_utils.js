@@ -6,7 +6,7 @@ var genfun = require('generate-function');
 module.exports = {
     idate_format: idate_format,
     buffer_format: buffer_format,
-    make_strict_schema: make_strict_schema,
+    strictify: strictify,
     empty_schema_validator: empty_schema_validator,
     prepare_buffers_in_schema: prepare_buffers_in_schema,
 };
@@ -25,26 +25,32 @@ function buffer_format(val) {
 
 const COMMON_SCHEMA_KEYWORDS = ['doc', 'id'];
 
-function make_strict_schema(schema, base) {
-    if (!schema) return;
+function strictify(schema, options, base) {
+    if (!schema) return schema;
     if (!base) base = schema;
-    if (!_.isObject(schema)) return;
+    if (!_.isObject(schema)) return schema;
 
     if (schema.type === 'object') {
         if (!_.isObject(schema.properties)) {
             illegal_json_schema(schema, base, 'missing properties for object type');
         }
-        check_schema_extra_keywords(schema, base, ['type', 'properties', 'additionalProperties', 'required']);
-        if (!('additionalProperties' in schema)) {
-            schema.additionalProperties = false;
+        check_schema_extra_keywords(schema, base, [
+            'type', 'properties', 'additionalProperties', 'required'
+        ]);
+        if (options &&
+            'additionalProperties' in options &&
+            !('additionalProperties' in schema)) {
+            schema.additionalProperties = options.additionalProperties;
         }
-        _.each(schema.properties, val => make_strict_schema(val, base));
+        _.each(schema.properties, val => {
+            strictify(val, options, base);
+        });
     } else if (schema.type === 'array') {
         if (!_.isObject(schema.items)) {
             illegal_json_schema(schema, base, 'missing items for array type');
         }
         check_schema_extra_keywords(schema, base, ['type', 'items']);
-        make_strict_schema(schema.items, base);
+        strictify(schema.items, options, base);
     } else if (schema.type === 'string') {
         check_schema_extra_keywords(schema, base, ['type', 'format', 'enum']);
     } else if (schema.type === 'boolean') {
@@ -61,20 +67,28 @@ function make_strict_schema(schema, base) {
         check_schema_extra_keywords(schema, base, 'format');
     } else if (schema.oneOf) {
         check_schema_extra_keywords(schema, base, 'oneOf');
-        _.each(schema.oneOf, val => make_strict_schema(val, base));
+        _.each(schema.oneOf, val => {
+            strictify(val, options, base);
+        });
     } else if (schema.anyOf) {
         check_schema_extra_keywords(schema, base, 'anyOf');
-        _.each(schema.anyOf, val => make_strict_schema(val, base));
+        _.each(schema.anyOf, val => {
+            strictify(val, options, base);
+        });
     } else if (schema.allOf) {
         check_schema_extra_keywords(schema, base, 'allOf');
-        _.each(schema.allOf, val => make_strict_schema(val, base));
+        _.each(schema.allOf, val => {
+            strictify(val, options, base);
+        });
     } else if (schema.$ref) {
         check_schema_extra_keywords(schema, base, '$ref');
     } else if (schema.type === 'null') {
         check_schema_extra_keywords(schema, base, 'type');
     } else {
-        illegal_json_schema(schema, base, 'make_strict_schema: missing type/$ref/oneOf/allOf/anyOf');
+        illegal_json_schema(schema, base,
+            'strictify: missing type/$ref/oneOf/allOf/anyOf');
     }
+    return schema;
 }
 
 function check_schema_extra_keywords(schema, base, keywords) {
@@ -90,9 +104,9 @@ function illegal_json_schema(schema, base, error) {
         'ERROR: "' + error + '"',
         'SCHEMA:', schema,
         'BASE:', base);
-    throw new Error('ILLEGAL JSON SCHEMA:' +
-        'ID: "' + base.id + '"' +
-        'ERROR: "' + error + '"');
+    throw new Error('ILLEGAL JSON SCHEMA: ' +
+        'ID: "' + base.id + '" ' +
+        'ERROR: "' + error + '" ');
 }
 
 

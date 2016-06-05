@@ -36,12 +36,18 @@ class RpcSchema {
     register_api(api) {
         assert(!this[api.id], 'RPC: api already registered ' + api.id);
         _.each(api.definitions, schema => {
-            schema_utils.make_strict_schema(schema);
+            schema_utils.strictify(schema, {
+                additionalProperties: false
+            });
             schema_utils.prepare_buffers_in_schema(schema);
         });
         _.each(api.methods, method_api => {
-            schema_utils.make_strict_schema(method_api.params);
-            schema_utils.make_strict_schema(method_api.reply);
+            schema_utils.strictify(method_api.params, {
+                additionalProperties: false
+            });
+            schema_utils.strictify(method_api.reply, {
+                additionalProperties: false
+            });
             schema_utils.prepare_buffers_in_schema(method_api.params);
             schema_utils.prepare_buffers_in_schema(method_api.reply);
         });

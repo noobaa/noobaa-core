@@ -8,7 +8,7 @@ const config = require('../../../config.js');
 const map_utils = require('./map_utils');
 const mongo_utils = require('../../util/mongo_utils');
 const md_store = require('./md_store');
-const nodes_store = require('../node_services/nodes_store');
+const nodes_store = require('../node_services/nodes_store').get_instance();
 const system_store = require('../system_services/system_store').get_instance();
 
 

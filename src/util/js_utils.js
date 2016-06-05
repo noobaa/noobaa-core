@@ -11,6 +11,8 @@ module.exports = {
     deep_freeze: deep_freeze,
     make_object: make_object,
     default_value: default_value,
+    sort_compare_by: sort_compare_by,
+    pick_object_diff: pick_object_diff,
 };
 
 
@@ -128,4 +130,28 @@ function make_object(keys, valueProvider) {
 
 function default_value(val, def_val) {
     return _.isUndefined(val) ? def_val : val;
+}
+
+/**
+ * returns a compare function for array.sort(compare_func)
+ * @param key_getter takes array item and returns a comparable key
+ * @param order should be 1 or -1
+ */
+function sort_compare_by(key_getter, order) {
+    key_getter = key_getter || (item => item);
+    order = order || 1;
+    return function(item1, item2) {
+        const key1 = key_getter(item1);
+        const key2 = key_getter(item2);
+        if (key1 < key2) return -order;
+        if (key1 > key2) return order;
+        return 0;
+    };
+}
+
+function pick_object_diff(current, prev) {
+    return _.pickBy(current, (value, key) => {
+        const prev_value = prev[key];
+        return !_.isEqual(value, prev_value);
+    });
 }

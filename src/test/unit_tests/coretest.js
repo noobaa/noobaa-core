@@ -13,7 +13,7 @@ var P = require('../../util/promise');
 var config = require('../../../config.js');
 var agentctl = require('./core_agent_control');
 var server_rpc = require('../../server/server_rpc');
-var nodes_store = require('../../server/node_services/nodes_store');
+var nodes_store = require('../../server/node_services/nodes_store').get_instance();
 var mongo_client = require('../../util/mongo_client').get_instance();
 var mongoose_utils = require('../../util/mongoose_utils');
 

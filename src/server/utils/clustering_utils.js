@@ -7,6 +7,7 @@ const _ = require('lodash');
 const util = require('util');
 const url = require('url');
 const system_store = require('../system_services/system_store').get_instance();
+const os_utils = require('../../util/os_util');
 const dbg = require('../../util/debug_module')(__filename);
 
 
@@ -18,6 +19,7 @@ function update_cluster_info(params) {
     var current_clustering = system_store.get_local_cluster_info();
     var update = _.defaults(_.pick(params, _.keys(current_clustering)), current_clustering);
     update.owner_secret = system_store.get_server_secret(); //Keep original owner_secret
+    update.owner_address = os_utils.get_local_ipv4_ips()[0];
     update._id = current_clustering._id;
 
     dbg.log0('Updating local cluster info for owner', update.owner_secret, 'previous cluster info',

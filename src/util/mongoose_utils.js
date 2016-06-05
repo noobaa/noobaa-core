@@ -12,7 +12,8 @@ var mongoose_timeout = null;
 
 // connect to the database
 if (debug_mode) {
-    mongoose.set('debug', mongoose_logger(dbg.log0.bind(dbg)));
+    dbg.log0('setting debug logger for mongoose to dbg.log1');
+    mongoose.set('debug', mongoose_logger(dbg.log1.bind(dbg)));
 }
 
 var MONGODB_URL =

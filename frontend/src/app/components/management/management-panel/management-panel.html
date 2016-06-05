@@ -26,6 +26,12 @@
         ">
             Version
         </a>
+        <a data-bind="
+            href: '/fe/systems/:system/management/advanced-options',
+            css: { selected: isTabSelected('advanced-options') }
+        ">
+            Advanced Options
+        </a>
     </nav>
 
     <div class="tabs-row">
@@ -50,5 +56,12 @@
         <about-form class="tab" data-bind="
             css: { selected: isTabSelected('about') }
         "></about-form>
+
+        <section class="tab" data-bind="
+            css: { selected: isTabSelected('advanced-options') }
+        ">
+            <maintenance-form></maintenance-form>
+            <hr>
+        </section>
     </div>
 </div>

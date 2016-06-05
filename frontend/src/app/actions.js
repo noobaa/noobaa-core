@@ -382,7 +382,8 @@ export function loadSystemInfo() {
                     P2PConfig: reply.n2n_config,
                     owner: reply.owner.email,
                     timeConfig: reply.time_config,
-                    debugLevel: reply.debug_level
+                    debugLevel: reply.debug_level,
+                    maintenance: reply.maintenance_mode
                 });
             }
         )
@@ -1590,6 +1591,18 @@ export function updateServerNTP(timezone, server) {
         timezone: timezone,
         server: server
     })
+        .then(loadSystemInfo)
+        .done();
+}
+
+export function enterMaintenanceMode(duration) {
+    api.system.set_maintenance({ duration })
+        .then(loadSystemInfo)
+        .done();
+}
+
+export function exitMaintenanceMode() {
+    api.system.set_maintenance({ duration: 0 })
         .then(loadSystemInfo)
         .done();
 }

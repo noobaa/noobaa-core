@@ -311,3 +311,7 @@ export function bitsToNumber(...bits) {
         0
     );
 }
+
+export function pad(num, size, char = '0') {
+    return (char.repeat(size) + num).substr(-size);
+}

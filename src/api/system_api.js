@@ -70,7 +70,7 @@ module.exports = {
             }
         },
 
-        set_maintenance_mode: {
+        set_maintenance: {
             doc: 'Configure system maintenance',
             method: 'PUT',
             params: {

@@ -98,11 +98,14 @@ export default function register(ko) {
     ko.components.register('create-account-wizard',     require('./management/create-account-wizard/create-account-wizard'));
     ko.components.register('account-s3-access-modal',   require('./management/account-s3-access-modal/account-s3-access-modal'));
     ko.components.register('p2p-form',                  require('./management/p2p-form/p2p-form'));
-    ko.components.register('server-dns-form',           require('./management/server-dns-form/server-dns-form'));   
-    ko.components.register('server-time-form',          require('./management/server-time-form/server-time-form'));   
-    ko.components.register('about-form',                require('./management/about-form/about-form')); 
-    ko.components.register('upgrade-modal',             require('./management/upgrade-modal/upgrade-modal'));   
-    ko.components.register('diagnostics-form',          require('./management/diagnostics-form/diagnostics-form'));   
+    ko.components.register('server-dns-form',           require('./management/server-dns-form/server-dns-form'));
+    ko.components.register('server-time-form',          require('./management/server-time-form/server-time-form'));
+    ko.components.register('about-form',                require('./management/about-form/about-form'));
+    ko.components.register('upgrade-modal',             require('./management/upgrade-modal/upgrade-modal'));
+    ko.components.register('diagnostics-form',          require('./management/diagnostics-form/diagnostics-form'));
+    ko.components.register('maintenance-form',          require('./management/maintenance-form/maintenance-form'));
+    ko.components.register('start-maintenance-modal',   require('./management/start-maintenance-modal/start-maintenance-modal'));    
+
 
     // -------------------------------
     // Admin

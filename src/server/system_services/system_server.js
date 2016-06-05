@@ -284,7 +284,7 @@ function update_system(req) {
     }).return();
 }
 
-function set_maintenance_mode(req) {
+function set_maintenance(req) {
     var updates = {};
     //let maintenance_mode = _.pick(req.rpc_params, 'maintenance_mode');
     updates._id = req.system._id;
@@ -956,5 +956,5 @@ exports.update_phone_home_proxy_address = update_phone_home_proxy_address;
 exports.update_hostname = update_hostname;
 exports.update_system_certificate = update_system_certificate;
 exports.update_time_config = update_time_config;
-exports.set_maintenance_mode = set_maintenance_mode;
+exports.set_maintenance = set_maintenance;
 //exports.read_maintenance_config = read_maintenance_config

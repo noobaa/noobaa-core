@@ -1,5 +1,6 @@
 <div class="row content-middle push-next audit-header">
     <h1 class="heading2 greedy push-next">Audit Log</h1>
+    
     <button class="btn-flat no-outline" data-bind="click: closeDrawer">
         <svg-icon params="uri: '/fe/assets/icons.svg#x'"></svg-icon>
     </button>
@@ -23,6 +24,18 @@
     options: categories, 
     selected: selectedCategories
 "></multiselect>
+    
+
+<div class="row">
+    <h3 class="heading3 greedy push-next align-end">Events</h3>
+
+    <button class="btn-flat export-btn" data-bind="
+        click: exportToCSV,
+        tooltip: { text: 'Export as CSV', align: 'right'}
+    ">
+        <svg-icon params="uri: '/fe/assets/icons.svg#export'" ></svg-icon>
+    </button>
+</div>
 
 <div class="box column greedy push-next">
     <div class="data-table greedy">
@@ -63,7 +76,5 @@
         <div data-bind="text: $data"></div>
     </div>
 </section>
-
-
 
 

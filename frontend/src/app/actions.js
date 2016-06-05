@@ -853,6 +853,20 @@ export function loadMoreAuditEntries(count) {
     }
 }
 
+export function exportAuditEnteries(categories) {
+    logAction('exportAuditEnteries', { categories });
+
+    let filter = categories
+        .map(
+            category => `(^${category}.)`
+        )
+        .join('|');
+
+    api.system.export_activity_log({ event: filter || '^$', })
+        .then(downloadFile)
+        .done()
+}
+
 export function loadAccountList() {
     logAction('loadAccountList');
 

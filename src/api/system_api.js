@@ -217,13 +217,7 @@ module.exports = {
                 }
             },
             reply: {
-                type: 'object',
-                required: ['csv_path'],
-                properties: {
-                    csv_path: {
-                        type: 'string'
-                    },
-                }
+                type: 'string',
             },
             auth: {
                 system: 'admin',

@@ -2,7 +2,7 @@ import template from './audit-pane.html';
 import AuditRowViewModel from './audit-row';
 import ko from 'knockout';
 import { auditLog } from 'model';
-import { loadAuditEntries, loadMoreAuditEntries, closeDrawer } from 'actions';
+import { loadAuditEntries, loadMoreAuditEntries, exportAuditEnteries, closeDrawer } from 'actions';
 import categories from './categories';
 
 const pageSize = 25;
@@ -62,6 +62,10 @@ class AuditPaneViewModel {
 
     clearAllCategories() {
         this.selectedCategories([]);
+    }
+
+    exportToCSV() {
+        exportAuditEnteries(this.selectedCategories())
     }
 
     closeDrawer() {

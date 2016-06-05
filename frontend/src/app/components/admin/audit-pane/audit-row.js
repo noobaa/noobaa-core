@@ -7,7 +7,6 @@ export default class AuditRowViewModel {
         let categoryInfo = categories[categoryName];
         let eventInfo = categoryInfo.events[eventName];
 
-        console.debug(entry.time);
         this.date = moment(entry.time).format('DD MMM YYYY HH:mm:ss');
         this.category = categoryInfo.displayName;
         this.event = eventInfo.message;

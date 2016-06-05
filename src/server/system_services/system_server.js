@@ -558,45 +558,55 @@ function _read_activity_log_internal(req) {
 
 
 
-
 function export_activity_log(req) {
     req.rpc_params.csv = true;
+    
+    // generate csv file name:
+    let file_name = 'audit.csv';
+    let out_path = '/public/' + file_name;
+    let inner_path = process.cwd() + '/build' + out_path;
+    
     return _read_activity_log_internal(req)
         .then(logs => {
-            // generate csv file name:
-            let file_name = 'audit.csv';
-            let out_path = '/public/' + file_name;
-            let inner_path = process.cwd() + '/build' + out_path;
-            var file = fs.createWriteStream(inner_path);
-            file.on('error', err => dbg.error('received error when writing to audit csv file:', inner_path, err));
-            let headline = 'time,level,account,event,entity,description\n';
             let logs_arr = logs.logs;
-            dbg.log0('writing', logs_arr.length, 'lines to csv file', inner_path);
-            return file.writeAsync(headline, 'utf8')
-                .then(() => promise_utils.loop(logs_arr.length, i => {
-                    let line_entry = logs_arr[i];
-                    let time = new Date(line_entry.time);
-                    let level = line_entry.level;
-                    let account = line_entry.actor.email;
-                    let event = line_entry.event;
-                    let description = line_entry.desc[0];
-                    let entity_type = event.split('.')[0];
-                    let entity = '';
-                    if (line_entry[entity_type]) {
-                        if (entity_type === 'obj') {
-                            entity = line_entry[entity_type].key;
-                        } else {
-                            entity = line_entry[entity_type].name;
+            return new Promise((resolve, reject) => {
+                var file = fs.createWriteStream(inner_path);
+                file.on('open', () => resolve(file));
+                file.on('error', reject);
+            })
+            .then(file => {
+                let headline = 'time,level,account,event,entity,description\n';
+                dbg.log0('writing', logs_arr.length, 'lines to csv file', inner_path);
+                return file.writeAsync(headline, 'utf8')
+                    .then(() => promise_utils.loop(
+                        logs_arr.length, 
+                        i => {
+                            let line_entry = logs_arr[i];
+                            let time = new Date(line_entry.time);
+                            let level = line_entry.level;
+                            let account = line_entry.actor.email;
+                            let event = line_entry.event;
+                            let description = line_entry.desc[0];
+                            let entity_type = event.split('.')[0];
+                            let entity = '';
+                            if (line_entry[entity_type]) {
+                                if (entity_type === 'obj') {
+                                    entity = line_entry[entity_type].key;
+                                } else {
+                                    entity = line_entry[entity_type].name;
+                                }
+                            }
+                            let line = `"${time.toISOString()}",${level},${account},${event},${entity},"${description}"\n`;
+                            return file.writeAsync(line, 'utf8');
                         }
-                    }
-                    let line = '"' + time.toISOString() + '",' + level + ',' + account + ',' + event + ',' + entity + ',"' + description + '"\n';
-                    return file.writeAsync(line, 'utf8');
-                }))
-                .then(() => file.end())
-                .then(() => ({
-                    csv_path: out_path
-                }));
-
+                    ))
+                    .then(() => file.endAsync());
+            });
+        })
+        .then(() => out_path)
+        .catch(err => {
+            dbg.error('received error when writing to audit csv file:', inner_path, err);
+            throw err;
         });
 }
 

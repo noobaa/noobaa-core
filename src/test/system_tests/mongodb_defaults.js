@@ -50,3 +50,9 @@ db.nodes.update({}, {
 }, {
     multi: true
 });
+// Removing all account except Support and Owner
+db.accounts.remove({
+    email: {
+        $nin: ['demo@noobaa.com', 'support@noobaa.com']
+    }
+});

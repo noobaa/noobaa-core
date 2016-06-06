@@ -21,9 +21,12 @@ module.exports = {
         update_mongo_connection_string: {
             method: 'POST',
             params: {
-                rs_name: {
-                    type: 'string',
-                },
+                type: 'object',
+                properties: {
+                    rs_name: {
+                        type: 'string',
+                    },
+                }
             },
             auth: {
                 system: false

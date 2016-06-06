@@ -104,7 +104,8 @@ export default function register(ko) {
     ko.components.register('upgrade-modal',             require('./management/upgrade-modal/upgrade-modal'));
     ko.components.register('diagnostics-form',          require('./management/diagnostics-form/diagnostics-form'));
     ko.components.register('maintenance-form',          require('./management/maintenance-form/maintenance-form'));
-    ko.components.register('start-maintenance-modal',   require('./management/start-maintenance-modal/start-maintenance-modal'));    
+    ko.components.register('start-maintenance-modal',   require('./management/start-maintenance-modal/start-maintenance-modal'));
+    ko.components.register('phone-home-form',           require('./management/phone-home-form/phone-home-form'));
 
 
     // -------------------------------

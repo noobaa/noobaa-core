@@ -383,7 +383,8 @@ export function loadSystemInfo() {
                     owner: reply.owner.email,
                     timeConfig: reply.time_config,
                     debugLevel: reply.debug_level,
-                    maintenance: reply.maintenance_mode
+                    maintenance: reply.maintenance_mode,
+                    phoneHomeConfig: reply.phone_home_config
                 });
             }
         )
@@ -1610,13 +1611,25 @@ export function updateServerNTP(timezone, server) {
 }
 
 export function enterMaintenanceMode(duration) {
+    logAction('exitMaintenanceMode', { duration });
+
     api.system.set_maintenance({ duration })
         .then(loadSystemInfo)
         .done();
 }
 
 export function exitMaintenanceMode() {
+    logAction('exitMaintenanceMode');
+
     api.system.set_maintenance({ duration: 0 })
+        .then(loadSystemInfo)
+        .done();
+}
+
+export function updatePhoneHomeConfig(proxyAddress) {
+    logAction('updatePhoneHomeConfig', proxyAddress);
+
+    api.system.update_phone_home_config({ proxy_address: proxyAddress })
         .then(loadSystemInfo)
         .done();
 }

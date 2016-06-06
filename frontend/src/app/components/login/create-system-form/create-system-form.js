@@ -26,7 +26,7 @@ class CreateSystemFormViewModel {
         this.systemName = ko.observable()
             .extend({
                 required: { message: 'Please enter a system name' }, 
-                noLeadingOrTrailingSpaces: true,
+                hasNoLeadingOrTrailingSpaces: true,
                 maxLength: { 
                     params: 50, 
                     message: 'System name cannot be longer then 50 characters' 

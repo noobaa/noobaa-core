@@ -1,10 +1,10 @@
 <h2 class="row heading3" data-bind="click: () => expanded.toggle()">
     <span class="greedy align-middle">Peer to Peer</span>
 
-    <button class="btn-flat rotate no-outline" data-bind="
-        css: { 'deg-90': !expanded() }
-    ">
-        <svg-icon class="expand-icon" params="uri: '/fe/assets/icons.svg#chevron'" >
+    <button class="btn-flat expand-btn">
+        <svg-icon class="rotate no-outline" 
+            params="uri: '/fe/assets/icons.svg#chevron'"
+            data-bind="css: { 'deg-90': !expanded() }">
         </svg-icon>
     </button>
 </h2>

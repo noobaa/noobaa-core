@@ -436,7 +436,7 @@ module.exports = {
             method: 'POST',
             params: {
                 type: 'object',
-                required: ['phone_home_proxy'],
+                required: ['proxy_address'],
                 properties: {
                     proxy_address: {
                         anyOf: [{

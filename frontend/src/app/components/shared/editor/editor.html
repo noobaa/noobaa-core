@@ -1,5 +1,8 @@
 <!-- ko if: visible -->
-<span class="editor-label push-next" data-bind="text: label + ':'"></span>
+<span class="editor-label push-next" data-bind="
+    css: { disabled: disable },
+    text: label + ':'
+"></span>
 <div class="column" data-bind="
     validationOptions: { insertMessages: insertValMessages },
     template: { nodes: $componentTemplateNodes, data: $parent }

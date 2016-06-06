@@ -85,19 +85,19 @@ function mongoose_ensure_indexes() {
 
 //Update connections string according to configured RS
 function mongoose_update_connection_string() {
-  var rs = process.env.MONGO_REPLICA_SET || '';
-  if (rs !== MONGO_REPLICA_SET) {
-      //disconenct
-      mongoose.disconnect(function (){
-        mongoose_connected - false;
-        mongoose_timeout = null;
-        MONGO_REPLICA_SET = rs;
-        //now connect
-        mongoose_connect();
-      });
-  } else {
-      return;
-  }
+    var rs = process.env.MONGO_REPLICA_SET || '';
+    if (rs !== MONGO_REPLICA_SET) {
+        //disconenct
+        mongoose.disconnect(function() {
+            mongoose_connected = false;
+            mongoose_timeout = null;
+            MONGO_REPLICA_SET = rs;
+            //now connect
+            mongoose_connect();
+        });
+    } else {
+        return;
+    }
 }
 
 

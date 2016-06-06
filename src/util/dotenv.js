@@ -24,6 +24,7 @@ OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
+
 'use strict';
 
 var fs = require('fs');
@@ -88,7 +89,7 @@ module.exports = {
             // matching "KEY' and 'VAL' in 'KEY=VAL'
             var keyValueArr = line.match(/^\s*([\w\.\-]+)\s*=\s*(.*)?\s*$/);
             // matched?
-            if (keyValueArr != null) {
+            if (keyValueArr !== null) {
                 var key = keyValueArr[1];
 
                 // default undefined or missing values to empty string
@@ -96,7 +97,7 @@ module.exports = {
 
                 // expand newlines in quoted values
                 var len = value ? value.length : 0;
-                if (len > 0 && value.charAt(0) === '\"' && value.charAt(len - 1) === '\"') {
+                if (len > 0 && value.charAt(0) === '"' && value.charAt(len - 1) === '"') {
                     value = value.replace(/\\n/gm, '\n');
                 }
 
@@ -161,7 +162,7 @@ module.exports = {
             // matching "KEY' and 'VAL' in 'KEY=VAL'
             var keyValueArr = line.match(/^\s*([\w\.\-]+)\s*=\s*(.*)?\s*$/);
             // matched?
-            if (keyValueArr != null) {
+            if (keyValueArr !== null) {
                 var key = keyValueArr[1];
                 var value;
                 if (key === newVal.key) {

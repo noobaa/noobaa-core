@@ -17,5 +17,17 @@ module.exports = {
                 system: false
             }
         },
+
+        update_mongo_connection_string: {
+            method: 'POST',
+            params: {
+                rs_name: {
+                    type: 'string',
+                },
+            },
+            auth: {
+                system: false
+            }
+        }
     }
 };

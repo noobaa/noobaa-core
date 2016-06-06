@@ -1,11 +1,14 @@
 'use strict';
 
 var _ = require('lodash');
+var server_rpc = require('../server_rpc');
 var P = require('../../util/promise');
 var fs_utils = require('../../util/fs_utils');
 var config = require('../../../config.js');
 var SupervisorCtl = require('./supervisor_ctrl');
 var mongo_client = require('../../util/mongo_client').get_instance();
+var mongoose_client = require('../../util/mongoose_utils');
+var dotenv = require('../../util/dotenv');
 var dbg = require('../../util/debug_module')(__filename);
 
 module.exports = new MongoCtrl(); // Singleton
@@ -19,6 +22,7 @@ function MongoCtrl() {
 
 MongoCtrl.prototype.init = function() {
     dbg.log0('Initing MongoCtrl');
+    dotenv.load();
     return this._refresh_services_list();
 };
 
@@ -28,21 +32,25 @@ MongoCtrl.prototype.add_replica_set_member = function(name) {
     let self = this;
     return self._remove_single_mongo_program()
         .then(() => self._add_replica_set_member_program(name))
+        .then(() => dotenv.set({
+            key: 'MONGO_REPLICA_SET',
+            value: name
+        }))
+        .then(() => self._publish_rs_name_current_server(name))
         .then(() => SupervisorCtl.apply_changes());
 };
 
 MongoCtrl.prototype.add_new_shard_server = function(name, first_shard) {
     let self = this;
     return self._remove_single_mongo_program()
-        .then(() => self._add_new_shard_program(name, first_shard))        
+        .then(() => self._add_new_shard_program(name, first_shard))
         .then(() => SupervisorCtl.apply_changes());
 };
 
 MongoCtrl.prototype.add_new_mongos = function(cfg_array) {
     let self = this;
     return P.when(self._add_new_mongos_program(cfg_array))
-        .then(() => SupervisorCtl.apply_changes())
-        .then(() => mongo_client.update_connection_string(cfg_array));
+        .then(() => SupervisorCtl.apply_changes());
 };
 
 MongoCtrl.prototype.add_new_config = function() {
@@ -67,19 +75,19 @@ MongoCtrl.prototype.add_member_shard = function(name, ip) {
     return mongo_client.add_shard(ip, config.MONGO_DEFAULTS.SHARD_SRV_PORT, name);
 };
 
-MongoCtrl.prototype.update_connection_string = function() {
-    return mongo_client.update_connection_string();
-};
-
 MongoCtrl.prototype.is_master = function(is_config_set, set_name) {
     return mongo_client.is_master(is_config_set, set_name);
 };
 
+MongoCtrl.prototype.update_connection_string = function() {
+    return mongo_client.update_connection_string()
+        .then(() => mongoose_client.mongoose_update_connection_string());
+};
 
 //
 //Internals
 //
-MongoCtrl.prototype._add_replica_set_member_program = function(name) {
+MongoCtrl.prototype._add_replica_set_member_program = function(name, first_shard) {
     if (!name) {
         throw new Error('port and name must be supplied to add new shard');
     }
@@ -89,14 +97,20 @@ MongoCtrl.prototype._add_replica_set_member_program = function(name) {
     program_obj.name = 'mongors-' + name;
     program_obj.command = 'mongod ' +
         '--replSet ' + name +
+        ' --port ' + config.MONGO_DEFAULTS.SHARD_SRV_PORT +
         ' --dbpath ' + dbpath;
     program_obj.directory = '/usr/bin';
     program_obj.user = 'root';
     program_obj.autostart = 'true';
     program_obj.priority = '1';
 
-    return fs_utils.create_fresh_path(dbpath)
-        .then(() => SupervisorCtl.add_program(program_obj));
+    if (first_shard) { //If shard1 (this means this is the first server which will be the base of the cluster)
+        //use the original server`s data
+        return SupervisorCtl.add_program(program_obj);
+    } else {
+        return fs_utils.create_fresh_path(dbpath)
+            .then(() => SupervisorCtl.add_program(program_obj));
+    }
 };
 
 MongoCtrl.prototype._add_new_shard_program = function(name, first_shard) {
@@ -178,4 +192,15 @@ MongoCtrl.prototype._refresh_services_list = function() {
         .then(mongo_services => {
             this._mongo_services = mongo_services;
         });
+};
+
+MongoCtrl.prototype._publish_rs_name_current_server = function(name) {
+    return server_rpc.client.redirector.publish_to_cluster({
+        method_api: 'cluster_member_api',
+        method_name: 'update_mongo_connection_string',
+        target: '', // required but irrelevant
+        request_params: {
+            rs_name: name
+        }
+    });
 };

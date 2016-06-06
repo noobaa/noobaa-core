@@ -21,6 +21,10 @@ var MONGODB_URL =
     process.env.MONGOLAB_URI ||
     'mongodb://127.0.0.1/nbcore';
 
+var MONGO_REPLICA_SET =
+    process.env.MONGO_REPLICA_SET ||
+    '';
+
 mongoose.connection.on('connected', function() {
     // call ensureIndexes explicitly for each model
     console.log('mongoose connection connected');
@@ -49,8 +53,12 @@ function mongoose_connect() {
     console.log('mongoose_connect');
     clearTimeout(mongoose_timeout);
     mongoose_timeout = null;
+    var url = MONGODB_URL;
+    if (MONGO_REPLICA_SET !== '') {
+        url += '?replicaSet=' + MONGO_REPLICA_SET;
+    }
     if (!mongoose_connected) {
-        mongoose.connect(MONGODB_URL);
+        mongoose.connect(url);
     }
 }
 
@@ -75,6 +83,24 @@ function mongoose_ensure_indexes() {
 }
 
 
+//Update connections string according to configured RS
+function mongoose_update_connection_string() {
+  var rs = process.env.MONGO_REPLICA_SET || '';
+  if (rs !== MONGO_REPLICA_SET) {
+      //disconenct
+      mongoose.disconnect(function (){
+        mongoose_connected - false;
+        mongoose_timeout = null;
+        MONGO_REPLICA_SET = rs;
+        //now connect
+        mongoose_connect();
+      });
+  } else {
+      return;
+  }
+}
+
+
 // this ObjectId is a function that generates mongo ObjectId.
 // notice that this is not the same as mongoose.Schema.Types.ObjectId
 // which is used in schema definitions. this mongoose duality will probably
@@ -83,3 +109,4 @@ exports.new_object_id = mongoose.Types.ObjectId;
 exports.mongoose_connect = mongoose_connect;
 exports.mongoose_ensure_indexes = mongoose_ensure_indexes;
 exports.mongoose_wait_connected = mongoose_wait_connected;
+exports.mongoose_update_connection_string = mongoose_update_connection_string;

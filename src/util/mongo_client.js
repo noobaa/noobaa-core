@@ -24,6 +24,9 @@ class MongoClient extends EventEmitter {
             process.env.MONGOHQ_URL ||
             process.env.MONGOLAB_URI ||
             'mongodb://127.0.0.1/nbcore';
+        this.replica_set =
+            process.env.MONGO_REPLICA_SET ||
+            '';
         this.cfg_url =
             'mongodb://127.0.0.1:' + config.MONGO_DEFAULTS.CFG_PORT + '/config0';
         this.config = {
@@ -56,12 +59,17 @@ class MongoClient extends EventEmitter {
     /**
      * connect and return the db instance which will handle reconnections.
      * mongodb_url is optional and by default takes from env or local db.
+     * connect to the "real" mongodb and not the config mongo
      */
     connect() {
         dbg.log0('connect called');
         this._disconnected_state = false;
         if (this.promise) return this.promise;
-        this.promise = this._connect('db', this.url, this.config);
+        var url = this.url;
+        if (this.replica_set !== '') {
+            url += '?replicaSet=' + this.replica_set;
+        }
+        this.promise = this._connect('db', url, this.config);
         return this.promise;
     }
 
@@ -163,10 +171,18 @@ class MongoClient extends EventEmitter {
             });
     }
 
-    update_connection_string(cfg_array) {
-        //TODO:: fill this out
-        //Currently seems for replica set only ...
-        return;
+    update_connection_string() {
+        //TODO:: Currently seems for replica set only, in case of mongos, verify if needed
+        //First disconnect current connection
+        var rs = process.env.MONGO_REPLICA_SET || '';
+        if (rs !== this.replica_set) {
+            this.disconnect();
+            this.replica_set = rs;
+            //now connect
+            return this.connect();
+        } else {
+            return;
+        }
     }
 
     is_master(is_config_set, set_name) {

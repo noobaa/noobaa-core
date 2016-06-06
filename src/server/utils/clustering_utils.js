@@ -145,6 +145,14 @@ function rs_array_changes(new_array, name, is_config) {
 
 }
 
+function find_shard_index(shardname) {
+  var shard_idx = _.findIndex(get_topology().shards, function(s) {
+      return shardname === s.shardname;
+  });
+
+  return shard_idx;
+}
+
 //Exports
 exports.get_topology = get_topology;
 exports.update_cluster_info = update_cluster_info;
@@ -155,3 +163,4 @@ exports.is_single_server = is_single_server;
 exports.get_all_cluster_members = get_all_cluster_members;
 exports.pretty_topology = pretty_topology;
 exports.rs_array_changes = rs_array_changes;
+exports.find_shard_index = find_shard_index;

@@ -65,9 +65,13 @@ function add_member_to_cluster(req) {
                     return srv.address === myip;
                 }) === -1) {
                 dbg.log0('Current server is first on cluster and has single mongo running, updating');
-                return _add_new_shard_on_server('shard1', myip, {
+                //TODO:: when adding shard, the first server should also have its single mongo replaced to shard
+                /*return _add_new_shard_on_server('shard1', myip, {
                     first_shard: true,
                     remote_server: false
+                });*/
+                return _add_new_replicaset_on_server('shard1', myip, {
+                    first_server: true
                 });
             }
         })
@@ -272,43 +276,52 @@ function _add_new_shard_on_server(shardname, ip, params) {
         });
 }
 
-function _add_new_replicaset_on_server(shardname, ip) {
+function _add_new_replicaset_on_server(shardname, ip, params) {
     dbg.log0('Adding RS server to', shardname);
-    var shard_idx = _.findIndex(cutil.get_topology().shards, function(s) {
-        return shardname === s.shardname;
-    });
+    var new_topology = cutil.get_topology();
+    var shard_idx;
 
-    //No Such shard
-    if (shard_idx === -1) {
-        dbg.log0('Cannot add RS member to non-existing shard');
-        throw new Error('Cannot add RS member to non-existing shard');
+    if (!params.first_server) {
+        shard_idx = cutil.find_shard_index(shardname);
+
+        //No Such shard
+        if (shard_idx === -1) {
+            dbg.log0('Cannot add RS member to non-existing shard');
+            throw new Error('Cannot add RS member to non-existing shard');
+        }
+        new_topology.shards[shard_idx].servers.push({
+            address: ip
+        });
+    } else { //First server in RS
+        new_topology.shards.push({
+            shardname: shardname,
+            servers: [{
+                address: ip
+            }],
+        });
+        shard_idx = cutil.find_shard_index(shardname);
     }
 
-    return P.when(cutil.update_cluster_info(
-            cutil.get_topology().shards[shard_idx].servers.push({
-                address: ip
-            })
-        ))
-        .then(() => MongoCtrl.add_replica_set_member(shardname))
+    return P.when(cutil.update_cluster_info(new_topology))
+        .then(() => MongoCtrl.add_replica_set_member(shardname, params.first_server))
         .then(() => {
             dbg.log0('Adding new replica set member to the set');
             var rs_length = cutil.get_topology().shards[shard_idx].servers.length;
-            if (rs_length === 3) {
-                //Initiate replica set and add all members
-                dbg.log0('Replica set reached minimum viable length of 3, calling initiate');
+            if (rs_length === 1) { //first memeber in RS, initiate
+                dbg.log0('Replica set created, calling initiate');
                 return MongoCtrl.initiate_replica_set(shardname, cutil.extract_servers_ip(
                     cutil.get_topology().shards[shard_idx].servers
                 ));
-            } else if (rs_length > 3) {
-                dbg.log0('Replica set is over 3 servers, adding to current set');
-                //joining an already existing and functioning replica set, add new member
+            } else if (rs_length === 2) {
+                //2 servers, nothing to be done yet. RS will be activated on the 3rd join
+                dbg.log0('Replica set consists of', rs_length, 'servers, waiting for a viable set of 3');
+                return;
+            } else /*(rs_length >= 3)*/ {
+                dbg.log0('Replica set is', rs_length, 'servers, adding to current set');
+                //joining an already existing and functioning replica set, add new member(s)
                 return MongoCtrl.add_member_to_replica_set(shardname, cutil._extract_servers_ip(
                     cutil._get_topology().shards[shard_idx].servers
                 ));
-            } else {
-                dbg.log0('Replica set consists of', rs_length, 'servers, waiting for a viable set of 3');
-                //2 servers, nothing to be done yet. RS will be activated on the 3rd join
-                return;
             }
         });
 }

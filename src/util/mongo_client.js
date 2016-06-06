@@ -175,12 +175,15 @@ class MongoClient extends EventEmitter {
         //TODO:: Currently seems for replica set only, in case of mongos, verify if needed
         //First disconnect current connection
         var rs = process.env.MONGO_REPLICA_SET || '';
+        dbg.log0('got update_connection_string. rs =', rs, ' this.replica_set =', this.replica_set);
         if (rs !== this.replica_set) {
+            dbg.log0('setting connection to new url. conection this. replica_set =', this.replica_set);
             this.disconnect();
             this.replica_set = rs;
             //now connect
             return this.connect();
         } else {
+            dbg.log0('connection string is unchanged. leaving connection as is. replica_set =', this.replica_set);
             return P.resolve();
         }
     }

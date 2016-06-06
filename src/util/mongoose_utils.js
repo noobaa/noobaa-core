@@ -58,6 +58,7 @@ function mongoose_connect() {
         url += '?replicaSet=' + MONGO_REPLICA_SET;
     }
     if (!mongoose_connected) {
+        dbg.log0('connecting mongoose to', url);
         mongoose.connect(url);
     }
 }
@@ -86,17 +87,18 @@ function mongoose_ensure_indexes() {
 //Update connections string according to configured RS
 function mongoose_update_connection_string() {
     var rs = process.env.MONGO_REPLICA_SET || '';
+    dbg.log0('in mongoose_update_connection_string. rs =', rs, ' MONGO_REPLICA_SET =', MONGO_REPLICA_SET);
     if (rs !== MONGO_REPLICA_SET) {
+        dbg.log0('different rs and MONGO_REPLICA_SET. rs =', rs, ' MONGO_REPLICA_SET =', MONGO_REPLICA_SET);
         //disconenct
         mongoose.disconnect(function() {
             mongoose_connected = false;
             mongoose_timeout = null;
             MONGO_REPLICA_SET = rs;
+            dbg.log0('disconnected mongoose. now going to connect with new connection string:', MONGO_REPLICA_SET);
             //now connect
             mongoose_connect();
         });
-    } else {
-        return;
     }
 }
 

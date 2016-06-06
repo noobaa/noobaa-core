@@ -1,11 +1,6 @@
 "use strict";
 
-var _ = require('lodash');
-var fs = require('fs');
-var argv = require('minimist')(process.argv);
-var AWS = require('aws-sdk');
 var P = require('../../util/promise');
-var Semaphore = require('../../util/semaphore');
 var promise_utils = require('../../util/promise_utils');
 
 var CEPH_TEST = {
@@ -216,7 +211,7 @@ function deploy_ceph() {
         .then((res) => {
             console.log('Starting Deployment Of Ceph Tests...');
             command = `cd ${CEPH_TEST.test_dir};./${CEPH_TEST.ceph_deploy}`;
-            return promise_utils.promised_exec(command, false, true)
+            return promise_utils.promised_exec(command, false, true);
         })
         .then((res) => {
             return console.log(res);
@@ -247,7 +242,7 @@ function s3_ceph_test() {
                             had_errors = true;
                         }
                         console.warn('Test Failed:', S3_CEPH_TEST_WHITELIST[i], '\n' + err);
-                    })
+                    });
             })
         .then(() => {
             if (!had_errors) {
@@ -277,7 +272,7 @@ function system_ceph_test() {
                     .fail((err) => {
                         had_errors = true;
                         console.warn('Test Failed:', SYSTEM_CEPH_TEST_WHITELIST[i], '\n' + err);
-                    })
+                    });
             })
         .then(() => {
             if (!had_errors) {

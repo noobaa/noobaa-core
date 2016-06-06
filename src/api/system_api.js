@@ -432,13 +432,13 @@ module.exports = {
             }
         },
 
-        update_phone_home_proxy_address: {
+        update_phone_home_config: {
             method: 'POST',
             params: {
                 type: 'object',
                 required: ['phone_home_proxy'],
                 properties: {
-                    phone_home_proxy: {
+                    proxy_address: {
                         anyOf: [{
                             type: 'null'
                         }, {
@@ -596,8 +596,13 @@ module.exports = {
                 ip_address: {
                     type: 'string'
                 },
-                phone_home_proxy: {
-                    type: 'string'
+                phone_home_config: {
+                    type: 'object',
+                    properties: {
+                        proxy_address: {
+                            type: 'string'
+                        }
+                    }
                 },
                 dns_name: {
                     type: 'string'

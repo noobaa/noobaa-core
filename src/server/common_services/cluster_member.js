@@ -5,7 +5,7 @@
  */
 'use strict';
 
-var mongo_ctrl = require('../util/mongo_ctrl');
+var mongo_ctrl = require('../utils/mongo_ctrl');
 var P = require('../../util/promise');
 var dotenv = require('../../util/dotenv');
 var dbg = require('../../util/debug_module')(__filename);

@@ -181,7 +181,7 @@ class MongoClient extends EventEmitter {
             //now connect
             return this.connect();
         } else {
-            return;
+            return P.resolve();
         }
     }
 

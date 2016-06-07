@@ -1,5 +1,3 @@
-'use strict';
-
 /**
  *
  * AGENT API
@@ -7,85 +5,91 @@
  * commands that are sent to an agent (read/write/replicate)
  *
  */
+'use strict';
+
 module.exports = {
 
     id: 'agent_api',
 
     methods: {
 
-        write_block: {
-            method: 'POST',
-            param_raw: 'data',
-            params: {
-                type: 'object',
-                required: ['block_md', 'data'],
-                properties: {
-                    block_md: {
-                        $ref: '#/definitions/block_md'
-                    },
-                    data: {
-                        format: 'buffer'
-                    }
-                },
-            },
-        },
-
-        read_block: {
-            method: 'GET',
-            params: {
-                type: 'object',
-                required: ['block_md'],
-                properties: {
-                    block_md: {
-                        $ref: '#/definitions/block_md'
-                    },
-                },
-            },
+        get_agent_info: {
+            method: 'PUT',
             reply: {
                 type: 'object',
-                required: ['block_md', 'data'],
                 properties: {
-                    block_md: {
-                        $ref: '#/definitions/block_md'
+                    version: {
+                        type: 'string'
                     },
-                    data: {
-                        format: 'buffer'
+                    name: {
+                        type: 'string'
                     },
-                },
+                    ip: {
+                        type: 'string'
+                    },
+                    base_address: {
+                        type: 'string'
+                    },
+                    rpc_address: {
+                        type: 'string'
+                    },
+                    n2n_config: {
+                        $ref: 'common_api#/definitions/n2n_config'
+                    },
+                    geolocation: {
+                        type: 'string'
+                    },
+                    storage: {
+                        $ref: 'common_api#/definitions/storage_info'
+                    },
+                    drives: {
+                        type: 'array',
+                        items: {
+                            $ref: 'common_api#/definitions/drive_info'
+                        }
+                    },
+                    os_info: {
+                        $ref: 'common_api#/definitions/os_info'
+                    },
+                    debug_level: {
+                        type: 'integer',
+                    },
+                    cloud_pool_name: {
+                        type: 'string'
+                    },
+                }
             },
         },
 
-
-        replicate_block: {
+        update_auth_token: {
             method: 'POST',
             params: {
                 type: 'object',
-                required: ['target', 'source'],
+                required: ['auth_token'],
                 properties: {
-                    target: {
-                        $ref: '#/definitions/block_md'
-                    },
-                    source: {
-                        $ref: '#/definitions/block_md'
+                    auth_token: {
+                        type: 'string'
                     }
-                },
-            },
+                }
+            }
         },
 
-        delete_blocks: {
-            method: 'DELETE',
+        update_rpc_config: {
+            method: 'POST',
             params: {
                 type: 'object',
-                required: ['blocks'],
                 properties: {
-                    blocks: {
-                        type: 'array',
-                        items: {
-                            type: 'string'
-                        }
+                    rpc_address: {
+                        type: 'string'
+                    },
+                    base_address: {
+                        type: 'string'
+                    },
+                    n2n_config: {
+                        $ref: 'common_api#/definitions/n2n_config'
                     }
-                },
-            },
+                }
+            }
         },
 
         n2n_signal: {
@@ -98,9 +102,31 @@ module.exports = {
             },
         },
 
-        self_test_io: {
+        test_store_perf: {
             method: 'POST',
-            param_raw: 'data',
+            params: {
+                type: 'object',
+                properties: {
+                    count: {
+                        type: 'integer'
+                    }
+                }
+            },
+            reply: {
+                type: 'object',
+                properties: {
+                    write: {
+                        $ref: 'node_api#/definitions/latency_array'
+                    },
+                    read: {
+                        $ref: 'node_api#/definitions/latency_array'
+                    }
+                }
+            }
+        },
+
+        test_network_perf: {
+            method: 'POST',
             params: {
                 type: 'object',
                 required: ['source', 'target', 'response_length'],
@@ -115,7 +141,7 @@ module.exports = {
                         type: 'integer'
                     },
                     data: {
-                        format: 'buffer'
+                        buffer: true
                     }
                 },
             },
@@ -124,13 +150,16 @@ module.exports = {
                 required: ['data'],
                 properties: {
                     data: {
-                        format: 'buffer'
+                        buffer: true
                     },
                 },
             },
+            auth: {
+                n2n: true
+            }
         },
 
-        self_test_peer: {
+        test_network_perf_to_peer: {
             method: 'POST',
             params: {
                 $ref: '#/definitions/self_test_params'
@@ -140,10 +169,6 @@ module.exports = {
             },
         },
 
-        kill_agent: {
-            method: 'POST',
-        },
-
         collect_diagnostics: {
             method: 'GET',
             reply: {
@@ -151,7 +176,7 @@ module.exports = {
                 required: ['data'],
                 properties: {
                     data: {
-                        format: 'buffer'
+                        buffer: true
                     },
                 },
             },
@@ -170,54 +195,9 @@ module.exports = {
             }
         },
 
-        update_n2n_config: {
-            method: 'POST',
-            params: {
-                $ref: 'common_api#/definitions/n2n_config'
-            }
-        },
-
-        update_base_address: {
-            method: 'POST',
-            params: {
-                type: 'object',
-                required: ['base_address'],
-                properties: {
-                    base_address: {
-                        type: 'string'
-                    }
-                }
-            }
-        }
-
     },
 
     definitions: {
-
-        block_md: {
-            type: 'object',
-            required: ['id'],
-            properties: {
-                id: {
-                    type: 'string'
-                },
-                address: {
-                    type: 'string'
-                },
-                node: {
-                    type: 'string'
-                },
-                size: {
-                    type: 'integer'
-                },
-                digest_type: {
-                    type: 'string'
-                },
-                digest_b64: {
-                    type: 'string'
-                },
-            }
-        },
 
         self_test_params: {
             type: 'object',

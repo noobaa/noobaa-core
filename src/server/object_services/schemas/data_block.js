@@ -22,7 +22,7 @@ const data_block_schema = new Schema({
 
     // the storage node of this block
     node: {
-        ref: 'Node',
+        // ref: 'Node',
         type: types.ObjectId,
         required: true,
     },

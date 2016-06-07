@@ -13,12 +13,13 @@ var P = require('../../util/promise');
 var config = require('../../../config.js');
 var agentctl = require('./core_agent_control');
 var server_rpc = require('../../server/server_rpc');
-var nodes_store = require('../../server/node_services/nodes_store');
+var nodes_store = require('../../server/node_services/nodes_store').get_instance();
 var mongo_client = require('../../util/mongo_client').get_instance();
 var mongoose_utils = require('../../util/mongoose_utils');
 
 P.longStackTraces();
 config.test_mode = true;
+config.NODES_FREE_SPACE_RESERVE = 10 * 1024 * 1024;
 
 // register api servers and bg_worker servers locally too
 server_rpc.register_system_services();
@@ -125,7 +126,8 @@ function init_test_nodes(client, system, count) {
                 create_node_token);
             agentctl.create_agent(count);
             return agentctl.start_all_agents();
-        });
+        })
+        .then(() => client.node.sync_monitor_to_store());
 }
 
 // delete all edge nodes directly from the db

@@ -14,18 +14,19 @@ const dbg = require('../../util/debug_module')(__filename);
 const LRUCache = require('../../util/lru_cache');
 const md_store = require('./md_store');
 const map_copy = require('./map_copy');
+const RpcError = require('../../rpc/rpc_error');
 const map_writer = require('./map_writer');
 const map_reader = require('./map_reader');
 const map_deleter = require('./map_deleter');
-const map_allocator = require('./map_allocator');
 const ActivityLog = require('../analytic_services/activity_log');
 const mongo_utils = require('../../util/mongo_utils');
-const nodes_store = require('../node_services/nodes_store');
+const nodes_store = require('../node_services/nodes_store').get_instance();
+const ObjectStats = require('../analytic_services/object_stats');
 const system_store = require('../system_services/system_store').get_instance();
 const string_utils = require('../../util/string_utils');
+const map_allocator = require('./map_allocator');
 const mongo_functions = require('../../util/mongo_functions');
-const ObjectStats = require('../analytic_services/object_stats');
-const system_utils = require('../utils/system_server_utils');
+const system_server_utils = require('../utils/system_server_utils');
 
 /**
  *
@@ -34,9 +35,7 @@ const system_utils = require('../utils/system_server_utils');
  */
 function create_object_upload(req) {
     dbg.log0('create_object_upload:', req.rpc_params);
-    if (req.system && system_utils.system_in_maintenance(req.system._id)) {
-        throw req.rpc_error('SYSTEM_IN_MAINTENANCE', 'Cannot upload object when system in maintenance mode');
-    }
+    throw_if_maintenance(req);
     load_bucket(req);
     var info = {
         _id: md_store.make_md_id(),
@@ -103,9 +102,7 @@ function list_multipart_parts(req) {
  */
 function complete_part_upload(req) {
     dbg.log1('complete_part_upload - etag', req.rpc_params.etag, 'req:', req);
-    if (req.system && system_utils.system_in_maintenance(req.system._id)) {
-        throw req.rpc_error('SYSTEM_IN_MAINTENANCE', 'Cannot upload object when system in maintenance mode');
-    }
+    throw_if_maintenance(req);
     return find_object_upload(req)
         .then(obj => {
             var params = _.pick(req.rpc_params,
@@ -123,9 +120,7 @@ function complete_part_upload(req) {
 function complete_object_upload(req) {
     var obj;
     var obj_etag = req.rpc_params.etag || '';
-    if (req.system && system_utils.system_in_maintenance(req.system._id)) {
-        throw req.rpc_error('SYSTEM_IN_MAINTENANCE', 'Cannot upload object when system in maintenance mode');
-    }
+    throw_if_maintenance(req);
     return find_object_upload(req)
         .then(obj_arg => {
             obj = obj_arg;
@@ -207,9 +202,7 @@ function abort_object_upload(req) {
  *
  */
 function allocate_object_parts(req) {
-    if (req.system && system_utils.system_in_maintenance(req.system._id)) {
-        throw req.rpc_error('SYSTEM_IN_MAINTENANCE', 'Cannot upload object when system in maintenance mode');
-    }
+    throw_if_maintenance(req);
     return find_cached_object_upload(req)
         .then(obj => {
             let allocator = new map_allocator.MapAllocator(
@@ -227,9 +220,7 @@ function allocate_object_parts(req) {
  *
  */
 function finalize_object_parts(req) {
-    if (req.system && system_utils.system_in_maintenance(req.system._id)) {
-        throw req.rpc_error('SYSTEM_IN_MAINTENANCE', 'Cannot upload object when system in maintenance mode');
-    }
+    throw_if_maintenance(req);
     return find_cached_object_upload(req)
         .then(obj => {
             return map_writer.finalize_object_parts(
@@ -247,13 +238,11 @@ function finalize_object_parts(req) {
  */
 function copy_object(req) {
     dbg.log0('copy_object', req.rpc_params);
-    if (req.system && system_utils.system_in_maintenance(req.system._id)) {
-        throw req.rpc_error('SYSTEM_IN_MAINTENANCE', 'Cannot upload object when system in maintenance mode');
-    }
+    throw_if_maintenance(req);
     load_bucket(req);
     var source_bucket = req.system.buckets_by_name[req.rpc_params.source_bucket];
     if (!source_bucket) {
-        throw req.rpc_error('NO_SUCH_BUCKET', 'No such bucket: ' + req.rpc_params.source_bucket);
+        throw new RpcError('NO_SUCH_BUCKET', 'No such bucket: ' + req.rpc_params.source_bucket);
     }
     var create_info;
     var existing_obj;
@@ -275,7 +264,7 @@ function copy_object(req) {
             existing_obj = existing_obj_arg;
             source_obj = source_obj_arg;
             if (!source_obj) {
-                throw req.rpc_error('NO_SUCH_OBJECT',
+                throw new RpcError('NO_SUCH_OBJECT',
                     'No such object: ' + req.rpc_params.source_bucket +
                     ' ' + req.rpc_params.source_key);
             }
@@ -412,7 +401,8 @@ function read_node_mappings(req) {
             node_arg => {
                 node = node_arg;
                 var params = _.pick(req.rpc_params, 'skip', 'limit');
-                params.node = node;
+                params.node_id = node._id;
+                params.system = req.system;
                 return map_reader.read_node_mappings(params);
             }
         )
@@ -475,15 +465,13 @@ function read_object_md(req) {
  */
 function update_object_md(req) {
     dbg.log0('update object md', req.rpc_params);
-    if (req.system && system_utils.system_in_maintenance(req.system._id)) {
-        throw req.rpc_error('SYSTEM_IN_MAINTENANCE', 'Cannot upload object when system in maintenance mode');
-    }
+    throw_if_maintenance(req);
     return find_object_md(req)
-        .then((obj) => {
+        .then(obj => {
             var updates = _.pick(req.rpc_params, 'content_type', 'xattr');
             return obj.update(updates).exec();
         })
-        .then(obj => mongo_utils.check_entity_not_deleted(req, 'object', obj))
+        .then(obj => mongo_utils.check_entity_not_deleted(obj, 'object'))
         .thenResolve();
 }
 
@@ -495,16 +483,14 @@ function update_object_md(req) {
  *
  */
 function delete_object(req) {
-    if (req.system && system_utils.system_in_maintenance(req.system._id)) {
-        throw req.rpc_error('SYSTEM_IN_MAINTENANCE', 'Cannot upload object when system in maintenance mode');
-    }
+    throw_if_maintenance(req);
     load_bucket(req);
     let obj_to_delete;
     return P.fcall(() => {
             var query = _.omit(object_md_query(req), 'deleted');
             return md_store.ObjectMD.findOne(query).exec();
         })
-        .then(obj => mongo_utils.check_entity_not_found(req, 'object', obj))
+        .then(obj => mongo_utils.check_entity_not_found(obj, 'object'))
         .then(obj => {
             obj_to_delete = obj;
             delete_object_internal(obj);
@@ -531,9 +517,7 @@ function delete_object(req) {
  */
 function delete_multiple_objects(req) {
     dbg.log2('delete_multiple_objects: keys =', req.params.keys);
-    if (req.system && system_utils.system_in_maintenance(req.system._id)) {
-        throw req.rpc_error('SYSTEM_IN_MAINTENANCE', 'Cannot upload object when system in maintenance mode');
-    }
+    throw_if_maintenance(req);
     load_bucket(req);
     // TODO: change it to perform changes in one transaction
     return P.all(_.map(req.params.keys, function(key) {
@@ -545,7 +529,7 @@ function delete_multiple_objects(req) {
                     };
                     return md_store.ObjectMD.findOne(query).exec();
                 })
-                .then(obj => mongo_utils.check_entity_not_found(req, 'object', obj))
+                .then(obj => mongo_utils.check_entity_not_found(obj, 'object'))
                 .then(obj => delete_object_internal(obj));
         }))
         .return();
@@ -579,12 +563,12 @@ function remove_s3_usage_reports(req) {
         req.rpc_params.till_time = new Date(req.rpc_params.till_time);
         q.where('time').lte(req.rpc_params.till_time);
     } else {
-        throw req.rpc_error('NO TILL_TIME', 'Parameters do not have till_time: ' + req.rpc_params);
+        throw new RpcError('NO TILL_TIME', 'Parameters do not have till_time: ' + req.rpc_params);
     }
     //q.limit(req.rpc_params.limit || 10);
     return P.when(q.exec())
         .catch(err => {
-            throw req.rpc_error('COULD NOT DELETE REPORTS', 'Error Deleting Reports: ' + err);
+            throw new RpcError('COULD NOT DELETE REPORTS', 'Error Deleting Reports: ' + err);
         })
         .return();
 }
@@ -800,7 +784,7 @@ function get_object_info(md) {
 function load_bucket(req) {
     var bucket = req.system.buckets_by_name[req.rpc_params.bucket];
     if (!bucket) {
-        throw req.rpc_error('NO_SUCH_BUCKET', 'No such bucket: ' + req.rpc_params.bucket);
+        throw new RpcError('NO_SUCH_BUCKET', 'No such bucket: ' + req.rpc_params.bucket);
     }
     req.check_bucket_permission(bucket);
     req.bucket = bucket;
@@ -820,7 +804,7 @@ function find_object_md(req) {
     return P.fcall(() => {
             return md_store.ObjectMD.findOne(object_md_query(req)).exec();
         })
-        .then(obj => mongo_utils.check_entity_not_deleted(req, 'object', obj));
+        .then(obj => mongo_utils.check_entity_not_deleted(obj, 'object'));
 }
 
 function find_object_upload(req) {
@@ -861,11 +845,11 @@ function find_cached_object_upload(req) {
 
 function check_object_upload_mode(req, obj) {
     if (!obj || obj.deleted) {
-        throw req.rpc_error('NO_SUCH_UPLOAD',
+        throw new RpcError('NO_SUCH_UPLOAD',
             'No such upload id: ' + req.rpc_params.upload_id);
     }
     if (!_.isNumber(obj.upload_size)) {
-        throw req.rpc_error('NO_SUCH_UPLOAD',
+        throw new RpcError('NO_SUCH_UPLOAD',
             'Object not in upload mode: ' + obj.key +
             ' upload_size ' + obj.upload_size);
     }
@@ -890,31 +874,37 @@ function check_md_conditions(req, conditions, obj) {
     if (conditions.if_modified_since) {
         if (!obj ||
             conditions.if_modified_since < obj._id.getTimestamp().getTime()) {
-            throw req.rpc_error('IF_MODIFIED_SINCE');
+            throw new RpcError('IF_MODIFIED_SINCE');
         }
     }
     if (conditions.if_unmodified_since) {
         if (!obj ||
             conditions.if_unmodified_since > obj._id.getTimestamp().getTime()) {
-            throw req.rpc_error('IF_UNMODIFIED_SINCE');
+            throw new RpcError('IF_UNMODIFIED_SINCE');
         }
     }
     if (conditions.if_match_etag) {
         if (!obj ||
             (conditions.if_match_etag !== '*' &&
                 conditions.if_match_etag !== obj.etag)) {
-            throw req.rpc_error('IF_MATCH_ETAG');
+            throw new RpcError('IF_MATCH_ETAG');
         }
     }
     if (conditions.if_none_match_etag) {
         if (obj &&
             (conditions.if_none_match_etag === '*' ||
                 conditions.if_none_match_etag === obj.etag)) {
-            throw req.rpc_error('IF_NONE_MATCH_ETAG');
+            throw new RpcError('IF_NONE_MATCH_ETAG');
         }
     }
 }
 
+function throw_if_maintenance(req) {
+    if (req.system && system_server_utils.system_in_maintenance(req.system._id)) {
+        throw new RpcError('SYSTEM_IN_MAINTENANCE',
+            'Operation not supported during maintenance mode');
+    }
+}
 
 // EXPORTS
 // object upload

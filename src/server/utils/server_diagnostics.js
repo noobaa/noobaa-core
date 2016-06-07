@@ -12,7 +12,7 @@ var stats_aggregator = require('../system_services/stats_aggregator');
 var P = require('../../util/promise');
 var os = require('os');
 var fs = require('fs');
-var os_utils = require('../../util/os_util');
+var os_utils = require('../../util/os_utils');
 var promise_utils = require('../../util/promise_utils');
 var base_diagnostics = require('../../util/base_diagnostics');
 

@@ -25,8 +25,10 @@ function main() {
 function tunnel_port(source_port, target_port, hostname, name) {
     name = (name || '') + ' [' + source_port + '->' + human_addr(hostname + ':' + target_port) + ']';
     return net.createServer()
-        .on('connection', conn => tunnel_connection(conn, target_port, hostname, name))
-        .on('error', (err) => {
+        .on('connection', conn => {
+            tunnel_connection(conn, target_port, hostname, name);
+        })
+        .on('error', err => {
             console.error(name, 'server error', err.stack || err);
         })
         .on('listening', () => {

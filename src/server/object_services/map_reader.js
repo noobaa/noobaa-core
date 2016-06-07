@@ -8,7 +8,7 @@ const config = require('../../../config.js');
 const map_utils = require('./map_utils');
 const mongo_utils = require('../../util/mongo_utils');
 const md_store = require('./md_store');
-const nodes_store = require('../node_services/nodes_store');
+const nodes_store = require('../node_services/nodes_store').get_instance();
 const system_store = require('../system_services/system_store').get_instance();
 
 
@@ -66,15 +66,16 @@ function read_object_mappings(params) {
  *
  * read_node_mappings
  *
- * @params: node, skip, limit
+ * @params: node_id, skip, limit
  */
 function read_node_mappings(params) {
     var objects = {};
     var parts_per_obj_id = {};
+
     return P.fcall(function() {
             return md_store.DataBlock.collection.find({
-                system: params.node.system._id,
-                node: params.node._id,
+                system: params.system._id,
+                node: params.node_id,
                 deleted: null,
             }, {
                 sort: '-_id',

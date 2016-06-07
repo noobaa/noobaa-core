@@ -765,7 +765,7 @@ export function loadNodeInfo(nodeName) {
 export function loadNodeStoredPartsList(nodeName, page) {
     logAction('loadNodeStoredPartsList', { nodeName, page });
 
-    api.object.read_node_mappings({ 
+    api.object.read_node_mappings({
         name: nodeName,
         skip: config.paginationPageSize * page,
         limit: config.paginationPageSize,
@@ -1265,7 +1265,7 @@ export function testNode(source, testSet) {
                                 return true;
                             }
 
-                            return api.node.self_test_to_node_via_web(stepRequest)
+                            return api.node.test_node_network(stepRequest)
                                 .then(
                                     ({ session }) => {
                                         result.session = session;
@@ -1404,11 +1404,10 @@ export function upgradeSystem(upgradePackage) {
 export function downloadNodeDiagnosticPack(nodeName) {
     logAction('downloadDiagnosticFile', { nodeName });
 
-    api.node.read_node({ name: nodeName })
+    api.node.collect_agent_diagnostics({ name: nodeName })
         .then(
-            node => api.node.collect_agent_diagnostics(node)
+            url => downloadFile(url)
         )
-        .then(downloadFile)
         .done();
 }
 
@@ -1427,8 +1426,8 @@ export function setNodeDebugLevel(node, level) {
     api.node.read_node({ name: node })
         .then(
             node => api.node.set_debug_node({
-                level: level,
-                target: node.rpc_address
+                name: node.name,
+                level: level
             })
         )
         .then(

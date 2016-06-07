@@ -536,7 +536,7 @@ class ObjectIO {
 
             this._error_injection_on_write();
 
-            return params.client.agent.write_block({
+            return params.client.block_store.write_block({
                 block_md: block_md,
                 data: buffer,
             }, {
@@ -562,7 +562,7 @@ class ObjectIO {
 
             this._error_injection_on_write();
 
-            return params.client.agent.replicate_block({
+            return params.client.block_store.replicate_block({
                 target: target_md,
                 source: source_md,
             }, {
@@ -901,7 +901,7 @@ class ObjectIO {
         // use semaphore to surround the IO
         return this._block_read_sem.surround(() => {
             dbg.log1('_read_block:', block_md.id, 'from', block_md.address);
-            return client.agent.read_block({
+            return client.block_store.read_block({
                     block_md: block_md
                 }, {
                     address: block_md.address,

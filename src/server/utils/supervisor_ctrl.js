@@ -4,7 +4,7 @@ var _ = require('lodash');
 var fs = require('fs');
 var P = require('../../util/promise');
 var promise_utils = require('../../util/promise_utils');
-var os_utils = require('../../util/os_util');
+var os_utils = require('../../util/os_utils');
 var config = require('../../../config.js');
 
 module.exports = new SupervisorCtrl(); //Singleton

@@ -2,6 +2,7 @@
 
 let _ = require('lodash');
 let dbg = require('../util/debug_module')(__filename);
+let RpcError = require('../rpc/rpc_error');
 
 /*
 // TODO zlib in browserify doesn't work?
@@ -82,8 +83,8 @@ class RpcRequest {
             header.auth_token = this.auth_token;
         }
         let buffers;
-        if (this.method_api.params && this.method_api.params.export_buffers) {
-            buffers = this.method_api.params.export_buffers(this.params);
+        if (this.method_api.params_export_buffers) {
+            buffers = this.method_api.params_export_buffers(this.params);
         }
         return RpcRequest.encode_message(header, buffers);
     }
@@ -97,8 +98,8 @@ class RpcRequest {
         this.auth_token = msg.header.auth_token;
         this.srv = (api ? api.id : '?') +
             '.' + (method_api ? method_api.name : '?');
-        if (method_api && method_api.params && method_api.params.import_buffers) {
-            method_api.params.import_buffers(this.params, msg.buffer);
+        if (method_api && method_api.params_import_buffers) {
+            method_api.params_import_buffers(this.params, msg.buffer);
         }
     }
 
@@ -114,8 +115,8 @@ class RpcRequest {
             header.error = _.pick(this.error, 'rpc_code', 'message');
         } else {
             header.reply = this.reply;
-            if (this.method_api.reply && this.method_api.reply.export_buffers) {
-                buffers = this.method_api.reply.export_buffers(this.reply);
+            if (this.method_api.reply_export_buffers) {
+                buffers = this.method_api.reply_export_buffers(this.reply);
             }
         }
         return RpcRequest.encode_message(header, buffers);
@@ -128,43 +129,16 @@ class RpcRequest {
         }
         let err = msg.header.error;
         if (err) {
-            this.rpc_error(err.rpc_code, err.message, {
-                quiet: true
-            });
+            this.error = new RpcError(err.rpc_code, err.message, err.retryable);
+            this.response_defer.reject(this.error);
         } else {
             this.reply = msg.header.reply;
-            if (this.method_api.reply && this.method_api.reply.import_buffers) {
-                this.method_api.reply.import_buffers(this.reply, msg.buffer);
+            if (this.method_api.reply_import_buffers) {
+                this.method_api.reply_import_buffers(this.reply, msg.buffer);
             }
             this.response_defer.resolve(this.reply);
         }
         return is_pending;
-    }
-
-
-    /**
-     * mark this response with error.
-     * @return error object to be thrown by the caller as in: throw req.rpc_error(...)
-     */
-    rpc_error(rpc_code, message, info) {
-        let err = new Error('RPC ERROR');
-        err.rpc_code = (rpc_code || 'INTERNAL').toString();
-        err.message = (message || '').toString();
-        let quiet = info && info.quiet;
-        if (!quiet) {
-            let logger = info && info.level ? dbg[info.level] : dbg.error;
-            logger.call(dbg, 'RPC ERROR', this.srv, err.rpc_code, err.message,
-                info && info.reason || '', info && info.nostack ? '' : err.stack);
-        }
-        if (this.error) {
-            dbg.error('RPC MULTIPLE ERRORS, existing error', this.error);
-        } else {
-            this.error = err;
-        }
-        if (this.response_defer) {
-            this.response_defer.reject(err);
-        }
-        return err;
     }
 
 }

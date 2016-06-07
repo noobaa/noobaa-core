@@ -67,7 +67,7 @@ function list_nodes(req) {
 function get_test_nodes(req) {
     const list_res = monitor.list_nodes({
         system: String(req.system._id),
-        state: 'online',
+        online: true,
         skip_address: req.rpc_params.source
     }, {
         pagination: true,

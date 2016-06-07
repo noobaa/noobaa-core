@@ -3,6 +3,7 @@
 var _ = require('lodash');
 var util = require('util');
 var mongodb = require('mongodb');
+var urllib = require('url');
 var EventEmitter = require('events').EventEmitter;
 var P = require('./promise');
 var dbg = require('./debug_module')(__filename);
@@ -62,12 +63,16 @@ class MongoClient extends EventEmitter {
      * connect to the "real" mongodb and not the config mongo
      */
     connect() {
-        dbg.log0('connect called');
+        dbg.log0('connect called, current url', this.url, 'current RS', this.replica_set);
         this._disconnected_state = false;
         if (this.promise) return this.promise;
         var url = this.url;
         if (this.replica_set !== '') {
-            url += '?replicaSet=' + this.replica_set;
+            //Add replicaSet name & change port
+            var parsed_url = urllib.parse(this.url);
+            url = parsed_url.protocol + '//' + parsed_url.hostname +
+                ':' + config.MONGO_DEFAULTS.SHARD_SRV_PORT + parsed_url.path +
+                '?replicaSet=' + this.replica_set;
         }
         this.promise = this._connect('db', url, this.config);
         return this.promise;
@@ -172,20 +177,11 @@ class MongoClient extends EventEmitter {
     }
 
     update_connection_string() {
-        //TODO:: Currently seems for replica set only, in case of mongos, verify if needed
-        //First disconnect current connection
+        //TODO:: Currently seems for replica set only
         var rs = process.env.MONGO_REPLICA_SET || '';
-        dbg.log0('got update_connection_string. rs =', rs, ' this.replica_set =', this.replica_set);
-        if (rs !== this.replica_set) {
-            dbg.log0('setting connection to new url. conection this. replica_set =', this.replica_set);
-            this.disconnect();
-            this.replica_set = rs;
-            //now connect
-            return this.connect();
-        } else {
-            dbg.log0('connection string is unchanged. leaving connection as is. replica_set =', this.replica_set);
-            return P.resolve();
-        }
+        dbg.log0('got update_connection_string. rs =', rs, 'this.replica_set =', this.replica_set);
+        dbg.log0('setting connection to new url. conection this. replica_set =', this.replica_set);
+        this.replica_set = rs;
     }
 
     is_master(is_config_set, set_name) {

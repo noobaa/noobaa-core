@@ -21,7 +21,8 @@ function load_system_store(req) {
 function update_mongo_connection_string(req) {
     dotenv.load();
     dbg.log0('Recieved update mongo string', req.rpc_params.rs_name, '.env contains', process.env.MONGO_REPLICA_SET);
-    return P.when(mongo_ctrl.update_connection_string());
+    return P.when(mongo_ctrl.update_connection_string())
+        .return();
 }
 
 

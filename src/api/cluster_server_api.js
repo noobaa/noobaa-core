@@ -113,11 +113,24 @@ module.exports = {
             }
         },
 
+        news_replicaset_servers: {
+            doc: 'published updated replica set clustering topology info',
+            method: 'POST',
+            params: {
+                type: 'object',
+                additionalProperties: true,
+                properties: {}
+            },
+            auth: {
+                system: false
+            }
+        },
+
         heartbeat: {
             doc: 'HB passed between members of the cluster',
             method: 'POST',
 
-        }
+        },
 
     },
     definitions: {

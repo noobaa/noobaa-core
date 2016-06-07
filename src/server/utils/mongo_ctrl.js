@@ -28,16 +28,16 @@ MongoCtrl.prototype.init = function() {
 
 //TODO:: for detaching: add remove member from replica set & destroy shard
 
-MongoCtrl.prototype.add_replica_set_member = function(name) {
+MongoCtrl.prototype.add_replica_set_member = function(name, first_shard) {
     let self = this;
     return self._remove_single_mongo_program()
-        .then(() => self._add_replica_set_member_program(name))
+        .then(() => self._add_replica_set_member_program(name, first_shard))
         .then(() => dotenv.set({
             key: 'MONGO_REPLICA_SET',
             value: name
         }))
-        .then(() => self._publish_rs_name_current_server(name))
-        .then(() => SupervisorCtl.apply_changes());
+        .then(() => SupervisorCtl.apply_changes())
+        .then(() => self._publish_rs_name_current_server(name));
 };
 
 MongoCtrl.prototype.add_new_shard_server = function(name, first_shard) {
@@ -60,7 +60,7 @@ MongoCtrl.prototype.add_new_config = function() {
 };
 
 MongoCtrl.prototype.initiate_replica_set = function(set, members, is_config_set) {
-    dbg.log0('Initiate replica set', set, members, is_config_set);
+    dbg.log0('Initiate replica set', set, members, 'is_config_set', is_config_set);
     return mongo_client.initiate_replica_set(set, members, is_config_set);
 };
 
@@ -80,8 +80,17 @@ MongoCtrl.prototype.is_master = function(is_config_set, set_name) {
 };
 
 MongoCtrl.prototype.update_connection_string = function() {
-    return mongo_client.update_connection_string()
-        .then(() => mongoose_client.mongoose_update_connection_string());
+    //MongoDB seems to use a shared connection/state on our mongo_client & mongoose_utils
+    //Disconnect both, replace url, connect both
+    //Order is important!
+    return P.when(mongoose_client.mongoose_disconnect())
+        .then(() => {
+            mongo_client.disconnect();
+            mongo_client.update_connection_string();
+            mongoose_client.mongoose_update_connection_string();
+            return mongoose_client.mongoose_connect();
+        })
+        .then(() => mongo_client.connect());
 };
 
 //

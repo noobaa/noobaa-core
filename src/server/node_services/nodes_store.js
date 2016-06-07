@@ -231,6 +231,10 @@ class NodesStore {
         return mongo_utils.populate(docs, doc_path, this.collection(), NODE_FIELDS_FOR_MAP);
     }
 
+    populate_nodes_fields(docs, doc_path, fields) {
+        return mongo_utils.populate(docs, doc_path, this.collection(), fields);
+    }
+
     /**
      *
      * aggregate_nodes_by_pool

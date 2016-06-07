@@ -15,7 +15,6 @@ module.exports = {
 
         write_block: {
             method: 'POST',
-            param_raw: 'data',
             params: {
                 type: 'object',
                 required: ['block_md', 'data'],
@@ -24,8 +23,8 @@ module.exports = {
                         $ref: 'common_api#/definitions/block_md'
                     },
                     data: {
-                        format: 'buffer'
-                    }
+                        buffer: true
+                    },
                 },
             },
         },
@@ -49,7 +48,7 @@ module.exports = {
                         $ref: 'common_api#/definitions/block_md'
                     },
                     data: {
-                        format: 'buffer'
+                        buffer: true
                     },
                 },
             },
@@ -89,9 +88,5 @@ module.exports = {
         },
 
     },
-
-    definitions: {
-
-    }
 
 };

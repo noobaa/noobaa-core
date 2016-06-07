@@ -262,7 +262,7 @@ module.exports = {
                     properties: {}
                 },
                 proxy_buffer: {
-                    format: 'buffer'
+                    buffer: true
                 },
             },
         },
@@ -276,7 +276,7 @@ module.exports = {
                     properties: {}
                 },
                 proxy_buffer: {
-                    format: 'buffer'
+                    buffer: true
                 },
             }
         },

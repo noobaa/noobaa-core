@@ -5,10 +5,10 @@ var genfun = require('generate-function');
 
 module.exports = {
     idate_format: idate_format,
-    buffer_format: buffer_format,
     strictify: strictify,
     empty_schema_validator: empty_schema_validator,
-    prepare_buffers_in_schema: prepare_buffers_in_schema,
+    generate_schema_export_buffers: generate_schema_export_buffers,
+    generate_schema_import_buffers: generate_schema_import_buffers,
 };
 
 function idate_format(val) {
@@ -17,10 +17,6 @@ function idate_format(val) {
     }
     var d = new Date(val);
     return !isNaN(d.getTime());
-}
-
-function buffer_format(val) {
-    return Buffer.isBuffer(val);
 }
 
 const COMMON_SCHEMA_KEYWORDS = ['doc', 'id'];
@@ -59,8 +55,8 @@ function strictify(schema, options, base) {
         check_schema_extra_keywords(schema, base, ['type', 'format']);
     } else if (schema.type === 'number') {
         check_schema_extra_keywords(schema, base, ['type', 'format']);
-    } else if (schema.format === 'buffer') {
-        check_schema_extra_keywords(schema, base, 'format');
+    } else if (schema.buffer) {
+        check_schema_extra_keywords(schema, base, 'buffer');
     } else if (schema.format === 'idate') {
         check_schema_extra_keywords(schema, base, 'format');
     } else if (schema.format === 'objectid') {
@@ -120,75 +116,42 @@ function empty_schema_validator(json) {
 }
 
 
-function prepare_buffers_in_schema(schema, base, path) {
-    if (!schema) return;
-    if (!base) {
-        base = schema;
-        path = [];
+// generating functions to extract/combine the buffers from objects
+//
+// NOTE: this code only supports buffers under predefined properties
+// so can't use array of buffers or a additionalProperties which is not listed
+// in schema.properties while this preparation code runs.
+//
+// create a concatenated buffer from all the buffers
+// and replace each of the original paths with the buffer length
+function generate_schema_export_buffers(buffer_paths) {
+    var efn = genfun()('function export_buffers(data) {');
+    efn('var buffers = [];');
+    efn('var buf;');
+    for (const buf_path of buffer_paths) {
+        efn('buf = data%s;', buf_path);
+        efn('if (buf) {');
+        efn(' buffers.push(buf);');
+        efn(' data%s = buf.length;', buf_path);
+        efn('}');
     }
+    efn('return buffers;');
+    return efn('}').toFunction();
+}
 
-    if (schema.format === 'buffer') {
-        base.buffers = base.buffers || [];
-        base.buffers.push({
-            path: path,
-            jspath: _.map(path, item => '["' + item + '"]').join('')
-        });
-    } else if (schema.type === 'object') {
-        _.each(schema.properties, (val, key) => {
-            if (!val) return;
-            prepare_buffers_in_schema(val, base, path.concat(key));
-        });
+function generate_schema_import_buffers(buffer_paths) {
+    var ifn = genfun()('function import_buffers(data, buf) {');
+    ifn('var start = 0;');
+    ifn('var end = 0;');
+    ifn('var len;');
+    ifn('buf = buf || new Buffer(0);');
+    for (const buf_path of buffer_paths) {
+        ifn('len = data%s;', buf_path);
+        ifn('if (typeof(len) === "number") {');
+        ifn(' start = end;');
+        ifn(' end = start + len;');
+        ifn(' data%s = buf.slice(start, end);', buf_path);
+        ifn('}');
     }
-
-    if (schema === base) {
-        /**
-         * generating functions to extract/combine the buffers from objects
-         *
-         * @param req the wrapping object holding the params/reply
-         * @param head either 'params' or 'reply'
-         *
-         * NOTE: this code only supports buffers under predefined properties
-         * so can't use array of buffers or a additionalProperties which is not listed
-         * in schema.properties while this preparation code runs.
-         */
-        if (base.buffers) {
-            // create a concatenated buffer from all the buffers
-            // and replace each of the original paths with the buffer length
-            var efn = genfun()('function export_buffers(obj) {');
-            efn('var buffers = [];');
-            efn('var buf;');
-            _.each(base.buffers, b => {
-                efn('buf = obj%s;', b.jspath);
-                efn('if (buf) {');
-                efn(' buffers.push(buf);');
-                efn(' obj%s = buf.length;', b.jspath);
-                efn('}');
-            });
-            efn('return buffers;');
-            base.export_buffers = efn('}').toFunction();
-        }
-
-        // the import_buffers counterpart
-        if (base.buffers) {
-            var ifn = genfun()('function import_buffers(obj, data) {');
-            ifn('var start = 0;');
-            ifn('var end = 0;');
-            ifn('var len;');
-            ifn('data = data || new Buffer(0);');
-            _.each(base.buffers, (b, i) => {
-                ifn('len = obj%s;', b.jspath);
-                ifn('if (typeof(len) === "number") {');
-                ifn(' start = end;');
-                ifn(' end = start + len;');
-                ifn(' obj%s = data.slice(start, end);', b.jspath);
-                ifn('}');
-            });
-            base.import_buffers = ifn('}').toFunction();
-        }
-        if (base.buffers) {
-            // dbg.log1('SCHEMA BUFFERS', base.id, base.buffers,
-            // base.export_buffers.toString(),
-            // base.import_buffers.toString());
-        }
-    }
+    return ifn('}').toFunction();
 }

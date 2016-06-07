@@ -21,12 +21,12 @@ const map_deleter = require('./map_deleter');
 const ActivityLog = require('../analytic_services/activity_log');
 const mongo_utils = require('../../util/mongo_utils');
 const nodes_store = require('../node_services/nodes_store').get_instance();
+const ObjectStats = require('../analytic_services/object_stats');
 const system_store = require('../system_services/system_store').get_instance();
 const string_utils = require('../../util/string_utils');
 const map_allocator = require('./map_allocator');
 const mongo_functions = require('../../util/mongo_functions');
-const ObjectStats = require('../analytic_services/object_stats');
-const system_utils = require('../utils/system_server_utils');
+const system_server_utils = require('../utils/system_server_utils');
 
 /**
  *
@@ -897,7 +897,7 @@ function check_md_conditions(req, conditions, obj) {
 }
 
 function throw_if_maintenance(req) {
-    if (req.system && system_utils.system_in_maintenance(req.system._id)) {
+    if (req.system && system_server_utils.system_in_maintenance(req.system._id)) {
         throw new RpcError('SYSTEM_IN_MAINTENANCE',
             'Operation not supported during maintenance mode');
     }

@@ -85,7 +85,7 @@ schema.register_api({
                         required: ['data', 'rsize'],
                         properties: {
                             data: {
-                                format: 'buffer'
+                                buffer: true
                             },
                             rsize: {
                                 type: 'integer'
@@ -98,7 +98,7 @@ schema.register_api({
                 type: 'object',
                 properties: {
                     data: {
-                        format: 'buffer'
+                        buffer: true
                     }
                 }
             }

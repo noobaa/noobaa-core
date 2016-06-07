@@ -1301,10 +1301,7 @@ export function upgradeSystem(upgradePackage) {
 export function downloadNodeDiagnosticPack(nodeName) {
     logAction('downloadDiagnosticFile', { nodeName });
 
-    api.node.read_node({ name: nodeName })
-        .then(
-            node => api.node.collect_agent_diagnostics(node)
-        )
+    api.node.collect_agent_diagnostics({ name: nodeName })
         .then(
             url => downloadFile(url)
         )
@@ -1328,8 +1325,8 @@ export function raiseNodeDebugLevel(node) {
     api.node.read_node({ name: node })
         .then(
             node => api.node.set_debug_node({
-                level: 5,
-                target: node.rpc_address
+                name: node.name,
+                level: 5
             })
         )
         .then(

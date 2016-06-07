@@ -10,6 +10,7 @@ const P = require('../util/promise');
 const dbg = require('../util/debug_module')(__filename);
 const RpcError = require('./rpc_error');
 const url_utils = require('../util/url_utils');
+const buffer_utils = require('../util/buffer_utils');
 // const time_utils = require('../util/time_utils');
 const RpcRequest = require('./rpc_request');
 const RpcWsServer = require('./rpc_ws_server');
@@ -113,11 +114,9 @@ RPC.prototype.register_service = function(api, server, options) {
     });
 
     //Service was registered, call _init (if exists)
-    if (typeof(server._init) === 'function') {
+    if (server._init) {
         dbg.log0('RPC register_service: calling _init() for', api.id);
         server._init();
-    } else {
-        dbg.log2('RPC register_service:', api.id, 'does not supply an _init() function');
     }
 };
 
@@ -773,15 +772,16 @@ RPC.prototype._proxy = function(api, method, params, options) {
     };
 
     // if we have buffer, add it as raw data.
-    if (method.params && method.params.export_buffers) {
-        req.proxy_buffer = method.params.export_buffers(params);
+    if (method.params_export_buffers) {
+        req.proxy_buffer = buffer_utils.get_single(method.params_export_buffers(params));
+        // dbg.log5('_proxy: params_export_buffers', req);
     }
 
-    dbg.log3('proxying ', req);
     return P.fcall(this.n2n_proxy, req)
         .then(res => {
-            if (method.reply && method.reply.import_buffers) {
-                method.reply.import_buffers(res.proxy_reply, res.proxy_buffer);
+            if (method.reply_import_buffers) {
+                // dbg.log5('_proxy: reply_import_buffers', res);
+                method.reply_import_buffers(res.proxy_reply, res.proxy_buffer);
             }
             return res.proxy_reply;
         });

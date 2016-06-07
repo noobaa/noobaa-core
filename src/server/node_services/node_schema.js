@@ -106,9 +106,12 @@ module.exports = {
                 },
             }
         },
+        n2n_connectivity: {
+            type: 'boolean',
+        },
         connectivity_type: {
             type: 'string',
-            enum: ['TCP', 'UDP', 'NONE', 'UNKNOWN']
+            enum: ['TCP', 'UDP', 'UNKNOWN']
         },
 
         // node storage stats - sum of drives

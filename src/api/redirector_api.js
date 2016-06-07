@@ -57,7 +57,7 @@ module.exports = {
                     properties: {}
                 },
                 redirect_buffer: {
-                    format: 'buffer'
+                    buffer: true
                 },
             },
         },
@@ -71,7 +71,7 @@ module.exports = {
                     properties: {}
                 },
                 redirect_buffer: {
-                    format: 'buffer'
+                    buffer: true
                 },
             }
         },

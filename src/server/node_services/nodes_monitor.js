@@ -22,12 +22,14 @@ const auth_server = require('../common_services/auth_server');
 const nodes_store = require('./nodes_store').get_instance();
 const mongo_utils = require('../../util/mongo_utils');
 const ActivityLog = require('../analytic_services/activity_log');
+const buffer_utils = require('../../util/buffer_utils');
 const system_store = require('../system_services/system_store').get_instance();
 const system_server = require('../system_services/system_server');
 // const promise_utils = require('../../util/promise_utils');
 const node_allocator = require('./node_allocator');
 const mongoose_utils = require('../../util/mongoose_utils');
 const mongo_functions = require('../../util/mongo_functions');
+const system_server_utils = require('../utils/system_server_utils');
 
 const RUN_DELAY_MS = 10000;
 const RUN_NODE_CONCUR = 50;
@@ -205,12 +207,12 @@ class NodesMonitor extends EventEmitter {
             if (item.connection !== conn) return;
             item.connection = null;
             // TODO GUYM what to wakeup on disconnect?
-            setTimeout(() => this._run_node(item), 1000);
+            setTimeout(() => this._run_node(item), 1000).unref();
         });
         item.connection = conn;
         item.node.heartbeat = new Date();
         this._set_need_update.add(item);
-        setTimeout(() => this._run_node(item), 1000);
+        setTimeout(() => this._run_node(item), 1000).unref();
     }
 
     _schedule_next_run(delay_ms) {
@@ -221,7 +223,7 @@ class NodesMonitor extends EventEmitter {
             P.resolve()
                 .then(() => this._run())
                 .finally(() => this._schedule_next_run());
-        }, delay_ms || RUN_DELAY_MS);
+        }, delay_ms || RUN_DELAY_MS).unref();
     }
 
     _run() {
@@ -342,18 +344,27 @@ class NodesMonitor extends EventEmitter {
             this._set_need_update.add(item);
         }
 
-        item.readable = Boolean(item.connection);
-        item.writable = Boolean(item.connection &&
+        item.readable = Boolean(
+            item.connection &&
+            !item.node.untrusted);
+        item.writable = Boolean(
+            item.connection &&
+            !item.node.untrusted &&
+            !item.node.decommissioning &&
+            !item.node.disabled &&
             (!item.node.storage.limit || item.node.storage.used < item.node.storage.limit) &&
             (item.node.storage.free > config.NODES_FREE_SPACE_RESERVE));
 
-        if (item.connection && item.rebuilding) {
+        item.need_rebuilding =
+            (!item.readable || !item.writable) &&
+            !item.node.decommissioned;
+
+        if (item.rebuilding && !item.need_rebuilding) {
             item.rebuiding = null;
             this._set_need_rebuild.delete(item);
-        } else if (!item.connection && !item.rebuilding) {
-            const time_left = REBUILD_CLIFF - (Date.now() - item.node.heartbeat.getTime());
-            if (time_left > 0) {
-                setTimeout(() => this._run_node(item), time_left);
+        } else if (!item.rebuilding && item.need_rebuilding) {
+            if (system_server_utils.system_in_maintenance(item.node.system)) {
+                dbg.warn('delay node rebuild while system in maintenance', item.node.name);
             } else {
                 item.rebuilding = {
                     completed_size: 0,
@@ -361,8 +372,13 @@ class NodesMonitor extends EventEmitter {
                     start_time: Date.now(),
                     remaining_time: -1
                 };
-                this._set_need_rebuild.add(item);
-                this._wakeup_rebuild();
+                const time_left = REBUILD_CLIFF - (Date.now() - item.node.heartbeat.getTime());
+                if (time_left > 0) {
+                    setTimeout(() => this._run_node(item), time_left).unref();
+                } else {
+                    this._set_need_rebuild.add(item);
+                    this._wakeup_rebuild();
+                }
             }
         }
     }
@@ -431,7 +447,7 @@ class NodesMonitor extends EventEmitter {
     _wakeup_rebuild() {
         const count = Math.min(NODE_REBUILD_WORKERS, this._set_need_rebuild.size);
         for (let i = this._num_running_rebuilds; i < count; ++i) {
-            this._run_rebuild();
+            setImmediate(() => this._run_rebuild()).unref();
         }
     }
 
@@ -517,7 +533,7 @@ class NodesMonitor extends EventEmitter {
                 dbg.log0('_run_node_rebuild: continue', r);
                 r.run_promise = null;
                 this._num_running_rebuilds -= 1;
-                this._run_rebuild();
+                this._wakeup_rebuild();
             });
         return r.run_promise;
     }
@@ -527,6 +543,10 @@ class NodesMonitor extends EventEmitter {
 
     //////////////////////////////////////////////////////////////
 
+
+    sync_to_store() {
+        return P.when(this._run()).return();
+    }
 
     heartbeat(req) {
         const extra = req.auth.extra || {};
@@ -567,20 +587,6 @@ class NodesMonitor extends EventEmitter {
 
         dbg.error('heartbeat: BAD REQUEST', 'role', req.role, 'auth', req.auth);
         throw new RpcError('FORBIDDEN', 'Bad heartbeat request');
-    }
-
-    read_node_by_name(name) {
-        if (!this._loaded) throw new RpcError('MONITOR_NOT_LOADED');
-        const item = this._map_node_name.get(name);
-        if (!item) throw new RpcError('NO_SUCH_NODE', 'No node with name ' + name);
-        return this.get_node_full_info(item);
-    }
-
-    read_node_by_address(address) {
-        if (!this._loaded) throw new RpcError('MONITOR_NOT_LOADED');
-        const item = this._map_peer_id.get(address.slice('n2n://'.length));
-        if (!item) throw new RpcError('NO_SUCH_NODE', 'No node with address ' + address);
-        return this.get_node_full_info(item);
     }
 
     list_nodes(query, options) {
@@ -663,7 +669,7 @@ class NodesMonitor extends EventEmitter {
         info.storage = get_storage_info(node.storage);
         if (node.storage.free <= config.NODES_FREE_SPACE_RESERVE &&
             !(node.storage.limit && node.storage.free > 0)) {
-            info.out_of_space = true;
+            info.storage_full = true;
         }
         info.drives = _.map(node.drives, drive => {
             return {
@@ -682,13 +688,33 @@ class NodesMonitor extends EventEmitter {
         return info;
     }
 
+    _get_node_by_name(name, allow_offline) {
+        if (!this._loaded) throw new RpcError('MONITOR_NOT_LOADED');
+        const item = this._map_node_name.get(name);
+        if (!item) throw new RpcError('NO_SUCH_NODE', 'No node with name ' + name);
+        if (!item.connection && allow_offline !== 'allow_offline') {
+            throw new RpcError('NODE_OFFLINE', 'Node is offline ' + name);
+        }
+        return item;
+    }
+    _get_node_by_address(address, allow_offline) {
+        if (!this._loaded) throw new RpcError('MONITOR_NOT_LOADED');
+        const item = this._map_peer_id.get(address.slice('n2n://'.length));
+        if (!item) throw new RpcError('NO_SUCH_NODE', 'No node with address ' + address);
+        if (!item.connection && allow_offline !== 'allow_offline') {
+            throw new RpcError('NODE_OFFLINE', 'Node is offline ' + address);
+        }
+        return item;
+    }
+
+    read_node_by_name(name) {
+        const item = this._get_node_by_name(name, 'allow_offline');
+        return this.get_node_full_info(item);
+    }
 
     n2n_signal(req) {
         dbg.log1('n2n_signal:', req.rpc_params.target);
-        const item = this._map_peer_id.get(
-            req.rpc_params.target.slice('n2n://'.length));
-        if (!item) throw new RpcError('NO_SUCH_NODE');
-        if (!item.connection) throw new RpcError('NODE_OFFLINE');
+        const item = this._get_node_by_address(req.rpc_params.target);
         return this.client.agent.n2n_signal(req.rpc_params, {
             connection: item.connection,
         });
@@ -699,15 +725,13 @@ class NodesMonitor extends EventEmitter {
             'call', req.rpc_params.method_api + '.' + req.rpc_params.method_name,
             'params', req.rpc_params.request_params);
 
-        const item = this._map_peer_id.get(
-            req.rpc_params.target.slice('n2n://'.length));
-        if (!item) throw new RpcError('NO_SUCH_NODE');
-        if (!item.connection) throw new RpcError('NODE_OFFLINE');
+        const item = this._get_node_by_address(req.rpc_params.target);
         const api = req.rpc_params.method_api.slice(0, -4); //Remove _api suffix
         const method_name = req.rpc_params.method_name;
         const method = server_rpc.rpc.schema[req.rpc_params.method_api].methods[method_name];
-        if (method.params && method.params.import_buffers) {
-            method.params.import_buffers(req.rpc_params.request_params, req.rpc_params.proxy_buffer);
+        if (method.params_import_buffers) {
+            // dbg.log5('n2n_proxy: params_import_buffers', req.rpc_params);
+            method.params_import_buffers(req.rpc_params.request_params, req.rpc_params.proxy_buffer);
         }
 
         return this.client[api][method_name](req.rpc_params.request_params, {
@@ -717,8 +741,9 @@ class NodesMonitor extends EventEmitter {
                 const res = {
                     proxy_reply: reply
                 };
-                if (method.reply && method.reply.export_buffers) {
-                    res.proxy_buffer = method.reply.export_buffers(reply);
+                if (method.reply_export_buffers) {
+                    res.proxy_buffer = buffer_utils.get_single(method.reply_export_buffers(reply));
+                    // dbg.log5('n2n_proxy: reply_export_buffers', reply);
                 }
                 return res;
             });
@@ -728,10 +753,7 @@ class NodesMonitor extends EventEmitter {
         dbg.log0('test_node_network:',
             'target', req.rpc_params.target,
             'source', req.rpc_params.source);
-        const item = this._map_peer_id.get(
-            req.rpc_params.source.slice('n2n://'.length));
-        if (!item) throw new RpcError('NO_SUCH_NODE', 'No node with address ' + req.rpc_params.source);
-        if (!item.connection) throw new RpcError('NODE_OFFLINE');
+        const item = this._get_node_by_address(req.rpc_params.source);
         return this.client.agent.test_network_perf_to_peer(req.rpc_params, {
             connection: item.connection,
         });
@@ -745,9 +767,9 @@ class NodesMonitor extends EventEmitter {
     }
 
     collect_agent_diagnostics(req) {
-        const target = req.rpc_params.rpc_address;
+        const item = this._get_node_by_name(req.rpc_params.name);
         return server_rpc.client.agent.collect_diagnostics({}, {
-                address: target,
+                connection: item.connection,
             })
             .then(data => {
                 return system_server.diagnose_with_agent(data, req);
@@ -759,41 +781,32 @@ class NodesMonitor extends EventEmitter {
     }
 
     set_debug_node(req) {
-        const target = req.rpc_params.target;
+        const item = this._get_node_by_name(req.rpc_params.name);
         return P.fcall(() => {
+                item.node.debug_level = req.rpc_params.level;
+                this._set_need_update.add(item);
                 return server_rpc.client.agent.set_debug_node({
                     level: req.rpc_params.level
                 }, {
-                    address: target,
+                    connection: item.connection,
                 });
             })
             .then(() => {
-                const updates = {};
-                updates.debug_level = req.rpc_params.level;
-                return nodes_store.update_nodes({
-                    rpc_address: target
-                }, {
-                    $set: updates
+                ActivityLog.create({
+                    system: req.system._id,
+                    level: 'info',
+                    event: 'dbg.set_debug_node',
+                    actor: req.account && req.account._id,
+                    node: item.node._id,
+                    desc: `${item.node.name} debug level was raised by ${req.account && req.account.email}`,
                 });
+                dbg.log1('set_debug_node was successful for agent', item.node.name,
+                    'level', req.rpc_params.level);
+                return '';
             })
             .catch(err => {
                 dbg.log0('Error on set_debug_node', err);
-                return;
-            })
-            .then(() => {
-                return nodes_store.find_node_by_address(req)
-                    .then(node => {
-                        ActivityLog.create({
-                            system: req.system._id,
-                            level: 'info',
-                            event: 'dbg.set_debug_node',
-                            actor: req.account && req.account._id,
-                            node: node._id,
-                            desc: `${node.name} debug level was raised by ${req.account && req.account.email}`,
-                        });
-                        dbg.log1('set_debug_node for agent', target, req.rpc_params.level, 'was successful');
-                        return '';
-                    });
+                return '';
             });
     }
 
@@ -828,161 +841,6 @@ class NodesMonitor extends EventEmitter {
         }
     }
 
-    /*
-
-    old_heartbeat(req) {
-        var params = req.rpc_params;
-
-        // the DB calls are optimized by merging concurrent requests to use a single query
-        // by using barriers that wait a bit for concurrent calls to join together.
-        var promise = P.all([
-                heartbeat_find_node_by_id_barrier.call(node_id),
-                heartbeat_count_node_storage_barrier.call(node_id)
-            ])
-            .spread(function(node_arg, storage_used) {
-                node = node_arg;
-                if (!node) {
-                    // we don't fail here because failures would keep retrying
-                    // to find this node, and the node is not in the db.
-                    console.error('IGNORE MISSING NODE FOR HEARTBEAT', node_id, params.ip);
-                    return;
-                }
-
-                var set_updates = {};
-                var push_updates = {};
-                var unset_updates = {};
-
-                // TODO detect nodes that try to change ip, port too rapidly
-                if (params.geolocation &&
-                    params.geolocation !== node.geolocation) {
-                    set_updates.geolocation = params.geolocation;
-                }
-                if (params.ip && params.ip !== node.ip) {
-                    set_updates.ip = params.ip;
-                }
-                if (params.rpc_address &&
-                    params.rpc_address !== node.rpc_address) {
-                    set_updates.rpc_address = params.rpc_address;
-                }
-                if (params.base_address &&
-                    params.base_address !== node.base_address) {
-                    set_updates.base_address = params.base_address;
-                }
-                if (params.version && params.version !== node.version) {
-                    set_updates.version = params.version;
-                }
-
-                // verify the agent's reported usage
-                var agent_storage = params.storage;
-                if (agent_storage.used !== storage_used) {
-                    console.log('NODE agent used storage not in sync ',
-                        agent_storage.used, ' counted used ', storage_used);
-                    // TODO trigger a detailed usage check / reclaiming
-                }
-                dbg.log0('should update (?)', node.storage.used, 'with', storage_used);
-
-                // check if need to update the node used storage count
-                if (node.storage.used !== storage_used) {
-                    set_updates['storage.used'] = storage_used;
-                }
-
-                // to avoid frequest updates of the node it will only send
-                // extended info on longer period. this will allow more batching by
-                // heartbeat_update_node_timestamp_barrier.
-                if (params.drives) {
-                    set_updates.drives = params.drives;
-                    var drives_total = 0;
-                    var drives_free = 0;
-                    var drives_limit = 0;
-                    _.each(params.drives, function(drive) {
-                        drives_total += drive.storage.total;
-                        drives_free += drive.storage.free;
-                        if (drive.storage.limit) {
-                            drives_limit += drive.storage.limit;
-                        }
-                    });
-                    set_updates['storage.total'] = drives_total;
-                    set_updates['storage.free'] = drives_free;
-                    if (drives_limit > 0) {
-                        set_updates['storage.limit'] = drives_limit;
-                    }
-                }
-                if (params.os_info) {
-                    set_updates.os_info = params.os_info;
-                    set_updates.os_info.last_update = new Date();
-                }
-
-                // push latency measurements to arrays
-                // limit the size of the array to keep the last ones using negative $slice
-                var MAX_NUM_LATENCIES = 20;
-                if (params.latency_to_server) {
-                    _.merge(push_updates, {
-                        latency_to_server: {
-                            $each: params.latency_to_server,
-                            $slice: -MAX_NUM_LATENCIES
-                        }
-                    });
-                }
-                if (params.latency_of_disk_read) {
-                    _.merge(push_updates, {
-                        latency_of_disk_read: {
-                            $each: params.latency_of_disk_read,
-                            $slice: -MAX_NUM_LATENCIES
-                        }
-                    });
-                }
-                if (params.latency_of_disk_write) {
-                    _.merge(push_updates, {
-                        latency_of_disk_write: {
-                            $each: params.latency_of_disk_write,
-                            $slice: -MAX_NUM_LATENCIES
-                        }
-                    });
-                }
-
-                if (!_.isUndefined(params.debug_level) &&
-                    params.debug_level !== node.debug_level) {
-                    set_updates.debug_level = params.debug_level || 0;
-                }
-
-                // unset the error time since last heartbeat if any
-                if (node.error_since_hb) {
-                    unset_updates.error_since_hb = true;
-                }
-
-                // make the update object hold only updates that are not empty
-                var updates = _.omitBy({
-                    $set: set_updates,
-                    $push: push_updates,
-                    $unset: unset_updates,
-                }, _.isEmpty);
-
-                dbg.log0('NODE HEARTBEAT UPDATES', node_id, node.heartbeat, updates);
-
-                if (_.isEmpty(updates)) {
-                    // when only timestamp is updated we optimize by merging DB calls with a barrier
-                    return heartbeat_update_node_timestamp_barrier.call(node_id);
-                } else {
-                    updates.$set.heartbeat = new Date();
-                    return nodes_store.update_node_by_id(node_id, updates);
-                }
-            }).then(function() {
-                var storage = node && node.storage || {};
-                reply.storage = {
-                    alloc: storage.alloc || 0,
-                    used: storage.used || 0,
-                };
-                return reply;
-            });
-
-        if (process.env.HEARTBEAT_MODE === 'background') {
-            return reply;
-        } else {
-            return promise;
-        }
-    }
-
-    */
 }
 
 
@@ -995,8 +853,6 @@ function get_storage_info(storage) {
         limit: storage.limit || 0
     };
 }
-
-// server_rpc.rpc.on('reconnect', _on_reconnect);
 
 
 // EXPORTS

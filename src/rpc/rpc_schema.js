@@ -23,8 +23,25 @@ class RpcSchema {
         this._ajv = new Ajv({
             formats: {
                 idate: schema_utils.idate_format,
-                buffer: schema_utils.buffer_format
             },
+        });
+
+        // we setup the 'buffer' keyword which used to mark
+        // binary buffers in the schema, which will be exported/imported
+        // in order to avoid converting them to json.
+        // to do that, we collect the buffers paths in the schema here.
+        this._ajv.addKeyword('buffer', {
+            type: 'object',
+            inline: (it, keyword, schema, parent) => {
+                if (this._buffer_paths) {
+                    const buf_path = it.dataPathArr
+                        .slice(1, it.dataLevel + 1)
+                        .map(x => '[' + x + ']')
+                        .join('');
+                    this._buffer_paths.add(buf_path);
+                }
+                return 'Buffer.isBuffer(data' + (it.dataLevel || '') + ')';
+            }
         });
     }
 
@@ -39,7 +56,6 @@ class RpcSchema {
             schema_utils.strictify(schema, {
                 additionalProperties: false
             });
-            schema_utils.prepare_buffers_in_schema(schema);
         });
         _.each(api.methods, method_api => {
             schema_utils.strictify(method_api.params, {
@@ -48,8 +64,6 @@ class RpcSchema {
             schema_utils.strictify(method_api.reply, {
                 additionalProperties: false
             });
-            schema_utils.prepare_buffers_in_schema(method_api.params);
-            schema_utils.prepare_buffers_in_schema(method_api.reply);
         });
         try {
             this._ajv.addSchema(api);
@@ -73,14 +87,36 @@ class RpcSchema {
                     method_api.method + ' for ' + method_api.fullname);
 
                 try {
-                    method_api.params_validator = method_api.params ?
-                        this._ajv.compile({
+                    if (method_api.params) {
+                        this._buffer_paths = new Set();
+                        method_api.params_validator = this._ajv.compile({
                             $ref: method_api.fullname + '/params'
-                        }) : schema_utils.empty_schema_validator;
-                    method_api.reply_validator = method_api.reply ?
-                        this._ajv.compile({
+                        });
+                        if (this._buffer_paths) {
+                            method_api.params_export_buffers =
+                                schema_utils.generate_schema_export_buffers(this._buffer_paths);
+                            method_api.params_import_buffers =
+                                schema_utils.generate_schema_import_buffers(this._buffer_paths);
+                        }
+                        this._buffer_paths = null;
+                    } else {
+                        method_api.params_validator = schema_utils.empty_schema_validator;
+                    }
+                    if (method_api.reply) {
+                        this._buffer_paths = new Set();
+                        method_api.reply_validator = this._ajv.compile({
                             $ref: method_api.fullname + '/reply'
-                        }) : schema_utils.empty_schema_validator;
+                        });
+                        if (this._buffer_paths.size) {
+                            method_api.reply_export_buffers =
+                                schema_utils.generate_schema_export_buffers(this._buffer_paths);
+                            method_api.reply_import_buffers =
+                                schema_utils.generate_schema_import_buffers(this._buffer_paths);
+                        }
+                        this._buffer_paths = null;
+                    } else {
+                        method_api.reply_validator = schema_utils.empty_schema_validator;
+                    }
                 } catch (err) {
                     dbg.error('register_api: failed compile method params/reply refs',
                         method_api, err.stack || err);

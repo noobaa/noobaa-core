@@ -33,7 +33,7 @@
     "native_core": false
   },
   "dependencies": {
-    "ajv": "^3.2.2",
+    "ajv": "^4.1.2",
     "aws-sdk": "~2.3.1",
     "bcrypt": "^0.8.5",
     "bindings": "^1.2.1",

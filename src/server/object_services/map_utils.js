@@ -204,12 +204,15 @@ function is_block_good(block, now, tier_pools_by_id) {
     if (!is_block_accessible(block, now)) {
         return false;
     }
+
+    // TODO GUYM get node info from monitor to enable the writable check
+    // if (!block.node.writable) return false;
+
     // detect nodes that do not belong to the tier pools
     // to be deleted once they are not needed as source
     if (!tier_pools_by_id[block.node.pool]) {
         return false;
     }
-
 
     // detect nodes that are full in terms of free space policy
     // to be deleted once they are not needed as source
@@ -221,18 +224,15 @@ function is_block_good(block, now, tier_pools_by_id) {
         return false;
     }
 
-
     return true;
 }
 
 function is_block_accessible(block, now) {
+    // TODO GUYM get node info from monitor to enable the readable check
+    // if (!block.node.readable) return false;
     var since_hb = now - block.node.heartbeat.getTime();
     if (since_hb > config.SHORT_GONE_THRESHOLD ||
         since_hb > config.LONG_GONE_THRESHOLD) {
-        return false;
-    }
-    if (block.node.srvmode &&
-        block.node.srvmode !== 'decommissioning') {
         return false;
     }
     return true;

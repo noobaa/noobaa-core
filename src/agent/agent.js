@@ -48,7 +48,6 @@ class Agent {
         this.rpc = api.new_rpc(params.address);
         this.client = this.rpc.new_client();
 
-        this.rpc.on('reconnect', conn => this._on_rpc_reconnect(conn));
         assert(params.node_name, 'missing param: node_name');
         this.node_name = params.node_name;
         this.token = params.token;

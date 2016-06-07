@@ -35,6 +35,13 @@ module.exports = {
             }
         },
 
+        sync_monitor_to_store: {
+            method: 'PUT',
+            auth: {
+                system: 'admin'
+            }
+        },
+
         list_nodes: {
             method: 'GET',
             params: {
@@ -201,14 +208,13 @@ module.exports = {
         collect_agent_diagnostics: {
             method: 'GET',
             params: {
-                //type: 'object',
-                $ref: '#/definitions/node_full_info',
-                /*required: ['target'],
+                type: 'object',
+                required: ['name'],
                 properties: {
-                    target: {
+                    name: {
                         type: 'string'
                     }
-                },*/
+                },
             },
             reply: {
                 type: 'string',
@@ -222,9 +228,9 @@ module.exports = {
             method: 'POST',
             params: {
                 type: 'object',
-                required: ['target', 'level'],
+                required: ['name', 'level'],
                 properties: {
-                    target: {
+                    name: {
                         type: 'string',
                     },
                     level: {
@@ -348,6 +354,9 @@ module.exports = {
                 version: {
                     type: 'string'
                 },
+                version_install_time: {
+                    format: 'idate'
+                },
                 heartbeat: {
                     format: 'idate'
                 },
@@ -378,6 +387,10 @@ module.exports = {
                 rebuilding: {
                     type: 'object',
                     properties: {
+                        reason: {
+                            type: 'string',
+                            enum: ['']
+                        },
                         completed_size: {
                             type: 'number',
                         },
@@ -392,8 +405,18 @@ module.exports = {
                         },
                     }
                 },
+                n2n_connectivity: {
+                    type: 'boolean',
+                },
+                connectivity_type: {
+                    type: 'string',
+                    enum: ['TCP', 'UDP', 'UNKNOWN']
+                },
                 storage: {
                     $ref: 'common_api#/definitions/storage_info'
+                },
+                storage_full: {
+                    type: 'boolean',
                 },
                 drives: {
                     type: 'array',

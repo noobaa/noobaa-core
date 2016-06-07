@@ -127,7 +127,6 @@ module.exports = {
 
         test_network_perf: {
             method: 'POST',
-            param_raw: 'data',
             params: {
                 type: 'object',
                 required: ['source', 'target', 'response_length'],
@@ -142,7 +141,7 @@ module.exports = {
                         type: 'integer'
                     },
                     data: {
-                        format: 'buffer'
+                        buffer: true
                     }
                 },
             },
@@ -151,7 +150,7 @@ module.exports = {
                 required: ['data'],
                 properties: {
                     data: {
-                        format: 'buffer'
+                        buffer: true
                     },
                 },
             },
@@ -177,7 +176,7 @@ module.exports = {
                 required: ['data'],
                 properties: {
                     data: {
-                        format: 'buffer'
+                        buffer: true
                     },
                 },
             },

@@ -83,8 +83,8 @@ class RpcRequest {
             header.auth_token = this.auth_token;
         }
         let buffers;
-        if (this.method_api.params && this.method_api.params.export_buffers) {
-            buffers = this.method_api.params.export_buffers(this.params);
+        if (this.method_api.params_export_buffers) {
+            buffers = this.method_api.params_export_buffers(this.params);
         }
         return RpcRequest.encode_message(header, buffers);
     }
@@ -98,8 +98,8 @@ class RpcRequest {
         this.auth_token = msg.header.auth_token;
         this.srv = (api ? api.id : '?') +
             '.' + (method_api ? method_api.name : '?');
-        if (method_api && method_api.params && method_api.params.import_buffers) {
-            method_api.params.import_buffers(this.params, msg.buffer);
+        if (method_api && method_api.params_import_buffers) {
+            method_api.params_import_buffers(this.params, msg.buffer);
         }
     }
 
@@ -115,8 +115,8 @@ class RpcRequest {
             header.error = _.pick(this.error, 'rpc_code', 'message');
         } else {
             header.reply = this.reply;
-            if (this.method_api.reply && this.method_api.reply.export_buffers) {
-                buffers = this.method_api.reply.export_buffers(this.reply);
+            if (this.method_api.reply_export_buffers) {
+                buffers = this.method_api.reply_export_buffers(this.reply);
             }
         }
         return RpcRequest.encode_message(header, buffers);
@@ -133,8 +133,8 @@ class RpcRequest {
             this.response_defer.reject(this.error);
         } else {
             this.reply = msg.header.reply;
-            if (this.method_api.reply && this.method_api.reply.import_buffers) {
-                this.method_api.reply.import_buffers(this.reply, msg.buffer);
+            if (this.method_api.reply_import_buffers) {
+                this.method_api.reply_import_buffers(this.reply, msg.buffer);
             }
             this.response_defer.resolve(this.reply);
         }

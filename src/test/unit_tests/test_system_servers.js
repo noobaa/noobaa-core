@@ -141,17 +141,17 @@ mocha.describe('system_servers', function() {
             ////////////
             //  POOL  //
             ////////////
-            .then(() => client.create_auth_token({
+            .then(() => client.auth.create_auth({
                 email: EMAIL,
                 password: PASSWORD,
                 system: SYS,
                 role: 'create_node'
             }))
-            .then(create_node_token => promise_utils.loop(10,
+            .then(res => promise_utils.loop(10,
                 i => client.node.heartbeat({
                     name: 'node' + i
                 }, {
-                    auth_token: create_node_token
+                    auth_token: res.token
                 })))
             .then(() => client.pool.create_pool({
                 name: POOL,

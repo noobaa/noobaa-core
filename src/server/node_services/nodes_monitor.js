@@ -25,7 +25,7 @@ const ActivityLog = require('../analytic_services/activity_log');
 const buffer_utils = require('../../util/buffer_utils');
 const system_store = require('../system_services/system_store').get_instance();
 const system_server = require('../system_services/system_server');
-// const promise_utils = require('../../util/promise_utils');
+const promise_utils = require('../../util/promise_utils');
 const node_allocator = require('./node_allocator');
 const mongoose_utils = require('../../util/mongoose_utils');
 const mongo_functions = require('../../util/mongo_functions');
@@ -58,7 +58,7 @@ const NODE_INFO_PICK_FIELDS = [
     'rpc_address',
     'base_address',
     'version',
-    'untrusted',
+    'trusted',
     'migrating_to_pool',
     'decommissioning',
     'decommissioned',
@@ -346,10 +346,10 @@ class NodesMonitor extends EventEmitter {
 
         item.readable = Boolean(
             item.connection &&
-            !item.node.untrusted);
+            (true || item.node.trusted));
         item.writable = Boolean(
             item.connection &&
-            !item.node.untrusted &&
+            (true || item.node.trusted) &&
             !item.node.decommissioning &&
             !item.node.disabled &&
             (!item.node.storage.limit || item.node.storage.used < item.node.storage.limit) &&
@@ -360,22 +360,28 @@ class NodesMonitor extends EventEmitter {
             !item.node.decommissioned;
 
         if (item.rebuilding && !item.need_rebuilding) {
+            dbg.warn('unset node rebuild for', item.node.name);
             item.rebuiding = null;
             this._set_need_rebuild.delete(item);
         } else if (!item.rebuilding && item.need_rebuilding) {
             if (system_server_utils.system_in_maintenance(item.node.system)) {
                 dbg.warn('delay node rebuild while system in maintenance', item.node.name);
             } else {
-                item.rebuilding = {
-                    completed_size: 0,
-                    remaining_size: -1,
-                    start_time: Date.now(),
-                    remaining_time: -1
-                };
                 const time_left = REBUILD_CLIFF - (Date.now() - item.node.heartbeat.getTime());
                 if (time_left > 0) {
-                    setTimeout(() => this._run_node(item), time_left).unref();
+                    dbg.warn('schedule node rebuild for', item.node.name,
+                        'in', time_left, 'ms');
+                    clearTimeout(item.rebuild_timout);
+                    item.rebuild_timout = setTimeout(() =>
+                        this._run_node(item), time_left).unref();
                 } else {
+                    dbg.warn('set node rebuild for', item.node.name);
+                    item.rebuilding = {
+                        completed_size: 0,
+                        remaining_size: -1,
+                        start_time: Date.now(),
+                        remaining_time: -1
+                    };
                     this._set_need_rebuild.add(item);
                     this._wakeup_rebuild();
                 }
@@ -445,29 +451,41 @@ class NodesMonitor extends EventEmitter {
     }
 
     _wakeup_rebuild() {
-        const count = Math.min(NODE_REBUILD_WORKERS, this._set_need_rebuild.size);
-        for (let i = this._num_running_rebuilds; i < count; ++i) {
-            setImmediate(() => this._run_rebuild()).unref();
+        const count = Math.min(
+            NODE_REBUILD_WORKERS,
+            this._set_need_rebuild.size - this._num_running_rebuilds);
+        for (let i = 0; i < count; ++i) {
+            this._rebuild_worker(i);
         }
     }
 
-    _run_rebuild() {
-        if (this._num_running_rebuilds >= this._set_need_rebuild.size) return;
+    _rebuild_worker(i) {
         let iter = this._set_need_rebuild_iter;
         let next = iter && iter.next();
         if (!next || next.done) {
-            iter = this._set_need_rebuild_iter = this._set_need_rebuild.values();
+            iter = this._set_need_rebuild.values();
             next = iter.next();
+            this._set_need_rebuild_iter = iter;
+            if (next.done) return; // no work
         }
         const item = next.value;
-        if (item) this._run_node_rebuild(item);
+        this._num_running_rebuilds += 1;
+        this._set_need_rebuild.delete(item);
+        // use small delay skew to avoid running together
+        return promise_utils.delay_unblocking(5 * i)
+            .then(() => this._rebuild_node(item))
+            .finally(() => {
+                this._num_running_rebuilds -= 1;
+                this._wakeup_rebuild();
+            });
     }
 
-    _run_node_rebuild(item) {
+    _rebuild_node(item) {
         if (!this._started) return;
+        if (!item.rebuilding) return;
         const r = item.rebuilding;
-        if (r.run_promise) return this._run_rebuild();
-        dbg.log0('_run_node_rebuild: start', r);
+        if (r.running) return;
+        dbg.log0('_rebuild_node: start', item.node.name, r);
         const blocks_query = {
             node: item.node._id,
             deleted: null
@@ -478,8 +496,9 @@ class NodesMonitor extends EventEmitter {
             };
         }
         let blocks;
-        this._num_running_rebuilds += 1;
-        r.run_promise = P.join(
+        const batch_size = 500;
+        r.running = true;
+        return P.join(
                 md_store.DataBlock.collection.mapReduce(
                     mongo_functions.map_size,
                     mongo_functions.reduce_sum, {
@@ -495,7 +514,7 @@ class NodesMonitor extends EventEmitter {
                         chunk: 1,
                         size: 1
                     },
-                    limit: 500
+                    limit: batch_size
                 }).toArray())
             .spread((remaining_size_res, blocks_res) => {
                 blocks = blocks_res;
@@ -514,28 +533,31 @@ class NodesMonitor extends EventEmitter {
                 return builder.run();
             })
             .then(() => {
-                if (blocks.length) {
+                r.running = false;
+                if (blocks.length === batch_size) {
                     r.last_block_id = blocks[blocks.length - 1]._id;
                     r.completed_size += _.sumBy(blocks, 'size');
                     r.remaining_time = (Date.now() - r.start_time) *
                         r.total_size / r.completed_size;
+                    dbg.log0('_rebuild_node: continue', item.node.name, r);
+                    this._set_need_rebuild.add(item);
+                    this._wakeup_rebuild();
                 } else {
+                    r.last_block_id = undefined;
                     r.remaining_size = 0;
                     r.remaining_time = 0;
-                    this._set_need_rebuild.delete(item);
                     r.done = true;
+                    dbg.log0('_rebuild_node: DONE', item.node.name, r);
                 }
             })
             .catch(err => {
-                dbg.warn('_run_node_rebuild ERROR', err.stack || err);
-            })
-            .finally(() => {
-                dbg.log0('_run_node_rebuild: continue', r);
-                r.run_promise = null;
-                this._num_running_rebuilds -= 1;
-                this._wakeup_rebuild();
+                r.running = false;
+                dbg.warn('_rebuild_node: ERROR', item.node.name, err.stack || err);
+                setTimeout(() => {
+                    this._set_need_rebuild.add(item);
+                    this._wakeup_rebuild();
+                }, 5000).unref();
             });
-        return r.run_promise;
     }
 
 
@@ -611,8 +633,8 @@ class NodesMonitor extends EventEmitter {
                 Boolean(query.readable) !== Boolean(item.readable)) continue;
             if ('writable' in query &&
                 Boolean(query.writable) !== Boolean(item.writable)) continue;
-            if ('untrusted' in query &&
-                Boolean(query.untrusted) !== Boolean(item.node.untrusted)) continue;
+            if ('trusted' in query &&
+                Boolean(query.trusted) !== Boolean(true || item.node.trusted)) continue;
             if ('migrating_to_pool' in query &&
                 Boolean(query.migrating_to_pool) !== Boolean(item.node.migrating_to_pool)) continue;
             if ('decommissioning' in query &&
@@ -657,6 +679,7 @@ class NodesMonitor extends EventEmitter {
         info.pool = system_store.data.get_by_id(node.pool).name;
         info.heartbeat = node.heartbeat.getTime();
         info.online = Boolean(item.connection);
+        info.trusted = true;
         info.readable = Boolean(item.readable);
         info.writable = Boolean(item.writable);
         if (item.rebuilding) {

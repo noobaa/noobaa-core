@@ -369,7 +369,7 @@ module.exports = {
                 writable: {
                     type: 'boolean',
                 },
-                untrusted: {
+                trusted: {
                     type: 'boolean',
                 },
                 migrating_to_pool: {

@@ -74,9 +74,9 @@ module.exports = {
             // the last agent version acknoledged
             type: 'string',
         },
-        untrusted: {
-            type: 'boolean'
-        },
+        // trusted: {
+        //     type: 'boolean'
+        // },
         migrating_to_pool: {
             type: 'boolean'
         },

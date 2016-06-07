@@ -33,7 +33,7 @@ function get_nodes_auth() {
         .then(function() {
             return client.node.list_nodes({
                 query: {
-                    state: 'online',
+                    online: true,
                 }
             });
         });

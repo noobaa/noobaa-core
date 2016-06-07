@@ -97,7 +97,7 @@ function get_drive_of_path(path) {
         return P.nfcall(fs.realpath, path)
             .then(function(fullpath) {
                 const drive_letter = fullpath[0] + fullpath[1];
-                return wmic('volume where DriverLetter="' + drive_letter + '"');
+                return wmic('volume where DriveLetter="' + drive_letter + '"');
             })
             .then(volumes =>
                 volumes &&

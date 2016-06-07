@@ -5,6 +5,7 @@ module.exports = {
     read_drives: read_drives,
     get_main_drive_name: get_main_drive_name,
     get_mount_of_path: get_mount_of_path,
+    get_drive_of_path: get_drive_of_path,
     top_single: top_single,
     netstat_single: netstat_single,
     set_manual_time: set_manual_time,
@@ -77,6 +78,8 @@ function get_mount_of_path(path) {
     if (os.type() === 'Windows_NT') {
         return P.nfcall(fs.realpath, path)
             .then(function(fullpath) {
+                // fullpath[0] = drive letter (C, D, E, ..)
+                // fullpath[1] = ':'
                 return fullpath[0] + fullpath[1];
             });
     } else {
@@ -87,26 +90,40 @@ function get_mount_of_path(path) {
                 return drives && drives[0] && drives[0].mount;
             });
     }
-
 }
 
+function get_drive_of_path(path) {
+    if (os.type() === 'Windows_NT') {
+        return P.nfcall(fs.realpath, path)
+            .then(function(fullpath) {
+                const drive_letter = fullpath[0] + fullpath[1];
+                return wmic('volume where DriveLetter="' + drive_letter + '"');
+            })
+            .then(volumes =>
+                volumes &&
+                volumes[0] &&
+                windows_volume_to_drive(volumes[0]));
+    } else {
+        return P.nfcall(node_df, {
+                file: path
+            })
+            .then(volumes =>
+                volumes &&
+                volumes[0] &&
+                linux_volume_to_drive(volumes[0]));
+    }
+}
+
+
 function read_mac_linux_drives() {
-    console.log('read_mac_linux_drives');
     return P.nfcall(node_df, {
             // this is a hack to make node_df append the -l flag to the df command
             // in order to get only local file systems.
             file: '-l'
         })
-        .then(function(drives) {
-            return _.compact(_.map(drives, function(drive) {
-                return {
-                    mount: drive.mount,
-                    drive_id: drive.filesystem,
-                    storage: {
-                        total: drive.size * 1024,
-                        free: drive.available * 1024,
-                    }
-                };
+        .then(function(volumes) {
+            return _.compact(_.map(volumes, function(vol) {
+                return linux_volume_to_drive(vol);
             }));
         });
 }
@@ -126,14 +143,7 @@ function read_windows_drives() {
                 // 6 = RAM Disk
                 if (vol.DriveType !== '3') return;
                 if (!vol.DriveLetter) return;
-                return {
-                    mount: vol.DriveLetter,
-                    drive_id: vol.DriveLetter,
-                    storage: {
-                        total: parseInt(vol.Capacity, 10),
-                        free: parseInt(vol.FreeSpace, 10),
-                    }
-                };
+                return windows_volume_to_drive(vol);
             }));
         }).then(function(local_volumes) {
             windows_drives = local_volumes;
@@ -158,6 +168,28 @@ function read_windows_drives() {
                     }
                 });
         });
+}
+
+function linux_volume_to_drive(vol) {
+    return {
+        mount: vol.mount,
+        drive_id: vol.filesystem,
+        storage: {
+            total: vol.size * 1024,
+            free: vol.available * 1024,
+        }
+    };
+}
+
+function windows_volume_to_drive(vol) {
+    return {
+        mount: vol.DriveLetter,
+        drive_id: vol.DriveLetter,
+        storage: {
+            total: parseInt(vol.Capacity, 10),
+            free: parseInt(vol.FreeSpace, 10),
+        }
+    };
 }
 
 function wmic(topic) {

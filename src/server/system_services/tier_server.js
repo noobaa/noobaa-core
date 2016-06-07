@@ -9,10 +9,11 @@ const _ = require('lodash');
 
 // const P = require('../../util/promise');
 const dbg = require('../../util/debug_module')(__filename);
+const RpcError = require('../../rpc/rpc_error');
 const size_utils = require('../../util/size_utils');
 const mongo_utils = require('../../util/mongo_utils');
-const nodes_store = require('../node_services/nodes_store');
 const ActivityLog = require('../analytic_services/activity_log');
+const nodes_store = require('../node_services/nodes_store').get_instance();
 const system_store = require('../system_services/system_store').get_instance();
 
 
@@ -193,7 +194,7 @@ function create_policy(req) {
 }
 
 function update_policy(req) {
-    throw req.rpc_error('TODO', 'TODO is update tiering policy needed?');
+    throw new RpcError('TODO', 'TODO is update tiering policy needed?');
 }
 
 function get_policy_pools(req) {
@@ -242,7 +243,7 @@ function find_bucket_by_tier(req) {
 
     if (!policy) {
         return null;
-        //throw req.rpc_error('NOT_FOUND', 'POLICY OF TIER NOT FOUND ' + tier.name);
+        //throw new RpcError('NOT_FOUND', 'POLICY OF TIER NOT FOUND ' + tier.name);
     }
 
     var bucket = _.find(system_store.data.buckets, function(o) {
@@ -251,7 +252,7 @@ function find_bucket_by_tier(req) {
 
     if (!bucket) {
         return null;
-        //throw req.rpc_error('NOT_FOUND', 'BUCKET OF TIER POLICY NOT FOUND ' + policy.name);
+        //throw new RpcError('NOT_FOUND', 'BUCKET OF TIER POLICY NOT FOUND ' + policy.name);
     }
 
     return bucket;
@@ -261,7 +262,7 @@ function find_tier_by_name(req) {
     var name = req.rpc_params.name;
     var tier = req.system.tiers_by_name[name];
     if (!tier) {
-        throw req.rpc_error('NO_SUCH_TIER', 'No such tier: ' + name);
+        throw new RpcError('NO_SUCH_TIER', 'No such tier: ' + name);
     }
     return tier;
 }
@@ -270,7 +271,7 @@ function find_policy_by_name(req) {
     var name = req.rpc_params.name;
     var policy = req.system.tiering_policies_by_name[name];
     if (!policy) {
-        throw req.rpc_error('NO_SUCH_TIERING_POLICY', 'No such tiering policy: ' + name);
+        throw new RpcError('NO_SUCH_TIERING_POLICY', 'No such tiering policy: ' + name);
     }
     return policy;
 }

@@ -56,7 +56,7 @@ function test_s3_connection() {
         .then(() => true,
             (error) => {
                 console.warn('Failed with', error, error.stack);
-                process.exit(1);
+                throw new Error(error);
             }
         );
 }
@@ -106,7 +106,7 @@ function getSignedUrl(bucket, obj, expiry) {
         .then((url) => url,
             (error) => {
                 console.warn('Failed with', error, error.stack);
-                process.exit(1);
+                throw new Error(error);
             }
         );
 }
@@ -144,7 +144,7 @@ function create_bucket(name) {
         }, function(err, data) {
             if (err) {
                 console.warn('Failed with', err, err.stack);
-                process.exit(1);
+                throw new Error(err);
             } else {
                 return data;
             }
@@ -170,7 +170,7 @@ function create_folder(bucket, folder) {
         }, function(err, data) {
             if (err) {
                 console.warn('Failed with', err, err.stack);
-                process.exit(1);
+                throw new Error(err);
             } else {
                 return data;
             }
@@ -196,7 +196,7 @@ function head_object(bucket, key) {
         }, function(err, data) {
             if (err) {
                 console.warn('Failed with', err, err.stack);
-                process.exit(1);
+                throw new Error(err);
             } else {
                 return data;
             }
@@ -222,7 +222,7 @@ function get_object(bucket, key) {
         }, function(err, data) {
             if (err) {
                 console.warn('Failed with', err, err.stack);
-                process.exit(1);
+                throw new Error(err);
             } else {
                 return data;
             }
@@ -249,7 +249,7 @@ function delete_object(bucket, key) {
             function(err, data) {
                 if (err) {
                     console.warn('Failed with', err, err.stack);
-                    process.exit(1);
+                    throw new Error(err);
                 } else {
                     return data;
                 }
@@ -274,7 +274,7 @@ function delete_bucket(name) {
         }, function(err, data) {
             if (err) {
                 console.warn('Failed with', err, err.stack);
-                process.exit(1);
+                throw new Error(err);
             } else {
                 return (data);
             }
@@ -300,7 +300,7 @@ function delete_folder(bucket, folder) {
         }, function(err, data) {
             if (err) {
                 console.warn('Failed with', err, err.stack);
-                process.exit(1);
+                throw new Error(err);
             } else {
                 return data;
             }

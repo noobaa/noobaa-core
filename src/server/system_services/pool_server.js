@@ -10,10 +10,11 @@ const os = require('os');
 const P = require('../../util/promise');
 const dbg = require('../../util/debug_module')(__filename);
 const config = require('../../../config');
+const RpcError = require('../../rpc/rpc_error');
 const size_utils = require('../../util/size_utils');
 const server_rpc = require('../server_rpc');
 const ActivityLog = require('../analytic_services/activity_log');
-const nodes_store = require('../node_services/nodes_store');
+const nodes_store = require('../node_services/nodes_store').get_instance();
 const system_store = require('../system_services/system_store').get_instance();
 const SupervisorCtl = require('../utils/supervisor_ctrl');
 
@@ -30,7 +31,7 @@ function create_pool(req) {
     var name = req.rpc_params.name;
     var nodes = req.rpc_params.nodes;
     if (name !== 'default_pool' && nodes.length < config.NODES_MIN_COUNT) {
-        throw req.rpc_error('NOT ENOUGH NODES', 'cant create a pool with less than ' +
+        throw new RpcError('NOT ENOUGH NODES', 'cant create a pool with less than ' +
             config.NODES_MIN_COUNT + ' nodes');
     }
     var pool = new_pool_defaults(name, req.system._id);
@@ -103,7 +104,7 @@ function update_pool(req) {
     var name = req.rpc_params.name;
     var new_name = req.rpc_params.new_name;
     if ((name === 'default_pool') !== (new_name === 'default_pool')) {
-        throw req.rpc_error('ILLEGAL POOL RENAME', 'cant change name of default pool');
+        throw new RpcError('ILLEGAL POOL RENAME', 'cant change name of default pool');
     }
     var pool = find_pool_by_name(req);
     dbg.log0('Update pool', name, 'to', new_name);
@@ -158,7 +159,7 @@ function delete_pool(req) {
         .then(function(nodes_aggregate_pool) {
             var reason = check_pool_deletion(pool, nodes_aggregate_pool);
             if (reason) {
-                throw req.rpc_error(reason, 'Cannot delete pool');
+                throw new RpcError(reason, 'Cannot delete pool');
             }
             return system_store.make_changes({
                 remove: {
@@ -192,7 +193,7 @@ function delete_cloud_pool(req) {
         .then(function() {
             var reason = check_cloud_pool_deletion(pool);
             if (reason) {
-                throw req.rpc_error(reason, 'Cannot delete pool');
+                throw new RpcError(reason, 'Cannot delete pool');
             }
             return system_store.make_changes({
                 remove: {
@@ -303,7 +304,7 @@ function find_pool_by_name(req) {
     var name = req.rpc_params.name;
     var pool = req.system.pools_by_name[name];
     if (!pool) {
-        throw req.rpc_error('NO_SUCH_POOL', 'No such pool: ' + name);
+        throw new RpcError('NO_SUCH_POOL', 'No such pool: ' + name);
     }
     return pool;
 }

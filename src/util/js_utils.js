@@ -5,11 +5,14 @@ var _ = require('lodash');
 module.exports = {
     self_bind: self_bind,
     array_push_all: array_push_all,
+    array_push_keep_latest: array_push_keep_latest,
     named_array_push: named_array_push,
     append_buffer_or_array: append_buffer_or_array,
     deep_freeze: deep_freeze,
     make_object: make_object,
     default_value: default_value,
+    sort_compare_by: sort_compare_by,
+    pick_object_diff: pick_object_diff,
 };
 
 
@@ -64,6 +67,12 @@ function array_push_all(array, items) {
     // to the push function which actually does: array.push(items[0], items[1], ...)
     _cached_array_push.apply(array, items);
     return array;
+}
+
+function array_push_keep_latest(array, items, limit) {
+    array = array || [];
+    array_push_all(array, items);
+    return array.length > limit ? array.slice(-limit) : array;
 }
 
 /**
@@ -121,4 +130,28 @@ function make_object(keys, valueProvider) {
 
 function default_value(val, def_val) {
     return _.isUndefined(val) ? def_val : val;
+}
+
+/**
+ * returns a compare function for array.sort(compare_func)
+ * @param key_getter takes array item and returns a comparable key
+ * @param order should be 1 or -1
+ */
+function sort_compare_by(key_getter, order) {
+    key_getter = key_getter || (item => item);
+    order = order || 1;
+    return function(item1, item2) {
+        const key1 = key_getter(item1);
+        const key2 = key_getter(item2);
+        if (key1 < key2) return -order;
+        if (key1 > key2) return order;
+        return 0;
+    };
+}
+
+function pick_object_diff(current, prev) {
+    return _.pickBy(current, (value, key) => {
+        const prev_value = prev[key];
+        return !_.isEqual(value, prev_value);
+    });
 }

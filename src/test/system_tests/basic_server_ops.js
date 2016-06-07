@@ -247,7 +247,7 @@ function wait_on_agents_upgrade(ip) {
                     function() {
                         return P.when(client.node.list_nodes({
                                 query: {
-                                    state: 'online',
+                                    online: true,
                                 }
                             }))
                             .then(function(nodes) {

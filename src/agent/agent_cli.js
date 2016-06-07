@@ -1,7 +1,11 @@
-/* jshint node:true */
+/**
+ *
+ * AGENT CLI
+ *
+ */
 'use strict';
-require('../util/panic');
 
+require('../util/panic');
 var _ = require('lodash');
 var P = require('../util/promise');
 var fs = require('fs');
@@ -21,7 +25,7 @@ var dbg = require('../util/debug_module')(__filename);
 var child_process = require('child_process');
 var S3Auth = require('aws-sdk/lib/signers/s3');
 var uuid = require('node-uuid');
-var os_util = require('../util/os_util');
+var os_utils = require('../util/os_utils');
 
 module.exports = AgentCLI;
 
@@ -122,7 +126,7 @@ AgentCLI.prototype.init = function() {
             if (self.params.address) {
                 self.client.options.address = self.params.address;
             }
-            return os_util.read_drives();
+            return os_utils.read_drives();
         })
         .then(function(drives) {
             dbg.log0('drives:', drives, ' current location ', process.cwd());

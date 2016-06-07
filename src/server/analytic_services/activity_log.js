@@ -46,7 +46,7 @@ var activity_log_schema = new Schema({
         type: types.ObjectId,
     },
     node: {
-        ref: 'Node',
+        // ref: 'Node',
         type: types.ObjectId,
     },
     bucket: {

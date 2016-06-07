@@ -1047,7 +1047,7 @@ module.exports = {
             required: ['block_md'],
             properties: {
                 block_md: {
-                    $ref: 'agent_api#/definitions/block_md'
+                    $ref: 'common_api#/definitions/block_md'
                 },
                 adminfo: {
                     type: 'object',
@@ -1064,9 +1064,6 @@ module.exports = {
                         },
                         online: {
                             type: 'boolean'
-                        },
-                        srvmode: {
-                            $ref: 'node_api#/definitions/srvmode'
                         },
                     }
                 }

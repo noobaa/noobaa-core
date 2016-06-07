@@ -9,13 +9,13 @@ let promise_utils = require('../../util/promise_utils');
 let coretest = require('./coretest');
 let ObjectIO = require('../../api/object_io');
 let SliceReader = require('../../util/slice_reader');
-let dbg = require('../../util/debug_module')(__filename);
+// let dbg = require('../../util/debug_module')(__filename);
 
 let chance_seed = argv.seed || Date.now();
 console.log('using seed', chance_seed);
 let chance = require('chance')(chance_seed);
 
-dbg.set_level(5, 'core');
+// dbg.set_level(5, 'core');
 
 mocha.describe('object_io', function() {
 

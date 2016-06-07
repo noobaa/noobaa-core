@@ -16,7 +16,7 @@ var P = require('../util/promise');
 var fs = require('fs');
 var mkdirp = require('mkdirp');
 var promise_utils = require('../util/promise_utils');
-var os_utils = require('../util/os_util');
+var os_utils = require('../util/os_utils');
 var config = require('../../config.js');
 
 var is_windows = (process.platform === "win32");

@@ -7,7 +7,7 @@ const chance = require('chance')();
 const P = require('../../util/promise');
 const dbg = require('../../util/debug_module')(__filename);
 const config = require('../../../config.js');
-const nodes_store = require('../node_services/nodes_store');
+const nodes_store = require('../node_services/nodes_store').get_instance();
 
 const alloc_group_by_pool = {};
 const alloc_group_by_pool_set = {};
@@ -69,6 +69,10 @@ function refresh_pool_alloc(pool) {
                 'storage.used': 1
             },
             limit: 1000
+        }).then(nodes => {
+            // TODO not sure if really needed resolve_node_object_ids, but just in case
+            _.each(nodes, node => nodes_store.resolve_node_object_ids(node, 'allow_missing'));
+            return nodes;
         }),
         nodes_store.aggregate_nodes_by_pool({
             system: pool.system._id,

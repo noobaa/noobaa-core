@@ -6,7 +6,7 @@ const P = require('../../util/promise');
 const dbg = require('../../util/debug_module')(__filename);
 const md_store = require('./md_store');
 const server_rpc = require('../server_rpc');
-const nodes_store = require('../node_services/nodes_store');
+const nodes_store = require('../node_services/nodes_store').get_instance();
 const mongo_utils = require('../../util/mongo_utils');
 
 
@@ -117,8 +117,8 @@ function agent_delete_call(del_blocks, node_id) {
     var block_ids = _.map(del_blocks, block => block._id.toString());
     dbg.log0('agent_delete_call: node', node_id, address,
         'block_ids', block_ids.length);
-    return server_rpc.client.agent.delete_blocks({
-        blocks: block_ids
+    return server_rpc.client.block_store.delete_blocks({
+        block_ids: block_ids
     }, {
         address: address,
         timeout: 30000,

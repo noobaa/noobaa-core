@@ -168,6 +168,9 @@ mocha.describe('map_utils', function() {
             return {
                 pool: pool_id,
                 heartbeat: new Date(),
+                online: true,
+                readable: true,
+                writable: true,
                 storage: {
                     free: 100 * 1024 * 1024 * 1024
                 }

@@ -2,8 +2,7 @@ import template from './server-time-form.html';
 import ko from 'knockout';
 import moment from 'moment';
 import 'moment-timezone';
-import numeral from 'numeral';
-import { makeRange, toOwnKeyValuePair } from 'utils';
+import { makeRange } from 'utils';
 import { systemInfo } from 'model';
 import { updateServerTime, updateServerNTP } from 'actions';
 
@@ -84,8 +83,8 @@ class ServerTimeFormViewModel {
             );
 
         this.months = makeRange(12).map(
-            month => ({ 
-                label: moment({ month }).format('MMM'), 
+            month => ({
+                label: moment({ month }).format('MMM'),
                 value: month
             })
         );
@@ -105,24 +104,24 @@ class ServerTimeFormViewModel {
         this.ntpServer = ko.observableWithDefault(
             () => timeConfig() && timeConfig().ntp_server
         )
-            .extend({ 
-                required: { 
-                    message: 'Please fill in a NTP server address' 
+            .extend({
+                required: {
+                    message: 'Please fill in a NTP server address'
                 }
             });
 
         this.timezones = moment.tz.names()
             .map(
-                name => ({ 
-                    name: name, 
-                    offset: moment.tz(name).utcOffset() 
+                name => ({
+                    name: name,
+                    offset: moment.tz(name).utcOffset()
                 })
             )
             .sort(
-                (tz1, tz2) => tz1.offset - tz2.offset 
+                (tz1, tz2) => tz1.offset - tz2.offset
             )
             .map(
-                ({ name, offset }) => {
+                ({ name }) => {
                     let offsetText = moment().tz(name).format('[GMT]Z');
                     let label = name.replace(/\_/g, ' ');
 
@@ -143,7 +142,7 @@ class ServerTimeFormViewModel {
         this.manualErrors = ko.validation.group([
             this.hour,
             this.minute,
-            this.second,
+            this.second
         ]);
 
         this.ntpErrors = ko.validation.group([
@@ -152,9 +151,9 @@ class ServerTimeFormViewModel {
 
         this.matchByTimezoneName = function({ label }, input) {
             return !!label.toLowerCase().match(
-            new RegExp(`\\b${input.replace('/', '\\/')}`)
-        );
-};
+                new RegExp(`\\b${input.replace('/', '\\/')}`)
+            );
+        };
     }
 
     applyChanges() {
@@ -172,7 +171,7 @@ class ServerTimeFormViewModel {
                     date: this.day(),
                     hours: this.hour(),
                     minutes: this.minute(),
-                    seconds: this.second(),
+                    seconds: this.second()
                 },
                 this.timezone()
             )
@@ -192,10 +191,10 @@ class ServerTimeFormViewModel {
 
     dispose() {
         clearInterval(this.autoIncHandle);
-    }    
+    }
 }
 
 export default {
     viewModel: ServerTimeFormViewModel,
     template: template
-}
+};

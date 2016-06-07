@@ -27,9 +27,9 @@ class CapacityGaugeViewModel {
         );
     }
 
-    draw(ctx, { width, height }) {
+    draw(ctx) {
         ctx.translate(radius, radius);
-        ctx.clearRect(-radius, -radius, radius * 2, radius * 2)
+        ctx.clearRect(-radius, -radius, radius * 2, radius * 2);
 
         let total = ko.unwrap(this.values).reduce(
             (sum, { value }) => sum + ko.unwrap(value),
@@ -71,7 +71,7 @@ class CapacityGaugeViewModel {
         ctx.strokeStyle = color;
         ctx.beginPath();
         ctx.lineWidth = lineWidth;
-        ctx.arc(0, 0, radius - (lineWidth/2|0), start, end)
+        ctx.arc(0, 0, radius - (lineWidth/2|0), start, end);
         ctx.stroke();
         ctx.closePath();
 

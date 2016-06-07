@@ -57,7 +57,7 @@ class P2PFormViewModel {
 
         } else {
             updateP2PSettings(
-                parseInt(this.rangeMin()), 
+                parseInt(this.rangeMin()),
                 parseInt(this.rangeMax())
             );
         }
@@ -67,4 +67,4 @@ class P2PFormViewModel {
 export default {
     viewModel: P2PFormViewModel,
     template: template
-}
+};

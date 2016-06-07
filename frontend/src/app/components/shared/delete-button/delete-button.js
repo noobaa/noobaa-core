@@ -2,13 +2,13 @@ import template from './delete-button.html';
 import ko from 'knockout';
 import { noop } from 'utils';
 
-const disabledIcon =  'bin-disabled';``
+const disabledIcon = 'bin-disabled';
 const closedIcon = 'bin-closed';
 const opendIcon = 'bin-opened';
 
 class DeleteButtonViewModel {
-    constructor({ 
-        group = ko.observable(), 
+    constructor({
+        group = ko.observable(),
         onDelete = noop,
         toolTip,
         disabled = false
@@ -23,18 +23,18 @@ class DeleteButtonViewModel {
                 if (val) {
                     group(this);
                 } else if (group() === this) {
-                    group(null)
+                    group(null);
                 }
             }
         });
 
         this.deleteIcon = ko.pureComputed(
             () => {
-                let icon = ko.unwrap(this.disabled) ? 
+                let icon = ko.unwrap(this.disabled) ?
                     disabledIcon :
                     (this.isSelected() ? opendIcon : closedIcon);
-            
-                return `/fe/assets/icons.svg#${icon}`
+
+                return `/fe/assets/icons.svg#${icon}`;
             }
         );
     }
@@ -47,7 +47,7 @@ class DeleteButtonViewModel {
         this.isSelected(false);
         this.onDelete();
     }
-    
+
     cancel() {
         this.isSelected(false);
     }
@@ -56,4 +56,4 @@ class DeleteButtonViewModel {
 export default {
     viewModel: DeleteButtonViewModel,
     template: template
-}
+};

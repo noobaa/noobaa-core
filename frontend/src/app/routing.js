@@ -1,5 +1,5 @@
 import { parseQueryString } from 'utils';
-import { sessionInfo, routeContext, systemInfo } from 'model';
+import { sessionInfo, routeContext } from 'model';
 import * as actions from 'actions';
 
 export default function routing(page) {
@@ -29,21 +29,21 @@ export default function routing(page) {
         next();
     }
 
-    // General midlleware that saves the current route contexts. 
+    // General midlleware that saves the current route contexts.
     function saveContext(ctx, next) {
         routeContext(ctx);
         next();
     }
 
     // Parse the query string into a query object.
-    page('*', parseQuery)
+    page('*', parseQuery);
 
     // Check authentication and authorization for the following paths.
     page('/fe/systems/:system', authorize, ensureSystemInfo);
     page('/fe/systems/:system/*', authorize, ensureSystemInfo);
 
     // Screens handlers.
-    page('/fe/login', saveContext, actions.showLogin)
+    page('/fe/login', saveContext, actions.showLogin);
     page('/fe/systems/:system', saveContext, actions.showOverview);
     page('/fe/systems/:system/buckets', saveContext, actions.showBuckets);
     page('/fe/systems/:system/buckets/:bucket/:tab?', saveContext, actions.showBucket);
@@ -52,10 +52,10 @@ export default function routing(page) {
     page('/fe/systems/:system/pools/:pool/:tab?', saveContext, actions.showPool);
     page('/fe/systems/:system/pools/:pool/nodes/:node/:tab?', saveContext, actions.showNode);
     page('/fe/systems/:system/management/:tab?', saveContext, actions.showManagement);
-        
+
     // Redirect any other request to the login page.
     page.redirect('*', '/fe/login');
-}   
+}
 
 
 

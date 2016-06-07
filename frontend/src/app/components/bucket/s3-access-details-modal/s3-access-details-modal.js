@@ -46,4 +46,4 @@ class S3AccessDetailsModalViewModel {
 export default {
     viewModel: S3AccessDetailsModalViewModel,
     template: template
-}
+};

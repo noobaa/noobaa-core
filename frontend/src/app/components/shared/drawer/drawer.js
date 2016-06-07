@@ -17,17 +17,17 @@ class DrawerViewModel {
             () => this.isOpen() || this.holdContent()
         );
 
-        // Adding rate limit to create an async behaviour in order to apply 
-        // css transitions. 
+        // Adding rate limit to create an async behaviour in order to apply
+        // css transitions.
         this.isVisible = ko.pureComputed(
             () => this.isOpen()
         ).extend({
             rateLimit: 1
-        })
+        });
     }
 
     update() {
-        this.holdContent(this.isOpen())
+        this.holdContent(this.isOpen());
     }
 
     close() {
@@ -38,4 +38,4 @@ class DrawerViewModel {
 export default {
     viewModel: DrawerViewModel,
     template: template
-}
+};

@@ -22,4 +22,4 @@ class StartMaintenanceModalViewModel {
 export default {
     viewModel: StartMaintenanceModalViewModel,
     template: template
-}
+};

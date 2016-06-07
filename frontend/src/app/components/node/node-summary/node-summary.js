@@ -15,7 +15,7 @@ const activityLabelMapping = Object.freeze({
     EVACUATING: 'Evacuating',
     REBUILDING: 'Rebuilding',
     MIGRATING: 'Migrating'
-})
+});
 
 function mapActivity({ type, completed_size, total_size, eta }) {
     return {
@@ -53,7 +53,7 @@ class NodeSummaryViewModel {
         this.stateIcon = ko.pureComputed(
             () => `/fe/assets/icons.svg#node-${node().online ? 'online' : 'offline'}`
         );
-    
+
         this.trustText = ko.pureComputed(
             () => node().trusted ? 'Trusted' : 'Untrusted'
         );
@@ -109,12 +109,12 @@ class NodeSummaryViewModel {
         this.otherText = ko.pureComputed(
             () => formatSize(this.other())
         );
-        
+
         this.gaugeValues = [
             { value: this.used, color: style['text-color6'], emphasize: true },
             { value: this.other, color: style['text-color2'] , emphasize: true },
             { value: this.free, color: style['text-color5'] ,emphasize: false }
-        ]
+        ];
 
         this.rpcAddress = ko.pureComputed(
             () => !!node() && node().rpc_address
@@ -127,4 +127,4 @@ class NodeSummaryViewModel {
 export default {
     viewModel: NodeSummaryViewModel,
     template: template
-}
+};

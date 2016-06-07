@@ -8,14 +8,14 @@ window.api = api;
 
 import {
     isDefined, isUndefined, encodeBase64, cmpStrings, cmpInts, cmpBools,
-    randomString, last, clamp,  makeArray, execInOrder, realizeUri, downloadFile,
+    last, clamp,  makeArray, execInOrder, realizeUri, downloadFile,
     generateAccessKeys
 } from 'utils';
 
 // TODO: resolve browserify issue with export of the aws-sdk module.
 // The current workaround use the AWS that is set on the global window object.
 import 'aws-sdk';
-AWS = window.AWS;
+let AWS = window.AWS;
 
 // Use preconfigured hostname or the addrcess of the serving computer.
 let endpoint = hostname || window.location.hostname;
@@ -52,7 +52,7 @@ export function start() {
         .then(
             () => page.start()
         )
-        .done()
+        .done();
 }
 
 // -----------------------------------------------------
@@ -78,7 +78,7 @@ export function reloadTo(path = window.location.pathname, query = {}) {
     logAction('reloadTo', { path, query });
 
     // Force full browser refresh
-    window.location.href = realizeUri(path, model.routeContext().params, query)
+    window.location.href = realizeUri(path, model.routeContext().params, query);
 }
 
 export function refresh() {
@@ -101,13 +101,13 @@ export function showLogin() {
     let session = model.sessionInfo();
     let ctx = model.routeContext();
 
-    if (!!session) {
+    if (session) {
         redirectTo(`/fe/systems/${session.system}`);
 
     } else {
         model.uiState({
             layout: 'login-layout',
-            returnUrl: ctx.query.returnUrl,
+            returnUrl: ctx.query.returnUrl
         });
 
         loadServerInfo();
@@ -139,7 +139,7 @@ export function showBuckets() {
             { href: 'fe/systems/:system' },
             { href: 'buckets', label: 'BUCKETS' }
         ],
-        panel: 'buckets',
+        panel: 'buckets'
     });
 
     let { sortBy, order } = model.routeContext().query;
@@ -191,7 +191,7 @@ export function showObject() {
         tab: tab
     });
 
-    loadObjectMetadata(bucket, object)
+    loadObjectMetadata(bucket, object);
     loadObjectPartList(bucket, object, parseInt(page));
 }
 
@@ -269,8 +269,8 @@ export function showManagement() {
         layout: 'main-layout',
         title: 'SYSTEM MANAGEMENT',
         breadcrumbs: [
-            { href: "fe/systems/:system" },
-            { href: "management", label: 'SYSTEM MANAGEMENT' }
+            { href: 'fe/systems/:system' },
+            { href: 'management', label: 'SYSTEM MANAGEMENT' }
         ],
         panel: 'management',
         tab: tab
@@ -278,7 +278,7 @@ export function showManagement() {
 }
 
 export function showCreateBucketWizard() {
-    loadAction('showCreateBucketModal')
+    logAction('showCreateBucketModal');
 }
 
 export function openDrawer() {
@@ -313,7 +313,7 @@ export function signIn(email, password, redirectUrl) {
                     .then(({ token }) => {
                         localStorage.setItem('sessionToken', token);
 
-                        model.sessionInfo({ user: email, system: system })
+                        model.sessionInfo({ user: email, system: system });
                         model.loginInfo({ retryCount: 0 });
 
                         if (isUndefined(redirectUrl)) {
@@ -321,7 +321,7 @@ export function signIn(email, password, redirectUrl) {
                         }
 
                         redirectTo(decodeURIComponent(redirectUrl));
-                    })
+                    });
             }
         )
         .catch(
@@ -441,16 +441,16 @@ export function loadBucketList(sortBy = 'name', order = 1) {
 }
 
 const poolCmpFuncs = Object.freeze({
-    state: (p1, p2) => cmpBools(true, true),
+    state: () => cmpBools(true, true),
     name: (p1, p2) => cmpStrings(p1.name, p2.name),
     nodecount: (p1, p2) => cmpInts(p1.nodes.count, p2.nodes.count),
     onlinecount: (p1, p2) => cmpInts(p1.nodes.online, p2.nodes.online),
     offlinecount: (p1, p2) => cmpInts(
         p1.nodes.count - p1.nodes.online,
-        p2.nodes.count - p2.nodes.online,
+        p2.nodes.count - p2.nodes.online
     ),
     usage: (p1, p2) => cmpInts(p1.storage.used, p2.storage.used),
-    capacity: (p1, p2) => cmpInts(p1.storage.total, p2.storage.total),
+    capacity: (p1, p2) => cmpInts(p1.storage.total, p2.storage.total)
 });
 
 export function loadPoolList(sortBy = 'name', order = 1) {
@@ -526,14 +526,14 @@ export function loadBucketObjectList(bucketName, filter, sortBy, order, page) {
     let bucketObjectList = model.bucketObjectList;
 
     api.object.list_objects({
-            bucket: bucketName,
-            key_query: filter,
-            sort: sortBy,
-            order: order,
-            skip: config.paginationPageSize * page,
-            limit: config.paginationPageSize,
-            pagination: true
-        })
+        bucket: bucketName,
+        key_query: filter,
+        sort: sortBy,
+        order: order,
+        skip: config.paginationPageSize * page,
+        limit: config.paginationPageSize,
+        pagination: true
+    })
         .then(
             reply => {
                 bucketObjectList(reply.objects);
@@ -556,9 +556,9 @@ export function loadObjectMetadata(bucketName, objectName) {
     }
 
     let objInfoPromise = api.object.read_object_md({
-         bucket: bucketName,
-         key: objectName,
-         get_parts_count: true
+        bucket: bucketName,
+        key: objectName,
+        get_parts_count: true
     });
 
     let S3Promise = api.system.read_system()
@@ -576,7 +576,7 @@ export function loadObjectMetadata(bucketName, objectName) {
                     sslEnabled: false,
                     signatureVersion: 'v4',
                     region: 'eu-central-1'
-                })
+                });
             }
         );
 
@@ -678,8 +678,8 @@ export function loadPoolNodeList(poolName, filter, sortBy, order, page) {
                 // TODO: remove assign after implementing trusted in the server.
                 reply.nodes = reply.nodes.map(
                     node => Object.assign(
-                        node, 
-                        { 
+                        node,
+                        {
                             trusted: !(Math.random() * 2 | 0),
                             accessibility: [
                                 'FULL_ACCESS', 'READ_ONLY', 'NO_ACCESS'
@@ -707,7 +707,7 @@ export function loadPoolNodeList(poolName, filter, sortBy, order, page) {
                 model.poolNodeList.filter(filter);
                 model.poolNodeList.sortedBy(sortBy);
                 model.poolNodeList.order(order);
-                model.poolNodeList.page(page)
+                model.poolNodeList.page(page);
             }
         )
         .done();
@@ -719,7 +719,7 @@ export function loadNodeList() {
     model.nodeList([]);
     api.node.list_nodes({})
         .then(
-            ({nodes}) => model.nodeList(nodes)
+            ({ nodes }) => model.nodeList(nodes)
         )
         .done();
 }
@@ -737,8 +737,8 @@ export function loadNodeInfo(nodeName) {
             // TODO: remove assign after implementing trusted in the server.
             nodeInfo => model.nodeInfo(
                 Object.assign(
-                    nodeInfo, 
-                    { 
+                    nodeInfo,
+                    {
                         trusted: !(Math.random() * 2 | 0),
                         accessibility: [
                             'FULL_ACCESS', 'READ_ONLY', 'NO_ACCESS'
@@ -776,13 +776,11 @@ export function loadNodeStoredPartsList(nodeName, page) {
                 let parts = objects
                     .map(
                         obj => obj.parts.map(
-                            part => {
-                                return {
-                                    object: obj.key,
-                                    bucket: obj.bucket,
-                                    info: part
-                                }
-                            }
+                            part => ({
+                                object: obj.key,
+                                bucket: obj.bucket,
+                                info: part
+                            })
                         )
                     )
                     .reduce(
@@ -850,7 +848,7 @@ export function loadMoreAuditEntries(count) {
             .then(
                 ({ logs }) => auditLog.push(...logs.reverse())
             )
-            .done()
+            .done();
     }
 }
 
@@ -863,9 +861,9 @@ export function exportAuditEnteries(categories) {
         )
         .join('|');
 
-    api.system.export_activity_log({ event: filter || '^$', })
+    api.system.export_activity_log({ event: filter || '^$' })
         .then(downloadFile)
-        .done()
+        .done();
 }
 
 export function loadAccountList() {
@@ -875,7 +873,7 @@ export function loadAccountList() {
         .then(
             ({ accounts }) => model.accountList(accounts)
         )
-        .done()
+        .done();
 }
 
 export function loadAccountInfo(email) {
@@ -913,7 +911,7 @@ export function loadS3Connections() {
 }
 
 export function loadS3BucketList(connection) {
-    logAction('loadS3BucketList', { connection })
+    logAction('loadS3BucketList', { connection });
 
     api.bucket.get_cloud_buckets({
         connection: connection
@@ -1014,7 +1012,9 @@ export function createBucket(name, dataPlacement, pools) {
                 };
 
                 return api.tiering_policy.create_policy(policy)
-                    .then(() => policy)
+                    .then(
+                        () => policy
+                    );
             }
         )
         .then(
@@ -1093,21 +1093,19 @@ export function uploadFiles(bucketName, files) {
                 return new AWS.S3({
                     endpoint: endpoint,
                     credentials: {
-                        accessKeyId:  access_key,
-                        secretAccessKey:  secret_key
+                        accessKeyId: access_key,
+                        secretAccessKey: secret_key
                     },
                     s3ForcePathStyle: true,
-                    sslEnabled: false,
-                    //signatureVersion: 'v4',
-                    //region: 'eu-central-1'
-                })
+                    sslEnabled: false
+                });
             }
         )
         .then(
             s3 => {
                 let uploadRequests = Array.from(files).map(
                     file => new Promise(
-                        (resolve, reject) => {
+                        resolve => {
                             // Create an entry in the recent uploaded list.
                             let entry = {
                                 name: file.name,
@@ -1171,9 +1169,7 @@ export function uploadFiles(bucketName, files) {
             )
         )
         .then(
-            completedCount => {
-                completedCount > 0 && refresh()
-            }
+            completedCount => completedCount > 0 && refresh()
         );
 }
 
@@ -1211,7 +1207,7 @@ export function testNode(source, testSet) {
                                 speed: 0,
                                 progress: 0,
                                 session: ''
-                            }
+                            };
                             nodeTestInfo().results.push(result);
 
                             return {
@@ -1292,7 +1288,7 @@ export function testNode(source, testSet) {
                             result.state = state;
                             nodeTestInfo.valueHasMutated();
                         }
-                    )
+                    );
                 }
             )
         )
@@ -1344,8 +1340,8 @@ export function upgradeSystem(upgradePackage) {
         let xhr = new XMLHttpRequest();
         xhr.open('GET', '/version', true);
         xhr.onload = () => reloadTo('/fe/systems/:system', { afterupgrade: true });
-        xhr.onerror = evt => setTimeout(ping, 10000);
-        xhr.send()
+        xhr.onerror = () => setTimeout(ping, 10000);
+        xhr.send();
     }
 
     let { upgradeStatus } = model;
@@ -1361,10 +1357,10 @@ export function upgradeSystem(upgradePackage) {
     xhr.upload.onprogress = function(evt) {
         upgradeStatus.assign({
             progress: evt.lengthComputable && evt.loaded / evt.total
-        })
+        });
     };
 
-    xhr.onload = function(evt) {
+    xhr.onload = function() {
         if (xhr.status === 200) {
             setTimeout(
                 () => {
@@ -1379,18 +1375,17 @@ export function upgradeSystem(upgradePackage) {
                 3000
             );
         } else {
-            upgradeStatus.assign({
-                state: 'FAILED',
-            });
-        }    };
+            upgradeStatus.assign({ state: 'FAILED' });
+        }
+    };
 
-    xhr.onerror = function(evt) {
+    xhr.onerror = function() {
         upgradeStatus.assign({
             state: 'FAILED'
         });
     };
 
-    xhr.onabort = function(evt) {
+    xhr.onabort = function() {
         upgradeStatus.assign({
             state: 'CANCELED'
         });
@@ -1437,7 +1432,7 @@ export function setNodeDebugLevel(node, level) {
 }
 
 export function setSystemDebugLevel(level){
-    logAction('setSystemDebugLevel', { level })
+    logAction('setSystemDebugLevel', { level });
 
     api.system.set_debug_level({ level })
         .then(loadSystemInfo)
@@ -1484,9 +1479,9 @@ export function removeCloudSyncPolicy(bucket) {
 export function toogleCloudSync(bucket, pause) {
     logAction('toogleCloudSync', { bucket, pause });
 
-    api.bucket.toggle_cloud_sync({ 
-        name: bucket, 
-        pause: pause 
+    api.bucket.toggle_cloud_sync({
+        name: bucket,
+        pause: pause
     })
         .then(
             () => {
@@ -1528,7 +1523,7 @@ export function addS3Connection(name, endpoint, accessKey, secretKey) {
 
     api.account.add_account_sync_credentials_cache(credentials)
         .then(loadS3Connections)
-        .done()
+        .done();
 }
 
 export function notify(message, severity = 'INFO') {

@@ -9,11 +9,11 @@ export default {
         let href = realizeUri(value, params);
 
         return ko.bindingHandlers.attr.update(
-            element, 
+            element,
             () => (href ? { href } : {}),
-            allBindings, 
-            viewModel, 
+            allBindings,
+            viewModel,
             bindingContext
         );
     }
-}
+};

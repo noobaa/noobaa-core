@@ -66,11 +66,11 @@ class BucketDataPlacementFormViewModel {
     }
 
     dispose() {
-        this.tierSub.dispose()
+        this.tierSub.dispose();
     }
 }
 
 export default {
     viewModel: BucketDataPlacementFormViewModel,
-    template: template,
-}
+    template: template
+};

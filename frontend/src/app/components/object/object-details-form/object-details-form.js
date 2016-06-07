@@ -46,7 +46,7 @@ class ObjectInfoFormViewModel {
     }
 }
 
-export default { 
+export default {
     viewModel: ObjectInfoFormViewModel,
     template: template
-}
+};

@@ -9,7 +9,7 @@ class ObjectPanelViewModel {
 
         this.ready = ko.pureComputed(
             () => !!this.obj()
-        )
+        );
 
         this.selectedTab = ko.pureComputed(
             () => uiState().tab
@@ -24,4 +24,4 @@ class ObjectPanelViewModel {
 export default {
     viewModel: ObjectPanelViewModel,
     template: template
-}
+};

@@ -2,7 +2,6 @@ import ko from 'knockout';
 import numeral from 'numeral';
 import { isDefined } from 'utils';
 import { deleteBucket } from'actions';
-import style from 'style';
 
 const stateMapping = Object.freeze({
     true: {
@@ -28,7 +27,7 @@ const cloudSyncStatusMapping = Object.freeze({
 
 export default class BucketRowViewModel {
     constructor(bucket, isLastBucket) {
-        this.isVisible = ko.pureComputed( 
+        this.isVisible = ko.pureComputed(
             () => !!bucket()
         );
 
@@ -74,7 +73,7 @@ export default class BucketRowViewModel {
             () => bucket() && cloudSyncStatusMapping[bucket().cloud_sync_status]
         );
 
-        
+
         let hasObjects = ko.pureComputed(
             () => bucket() && bucket().num_objects > 0
         );
@@ -84,7 +83,7 @@ export default class BucketRowViewModel {
         );
 
         this.deleteToolTip = ko.pureComputed(
-            () => isLastBucket() ? 
+            () => isLastBucket() ?
                  'Cannot delete last bucket' :
                  (hasObjects() ? 'bucket not empty' : 'delete bucket')
         );

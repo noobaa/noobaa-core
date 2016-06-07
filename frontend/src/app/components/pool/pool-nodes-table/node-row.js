@@ -1,18 +1,17 @@
 import ko from 'knockout';
 import numeral from 'numeral';
-import { avgOp } from 'utils';
 
 const accessibilityMapping = Object.freeze({
     FULL_ACCESS: { text: 'Read & Write' },
     READ_ONLY: { text: 'Read Only', css: 'warning' },
-    NO_ACCESS: { text: 'No Access', css: 'error' } 
+    NO_ACCESS: { text: 'No Access', css: 'error' }
 });
 
 const activityLabelMapping = Object.freeze({
     EVACUATING: 'Evacuating',
     REBUILDING: 'Rebuilding',
     MIGRATING: 'Migrating'
-})
+});
 
 export default class NodeRowViewModel {
     constructor(node) {
@@ -71,11 +70,11 @@ export default class NodeRowViewModel {
         );
 
         this.hasActivity = ko.pureComputed(
-            () => !!dataActivity() 
+            () => !!dataActivity()
         );
 
         this.activityLabel = ko.pureComputed(
-            () => this.hasActivity() ? 
+            () => this.hasActivity() ?
                 activityLabelMapping[dataActivity().type] :
                 'No Activity'
         );

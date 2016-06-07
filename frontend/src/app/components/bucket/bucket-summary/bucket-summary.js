@@ -1,17 +1,16 @@
 import template from './bucket-summary.html';
 import ko from 'knockout';
-import numeral from 'numeral';
 import style from 'style';
 import { formatSize } from 'utils';
 
 const cloudSyncStatusMapping = Object.freeze({
-    PENDING: { text: 'Sync Pending', icon: 'cloud-pending' } , 
-    SYNCING: { text: 'Syncing', icon: 'cloud-syncing' }, 
-    PAUSED: { text: 'Sync Paused', icon: 'cloud-paused' }, 
-    UNABLE: { text: 'Unable to sync', icon: 'cloud-error' }, 
-    SYNCED: { text: 'Sync Completed', icon: 'cloud-synced' }, 
+    PENDING: { text: 'Sync Pending', icon: 'cloud-pending' } ,
+    SYNCING: { text: 'Syncing', icon: 'cloud-syncing' },
+    PAUSED: { text: 'Sync Paused', icon: 'cloud-paused' },
+    UNABLE: { text: 'Unable to sync', icon: 'cloud-error' },
+    SYNCED: { text: 'Sync Completed', icon: 'cloud-synced' },
     NOTSET: { text: 'Cloud sync not set', icon: 'cloud-not-set' }
-})
+});
 
 class BucketSummrayViewModel {
     constructor({ bucket }) {
@@ -43,7 +42,7 @@ class BucketSummrayViewModel {
             () => formatSize(this.free())
         );
 
-        this.gaugeValues = [ 
+        this.gaugeValues = [
             { value: this.used, color: style['text-color6'], emphasize: true },
             { value: this.free, color: style['text-color4'] }
         ];
@@ -84,4 +83,4 @@ class BucketSummrayViewModel {
 export default {
     viewModel: BucketSummrayViewModel,
     template: template
-}
+};

@@ -10,7 +10,7 @@ class HeaderViewModel {
     }
 }
 
-export default { 
+export default {
     viewModel: HeaderViewModel,
     template: template
-}
+};

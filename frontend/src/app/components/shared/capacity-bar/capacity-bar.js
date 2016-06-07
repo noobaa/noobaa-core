@@ -14,14 +14,14 @@ class CapacityBarViewModel {
         this.totalText = ko.pureComputed(
             () => {
                 let val = ko.unwrap(total);
-                return isDefined(val) ? formatSize(val) : 'N/A'
+                return isDefined(val) ? formatSize(val) : 'N/A';
             }
         );
 
         this.usedText = ko.pureComputed(
             () => {
                 let val = ko.unwrap(used);
-                return isDefined(val) ? formatSize(val) : 'N/A'
+                return isDefined(val) ? formatSize(val) : 'N/A';
             }
         );
 
@@ -43,5 +43,5 @@ class CapacityBarViewModel {
 
 export default {
     viewModel: CapacityBarViewModel,
-    template: template,
-}
+    template: template
+};

@@ -11,7 +11,7 @@ class BlockRowViewModel {
     constructor({ adminfo }, index, count) {
         let { online, node_ip, node_name, pool_name } = adminfo;
 
-        this.label = `Replica ${index + 1} of ${count}`
+        this.label = `Replica ${index + 1} of ${count}`;
         this.nodeStateToolTip = online ? 'online' : 'offline';
         this.nodeStateIcon = `/fe/assets/icons.svg#node-${online ? 'online' : 'offline'}`;
         this.nodeIp = node_ip;

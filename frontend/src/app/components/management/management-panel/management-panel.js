@@ -17,4 +17,4 @@ class ManagementPanelViewModel {
 export default {
     viewModel: ManagementPanelViewModel,
     template: template
-}
+};

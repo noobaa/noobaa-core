@@ -9,7 +9,7 @@ const cannotDeleteReasons = Object.freeze({
 });
 
 export default class PoolRowViewModel {
-    constructor(pool, deleteCandidate) {
+    constructor(pool) {
         this.isVisible = ko.pureComputed(
             () => !!pool()
         );

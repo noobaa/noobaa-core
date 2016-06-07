@@ -27,7 +27,7 @@ class PhoneHomeFormViewModel {
             () => {
                 let addr = this.proxyAddress();
                 return addr && addr.substring(
-                    addr.indexOf('://') + 3, 
+                    addr.indexOf('://') + 3,
                     addr.lastIndexOf(':')
                 );
             }
@@ -35,7 +35,7 @@ class PhoneHomeFormViewModel {
             .extend({
                 required: {
                     onlyIf: this.usingProxy,
-                    message: 'Please enter an IP or DNS name' 
+                    message: 'Please enter an IP or DNS name'
                 },
                 isIPOrDNSName: true
             });
@@ -63,8 +63,8 @@ class PhoneHomeFormViewModel {
         if (this.errors().length > 0) {
             this.errors.showAllMessages();
         } else {
-            let proxyAddress = this.usingProxy() ? 
-                `http://${this.proxyIPOrDNS()}:${this.proxyPort()}` : 
+            let proxyAddress = this.usingProxy() ?
+                `http://${this.proxyIPOrDNS()}:${this.proxyPort()}` :
                 null;
 
             updatePhoneHomeConfig(proxyAddress);
@@ -75,4 +75,4 @@ class PhoneHomeFormViewModel {
 export default {
     viewModel: PhoneHomeFormViewModel,
     template: template
-}
+};

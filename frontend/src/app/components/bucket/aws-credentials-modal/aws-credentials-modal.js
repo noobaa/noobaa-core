@@ -18,7 +18,7 @@ class AWSCredentialsModalViewModel {
                     .map(
                         name => {
                             let match = name.match(/^Connection (\d+)$/);
-                            return match ? parseInt(match[1]) : 0
+                            return match ? parseInt(match[1]) : 0;
                         }
                     )
                     .reduce(
@@ -29,7 +29,7 @@ class AWSCredentialsModalViewModel {
                 return `Connection ${highest + 1}`;
             }
         )
-        .extend({ 
+        .extend({
             required: { message: 'Please enter valid connection name' },
             notIn: {
                 params: { list: existingNames },
@@ -62,12 +62,12 @@ class AWSCredentialsModalViewModel {
             });
 
         this.isValidConenction = isS3ConnectionValid
-            .extend({ 
-                equal: { 
+            .extend({
+                equal: {
                     params: true,
-                    message: 'Invlalid endpoint or credentials' 
+                    message: 'Invlalid endpoint or credentials'
                 }
-            })
+            });
 
         this.checkSub = isS3ConnectionValid
             .subscribe(
@@ -108,4 +108,4 @@ class AWSCredentialsModalViewModel {
 export default {
     viewModel: AWSCredentialsModalViewModel,
     template: template
-}
+};

@@ -3,7 +3,7 @@ import ko from 'knockout';
 import moment from 'moment';
 import { cloudSyncInfo } from 'model';
 import { removeCloudSyncPolicy, loadCloudSyncInfo, toogleCloudSync } from 'actions';
-import { bitsToNumber } from 'utils'
+import { bitsToNumber } from 'utils';
 
 const timeFormat = 'MMM, DD [at] hh:mm:ss';
 
@@ -37,7 +37,7 @@ class BucketCloudSyncFormViewModel {
 
         this.toggleSyncButtonLabel = ko.pureComputed(
             () => cloudSyncInfo() && cloudSyncInfo().status === 'PAUSED' ?
-                'Resume' : 
+                'Resume' :
                 'Pause'
         );
 
@@ -47,7 +47,7 @@ class BucketCloudSyncFormViewModel {
 
         let policy = ko.pureComputed(
             () => cloudSyncInfo() && cloudSyncInfo().policy
-        )
+        );
 
         this.lastSync = ko.pureComputed(
             () => {
@@ -61,8 +61,8 @@ class BucketCloudSyncFormViewModel {
 
         this.nextSync = ko.pureComputed(
             () => {
-                if (!cloudSyncInfo() || 
-                    cloudSyncInfo().status === 'PAUSED' || 
+                if (!cloudSyncInfo() ||
+                    cloudSyncInfo().status === 'PAUSED' ||
                     cloudSyncInfo().last_sync == 0
                 ) {
                     return 'N/A';
@@ -76,7 +76,7 @@ class BucketCloudSyncFormViewModel {
 
         this.targetBucket = ko.pureComputed(
             () => policy() && policy().target_bucket
-        )
+        );
 
         this.accessKey = ko.pureComputed(
             () => cloudSyncInfo() && cloudSyncInfo().access_key
@@ -137,5 +137,5 @@ class BucketCloudSyncFormViewModel {
 
 export default {
     viewModel: BucketCloudSyncFormViewModel,
-    template: template,
-}
+    template: template
+};

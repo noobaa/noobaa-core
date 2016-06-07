@@ -20,7 +20,7 @@ class BarViewModel {
                 let w = (ko.unwrap(item.value) / total * width) + .5 | 0;
                 ctx.fillStyle = ko.unwrap(item.color);
                 ctx.fillRect(pos, 0, w, height);
-                pos += w
+                pos += w;
             }
         );
     }
@@ -29,4 +29,4 @@ class BarViewModel {
 export default {
     viewModel: BarViewModel,
     template: template
-}
+};

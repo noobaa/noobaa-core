@@ -19,5 +19,5 @@ class PoolsPanelViewModel {
 
 export default {
     viewModel: PoolsPanelViewModel,
-    template: template,
-}
+    template: template
+};

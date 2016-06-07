@@ -1,5 +1,5 @@
 import ko from 'knockout';
-import { isObject, isString, isDefined } from 'utils';
+import { isObject, isString } from 'utils';
 
 const delay = 350;
 
@@ -24,11 +24,11 @@ function normalizeParams(params) {
                 };
 
             } else {
-                
+
                 return {
                     text: naked && naked.toString(),
                     align: 'center'
-                }
+                };
             }
         }
     );
@@ -44,14 +44,14 @@ function position(tooltip, target, align) {
 }
 
 export default {
-    init: function(target, valueAccessor, allBindings, viewModel, bindingContext) {
+    init: function(target, valueAccessor) {
         let params = normalizeParams(valueAccessor());
         let handle = -1;
         let tooltip = document.createElement('p');
 
         ko.utils.registerEventHandler(
             target,
-            'mouseenter', 
+            'mouseenter',
             () => {
                 handle = setTimeout(
                     () => {
@@ -64,15 +64,15 @@ export default {
                         }
                     },
                     delay
-                )
+                );
             }
         );
 
         ko.utils.registerEventHandler(
             target,
-            'mouseleave', 
-            () => handle > -1 ? 
-                clearTimeout(handle) : 
+            'mouseleave',
+            () => handle > -1 ?
+                clearTimeout(handle) :
                 tooltip.parentElement && document.body.removeChild(tooltip)
         );
 
@@ -85,4 +85,4 @@ export default {
             }
         );
     }
-}
+};

@@ -57,4 +57,4 @@ class SignInFormViewModel {
 export default {
     viewModel: SignInFormViewModel,
     template: template
-}
+};

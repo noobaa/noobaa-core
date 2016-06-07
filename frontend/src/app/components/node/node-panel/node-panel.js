@@ -9,7 +9,7 @@ class NodePanelViewModel {
 
         this.ready = ko.pureComputed(
             () => !!this.node()
-        );        
+        );
 
         this.selectedTab = ko.pureComputed(
             () => uiState().tab
@@ -23,5 +23,5 @@ class NodePanelViewModel {
 
 export default {
     viewModel: NodePanelViewModel,
-    template: template 
-}
+    template: template
+};

@@ -1,6 +1,6 @@
 import template from './create-bucket-wizard.html';
-import chooseNameStepTemplate from './choose-name-step.html'
-import setPolicyStepTemplate from './set-policy-step.html'
+import chooseNameStepTemplate from './choose-name-step.html';
+import setPolicyStepTemplate from './set-policy-step.html';
 import ko from 'knockout';
 import nameValidationRules from 'name-validation-rules';
 import { poolList, bucketList } from 'model';
@@ -18,8 +18,8 @@ class CreateBucketWizardViewModel {
         );
 
         this.bucketName = ko.observable()
-            .extend({ 
-                validation: nameValidationRules('bucket', existingBucketNames) 
+            .extend({
+                validation: nameValidationRules('bucket', existingBucketNames)
             });
 
         this.dataPlacement = ko.observable('SPREAD');
@@ -29,8 +29,8 @@ class CreateBucketWizardViewModel {
         );
 
         this.selectedPools = ko.observableArray([ defaultPoolName ])
-            .extend({ 
-                required: { message: 'Please select at least one pool for the policy' } 
+            .extend({
+                required: { message: 'Please select at least one pool for the policy' }
             });
 
         this.chooseNameErrors = ko.validation.group([
@@ -46,14 +46,14 @@ class CreateBucketWizardViewModel {
 
     validateStep(step) {
         switch (step) {
-            case 1: 
+            case 1:
                 if (this.chooseNameErrors().length > 0) {
                     this.chooseNameErrors.showAllMessages();
                     return false;
                 }
                 break;
 
-            case 2: 
+            case 2:
                 if (this.setPolicyErrors().length > 0) {
                     this.setPolicyErrors.showAllMessages();
                     return false;

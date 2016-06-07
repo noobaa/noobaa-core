@@ -1,4 +1,4 @@
-import template from './commands-bar.html'; 
+import template from './commands-bar.html';
 import ko from 'knockout';
 import { uiState } from 'model';
 import { refresh, signOut, openDrawer, closeDrawer } from 'actions';
@@ -7,7 +7,7 @@ class CommandBarViewModel {
     constructor() {
         this.isDrawerOpen = ko.pureComputed(
             () => !!uiState().drawer
-        )
+        );
     }
 
     refresh() {
@@ -20,10 +20,10 @@ class CommandBarViewModel {
 
     signOut() {
         signOut();
-    }    
+    }
 }
 
-export default { 
+export default {
     viewModel: CommandBarViewModel,
     template: template
-}
+};

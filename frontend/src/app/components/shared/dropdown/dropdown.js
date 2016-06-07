@@ -1,4 +1,4 @@
-import template from "./dropdown.html";
+import template from './dropdown.html';
 import { randomString } from 'utils';
 import ko from 'knockout';
 import { isDefined } from 'utils';
@@ -10,10 +10,10 @@ function matchByPrefix({ label }, input) {
 }
 
 class DropdownViewModel {
-    constructor({ 
-        selected = ko.observable(), 
-        options = [], 
-        placeholder = '', 
+    constructor({
+        selected = ko.observable(),
+        options = [],
+        placeholder = '',
         disabled = false,
         matchOperator = matchByPrefix
     }) {
@@ -37,13 +37,11 @@ class DropdownViewModel {
 
         this.selectedLabel = ko.pureComputed(
             () => {
-                let selectedOpt = isDefined(selected()) ? ko.unwrap(options).find( 
+                let selectedOpt = isDefined(selected()) ? ko.unwrap(options).find(
                     opt => !!opt && opt.value === this.selected()
                 ) : null;
 
-                return !!selectedOpt ? 
-                    (selectedOpt.label || selectedOpt.value) :
-                    placeholder;
+                return selectedOpt ? (selectedOpt.label || selectedOpt.value) : placeholder;
             }
         );
 
@@ -58,7 +56,6 @@ class DropdownViewModel {
             case 13: /* enter */
                 this.searchInput = '';
                 this.active(false);
-
                 break;
 
             case 38: /* up arrow */
@@ -68,7 +65,7 @@ class DropdownViewModel {
 
             case 40: /* down arrow */
                 this.active(true);
-                this.selectNextOption()
+                this.selectNextOption();
                 break;
 
             default:
@@ -83,7 +80,7 @@ class DropdownViewModel {
         let options = ko.unwrap(this.options);
         let prev = options[Math.max(this.selectedIndex() - 1, 0)];
         this.selected(prev.value);
-        this.searchInput = ''; 
+        this.searchInput = '';
     }
 
     selectNextOption() {
@@ -96,7 +93,7 @@ class DropdownViewModel {
     sreachBy(keyCode) {
         let char = String.fromCharCode(keyCode).toLowerCase();
         this.searchInput = Date.now() - this.lastInput <= INPUT_THROTTLE ?
-            this.searchInput + char : 
+            this.searchInput + char :
             char;
 
         let option = ko.unwrap(this.options).find(
@@ -114,4 +111,4 @@ class DropdownViewModel {
 export default {
     viewModel: DropdownViewModel,
     template: template
-}
+};

@@ -17,4 +17,4 @@ class MainLayoutViewModel {
 export default {
     viewModel: MainLayoutViewModel,
     template: template
-}
+};

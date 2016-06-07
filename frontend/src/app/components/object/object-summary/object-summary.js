@@ -35,7 +35,7 @@ class ObjectSummaryViewModel {
         );
 
         this.sizeIcon = ko.pureComputed(
-            () => `/fe/assets/icons.svg#object-size`
+            () => '/fe/assets/icons.svg#object-size'
         );
 
         this.isPreviewModalVisible = ko.observable(false);
@@ -45,4 +45,4 @@ class ObjectSummaryViewModel {
 export default {
     viewModel: ObjectSummaryViewModel,
     template: template
-}
+};

@@ -1,7 +1,6 @@
 import template from './node-details-form.html';
 import ko from 'knockout';
 import moment from 'moment';
-import style from 'style';
 import { formatSize, avgOp } from 'utils';
 
 const conactivityTypeMapping = Object.freeze({
@@ -14,7 +13,7 @@ class NodeInfoViewModel {
     constructor({ node  }) {
         this.dataReady = ko.pureComputed(
             () => !!node()
-        )
+        );
 
         this.version = ko.pureComputed(
             () => node().version
@@ -31,7 +30,7 @@ class NodeInfoViewModel {
         this.p2pConactivityType = ko.pureComputed(
             () => conactivityTypeMapping[node().connectivity_type]
         );
-        
+
         this.RTT = ko.pureComputed(
             () => node() && `${
                 node().latency_to_server.reduce(avgOp).toFixed(1)
@@ -68,7 +67,7 @@ class NodeInfoViewModel {
 
         this.blockDevice = ko.pureComputed(
             () => node().drives[0].drive_id
-        );        
+        );
 
         this.diskRead = ko.pureComputed(
             () => {
@@ -77,7 +76,7 @@ class NodeInfoViewModel {
                     .toFixed(1);
 
                 return avg === 0 ? 'N/A' : `${avg} ms`;
-            } 
+            }
         );
 
         this.diskWrite = ko.pureComputed(
@@ -86,7 +85,7 @@ class NodeInfoViewModel {
                     .reduce(avgOp, 0)
                     .toFixed(1);
 
-                return avg === 0 ? 'N/A' : `${avg} ms`
+                return avg === 0 ? 'N/A' : `${avg} ms`;
             }
         );
     }
@@ -99,4 +98,4 @@ class NodeInfoViewModel {
 export default {
     viewModel: NodeInfoViewModel,
     template: template
-}
+};

@@ -3,16 +3,16 @@ import ko from 'knockout';
 import { S3Connections, S3BucketList } from 'model';
 import { loadS3Connections, loadS3BucketList, setCloudSyncPolicy } from 'actions';
 
-const [MIN, HOUR, DAY] = [1, 60, 60 * 24];
+const [ MIN, HOUR, DAY ] = [ 1, 60, 60 * 24 ];
 const frequencyUnitOptions = Object.freeze([
     {
         value: MIN,
         label: 'Minutes'
-    }, 
+    },
     {
         value: HOUR,
         label: 'Hours'
-    }, 
+    },
     {
         value: DAY,
         label: 'Days'
@@ -49,22 +49,22 @@ class CloudSyncModalViewModel {
                 addConnectionOption,
                 null,
                 ...S3Connections().map(
-                    connection => ({ 
-                        label: connection.name || connection.access_key, 
+                    connection => ({
+                        label: connection.name || connection.access_key,
                         value: connection
-                     })
+                    })
                 )
             ]
         );
 
-        let connectionStorage = ko.observable()
+        let connectionStorage = ko.observable();
         this.connection = ko.pureComputed({
             read: connectionStorage,
             write: val => {
                 if (val !== addConnectionOption.value) {
                     connectionStorage(val);
                 } else {
-                    connectionStorage(connectionStorage() || null)
+                    connectionStorage(connectionStorage() || null);
                     this.isAWSCredentialsModalVisible(true);
                 }
             }
@@ -75,8 +75,8 @@ class CloudSyncModalViewModel {
 
         this.connectionSub = this.connection.subscribe(
             value => {
-                this.targetBucket(null)
-                value => value && this.loadBucketsList();
+                this.targetBucket(null);
+                value && this.loadBucketsList();
             }
         );
 
@@ -160,4 +160,4 @@ class CloudSyncModalViewModel {
 export default {
     viewModel: CloudSyncModalViewModel,
     template: template
-}
+};

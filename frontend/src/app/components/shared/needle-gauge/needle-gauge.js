@@ -45,7 +45,7 @@ class NeedleGaugeViewModel {
         );
     }
 
-    draw(ctx, { width, height }) {
+    draw(ctx) {
         ctx.translate(radius, radius);
         ctx.clearRect(-radius, -radius, radius * 2, radius * 2);
 
@@ -57,7 +57,7 @@ class NeedleGaugeViewModel {
 
     _drawOutline(ctx)  {
         ctx.strokeStyle = outlineColor;
-        
+
         ctx.beginPath();
         ctx.lineWidth = lineWidth;
         ctx.arc(0, 0, radius - (lineWidth/2|0), this._toAngle(0), this._toAngle(1));
@@ -71,30 +71,30 @@ class NeedleGaugeViewModel {
         ctx.strokeStyle = overflowOutlineColor;
         ctx.beginPath();
         ctx.lineWidth = lineWidth;
-        ctx.arc(0, 0, radius - (lineWidth/2|0), this._toAngle(ratio), 
+        ctx.arc(0, 0, radius - (lineWidth/2|0), this._toAngle(ratio),
                 this._toAngle(1));
         ctx.stroke();
         ctx.closePath();
 
-        ctx.strokeStyle = overflowBarColor;        
-        ctx.beginPath()
+        ctx.strokeStyle = overflowBarColor;
+        ctx.beginPath();
         ctx.lineWidth = overflowWidth;
-        ctx.arc(0, 0, radius - (lineWidth + overflowMargin + overflowWidth / 2 | 0), 
+        ctx.arc(0, 0, radius - (lineWidth + overflowMargin + overflowWidth / 2 | 0),
             this._toAngle(ratio), this._toAngle(1));
-        ctx.stroke();        
-        ctx.closePath();    
+        ctx.stroke();
+        ctx.closePath();
 
     }
 
     _drawNeedle(ctx, value) {
         ctx.save();
-        
+
         ctx.strokeStyle = needleColor;
-        
-        ctx.beginPath()
+
+        ctx.beginPath();
         ctx.lineWidth = overflowWidth;
         ctx.arc(0, 0, needleBaseRadius, 0, 2 * Math.PI);
-        ctx.stroke();        
+        ctx.stroke();
         ctx.closePath();
 
         ctx.beginPath();
@@ -127,4 +127,4 @@ class NeedleGaugeViewModel {
 export default {
     viewModel: NeedleGaugeViewModel,
     template: template
-}
+};

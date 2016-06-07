@@ -22,7 +22,7 @@ class BreadcrumbsViewModel {
     }
 }
 
-export default { 
+export default {
     viewModel: BreadcrumbsViewModel,
     template: template
-}
+};

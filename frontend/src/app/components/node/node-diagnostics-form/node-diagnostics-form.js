@@ -34,11 +34,11 @@ class NodeDiagnosticsFormViewModel {
         );
 
         this.isTestNodeModalVisible = ko.observable(false);
-    }    
+    }
 
     toggleDebugLevel() {
         let level = this.debugLevel() === 0 ? 5 : 0;
-        setNodeDebugLevel(this.nodeName(), level)
+        setNodeDebugLevel(this.nodeName(), level);
     }
 
 
@@ -58,4 +58,4 @@ class NodeDiagnosticsFormViewModel {
 export default {
     viewModel: NodeDiagnosticsFormViewModel,
     template: template
-}
+};

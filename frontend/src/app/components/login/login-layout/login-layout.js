@@ -16,4 +16,4 @@ class LoginLayoutViewModel {
 export default {
     viewModel: LoginLayoutViewModel,
     template: template
-}
+};

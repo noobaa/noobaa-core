@@ -7,7 +7,7 @@ class PaginatorViewModel {
 
         this.count = ko.pureComputed(
             () => ko.unwrap(itemCount)
-        );    
+        );
 
         this.noResults = ko.pureComputed(
             () => this.count() === 0
@@ -27,15 +27,15 @@ class PaginatorViewModel {
 
         this.isLastPage = ko.pureComputed(
             () => (this.page() + 1) * pageSize >= this.count()
-        );        
+        );
 
-        this.icon = `/fe/assets/icons.svg#chevron`;
+        this.icon = '/fe/assets/icons.svg#chevron';
     }
 
     pageForward() {
         if (!this.isLastPage()) {
             this.page(this.page() + 1);
-        } 
+        }
     }
 
     pageBackward() {
@@ -48,4 +48,4 @@ class PaginatorViewModel {
 export default {
     viewModel: PaginatorViewModel,
     template: template
-}
+};

@@ -11,9 +11,9 @@ const scrollThrottle = 750;
 class AuditPaneViewModel {
     constructor() {
         this.categories = Object.keys(categories).map(
-            key => ({ 
-                value: key, 
-                label: categories[key].displayName 
+            key => ({
+                value: key,
+                label: categories[key].displayName
             })
         );
 
@@ -32,10 +32,10 @@ class AuditPaneViewModel {
         this.selectedRow = ko.observable();
 
         this.scroll = ko.observable()
-            .extend({ 
-                rateLimit: { 
-                    method: 'notifyWhenChangesStop', 
-                    timeout: scrollThrottle 
+            .extend({
+                rateLimit: {
+                    method: 'notifyWhenChangesStop',
+                    timeout: scrollThrottle
                 }
             });
 
@@ -46,8 +46,8 @@ class AuditPaneViewModel {
         this.description = ko.pureComputed(
             () => this.selectedRow() ? this.selectedRow().description : []
         );
-        
-        this.selectedCategories(Object.keys(categories))
+
+        this.selectedCategories(Object.keys(categories));
     }
 
     isRowSelected(row) {
@@ -65,15 +65,15 @@ class AuditPaneViewModel {
     }
 
     exportToCSV() {
-        exportAuditEnteries(this.selectedCategories())
+        exportAuditEnteries(this.selectedCategories());
     }
 
     closeDrawer() {
-        closeDrawer()
+        closeDrawer();
     }
 }
 
 export default {
     viewModel: AuditPaneViewModel,
     template: template
-}
+};

@@ -16,7 +16,7 @@ class DiagnosticsFormViewModel {
                     return 'N/A';
                 }
 
-                return this.debugLevel() > 0 ? 'High' : 'Low'; 
+                return this.debugLevel() > 0 ? 'High' : 'Low';
             }
         );
 
@@ -31,10 +31,10 @@ class DiagnosticsFormViewModel {
 
     downloadDiagnosticPack() {
         downloadSystemDiagnosticPack();
-    }    
+    }
 }
 
 export default {
     viewModel: DiagnosticsFormViewModel,
     template: template
-}
+};

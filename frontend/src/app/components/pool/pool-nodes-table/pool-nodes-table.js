@@ -81,7 +81,7 @@ class PoolNodesTableViewModel {
         this.activityOptions = activityOptions;
         this.activityFilter = ko.observable(null);
 
-    
+
         this.isAssignNodeModalVisible = ko.observable(false);
     }
 
@@ -109,7 +109,7 @@ class PoolNodesTableViewModel {
             order: this.order(),
             page: 0
         });
-    }    
+    }
 
     orderBy(colName) {
         redirectTo(undefined, {
@@ -123,11 +123,11 @@ class PoolNodesTableViewModel {
     orderClassFor(colName) {
         if (this.sortedBy() === colName) {
             return this.order() === 1 ? 'des' : 'asc';
-        } 
-    }        
+        }
+    }
 }
 
 export default {
     viewModel: PoolNodesTableViewModel,
-    template: template,
-}
+    template: template
+};

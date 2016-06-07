@@ -4,11 +4,11 @@ import numeral from 'numeral';
 const partStateMapping = Object.freeze({
     available: {
         toolTip: 'available',
-        icon: '/fe/assets/icons.svg#part-available',
+        icon: '/fe/assets/icons.svg#part-available'
     },
     building: {
         toolTip: 'in process',
-        icon: '/fe/assets/icons.svg#part-in-process',
+        icon: '/fe/assets/icons.svg#part-in-process'
     },
     unavailable: {
         toolTip: 'unavailable',

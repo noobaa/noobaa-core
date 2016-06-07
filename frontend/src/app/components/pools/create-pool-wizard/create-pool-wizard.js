@@ -1,7 +1,7 @@
 import template from './create-pool-wizard.html';
 import chooseNameStepTemplate from './choose-name-step.html';
 import assignNodesStepTemplate from './assign-nodes-step.html';
-import ko from 'knockout'; 
+import ko from 'knockout';
 import nameValidationRules from 'name-validation-rules';
 import NodeRowViewModel from './node-row';
 import { makeArray } from 'utils';
@@ -20,12 +20,12 @@ class CreatePoolWizardViewModel {
         );
 
         this.poolName = ko.observable()
-            .extend({ 
-                validation: nameValidationRules('pool', existingPoolNames) 
+            .extend({
+                validation: nameValidationRules('pool', existingPoolNames)
             });
 
         this.rows = makeArray(
-            500, 
+            500,
             i => new NodeRowViewModel(() => nodeList()[i])
         );
 
@@ -50,14 +50,14 @@ class CreatePoolWizardViewModel {
 
     validateStep(step) {
         switch (step) {
-            case 1: 
+            case 1:
                 if (this.chooseNameErrors().length > 0) {
                     this.chooseNameErrors.showAllMessages();
                     return false;
                 }
                 break;
 
-            case 2: 
+            case 2:
                 if (this.assignNodesErrors().length > 0) {
                     this.assignNodesErrors.showAllMessages();
                     return false;
@@ -76,4 +76,4 @@ class CreatePoolWizardViewModel {
 export default {
     viewModel: CreatePoolWizardViewModel,
     template: template
-}
+};

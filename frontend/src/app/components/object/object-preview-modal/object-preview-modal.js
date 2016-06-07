@@ -14,4 +14,4 @@ class ObjectPreviewModalViewModel {
 export default {
     viewModel: ObjectPreviewModalViewModel,
     template: template
-}
+};

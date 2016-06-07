@@ -68,4 +68,4 @@ class MaintenanceFormViewModel {
 export default {
     viewModel: MaintenanceFormViewModel,
     template: template
-}
+};

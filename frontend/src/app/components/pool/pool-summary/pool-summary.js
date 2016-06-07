@@ -9,7 +9,7 @@ const activityLabelMapping = Object.freeze({
     EVACUATING: 'Evacuating',
     REBUILDING: 'Rebuilding',
     MIGRATING: 'Migrating'
-})
+});
 
 function mapActivity({ type, node_count, completed_size, total_size, eta }) {
     return {
@@ -51,11 +51,11 @@ class PoolSummaryViewModel {
 
         this.usedText = ko.pureComputed(
             () => formatSize(this.used())
-        );        
+        );
 
         this.free = ko.pureComputed(
             () => pool().storage.free
-        );        
+        );
 
         this.freeText = ko.pureComputed(
             () => formatSize(this.free())
@@ -63,7 +63,7 @@ class PoolSummaryViewModel {
 
         this.gaugeValues = [
             { value: this.used, color: style['text-color6'], emphasize: true },
-            { value: this.free, color: style['text-color4'], emphasize: false },
+            { value: this.free, color: style['text-color4'], emphasize: false }
         ];
 
         this.stateText = ko.pureComputed(
@@ -128,4 +128,4 @@ class PoolSummaryViewModel {
 export default {
     viewModel: PoolSummaryViewModel,
     template: template
-}
+};

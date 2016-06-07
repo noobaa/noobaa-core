@@ -90,17 +90,17 @@ export default function register(ko) {
 
         isDNSName: {
             validator: isDNSName,
-            message: 'Please provide a valid DNS name'
+            message: 'Please enter a valid DNS name'
         },
 
         isIP: {
             validator: isIP,
-            message: 'Please provide a valid IP'
+            message: 'Please enter a valid IP'
         },
 
         isIPOrDNSName: {
           validator: isIPOrDNSName,
-          message: 'Please provide a valid IP or DNS name'
+          message: 'Please enter a valid IP or DNS name'
         },
 
         isURI:{

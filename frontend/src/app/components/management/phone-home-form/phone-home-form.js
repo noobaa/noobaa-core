@@ -40,7 +40,7 @@ class PhoneHomeFormViewModel {
                 isIPOrDNSName: true
             });
 
-        let portValMessage = 'Please provide a port number between 1 and 65535';
+        let portValMessage = 'Please enter a port number between 1 and 65535';
         this.proxyPort = ko.observableWithDefault(
             () => {
                 let addr = this.proxyAddress();

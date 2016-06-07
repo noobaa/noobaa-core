@@ -1,7 +1,8 @@
 noobaa-core
 ===========
 
-[![Build Status](http://146.148.16.59:8080/buildStatus/icon?job=MDserver)](http://146.148.16.59:8080/job/MDserver/)
+MDServer [![Build Status](http://146.148.16.59:8080/buildStatus/icon?job=MDserver)](http://146.148.16.59:8080/job/MDserver/)
+Die [![Build Status](http://146.148.16.59:8080/buildStatus/icon?job=die)](http://146.148.16.59:8080/job/die/)
 
 ###Utils Table of Contents:
 

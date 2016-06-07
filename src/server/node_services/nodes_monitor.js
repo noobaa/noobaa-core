@@ -38,7 +38,7 @@ const UPDATE_STORE_MIN_ITEMS = 100;
 const NODE_REBUILD_WORKERS = 10;
 const REBUILD_CLIFF = 0; // 3 * 60000
 
-const AGENT_INFO_FIELDS_PICK = [
+const AGENT_INFO_FIELDS = [
     'name',
     'version',
     'ip',
@@ -51,14 +51,22 @@ const AGENT_INFO_FIELDS_PICK = [
     'debug_level',
     'is_internal_agent'
 ];
-const NODE_INFO_PICK_FIELDS = [
+const MONITOR_INFO_FIELDS = [
+    'online',
+    'readable',
+    'writable',
+    'trusted',
+    'n2n_connectivity',
+    'connectivity',
+    'storage_full',
+];
+const NODE_INFO_FIELDS = [
     'name',
     'geolocation',
     'ip',
     'rpc_address',
     'base_address',
     'version',
-    'trusted',
     'migrating_to_pool',
     'decommissioning',
     'decommissioned',
@@ -68,7 +76,7 @@ const NODE_INFO_PICK_FIELDS = [
     'latency_of_disk_write',
     'debug_level',
 ];
-const NODE_INFO_DEFAULT_FIELDS = {
+const NODE_INFO_DEFAULTS = {
     ip: '0.0.0.0',
     version: '',
     peer_id: '',
@@ -228,6 +236,7 @@ class NodesMonitor extends EventEmitter {
 
     _run() {
         if (!this._started) return;
+        dbg.log0('_run:', this._map_node_id.size, 'nodes in queue');
         let next = 0;
         const queue = Array.from(this._map_node_id.values());
         const concur = Math.min(queue.length, RUN_NODE_CONCUR);
@@ -242,6 +251,7 @@ class NodesMonitor extends EventEmitter {
 
     _run_node(item) {
         if (!this._started) return;
+        dbg.log0('_run_node:', item.node.name);
         // TODO schedule run for node should re-run if requested during run
         item.run_promise = item.run_promise || P.resolve()
             .then(() => this._get_agent_info(item))
@@ -251,7 +261,7 @@ class NodesMonitor extends EventEmitter {
             .then(() => this._update_status(item))
             .then(() => this._update_nodes_store())
             .catch(err => {
-                dbg.warn('_run_node ERROR', err.stack || err, 'node', item.node);
+                dbg.warn('_run_node: ERROR', err.stack || err, 'node', item.node);
             })
             .finally(() => {
                 item.run_promise = null;
@@ -261,6 +271,7 @@ class NodesMonitor extends EventEmitter {
 
     _get_agent_info(item) {
         if (!item.connection) return;
+        dbg.log0('_get_agent_info:', item.node.name);
         return this.client.agent.get_agent_info(undefined, {
                 connection: item.connection
             })
@@ -270,7 +281,7 @@ class NodesMonitor extends EventEmitter {
                     this._map_node_name.delete(String(item.node.name));
                     this._map_node_name.set(String(info.name), item);
                 }
-                const updates = _.pick(info, AGENT_INFO_FIELDS_PICK);
+                const updates = _.pick(info, AGENT_INFO_FIELDS);
                 updates.heartbeat = new Date();
                 _.extend(item.node, updates);
                 this._set_need_update.add(item);
@@ -302,7 +313,7 @@ class NodesMonitor extends EventEmitter {
         }
         // skip the update when no changes detected
         if (_.isEmpty(rpc_config)) return;
-        dbg.log0('rpc_config', rpc_config);
+        dbg.log0('_update_rpc_config:', item.node.name, rpc_config);
         return this.client.agent.update_rpc_config(rpc_config, {
                 connection: item.connection
             })
@@ -315,6 +326,7 @@ class NodesMonitor extends EventEmitter {
     _test_store_perf(item) {
         if (!item.connection) return;
         // TODO check how much time passed since last test
+        dbg.log0('_test_store_perf:', item.node.name);
         return this.client.agent.test_store_perf({
                 count: 5
             }, {
@@ -336,57 +348,6 @@ class NodesMonitor extends EventEmitter {
         this._set_need_update.add(item);
         item.node.latency_to_server = js_utils.array_push_keep_latest(
             item.node.latency_to_server, [0], MAX_NUM_LATENCIES);
-    }
-
-    _update_status(item) {
-        if (!item.node.connectivity_type) {
-            item.node.connectivity_type = 'UNKNOWN';
-            this._set_need_update.add(item);
-        }
-
-        item.readable = Boolean(
-            item.connection &&
-            (true || item.node.trusted));
-        item.writable = Boolean(
-            item.connection &&
-            (true || item.node.trusted) &&
-            !item.node.decommissioning &&
-            !item.node.disabled &&
-            (!item.node.storage.limit || item.node.storage.used < item.node.storage.limit) &&
-            (item.node.storage.free > config.NODES_FREE_SPACE_RESERVE));
-
-        item.need_rebuilding =
-            (!item.readable || !item.writable) &&
-            !item.node.decommissioned;
-
-        if (item.rebuilding && !item.need_rebuilding) {
-            dbg.warn('unset node rebuild for', item.node.name);
-            item.rebuiding = null;
-            this._set_need_rebuild.delete(item);
-        } else if (!item.rebuilding && item.need_rebuilding) {
-            if (system_server_utils.system_in_maintenance(item.node.system)) {
-                dbg.warn('delay node rebuild while system in maintenance', item.node.name);
-            } else {
-                const time_left = REBUILD_CLIFF - (Date.now() - item.node.heartbeat.getTime());
-                if (time_left > 0) {
-                    dbg.warn('schedule node rebuild for', item.node.name,
-                        'in', time_left, 'ms');
-                    clearTimeout(item.rebuild_timout);
-                    item.rebuild_timout = setTimeout(() =>
-                        this._run_node(item), time_left).unref();
-                } else {
-                    dbg.warn('set node rebuild for', item.node.name);
-                    item.rebuilding = {
-                        completed_size: 0,
-                        remaining_size: -1,
-                        start_time: Date.now(),
-                        remaining_time: -1
-                    };
-                    this._set_need_rebuild.add(item);
-                    this._wakeup_rebuild();
-                }
-            }
-        }
     }
 
     _update_nodes_store(force) {
@@ -450,6 +411,76 @@ class NodesMonitor extends EventEmitter {
             });
     }
 
+
+    _update_status(item) {
+        // TODO update the node status fields for real
+        dbg.log0('_update_status:', item.node.name);
+        item.trusted = true;
+        item.n2n_connectivity = true;
+        item.connectivity = 'TCP';
+
+        item.online = Boolean(item.connection);
+
+        item.storage_full =
+            item.node.storage.limit ?
+            (item.node.storage.used >= item.node.storage.limit) :
+            (item.node.storage.free <= config.NODES_FREE_SPACE_RESERVE);
+
+        item.readable = Boolean(
+            item.online &&
+            item.trusted);
+
+        item.writable = Boolean(
+            item.online &&
+            item.trusted &&
+            !item.storage_full &&
+            !item.node.decommissioning &&
+            !item.node.disabled);
+
+        item.accessibility =
+            (item.readable && item.writable && 'FULL_ACCESS') ||
+            (item.readable && 'READ_ONLY') ||
+            'NO_ACCESS';
+
+        item.data_activity_reason =
+            (item.node.decommissioning && !item.node.decommissioned && 'DECOMMISSIONING') ||
+            (item.node.migrating_to_pool && 'MIGRATING') ||
+            (!item.readable && 'RESTORING') ||
+            (!item.writable && 'FREEING_SPACE');
+
+        if (item.data_activity && !item.data_activity_reason) {
+            dbg.warn('_update_status: unset node data_activity for', item.node.name);
+            item.data_activity = null;
+            this._set_need_rebuild.delete(item);
+        } else if (!item.data_activity && item.data_activity_reason) {
+            if (system_server_utils.system_in_maintenance(item.node.system)) {
+                dbg.warn('_update_status: delay node data_activity',
+                    'while system in maintenance', item.node.name);
+            } else {
+                const time_left = REBUILD_CLIFF - (Date.now() - item.node.heartbeat.getTime());
+                if (time_left > 0) {
+                    dbg.warn('_update_status: schedule node data_activity for', item.node.name,
+                        'in', time_left, 'ms');
+                    clearTimeout(item.data_activity_timout);
+                    item.data_activity_timout =
+                        setTimeout(() => this._run_node(item), time_left).unref();
+                } else {
+                    dbg.warn('_update_status: set node data_activity for', item.node.name);
+                    item.data_activity = {
+                        reason: item.data_activity_reason,
+                        // stage: 'REBUILDING', // TODO
+                        start_time: Date.now(),
+                        completed_size: 0,
+                        remaining_size: -1,
+                        remaining_time: -1
+                    };
+                    this._set_need_rebuild.add(item);
+                    this._wakeup_rebuild();
+                }
+            }
+        }
+    }
+
     _wakeup_rebuild() {
         const count = Math.min(
             NODE_REBUILD_WORKERS,
@@ -482,22 +513,22 @@ class NodesMonitor extends EventEmitter {
 
     _rebuild_node(item) {
         if (!this._started) return;
-        if (!item.rebuilding) return;
-        const r = item.rebuilding;
-        if (r.running) return;
-        dbg.log0('_rebuild_node: start', item.node.name, r);
+        if (!item.data_activity) return;
+        const act = item.data_activity;
+        if (act.running) return;
+        dbg.log0('_rebuild_node: start', item.node.name, act);
         const blocks_query = {
             node: item.node._id,
             deleted: null
         };
-        if (r.last_block_id) {
+        if (act.last_block_id) {
             blocks_query._id = {
-                $lt: r.last_block_id
+                $lt: act.last_block_id
             };
         }
         let blocks;
         const batch_size = 500;
-        r.running = true;
+        act.running = true;
         return P.join(
                 md_store.DataBlock.collection.mapReduce(
                     mongo_functions.map_size,
@@ -518,10 +549,10 @@ class NodesMonitor extends EventEmitter {
                 }).toArray())
             .spread((remaining_size_res, blocks_res) => {
                 blocks = blocks_res;
-                r.remaining_size =
+                act.remaining_size =
                     remaining_size_res[0] &&
                     remaining_size_res[0].value || 0;
-                r.total_size = r.completed_size + r.remaining_size;
+                act.total_size = act.completed_size + act.remaining_size;
                 return md_store.DataChunk.collection.find({
                     _id: {
                         $in: mongo_utils.uniq_ids(blocks, 'chunk')
@@ -533,25 +564,25 @@ class NodesMonitor extends EventEmitter {
                 return builder.run();
             })
             .then(() => {
-                r.running = false;
+                act.running = false;
                 if (blocks.length === batch_size) {
-                    r.last_block_id = blocks[blocks.length - 1]._id;
-                    r.completed_size += _.sumBy(blocks, 'size');
-                    r.remaining_time = (Date.now() - r.start_time) *
-                        r.total_size / r.completed_size;
-                    dbg.log0('_rebuild_node: continue', item.node.name, r);
+                    act.last_block_id = blocks[blocks.length - 1]._id;
+                    act.completed_size += _.sumBy(blocks, 'size');
+                    act.remaining_time = (Date.now() - act.start_time) *
+                        act.total_size / act.completed_size;
+                    dbg.log0('_rebuild_node: continue', item.node.name, act);
                     this._set_need_rebuild.add(item);
                     this._wakeup_rebuild();
                 } else {
-                    r.last_block_id = undefined;
-                    r.remaining_size = 0;
-                    r.remaining_time = 0;
-                    r.done = true;
-                    dbg.log0('_rebuild_node: DONE', item.node.name, r);
+                    act.last_block_id = undefined;
+                    act.remaining_size = 0;
+                    act.remaining_time = 0;
+                    act.done = true;
+                    dbg.log0('_rebuild_node: DONE', item.node.name, act);
                 }
             })
             .catch(err => {
-                r.running = false;
+                act.running = false;
                 dbg.warn('_rebuild_node: ERROR', item.node.name, err.stack || err);
                 setTimeout(() => {
                     this._set_need_rebuild.add(item);
@@ -616,25 +647,30 @@ class NodesMonitor extends EventEmitter {
         // const minimum_online_heartbeat = nodes_store.get_minimum_online_heartbeat();
         const list = [];
         for (const item of this._map_node_id.values()) {
+            // update the status of every node we go over
+            this._update_status(item);
+
             if (query.system &&
                 query.system !== String(item.node.system)) continue;
             if (query.pools &&
                 !query.pools.has(String(item.node.pool))) continue;
-            if (query.name &&
-                !query.name.test(item.node.name) &&
-                !query.name.test(item.node.ip)) continue;
+            if (query.filter &&
+                !query.filter.test(item.node.name) &&
+                !query.filter.test(item.node.ip)) continue;
             if (query.geolocation &&
                 !query.geolocation.test(item.node.geolocation)) continue;
             if (query.skip_address &&
                 query.skip_address === item.node.rpc_address) continue;
+
             if ('online' in query &&
-                Boolean(query.online) !== Boolean(item.connection)) continue;
+                Boolean(query.online) !== Boolean(item.online)) continue;
             if ('readable' in query &&
                 Boolean(query.readable) !== Boolean(item.readable)) continue;
             if ('writable' in query &&
                 Boolean(query.writable) !== Boolean(item.writable)) continue;
             if ('trusted' in query &&
-                Boolean(query.trusted) !== Boolean(true || item.node.trusted)) continue;
+                Boolean(query.trusted) !== Boolean(item.trusted)) continue;
+
             if ('migrating_to_pool' in query &&
                 Boolean(query.migrating_to_pool) !== Boolean(item.node.migrating_to_pool)) continue;
             if ('decommissioning' in query &&
@@ -643,6 +679,14 @@ class NodesMonitor extends EventEmitter {
                 Boolean(query.decommissioned) !== Boolean(item.node.decommissioned)) continue;
             if ('disabled' in query &&
                 Boolean(query.disabled) !== Boolean(item.node.disabled)) continue;
+
+            if ('accessibility' in query &&
+                query.accessibility !== item.accessibility) continue;
+            if ('connectivity' in query &&
+                query.connectivity !== item.connectivity) continue;
+            if ('data_activity' in query &&
+                query.data_activity !== item.data_activity.reason) continue;
+
             console.log('list_nodes: adding node', item.node.name);
             list.push(item);
         }
@@ -653,6 +697,16 @@ class NodesMonitor extends EventEmitter {
             list.sort(js_utils.sort_compare_by(item => String(item.node.ip), options.order));
         } else if (options.sort === 'online') {
             list.sort(js_utils.sort_compare_by(item => Boolean(item.connection), options.order));
+        } else if (options.sort === 'trusted') {
+            list.sort(js_utils.sort_compare_by(item => Boolean(item.trusted), options.order));
+        } else if (options.sort === 'used') {
+            list.sort(js_utils.sort_compare_by(item => item.node.storage.used, options.order));
+        } else if (options.sort === 'accessibility') {
+            list.sort(js_utils.sort_compare_by(item => item.accessibility, options.order));
+        } else if (options.sort === 'connectivity') {
+            list.sort(js_utils.sort_compare_by(item => item.connectivity, options.order));
+        } else if (options.sort === 'data_activity') {
+            list.sort(js_utils.sort_compare_by(item => item.data_activity.reason, options.order));
         } else if (options.sort === 'shuffle') {
             chance.shuffle(list);
         }
@@ -673,27 +727,26 @@ class NodesMonitor extends EventEmitter {
 
     get_node_full_info(item) {
         const node = item.node;
-        const info = _.defaults(_.pick(node, NODE_INFO_PICK_FIELDS), NODE_INFO_DEFAULT_FIELDS);
+        const info = _.defaults(
+            _.pick(item, MONITOR_INFO_FIELDS),
+            _.pick(node, NODE_INFO_FIELDS),
+            NODE_INFO_DEFAULTS);
         info.id = String(node._id);
         info.peer_id = String(node.peer_id);
         info.pool = system_store.data.get_by_id(node.pool).name;
         info.heartbeat = node.heartbeat.getTime();
-        info.online = Boolean(item.connection);
-        info.trusted = true;
-        info.readable = Boolean(item.readable);
-        info.writable = Boolean(item.writable);
-        if (item.rebuilding) {
-            info.rebuilding = _.pick(item.rebuilding,
+        const act = item.data_activity;
+        if (act && !act.done) {
+            info.data_activity = _.pick(act,
+                'reason',
+                // 'stage',
+                // 'pending',
+                'start_time',
                 'completed_size',
                 'remaining_size',
-                'start_time',
                 'remaining_time');
         }
         info.storage = get_storage_info(node.storage);
-        if (node.storage.free <= config.NODES_FREE_SPACE_RESERVE &&
-            !(node.storage.limit && node.storage.free > 0)) {
-            info.storage_full = true;
-        }
         info.drives = _.map(node.drives, drive => {
             return {
                 mount: drive.mount,
@@ -732,6 +785,7 @@ class NodesMonitor extends EventEmitter {
 
     read_node_by_name(name) {
         const item = this._get_node_by_name(name, 'allow_offline');
+        this._update_status(item);
         return this.get_node_full_info(item);
     }
 

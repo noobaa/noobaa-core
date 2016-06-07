@@ -41,9 +41,9 @@ class ServerDNSFormViewModel {
             () => this.usingIP() ? this.ipAddress() : this.dnsName()
         );
 
-        this.errors = ko.validation.group({ 
-            dnsName: this.dnsName 
-        });
+        this.errors = ko.validation.group([
+            this.dnsName 
+        ]);
     }
 
     applyChanges() {

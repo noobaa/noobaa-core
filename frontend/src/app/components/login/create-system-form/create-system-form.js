@@ -38,13 +38,13 @@ class CreateSystemFormViewModel {
                 isDNSName: true 
             });
 
-        this.errors = ko.validation.group({
-            ownerEmail: this.ownerEmail,
-            ownerPassword: this.ownerPassword,
-            confirmPassword: this.confirmPassword,
-            systemName: this.systemName,
-            systemDNS: this.systemDNS
-        });
+        this.errors = ko.validation.group([
+            this.ownerEmail,
+            this.ownerPassword,
+            this.confirmPassword,
+            this.systemName,
+            this.systemDNS
+        ]);
 
         this.shake = ko.observable(false);
     }

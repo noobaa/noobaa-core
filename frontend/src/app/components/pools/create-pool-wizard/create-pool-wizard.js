@@ -37,13 +37,13 @@ class CreatePoolWizardViewModel {
                 }
             });
 
-        this.chooseNameErrors = ko.validation.group({
-            name: this.poolName
-        });
+        this.chooseNameErrors = ko.validation.group([
+            this.poolName
+        ]);
 
-        this.assignNodesErrors = ko.validation.group({
-            selectedNodes: this.selectedNodes
-        });
+        this.assignNodesErrors = ko.validation.group([
+            this.selectedNodes
+        ]);
 
         loadNodeList();
     }

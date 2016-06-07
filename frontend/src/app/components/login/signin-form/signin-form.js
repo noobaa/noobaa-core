@@ -28,7 +28,10 @@ class SignInFormViewModel {
 
         this.shake = ko.observable(false);
 
-        this.errors = ko.validation.group(this);
+        this.errors = ko.validation.group([
+            this.email,
+            this.password
+        ]);
 
         this.countSub = retryCount.subscribe(
             () => this.shake(true)

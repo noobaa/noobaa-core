@@ -140,15 +140,15 @@ class ServerTimeFormViewModel {
             1000
         );
 
-        this.manualErrors = ko.validation.group({
-            hour: this.hour,
-            minute: this.minute,
-            second: this.second,
-        });
+        this.manualErrors = ko.validation.group([
+            this.hour,
+            this.minute,
+            this.second,
+        ]);
 
-        this.ntpErrors = ko.validation.group({
-            ntpServer: this.ntpServer
-        });
+        this.ntpErrors = ko.validation.group([
+            this.ntpServer
+        ]);
 
         this.matchByTimezoneName = function({ label }, input) {
             return !!label.toLowerCase().match(

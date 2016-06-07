@@ -74,12 +74,12 @@ class AWSCredentialsModalViewModel {
                 isValid => isValid && this.save()
             );
 
-        this.errors = ko.validation.group({
-            name: this.name,
-            endpoint: this.endpoint,
-            accessKey: this.accessKey,
-            secretKey: this.secretKey,
-        });
+        this.errors = ko.validation.group([
+            this.name,
+            this.endpoint,
+            this.accessKey,
+            this.secretKey
+        ]);
     }
 
     tryConnection() {

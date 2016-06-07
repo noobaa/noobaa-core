@@ -69,16 +69,15 @@ class CloudSyncModalViewModel {
                 }
             }
         })
-        .extend({
-            required: { message: 'Please select a connection from the list' }
-        });
+            .extend({
+                required: { message: 'Please select a connection from the list' }
+            });
 
-        this.connection.subscribe(
-            () => this.targetBucket(null)
-        );
-
-        this.connection.subscribe(
-            value => value && this.loadBucketsList()
+        this.connectionSub = this.connection.subscribe(
+            value => {
+                this.targetBucket(null)
+                value => value && this.loadBucketsList();
+            }
         );
 
         this.targetBucketsOptions = ko.pureComputed(
@@ -93,12 +92,13 @@ class CloudSyncModalViewModel {
             }
         );
 
-        this.targetBucket = ko.observable().extend({
-            required: {
-                onlyIf: this.connection,
-                message: 'Please select a bucket from the list'
-            }
-        });
+        this.targetBucket = ko.observable()
+            .extend({
+                required: {
+                    onlyIf: this.connection,
+                    message: 'Please select a bucket from the list'
+                }
+            });
 
         this.direction = ko.observable('BI');
         this.directionOptions = directionOptions;
@@ -115,7 +115,10 @@ class CloudSyncModalViewModel {
 
         this.isAWSCredentialsModalVisible = ko.observable(false);
 
-        this.errors = ko.validation.group(this);
+        this.errors = ko.validation.group([
+            this.connection,
+            this.targetBucket
+        ]);
 
         loadS3Connections();
     }
@@ -147,6 +150,10 @@ class CloudSyncModalViewModel {
             );
             this.onClose();
         }
+    }
+
+    dispose() {
+        this.connectionSub.dispose();
     }
 }
 

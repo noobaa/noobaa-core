@@ -82,9 +82,9 @@ class CreateAccountWizardViewModel {
             )
         );
 
-        this.nameAndPermissionsErrors = ko.validation.group({
-            email: this.emailAddress
-        });
+        this.nameAndPermissionsErrors = ko.validation.group([
+            this.emailAddress
+        ]);
 
         loadBucketList();
     }

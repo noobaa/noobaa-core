@@ -33,13 +33,13 @@ class CreateBucketWizardViewModel {
                 required: { message: 'Please select at least one pool for the policy' } 
             });
 
-        this.chooseNameErrors = ko.validation.group({
-            name: this.bucketName
-        })
+        this.chooseNameErrors = ko.validation.group([
+            this.bucketName
+        ]);
 
-        this.setPolicyErrors = ko.validation.group({
-            selectedPools: this.selectedPools
-        })
+        this.setPolicyErrors = ko.validation.group([
+            this.selectedPools
+        ]);
 
         loadPoolList();
     }

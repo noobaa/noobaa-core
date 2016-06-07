@@ -37,8 +37,8 @@ function ping(req) {
 function list_nodes(req) {
     const query = req.rpc_params.query || {};
     query.system = String(req.system._id);
-    if (query.name) {
-        query.name = new RegExp(string_utils.escapeRegExp(query.name), 'i');
+    if (query.filter) {
+        query.filter = new RegExp(string_utils.escapeRegExp(query.filter), 'i');
     }
     if (query.geolocation) {
         query.geolocation = new RegExp(string_utils.escapeRegExp(query.geolocation), 'i');

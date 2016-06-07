@@ -627,7 +627,7 @@ export function loadPoolNodeList(poolName, filter, sortBy, order, page) {
     api.node.list_nodes({
         query: {
             pools: [ poolName ],
-            name: filter
+            filter: filter
         },
         sort: sortBy,
         order: order,

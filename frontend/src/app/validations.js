@@ -1,13 +1,5 @@
 import { isFunction, isDefined } from 'utils';
 
-function requiredEx(value, condition) {
-    let isRequired = !!(isFunction(condition) ? condition() : condition);
-
-    return isRequired ?
-        isDefined(value) && value !== null && value.length !== 0 :
-        true;
-}
-
 function notIn(value, params) {
     params = ko.unwrap(params);
     if (params instanceof Array) {
@@ -86,12 +78,6 @@ function isURI(value) {
 
 export default function register(ko) {
     Object.assign(ko.validation.rules, {
-        // Extend required validator to support expressions.
-        required: {
-            validator: requiredEx,
-            message: ko.validation.rules.required.message
-        },
-
         notIn: {
             validator: notIn,
             message: 'Value already exists'

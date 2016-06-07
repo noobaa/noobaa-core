@@ -34,7 +34,7 @@ class PhoneHomeFormViewModel {
         )
             .extend({
                 required: {
-                    params: this.usingProxy,
+                    onlyIf: this.usingProxy,
                     message: 'Please enter an IP or DNS name' 
                 },
                 isIPOrDNSName: true
@@ -48,7 +48,7 @@ class PhoneHomeFormViewModel {
             }
         )
             .extend({
-                required: { params: this.usingProxy, message: portValMessage },
+                required: { onlyIf: this.usingProxy, message: portValMessage },
                 min: { params: 1, message: portValMessage },
                 max: { params: 65535, message: portValMessage }
             });

@@ -29,7 +29,9 @@ class CreateBucketWizardViewModel {
         );
 
         this.selectedPools = ko.observableArray([ defaultPoolName ])
-            .extend({ required: { message: 'Please select at least one pool for the policy' } });
+            .extend({ 
+                required: { message: 'Please select at least one pool for the policy' } 
+            });
 
         this.chooseNameErrors = ko.validation.group({
             name: this.bucketName

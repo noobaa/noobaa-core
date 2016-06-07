@@ -31,7 +31,7 @@ class ServerDNSFormViewModel {
         )
             .extend({ 
                 required: {
-                    params: this.usingDNS,
+                    onlyIf: this.usingDNS,
                     message: 'Please enter a DNS Name'
                 },
                 isDNSName: true 

@@ -95,7 +95,7 @@ class CloudSyncModalViewModel {
 
         this.targetBucket = ko.observable().extend({
             required: {
-                params: this.connection,
+                onlyIf: this.connection,
                 message: 'Please select a bucket from the list'
             }
         });

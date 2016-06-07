@@ -181,7 +181,7 @@ TestRunner.prototype.run_tests = function() {
             return;
         })
         .fail(function(error) {
-            fs.appendFileSync(REPORT_PATH, 'Stopping tests\n', error);
+            fs.appendFileSync(REPORT_PATH, 'Stopping tests with error\n', error);
             return;
         });
 };
@@ -224,10 +224,10 @@ TestRunner.prototype._run_current_step = function(current_step, step_res) {
         var ts = new Date();
         return P.invoke(self, current_step.common)
             .then(function() {
-                return step_res + ' - Successeful ( took ' +
+                return step_res + ' - Successeful common step ( took ' +
                     ((new Date() - ts) / 1000) + 's )';
                 //return step_res;
-            });
+            }).fail();
     } else if (current_step.action) {
         return self._run_action(current_step, step_res);
     } else if (current_step.lib_test) {
@@ -257,7 +257,7 @@ TestRunner.prototype._run_action = function(current_step, step_res) {
 
     return promise_utils.promised_spawn(command, args)
         .then(function(res) {
-            step_res = '        ' + step_res + ' - Successeful ( took ' +
+            step_res = '        ' + step_res + ' - Successeful running action  ( took ' +
                 ((new Date() - ts) / 1000) + 's )';
             return step_res;
         })

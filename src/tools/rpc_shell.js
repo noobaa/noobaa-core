@@ -96,6 +96,9 @@ RPCShell.prototype.show = function(apiname) {
 
     if (this.APIs[apiname] === undefined) {
         console.log(apiname, 'API does not exist');
+        if (argv.run) {
+            process.exit(1);
+        }
         return;
     }
     console.log('\nAvailable function for', apiname, 'API are:\n', this.APIs[apiname]);
@@ -123,6 +126,9 @@ RPCShell.prototype.call = function(str_args) {
         console.warn('API not supplied');
     } else if (!this.APIs[args[0]]) {
         console.log(args[0], 'API does not exist');
+        if (argv.run) {
+            process.exit(1);
+        }
         return;
     }
 
@@ -133,6 +139,9 @@ RPCShell.prototype.call = function(str_args) {
     var func_ind = _.indexOf(this.APIs[args[0]], args[1]);
     if (func_ind === -1) {
         console.log(args[1], 'Function does not exist for', args[0]);
+        if (argv.run) {
+            process.exit(1);
+        }
         return;
     }
 
@@ -141,6 +150,9 @@ RPCShell.prototype.call = function(str_args) {
     var rpc_args = construct_rpc_arguments(params);
     if (rpc_args === null) {
         console.error('Invalid JSON String', params);
+        if (argv.run) {
+            process.exit(1);
+        }
         return;
     }
 
@@ -156,6 +168,8 @@ RPCShell.prototype.call = function(str_args) {
             }
             if (!argv.run) {
                 repl_srv.displayPrompt();
+            } else {
+                process.exit(1);
             }
             return;
         })
@@ -184,6 +198,9 @@ RPCShell.prototype.params = function(str_args) {
         console.warn('API not supplied');
     } else if (!this.APIs[args[0]]) {
         console.log(args[0], 'API does not exist');
+        if (argv.run) {
+            process.exit(1);
+        }
         return;
     }
 
@@ -194,6 +211,9 @@ RPCShell.prototype.params = function(str_args) {
     var func_ind = _.indexOf(this.APIs[args[0]], args[1]);
     if (func_ind === -1) {
         console.log(args[1], 'Function does not exist for', args[0]);
+        if (argv.run) {
+            process.exit(1);
+        }
         return;
     }
 
@@ -214,6 +234,8 @@ RPCShell.prototype.params = function(str_args) {
             }
             if (!argv.run) {
                 repl_srv.displayPrompt();
+            } else {
+                process.exit(1);
             }
             return;
         });

@@ -23,6 +23,12 @@ class BlockStoreMem extends BlockStoreBase {
 
     get_storage_info() {
         const total = 1024 * 1024 * 1024;
+        //from some reason we don't init this value. I can't find it now.
+        //TODO: init correctly.
+        if (!this._used)
+        {
+            this._used = 0;
+        }
         return {
             total: total,
             free: total - this._used,

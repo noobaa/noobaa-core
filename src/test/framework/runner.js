@@ -178,10 +178,12 @@ TestRunner.prototype.run_tests = function() {
                 });
         })
         .then(function() {
+            console.warn('All steps done');
             fs.appendFileSync(REPORT_PATH, 'All steps done\n');
             return;
         })
         .fail(function(error) {
+            console.warn('Stopping tests with error', error);
             fs.appendFileSync(REPORT_PATH, 'Stopping tests with error\n', error);
             return;
         });
@@ -221,6 +223,7 @@ TestRunner.prototype._run_current_step = function(current_step, step_res) {
         step_res = '        No Action Defined!!!';
         return;
     }
+    console.warn('---------------------------------  ' + step_res + '  ---------------------------------');
     if (current_step.common) {
         var ts = new Date();
         return P.invoke(self, current_step.common)
@@ -260,6 +263,7 @@ TestRunner.prototype._run_action = function(current_step, step_res) {
         .then(function(res) {
             step_res = '        ' + step_res + ' - Successeful running action  ( took ' +
                 ((new Date() - ts) / 1000) + 's )';
+            console.warn('---------------------------------  ' + step_res + '  ---------------------------------');
             return step_res;
         })
         .fail(function(res) {
@@ -274,6 +278,7 @@ TestRunner.prototype._run_action = function(current_step, step_res) {
                     '------------------------------   ' +
                     '( took ' + ((new Date() - ts) / 1000) + 's )';
             }
+            console.warn('Failed action with', res);
             return step_res;
         });
 };
@@ -287,6 +292,7 @@ TestRunner.prototype._run_lib_test = function(current_step, step_res) {
         .then(function(res) {
             step_res = '        ' + step_res + ' - Successeful ( took ' +
                 ((new Date() - ts) / 1000) + 's )';
+            console.warn('---------------------------------  ' + step_res + '  ---------------------------------');
             return step_res;
         })
         .fail(function(res) {

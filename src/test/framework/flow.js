@@ -34,7 +34,7 @@ var steps = [
     }, {
         //Test cloud sync functionality
         name: 'Cloud Sync Test',
-        lib_test: 'src/test/system_tests/test_cloud_sync.js',
+        lib_test: '/src/test/system_tests/test_cloud_sync.js',
     }, {
         //Restore DB to defaults
         name: 'Restore DB Defaults',

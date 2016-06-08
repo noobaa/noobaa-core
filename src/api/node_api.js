@@ -58,8 +58,8 @@ module.exports = {
                                     type: 'string',
                                 },
                             },
-                            name: {
-                                // regexp
+                            filter: {
+                                // regexp on name & ip
                                 type: 'string'
                             },
                             geolocation: {
@@ -90,6 +90,15 @@ module.exports = {
                             disabled: {
                                 type: 'boolean',
                             },
+                            accessibility: {
+                                $ref: '#/definitions/accessibility_type'
+                            },
+                            connectivity: {
+                                $ref: '#/definitions/connectivity_type'
+                            },
+                            data_activity: {
+                                $ref: '#/definitions/data_activity_type'
+                            },
                         }
                     },
                     skip: {
@@ -103,7 +112,16 @@ module.exports = {
                     },
                     sort: {
                         type: 'string',
-                        enum: ['name', 'ip', 'online']
+                        enum: [
+                            'name',
+                            'ip',
+                            'online',
+                            'used',
+                            'trusted',
+                            'accessibility',
+                            'connectivity',
+                            'data_activity'
+                        ]
                     },
                     order: {
                         type: 'integer',
@@ -372,6 +390,9 @@ module.exports = {
                 trusted: {
                     type: 'boolean',
                 },
+                n2n_connectivity: {
+                    type: 'boolean',
+                },
                 migrating_to_pool: {
                     type: 'boolean'
                 },
@@ -384,13 +405,26 @@ module.exports = {
                 disabled: {
                     type: 'boolean',
                 },
-                rebuilding: {
+                accessibility: {
+                    $ref: '#/definitions/accessibility_type'
+                },
+                connectivity: {
+                    $ref: '#/definitions/connectivity_type'
+                },
+                data_activity: {
                     type: 'object',
+                    required: ['reason'],
                     properties: {
                         reason: {
-                            type: 'string',
-                            enum: ['']
+                            $ref: '#/definitions/data_activity_type'
                         },
+                        // stage: {
+                        //     type: 'string',
+                        //     enum: ['REBUILDING', 'WIPING']
+                        // },
+                        // pending: {
+                        //     type: 'boolean'
+                        // },
                         completed_size: {
                             type: 'number',
                         },
@@ -404,13 +438,6 @@ module.exports = {
                             format: 'idate'
                         },
                     }
-                },
-                n2n_connectivity: {
-                    type: 'boolean',
-                },
-                connectivity_type: {
-                    type: 'string',
-                    enum: ['TCP', 'UDP', 'UNKNOWN']
                 },
                 storage: {
                     $ref: 'common_api#/definitions/storage_info'
@@ -440,6 +467,26 @@ module.exports = {
                     type: 'integer',
                 }
             }
+        },
+
+        data_activity_type: {
+            type: 'string',
+            enum: [
+                'RESTORING',
+                'FREEING_SPACE',
+                'MIGRATING',
+                'DECOMMISSIONING'
+            ]
+        },
+
+        accessibility_type: {
+            type: 'string',
+            enum: ['FULL_ACCESS', 'READ_ONLY', 'NO_ACCESS']
+        },
+
+        connectivity_type: {
+            type: 'string',
+            enum: ['TCP', 'UDP', 'UNKNOWN']
         },
 
         signal_params: {

@@ -74,45 +74,19 @@ module.exports = {
             // the last agent version acknoledged
             type: 'string',
         },
-        // trusted: {
+
+        // migrating_to_pool: {
         //     type: 'boolean'
         // },
-        migrating_to_pool: {
-            type: 'boolean'
-        },
-        decommissioning: {
-            type: 'boolean',
-        },
-        decommissioned: {
-            type: 'boolean',
-        },
-        disabled: {
-            type: 'boolean',
-        },
-        rebuilding: {
-            type: 'object',
-            properties: {
-                completed_size: {
-                    type: 'number',
-                },
-                remaining_size: {
-                    type: 'number',
-                },
-                start_time: {
-                    format: 'idate'
-                },
-                remaining_time: {
-                    format: 'idate'
-                },
-            }
-        },
-        n2n_connectivity: {
-            type: 'boolean',
-        },
-        connectivity_type: {
-            type: 'string',
-            enum: ['TCP', 'UDP', 'UNKNOWN']
-        },
+        // decommissioning: {
+        //     type: 'boolean',
+        // },
+        // decommissioned: {
+        //     type: 'boolean',
+        // },
+        // disabled: {
+        //     type: 'boolean',
+        // },
 
         // node storage stats - sum of drives
         storage: storage_stat_schema,

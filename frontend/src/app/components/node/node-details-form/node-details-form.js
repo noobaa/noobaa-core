@@ -28,7 +28,7 @@ class NodeInfoViewModel {
         );
 
         this.p2pConactivityType = ko.pureComputed(
-            () => conactivityTypeMapping[node().connectivity_type]
+            () => conactivityTypeMapping[node().connectivity]
         );
 
         this.RTT = ko.pureComputed(
@@ -38,7 +38,7 @@ class NodeInfoViewModel {
         );
 
         this.isUDPWarningVisible = ko.pureComputed(
-            () => node().connectivity_type === 'UDP'
+            () => node().connectivity === 'UDP'
         );
 
         this.hostname = ko.pureComputed(
@@ -91,7 +91,7 @@ class NodeInfoViewModel {
     }
 
     _mapCpus({ os_info }) {
-        return `${os_info.cpus.length}x ${os_info.cpus[0].model}`;
+        return `${os_info.cpus.length} x ${os_info.cpus[0].model}`;
     }
 }
 

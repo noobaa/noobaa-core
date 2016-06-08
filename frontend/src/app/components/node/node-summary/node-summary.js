@@ -2,13 +2,13 @@ import template from './node-summary.html';
 import ko from 'knockout';
 import moment from 'moment';
 import numeral from 'numeral';
-import { formatSize } from 'utils';
+import { formatSize, bitsToNumber } from 'utils';
 import style from 'style';
 
 const accessibilityMapping = Object.freeze({
-    FULL_ACCESS: { text: 'Read & Write', icon: '/fe/assets/icons.svg#node-full-access' },
-    READ_ONLY: { text: 'Read Only', icon: '/fe/assets/icons.svg#node-read-only-access' },
-    NO_ACCESS: { text: 'No Access', icon: '/fe/assets/icons.svg#node-no-access' }
+    0: { text: 'No Access', icon: '/fe/assets/icons.svg#node-no-access' },
+    1: { text: 'Read Only', icon: '/fe/assets/icons.svg#node-read-only-access' },
+    3: { text: 'Read & Write', icon: '/fe/assets/icons.svg#node-full-access' }
 });
 
 const activityLabelMapping = Object.freeze({
@@ -17,10 +17,10 @@ const activityLabelMapping = Object.freeze({
     MIGRATING: 'Migrating'
 });
 
-function mapActivity({ type, completed_size, total_size, eta }) {
+function mapActivity({ reason, completed_size, total_size, eta }) {
     return {
         row1: `${
-            activityLabelMapping[type]
+            activityLabelMapping[reason]
         } node | Completed ${
             formatSize(completed_size)
         } of ${
@@ -63,7 +63,9 @@ class NodeSummaryViewModel {
         );
 
         this.accessibility = ko.pureComputed(
-            () => node().accessibility && accessibilityMapping[node().accessibility]
+            () => node() && accessibilityMapping[
+                    bitsToNumber(node().readable, node().writable)
+                ]
         );
 
         this.accessibilityText = ko.pureComputed(

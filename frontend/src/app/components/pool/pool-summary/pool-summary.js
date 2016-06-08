@@ -11,10 +11,10 @@ const activityLabelMapping = Object.freeze({
     MIGRATING: 'Migrating'
 });
 
-function mapActivity({ type, node_count, completed_size, total_size, eta }) {
+function mapActivity({ reason, node_count, completed_size, total_size, eta }) {
     return {
         row1: `${
-            activityLabelMapping[type]
+            activityLabelMapping[reason]
         } ${
             node_count
         } nodes | Completed ${
@@ -120,7 +120,7 @@ class PoolSummaryViewModel {
         );
 
         this.dataActivities = ko.pureComputed(
-            () => pool().data_activities.map(mapActivity)
+            () => pool().data_activities && pool().data_activities.map(mapActivity)
         );
     }
 }

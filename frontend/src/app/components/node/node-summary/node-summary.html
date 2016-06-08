@@ -55,9 +55,15 @@
 
 <section class="column c5">
     <h3 class="heading4 push-next">Activity</h3>
+    <!-- ko if: dataActivity -->
     <p class="paragraph" data-bind="with: dataActivity">
         <span data-bind="text: row1"></span>
         <br>
         <span class="highlight" data-bind="text: row2"></span>
     </p>
+    <!-- /ko -->
+
+    <!-- ko ifNot: dataActivity -->
+    <p>No activity</p>
+    <!-- /ko -->
 </section>

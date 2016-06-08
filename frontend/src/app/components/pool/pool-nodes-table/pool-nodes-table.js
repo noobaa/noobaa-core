@@ -38,7 +38,6 @@ class PoolNodesTableViewModel {
             () => pool() && pool().name
         );
 
-
         this.pageSize = paginationPageSize;
         this.count = nodes.count;
         this.sortedBy = nodes.sortedBy;

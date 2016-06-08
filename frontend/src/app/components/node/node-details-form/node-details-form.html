@@ -52,10 +52,7 @@
             <li class="row">
                 <span class="c3">CPUs:</span>
                 <span class="c9 emphasized">
-                    <span data-bind="text: p2pConactivityType"></span>
-                    <ul class="list-no-style column" data-bind="foreach: cpus">
-                        <li class="text: $data"></li>
-                    </ul>
+                    <span data-bind="text: cpus"></span>
                 </span>
             </li>
             <li class="row">
@@ -77,7 +74,7 @@
             <li class="row">
                 <span class="c3">Block Device:</span>
                 <span class="c9 emphasized" data-bind="text: blockDevice"></span>
-            </li>        
+            </li>
             <li class="row">
                 <span class="c3">Read Latency:</span>
                 <span class="c9 emphasized" data-bind="text: diskRead"></span>

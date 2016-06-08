@@ -1,10 +1,11 @@
 import ko from 'knockout';
 import numeral from 'numeral';
+import { bitsToNumber } from 'utils';
 
 const accessibilityMapping = Object.freeze({
-    FULL_ACCESS: { text: 'Read & Write' },
-    READ_ONLY: { text: 'Read Only', css: 'warning' },
-    NO_ACCESS: { text: 'No Access', css: 'error' }
+    0: { text: 'No Access', css: 'error' },
+    1: { text: 'Read Only', css: 'warning' },
+    3: { text: 'Read & Write' }
 });
 
 const activityLabelMapping = Object.freeze({
@@ -50,7 +51,9 @@ export default class NodeRowViewModel {
         );
 
         let dataAccess = ko.pureComputed(
-            () => node() && accessibilityMapping[node().accessibility]
+            () => node() && accessibilityMapping[
+                    bitsToNumber(node().readable, node().writable)
+                ]
         );
 
         this.dataAccessText = ko.pureComputed(

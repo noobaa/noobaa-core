@@ -187,7 +187,7 @@ TestRunner.prototype.run_tests = function() {
         })
         .fail(function(error) {
             fs.appendFileSync(REPORT_PATH, 'Stopping tests with error\n' + error);
-            return;
+            throw new Error(error);
         });
 };
 

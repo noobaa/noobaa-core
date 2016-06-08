@@ -6,14 +6,14 @@ export default {
         let { start = noop, end = noop } = valueAccessor();
 
         return ko.bindingHandlers.event.init(
-            element, 
+            element,
             () => ({
                 animationstart: start,
                 animationend: end
             }),
-            allBindings, 
-            viewModel, 
+            allBindings,
+            viewModel,
             bindingContext
-        );  
+        );
     }
-}
+};

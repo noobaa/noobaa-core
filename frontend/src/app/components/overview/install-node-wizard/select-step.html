@@ -1,16 +1,14 @@
-<section class="container">
-    <h2 class="heading3"/>Select your installation type</h2>
+<h2 class="heading3">Select your installation type</h2>
 
-    <ul class="list-no-style clear" data-bind="foreach: installationTypeOptions">
-        <li class="container">
-            <radio-btn params="
-                group: 'installation-type', 
-                value: value, 
-                label: label, 
-                selected: $parent.installationType
-            "></radio-btn>
-            
-            <p class="paragraph option-desc" data-bind="text: description">
-        </li>
-    </ul>
-</section>
+<ul class="list-no-style column" data-bind="foreach: installationTypeOptions">
+    <li class="push-next">
+        <radio-btn params="
+            group: 'installation-type', 
+            value: value, 
+            label: label, 
+            selected: $parent.installationType
+        "></radio-btn>
+        
+        <p data-bind="text: description">
+    </li>
+</ul>

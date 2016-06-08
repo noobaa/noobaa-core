@@ -1,4 +1,4 @@
-import template from './buckets-table.html'
+import template from './buckets-table.html';
 import BucketRowViewModel from './bucket-row';
 import ko from 'knockout';
 import { makeArray } from 'utils';
@@ -9,9 +9,9 @@ const maxRows = 100;
 class BucketsTableViewModel {
     constructor({ buckets }) {
         let rows = makeArray(
-            maxRows, 
+            maxRows,
             i => new BucketRowViewModel(
-                () => buckets()[i], 
+                () => buckets()[i],
                 () => buckets().length === 1
             )
         );
@@ -20,7 +20,7 @@ class BucketsTableViewModel {
         this.order = buckets.order;
         this.visibleRows = ko.pureComputed(
             () => rows.filter(row => row.isVisible())
-        )
+        );
 
         this.deleteGroup = ko.observable();
     }
@@ -35,11 +35,11 @@ class BucketsTableViewModel {
     orderClassFor(colName) {
         if (this.sortedBy() === colName) {
             return this.order() === 1 ? 'des' : 'asc' ;
-        } 
+        }
     }
 }
 
 export default {
     viewModel: BucketsTableViewModel,
     template: template
-}
+};

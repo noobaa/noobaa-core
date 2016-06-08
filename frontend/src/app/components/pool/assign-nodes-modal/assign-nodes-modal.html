@@ -1,9 +1,10 @@
 <modal params="onClose: () => cancel()">
-    <h1 class="heading2 container">
-        Assign Nodes
-    </h1>    
-    <div class="table-wrapper box container">
-        <div class="data-table">
+        <h1 class="heading2 push-next">
+            Assign Nodes
+        </h1>
+
+        <div class="box row greedy push-next">
+            <div class="data-table">
             <table>
                 <thead>
                     <tr>
@@ -45,12 +46,15 @@
                 visible: !!emptyMessage(),
                 text: emptyMessage()
             "></div>
+            </div>
         </div>
-    </div>
-    <div class="val-msg" data-bind="validationMessage: selectedNodes"></div>
 
-    <div class="action-line pull-right">
-        <button class="action link" data-bind="click: cancel">Cancel</button>    
-        <button class="action btn2" data-bind="click: assign">Assign</button>        
-    </div>
+        <div class="row align-end">
+            <button class="action link push-next" data-bind="click: cancel">
+                Cancel
+            </button>
+            <button class="action btn2" data-bind="click: assign">
+                Assign
+            </button>
+        </div>
 </modal>

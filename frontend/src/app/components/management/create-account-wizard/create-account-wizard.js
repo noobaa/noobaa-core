@@ -8,7 +8,7 @@ import { loadBucketList, createAccount } from 'actions';
 
 function makeUserMessage(loginInfo, S3AccessInfo) {
     return `
-<p class="paragraph">Hi, I created a NooBaa user for you:</p>
+<p>Hi, I created a NooBaa user for you:</p>
 ${makeLoginMessage(loginInfo)}<br>
 ${S3AccessInfo ? makeS3AccessMessage(S3AccessInfo) : ''}
     `;
@@ -16,7 +16,7 @@ ${S3AccessInfo ? makeS3AccessMessage(S3AccessInfo) : ''}
 
 function makeLoginMessage({ serverAddress, username, password }) {
     return `
-<p class="paragraph">
+<p>
 Use the following credentials to connect to the NooBaa console:<br>
 <span class="emphasized">Console Url:</span> ${serverAddress}<br>
 <span class="emphasized">Username:</span> ${username}<br>
@@ -82,9 +82,9 @@ class CreateAccountWizardViewModel {
             )
         );
 
-        this.nameAndPermissionsErrors = ko.validation.group({
-            email: this.emailAddress
-        });
+        this.nameAndPermissionsErrors = ko.validation.group([
+            this.emailAddress
+        ]);
 
         loadBucketList();
     }

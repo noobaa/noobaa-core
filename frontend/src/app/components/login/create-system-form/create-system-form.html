@@ -1,17 +1,46 @@
-<form class="create-system-form text-center">
-    <h2 class="heading3">Create a new system</h2>
+<form class="create-system-form column">
+    <h2 class="heading3 text-center push-next">
+        Create a new system
+    </h2>
 
-    <div class="container text-left">
-        <input type="text" placeholder="Owner Email" data-bind="textInput: ownerEmail"/>
-        <input type="password" placeholder="Owner Password" data-bind="textInput: ownerPassword"/>
-        <input type="password" placeholder="Confirm Password" data-bind="textInput: confirmPassword"/>
+    <div class="push-next">
+        <input type="text" placeholder="Owner Email" data-bind="
+            textInput: ownerEmail
+        "/>
+
+        <input type="password" placeholder="Owner Password" data-bind="
+            textInput: ownerPassword
+        "/>
+
+        <input type="password" placeholder="Confirm Password" data-bind="
+            textInput: confirmPassword
+        "/>
     </div>
 
-    <div class="container text-left">
-        <input type="text" placeholder="System Name" data-bind="textInput: systemName"/>
-        <input type="text" placeholder="Fully Qualified Domain Name" data-bind="textInput: systemDNS"/>
-        <div class="remark optional text-right">* Optional</div>
+    <div class="push-both">
+        <input type="text" placeholder="System Name" data-bind="
+            textInput: systemName
+        "/>
+
+        <input type="text" placeholder="Fully Qualified Domain Name" data-bind="
+            validationOptions: { insertMessages: false },
+            textInput: systemDNS
+        "/>
+
+        <div class="row greedy content-start">
+            <span class="val-msg greedy" data-bind="validationMessage: systemDNS">
+            </span>
+
+            <span class="remark">* Optional</span>
+        </div>
+
     </div>
 
-    <button class="btn2 center container" data-bind="click: createSystem">Create System</button>
+    <button class="btn2 align-middle push-prev" data-bind="
+        click: createSystem,
+        css: { shake: shake },
+        animation: { end: () => shake(false) }
+    ">
+        Create System
+    </button>
 </form>

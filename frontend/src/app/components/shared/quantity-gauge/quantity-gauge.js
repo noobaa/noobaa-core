@@ -5,13 +5,13 @@ import style from 'style';
 
 const radius = 98;
 const canvasWidth = radius * 2;
-const canvasHeight = radius * 2;
+const canvasHeight = radius * 2 - 30;
 const lineWidth = 4;
 const emphasiseWidth = 19;
 const lineMargin = 3;
 const emptyColor = style['text-color5'];
 
-const textFont = `${style['font-size-large']} ${style['font-type2']}`;
+const textFont = `${style['font-size-xlarge']} ${style['font-type2']}`;
 const textColor = style['gray-lv6'];
 
 class CapacityGaugeViewModel {
@@ -27,9 +27,9 @@ class CapacityGaugeViewModel {
         );
     }
 
-    draw(ctx, { width, height }) {
+    draw(ctx) {
         ctx.translate(radius, radius);
-        ctx.clearRect(-radius, -radius, radius * 2, radius * 2)
+        ctx.clearRect(-radius, -radius, radius * 2, radius * 2);
 
         let total = ko.unwrap(this.values).reduce(
             (sum, { value }) => sum + ko.unwrap(value),
@@ -43,7 +43,7 @@ class CapacityGaugeViewModel {
                 (item, i) => {
                     let value = this.tweened[i]();
                     let ratio = value/total;
-                    this._drawSection(ctx, offset, ratio, item.color, true);
+                    this._drawSection(ctx, offset, ratio, item.color, item.emphasize);
                     offset += ratio;
                     sum += item.emphasize ? value : 0;
                 }
@@ -71,7 +71,7 @@ class CapacityGaugeViewModel {
         ctx.strokeStyle = color;
         ctx.beginPath();
         ctx.lineWidth = lineWidth;
-        ctx.arc(0, 0, radius - (lineWidth/2|0), start, end)
+        ctx.arc(0, 0, radius - (lineWidth/2|0), start, end);
         ctx.stroke();
         ctx.closePath();
 

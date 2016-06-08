@@ -18,4 +18,4 @@ class RangeIndicatorViewModel {
 export default {
     viewModel: RangeIndicatorViewModel,
     template: template
-}
+};

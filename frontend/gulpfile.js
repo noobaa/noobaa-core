@@ -8,9 +8,11 @@ let buffer = require('vinyl-buffer');
 let browserify = require('browserify');
 let stringify = require('stringify');
 let babelify = require('babelify');
+let watchify = require('watchify');
 let runSequence = require('run-sequence');
 let through = require('through2'); 
 let fs = require('fs');
+let moment = require('moment');
 let $ = require('gulp-load-plugins')();
 
 let buildPath = './dist';
@@ -28,18 +30,6 @@ let libs = [
     { name: 'shifty',               path: './src/lib/shifty/dist/shifty.js' },
     { name: 'aws-sdk',              path: './src/lib/aws-sdk/dist/aws-sdk.js' },
 ];
-
-// ----------------------------------
-// Full task
-// ---------------------------------- 
-
-gulp.task('full', cb => {
-    runSequence(
-        'build',
-        'watch',
-        cb
-    );
-});
 
 // ----------------------------------
 // Build Tasks
@@ -76,7 +66,6 @@ gulp.task('build-lib', ['install-deps'], () => {
         .pipe(gulp.dest(buildPath));
 });
 
-
 gulp.task('build-api', () => {
     let b = browserify({ debug: true });
     
@@ -92,24 +81,8 @@ gulp.task('build-api', () => {
         .pipe(gulp.dest(buildPath));
 });
 
-gulp.task('build-app', ['build-js-style', 'ensure-server-conf'], () => {
-    let b = browserify({ debug: true, paths: ['./src/app'] })
-        .require(buildPath + '/style.json', { expose: 'style' })
-        .transform(babelify, { optional: ['runtime', 'es7.decorators'] })
-        .transform(stringify({ minify: uglify }))
-        .add('src/app/main');
-
-    libs.forEach( lib => b.external(lib.name) );
-    b.external('nb-api');
-
-    return b.bundle()
-        .on('error', errorHandler)
-        .pipe(sourceStream('app.js'))
-        .pipe(buffer())
-        .pipe($.sourcemaps.init({ loadMaps: true }))
-            .pipe($.if(uglify, $.uglify()))
-        .pipe($.sourcemaps.write('./'))
-        .pipe(gulp.dest(buildPath));
+gulp.task('build-app', ['build-js-style'], () => {
+    return bundleApp(false);
 });
 
 gulp.task('compile-styles', () => {
@@ -136,15 +109,6 @@ gulp.task('build-js-style', () => {
         .pipe(gulp.dest(buildPath));
 });
 
-gulp.task('ensure-server-conf', cb => {
-    try { 
-        fs.readFileSync('src/app/server-conf.json')
-    } catch (e) {
-        fs.writeFileSync('src/app/server-conf.json', '{}');
-    }
-    cb();
-});
-
 gulp.task('install-deps', () => {
     return gulp.src('./bower.json')
         .pipe($.install());
@@ -154,44 +118,34 @@ gulp.task('install-deps', () => {
 // Watch Tasks
 // ---------------------------------- 
 
-gulp.task('watch', [ 'watch-lib', 'watch-app', 'watch-styles', 'watch-assets' ]);
+gulp.task('watch', cb => {
+    runSequence(
+        'clean',
+        ['build-api', 'watch-lib', 'watch-app', 'watch-styles', 'watch-assets'],
+        cb
+    );
+});
 
-gulp.task('watch-lib', () => {
-    $.watch('bower.json', () => {
+gulp.task('watch-lib', ['build-lib'], () => {
+    return $.watch('bower.json', () => {
         // Invalidate the cached bower.json.
         delete require.cache[require.resolve('bower.json')];
         runSequence('build-lib');
     }); 
 });
 
-gulp.task('watch-app', () => {
-    // Watch separated because of a gulp-watch bug.
-
-    $.watch('src/app/**/*.js', () => {
-        runSequence('build-app');
-    }); 
-    
-    $.watch('src/app/**/*.json', () => {
-        runSequence('build-app');
-    });
-
-    $.watch('src/app/**/*.html', () => {
-        runSequence('build-app');
-    });     
-
-    $.watch('src/styles/variables.less', () => {
-        runSequence('build-app');
-    });     
+gulp.task('watch-app', ['build-js-style'], () => {
+    return bundleApp(true);
 });
 
-gulp.task('watch-styles', () => {
-    $.watch(['src/app/**/*.less'], () => {
+gulp.task('watch-styles', ['compile-styles'], () => {
+    return $.watch(['src/app/**/*.less'], () => {
         runSequence('compile-styles')
     });
 });
 
-gulp.task('watch-assets', () => {
-    $.watch(['src/index.html', 'src/assets/**/*'], function(vinyl) {
+gulp.task('watch-assets', ['copy'], () => {
+    return $.watch(['src/index.html', 'src/assets/**/*'], function(vinyl) {
         // Copy the file that changed.
         gulp.src(vinyl.path, { base: 'src' })
             .pipe(gulp.dest(buildPath));
@@ -199,26 +153,65 @@ gulp.task('watch-assets', () => {
 })
 
 // ----------------------------------
-// Web Server Tasks
-// ----------------------------------
-let wsStream;
-gulp.task('serve', () => {
-    wsStream && esStream.emit('kill');
-
-    wsStream = gulp.src(buildPath)
-        .pipe($.webserver({
-            fallback: '/index.html',
-            open: '/fe',
-            path: '/fe',
-            middleware: cacheControl(60),
-        }));
-
-    return wsStream;
-})
-
-// ----------------------------------
 // Helper functions
 // ---------------------------------- 
+function createBundler(useWatchify) {
+    let bundler;
+    if (useWatchify) {
+        bundler = browserify({ 
+            debug: true, 
+            paths: ['./src/app'], 
+            cache: {},
+            packageCache: {},
+            plugin: [ watchify ]
+        })
+            .on('update', modules => console.log(
+                `[${moment().format('HH:mm:ss')}] Change detected in '${modules}' rebundling...`
+            ))
+            .on('time', t => console.log(
+                `[${moment().format('HH:mm:ss')}] Bundling ended after ${t/1000} s`
+            ));
+
+    } else {
+        bundler = browserify({
+            debug: true, 
+            paths: ['./src/app'] 
+        });
+    }
+
+    return bundler;
+}
+
+function bundleApp(watch) {
+    let bundler = createBundler(watch);
+    bundler
+        .require(buildPath + '/style.json', { expose: 'style' })
+        .transform(babelify, { optional: ['runtime', 'es7.decorators'] })
+        .transform(stringify({ minify: uglify }))
+        .add('src/app/main');
+
+    libs.forEach(
+        lib => bundler.external(lib.name) 
+    );
+    bundler.external('nb-api');
+
+    let bundle = function() {
+         return bundler.bundle()
+            .on('error', errorHandler)
+            .pipe(sourceStream('app.js'))
+            .pipe(buffer())
+            .pipe($.sourcemaps.init({ loadMaps: true }))
+                .pipe($.if(uglify, $.uglify()))
+            .pipe($.sourcemaps.write('./'))
+            .pipe(gulp.dest(buildPath));
+    }
+
+    if (watch) {
+        bundler.on('update', () => bundle())
+    }
+    return bundle();
+}
+
 function letsToLessClass() {
     return through.obj(function(file, encoding, callback) {
         let contents = file.contents.toString('utf-8');
@@ -247,8 +240,8 @@ function cssClassToJson() {
         let regExp = /([A-Za-z0-9\-]+)\s*:\s*(.+?)\s*;/g;
         let output = {};
 
-        let matches = regExp.exec(contents);        
-        while (matches) {           
+        let matches = regExp.exec(contents);
+        while (matches) {
             output[matches[1]] = matches[2];
             matches = regExp.exec(contents);
         }
@@ -264,14 +257,5 @@ function cssClassToJson() {
 
 function errorHandler(err) {
     console.log(err.toString(), '\u0007');
-    this.emit('end');   
-}
-
-function cacheControl(seconds) {
-    let millis = 1000 * seconds;
-    return function(req, res, next) {
-        res.setHeader("Cache-Control", "public, max-age=" + seconds);
-        res.setHeader("Expires", new Date(Date.now() + millis).toUTCString());
-        return next();
-    };
+    this.emit('end');
 }

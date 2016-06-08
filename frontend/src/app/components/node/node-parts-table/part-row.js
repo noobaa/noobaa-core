@@ -1,15 +1,14 @@
 import ko from 'knockout';
 import numeral from 'numeral';
-import { dblEncode } from 'utils';
 
 const partStateMapping = Object.freeze({
     available: {
         toolTip: 'available',
-        icon: '/fe/assets/icons.svg#part-available',
+        icon: '/fe/assets/icons.svg#part-available'
     },
     building: {
         toolTip: 'in process',
-        icon: '/fe/assets/icons.svg#part-in-process',
+        icon: '/fe/assets/icons.svg#part-in-process'
     },
     unavailable: {
         toolTip: 'unavailable',
@@ -45,11 +44,7 @@ export default class ObjectRowViewModel {
         );
 
         this.href = ko.pureComputed(
-            () => part() && `/fe/systems/:system/buckets/${
-                part().bucket
-            }/objects/${
-                dblEncode(part().object)
-            }`
+            () => part() && `/fe/systems/:system/buckets/${part().bucket}/objects/${part().object}`
         );
 
         this.startOffset = ko.pureComputed(

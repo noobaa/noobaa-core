@@ -1,29 +1,9 @@
 commands-bar {
-    display: block;
-    position: relative;
-    z-index: 1;
-
-    ul {
-        list-style-type: none;
-        margin: 0;
-        margin-right: .5em;
-        padding: 0;
-        text-align: center;
-
-        > li {
-            display: inline-block;
-        }
-    }
+    .row();
+    .content-middle();
 
     .action {
-        text-align: center;        
-        padding: .5em;
-        padding-top: 0;
-
-        > svg-icon {
-            display: block;
-            margin: 3px auto;
-        }
+        padding: @gutter/2;
     }
 
 }

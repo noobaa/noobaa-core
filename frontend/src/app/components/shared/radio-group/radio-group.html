@@ -1,9 +1,9 @@
-<!-- ko foreach: options -->
-<radio-btn data-bind="css: $component.layoutClass" params="
-    group: $component.Name, 
-    selected: $component.selected,
-    label: label,
-    value: value,
-    disabled: $component.disabled
-"></radio-btn>
-<!-- /ko -->
+<div data-bind="foreach: options, css: $component.layoutClass">
+    <radio-btn  class="push-next" params="
+        group: $component.Name, 
+        selected: $component.selected,
+        label: label,
+        value: value,
+        disabled: $component.disabled
+    "></radio-btn>
+</div>

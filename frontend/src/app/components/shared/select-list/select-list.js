@@ -1,11 +1,14 @@
-import template from "./dropdown.html";
-import ko from 'knockout';
+import template from './dropdown.html';
 
-class DropdownViewModel {
+class SelectListViewModel {
     constructor(params) {
         this.options = params.options.map(opt => {
             if (opt !== 'object') {
-                opt = { value: opt, label: opt.toString(), action: params.action }
+                opt = {
+                    value: opt,
+                    label: opt.toString(),
+                    action: params.action
+                };
             }
 
             if (opt.label == null) {
@@ -22,6 +25,6 @@ class DropdownViewModel {
 }
 
 export default {
-    viewModel: DropdownViewModel,
+    viewModel: SelectListViewModel,
     template: template
-}
+};

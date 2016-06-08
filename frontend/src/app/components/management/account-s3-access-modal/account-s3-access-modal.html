@@ -1,13 +1,17 @@
 <modal params="onClose: () => cancel()">
-    <h1 class="heading2 container">Account S3 Access</h1>
+    <h1 class="heading2 push-next">Account S3 Access</h1>
 
-    <section class="container">
-        <h2 class="heading3">Allow S3 access for this user</h2>
-        <toggle-switch params="value: hasS3Access"></toggle-switch>
-    </section>
+    <h2 class="heading3">Allow S3 access for this user</h2>
+    <toggle-switch class="push-next" params="value: hasS3Access"></toggle-switch>
 
-    <section class="container">
-        <div class="pull-right">
+    <div class="row content-middle">
+        <h2 class="heading3 greedy push-next" data-bind="
+            css: { disabled: !hasS3Access() }
+        ">
+            Edit S3 access permissions for buckets
+        </h2>
+
+        <div>
             <button class="link" data-bind="click: selectAllBuckets, enable: hasS3Access">
                 Select all
             </button>
@@ -16,18 +20,16 @@
                 Clear
             </button>
         </div>
-        <h2 class="heading3" data-bind="css: { disabled: !hasS3Access() }">
-            Edit S3 access permissions for buckets
-        </h2>
-        <multiselect params="
-            options: buckets, 
-            selected: selectedBuckets,
-            disabled: !hasS3Access()">
-        </multiselect>
-    </section>
+    </div>
+        
+    <multiselect class="push-next" params="
+        options: buckets, 
+        selected: selectedBuckets,
+        disabled: !hasS3Access()">
+    </multiselect>
 
-    <div class="action-line pull-right">
-        <button class="action link" data-bind="click: cancel">Cancel</button>
-        <button class="action btn2" data-bind="click: save">Save</button>
+    <div class="row align-end content-middle">
+        <button class="link push-next" data-bind="click: cancel">Cancel</button>
+        <button class="btn2" data-bind="click: save">Save</button>
     </div>
 </modal>

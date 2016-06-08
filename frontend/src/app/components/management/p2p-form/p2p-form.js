@@ -41,10 +41,10 @@ class P2PFormViewModel {
             () => this.rangeMin() + (this.usingPortRange() ? ` - ${this.rangeMax()}` : '')
         );
 
-        this.errors = ko.validation.group({
-            rangeMin: this.rangeMin,
-            rangeMax: this.rangeMax
-        });
+        this.errors = ko.validation.group([
+            this.rangeMin,
+            this.rangeMax
+        ]);
 
         this.errorMessage = ko.pureComputed(
             () => this.errors()[0]
@@ -57,7 +57,7 @@ class P2PFormViewModel {
 
         } else {
             updateP2PSettings(
-                parseInt(this.rangeMin()), 
+                parseInt(this.rangeMin()),
                 parseInt(this.rangeMax())
             );
         }
@@ -67,4 +67,4 @@ class P2PFormViewModel {
 export default {
     viewModel: P2PFormViewModel,
     template: template
-}
+};

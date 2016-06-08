@@ -8,11 +8,6 @@ class BreadcrumbsViewModel {
                 .reduce(this._reduceCrumbs, [])
                 .slice(1)
         );
-
-
-        this.hasBackground = ko.pureComputed(
-            () => crumbs() && crumbs().length > 1
-        );
     }
 
     _reduceCrumbs(list, crumb, i) {
@@ -27,7 +22,7 @@ class BreadcrumbsViewModel {
     }
 }
 
-export default { 
+export default {
     viewModel: BreadcrumbsViewModel,
     template: template
-}
+};

@@ -1,21 +1,21 @@
-import template from './after-upgrade-modal.html'
+import template from './after-upgrade-modal.html';
 import ko from 'knockout';
 import { systemInfo } from 'model';
 
 class AfterUpgradeModal {
-	constructor({ onClose }) {
-		this.onClose = onClose;
-		this.version = ko.pureComputed(
-			() => systemInfo() && systemInfo().version
-		);
-	}
+    constructor({ onClose }) {
+        this.onClose = onClose;
+        this.version = ko.pureComputed(
+            () => systemInfo() && systemInfo().version
+        );
+    }
 
-	close() {
-		this.onClose();
-	}
+    close() {
+        this.onClose();
+    }
 }
 
 export default {
-	viewModel: AfterUpgradeModal,
-	template: template
-}
+    viewModel: AfterUpgradeModal,
+    template: template
+};

@@ -5,9 +5,9 @@ import { upgradeSystem } from 'actions';
 import { upgradePackageSuffix } from 'config';
 
 class AboutFormViewModel {
-    constructor({ onClose }) {
+    constructor() {
         this.version = ko.pureComputed(
-            () => systemInfo() && systemInfo().version 
+            () => systemInfo() && systemInfo().version
         );
 
         this.upgradePackageSuffix = upgradePackageSuffix;
@@ -24,4 +24,4 @@ class AboutFormViewModel {
 export default {
     viewModel: AboutFormViewModel,
     template: template
-}
+};

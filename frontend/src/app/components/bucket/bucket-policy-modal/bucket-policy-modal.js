@@ -60,4 +60,4 @@ class BucketPolicyModalViewModel {
 export default {
     viewModel: BucketPolicyModalViewModel,
     template: template
-}
+};

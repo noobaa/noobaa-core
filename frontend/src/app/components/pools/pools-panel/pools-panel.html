@@ -1,17 +1,15 @@
-<div class="pools-panel">
-    <div class="clear">
-        <button class="pull-right btn add-pool-btn"
-            data-bind="click: () => isCreatePoolWizardVisible(true)">
-            create pool
-        </button>
-    </div>
+<section class="box column greedy">
+    <h2 class="box-header">Pool List</h2>
 
-    <pools-table params="pools: pools"></pools-table>
-</div>
+    <button class="btn2 align-end push-next"
+        data-bind="click: () => showCreatePoolWizard()">
+        Create Pool
+    </button>
+
+    <pools-table class="column greedy" params="pools: pools"></pools-table>
+<section>
 
 <!-- ko if: isCreatePoolWizardVisible -->
-<create-pool-wizard params="onClose: () => isCreatePoolWizardVisible(false)">
+<create-pool-wizard params="onClose: () => hideCreatePoolWizard()">
 </create-pool-wizard>
 <!-- /ko -->
-     
-     

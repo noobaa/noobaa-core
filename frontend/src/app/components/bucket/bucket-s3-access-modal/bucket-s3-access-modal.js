@@ -58,4 +58,4 @@ class BucketS3AccessModalViewModel {
 export default {
     viewModel: BucketS3AccessModalViewModel,
     template: template
-}
+};

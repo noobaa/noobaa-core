@@ -1,13 +1,19 @@
-<div class="multiselect-options box" data-bind="validationOptions: { insertMessages: false }">
-    <ul class="list-no-style clear" data-bind="foreach: options">
-        <li class="option" data-bind="tooltip: label">
+<div class="multiselect-options box" data-bind="
+    validationOptions: { insertMessages: false }
+">
+    <ul class="list-no-style row multiline greedy" data-bind="foreach: options">
+        <li class="option">
             <checkbox class="no-wrap" params="
                 value: value, 
                 label: label, 
                 checked: $component.selected,
-                disabled: $component.disabled
+                disabled: $component.disabled,
+                tooltip: label
             "></checkbox>
         </li>
     </ul>
 </div>
+
+<!-- ko if: insertValidationMessage -->
 <div class="val-msg" data-bind="validationMessage: selected"></div>
+<!-- /ko -->

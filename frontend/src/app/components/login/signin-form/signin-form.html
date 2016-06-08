@@ -1,17 +1,23 @@
-<form class="sign-in-from text-center">
-    <h2 class="heading3">Please Sign In</h2>
+<form class="sign-in-from column">
+    <h2 class="heading3 text-center push-next">
+        Please Sign In
+    </h2>
 
-    <div class="text-left" data-bind="event: { focusin: () => isDirty(true) }">
+    <div data-bind="event: { focusin: () => isDirty(true) }">
         <input type="text" placeholder="Email Address" data-bind="textInput: email"/>
         <input type="password" placeholder="Password" data-bind="textInput: password"/>
     </div>
 
-    <div data-bind="css: { shake: shake }, animation: { end: () => shake(false) }">
-        <span class="invalid-msg val-msg">
-            <span data-bind="visible: showInvalidMessage()">
-                Invalid email address or password
-            </span>
-        </span>    
-        <button class="btn2 center" data-bind="click: signIn">Sign In</button>
-    </div>
+    <span class="error" data-bind="css: { visible: showInvalidMessage() }">
+        Invalid email address or password
+    </span>
+
+    <button class="btn main-action push-prev" data-bind="
+        click: signIn,
+        css: { shake: shake }, 
+        animation: { end: () => shake(false) }
+    ">
+        Sign In
+    </button>
+
 </form>

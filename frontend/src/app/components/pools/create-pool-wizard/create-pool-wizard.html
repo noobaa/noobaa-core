@@ -6,6 +6,10 @@
     onComplete: () => createPool(),
     onClose: onClose
 ">
-    <section data-bind="template: { html: chooseNameStepTemplate }"></section>
-    <section data-bind="template: { html: assignNodesStepTemplate }"></section>
+    <section class="column" data-bind="
+        template: { html: chooseNameStepTemplate }
+    "></section>
+    <section class="column" data-bind="
+        template: { html: assignNodesStepTemplate }
+    "></section>
 </wizard>

@@ -15,8 +15,8 @@ const _ = require('lodash');
 // const nodes_store = require('./nodes_store').get_instance();
 const string_utils = require('../../util/string_utils');
 const nodes_monitor = require('./nodes_monitor');
-
 const monitor = new nodes_monitor.NodesMonitor();
+
 
 
 function _init() {
@@ -79,8 +79,6 @@ function get_test_nodes(req) {
 }
 
 // UTILS //////////////////////////////////////////////////////////
-
-
 
 
 // EXPORTS

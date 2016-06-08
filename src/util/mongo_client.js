@@ -3,7 +3,6 @@
 var _ = require('lodash');
 var util = require('util');
 var mongodb = require('mongodb');
-var urllib = require('url');
 var EventEmitter = require('events').EventEmitter;
 var P = require('./promise');
 var dbg = require('./debug_module')(__filename);
@@ -21,13 +20,11 @@ class MongoClient extends EventEmitter {
         this.db = null; // will be set once connected
         this.cfg_db = null; // will be set once a part of a cluster & connected
         this.url =
+            process.env.MONGO_RS_URL ||
             process.env.MONGODB_URL ||
             process.env.MONGOHQ_URL ||
             process.env.MONGOLAB_URI ||
             'mongodb://127.0.0.1/nbcore';
-        this.replica_set =
-            process.env.MONGO_REPLICA_SET ||
-            '';
         this.cfg_url =
             'mongodb://127.0.0.1:' + config.MONGO_DEFAULTS.CFG_PORT + '/config0';
         this.config = {
@@ -63,17 +60,10 @@ class MongoClient extends EventEmitter {
      * connect to the "real" mongodb and not the config mongo
      */
     connect() {
-        dbg.log0('connect called, current url', this.url, 'current RS', this.replica_set);
+        dbg.log0('connect called, current url', this.url);
         this._disconnected_state = false;
         if (this.promise) return this.promise;
         var url = this.url;
-        if (this.replica_set !== '') {
-            //Add replicaSet name & change port
-            var parsed_url = urllib.parse(this.url);
-            url = parsed_url.protocol + '//' + parsed_url.hostname +
-                ':' + config.MONGO_DEFAULTS.SHARD_SRV_PORT + parsed_url.path +
-                '?replicaSet=' + this.replica_set;
-        }
         this.promise = this._connect('db', url, this.config);
         return this.promise;
     }
@@ -178,10 +168,12 @@ class MongoClient extends EventEmitter {
 
     update_connection_string() {
         //TODO:: Currently seems for replica set only
-        var rs = process.env.MONGO_REPLICA_SET || '';
-        dbg.log0('got update_connection_string. rs =', rs, 'this.replica_set =', this.replica_set);
-        dbg.log0('setting connection to new url. conection this. replica_set =', this.replica_set);
-        this.replica_set = rs;
+        // var rs = process.env.MONGO_REPLICA_SET || '';
+        // dbg.log0('got update_connection_string. rs =', rs, 'this.replica_set =', this.replica_set);
+        // dbg.log0('setting connection to new url. conection this. replica_set =', this.replica_set);
+        // this.replica_set = rs;
+        dbg.log0('got update_connection_string. updating url from', this.url, 'to', process.env.MONGO_RS_URL);
+        this.url = process.env.MONGO_RS_URL;
     }
 
     is_master(is_config_set, set_name) {

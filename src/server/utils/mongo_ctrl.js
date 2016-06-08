@@ -28,16 +28,15 @@ MongoCtrl.prototype.init = function() {
 
 //TODO:: for detaching: add remove member from replica set & destroy shard
 
-MongoCtrl.prototype.add_replica_set_member = function(name, first_shard) {
+MongoCtrl.prototype.add_replica_set_member = function(name, first_server, servers) {
     let self = this;
     return self._remove_single_mongo_program()
-        .then(() => self._add_replica_set_member_program(name, first_shard))
-        .then(() => dotenv.set({
-            key: 'MONGO_REPLICA_SET',
-            value: name
-        }))
+        .then(() => self._add_replica_set_member_program(name, first_server))
         .then(() => SupervisorCtl.apply_changes())
-        .then(() => self._publish_rs_name_current_server(name));
+        .then(() => {
+            // build new connection url for mongo and write to .env
+            return self.update_dotenv(name, servers.map(server => server.address));
+        });
 };
 
 MongoCtrl.prototype.add_new_shard_server = function(name, first_shard) {
@@ -83,6 +82,7 @@ MongoCtrl.prototype.update_connection_string = function() {
     //MongoDB seems to use a shared connection/state on our mongo_client & mongoose_utils
     //Disconnect both, replace url, connect both
     //Order is important!
+
     return P.when(mongoose_client.mongoose_disconnect())
         .then(() => {
             mongo_client.disconnect();
@@ -201,6 +201,19 @@ MongoCtrl.prototype._refresh_services_list = function() {
         .then(mongo_services => {
             this._mongo_services = mongo_services;
         });
+};
+
+MongoCtrl.prototype.update_dotenv = function(name, IPs) {
+    dbg.log0('will update dotenv for replica set', name, 'with IPs', IPs);
+    let servers_str = IPs.map(ip => ip + ':' + config.MONGO_DEFAULTS.SHARD_SRV_PORT).join(',');
+    let url = 'mongodb://' + servers_str + '/nbcore?replicaSet=' + name;
+    let old_url = process.env.MONGO_RS_URL || '';
+    dbg.log0('updating MONGO_RS_URL in .env from', old_url, 'to', url);
+    dotenv.set({
+        key: 'MONGO_RS_URL',
+        value: url
+    });
+    return this._publish_rs_name_current_server(name);
 };
 
 MongoCtrl.prototype._publish_rs_name_current_server = function(name) {

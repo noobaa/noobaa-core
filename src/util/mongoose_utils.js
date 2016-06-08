@@ -2,11 +2,9 @@
 
 var _ = require('lodash');
 var mongoose = require('mongoose');
-var url = require('url');
 var P = require('./promise');
 var dbg = require('./debug_module')(__filename);
 var mongoose_logger = require('./mongoose_logger');
-var config = require('../../config.js');
 
 var debug_mode = (process.env.DEBUG_MODE === 'true');
 var mongoose_connected = false;
@@ -19,14 +17,12 @@ if (debug_mode) {
 }
 
 var MONGODB_URL =
+    process.env.MONGO_RS_URL ||
     process.env.MONGODB_URL ||
     process.env.MONGOHQ_URL ||
     process.env.MONGOLAB_URI ||
     'mongodb://127.0.0.1/nbcore';
 
-var MONGO_REPLICA_SET =
-    process.env.MONGO_REPLICA_SET ||
-    '';
 
 mongoose.connection.on('connected', function() {
     // call ensureIndexes explicitly for each model
@@ -59,12 +55,6 @@ function mongoose_connect() {
     mongoose_timeout = null;
     mongoose_disconnected = false;
     var new_url = MONGODB_URL;
-    if (MONGO_REPLICA_SET !== '') {
-        var parsed_url = url.parse(MONGODB_URL);
-        new_url = parsed_url.protocol + '//' + parsed_url.hostname +
-            ':' + config.MONGO_DEFAULTS.SHARD_SRV_PORT + parsed_url.path +
-            '?replicaSet=' + MONGO_REPLICA_SET;
-    }
     if (!mongoose_connected) {
         dbg.log0('connecting mongoose to', new_url);
         mongoose.connect(new_url);
@@ -102,9 +92,8 @@ function mongoose_ensure_indexes() {
 
 //Update connections string according to configured RS
 function mongoose_update_connection_string() {
-    var rs = process.env.MONGO_REPLICA_SET || '';
-    dbg.log0('different RS and MONGO_REPLICA_SET. RS =', rs, ' current MONGO_REPLICA_SET =', MONGO_REPLICA_SET);
-    MONGO_REPLICA_SET = rs;
+    dbg.log0('updating mongoose connection string from', MONGODB_URL, 'to', process.env.MONGO_RS_URL);
+    MONGODB_URL = process.env.MONGO_RS_URL;
 }
 
 

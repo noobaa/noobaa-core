@@ -195,8 +195,9 @@ function news_replicaset_servers(req) {
     dbg.log0('Recieved news: news_replicaset_servers', cutil.pretty_topology(req.rpc_params));
     //Verify we recieved news on the cluster we are joined to
     cutil.verify_cluster_id(req.rpc_params.cluster_id);
-
-    return P.when(_update_rs_if_needed(req.rpc_params.IPs, req.rpc_params.name, false));
+    dbg.log0('replica set params - IPs:', req.rpc_params.IPs, 'name:', req.rpc_params.name);
+    return P.when(_update_rs_if_needed(req.rpc_params.IPs, req.rpc_params.name, false))
+        .return();
 }
 
 function news_updated_topology(req) {
@@ -299,7 +300,7 @@ function _add_new_replicaset_on_server(shardname, ip, params) {
     }
 
     return P.when(cutil.update_cluster_info(new_topology))
-        .then(() => MongoCtrl.add_replica_set_member(shardname, params.first_server))
+        .then(() => MongoCtrl.add_replica_set_member(shardname, params.first_server, new_topology.shards[shard_idx].servers))
         .then(() => {
             dbg.log0('Adding new replica set member to the set');
             var rs_length = cutil.get_topology().shards[shard_idx].servers.length;
@@ -314,7 +315,14 @@ function _add_new_replicaset_on_server(shardname, ip, params) {
                 /*return MongoCtrl.add_member_to_replica_set(shardname, cutil._extract_servers_ip(
                     cutil._get_topology().shards[shard_idx].servers
                 ));*/
-                return _publish_to_cluster('news_replicaset_servers', cutil.get_topology());
+                let new_rs_params = {
+                    name: shardname,
+                    IPs: cutil.extract_servers_ip(
+                        cutil.get_topology().shards[shard_idx].servers
+                    ),
+                    cluster_id: new_topology.cluster_id
+                };
+                return _publish_to_cluster('news_replicaset_servers', new_rs_params);
             }
         });
 }
@@ -368,10 +376,14 @@ function _update_rs_if_needed(IPs, name, is_config) {
                     dbg.log0('Current server is master for config RS, Updating to', IPs);
                     return MongoCtrl.add_member_to_replica_set(
                         name,
-                        cutil.extract_servers_ip(IPs),
+                        IPs,
                         is_config);
-                } else {
-                    return;
+                }
+            })
+            .then(() => {
+                // for all members update the connection string with the new member
+                if (!is_config) {
+                    return MongoCtrl.update_dotenv(name, IPs);
                 }
             });
     }

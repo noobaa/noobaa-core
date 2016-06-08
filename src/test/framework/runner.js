@@ -175,8 +175,8 @@ TestRunner.prototype.run_tests = function() {
                 .then(function(step_res) {
                     fs.appendFileSync(REPORT_PATH, step_res + '\n');
                     return;
-                }).fail(function(error){
-                    fs.appendFileSync(REPORT_PATH, 'Stopping tests with error ' + error+' '+error.stace+' '+error.message);
+                }).fail(function(error) {
+                    fs.appendFileSync(REPORT_PATH, 'Stopping tests with error ' + error + ' ' + error.stace + ' ' + error.message);
                     throw new Error(error);
                 });
         })

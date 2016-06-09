@@ -219,7 +219,6 @@ function read_system(req) {
             name: system.name,
             objects: objects_sys.count || 0,
             roles: _.map(system.roles_by_account, function(roles, account_id) {
-                console.log('ETET roles',roles, account_id);
                 var account = system_store.data.get_by_id(account_id);
                 return {
                     roles: roles,

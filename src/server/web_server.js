@@ -28,6 +28,7 @@ var util = require('util');
 var http = require('http');
 var https = require('https');
 var multer = require('multer');
+var url = require('url');
 var express = require('express');
 var express_favicon = require('serve-favicon');
 var express_compress = require('compression');
@@ -252,6 +253,20 @@ app.get('/get_latest_version*', function(req, res) {
         }
     }
     res.status(400).send({});
+});
+
+//RPC Addresses
+//server_rpc
+app.get('/settings', function(req, res) {
+    var addr = {
+        md: url.parse(server_rpc.rpc.router.md).port,
+        bg: url.parse(server_rpc.rpc.router.bg).port
+    };
+
+    res.setHeader("Content-Type", "application/json");
+    res.status(200).send({
+        ports: addr,
+    });
 });
 
 //Log level setter

@@ -3,8 +3,6 @@ import page from 'page';
 import api from 'services/api';
 import config from 'config';
 
-window.api = api;
-
 import {
     isDefined, isUndefined, encodeBase64, cmpStrings, cmpInts, cmpBools,
     last, clamp,  makeArray, execInOrder, realizeUri, downloadFile,

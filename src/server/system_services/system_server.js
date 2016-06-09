@@ -964,7 +964,8 @@ function syslog_configuration_reload(config) {
     } else {
         return P.nfcall(fs.readFile, 'src/deploy/NVA_build/noobaa_syslog.conf')
             .then(data => {
-                let add_destination = `*.* ${config.connection_type === 'TCP' ? '@@' : '@'}${config.address}:${config.port}`;
+                // Sending everything except NooBaa logs
+                let add_destination = `if $syslogfacility-text != 'local0' then ${config.connection_type === 'TCP' ? '@@' : '@'}${config.address}:${config.port}`;
                 return P.nfcall(fs.writeFile, '/etc/rsyslog.d/noobaa_syslog.conf', data + '\n' + add_destination);
             })
             .then(() => promise_utils.promised_exec('service rsyslog restart'));

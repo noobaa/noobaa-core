@@ -102,7 +102,7 @@ MongoCtrl.prototype._add_replica_set_member_program = function(name, first_shard
     }
 
     let program_obj = {};
-    let dbpath = config.MONGO_DEFAULTS.COMMON_PATH + '/' + name + 'rs';
+    let dbpath = config.MONGO_DEFAULTS.COMMON_PATH + '/' + name + (first_shard ? '' : 'rs');
     program_obj.name = 'mongors-' + name;
     program_obj.command = 'mongod ' +
         '--replSet ' + name +
@@ -113,10 +113,13 @@ MongoCtrl.prototype._add_replica_set_member_program = function(name, first_shard
     program_obj.autostart = 'true';
     program_obj.priority = '1';
 
+    dbg.log0('adding replica set program:', program_obj);
     if (first_shard) { //If shard1 (this means this is the first server which will be the base of the cluster)
         //use the original server`s data
+        dbg.log0('first server in the cluster - leaving dbpath as is:', dbpath);
         return SupervisorCtl.add_program(program_obj);
     } else {
+        dbg.log0('adding server to an existing cluster. cleaning dbpath:', dbpath);
         return fs_utils.create_fresh_path(dbpath)
             .then(() => SupervisorCtl.add_program(program_obj));
     }

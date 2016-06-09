@@ -1,7 +1,9 @@
-<svg-icon class="icon-big pull-left" params="uri: '/fe/assets/icons.svg#pool'"></svg-icon>
+<svg-icon class="icon-big push-next" params="uri: '/fe/assets/icons.svg#pool'"></svg-icon>
 
-<div class="text-left">
-    <a class="link" data-bind="text: poolCountText, href: '/fe/systems/:system/pools'"></a>
-    <br>
+<div class="column align-middle">
+    <a class="link" data-bind="
+        text: poolCountText, 
+        href: '/fe/systems/:system/pools'
+    "></a>
     <span data-bind="text: nodeCountText"></span>
 </div>

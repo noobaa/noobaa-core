@@ -7,17 +7,17 @@ import { makeArray } from 'utils';
 import moment from 'moment';
 
 const testTypes = Object.freeze([
-    { 
-        name: 'Full', 
-        tests: ['connectivity', 'bandwidth'] 
+    {
+        name: 'Full',
+        tests: ['connectivity', 'bandwidth']
     },
     {
-        name: 'Connectivity', 
-        tests: ['connectivity'] 
+        name: 'Connectivity',
+        tests: ['connectivity']
     },
-    { 
-        name: 'Bandwidth', 
-        tests: ['bandwidth'] 
+    {
+        name: 'Bandwidth',
+        tests: ['bandwidth']
     }
 ]);
 
@@ -26,8 +26,8 @@ class TestNodeModalViewModel {
         this.onClose = onClose;
 
         this.testTypeOptions = testTypes.map(
-            ({ name, tests }) => { 
-                return { label: name, value: tests }
+            ({ name, tests }) => {
+                return { label: name, value: tests };
             }
         );
 
@@ -52,14 +52,14 @@ class TestNodeModalViewModel {
             () => !!nodeTestInfo() && nodeTestInfo().state === 'IN_PROGRESS'
         );
 
-        this.rows = makeArray(    
+        this.rows = makeArray(
             100,
             i => new TestRowViewModel(() => results()[i])
         );
     }
 
     runTest() {
-        testNode(ko.unwrap(this.sourceRpcAddress), this.selectedTests())
+        testNode(ko.unwrap(this.sourceRpcAddress), this.selectedTests());
     }
 
     abortTest() {
@@ -74,4 +74,4 @@ class TestNodeModalViewModel {
 export default {
     viewModel: TestNodeModalViewModel,
     template: template
-}
+};

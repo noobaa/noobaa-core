@@ -1,5 +1,3 @@
-<!-- <input type="search" class="obj-filter" placeholder="Filter Files" 
-                    data-bind="textInput: filter" /> -->
 <section class="data-table">
     <table>
         <thead>
@@ -19,15 +17,8 @@
                         files
                     </a>
                 </th>
-                <th class="totalsize-col" data-bind="css: orderClassFor('totalsize')">
-                    <a href data-bind="click: () => orderBy('totalsize')">
-                        total
-                    </a>
-                </th>
-                <th class="freesize-col" data-bind="css: orderClassFor('freesize')">
-                    <a href data-bind="click: () => orderBy('freesize')">
-                        free
-                    </a>
+                <th class="capacity-col">
+                    used capacity
                 </th>
                 <th class="cloudsync-col" data-bind="css: orderClassFor('cloudsync')">
                     <a href data-bind="click: () => orderBy('cloudsync')">
@@ -50,10 +41,10 @@
 
                 <td class="filecount-col" data-bind="text: fileCount"></td>
 
-                <td class="totalsize-col" data-bind="text: totalSize"></td>
+                <td class="column capacity-col">
+                <capacity-bar params="{ total: total, used: used }"></capacity-bar>
+                </td>
 
-                <td class="freesize-col" data-bind="text: freeSize"></td>
-                
                 <td class="cloudsync-col" data-bind="
                     text: cloudSyncStatus().label, 
                     css: cloudSyncStatus().css"

@@ -9,7 +9,7 @@ const maxRows = 100;
 class PoolsTableViewModel {
     constructor({ pools }) {
         let rows = makeArray(
-            maxRows, 
+            maxRows,
             i => new PoolRowViewModel(() => pools()[i])
         );
 
@@ -32,11 +32,11 @@ class PoolsTableViewModel {
     orderClassFor(colName) {
         if (this.sortedBy() === colName) {
             return this.order() === 1 ? 'des' : 'asc' ;
-        } 
-    }    
+        }
+    }
 }
 
 export default {
     viewModel: PoolsTableViewModel,
     template: template
-} 
+};

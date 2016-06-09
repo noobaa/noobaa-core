@@ -1,0 +1,35 @@
+drawer {
+    .drawer-wrapper {
+        .fixed();
+        overflow: hidden;
+
+        &.visible {
+
+            .drawer-backdrop {
+                opacity: 1;
+            }
+
+            .drawer-content {
+                transform: translateX(0);
+            }
+        }
+    }
+
+    .drawer-backdrop {
+        .fill();
+        background-color: @shadow-color;
+        opacity: 0;
+        transition: opacity 300ms linear;
+    }
+
+    .drawer-content {
+        .fill();
+        .column();
+        background: @bg-color3;
+        left: auto;
+        width: 50em;
+        box-shadow: 0 0 20px @bg-color1;
+        transform: translateX(100%);
+        transition: transform 300ms ease-out;
+    }
+}

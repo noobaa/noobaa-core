@@ -1,48 +1,71 @@
 <!-- ko if: dataReady -->
-<ul class="list-no-style status-line">
-    <li>
-        <svg-icon params="uri: '/fe/assets/icons.svg#node-online'"></svg-icon>
-        <span data-bind="text: onlineCount"></span>
-    </li>
-    <li>
-        <svg-icon params="uri: '/fe/assets/icons.svg#node-offline'"></svg-icon>
-        <span data-bind="text: offlineCount"></span>
-    </li>
-</ul>
+<section class="c4 column">
+    <h3 class="heading4 push-next">
+        Storage Capacity:
+        <span data-bind="text: totalText"></span>
+    </h3>
 
-<div class="text-center">
-    <section class="gauge-legend">
-        <h3 class="heading3 underline">
-            Potential Capacity: 
-            <span data-bind="text: totalText"></span>
-        </h3>
-
-        <ul class="list-no-style">
-            <li class="used-legend">
-                Used: 
-                <span class="emphasized" data-bind="text: usedText"></span>
+    <div class="row">
+        <ul class="c8 column list-no-style legend">
+            <li class="row">
+                <span class="c6 emphasized">Used:</span>
+                <span class="highlight" data-bind="text: usedText"></span>
             </li>
-            <li class="free-legend">
-                Free: 
-                <span class="emphasized" data-bind="text: freeText"></span>
+            <li class="row">
+                <span class="c6 emphasized">Free:</span>
+                <span data-bind="text: freeText"></span>
             </li>
-        </ul>        
-    </section>
+        </ul>
 
-    <quantity-gauge params="values: gaugeValues"></quantity-gauge>
+        <quantity-gauge class="c4" params="values: gaugeValues"></quantity-gauge>
+    </div>
+</section>
 
-    <section class="action-list">
-        <button class="action btn2" data-bind="click: () => isAssignNodeModalVisible(true)">
-            <svg-icon params="uri: '/fe/assets/icons.svg#move-nodes'"></svg-icon>
-            Assign Nodes
-        </button>     
-    </section>
-</div>
-<!-- /ko -->
+<vr></vr>
 
-<!-- ko if: isAssignNodeModalVisible -->
-    <assign-nodes-modal params="
-        poolName: poolName,
-        onClose: () => isAssignNodeModalVisible(false)
-    "></assign-nodes-modal>
+<section class="c3 column">
+    <h3 class="heading4 push-next">Status</h3>
+    <div class="push-next">
+        <svg-icon params="uri: stateIcon" data-bind="
+            tooltip: 'State'
+        "></svg-icon>
+        <span data-bind="text: stateText"></span>
+    </div>
+
+    <h3 class="heading4 push-next">
+        Nodes in Pool:
+        <span data-bind="text: nodeCount"></span>
+    </h3>
+    <div class="row">
+        <div class="c6 push-next">
+            <svg-icon params="uri: onlineIcon" data-bind="
+                tooltip: 'Online Nodes'
+            "></svg-icon>
+            <span data-bind="text: onlineText"></span>
+        </div>
+        <div class="c6">
+            <svg-icon params="uri: offlineIcon" data-bind="
+                tooltip: 'Online Nodes'
+            "></svg-icon>
+            <span data-bind="text: offlineText"></span>
+        </div>
+    </div>
+</section>
+
+<vr></vr>
+
+<section class="column c5">
+    <h3 class="heading4 push-next">Activity</h3>
+    <!-- ko foreach: dataActivities -->
+    <p class="paragraph">
+        <span data-bind="text: row1"></span>
+        <br>
+        <span class="highlight" data-bind="text: row2"></span>
+    </p>
+    <!-- /ko -->
+
+    <!-- ko ifnot: dataActivities -->
+    <p>No activity</p>
+    <!-- /ko -->
+</section>
 <!-- /ko -->

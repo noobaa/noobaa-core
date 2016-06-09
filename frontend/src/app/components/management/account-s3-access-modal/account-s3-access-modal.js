@@ -21,7 +21,7 @@ class AccountS3AccessModalViewModel {
                 .map(
                     ({ bucket_name }) => bucket_name
                 )
-        )
+        );
 
         this.selectedBuckets = ko.pureComputed({
             read: () => this.hasS3Access() ? selectedBucketsInternal() : [],
@@ -57,7 +57,7 @@ class AccountS3AccessModalViewModel {
 
         console.log('HERE1');
         updateAccountS3ACL(
-            ko.unwrap(this.email), 
+            ko.unwrap(this.email),
             this.hasS3Access() ? acl : null
         );
         this.onClose();
@@ -71,4 +71,4 @@ class AccountS3AccessModalViewModel {
 export default {
     viewModel: AccountS3AccessModalViewModel,
     template: template
-}
+};

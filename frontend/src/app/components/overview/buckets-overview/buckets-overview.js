@@ -4,7 +4,7 @@ import numeral from 'numeral';
 
 class BucketsOverviewViewModel {
     constructor({ bucketCount, objectCount }) {
-        
+
         this.bucketCountText = ko.pureComputed(() => {
             let count = ko.unwrap(bucketCount);
             return `${numeral(count).format('0,0')} Buckets`;
@@ -17,7 +17,7 @@ class BucketsOverviewViewModel {
     }
 }
 
-export default { 
+export default {
     viewModel: BucketsOverviewViewModel,
     template: template
-}
+};

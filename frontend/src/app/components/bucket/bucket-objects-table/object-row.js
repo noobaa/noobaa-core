@@ -1,19 +1,18 @@
 import { formatSize } from 'utils';
 import ko from 'knockout';
-import { dblEncode } from 'utils';
 
 const statusIconMapping = Object.freeze({
     AVALIABLE: {
         toolTip: 'Avaliable',
-        icon: '/fe/assets/icons.svg#object-healthy',
+        icon: '/fe/assets/icons.svg#object-available'
     },
     IN_PROCESS: {
         toolTip: 'In Process',
-        icon: '/fe/assets/icons.svg#object-in-porcess'
+        icon: '/fe/assets/icons.svg#object-in-process'
     },
     UNAVALIABLE: {
         toolTip: 'Unavaliable',
-        icon: '/fe/assets/icons.svg#object-problem'
+        icon: '/fe/assets/icons.svg#object-unavailable'
     }
 });
 
@@ -40,9 +39,7 @@ export default class ObjectRowViewModel {
         );
 
         this.href = ko.pureComputed(
-            () => `/fe/systems/:system/buckets/:bucket/objects/${
-                dblEncode(this.name())
-            }`
+            () => `/fe/systems/:system/buckets/:bucket/objects/${this.name()}`
         );
 
         this.size = ko.pureComputed(

@@ -1,26 +1,21 @@
 pools-table {
-    display: block;
-    padding: 2em 3.5em;
-
-    .delete-btn {
-        padding: 0;
-
-        &[disabled] {
-            cursor: default;
-        }
-    }
-
     .state-col,
     .nodes-col,
-    .online-nodes-col,
     .usage-col {
-        min-width: 4em;
+        min-width: 6em;
     }
 
-    .delete-col,
-    .capacity-col,
-    .offline-nodes-col, {
-        min-width: 6em;
+    .delete-col {
+        min-width: 8em;
+    }
+
+    .offline-nodes-col, 
+    .online-nodes-col {
+        min-width: 7em;
+    }
+
+    .capacity-col {
+        min-width: 9em;
     }
 
     .name-col{

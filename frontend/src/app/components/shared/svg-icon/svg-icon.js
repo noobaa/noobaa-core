@@ -1,5 +1,5 @@
 import template from './svg-icon.html';
 
-export default { 
+export default {
     template: template
-}
+};

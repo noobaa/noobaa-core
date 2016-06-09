@@ -1,15 +1,16 @@
-<div class="buckets-panel">
-    <div class="clear">
-        <button class="pull-right btn add-bucket-btn" 
-            data-bind="click: () => isCreateBucketWizardVisible(true)">
-            create bucket
-        </button>
-    </div>
+<section class="box column greedy">
+    <h2 class="box-header">Bucket List</h2>
 
-    <buckets-table params="buckets: buckets"></buckets-table>
+    <button class="btn2 align-end push-next" data-bind="
+        click: () => isCreateBucketWizardVisible(true)
+    ">
+        Create Bucket
+    </button>
 
-    <!-- ko if: isCreateBucketWizardVisible -->
-    <create-bucket-wizard params="onClose: () => isCreateBucketWizardVisible(false)">
-    </create-bucket-wizard>
-    <!-- /ko -->
-</div>
+    <buckets-table class="column greedy" params="buckets: buckets"></buckets-table>
+</section>
+
+<!-- ko if: isCreateBucketWizardVisible -->
+<create-bucket-wizard params="onClose: () => isCreateBucketWizardVisible(false)">
+</create-bucket-wizard>
+<!-- /ko -->

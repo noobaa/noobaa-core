@@ -6,7 +6,7 @@ class StepperViewModel {
         this.current = current;
 
         this.steps = steps.map(
-            (name = '[not set]', i) => ({ 
+            (name = '[not set]', i) => ({
                 name: name,
                 selected: ko.pureComputed(
                     () => i === ko.unwrap(this.current)
@@ -19,4 +19,4 @@ class StepperViewModel {
 export default {
     viewModel: StepperViewModel,
     template: template
-}
+};

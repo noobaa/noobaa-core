@@ -1,25 +1,29 @@
-<h2 class="heading2" data-bind="click: () => expanded.toggle()">
-    <button class="btn-flat pull-right rotate no-outline" data-bind="
-        css: { 'deg-90': !expanded() }
-    ">
-        <svg-icon class="expand-icon" params="uri: '/fe/assets/icons.svg#expand'" ></svg-icon>
-    </button>
-    Server Date & Time
-</h2>
+<div class="row content-middle" data-bind="click: () => expanded.toggle()">
+    <h2 class="heading3 greedy">
+        Server Date & Time
+    </h2>
 
-<p class="summary container" data-bind="visible: !expanded()">
+    <button class="btn-flat expand-btn no-outline">
+        <svg-icon class="rotate" 
+            params="uri: '/fe/assets/icons.svg#chevron'" 
+            data-bind="css: { 'deg-90': !expanded() }">
+        </svg-icon>
+    </button>
+</div>
+
+<p data-bind="visible: !expanded()">
     Current Server Time: 
     <output class="text-tech emphasized" data-bind="text: serverTimeText"></output>
 </p>
 
-<div class="container" data-bind="expand: expanded">
-    <radio-group class="container" params="
+<div class="column" data-bind="expand: expanded">
+    <radio-group class="push-next" params="
         options: configTypes, 
         selected: selectedConfigType
     "></radio-group>
 
     <!-- ko if: usingManualTime -->
-    <section class="container">
+    <section class="push-next">
         <editor params="label: 'Time Zone'">
             <dropdown params="
                 options: timezones, 
@@ -29,40 +33,44 @@
         </editor>
 
         <editor params="label: 'Date', insertValMessages: false">
-            <dropdown class="fixed-width text-center" params="
-                options: months,
-                placeholder: 'month',
-                selected: month
-            "></dropdown>
+            <div class="row editor-row">
+                <dropdown class="text-center push-next" params="
+                    options: months,
+                    placeholder: 'month',
+                    selected: month
+                "></dropdown>
 
-            <dropdown class="fixed-width text-center" params="
-                options: days,
-                placeholder: 'day',
-                selected: day
-            "></dropdown>
+                <dropdown class="text-center push-next" params="
+                    options: days,
+                    placeholder: 'day',
+                    selected: day
+                "></dropdown>
 
-            <dropdown class="fixed-width text-center" params="
-                options: years,
-                placeholder: 'year',
-                selected: year
-            "></dropdown>
+                <dropdown class="text-center" params="
+                    options: years,
+                    placeholder: 'year',
+                    selected: year
+                "></dropdown>
+            </div>
         </editor>
 
         <editor params="label: 'Time', insertValMessages: false">
-            <input type="number" class="fixed-width" min="0" max="23" placeholder="HH"
-                data-bind="textInput: hour"/>
+            <div class="row editor-row">
+                <input type="number" class="push-next" min="0" max="23" 
+                    placeholder="HH" data-bind="textInput: hour"/>
 
-            <input type="number" class="fixed-width" min="0" max="59"  placeholder="MM"
-                data-bind="textInput: minute"/>
+                <input type="number" class="push-next" min="0" max="59"  
+                    placeholder="MM" data-bind="textInput: minute"/>
 
-            <input type="number" class="fixed-width" min="0" max="59" placeholder="SS" 
-                data-bind="textInput: second"/>
+                <input type="number" min="0" max="59" 
+                    placeholder="SS" data-bind="textInput: second"/>
+            </div>
         </editor>
     </section>
     <!-- /ko -->
 
     <!-- ko if: usingNTP -->
-    <section class="container">
+    <section class="push-next">
         <editor params="label: 'Time Zone'">
             <dropdown params="
                 options: timezones, 
@@ -79,10 +87,7 @@
     </section>
     <!-- /ko -->
 
-    <div class="container text-left">
-        <button class="btn2" data-bind="click: applyChanges">
-            Apply Changes
-        </button>
-    </div>
-
+    <button class="btn2" data-bind="click: applyChanges">
+        Apply Changes
+    </button>
 </div>

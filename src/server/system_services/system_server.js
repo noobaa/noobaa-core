@@ -198,6 +198,7 @@ function read_system(req) {
             srv_time: time_status.srv_time,
             synced: time_status.status,
         };
+
         if (system.ntp) {
             time_config.ntp_server = system.ntp.server;
             time_config.timezone = system.ntp.timezone ? system.ntp.timezone : time_status.timezone;
@@ -259,8 +260,10 @@ function read_system(req) {
             ip_address: ip_address,
             time_config: time_config,
             base_address: system.base_address || 'wss://' + ip_address + ':' + process.env.SSL_PORT,
-            phone_home_proxy: system.phone_home_proxy,
             external_syslog_config: system.external_syslog_config,
+            phone_home_config: system.phone_home_proxy && {
+                proxy_address: system.phone_home_proxy
+            },
             version: pkg.version,
             debug_level: debug_level,
         };
@@ -290,7 +293,7 @@ function update_system(req) {
     }).return();
 }
 
-function set_maintenance_mode(req) {
+function set_maintenance(req) {
     var updates = {};
     //let maintenance_mode = _.pick(req.rpc_params, 'maintenance_mode');
     updates._id = req.system._id;
@@ -574,45 +577,39 @@ function _read_activity_log_internal(req) {
 
 
 
-
 function export_activity_log(req) {
     req.rpc_params.csv = true;
+
+    // generate csv file name:
+    const file_name = 'audit.csv';
+    const out_path = `/public/${file_name}`;
+    const inner_path = `${process.cwd()}/build${out_path}`;
+
     return _read_activity_log_internal(req)
         .then(logs => {
-            // generate csv file name:
-            let file_name = 'audit.csv';
-            let out_path = '/public/' + file_name;
-            let inner_path = process.cwd() + '/build' + out_path;
-            var file = fs.createWriteStream(inner_path);
-            file.on('error', err => dbg.error('received error when writing to audit csv file:', inner_path, err));
-            let headline = 'time,level,account,event,entity,description\n';
-            let logs_arr = logs.logs;
-            dbg.log0('writing', logs_arr.length, 'lines to csv file', inner_path);
-            return file.writeAsync(headline, 'utf8')
-                .then(() => promise_utils.loop(logs_arr.length, i => {
-                    let line_entry = logs_arr[i];
-                    let time = new Date(line_entry.time);
-                    let level = line_entry.level;
-                    let account = line_entry.actor.email;
-                    let event = line_entry.event;
-                    let description = line_entry.desc[0];
-                    let entity_type = event.split('.')[0];
-                    let entity = '';
-                    if (line_entry[entity_type]) {
-                        if (entity_type === 'obj') {
-                            entity = line_entry[entity_type].key;
-                        } else {
-                            entity = line_entry[entity_type].name;
-                        }
-                    }
-                    let line = '"' + time.toISOString() + '",' + level + ',' + account + ',' + event + ',' + entity + ',"' + description + '"\n';
-                    return file.writeAsync(line, 'utf8');
-                }))
-                .then(() => file.end())
-                .then(() => ({
-                    csv_path: out_path
-                }));
+            let lines = logs.logs.reduce(
+                (lines, entry) => {
+                    let time = (new Date(entry.time)).toISOString();
+                    let entity_type = entry.event.split('.')[0];
+                    let account = entry.actor ? entry.actor.email : '';
+                    let entity = entry[entity_type];
+                    let description = entry.desc.join(' ');
+                    let entity_name = entity ?
+                        (entity_type === 'obj' ? entity.key : entity.name) :
+                        '';
 
+                    lines.push(`"${time}",${entry.level},${account},${entry.event},${entity_name},"${description}"`);
+                    return lines;
+                },
+                ['time,level,account,event,entity,description']
+            );
+
+            return fs.writeFileAsync(inner_path, lines.join('\n'), 'utf8');
+        })
+        .then(() => out_path)
+        .catch(err => {
+            dbg.error('received error when writing to audit csv file:', inner_path, err);
+            throw err;
         });
 }
 
@@ -833,31 +830,27 @@ function update_base_address(req) {
 }
 
 // phone_home_proxy must be a full address like: http://(ip or hostname):(port)
-function update_phone_home_proxy_address(req) {
-    dbg.log0('update_phone_home_proxy_address', req.rpc_params);
-    if (req.rpc_params.phone_home_proxy === null) {
-        return system_store.make_changes({
-                update: {
-                    systems: [{
-                        _id: req.system._id,
-                        $unset: {
-                            phone_home_proxy: 1
-                        }
-                    }]
-                }
-            })
-            .return();
+function update_phone_home_config(req) {
+    dbg.log0('update_phone_home_config', req.rpc_params);
+
+    let update = {
+        _id: req.system._id
+    };
+
+    if (req.rpc_params.proxy_address === null) {
+        update.$unset = {
+            phone_home_proxy: 1
+        };
     } else {
-        return system_store.make_changes({
-                update: {
-                    systems: [{
-                        _id: req.system._id,
-                        phone_home_proxy: req.rpc_params.phone_home_proxy
-                    }]
-                }
-            })
-            .return();
+        update.phone_home_proxy = req.rpc_params.proxy_address;
     }
+
+    return system_store.make_changes({
+            update: {
+                systems: [update]
+            }
+        })
+        .return();
 }
 
 
@@ -1013,10 +1006,10 @@ exports.set_debug_level = set_debug_level;
 
 exports.update_n2n_config = update_n2n_config;
 exports.update_base_address = update_base_address;
-exports.update_phone_home_proxy_address = update_phone_home_proxy_address;
+exports.update_phone_home_config = update_phone_home_config;
 exports.update_hostname = update_hostname;
 exports.update_system_certificate = update_system_certificate;
 exports.update_time_config = update_time_config;
-exports.set_maintenance_mode = set_maintenance_mode;
 exports.configure_external_syslog = configure_external_syslog;
+exports.set_maintenance = set_maintenance;
 //exports.read_maintenance_config = read_maintenance_config

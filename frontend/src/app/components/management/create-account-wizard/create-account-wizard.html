@@ -6,9 +6,11 @@
     onComplete: () => create(),
     onClose: () => cancel()
 ">
-    <section data-bind="template: { html: nameAndPermissionsStepTemplate }">
-    </section>
+    <section class="column" data-bind="
+        template: { html: nameAndPermissionsStepTemplate }
+    "></section>
 
-    <section data-bind="template: { html: detailsStepTemplate }">
-    </section>
+    <section class="column greedy" data-bind="
+        template: { html: detailsStepTemplate }
+    "></section>
 </wizard>

@@ -16,7 +16,7 @@ function resolve_cloud_sync_info(sync_policy) {
     if (!_.isEmpty(sync_policy)) {
         //If sync time is epoch (never synced) change to never synced
         if (sync_policy.paused) {
-            stat = 'PASUED';
+            stat = 'PAUSED';
         } else if (!sync_policy.health) {
             stat = 'UNABLE';
         } else if (sync_policy.last_sync.getTime() === 0) {

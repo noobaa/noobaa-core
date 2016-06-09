@@ -123,7 +123,7 @@ export default {
 
             diagnose_system: {
                 message: 'System Diagnose',
-                entityId: ({ dbg }) => ''
+                entityId: () => ''
             }
         }
     },
@@ -133,17 +133,17 @@ export default {
         events: {
             create_system: {
                 message: 'System Created',
-                entityId: ({ conf }) => ''
+                entityId: () => ''
             },
 
             server_date_time_updated: {
                 message: 'Server Date And Time Updated',
-                entityId: ({ conf }) => ''
+                entityId: () => ''
             },
 
             dns_address: {
                 message: 'Set/Edit DNS Address',
-                entityId: ({ conf }) => ''
+                entityId: () => ''
             }
         }
     }

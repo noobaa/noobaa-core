@@ -5,38 +5,38 @@ import { resetAccountPassword } from 'actions';
 import { randomString, copyTextToClipboard } from 'utils';
 
 const userMessage = new Function(
-    'emailAddress', 
-    'password', 
+    'emailAddress',
+    'password',
     'return `' + userMessageTemplate + '`'
 );
 
 class RestPasswordModalViewModel {
-	constructor({ onClose, email }) {
-		this.onClose = onClose;
-		this.email = email;
-		this.password = randomString();
+    constructor({ onClose, email }) {
+        this.onClose = onClose;
+        this.email = email;
+        this.password = randomString();
 
-		this.userMessage = ko.pureComputed(
+        this.userMessage = ko.pureComputed(
              () => userMessage(
-                 ko.unwrap(this.email), 
+                 ko.unwrap(this.email),
                  this.password
              )
         );
 
-	}
+    }
 
-	reset() {
-		copyTextToClipboard(this.userMessage());
-		resetAccountPassword(ko.unwrap(this.email), this.password);
-		this.onClose();
-	}
+    reset() {
+        copyTextToClipboard(this.userMessage());
+        resetAccountPassword(ko.unwrap(this.email), this.password);
+        this.onClose();
+    }
 
-	cancel() {
-		this.onClose();
-	}
+    cancel() {
+        this.onClose();
+    }
 }
 
 export default {
-	viewModel: RestPasswordModalViewModel,
-	 template: template
-}
+    viewModel: RestPasswordModalViewModel,
+    template: template
+};

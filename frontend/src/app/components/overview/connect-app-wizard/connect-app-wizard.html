@@ -3,6 +3,11 @@
     steps: ['select connection', 'select account'],
     onClose: onClose
 ">
-    <section data-bind="template: { html: selectSlideTemplate }"></section>
-    <section data-bind="template: { html: connectSlideTemplate }"></section>
+    <section class="column" data-bind="
+        template: { html: selectSlideTemplate }"
+    ></section>
+
+    <section class="column"  data-bind="
+        template: { html: connectSlideTemplate }
+    "></section>
 </wizard>

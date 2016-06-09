@@ -1,16 +1,17 @@
-<div class="pool-panel">
-    <pool-summary params="pool: pool" class="text-center"></pool-summary>
-
-    <ul class="tabs details-pane">
-        <li data-bind="css: { selected: isTabSelected('nodes') }">
-            <a class="tab-header" data-bind="href: '/fe/systems/:system/pools/:pool/nodes'">
-                <svg-icon params="uri: '/fe/assets/icons.svg#node-dark'"></svg-icon>
-                Nodes
-            </a>
-
-            <section class="tab-content">
-                <pool-nodes-table params="nodes: nodes"></pool-nodes-table>
-            </section>
-        </li>
-    </ul>
+<div class="box push-next">
+    <h2 class="box-header">General Information</h2>
+    <pool-summary params="pool: pool"></pool-summary>
+</div>
+    
+<div class="tabs greedy">
+    <nav>
+        <a class="selected" data-bind="href: '/fe/systems/:system/pools/:pool/nodes'">
+            Nodes
+        </a>
+    </nav>
+    
+    <div class="tabs-row">
+        <pool-nodes-table class="selected greedy" params="pool: pool, nodes: nodes">
+        </pool-nodes-table>
+    </div>
 </div>

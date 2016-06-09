@@ -1,7 +1,7 @@
 import template from './assign-nodes-modal.html';
 import NodeRowViewModel from './node-row';
 import ko from 'knockout';
-import { makeArray } from 'utils';
+import { makeArray, noop } from 'utils';
 import { nodeList } from 'model';
 import { loadNodeList, assignNodes } from 'actions';
 
@@ -15,7 +15,7 @@ class AssignNodeModalViewModel {
         );
 
         this.rows = makeArray(
-            500, 
+            500,
             i => new NodeRowViewModel(() => relevantNodes()[i])
         );
 
@@ -24,19 +24,13 @@ class AssignNodeModalViewModel {
                 if (nodeList() !== null) {
                     if (nodeList().length === 0) {
                         return 'The system contain no nodes';
-                
+
                     } else if (relevantNodes().length === 0) {
                         return 'All nodes are already in this pool';
                     }
                 }
             }
-        )
-
-        this.hasAnyNodes = ko.pureComputed(
-            () => nodes().length > 1
         );
-
-        this.hadrelevent
 
         this.selectedNodes = ko.observableArray();
 
@@ -57,4 +51,4 @@ class AssignNodeModalViewModel {
 export default {
     viewModel: AssignNodeModalViewModel,
     template: template
-}
+};

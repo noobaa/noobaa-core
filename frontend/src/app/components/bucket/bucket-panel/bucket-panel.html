@@ -1,30 +1,59 @@
 <!-- ko if: ready -->
-<div class="bucket-panel">
-    <bucket-summary params="bucket: bucket" class="text-center"></bucket-summary>
+<div class="box push-next">
+    <h2 class="box-header">General Information</h2>
+    <bucket-summary params="bucket: bucket"></bucket-summary>
+</div>
 
-    <ul class="tabs details-pane">
-        <li data-bind="css: { selected: isTabSelected('objects') }">
-            <a class="tab-header" data-bind="href: '/fe/systems/:system/buckets/:bucket/objects'">
-                <svg-icon params="uri: '/fe/assets/icons.svg#object-dark'"></svg-icon>
-                Files
-            </a>
+<div class="tabs greedy">
+    <nav>
+        <a data-bind="
+            href: '/fe/systems/:system/buckets/:bucket/data-placement',
+            css: { selected: isTabSelected('data-placement') }
+        ">
+            Data Placement
+        </a>
 
-            <section class="tab-content">
-                 <bucket-objects-table params="objects: objects"></bucket-objects-table>
-            </section>
-        </li>
+        <a data-bind="
+            href: '/fe/systems/:system/buckets/:bucket/objects',
+            css: { selected: isTabSelected('objects') }
+        ">
+            Files
+        </a>
+        <a data-bind="
+            href: '/fe/systems/:system/buckets/:bucket/s3-access',
+            css: { selected: isTabSelected('s3-access') }
+        ">
+            S3 Access
+        </a>
 
-        <li data-bind="css: { selected: isTabSelected('s3-access') }">
-            <a class="tab-header" data-bind="href: '/fe/systems/:system/buckets/:bucket/s3-access'">
-                <svg-icon params="uri: '/fe/assets/icons.svg#keys'"></svg-icon>
-                S3 Access
-            </a>
+        <a data-bind="
+            href: '/fe/systems/:system/buckets/:bucket/cloud-sync',
+            css: { selected: isTabSelected('cloud-sync') }
+        ">
+            Cloud sync
+        </a>
+    </nav>
 
-            <section class="tab-content">
-                <bucket-s3-access-list params="bucketName: bucketName">
-                </bucket-s3-access-list>
-            </section>
-        </li>
-    </ul>
+    <div class="tabs-row">
+        <bucket-data-placement-form class="tab" 
+            params="bucket: bucket" 
+            data-bind="css: { selected: isTabSelected('data-placement') }">
+        </bucket-data-placement-form>
+
+        <bucket-objects-table class="tab" 
+            params="bucket: bucket, objects: objects" 
+            data-bind="css: { selected: isTabSelected('objects') }">
+        </bucket-objects-table>
+        
+        <bucket-s3-access-list class="tab" 
+            params="bucketName: bucketName" 
+            data-bind="css: { selected: isTabSelected('s3-access') }">
+        </bucket-s3-access-list>
+
+        <bucket-cloud-sync-form class="tab" 
+            params="bucket: bucket" 
+            data-bind="css: { selected: isTabSelected('cloud-sync') }">
+        </bucket-cloud-sync-form>
+    </div>
 </div>
 <!-- /ko -->

@@ -1,13 +1,20 @@
-<h1 class="heading2">Version Control</h1>
+<seciton class="column">
+    <h2 class="heading3">
+        Version Control
+    </h1>
 
-<p class="container">
-    Current Version:
-    <output class="text-tech emphasized" data-bind="value: version"></output>
-</p>
+    <div class="row content-middle">
+        <span class="push-next">Current Version:</span>
+        <span class="emphasized greedy" data-bind="text: version"></span>
+    </div>
+</seciton>
 
-<section class="container">
+<hr>
+
+<section class="column">
     <h2 class="heading3">Upgrade Server</h2>
-    <p class="paragraph">The upgrading process may take a few minutes to complete.</p>
+    <p class="push-next">The upgrading process may take a few minutes to complete.</p>
+
     <file-selector params="
         message: 'Drag an upgrade package here',
         filter: upgradePackageSuffix,

@@ -1,6 +1,6 @@
 import template from './checkbox.html';
 
-/* 
+/*
     Component Parameters:
     - value: the value of the checkbox input
     - checked: the observable to bind the value to.
@@ -8,4 +8,4 @@ import template from './checkbox.html';
 */
 export default {
     template: template
-}
+};

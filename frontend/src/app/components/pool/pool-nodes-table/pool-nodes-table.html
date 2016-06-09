@@ -1,56 +1,114 @@
-<input type="search" class="filter" placeholder="Filter Nodes" data-bind="textInput: filter" />
+<div class="row push-next">
+    <input class="greedy align-middle" type="search" 
+        placeholder="Filter by Node Name or IP" 
+        data-bind=" textInput: filter"/>
 
-<paginator params="itemCount: count, pageSize: pageSize, page: page" class="pull-right">
-</paginator>
+    <button class="btn3" data-bind="click: () => showAssignNodesModal()">
+        Assign Nodes
+    </button>
+</div>
 
-<section class="table-wrapper">
-    <div class="data-table">
-        <table>
-            <thead>
-                <tr>
-                    <th class="state-col" data-bind="css: orderClassFor('state')">
-                        <a href data-bind="click: () => orderBy('state')">state</a>
-                    </th>
+<div class="row push-next content-middle">
+    <dropdown class="push-next" params="
+        options: dataAccessOptions,
+        selected: dataAccessFilter
+    "></dropdown>
 
-                    <th class="name-col text-left" data-bind="css: orderClassFor('name')">
-                        <a href data-bind="click: () => orderBy('name')">node name</a>
-                    </th>
-                    <th class="disk-read-write-col">
-                        Disk Read / write
-                    </th>
-                    <th class="rtt-col">
-                        RTT
-                    </th>
+    <dropdown class="push-next" params="
+        options: trustOptions,
+        selected: trustFilter
+    "></dropdown>
 
-                    <th class="ip-col" data-bind="css: orderClassFor('ip')">
-                        <a href data-bind="click: () => orderBy('ip')">ip</a>
-                    </th>
+    <dropdown class="push-next" params="
+        options: stateOptions,
+        selected: stateFilter
+    "></dropdown>
 
-                    <th class="capacity-col" data-bind="css: orderClassFor('capacity')">
-                        <a href data-bind="click: () => orderBy('capacity')">capacity</a>
-                    </th>
-                </tr>
-            </thead>
-            <tbody data-bind="foreach: rows">
-                <!-- ko if: isVisible -->
-                <tr>
-                    <td class="state-col" data-bind="tooltip: stateToolTip">
-                        <svg-icon params="uri: stateIcon"></svg-icon>
-                    </td>
-                    <td class="name-col text-left" >
-                        <a class="link" data-bind="text: name, href: href"></a>
-                    </td>
-                    <td class="disk-read-write-col" data-bind="text: diskReadWrite"></td>
-                    <td class="rtt-col " data-bind="text: RTT"></td>
-                    <td class="ip-col" data-bind="text: ip"></td>
-                    <td class="capacity-col" data-bind="text: capacity"></td>
-                </tr>
-                <!-- /ko -->
-            </tbody>
-        </table>
+    <dropdown class="push-next" params="
+        options: activityOptions,
+        selected: activityFilter 
+    "></dropdown>
 
-        <p class="empty-message" data-bind="visible: !hasNodes()">
-            Pool does not contain any nodes
-        </p>
+    <div class="greedy column">
+        <paginator class="align-end" params="
+            itemCount: count, pageSize: pageSize, page: page
+        "></paginator>
     </div>
-</section>
+</div>
+
+<div class="data-table greedy">
+    <table>
+        <thead>
+            <tr>
+                <th class="state-col" data-bind="css: orderClassFor('state')">
+                    <a href data-bind="click: () => orderBy('state')">state</a>
+                </th>
+
+                <th class="name-col text-left" data-bind="css: orderClassFor('name')">
+                    <a href data-bind="click: () => orderBy('name')">node name</a>
+                </th>
+
+                <th class="ip-col" data-bind="css: orderClassFor('ip')">
+                    <a href data-bind="click: () => orderBy('ip')">ip</a>
+                </th>
+
+                <th class="capacity-col" data-bind="css: orderClassFor('used')">
+                    <a href data-bind="click: () => orderBy('used')">used capacity</a>
+                </th>
+
+                <th class="data-access-col">
+                    data access
+                </th>
+
+                <th class="trust-level-col">
+                    trust level
+                </th>
+
+                <th class="data-activity-col text-left">
+                    data activity
+                </th>
+            </tr>
+        </thead>
+        <tbody data-bind="foreach: rows">
+            <!-- ko if: isVisible -->
+            <tr>
+                <td class="state-col" data-bind="tooltip: stateToolTip">
+                    <svg-icon params="uri: stateIcon"></svg-icon>
+                </td>
+                <td class="name-col text-left" >
+                    <a class="link" data-bind="text: name, href: href"></a>
+                </td>
+
+                <td class="ip-col" data-bind="text: ip"></td>
+                
+                <td class="capacity-col">
+                    <capacity-bar params="total: total, used: used"></capacity-bar>
+                </td>
+
+                <td class="data-access-col" data-bind="
+                    text: dataAccessText, 
+                    css: dataAccessClass
+                "></td>
+                <td class="trust-level-col" data-bind="text: trustLevel"></td>
+                <td class="data-activity-col text-left">
+                    <span data-bind="text: activityLabel"></span>
+                    <span class="highlight" data-bind="visible: hasActivity">
+                        (<span data-bind="text: activityCompilation"></span>)
+                    </span>
+                </td>
+            </tr>
+            <!-- /ko -->
+        </tbody>
+    </table>
+
+    <div class="empty-message" data-bind="visible: !hasNodes()">
+        Pool does not contain any nodes
+    </div>
+</div>
+
+<!-- ko if: isAssignNodeModalVisible -->
+    <assign-nodes-modal params="
+        poolName: poolName,
+        onClose: () => hideAssignNodesModal()
+    "></assign-nodes-modal>
+<!-- /ko -->

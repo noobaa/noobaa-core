@@ -1,26 +1,32 @@
 wizard {
-    .modal-content {
-        overflow: hidden;    
+    .steps-row {
+        .row();
+        overflow-x: hidden;
     }
 
-    .steps {
-        .no-wrap();
-        display: block;
-        margin-top : 2em;
-        overflow: visible;
-        transition: transform 500ms;
+    .step {
+        .column();
+        min-width :100%;
+        margin-left: -100%;
+        opacity: 0;
+        transition: all 500ms;
+        overflow: hidden;
 
-        > .step {
-            vertical-align: top;
-            white-space: normal;
-            width: 100%;
-            display: inline-block;
-            opacity: 0;
-            transition: opacity 450ms;
+        &.current {
+            margin-left: 0;
+            opacity: 1;
 
-            &.current {
-                opacity: 1;
+            ~ .step {
+                margin-left: 100%;
+                opacity: 0;
             }
         }
-    }        
+    }
+
+    .buttons {
+        > .btn2, > .btn3 {
+            max-height: unset;
+            min-width: unset;
+        }
+    }
 }

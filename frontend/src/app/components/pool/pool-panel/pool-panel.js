@@ -12,7 +12,7 @@ class PoolPanelViewModel {
         );
     }
 
-    isTabSelected(name) {
+    isTabSelected() {
         return true;
     }
 }
@@ -20,4 +20,4 @@ class PoolPanelViewModel {
 export default {
     viewModel: PoolPanelViewModel,
     template: template
-}
+};

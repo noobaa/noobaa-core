@@ -1,3 +1,5 @@
+/*global setImmediate */
+
 const sizeUnits = ['bytes', 'KB', 'MB', 'GB', 'TB', 'PB', 'EB', 'ZB', 'YB' ];
 
 export function noop() {
@@ -43,7 +45,7 @@ export function toDashedCase(str) {
 }
 
 export function formatSize(num) {
-    const peta = 1024 ** 5;
+    const peta = Math.pow(1024, 5);
 
     let i = 0;
     if (!isNumber(num)) {
@@ -81,7 +83,7 @@ export function formatDuration(minutes) {
 }
 
 export function randomString(len = 8) {
-    var possible = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+    var possible = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
 
     return makeArray(
         len,
@@ -96,7 +98,7 @@ export function dblEncode(str) {
 export function parseQueryString(str) {
     return decodeURIComponent(str)
         .replace(/(^\?)/,'')
-        .split("&")
+        .split('&')
         .filter(part => part)
         .reduce( (result, part) => {
             let [name, value] = part.split('=');
@@ -112,7 +114,7 @@ export function stringifyQueryString(query) {
                 let encodedName = encodeURIComponent(toDashedCase(key));
                 let value = query[key] === true ?
                     encodedName :
-                    `${encodedName}=${encodeURIComponent(query[key])}`
+                    `${encodedName}=${encodeURIComponent(query[key])}`;
 
                 list.push(value);
             }
@@ -126,6 +128,7 @@ export function realizeUri(uri, params = {}, query = {}) {
     let base = uri
         .split('/')
         .map(part => part[0] === ':' ? params[part.substr(1)] : part)
+        .map(dblEncode)
         .join('/');
 
     let search = stringifyQueryString(query);
@@ -139,7 +142,7 @@ export function createCompareFunc(accessor, descending = false) {
 
         return (descending ? -1 : 1) *
             (value1 < value2 ? -1 : (value1 > value2 ? 1 : 0));
-    }
+    };
 }
 
 export function throttle(func, grace, owner) {
@@ -147,7 +150,7 @@ export function throttle(func, grace, owner) {
     return function(...args) {
         clearTimeout(handle);
         handle = setTimeout(() => func.apply(owner || this, args), grace);
-    }
+    };
 }
 
 export function cmpStrings(a, b) {
@@ -217,8 +220,8 @@ export function makeRange(start, end) {
         start = 0;
     }
 
-    let dir = start > end ? -1 : 1; 
-    let count = Math.abs(end - start + dir)
+    let dir = start > end ? -1 : 1;
+    let count = Math.abs(end - start + dir);
 
     return makeArray(
         count,
@@ -302,4 +305,15 @@ export function toOwnKeyValuePair(obj) {
         .map(
             key => ({ key: key, value: obj[key] })
         );
+}
+
+export function bitsToNumber(...bits) {
+    return bits.reduce(
+        (number, bit) => number << 1 | (!!bit | 0),
+        0
+    );
+}
+
+export function pad(num, size, char = '0') {
+    return (char.repeat(size) + num).substr(-size);
 }

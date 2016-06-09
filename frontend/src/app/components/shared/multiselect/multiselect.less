@@ -1,49 +1,20 @@
 multiselect {
-    display: block;
-    height: 11.2em;
+    .column();
 
     .multiselect-options {
-        height: 100%;
-    }
-
-    ul {
-        overflow-y: auto;
-        height: 100%;
-        padding: .5em;
+        flex-grow: 1;
     }
 
     .option {
-        float: left;
+        padding-right: @gutter;
+        width: 100% / 4;
+    }
+
+    &.cols-3 .option {
         width: 100% / 3;
-        line-height: 1.7;
-        padding: 0 .5em;
     }
 
-    .val-msg {
-        line-height: 1.5;
-    }
-
-    &.cols1 {
-        .option {
-            width: 100%;
-        }
-    }
-
-    &.cols2 {
-        .option {
-            width: 100% / 2;
-        }
-    }
-
-    &.cols3 {
-        .option {
-            width: 100% / 3;
-        }
-    }    
-
-    &.cols4 {
-        .option {
-            width: 100% / 4;
-        }
+    &.cols-2 .option {
+        width: 100% / 2;
     }
 }

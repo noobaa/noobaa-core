@@ -42,4 +42,4 @@ class BucketS3AccessListViewModel {
 export default {
     viewModel: BucketS3AccessListViewModel,
     template: template
-}
+};

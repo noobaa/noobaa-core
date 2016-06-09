@@ -10,7 +10,7 @@ import { loadAgentInstallationInfo } from 'actions';
 
 const installCommands = {
     NETWORK_WINDOWS(pkg, conf, server) {
-        return `Invoke-WebRequest ${server}:8080/public/${pkg} -OutFile C:\\${pkg}; C:\\${pkg} /S /config ${conf}`
+        return `Invoke-WebRequest ${server}:8080/public/${pkg} -OutFile C:\\${pkg}; C:\\${pkg} /S /config ${conf}`;
     },
 
     NETWORK_LINUX(pkg, conf, server) {
@@ -18,35 +18,35 @@ const installCommands = {
     },
 
     LOCAL_WINDOWS(pkg, conf) {
-        return `${pkg} /S /config ${conf}`; 
+        return `${pkg} /S /config ${conf}`;
     },
 
     LOCAL_LINUX(pkg, conf) {
-        return `${pkg} /S /config ${conf}`; 
+        return `${pkg} /S /config ${conf}`;
     }
 };
 
 const installationTypeOptions = [
-    { 
-        value: 'NETWORK', 
+    {
+        value: 'NETWORK',
         label: 'Network Installation (recommended)',
         description: 'Choose this option to use NooBaa\'s distribution utilities to install the NooBaa daemon over the network. This option require direct access from the target machine to the NooBaa server'
     },
-    { 
-        value: 'LOCAL', 
+    {
+        value: 'LOCAL',
         label: 'Local Installation',
         description: 'Choose this option when your target machine does not have direct access to the NooBaa server'
     }
 ];
 
 const installationTargetOptions = [
-    { 
-        value: 'LINUX', 
-        label: 'Linux' 
+    {
+        value: 'LINUX',
+        label: 'Linux'
     },
-    { 
-        value: 'WINDOWS', 
-        label: 'Windows' 
+    {
+        value: 'WINDOWS',
+        label: 'Windows'
     }
 ];
 
@@ -91,7 +91,7 @@ class InstallNodeWizardViewModel {
                 let conf = installInfo().agentConf;
                 let server = systemInfo().ipAddress;
 
-                return installCommands[selector](pkg, conf, server)
+                return installCommands[selector](pkg, conf, server);
             }
         );
 
@@ -110,4 +110,4 @@ class InstallNodeWizardViewModel {
 export default {
     viewModel: InstallNodeWizardViewModel,
     template: template
-}
+};

@@ -452,6 +452,29 @@ module.exports = {
             }
         },
 
+        configure_external_syslog: {
+            method: 'POST',
+            params: {
+                type: 'object',
+                required: ['connection_type'],
+                properties: {
+                    connection_type: {
+                        type: 'string',
+                        enum: ['TCP', 'UDP', 'NONE']
+                    },
+                    address: {
+                        type: 'string'
+                    },
+                    port: {
+                        type: 'number'
+                    }
+                }
+            },
+            auth: {
+                system: 'admin',
+            }
+        },
+
         update_system_certificate: {
             method: 'POST',
             auth: {
@@ -601,6 +624,22 @@ module.exports = {
                     properties: {
                         proxy_address: {
                             type: 'string'
+                        }
+                    }
+                },
+                external_syslog_config: {
+                    type: 'object',
+                    required: ['connection_type'],
+                    properties: {
+                        connection_type: {
+                            type: 'string',
+                            enum: ['TCP', 'UDP', 'NONE']
+                        },
+                        address: {
+                            type: 'string'
+                        },
+                        port: {
+                            type: 'number'
                         }
                     }
                 },

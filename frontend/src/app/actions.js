@@ -381,7 +381,7 @@ export function loadSystemInfo() {
                     timeConfig: reply.time_config,
                     debugLevel: reply.debug_level,
                     maintenance: reply.maintenance_mode,
-                    phoneHomeConfig: reply.phone_home_config
+                    phoneHomeConfig: reply.update_phone_home_proxy_address
                 });
             }
         )
@@ -1519,7 +1519,7 @@ export function updateServerNTP(timezone, server) {
 export function enterMaintenanceMode(duration) {
     logAction('enterMaintenanceMode', { duration });
 
-    api.system.set_maintenance({ duration })
+    api.system.set_maintenance_mode({ duration })
         .then(loadSystemInfo)
         .done();
 }
@@ -1527,7 +1527,7 @@ export function enterMaintenanceMode(duration) {
 export function exitMaintenanceMode() {
     logAction('exitMaintenanceMode');
 
-    api.system.set_maintenance({ duration: 0 })
+    api.system.set_maintenance_mode({ duration: 0 })
         .then(loadSystemInfo)
         .done();
 }
@@ -1535,7 +1535,7 @@ export function exitMaintenanceMode() {
 export function updatePhoneHomeConfig(proxyAddress) {
     logAction('updatePhoneHomeConfig', proxyAddress);
 
-    api.system.update_phone_home_config({ proxy_address: proxyAddress })
+    api.system.update_phone_home_proxy_address({ proxy_address: proxyAddress })
         .then(loadSystemInfo)
         .done();
 }

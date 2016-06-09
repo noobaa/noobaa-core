@@ -70,7 +70,7 @@ module.exports = {
             }
         },
 
-        set_maintenance: {
+        set_maintenance_mode: {
             doc: 'Configure system maintenance',
             method: 'PUT',
             params: {
@@ -432,7 +432,7 @@ module.exports = {
             }
         },
 
-        update_phone_home_config: {
+        update_phone_home_proxy_address: {
             method: 'POST',
             params: {
                 type: 'object',
@@ -596,7 +596,7 @@ module.exports = {
                 ip_address: {
                     type: 'string'
                 },
-                phone_home_config: {
+                phone_home_proxy_address: {
                     type: 'object',
                     properties: {
                         proxy_address: {

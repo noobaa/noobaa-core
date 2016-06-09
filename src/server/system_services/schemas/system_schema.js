@@ -60,8 +60,7 @@ module.exports = {
         base_address: {
             type: 'string'
         },
-
-        phone_home_proxy: {
+        phone_home_proxy_address: {
             type: 'string'
         },
 

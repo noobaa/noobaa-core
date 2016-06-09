@@ -1,3 +1,5 @@
+/*global Buffer process */
+
 'use strict';
 let argv = require('yargs').argv;
 let gulp = require('gulp');
@@ -10,13 +12,13 @@ let stringify = require('stringify');
 let babelify = require('babelify');
 let watchify = require('watchify');
 let runSequence = require('run-sequence');
-let through = require('through2'); 
-let fs = require('fs');
+let through = require('through2');
 let moment = require('moment');
 let $ = require('gulp-load-plugins')();
 
 let buildPath = './dist';
 let uglify = !!argv.uglify;
+let errorCount = 0;
 
 let libs = [
     { name: 'knockout',             path: './src/lib/knockout/dist/knockout.debug.js' },
@@ -28,17 +30,20 @@ let libs = [
     { name: 'moment',               path: './src/lib/moment/moment.js' },
     { name: 'moment-timezone',      path: './src/lib/moment-timezone/builds/moment-timezone-with-data.js' },
     { name: 'shifty',               path: './src/lib/shifty/dist/shifty.js' },
-    { name: 'aws-sdk',              path: './src/lib/aws-sdk/dist/aws-sdk.js' },
+    { name: 'aws-sdk',              path: './src/lib/aws-sdk/dist/aws-sdk.js' }
 ];
 
 // ----------------------------------
 // Build Tasks
-// ---------------------------------- 
+// ----------------------------------
+
+gulp.on('error', () => console.log('ERROR'));
 
 gulp.task('build', cb => {
     runSequence(
         'clean',
         ['build-lib', 'build-api', 'build-app', 'compile-styles', 'copy'],
+        'verify-build',
         cb
     );
 });
@@ -51,9 +56,9 @@ gulp.task('clean', cb => {
 
 gulp.task('build-lib', ['install-deps'], () => {
     let b = browserify({ debug: true, noParse: true });
-    
+
     libs.forEach(
-        lib => b.require(lib.path, { expose: lib.name }) 
+        lib => b.require(lib.path, { expose: lib.name })
     );
 
     return b.bundle()
@@ -68,7 +73,7 @@ gulp.task('build-lib', ['install-deps'], () => {
 
 gulp.task('build-api', () => {
     let b = browserify({ debug: true });
-    
+
     b.require('../src/api/index.js', { expose: 'nb-api' });
 
     return b.bundle()
@@ -89,7 +94,7 @@ gulp.task('compile-styles', () => {
     return gulp.src(['src/app/**/*.less'], { base: '.' })
         .pipe($.lessImport('styles.less'))
         .pipe($.sourcemaps.init())
-            .pipe($.less())         
+            .pipe($.less())
             .on('error', errorHandler)
             .pipe($.if(uglify, $.minifyCss()))
         .pipe($.sourcemaps.write('./'))
@@ -114,9 +119,18 @@ gulp.task('install-deps', () => {
         .pipe($.install());
 });
 
+gulp.task('verify-build', cb => {
+    if (errorCount > 0) {
+        console.error(`Verfiy: Frontend build encountered ${errorCount} errors`);
+        process.exit(1);
+    }
+
+    cb();
+});
+
 // ----------------------------------
 // Watch Tasks
-// ---------------------------------- 
+// ----------------------------------
 
 gulp.task('watch', cb => {
     runSequence(
@@ -131,7 +145,7 @@ gulp.task('watch-lib', ['build-lib'], () => {
         // Invalidate the cached bower.json.
         delete require.cache[require.resolve('bower.json')];
         runSequence('build-lib');
-    }); 
+    });
 });
 
 gulp.task('watch-app', ['build-js-style'], () => {
@@ -140,7 +154,7 @@ gulp.task('watch-app', ['build-js-style'], () => {
 
 gulp.task('watch-styles', ['compile-styles'], () => {
     return $.watch(['src/app/**/*.less'], () => {
-        runSequence('compile-styles')
+        runSequence('compile-styles');
     });
 });
 
@@ -149,18 +163,18 @@ gulp.task('watch-assets', ['copy'], () => {
         // Copy the file that changed.
         gulp.src(vinyl.path, { base: 'src' })
             .pipe(gulp.dest(buildPath));
-    }); 
-})
+    });
+});
 
 // ----------------------------------
 // Helper functions
-// ---------------------------------- 
+// ----------------------------------
 function createBundler(useWatchify) {
     let bundler;
     if (useWatchify) {
-        bundler = browserify({ 
-            debug: true, 
-            paths: ['./src/app'], 
+        bundler = browserify({
+            debug: true,
+            paths: ['./src/app'],
             cache: {},
             packageCache: {},
             plugin: [ watchify ]
@@ -174,8 +188,8 @@ function createBundler(useWatchify) {
 
     } else {
         bundler = browserify({
-            debug: true, 
-            paths: ['./src/app'] 
+            debug: true,
+            paths: ['./src/app']
         });
     }
 
@@ -191,12 +205,12 @@ function bundleApp(watch) {
         .add('src/app/main');
 
     libs.forEach(
-        lib => bundler.external(lib.name) 
+        lib => bundler.external(lib.name)
     );
     bundler.external('nb-api');
 
     let bundle = function() {
-         return bundler.bundle()
+        return bundler.bundle()
             .on('error', errorHandler)
             .pipe(sourceStream('app.js'))
             .pipe(buffer())
@@ -204,10 +218,10 @@ function bundleApp(watch) {
                 .pipe($.if(uglify, $.uglify()))
             .pipe($.sourcemaps.write('./'))
             .pipe(gulp.dest(buildPath));
-    }
+    };
 
     if (watch) {
-        bundler.on('update', () => bundle())
+        bundler.on('update', () => bundle());
     }
     return bundle();
 }
@@ -220,16 +234,16 @@ function letsToLessClass() {
 
         let matches = regExp.exec(contents);
         while (matches) {
-            output.push(matches[1] + ': @' + matches[1] + ';')
+            output.push(matches[1] + ': @' + matches[1] + ';');
             matches = regExp.exec(contents);
         }
 
         let str = [].concat(contents, 'json {', output, '}').join('\n');
         this.push(new VFile({
             contents: new Buffer(str, 'utf-8'),
-            path: "temp.less"
+            path: 'temp.less'
         }));
-            
+
         callback();
     });
 }
@@ -248,7 +262,7 @@ function cssClassToJson() {
 
         this.push(new VFile({
             contents: new Buffer(JSON.stringify(output), 'utf-8'),
-            path: "style.json"
+            path: 'style.json'
         }));
 
         callback();
@@ -256,6 +270,7 @@ function cssClassToJson() {
 }
 
 function errorHandler(err) {
+    ++errorCount;
     console.log(err.toString(), '\u0007');
     this.emit('end');
 }

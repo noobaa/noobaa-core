@@ -2,7 +2,6 @@ import * as model from 'model';
 import page from 'page';
 import api from 'services/api';
 import config from 'config';
-import { hostname } from 'server-conf';
 
 window.api = api;
 
@@ -18,7 +17,7 @@ import 'aws-sdk';
 let AWS = window.AWS;
 
 // Use preconfigured hostname or the addrcess of the serving computer.
-let endpoint = hostname || window.location.hostname;
+let endpoint = window.location.hostname;
 
 // -----------------------------------------------------
 // Utility function to log actions.

@@ -259,7 +259,10 @@ function read_system(req) {
             ip_address: ip_address,
             time_config: time_config,
             base_address: system.base_address || 'wss://' + ip_address + ':' + process.env.SSL_PORT,
-            phone_home_proxy_address: system.phone_home_proxy_address,
+            external_syslog_config: system.external_syslog_config,
+            phone_home_proxy_address: {
+                proxy_address: system.phone_home_proxy_address
+            },
             version: pkg.version,
             debug_level: debug_level,
         };
@@ -834,7 +837,7 @@ function update_base_address(req) {
 // phone_home_proxy_address must be a full address like: http://(ip or hostname):(port)
 function update_phone_home_proxy_address(req) {
     dbg.log0('update_phone_home_proxy_address', req.rpc_params);
-    if (req.rpc_params.phone_home_proxy_address === null) {
+    if (req.rpc_params.proxy_address === null) {
         return system_store.make_changes({
                 update: {
                     systems: [{
@@ -851,10 +854,40 @@ function update_phone_home_proxy_address(req) {
                 update: {
                     systems: [{
                         _id: req.system._id,
-                        phone_home_proxy_address: req.rpc_params.phone_home_proxy_address
+                        phone_home_proxy_address: req.rpc_params.proxy_address
                     }]
                 }
             })
+            .return();
+    }
+}
+
+
+function configure_external_syslog(req) {
+    dbg.log0('configure_external_syslog', req.rpc_params);
+    if (req.rpc_params.connection_type === 'NONE') {
+        return system_store.make_changes({
+                update: {
+                    systems: [{
+                        _id: req.system._id,
+                        $unset: {
+                            external_syslog_config: 1
+                        }
+                    }]
+                }
+            })
+            .then(() => syslog_configuration_reload(req.rpc_params))
+            .return();
+    } else {
+        return system_store.make_changes({
+                update: {
+                    systems: [{
+                        _id: req.system._id,
+                        external_syslog_config: req.rpc_params
+                    }]
+                }
+            })
+            .then(() => syslog_configuration_reload(req.rpc_params))
             .return();
     }
 }
@@ -932,6 +965,22 @@ function get_system_info(system, get_id) {
     }
 }
 
+function syslog_configuration_reload(config) {
+    if (config.connection_type === 'NONE') {
+        return P.nfcall(fs.readFile, 'src/deploy/NVA_build/noobaa_syslog.conf')
+            .then(data => P.nfcall(fs.writeFile, '/etc/rsyslog.d/noobaa_syslog.conf', data))
+            .then(() => promise_utils.promised_exec('service rsyslog restart'));
+    } else {
+        return P.nfcall(fs.readFile, 'src/deploy/NVA_build/noobaa_syslog.conf')
+            .then(data => {
+                // Sending everything except NooBaa logs
+                let add_destination = `if $syslogfacility-text != 'local0' then ${config.connection_type === 'TCP' ? '@@' : '@'}${config.address}:${config.port}`;
+                return P.nfcall(fs.writeFile, '/etc/rsyslog.d/noobaa_syslog.conf', data + '\n' + add_destination);
+            })
+            .then(() => promise_utils.promised_exec('service rsyslog restart'));
+    }
+}
+
 function find_account_by_email(req) {
     var account = system_store.data.accounts_by_email[req.rpc_params.email];
     if (!account) {
@@ -972,4 +1021,5 @@ exports.update_hostname = update_hostname;
 exports.update_system_certificate = update_system_certificate;
 exports.update_time_config = update_time_config;
 exports.set_maintenance_mode = set_maintenance_mode;
+exports.configure_external_syslog = configure_external_syslog;
 //exports.read_maintenance_config = read_maintenance_config

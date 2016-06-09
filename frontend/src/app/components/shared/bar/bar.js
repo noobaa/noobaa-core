@@ -1,27 +1,31 @@
 import template from './bar.html';
 import ko from 'knockout';
+import style from 'style';
 
 class BarViewModel {
-    constructor({ values }) {
+    constructor({ values = [], bgColor = style['bg-color3'] }) {
         this.values = values;
+        this.bgColor = bgColor;
+
+        console.log(this.bgColor);
     }
 
     draw(ctx, { width, height }) {
         let values = ko.unwrap(this.values);
-        let total = values.reduce(
-            (sum, item) => sum + ko.unwrap(item.value),
-            0
-        );
-        let pos = 0;
 
-        ctx.clearRect(0, 0, width, height);
-        values.forEach(
-            item => {
-                let w = (ko.unwrap(item.value) / total * width) + .5 | 0;
+        // Clear the bar.
+        ctx.fillStyle = ko.unwrap(this.bgColor);
+        ctx.fillRect(0, 0, width, height);
+
+        // Draw the sections.
+        values.reduce(
+            (pos, item) => {
+                let w = item.value * width + .5 | 0;
                 ctx.fillStyle = ko.unwrap(item.color);
                 ctx.fillRect(pos, 0, w, height);
-                pos += w;
-            }
+                return pos + w;
+            },
+            0
         );
     }
 }

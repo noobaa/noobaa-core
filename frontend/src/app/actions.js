@@ -381,7 +381,7 @@ export function loadSystemInfo() {
                     timeConfig: reply.time_config,
                     debugLevel: reply.debug_level,
                     maintenance: reply.maintenance_mode,
-                    phoneHomeConfig: reply.update_phone_home_proxy_address
+                    phoneHomeConfig: reply.phone_home_proxy_address
                 });
             }
         )

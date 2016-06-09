@@ -255,20 +255,6 @@ app.get('/get_latest_version*', function(req, res) {
     res.status(400).send({});
 });
 
-//RPC Addresses
-//server_rpc
-app.get('/settings', function(req, res) {
-    var addr = {
-        md: url.parse(server_rpc.rpc.router.md).port,
-        bg: url.parse(server_rpc.rpc.router.bg).port
-    };
-
-    res.setHeader("Content-Type", "application/json");
-    res.status(200).send({
-        ports: addr,
-    });
-});
-
 //Log level setter
 app.post('/set_log_level*', function(req, res) {
     console.log('req.module', req.param('module'), 'req.level', req.param('level'));

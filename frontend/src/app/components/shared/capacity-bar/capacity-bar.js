@@ -7,10 +7,6 @@ const minUsedRatio = .03;
 
 class CapacityBarViewModel {
     constructor({ total, used }) {
-        let free = ko.pureComputed(
-            () => ko.unwrap(total) - ko.unwrap(used)
-        );
-
         this.totalText = ko.pureComputed(
             () => {
                 let val = ko.unwrap(total);
@@ -25,18 +21,16 @@ class CapacityBarViewModel {
             }
         );
 
-        let usedWithMin = ko.pureComputed(
+        let usedRatio = ko.pureComputed(
             () => {
-                let val = ko.unwrap(used);
-                return val > 0  ?
-                    Math.max(ko.unwrap(used), ko.unwrap(total) * minUsedRatio) :
-                    0;
+                let total = ko.unwrap(total);
+                let ratio = total > 0 ? ko.unwrap(used) / total : 0;
+                return ratio > 0 ? Math.max(ratio, minUsedRatio) : 0;
             }
         );
 
         this.values = [
-            { value: usedWithMin, color: style['bg-color11'] },
-            { value: free, color: style['bg-color3'] }
+            { value: usedRatio, color: style['bg-color11'] }
         ];
     }
 }

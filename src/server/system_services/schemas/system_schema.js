@@ -60,9 +60,24 @@ module.exports = {
         base_address: {
             type: 'string'
         },
-
-        phone_home_proxy: {
+        phone_home_proxy_address: {
             type: 'string'
+        },
+
+        //External syslog configuration
+        external_syslog_config: {
+            type: 'object',
+            properties: {
+                connection_type: {
+                    type: 'string'
+                },
+                address: {
+                    type: 'string'
+                },
+                port: {
+                    type: 'number'
+                }
+            }
         },
 
         //NTP configuration

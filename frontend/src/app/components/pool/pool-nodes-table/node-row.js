@@ -1,5 +1,18 @@
 import ko from 'knockout';
-import { formatSize, avgOp, dblEncode } from 'utils';
+import numeral from 'numeral';
+import { bitsToNumber } from 'utils';
+
+const accessibilityMapping = Object.freeze({
+    0: { text: 'No Access', css: 'error' },
+    1: { text: 'Read Only', css: 'warning' },
+    3: { text: 'Read & Write' }
+});
+
+const activityLabelMapping = Object.freeze({
+    EVACUATING: 'Evacuating',
+    REBUILDING: 'Rebuilding',
+    MIGRATING: 'Migrating'
+});
 
 export default class NodeRowViewModel {
     constructor(node) {
@@ -21,49 +34,63 @@ export default class NodeRowViewModel {
             () => node() && node().name
         );
 
-        let diskRead = ko.pureComputed(
-            () => node() && node().latency_of_disk_read 
-                .reduce(avgOp, 0)
-                .toFixed(1)
-        );
-
-        let diskWrite = ko.pureComputed(
-            () => node() && node().latency_of_disk_write
-                .reduce(avgOp, 0)
-                .toFixed(1)
-        );
-
-        this.diskReadWrite = ko.pureComputed(
-            () => {
-                if (diskRead() == 0 || diskWrite() == 0) {
-                    return 'N/A'
-                } 
-                return `${diskRead()}/${diskWrite()} ms`;
-            }
-        );
-
-        this.RTT = ko.pureComputed(
-            () => {
-                let rtt = node() && node().latency_to_server
-                    .reduce(avgOp, 0)
-                    .toFixed(1);
-
-                return rtt > 0 ? `${rtt} ms` : 'N/A';
-            }
-        );
-
         this.href = ko.pureComputed(
-            () => node() && `/fe/systems/:system/pools/:pool/nodes/${
-                dblEncode(node().name)
-            }`
+            () => node() && `/fe/systems/:system/pools/:pool/nodes/${node().name}`
         );
 
         this.ip = ko.pureComputed(
             () => node() && node().ip
         );
 
-        this.capacity = ko.pureComputed(
-            () => node() && (node().storage ? formatSize(node().storage.total) : 'N/A')
+        this.total = ko.pureComputed(
+            () => node() && node().storage.total
+        );
+
+        this.used = ko.pureComputed(
+            ()=> node() && node().storage.used
+        );
+
+        let dataAccess = ko.pureComputed(
+            () => node() && accessibilityMapping[
+                    bitsToNumber(node().readable, node().writable)
+                ]
+        );
+
+        this.dataAccessText = ko.pureComputed(
+            () => dataAccess() && dataAccess().text
+        );
+
+        this.dataAccessClass = ko.pureComputed(
+            () => dataAccess() &&  dataAccess().css
+        );
+
+        this.trustLevel = ko.pureComputed(
+            () => node() && node().trusted ? 'Trusted' : 'Untrusted'
+        );
+
+        let dataActivity = ko.pureComputed(
+            () => node() && node().data_activity
+        );
+
+        this.hasActivity = ko.pureComputed(
+            () => !!dataActivity()
+        );
+
+        this.activityLabel = ko.pureComputed(
+            () => this.hasActivity() ?
+                activityLabelMapping[dataActivity().type] :
+                'No Activity'
+        );
+
+        this.activityCompilation = ko.pureComputed(
+            () => {
+                if (!dataActivity()) {
+                    return;
+                }
+
+                let { completed_size, total_size } = dataActivity();
+                return numeral(completed_size / total_size).format('0%');
+            }
         );
     }
 }

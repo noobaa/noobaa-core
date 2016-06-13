@@ -14,5 +14,5 @@ class PropertySheetViewModel {
 
 export default {
     viewModel: PropertySheetViewModel,
-    template: template,
-}
+    template: template
+};

@@ -3,19 +3,19 @@ import ko from 'knockout';
 import { noop } from 'utils';
 
 class FileSelectorViewModel {
-    constructor({ 
-        onFilesReady = noop, 
-        allowMultiSelect = false, 
+    constructor({
+        onFilesReady = noop,
+        allowMultiSelect = false,
         filter = '',
-        message = 'Drag Here' 
+        message = 'Drag Here'
     }) {
         this.onFilesReady = onFilesReady;
-        this.allowMultiSelect = allowMultiSelect
+        this.allowMultiSelect = allowMultiSelect;
         this.filter = filter;
         this.message = message;
         this.dragCounter = ko.observable(0);
     }
-    
+
     dragEnter() {
         this.dragCounter(this.dragCounter() + 1);
         return false;
@@ -26,7 +26,7 @@ class FileSelectorViewModel {
         return false;
     }
 
-    dragOver(evt) {
+    dragOver() {
         return false;
     }
 
@@ -47,4 +47,4 @@ class FileSelectorViewModel {
 export default {
     viewModel: FileSelectorViewModel,
     template: template
-}
+};

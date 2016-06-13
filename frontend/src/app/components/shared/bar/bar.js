@@ -1,32 +1,31 @@
 import template from './bar.html';
 import ko from 'knockout';
-
-const canvasWidth = 1000;
-const canvasHeight = 10;
+import style from 'style';
 
 class BarViewModel {
-    constructor({ values }) {
-        this.canvasWidth = canvasWidth;
-        this.canvasHeight = canvasHeight;
-        this.values = values;    
+    constructor({ values = [], bgColor = style['bg-color3'] }) {
+        this.values = values;
+        this.bgColor = bgColor;
+
+        console.log(this.bgColor);
     }
 
     draw(ctx, { width, height }) {
         let values = ko.unwrap(this.values);
-        let total = values.reduce(
-            (sum, item) => sum + item.value,
-            0
-        );
-        let pos = 0;
 
-        ctx.clearRect(0, 0, width, height);
-        values.forEach(
-            item => {
-                let w = item.value / total * width;
-                ctx.fillStyle = item.color;
+        // Clear the bar.
+        ctx.fillStyle = ko.unwrap(this.bgColor);
+        ctx.fillRect(0, 0, width, height);
+
+        // Draw the sections.
+        values.reduce(
+            (pos, item) => {
+                let w = item.value * width + .5 | 0;
+                ctx.fillStyle = ko.unwrap(item.color);
                 ctx.fillRect(pos, 0, w, height);
-                pos += w
-            }
+                return pos + w;
+            },
+            0
         );
     }
 }
@@ -34,4 +33,4 @@ class BarViewModel {
 export default {
     viewModel: BarViewModel,
     template: template
-}
+};

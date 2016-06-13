@@ -1,0 +1,38 @@
+<div class="row content-middle" data-bind="click: () => expanded.toggle()">
+    <h2 class="heading3 greedy">
+        Maintenance
+    </h2>
+
+    <button class="btn-flat expand-btn no-outline">
+        <svg-icon class="rotate" 
+            params="uri: '/fe/assets/icons.svg#chevron'" 
+            data-bind="css: { 'deg-90': !expanded() }">
+        </svg-icon>
+    </button>
+</div>
+
+<div class="row" data-bind="visible: !expanded()">
+    <p class="push-next">
+        Maintenance Mode: 
+        <span class="emphasized" data-bind="text: stateText"></span>
+    </p>
+    <p data-bind="visible: state">
+        Time left for maintanance: 
+        <span class="emphasized text-tech" data-bind="text: timeLeftText"></span>
+    </p>
+</div>
+
+<div class="column" data-bind="expand: expanded">
+    <p class="push-next">
+        Automatically, NooBaa is running data rebuild operations (moving data between different nodes). <br> If you wish to set the system to a temporary state of maintanance and prevent high level data rebuilding, turn on maintanance mode for the needed period of time.
+    </p>
+    <button class="btn2 push-prev" data-bind="
+        text: buttonText,
+        click: () => toggleMaintenance()
+    "></button>
+</div>
+
+<!-- ko if: isStartMaintenanceModalVisible -->
+<start-maintenance-modal params="onClose: () => hideStartMaintenanceModal()">
+</start-maintenance-modal>
+<!-- /ko -->

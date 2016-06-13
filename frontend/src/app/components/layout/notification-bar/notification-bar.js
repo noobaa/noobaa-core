@@ -7,7 +7,7 @@ const severityMapping = Object.freeze({
     'INFO':     { css: 'info',      icon: '/fe/assets/icons.svg#notif-info' },
     'SUCCESS':  { css: 'success',   icon: '/fe/assets/icons.svg#notif-success' },
     'WARNING':  { css: 'warning',   icon: '/fe/assets/icons.svg#notif-warning' },
-    'ERROR':    { css: 'error',     icon: '/fe/assets/icons.svg#notif-error' },
+    'ERROR':    { css: 'error',     icon: '/fe/assets/icons.svg#notif-error' }
 });
 
 class NotificationBarViewModel {
@@ -35,7 +35,7 @@ class NotificationBarViewModel {
         );
     }
 
-    removeLastNotification(_, evt) {
+    removeLastNotification() {
         !this.visible() && this.notifications.shift();
     }
 }
@@ -43,4 +43,4 @@ class NotificationBarViewModel {
 export default {
     viewModel: NotificationBarViewModel,
     template: template
-}
+};

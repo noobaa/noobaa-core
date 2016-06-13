@@ -408,7 +408,7 @@ module.exports = {
         },
 
         api_cloud_sync_status: {
-            enum: ['PENDING', 'SYNCING', 'PASUED', 'UNABLE', 'SYNCED', 'NOTSET'],
+            enum: ['PENDING', 'SYNCING', 'PAUSED', 'UNABLE', 'SYNCED', 'NOTSET'],
             type: 'string',
         },
 

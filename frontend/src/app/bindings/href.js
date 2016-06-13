@@ -1,5 +1,5 @@
 import ko from 'knockout';
-import { realizeUri, dblEncode } from 'utils';
+import { realizeUri } from 'utils';
 import { routeContext } from 'model';
 
 export default {
@@ -9,11 +9,11 @@ export default {
         let href = realizeUri(value, params);
 
         return ko.bindingHandlers.attr.update(
-            element, 
+            element,
             () => (href ? { href } : {}),
-            allBindings, 
-            viewModel, 
+            allBindings,
+            viewModel,
             bindingContext
         );
     }
-}
+};

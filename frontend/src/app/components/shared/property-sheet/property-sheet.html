@@ -1,16 +1,15 @@
-<div class="box">
-    <table data-bind="foreach: properties">
-        <tr>
-            <td class="emphasized no-wrap" data-bind="text: label + ':'"></td>
-            <td class="greedy" data-bind="text: value"></td>
-            <td class="copy-btn" data-bind="if: !!$data.allowCopy">
-                <button class="btn-flat" data-bind="
-                    click: () => $component.copyToClipboard(value),
-                    tooltip: 'Copy to Clipboard'
-                ">
-                    <svg-icon class="icon-small" params="uri: '/fe/assets/icons.svg#copy'"></svg-icon>
-                </button>
-            </td>
-        </tr>
-    </table>
-</div>
+<ul class="list-no-style box column" data-bind="foreach: properties">
+    <li class="row content-middle">
+        <div class="c3 emphasized" data-bind="text: label + ':'"></div>
+        
+        <div class="greedy" data-bind="text: value"></div>
+
+        <button class="btn-flat" data-bind="
+            visible: $data.allowCopy,
+            click: () => $component.copyToClipboard(value),
+            tooltip: 'Copy to Clipboard'
+        ">
+            <svg-icon class="icon-small" params="uri: '/fe/assets/icons.svg#copy-to-clipboard'"></svg-icon>
+        </button>
+    </li>
+</ul>

@@ -1,36 +1,45 @@
 <!-- ko if: dataReady -->
-<ul class="status-line">
-    <li>
-        <svg-icon params="uri: '/fe/assets/icons.svg#object-size'"></svg-icon>
-        <span data-bind="text: size"></span>
-    </li>
-    <li>
-        <svg-icon params="uri: '/fe/assets/icons.svg#part-dark'"></svg-icon>
-        <span data-bind="text: partsCount"></span>
-    </li>
-</ul>        
+<section class="c3 column">
+    <h3 class="heading4 push-next">
+        Reads in last 7 days:
+    </h3>
 
-<section class="text-left">
-    <h3 class="heading3 underline">Weekly File Reads</h3>
+    <needle-gauge class="align-middle" params="
+        value: reads, threshold: 500, scale: 1.5
+    ">
+    </needle-gauge>
 </section>
 
-<needle-gauge params="value: reads, threshold: 500, scale: 1.5"></needle-gauge>
+<vr></vr>
 
-<section class="action-list text-right">
-    <button class="action btn2" data-bind="click: () => isPreviewModalVisible(true)">
-        <svg-icon params="uri: '/fe/assets/icons.svg#preview'"></svg-icon>
-        Preview
-    </button>
-    <a class="action btn3" data-bind="href: s3Url" download>
-        <svg-icon params="uri: '/fe/assets/icons.svg#download'"></svg-icon>
-        Download
-    </a>
+<section class="c4 column">
+    <h3 class="heading4 push-next">
+        Status
+    </h3>
+    <div class="push-next">
+        <svg-icon params="uri: stateIcon" data-bind="
+            tooltip: 'File state'
+        "></svg-icon>
+        <span data-bind="text: stateLabel"></span>
+    </div>
+
+    <h3 class="heading4 push-next">
+        File Size
+    </h3>
+    <div>
+        <svg-icon params="uri: sizeIcon" data-bind="
+            tooltip: 'File size'
+        "></svg-icon>
+        <span data-bind="text: sizeLabel"></span>
+    </div>    
 </section>
-<!-- /ko -->
 
-<!-- ko if: isPreviewModalVisible -->
-<object-preview-modal params="
-    onClose: () => isPreviewModalVisible(false), 
-    uri: s3Url
-"></object-preview-modal>
-<!-- /ko -->
+<vr></vr>
+
+<section class="c5 column">
+    <h3 class="heading4 push-next">
+        Activity
+    </h3>
+    <span>No current data activity</span>
+</section>
+<!-- /ko -->  

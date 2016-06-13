@@ -1,6 +1,6 @@
 import ko from 'knockout';
 import numeral from 'numeral';
-import { formatSize, isDefined } from 'utils';
+import { isDefined } from 'utils';
 import { deleteBucket } from'actions';
 
 const stateMapping = Object.freeze({
@@ -11,7 +11,7 @@ const stateMapping = Object.freeze({
 
     false: {
         toolTip: 'Problem',
-        icon: '/fe/assets/icons.svg#bucket-problam'
+        icon: '/fe/assets/icons.svg#bucket-problem'
     }
 });
 
@@ -20,14 +20,14 @@ const cloudSyncStatusMapping = Object.freeze({
     NOTSET:         { label: 'not set',         css: 'no-set'         },
     PENDING:        { label: 'pending',         css: 'pending'       },
     SYNCING:        { label: 'syncing',         css: 'syncing'        },
-    PASUED:         { label: 'paused',          css: 'paused'         },
+    PAUSED:         { label: 'paused',          css: 'paused'         },
     SYNCED:         { label: 'synced',          css: 'synced'         },
     UNABLE:         { label: 'unable to sync',  css: 'unable-to-sync' }
 });
 
 export default class BucketRowViewModel {
     constructor(bucket, isLastBucket) {
-        this.isVisible = ko.pureComputed( 
+        this.isVisible = ko.pureComputed(
             () => !!bucket()
         );
 
@@ -55,35 +55,25 @@ export default class BucketRowViewModel {
             () => {
                 if (bucket()) {
                     let count = bucket().num_objects;
-                    return isDefined(count) ? numeral(count).format('0,0') : 'N/A';                    
+                    return isDefined(count) ? numeral(count).format('0,0') : 'N/A';
                 }
 
             }
         );
 
-        this.totalSize = ko.pureComputed(
-            () => {
-                if (bucket()) {                
-                    let storage = bucket().storage;
-                    return isDefined(storage) ? formatSize(storage.total) : 'N/A';
-                }
-            }
+        this.total = ko.pureComputed(
+            () => bucket() && bucket().storage.total
         );
 
-        this.freeSize = ko.pureComputed(
-            () => {
-                if (bucket()) {
-                    let storage = bucket().storage;
-                    return isDefined(storage) ? formatSize(storage.free) : 'N/A';
-                }
-            }
+        this.used = ko.pureComputed(
+            () => bucket() && bucket().storage.used
         );
 
         this.cloudSyncStatus = ko.pureComputed(
             () => bucket() && cloudSyncStatusMapping[bucket().cloud_sync_status]
         );
 
-        
+
         let hasObjects = ko.pureComputed(
             () => bucket() && bucket().num_objects > 0
         );
@@ -93,7 +83,7 @@ export default class BucketRowViewModel {
         );
 
         this.deleteToolTip = ko.pureComputed(
-            () => isLastBucket() ? 
+            () => isLastBucket() ?
                  'Cannot delete last bucket' :
                  (hasObjects() ? 'bucket not empty' : 'delete bucket')
         );

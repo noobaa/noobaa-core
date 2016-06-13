@@ -13,10 +13,10 @@ class AccountsTableViewModel {
         this.selectedAccount = ko.observable();
 
         this.rows = makeArray(
-            maxRows, 
+            maxRows,
             i => new AccountRowViewModel(
-                () => accountList()[i], 
-                this.deleteGroup, 
+                () => accountList()[i],
+                this.deleteGroup
             )
         );
 
@@ -55,4 +55,4 @@ class AccountsTableViewModel {
 export default {
     viewModel: AccountsTableViewModel,
     template: template
-}
+};

@@ -17,7 +17,7 @@ class PoolsOverviewViewModel {
     }
 }
 
-export default { 
+export default {
     viewModel: PoolsOverviewViewModel,
     template: template
-}
+};

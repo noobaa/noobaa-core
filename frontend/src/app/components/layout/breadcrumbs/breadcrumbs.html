@@ -1,19 +1,14 @@
-<nav>
-    <ul class="clear">
-        <li class="pull-left root link" data-bind="css: { 'no-bg': !hasBackground() }">
-            <a data-bind="
-                href: 'fe/system/:system', 
-                tooltip: { text: 'OVERVIEW', align: 'left' }
-            ">
-                <svg-icon params="uri: '/fe/assets/icons.svg#logo'"></svg-icon>
-            </a>
-        </li>
+<a data-bind="
+    href: 'fe/system/:system', 
+    tooltip: { text: 'OVERVIEW', align: 'left' }
+">
+    <span>
+        <svg-icon params="uri: '/fe/assets/icons.svg#logo'"></svg-icon>
+    </span>
+</a>
 
-        <!-- ko foreach: crumbs -->
-        <li class="pull-left link" >
-            <a class="no-wrap" data-bind="href: href, text: label, tooltip: label">
-            </a>
-        </li>
-        <!-- /ko -->
-    </ul>    
-<nav>
+ <!-- ko foreach: crumbs -->
+ <a data-bind="href: href, tooltip: label">
+     <span data-bind="text: label"></span>
+ </a>
+ <!-- /ko -->

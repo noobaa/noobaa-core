@@ -1,6 +1,9 @@
 .sign-in-from {
-    .invalid-msg {
-        margin: .5em;
-        font-size: @font-size-medium;
-    } 
+    .error {
+        visibility: hidden;
+
+        &.visible {
+            visibility: visible;
+        }
+    }
 }

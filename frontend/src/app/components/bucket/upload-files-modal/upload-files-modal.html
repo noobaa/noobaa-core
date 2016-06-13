@@ -1,40 +1,35 @@
 <modal params="onClose: () => close()">
-    <h1 class="heading2 container">Upload Files</h1>
+    <h1 class="heading2 push-next">Upload Files</h1>
 
-    <file-selector class="container" params="
+    <file-selector class="push-next" params="
         allowMultiSelect: true,
         onFilesReady: files => upload(files)
     "></file-selector>
 
-    <section class="container">
-        <h2 class="heading3 text-left">Recently Uploaded</h2>    
-        
-        <div class="uploads box">
-            <div class="data-table">
-                <table>
-                    <thead>
-                        <tr>
-                            <th class="name-col text-left">File Name</th>
-                            <th class="progress-col">Progress</th>
-                        </tr>
-                    </thead>
-                    <tbody data-bind="foreach: files">
-                        <!-- ko if: isVisible -->
-                        <tr class="file" data-bind="css: css">
-                            <td class="name-col text-left" data-bind="text: name"></td>
-                            <td class="progress-col" data-bind="
-                                text: progress,
-                                tooltip:  toolTip 
-                            "></td>
-                        </tr>
-                        <!-- /ko -->
-                    </tbody>
-                </table>
-            </div>
+    <h2 class="heading3 push-prev">Recently Uploaded</h2>
+    <div class="box push-next">
+        <div class="data-table">
+            <table>
+                <thead>
+                    <tr>
+                        <th class="name-col text-left">File Name</th>
+                        <th class="progress-col">Progress</th>
+                    </tr>
+                </thead>
+                <tbody data-bind="foreach: files">
+                    <!-- ko if: isVisible -->
+                    <tr class="file" data-bind="css: css">
+                        <td class="name-col text-left" data-bind="text: name"></td>
+                        <td class="progress-col" data-bind="
+                            text: progress,
+                            tooltip:  toolTip 
+                        "></td>
+                    </tr>
+                    <!-- /ko -->
+                </tbody>
+            </table>
         </div>
-    </section>
-
-    <div class="action-line pull-right">
-        <button class="action btn2" data-bind="click: close">Close</button>        
     </div>
+
+    <button class="btn2 align-end" data-bind="click: close">Close</button>
 </modal>

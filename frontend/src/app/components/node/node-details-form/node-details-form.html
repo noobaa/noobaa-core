@@ -1,0 +1,90 @@
+<!-- ko if: dataReady -->
+<div class="scorllabel">
+    <section class="column">
+        <h3 class="heading3">Agent Information</h3>
+        <ul class="list-no-style">
+            <li class="row">
+                <span class="c3">Installed Version:</span>
+                <span class="c9 emphasized" data-bind="text: version"></span>
+            </li>
+            <li class="row">
+                <span class="c3">Heartbeat:</span>
+                <span class="c9 emphasized" data-bind="text: lastHeartbeat"></span>
+            </li>
+            <li class="row">
+                <span class="c3">Communication IP:</span>
+                <span class="c9 emphasized" data-bind="text: ip"></span>
+            </li>
+            <li class="row">
+                <span class="c3">Peer to Peer Connectivity:</span>
+                <span class="c9 emphasized">
+                    <span data-bind="text: p2pConactivityType"></span>
+                    <span class="warning" data-bind="visible: isUDPWarningVisible">
+                        (Not optimized for performance)
+                    </span>
+                </span>
+            </li>
+            </li>
+            <li class="row">
+                <span class="c3">Round Trip Time:</span>
+                <span class="c9 emphasized" data-bind="text: RTT"></span>
+            </li>
+        </ul>
+    </section>
+
+    <hr>
+
+    <section class="column">
+        <h3 class="heading3">System Information</h3>
+        <ul class="list-no-style">
+            <li class="row">
+                <span class="c3">Host Name:</span>
+                <span class="c9 emphasized" data-bind="text: hostname"></span>
+            </li>
+            <li class="row">
+                <span class="c3">Up Time:</span>
+                <span class="c9 emphasized" data-bind="text: upTime"></span>
+            </li>
+            <li class="row">
+                <span class="c3">OS Type:</span>
+                <span class="c9 emphasized" data-bind="text: osType"></span>
+            </li>
+            <li class="row">
+                <span class="c3">CPUs:</span>
+                <span class="c9 emphasized">
+                    <span data-bind="text: cpus"></span>
+                </span>
+            </li>
+            <li class="row">
+                <span class="c3">Memory:</span>
+                <span class="c9 emphasized" data-bind="text: memory"></span>
+            </li>
+        </ul>
+    </section>
+
+    <hr>
+
+    <section class="column">
+        <h3 class="heading3">Drive</h3>
+        <ul class="list-no-style">
+            <li class="row">
+                <span class="c3">Mount:</span>
+                <span class="c9 emphasized" data-bind="text: mountName"></span>
+            </li>
+            <li class="row">
+                <span class="c3">Block Device:</span>
+                <span class="c9 emphasized" data-bind="text: blockDevice"></span>
+            </li>
+            <li class="row">
+                <span class="c3">Read Latency:</span>
+                <span class="c9 emphasized" data-bind="text: diskRead"></span>
+            </li>
+            <li class="row">
+                <span class="c3">Write Latency:</span>
+                <span class="c9 emphasized" data-bind="text: diskWrite"></span>
+            </li>
+        </ul>
+    </section>
+</div>
+<!-- /ko -->
+

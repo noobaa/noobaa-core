@@ -15,13 +15,13 @@
     top: 0;
     left: 0;
     z-index: 999;
-    padding: .5em;
+    padding: @gutter/2;
     margin: 0;
     font-size: @font-size-small;
-    background-color: black;
-    border: 1px solid white;
-    border-radius: .25em;
-    color: white;
+    background-color: @bg-color1;
+    border: 1px solid @text-color2;
+    border-radius: @gutter/4;
+    color: @text-color2;
     pointer-events: none;
     text-align: center;
     animation: fade-in 250ms;
@@ -35,12 +35,12 @@
 
     &::before {
         top: -1.1em;
-        border-bottom-color:  white;
+        border-bottom-color:  @text-color2;
     }
 
     &::after {
         top: -1em;
-        border-bottom-color:  black;
+        border-bottom-color:  @bg-color1;
     }
 
     &.left {

@@ -765,11 +765,19 @@ module.exports = {
         object_info: {
             type: 'object',
             required: [
+                'bucket',
+                'key',
                 'size',
                 'content_type',
                 'create_time'
             ],
             properties: {
+                bucket: {
+                    type: 'string'
+                },
+                key: {
+                    type: 'string'
+                },
                 version_id: {
                     type: 'string'
                 },
@@ -787,6 +795,9 @@ module.exports = {
                 },
                 etag: {
                     type: 'string',
+                },
+                cloud_synced: {
+                    type: 'boolean'
                 },
                 xattr: {
                     $ref: '#/definitions/xattr',

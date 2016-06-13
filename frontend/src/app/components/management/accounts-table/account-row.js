@@ -3,7 +3,7 @@ import { systemInfo } from 'model';
 import { deleteAccount } from 'actions';
 
 export default class AccountRowViewModel {
-    constructor(account, deleteCandidate) {
+    constructor(account) {
         let systemName = ko.pureComputed(
             () => systemInfo() ? systemInfo().name : ''
         );
@@ -18,7 +18,7 @@ export default class AccountRowViewModel {
 
         let isSystemOwner = ko.pureComputed(
             () => systemInfo() && this.username() === systemInfo().owner
-        )
+        );
 
         this.roles = ko.pureComputed(
             () => {
@@ -26,11 +26,9 @@ export default class AccountRowViewModel {
                     return '';
                 }
 
-                return  isSystemOwner() ?
-                    'owner' :
-                    account().systems.find( 
-                        ({ name }) => name === systemName() 
-                    ).roles[0]
+                return  isSystemOwner() ? 'owner' : account().systems.find(
+                    ({ name }) => name === systemName()
+                ).roles[0];
             }
         );
 
@@ -48,6 +46,6 @@ export default class AccountRowViewModel {
     }
 
     del() {
-        deleteAccount(this.username())
+        deleteAccount(this.username());
     }
 }

@@ -1,0 +1,104 @@
+.data-table {
+    .column();
+    .greedy();
+    position: relative;
+    text-align: center;
+
+    table {
+        display: block;
+        border-collapse: collapse;
+        overflow-y: auto;
+    }
+
+    .text(
+        @font-type2, 
+        @font-weight-light, 
+        @font-size-normal, 
+        @text-color4
+    );
+
+    table {
+        margin-top: 41px;
+
+        &::before, &::after {
+            content: '';
+            display: block;
+            position: absolute;
+            height: 2em;
+            left: 0;
+            right: 10px;
+
+        }
+
+        &::before {
+            pointer-events: none;
+            background: linear-gradient(to bottom, @bg-color2, transparent);
+        }
+
+        &::after {
+            pointer-events: none;
+            bottom: 0;
+            background: linear-gradient(to bottom, transparent, @bg-color2);
+        }
+    }
+    
+    thead {
+        position: absolute;
+        top: 0;
+
+        > tr {
+            border-bottom: 1px solid @bg-color4;
+        }
+    }
+
+    tbody > tr {
+        border-bottom: 1px solid @bg-color3;
+
+        &:last-child {
+            border: none;
+        };
+    }
+    
+
+    th {
+        text-transform: uppercase;
+        font-weight:  @font-weight-light;
+
+        a {
+            display: inline-block;
+        }
+
+        &.asc, &.des {
+            &::after {
+                content: '';
+                vertical-align: middle;
+                margin-right: -1em;
+                display: inline-block;
+                border: 5px solid transparent;
+            }
+        }
+
+        &.asc::after {
+            margin-top: -2.5px;
+            border-bottom: none;
+            border-top-color: @text-color4;
+        }
+
+        &.des::after {
+            margin-top: -4px;
+            border-top: none;
+            border-bottom-color: @text-color4;
+        }
+    }
+
+    th, td {
+        padding: @gutter/2;
+    }
+
+    > .empty-message {
+        position: relative;
+        text-align: left;
+        font-size: @font-size-large;
+        color: @text-color5;
+    }
+}

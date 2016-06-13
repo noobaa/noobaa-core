@@ -9,7 +9,7 @@ class BucketPanelViewModel {
 
         this.ready = ko.pureComputed(
             () => !!bucketInfo()
-        )
+        );
 
         this.bucketName = ko.pureComputed(
             () => bucketInfo() && bucketInfo().name
@@ -28,4 +28,4 @@ class BucketPanelViewModel {
 export default {
     viewModel: BucketPanelViewModel,
     template: template
-}
+};

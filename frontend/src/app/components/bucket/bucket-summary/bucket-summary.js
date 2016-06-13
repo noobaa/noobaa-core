@@ -1,8 +1,16 @@
 import template from './bucket-summary.html';
 import ko from 'knockout';
-import numeral from 'numeral';
 import style from 'style';
 import { formatSize } from 'utils';
+
+const cloudSyncStatusMapping = Object.freeze({
+    PENDING: { text: 'Sync Pending', icon: 'cloud-pending' } ,
+    SYNCING: { text: 'Syncing', icon: 'cloud-syncing' },
+    PAUSED: { text: 'Sync Paused', icon: 'cloud-paused' },
+    UNABLE: { text: 'Unable to sync', icon: 'cloud-error' },
+    SYNCED: { text: 'Sync Completed', icon: 'cloud-synced' },
+    NOTSET: { text: 'Cloud sync not set', icon: 'cloud-not-set' }
+});
 
 class BucketSummrayViewModel {
     constructor({ bucket }) {
@@ -10,32 +18,12 @@ class BucketSummrayViewModel {
             () => !!bucket()
         );
 
-        this.name  = ko.pureComputed(
-            () => bucket() && bucket().name
-        );
-
-        this.fileCount = ko.pureComputed(
-            () => bucket() && bucket().num_objects
-        );
-
-        this.fileCountText = ko.pureComputed(
-            () => `${this.fileCount() ? numeral(this.fileCount()).format('0,0') : 'No'} files`
-        )       
-        
         this.total = ko.pureComputed(
             () => bucket() && bucket().storage.used
         );
 
         this.totalText = ko.pureComputed(
             () => bucket() && formatSize(bucket().storage.total)
-        );
-
-        this.free = ko.pureComputed(
-            () => bucket() && bucket().storage.free
-        );
-
-        this.freeText = ko.pureComputed(
-            () => formatSize(this.free())
         );
 
         this.used = ko.pureComputed(
@@ -46,21 +34,47 @@ class BucketSummrayViewModel {
             () => bucket() && formatSize(this.used())
         );
 
-        this.gaugeValues = [ 
+        this.free = ko.pureComputed(
+            () => bucket() && bucket().storage.free
+        );
+
+        this.freeText = ko.pureComputed(
+            () => formatSize(this.free())
+        );
+
+        this.gaugeValues = [
             { value: this.used, color: style['text-color6'], emphasize: true },
             { value: this.free, color: style['text-color4'] }
-        ]
+        ];
 
-        this.policy = ko.pureComputed(
-            () => bucket() && bucket().tiering
+        this.stateText = ko.pureComputed(
+            () => 'Healthy'
+        );
+
+        this.stateIcon = ko.pureComputed(
+            () => '/fe/assets/icons.svg#bucket-healthy'
+        );
+
+        let cloudSyncStatus = ko.pureComputed(
+            () => bucket() && cloudSyncStatusMapping[bucket().cloud_sync_status]
+        );
+
+        this.cloudSyncText = ko.pureComputed(
+            () => cloudSyncStatus() && cloudSyncStatus().text
+        );
+
+        this.cloudSyncIcon = ko.pureComputed(
+            () => cloudSyncStatus() && `/fe/assets/icons.svg#${
+                cloudSyncStatus().icon
+            }`
         );
 
         this.hasCloudSyncPolicy = ko.pureComputed(
             () => bucket() && bucket().cloud_sync_status !== 'NOTSET'
         );
 
+        this.dataPlacementIcon = '/fe/assets/icons.svg#policy';
         this.isPolicyModalVisible = ko.observable(false);
-        this.isUploadFilesModalVisible = ko.observable(false);
         this.isSetCloudSyncModalVisible = ko.observable(false);
         this.isViewCloudSyncModalVisible = ko.observable(false);
     }
@@ -69,4 +83,4 @@ class BucketSummrayViewModel {
 export default {
     viewModel: BucketSummrayViewModel,
     template: template
-}
+};

@@ -1,0 +1,45 @@
+<div class="row content-middle" data-bind="click: () => expanded.toggle()">
+    <h2 class="heading3 greedy">
+        Phone Home
+    </h2>
+
+    <button class="btn-flat expand-btn no-outline">
+        <svg-icon class="rotate" 
+            params="uri: '/fe/assets/icons.svg#chevron'" 
+            data-bind="css: { 'deg-90': !expanded() }">
+        </svg-icon>
+    </button>
+</div>
+
+<p data-bind="visible: !expanded()">
+    Proxy Address: 
+    <output class="emphasized" data-bind="
+        value: proxyAddressText,
+        css: { 'text-tech': !!proxyAddress() }
+    "></output>
+</p>
+
+<section class="column" data-bind="expand: expanded">
+    <p class="push-next">Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco</p>
+
+
+    <editor class="push-next" params="label: 'Use Proxy'">
+        <toggle-switch params="value: usingProxy"></toggle-switch>
+    </editor>
+    <editor params="label: 'Proxy address', disable: !usingProxy()">
+        <input class="proxy-name" type="text" placeholder="IP or DNS name" data-bind="
+            value: proxyIPOrDNS,
+            enable: usingProxy
+        "/>
+    </editor>
+    <editor params="label: 'Proxy port', disable: !usingProxy()">
+        <input type="number" min="1" max="65535" placeholder="port" data-bind="
+            value: proxyPort,
+            enable: usingProxy
+        "/>
+   </editor>
+
+    <button class="btn2 push-prev" data-bind="click: applyChanges">
+        Apply Changes
+    </button>
+</section>

@@ -4,7 +4,7 @@ import { systemInfo } from 'model';
 import { makeRange } from 'utils';
 import { updateHostname } from 'actions';
 
-const [ IP, DNS ] = makeRange(2); 
+const [ IP, DNS ] = makeRange(2);
 const addressOptions = [
     { label: 'Use Server IP', value: IP },
     { label: 'Use DNS Name (recommended)', value: DNS }
@@ -21,7 +21,7 @@ class ServerDNSFormViewModel {
 
         this.usingIP = this.addressType.is(IP);
         this.usingDNS = this.addressType.is(DNS);
-        
+
         this.ipAddress = ko.pureComputed(
             ()=> systemInfo() && systemInfo().ipAddress
         );
@@ -29,21 +29,21 @@ class ServerDNSFormViewModel {
         this.dnsName = ko.observableWithDefault(
             () => systemInfo() && systemInfo().dnsName
         )
-            .extend({ 
+            .extend({
                 required: {
-                    params: this.usingDNS,
+                    onlyIf: this.usingDNS,
                     message: 'Please enter a DNS Name'
                 },
-                isDNSName: true 
-            })
+                isDNSName: true
+            });
 
         this.baseAddress = ko.pureComputed(
             () => this.usingIP() ? this.ipAddress() : this.dnsName()
         );
 
-        this.errors = ko.validation.group({ 
-            dnsName: this.dnsName 
-        });
+        this.errors = ko.validation.group([
+            this.dnsName
+        ]);
     }
 
     applyChanges() {
@@ -59,4 +59,4 @@ class ServerDNSFormViewModel {
 export default {
     viewModel: ServerDNSFormViewModel,
     template: template
-}
+};

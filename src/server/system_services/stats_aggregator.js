@@ -448,8 +448,8 @@ function send_stats_payload(payload) {
                 }
             };
 
-            if (system.phone_home_proxy) {
-                let proxy_listener = url.parse(system.phone_home_proxy);
+            if (system.phone_home_proxy_address) {
+                let proxy_listener = url.parse(system.phone_home_proxy_address);
                 options.hostname = proxy_listener.hostname;
                 options.port = Number(proxy_listener.port);
                 options.path = central_listener.href;

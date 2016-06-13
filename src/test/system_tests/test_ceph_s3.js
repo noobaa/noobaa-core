@@ -205,6 +205,10 @@ const IGNORE_S3_CEPH_TEST_LIST = [
 ];
 
 
+module.exports = {
+    run_test: run_test
+};
+
 function deploy_ceph() {
     var command = `chmod a+x ${CEPH_TEST.test_dir}${CEPH_TEST.ceph_deploy}`;
     return promise_utils.promised_exec(command, false, true)
@@ -284,7 +288,18 @@ function system_ceph_test() {
         });
 }
 
+
 function main() {
+    return run_test()
+        .then(function() {
+            process.exit(0);
+        })
+        .fail(function(err) {
+            process.exit(1);
+        });
+}
+
+function run_test() {
     var command = `node ${CEPH_TEST.rpc_shell_file} --run call --api account --func create_account --params '${JSON.stringify(CEPH_TEST.new_account_json)}'`;
     return P.fcall(function() {
             return deploy_ceph();

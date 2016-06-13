@@ -1,18 +1,22 @@
-<button class="btn3 pull-right" data-bind="click: openS3AccessModal">
-    Edit S3 Access
-</button>
+<div class="row push-next">
+    <h2 class="heading2 greedy">
+        Accounts with S3 access for this bucket
+    </h2>
 
-<h2 class="heading2 container">
-    Accounts with S3 access for this bucket
-</h2>
+    <button class="btn3" data-bind="click: openS3AccessModal">
+        Edit S3 Access
+    </button>
+</div>
 
-<ul class="account-list list-no-style container" data-bind="foreach: accessList">
-    <li>
-        <span data-bind="text: $data"></span>
-        <button class="link pull-right" data-bind="
+<ul class="account-list column" data-bind="foreach: accessList">
+    <li class="row">
+        <span class="greedy" data-bind="text: $data"></span>
+        
+        <button class="link" data-bind="
             click: () => $component.openConnectionDetailsFor($data)">
             Connection Details
         </button>
+        
     </li>
 </ul>
 

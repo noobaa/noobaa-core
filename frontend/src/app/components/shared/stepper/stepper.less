@@ -1,8 +1,7 @@
 stepper {
     display: block;
-    text-align: center; 
-    margin: 1em 0;     
-    line-height: 2em;    
+    text-align: center;
+    line-height: 2em;
 
     > ol {
         .list-no-style();
@@ -12,7 +11,7 @@ stepper {
     .stepper-step {
         counter-increment: step;
         display: inline-block;
-        text-transform: uppercase;                     
+        text-transform: uppercase;
         font-size: @font-size-small;
 
         .bullet {
@@ -21,7 +20,7 @@ stepper {
             width: 2em;
             height: 2em;
             line-height: 2em;
-            margin-right: .5em;            
+            margin-right: .5em;
             vertical-align: middle;
 
             &::before, &::after {
@@ -30,22 +29,21 @@ stepper {
                 left: 0;
                 width: 100%;
                 height: 100%;
-                border-radius: 1em;        
+                border-radius: 1em;
                 background-color: @bg-color4;
                 font-weight: @font-weight-medium;
-                transition: transform 500ms linear, background-color 500ms;                        
-                backface-visibility: hidden;                
+                transition: transform 500ms linear, background-color 500ms;
+                backface-visibility: hidden;
             }
 
-            &::before {        
+            &::before {
                 content: counter(step);
                 transform: rotateY(180deg);
             }
 
             &::after {
-                //transform: rotateY(180deg);                        
-                content: url('/fe/assets/step-done.png');                
-            }    
+                content: url('/fe/assets/step-done.png');
+            }
         }
 
         &:not(:last-child)::after {
@@ -56,7 +54,7 @@ stepper {
             border-top: 1px solid @bg-color4;
             vertical-align: middle;
             margin: 0 .5em;
-        }    
+        }
 
         &.selected {
             color: @text-color1;

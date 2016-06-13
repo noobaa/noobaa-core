@@ -432,7 +432,7 @@ module.exports = {
             }
         },
 
-        update_phone_home_proxy_address: {
+        update_phone_home_config: {
             method: 'POST',
             params: {
                 type: 'object',
@@ -619,7 +619,7 @@ module.exports = {
                 ip_address: {
                     type: 'string'
                 },
-                phone_home_proxy_address: {
+                phone_home_config: {
                     type: 'object',
                     properties: {
                         proxy_address: {

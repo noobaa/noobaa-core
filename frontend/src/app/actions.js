@@ -381,7 +381,7 @@ export function loadSystemInfo() {
                     timeConfig: reply.time_config,
                     debugLevel: reply.debug_level,
                     maintenance: reply.maintenance_mode,
-                    phoneHomeConfig: reply.phone_home_proxy_address
+                    phoneHomeConfig: reply.phone_home_config
                 });
             }
         )
@@ -1535,7 +1535,7 @@ export function exitMaintenanceMode() {
 export function updatePhoneHomeConfig(proxyAddress) {
     logAction('updatePhoneHomeConfig', proxyAddress);
 
-    api.system.update_phone_home_proxy_address({ proxy_address: proxyAddress })
+    api.system.update_phone_home_config({ proxy_address: proxyAddress })
         .then(loadSystemInfo)
         .done();
 }

@@ -25,6 +25,11 @@
 DIRECTORY="s3-tests"
 CEPH_LINK="https://github.com/ceph/s3-tests.git"
 TURN_DL="http://turnserver.open-sys.org/downloads/v4.3.1.3/turnserver-4.3.1.3-CentOS6.6-x86_64.tar.gz"
+echo "Remove centos-release-scl..."
+yum -y remove centos-release-SCL
+echo "Install centos-release-scl..."
+yum -y install centos-release-scl
+echo "Finished Re-Installing centos-release-scl..."
 echo "Erase new version of libevent-2..."
 yum -y erase libevent-2.0.21-2.el6.x86_64
 echo "Finished Erasing new version of libevent-2..."

@@ -11,6 +11,9 @@ module.exports = {
         _id: {
             format: 'objectid'
         },
+        is_clusterized: {
+            type: 'boolean'
+        },
         owner_secret: {
             type: 'string'
         },

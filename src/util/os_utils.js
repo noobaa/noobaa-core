@@ -23,6 +23,7 @@ var os = require('os');
 var fs = require('fs');
 var child_process = require('child_process');
 var node_df = require('node-df');
+var uuid = require('node-uuid');
 var promise_utils = require('./promise_utils');
 var P = require('./promise');
 var config = require('../../config.js');
@@ -358,7 +359,7 @@ function read_server_secret() {
                 return sec.substring(0, sec.length - 1);
             });
     } else {
-        return P.when(os.hostname());
+        return uuid().substring(0, 8);
     }
 }
 

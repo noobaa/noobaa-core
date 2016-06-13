@@ -1,11 +1,14 @@
 'use strict';
 
 var _ = require('lodash');
+var server_rpc = require('../server_rpc');
 var P = require('../../util/promise');
 var fs_utils = require('../../util/fs_utils');
 var config = require('../../../config.js');
 var SupervisorCtl = require('./supervisor_ctrl');
 var mongo_client = require('../../util/mongo_client').get_instance();
+var mongoose_client = require('../../util/mongoose_utils');
+var dotenv = require('../../util/dotenv');
 var dbg = require('../../util/debug_module')(__filename);
 
 module.exports = new MongoCtrl(); // Singleton
@@ -19,16 +22,21 @@ function MongoCtrl() {
 
 MongoCtrl.prototype.init = function() {
     dbg.log0('Initing MongoCtrl');
+    dotenv.load();
     return this._refresh_services_list();
 };
 
 //TODO:: for detaching: add remove member from replica set & destroy shard
 
-MongoCtrl.prototype.add_replica_set_member = function(name) {
+MongoCtrl.prototype.add_replica_set_member = function(name, first_server, servers) {
     let self = this;
     return self._remove_single_mongo_program()
-        .then(() => self._add_replica_set_member_program(name))
-        .then(() => SupervisorCtl.apply_changes());
+        .then(() => self._add_replica_set_member_program(name, first_server))
+        .then(() => SupervisorCtl.apply_changes())
+        .then(() => {
+            // build new connection url for mongo and write to .env
+            return self.update_dotenv(name, servers.map(server => server.address));
+        });
 };
 
 MongoCtrl.prototype.add_new_shard_server = function(name, first_shard) {
@@ -41,8 +49,7 @@ MongoCtrl.prototype.add_new_shard_server = function(name, first_shard) {
 MongoCtrl.prototype.add_new_mongos = function(cfg_array) {
     let self = this;
     return P.when(self._add_new_mongos_program(cfg_array))
-        .then(() => SupervisorCtl.apply_changes())
-        .then(() => mongo_client.update_connection_string(cfg_array));
+        .then(() => SupervisorCtl.apply_changes());
 };
 
 MongoCtrl.prototype.add_new_config = function() {
@@ -52,7 +59,7 @@ MongoCtrl.prototype.add_new_config = function() {
 };
 
 MongoCtrl.prototype.initiate_replica_set = function(set, members, is_config_set) {
-    dbg.log0('Initiate replica set', set, members, is_config_set);
+    dbg.log0('Initiate replica set', set, members, 'is_config_set', is_config_set);
     return mongo_client.initiate_replica_set(set, members, is_config_set);
 };
 
@@ -67,36 +74,55 @@ MongoCtrl.prototype.add_member_shard = function(name, ip) {
     return mongo_client.add_shard(ip, config.MONGO_DEFAULTS.SHARD_SRV_PORT, name);
 };
 
-MongoCtrl.prototype.update_connection_string = function() {
-    return mongo_client.update_connection_string();
-};
-
 MongoCtrl.prototype.is_master = function(is_config_set, set_name) {
     return mongo_client.is_master(is_config_set, set_name);
 };
 
+MongoCtrl.prototype.update_connection_string = function() {
+    //MongoDB seems to use a shared connection/state on our mongo_client & mongoose_utils
+    //Disconnect both, replace url, connect both
+    //Order is important!
+
+    return P.when(mongoose_client.mongoose_disconnect())
+        .then(() => {
+            mongo_client.disconnect();
+            mongo_client.update_connection_string();
+            mongoose_client.mongoose_update_connection_string();
+            return mongoose_client.mongoose_connect();
+        })
+        .then(() => mongo_client.connect());
+};
 
 //
 //Internals
 //
-MongoCtrl.prototype._add_replica_set_member_program = function(name) {
+MongoCtrl.prototype._add_replica_set_member_program = function(name, first_shard) {
     if (!name) {
         throw new Error('port and name must be supplied to add new shard');
     }
 
     let program_obj = {};
-    let dbpath = config.MONGO_DEFAULTS.COMMON_PATH + '/' + name + 'rs';
+    let dbpath = config.MONGO_DEFAULTS.COMMON_PATH + '/' + name + (first_shard ? '' : 'rs');
     program_obj.name = 'mongors-' + name;
-    program_obj.command = 'mongod --replSet ' +
+    program_obj.command = 'mongod ' +
         '--replSet ' + name +
+        ' --port ' + config.MONGO_DEFAULTS.SHARD_SRV_PORT +
         ' --dbpath ' + dbpath;
     program_obj.directory = '/usr/bin';
     program_obj.user = 'root';
     program_obj.autostart = 'true';
     program_obj.priority = '1';
 
-    return fs_utils.create_fresh_path(dbpath)
-        .then(() => SupervisorCtl.add_program(program_obj));
+    dbg.log0('adding replica set program:', program_obj);
+    if (first_shard) { //If shard1 (this means this is the first server which will be the base of the cluster)
+        //use the original server`s data
+        dbg.log0('first server in the cluster - leaving dbpath as is:', dbpath);
+        return SupervisorCtl.add_program(program_obj);
+    } else {
+        dbg.log0('adding server to an existing cluster. cleaning dbpath:', dbpath);
+        return fs_utils.create_fresh_path(dbpath)
+            .then(() => SupervisorCtl.add_program(program_obj));
+    }
 };
 
 MongoCtrl.prototype._add_new_shard_program = function(name, first_shard) {
@@ -108,6 +134,7 @@ MongoCtrl.prototype._add_new_shard_program = function(name, first_shard) {
     let dbpath = config.MONGO_DEFAULTS.COMMON_PATH + '/' + name;
     program_obj.name = 'mongoshard-' + name;
     program_obj.command = 'mongod  --shardsvr' +
+        ' --replSet ' + name +
         ' --port ' + config.MONGO_DEFAULTS.SHARD_SRV_PORT +
         ' --dbpath ' + dbpath;
     program_obj.directory = '/usr/bin';
@@ -177,4 +204,28 @@ MongoCtrl.prototype._refresh_services_list = function() {
         .then(mongo_services => {
             this._mongo_services = mongo_services;
         });
+};
+
+MongoCtrl.prototype.update_dotenv = function(name, IPs) {
+    dbg.log0('will update dotenv for replica set', name, 'with IPs', IPs);
+    let servers_str = IPs.map(ip => ip + ':' + config.MONGO_DEFAULTS.SHARD_SRV_PORT).join(',');
+    let url = 'mongodb://' + servers_str + '/nbcore?replicaSet=' + name;
+    let old_url = process.env.MONGO_RS_URL || '';
+    dbg.log0('updating MONGO_RS_URL in .env from', old_url, 'to', url);
+    dotenv.set({
+        key: 'MONGO_RS_URL',
+        value: url
+    });
+    return this._publish_rs_name_current_server(name);
+};
+
+MongoCtrl.prototype._publish_rs_name_current_server = function(name) {
+    return server_rpc.client.redirector.publish_to_cluster({
+        method_api: 'cluster_member_api',
+        method_name: 'update_mongo_connection_string',
+        target: '', // required but irrelevant
+        request_params: {
+            rs_name: name
+        }
+    });
 };

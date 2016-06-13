@@ -23,8 +23,7 @@ class CapacityBarViewModel {
 
         let usedRatio = ko.pureComputed(
             () => {
-                let total = ko.unwrap(total);
-                let ratio = total > 0 ? ko.unwrap(used) / total : 0;
+                let ratio = ko.unwrap(total) > 0 ? ko.unwrap(used) / ko.unwrap(total) : 0;
                 return ratio > 0 ? Math.max(ratio, minUsedRatio) : 0;
             }
         );

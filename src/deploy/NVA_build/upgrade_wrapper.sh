@@ -66,6 +66,39 @@ function fix_bashrc {
   fi
 }
 
+function upgrade_mongo_version {
+	local ver=$(mongo --version | grep 3.2 | wc -l)
+	if [ ${ver} -ne 0 ]; then
+		return
+	fi
+
+	#RE-Enable mongo upgrades
+	sed -i 's:exclude=mongodb-org.*::' /etc/yum.conf
+
+	#Upgrade to 3.0
+	mv /etc/yum.repos.d/mongodb-org-2.4.repo /etc/yum.repos.d/mongodb-org-3.0.repo
+	sed -i 's:\(\[mongodb-org\)-.*\]:\1-3.0]:' /etc/yum.repos.d/mongodb-org-3.0.repo
+	sed -i 's:baseurl=.*:baseurl=http\://repo.mongodb.org/yum/redhat/6Server/mongodb-org/3.0/x86_64/:' /etc/yum.repos.d/mongodb-org-3.0.repo
+	yum -y install mongodb-org
+	${SUPERCTL} start mongodb
+
+	#Export current mongo DB
+	mongodump --out /tmp/mongo_3.2_upgrade
+	${SUPERCTL} stop mongodb
+	mv /var/lib/mongo/cluster/shard1 /var/lib/mongo/cluster/shard1_old
+	mkdir -p /var/lib/mongo/cluster/shard1
+
+	#Upgrade to 3.2
+	cp -f ${CORE_DIR}/src/deploy/NVA_build/mongo.repo /etc/yum.repos.d/mongodb-org-3.2.repo
+	yum -y install mongodb-org
+	rm -f /etc/yum.repos.d/mongodb-org-3.0.repo
+	${SUPERCTL} start mongodb
+	mongorestore /tmp/mongo_3.2_upgrade
+
+	#disable mongo upgrades
+	echo "exclude=mongodb-org,mongodb-org-server,mongodb-org-shell,mongodb-org-mongos,mongodb-org-tools" >> /etc/yum.conf
+}
+
 function pre_upgrade {
   yum install -y dialog
   useradd noobaa
@@ -230,6 +263,9 @@ function post_upgrade {
 			sed -i 's:\(^server.*\):#\1:g' /etc/ntp.conf
 			ln -sf /usr/share/zoneinfo/US/Pacific /etc/localtime
 	fi
+
+	#Upgrade mongo to 3.2 if needed
+	upgrade_mongo_version
 
   rm -f /tmp/*.tar.gz
   rm -rf /tmp/v*

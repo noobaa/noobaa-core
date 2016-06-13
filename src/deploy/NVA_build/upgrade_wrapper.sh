@@ -72,27 +72,33 @@ function upgrade_mongo_version {
 		return
 	fi
 
+	deploy_log "RE-Enable mongo upgrades"
 	#RE-Enable mongo upgrades
 	sed -i 's:exclude=mongodb-org.*::' /etc/yum.conf
 
 	#Upgrade to 3.0
+	deploy_log "Upgrade MongoDB to 3.0"
 	mv /etc/yum.repos.d/mongodb-org-2.4.repo /etc/yum.repos.d/mongodb-org-3.0.repo
 	sed -i 's:\(\[mongodb-org\)-.*\]:\1-3.0]:' /etc/yum.repos.d/mongodb-org-3.0.repo
 	sed -i 's:baseurl=.*:baseurl=http\://repo.mongodb.org/yum/redhat/6Server/mongodb-org/3.0/x86_64/:' /etc/yum.repos.d/mongodb-org-3.0.repo
 	yum -y install mongodb-org
+	deploy_log "Start MongoDB 3.0"
 	${SUPERCTL} start mongodb
 
 	#Export current mongo DB
+	deploy_log "Taking MongoDB backup"
 	mongodump --out /tmp/mongo_3.2_upgrade
 	${SUPERCTL} stop mongodb
 	mv /var/lib/mongo/cluster/shard1 /var/lib/mongo/cluster/shard1_old
 	mkdir -p /var/lib/mongo/cluster/shard1
 
 	#Upgrade to 3.2
+	deploy_log "Upgrade MongoDB to 3.2"
 	cp -f ${CORE_DIR}/src/deploy/NVA_build/mongo.repo /etc/yum.repos.d/mongodb-org-3.2.repo
 	yum -y install mongodb-org
 	rm -f /etc/yum.repos.d/mongodb-org-3.0.repo
 	${SUPERCTL} start mongodb
+	deploy_log "Importing Previous DB"
 	mongorestore /tmp/mongo_3.2_upgrade
 
 	#disable mongo upgrades
@@ -100,6 +106,10 @@ function upgrade_mongo_version {
 }
 
 function pre_upgrade {
+	#fix SCL issue (preventing yum install/update)
+	yum -y remove centos-release-SCL
+	yum -y install centos-release-scl
+
   yum install -y dialog
   useradd noobaa
   echo Passw0rd | passwd noobaa --stdin

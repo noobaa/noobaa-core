@@ -15,6 +15,7 @@ module.exports = {
     get_networking_info: get_networking_info,
     read_server_secret: read_server_secret,
     is_supervised_env: is_supervised_env,
+    reload_syslog_configuration: reload_syslog_configuration
 };
 
 var _ = require('lodash');
@@ -368,6 +369,26 @@ function is_supervised_env() {
         return true;
     }
     return false;
+}
+
+function reload_syslog_configuration(conf) {
+    if (os.type() !== 'Linux') {
+        return;
+    }
+
+    if (conf.enabled) {
+        return P.nfcall(fs.readFile, 'src/deploy/NVA_build/noobaa_syslog.conf')
+            .then(data => {
+                // Sending everything except NooBaa logs
+                let add_destination = `if $syslogfacility-text != 'local0' then ${conf.protocol === 'TCP' ? '@@' : '@'}${conf.address}:${conf.port}`;
+                return P.nfcall(fs.writeFile, '/etc/rsyslog.d/noobaa_syslog.conf', data + '\n' + add_destination);
+            })
+            .then(() => promise_utils.promised_exec('service rsyslog restart'));
+    } else {
+        return P.nfcall(fs.readFile, 'src/deploy/NVA_build/noobaa_syslog.conf')
+            .then(data => P.nfcall(fs.writeFile, '/etc/rsyslog.d/noobaa_syslog.conf', data))
+            .then(() => promise_utils.promised_exec('service rsyslog restart'));
+    }
 }
 
 if (require.main === module) {

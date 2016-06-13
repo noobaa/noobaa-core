@@ -229,8 +229,6 @@ export function makeRange(start, end) {
     );
 }
 
-window.makeRange = makeRange;
-
 export function domFromHtml(html) {
     let parser = new DOMParser();
     let doc = parser.parseFromString(html, 'text/html');
@@ -316,4 +314,15 @@ export function bitsToNumber(...bits) {
 
 export function pad(num, size, char = '0') {
     return (char.repeat(size) + num).substr(-size);
+}
+
+export function deepFreeze(val) {
+    if (isObject(val)) {
+        Object.keys(val).forEach(
+            key => { val[key] = deepFreeze(val[key]); }
+        );
+        return Object.freeze(val);
+    } else {
+        return val;
+    }
 }

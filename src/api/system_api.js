@@ -452,15 +452,18 @@ module.exports = {
             }
         },
 
-        configure_external_syslog: {
+        configure_remote_syslog: {
             method: 'POST',
             params: {
                 type: 'object',
-                required: ['connection_type'],
+                required: ['enabled'],
                 properties: {
-                    connection_type: {
+                    enabled: {
+                        type: 'boolean'
+                    },
+                    protocol: {
                         type: 'string',
-                        enum: ['TCP', 'UDP', 'NONE']
+                        enum: ['TCP', 'UDP']
                     },
                     address: {
                         type: 'string'
@@ -631,13 +634,12 @@ module.exports = {
                         }
                     }
                 },
-                external_syslog_config: {
+                remote_syslog_config: {
                     type: 'object',
-                    required: ['connection_type'],
                     properties: {
-                        connection_type: {
+                        protocol: {
                             type: 'string',
-                            enum: ['TCP', 'UDP', 'NONE']
+                            enum: ['TCP', 'UDP']
                         },
                         address: {
                             type: 'string'

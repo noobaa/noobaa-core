@@ -9,25 +9,25 @@ export default function register(ko) {
     // -------------------------------
     // Layout
     // -------------------------------
-    ko.components.register('main-layout',       require('./layout/main-layout/main-layout'));   
+    ko.components.register('main-layout',       require('./layout/main-layout/main-layout'));
     ko.components.register('main-header',       require('./layout/main-header/main-header'));
     ko.components.register('commands-bar',      require('./layout/commands-bar/commands-bar'));
     ko.components.register('breadcrumbs',       require('./layout/breadcrumbs/breadcrumbs'));
     ko.components.register('notification-bar',  require('./layout/notification-bar/notification-bar'));
-    
+
     // -------------------------------
     // Login
     // -------------------------------
-    ko.components.register('login-layout',          require('./login/login-layout/login-layout'));      
-    ko.components.register('signin-form',           require('./login/signin-form/signin-form'));    
-    ko.components.register('create-system-form',    require('./login/create-system-form/create-system-form'));  
+    ko.components.register('login-layout',          require('./login/login-layout/login-layout'));
+    ko.components.register('signin-form',           require('./login/signin-form/signin-form'));
+    ko.components.register('create-system-form',    require('./login/create-system-form/create-system-form'));
 
     // -------------------------------
     // Overview
     // -------------------------------
     ko.components.register('overview-panel',        require('./overview/overview-panel/overview-panel'));
     ko.components.register('pools-overview',        require('./overview/pools-overview/pools-overview'));
-    ko.components.register('buckets-overview',      require('./overview/buckets-overview/buckets-overview'));   
+    ko.components.register('buckets-overview',      require('./overview/buckets-overview/buckets-overview'));
     ko.components.register('install-node-wizard',   require('./overview/install-node-wizard/install-node-wizard'));
     ko.components.register('connect-app-wizard',    require('./overview/connect-app-wizard/connect-app-wizard'));
     ko.components.register('after-upgrade-modal',   require('./overview/after-upgrade-modal/after-upgrade-modal'));
@@ -60,7 +60,7 @@ export default function register(ko) {
     // -------------------------------
     ko.components.register('object-panel',          require('./object/object-panel/object-panel'));
     ko.components.register('object-summary',        require('./object/object-summary/object-summary'));
-    ko.components.register('object-details-form',   require('./object/object-details-form/object-details-form'));    
+    ko.components.register('object-details-form',   require('./object/object-details-form/object-details-form'));
     ko.components.register('object-parts-list',     require('./object/object-parts-list/object-parts-list'));
     ko.components.register('object-preview-modal',  require('./object/object-preview-modal/object-preview-modal'));
 
@@ -106,6 +106,7 @@ export default function register(ko) {
     ko.components.register('maintenance-form',          require('./management/maintenance-form/maintenance-form'));
     ko.components.register('start-maintenance-modal',   require('./management/start-maintenance-modal/start-maintenance-modal'));
     ko.components.register('phone-home-form',           require('./management/phone-home-form/phone-home-form'));
+    ko.components.register('remote-syslog-form',        require('./management/remote-syslog-form/remote-syslog-form'));
 
 
     // -------------------------------

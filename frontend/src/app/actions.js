@@ -381,7 +381,8 @@ export function loadSystemInfo() {
                     timeConfig: reply.time_config,
                     debugLevel: reply.debug_level,
                     maintenance: reply.maintenance_mode,
-                    phoneHomeConfig: reply.phone_home_config
+                    phoneHomeConfig: reply.phone_home_config,
+                    remoteSyslogConfig: reply.remote_system_config
                 });
             }
         )
@@ -1533,9 +1534,25 @@ export function exitMaintenanceMode() {
 }
 
 export function updatePhoneHomeConfig(proxyAddress) {
-    logAction('updatePhoneHomeConfig', proxyAddress);
+    logAction('updatePhoneHomeConfig', { proxyAddress });
 
     api.system.update_phone_home_config({ proxy_address: proxyAddress })
+        .then(loadSystemInfo)
+        .done();
+}
+
+export function enableRemoteSyslog(protocol, address, port) {
+    logAction ('enableRemoteSyslog', { protocol, address, port });
+
+    api.system.configure_remote_syslog({ enabled: true, protocol, address, port })
+        .then(loadSystemInfo)
+        .done();
+}
+
+export function disableRemoteSyslog() {
+    logAction ('disableRemoteSyslog');
+
+    api.system.configure_remote_syslog({ enabled: false })
         .then(loadSystemInfo)
         .done();
 }

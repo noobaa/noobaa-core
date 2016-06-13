@@ -263,7 +263,7 @@ class NodesStore {
             ))
             .then(res => {
                 var bins = {};
-                _.each(res.results, r => {
+                _.each(res, r => {
                     var t = bins[r._id[0]] = bins[r._id[0]] || {};
                     t[r._id[1]] = r.value;
                 });

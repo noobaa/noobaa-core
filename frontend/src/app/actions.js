@@ -1519,7 +1519,7 @@ export function updateServerNTP(timezone, server) {
 export function enterMaintenanceMode(duration) {
     logAction('enterMaintenanceMode', { duration });
 
-    api.system.set_maintenance({ duration })
+    api.system.set_maintenance_mode({ duration })
         .then(loadSystemInfo)
         .done();
 }
@@ -1527,7 +1527,7 @@ export function enterMaintenanceMode(duration) {
 export function exitMaintenanceMode() {
     logAction('exitMaintenanceMode');
 
-    api.system.set_maintenance({ duration: 0 })
+    api.system.set_maintenance_mode({ duration: 0 })
         .then(loadSystemInfo)
         .done();
 }

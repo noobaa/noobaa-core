@@ -30,6 +30,7 @@ function new_cluster_info() {
 
     var address = os_utils.get_local_ipv4_ips()[0];
     var cluster = {
+        is_clusterized: false,
         owner_secret: system_store.get_server_secret(),
         cluster_id: uuid().substring(0, 8),
         owner_address: address,
@@ -54,16 +55,16 @@ function add_member_to_cluster(req) {
 
     dbg.log0('Recieved add member to cluster req', req.rpc_params, 'current topology',
         cutil.pretty_topology(cutil.get_topology()));
-    var id = cutil.get_topology().cluster_id;
+    let topology = cutil.get_topology();
+    var id = topology.cluster_id;
+    let is_clusterized = topology.is_clusterized;
 
     return P.fcall(function() {
             //If this is the first time we are adding to the cluster, special handling is required
             let myip = os_utils.get_local_ipv4_ips()[0];
             //If adding shard, and current server does not have config on it, add
             //This is the case on the addition of the first shard
-            if (_.findIndex(cutil.get_topology().config_servers, function(srv) {
-                    return srv.address === myip;
-                }) === -1) {
+            if (!is_clusterized) {
                 dbg.log0('Current server is first on cluster and has single mongo running, updating');
                 //TODO:: when adding shard, the first server should also have its single mongo replaced to shard
                 /*return _add_new_shard_on_server('shard1', myip, {
@@ -205,8 +206,9 @@ function news_updated_topology(req) {
     //Verify we recieved news on the cluster we are joined to
     cutil.verify_cluster_id(req.rpc_params.cluster_id);
 
+    dbg.log0('updating topolgy to the new published topology:', req.rpc_params);
     //Update our view of the topology
-    return P.when(cutil.update_cluster_info(req.rpc_params.topology));
+    return P.when(cutil.update_cluster_info(req.rpc_params));
 }
 
 function heartbeat(req) {
@@ -284,7 +286,9 @@ function _add_new_replicaset_on_server(shardname, ip, params) {
     var new_topology = cutil.get_topology();
     var shard_idx;
 
-    if (!params.first_server) {
+    if (params.first_server) {
+        shard_idx = cutil.find_shard_index(shardname);
+    } else { //Not first server in RS
         shard_idx = cutil.find_shard_index(shardname);
 
         //No Such shard
@@ -295,12 +299,28 @@ function _add_new_replicaset_on_server(shardname, ip, params) {
         new_topology.shards[shard_idx].servers.push({
             address: ip
         });
-    } else { //First server in RS
-        shard_idx = cutil.find_shard_index(shardname);
     }
 
-    return P.when(cutil.update_cluster_info(new_topology))
+    new_topology.is_clusterized = true;
+
+    return P.when(() => {
+            if (params.first_server) {
+                cutil.update_cluster_info(new_topology);
+            }
+        })
         .then(() => MongoCtrl.add_replica_set_member(shardname, params.first_server, new_topology.shards[shard_idx].servers))
+        .then(() => {
+            if (!params.first_server) {
+                // if not first server insert an entry for this server in clusters collection.
+                new_topology._id = system_store.generate_id();
+                dbg.log0('inserting topology for new server to clusters collection:', new_topology);
+                return system_store.make_changes({
+                    insert: {
+                        clusters: [new_topology]
+                    }
+                });
+            }
+        })
         .then(() => {
             dbg.log0('Adding new replica set member to the set');
             var rs_length = cutil.get_topology().shards[shard_idx].servers.length;

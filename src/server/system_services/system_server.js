@@ -260,7 +260,7 @@ function read_system(req) {
             time_config: time_config,
             base_address: system.base_address || 'wss://' + ip_address + ':' + process.env.SSL_PORT,
             external_syslog_config: system.external_syslog_config,
-            phone_home_proxy_address: {
+            phone_home_config: system.phone_home_proxy_address && {
                 proxy_address: system.phone_home_proxy_address
             },
             version: pkg.version,
@@ -830,31 +830,27 @@ function update_base_address(req) {
 }
 
 // phone_home_proxy_address must be a full address like: http://(ip or hostname):(port)
-function update_phone_home_proxy_address(req) {
-    dbg.log0('update_phone_home_proxy_address', req.rpc_params);
+function update_phone_home_config(req) {
+    dbg.log0('update_phone_home_config', req.rpc_params);
+
+    let update = {
+        _id: req.system._id
+    };
+
     if (req.rpc_params.proxy_address === null) {
-        return system_store.make_changes({
-                update: {
-                    systems: [{
-                        _id: req.system._id,
-                        $unset: {
-                            phone_home_proxy_address: 1
-                        }
-                    }]
-                }
-            })
-            .return();
+        update.$unset = {
+            phone_home_proxy_address: 1
+        };
     } else {
-        return system_store.make_changes({
-                update: {
-                    systems: [{
-                        _id: req.system._id,
-                        phone_home_proxy_address: req.rpc_params.proxy_address
-                    }]
-                }
-            })
-            .return();
+        update.phone_home_proxy_address = req.rpc_params.proxy_address;
     }
+
+    return system_store.make_changes({
+            update: {
+                systems: [update]
+            }
+        })
+        .return();
 }
 
 
@@ -1011,7 +1007,7 @@ exports.set_debug_level = set_debug_level;
 
 exports.update_n2n_config = update_n2n_config;
 exports.update_base_address = update_base_address;
-exports.update_phone_home_proxy_address = update_phone_home_proxy_address;
+exports.update_phone_home_config = update_phone_home_config;
 exports.update_hostname = update_hostname;
 exports.update_system_certificate = update_system_certificate;
 exports.update_time_config = update_time_config;

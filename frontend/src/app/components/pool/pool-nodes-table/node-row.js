@@ -47,7 +47,7 @@ export default class NodeRowViewModel {
         );
 
         this.used = ko.pureComputed(
-            ()=> node() && node().storage.used
+            () => node() && node().storage.used
         );
 
         let dataAccess = ko.pureComputed(

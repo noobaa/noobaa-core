@@ -21,6 +21,7 @@ class MongoClient extends EventEmitter {
         this.cfg_db = null; // will be set once a part of a cluster & connected
         this.collections = {};
         this.url =
+            process.env.MONGO_RS_URL ||
             process.env.MONGODB_URL ||
             process.env.MONGOHQ_URL ||
             process.env.MONGOLAB_URI ||
@@ -57,12 +58,14 @@ class MongoClient extends EventEmitter {
     /**
      * connect and return the db instance which will handle reconnections.
      * mongodb_url is optional and by default takes from env or local db.
+     * connect to the "real" mongodb and not the config mongo
      */
     connect() {
-        dbg.log0('connect called');
+        dbg.log0('connect called, current url', this.url);
         this._disconnected_state = false;
         if (this.promise) return this.promise;
-        this.promise = this._connect('db', this.url, this.config);
+        var url = this.url;
+        this.promise = this._connect('db', url, this.config);
         return this.promise;
     }
 
@@ -197,10 +200,14 @@ class MongoClient extends EventEmitter {
             });
     }
 
-    update_connection_string(cfg_array) {
-        //TODO:: fill this out
-        //Currently seems for replica set only ...
-        return;
+    update_connection_string() {
+        //TODO:: Currently seems for replica set only
+        // var rs = process.env.MONGO_REPLICA_SET || '';
+        // dbg.log0('got update_connection_string. rs =', rs, 'this.replica_set =', this.replica_set);
+        // dbg.log0('setting connection to new url. conection this. replica_set =', this.replica_set);
+        // this.replica_set = rs;
+        dbg.log0('got update_connection_string. updating url from', this.url, 'to', process.env.MONGO_RS_URL);
+        this.url = process.env.MONGO_RS_URL;
     }
 
     is_master(is_config_set, set_name) {

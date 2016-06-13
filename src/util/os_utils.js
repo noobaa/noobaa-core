@@ -358,7 +358,7 @@ function read_server_secret() {
                 var sec = data.toString();
                 return sec.substring(0, sec.length - 1);
             });
-    } else {        
+    } else {
         return uuid().substring(0, 8);
     }
 }

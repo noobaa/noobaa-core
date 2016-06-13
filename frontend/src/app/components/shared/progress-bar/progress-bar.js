@@ -1,4 +1,4 @@
-import template from './progress-bar.html'
+import template from './progress-bar.html';
 import ko from 'knockout';
 import numeral from 'numeral';
 
@@ -7,7 +7,7 @@ class ProgressBarViewModel {
 
         this.progress = ko.pureComputed(
             () => numeral(ko.unwrap(progress)).format('0%')
-        )
+        );
     }
 }
 

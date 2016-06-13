@@ -7,7 +7,7 @@ const _ = require('lodash');
 const util = require('util');
 const url = require('url');
 const system_store = require('../system_services/system_store').get_instance();
-const os_utils = require('../../util/os_util');
+const os_utils = require('../../util/os_utils');
 const dbg = require('../../util/debug_module')(__filename);
 
 

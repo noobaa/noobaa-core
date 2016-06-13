@@ -127,7 +127,7 @@ function move_one_block_to_different_pool(object_mapping) {
     let blocks = object_mapping.parts[0].chunk.frags[0].blocks;
     return client.node.list_nodes({
             query: {
-                state: 'online'
+                online: true
             }
         })
         .then(function(node_list) {

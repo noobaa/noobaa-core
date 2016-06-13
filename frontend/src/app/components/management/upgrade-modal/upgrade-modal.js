@@ -1,7 +1,6 @@
 import template from './upgrade-modal.html';
 import ko from 'knockout';
 import numeral from 'numeral';
-import { makeArray } from 'utils';
 import { upgradeStatus } from 'model';
 
 class UpgradeModalViewModel {
@@ -9,7 +8,7 @@ class UpgradeModalViewModel {
         this.onClose = onClose;
 
         let step = ko.pureComputed(
-            () => upgradeStatus() && upgradeStatus().step
+            () => 'UPLOAD'//upgradeStatus() && upgradeStatus().step
         );
 
         this.progress = ko.pureComputed(
@@ -21,7 +20,7 @@ class UpgradeModalViewModel {
         );
 
         this.stepClass = ko.pureComputed(
-            () => (step() || '').toLowerCase() 
+            () => (step() || '').toLowerCase()
         );
 
         this.progressText = ko.pureComputed(
@@ -33,7 +32,7 @@ class UpgradeModalViewModel {
 
     close() {
         if (this.upgradeFailed()) {
-            this.onClose();
+            //this.onClose();
         }
     }
 }
@@ -41,4 +40,4 @@ class UpgradeModalViewModel {
 export default {
     viewModel: UpgradeModalViewModel,
     template: template
-}
+};

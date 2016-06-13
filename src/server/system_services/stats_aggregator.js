@@ -12,8 +12,8 @@ const P = require('../../util/promise');
 const dbg = require('../../util/debug_module')(__filename);
 const config = require('../../../config.js');
 const Histogram = require('../../util/histogram');
-const nodes_store = require('../node_services/nodes_store');
 const node_server = require('../node_services/node_server');
+const nodes_store = require('../node_services/nodes_store').get_instance();
 const system_store = require('../system_services/system_store').get_instance();
 const system_server = require('../system_services/system_server');
 const object_server = require('../object_services/object_server');
@@ -134,7 +134,9 @@ function get_nodes_stats(req) {
     var nodes_histo = get_empty_nodes_histo();
     //Per each system fill out the needed info
     return P.all(_.map(system_store.data.systems,
-            system => node_server.list_nodes_int(system._id)))
+            system => node_server.monitor.list_nodes({
+                system: system._id
+            }, {})))
         .then(results => {
             for (var isys = 0; isys < results.length; ++isys) {
                 for (var inode = 0; inode < results[isys].nodes.length; ++inode) {
@@ -181,12 +183,12 @@ function get_bucket_sizes_stats(req) {
         ))
         .then(bucket_arr => {
             let histo_arr = [];
-            for (var ibucket = 0; ibucket < bucket_arr.length; ++ibucket) {
+            _.each(bucket_arr, bucket_res => {
                 let objects_histo = get_empty_objects_histo();
-                let objects = bucket_arr[ibucket].objects;
-                _.forEach(objects, obj => objects_histo.histo_size.add_value(obj.info.size / SCALE_BYTES_TO_MB));
+                _.forEach(bucket_res.objects, obj =>
+                    objects_histo.histo_size.add_value(obj.info.size / SCALE_BYTES_TO_MB));
                 histo_arr.push(_.mapValues(objects_histo, histo => histo.get_object_data(false)));
-            }
+            });
             return histo_arr;
         });
 }
@@ -446,8 +448,8 @@ function send_stats_payload(payload) {
                 }
             };
 
-            if (system.phone_home_proxy) {
-                let proxy_listener = url.parse(system.phone_home_proxy);
+            if (system.phone_home_proxy_address) {
+                let proxy_listener = url.parse(system.phone_home_proxy_address);
                 options.hostname = proxy_listener.hostname;
                 options.port = Number(proxy_listener.port);
                 options.path = central_listener.href;
@@ -601,9 +603,7 @@ function background_worker() {
         })
         .then(() => server_rpc.client.stats.get_all_stats({}))
         .then(payload => send_stats_payload(payload))
-        .then((res) => {
-            return server_rpc.client.stats.object_usage_scrubber({});
-        })
+        .then(res => server_rpc.client.stats.object_usage_scrubber({}))
         .then(() => dbg.log('Phone Home data was send successfuly'))
         .catch(err => {
             dbg.warn('Phone Home data send failed', err.stack || err);

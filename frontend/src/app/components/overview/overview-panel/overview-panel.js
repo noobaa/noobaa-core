@@ -12,15 +12,15 @@ class OverviewPanelViewModel {
         this.systemCapacity = ko.pureComputed(
             () => systemSummary() && systemSummary().capacity
         )
-        .extend({ 
+        .extend({
             tween: { useDiscreteValues: true, resetValue: 0 },
-            formatSize: true 
-        })
+            formatSize: true
+        });
 
         this.onlineNodeCount = ko.pureComputed(
             () => systemSummary() && systemSummary().onlineNodeCount
         )
-        .extend({ 
+        .extend({
             tween: { useDiscreteValues: true, resetValue: 0 },
             formatNumber: true
         });
@@ -28,7 +28,7 @@ class OverviewPanelViewModel {
         this.offlineNodeCount = ko.pureComputed(
             () => systemSummary() && systemSummary().offlineNodeCount
         )
-        .extend({ 
+        .extend({
             tween: { useDiscreteValues: true, resetValue: 0 },
             formatNumber: true
         });
@@ -55,18 +55,18 @@ class OverviewPanelViewModel {
 
         this.isInstallNodeWizardlVisible = ko.observable(false);
         this.isConnectAppWizardVisible = ko.observable(false);
-        
+
         this.isAfterUpgradeModalVisible = ko.pureComputed(
             () => !!routeContext().query.afterupgrade
         );
     }
 
     closeAfterUpgradeModal() {
-        redirectTo('/fe/systems/:system')
+        redirectTo('/fe/systems/:system');
     }
 }
 
-export default { 
+export default {
     viewModel: OverviewPanelViewModel,
     template: template
-}
+};

@@ -217,13 +217,7 @@ module.exports = {
                 }
             },
             reply: {
-                type: 'object',
-                required: ['csv_path'],
-                properties: {
-                    csv_path: {
-                        type: 'string'
-                    },
-                }
+                type: 'string',
             },
             auth: {
                 system: 'admin',
@@ -442,14 +436,37 @@ module.exports = {
             method: 'POST',
             params: {
                 type: 'object',
-                required: ['phone_home_proxy'],
+                required: ['proxy_address'],
                 properties: {
-                    phone_home_proxy: {
+                    proxy_address: {
                         anyOf: [{
                             type: 'null'
                         }, {
                             type: 'string'
                         }]
+                    }
+                }
+            },
+            auth: {
+                system: 'admin',
+            }
+        },
+
+        configure_external_syslog: {
+            method: 'POST',
+            params: {
+                type: 'object',
+                required: ['connection_type'],
+                properties: {
+                    connection_type: {
+                        type: 'string',
+                        enum: ['TCP', 'UDP', 'NONE']
+                    },
+                    address: {
+                        type: 'string'
+                    },
+                    port: {
+                        type: 'number'
                     }
                 }
             },
@@ -602,8 +619,33 @@ module.exports = {
                 ip_address: {
                     type: 'string'
                 },
-                phone_home_proxy: {
-                    type: 'string'
+                phone_home_proxy_address: {
+                    type: 'object',
+                    properties: {
+                        proxy_address: {
+                            anyOf: [{
+                                type: 'null'
+                            }, {
+                                type: 'string'
+                            }]
+                        }
+                    }
+                },
+                external_syslog_config: {
+                    type: 'object',
+                    required: ['connection_type'],
+                    properties: {
+                        connection_type: {
+                            type: 'string',
+                            enum: ['TCP', 'UDP', 'NONE']
+                        },
+                        address: {
+                            type: 'string'
+                        },
+                        port: {
+                            type: 'number'
+                        }
+                    }
                 },
                 dns_name: {
                     type: 'string'

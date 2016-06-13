@@ -10,7 +10,7 @@ const server_rpc = require('../server_rpc');
 const MongoCtrl = require('../utils/mongo_ctrl');
 const cutil = require('../utils/clustering_utils');
 const P = require('../../util/promise');
-const os_utils = require('../../util/os_util');
+const os_utils = require('../../util/os_utils');
 const dbg = require('../../util/debug_module')(__filename);
 const config = require('../../../config.js');
 

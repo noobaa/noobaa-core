@@ -1,32 +1,32 @@
 <modal params="onClose: () => close()">
-    <h1 class="heading1 text-center">Test Node</h1>
 
-    <div class="text-left container">
+        <h1 class="heading1 text-center push-next">Test Node</h1>
+
         <h2 class="heading3">Test Type</h2>
-        
-        <button class="btn3 pull-right" data-bind="click: runTest, visible: !testing()">
-            Run Test
-        </button>
-        <button class="btn3 pull-right" data-bind="click: abortTest, visible: testing">
-            Abort Test
-        </button>
+        <div class="row content-middle push-next">
+            <radio-group class="greedy" params="
+                selected: selectedTests, 
+                options: testTypeOptions
+            "></radio-group>
+            <button class="btn3" data-bind="click: runTest, visible: !testing()">
+                Run Test
+            </button>
+            <button class="btn3" data-bind="click: abortTest, visible: testing">
+                Abort Test
+            </button>
+        </div>
 
-        <radio-group params="selected: selectedTests, options: testTypeOptions"></radio-group>
-    </div>
-
-    <section class="container text-left">
         <h2 class="heading3">
             Test Results
             <span class="remark" data-bind="text: lastTestTime"></span>
         </h2>
-
-        <div class="results box">
+        <div class="results box column greedy">
             <!-- ko ifnot: hasResults -->
             Click on the Run Test button to start the test
             <!-- /ko -->
 
             <!-- ko if: hasResults -->
-            <div class="data-table">
+            <div class="data-table greedy">
                 <table>
                     <thead>
                         <tr>
@@ -53,9 +53,8 @@
             </div>
             <!-- /ko -->
         </div>
-    </section>
 
-    <div class="action-line pull-right">
-        <button class="action btn2" data-bind="click: close">Close</button>        
-    </div>    
+        <button class="action btn2 align-end push-prev" data-bind="click: close">
+            Close
+        </button>
 </modal>

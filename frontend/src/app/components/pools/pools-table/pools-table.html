@@ -27,14 +27,9 @@
                         offline
                     </a>
                 </th>
-                <th class="usage-col" data-bind="css: orderClassFor('usage')">
-                    <a href data-bind="click: () => orderBy('usage')">
-                        usage
-                    </a>
-                </th>
-                <th class="capacity-col" data-bind="css: orderClassFor('capacity')">
-                    <a href data-bind="click: () => orderBy('capacity')">
-                        capacity
+                <th class="capacity-col" data-bind="css: orderClassFor('used')">
+                    <a href data-bind="click: () => orderBy('used')">
+                        used capacity
                     </a>
                 </th>
                 <th class="delete-col"></th>
@@ -52,8 +47,10 @@
                 <td class="nodes-col" data-bind="text: nodeCount"></td>
                 <td class="online-nodes-col" data-bind="text: onlineCount"></td>
                 <td class="offline-nodes-col" data-bind="text: offlineCount"></td>
-                <td class="usage-col" data-bind="text: usage"></td>
-                <td class="capacity-col" data-bind="text: capacity"></td>
+
+                <td class="capacity-col">
+                    <capacity-bar params="total: total, used: used"></capacity-bar>
+                </td>
                 
                 <td class="delete-col">
                     <delete-button params="

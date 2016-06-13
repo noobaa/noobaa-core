@@ -1,43 +1,31 @@
-
-@keyframes row-enter {
-    from { 
-        transform: translateX(100%);
-    }
-
-    to {
-        transform: translateX(0);
-    }
-}
-
 buckets-table {
-    display: block;
-    padding: 2em 3.5em;
-
-    .delete-btn {
-        padding: 0;
-
-        &[disabled] {
-            cursor: default;
-        }
+    .name-col{
+        width: 100%;
     }
 
     .state-col,
-    .totalsize-col,
     .freesize-col {
-        min-width: 4em;
+        min-width: 5em;
     }
 
-    .delete-col,
+    .totalsize-col {
+        min-width: 6em;
+    }
+
+    .delete-col {
+        min-width: 8em;
+    }
+
     .filecount-col {
         min-width: 6em;
     }
 
     .cloudsync-col {
-        min-width: 7em;
+        min-width: 8em;
     }
 
-    .name-col{
-        width: 100%;
+    .capacity-col {
+        min-width: 9em;
     }
 
     .unable-to-sync {

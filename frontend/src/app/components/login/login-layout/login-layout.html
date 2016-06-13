@@ -1,11 +1,16 @@
-<main class="login-layout fill">
-    <div class="content" data-bind="with: form">
-        <h1 class="heading2">
-            <svg-icon params="uri: '/fe/assets/icons.svg#logo'" class="logo"></svg-icon>    
-            Welcome to 
-            <span class="noobaa">NooBaa</span>
+<main class="login-layout">
+    <div class="box" data-bind="with: form">
+        <h1 class="heading1 column content-middle">
+                <svg-icon class="icon-big" params="
+                    uri: '/fe/assets/icons.svg#logo'
+                "></svg-icon>
+
+                <span>
+                    Welcome to <span class="noobaa">NooBaa</span> 
+                </span>
         </h1>
 
-        <div data-bind="component: $data"></div>
+        <!-- ko component: $data -->
+        <!-- /ko -->
     </div>
 </main>

@@ -1,7 +1,9 @@
-<svg-icon class="icon-big pull-left" params="uri: '/fe/assets/icons.svg#bucket'"></svg-icon>
+<svg-icon class="icon-big push-next" params="uri: '/fe/assets/icons.svg#bucket'"></svg-icon>
 
-<div class="text-left">
-    <a class="link" data-bind="text: bucketCountText, href: '/fe/systems/:system/buckets'"></a>
-    <br>
+<div class="column align-middle">
+    <a class="link" data-bind="
+        text: bucketCountText, 
+        href: '/fe/systems/:system/buckets'
+    "></a>
     <span data-bind="text: objectCountText"></span>
 </div>

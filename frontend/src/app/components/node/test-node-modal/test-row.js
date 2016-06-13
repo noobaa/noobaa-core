@@ -22,13 +22,13 @@ export default class TestRowViewModel {
         this.stateClass = ko.pureComputed(
             () => result() && result().state.toLowerCase()
         );
-        
+
         this.speed = ko.pureComputed(
             () => result() && `${
-                ( result().speed * 1000 / (1024 ** 2) ).toFixed(1)
+                ( result().speed * 1000 / Math.pow(1024, 2) ).toFixed(1)
             } MB/s`
         );
-        
+
         this.progress = ko.pureComputed(
             () => result() && (
                 result().state === 'RUNNING' ?

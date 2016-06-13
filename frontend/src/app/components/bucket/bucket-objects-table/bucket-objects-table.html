@@ -1,44 +1,64 @@
-<input type="search" class="filter" placeholder="Filter Files" data-bind="textInput: filter" />
+<div class="row content-middle  push-next">
+    <h3 class="heading3 greedy push-next">
+        Files in this bucket: 
+        <span data-bind="text: objectCount"></span>
+    </h3>
 
-<paginator params="pageSize: pageSize, itemCount: count, page: page" class="pull-right">
-</paginator>
+    <button class="btn3" data-bind="click: () => showUploadFilesModal()">Upload Files</button>
+</div>
 
-<section class="table-wrapper">
-    <div class="data-table">
-        <table>
-            <thead>
-                <tr>
-                    <th class="state-col" data-bind="css: orderClassFor('state')">
-                        <a href data-bind="click: () => orderBy('state')">State</a>
-                    </th>    
-                    <th class="name-col text-left" data-bind="css: orderClassFor('name')">
-                        <a href data-bind="click: () => orderBy('name')">Name</a>
-                    </th>
-                    <th class="size-col" data-bind="css: orderClassFor('size')">
-                        <a href data-bind="click: () => orderBy('size')">Size</a>
-                    </th>
-                </tr>
-            </thead>
-
-            <tbody data-bind="foreach: rows">
-                <!-- ko if: isVisible -->
-                <tr>
-                    <td class="state-col">
-                        <svg-icon params="uri: stateIcon" data-bind="tooltip: stateToolTip"></svg-icon>
-                    </td>
-
-                    <td class="name-col text-left">
-                        <a class="link" data-bind="text: name, href: href"></a>
-                    </td>
-
-                    <td class="size-col" data-bind="text: size"></td>
-                </tr>
-                <!-- /ko -->
-            </tbody>
-        </table>
-
-        <p class="empty-message" data-bind="visible: !hasObjects()">
-            No files in bucket
-        </p>
+<div class="row push-next">
+    <div class="greedy">
+        <input type="search" placeholder="Filter Files" data-bind="
+            textInput: filter
+        "/>
     </div>
-</section>
+
+    <paginator params="pageSize: pageSize, itemCount: filteredObjectCount, page: page">
+    </paginator>
+</div>
+
+<div class="data-table">
+    <table>
+        <thead>
+            <tr>
+                <th class="state-col" data-bind="css: orderClassFor('state')">
+                    <a href data-bind="click: () => orderBy('state')">State</a>
+                </th>    
+                <th class="name-col text-left" data-bind="css: orderClassFor('name')">
+                    <a href data-bind="click: () => orderBy('name')">Name</a>
+                </th>
+                <th class="size-col" data-bind="css: orderClassFor('size')">
+                    <a href data-bind="click: () => orderBy('size')">Size</a>
+                </th>
+            </tr>
+        </thead>
+
+        <tbody data-bind="foreach: rows">
+            <!-- ko if: isVisible -->
+            <tr>
+                <td class="state-col">
+                    <svg-icon params="uri: stateIcon" data-bind="tooltip: stateToolTip"></svg-icon>
+                </td>
+
+                <td class="name-col text-left">
+                    <a class="link" data-bind="text: name, href: href"></a>
+                </td>
+
+                <td class="size-col" data-bind="text: size"></td>
+            </tr>
+            <!-- /ko -->
+        </tbody>
+    </table>
+
+    <div class="empty-message" data-bind="visible: !hasObjects()">
+        No files in bucket
+    </div>
+</div>
+
+<!-- ko if: isUploadFilesModalVisible -->
+<upload-files-modal params="
+    bucketName: bucketName, 
+    onClose: () => hideUploadFilesModal()
+"></upload-files-modal>
+<!-- /ko -->    

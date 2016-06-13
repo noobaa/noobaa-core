@@ -80,7 +80,7 @@ function set_cloud_sync(params) {
         .fail(
             error => {
                 console.warn('Failed with', error, error.stack);
-                process.exit(0);
+                throw new Error(error);
             }
         );
 }

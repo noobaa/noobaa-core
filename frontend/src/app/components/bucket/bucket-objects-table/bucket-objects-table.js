@@ -6,12 +6,20 @@ import ObjectRowViewModel from './object-row';
 import { redirectTo } from 'actions';
 
 class BucketObjectsTableViewModel {
-    constructor({ objects }) {
+    constructor({ bucket, objects }) {
+        this.bucketName = ko.pureComputed(
+            () => bucket() && bucket().name
+        );
+
+        this.objectCount = ko.pureComputed(
+            () => bucket() && bucket().num_objects
+        );
+
         this.pageSize = paginationPageSize;
-        this.count = objects.count;
+        this.filteredObjectCount = objects.count;
         this.sortedBy = objects.sortedBy;
         this.order = objects.order;
-        
+
         this.page = ko.pureComputed({
             read: objects.page,
             write:  page => this.pageTo(page)
@@ -32,6 +40,16 @@ class BucketObjectsTableViewModel {
                 () => objects()[i]
             )
         );
+
+        this.isUploadFilesModalVisible = ko.observable(false);
+    }
+
+    showUploadFilesModal() {
+        this.isUploadFilesModalVisible(true);
+    }
+
+    hideUploadFilesModal() {
+        this.isUploadFilesModalVisible(false);
     }
 
     pageTo(page) {
@@ -45,17 +63,17 @@ class BucketObjectsTableViewModel {
 
     filterObjects(phrase) {
         redirectTo(undefined, {
-            filter: phrase || undefined, 
-            sortBy: this.sortedBy(), 
+            filter: phrase || undefined,
+            sortBy: this.sortedBy(),
             order: this.order(),
             page: 0
-        }); 
+        });
     }
 
     orderBy(colName) {
         redirectTo(undefined, {
-            filter: this.filter(), 
-            sortBy: colName, 
+            filter: this.filter(),
+            sortBy: colName,
             order: this.sortedBy() === colName ? 0 - this.order() : 1,
             page: 0
         });
@@ -64,11 +82,11 @@ class BucketObjectsTableViewModel {
     orderClassFor(colName) {
         if (this.sortedBy() === colName) {
             return this.order() === 1 ? 'des' : 'asc';
-        } 
-    }    
+        }
+    }
 }
 
 export default {
     viewModel: BucketObjectsTableViewModel,
-    template: template,
-}
+    template: template
+};

@@ -6,31 +6,36 @@
 'use strict';
 
 const _ = require('lodash');
+const fs = require('fs');
 const url = require('url');
 const net = require('net');
+// const uuid = require('node-uuid');
 const moment = require('moment');
 const ip_module = require('ip');
+
 const P = require('../../util/promise');
 const pkg = require('../../../package.json');
 const dbg = require('../../util/debug_module')(__filename);
 const diag = require('../utils/server_diagnostics');
 const cutil = require('../utils/clustering_utils');
+const config = require('../../../config');
 const md_store = require('../object_services/md_store');
 const fs_utils = require('../../util/fs_utils');
-const os_utils = require('../../util/os_util');
+const os_utils = require('../../util/os_utils');
+const RpcError = require('../../rpc/rpc_error');
 const size_utils = require('../../util/size_utils');
 const server_rpc = require('../server_rpc');
+const mongo_utils = require('../../util/mongo_utils');
 const pool_server = require('./pool_server');
 const tier_server = require('./tier_server');
+const auth_server = require('../common_services/auth_server');
 const ActivityLog = require('../analytic_services/activity_log');
-const nodes_store = require('../node_services/nodes_store');
+const nodes_store = require('../node_services/nodes_store').get_instance();
 const system_store = require('../system_services/system_store').get_instance();
 const promise_utils = require('../../util/promise_utils');
 const bucket_server = require('./bucket_server');
 const account_server = require('./account_server');
-const config = require('../../../config');
-const system_utils = require('../utils/system_server_utils');
-const fs = require('fs');
+const system_server_utils = require('../utils/system_server_utils');
 
 function new_system_defaults(name, owner_account_id) {
     var system = {
@@ -138,7 +143,7 @@ function create_system(req) {
             var system = system_store.data.systems_by_name[name];
             return {
                 // a token for the new system
-                token: req.make_auth_token({
+                token: auth_server.make_auth_token({
                     account_id: req.account._id,
                     system_id: system._id,
                     role: 'admin',
@@ -244,8 +249,8 @@ function read_system(req) {
             owner: account_server.get_account_info(system_store.data.get_by_id(system._id).owner),
             last_stats_report: system.last_stats_report && new Date(system.last_stats_report).getTime(),
             maintenance_mode: {
-                state: system_utils.system_in_maintenance(system._id),
-                till: system_utils.system_in_maintenance(system._id) ? new Date(system.maintenance_mode).getTime() : undefined,
+                state: system_server_utils.system_in_maintenance(system._id),
+                till: system_server_utils.system_in_maintenance(system._id) ? new Date(system.maintenance_mode).getTime() : undefined,
             },
             ssl_port: process.env.SSL_PORT,
             web_port: process.env.PORT,
@@ -254,7 +259,10 @@ function read_system(req) {
             ip_address: ip_address,
             time_config: time_config,
             base_address: system.base_address || 'wss://' + ip_address + ':' + process.env.SSL_PORT,
-            phone_home_proxy: system.phone_home_proxy,
+            external_syslog_config: system.external_syslog_config,
+            phone_home_proxy_address: {
+                proxy_address: system.phone_home_proxy_address
+            },
             version: pkg.version,
             debug_level: debug_level,
         };
@@ -302,9 +310,9 @@ function set_maintenance_mode(req) {
 // function read_maintenance_config(req) {
 //     let system = system_store.data.systems_by_name[req.rpc_params.name];
 //     if (!system) {
-//         throw req.rpc_error('NOT FOUND', 'read_maintenance_config could not find the system: ' + req.rpc_params.name);
+//         throw new RpcError('NOT FOUND', 'read_maintenance_config could not find the system: ' + req.rpc_params.name);
 //     } else {
-//         return system_utils.system_in_maintenance(system._id);
+//         return system_server_utils.system_in_maintenance(system._id);
 //     }
 // }
 
@@ -339,7 +347,8 @@ function list_systems(req) {
     console.log('List systems:', req.account);
     if (!req.account) {
         if (!req.system) {
-            throw req.rpc_error('FORBIDDEN', 'list_systems requires authentication with account or system');
+            throw new RpcError('FORBIDDEN',
+                'list_systems requires authentication with account or system');
         }
         return {
             systems: [get_system_info(req.system, false)]
@@ -500,13 +509,22 @@ function _read_activity_log_internal(req) {
         q.limit(req.rpc_params.limit || 10);
     }
 
-    q.populate('node', 'name');
-    q.populate('obj', 'key');
-    return P.when(q.exec())
-        .then(function(logs) {
+    return P.when(q.lean().exec())
+        .then(logs => P.join(
+            nodes_store.populate_nodes_fields(logs, 'node', {
+                name: 1
+            }),
+            mongo_utils.populate(logs, 'obj', md_store.ObjectMD.collection, {
+                key: 1
+            })).return(logs))
+        .then(logs => {
             logs = _.map(logs, function(log_item) {
-                var l = _.pick(log_item, 'id', 'level', 'event');
-                l.time = log_item.time.getTime();
+                var l = {
+                    id: String(log_item._id),
+                    level: log_item.level,
+                    event: log_item.event,
+                    time: log_item.time.getTime(),
+                };
 
                 let tier = log_item.tier && system_store.data.get_by_id(log_item.tier);
                 if (tier) {
@@ -559,47 +577,42 @@ function _read_activity_log_internal(req) {
 
 
 
+
 function export_activity_log(req) {
     req.rpc_params.csv = true;
+
+    // generate csv file name:
+    const file_name = 'audit.csv';
+    const out_path = `/public/${file_name}`;
+    const inner_path = `${process.cwd()}/build${out_path}`;
+
     return _read_activity_log_internal(req)
         .then(logs => {
-            // generate csv file name:
-            let file_name = 'audit.csv';
-            let out_path = '/public/' + file_name;
-            let inner_path = process.cwd() + '/build' + out_path;
-            var file = fs.createWriteStream(inner_path);
-            file.on('error', err => dbg.error('received error when writing to audit csv file:', inner_path, err));
-            let headline = 'time,level,account,event,entity,description\n';
-            let logs_arr = logs.logs;
-            dbg.log0('writing', logs_arr.length, 'lines to csv file', inner_path);
-            return file.writeAsync(headline, 'utf8')
-                .then(() => promise_utils.loop(logs_arr.length, i => {
-                    let line_entry = logs_arr[i];
-                    let time = new Date(line_entry.time);
-                    let level = line_entry.level;
-                    let account = line_entry.actor.email;
-                    let event = line_entry.event;
-                    let description = line_entry.desc[0];
-                    let entity_type = event.split('.')[0];
-                    let entity = '';
-                    if (line_entry[entity_type]) {
-                        if (entity_type === 'obj') {
-                            entity = line_entry[entity_type].key;
-                        } else {
-                            entity = line_entry[entity_type].name;
-                        }
-                    }
-                    let line = '"' + time.toISOString() + '",' + level + ',' + account + ',' + event + ',' + entity + ',"' + description + '"\n';
-                    return file.writeAsync(line, 'utf8');
-                }))
-                .then(() => file.end())
-                .then(() => ({
-                    csv_path: out_path
-                }));
+            let lines = logs.logs.reduce(
+                (lines, entry) => {
+                    let time = (new Date(entry.time)).toISOString();
+                    let entity_type = entry.event.split('.')[0];
+                    let account = entry.actor ? entry.actor.email : '';
+                    let entity = entry[entity_type];
+                    let description = entry.desc.join(' ');
+                    let entity_name = entity ?
+                        (entity_type === 'obj' ? entity.key : entity.name) :
+                        '';
 
+                    lines.push(`"${time}",${entry.level},${account},${entry.event},${entity_name},"${description}"`);
+                    return lines;
+                },
+                ['time,level,account,event,entity,description']
+            );
+
+            return fs.writeFileAsync(inner_path, lines.join('\n'), 'utf8');
+        })
+        .then(() => out_path)
+        .catch(err => {
+            dbg.error('received error when writing to audit csv file:', inner_path, err);
+            throw err;
         });
 }
-
 
 
 
@@ -816,16 +829,16 @@ function update_base_address(req) {
         });
 }
 
-// phone_home_proxy must be a full address like: http://(ip or hostname):(port)
+// phone_home_proxy_address must be a full address like: http://(ip or hostname):(port)
 function update_phone_home_proxy_address(req) {
     dbg.log0('update_phone_home_proxy_address', req.rpc_params);
-    if (req.rpc_params.phone_home_proxy === null) {
+    if (req.rpc_params.proxy_address === null) {
         return system_store.make_changes({
                 update: {
                     systems: [{
                         _id: req.system._id,
                         $unset: {
-                            phone_home_proxy: 1
+                            phone_home_proxy_address: 1
                         }
                     }]
                 }
@@ -836,10 +849,40 @@ function update_phone_home_proxy_address(req) {
                 update: {
                     systems: [{
                         _id: req.system._id,
-                        phone_home_proxy: req.rpc_params.phone_home_proxy
+                        phone_home_proxy_address: req.rpc_params.proxy_address
                     }]
                 }
             })
+            .return();
+    }
+}
+
+
+function configure_external_syslog(req) {
+    dbg.log0('configure_external_syslog', req.rpc_params);
+    if (req.rpc_params.connection_type === 'NONE') {
+        return system_store.make_changes({
+                update: {
+                    systems: [{
+                        _id: req.system._id,
+                        $unset: {
+                            external_syslog_config: 1
+                        }
+                    }]
+                }
+            })
+            .then(() => syslog_configuration_reload(req.rpc_params))
+            .return();
+    } else {
+        return system_store.make_changes({
+                update: {
+                    systems: [{
+                        _id: req.system._id,
+                        external_syslog_config: req.rpc_params
+                    }]
+                }
+            })
+            .then(() => syslog_configuration_reload(req.rpc_params))
             .return();
     }
 }
@@ -856,7 +899,7 @@ function update_hostname(req) {
 }
 
 function update_system_certificate(req) {
-    throw req.rpc_error('TODO', 'update_system_certificate');
+    throw new RpcError('TODO', 'update_system_certificate');
 }
 
 function update_time_config(req) {
@@ -917,10 +960,26 @@ function get_system_info(system, get_id) {
     }
 }
 
+function syslog_configuration_reload(config) {
+    if (config.connection_type === 'NONE') {
+        return P.nfcall(fs.readFile, 'src/deploy/NVA_build/noobaa_syslog.conf')
+            .then(data => P.nfcall(fs.writeFile, '/etc/rsyslog.d/noobaa_syslog.conf', data))
+            .then(() => promise_utils.promised_exec('service rsyslog restart'));
+    } else {
+        return P.nfcall(fs.readFile, 'src/deploy/NVA_build/noobaa_syslog.conf')
+            .then(data => {
+                // Sending everything except NooBaa logs
+                let add_destination = `if $syslogfacility-text != 'local0' then ${config.connection_type === 'TCP' ? '@@' : '@'}${config.address}:${config.port}`;
+                return P.nfcall(fs.writeFile, '/etc/rsyslog.d/noobaa_syslog.conf', data + '\n' + add_destination);
+            })
+            .then(() => promise_utils.promised_exec('service rsyslog restart'));
+    }
+}
+
 function find_account_by_email(req) {
     var account = system_store.data.accounts_by_email[req.rpc_params.email];
     if (!account) {
-        throw req.rpc_error('NO_SUCH_ACCOUNT', 'No such account email: ' + req.rpc_params.email);
+        throw new RpcError('NO_SUCH_ACCOUNT', 'No such account email: ' + req.rpc_params.email);
     }
     return account;
 }
@@ -957,4 +1016,5 @@ exports.update_hostname = update_hostname;
 exports.update_system_certificate = update_system_certificate;
 exports.update_time_config = update_time_config;
 exports.set_maintenance_mode = set_maintenance_mode;
+exports.configure_external_syslog = configure_external_syslog;
 //exports.read_maintenance_config = read_maintenance_config

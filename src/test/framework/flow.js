@@ -34,7 +34,7 @@ var steps = [
     }, {
         //Test cloud sync functionality
         name: 'Cloud Sync Test',
-        lib_test: 'src/test/system_tests/test_cloud_sync.js',
+        lib_test: '/src/test/system_tests/test_cloud_sync.js',
     }, {
         //Restore DB to defaults
         name: 'Restore DB Defaults',
@@ -42,7 +42,15 @@ var steps = [
     }, {
         //Test cloud sync functionality
         name: 'Bucket Access Test',
-        lib_test: 'src/test/system_tests/test_bucket_access.js',
+        lib_test: '/src/test/system_tests/test_bucket_access.js',
+    }, {
+        //Restore DB to defaults
+        name: 'Restore DB Defaults',
+        common: 'restore_db_defaults',
+    }, {
+        //Test Ceph S3
+        name: 'Ceph S3 Test',
+        lib_test: '/src/test/system_tests/test_ceph_s3.js',
     }, {
         //Restore DB to defaults
         name: 'Restore DB Defaults',

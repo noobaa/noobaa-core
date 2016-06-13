@@ -1,55 +1,65 @@
 <modal params="onClose: () => cancel()" class="text-left">
-    <h1 class="heading2 container">
+    <h1 class="heading2 push-next">
         Set Cloud Sync Policy
     </h1>
 
-    <section class="container">
-        <editor params="label: 'Target Connection'">
-            <dropdown params="
-                placeholder: 'Choose a connection',
-                options: connectionOptions,
-                selected: connection
-            "></dropdown>
-            <div class="val-msg" data-bind="validationMessage: connection"></div>
-        </editor>
+    <editor params="label: 'Target Connection'">
+        <dropdown params="
+            placeholder: 'Choose a connection',
+            options: connectionOptions,
+            selected: connection
+        "></dropdown>
+        <div class="val-msg" data-bind="validationMessage: connection"></div>
+    </editor>
 
-         <editor params="label: 'Target Bucket'">
-            <dropdown params="
-                placeholder: 'Choose Bucket',
-                disabled: !targetBucketsOptions(),
-                options: targetBucketsOptions,
-                selected: targetBucket
-            "></dropdown>
-            <div class="val-msg" data-bind="validationMessage: targetBucket"></div>
-        </editor>
+     <editor params="label: 'Target Bucket'">
+        <dropdown params="
+            placeholder: 'Choose Bucket',
+            disabled: !targetBucketsOptions(),
+            options: targetBucketsOptions,
+            selected: targetBucket
+        "></dropdown>
+        <div class="val-msg" data-bind="validationMessage: targetBucket"></div>
+    </editor>
 
-        <editor params="label: 'Sync Bucket Every', insertValMessages: false">
-            <input type="Number" data-bind="value: frequency, enable: targetBucket" min="1"/>
-            <dropdown class="freq-unit" params="
-                selected: frequencyUnit, 
-                options: frequencyUnitOptions, 
-                disabled: !targetBucket()
-            "></dropdown>
-        </editor>
+    <editor class="push-next" params="
+        label: 'Sync Bucket Every', 
+        insertValMessages: false
+    "> 
+            <div class="row">
+                <input class="push-next" type="Number"  min="1" data-bind="
+                    value: frequency, 
+                    enable: targetBucket
+                "/>
 
-        <editor params="label: 'Sync Type', insertValMessages: false">
-            <radio-group params="
-                selected: direction, 
-                options: directionOptions, 
-                disabled: !targetBucket()
-            "></radio-group>
-        </editor>
-        
-        <checkbox params="
-            label: 'Synchronize File Deletions', 
-            checked: syncDeletions,
-            disabled: !targetBucket() || direction() === 'BI'
-        "></checkbox>
-    </section>
+                <dropdown class="freq-unit" params="
+                    selected: frequencyUnit, 
+                    options: frequencyUnitOptions, 
+                    disabled: !targetBucket()
+                "></dropdown>
+            </div>
+    </editor>
 
-    <div class="action-line pull-right">
-        <button class="action link" data-bind="click: cancel">Cancel</button>
-        <button class="action btn2" data-bind="click: save">Save</button>
+    <editor class="push-next" params="
+        label: 'Sync Type', 
+        insertValMessages: false
+    ">
+        <radio-group params="
+            selected: direction, 
+            options: directionOptions, 
+            disabled: !targetBucket()
+        "></radio-group>
+    </editor>
+    
+    <checkbox class="push-next" params="
+        label: 'Synchronize File Deletions', 
+        checked: syncDeletions,
+        disabled: !targetBucket() || direction() === 'BI'
+    "></checkbox>
+
+    <div class="row content-middle align-end">
+        <button class="link push-next" data-bind="click: cancel">Cancel</button>
+        <button class="btn2" data-bind="click: save">Save</button>
     </div>
 </modal> 
 

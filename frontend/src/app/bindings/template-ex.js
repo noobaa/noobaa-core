@@ -21,5 +21,4 @@ export default {
 
         return original.update(element, () => value, allBindings, viewModel, bindingContext);
     }
-
-}
+};

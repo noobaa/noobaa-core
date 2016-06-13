@@ -3,16 +3,16 @@ import ko from 'knockout';
 import { S3Connections, S3BucketList } from 'model';
 import { loadS3Connections, loadS3BucketList, setCloudSyncPolicy } from 'actions';
 
-const [MIN, HOUR, DAY] = [1, 60, 60 * 24];
+const [ MIN, HOUR, DAY ] = [ 1, 60, 60 * 24 ];
 const frequencyUnitOptions = Object.freeze([
     {
         value: MIN,
         label: 'Minutes'
-    }, 
+    },
     {
         value: HOUR,
         label: 'Hours'
-    }, 
+    },
     {
         value: DAY,
         label: 'Days'
@@ -49,50 +49,56 @@ class CloudSyncModalViewModel {
                 addConnectionOption,
                 null,
                 ...S3Connections().map(
-                    connection => ({ 
-                        label: connection.name || connection.access_key, 
+                    connection => ({
+                        label: connection.name || connection.access_key,
                         value: connection
-                     })
+                    })
                 )
             ]
         );
 
-        let connectionStorage = ko.observable()
+        let connectionStorage = ko.observable();
         this.connection = ko.pureComputed({
             read: connectionStorage,
             write: val => {
                 if (val !== addConnectionOption.value) {
                     connectionStorage(val);
                 } else {
-                    connectionStorage(connectionStorage() || null)
+                    connectionStorage(connectionStorage() || null);
                     this.isAWSCredentialsModalVisible(true);
                 }
             }
         })
-        .extend({
-            required: { message: 'Please select a connection from the list' }
-        });
+            .extend({
+                required: { message: 'Please select a connection from the list' }
+            });
 
-        this.connection.subscribe(
-            () => this.targetBucket(null)
-        );
-
-        this.connection.subscribe(
-            value => value && this.loadBucketsList()
+        this.connectionSub = this.connection.subscribe(
+            value => {
+                this.targetBucket(null);
+                value && this.loadBucketsList();
+            }
         );
 
         this.targetBucketsOptions = ko.pureComputed(
-            () => this.connection() && S3BucketList() && S3BucketList().map(
-                bucketName => ({ value: bucketName })
-            )
+            () => {
+                if (!this.connection() || !S3BucketList()) {
+                    return [];
+                }
+
+                return S3BucketList().map(
+                    bucketName => ({ value: bucketName })
+                );
+            }
         );
 
-        this.targetBucket = ko.observable().extend({
-            required: {
-                params: this.connection,
-                message: 'Please select a bucket from the list'
-            }
-        });
+        this.targetBucket = ko.observable()
+            .extend({
+                required: {
+                    onlyIf: this.connection,
+                    message: 'Please select a bucket from the list'
+                }
+            });
 
         this.direction = ko.observable('BI');
         this.directionOptions = directionOptions;
@@ -109,7 +115,10 @@ class CloudSyncModalViewModel {
 
         this.isAWSCredentialsModalVisible = ko.observable(false);
 
-        this.errors = ko.validation.group(this);
+        this.errors = ko.validation.group([
+            this.connection,
+            this.targetBucket
+        ]);
 
         loadS3Connections();
     }
@@ -142,9 +151,13 @@ class CloudSyncModalViewModel {
             this.onClose();
         }
     }
+
+    dispose() {
+        this.connectionSub.dispose();
+    }
 }
 
 export default {
     viewModel: CloudSyncModalViewModel,
     template: template
-}
+};

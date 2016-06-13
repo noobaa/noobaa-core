@@ -7,9 +7,17 @@ class PoolsPanelViewModel {
         this.pools = poolList;
         this.isCreatePoolWizardVisible = ko.observable(false);
     }
+
+    showCreatePoolWizard() {
+        this.isCreatePoolWizardVisible(true);
+    }
+
+    hideCreatePoolWizard() {
+        this.isCreatePoolWizardVisible(false);
+    }
 }
 
 export default {
     viewModel: PoolsPanelViewModel,
-    template: template,
-}
+    template: template
+};

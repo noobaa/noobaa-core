@@ -29,4 +29,4 @@ class NodePartsViewModel {
 export default {
     viewModel: NodePartsViewModel,
     template: template
-}
+};

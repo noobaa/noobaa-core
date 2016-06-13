@@ -1,0 +1,13 @@
+<div class="drawer-wrapper" data-bind="
+    visible: isContentVisible,
+    css: { visible: isVisible }
+">
+    <!-- ko if: isContentVisible -->
+    <div class="drawer-backdrop" data-bind="click: close"></div>
+
+    <div class="drawer-content" data-bind="
+        transition: { end: update },
+        template: { nodes: $componentTemplateNodes, data: $parent }
+    "></div>
+    <!-- /ko -->
+</div>

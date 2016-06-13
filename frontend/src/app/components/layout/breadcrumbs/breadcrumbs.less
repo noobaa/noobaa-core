@@ -1,44 +1,33 @@
 breadcrumbs {
-    display: block;
-    @height: 50px;
-    color: @text-color3;
-    font-size: @font-size-large;
+    .row();
+    line-height: 3 * @gutter;
 
-    ul {
-        list-style-type: none;
-        padding: 0;
-        margin: 0;
-        line-height: @height;
+    svg-icon {
+        width: @font-size-xlarge;
+        height: @font-size-xlarge;
     }
 
-    li {
-        margin-left: -@height/2 + 12px;
+    a {
+        .link();
+        .no-outline();
+        .row();
+        margin-left: -@gutter;
+        margin-right: 4px;
 
-        a {
-            .text(
-                @font-type2,
-                @font-weight-normal,
-                @font-size-normal,
-                @text-color3,
-                @text-color9,
-                text-color1
-            );
-
-            text-align: center;
-            float: left;
-            display: inline-block;
-            padding: 0 .5em;
+        > span {
+            display: block;
+            vertical-align: middle;
             background-color: @bg-color4;
-            max-width: 8em;
+            max-width: 20em;
+            padding: 0 @gutter/2;
+            .no-wrap();
         }
 
         &::before, &::after {
             content: '';
-            float: left;
-            display: inline-block;
-            border-style: solid;
-            border-color: transparent;
-            border-width: @height/2 0 @height/2 3/8 *@height;
+            display: block;
+            border: solid transparent;
+            border-width: 3/2 * @gutter 0 3/2 * @gutter @gutter;
             vertical-align: middle;
         }
 
@@ -47,44 +36,19 @@ breadcrumbs {
             border-left-color: transparent;
         }
 
-        &::after {
+        &::after {;
             border-left-color: @bg-color4;
         }
 
-        &:first-child {
-            margin-left: 0;
-
-            > a {
-                width: auto;
-            }
-
-            svg-icon {
-                width: @font-size-xlarge;
-                height: @font-size-xlarge;
-                vertical-align: middle;
-            }
-
-            &::before {
-                display: none;
-            }
-        }
-
         &:last-child {
-            a {
+            > span {
                 background: none;
-                margin-left: .5em;
                 font-size: @font-size-medium;
-                max-width: 37em;
             }
-
-            &::before, &:after {
-                display: none;    
-            };
-        }
-
-        &:first-child:last-child a {
-            margin-left: 0;
-            font-size: @font-size-normal;
+            
+            &::before, &::after {
+                border-color: transparent;
+            }
         }
     }
 }

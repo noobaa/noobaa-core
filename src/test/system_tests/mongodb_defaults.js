@@ -50,3 +50,17 @@ db.nodes.update({}, {
 }, {
     multi: true
 });
+// Removing all account except Support and Owner
+db.accounts.remove({
+    email: {
+        $nin: ['demo@noobaa.com', 'support@noobaa.com']
+    }
+});
+// Removing roles of the deleted accounts, except demo and support (which doesn't have a role)
+db.roles.remove({
+    account: {
+        $nin: [db.accounts.find({
+            email: 'demo@noobaa.com'
+        })[0]._id]
+    }
+});

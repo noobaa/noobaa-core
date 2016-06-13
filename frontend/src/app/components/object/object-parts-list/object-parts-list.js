@@ -8,7 +8,7 @@ class ObjectPartsListViewModel {
     constructor({ parts }) {
         this.pageSize = paginationPageSize;
         this.count = parts.count;
-        
+
         this.page = ko.pureComputed({
             read: parts.page,
             write: page => redirectTo(undefined, { page })
@@ -26,4 +26,4 @@ class ObjectPartsListViewModel {
 export default {
     viewModel: ObjectPartsListViewModel,
     template: template
-}
+};

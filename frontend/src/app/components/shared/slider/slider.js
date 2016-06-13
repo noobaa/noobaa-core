@@ -2,7 +2,7 @@ import template from './slider.html';
 import ko from 'knockout';
 
 class SliderViewModel {
-    constructor({ current = 1, slides }) {
+    constructor({ current = 1 }) {
         this.current = current;
 
         this.transform = ko.pureComputed(
@@ -19,5 +19,5 @@ class SliderViewModel {
 
 export default {
     viewModel: SliderViewModel,
-    template: template,
-}
+    template: template
+};

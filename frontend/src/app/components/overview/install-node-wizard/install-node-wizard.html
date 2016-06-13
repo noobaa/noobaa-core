@@ -4,13 +4,16 @@
     steps: ['select', 'install', 'review'],
     onClose: onClose
 ">
-    <section class="select-step"  data-bind="template: { html: selectStepTemplate }">
-    </section>
+    <section class="column"  data-bind="
+        template: { html: selectStepTemplate }
+    "></section>
 
-    <section class="install-step" data-bind="template: { html: installStepTemplate }">
-    </section>
+    <section class="column" data-bind="
+        template: { html: installStepTemplate }
+    "></section>
     
-    <section class="review-step" data-bind="template: { html: reviewStepTemplate }">
-    </section>
+    <section class="column content-middle" data-bind="
+        template: { html: reviewStepTemplate }
+    "></section>
 </wizard>
 <!-- /ko -->

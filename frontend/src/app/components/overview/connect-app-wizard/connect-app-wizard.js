@@ -3,14 +3,13 @@ import selectSlideTemplate from './select-slide.html';
 import connecSlideTemplate from './connect-slide.html';
 import ko from 'knockout';
 import { systemInfo, accountList } from 'model';
-import { copyTextToClipboard } from 'utils';
 import { loadAccountList } from 'actions';
 
 const connectionTypes = Object.freeze([
     {
         type: 'NATIVE',
         label: 'Native Access',
-        description: 'A REST based protocal commonly used by S3 compatible clients (e.g. S3 Browser)',
+        description: 'A REST based protocal commonly used by S3 compatible clients (e.g. S3 Browser)'
     },
     {
         type: 'FS',
@@ -51,25 +50,25 @@ class ConnectApplicationWizard {
 
         this.details = [
             {
-                label: 'Storage Type', 
+                label: 'Storage Type',
                 value: 'S3 compatible storage'
             },
             {
-                label: 'REST Endpoint', 
+                label: 'REST Endpoint',
                 value: ko.pureComputed(
                     () => systemInfo() && systemInfo().endpoint
                 ),
                 allowCopy: true
             },
-            { 
-                label: 'Access Key', 
+            {
+                label: 'Access Key',
                 value: ko.pureComputed(
                     () => keys() && keys().access_key
                 ),
                 allowCopy: true
             },
-            { 
-                label: 'Secret Key', 
+            {
+                label: 'Secret Key',
                 value: ko.pureComputed(
                     () => keys() && keys().secret_key
                 ),
@@ -84,4 +83,4 @@ class ConnectApplicationWizard {
 export default {
     viewModel: ConnectApplicationWizard,
     template: template
-}
+};

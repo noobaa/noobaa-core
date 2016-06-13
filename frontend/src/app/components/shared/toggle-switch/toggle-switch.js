@@ -6,11 +6,11 @@ class ToggleSwitchViewModel {
         this.value = value;
         this.label = ko.pureComputed(
             () => ko.unwrap(value) ? ko.unwrap(onLabel) : ko.unwrap(offLabel)
-        )
+        );
     }
 }
 
 export default {
     viewModel: ToggleSwitchViewModel,
     template: template
-}
+};

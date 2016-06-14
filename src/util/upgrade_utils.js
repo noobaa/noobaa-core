@@ -10,7 +10,7 @@ function pre_upgrade(upgrade_file) {
 
     //Add here whatever pre-requesites & checks we want to perform
 
-    //Can also load the readme here  
+    //Can also load the readme here
 
     return {
         result: result,

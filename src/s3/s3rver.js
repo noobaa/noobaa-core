@@ -20,6 +20,9 @@ let s3_rest = require('./s3_rest');
 var S3Controller = require('./s3_controller');
 let cluster = require('cluster');
 let numCPUs = require('os').cpus().length;
+var path = require('path');
+var rootdir = path.join(__dirname, '..', '..');
+
 
 dbg.set_process_name('S3rver');
 
@@ -55,11 +58,24 @@ function run_server() {
                 ssl_port: process.env.S3_SSL_PORT || 443,
             });
             dbg.log0('Generating selfSigned SSL Certificate...');
-            return P.nfcall(pem.createCertificate, {
-                days: 365 * 100,
-                selfSigned: true
-            }).then(certificate => params.certificate = certificate);
+            dbg.log0('certificate location:',path.join(rootdir,'src','private_ssl_path','key.pem'));
+            if (fs.existsSync(path.join(rootdir,'src','private_ssl_path','key.pem')) &&
+                fs.existsSync(path.join(rootdir,'src','private_ssl_path','cert.pem'))) {
+                dbg.log0('Using local certificate');
+                var local_certificate = {
+                    serviceKey: fs.readFileSync(path.join(rootdir,'src','private_ssl_path','key.pem')),
+                    certificate: fs.readFileSync(path.join(rootdir,'src','private_ssl_path','cert.pem'))
+                };
+                return local_certificate;
+            } else {
+                dbg.log0('Generating self signed certificate');
+                return P.nfcall(pem.createCertificate, {
+                    days: 365 * 100,
+                    selfSigned: true
+                });
+            }
         })
+        .then(certificate => params.certificate = certificate)
         .then(() => app.use(s3_rest(new S3Controller(params))))
         .then(() => dbg.log0('Starting HTTP', params.port))
         .then(() => listen_http(params.port, http.createServer(app)))

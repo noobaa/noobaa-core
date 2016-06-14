@@ -22,6 +22,7 @@ const config = require('../../../config');
 const md_store = require('../object_services/md_store');
 const fs_utils = require('../../util/fs_utils');
 const os_utils = require('../../util/os_utils');
+const upgrade_utils = require('../../util/upgrade_utils');
 const RpcError = require('../../rpc/rpc_error');
 const size_utils = require('../../util/size_utils');
 const server_rpc = require('../server_rpc');
@@ -66,6 +67,11 @@ function new_system_defaults(name, owner_account_id) {
             udp_port: true,
         },
         debug_level: 0,
+        upgrade: {
+            path: '',
+            status: 'UNAVAILABLE',
+            error: '',
+        },
     };
     return system;
 }
@@ -206,6 +212,10 @@ function read_system(req) {
         }
 
         let debug_level = system.debug_level;
+        var upgrade = {
+            status: system.upgrade.status,
+            error: system.upgrade.error,
+        };
 
         // TODO use n2n_config.stun_servers ?
         // var stun_address = 'stun://' + ip_address + ':' + stun.PORT;
@@ -265,6 +275,7 @@ function read_system(req) {
             },
             version: pkg.version,
             debug_level: debug_level,
+            upgrade: upgrade,
         };
 
         if (system.base_address) {
@@ -601,8 +612,7 @@ function export_activity_log(req) {
 
                     lines.push(`"${time}",${entry.level},${account},${entry.event},${entity_name},"${description}"`);
                     return lines;
-                },
-                ['time,level,account,event,entity,description']
+                }, ['time,level,account,event,entity,description']
             );
 
             return fs.writeFileAsync(inner_path, lines.join('\n'), 'utf8');
@@ -876,10 +886,10 @@ function configure_remote_syslog(req) {
     }
 
     return system_store.make_changes({
-        update: {
-            systems: [update]
-        }
-    })
+            update: {
+                systems: [update]
+            }
+        })
         .then(
             () => os_utils.reload_syslog_configuration(params)
         )
@@ -947,6 +957,57 @@ function update_time_config(req) {
         });
 }
 
+// UPGRADE ////////////////////////////////////////////////////////
+function upload_upgrade_package(req) {
+    //Update path in DB
+    var upgrade = {
+        path: req.rpc_params.filepath,
+        status: 'PENDING',
+        error: ''
+    };
+
+    return system_store.make_changes({
+            update: {
+                systems: [{
+                    _id: req.system._id,
+                    upgrade: upgrade
+                }]
+            }
+        })
+        .then(() => upgrade_utils.pre_upgrade())
+        .then((res) => {
+            //Update result of pre_upgrade and message in DB
+            var upgrade;
+            if (res.result) {
+                upgrade.status = 'CAN_UPGRADE';
+            } else {
+                upgrade.status = 'FAILED';
+                upgrade.error = res.message;
+            }
+            return system_store.make_changes({
+                update: {
+                    systems: [{
+                        _id: req.system._id,
+                        upgrade: upgrade
+                    }]
+                }
+            });
+        });
+}
+
+function do_upgrade(req) {
+    if (req.system.upgrade.status !== 'CAN_UPGRADE') {
+        throw new Error('No in upgrade state');
+    }
+    if (req.system.upgrade.path === '') {
+        throw new Error('No package path supplied');
+    }
+
+    //Async as the server will soon be restarted anyway
+    upgrade_utils.do_upgrade(req.system.upgrade.path);
+    return;
+}
+
 
 // UTILS //////////////////////////////////////////////////////////
 
@@ -1000,4 +1061,6 @@ exports.update_system_certificate = update_system_certificate;
 exports.update_time_config = update_time_config;
 exports.set_maintenance_mode = set_maintenance_mode;
 exports.configure_remote_syslog = configure_remote_syslog;
-//exports.read_maintenance_config = read_maintenance_config
+
+exports.upload_upgrade_package = upload_upgrade_package;
+exports.do_upgrade = do_upgrade;

@@ -364,26 +364,6 @@ module.exports = {
             }
         },
 
-        // read_maintenance_config: {
-        //     method: 'GET',
-        //     params: {
-        //         type: 'object',
-        //         // System Name
-        //         required: ['name'],
-        //         properties: {
-        //             name: {
-        //                 type: 'string',
-        //             },
-        //         }
-        //     },
-        //     reply: {
-        //         type: 'boolean',
-        //     },
-        //     auth: {
-        //         system: 'admin',
-        //     }
-        // },
-
         set_debug_level: {
             method: 'POST',
             params: {
@@ -513,6 +493,29 @@ module.exports = {
                 system: 'admin',
             }
         },
+
+        upload_upgrade_package: {
+            method: 'POST',
+            params: {
+                type: 'object',
+                required: ['filepath'],
+                properties: {
+                    filepath: {
+                        type: 'string'
+                    }
+                }
+            },
+            auth: {
+                system: 'admin',
+            }
+        },
+
+        do_upgrade: {
+            method: 'POST',
+            auth: {
+                system: 'admin',
+            }
+        }
     },
 
     definitions: {
@@ -678,9 +681,20 @@ module.exports = {
                 debug_level: {
                     type: 'integer'
                 },
-            }
+                upgrade: {
+                    type: 'object',
+                    properties: {
+                        status: {
+                            type: 'string',
+                            enum: ['CAN_UPGRADE', 'FAILED', 'PENDING', 'UNAVAILABLE']
+                        },
+                        message: {
+                            type: 'string',
+                        },
+                    },
+                },
+            },
         },
-
 
         role_info: {
             type: 'object',

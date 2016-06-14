@@ -72,11 +72,7 @@ function update_host_address(address) {
 
 //Recieves array in the cluster info form ([{address:X},{address:y}]) and returns the array of IPs
 function extract_servers_ip(arr) {
-    var ips = [];
-    _.each(arr, function(srv) {
-        ips.push(srv.address);
-    });
-    return ips;
+    return arr.map(srv => srv.address);
 }
 
 //Return all servers in the cluster, regardless of role
@@ -126,7 +122,7 @@ function rs_array_changes(new_array, name, is_config) {
         var shard_idx = _.findIndex(get_topology().shards, function(s) {
             return name === s.shardname;
         });
-        current = extract_servers_ip(get_topology().shards[shard_idx]);
+        current = extract_servers_ip(get_topology().shards[shard_idx].servers);
     }
     var changes = Array.from(new_array).sort();
 
@@ -146,11 +142,11 @@ function rs_array_changes(new_array, name, is_config) {
 }
 
 function find_shard_index(shardname) {
-  var shard_idx = _.findIndex(get_topology().shards, function(s) {
-      return shardname === s.shardname;
-  });
+    var shard_idx = _.findIndex(get_topology().shards, function(s) {
+        return shardname === s.shardname;
+    });
 
-  return shard_idx;
+    return shard_idx;
 }
 
 //Exports

@@ -1,0 +1,51 @@
+<div class="row content-middle" data-bind="click: () => expanded.toggle()">
+    <h2 class="heading3 greedy">
+        Remote Syslog
+    </h2>
+
+    <button class="btn-flat expand-btn no-outline">
+        <svg-icon class="rotate"
+            params="uri: '/fe/assets/icons.svg#chevron'"
+            data-bind="css: { 'deg-90': !expanded() }">
+        </svg-icon>
+    </button>
+</div>
+
+<p data-bind="visible: !expanded()">
+    Server address:
+    <output class="emphasized" data-bind="
+        value: summaryText,
+        css: { 'text-tech': enabled() }
+    "></output>
+</p>
+
+<section class="column" data-bind="expand: expanded">
+    <p class="push-next">Configuring a remote syslog server enables the appliance to collect and forward it's internal logs to the configured server</p>
+
+    <editor class="push-next" params="label: 'Enable'">
+            <toggle-switch params="value: enabled"></toggle-switch>
+        </editor>
+        <editor params="label: 'Protocol', disable: !enabled()" class="push-next">
+            <radio-group params="
+                options: protocolOptions,
+                selected: protocol,
+                disabled: !enabled()
+            "></radio-group>
+        </editor>
+        <editor params="label: 'Server address', disable: !enabled()">
+            <input class="proxy-name" type="text" placeholder="IP or DNS name" data-bind="
+                value: address,
+                enable: enabled
+            "/>
+        </editor>
+        <editor params="label: 'Server port', disable: !enabled()">
+            <input type="number" min="1" max="65535" placeholder="port" data-bind="
+                value: port,
+                enable: enabled
+            "/>
+       </editor>
+
+        <button class="btn2 push-prev" data-bind="click: applyChanges">
+            Apply Changes
+        </button>
+</section>

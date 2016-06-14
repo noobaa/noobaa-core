@@ -64,11 +64,11 @@ module.exports = {
             type: 'string'
         },
 
-        //External syslog configuration
-        external_syslog_config: {
+        //Remote syslog configuration
+        remote_syslog_config: {
             type: 'object',
             properties: {
-                connection_type: {
+                protocol: {
                     type: 'string'
                 },
                 address: {

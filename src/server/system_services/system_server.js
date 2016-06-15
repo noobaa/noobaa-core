@@ -212,10 +212,14 @@ function read_system(req) {
         }
 
         let debug_level = system.debug_level;
-        var upgrade = {
-            status: system.upgrade.status,
-            error: system.upgrade.error,
-        };
+        var upgrade = {};
+        if (system.upgrade) {
+            upgrade.status = system.upgrade.status;
+            upgrade.error = system.upgrade.error;
+        } else {
+            upgrade.status = 'UNAVAILABLE';
+            upgrade.error = '';
+        }
 
         // TODO use n2n_config.stun_servers ?
         // var stun_address = 'stun://' + ip_address + ':' + stun.PORT;

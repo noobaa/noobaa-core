@@ -75,7 +75,7 @@ class BucketCloudSyncFormViewModel {
         );
 
         this.targetBucket = ko.pureComputed(
-            () => policy() && policy().target_bucket
+            () => cloudSyncInfo() && cloudSyncInfo().target_bucket
         );
 
         this.accessKey = ko.pureComputed(

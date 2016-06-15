@@ -214,7 +214,7 @@ function get_cloud_sync_stats(req) {
                 let new_req = _.defaults({
                     system: system
                 }, req);
-                return bucket_server.get_all_cloud_sync_policies(new_req);
+                return bucket_server.get_all_cloud_sync(new_req);
             }
         ))
         .then(results => {

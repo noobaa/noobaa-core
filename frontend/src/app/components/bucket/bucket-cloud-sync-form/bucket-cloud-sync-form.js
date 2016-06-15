@@ -69,7 +69,7 @@ class BucketCloudSyncFormViewModel {
                 }
 
                 return moment(cloudSyncInfo().last_sync)
-                    .add(policy().schedule, 'minutes')
+                    .add(policy().schedule_min, 'minutes')
                     .format(timeFormat);
             }
         );
@@ -88,7 +88,7 @@ class BucketCloudSyncFormViewModel {
 
         this.frequancy = ko.pureComputed(
             () => policy() && `Every ${
-                moment().add(policy().schedule, 'minutes')
+                moment().add(policy().schedule_min, 'minutes')
                     .fromNow(true)
                     .replace(/^(a|an)\s+/, '')
             }`

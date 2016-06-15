@@ -1362,7 +1362,7 @@ export function setCloudSyncPolicy(bucket, connection, targetBucket, direction, 
         policy: {
             c2n_enabled: direction === 'AWS2NB' || direction === 'BI',
             n2c_enabled: direction === 'NB2AWS' || direction === 'BI',
-            schedule: frequency,
+            schedule_min: frequency,
             additions_only: !sycDeletions
         }
     })

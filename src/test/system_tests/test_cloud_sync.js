@@ -68,11 +68,11 @@ function set_cloud_sync(params) {
             () => client.bucket.set_cloud_sync({
                 name: TEST_CTX.source_bucket,
                 connection: TEST_CTX.connection_name,
+                target_bucket: TEST_CTX.target_bucket,
                 policy: {
-                    target_bucket: TEST_CTX.target_bucket,
                     c2n_enabled: params.c2n,
                     n2c_enabled: params.n2c,
-                    schedule: 1,
+                    schedule_min: 1,
                     additions_only: !params.deletions
                 }
             })

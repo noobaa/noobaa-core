@@ -224,6 +224,25 @@ app.post('/upgrade',
         res.end('<html><head><meta http-equiv="refresh" content="60;url=/console/" /></head>Upgrading. You will be redirected back to the upgraded site in 60 seconds.');
     });
 
+app.post('/upload_package',
+    multer({
+        storage: multer.diskStorage({
+            destination: function(req, file, cb) {
+                cb(null, '/tmp');
+            },
+            filename: function(req, file, cb) {
+                dbg.log0('UPGRADE upload', file);
+                cb(null, 'nb_upgrade_' + Date.now() + '_' + file.originalname);
+            }
+        })
+    })
+    .single('upgrade_file'),
+    function(req, res) {
+        var upgrade_file = req.file;
+        server_rpc.client.system.upload_upgrade_package(upgrade_file.path); //Async
+        res.end('<html><head></head>Upgrade file uploaded successfully');
+    });
+
 //Upgrade from 0.3.X will try to return to this path. We will redirect it.
 app.get('/console', function(req, res) {
     return res.redirect('/fe/');

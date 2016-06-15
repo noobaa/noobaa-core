@@ -435,17 +435,17 @@ function upgrade_cluster() {
 
     //global param_secret:true, params_cluster_id:true, param_ip:true
 
-    // db.clusters.insert({
-    //     owner_secret: param_secret,
-    //     owner_address: param_ip,
-    //     cluster_id: params_cluster_id,
-    //     shards: [{
-    //         shardname: 'shard1',
-    //         servers: [{
-    //             address: param_ip
-    //         }]
-    //     }],
-    //     config_servers: [],
-    //
-    // });
+    db.clusters.insert({
+        owner_secret: param_secret, // eslint-disable-line no-undef
+        owner_address: param_ip, // eslint-disable-line no-undef
+        cluster_id: params_cluster_id, // eslint-disable-line no-undef
+        shards: [{
+            shardname: 'shard1',
+            servers: [{
+                address: param_ip // eslint-disable-line no-undef
+            }]
+        }],
+        config_servers: [],
+
+    });
 }

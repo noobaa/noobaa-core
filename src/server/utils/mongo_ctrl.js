@@ -10,6 +10,7 @@ var mongo_client = require('../../util/mongo_client').get_instance();
 var mongoose_client = require('../../util/mongoose_utils');
 var dotenv = require('../../util/dotenv');
 var dbg = require('../../util/debug_module')(__filename);
+var cutil = require('./clustering_utils');
 
 module.exports = new MongoCtrl(); // Singleton
 
@@ -35,7 +36,7 @@ MongoCtrl.prototype.add_replica_set_member = function(name, first_server, server
         .then(() => SupervisorCtl.apply_changes())
         .then(() => {
             // build new connection url for mongo and write to .env
-            return self.update_dotenv(name, servers.map(server => server.address));
+            return self.update_dotenv(name, cutil.extract_servers_ip(servers));
         });
 };
 
@@ -96,13 +97,13 @@ MongoCtrl.prototype.update_connection_string = function() {
 //
 //Internals
 //
-MongoCtrl.prototype._add_replica_set_member_program = function(name, first_shard) {
+MongoCtrl.prototype._add_replica_set_member_program = function(name, first_server) {
     if (!name) {
         throw new Error('port and name must be supplied to add new shard');
     }
 
     let program_obj = {};
-    let dbpath = config.MONGO_DEFAULTS.COMMON_PATH + '/' + name + (first_shard ? '' : 'rs');
+    let dbpath = config.MONGO_DEFAULTS.COMMON_PATH + '/' + name + (first_server ? '' : 'rs');
     program_obj.name = 'mongors-' + name;
     program_obj.command = 'mongod ' +
         '--replSet ' + name +
@@ -114,7 +115,7 @@ MongoCtrl.prototype._add_replica_set_member_program = function(name, first_shard
     program_obj.priority = '1';
 
     dbg.log0('adding replica set program:', program_obj);
-    if (first_shard) { //If shard1 (this means this is the first server which will be the base of the cluster)
+    if (first_server) { //If shard1 (this means this is the first server which will be the base of the cluster)
         //use the original server`s data
         dbg.log0('first server in the cluster - leaving dbpath as is:', dbpath);
         return SupervisorCtl.add_program(program_obj);
@@ -216,6 +217,7 @@ MongoCtrl.prototype.update_dotenv = function(name, IPs) {
         key: 'MONGO_RS_URL',
         value: url
     });
+    // update all processes in the current server of the change in connection string
     return this._publish_rs_name_current_server(name);
 };
 

@@ -228,6 +228,25 @@ module.exports = {
             }
         },
 
+        update_cloud_sync: {
+            method: 'PUT',
+            params: {
+                type: 'object',
+                required: ['name', 'policy'],
+                properties: {
+                    name: {
+                        type: 'string'
+                    },
+                    policy: {
+                        $ref: '#/definitions/cloud_sync_policy'
+                    }
+                }
+            },
+            auth: {
+                system: 'admin'
+            }
+        },
+
         toggle_cloud_sync: {
             method: 'PUT',
             params: {
@@ -356,9 +375,9 @@ module.exports = {
 
         cloud_sync_policy: {
             type: 'object',
-            required: ['schedule'],
+            required: ['schedule_min'],
             properties: {
-                schedule: {
+                schedule_min: {
                     type: 'integer'
                 },
                 c2n_enabled: {

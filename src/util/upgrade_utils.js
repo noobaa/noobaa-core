@@ -5,7 +5,7 @@ var dbg = require('./debug_module')(__filename);
 var time_utils = require('./time_utils');
 
 function pre_upgrade(upgrade_file) {
-    var result = 'CAN_UPGRADE';
+    var result = true;
     var message = '';
 
     //Add here whatever pre-requesites & checks we want to perform

@@ -272,13 +272,13 @@ mocha.describe('system_servers', function() {
                 connection: CLOUD_SYNC_CONNECTION
             }))
             .then(() => client.system.read_system())
-            .then(() => client.bucket.get_cloud_sync_policy({
+            .then(() => client.bucket.get_cloud_sync({
                 name: BUCKET,
             }))
             .then(() => client.bucket.delete_cloud_sync({
                 name: BUCKET,
             }))
-            .then(() => client.bucket.get_all_cloud_sync_policies())
+            .then(() => client.bucket.get_all_cloud_sync())
             .then(() => client.system.read_system())
             // /////////////
             // //  STATS  //

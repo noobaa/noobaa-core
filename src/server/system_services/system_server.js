@@ -185,7 +185,7 @@ function read_system(req) {
                     name: bucket.name
                 }
             }, req);
-            return bucket_server.get_cloud_sync_policy(new_req);
+            return bucket_server.get_cloud_sync(new_req);
         }),
 
         os_utils.get_time_config()
@@ -215,10 +215,10 @@ function read_system(req) {
         var upgrade = {};
         if (system.upgrade) {
             upgrade.status = system.upgrade.status;
-            upgrade.error = system.upgrade.error;
+            upgrade.message = system.upgrade.error;
         } else {
             upgrade.status = 'UNAVAILABLE';
-            upgrade.error = '';
+            upgrade.message = '';
         }
 
         // TODO use n2n_config.stun_servers ?

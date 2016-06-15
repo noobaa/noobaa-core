@@ -218,7 +218,7 @@ function read_system(req) {
             upgrade.error = system.upgrade.error;
         } else {
             upgrade.status = 'UNAVAILABLE';
-            upgrade.error = '';
+            upgrade.message = '';
         }
 
         // TODO use n2n_config.stun_servers ?

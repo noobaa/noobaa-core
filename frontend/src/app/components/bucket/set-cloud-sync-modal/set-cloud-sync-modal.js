@@ -103,7 +103,7 @@ class CloudSyncModalViewModel {
         this.direction = ko.observable('BI');
         this.directionOptions = directionOptions;
 
-        this.frequency = ko.observable(1);
+        this.frequency = ko.pureComputed(1);
         this.frequencyUnit = ko.observable(HOUR);
         this.frequencyUnitOptions = frequencyUnitOptions;
 

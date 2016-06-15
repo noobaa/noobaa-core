@@ -105,6 +105,7 @@ class BucketCloudSyncFormViewModel {
         );
 
         this.isSetCloudSyncModalVisible = ko.observable(false);
+        this.isEditCloudSyncModalVisible = ko.observable(false);
 
         this.bucketName() && loadCloudSyncInfo(this.bucketName());
     }
@@ -128,6 +129,14 @@ class BucketCloudSyncFormViewModel {
 
     hideSetCloudSyncModal() {
         this.isSetCloudSyncModalVisible(false);
+    }
+
+    showEditCloudSyncModal() {
+        this.isEditCloudSyncModalVisible(true);
+    }
+
+    hideEditCloudSyncModal() {
+        this.isEditCloudSyncModalVisible(false);
     }
 
     dispose() {

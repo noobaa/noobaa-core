@@ -12,11 +12,11 @@ html, body {
     background-color: @bg-color3;
 
     .text(
-        @font-type2, 
-        @font-weight-light, 
-        @font-size-normal, 
+        @font-type2,
+        @font-weight-light,
+        @font-size-normal,
         @text-color4
-    );  
+    );
 }
 
 a {
@@ -84,7 +84,7 @@ output {
 
 :focus {
     .focused();
-}   
+}
 
 ::-webkit-scrollbar  {
     width: 10px;
@@ -135,7 +135,7 @@ input[type="search"] {
     }
 
     > .push-prev {
-        margin-right: @gutter;
+        margin-left: @gutter;
     }
 
     > .push-next {
@@ -217,7 +217,7 @@ input[type="search"] {
 }
 
 .content-end {
-    align-items: flex-end; 
+    align-items: flex-end;
 }
 
 .text-center {
@@ -280,7 +280,7 @@ input[type="search"] {
 
 .rotate {
     transition: transform 250ms ease-out;
-    
+
     &.deg0, &.deg360, &.deg-360 {
         transform: rotate(0deg);
     }
@@ -313,9 +313,9 @@ input[type="search"] {
 .heading1 {
     line-height: 1.7;
     .text(
-        @font-type1, 
-        @font-weight-thin, 
-        @font-size-xlarge, 
+        @font-type1,
+        @font-weight-thin,
+        @font-size-xlarge,
         @text-color4
     );
 }
@@ -323,9 +323,9 @@ input[type="search"] {
 .heading2 {
     line-height: 1.7;
     .text(
-        @font-type2, 
-        @font-weight-light, 
-        @font-size-large, 
+        @font-type2,
+        @font-weight-light,
+        @font-size-large,
         @text-color3
     );
 }
@@ -333,9 +333,9 @@ input[type="search"] {
 .heading3 {
     line-height: 1.7;
     .text(
-        @font-type2, 
-        @font-weight-thin, 
-        @font-size-medium, 
+        @font-type2,
+        @font-weight-thin,
+        @font-size-medium,
         @text-color2
     );
 }
@@ -343,18 +343,18 @@ input[type="search"] {
 .heading4 {
     line-height: 1.7;
     .text(
-        @font-type2, 
-        @font-weight-thin, 
-        @font-size-normal, 
+        @font-type2,
+        @font-weight-thin,
+        @font-size-normal,
         @text-color2
-    );  
+    );
 }
 
 .remark {
     .text(
-        @font-type2, 
-        @font-weight-light, 
-        @font-size-small, 
+        @font-type2,
+        @font-weight-light,
+        @font-size-small,
         @text-color4
     );
 
@@ -365,9 +365,9 @@ input[type="search"] {
 
 .emphasized {
     .text(
-        @font-type2, 
-        @font-weight-light, 
-        @font-size-normal, 
+        @font-type2,
+        @font-weight-light,
+        @font-size-normal,
         @text-color3
     );
 }
@@ -375,28 +375,28 @@ input[type="search"] {
 .highlight {
     .text(
         @font-type2,
-        @font-weight-light, 
-        @font-size-normal, 
+        @font-weight-light,
+        @font-size-normal,
         @text-color6
     );
 }
 
 .warning {
     .text(
-        @font-type2, 
-        @font-weight-thin, 
-        @font-size-normal, 
+        @font-type2,
+        @font-weight-thin,
+        @font-size-normal,
         @text-color10
-    );   
+    );
 }
 
 .error {
     .text(
-        @font-type2, 
-        @font-weight-thin, 
-        @font-size-normal, 
+        @font-type2,
+        @font-weight-thin,
+        @font-size-normal,
         @text-color8
-    );   
+    );
 }
 
 .disabled {
@@ -412,19 +412,19 @@ input[type="search"] {
 
     a&[href], button& {
         cursor: @cursor-pointer;
-        
+
         &:hover {
-            text-decoration: underline; 
+            text-decoration: underline;
         }
     }
 }
 
-.link { 
+.link {
     .link-base;
     .text(
-        @font-type2, 
-        @font-weight-light, 
-        @font-size-normal, 
+        @font-type2,
+        @font-weight-light,
+        @font-size-normal,
         @text-color2,
         @text-color9,
         @text-color1
@@ -438,13 +438,13 @@ input[type="search"] {
 .link-small {
     .link-base;
     .text(
-        @font-type2, 
-        @font-weight-light, 
-        @font-size-small, 
+        @font-type2,
+        @font-weight-light,
+        @font-size-small,
         @text-color4,
         @text-color9,
         @text-color1
-    );  
+    );
 }
 
 .btn-base() {
@@ -463,9 +463,9 @@ input[type="search"] {
     .btn-base;
 
     .text(
-        @font-type2, 
-        @font-weight-light, 
-        @font-size-small, 
+        @font-type2,
+        @font-weight-light,
+        @font-size-small,
         @text-color4,
     );
 }
@@ -501,14 +501,14 @@ input[type="search"] {
         @font-weight-light,
         @font-size-normal,
         @text-color1
-    );  
+    );
 
     .bg-color(
         @bg-color8,
         @bg-color9,
         @bg-color10,
         @bg-color7
-    );  
+    );
 }
 
 .btn3 {
@@ -526,7 +526,7 @@ input[type="search"] {
 
     .bg-color(
         @bg-color4,
-        @bg-color5, 
+        @bg-color5,
         @bg-color6,
         @bg-color3
     );
@@ -559,19 +559,19 @@ input[type="search"] {
     display: block !important;
     height: 1.4em;
     margin-bottom: .25em;
-    
+
     .text(
-        @font-type2, 
-        @font-weight-light, 
-        @font-size-small, 
+        @font-type2,
+        @font-weight-light,
+        @font-size-small,
         @red-mid
-    );  
+    );
 }
 
 .bullet-list {
     margin: 0;
     padding: 0;
-    padding-left: 1.3em; 
+    padding-left: 1.3em;
     line-height: 1.8;
 
     ol& > li {

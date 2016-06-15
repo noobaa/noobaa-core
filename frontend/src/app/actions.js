@@ -810,7 +810,7 @@ export function loadTier(name) {
 export function loadCloudSyncInfo(bucket) {
     logAction('loadCloudSyncInfo', { bucket });
 
-    api.bucket.get_cloud_sync_policy({ name: bucket })
+    api.bucket.get_cloud_sync({ name: bucket })
         .then(model.cloudSyncInfo)
         .done();
 }
@@ -1358,8 +1358,8 @@ export function setCloudSyncPolicy(bucket, connection, targetBucket, direction, 
     api.bucket.set_cloud_sync({
         name: bucket,
         connection: connection,
+        target_bucket: targetBucket,
         policy: {
-            target_bucket: targetBucket,
             c2n_enabled: direction === 'AWS2NB' || direction === 'BI',
             n2c_enabled: direction === 'NB2AWS' || direction === 'BI',
             schedule: frequency,

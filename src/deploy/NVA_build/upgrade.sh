@@ -52,9 +52,7 @@ function restart_webserver {
     local sec=$(cat /etc/noobaa_sec)
     local id=$(uuidgen | cut -f 1 -d'-')
     local ip=$(/sbin/ifconfig eth0 | grep 'inet addr:' | cut -d: -f2 | cut -f 1 -d' ')
-    #TODO:: add this back once clustering is handled in mongo_upgrade
-    #/usr/bin/mongo nbcore --eval "var param_secret=${sec}, params_cluster_id=${id}, param_ip=${ip}" ${CORE_DIR}/src/deploy/NVA_build/mongo_upgrade.js
-    /usr/bin/mongo nbcore ${CORE_DIR}/src/deploy/NVA_build/mongo_upgrade.js
+    /usr/bin/mongo nbcore --eval "var param_secret='${sec}', params_cluster_id='${id}', param_ip='${ip}'" ${CORE_DIR}/src/deploy/NVA_build/mongo_upgrade.js
     deploy_log "finished mongo data upgrade"
 
     ${SUPERCTL} start webserver
@@ -154,6 +152,11 @@ function do_upgrade {
   restart_s3rver
   deploy_log "Restarted s3rver"
   restart_webserver
+  #Update Mongo Upgrade status
+  deploy_log "Updating system.upgrade on success"
+  local id=$(/mongodb/bin/mongo nbcore --eval "db.systems.find({},{'_id':'1'})" | grep _id | sed 's:.*ObjectId("\(.*\)").*:\1:')
+  /usr/bin/mongo nbcore --eval "db.systems.update({'_id':ObjectId('${id}')},{\$set:{'upgrade':{'path':'','status':'UNAVAILABLE','error':''}}});"
+
   deploy_log "Upgrade finished successfully!"
 }
 

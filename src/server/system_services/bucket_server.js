@@ -136,7 +136,7 @@ function read_bucket(req) {
             },
             deleted: null,
         }),
-        get_cloud_sync_policy(req, bucket)
+        get_cloud_sync(req, bucket)
     ).spread(function(objects_aggregate, nodes_aggregate_pool, cloud_sync_policy) {
         return get_bucket_info(bucket, objects_aggregate, nodes_aggregate_pool, cloud_sync_policy);
     });
@@ -357,8 +357,8 @@ function list_buckets(req) {
  * GET_CLOUD_SYNC_POLICY
  *
  */
-function get_cloud_sync_policy(req, bucket) {
-    dbg.log3('get_cloud_sync_policy');
+function get_cloud_sync(req, bucket) {
+    dbg.log3('get_cloud_sync');
     bucket = bucket || find_bucket(req);
     if (!bucket.cloud_sync || !bucket.cloud_sync.target_bucket) {
         return {};
@@ -380,8 +380,8 @@ function get_cloud_sync_policy(req, bucket) {
                 health: res.health,
                 status: cloud_sync_utils.resolve_cloud_sync_info(bucket.cloud_sync),
                 last_sync: bucket.cloud_sync.last_sync.getTime(),
+                target_bucket: bucket.cloud_sync.target_bucket,
                 policy: {
-                    target_bucket: bucket.cloud_sync.target_bucket,
                     schedule: bucket.cloud_sync.schedule_min,
                     c2n_enabled: bucket.cloud_sync.c2n_enabled,
                     n2c_enabled: bucket.cloud_sync.n2c_enabled,
@@ -396,9 +396,9 @@ function get_cloud_sync_policy(req, bucket) {
  * GET_ALL_CLOUD_SYNC_POLICIES
  *
  */
-function get_all_cloud_sync_policies(req) {
+function get_all_cloud_sync(req) {
     return P.all(_.map(req.system.buckets_by_name,
-        bucket => get_cloud_sync_policy(req, bucket)));
+        bucket => get_cloud_sync(req, bucket)));
 }
 
 /**
@@ -465,7 +465,7 @@ function set_cloud_sync(req) {
     }
     var cloud_sync = {
         endpoint: connection.endpoint,
-        target_bucket: req.rpc_params.policy.target_bucket,
+        target_bucket: req.rpc_params.target_bucket,
         access_keys: {
             access_key: connection.access_key,
             secret_key: connection.secret_key
@@ -688,8 +688,8 @@ exports.list_buckets = list_buckets;
 exports.list_bucket_s3_acl = list_bucket_s3_acl;
 exports.update_bucket_s3_acl = update_bucket_s3_acl;
 //Cloud Sync policies
-exports.get_cloud_sync_policy = get_cloud_sync_policy;
-exports.get_all_cloud_sync_policies = get_all_cloud_sync_policies;
+exports.get_cloud_sync = get_cloud_sync;
+exports.get_all_cloud_sync = get_all_cloud_sync;
 exports.delete_cloud_sync = delete_cloud_sync;
 exports.set_cloud_sync = set_cloud_sync;
 exports.toggle_cloud_sync = toggle_cloud_sync;

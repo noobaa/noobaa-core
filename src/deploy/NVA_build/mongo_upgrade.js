@@ -428,7 +428,7 @@ function upgrade_cluster() {
     print('\n*** upgrade_cluster ...');
 
     var clusters = db.clusters.find();
-    if (clusters.shards) {
+    if (clusters.size()) {
         print('\n*** Clusters up to date');
         return;
     }

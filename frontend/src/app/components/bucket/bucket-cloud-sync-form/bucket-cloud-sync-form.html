@@ -6,7 +6,7 @@
 
         <!-- ko if: hasCloudSyncPolicy -->
         <button class="btn3 push-next" data-bind="
-            click: toggleSync, 
+            click: toggleSync,
             text: toggleSyncButtonLabel
         "></button>
 
@@ -68,7 +68,12 @@
      <hr>
 
     <section class="column">
-        <h3 class="heading3">Sync Configuration</h3>
+        <div class="row">
+            <h3 class="heading3 greedy">Sync Policy</h3>
+            <button class="btn3" data-bind="click: showEditCloudSyncModal">
+                Edit
+            </button>
+        </div>
         <ul class="list-no-style column">
             <li class="row">
                 <span class="c2">Frequency:</span>
@@ -88,7 +93,14 @@
 </div>
 <!-- ko if: isSetCloudSyncModalVisible -->
 <set-cloud-sync-modal params="
-    bucketName: bucketName, 
+    bucketName: bucketName,
     onClose: () => hideSetCloudSyncModal()
 "></set-cloud-sync-modal>
+<!-- /ko -->
+
+<!-- ko if: isEditCloudSyncModalVisible -->
+<edit-cloud-sync-modal params="
+    bucketName: bucketName,
+    onClose: () => hideEditCloudSyncModal()
+"></edit-cloud-sync-modal>
 <!-- /ko -->

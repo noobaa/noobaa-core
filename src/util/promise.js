@@ -21,11 +21,18 @@ module.exports = P;
 if (process.env.DEBUG_MODE === 'true') {
     console.log('Promise with longStackTraces on DEBUG_MODE');
 }
+
+// see http://bluebirdjs.com/docs/api/promise.config.html
 P.config({
     longStackTraces: process.env.DEBUG_MODE === 'true',
-    // warnings: true || {
-    //     wForgottenReturn: false
-    // },
+    warnings: {
+        // this enables all warnings except forgotten return statements
+        // the reason to disable wForgottenReturn is that it's impossible
+        // to suppress it for the defer() impl below
+        wForgottenReturn: false
+    },
+    cancellation: false,
+    monitoring: false
 });
 
 P.promisifyAll(require('fs'));

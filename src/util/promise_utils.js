@@ -333,10 +333,10 @@ function wait_for_event(emitter, event, timeout) {
         // then we can be lazy and leave dangling listeners
         emitter.once(event, resolve);
         if (event !== 'close') {
-            emitter.once('close', reject);
+            emitter.once('close', () => reject(new Error('wait_for_event: closed')));
         }
         if (event !== 'error') {
-            emitter.once('error', reject);
+            emitter.once('error', err => reject(err || new Error('wait_for_event: error')));
         }
         if (timeout) {
             setTimeout(reject, timeout);

@@ -17,7 +17,9 @@ var nodes_store = require('../../server/node_services/nodes_store').get_instance
 var mongo_client = require('../../util/mongo_client').get_instance();
 var mongoose_utils = require('../../util/mongoose_utils');
 
-P.longStackTraces();
+P.config({
+    longStackTraces: true
+});
 config.test_mode = true;
 config.NODES_FREE_SPACE_RESERVE = 10 * 1024 * 1024;
 

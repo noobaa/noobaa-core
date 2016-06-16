@@ -2,7 +2,6 @@
 
 var _ = require('lodash');
 var P = require('../util/promise');
-// P.longStackTraces();
 var url = require('url');
 var util = require('util');
 var argv = require('minimist')(process.argv);

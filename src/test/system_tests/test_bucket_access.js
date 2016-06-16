@@ -75,7 +75,7 @@ function main() {
         .then(function() {
             process.exit(0);
         })
-        .fail(function(err) {
+        .catch(function(err) {
             console.error('run_test failed with error:', err, err.stack);
             process.exit(1);
         });

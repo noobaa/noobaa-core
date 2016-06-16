@@ -51,12 +51,12 @@ function background_worker() {
             }
             query.deleted = null;
 
-            return P.when(md_store.DataChunk.find(query)
+            return P.resolve(md_store.DataChunk.find(query)
                 .limit(self.batch_size)
                 .sort('-_id')
                 .lean()
                 .exec());
-            // return P.when(md_store.DataChunk.collection.find(query, {
+            // return P.resolve(md_store.DataChunk.collection.find(query, {
             //     limit: self.batch_size,
             //     sort: {
             //         _id: -1

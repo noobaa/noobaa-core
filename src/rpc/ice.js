@@ -207,10 +207,9 @@ Ice.prototype.connect = function() {
                 self._find_session_to_activate('force');
             }, 3000);
         })
-        .fail(function(err) {
+        .catch(function(err) {
             self.emit('error', err);
-        })
-        .done();
+        });
 };
 
 
@@ -249,7 +248,7 @@ Ice.prototype.accept = function(remote_info) {
                 _.keys(local_info.candidates), self.connid);
             return local_info;
         })
-        .fail(function(err) {
+        .catch(function(err) {
             self.emit('error', err);
             throw err;
         });
@@ -306,7 +305,7 @@ Ice.prototype._add_udp_candidates = function() {
 
             return self._add_stun_servers_candidates(udp);
         })
-        .fail(function(err) {
+        .catch(function(err) {
             dbg.warn('ICE _add_udp_candidates: FAILED', err);
         });
 };
@@ -399,7 +398,7 @@ Ice.prototype._add_tcp_permanent_passive_candidates = function() {
                 });
             });
         })
-        .fail(function(err) {
+        .catch(function(err) {
             dbg.warn('ICE _add_tcp_permanent_passive_candidates: FAILED', err);
         });
 };
@@ -447,7 +446,7 @@ Ice.prototype._add_tcp_transient_passive_candidates = function() {
                 });
             });
         })
-        .fail(function(err) {
+        .catch(function(err) {
             dbg.warn('ICE _add_tcp_transient_passive_candidates: FAILED', err);
         });
 
@@ -475,7 +474,7 @@ Ice.prototype._add_tcp_simultaneous_open_candidates = function() {
                     });
                 });
         }))
-        .fail(function(err) {
+        .catch(function(err) {
             dbg.warn('ICE _add_tcp_simultaneous_open_candidates: FAILED', err);
         });
 };
@@ -1299,7 +1298,7 @@ function IceSession(local, remote, packet, udp) {
     js_utils.self_bind(self, 'run_udp_request_loop');
     js_utils.self_bind(self, 'run_udp_indication_loop');
     self.defer = P.defer();
-    self.defer.promise.fail(_.noop); // to ignore 'Unhandled rejection' printouts
+    self.defer.promise.catch(_.noop); // to ignore 'Unhandled rejection' printouts
     // set session timeout
     self.ready_timeout = setTimeout(function() {
         self.close(new Error('ICE SESSION TIMEOUT'));
@@ -1477,7 +1476,7 @@ function listen_on_port_range(port_range) {
         // wait for listen even, while also watching for error/close.
         return promise_utils.wait_for_event(server, 'listening')
             .return(server)
-            .fail(function(err) {
+            .catch(function(err) {
                 dbg.log1('ICE listen_on_port_range: FAILED', port, err);
                 server.close();
                 return P.delay(1).then(try_to_listen);

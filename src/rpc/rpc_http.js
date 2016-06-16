@@ -225,7 +225,7 @@ class RpcHttpConnection extends RpcBaseConnection {
                 dbg.log3('HTTP RESPONSE', res.statusCode, 'length', data.length);
                 this.emit('message', data);
             })
-            .done(null, err => {
+            .catch(err => {
 
                 // the connection's req is done so no need to abort it on close no more
                 this.req = null;

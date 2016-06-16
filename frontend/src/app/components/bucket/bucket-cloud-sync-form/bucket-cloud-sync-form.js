@@ -3,7 +3,7 @@ import ko from 'knockout';
 import moment from 'moment';
 import { cloudSyncInfo } from 'model';
 import { removeCloudSyncPolicy, loadCloudSyncInfo, toogleCloudSync } from 'actions';
-import { bitsToNumber } from 'utils';
+import { bitsToNumber, formatDuration } from 'utils';
 
 const timeFormat = 'MMM, DD [at] hh:mm:ss';
 
@@ -16,8 +16,8 @@ const syncStateMapping = Object.freeze({
 });
 
 const directionMapping = Object.freeze({
-    1: 'Target to source',
-    2: 'Source to target',
+    1: 'Source to target',
+    2: 'Target to source',
     3: 'Bi directional'
 });
 
@@ -87,16 +87,12 @@ class BucketCloudSyncFormViewModel {
         );
 
         this.frequancy = ko.pureComputed(
-            () => policy() && `Every ${
-                moment().add(policy().schedule_min, 'minutes')
-                    .fromNow(true)
-                    .replace(/^(a|an)\s+/, '')
-            }`
+            () => policy() && `Every ${formatDuration(policy().schedule_min)}`
         );
 
         this.syncDirection = ko.pureComputed(
             () => policy() && directionMapping[
-                bitsToNumber(policy().n2c_enabled, policy().c2n_enabled)
+                bitsToNumber(policy().c2n_enabled, policy().n2c_enabled)
             ]
         );
 
@@ -105,6 +101,7 @@ class BucketCloudSyncFormViewModel {
         );
 
         this.isSetCloudSyncModalVisible = ko.observable(false);
+        this.isEditCloudSyncModalVisible = ko.observable(false);
 
         this.bucketName() && loadCloudSyncInfo(this.bucketName());
     }
@@ -128,6 +125,14 @@ class BucketCloudSyncFormViewModel {
 
     hideSetCloudSyncModal() {
         this.isSetCloudSyncModalVisible(false);
+    }
+
+    showEditCloudSyncModal() {
+        this.isEditCloudSyncModalVisible(true);
+    }
+
+    hideEditCloudSyncModal() {
+        this.isEditCloudSyncModalVisible(false);
     }
 
     dispose() {

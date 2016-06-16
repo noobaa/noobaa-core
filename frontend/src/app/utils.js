@@ -72,14 +72,21 @@ export function formatSize(num) {
 export function formatDuration(minutes) {
     let hours = minutes / 60 | 0;
     let days = hours / 24 | 0;
+    hours %= 24;
     minutes %= 60;
-    hours %= 60;
 
     return [
-        days > 0 ? `${days} Day${days > 1 ? 's' : ''}` : '',
-        hours > 0 ? `${hours} Hour${hours > 1 ? 's' : ''}` : '',
-        minutes > 0 ? `${minutes} Min${minutes > 1 ? 's' : ''}` : ''
-    ].join(' ');
+        days > 0 ? `${days} day${days > 1 ? 's' : ''}` : null,
+        hours > 0 ? `${hours} hour${hours > 1 ? 's' : ''}` : null,
+        minutes > 0 ? `${minutes} minute${minutes > 1 ? 's' : ''}` : null
+    ]
+        .filter(
+            part => part
+        )
+        .reduce(
+            (str, part, i, parts) =>
+                str + (i === parts.length - 1 ? ' and ' : ', ') + parts
+        );
 }
 
 export function randomString(len = 8) {

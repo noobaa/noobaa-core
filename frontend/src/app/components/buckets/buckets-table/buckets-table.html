@@ -32,7 +32,7 @@
         <tbody data-bind="foreach: visibleRows">
             <tr>
                 <td class="state-col" data-bind="tooltip: stateToolTip">
-                    <svg-icon params="uri: stateIcon"></svg-icon>
+                    <svg-icon params="name: stateIcon"></svg-icon>
                 </td>
 
                 <td class="name-col text-left">
@@ -46,7 +46,7 @@
                 </td>
 
                 <td class="cloudsync-col" data-bind="
-                    text: cloudSyncStatus().label, 
+                    text: cloudSyncStatus().label,
                     css: cloudSyncStatus().css"
                 ></td>
 

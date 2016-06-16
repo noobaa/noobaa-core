@@ -42,7 +42,6 @@ class BucketDataPlacementFormViewModel {
                     );
 
                     return {
-                        stateIcon: '/fe/assets/icons.svg#pool',
                         name: name,
                         onlineNodeCount: pool ? pool.nodes.count : 'N/A',
                         freeSpace: pool ? formatSize(pool.storage.free) : 'N/A'

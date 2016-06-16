@@ -33,13 +33,13 @@
                     </a>
                 </th>
                 <th class="delete-col"></th>
-            </tr>        
+            </tr>
         </thead>
 
         <tbody data-bind="foreach: visibleRows">
             <tr>
                 <td class="state-col">
-                    <svg-icon params="uri: stateIcon"></svg-icon>
+                    <svg-icon params="name: stateIcon"></svg-icon>
                 </td>
                 <td class="name-col text-left">
                     <a href class="link" data-bind="text: name, href: href"></a>
@@ -51,7 +51,7 @@
                 <td class="capacity-col">
                     <capacity-bar params="total: total, used: used"></capacity-bar>
                 </td>
-                
+
                 <td class="delete-col">
                     <delete-button params="
                         group: $component.deleteGroup,

@@ -25,9 +25,7 @@ export default class NodeRowViewModel {
         );
 
         this.stateIcon = ko.pureComputed(
-            () => node() && `/fe/assets/icons.svg#node-${
-                node().online ? 'online' : 'offline'
-            }`
+            () => node() && `node-${node().online ? 'online' : 'offline'}`
         );
 
         this.name = ko.pureComputed(

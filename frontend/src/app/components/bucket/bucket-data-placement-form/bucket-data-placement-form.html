@@ -8,11 +8,11 @@
 
 <div class="row push-next">
     <span class="push-next">
-        <span>Pools in policy:</span> 
+        <span>Pools in policy:</span>
         <span class="emphasized" data-bind="text: poolCount"></span>
     </span>
     <span>
-        <span>Policy type:</span> 
+        <span>Policy type:</span>
         <span class="emphasized" data-bind="text: placementType"></span>
     </span>
 </div>
@@ -38,7 +38,7 @@
         <tbody data-bind="foreach: pools">
             <tr>
                 <td class="state-col">
-                    <svg-icon params="uri: stateIcon"></svg-icon>
+                    <svg-icon params="name: 'pool'"></svg-icon>
                 </td>
 
                 <td class="name-col text-left" data-bind="
@@ -51,7 +51,7 @@
 
                 <td class="free-col" data-bind="
                     text: freeSpace
-                "></td>                
+                "></td>
             </tr>
         </tbody>
     </table>

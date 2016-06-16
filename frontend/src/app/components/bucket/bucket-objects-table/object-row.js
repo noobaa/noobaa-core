@@ -4,15 +4,15 @@ import ko from 'knockout';
 const statusIconMapping = Object.freeze({
     AVALIABLE: {
         toolTip: 'Avaliable',
-        icon: '/fe/assets/icons.svg#object-available'
+        icon: 'object-available'
     },
     IN_PROCESS: {
         toolTip: 'In Process',
-        icon: '/fe/assets/icons.svg#object-in-process'
+        icon: 'object-in-process'
     },
     UNAVALIABLE: {
         toolTip: 'Unavaliable',
-        icon: '/fe/assets/icons.svg#object-unavailable'
+        icon: 'object-unavailable'
     }
 });
 

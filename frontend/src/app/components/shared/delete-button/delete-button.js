@@ -29,13 +29,9 @@ class DeleteButtonViewModel {
         });
 
         this.deleteIcon = ko.pureComputed(
-            () => {
-                let icon = ko.unwrap(this.disabled) ?
-                    disabledIcon :
-                    (this.isSelected() ? opendIcon : closedIcon);
-
-                return `/fe/assets/icons.svg#${icon}`;
-            }
+            () => ko.unwrap(this.disabled) ?
+                disabledIcon :
+                (this.isSelected() ? opendIcon : closedIcon)
         );
     }
 

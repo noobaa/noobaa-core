@@ -14,7 +14,7 @@
 <ul class="part-list greedy" data-bind="foreach: rows">
     <li>
         <div class="row content-middle" data-bind="click: toggleExpend">
-            <svg-icon class="push-next" params="uri: stateIcon" data-bind="
+            <svg-icon class="push-next" params="name: stateIcon" data-bind="
                 tooltip: stateToolTip
             "></svg-icon>
 
@@ -27,7 +27,7 @@
                 css: { 'deg-90': !isExpended() }
             ">
                 <svg-icon class="expand-icon icon-small" params="
-                    uri: '/fe/assets/icons.svg#chevron'
+                    name: 'chevron'
                 "></svg-icon>
             </button>
         </div>
@@ -36,8 +36,8 @@
             <tbody data-bind="foreach: blocks">
                 <tr content-middle">
                     <td class="status-col">
-                        <svg-icon class="icon-small" 
-                            params="uri: nodeStateIcon" 
+                        <svg-icon class="icon-small"
+                            params="name: nodeStateIcon"
                             data-bind="tooltip: nodeStateToolTip">
                         </svg-icon>
                     </td>

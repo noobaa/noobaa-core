@@ -4,15 +4,15 @@ import numeral from 'numeral';
 const partStateMapping = Object.freeze({
     available: {
         toolTip: 'available',
-        icon: '/fe/assets/icons.svg#part-available'
+        icon: 'part-available'
     },
     building: {
         toolTip: 'in process',
-        icon: '/fe/assets/icons.svg#part-in-process'
+        icon: 'part-in-process'
     },
     unavailable: {
         toolTip: 'unavailable',
-        icon: '/fe/assets/icons.svg#part-unavailable'
+        icon: 'part-unavailable'
     }
 });
 

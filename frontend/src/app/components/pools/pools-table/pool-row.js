@@ -14,7 +14,7 @@ export default class PoolRowViewModel {
             () => !!pool()
         );
 
-        this.stateIcon = '/fe/assets/icons.svg#pool';
+        this.stateIcon = 'pool';
 
         this.name = ko.pureComputed(
             () => pool() && pool().name

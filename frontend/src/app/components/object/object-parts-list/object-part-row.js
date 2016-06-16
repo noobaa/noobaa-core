@@ -13,7 +13,7 @@ class BlockRowViewModel {
 
         this.label = `Replica ${index + 1} of ${count}`;
         this.nodeStateToolTip = online ? 'online' : 'offline';
-        this.nodeStateIcon = `/fe/assets/icons.svg#node-${online ? 'online' : 'offline'}`;
+        this.nodeStateIcon = `node-${online ? 'online' : 'offline'}`;
         this.nodeIp = node_ip;
         this.poolName = pool_name;
         this.poolUrl = `/fe/systems/:system/pools/${pool_name}`;
@@ -31,7 +31,7 @@ export default class ObjectPartRowViewModel {
         let stateMapping = partStateMapping[state];
 
         this.stateToolTip = stateMapping.toolTip;
-        this.stateIcon = `/fe/assets/icons.svg#${stateMapping.icon}`;
+        this.stateIcon = stateMapping.icon;
         this.name = `Part ${partNumber + 1} of ${partsCount}`;
         this.size = size;
         this.blocks = blocks;

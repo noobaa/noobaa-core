@@ -1,6 +1,6 @@
 <div class="row push-next">
-    <input class="greedy align-middle" type="search" 
-        placeholder="Filter by Node Name or IP" 
+    <input class="greedy align-middle" type="search"
+        placeholder="Filter by Node Name or IP"
         data-bind=" textInput: filter"/>
 
     <button class="btn3" data-bind="click: () => showAssignNodesModal()">
@@ -26,7 +26,7 @@
 
     <dropdown class="push-next" params="
         options: activityOptions,
-        selected: activityFilter 
+        selected: activityFilter
     "></dropdown>
 
     <div class="greedy column">
@@ -73,20 +73,20 @@
             <!-- ko if: isVisible -->
             <tr>
                 <td class="state-col" data-bind="tooltip: stateToolTip">
-                    <svg-icon params="uri: stateIcon"></svg-icon>
+                    <svg-icon params="name: stateIcon"></svg-icon>
                 </td>
                 <td class="name-col text-left" >
                     <a class="link" data-bind="text: name, href: href"></a>
                 </td>
 
                 <td class="ip-col" data-bind="text: ip"></td>
-                
+
                 <td class="capacity-col">
                     <capacity-bar params="total: total, used: used"></capacity-bar>
                 </td>
 
                 <td class="data-access-col" data-bind="
-                    text: dataAccessText, 
+                    text: dataAccessText,
                     css: dataAccessClass
                 "></td>
                 <td class="trust-level-col" data-bind="text: trustLevel"></td>

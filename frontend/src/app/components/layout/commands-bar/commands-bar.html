@@ -1,27 +1,27 @@
 <button class="btn-flat action"  data-bind="
-    click: refresh, 
+    click: refresh,
     tooltip: 'Refresh'
 ">
-    <svg-icon params="uri: '/fe/assets/icons.svg#refresh'"></svg-icon>
+    <svg-icon params="name: 'refresh'"></svg-icon>
 </button>
 
 <a class="btn-flat action" data-bind="
-    href: '/fe/systems/:system\/management', 
+    href: '/fe/systems/:system\/management',
     tooltip: 'Management'
 ">
-    <svg-icon params="uri: '/fe/assets/icons.svg#manage'"></svg-icon>
+    <svg-icon params="name: 'manage'"></svg-icon>
 </a>
 
 <button class="btn-flat action" data-bind="
     click: showAuditLog,
     tooltip: 'Audit'
 ">
-    <svg-icon params="uri: '/fe/assets/icons.svg#audit'"></svg-icon>
+    <svg-icon params="name: 'audit'"></svg-icon>
 </button>
-        
+
 <button class="btn-flat action" data-bind="
     click: signOut,
     tooltip: { text: 'Sign Out', align: 'right' }
 ">
-    <svg-icon params="uri: '/fe/assets/icons.svg#signout'"></svg-icon>
+    <svg-icon params="name: 'signout'"></svg-icon>
 </button>

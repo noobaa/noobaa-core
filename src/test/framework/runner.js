@@ -30,7 +30,7 @@ function TestRunner(argv) {
 /**************************
  *   Common Functionality
  **************************/
-TestRunner.prototype.wait_for_server_to_start = function(max_seconds_to_wait) {
+TestRunner.prototype.wait_for_server_to_start = function(max_seconds_to_wait, port) {
     var isNotListening = true;
     var MAX_RETRIES = max_seconds_to_wait;
     var wait_counter = 1;
@@ -41,7 +41,7 @@ TestRunner.prototype.wait_for_server_to_start = function(max_seconds_to_wait) {
             },
             function() {
                 return P.ninvoke(request, 'get', {
-                    url: 'http://127.0.0.1:8080/',
+                    url: 'http://127.0.0.1:' + port,
                     rejectUnauthorized: false,
                 }).spread(function(res, body) {
                     console.log('server started after ' + wait_counter + ' seconds');
@@ -75,7 +75,7 @@ TestRunner.prototype.restore_db_defaults = function() {
             return promise_utils.promised_exec('supervisorctl restart webserver');
         })
         .then(function() {
-            return self.wait_for_server_to_start(30);
+            return self.wait_for_server_to_start(30, 8080);
         })
         .delay(5000) //Workaround for agents sending HBs and re-registering to the server
         .fail(function(err) {
@@ -151,7 +151,10 @@ TestRunner.prototype.complete_run = function() {
             return self._restart_services(false);
         })
         .then(function() {
-            return self.wait_for_server_to_start(30);
+            return self.wait_for_server_to_start(30, 80);
+        })
+        .then(function() {
+            return self.wait_for_server_to_start(30, 8080);
         })
         .then(function() {
             console.log('Uploading results file');

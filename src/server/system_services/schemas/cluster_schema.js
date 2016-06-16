@@ -59,5 +59,75 @@ module.exports = {
                 },
             },
         },
+
+        heartbeat: {
+            type: 'object',
+            required: ['version', 'time'],
+            properties: {
+                version: {
+                    type: 'string'
+                },
+                time: {
+                    format: 'idate'
+                },
+                role: {
+                    type: 'string'
+                },
+
+                health: {
+                    type: 'object',
+                    properties: {
+                        os_info: {
+                            type: 'object',
+                            properties: {
+                                hostname: {
+                                    type: 'string'
+                                },
+                                ostype: {
+                                    type: 'string'
+                                },
+                                platform: {
+                                    type: 'string'
+                                },
+                                arch: {
+                                    type: 'string'
+                                },
+                                release: {
+                                    type: 'string'
+                                },
+                                uptime: {
+                                    format: 'idate'
+                                },
+                                loadavg: {
+                                    type: 'array',
+                                    items: {
+                                        type: 'number'
+                                    }
+                                },
+                                totalmem: {
+                                    type: 'number'
+                                },
+                                freemem: {
+                                    type: 'number'
+                                },
+                                cpus: {
+                                    type: 'array',
+                                    items: {
+                                        type: 'object',
+                                        properties: {},
+                                        additionalProperties: true
+                                    }
+                                },
+                                networkInterfaces: {
+                                    type: 'object',
+                                    properties: {},
+                                    additionalProperties: true
+                                }
+                            }
+                        },
+                    }
+                }
+            }
+        }
     }
 };

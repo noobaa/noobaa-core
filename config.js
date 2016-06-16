@@ -71,6 +71,8 @@ config.CLUSTERING_PATHS = {
     SUPER_FILE: '/etc/noobaa_supervisor.conf',
 };
 
+config.CLUSTER_HB_INTERVAL = 1 * 60000;
+
 config.SUPERVISOR_PROGRAM_SEPERATOR = '#endprogram';
 
 config.SUPERVISOR_DEFAULTS = {

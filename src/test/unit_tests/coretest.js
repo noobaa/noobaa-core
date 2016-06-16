@@ -55,7 +55,7 @@ mocha.before('coretest-before', function() {
     return P.resolve()
         .then(() => mongoose_utils.mongoose_connect())
         .then(() => mongoose_utils.mongoose_wait_connected())
-        .then(() => P.npost(mongoose.connection.db, 'dropDatabase'))
+        .then(() => mongoose.connection.db.dropDatabase()) // returns promise
         .then(() => mongoose_utils.mongoose_ensure_indexes())
         .then(() => mongo_client.connect())
         .then(() => server_rpc.rpc.start_http_server({

@@ -51,7 +51,3 @@ Pipeline.prototype.on_close = function() {
         strm.emit('close');
     });
 };
-
-Pipeline.prototype.notify = function(progress) {
-    this._defer.notify(progress);
-};

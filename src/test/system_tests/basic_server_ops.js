@@ -165,22 +165,22 @@ function download_file(ip, path) {
 function verify_upload_download(ip, path) {
     var orig_md5;
     var down_path = path + '_download';
-    return P.when(calc_md5(path))
+    return P.resolve(calc_md5(path))
         .then(function(md5) {
             orig_md5 = md5;
             return upload_file(ip, path);
         })
-        .fail(function(err) {
+        .catch(function(err) {
             console.warn('Failed to upload file', path, 'with err', err, err.stack);
         })
         .then(function() {
             return download_file(ip, down_path);
         })
-        .fail(function(err) {
+        .catch(function(err) {
             console.warn('Failed to download file with err', err, err.stack);
         })
         .then(function() {
-            return P.when(calc_md5(down_path));
+            return P.resolve(calc_md5(down_path));
         })
         .then(function(md5) {
             if (md5 === orig_md5) {
@@ -225,12 +225,12 @@ function wait_on_agents_upgrade(ip) {
             return client.create_auth_token(auth_params);
         })
         .then(function() {
-            return P.when(client.system.read_system({}))
+            return P.resolve(client.system.read_system({}))
                 .then(function(res) {
                     sys_ver = res.version;
                 });
         })
-        .fail(function(error) {
+        .catch(function(error) {
             console.warn('Failed with', error, error.stack);
             throw error;
         })
@@ -245,7 +245,7 @@ function wait_on_agents_upgrade(ip) {
                         return old_agents;
                     },
                     function() {
-                        return P.when(client.node.list_nodes({
+                        return P.resolve(client.node.list_nodes({
                                 query: {
                                     online: true,
                                 }

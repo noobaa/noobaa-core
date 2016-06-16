@@ -392,7 +392,7 @@ function reload_syslog_configuration(conf) {
 }
 
 if (require.main === module) {
-    read_drives().done(function(drives) {
+    read_drives().then(function(drives) {
         console.log(drives);
     });
 }

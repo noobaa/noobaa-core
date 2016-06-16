@@ -42,7 +42,7 @@ function aggregate_objects(query) {
 
 function load_chunks_by_digest(bucket, digest_list) {
     let chunks;
-    return P.when(DataChunk.collection.find({
+    return P.resolve(DataChunk.collection.find({
             system: bucket.system._id,
             bucket: bucket._id,
             digest_b64: {
@@ -68,7 +68,7 @@ function load_chunks_by_digest(bucket, digest_list) {
 
 function load_blocks_for_chunks(chunks) {
     if (!chunks || !chunks.length) return;
-    return P.when(DataBlock.collection.find({
+    return P.resolve(DataBlock.collection.find({
             chunk: {
                 $in: mongo_utils.uniq_ids(chunks, '_id')
             },
@@ -94,7 +94,7 @@ function load_parts_objects_for_chunks(chunks) {
     let parts;
     let objects;
     if (!chunks || !chunks.length) return;
-    return P.when(ObjectPart.collection.find({
+    return P.resolve(ObjectPart.collection.find({
             chunk: {
                 $in: mongo_utils.uniq_ids(chunks, '_id')
             },

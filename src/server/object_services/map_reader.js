@@ -139,7 +139,7 @@ function read_parts_mappings(params) {
     var chunk_ids = mongo_utils.uniq_ids(chunks, '_id');
 
     // find all blocks of the resulting parts
-    return P.when(md_store.DataBlock.collection.find({
+    return P.resolve(md_store.DataBlock.collection.find({
             chunk: {
                 $in: chunk_ids
             },

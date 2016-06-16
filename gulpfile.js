@@ -1,51 +1,42 @@
 'use strict';
 
-var argv = require('minimist')(process.argv);
-var gulp = require('gulp');
-var gutil = require('gulp-util');
-// var gulp_debug = require('gulp-debug');
-// var gulp_filter = require('gulp-filter');
-// var gulp_size = require('gulp-size');
-// var gulp_cached = require('gulp-cached');
-var gulp_plumber = require('gulp-plumber');
-var gulp_notify = require('gulp-notify');
-var gulp_rename = require('gulp-rename');
-var gulp_tar = require('gulp-tar');
-var gulp_gzip = require('gulp-gzip');
-var gulp_json_editor = require('gulp-json-editor');
-var gulp_jshint = require('gulp-jshint');
-var gulp_eslint = require('gulp-eslint');
-var jshint_stylish = require('jshint-stylish');
-var event_stream = require('event-stream');
-var gulp_mocha = require('gulp-mocha');
-var gulp_istanbul = require('gulp-istanbul');
-// var fs = require('fs');
-var path = require('path');
-var child_process = require('child_process');
-var dotenv = require('dotenv');
-var through2 = require('through2');
-var Q = require('q');
-var _ = require('lodash');
-var promise_utils = require('./src/util/promise_utils');
-var pkg = require('./package.json');
-var current_pkg_version;
+const gulp = require('gulp');
+const gutil = require('gulp-util');
+const gulp_tar = require('gulp-tar');
+const gulp_gzip = require('gulp-gzip');
+const gulp_mocha = require('gulp-mocha');
+const gulp_notify = require('gulp-notify');
+const gulp_rename = require('gulp-rename');
+const gulp_jshint = require('gulp-jshint');
+const gulp_eslint = require('gulp-eslint');
+const gulp_plumber = require('gulp-plumber');
+const gulp_istanbul = require('gulp-istanbul');
+const gulp_json_editor = require('gulp-json-editor');
+
+const _ = require('lodash');
+const Q = require('q');
+const argv = require('minimist')(process.argv);
+const path = require('path');
+const dotenv = require('dotenv');
+const through2 = require('through2');
+const event_stream = require('event-stream');
+const child_process = require('child_process');
+const jshint_stylish = require('jshint-stylish');
+
+const pkg = require('./package.json');
+const promise_utils = require('./src/util/promise_utils');
 
 if (!process.env.PORT) {
     console.log('loading .env file ( no foreman ;)');
     dotenv.load();
 }
 
-var active_services = {};
-var skip_install = Boolean(argv.skip_install);
-var use_local_executable = Boolean(argv.local);
-var git_commit = 'DEVONLY';
-var cov_dir = argv.COV_DIR || '';
-
-if (argv.GIT_COMMIT) {
-    git_commit = argv.GIT_COMMIT.substr(0, 7);
-}
-
-current_pkg_version = pkg.version + '-' + git_commit;
+const active_services = {};
+const skip_install = Boolean(argv.skip_install);
+const use_local_executable = Boolean(argv.local);
+const git_commit = argv.GIT_COMMIT && argv.GIT_COMMIT.substr(0, 7) || 'DEVONLY';
+const cov_dir = argv.COV_DIR || '';
+const current_pkg_version = pkg.version + '-' + git_commit;
 console.log('current_pkg_version:', current_pkg_version);
 
 function leave_no_wounded(err) {
@@ -69,7 +60,7 @@ process.on("SIGINT", leave_no_wounded);
 process.on("SIGTERM", leave_no_wounded);
 
 
-var PATHS = {
+const PATHS = {
     unit_tests_main: 'src/test/unit_tests/index.js',
     js_for_lint: ['src/**/*.js', '*.js'],
     js_for_coverage: [
@@ -99,7 +90,7 @@ var PATHS = {
     ],
 };
 
-var SRC_DONT_READ = {
+const SRC_DONT_READ = {
     read: false
 };
 
@@ -333,7 +324,7 @@ function package_build_task() {
                     })
                     .then(function() {
                         return promise_utils.promised_exec('chmod 777 build/public/noobaa-setup*');
-                    }).fail(function(err) {
+                    }).catch(function(err) {
                         gutil.log('Failed to download packages. Aborting due to ' + err.message + "     " + err.stack);
                         throw new Error('Failed to download packages. Aborting due to ' + err.message + "     " + err.stack);
                     });

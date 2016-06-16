@@ -2,7 +2,6 @@
 
 var P = require('bluebird');
 var _ = require('lodash');
-require('setimmediate');
 
 /**
  *
@@ -19,50 +18,40 @@ module.exports = P;
 
 // better stack traces for promises
 // used for testing only to avoid its big mem & cpu overheads
-// using setImmediate to allow modules to change the env on startup
 if (process.env.DEBUG_MODE === 'true') {
     console.log('Promise with longStackTraces on DEBUG_MODE');
-    P.longStackTraces();
 }
+P.config({
+    longStackTraces: process.env.DEBUG_MODE === 'true',
+    // warnings: true || {
+    //     wForgottenReturn: false
+    // },
+});
 
 P.promisifyAll(require('fs'));
 P.promisifyAll(require('child_process'));
 
-// aliases from Q
-P.when = P.resolve;
-P.prototype.fin = P.prototype.finally;
-P.prototype.fail = P.prototype.catch;
-P.prototype.thenResolve = P.prototype.return;
-
-// functions from Q
+// TODO remove backward compatibility to Q functions
 P.defer = function defer() {
-    var ret = {};
-    var promise = new P(function(resolve, reject) {
-        ret.resolve = ret.fulfill = resolve;
-        ret.reject = reject;
+    let callback;
+    let promise = P.fromCallback(function(cb) {
+        callback = cb;
     });
-    ret.promise = promise;
-    ret.notify = promise._progress.bind(promise);
-    return ret;
+    return {
+        resolve: res => callback(null, res),
+        reject: err => callback(err),
+        promise: promise
+    };
 };
 P.fcall = function fcall() {
     var func = arguments[0];
     var args = Array.prototype.slice.call(arguments, 1);
-    return P.try(func, args);
-};
-P.invoke = function invoke() {
-    var obj = arguments[0];
-    var func_name = arguments[1];
-    var args = Array.prototype.slice.call(arguments, 2);
-    return P.try(obj[func_name], args, obj);
+    return P.try(() => func.apply(null, args));
 };
 P.nfcall = function nfcall() {
     var func = arguments[0];
     var args = Array.prototype.slice.call(arguments, 1);
-    /*
-    return P.promisify(func).apply(null, args);
-    */
-    return P.fromNode(function nfcall_fromNode(callback) {
+    return P.fromCallback(function nfcall_fromCallback(callback) {
         args.push(callback);
         func.apply(null, args);
     });
@@ -71,32 +60,11 @@ P.ninvoke = function ninvoke() {
     var obj = arguments[0];
     var func_name = arguments[1];
     var args = Array.prototype.slice.call(arguments, 2);
-    /*
-    return P.promisify(obj[func_name]).apply(obj, args);
-    */
-    return P.fromNode(function ninvoke_fromNode(callback) {
+    return P.fromCallback(function ninvoke_fromCallback(callback) {
         args.push(callback);
         obj[func_name].apply(obj, args);
     });
 };
-P.npost = function npost() {
-    var obj = arguments[0];
-    var func_name = arguments[1];
-    var args = arguments[2];
-    /*
-    return P.promisify(obj[func_name]).apply(obj, args);
-    */
-    return P.fromNode(function npost_fromNode(callback) {
-        if (args) {
-            args = args.slice(); // copy
-            args.push(callback);
-        } else {
-            args = [callback];
-        }
-        obj[func_name].apply(obj, args);
-    });
-};
-
 P.hijackQ = function hijackQ() {
     try {
         var Q = require('q');

@@ -273,7 +273,7 @@ function call_next_io(req) {
         return_rpc_req: true
     });
     if (retry_func) {
-        promise = promise.fail(retry_func);
+        promise = promise.catch(retry_func);
     }
     return promise.then(call_next_io);
 }

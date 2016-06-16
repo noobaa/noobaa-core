@@ -22,7 +22,7 @@ class BlockStoreBase {
             expiry_ms: 0, // no expiry
             make_key: block_md => block_md.id,
             load: block_md => {
-                return P.when(this._read_block(block_md))
+                return P.resolve(this._read_block(block_md))
                     .then(block => {
                         this._verify_block(block_md, block.data, block.block_md);
                         return block;
@@ -65,7 +65,7 @@ class BlockStoreBase {
         }
         this._verify_block(block_md, data);
         this.block_cache.invalidate(block_md);
-        return P.when(this._write_block(block_md, data))
+        return P.resolve(this._write_block(block_md, data))
             .then(() => {
                 this.block_cache.put_in_cache(block_md, {
                     block_md: block_md,
@@ -93,7 +93,7 @@ class BlockStoreBase {
         const block_ids = req.rpc_params.block_ids;
         dbg.log0('delete_blocks', block_ids, 'node', this.node_name);
         this.block_cache.multi_invalidate_keys(block_ids);
-        return P.when(this._delete_blocks(block_ids)).return();
+        return P.resolve(this._delete_blocks(block_ids)).return();
     }
 
     _verify_block(block_md, data, block_md_from_store) {

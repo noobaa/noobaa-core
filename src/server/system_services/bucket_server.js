@@ -291,7 +291,7 @@ function delete_bucket(req) {
         throw new RpcError('BAD_REQUEST', 'Cannot delete last bucket');
     }
 
-    return P.when(md_store.aggregate_objects({
+    return P.resolve(md_store.aggregate_objects({
             system: req.system._id,
             bucket: bucket._id,
             deleted: null,
@@ -363,7 +363,7 @@ function get_cloud_sync(req, bucket) {
     if (!bucket.cloud_sync || !bucket.cloud_sync.target_bucket) {
         return {};
     }
-    return P.when(server_rpc.client.cloud_sync.get_policy_status({
+    return P.resolve(server_rpc.client.cloud_sync.get_policy_status({
             sysid: bucket.system._id.toString(),
             bucketid: bucket._id.toString()
         }, {

@@ -129,6 +129,6 @@ function find_line_in_file(file_name, line_sub_string) {
 }
 
 function create_fresh_path(path) {
-    return P.when(promise_utils.folder_delete(path))
+    return P.resolve(promise_utils.folder_delete(path))
         .then(() => fs.mkdir(path));
 }

@@ -31,7 +31,7 @@ class RpcBaseConnection extends EventEmitter {
 
         // the connecting_defer is used by connect() to wait for the connected event
         this.connecting_defer = P.defer();
-        this.connecting_defer.promise.fail(_.noop); // to prevent error log of unhandled rejection
+        this.connecting_defer.promise.catch(_.noop); // to prevent error log of unhandled rejection
 
         // the 'connect' event is emitted by the inherited type (http/ws/tcp/n2n)
         // and is expected after calling _connect() or when a connection is accepted
@@ -97,8 +97,8 @@ class RpcBaseConnection extends EventEmitter {
         if (this._state !== STATE_CONNECTED) {
             throw new Error('RPC CONN NOT CONNECTED ' + this._state + ' ' + this.connid);
         }
-        return P.invoke(this, '_send', msg, op, req).fail(this.emit_error);
-        // return this._send(msg, op, req);
+        return P.try(() => this._send(msg, op, req))
+            .catch(this.emit_error);
     }
 
     close() {

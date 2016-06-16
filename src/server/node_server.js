@@ -11,6 +11,14 @@ var nodes_store = require('./stores/nodes_store');
 var config = require('../../config');
 var db = require('./db');
 var dbg = require('../util/debug_module')(__filename);
+// module dependencies
+var dclassify = require('dclassify');
+
+// Utilities provided by dclassify
+var Classifier = dclassify.Classifier;
+var DataSet = dclassify.DataSet;
+var Document = dclassify.Document;
+
 
 /**
  *
@@ -304,13 +312,77 @@ function list_nodes_int(system_id, query, skip, limit, pagination, sort, order, 
                 pagination && nodes_store.count_nodes(info));
         })
         .spread(function(nodes, total_count) {
-            console.log('list_nodes', nodes.length, '/', total_count);
+            var data_for_ml = [];
+            var default_pool_index = -1;
             var res = {
                 nodes: _.map(nodes, node => {
                     nodes_store.resolve_node_object_ids(node);
+                    var node_avg_read = node.latency_of_disk_read.reduce(function(a, m, i, p) {
+                        return a + m / p.length;
+                    }, 0);
+                    var node_avg_write = node.latency_of_disk_write.reduce(function(a, m, i, p) {
+                        return a + m / p.length;
+                    }, 0);
+                    var node_avg_latency = node.latency_to_server.reduce(function(a, m, i, p) {
+                        return a + m / p.length;
+                    }, 0);
+                    var pool_index = _.findIndex(data_for_ml, function(obj) {
+                        return obj.pool_name === node.pool.name;
+                    });
+                    if (node.pool.name === 'default_pool') {
+                        default_pool_index = pool_index;
+                    }
+                    if (pool_index < 0) {
+                        data_for_ml.push({
+                            pool_name: node.pool.name,
+                            nodes: [new Document(node._id, [node.ip, node.geolocation, node_avg_latency, node_avg_read, node_avg_write])]
+                        });
+                    } else {
+                        data_for_ml[pool_index].nodes.push(new Document(node._id, [node.ip, node.geolocation, node_avg_latency, node_avg_read, node_avg_write]));
+                    }
                     return get_node_full_info(node);
                 })
             };
+            var data = new DataSet();
+            var options = {
+                applyInverse: true
+            };
+
+            _.forEach(data_for_ml, function(value, key) {
+                data.add(value.pool_name, value.nodes);
+            });
+
+            if (data_for_ml.length>1){
+                // create a classifier
+                var classifier = new Classifier(options);
+
+                // train the classifier
+                classifier.train(data);
+
+                dbg.log1("Trained with:" + JSON.stringify(classifier.probabilities, null, 4));
+
+                _.forEach(data_for_ml[default_pool_index].nodes, function(value, key) {
+                    var result1 = classifier.classify(value);
+                    var suggested_pool = "";
+                    if (result1.category === 'default_pool'){
+                        suggested_pool = result1.secondCategory;
+                    }else
+                    {
+                        suggested_pool = result1.category;
+                    }
+
+                    var node_index = _.findIndex(res.nodes, function(obj) {
+                        return obj.id == value.id;
+                    });
+
+                    res.nodes[node_index].suggested_pool = suggested_pool;
+                    dbg.log1('ML result for ', value.id, 'suggested pool:', suggested_pool);
+
+                });
+
+
+            }
+
             if (pagination) {
                 res.total_count = total_count;
             }
@@ -489,9 +561,10 @@ function get_node_full_info(node) {
     if (node.srvmode) {
         info.srvmode = node.srvmode;
     }
-    if (node.storage.free <= config.NODES_FREE_SPACE_RESERVE && !(node.storage.limit && node.storage.free>0) ) {
+    if (node.storage.free <= config.NODES_FREE_SPACE_RESERVE && !(node.storage.limit && node.storage.free > 0)) {
         info.storage_full = true;
     }
+    info.suggested_pool = "";
     info.pool = node.pool.name;
     info.heartbeat = node.heartbeat.getTime();
     info.storage = get_storage_info(node.storage);

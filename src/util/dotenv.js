@@ -108,7 +108,7 @@ module.exports = {
             } else {
                 DROPPED_LINES.INDICES.push(idx);
                 DROPPED_LINES.LINES.push(line);
-                console.warn('line', line);
+                // console.warn('line', line);
             }
             ++idx;
         });

@@ -580,7 +580,7 @@ function update_cloud_sync(req) {
         })
         .then(function() {
             //TODO:: scale, fine for 1000 objects, not for 1M
-            if(should_resync) {
+            if (should_resync) {
                 return object_server.set_all_files_for_sync(req.system._id, bucket._id);
             }
         })

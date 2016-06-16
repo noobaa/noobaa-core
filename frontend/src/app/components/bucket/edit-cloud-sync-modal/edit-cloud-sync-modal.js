@@ -1,7 +1,7 @@
 import template from './edit-cloud-sync-modal.html';
 import ko from 'knockout';
 import { cloudSyncInfo } from 'model';
-import { loadCloudSyncInfo } from 'actions';
+import { loadCloudSyncInfo, updateCloudSyncPolicy } from 'actions';
 import { deepFreeze, bitsToNumber } from 'utils';
 
 const [ MIN, HOUR, DAY ] = [ 1, 60, 60 * 24 ];
@@ -26,6 +26,10 @@ const directionMapping = deepFreeze({
     3: { label: 'Bi directional', symbol: '<-->' }
 });
 
+function minutesToUnit(minutes) {
+    return minutes % DAY === 0 ? DAY : (minutes % HOUR === 0 ? HOUR : MIN);
+}
+
 class EditCloudSyncModalViewModel {
     constructor({ bucketName, onClose }) {
         this.onClose = onClose;
@@ -45,19 +49,19 @@ class EditCloudSyncModalViewModel {
         );
 
         this.frequencyUnit = ko.observableWithDefault(
-            () => policy() && policy().schedule < DAY ?
-                (policy().schedule < HOUR ? MIN : HOUR) :
-                DAY
+            () => policy() && minutesToUnit(policy().schedule_min)
         );
 
         this.frequency = ko.observableWithDefault(
-            () => policy() && (policy().schedule / this.frequencyUnit())
+            () => policy() && (
+                policy().schedule_min / minutesToUnit(policy().schedule_min)
+            )
         );
 
         this.frequencyUnitOptions = frequencyUnitOptions;
 
         this.direction = ko.observableWithDefault(
-            () => policy() && bitsToNumber(policy().n2c_enabled, policy().c2n_enabled)
+            () => policy() && bitsToNumber(policy().c2n_enabled, policy().n2c_enabled)
         );
 
         this.directionSymbol = ko.pureComputed(
@@ -88,6 +92,12 @@ class EditCloudSyncModalViewModel {
     }
 
     save() {
+        updateCloudSyncPolicy(
+            ko.unwrap(this.sourceBucket),
+            this.direction(),
+            this.frequency() * this.frequencyUnit(),
+            this.syncDeletions()
+        );
         this.onClose();
     }
 }

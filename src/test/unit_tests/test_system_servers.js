@@ -263,9 +263,9 @@ mocha.describe('system_servers', function() {
             .then(() => client.bucket.set_cloud_sync({
                 name: BUCKET,
                 connection: CLOUD_SYNC_CONNECTION,
+                target_bucket: BUCKET,
                 policy: {
-                    target_bucket: BUCKET,
-                    schedule: 11
+                    schedule_min: 11
                 }
             }))
             .then(() => client.bucket.get_cloud_buckets({

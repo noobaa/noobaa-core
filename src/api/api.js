@@ -34,14 +34,16 @@ api_schema.compile();
  */
 RPC.Client.prototype.create_auth_token = function(params) {
     return this.auth.create_auth(params)
-        .tap(res => {
+        .then(res => {
             this.options.auth_token = res.token;
+            return res;
         });
 };
 RPC.Client.prototype.create_access_key_auth = function(params) {
     return this.auth.create_access_key_auth(params)
-        .tap(res => {
+        .then(res => {
             this.options.auth_token = res.token;
+            return res;
         });
 };
 

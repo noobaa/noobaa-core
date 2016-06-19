@@ -291,7 +291,7 @@ function delete_bucket(req) {
         throw new RpcError('BAD_REQUEST', 'Cannot delete last bucket');
     }
 
-    return P.when(md_store.aggregate_objects({
+    return P.resolve(md_store.aggregate_objects({
             system: req.system._id,
             bucket: bucket._id,
             deleted: null,
@@ -363,7 +363,7 @@ function get_cloud_sync(req, bucket) {
     if (!bucket.cloud_sync || !bucket.cloud_sync.target_bucket) {
         return {};
     }
-    return P.when(server_rpc.client.cloud_sync.get_policy_status({
+    return P.resolve(server_rpc.client.cloud_sync.get_policy_status({
             sysid: bucket.system._id.toString(),
             bucketid: bucket._id.toString()
         }, {
@@ -566,6 +566,13 @@ function update_cloud_sync(req) {
         cloud_sync: Object.assign({}, bucket.cloud_sync, req.rpc_params.policy)
     };
 
+    var should_resync = Object.keys(req.rpc_params.policy)
+        .filter(
+            key => key !== 'schedule_min'
+        ).some(
+            key => updated_policy.cloud_sync[key] !== bucket.cloud_sync[key]
+        );
+
     return system_store.make_changes({
             update: {
                 buckets: [updated_policy]
@@ -573,7 +580,9 @@ function update_cloud_sync(req) {
         })
         .then(function() {
             //TODO:: scale, fine for 1000 objects, not for 1M
-            return object_server.set_all_files_for_sync(req.system._id, bucket._id);
+            if (should_resync) {
+                return object_server.set_all_files_for_sync(req.system._id, bucket._id);
+            }
         })
         .then(function() {
             return server_rpc.client.cloud_sync.refresh_policy({

@@ -159,7 +159,7 @@ function main() {
         .then(function() {
             process.exit(0);
         })
-        .fail(function(err) {
+        .catch(function(err) {
             process.exit(1);
         });
 }

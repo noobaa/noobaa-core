@@ -67,7 +67,7 @@ TestRunner.prototype.restore_db_defaults = function() {
 
     return promise_utils.promised_exec(
             'mongo nbcore /root/node_modules/noobaa-core/src/test/system_tests/mongodb_defaults.js')
-        .fail(function(err) {
+        .catch(function(err) {
             console.warn('failed on mongodb_defaults', err);
             throw new Error('Failed pn mongodb reset');
         })
@@ -78,7 +78,7 @@ TestRunner.prototype.restore_db_defaults = function() {
             return self.wait_for_server_to_start(30, 8080);
         })
         .delay(5000) //Workaround for agents sending HBs and re-registering to the server
-        .fail(function(err) {
+        .catch(function(err) {
             console.log('Failed restarting webserver');
             throw new Error('Failed restarting webserver');
         });
@@ -110,14 +110,14 @@ TestRunner.prototype.init_run = function() {
         .then(function() {
             return promise_utils.promised_exec('rm -rf ' + COVERAGE_DIR + '/*');
         })
-        .fail(function(err) {
+        .catch(function(err) {
             console.error('Failed cleaning ', COVERAGE_DIR, 'from previous run results', err);
             throw new Error('Failed cleaning dir');
         })
         .then(function() {
             return promise_utils.promised_exec('rm -rf /root/node_modules/noobaa-core/coverage/*');
         })
-        .fail(function(err) {
+        .catch(function(err) {
             console.error('Failed cleaning istanbul data from previous run results', err);
             throw new Error('Failed cleaning istanbul data');
         })
@@ -136,14 +136,14 @@ TestRunner.prototype.complete_run = function() {
     var dst = '/tmp/res_' + this._version + '.tgz';
 
     return this._write_coverage()
-        .fail(function(err) {
+        .catch(function(err) {
             console.error('Failed writing coverage for test runs', err);
             throw new Error('Failed writing coverage for test runs');
         })
         .then(function() {
             return promise_utils.promised_exec('tar --warning=no-file-changed -zcvf ' + dst + ' ' + COVERAGE_DIR + '/*');
         })
-        .fail(function(err) {
+        .catch(function(err) {
             console.error('Failed archiving test runs', err);
             throw new Error('Failed archiving test runs');
         })
@@ -161,7 +161,7 @@ TestRunner.prototype.complete_run = function() {
             //Save package on current NooBaa system
             return ops.upload_file('127.0.0.1', dst, 'files', 'report_' + self._version + '.tgz');
         })
-        .fail(function(err) {
+        .catch(function(err) {
             console.log('Failed restarting webserver');
             throw new Error('Failed restarting webserver');
         });
@@ -171,14 +171,14 @@ TestRunner.prototype.run_tests = function() {
     var self = this;
 
     return P.each(self._steps, function(current_step) {
-            return P.when(self._print_curent_step(current_step))
+            return P.resolve(self._print_curent_step(current_step))
                 .then(function(step_res) {
-                    return P.when(self._run_current_step(current_step, step_res));
+                    return P.resolve(self._run_current_step(current_step, step_res));
                 })
                 .then(function(step_res) {
                     fs.appendFileSync(REPORT_PATH, step_res + '\n');
                     return;
-                }).fail(function(error) {
+                }).catch(function(error) {
                     fs.appendFileSync(REPORT_PATH, 'Stopping tests with error ' + error + ' ' + error.stace + ' ' + error.message);
                     throw new Error(error);
                 });
@@ -188,7 +188,7 @@ TestRunner.prototype.run_tests = function() {
             fs.appendFileSync(REPORT_PATH, 'All steps done\n');
             return;
         })
-        .fail(function(error) {
+        .catch(function(error) {
             fs.appendFileSync(REPORT_PATH, 'Stopping tests with error\n' + error);
             throw new Error(error);
         });
@@ -231,12 +231,12 @@ TestRunner.prototype._run_current_step = function(current_step, step_res) {
     console.warn('---------------------------------  ' + step_res + '  ---------------------------------');
     if (current_step.common) {
         var ts = new Date();
-        return P.invoke(self, current_step.common)
+        return P.try(() => self[current_step.common].apply(self))
             .then(function() {
                 return step_res + ' - Successeful common step ( took ' +
                     ((new Date() - ts) / 1000) + 's )';
                 //return step_res;
-            }).fail();
+            }).catch();
     } else if (current_step.action) {
         return self._run_action(current_step, step_res);
     } else if (current_step.lib_test) {
@@ -271,7 +271,7 @@ TestRunner.prototype._run_action = function(current_step, step_res) {
             console.warn('---------------------------------  ' + step_res + '  ---------------------------------');
             return step_res;
         })
-        .fail(function(res) {
+        .catch(function(res) {
             self._error = true;
             if (current_step.blocking) {
                 fs.appendFileSync(REPORT_PATH, step_res + ' ' + res + '\n');
@@ -293,14 +293,14 @@ TestRunner.prototype._run_lib_test = function(current_step, step_res) {
     var ts = new Date();
 
     var test = require(process.cwd() + current_step.lib_test);
-    return P.when(test.run_test())
+    return P.resolve(test.run_test())
         .then(function(res) {
             step_res = '        ' + step_res + ' - Successeful ( took ' +
                 ((new Date() - ts) / 1000) + 's )';
             console.warn('---------------------------------  ' + step_res + '  ---------------------------------');
             return step_res;
         })
-        .fail(function(res) {
+        .catch(function(res) {
             self._error = true;
             if (current_step.blocking) {
                 fs.appendFileSync(REPORT_PATH, step_res + ' ' + res + '\n');
@@ -354,12 +354,12 @@ TestRunner.prototype._write_coverage = function() {
                         console.warn('done reporter.write');
                     });
                 })
-                .fail(function(err) {
+                .catch(function(err) {
                     console.warn('Error on write with', err, err.stack);
                     throw err;
                 });
         })
-        .fail(function(err) {
+        .catch(function(err) {
             console.warn('Error on _write_coverage', err, err.stack);
             throw err;
         });
@@ -396,8 +396,8 @@ function main() {
         process.exit(1);
     }
     var run = new TestRunner(argv);
-    return P.when(run.init_run())
-        .fail(function(error) {
+    return P.resolve(run.init_run())
+        .catch(function(error) {
             console.error('Init run failed, stopping tests', error);
             process.exit(2);
         })
@@ -405,7 +405,7 @@ function main() {
             console.warn('Running tests');
             return run.run_tests();
         })
-        .fail(function(error) {
+        .catch(function(error) {
             console.error('run tests failed', error);
             process.exit(3);
         })
@@ -413,7 +413,7 @@ function main() {
             console.warn('Finalizing run results');
             return run.complete_run();
         })
-        .fail(function(error) {
+        .catch(function(error) {
             console.error('Complete run failed', error);
             process.exit(4);
         })

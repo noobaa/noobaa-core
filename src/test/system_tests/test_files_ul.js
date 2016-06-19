@@ -60,7 +60,7 @@ function pre_generation() {
                     return promise_utils.promised_exec('mkdir -p ' + UL_TEST.base_dir + '/dir' + i);
                 });
         })
-        .fail(function(err) {
+        .catch(function(err) {
             console.error('Failed creating directory structure', err, err.stack);
             throw new Error('Failed creating directory structure');
         })
@@ -83,7 +83,7 @@ function pre_generation() {
                         '/file_$i  bs=' + UL_TEST.file_size + 'k count=1 ; done');
                 });
         })
-        .fail(function(err) {
+        .catch(function(err) {
             console.error('Failed generating files', err, err.stack);
             throw new Error('Failed generating files');
         });
@@ -237,7 +237,7 @@ function main() {
             console.log('Finished running upload test');
             return;
         })
-        .fail(function(err) {
+        .catch(function(err) {
             if (!UL_TEST.skip_cleanup) {
                 return promise_utils.promised_exec('rm -rf /tmp/' + UL_TEST.base_dir);
             }

@@ -19,7 +19,7 @@ function delete_object_mappings(obj) {
     // find parts intersecting the [start,end) range
     var deleted_parts;
     var all_chunk_ids;
-    return P.when(md_store.ObjectPart.collection.find({
+    return P.resolve(md_store.ObjectPart.collection.find({
             system: obj.system,
             obj: obj._id,
             deleted: null,
@@ -90,7 +90,7 @@ function delete_object_mappings(obj) {
  */
 function delete_objects_from_agents(deleted_chunk_ids) {
     //Find the deleted data blocks and their nodes
-    P.when(md_store.DataBlock.collection.find({
+    P.resolve(md_store.DataBlock.collection.find({
             chunk: {
                 $in: deleted_chunk_ids
             },

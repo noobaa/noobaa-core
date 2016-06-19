@@ -23,7 +23,7 @@ SupervisorCtrl.prototype.init = function() {
         return;
     }
     return fs.statAsync(config.CLUSTERING_PATHS.SUPER_FILE)
-        .fail(function(err) {
+        .catch(function(err) {
             console.warn('Error on reading supervisor file', err);
             throw err;
         })
@@ -41,7 +41,7 @@ SupervisorCtrl.prototype.init = function() {
 SupervisorCtrl.prototype.apply_changes = function() {
     var self = this;
 
-    return P.when(self.init())
+    return P.resolve(self.init())
         .then(() => {
             if (!self._supervised) {
                 return;
@@ -57,7 +57,7 @@ SupervisorCtrl.prototype.apply_changes = function() {
 SupervisorCtrl.prototype.add_program = function(prog) {
     let self = this;
 
-    return P.when(self.init())
+    return P.resolve(self.init())
         .then(() => {
             if (!self._supervised) {
                 return;
@@ -69,7 +69,7 @@ SupervisorCtrl.prototype.add_program = function(prog) {
 SupervisorCtrl.prototype.remove_program = function(prog_name) {
     let self = this;
 
-    return P.when(self.init())
+    return P.resolve(self.init())
         .then(() => {
             if (!self._supervised) {
                 return;
@@ -90,7 +90,7 @@ SupervisorCtrl.prototype.get_mongo_services = function() {
     let self = this;
 
     let mongo_progs = {};
-    return P.when(self.init())
+    return P.resolve(self.init())
         .then(() => {
             if (!self._supervised) {
                 return;
@@ -130,7 +130,7 @@ SupervisorCtrl.prototype.add_agent = function(agent_name, args_str) {
     prog.stopsignal = config.SUPERVISOR_DEFAULTS.STOPSIGNAL;
     prog.command = '/usr/local/bin/node src/agent/agent_cli.js ' + args_str;
     prog.name = 'agent_' + agent_name;
-    return P.when(self.init())
+    return P.resolve(self.init())
         .then(() => {
             if (!self._supervised) {
                 return;

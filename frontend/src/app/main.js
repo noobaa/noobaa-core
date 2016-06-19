@@ -32,8 +32,8 @@ registerComponents(ko);
 // Configure the appliction router.
 routing(page);
 
-// Bind the ui to the 
-ko.applyBindings({ 
+// Bind the ui to the
+ko.applyBindings({
     layout: ko.pureComputed( () => uiState().layout ),
     modal: ko.pureComputed( () => uiState().modal )
 });

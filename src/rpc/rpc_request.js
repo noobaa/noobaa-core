@@ -123,7 +123,7 @@ class RpcRequest {
     }
 
     import_response_message(msg) {
-        let is_pending = this.response_defer.promise.isPending;
+        let is_pending = this.response_defer.promise.isPending();
         if (!is_pending) {
             return is_pending;
         }

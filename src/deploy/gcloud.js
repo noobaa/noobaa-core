@@ -152,7 +152,7 @@ function scale_instances(count, allow_terminate, is_docker_host, number_of_docke
 
             return scale_region(zone_name, zone_count, instances, allow_terminate, is_docker_host, number_of_dockers, is_win, agent_conf);
         }));
-    }).fail(function(err) {
+    }).catch(function(err) {
         console.log('####');
         console.log('#### Cannot scale. Reason:', err.message, err.stack);
         console.log('####');
@@ -193,7 +193,7 @@ function get_zones(func) {
             project: NooBaaProject,
             auth: authClient
         }).then(func)
-        .fail(function(err) {
+        .catch(function(err) {
             console.log('get_zones err:', err);
             if (err.errors > 0 && err.errors[0].reason === 'notFound') {
                 console.log('Setup issue. Make sure you have the right credentials (https://console.developers.google.com/project/<project_name>/apiui/credential)', err);
@@ -217,7 +217,7 @@ function get_zones(func) {
 function foreach_zone(func) {
     return get_zones(function(res) {
         return P.all(_.map(res[0].items, func));
-    }).fail(function(err) {
+    }).catch(function(err) {
         console.log('err zone:', err);
     });
 }
@@ -229,11 +229,10 @@ function scale_region(region_name, count, instances, allow_terminate, is_docker_
     if (count > instances.length) {
         console.log('ScaleRegion:', region_name, 'has', instances.length,
             ' +++ adding', count - instances.length);
-        return add_region_instances(region_name, count - instances.length, is_docker_host, number_of_dockers, is_win, agent_conf)
+        return add_region_instances(region_name, count - instances.length, is_docker_host, number_of_dockers, is_win, agent_conf, instanceCreationProgressHandler)
             //once the instances are up, we can add disk dependency
             .then(instance_post_creation_handler,
-                instance_creation_error_handler,
-                instanceCreationProgressHandler);
+                instance_creation_error_handler);
     }
 
     // need to terminate
@@ -374,7 +373,7 @@ function describe_instances(params, filter) {
                     created_instance_data = created_instance_data.concat(instances_list_results[0].items);
                 }
 
-            }).fail(function(error) {
+            }).catch(function(error) {
             console.log('ERROR1:' + JSON.stringify(error) + ':' + error.stack);
         });
     }).then(function(err, data) {
@@ -410,7 +409,7 @@ function describe_instances(params, filter) {
     }).then(function(instances) {
         instances.zones = zones;
         return instances;
-    }).fail(
+    }).catch(
         function(error) {
             if (error && error.errors && error.errors[0].reason === 'notFound') {
                 console.log('Setup issue. Make sure you have the right credentials (https://console.developers.google.com/project/<project_name>/apiui/credential)', error);
@@ -456,7 +455,7 @@ function getInstanceDataPerInstanceId(instanceId) {
 
             index++;
             return P.delay(500); // delay, otherwise error from google
-        })).then(function() {}).done();
+        }));
 
     }));
 }
@@ -467,7 +466,7 @@ function getInstanceDataPerInstanceId(instanceId) {
  * add_region_instances
  *
  */
-function add_region_instances(region_name, count, is_docker_host, number_of_dockers, is_win, agent_conf) {
+function add_region_instances(region_name, count, is_docker_host, number_of_dockers, is_win, agent_conf, progress_func) {
     var deferred = P.defer();
     var instancesDetails = [];
     console.log('adding to region ' + region_name + ' ' + count + ' instances', agent_conf);
@@ -602,7 +601,7 @@ function add_region_instances(region_name, count, is_docker_host, number_of_dock
 
                                     return P.nfcall(compute.zoneOperations.get, operationsParams)
                                         .then(function(operationResource) {
-                                            deferred.notify(operationResource);
+                                            progress_func(operationResource);
 
                                             if (operationResource[0].status === 'DONE') {
                                                 console.log('Instance ' + operationsParams.instanceName + ' is up and started installation ' + JSON.stringify(operationResource[0].status));
@@ -628,7 +627,7 @@ function add_region_instances(region_name, count, is_docker_host, number_of_dock
 
 
                                         })
-                                        .fail(function(err) {
+                                        .catch(function(err) {
                                             console.log('Zone Operation err:' + JSON.stringify(err) + JSON.stringify(operationsParams));
                                             deferred.resolve(null);
                                             clearInterval(interval);
@@ -649,9 +648,9 @@ function add_region_instances(region_name, count, is_docker_host, number_of_dock
             console.log('done creating ' + count + ' new instances in zone ' + region_name);
             return deferred.promise;
         })
-        .fail(function(error) {
+        .catch(function(error) {
             console.log('ERROR4:' + JSON.stringify(error) + ' ' + error.stack);
-        }).done();
+        });
     return deferred.promise;
 }
 
@@ -676,7 +675,7 @@ function terminate_instances(region_name, instance_ids) {
                 console.log('Termination of instance ' + current_instance + ' done');
 
             })
-            .fail(function(err) {
+            .catch(function(err) {
                 console.log('Termination of instance ' + current_instance + ' failed due to error:' + JSON.stringify(err) + err.stack);
                 throw err;
             });
@@ -788,18 +787,16 @@ function main() {
                         return;
                     }
                     throw err;
-                })
-                .done();
+                });
         } else if (!_.isUndefined(argv.instance)) {
 
             describe_instance(argv.instance)
                 .then(function(instance) {
                     console_inspect('Instance ' + argv.instance + ':', instance);
-                })
-                .done();
+                });
         } else {
             //console.log('desc instances');
-            describe_instances().then(print_instances).done();
+            describe_instances().then(print_instances);
         }
     });
 

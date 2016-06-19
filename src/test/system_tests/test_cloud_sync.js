@@ -55,7 +55,7 @@ function authenticate() {
 
 
 function set_cloud_sync(params) {
-    return P.when()
+    return P.resolve()
         .then(
             () => client.account.add_account_sync_credentials_cache({
                 name: TEST_CTX.connection_name,
@@ -77,7 +77,7 @@ function set_cloud_sync(params) {
                 }
             })
         )
-        .fail(
+        .catch(
             error => {
                 console.warn('Failed with', error, error.stack);
                 throw new Error(error);
@@ -193,7 +193,7 @@ function main() {
         .then(function() {
             process.exit(0);
         })
-        .fail(function(err) {
+        .catch(function(err) {
             process.exit(1);
         });
 }

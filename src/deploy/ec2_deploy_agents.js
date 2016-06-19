@@ -106,11 +106,10 @@ function main() {
         ec2_wrap.describe_instance(argv.instance)
             .then(function(instance) {
                 ec2_wrap.console_inspect('Instance ' + argv.instance + ':', instance);
-            })
-            .done();
+            });
 
     } else {
-        ec2_wrap.describe_instances().then(ec2_wrap.print_instances).done();
+        ec2_wrap.describe_instances().then(ec2_wrap.print_instances);
     }
 }
 

@@ -48,7 +48,7 @@ function populate(docs, doc_path, collection, fields) {
     let ids = uniq_ids(docs_list, doc_path);
     collection = collection.collection || collection;
     if (!ids.length) return docs;
-    return P.when(collection.find({
+    return P.resolve(collection.find({
             _id: {
                 $in: ids
             }

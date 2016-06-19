@@ -89,7 +89,7 @@ function define_transformer(params) {
         Transformer.prototype._transform = function(data, encoding, callback) {
             var self = this;
             wait_for_data_item_or_array(data)
-                .done(function(data_in) {
+                .then(function(data_in) {
                     if (self._flatten && _.isArray(data_in)) {
                         _.each(data_in, function(item) {
                             self._push_parallel(item, encoding);
@@ -98,7 +98,8 @@ function define_transformer(params) {
                         self._push_parallel(data_in, encoding);
                     }
                     callback();
-                }, function(err) {
+                })
+                .catch(function(err) {
                     console.log('transformer error', err);
                     self.transformer_error(err);
                 });
@@ -129,17 +130,18 @@ function define_transformer(params) {
                 .then(function(data_in) {
                     if (self._flatten && _.isArray(data_in)) {
                         return promise_utils.iterate(data_in, function(item) {
-                            return P.when(params.transform.call(null, self, item, encoding))
+                            return P.resolve(params.transform.call(null, self, item, encoding))
                                 .then(self._self_push);
-                        }).thenResolve();
+                        }).return();
                     } else if (data_in) {
                         return params.transform.call(null, self, data_in, encoding);
                     }
                 })
-                .done(function(data_out) {
+                .then(function(data_out) {
                     self._self_push(data_out);
                     callback();
-                }, function(err) {
+                })
+                .catch(function(err) {
                     console.log('transformer error', err);
                     self.transformer_error(err);
                 });
@@ -168,7 +170,7 @@ function define_transformer(params) {
     }
 
     function wait_for_data_item_or_array(data) {
-        return _.isArray(data) ? P.all(data) : P.when(data);
+        return _.isArray(data) ? P.all(data) : P.resolve(data);
     }
 
     if (params.flush) {
@@ -177,12 +179,13 @@ function define_transformer(params) {
             P.fcall(function() {
                     return params.flush.call(null, self);
                 })
-                .done(function(data) {
+                .then(function(data) {
                     if (data) {
                         self.push(data);
                     }
                     callback();
-                }, function(err) {
+                })
+                .catch(function(err) {
                     console.log('transformer flush error', err);
                     self.transformer_error(err);
                 });

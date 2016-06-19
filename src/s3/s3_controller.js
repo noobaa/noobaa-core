@@ -67,13 +67,6 @@ class S3Controller {
             signature: req.signature,
             extra: req.noobaa_v4
         };
-        // let self = this;
-        // return P.invoke(self, '_test_latency_to_server')
-        //     .catch(function(err) {})
-        //     .then(function(latency_to_server) {
-        //         res.latency_to_server = latency_to_server;
-        //         return P.invoke(self, '_test_latency_of_disk_read');
-        //     })
         return this._update_usage_report(req);
     }
 

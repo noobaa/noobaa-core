@@ -31,12 +31,12 @@ const mongoose_utils = require('../../util/mongoose_utils');
 const mongo_functions = require('../../util/mongo_functions');
 const system_server_utils = require('../utils/system_server_utils');
 
-const RUN_DELAY_MS = 10000;
+const RUN_DELAY_MS = 60000;
 const RUN_NODE_CONCUR = 50;
 const MAX_NUM_LATENCIES = 20;
 const UPDATE_STORE_MIN_ITEMS = 100;
 const NODE_REBUILD_WORKERS = 10;
-const REBUILD_CLIFF = 0; // 3 * 60000
+const REBUILD_CLIFF = 3 * 60000;
 
 const AGENT_INFO_FIELDS = [
     'name',
@@ -598,7 +598,7 @@ class NodesMonitor extends EventEmitter {
 
 
     sync_to_store() {
-        return P.when(this._run()).return();
+        return P.resolve(this._run()).return();
     }
 
     heartbeat(req) {
@@ -792,6 +792,9 @@ class NodesMonitor extends EventEmitter {
     n2n_signal(req) {
         dbg.log1('n2n_signal:', req.rpc_params.target);
         const item = this._get_node_by_address(req.rpc_params.target);
+        if (!item) {
+            // TODO do the hockey pocky in the cluster like was in redirector
+        }
         return this.client.agent.n2n_signal(req.rpc_params, {
             connection: item.connection,
         });

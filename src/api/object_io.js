@@ -1,35 +1,34 @@
-// module targets: nodejs & browserify
 'use strict';
 
-let Readable = require('stream').Readable;
-let _ = require('lodash');
-let P = require('../util/promise');
-let crypto = require('crypto');
-let Semaphore = require('../util/semaphore');
-let transformer = require('../util/transformer');
-let Pipeline = require('../util/pipeline');
-let range_utils = require('../util/range_utils');
-let size_utils = require('../util/size_utils');
-let time_utils = require('../util/time_utils');
-let promise_utils = require('../util/promise_utils');
-let js_utils = require('../util/js_utils');
-let LRUCache = require('../util/lru_cache');
-let devnull = require('dev-null');
-let config = require('../../config.js');
-let dbg = require('../util/debug_module')(__filename);
-let dedup_options = require("./dedup_options");
-let HashStream = require('../util/hash_stream');
-let ChunkStream = require('../util/chunk_stream');
+const _ = require('lodash');
+const stream = require('stream');
+const crypto = require('crypto');
+
+const P = require('../util/promise');
+const dbg = require('../util/debug_module')(__filename);
+const config = require('../../config.js');
+const js_utils = require('../util/js_utils');
+const Pipeline = require('../util/pipeline');
+const LRUCache = require('../util/lru_cache');
+const Semaphore = require('../util/semaphore');
+const HashStream = require('../util/hash_stream');
+const size_utils = require('../util/size_utils');
+const time_utils = require('../util/time_utils');
+const range_utils = require('../util/range_utils');
+const transformer = require('../util/transformer');
+const ChunkStream = require('../util/chunk_stream');
+const promise_utils = require('../util/promise_utils');
+const dedup_options = require("./dedup_options");
+
 // dbg.set_level(5, 'core');
 
-
-let PART_ATTRS = [
+const PART_ATTRS = [
     'start',
     'end',
     'upload_part_number',
     'part_sequence_number'
 ];
-let CHUNK_ATTRS = [
+const CHUNK_ATTRS = [
     'size',
     'digest_type',
     'compress_type',
@@ -42,20 +41,20 @@ let CHUNK_ATTRS = [
     'cipher_iv_b64',
     'cipher_auth_tag_b64'
 ];
-let FRAG_ATTRS = [
+const FRAG_ATTRS = [
     'layer',
     'layer_n',
     'frag',
     'digest_type',
     'digest_b64'
 ];
-let CHUNK_DEFAULTS = {
+const CHUNK_DEFAULTS = {
     digest_type: '',
     digest_b64: '',
     cipher_type: '',
     cipher_key_b64: '',
 };
-let FRAG_DEFAULTS = {
+const FRAG_DEFAULTS = {
     digest_type: '',
     digest_b64: '',
 };
@@ -174,7 +173,7 @@ class ObjectIO {
                         dbg.log0('removed partial object', params.key, 'from bucket', params.bucket);
                         throw err;
                     })
-                    .fail(() => {
+                    .catch(() => {
                         throw err;
                     });
 
@@ -636,7 +635,7 @@ class ObjectIO {
      *
      */
     open_read_stream(params, watermark) {
-        let reader = new Readable({
+        let reader = new stream.Readable({
             // highWaterMark Number - The maximum number of bytes to store
             // in the internal buffer before ceasing to read
             // from the underlying resource. Default=16kb
@@ -1038,9 +1037,16 @@ class ObjectIO {
             dbg.log1('+++ serve_http_stream: prefetch end of file');
             let eof_len = 100;
             this.open_read_stream(_.extend({
-                start: object_md.size > eof_len ? (object_md.size - eof_len) : 0,
-                end: object_md.size,
-            }, params), eof_len).pipe(devnull());
+                    start: object_md.size > eof_len ? (object_md.size - eof_len) : 0,
+                    end: object_md.size,
+                }, params), eof_len)
+                .pipe(new stream.Writable({
+                    // a writable sink that ignores the data
+                    // just to pump the data through the cache
+                    write: function(chunk, encoding, next) {
+                        next();
+                    }
+                }));
         }
 
         return 206;

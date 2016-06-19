@@ -13,6 +13,7 @@ const P = require('../../util/promise');
 const os_utils = require('../../util/os_utils');
 const dbg = require('../../util/debug_module')(__filename);
 const config = require('../../../config.js');
+const pkg = require('../../../package.json');
 
 function _init() {
     return P.when(MongoCtrl.init());
@@ -63,8 +64,7 @@ function add_member_to_cluster(req) {
             //If this is the first time we are adding to the cluster, special handling is required
             if (!is_clusterized) {
                 dbg.log0('Current server is first on cluster and has single mongo running, updating');
-                return _initiate_replica_set('shard1')
-                    .then(() => cutil.start_heartbeat());
+                return _initiate_replica_set('shard1');
 
                 //TODO:: when adding shard, the first server should also have its single mongo replaced to shard
                 /*return _add_new_shard_on_server('shard1', myip, {
@@ -80,17 +80,16 @@ function add_member_to_cluster(req) {
             dbg.log0('Sending join_to_cluster to', req.rpc_params.ip, cutil.get_topology());
             //Send a join_to_cluster command to the new joining server
             return server_rpc.client.cluster_server.join_to_cluster({
-                    ip: req.rpc_params.ip,
-                    topology: cutil.get_topology(),
-                    cluster_id: id,
-                    secret: req.rpc_params.secret,
-                    role: req.rpc_params.role,
-                    shard: req.rpc_params.shard,
-                }, {
-                    address: 'ws://' + req.rpc_params.ip + ':8080',
-                    timeout: 60000 //60s
-                })
-                .then(() => cutil.start_heartbeat());
+                ip: req.rpc_params.ip,
+                topology: cutil.get_topology(),
+                cluster_id: id,
+                secret: req.rpc_params.secret,
+                role: req.rpc_params.role,
+                shard: req.rpc_params.shard,
+            }, {
+                address: 'ws://' + req.rpc_params.ip + ':8080',
+                timeout: 60000 //60s
+            });
         })
         .fail(function(err) {
             console.error('Failed adding members to cluster', req.rpc_params, 'with', err);
@@ -202,9 +201,38 @@ function news_updated_topology(req) {
     return P.when(cutil.update_cluster_info(req.rpc_params));
 }
 
-function heartbeat(req) {
-    //TODO:: ...
-    dbg.error('Clustering HB currently not implemented');
+function do_heartbeat() {
+    let current_clustering = system_store.get_local_cluster_info();
+    if (current_clustering) {
+        let heartbeat = {
+            version: pkg.version,
+            time: Date.now(),
+            health: {
+                os_info: os_utils.os_info(),
+            }
+        };
+        return MongoCtrl.get_mongo_rs_status()
+            .then(mongo_status => {
+                if (mongo_status) {
+                    heartbeat.health.mongo_rs_status = mongo_status;
+                }
+            })
+            .then(() => {
+
+                let update = {
+                    _id: current_clustering._id,
+                    heartbeat: heartbeat
+                };
+                dbg.log0('writing cluster server heartbeat to DB. heartbeat:', heartbeat);
+                return system_store.make_changes({
+                    update: {
+                        clusters: [update]
+                    }
+                });
+            });
+    } else {
+        dbg.warn('no local cluster info. HB is not written');
+    }
 }
 
 
@@ -431,4 +459,4 @@ exports.join_to_cluster = join_to_cluster;
 exports.news_config_servers = news_config_servers;
 exports.news_updated_topology = news_updated_topology;
 exports.news_replicaset_servers = news_replicaset_servers;
-exports.heartbeat = heartbeat;
+exports.do_heartbeat = do_heartbeat;

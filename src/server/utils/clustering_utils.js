@@ -9,10 +9,6 @@ const url = require('url');
 const system_store = require('../system_services/system_store').get_instance();
 const os_utils = require('../../util/os_utils');
 const dbg = require('../../util/debug_module')(__filename);
-const config = require('../../../config');
-const promise_utils = require('../../util/promise_utils');
-const pkg = require('../../../package.json');
-
 
 function get_topology() {
     return system_store.get_local_cluster_info();
@@ -43,41 +39,6 @@ function update_cluster_info(params) {
         });
 }
 
-function start_heartbeat(role) {
-    function write_hb() {
-        let heartbeat = {
-            version: pkg.version,
-            time: Date.now(),
-            role: role,
-            health: {
-                os_info: os_utils.os_info()
-            }
-        };
-
-        let current_clustering = system_store.get_local_cluster_info();
-        let update = {
-            _id: current_clustering._id,
-            heartbeat: heartbeat
-        };
-        return system_store.make_changes({
-                update: {
-                    clusters: [update]
-                }
-            })
-            .then(() => {
-                dbg.log0('wrote cluster server heartbeat to DB. heartbeat:', heartbeat);
-                return;
-            });
-    }
-
-    let worker = {
-        name: 'heartbeat_writer',
-        delay: config.CLUSTER_HB_INTERVAL,
-        run_batch: write_hb
-    };
-    promise_utils.run_background_worker(worker);
-
-}
 
 function update_host_address(address) {
     var current_clustering = system_store.get_local_cluster_info();
@@ -199,4 +160,3 @@ exports.get_all_cluster_members = get_all_cluster_members;
 exports.pretty_topology = pretty_topology;
 exports.rs_array_changes = rs_array_changes;
 exports.find_shard_index = find_shard_index;
-exports.start_heartbeat = start_heartbeat;

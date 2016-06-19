@@ -159,6 +159,36 @@ class MongoClient extends EventEmitter {
         }
     }
 
+    get_mongo_rs_status() {
+
+        return P.resolve().then(() => {
+            if (this.db) {
+                P.resolve(this.db.admin().replSetGetStatus())
+                    .then(status => {
+                        dbg.warn('got rs status from mongo:', status);
+                        if (status.ok) {
+                            // return rs status fields specified in HB schema (cluster_schema)
+                            return {
+                                set: status.set,
+                                members: status.members.map(member => ({
+                                    name: member.name,
+                                    health: member.health,
+                                    uptime: member.uptime,
+                                    stateStr: member.stateStr,
+                                    syncingTo: member.syncingTo,
+                                }))
+                            };
+
+                        }
+
+                    })
+                    .catch(err => {
+                        dbg.warn('got error when trying to get mongo rs status for HB', err.errmsg);
+                    });
+            }
+        });
+    }
+
     replica_update_members(set, members, is_config_set) {
         var port = is_config_set ? config.MONGO_DEFAULTS.CFG_PORT : config.MONGO_DEFAULTS.SHARD_SRV_PORT;
         var rep_config = this._build_replica_config(set, members, port, is_config_set);

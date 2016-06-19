@@ -4,21 +4,22 @@
     "defaultPoolName": "default_pool",
     "notificationInterval": 5000,
     "upgradePackageSuffix": ".gz",
+    "sslCertificateSuffix": ".zip",
     "nodeTest": {
         "targetCount": 20,
         "testSettings": {
             "connectivity": {
                 "stepCount": 1,
-                "requestLength": 0, 
-                "responseLength": 0, 
+                "requestLength": 0,
+                "responseLength": 0,
                 "count": 1,
                 "concur": 1
             },
             "bandwidth": {
                 "stepCount": 8,
-                "requestLength": 524288, 
-                "responseLength": 524288, 
-                "count": 64, 
+                "requestLength": 524288,
+                "responseLength": 524288,
+                "count": 64,
                 "concur": 16
             }
         }

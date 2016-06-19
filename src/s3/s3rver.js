@@ -58,13 +58,13 @@ function run_server() {
                 ssl_port: process.env.S3_SSL_PORT || 443,
             });
             dbg.log0('Generating selfSigned SSL Certificate...');
-            dbg.log0('certificate location:',path.join(rootdir,'src','private_ssl_path','key.pem'));
-            if (fs.existsSync(path.join(rootdir,'src','private_ssl_path','key.pem')) &&
-                fs.existsSync(path.join(rootdir,'src','private_ssl_path','cert.pem'))) {
+            dbg.log0('certificate location:',path.join(rootdir,'src','private_ssl_path','server.key'));
+            if (fs.existsSync(path.join(rootdir,'src','private_ssl_path','server.key')) &&
+                fs.existsSync(path.join(rootdir,'src','private_ssl_path','server.crt'))) {
                 dbg.log0('Using local certificate');
                 var local_certificate = {
-                    serviceKey: fs.readFileSync(path.join(rootdir,'src','private_ssl_path','key.pem')),
-                    certificate: fs.readFileSync(path.join(rootdir,'src','private_ssl_path','cert.pem'))
+                    serviceKey: fs.readFileSync(path.join(rootdir,'src','private_ssl_path','server.key')),
+                    certificate: fs.readFileSync(path.join(rootdir,'src','private_ssl_path','server.crt'))
                 };
                 return local_certificate;
             } else {

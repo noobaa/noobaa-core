@@ -33,7 +33,7 @@ export const systemSummary = ko.observable();
 export const agentInstallationInfo = ko.observable();
 
 // Hold the current bucket list. deriv`ed` from system info.
-export const bucketList = ko.observableArray(); 
+export const bucketList = ko.observableArray();
 bucketList.sortedBy = ko.observable('name')
 bucketList.order = ko.observable(1);
 
@@ -100,7 +100,7 @@ objectPartList.page = ko.observable(0);
 // Hold the recent uploads.
 export const recentUploads = ko.observableArray();
 
-// Hold the audit log 
+// Hold the audit log
 export const auditLog = ko.observableArray();
 auditLog.loadedCategories = ko.observableArray();
 
@@ -117,6 +117,9 @@ export const nodeTestInfo = ko.observable();
 
 // hold system upgrade status.
 export const upgradeStatus = ko.observable();
+
+// hold system uplaod ssl certificate status.
+export const uploadStatus = ko.observable();
 
 // Hold debug collection info.
 export const debugCollectionInfo = ko.observable();

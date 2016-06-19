@@ -9,25 +9,25 @@ export default function register(ko) {
     // -------------------------------
     // Layout
     // -------------------------------
-    ko.components.register('main-layout',       require('./layout/main-layout/main-layout'));   
+    ko.components.register('main-layout',       require('./layout/main-layout/main-layout'));
     ko.components.register('main-header',       require('./layout/main-header/main-header'));
     ko.components.register('commands-bar',      require('./layout/commands-bar/commands-bar'));
     ko.components.register('breadcrumbs',       require('./layout/breadcrumbs/breadcrumbs'));
     ko.components.register('notification-bar',  require('./layout/notification-bar/notification-bar'));
-    
+
     // -------------------------------
     // Login
     // -------------------------------
-    ko.components.register('login-layout',          require('./login/login-layout/login-layout'));      
-    ko.components.register('signin-form',           require('./login/signin-form/signin-form'));    
-    ko.components.register('create-system-form',    require('./login/create-system-form/create-system-form'));  
+    ko.components.register('login-layout',          require('./login/login-layout/login-layout'));
+    ko.components.register('signin-form',           require('./login/signin-form/signin-form'));
+    ko.components.register('create-system-form',    require('./login/create-system-form/create-system-form'));
 
     // -------------------------------
     // Overview
     // -------------------------------
     ko.components.register('overview-panel',        require('./overview/overview-panel/overview-panel'));
     ko.components.register('pools-overview',        require('./overview/pools-overview/pools-overview'));
-    ko.components.register('buckets-overview',      require('./overview/buckets-overview/buckets-overview'));   
+    ko.components.register('buckets-overview',      require('./overview/buckets-overview/buckets-overview'));
     ko.components.register('install-node-wizard',   require('./overview/install-node-wizard/install-node-wizard'));
     ko.components.register('connect-app-wizard',    require('./overview/connect-app-wizard/connect-app-wizard'));
     ko.components.register('after-upgrade-modal',   require('./overview/after-upgrade-modal/after-upgrade-modal'));
@@ -96,11 +96,13 @@ export default function register(ko) {
     ko.components.register('create-account-wizard',     require('./management/create-account-wizard/create-account-wizard'));
     ko.components.register('account-s3-access-modal',   require('./management/account-s3-access-modal/account-s3-access-modal'));
     ko.components.register('p2p-form',                  require('./management/p2p-form/p2p-form'));
-    ko.components.register('server-dns-form',           require('./management/server-dns-form/server-dns-form'));   
-    ko.components.register('server-time-form',          require('./management/server-time-form/server-time-form'));   
-    ko.components.register('about-form',                require('./management/about-form/about-form')); 
-    ko.components.register('upgrade-modal',             require('./management/upgrade-modal/upgrade-modal'));   
-    ko.components.register('diagnostics-form',          require('./management/diagnostics-form/diagnostics-form'));   
+    ko.components.register('server-dns-form',           require('./management/server-dns-form/server-dns-form'));
+    ko.components.register('server-time-form',          require('./management/server-time-form/server-time-form'));
+    ko.components.register('server-ssl-form',           require('./management/server-ssl-form/server-ssl-form'));
+    ko.components.register('about-form',                require('./management/about-form/about-form'));
+    ko.components.register('upgrade-modal',             require('./management/upgrade-modal/upgrade-modal'));
+    ko.components.register('upload-ssl-modal',             require('./management/upload-ssl-modal/upload-ssl-modal'));
+    ko.components.register('diagnostics-form',          require('./management/diagnostics-form/diagnostics-form'));
 
     // -------------------------------
     // Admin

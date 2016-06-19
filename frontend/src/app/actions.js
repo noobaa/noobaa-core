@@ -679,7 +679,7 @@ export function loadNodeInfo(nodeName) {
 export function loadNodeStoredPartsList(nodeName, page) {
     logAction('loadNodeStoredPartsList', { nodeName, page });
 
-    api.node.read_node_maps({ 
+    api.node.read_node_maps({
         name: nodeName,
         skip: config.paginationPageSize * page,
         limit: config.paginationPageSize,
@@ -830,14 +830,14 @@ export function loadS3BucketList(connection) {
 // -----------------------------------------------------
 export function createSystemAccount(systemName, email, password, dnsName) {
     logAction('createSystemAccount', { systemName, email, password, dnsName });
-    
-    let accessKeys = systemName === 'demo' && email === 'demo@noobaa.com' ? 
+
+    let accessKeys = systemName === 'demo' && email === 'demo@noobaa.com' ?
         { access_key: '123', secret_key: 'abc' } :
         generateAccessKeys();
 
     api.account.create_account({
-        name: systemName, 
-        email: email, 
+        name: systemName,
+        email: email,
         password: password,
         access_keys: accessKeys
     })
@@ -866,9 +866,9 @@ export function createSystemAccount(systemName, email, password, dnsName) {
 export function createAccount(name, email, password, accessKeys, S3AccessList) {
     logAction('createAccount', { name, email, password, accessKeys,     S3AccessList });
 
-    api.account.create_account({ 
-        name: name, 
-        email: email, 
+    api.account.create_account({
+        name: name,
+        email: email,
         password: password,
         access_keys: accessKeys,
         allowed_buckets: S3AccessList
@@ -1296,6 +1296,57 @@ export function upgradeSystem(upgradePackage) {
     formData.append('upgrade_file', upgradePackage);
     xhr.send(formData);
 }
+export function uploadSSLCertificate(SSLCertificate) {
+    logAction('SSLCertificate', { SSLCertificate });
+
+    let { uploadStatus } = model;
+
+    uploadStatus({
+        step: 'UPLOAD',
+        progress: 0,
+        state: 'IN_PROGRESS'
+    });
+    let xhr = new XMLHttpRequest();
+    xhr.open('POST', '/upload_certificate', true);
+
+    xhr.onload = function(evt) {
+        if (xhr.status !== 200) {
+            uploadStatus.assign ({
+                state: 'FAILED',
+                text: evt.target.responseText
+            });
+
+        }else
+        {
+            uploadStatus.assign ({
+                state: 'SUCCESS',
+            });
+        }
+        };
+
+    xhr.upload.onprogress = function(evt) {
+        uploadStatus.assign({
+                progress: evt.lengthComputable && evt.loaded / evt.total
+            })
+        };
+
+    xhr.onerror = function(evt) {
+        uploadStatus.assign({
+            state: 'FAILED',
+            text: evt.target.responseText
+        });
+    };
+
+    xhr.onabort = function(evt) {
+        uploadStatus.assign ({
+            state: 'CANCELED'
+        });
+    };
+
+    let formData = new FormData();
+    formData.append('upload_file', SSLCertificate);
+    xhr.send(formData);
+}
 
 export function downloadNodeDiagnosticPack(nodeName) {
     logAction('downloadDiagnosticFile', { nodeName });
@@ -1472,4 +1523,3 @@ export function updateServerNTP(timezone, server) {
         .then(loadSystemInfo)
         .done();
 }
-

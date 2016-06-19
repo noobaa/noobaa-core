@@ -1,0 +1,14 @@
+<h1 class="heading2">SSL Certificate Upload</h1>
+
+<section class="container">
+    <h2 class="heading3"></h2>
+    <p class="paragraph">Please upload a zip with certificate and private key in pem format</p>
+    <file-selector params="
+        message: 'Drag SSL certificate here here',
+        filter: sslCertificateSuffix,
+        onFilesReady: files => uploadCertificate(files)
+    "></file-selector>
+</section>
+<!-- ko if: isUploadingSSLModalVisible -->
+<upload-ssl-modal params="onClose: () => isUploadingSSLModalVisible(false)"></upload-ssl-modal>
+<!-- /ko -->

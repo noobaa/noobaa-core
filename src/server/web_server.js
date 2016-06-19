@@ -46,6 +46,8 @@ var db = require('../server/db');
 var mongo_client = require('./utils/mongo_client');
 var rootdir = path.join(__dirname, '..', '..');
 var dev_mode = (process.env.DEV_MODE === 'true');
+var promise_utils = require('../util/promise_utils');
+
 
 
 // Temporary removed - causes issues with upgrade.
@@ -155,13 +157,13 @@ P.fcall(function() {
         return P.ninvoke(http_server, 'listen', http_port);
     })
     .then(function() {
-        dbg.log0('certificate location:',path.join(rootdir,'src','private_ssl_path','key.pem'));
-        if (fs.existsSync(path.join(rootdir,'src','private_ssl_path','key.pem')) &&
-            fs.existsSync(path.join(rootdir,'src','private_ssl_path','cert.pem'))) {
+        dbg.log0('certificate location:', path.join(rootdir, 'src', 'private_ssl_path', 'server.key'));
+        if (fs.existsSync(path.join(rootdir, 'src', 'private_ssl_path', 'server.key')) &&
+            fs.existsSync(path.join(rootdir, 'src', 'private_ssl_path', 'server.crt'))) {
             dbg.log0('Using local certificate');
             var local_certificate = {
-                serviceKey: fs.readFileSync(path.join(rootdir,'src','private_ssl_path','key.pem')),
-                certificate: fs.readFileSync(path.join(rootdir,'src','private_ssl_path','cert.pem'))
+                serviceKey: fs.readFileSync(path.join(rootdir, 'src', 'private_ssl_path', 'server.key')),
+                certificate: fs.readFileSync(path.join(rootdir, 'src', 'private_ssl_path', 'server.crt'))
             };
             return local_certificate;
         } else {
@@ -252,6 +254,49 @@ app.post('/upgrade',
             cwd: '/tmp'
         });
         res.end('<html><head><meta http-equiv="refresh" content="60;url=/console/" /></head>Upgrading. You will be redirected back to the upgraded site in 60 seconds.');
+    });
+
+app.post('/upload_certificate',
+    multer({
+        storage: multer.diskStorage({
+            destination: function(req, file, cb) {
+                cb(null, '/tmp');
+            },
+            filename: function(req, file, cb) {
+                dbg.log0('uploading SSL Certificate', file);
+                cb(null, 'nb_ssl_certificate_' + Date.now() + '_' + file.originalname);
+            }
+        })
+    })
+    .single('upload_file'),
+    function(req, res) {
+        var ssl_certificate = req.file;
+        dbg.log0('upload ssl certificate file', ssl_certificate);
+        promise_utils.promised_spawn(process.cwd() + '/src/deploy/NVA_build/ssl_verifier.sh', [
+                'from_file', ssl_certificate.path
+            ], process.cwd, false)
+            .then(function() {
+                res.status(200).send('SUCCESS');
+            }).fail(function(err) {
+                let error_message = ''
+                dbg.log0('failed to upload certificate. ' + err.message);
+                if (err.message.indexOf(' rc 1') > 0) {
+                    error_message = 'No match between key and certificate.';
+                } else if (err.message.indexOf(' rc 2') > 0) {
+                    error_message = 'Only one key is required.';
+                } else if (err.message.indexOf(' rc 3') > 0) {
+                    error_message = 'Only one certificate is required.';
+                } else if (err.message.indexOf(' rc 5') > 0) {
+                    error_message = 'Not a zip file. Please upload zip with certificate and key in pem format';
+                } else {
+                    error_message = err.message;
+                }
+                dbg.error(error_message);
+
+                res.status(500).send(error_message);
+
+            });
+
     });
 
 //Upgrade from 0.3.X will try to return to this path. We will redirect it.

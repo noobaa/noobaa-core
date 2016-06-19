@@ -18,7 +18,7 @@
 
             <section class="tab-content">
                 <p2p-form class="container"></p2p-form>
-                
+
                 <hr class="seperator"/>
 
                 <server-dns-form class="container"></server-dns-form>
@@ -26,8 +26,13 @@
                 <hr>
 
                 <server-time-form class="container"></server-time-form>
+
+                <hr>
+
+                <server-ssl-form class="container"></server-ssl-form>
             </section>
-        </li>        
+        </li>
+
         <li data-bind="css: { selected: isTabSelected('about') }">
             <a class="tab-header" data-bind="href: '/fe/systems/:system/management/about'">
                 <svg-icon params="uri: '/fe/assets/icons.svg#upgrade'"></svg-icon>

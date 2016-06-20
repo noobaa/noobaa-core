@@ -76,7 +76,10 @@
                     <svg-icon params="name: stateIcon"></svg-icon>
                 </td>
                 <td class="name-col text-left" >
-                    <a class="link" data-bind="text: name, href: href"></a>
+                    <a class="link" data-bind="
+                        text: name,
+                        href: { route: 'node', params: { node: name, tab: null } }
+                    "></a>
                 </td>
 
                 <td class="ip-col" data-bind="text: ip"></td>

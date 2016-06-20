@@ -42,7 +42,10 @@
                     <svg-icon params="name: stateIcon"></svg-icon>
                 </td>
                 <td class="name-col text-left">
-                    <a href class="link" data-bind="text: name, href: href"></a>
+                    <a href class="link" data-bind="
+                        text: name,
+                        href: { route: 'pool', params: { pool: name } }
+                    "></a>
                 </td>
                 <td class="nodes-col" data-bind="text: nodeCount"></td>
                 <td class="online-nodes-col" data-bind="text: onlineCount"></td>

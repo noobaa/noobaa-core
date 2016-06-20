@@ -5,8 +5,9 @@ import reviewStepTemplate from './review-step.html';
 import ko from 'knockout';
 import { defaultPoolName } from 'config';
 import { agentInstallationInfo as installInfo, systemInfo } from 'model';
-import { copyTextToClipboard, lastSegment } from 'utils';
+import { copyTextToClipboard, lastSegment, realizeUri } from 'utils';
 import { loadAgentInstallationInfo } from 'actions';
+import { asset as assetRoute } from 'routes';
 
 const installCommands = {
     NETWORK_WINDOWS(pkg, conf, server) {
@@ -95,7 +96,12 @@ class InstallNodeWizardViewModel {
             }
         );
 
-        this.defaultPoolUrl = `/fe/systems/:system/pools/${defaultPoolName}`;
+        this.defaultPool = defaultPoolName;
+
+        this.nodeListImageUrl = realizeUri(
+            assetRoute,
+            { asset: 'nodesList_illustration.png' }
+        );
 
         loadAgentInstallationInfo();
     }

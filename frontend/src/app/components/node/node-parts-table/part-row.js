@@ -43,10 +43,6 @@ export default class ObjectRowViewModel {
             () => part() && part().bucket
         );
 
-        this.href = ko.pureComputed(
-            () => part() && `/fe/systems/:system/buckets/${part().bucket}/objects/${part().object}`
-        );
-
         this.startOffset = ko.pureComputed(
             () => part() && numeral(part().info.start).format('0.0 b')
         );

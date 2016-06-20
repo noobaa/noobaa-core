@@ -38,10 +38,6 @@ export default class ObjectRowViewModel {
             () => stateMap() && stateMap().icon
         );
 
-        this.href = ko.pureComputed(
-            () => `/fe/systems/:system/buckets/:bucket/objects/${this.name()}`
-        );
-
         this.size = ko.pureComputed(
             () => obj() && formatSize(obj().info.size)
         );

@@ -16,10 +16,8 @@ class BlockRowViewModel {
         this.nodeStateIcon = `node-${online ? 'online' : 'offline'}`;
         this.nodeIp = node_ip;
         this.poolName = pool_name;
-        this.poolUrl = `/fe/systems/:system/pools/${pool_name}`;
         this.nodeName = node_name;
         this.shortenNodeName = shortString(node_name);
-        this.nodeUrl = `${this.poolUrl}/nodes/${node_name}`;
     }
 }
 

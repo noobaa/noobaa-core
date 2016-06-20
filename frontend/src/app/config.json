@@ -4,7 +4,7 @@
     "defaultPoolName": "default_pool",
     "notificationInterval": 5000,
     "upgradePackageSuffix": ".gz",
-    "defaultIconFile": "/fe/assets/icons.svg",
+    "defaultIconFile": "icons.svg",
     "nodeTest": {
         "targetCount": 20,
         "testSettings": {

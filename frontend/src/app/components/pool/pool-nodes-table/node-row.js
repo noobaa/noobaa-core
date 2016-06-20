@@ -32,10 +32,6 @@ export default class NodeRowViewModel {
             () => node() && node().name
         );
 
-        this.href = ko.pureComputed(
-            () => node() && `/fe/systems/:system/pools/:pool/nodes/${node().name}`
-        );
-
         this.ip = ko.pureComputed(
             () => node() && node().ip
         );

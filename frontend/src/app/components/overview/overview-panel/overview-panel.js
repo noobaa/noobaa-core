@@ -2,6 +2,7 @@ import template from './overview-panel.html';
 import ko from 'knockout';
 import { systemSummary, routeContext } from 'model';
 import { redirectTo } from 'actions';
+import { system as systemRoute } from 'routes';
 
 class OverviewPanelViewModel {
     constructor() {
@@ -62,7 +63,7 @@ class OverviewPanelViewModel {
     }
 
     closeAfterUpgradeModal() {
-        redirectTo('/fe/systems/:system');
+        redirectTo(systemRoute);
     }
 }
 

@@ -1,10 +1,14 @@
 object-parts-list {
     .column();
 
+    .show-cursor {
+        cursor: @cursor-pointer;
+    }
+
     .part-list {
         position: relative;
         .column();
-        .list-no-style(); 
+        .list-no-style();
         .scrollable();
 
         > li {

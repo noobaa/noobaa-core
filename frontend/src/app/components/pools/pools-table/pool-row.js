@@ -20,10 +20,6 @@ export default class PoolRowViewModel {
             () => pool() && pool().name
         );
 
-        this.href = ko.pureComputed(
-            () => pool() && `/fe/systems/:system/pools/${pool().name}`
-        );
-
         this.nodeCount = ko.pureComputed(
             () => pool() && numeral(pool().nodes.count).format('0,0')
         );

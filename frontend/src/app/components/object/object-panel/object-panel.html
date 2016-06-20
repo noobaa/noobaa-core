@@ -7,14 +7,14 @@
 <div class="tabs greedy">
     <nav>
         <a data-bind="
-            href: '/fe/systems/:system/buckets/:bucket/objects/:object/details',
+            href: { route: 'object', params: { tab: 'details' } },
             css: { selected: isTabSelected('details') }
         ">
             Details
         </a>
 
         <a data-bind="
-            href: '/fe/systems/:system/buckets/:bucket/objects/:object/parts',
+            href: { route: 'object', params: { tab: 'parts' } },
             css: { selected: isTabSelected('parts') }
         ">
             File Parts
@@ -27,10 +27,10 @@
             params="obj: obj"
         "></object-details-form>
 
-        <object-parts-list class="tab" 
+        <object-parts-list class="tab"
             data-bind="css: { selected: isTabSelected('parts') }",
             params="parts: parts"
         ></object-parts-list>
-    </div>    
+    </div>
 </div>
 <!-- /ko -->

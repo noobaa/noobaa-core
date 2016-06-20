@@ -47,10 +47,6 @@ export default class BucketRowViewModel {
             () => bucket() && bucket().name
         );
 
-        this.href = ko.pureComputed(
-            () => bucket() && `/fe/systems/:system/buckets/${bucket().name}`
-        );
-
         this.fileCount = ko.pureComputed(
             () => {
                 if (bucket()) {

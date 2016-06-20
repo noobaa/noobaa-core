@@ -25,7 +25,7 @@ export function isFunction(value) {
 }
 
 export function isObject(value) {
-    return typeof value === 'object';
+    return typeof value === 'object' && value !== null;
 }
 
 export function isUndefined(value) {
@@ -131,14 +131,37 @@ export function stringifyQueryString(query) {
         .join('&');
 }
 
-export function realizeUri(uri, params = {}, query = {}) {
-    let base = uri
+export function realizeUri(template, params = {}, query = {}) {
+    let search = stringifyQueryString(query);
+    let base = template
         .split('/')
-        .map(part => part[0] === ':' ? params[part.substr(1)] : part)
+        .map(
+            part => {
+                let isParam = part[0] === ':';
+                let isOptional = part.substr(-1) === '?';
+
+                if (isParam) {
+                    let name = part.substr(1, part.length - 1 - Number(isOptional));
+                    let value = params[name ];
+
+                    if (value) {
+                        return value;
+                    } else if (isOptional) {
+                        return null;
+                    } else {
+                        throw new Error(`Cannot satisfy mandatory parameter: ${name}`);
+                    }
+                } else {
+                    return part;
+                }
+            }
+        )
+        .filter(
+            part => part !== null
+        )
         .map(dblEncode)
         .join('/');
 
-    let search = stringifyQueryString(query);
     return search ? `${base}?${search}` : base;
 }
 

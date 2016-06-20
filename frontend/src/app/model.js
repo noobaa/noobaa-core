@@ -9,8 +9,11 @@ export const uiState = ko.observable({
 // changes.
 export const refreshCounter = ko.observable(0);
 
-// Hold the current route context.
-export const routeContext = ko.observable();
+// Hold the current route context. The rate limit delay the route context change notification
+// in order to let knockout time t teardown and dispose view models that may be depended on
+// the route context value (mainly it's parameters).
+export const routeContext = ko.observable()
+    .extend({ rateLimit: 1 });
 
 // Hold login state information.
 export const loginInfo = ko.observable({

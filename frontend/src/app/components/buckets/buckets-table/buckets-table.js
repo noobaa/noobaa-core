@@ -26,7 +26,7 @@ class BucketsTableViewModel {
     }
 
     orderBy(colName) {
-        redirectTo(undefined, {
+        redirectTo(undefined, undefined, {
             sortBy: colName,
             order: this.sortedBy() === colName ? 0 - this.order() : 1
         });

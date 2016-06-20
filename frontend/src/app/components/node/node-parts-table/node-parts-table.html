@@ -31,7 +31,13 @@
                 </td>
 
                 <td class="name-col text-left">
-                    <a class="link" data-bind="href: href, text: object"></a>
+                    <a class="link" data-bind="
+                        href: {
+                            route: 'object',
+                            params: { bucket: bucket,  object: object, tab: null }
+                        },
+                        text: object
+                    "></a>
                 </td>
 
                 <td class="bucket-col no-wrap" data-bind="text: bucket"></td>

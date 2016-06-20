@@ -7,7 +7,7 @@ import registerValidationRules from 'validations';
 import registerBindings from 'bindings/register';
 import registerComponents from 'components/register';
 import page from 'page';
-import routing from 'routing';
+import configureRouter from 'routing';
 import { uiState } from 'model';
 import { start } from 'actions';
 
@@ -30,7 +30,7 @@ registerValidationRules(ko);
 registerComponents(ko);
 
 // Configure the appliction router.
-routing(page);
+configureRouter(page);
 
 // Bind the ui to the
 ko.applyBindings({

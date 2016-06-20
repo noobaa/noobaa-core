@@ -44,7 +44,10 @@
                 </td>
 
                 <td class="name-col text-left">
-                    <a class="link" data-bind="text: name, href: href"></a>
+                    <a class="link" data-bind="
+                        text: name,
+                        href: { route: 'object', params: { object: name, tab: null } }
+                    "></a>
                 </td>
 
                 <td class="size-col" data-bind="text: size"></td>

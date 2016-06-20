@@ -2,6 +2,7 @@ import * as model from 'model';
 import page from 'page';
 import api from 'services/api';
 import config from 'config';
+import * as routes from 'routes';
 
 import {
     isDefined, isUndefined, encodeBase64, cmpStrings, cmpInts, cmpBools,
@@ -55,27 +56,29 @@ export function start() {
 // -----------------------------------------------------
 // Navigation actions
 // -----------------------------------------------------
-export function navigateTo(path = window.location.pathname, query = {}) {
-    logAction('navigateTo', { path, query });
+export function navigateTo(route = window.location.pathname, params = {},  query = {}) {
+    logAction('navigateTo', { route, params, query });
 
     page.show(
-        realizeUri(path, model.routeContext().params, query)
+        realizeUri(route, Object.assign({}, model.routeContext().params, params), query)
     );
 }
 
-export function redirectTo(path = window.location.pathname, query = {}) {
-    logAction('redirectTo', { path, query });
+export function redirectTo(route = window.location.pathname, params = {}, query = {}) {
+    logAction('redirectTo', { route, params, query });
 
     page.redirect(
-        realizeUri(path, model.routeContext().params, query)
+        realizeUri(route, Object.assign({}, model.routeContext().params, params), query)
     );
 }
 
-export function reloadTo(path = window.location.pathname, query = {}) {
-    logAction('reloadTo', { path, query });
+export function reloadTo(route = window.location.pathname, params = {},  query = {}) {
+    logAction('reloadTo', { route, params, query });
 
     // Force full browser refresh
-    window.location.href = realizeUri(path, model.routeContext().params, query);
+    window.location.href = realizeUri(
+        route, Object.assign({}, model.routeContext().params, params), query
+    );
 }
 
 export function refresh() {
@@ -85,7 +88,6 @@ export function refresh() {
 
     // Refresh the current path
     page.redirect(pathname + search);
-
     model.refreshCounter(model.refreshCounter() + 1);
 }
 
@@ -99,7 +101,7 @@ export function showLogin() {
     let ctx = model.routeContext();
 
     if (session) {
-        redirectTo(`/fe/systems/${session.system}`);
+        redirectTo(routes.system, { system: session.system });
 
     } else {
         model.uiState({
@@ -118,7 +120,7 @@ export function showOverview() {
         layout: 'main-layout',
         title: 'OVERVIEW',
         breadcrumbs: [
-            { href: 'fe/systems/:system' }
+            { route: 'system' }
         ],
         panel: 'overview'
     });
@@ -133,8 +135,8 @@ export function showBuckets() {
         layout: 'main-layout',
         title: 'BUCKETS',
         breadcrumbs: [
-            { href: 'fe/systems/:system' },
-            { href: 'buckets', label: 'BUCKETS' }
+            { route: 'system' },
+            { route: 'buckets', label: 'BUCKETS' }
         ],
         panel: 'buckets'
     });
@@ -154,9 +156,9 @@ export function showBucket() {
         layout: 'main-layout',
         title: bucket,
         breadcrumbs: [
-            { href: 'fe/systems/:system' },
-            { href: 'buckets', label: 'BUCKETS' },
-            { href: ':bucket', label: bucket }
+            { route: 'system' },
+            { route: 'buckets', label: 'BUCKETS' },
+            { route: 'bucket', label: bucket }
         ],
         panel: 'bucket',
         tab: tab
@@ -179,10 +181,10 @@ export function showObject() {
         layout: 'main-layout',
         title: object,
         breadcrumbs: [
-            { href: 'fe/systems/:system' },
-            { href: 'buckets', label: 'BUCKETS' },
-            { href: ':bucket', label: bucket },
-            { href: 'objects/:object', label: object }
+            { route: 'system' },
+            { route: 'buckets', label: 'BUCKETS' },
+            { route: 'bucket', label: bucket },
+            { route: 'object', label: object }
         ],
         panel: 'object',
         tab: tab
@@ -199,8 +201,8 @@ export function showPools() {
         layout: 'main-layout',
         title: 'POOLS',
         breadcrumbs: [
-            { href: 'fe/systems/:system' },
-            { href: 'pools', label: 'POOLS'}
+            { route: 'system' },
+            { route: 'pools', label: 'POOLS'}
         ],
         panel: 'pools'
     });
@@ -221,9 +223,9 @@ export function showPool() {
         layout: 'main-layout',
         title: pool,
         breadcrumbs: [
-            { href: 'fe/systems/:system' },
-            { href: 'pools', label: 'POOLS' },
-            { href: ':pool', label: pool }
+            { route: 'system' },
+            { route: 'pools', label: 'POOLS'},
+            { route: 'pool', label: pool }
         ],
         panel: 'pool',
         tab: tab
@@ -244,10 +246,10 @@ export function showNode() {
         layout: 'main-layout',
         title: node,
         breadcrumbs: [
-            { href: 'fe/systems/:system' },
-            { href: 'pools', label: 'POOLS' },
-            { href: ':pool', label: pool },
-            { href: 'nodes/:node', label: node }
+            { route: 'system' },
+            { route: 'pools', label: 'POOLS'},
+            { route: 'pool', label: pool },
+            { route: 'node', label: node }
         ],
         panel: 'node',
         tab: tab
@@ -266,8 +268,8 @@ export function showManagement() {
         layout: 'main-layout',
         title: 'SYSTEM MANAGEMENT',
         breadcrumbs: [
-            { href: 'fe/systems/:system' },
-            { href: 'management', label: 'SYSTEM MANAGEMENT' }
+            { route: 'system' },
+            { route: 'management', label: 'SYSTEM MANAGEMENT' }
         ],
         panel: 'management',
         tab: tab
@@ -314,10 +316,10 @@ export function signIn(email, password, redirectUrl) {
                         model.loginInfo({ retryCount: 0 });
 
                         if (isUndefined(redirectUrl)) {
-                            redirectUrl = `/fe/systems/${system}`;
+                            redirectTo(routes.system, { system });
+                        } else {
+                            redirectTo(decodeURIComponent(redirectUrl));
                         }
-
-                        redirectTo(decodeURIComponent(redirectUrl));
                     });
             }
         )
@@ -839,15 +841,15 @@ export function loadS3BucketList(connection) {
 // -----------------------------------------------------
 // Managment actions.
 // -----------------------------------------------------
-export function createSystemAccount(systemName, email, password, dnsName) {
-    logAction('createSystemAccount', { systemName, email, password, dnsName });
+export function createSystemAccount(system, email, password, dnsName) {
+    logAction('createSystemAccount', { system, email, password, dnsName });
 
-    let accessKeys = systemName === 'demo' && email === 'demo@noobaa.com' ?
+    let accessKeys = system === 'demo' && email === 'demo@noobaa.com' ?
         { access_key: '123', secret_key: 'abc' } :
         generateAccessKeys();
 
     api.account.create_account({
-        name: systemName,
+        name: system,
         email: email,
         password: password,
         access_keys: accessKeys
@@ -856,7 +858,7 @@ export function createSystemAccount(systemName, email, password, dnsName) {
             ({ token }) => {
                 api.options.auth_token = token;
                 localStorage.setItem('sessionToken', token);
-                model.sessionInfo({ user: email, system: systemName});
+                model.sessionInfo({ user: email, system: system});
             }
         )
         .then(
@@ -869,7 +871,7 @@ export function createSystemAccount(systemName, email, password, dnsName) {
             }
         )
         .then(
-            () => redirectTo(`/fe/systems/${systemName}`)
+            () => redirectTo(routes.system, { system })
         )
         .done();
 }
@@ -1252,7 +1254,7 @@ export function upgradeSystem(upgradePackage) {
     function ping() {
         let xhr = new XMLHttpRequest();
         xhr.open('GET', '/version', true);
-        xhr.onload = () => reloadTo('/fe/systems/:system', { afterupgrade: true });
+        xhr.onload = () => reloadTo(routes.system, undefined, { afterupgrade: true });
         xhr.onerror = () => setTimeout(ping, 10000);
         xhr.send();
     }

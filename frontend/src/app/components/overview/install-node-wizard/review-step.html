@@ -1,9 +1,11 @@
 <p>
-    All nodes will be automaticly added to the 
-    <a class="link" data-bind="href: defaultPoolUrl">default pool</a>
+    All nodes will be automaticly added to the
+    <a class="link" data-bind="href: { route: 'pool', params: { pool: defaultPool } }">
+        default pool
+    </a>
 </p>
 
-<img src="/fe/assets/nodesList_illustration.png" />
+<img data-bind="attr: { src: nodeListImageUrl }"/>
 
 <span class="remark">
     * New Nodes will show up in a list once they are connected

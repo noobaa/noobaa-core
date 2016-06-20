@@ -93,7 +93,7 @@ class PoolNodesTableViewModel {
     }
 
     pageTo(page) {
-        redirectTo(undefined, {
+        redirectTo(undefined, undefined, {
             filter: this.filter(),
             sortBy: this.sortedBy(),
             order: this.order(),
@@ -102,7 +102,7 @@ class PoolNodesTableViewModel {
     }
 
     filterObjects(phrase) {
-        redirectTo(undefined, {
+        redirectTo(undefined, undefined, {
             filter: phrase || undefined,
             sortBy: this.sortedBy(),
             order: this.order(),
@@ -111,7 +111,7 @@ class PoolNodesTableViewModel {
     }
 
     orderBy(colName) {
-        redirectTo(undefined, {
+        redirectTo(undefined, undefined, {
             filter: this.filter(),
             sortBy: colName,
             order: this.sortedBy() === colName ? 0 - this.order() : 1,

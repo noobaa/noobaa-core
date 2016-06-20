@@ -36,7 +36,10 @@
                 </td>
 
                 <td class="name-col text-left">
-                    <a class="link" data-bind="text: name, href: href"></a>
+                    <a class="link" data-bind="
+                        text: name,
+                        href: { route: 'bucket', params: { bucket: name } }
+                    "></a>
                 </td>
 
                 <td class="filecount-col" data-bind="text: fileCount"></td>

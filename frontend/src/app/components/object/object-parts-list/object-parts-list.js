@@ -11,7 +11,7 @@ class ObjectPartsListViewModel {
 
         this.page = ko.pureComputed({
             read: parts.page,
-            write: page => redirectTo(undefined, { page })
+            write: page => redirectTo(undefined, undefined, { page })
         });
 
         this.rows = parts.map(

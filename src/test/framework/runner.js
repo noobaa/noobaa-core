@@ -294,7 +294,7 @@ TestRunner.prototype._run_lib_test = function(current_step, step_res) {
     var self = this;
     var ts = new Date();
     // Used in order to log inside a file instead of console prints
-    dbg.set_log_to_file(process.cwd() + COVERAGE_DIR + '/' + path.parse(current_step.lib_test).name);
+    dbg.set_log_to_file(process.cwd() + COVERAGE_DIR.substring(1) + '/' + path.parse(current_step.lib_test).name);
     var test = require(process.cwd() + current_step.lib_test);
     return P.resolve(test.run_test())
         .then(function(res) {

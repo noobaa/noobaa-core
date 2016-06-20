@@ -135,7 +135,7 @@ function extract_module(mod, ignore_extension) {
 function InternalDebugLogger() {
     var self = this;
 
-    self._file_path;
+    self._file_path = undefined;
     self._logs_by_file = [];
 
     self._modules = {
@@ -363,6 +363,7 @@ InternalDebugLogger.prototype.log_internal = function(level) {
     if (self._file_path) {
         var winston_log = self._logs_by_file[self._file_path.name];
         if (!winston_log) {
+            let winston = require('winston');
             //Define Transports
             winston_log = new(winston.Logger)({
                 levels: self._levels,

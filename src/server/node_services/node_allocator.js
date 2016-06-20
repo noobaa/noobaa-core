@@ -7,7 +7,8 @@ const chance = require('chance')();
 const P = require('../../util/promise');
 const dbg = require('../../util/debug_module')(__filename);
 const config = require('../../../config.js');
-const nodes_store = require('../node_services/nodes_store').get_instance();
+const nodes_store = require('./nodes_store');
+const nodes_client = require('./nodes_client');
 
 const alloc_group_by_pool = {};
 const alloc_group_by_pool_set = {};
@@ -38,11 +39,11 @@ function refresh_pool_alloc(pool) {
     if (group.promise) return group.promise;
 
     group.promise = P.join(
-        nodes_store.find_nodes({
+        nodes_store.instance().find_nodes({
             system: pool.system._id,
             pool: pool._id,
             heartbeat: {
-                $gt: nodes_store.get_minimum_alloc_heartbeat()
+                $gt: nodes_store.instance().get_minimum_alloc_heartbeat()
             },
             $or: [{
                 'storage.free': {
@@ -63,7 +64,7 @@ function refresh_pool_alloc(pool) {
             deleted: null,
             srvmode: null,
         }, {
-            fields: nodes_store.NODE_FIELDS_FOR_MAP,
+            fields: nodes_store.instance().NODE_FIELDS_FOR_MAP,
             sort: {
                 // sorting with lowest used storage nodes first
                 'storage.used': 1
@@ -71,14 +72,11 @@ function refresh_pool_alloc(pool) {
             limit: 1000
         }).then(nodes => {
             // TODO not sure if really needed resolve_node_object_ids, but just in case
-            _.each(nodes, node => nodes_store.resolve_node_object_ids(node, 'allow_missing'));
+            _.each(nodes, node =>
+                nodes_store.instance().resolve_node_object_ids(node, 'allow_missing'));
             return nodes;
         }),
-        nodes_store.aggregate_nodes_by_pool({
-            system: pool.system._id,
-            pool: pool._id,
-            deleted: null,
-        })
+        nodes_client.instance().aggregate_nodes_by_pool([pool._id])
     ).spread((nodes, nodes_aggregate_pool) => {
         group.last_refresh = new Date();
         group.promise = null;

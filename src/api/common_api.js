@@ -32,6 +32,9 @@ module.exports = {
                 limit: {
                     $ref: '#/definitions/bigint'
                 },
+                reserved: {
+                    $ref: '#/definitions/bigint'
+                },
                 // real - after calculating dedup reduction or redundancy overheads
                 real: {
                     $ref: '#/definitions/bigint'

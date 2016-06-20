@@ -42,7 +42,7 @@ var pem = require('../util/pem');
 var pkg = require('../../package.json');
 var config = require('../../config.js');
 var time_utils = require('../util/time_utils');
-var mongo_client = require('../util/mongo_client').get_instance();
+var mongo_client = require('../util/mongo_client');
 var mongoose_utils = require('../util/mongoose_utils');
 
 var rootdir = path.join(__dirname, '..', '..');
@@ -50,7 +50,7 @@ var dev_mode = (process.env.DEV_MODE === 'true');
 
 dbg.set_process_name('WebServer');
 mongoose_utils.mongoose_connect();
-mongo_client.connect();
+mongo_client.instance().connect();
 
 // create express app
 var app = express();

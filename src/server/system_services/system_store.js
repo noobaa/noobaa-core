@@ -18,7 +18,7 @@ const time_utils = require('../../util/time_utils');
 const size_utils = require('../../util/size_utils');
 const os_utils = require('../../util/os_utils');
 const mongo_utils = require('../../util/mongo_utils');
-const mongo_client = require('../../util/mongo_client').get_instance();
+const mongo_client = require('../../util/mongo_client');
 const schema_utils = require('../../util/schema_utils');
 
 const COLLECTIONS = js_utils.deep_freeze([{
@@ -299,10 +299,10 @@ class SystemStore extends EventEmitter {
             }
         });
         _.each(COLLECTIONS, col => {
-            mongo_client.define_collection(col);
+            mongo_client.instance().define_collection(col);
             this._json_validator.addSchema(col.schema, col.name);
         });
-        mongo_client.on('reconnect', () => this.load());
+        mongo_client.instance().on('reconnect', () => this.load());
         this.refresh_middleware = () => this.refresh();
         setTimeout(this.refresh_middleware, 1000);
     }
@@ -378,10 +378,10 @@ class SystemStore extends EventEmitter {
         let non_deleted_query = {
             deleted: null
         };
-        return mongo_client.connect()
+        return mongo_client.instance().connect()
             .then(() => {
                 return P.map(COLLECTIONS, col =>
-                    mongo_client.db.collection(col.name).find(non_deleted_query).toArray()
+                    mongo_client.instance().db.collection(col.name).find(non_deleted_query).toArray()
                     .then(res => {
                         target[col.name] = res;
                         _.each(res, item => this._check_schema(col, item, 'read'));
@@ -453,7 +453,7 @@ class SystemStore extends EventEmitter {
             let bulk =
                 bulk_per_collection[name] =
                 bulk_per_collection[name] ||
-                mongo_client.db.collection(name).initializeUnorderedBulkOp();
+                mongo_client.instance().db.collection(name).initializeUnorderedBulkOp();
             return bulk;
         };
 

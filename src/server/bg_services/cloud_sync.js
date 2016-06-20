@@ -49,7 +49,7 @@ function background_worker() {
                     }
                     should_update_time = true;
                     return update_work_list(policy)
-                        .fail(function(error) {
+                        .catch(function(error) {
                             dbg.error('update_work_list failed for policy:', policy);
                             return;
                         });
@@ -63,12 +63,12 @@ function background_worker() {
                         p.bucket._id === single_bucket.bucketid;
                 });
                 //Sync n2c
-                return P.when(sync_to_cloud_single_bucket(single_bucket, current_policy))
+                return P.resolve(sync_to_cloud_single_bucket(single_bucket, current_policy))
                     .then(function() {
                         //Sync c2n
                         return sync_from_cloud_single_bucket(single_bucket, current_policy);
                     })
-                    .fail(function(error) {
+                    .catch(function(error) {
                         dbg.error('cloud_sync_refresher failed syncing objects for bucket', single_bucket.sysid, single_bucket.bucketid, 'with', error, error.stack);
                         return;
                     })
@@ -83,7 +83,7 @@ function background_worker() {
                     });
             }));
         })
-        .fail(function(error) {
+        .catch(function(error) {
             dbg.error('cloud_sync_refresher Failed', error, error.stack);
         })
         .then(function() {
@@ -199,7 +199,7 @@ function pretty_policy(policy) {
 //TODO:: add limit and skip
 //Preferably move part of list_objects to a mutual function called by both
 function list_all_objects(sysid, bucket) {
-    return P.when(md_store.ObjectMD.find({
+    return P.resolve(md_store.ObjectMD.find({
                 system: sysid,
                 bucket: bucket,
                 deleted: null
@@ -218,7 +218,7 @@ function list_need_sync(sysid, bucket) {
         added: [],
     };
 
-    return P.when(md_store.ObjectMD.find({
+    return P.resolve(md_store.ObjectMD.find({
                 system: sysid,
                 bucket: bucket,
                 cloud_synced: false
@@ -241,7 +241,7 @@ function list_need_sync(sysid, bucket) {
 
 //set cloud_sync to true on given object
 function mark_cloud_synced(object) {
-    return P.when(md_store.ObjectMD.findOne({
+    return P.resolve(md_store.ObjectMD.findOne({
                 system: object.system,
                 bucket: object.bucket,
                 key: object.key,
@@ -432,7 +432,7 @@ function update_work_list(policy) {
     //order is important, in order to query needed sync objects only once form DB
     //fill the n2c list first
     dbg.log3('update_work_list for', pretty_policy(policy));
-    return P.when(update_n2c_worklist(policy))
+    return P.resolve(update_n2c_worklist(policy))
         .then(function() {
             return update_c2n_worklist(policy);
         });
@@ -461,7 +461,7 @@ function update_n2c_worklist(policy) {
             }
             dbg.log2('DONE update_n2c_worklist sys', policy.system._id, 'bucket', policy.bucket._id, 'total changes', res.added.length + res.deleted.length);
         })
-        .thenResolve();
+        .return();
 }
 
 //Update work lists for specific policy
@@ -489,7 +489,7 @@ function update_c2n_worklist(policy) {
     var cloud_object_list;
     var bucket_object_list;
     return P.ninvoke(policy.s3cloud, 'listObjects', params)
-        .fail(function(error) {
+        .catch(function(error) {
             dbg.error('ERROR statusCode', error.statusCode, error.statusCode === 400, error.statusCode === 301);
             if (error.statusCode === 400 ||
                 error.statusCode === 301) {
@@ -503,7 +503,7 @@ function update_c2n_worklist(policy) {
                     region: 'eu-central-1'
                 });
                 return P.ninvoke(policy.s3cloud, 'listObjects', params)
-                    .fail(function(err) {
+                    .catch(function(err) {
                         dbg.error('update_c2n_worklist failed to list files from cloud: sys', policy.system._id, 'bucket',
                             policy.bucket.id, error, error.stack);
                         throw new Error('update_c2n_worklist failed to list files from cloud');
@@ -574,7 +574,7 @@ function update_c2n_worklist(policy) {
                 }
             });
         })
-        .thenResolve();
+        .return();
 }
 
 //sync a single file to the cloud
@@ -593,7 +593,7 @@ function sync_single_file_to_cloud(policy, object, target) {
     };
 
     return P.ninvoke(policy.s3cloud, 'upload', params)
-        .fail(function(err) {
+        .catch(function(err) {
             dbg.error('ERROR statusCode', err.statusCode, err.statusCode === 400, err.statusCode === 301);
             if (err.statusCode === 400 ||
                 err.statusCode === 301) {
@@ -606,7 +606,7 @@ function sync_single_file_to_cloud(policy, object, target) {
                     region: 'eu-central-1'
                 });
                 return P.ninvoke(policy.s3cloud, 'upload', params)
-                    .fail(function(err) {
+                    .catch(function(err) {
                         dbg.error('Error (upload) sync_single_file_to_noobaa', object.key, '->', policy.bucket.name + '/' + object.key,
                             err, err.stack);
                     });
@@ -637,7 +637,7 @@ function sync_single_file_to_noobaa(policy, object) {
     };
 
     return P.ninvoke(policy.s3rver, 'upload', params)
-        .fail(function(err) {
+        .catch(function(err) {
             // on any error just continue to the next file
             dbg.error('Error sync_single_file_to_noobaa', object.key, '->', policy.bucket.name + '/' + object.key,
                 err, err.stack);
@@ -672,7 +672,7 @@ function sync_to_cloud_single_bucket(bucket_work_lists, policy) {
                 });
                 dbg.log2('sync_to_cloud_single_bucket syncing', bucket_work_lists.n2c_deleted.length, 'deletions n2c');
                 return P.ninvoke(policy.s3cloud, 'deleteObjects', params)
-                    .fail(function(err) {
+                    .catch(function(err) {
                         // change default region from US to EU due to restricted signature of v4 and end point
                         if (err.statusCode === 400 ||
                             err.statusCode === 301) {
@@ -685,7 +685,7 @@ function sync_to_cloud_single_bucket(bucket_work_lists, policy) {
                                 region: 'eu-central-1'
                             });
                             return P.ninvoke(policy.s3cloud, 'deleteObjects', params)
-                                .fail(function(err) {
+                                .catch(function(err) {
                                     dbg.error('sync_to_cloud_single_bucket Failed syncing deleted objects n2c', err, err.stack);
                                     throw new Error('sync_to_cloud_single_bucket Failed syncing deleted objects n2c ' + err);
                                 });
@@ -727,13 +727,13 @@ function sync_to_cloud_single_bucket(bucket_work_lists, policy) {
                 dbg.log1('sync_to_cloud_single_bucket syncing additions n2c, nothing to sync');
             }
         })
-        .fail(function(error) {
+        .catch(function(error) {
             dbg.error('sync_to_cloud_single_bucket Failed syncing added objects n2c', error, error.stack);
         })
         .then(function() {
             dbg.log1('Done sync_to_cloud_single_bucket on {', policy.bucket.name, policy.system._id, policy.endpoint, '}');
         })
-        .thenResolve();
+        .return();
 }
 
 //Perform c2n cloud sync for a specific policy with a given work list
@@ -765,7 +765,7 @@ function sync_from_cloud_single_bucket(bucket_work_lists, policy) {
                 return;
             }
         })
-        .fail(function(err) {
+        .catch(function(err) {
             dbg.error('sync_from_cloud_single_bucket failed on syncing deletions', err, err.stack);
         })
         .then(function() {
@@ -783,7 +783,7 @@ function sync_from_cloud_single_bucket(bucket_work_lists, policy) {
                 dbg.log1('sync_from_cloud_single_bucket syncing additions c2n, nothing to sync');
             }
         })
-        .fail(function(error) {
+        .catch(function(error) {
             dbg.error('sync_from_cloud_single_bucket Failed syncing added objects c2n', error, error.stack);
         })
         .then(function() {
@@ -793,7 +793,7 @@ function sync_from_cloud_single_bucket(bucket_work_lists, policy) {
             }
             dbg.log1('Done sync_from_cloud_single_bucket on {', policy.bucket.name, policy.system._id, policy.endpoint, '}');
         })
-        .thenResolve();
+        .return();
 }
 
 function update_bucket_last_sync(bucket) {

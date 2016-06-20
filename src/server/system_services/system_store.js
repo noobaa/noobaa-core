@@ -457,7 +457,7 @@ class SystemStore extends EventEmitter {
             return bulk;
         };
 
-        return P.when(this.refresh())
+        return P.resolve(this.refresh())
             .then(data => {
 
                 _.each(changes.insert, (list, name) => {
@@ -506,7 +506,7 @@ class SystemStore extends EventEmitter {
                 });
 
                 return P.all(_.map(bulk_per_collection,
-                    bulk => bulk.length && P.ninvoke(bulk, 'execute')));
+                    bulk => bulk.length && P.resolve(bulk.execute())));
             })
             .then(() =>
                 // notify all the cluster (including myself) to reload

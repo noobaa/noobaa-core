@@ -1,7 +1,6 @@
 'use strict';
 
 var _ = require('lodash');
-var genfun = require('generate-function');
 
 module.exports = {
     idate_format: idate_format,
@@ -125,33 +124,45 @@ function empty_schema_validator(json) {
 // create a concatenated buffer from all the buffers
 // and replace each of the original paths with the buffer length
 function generate_schema_export_buffers(buffer_paths) {
-    var efn = genfun()('function export_buffers(data) {');
-    efn('var buffers = [];');
-    efn('var buf;');
+    let code = `
+            var buffers = [];
+            var buf;
+    `;
     for (const buf_path of buffer_paths) {
-        efn('buf = data%s;', buf_path);
-        efn('if (buf) {');
-        efn(' buffers.push(buf);');
-        efn(' data%s = buf.length;', buf_path);
-        efn('}');
+        code += `
+            buf = data${buf_path};
+            if (buf) {
+                buffers.push(buf);
+                data${buf_path} = buf.length;
+            }
+        `;
     }
-    efn('return buffers;');
-    return efn('}').toFunction();
+    code += `
+            return buffers;
+    `;
+    /* jslint evil: true */
+    // eslint-disable-next-line no-new-func
+    return new Function('data', code);
 }
 
 function generate_schema_import_buffers(buffer_paths) {
-    var ifn = genfun()('function import_buffers(data, buf) {');
-    ifn('var start = 0;');
-    ifn('var end = 0;');
-    ifn('var len;');
-    ifn('buf = buf || new Buffer(0);');
+    let code = `
+            var start = 0;
+            var end = 0;
+            var len;
+            buf = buf || new Buffer(0);
+    `;
     for (const buf_path of buffer_paths) {
-        ifn('len = data%s;', buf_path);
-        ifn('if (typeof(len) === "number") {');
-        ifn(' start = end;');
-        ifn(' end = start + len;');
-        ifn(' data%s = buf.slice(start, end);', buf_path);
-        ifn('}');
+        code += `
+            len = data${buf_path};
+            if (typeof(len) === "number") {
+                start = end;
+                end = start + len;
+                data${buf_path} = buf.slice(start, end);
+            }
+        `;
     }
-    return ifn('}').toFunction();
+    /* jslint evil: true */
+    // eslint-disable-next-line no-new-func
+    return new Function('data', 'buf', code);
 }

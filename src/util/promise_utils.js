@@ -44,7 +44,7 @@ function join(obj, property, func) {
     }
     promise =
         P.fcall(func)
-        .fin(function() {
+        .finally(function() {
             delete obj[property];
         });
     obj[property] = promise;
@@ -61,7 +61,7 @@ function iterate(array, func) {
     var i = -1;
     var results = [];
     if (!array || !array.length) {
-        return P.when(results);
+        return P.resolve(results);
     }
     results.length = array.length;
 
@@ -87,7 +87,7 @@ function iterate(array, func) {
         return P.fcall(func, array[i], i, array).then(next);
     }
 
-    return P.fcall(next).thenResolve(results);
+    return P.fcall(next).return(results);
 }
 
 
@@ -323,13 +323,7 @@ function full_dir_copy(src, dst, filter_regex) {
         return P.reject(new Error('Both src and dst must be given'));
     }
 
-    return P.nfcall(ncp, src, dst, ncp_options).done(function(err) {
-        if (err) {
-            return P.reject(new Error('full_dir_copy failed with ' + err));
-        } else {
-            return P.resolve();
-        }
-    });
+    return P.nfcall(ncp, src, dst, ncp_options).return();
 }
 
 function wait_for_event(emitter, event, timeout) {
@@ -339,10 +333,10 @@ function wait_for_event(emitter, event, timeout) {
         // then we can be lazy and leave dangling listeners
         emitter.once(event, resolve);
         if (event !== 'close') {
-            emitter.once('close', reject);
+            emitter.once('close', () => reject(new Error('wait_for_event: closed')));
         }
         if (event !== 'error') {
-            emitter.once('error', reject);
+            emitter.once('error', err => reject(err || new Error('wait_for_event: error')));
         }
         if (timeout) {
             setTimeout(reject, timeout);

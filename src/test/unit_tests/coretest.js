@@ -17,7 +17,9 @@ var nodes_store = require('../../server/node_services/nodes_store').get_instance
 var mongo_client = require('../../util/mongo_client').get_instance();
 var mongoose_utils = require('../../util/mongoose_utils');
 
-P.longStackTraces();
+P.config({
+    longStackTraces: true
+});
 config.test_mode = true;
 config.NODES_FREE_SPACE_RESERVE = 10 * 1024 * 1024;
 
@@ -55,7 +57,7 @@ mocha.before('coretest-before', function() {
     return P.resolve()
         .then(() => mongoose_utils.mongoose_connect())
         .then(() => mongoose_utils.mongoose_wait_connected())
-        .then(() => P.npost(mongoose.connection.db, 'dropDatabase'))
+        .then(() => mongoose.connection.db.dropDatabase()) // returns promise
         .then(() => mongoose_utils.mongoose_ensure_indexes())
         .then(() => mongo_client.connect())
         .then(() => server_rpc.rpc.start_http_server({

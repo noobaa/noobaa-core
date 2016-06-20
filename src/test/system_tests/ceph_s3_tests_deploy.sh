@@ -55,7 +55,7 @@ curl -sL ${TURN_DL} | tar -xzv
 echo "Finished Downloading turnserver package and unpacking..."
 cd /tmp/turnserver-4.3.1.3
 echo "Installing turnserver..."
-/tmp/turnserver-4.3.1.3/install.sh
+./install.sh
 echo "Finished Installing turnserver..."
 echo "Starting turnserver..."
 supervisorctl start STUN

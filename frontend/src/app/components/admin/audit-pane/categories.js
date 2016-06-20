@@ -46,6 +46,11 @@ export default {
                 entityId: ({ bucket }) => bucket && bucket.name
             },
 
+            update_cloud_sync: {
+                message: 'Bucket Cloud Sync Updated',
+                entityId: ({ bucket }) => bucket && bucket.name
+            },
+
             remove_cloud_sync: {
                 message: 'Bucket Cloud Sync Removed',
                 entityId: ({ bucket }) => bucket && bucket.name

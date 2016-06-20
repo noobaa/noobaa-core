@@ -372,7 +372,7 @@ function find_consecutive_parts(obj, parts) {
         }
         pos = part.end;
     });
-    return P.when(md_store.ObjectPart.collection.find({
+    return P.resolve(md_store.ObjectPart.collection.find({
         system: obj.system,
         obj: obj._id,
         upload_part_number: upload_part_number,

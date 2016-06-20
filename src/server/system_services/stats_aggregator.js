@@ -245,7 +245,7 @@ function get_cloud_sync_stats(req) {
                                 sync_stats.sync_target.other++;
                             }
                         }
-                        sync_histo.histo_schedule.add_value(cloud_sync.policy.schedule);
+                        sync_histo.histo_schedule.add_value(cloud_sync.policy.schedule_min);
                     }
                 }
             }

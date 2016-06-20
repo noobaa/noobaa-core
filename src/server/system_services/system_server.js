@@ -524,7 +524,7 @@ function _read_activity_log_internal(req) {
         q.limit(req.rpc_params.limit || 10);
     }
 
-    return P.when(q.lean().exec())
+    return P.resolve(q.lean().exec())
         .then(logs => P.join(
             nodes_store.populate_nodes_fields(logs, 'node', {
                 name: 1

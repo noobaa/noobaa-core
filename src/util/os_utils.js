@@ -359,7 +359,25 @@ function read_server_secret() {
                 var sec = data.toString();
                 return sec.substring(0, sec.length - 1);
             });
-    } else {
+    } else if (os.type() === 'Darwin') {
+        return P.nfcall(fs.readFile, config.CLUSTERING_PATHS.DARWIN_SECRET_FILE)
+            .then(function(data) {
+                var sec = data.toString();
+                return sec.substring(0, sec.length - 1);
+            })
+            .catch(err => {
+                //For Darwin only, if file does not exist, create it
+                //In linux its created as part of the server build process or in an upgrade
+                if (err.code === 'ENOENT') {
+                    var id = uuid().substring(0, 8);
+                    return P.nfcall(fs.writeFile, config.CLUSTERING_PATHS.DARWIN_SECRET_FILE,
+                            JSON.stringify(id))
+                        .then(() => id);
+                } else {
+                    throw new Error('Failed reading secret with ' + err);
+                }
+            });
+    } else { //Windows
         return uuid().substring(0, 8);
     }
 }
@@ -392,7 +410,7 @@ function reload_syslog_configuration(conf) {
 }
 
 if (require.main === module) {
-    read_drives().done(function(drives) {
+    read_drives().then(function(drives) {
         console.log(drives);
     });
 }

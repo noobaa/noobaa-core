@@ -203,7 +203,7 @@ function news_updated_topology(req) {
 
 function do_heartbeat() {
     let current_clustering = system_store.get_local_cluster_info();
-    if (current_clustering) {
+    if (current_clustering && current_clustering.is_clusterized) {
         let heartbeat = {
             version: pkg.version,
             time: Date.now(),
@@ -229,9 +229,10 @@ function do_heartbeat() {
                         clusters: [update]
                     }
                 });
-            });
+            })
+            .return();
     } else {
-        dbg.warn('no local cluster info. HB is not written');
+        dbg.log0('no local cluster info or server is not part of a cluster. HB is not written');
     }
 }
 

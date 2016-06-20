@@ -17,6 +17,7 @@ module.exports = DebugLogger;
 
 var _ = require('lodash');
 var fs = require('fs');
+var path = require('path');
 var util = require('util');
 
 var config = {
@@ -133,6 +134,10 @@ function extract_module(mod, ignore_extension) {
  */
 function InternalDebugLogger() {
     var self = this;
+
+    self._file_path = undefined;
+    self._logs_by_file = [];
+
     self._modules = {
         __level: 0
     };
@@ -355,7 +360,51 @@ InternalDebugLogger.prototype.log_internal = function(level) {
     var self = this;
     var args;
     if (console_wrapper) console_wrapper.original_console();
-    if (!_.isUndefined(syslog)) {
+    if (self._file_path) {
+        var winston_log = self._logs_by_file[self._file_path.name];
+        if (!winston_log) {
+            let winston = require('winston');
+            //Define Transports
+            winston_log = new(winston.Logger)({
+                levels: self._levels,
+                transports: [
+                    new(winston.transports.File)({
+                        name: 'file_transport',
+                        level: 'ERROR',
+                        showLevel: false,
+                        filename: self._file_path.name + '-report.log',
+                        dirname: self._file_path.dir,
+                        json: false, //Must be otherwise formatter is not working
+                        //maxsize: (10 * 1024 * 1024), //10 MB
+                        //maxFiles: 100,
+                        //tailable: true,
+                        //zippedArchive: true,
+                        formatter: function(options) {
+                            //prefix - time, level, module & pid
+                            var proc = '[' + self._proc_name + '/' + self._pid + ']';
+                            var prefix = '\x1B[32m' + formatted_time() +
+                                '\x1B[35m ' + proc +
+                                ((self._levels[options.level] === 0) ?
+                                    ' \x1B[31m[' :
+                                    ((self._levels[options.level] === 1) ? ' \x1B[33m[' : ' \x1B[36m[')) +
+                                options.level + ']\x1B[39m ';
+                            //message - one liner for file transport
+                            var message = (options.message !== undefined ? (options.message.replace(/(\r\n|\n|\r)/gm, "")) : '');
+
+                            var postfix = (options.meta && Object.keys(options.meta).length ?
+                                JSON.stringify(options.meta) : '');
+                            return prefix + message + postfix;
+                        }
+                    })
+                ]
+            });
+            self._logs_by_file[self._file_path.name] = winston_log;
+        }
+
+        args = Array.prototype.slice.call(arguments, 1);
+        args.push("");
+        winston_log[level].apply(winston_log, args);
+    } else if (!_.isUndefined(syslog)) {
         // syslog path
         let msg = syslog_formatter(self, level, arguments);
         syslog.log(this._levels_to_syslog[level], msg.message);
@@ -515,6 +564,14 @@ DebugLogger.prototype.set_process_name = function(name) {
     int_dbg._proc_name = name;
     if (!_.isUndefined(syslog)) {
         syslog.openlog(name);
+    }
+};
+
+DebugLogger.prototype.set_log_to_file = function(file) {
+    if (file) {
+        int_dbg._file_path = path.parse(file);
+    } else {
+        int_dbg._file_path = undefined;
     }
 };
 

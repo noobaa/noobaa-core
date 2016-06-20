@@ -335,10 +335,10 @@ function list_nodes_int(system_id, query, skip, limit, pagination, sort, order, 
                     if (pool_index < 0) {
                         data_for_ml.push({
                             pool_name: node.pool.name,
-                            nodes: [new Document(node._id, [node.ip, node.geolocation, node_avg_latency, node_avg_read, node_avg_write])]
+                            nodes: [new Document(node._id, [node.ip, node.geolocation, node.storage.used, node.storage.total, node.storage.used, node_avg_latency, node_avg_read, node_avg_write])]
                         });
                     } else {
-                        data_for_ml[pool_index].nodes.push(new Document(node._id, [node.ip, node.geolocation, node_avg_latency, node_avg_read, node_avg_write]));
+                        data_for_ml[pool_index].nodes.push(new Document(node._id, [node.ip, node.geolocation, node.storage.used, node.storage.total, node.storage.used, node_avg_latency, node_avg_read, node_avg_write]));
                     }
                     return get_node_full_info(node);
                 })
@@ -349,25 +349,28 @@ function list_nodes_int(system_id, query, skip, limit, pagination, sort, order, 
             };
 
             _.forEach(data_for_ml, function(value, key) {
-                data.add(value.pool_name, value.nodes);
+                if (value.pool_name !== 'default_pool') {
+                    data.add(value.pool_name, value.nodes);
+                }
             });
 
-            if (data_for_ml.length>1){
+            if (data_for_ml.length > 2) {
                 // create a classifier
                 var classifier = new Classifier(options);
 
                 // train the classifier
                 classifier.train(data);
 
-                dbg.log1("Trained with:" + JSON.stringify(classifier.probabilities, null, 4));
+                dbg.log0("Trained with:", classifier, 'probablity', JSON.stringify(classifier.probabilities, null, 4));
 
                 _.forEach(data_for_ml[default_pool_index].nodes, function(value, key) {
+                    dbg.log0('value,key', value, key);
                     var result1 = classifier.classify(value);
                     var suggested_pool = "";
-                    if (result1.category === 'default_pool'){
+                    dbg.log0("ML result for ", value.id, result1);
+                    if (result1.category === 'default_pool') {
                         suggested_pool = result1.secondCategory;
-                    }else
-                    {
+                    } else {
                         suggested_pool = result1.category;
                     }
 

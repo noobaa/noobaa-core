@@ -5,6 +5,8 @@ var argv = require('minimist')(process.argv);
 var istanbul = require('istanbul');
 var request = require('request');
 var mkdirp = require('mkdirp');
+var dbg = require('../../util/debug_module')(__filename);
+var path = require('path');
 
 require('dotenv').load();
 
@@ -288,10 +290,12 @@ TestRunner.prototype._run_action = function(current_step, step_res) {
 TestRunner.prototype._run_lib_test = function(current_step, step_res) {
     var self = this;
     var ts = new Date();
-
+    // Used in order to log inside a file instead of console prints
+    dbg.set_log_to_file(process.cwd() + COVERAGE_DIR + '/' + path.parse(current_step.lib_test).name);
     var test = require(process.cwd() + current_step.lib_test);
     return P.when(test.run_test())
         .then(function(res) {
+            dbg.set_log_to_file();
             step_res = '        ' + step_res + ' - Successeful ( took ' +
                 ((new Date() - ts) / 1000) + 's )';
             console.warn('---------------------------------  ' + step_res + '  ---------------------------------');

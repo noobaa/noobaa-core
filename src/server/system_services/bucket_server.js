@@ -21,7 +21,7 @@ const server_rpc = require('../server_rpc');
 const tier_server = require('./tier_server');
 const mongo_utils = require('../../util/mongo_utils');
 const ActivityLog = require('../analytic_services/activity_log');
-const nodes_store = require('../node_services/nodes_store').get_instance();
+const nodes_client = require('../node_services/nodes_client');
 const system_store = require('../system_services/system_store').get_instance();
 const object_server = require('../object_services/object_server');
 const cloud_sync_utils = require('../utils/cloud_sync_utils');
@@ -129,13 +129,7 @@ function read_bucket(req) {
             bucket: bucket._id,
             deleted: null,
         }),
-        nodes_store.aggregate_nodes_by_pool({
-            system: req.system._id,
-            pool: {
-                $in: pool_ids
-            },
-            deleted: null,
-        }),
+        nodes_client.instance().aggregate_nodes_by_pool(pool_ids),
         get_cloud_sync(req, bucket)
     ).spread(function(objects_aggregate, nodes_aggregate_pool, cloud_sync_policy) {
         return get_bucket_info(bucket, objects_aggregate, nodes_aggregate_pool, cloud_sync_policy);

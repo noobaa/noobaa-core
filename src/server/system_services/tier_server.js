@@ -7,13 +7,13 @@
 
 const _ = require('lodash');
 
-// const P = require('../../util/promise');
+const P = require('../../util/promise');
 const dbg = require('../../util/debug_module')(__filename);
 const RpcError = require('../../rpc/rpc_error');
 const size_utils = require('../../util/size_utils');
 const mongo_utils = require('../../util/mongo_utils');
 const ActivityLog = require('../analytic_services/activity_log');
-const nodes_store = require('../node_services/nodes_store').get_instance();
+const nodes_client = require('../node_services/nodes_client');
 const system_store = require('../system_services/system_store').get_instance();
 
 
@@ -80,16 +80,9 @@ function create_tier(req) {
 function read_tier(req) {
     var tier = find_tier_by_name(req);
     var pool_ids = mongo_utils.uniq_ids(tier.pools, '_id');
-    return nodes_store.aggregate_nodes_by_pool({
-            system: req.system._id,
-            pool: {
-                $in: pool_ids
-            },
-            deleted: null,
-        })
-        .then(function(nodes_aggregate_pool) {
-            return get_tier_info(tier, nodes_aggregate_pool);
-        });
+    return P.resolve()
+        .then(() => nodes_client.instance().aggregate_nodes_by_pool(pool_ids))
+        .then(nodes_aggregate_pool => get_tier_info(tier, nodes_aggregate_pool));
 }
 
 
@@ -208,16 +201,9 @@ function read_policy(req) {
         tier_and_order => tier_and_order.tier.pools
     ));
     var pool_ids = mongo_utils.uniq_ids(pools, '_id');
-    return nodes_store.aggregate_nodes_by_pool({
-            system: req.system._id,
-            pool: {
-                $in: pool_ids
-            },
-            deleted: null,
-        })
-        .then(function(nodes_aggregate_pool) {
-            return get_tiering_policy_info(policy, nodes_aggregate_pool);
-        });
+    return P.resolve()
+        .then(() => nodes_client.instance().aggregate_nodes_by_pool(pool_ids))
+        .then(nodes_aggregate_pool => get_tiering_policy_info(policy, nodes_aggregate_pool));
 }
 
 function delete_policy(req) {

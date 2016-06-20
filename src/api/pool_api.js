@@ -11,6 +11,7 @@ module.exports = {
     id: 'pool_api',
 
     methods: {
+
         create_pool: {
             doc: 'Create Pool',
             method: 'POST',
@@ -172,6 +173,7 @@ module.exports = {
                 system: 'admin'
             }
         }
+
     },
 
     definitions: {
@@ -225,7 +227,7 @@ module.exports = {
                     type: 'string'
                 },
                 nodes: {
-                    $ref: 'system_api#/definitions/nodes_info'
+                    $ref: 'node_api#/definitions/nodes_aggregate_info'
                 },
                 storage: {
                     $ref: 'common_api#/definitions/storage_info'

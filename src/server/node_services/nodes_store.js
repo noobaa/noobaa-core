@@ -66,8 +66,10 @@ const NODE_OBJECT_IDS_PATHS = js_utils.deep_freeze([
 
 class NodesStore {
 
-    static get_instance() {
-        NodesStore._instance = NodesStore._instance || new NodesStore();
+    static instance() {
+        if (!NodesStore._instance) {
+            NodesStore._instance = new NodesStore();
+        }
         return NodesStore._instance;
     }
 
@@ -303,4 +305,4 @@ class NodesStore {
 
 // EXPORTS
 exports.NodesStore = NodesStore;
-exports.get_instance = NodesStore.get_instance;
+exports.instance = NodesStore.instance;

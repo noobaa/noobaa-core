@@ -13,8 +13,8 @@ var P = require('../../util/promise');
 var config = require('../../../config.js');
 var agentctl = require('./core_agent_control');
 var server_rpc = require('../../server/server_rpc');
-var nodes_store = require('../../server/node_services/nodes_store').get_instance();
 var mongo_client = require('../../util/mongo_client').get_instance();
+var nodes_store = require('../../server/node_services/nodes_store');
 var mongoose_utils = require('../../util/mongoose_utils');
 
 P.config({
@@ -144,7 +144,7 @@ function clear_test_nodes() {
                     'it does work fine when running with gulp, so we let it be.\n\n');
                 process.exit(1);
             }, 3000);
-            return nodes_store.test_code_delete_all_nodes()
+            return nodes_store.instance().test_code_delete_all_nodes()
                 .finally(() => clearTimeout(warning_timeout));
         })
         .then(() => {

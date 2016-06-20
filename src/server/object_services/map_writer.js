@@ -7,7 +7,7 @@ const crypto = require('crypto');
 const P = require('../../util/promise');
 const dbg = require('../../util/debug_module')(__filename);
 const md_store = require('./md_store');
-const nodes_store = require('../node_services/nodes_store').get_instance();
+const nodes_store = require('../node_services/nodes_store');
 const mongo_utils = require('../../util/mongo_utils');
 const time_utils = require('../../util/time_utils');
 const string_utils = require('../../util/string_utils');
@@ -45,7 +45,7 @@ function finalize_object_parts(bucket, obj, parts) {
                         _id: md_store.make_md_id(block.block_md.id),
                         system: obj.system,
                         chunk: chunk_id,
-                        node: nodes_store.make_node_id(block.block_md.node)
+                        node: nodes_store.instance().make_node_id(block.block_md.node)
                     }, _.pick(f,
                         'size',
                         'layer',

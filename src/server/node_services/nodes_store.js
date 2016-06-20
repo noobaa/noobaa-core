@@ -14,7 +14,7 @@ const P = require('../../util/promise');
 const dbg = require('../../util/debug_module')(__filename);
 const js_utils = require('../../util/js_utils');
 const mongo_utils = require('../../util/mongo_utils');
-const mongo_client = require('../../util/mongo_client').get_instance();
+const mongo_client = require('../../util/mongo_client');
 const system_store = require('../system_services/system_store').get_instance();
 const schema_utils = require('../../util/schema_utils');
 const mongo_functions = require('../../util/mongo_functions');
@@ -76,7 +76,7 @@ class NodesStore {
     constructor() {
         this.NODE_FIELDS_FOR_MAP = NODE_FIELDS_FOR_MAP;
         this.NODE_OBJECT_IDS_PATHS = NODE_OBJECT_IDS_PATHS;
-        mongo_client.define_collection(NODES_COLLECTION);
+        mongo_client.instance().define_collection(NODES_COLLECTION);
         this._json_validator = new Ajv({
             formats: {
                 idate: schema_utils.idate_format,
@@ -87,7 +87,7 @@ class NodesStore {
     }
 
     collection() {
-        return mongo_client.db.collection('nodes');
+        return mongo_client.instance().db.collection('nodes');
     }
 
     validate(node, fail) {

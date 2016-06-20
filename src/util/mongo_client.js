@@ -160,25 +160,29 @@ class MongoClient extends EventEmitter {
     }
 
     get_mongo_rs_status() {
-
         return P.resolve().then(() => {
             if (this.db) {
-                P.resolve(this.db.admin().replSetGetStatus())
+                return P.ninvoke(this.db.admin(), 'replSetGetStatus')
                     .then(status => {
-                        dbg.warn('got rs status from mongo:', status);
+                        dbg.log0('got rs status from mongo:', status);
                         if (status.ok) {
                             // return rs status fields specified in HB schema (cluster_schema)
-                            return {
+                            let rs_status = {
                                 set: status.set,
-                                members: status.members.map(member => ({
-                                    name: member.name,
-                                    health: member.health,
-                                    uptime: member.uptime,
-                                    stateStr: member.stateStr,
-                                    syncingTo: member.syncingTo,
-                                }))
+                                members: status.members.map(member => {
+                                    let member_status = {
+                                        name: member.name,
+                                        health: member.health,
+                                        uptime: member.uptime,
+                                        stateStr: member.stateStr
+                                    };
+                                    if (member.syncingTo) {
+                                        member_status.syncingTo = member.syncingTo;
+                                    }
+                                    return member_status;
+                                })
                             };
-
+                            return rs_status;
                         }
 
                     })

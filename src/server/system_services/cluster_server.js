@@ -216,9 +216,6 @@ function do_heartbeat() {
                 if (mongo_status) {
                     heartbeat.health.mongo_rs_status = mongo_status;
                 }
-            })
-            .then(() => {
-
                 let update = {
                     _id: current_clustering._id,
                     heartbeat: heartbeat

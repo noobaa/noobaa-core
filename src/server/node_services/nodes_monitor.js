@@ -433,11 +433,15 @@ class NodesMonitor extends EventEmitter {
         item.writable = Boolean(
             item.online &&
             item.trusted &&
-            !item.storage_full &&
+            !item.node.decommissioning &&
+            !item.node.disabled &&
+            !item.storage_full);
+
+        item.usable = Boolean(
+            item.online &&
+            item.trusted &&
             !item.node.decommissioning &&
             !item.node.disabled);
-
-        item.usable = !(item.online && item.trusted);
 
         item.accessibility =
             (item.readable && item.writable && 'FULL_ACCESS') ||

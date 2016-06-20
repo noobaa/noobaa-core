@@ -154,9 +154,9 @@ P.fcall(function() {
         server_rpc.rpc.register_ws_transport(http_server);
         server_rpc.rpc.register_ws_transport(https_server);
     })
-    .done(null, function(err) {
+    .catch(function(err) {
         dbg.error('Web Server FAILED TO START', err.stack || err);
-        throw err;
+        process.exit(1);
     });
 
 

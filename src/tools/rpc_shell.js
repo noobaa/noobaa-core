@@ -160,7 +160,7 @@ RPCShell.prototype.call = function(str_args) {
     return P.fcall(function() {
             return self.client[apiname][func](rpc_args);
         })
-        .fail(function(error) {
+        .catch(function(error) {
             if (error.rpc_code === 'BAD_REQUEST') {
                 console.warn('Bad request');
             } else {
@@ -226,7 +226,7 @@ RPCShell.prototype.params = function(str_args) {
             }
             return;
         })
-        .fail(function(error) {
+        .catch(function(error) {
             if (error.rpc_code === 'BAD_REQUEST') {
                 console.warn('Bad request');
             } else {

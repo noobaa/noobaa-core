@@ -591,8 +591,7 @@ function test() {
                     address: rinfo.address
                 }
             }], buffer);
-            P.ninvoke(socket, 'send', reply, 0, reply.length, rinfo.port, rinfo.address)
-                .done();
+            P.ninvoke(socket, 'send', reply, 0, reply.length, rinfo.port, rinfo.address);
         }
     });
     P.fcall(function() {
@@ -615,8 +614,7 @@ function test() {
                     .delay(stun.INDICATION_INTERVAL * chance.floating(stun.INDICATION_JITTER))
                     .then(loop);
             }
-        })
-        .done();
+        });
 }
 
 if (require.main === module) {

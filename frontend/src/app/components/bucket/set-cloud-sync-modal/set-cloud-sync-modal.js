@@ -21,16 +21,16 @@ const frequencyUnitOptions = Object.freeze([
 
 const directionOptions = Object.freeze([
     {
-        value: 'BI',
-        label: 'Bi-Direcitonal'
-    },
-    {
-        value: 'NB2AWS',
+        value: 1,
         label: 'Source to Target'
     },
     {
-        value: 'AWS2NB',
+        value: 2,
         label: 'Target to Source'
+    },
+    {
+        value: 3,
+        label: 'Bi-Direcitonal'
     }
 ]);
 
@@ -100,7 +100,7 @@ class CloudSyncModalViewModel {
                 }
             });
 
-        this.direction = ko.observable('BI');
+        this.direction = ko.observable(3);
         this.directionOptions = directionOptions;
 
         this.frequency = ko.observable(1);
@@ -109,7 +109,7 @@ class CloudSyncModalViewModel {
 
         let _syncDeletions = ko.observable(true);
         this.syncDeletions = ko.pureComputed({
-            read: () => this.direction() === 'BI' ? true : _syncDeletions(),
+            read: () => this.direction() === 3 ? true : _syncDeletions(),
             write: _syncDeletions
         });
 

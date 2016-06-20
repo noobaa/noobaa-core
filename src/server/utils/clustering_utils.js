@@ -33,7 +33,7 @@ function update_cluster_info(params) {
             dbg.log0('local cluster info updates successfully');
             return;
         })
-        .fail((err) => {
+        .catch((err) => {
             console.error('failed on local cluster info update with', err.message);
             throw err;
         });
@@ -64,7 +64,7 @@ function update_host_address(address) {
                 clusters: [current_clustering]
             }
         })
-        .fail((err) => {
+        .catch((err) => {
             dbg.log0('Failed updating host address in clustering info');
             throw new Error('Failed updating host address in clustering info', err, err.stack);
         });

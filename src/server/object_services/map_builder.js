@@ -67,7 +67,7 @@ class MapBuilder {
     mark_building() {
         let chunks_need_update_to_building = _.reject(this.chunks, 'building');
         return chunks_need_update_to_building.length &&
-            P.when(md_store.DataChunk.collection.updateMany({
+            P.resolve(md_store.DataChunk.collection.updateMany({
                 _id: {
                     $in: _.map(chunks_need_update_to_building, '_id')
                 }
@@ -210,10 +210,10 @@ class MapBuilder {
 
         return P.join(
             this.new_blocks && this.new_blocks.length &&
-            P.when(md_store.DataBlock.collection.insertMany(this.new_blocks)),
+            P.resolve(md_store.DataBlock.collection.insertMany(this.new_blocks)),
 
             this.delete_blocks && this.delete_blocks.length &&
-            P.when(md_store.DataBlock.collection.updateMany({
+            P.resolve(md_store.DataBlock.collection.updateMany({
                 _id: {
                     $in: mongo_utils.uniq_ids(this.delete_blocks, '_id')
                 }
@@ -224,7 +224,7 @@ class MapBuilder {
             })),
             //delete actual blocks from agents.
             this.delete_blocks && this.delete_blocks.length &&
-            P.when(md_store.DataBlock.collection.find({
+            P.resolve(md_store.DataBlock.collection.find({
                 _id: {
                     $in: mongo_utils.uniq_ids(this.delete_blocks, '_id')
                 }

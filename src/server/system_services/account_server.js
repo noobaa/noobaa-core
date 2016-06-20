@@ -70,8 +70,14 @@ function create_account(req) {
                 });
         })
         .then(changes => {
-            create_activity_log_entry(req, 'create', account,
-                `${account.email} was created ${req.account && 'by ' + req.account.email}`);
+            ActivityLog.create({
+                event: 'account.create',
+                level: 'info',
+                system: req.system && req.system._id || changes.insert.systems[0]._id,
+                actor: req.account && req.account._id,
+                account: account._id,
+                desc: `${account.email} was created ${req.account && 'by ' + req.account.email}`,
+            });
             return system_store.make_changes(changes);
         })
         .then(function() {
@@ -236,7 +242,14 @@ function update_account_s3_acl(req) {
             if (removed_buckets.length) {
                 desc_string.push(`Removed buckets: ${removed_buckets}`);
             }
-            return create_activity_log_entry(req, 's3_access_updated', account, desc_string.join('\n'));
+            return ActivityLog.create({
+                event: 'account.s3_access_updated',
+                level: 'info',
+                system: req.system && req.system._id,
+                actor: req.account && req.account._id,
+                account: account._id,
+                desc: desc_string.join('\n'),
+            });
         })
         .return();
 }
@@ -270,7 +283,14 @@ function update_account(req) {
                 }
             });
         })
-        .then(() => create_activity_log_entry(req, 'update', account, `${account.email} was updated by ${req.account && req.account.email}: reset password`))
+        .then(() => ActivityLog.create({
+            event: 'account.update',
+            level: 'info',
+            system: req.system && req.system._id,
+            actor: req.account && req.account._id,
+            account: account._id,
+            desc: `${account.email} was updated by ${req.account && req.account.email}: reset password`,
+        }))
         .return();
 }
 
@@ -312,11 +332,25 @@ function delete_account(req) {
         })
         .then(
             val => {
-                create_activity_log_entry(req, 'delete', account_to_delete, `${account_to_delete.email} was deleted by ${req.account && req.account.email}`);
+                ActivityLog.create({
+                    event: 'account.delete',
+                    level: 'info',
+                    system: req.system && req.system._id,
+                    actor: req.account && req.account._id,
+                    account: account_to_delete._id,
+                    desc: `${account_to_delete.email} was deleted by ${req.account && req.account.email}`,
+                });
                 return val;
             },
             err => {
-                create_activity_log_entry(req, 'delete', account_to_delete, 'Error', 'alert');
+                ActivityLog.create({
+                    event: 'account.delete',
+                    level: 'alert',
+                    system: req.system && req.system._id,
+                    actor: req.account && req.account._id,
+                    account: account_to_delete._id,
+                    desc: `Error: ${account_to_delete.email} failed to delete by ${req.account && req.account.email}`,
+                });
                 throw err;
             }
         )
@@ -558,18 +592,6 @@ function is_support_or_admin_or_me(system, account, target_account) {
             )
         );
 }
-
-function create_activity_log_entry(req, event, account, description, level) {
-    ActivityLog.create({
-        event: 'account.' + event,
-        level: level || 'info',
-        system: req.system ? req.system._id : undefined,
-        actor: req.account ? req.account._id : undefined,
-        account: account._id,
-        desc: description,
-    });
-}
-
 
 function validate_create_account_params(req) {
     if (req.rpc_params.name !== req.rpc_params.name.trim()) {

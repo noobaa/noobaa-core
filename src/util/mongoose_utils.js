@@ -11,6 +11,8 @@ var mongoose_connected = false;
 var mongoose_disconnected = false;
 var mongoose_timeout = null;
 
+mongoose.Promise = P; // see http://mongoosejs.com/docs/promises.html
+
 // connect to the database
 if (debug_mode) {
     dbg.log0('setting debug logger for mongoose to dbg.log1');
@@ -86,7 +88,7 @@ function mongoose_wait_connected() {
 // see https://github.com/LearnBoost/mongoose/issues/2671
 function mongoose_ensure_indexes() {
     return P.all(_.map(mongoose.modelNames(), function(model_name) {
-        return P.npost(mongoose.model(model_name), 'ensureIndexes');
+        return mongoose.model(model_name).ensureIndexes(); // returns promise
     }));
 }
 

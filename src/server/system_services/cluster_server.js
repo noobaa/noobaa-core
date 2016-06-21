@@ -115,7 +115,8 @@ function join_to_cluster(req) {
     //though this creates more hassle for the admin and overall lengthier process
 
     // first thing we update the new topology as the local topoology.
-    // later it will be updated to hold this server's info
+    // later it will be updated to hold this server's info in the cluster's DB
+    req.rpc_params.topology.owner_shardname = req.rpc_params.shard;
     return P.resolve(cutil.update_cluster_info(req.rpc_params.topology))
         .then(() => {
             dbg.log0('server new role is', req.rpc_params.role);
@@ -200,10 +201,7 @@ function news_updated_topology(req) {
     return P.resolve(cutil.update_cluster_info(req.rpc_params));
 }
 
-function heartbeat(req) {
-    //TODO:: ...
-    dbg.error('Clustering HB currently not implemented');
-}
+
 
 
 //
@@ -302,6 +300,7 @@ function _initiate_replica_set(shardname) {
     }
 
     new_topology.is_clusterized = true;
+    new_topology.owner_shardname = shardname;
 
     // first update topology to indicate clusterization
     return P.resolve(() => cutil.update_cluster_info(new_topology))
@@ -335,6 +334,7 @@ function _add_new_server_to_replica_set(shardname, ip) {
 
 
     return P.resolve(MongoCtrl.add_replica_set_member(shardname, /*first_server=*/ false, new_topology.shards[shard_idx].servers))
+        .then(() => system_store.load())
         .then(() => {
             // insert an entry for this server in clusters collection.
             new_topology._id = system_store.generate_id();
@@ -429,4 +429,3 @@ exports.join_to_cluster = join_to_cluster;
 exports.news_config_servers = news_config_servers;
 exports.news_updated_topology = news_updated_topology;
 exports.news_replicaset_servers = news_replicaset_servers;
-exports.heartbeat = heartbeat;

@@ -94,6 +94,10 @@ MongoCtrl.prototype.update_connection_string = function() {
         .then(() => mongo_client.instance().connect());
 };
 
+MongoCtrl.prototype.get_mongo_rs_status = function() {
+    return mongo_client.get_mongo_rs_status();
+};
+
 //
 //Internals
 //

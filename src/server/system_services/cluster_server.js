@@ -13,7 +13,6 @@ const P = require('../../util/promise');
 const os_utils = require('../../util/os_utils');
 const dbg = require('../../util/debug_module')(__filename);
 const config = require('../../../config.js');
-const pkg = require('../../../package.json');
 
 function _init() {
     return P.resolve(MongoCtrl.init());
@@ -202,37 +201,7 @@ function news_updated_topology(req) {
     return P.resolve(cutil.update_cluster_info(req.rpc_params));
 }
 
-function do_heartbeat() {
-    let current_clustering = system_store.get_local_cluster_info();
-    if (false && current_clustering && current_clustering.is_clusterized) {
-        let heartbeat = {
-            version: pkg.version,
-            time: Date.now(),
-            health: {
-                os_info: os_utils.os_info(),
-            }
-        };
-        return MongoCtrl.get_mongo_rs_status()
-            .then(mongo_status => {
-                if (mongo_status) {
-                    heartbeat.health.mongo_rs_status = mongo_status;
-                }
-                let update = {
-                    _id: current_clustering._id,
-                    heartbeat: heartbeat
-                };
-                dbg.log0('writing cluster server heartbeat to DB. heartbeat:', heartbeat);
-                return system_store.make_changes({
-                    update: {
-                        clusters: [update]
-                    }
-                });
-            })
-            .return();
-    } else {
-        dbg.log0('no local cluster info or server is not part of a cluster. HB is not written');
-    }
-}
+
 
 
 //
@@ -460,4 +429,3 @@ exports.join_to_cluster = join_to_cluster;
 exports.news_config_servers = news_config_servers;
 exports.news_updated_topology = news_updated_topology;
 exports.news_replicaset_servers = news_replicaset_servers;
-exports.do_heartbeat = do_heartbeat;

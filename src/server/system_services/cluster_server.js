@@ -117,6 +117,7 @@ function join_to_cluster(req) {
 
     // first thing we update the new topology as the local topoology.
     // later it will be updated to hold this server's info in the cluster's DB
+    req.rpc_params.topology.owner_shardname = req.rpc_params.shard;
     return P.resolve(cutil.update_cluster_info(req.rpc_params.topology))
         .then(() => {
             dbg.log0('server new role is', req.rpc_params.role);
@@ -203,7 +204,7 @@ function news_updated_topology(req) {
 
 function do_heartbeat() {
     let current_clustering = system_store.get_local_cluster_info();
-    if (current_clustering && current_clustering.is_clusterized) {
+    if (false && current_clustering && current_clustering.is_clusterized) {
         let heartbeat = {
             version: pkg.version,
             time: Date.now(),
@@ -330,6 +331,7 @@ function _initiate_replica_set(shardname) {
     }
 
     new_topology.is_clusterized = true;
+    new_topology.owner_shardname = shardname;
 
     // first update topology to indicate clusterization
     return P.resolve(() => cutil.update_cluster_info(new_topology))

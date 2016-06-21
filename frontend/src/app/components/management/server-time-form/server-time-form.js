@@ -18,7 +18,7 @@ class ServerTimeFormViewModel {
         this.configTypes = configTypes;
 
         let timeConfig = ko.pureComputed(
-            () => systemInfo() && systemInfo().timeConfig
+            () => systemInfo() && systemInfo().time_config
         );
 
         this.selectedConfigType = ko.observableWithDefault(

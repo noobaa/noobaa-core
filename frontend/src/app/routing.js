@@ -30,7 +30,6 @@ export default function routing(page) {
     }
 
     function ensureSystemInfo(cxt, next) {
-        console.debug('here');
         actions.loadSystemInfo();
         next();
     }

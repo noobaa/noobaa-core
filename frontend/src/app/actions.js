@@ -353,40 +353,8 @@ export function loadSystemInfo() {
     api.system.read_system()
         .then(
             reply => {
-                let { access_key, secret_key } = reply.owner.access_keys[0];
-
-                model.systemInfo({
-                    name: reply.name,
-                    version: reply.version,
-                    endpoint: endpoint,
-                    ipAddress: reply.ip_address,
-                    dnsName: reply.dns_name,
-                    port: reply.web_port,
-                    sslPort: reply.ssl_port,
-                    accessKey: access_key,
-                    secretKey: secret_key,
-                    P2PConfig: reply.n2n_config,
-                    owner: reply.owner.email,
-                    timeConfig: reply.time_config,
-                    debugLevel: reply.debug_level,
-                    maintenance: reply.maintenance_mode,
-                    phoneHomeConfig: reply.phone_home_config,
-                    remoteSyslogConfig: reply.remote_system_config,
-                    capacity: reply.storage.total,
-                    bucketCount: reply.buckets.length,
-                    objectCount: reply.objects,
-                    poolCount: reply.pools.length,
-                    nodeCount: reply.nodes.count,
-                    onlineNodeCount: reply.nodes.online,
-                    offlineNodeCount: reply.nodes.count - reply.nodes.online,
-                    baseAddress: reply.base_address,
-                    buckets: reply.buckets,
-                    pools: reply.pools,
-                    agentDownloadUris: {
-                        windows: reply.web_links.agent_installer,
-                        linux: reply.web_links.linux_agent_installer
-                    }
-                });
+                reply.endpoint = endpoint;
+                model.systemInfo(reply);
             }
         )
         .done();
@@ -436,12 +404,12 @@ export function loadObjectMetadata(bucketName, objectName) {
         model.objectInfo(null);
     }
 
-    let { accessKey = '' ,secretKey = '' } = model.systemInfo();
+    let { access_key ,secret_key } = model.systemInfo().owner.access_keys;
     let s3 = new AWS.S3({
         endpoint: endpoint,
         credentials: {
-            accessKeyId:  accessKey,
-            secretAccessKey:  secretKey
+            accessKeyId:  access_key,
+            secretAccessKey:  secret_key
         },
         s3ForcePathStyle: true,
         sslEnabled: false,
@@ -856,12 +824,12 @@ export function uploadFiles(bucketName, files) {
 
     let recentUploads = model.recentUploads;
 
-    let { accessKey , secretKey } = model.systemInfo();
+    let { access_key , secret_key } = model.systemInfo().owner.acess_keys;
     let s3 = new AWS.S3({
         endpoint: endpoint,
         credentials: {
-            accessKeyId: accessKey,
-            secretAccessKey: secretKey
+            accessKeyId: access_key,
+            secretAccessKey: secret_key
         },
         s3ForcePathStyle: true,
         sslEnabled: false

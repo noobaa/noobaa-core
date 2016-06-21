@@ -8,7 +8,7 @@ import { systemInfo } from 'model';
 import { copyTextToClipboard, lastSegment, realizeUri, encodeBase64 } from 'utils';
 import { asset as assetRoute } from 'routes';
 
-const installCommands = {
+const installCommands = Object.freeze({
     NETWORK_WINDOWS(pkg, conf, server) {
         return `Invoke-WebRequest ${server}:8080/public/${pkg} -OutFile C:\\${pkg}; C:\\${pkg} /S /config ${conf}`;
     },
@@ -24,9 +24,9 @@ const installCommands = {
     LOCAL_LINUX(pkg, conf) {
         return `${pkg} /S /config ${conf}`;
     }
-};
+});
 
-const installationTypeOptions = [
+const installationTypeOptions = Object.freeze([
     {
         value: 'NETWORK',
         label: 'Network Installation (recommended)',
@@ -37,9 +37,9 @@ const installationTypeOptions = [
         label: 'Local Installation',
         description: 'Choose this option when your target machine does not have direct access to the NooBaa server'
     }
-];
+]);
 
-const installationTargetOptions = [
+const installationTargetOptions = Object.freeze([
     {
         value: 'LINUX',
         label: 'Linux'
@@ -48,7 +48,7 @@ const installationTargetOptions = [
         value: 'WINDOWS',
         label: 'Windows'
     }
-];
+]);
 
 class InstallNodeWizardViewModel {
     constructor({ onClose }) {
@@ -72,27 +72,43 @@ class InstallNodeWizardViewModel {
         );
 
         this.packageUrl = ko.pureComputed(
-            () => systemInfo() && systemInfo().agentDownloadUris[
-                this.installationTarget().toLowerCase()
-            ]
+            () => {
+                if (!systemInfo()) {
+                    return;
+                }
+
+                return {
+                    'LINUX': systemInfo().web_links.linux_agent_installer,
+                    'WINDOWS': systemInfo().web_links.agent_installer
+                }[
+                    this.installationTarget()
+                ];
+            }
         );
 
         let agentConf = ko.pureComputed(
-            () => systemInfo() && encodeBase64({
-                address: systemInfo().baseAddress,
-                system: systemInfo().name,
-                access_key: systemInfo().accessKey,
-                secret_key: systemInfo().secretKey,
-                tier: 'nodes',
-                root_path: './agent_storage/'
-            })
+            () => {
+                if (!systemInfo()) {
+                    return;
+                }
+
+                let { access_key, secret_key } = systemInfo().owner.access_keys;
+                return encodeBase64({
+                    address: systemInfo().base_address,
+                    system: systemInfo().name,
+                    access_key: access_key,
+                    secret_key: secret_key,
+                    tier: 'nodes',
+                    root_path: './agent_storage/'
+                });
+            }
         );
 
         this.selectedInstallCommand = ko.pureComputed(
             () => installCommands[this.commandSelector()](
                 lastSegment(this.packageUrl(), '/'),
                 agentConf(),
-                systemInfo().ipAddress
+                systemInfo().ip_addresss
             )
         );
 

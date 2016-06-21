@@ -11,7 +11,7 @@ class OverviewPanelViewModel {
         );
 
         this.systemCapacity = ko.pureComputed(
-            () => systemInfo() && systemInfo().capacity
+            () => systemInfo() && systemInfo().storage.total
         )
         .extend({
             tween: { useDiscreteValues: true, resetValue: 0 },
@@ -19,7 +19,7 @@ class OverviewPanelViewModel {
         });
 
         this.onlineNodeCount = ko.pureComputed(
-            () => systemInfo() && systemInfo().onlineNodeCount
+            () => systemInfo() && systemInfo().nodes.online
         )
         .extend({
             tween: { useDiscreteValues: true, resetValue: 0 },
@@ -27,7 +27,14 @@ class OverviewPanelViewModel {
         });
 
         this.offlineNodeCount = ko.pureComputed(
-            () => systemInfo() && systemInfo().offlineNodeCount
+            () => {
+                if (!systemInfo()) {
+                    return;
+                }
+
+                let { count, online } = systemInfo().nodes;
+                return online - count;
+            }
         )
         .extend({
             tween: { useDiscreteValues: true, resetValue: 0 },
@@ -35,22 +42,22 @@ class OverviewPanelViewModel {
         });
 
         this.poolCount = ko.pureComputed(
-            () => systemInfo() && systemInfo().poolCount
+            () => systemInfo() && systemInfo().pools.length
         )
         .extend({ formatNumber: true });
 
         this.nodeCount = ko.pureComputed(
-            () => systemInfo() && systemInfo().nodeCount
+            () => systemInfo() && systemInfo().nodes.count
         )
         .extend({ formatNumber: true });
 
         this.bucketCount = ko.pureComputed(
-            () => systemInfo() && systemInfo().bucketCount
+            () => systemInfo() && systemInfo().buckets.length
         )
         .extend({ formatNumber: true });
 
         this.objectCount = ko.pureComputed(
-            () => systemInfo() && systemInfo().objectCount
+            () => systemInfo() && systemInfo().objects
         )
         .extend({ formatNumber: true });
 

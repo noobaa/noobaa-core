@@ -71,7 +71,7 @@ class CreateAccountWizardViewModel {
 
         let loginInfo = ko.pureComputed(
             () => ({
-                serverAddress: `https://${systemInfo().endpoint}:${systemInfo().sslPort}`,
+                serverAddress: `https://${systemInfo().endpoint}:${systemInfo().ssl_port}`,
                 username: this.emailAddress(),
                 password: this.password
             })

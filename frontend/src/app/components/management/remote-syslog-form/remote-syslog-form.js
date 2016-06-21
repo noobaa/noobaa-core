@@ -17,7 +17,7 @@ class RemoteSyslogFormViewModel {
         this.expanded = ko.observable(false);
 
         let config = ko.pureComputed(
-            () => systemInfo() && systemInfo().remoteSyslogConfig
+            () => systemInfo() && systemInfo().remote_syslog_config
         );
 
         this.enabled = ko.observableWithDefault(

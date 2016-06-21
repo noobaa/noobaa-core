@@ -560,12 +560,25 @@ function update_cloud_sync(req) {
         cloud_sync: Object.assign({}, bucket.cloud_sync, req.rpc_params.policy)
     };
 
-    var should_resync = Object.keys(req.rpc_params.policy)
+    var sync_directions_changed = Object.keys(req.rpc_params.policy)
         .filter(
-            key => key !== 'schedule_min'
+            key => key !== 'schedule_min' && key !== 'additions_only'
         ).some(
             key => updated_policy.cloud_sync[key] !== bucket.cloud_sync[key]
         );
+
+    var should_resync = false;
+    var should_resync_deleted_files = false;
+
+    // Please see the explanation and decision table below (at the end of the file).
+    if (updated_policy.cloud_sync.additions_only === bucket.cloud_sync.additions_only) {
+        should_resync = should_resync_deleted_files = sync_directions_changed && (bucket.cloud_sync.c2n_enabled && !bucket.cloud_sync.n2c_enabled);
+    } else
+    if (updated_policy.cloud_sync.additions_only) {
+        should_resync = sync_directions_changed && (bucket.cloud_sync.c2n_enabled && !bucket.cloud_sync.n2c_enabled);
+    } else {
+        should_resync = should_resync_deleted_files = !(updated_policy.cloud_sync.c2n_enabled && !updated_policy.cloud_sync.n2c_enabled);
+    }
 
     return system_store.make_changes({
             update: {
@@ -575,7 +588,7 @@ function update_cloud_sync(req) {
         .then(function() {
             //TODO:: scale, fine for 1000 objects, not for 1M
             if (should_resync) {
-                return object_server.set_all_files_for_sync(req.system._id, bucket._id);
+                return object_server.set_all_files_for_sync(req.system._id, bucket._id, should_resync_deleted_files);
             }
         })
         .then(function() {
@@ -733,6 +746,47 @@ function resolve_tiering_policy(req, policy_name) {
 }
 
 
+/*
+                ***UPDATE CLOUD SYNC DECISION TABLES***
+Below are the files syncing decision tables for all cases of policy change:
+
+RS - Stands for marking the files for Re-Sync (NOT deleted files only!).
+DF - Stands for marking the DELETED files for Re-Sync.
+NS - Stands for NOT marking files for Re-Sync (Both deleted and not).
+
+Sync Deletions property did not change:
++------------------------------+----------------+------------------+------------------+
+| Previous Sync / Updated Sync | Bi-Directional | Source To Target | Target To Source |
++------------------------------+----------------+------------------+------------------+
+| Bi-Directional               | NS             | NS               | NS               |
++------------------------------+----------------+------------------+------------------+
+| Source To Target             | NS             | NS               | NS               |
++------------------------------+----------------+------------------+------------------+
+| Target To Source             | RS + DF        | RS + DF          | NS               |
++------------------------------+----------------+------------------+------------------+
+
+Sync Deletions property changed to TRUE:
++------------------------------+----------------+------------------+------------------+
+| Previous Sync / Updated Sync | Bi-Directional | Source To Target | Target To Source |
++------------------------------+----------------+------------------+------------------+
+| Bi-Directional               | NS             | NS               | NS               |
++------------------------------+----------------+------------------+------------------+
+| Source To Target             | RS + DF        | RS + DF          | NS               |
++------------------------------+----------------+------------------+------------------+
+| Target To Source             | RS + DF        | RS + DF          | NS               |
++------------------------------+----------------+------------------+------------------+
+
+Sync Deletions property changed to FALSE:
++------------------------------+----------------+------------------+------------------+
+| Previous Sync / Updated Sync | Bi-Directional | Source To Target | Target To Source |
++------------------------------+----------------+------------------+------------------+
+| Bi-Directional               | NS             | NS               | NS               |
++------------------------------+----------------+------------------+------------------+
+| Source To Target             | NS             | NS               | NS               |
++------------------------------+----------------+------------------+------------------+
+| Target To Source             | RS             | RS               | NS               |
++------------------------------+----------------+------------------+------------------+
+*/
 
 
 // EXPORTS

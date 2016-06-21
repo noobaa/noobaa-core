@@ -183,15 +183,15 @@ export function throttle(func, grace, owner) {
     };
 }
 
-export function cmpStrings(a, b) {
+export function compareStrings(a, b) {
     return a < b ? -1 : ( b < a ? 1 : 0);
 }
 
-export function cmpInts(a, b) {
+export function compareInts(a, b) {
     return a - b;
 }
 
-export function cmpBools(a, b) {
+export function compareBools(a, b) {
     return b - a;
 }
 

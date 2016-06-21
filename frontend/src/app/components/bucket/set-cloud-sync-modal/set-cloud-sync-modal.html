@@ -73,7 +73,7 @@
     </div>
 </modal>
 
-<!-- ko if: isAWSCredentialsModalVisible -->
-<aws-credentials-modal params="onClose: canceled => onNewCredentials(canceled)">
-</aws-credentials-modal>
+<!-- ko if: isAddS3ConnectionModalVisible -->
+<add-s3-connection-modal params="onClose: () => hideAddS3ConnectionModal()">
+</add-s3-connection-modal>
 <!-- /ko -->

@@ -1,48 +1,16 @@
-import template from './set-cloud-sync-modal.html';
+import template from './add-cloud-resource-modal.html';
 import ko from 'knockout';
-import { S3Connections, S3BucketList } from 'model';
-import { loadS3Connections, loadS3BucketList, setCloudSyncPolicy } from 'actions';
-
-const [ MIN, HOUR, DAY ] = [ 1, 60, 60 * 24 ];
-const frequencyUnitOptions = Object.freeze([
-    {
-        value: MIN,
-        label: 'Minutes'
-    },
-    {
-        value: HOUR,
-        label: 'Hours'
-    },
-    {
-        value: DAY,
-        label: 'Days'
-    }
-]);
-
-const directionOptions = Object.freeze([
-    {
-        value: 1,
-        label: 'Source to Target'
-    },
-    {
-        value: 2,
-        label: 'Target to Source'
-    },
-    {
-        value: 3,
-        label: 'Bi-Direcitonal'
-    }
-]);
+import { S3Connections, S3BucketList, systemInfo } from 'model';
+import { loadS3Connections, loadS3BucketList } from 'actions';
 
 const addConnectionOption = Object.freeze({
     label: 'Add new connection',
     value: {}
 });
 
-class CloudSyncModalViewModel {
-    constructor({ bucketName, onClose }) {
+class AddCloudResourceModalViewModel {
+    constructor({ onClose }) {
         this.onClose = onClose;
-        this.bucketName = bucketName;
 
         this.connectionOptions = ko.pureComputed(
             () => [
@@ -65,7 +33,7 @@ class CloudSyncModalViewModel {
                     _connection(value);
                 } else {
                     _connection(_connection() || null);
-                    this.isAddS3ConnectionModalVisible(true);
+                    this.showAddS3ConnectionModal();
                 }
             }
         })
@@ -81,17 +49,11 @@ class CloudSyncModalViewModel {
         );
 
         this.targetBucketsOptions = ko.pureComputed(
-            () => {
-                if (!this.connection() || !S3BucketList()) {
-                    return [];
-                }
+            () => this.connection() && S3BucketList() &&  S3BucketList().map(
+                bucketName => ({ value: bucketName })
+            )
 
-                return S3BucketList().map(
-                    bucketName => ({ value: bucketName })
-                );
-            }
         );
-
         this.targetBucket = ko.observable()
             .extend({
                 required: {
@@ -100,24 +62,42 @@ class CloudSyncModalViewModel {
                 }
             });
 
-        this.direction = ko.observable(3);
-        this.directionOptions = directionOptions;
+        let namesInUse = ko.pureComputed(
+            () => systemInfo() && systemInfo().pools.map(
+                pool => pool.name
+            )
+        );
 
-        this.frequency = ko.observable(1);
-        this.frequencyUnit = ko.observable(HOUR);
-        this.frequencyUnitOptions = frequencyUnitOptions;
+        this.resourceName = ko.observableWithDefault(
+            () => {
+                let base = this.targetBucket();
+                let i = 0;
 
-        let _syncDeletions = ko.observable(true);
-        this.syncDeletions = ko.pureComputed({
-            read: () => this.direction() === 3 ? true : _syncDeletions(),
-            write: _syncDeletions
-        });
+                let name = base;
+                while (namesInUse().includes(name)) {
+                    name = `${base}-${++i}`;
+                }
+
+                return name;
+            }
+        )
+            .extend({
+                required: {
+                    onlyIf: this.targetBucket,
+                    message: 'Please select a name for the resource'
+                },
+                notIn: {
+                    params: namesInUse,
+                    message: 'This name is already in use by another resource'
+                }
+            });
 
         this.isAddS3ConnectionModalVisible = ko.observable(false);
 
         this.errors = ko.validation.group([
             this.connection,
-            this.targetBucket
+            this.targetBucket,
+            this.resourceName
         ]);
 
         loadS3Connections();
@@ -135,32 +115,20 @@ class CloudSyncModalViewModel {
         this.isAddS3ConnectionModalVisible(false);
     }
 
-    cancel() {
-        this.onClose();
-    }
-
-    save() {
+    add() {
         if (this.errors().length > 0) {
             this.errors.showAllMessages();
         } else {
-            setCloudSyncPolicy(
-                ko.unwrap(this.bucketName),
-                this.connection().name,
-                this.targetBucket(),
-                this.direction(),
-                this.frequency() * this.frequencyUnit(),
-                this.syncDeletions()
-            );
             this.onClose();
         }
     }
 
-    dispose() {
-        this.connectionSub.dispose();
+    cancel() {
+        this.onClose();
     }
 }
 
 export default {
-    viewModel: CloudSyncModalViewModel,
+    viewModel: AddCloudResourceModalViewModel,
     template: template
 };

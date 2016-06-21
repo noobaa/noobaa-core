@@ -15,11 +15,13 @@
     </nav>
 
     <div class="tabs-row">
-        <pools-table class="tab" data-bind="css: { selected: isTabSelected('pools') }">
-        </pools-table>
+        <pools-table class="tab" data-bind="
+            css: { selected: isTabSelected('pools') }
+        "></pools-table>
 
-        <div class="tab column" data-bind="css: { selected:  isTabSelected('cloud') }">
-        </div>
+        <cloud-resources-table class="tab" data-bind="
+            css: { selected:  isTabSelected('cloud') }
+        "></cloud-resoruces-table>
     </div>
 </section>
 

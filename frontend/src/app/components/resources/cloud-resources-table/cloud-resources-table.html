@@ -1,0 +1,59 @@
+<button class="btn2 align-end push-next"
+    data-bind="click: () => showAddCloudResourceModal()">
+    Add Cloud Resource
+</button>
+
+<div class="data-table">
+    <table>
+        <thead>
+            <tr>
+                <th class="type-col" data-bind="css: orderClassFor('type')">
+                    <a href data-bind="click: () => orderBy('type')">
+                        type
+                    </a>
+                </th>
+                <th class="name-col text-left" data-bind="css: orderClassFor('name')">
+                    <a href data-bind="click: () => orderBy('name')">
+                        resource name
+                    </a>
+                </th>
+                <th class="usage-col" data-bind="css: orderClassFor('usage')">
+                    <a href data-bind="click: () => orderBy('usage')">
+                        used capacity by noobaa
+                    </a>
+                </th>
+                <th class="cloud-bucket-col" data-bind="
+                    css: orderClassFor('cloud-bucket')
+                ">
+                    <a href data-bind="click: () => orderBy('cloud-bucket')">
+                        cloud bucket
+                    </a>
+                </th>
+                <th class="delete-col"></th>
+            </tr>
+        </thead>
+
+        <tbody data-bind="foreach: visibleRows">
+            <tr>
+                <td class="type-col">
+                    <svg-icon params="name: typeIcon"></svg-icon>
+                </td>
+                <td class="name-col text-left" data-bind="text: name"></td>
+                <td class="usage-col" data-bind="text: usage"></td>
+                <td class="cloud-bucket-col" data-bind="text: cloudBucket"></td>
+                <td class="delete-col">
+                    <delete-button params="
+                        group: $component.deleteGroup,
+                        onDelete: () => del(),
+                        toolTip: 'delete resource'
+                    "></delete-button>
+                </td>
+            </tr>
+        </tbody>
+    </table>
+</div>
+
+<!-- ko if: isAddCloudResourceModalVisible -->
+<add-cloud-resource-modal params="onClose: () => hideCloudReousrceModal()">
+</add-cloud-resource-modal>
+<!-- /ko -->

@@ -35,7 +35,7 @@ class PoolsTableViewModel {
         );
 
         let pools = ko.pureComputed(
-            () => (systemInfo() ? systemInfo().pools : []).sort(
+            () => (systemInfo() ? systemInfo().pools.slice(0) : []).sort(
                 (b1, b2) => this.order() * poolCmpFuncs[this.sortedBy()](b1, b2)
             )
         );

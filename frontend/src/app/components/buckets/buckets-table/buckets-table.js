@@ -31,7 +31,7 @@ class BucketsTableViewModel {
         );
 
         let buckets = ko.pureComputed(
-            () => (systemInfo()? systemInfo().buckets : []).sort(
+            () => (systemInfo()? systemInfo().buckets.slice(0) : []).sort(
                 (b1, b2) => this.order() * bucketCmpFuncs[this.sortedBy()](b1, b2)
             )
         );

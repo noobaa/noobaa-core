@@ -5,7 +5,7 @@ import config from 'config';
 import * as routes from 'routes';
 
 import { isDefined, isUndefined, last, makeArray, execInOrder, realizeUri,
-    downloadFile, generateAccessKeys } from 'utils';
+    downloadFile, generateAccessKeys, deepFreeze } from 'utils';
 
 // TODO: resolve browserify issue with export of the aws-sdk module.
 // The current workaround use the AWS that is set on the global window object.
@@ -352,10 +352,9 @@ export function loadSystemInfo() {
 
     api.system.read_system()
         .then(
-            reply => {
-                reply.endpoint = endpoint;
-                model.systemInfo(reply);
-            }
+            reply => model.systemInfo(
+                deepFreeze(Object.assign(reply, { endpoint }))
+            )
         )
         .done();
 }

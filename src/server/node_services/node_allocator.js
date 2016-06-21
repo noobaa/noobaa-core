@@ -8,7 +8,6 @@ const P = require('../../util/promise');
 const dbg = require('../../util/debug_module')(__filename);
 const config = require('../../../config.js');
 const nodes_store = require('./nodes_store');
-const nodes_client = require('./nodes_client');
 
 const alloc_group_by_pool = {};
 const alloc_group_by_pool_set = {};

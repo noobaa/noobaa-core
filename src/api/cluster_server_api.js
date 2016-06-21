@@ -126,11 +126,6 @@ module.exports = {
             }
         },
 
-        heartbeat: {
-            doc: 'HB passed between members of the cluster',
-            method: 'POST',
-
-        },
 
     },
     definitions: {

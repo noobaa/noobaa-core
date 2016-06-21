@@ -570,7 +570,7 @@ module.exports = {
                     $ref: 'common_api#/definitions/storage_info'
                 },
                 nodes: {
-                    $ref: '#/definitions/nodes_info'
+                    $ref: 'node_api#/definitions/nodes_aggregate_info'
                 },
                 buckets: {
                     type: 'array',
@@ -725,19 +725,6 @@ module.exports = {
         role_enum: {
             enum: ['admin', 'user', 'viewer'],
             type: 'string',
-        },
-
-        nodes_info: {
-            type: 'object',
-            required: ['count', 'online'],
-            properties: {
-                count: {
-                    type: 'integer'
-                },
-                online: {
-                    type: 'integer'
-                },
-            }
         },
 
         access_keys: {

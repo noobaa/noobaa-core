@@ -11,7 +11,7 @@ const Semaphore = require('../../util/semaphore');
 const server_rpc = require('../server_rpc');
 const map_deleter = require('./map_deleter');
 const mongo_utils = require('../../util/mongo_utils');
-const nodes_store = require('../node_services/nodes_store').get_instance();
+const nodes_store = require('../node_services/nodes_store');
 const system_store = require('../system_services/system_store').get_instance();
 const node_allocator = require('../node_services/node_allocator');
 const system_server_utils = require('../utils/system_server_utils');
@@ -229,7 +229,7 @@ class MapBuilder {
                     $in: mongo_utils.uniq_ids(this.delete_blocks, '_id')
                 }
             }).toArray())
-            .then(blocks => nodes_store.populate_nodes_for_map(blocks, 'node'))
+            .then(blocks => nodes_store.instance().populate_nodes_for_map(blocks, 'node'))
             .then(deleted_blocks => {
                 //TODO: If the overload of these calls is too big, we should protect
                 //ourselves in a similar manner to the replication

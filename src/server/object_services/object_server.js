@@ -20,7 +20,7 @@ const map_reader = require('./map_reader');
 const map_deleter = require('./map_deleter');
 const ActivityLog = require('../analytic_services/activity_log');
 const mongo_utils = require('../../util/mongo_utils');
-const nodes_store = require('../node_services/nodes_store').get_instance();
+const nodes_store = require('../node_services/nodes_store');
 const ObjectStats = require('../analytic_services/object_stats');
 const system_store = require('../system_services/system_store').get_instance();
 const string_utils = require('../../util/string_utils');
@@ -396,7 +396,7 @@ function read_object_mappings(req) {
  */
 function read_node_mappings(req) {
     var node;
-    return nodes_store.find_node_by_name(req)
+    return nodes_store.instance().find_node_by_name(req)
         .then(
             node_arg => {
                 node = node_arg;

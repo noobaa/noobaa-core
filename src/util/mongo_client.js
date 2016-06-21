@@ -10,9 +10,11 @@ var config = require('../../config.js');
 
 class MongoClient extends EventEmitter {
 
-    static get_instance() {
-        MongoClient._client = MongoClient._client || new MongoClient();
-        return MongoClient._client;
+    static instance() {
+        if (!MongoClient._instance) {
+            MongoClient._instance = new MongoClient();
+        }
+        return MongoClient._instance;
     }
 
     constructor() {
@@ -285,4 +287,4 @@ class MongoClient extends EventEmitter {
 
 // EXPORTS
 exports.MongoClient = MongoClient;
-exports.get_instance = MongoClient.get_instance;
+exports.instance = MongoClient.instance;

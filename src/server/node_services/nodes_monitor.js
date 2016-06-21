@@ -118,6 +118,7 @@ class NodesMonitor extends EventEmitter {
         if (!this._started) return;
         dbg.log0('_load_from_store ...');
         return mongoose_utils.mongoose_wait_connected()
+            .then(() => nodes_store.instance().connect())
             .then(() => nodes_store.instance().find_nodes({
                 deleted: null
             }))
@@ -132,7 +133,7 @@ class NodesMonitor extends EventEmitter {
                 this._schedule_next_run(3000);
             })
             .catch(err => {
-                dbg.log0('_load_from_store ERROR', err);
+                dbg.log0('_load_from_store ERROR', err.stack);
                 return P.delay(1000).then(() => this._load_from_store());
             });
     }

@@ -75,8 +75,8 @@ function refresh_pool_alloc(pool) {
             _.each(nodes, node =>
                 nodes_store.instance().resolve_node_object_ids(node, 'allow_missing'));
             return nodes;
-        }),
-        nodes_client.instance().aggregate_nodes_by_pool([pool._id])
+        })
+        // nodes_client.instance().aggregate_nodes_by_pool([pool._id])
     ).spread((nodes, nodes_aggregate_pool) => {
         group.last_refresh = new Date();
         group.promise = null;
@@ -84,9 +84,9 @@ function refresh_pool_alloc(pool) {
         group.nodes = _.filter(nodes, function(node) {
             return _.isUndefined(node.storage.limit) || node.storage.limit > node.storage.used;
         });
-        group.aggregate = nodes_aggregate_pool[pool._id];
+        // group.aggregate = nodes_aggregate_pool[pool._id];
         dbg.log1('refresh_pool_alloc: updated pool', pool._id,
-            'nodes', group.nodes, 'aggregate', group.aggregate);
+            'nodes', group.nodes);
         _.each(alloc_group_by_pool_set, (g, pool_set) => {
             if (_.includes(pool_set, pool._id.toString())) {
                 dbg.log0('invalidate alloc_group_by_pool_set for', pool_set,

@@ -86,6 +86,10 @@ class NodesStore {
         this._node_validator = this._json_validator.compile(NODES_COLLECTION.schema);
     }
 
+    connect() {
+        return mongo_client.instance().connect();
+    }
+
     collection() {
         return mongo_client.instance().db.collection('nodes');
     }

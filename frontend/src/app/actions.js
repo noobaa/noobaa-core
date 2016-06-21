@@ -190,7 +190,7 @@ export function showResources() {
     let { tab = 'pools' } = ctx.params;
     model.uiState({
         layout: 'main-layout',
-        title: 'POOLS',
+        title: 'RESOURCES',
         breadcrumbs: [
             { route: 'system' },
             { route: 'pools', label: 'RESOURCES'}
@@ -213,7 +213,7 @@ export function showPool() {
         title: pool,
         breadcrumbs: [
             { route: 'system' },
-            { route: 'pools', label: 'POOLS'},
+            { route: 'pools', label: 'RESOURCES'},
             { route: 'pool', label: pool }
         ],
         panel: 'pool',
@@ -235,7 +235,7 @@ export function showNode() {
         title: node,
         breadcrumbs: [
             { route: 'system' },
-            { route: 'pools', label: 'POOLS'},
+            { route: 'pools', label: 'RESOURCES'},
             { route: 'pool', label: pool },
             { route: 'node', label: node }
         ],
@@ -356,7 +356,6 @@ export function loadSystemInfo() {
                 let { access_key, secret_key } = reply.owner.access_keys[0];
 
                 model.systemInfo({
-                    status: 'active',
                     name: reply.name,
                     version: reply.version,
                     endpoint: endpoint,

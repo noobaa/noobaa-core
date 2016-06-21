@@ -52,7 +52,7 @@ var TIER_PLACEMENT_FIELDS = [
  *
  */
 function create_tier(req) {
-    var pool_ids = _.map(req.rpc_params.pools, function(pool_name) {
+    var pool_ids = _.map(req.rpc_params.node_pools, function(pool_name) {
         return req.system.pools_by_name[pool_name]._id;
     });
     var tier = new_tier_defaults(req.rpc_params.name, req.system._id, pool_ids);
@@ -98,8 +98,8 @@ function update_tier(req) {
     if (req.rpc_params.new_name) {
         updates.name = req.rpc_params.new_name;
     }
-    if (req.rpc_params.pools) {
-        updates.pools = _.map(req.rpc_params.pools, function(pool_name) {
+    if (req.rpc_params.node_pools) {
+        updates.pools = _.map(req.rpc_params.node_pools, function(pool_name) {
             return req.system.pools_by_name[pool_name]._id;
         });
     }
@@ -115,8 +115,8 @@ function update_tier(req) {
             let policy_type_change = String(tier.data_placement) === String(req.rpc_params.data_placement) ? 'No changes' :
                 `Changed to ${req.rpc_params.data_placement} from ${tier.data_placement}`;
             let tier_pools = _.map(tier.pools, pool => pool.name);
-            let added_pools = [] || _.difference(req.rpc_params.pools, tier_pools);
-            let removed_pools = [] || _.difference(tier_pools, req.rpc_params.pools);
+            let added_pools = [] || _.difference(req.rpc_params.node_pools, tier_pools);
+            let removed_pools = [] || _.difference(tier_pools, req.rpc_params.node_pools);
             desc_string.push(`Bucket policy was changed by: ${req.account && req.account.email}`);
             desc_string.push(`Policy type: ${policy_type_change}`);
             if (added_pools.length) {
@@ -264,7 +264,7 @@ function find_policy_by_name(req) {
 
 function get_tier_info(tier, nodes_aggregate_pool) {
     var info = _.pick(tier, 'name', TIER_PLACEMENT_FIELDS);
-    info.pools = _.map(tier.pools, pool => pool.name);
+    info.node_pools = _.map(tier.pools, pool => pool.name);
     var reducer;
     if (tier.data_placement === 'MIRROR') {
         reducer = size_utils.reduce_minimum;

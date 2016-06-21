@@ -24,7 +24,7 @@ const ActivityLog = require('../analytic_services/activity_log');
 const nodes_client = require('../node_services/nodes_client');
 const system_store = require('../system_services/system_store').get_instance();
 const object_server = require('../object_services/object_server');
-const cloud_sync_utils = require('../utils/cloud_sync_utils');
+const cloud_utils = require('../utils/cloud_utils');
 
 const VALID_BUCKET_NAME_REGEXP =
     /^(([a-z0-9]|[a-z0-9][a-z0-9\-]*[a-z0-9])\.)*([a-z0-9]|[a-z0-9][a-z0-9\-]*[a-z0-9])$/;
@@ -372,7 +372,7 @@ function get_cloud_sync(req, bucket) {
                 endpoint: bucket.cloud_sync.endpoint,
                 access_key: bucket.cloud_sync.access_keys.access_key,
                 health: res.health,
-                status: cloud_sync_utils.resolve_cloud_sync_info(bucket.cloud_sync),
+                status: cloud_utils.resolve_cloud_sync_info(bucket.cloud_sync),
                 last_sync: bucket.cloud_sync.last_sync.getTime(),
                 target_bucket: bucket.cloud_sync.target_bucket,
                 policy: {
@@ -447,7 +447,7 @@ function delete_cloud_sync(req) {
 function set_cloud_sync(req) {
     dbg.log0('set_cloud_sync:', req.rpc_params);
 
-    var connection = find_cloud_sync_connection(req);
+    var connection = cloud_utils.find_cloud_connection(req.account, req.rpc_params.connection);
     var bucket = find_bucket(req);
     var force_stop = false;
     //Verify parameters, bi-directional sync can't be set with additions_only
@@ -667,7 +667,7 @@ function get_cloud_buckets(req) {
     dbg.log0('get cloud buckets', req.rpc_params);
 
     return P.fcall(function() {
-        var connection = find_cloud_sync_connection(req);
+        var connection = cloud_utils.find_cloud_connection(req);
         var s3 = new AWS.S3({
             endpoint: connection.endpoint,
             accessKeyId: connection.access_key,
@@ -694,19 +694,6 @@ function get_cloud_buckets(req) {
 
 // UTILS //////////////////////////////////////////////////////////
 
-function find_cloud_sync_connection(req) {
-    let account = req.account;
-    let conn_name = req.rpc_params.connection;
-    let conn = (account.sync_credentials_cache || [])
-        .filter(sync_conn => sync_conn.name === conn_name)[0];
-
-    if (!conn) {
-        dbg.error('CONNECTION NOT FOUND', account, conn_name);
-        throw new RpcError('INVALID_CONNECTION', 'Connection dosn\'t exists: "' + conn_name + '"');
-    }
-
-    return conn;
-}
 
 function find_bucket(req) {
     var bucket = req.system.buckets_by_name[req.rpc_params.name];

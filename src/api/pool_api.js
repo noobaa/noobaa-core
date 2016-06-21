@@ -32,9 +32,6 @@ module.exports = {
                     name: {
                         type: 'string',
                     },
-                    endpoint: {
-                        type: 'string',
-                    },
                     connection: {
                         type: 'string',
                     },
@@ -225,11 +222,14 @@ module.exports = {
                     $ref: 'common_api#/definitions/undeletable_enum'
                 },
                 cloud_info: {
-                    endpoint: {
-                        type: 'string'
-                    },
-                    target_bucket: {
-                        type: 'string'
+                    type: 'object',
+                    properties: {
+                        endpoint: {
+                            type: 'string'
+                        },
+                        target_bucket: {
+                            type: 'string'
+                        }
                     }
                 }
             },

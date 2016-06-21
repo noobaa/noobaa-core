@@ -18,6 +18,7 @@ const nodes_store = require('../node_services/nodes_store');
 const nodes_client = require('../node_services/nodes_client');
 const system_store = require('../system_services/system_store').get_instance();
 const SupervisorCtl = require('../utils/supervisor_ctrl');
+const cloud_utils = require('../utils/cloud_utils');
 
 
 function new_pool_defaults(name, system_id) {
@@ -28,7 +29,7 @@ function new_pool_defaults(name, system_id) {
     };
 }
 
-function create_pool(req) {
+function create_nodes_pool(req) {
     var name = req.rpc_params.name;
     var nodes = req.rpc_params.nodes;
     if (name !== 'default_pool' && nodes.length < config.NODES_MIN_COUNT) {
@@ -68,6 +69,8 @@ function create_cloud_pool(req) {
     dbg.log0('Creating new cloud_pool', pool);
     pool.cloud_pool_info = cloud_info;
 
+    var connection = cloud_utils.find_cloud_connection(req.account, req.rpc_params.connection);
+    dbg.log0('got connection for cloud pool:', connection);
     return system_store.make_changes({
             insert: {
                 pools: [pool]
@@ -79,9 +82,12 @@ function create_cloud_pool(req) {
                 name: req.rpc_params.name,
                 access_keys: sys_access_keys,
                 cloud_info: {
-                    endpoint: cloud_info.endpoint,
-                    target_bucket: cloud_info.target_bucket,
-                    access_keys: cloud_info.access_keys
+                    endpoint: connection.endpoint,
+                    target_bucket: req.rpc_params.target_bucket,
+                    access_keys: {
+                        access_key: connection.access_key,
+                        secret_key: connection.secret_key
+                    }
                 },
             });
         })
@@ -313,6 +319,12 @@ function get_pool_info(pool, nodes_aggregate_pool) {
             used: n.used,
         })
     };
+    if (pool.cloud_pool_info) {
+        info.cloud_info = {
+            endpoint: pool.cloud_pool_info.endpoint,
+            target_bucket: pool.cloud_pool_info.target_bucket
+        };
+    }
     var reason = check_pool_deletion(pool, nodes_aggregate_pool);
     if (reason) {
         info.undeletable = reason;
@@ -354,7 +366,7 @@ function check_cloud_pool_deletion(pool) {
 // EXPORTS
 exports.new_pool_defaults = new_pool_defaults;
 exports.get_pool_info = get_pool_info;
-exports.create_pool = create_pool;
+exports.create_nodes_pool = create_nodes_pool;
 exports.create_cloud_pool = create_cloud_pool;
 exports.update_pool = update_pool;
 exports.list_pool_nodes = list_pool_nodes;

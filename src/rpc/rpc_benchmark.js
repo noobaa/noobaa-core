@@ -2,7 +2,6 @@
 
 var _ = require('lodash');
 var P = require('../util/promise');
-// P.longStackTraces();
 var url = require('url');
 var util = require('util');
 var argv = require('minimist')(process.argv);
@@ -273,7 +272,7 @@ function call_next_io(req) {
         return_rpc_req: true
     });
     if (retry_func) {
-        promise = promise.fail(retry_func);
+        promise = promise.catch(retry_func);
     }
     return promise.then(call_next_io);
 }

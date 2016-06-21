@@ -10,7 +10,6 @@ const system_store = require('../system_services/system_store').get_instance();
 const os_utils = require('../../util/os_utils');
 const dbg = require('../../util/debug_module')(__filename);
 
-
 function get_topology() {
     return system_store.get_local_cluster_info();
 }
@@ -34,11 +33,12 @@ function update_cluster_info(params) {
             dbg.log0('local cluster info updates successfully');
             return;
         })
-        .fail((err) => {
+        .catch((err) => {
             console.error('failed on local cluster info update with', err.message);
             throw err;
         });
 }
+
 
 function update_host_address(address) {
     var current_clustering = system_store.get_local_cluster_info();
@@ -64,7 +64,7 @@ function update_host_address(address) {
                 clusters: [current_clustering]
             }
         })
-        .fail((err) => {
+        .catch((err) => {
             dbg.log0('Failed updating host address in clustering info');
             throw new Error('Failed updating host address in clustering info', err, err.stack);
         });

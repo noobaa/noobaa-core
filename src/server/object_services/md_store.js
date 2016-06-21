@@ -9,7 +9,7 @@ const ObjectPart = require('./schemas/object_part');
 const DataChunk = require('./schemas/data_chunk');
 const DataBlock = require('./schemas/data_block');
 const map_utils = require('./map_utils');
-const nodes_store = require('../node_services/nodes_store').get_instance();
+const nodes_store = require('../node_services/nodes_store');
 const mongo_utils = require('../../util/mongo_utils');
 const mongo_functions = require('../../util/mongo_functions');
 // const dbg = require('../../util/debug_module')(__filename);
@@ -42,7 +42,7 @@ function aggregate_objects(query) {
 
 function load_chunks_by_digest(bucket, digest_list) {
     let chunks;
-    return P.when(DataChunk.collection.find({
+    return P.resolve(DataChunk.collection.find({
             system: bucket.system._id,
             bucket: bucket._id,
             digest_b64: {
@@ -68,13 +68,13 @@ function load_chunks_by_digest(bucket, digest_list) {
 
 function load_blocks_for_chunks(chunks) {
     if (!chunks || !chunks.length) return;
-    return P.when(DataBlock.collection.find({
+    return P.resolve(DataBlock.collection.find({
             chunk: {
                 $in: mongo_utils.uniq_ids(chunks, '_id')
             },
             deleted: null,
         }).toArray())
-        .then(blocks => nodes_store.populate_nodes_for_map(blocks, 'node'))
+        .then(blocks => nodes_store.instance().populate_nodes_for_map(blocks, 'node'))
         .then(blocks => {
             // remove from the list blocks that their node is not found
             // and consider these blocks just like deleted blocks
@@ -94,7 +94,7 @@ function load_parts_objects_for_chunks(chunks) {
     let parts;
     let objects;
     if (!chunks || !chunks.length) return;
-    return P.when(ObjectPart.collection.find({
+    return P.resolve(ObjectPart.collection.find({
             chunk: {
                 $in: mongo_utils.uniq_ids(chunks, '_id')
             },

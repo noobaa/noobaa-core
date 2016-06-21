@@ -1,7 +1,11 @@
 <modal params="onClose: () => cancel()" class="text-left">
     <h1 class="heading2 push-next">
-        Set Cloud Sync Policy
+        Set Cloud Sync
     </h1>
+
+    <h2 class="heading3 push-next">
+        Set connection
+    </h2>
 
     <editor params="label: 'Target Connection'">
         <dropdown params="
@@ -22,37 +26,43 @@
         <div class="val-msg" data-bind="validationMessage: targetBucket"></div>
     </editor>
 
+    <hr>
+
+    <h2 class="heading3 push-next">
+        Configure policy
+    </h2>
+
     <editor class="push-next" params="
-        label: 'Sync Bucket Every', 
+        label: 'Sync Bucket Every',
         insertValMessages: false
-    "> 
+    ">
             <div class="row">
                 <input class="push-next" type="Number"  min="1" data-bind="
-                    value: frequency, 
+                    value: frequency,
                     enable: targetBucket
                 "/>
 
                 <dropdown class="freq-unit" params="
-                    selected: frequencyUnit, 
-                    options: frequencyUnitOptions, 
+                    selected: frequencyUnit,
+                    options: frequencyUnitOptions,
                     disabled: !targetBucket()
                 "></dropdown>
             </div>
     </editor>
 
     <editor class="push-next" params="
-        label: 'Sync Type', 
+        label: 'Sync Type',
         insertValMessages: false
     ">
         <radio-group params="
-            selected: direction, 
-            options: directionOptions, 
+            selected: direction,
+            options: directionOptions,
             disabled: !targetBucket()
         "></radio-group>
     </editor>
-    
+
     <checkbox class="push-next" params="
-        label: 'Synchronize File Deletions', 
+        label: 'Synchronize File Deletions',
         checked: syncDeletions,
         disabled: !targetBucket() || direction() === 'BI'
     "></checkbox>
@@ -61,9 +71,9 @@
         <button class="link push-next" data-bind="click: cancel">Cancel</button>
         <button class="btn2" data-bind="click: save">Save</button>
     </div>
-</modal> 
+</modal>
 
 <!-- ko if: isAWSCredentialsModalVisible -->
 <aws-credentials-modal params="onClose: canceled => onNewCredentials(canceled)">
-</aws-credentials-modal> 
+</aws-credentials-modal>
 <!-- /ko -->

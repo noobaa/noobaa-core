@@ -6,7 +6,7 @@ const P = require('../../util/promise');
 const dbg = require('../../util/debug_module')(__filename);
 const md_store = require('./md_store');
 const server_rpc = require('../server_rpc');
-const nodes_store = require('../node_services/nodes_store').get_instance();
+const nodes_store = require('../node_services/nodes_store');
 const mongo_utils = require('../../util/mongo_utils');
 
 
@@ -19,7 +19,7 @@ function delete_object_mappings(obj) {
     // find parts intersecting the [start,end) range
     var deleted_parts;
     var all_chunk_ids;
-    return P.when(md_store.ObjectPart.collection.find({
+    return P.resolve(md_store.ObjectPart.collection.find({
             system: obj.system,
             obj: obj._id,
             deleted: null,
@@ -90,7 +90,7 @@ function delete_object_mappings(obj) {
  */
 function delete_objects_from_agents(deleted_chunk_ids) {
     //Find the deleted data blocks and their nodes
-    P.when(md_store.DataBlock.collection.find({
+    P.resolve(md_store.DataBlock.collection.find({
             chunk: {
                 $in: deleted_chunk_ids
             },
@@ -98,7 +98,7 @@ function delete_objects_from_agents(deleted_chunk_ids) {
             //delete_object_mappings with P.all along with the DataBlocks
             //deletion update
         }).toArray())
-        .then(blocks => nodes_store.populate_nodes_for_map(blocks, 'node'))
+        .then(blocks => nodes_store.instance().populate_nodes_for_map(blocks, 'node'))
         .then(deleted_blocks => {
             //TODO: If the overload of these calls is too big, we should protect
             //ourselves in a similar manner to the replication

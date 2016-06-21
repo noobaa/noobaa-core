@@ -99,7 +99,7 @@ Semaphore.prototype.surround = function(count, func) {
         func = count;
         count = undefined;
     }
-    return P.when(self.wait(count)).then(func).fin(function() {
+    return P.resolve(self.wait(count)).then(func).finally(function() {
         self.release(count);
     });
 };

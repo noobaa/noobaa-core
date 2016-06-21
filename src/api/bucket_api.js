@@ -155,7 +155,7 @@ module.exports = {
             }
         },
 
-        get_cloud_sync_policy: {
+        get_cloud_sync: {
             method: 'GET',
             params: {
                 type: 'object',
@@ -167,67 +167,19 @@ module.exports = {
                 }
             },
             reply: {
-                type: 'object',
-                // required: [],
-                properties: {
-                    name: {
-                        type: 'string'
-                    },
-                    endpoint: {
-                        type: 'string'
-                    },
-                    access_key: {
-                        type: 'string'
-                    },
-                    policy: {
-                        $ref: '#/definitions/cloud_sync'
-                    },
-                    health: {
-                        type: 'boolean'
-                    },
-                    status: {
-                        $ref: '#/definitions/api_cloud_sync_status'
-                    },
-                    last_sync: {
-                        format: 'idate'
-                    }
-                }
+                $ref: '#/definitions/cloud_sync_info'
             },
             auth: {
                 system: 'admin'
             }
         },
 
-        get_all_cloud_sync_policies: {
+        get_all_cloud_sync: {
             method: 'GET',
             reply: {
                 type: 'array',
-                // required: [],
                 items: {
-                    type: 'object',
-                    properties: {
-                        name: {
-                            type: 'string'
-                        },
-                        endpoint: {
-                            type: 'string'
-                        },
-                        access_key: {
-                            type: 'string'
-                        },
-                        policy: {
-                            $ref: '#/definitions/cloud_sync'
-                        },
-                        health: {
-                            type: 'boolean'
-                        },
-                        status: {
-                            $ref: '#/definitions/api_cloud_sync_status'
-                        },
-                        last_sync: {
-                            format: 'idate'
-                        }
-                    }
+                    $ref: '#/definitions/cloud_sync_info'
                 }
             },
             auth: {
@@ -263,8 +215,30 @@ module.exports = {
                     connection: {
                         type: 'string'
                     },
+                    target_bucket: {
+                        type: 'string'
+                    },
                     policy: {
-                        $ref: '#/definitions/cloud_sync'
+                        $ref: '#/definitions/cloud_sync_policy'
+                    }
+                }
+            },
+            auth: {
+                system: 'admin'
+            }
+        },
+
+        update_cloud_sync: {
+            method: 'PUT',
+            params: {
+                type: 'object',
+                required: ['name', 'policy'],
+                properties: {
+                    name: {
+                        type: 'string'
+                    },
+                    policy: {
+                        $ref: '#/definitions/cloud_sync_policy'
                     }
                 }
             },
@@ -369,14 +343,41 @@ module.exports = {
             }
         },
 
-        cloud_sync: {
+        cloud_sync_info: {
             type: 'object',
-            required: ['target_bucket', 'schedule'],
             properties: {
-                target_bucket: {
-                    type: 'string',
+                name: {
+                    type: 'string'
                 },
-                schedule: {
+                endpoint: {
+                    type: 'string'
+                },
+                access_key: {
+                    type: 'string'
+                },
+                target_bucket: {
+                    type: 'string'
+                },
+                policy: {
+                    $ref: '#/definitions/cloud_sync_policy'
+                },
+                health: {
+                    type: 'boolean'
+                },
+                status: {
+                    $ref: '#/definitions/api_cloud_sync_status'
+                },
+                last_sync: {
+                    format: 'idate'
+                }
+            }
+        },
+
+        cloud_sync_policy: {
+            type: 'object',
+            required: ['schedule_min'],
+            properties: {
+                schedule_min: {
                     type: 'integer'
                 },
                 c2n_enabled: {
@@ -385,7 +386,8 @@ module.exports = {
                 n2c_enabled: {
                     type: 'boolean',
                 },
-                additions_only: { //If true, only additions will be synced
+                //If true, only additions will be synced
+                additions_only: {
                     type: 'boolean',
                 }
             }

@@ -220,7 +220,7 @@ function deploy_ceph() {
         .then((res) => {
             return console.log(res);
         })
-        .fail(function(err) {
+        .catch(function(err) {
             console.error('Failed Deployment Of Ceph Tests', err, err.stack);
             throw new Error('Failed Deployment Of Ceph Tests');
         });
@@ -241,7 +241,7 @@ function s3_ceph_test() {
                     .then(() => {
                         console.log('Test Passed:', S3_CEPH_TEST_WHITELIST[i]);
                     })
-                    .fail((err) => {
+                    .catch((err) => {
                         if (!IGNORE_S3_CEPH_TEST_LIST.contains(S3_CEPH_TEST_WHITELIST[i])) {
                             had_errors = true;
                         }
@@ -273,7 +273,7 @@ function system_ceph_test() {
                     .then(() => {
                         console.log('Test Passed:', SYSTEM_CEPH_TEST_WHITELIST[i]);
                     })
-                    .fail((err) => {
+                    .catch((err) => {
                         had_errors = true;
                         console.warn('Test Failed:', SYSTEM_CEPH_TEST_WHITELIST[i], '\n' + err);
                     });
@@ -294,7 +294,7 @@ function main() {
         .then(function() {
             process.exit(0);
         })
-        .fail(function(err) {
+        .catch(function(err) {
             process.exit(1);
         });
 }
@@ -308,7 +308,7 @@ function run_test() {
         .then((res) => console.log(res))
         .then(() => system_ceph_test())
         .then(() => s3_ceph_test())
-        .fail(function(err) {
+        .catch(function(err) {
             throw new Error('Ceph Tests Failed:', err);
         });
 }

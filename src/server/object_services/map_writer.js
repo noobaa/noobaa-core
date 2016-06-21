@@ -7,7 +7,7 @@ const crypto = require('crypto');
 const P = require('../../util/promise');
 const dbg = require('../../util/debug_module')(__filename);
 const md_store = require('./md_store');
-const nodes_store = require('../node_services/nodes_store').get_instance();
+const nodes_store = require('../node_services/nodes_store');
 const mongo_utils = require('../../util/mongo_utils');
 const time_utils = require('../../util/time_utils');
 const string_utils = require('../../util/string_utils');
@@ -45,7 +45,7 @@ function finalize_object_parts(bucket, obj, parts) {
                         _id: md_store.make_md_id(block.block_md.id),
                         system: obj.system,
                         chunk: chunk_id,
-                        node: nodes_store.make_node_id(block.block_md.node)
+                        node: nodes_store.instance().make_node_id(block.block_md.node)
                     }, _.pick(f,
                         'size',
                         'layer',
@@ -85,10 +85,10 @@ function finalize_object_parts(bucket, obj, parts) {
     });
 
     return P.join(
-            new_blocks.length && P.when(md_store.DataBlock.collection.insertMany(new_blocks)),
-            new_chunks.length && P.when(md_store.DataChunk.collection.insertMany(new_chunks)),
-            new_parts.length && P.when(md_store.ObjectPart.collection.insertMany(new_parts)),
-            upload_size > obj.upload_size && P.when(md_store.ObjectMD.collection.updateOne({
+            new_blocks.length && P.resolve(md_store.DataBlock.collection.insertMany(new_blocks)),
+            new_chunks.length && P.resolve(md_store.DataChunk.collection.insertMany(new_chunks)),
+            new_parts.length && P.resolve(md_store.ObjectPart.collection.insertMany(new_parts)),
+            upload_size > obj.upload_size && P.resolve(md_store.ObjectMD.collection.updateOne({
                 _id: obj._id
             }, {
                 $set: {
@@ -114,7 +114,7 @@ function finalize_object_parts(bucket, obj, parts) {
 function list_multipart_parts(params) {
     var max_parts = Math.min(params.max_parts || 50, 50);
     var marker = params.part_number_marker || 0;
-    return P.when(md_store.ObjectPart.collection.find({
+    return P.resolve(md_store.ObjectPart.collection.find({
             obj: params.obj._id,
             upload_part_number: {
                 $gte: marker,
@@ -163,7 +163,7 @@ function list_multipart_parts(params) {
  *
  */
 function set_multipart_part_md5(params) {
-    return P.when(md_store.ObjectPart.collection.find({
+    return P.resolve(md_store.ObjectPart.collection.find({
             system: params.obj.system,
             obj: params.obj._id,
             upload_part_number: params.upload_part_number,
@@ -321,7 +321,7 @@ function fix_multipart_parts(obj) {
             });
             // calling execute on bulk and handling node callbacks
             if (bulk_update.length) {
-                return P.ninvoke(bulk_update, 'execute').thenResolve(last_end);
+                return P.resolve(bulk_update.execute()).return(last_end);
             }
         });
 }

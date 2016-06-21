@@ -92,7 +92,7 @@ class RpcSchema {
                         method_api.params_validator = this._ajv.compile({
                             $ref: method_api.fullname + '/params'
                         });
-                        if (this._buffer_paths) {
+                        if (this._buffer_paths.size) {
                             method_api.params_export_buffers =
                                 schema_utils.generate_schema_export_buffers(this._buffer_paths);
                             method_api.params_import_buffers =

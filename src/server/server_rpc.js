@@ -1,6 +1,6 @@
 'use strict';
 
-let api = require('../api');
+const api = require('../api');
 
 class ServerRpc {
 

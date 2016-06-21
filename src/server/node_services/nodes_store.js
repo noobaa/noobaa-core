@@ -14,7 +14,7 @@ const P = require('../../util/promise');
 const dbg = require('../../util/debug_module')(__filename);
 const js_utils = require('../../util/js_utils');
 const mongo_utils = require('../../util/mongo_utils');
-const mongo_client = require('../../util/mongo_client').get_instance();
+const mongo_client = require('../../util/mongo_client');
 const system_store = require('../system_services/system_store').get_instance();
 const schema_utils = require('../../util/schema_utils');
 const mongo_functions = require('../../util/mongo_functions');
@@ -66,15 +66,17 @@ const NODE_OBJECT_IDS_PATHS = js_utils.deep_freeze([
 
 class NodesStore {
 
-    static get_instance() {
-        NodesStore._instance = NodesStore._instance || new NodesStore();
+    static instance() {
+        if (!NodesStore._instance) {
+            NodesStore._instance = new NodesStore();
+        }
         return NodesStore._instance;
     }
 
     constructor() {
         this.NODE_FIELDS_FOR_MAP = NODE_FIELDS_FOR_MAP;
         this.NODE_OBJECT_IDS_PATHS = NODE_OBJECT_IDS_PATHS;
-        mongo_client.define_collection(NODES_COLLECTION);
+        mongo_client.instance().define_collection(NODES_COLLECTION);
         this._json_validator = new Ajv({
             formats: {
                 idate: schema_utils.idate_format,
@@ -85,7 +87,7 @@ class NodesStore {
     }
 
     collection() {
-        return mongo_client.db.collection('nodes');
+        return mongo_client.instance().db.collection('nodes');
     }
 
     validate(node, fail) {
@@ -118,7 +120,7 @@ class NodesStore {
             node._id = this.make_node_id();
         }
         this.validate(node, 'fail');
-        return P.when(this.collection().insertOne(node))
+        return P.resolve(this.collection().insertOne(node))
             .catch(err => mongo_utils.check_duplicate_key_conflict(err, 'node'))
             .return(node);
     }
@@ -127,7 +129,7 @@ class NodesStore {
      * returns the updated node
      */
     update_node_by_name(req, updates, options) {
-        return P.when(this.collection().updateOne({
+        return P.resolve(this.collection().updateOne({
             system: req.system._id,
             name: req.rpc_params.name,
             deleted: null,
@@ -135,7 +137,7 @@ class NodesStore {
     }
 
     delete_node_by_name(req) {
-        return P.when(this.collection().findOneAndUpdate({
+        return P.resolve(this.collection().findOneAndUpdate({
                 system: req.system._id,
                 name: req.rpc_params.name,
                 deleted: null,
@@ -148,13 +150,13 @@ class NodesStore {
     }
 
     update_node_by_id(node_id, updates, options) {
-        return P.when(this.collection().updateOne({
+        return P.resolve(this.collection().updateOne({
             _id: this.make_node_id(node_id)
         }, updates, options));
     }
 
     update_nodes(query, updates) {
-        return P.when(this.collection().updateMany(query, updates));
+        return P.resolve(this.collection().updateMany(query, updates));
     }
 
     bulk_update(items) {
@@ -181,7 +183,7 @@ class NodesStore {
         dbg.log0('bulk_update:',
             'executing bulk with', num_update, 'updates',
             'and', num_insert, 'inserts');
-        return P.ninvoke(bulk, 'execute');
+        return P.resolve(bulk.execute());
     }
 
 
@@ -193,7 +195,7 @@ class NodesStore {
 
 
     find_node_by_name(req) {
-        return P.when(this.collection().findOne({
+        return P.resolve(this.collection().findOne({
                 system: req.system._id,
                 name: req.rpc_params.name,
                 deleted: null,
@@ -204,7 +206,7 @@ class NodesStore {
     }
 
     find_node_by_address(req) {
-        return P.when(this.collection().findOne({
+        return P.resolve(this.collection().findOne({
                 system: req.system._id,
                 rpc_address: req.rpc_params.target,
                 deleted: null,
@@ -215,12 +217,12 @@ class NodesStore {
     }
 
     find_nodes(query, options) {
-        return P.when(this.collection().find(query, options).toArray())
+        return P.resolve(this.collection().find(query, options).toArray())
             .then(nodes => this.validate_list(nodes));
     }
 
     count_nodes(query) {
-        return P.when(this.collection().count(query));
+        return P.resolve(this.collection().count(query));
     }
 
     populate_nodes_full(docs, doc_path) {
@@ -248,7 +250,7 @@ class NodesStore {
      */
     aggregate_nodes_by_pool(query) {
         var minimum_online_heartbeat = this.get_minimum_online_heartbeat();
-        return P.when(this.collection().mapReduce(
+        return P.resolve(this.collection().mapReduce(
                 mongo_functions.map_aggregate_nodes,
                 mongo_functions.reduce_sum, {
                     query: query,
@@ -295,7 +297,7 @@ class NodesStore {
 
     // for unit tests
     test_code_delete_all_nodes() {
-        return P.when(this.collection().deleteMany({}));
+        return P.resolve(this.collection().deleteMany({}));
     }
 
 }
@@ -303,4 +305,4 @@ class NodesStore {
 
 // EXPORTS
 exports.NodesStore = NodesStore;
-exports.get_instance = NodesStore.get_instance;
+exports.instance = NodesStore.instance;

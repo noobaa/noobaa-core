@@ -478,7 +478,7 @@ function make_auth_token(options) {
     // set expiry if provided
     var jwt_options = {};
     if (options.expiry) {
-        jwt_options.expiresInMinutes = options.expiry / 60;
+        jwt_options.expiresIn = options.expiry;
     }
     // create and return the signed token
     return jwt.sign(auth, process.env.JWT_SECRET, jwt_options);

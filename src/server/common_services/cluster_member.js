@@ -22,7 +22,7 @@ function update_mongo_connection_string(req) {
     let old_url = process.env.MONGO_RS_URL || '';
     dotenv.load();
     dbg.log0('Recieved update mongo string. will update mongo url from', old_url, ' to ', process.env.MONGO_RS_URL);
-    return P.when(mongo_ctrl.update_connection_string())
+    return P.resolve(mongo_ctrl.update_connection_string())
         .return();
 }
 

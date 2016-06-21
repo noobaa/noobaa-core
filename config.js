@@ -68,9 +68,12 @@ config.MONGO_DEFAULTS = {
 
 config.CLUSTERING_PATHS = {
     SECRET_FILE: '/etc/noobaa_sec',
+    DARWIN_SECRET_FILE: '/Users/Shared/noobaa_sec',
     SUPER_FILE: '/etc/noobaa_supervisor.conf',
 };
 
+config.CLUSTER_HB_INTERVAL = 1 * 60000;
+config.CLUSTER_NODE_MISSING_TIME = 3 * 60000;
 config.SUPERVISOR_PROGRAM_SEPERATOR = '#endprogram';
 
 config.SUPERVISOR_DEFAULTS = {

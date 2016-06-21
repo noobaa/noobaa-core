@@ -810,7 +810,7 @@ export function loadTier(name) {
 export function loadCloudSyncInfo(bucket) {
     logAction('loadCloudSyncInfo', { bucket });
 
-    api.bucket.get_cloud_sync_policy({ name: bucket })
+    api.bucket.get_cloud_sync({ name: bucket })
         .then(model.cloudSyncInfo)
         .done();
 }
@@ -1352,18 +1352,18 @@ export function setSystemDebugLevel(level){
         .done();
 }
 
-export function setCloudSyncPolicy(bucket, connection, targetBucket, direction, frequency, sycDeletions) {
-    logAction('setCloudSyncPolicy', { bucket, connection, targetBucket, direction, frequency, sycDeletions });
+export function setCloudSyncPolicy(bucket, connection, targetBucket, direction, frequency, syncDeletions) {
+    logAction('setCloudSyncPolicy', { bucket, connection, targetBucket, direction, frequency, syncDeletions });
 
     api.bucket.set_cloud_sync({
         name: bucket,
         connection: connection,
+        target_bucket: targetBucket,
         policy: {
-            target_bucket: targetBucket,
-            c2n_enabled: direction === 'AWS2NB' || direction === 'BI',
-            n2c_enabled: direction === 'NB2AWS' || direction === 'BI',
-            schedule: frequency,
-            additions_only: !sycDeletions
+            n2c_enabled: Boolean(direction & 1),
+            c2n_enabled: Boolean(direction & 2),
+            schedule_min: frequency,
+            additions_only: !syncDeletions
         }
     })
         .then(
@@ -1377,6 +1377,29 @@ export function setCloudSyncPolicy(bucket, connection, targetBucket, direction, 
             }
         )
         .done();
+}
+
+export function updateCloudSyncPolicy(bucket, direction, frequency, syncDeletions) {
+    logAction('updateCloudSyncPolicy', { bucket, direction, frequency, syncDeletions });
+
+    api.bucket.update_cloud_sync({
+        name: bucket,
+        policy: {
+            n2c_enabled: Boolean(direction & 1),
+            c2n_enabled: Boolean(direction & 2),
+            schedule_min: frequency,
+            additions_only: !syncDeletions
+        }
+    })
+        .then(
+            () => {
+                loadCloudSyncInfo(bucket);
+                let bucketInfo = model.bucketInfo();
+                if (bucketInfo && bucketInfo.name === bucket) {
+                    loadBucketInfo(bucket);
+                }
+            }
+        );
 }
 
 export function removeCloudSyncPolicy(bucket) {

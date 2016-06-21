@@ -11,7 +11,12 @@ module.exports = {
     id: 'pool_api',
 
     methods: {
+<<<<<<< HEAD
         create_nodes_pool: {
+=======
+
+        create_pool: {
+>>>>>>> master
             doc: 'Create Pool',
             method: 'POST',
             params: {

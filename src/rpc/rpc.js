@@ -183,7 +183,7 @@ RPC.prototype.client_request = function(api, method_api, params, options) {
             var req_buffers = req.export_request_buffers();
 
             // send request over the connection
-            var send_promise = P.invoke(req.connection, 'send', req_buffers, 'req', req);
+            var send_promise = P.try(() => req.connection.send(req_buffers, 'req', req));
 
             // set timeout to abort if the specific connection/transport
             // can do anything with it, for http this calls req.abort()
@@ -240,7 +240,7 @@ RPC.prototype.client_request = function(api, method_api, params, options) {
             }
 
         })
-        .fail(function(err) {
+        .catch(function(err) {
 
             dbg.error('RPC client_request: response ERROR',
                 'srv', req.srv,
@@ -260,7 +260,7 @@ RPC.prototype.client_request = function(api, method_api, params, options) {
             throw err;
 
         })
-        .fin(function() {
+        .finally(function() {
             // dbg.log0('RPC', req.srv, 'took', time_utils.millitook(millistamp));
             return self._release_connection(req);
         });
@@ -329,7 +329,7 @@ RPC.prototype.handle_request = function(conn, msg) {
             // insert to requests map and process using the server func
             conn._received_requests.set(req.reqid, req);
             req.server_promise = P.fcall(service.server_func, req)
-                .fin(function() {
+                .finally(function() {
                     // FUTURE TODO keep received requests for some time after with LRU?
                     conn._received_requests.delete(req.reqid);
                 });
@@ -383,7 +383,7 @@ RPC.prototype.handle_request = function(conn, msg) {
             return conn.send(req.export_response_buffer(), 'res', req);
 
             // })
-            // .fin(function() {
+            // .finally(function() {
             // dbg.log0('RPC', req.srv, 'took', time_utils.millitook(millistamp));
         });
 };
@@ -579,10 +579,11 @@ RPC.prototype._accept_new_connection = function(conn) {
         conn._ping_interval = setInterval(function() {
             dbg.log4('RPC PING', conn.connid);
             conn._ping_last_reqid = conn._alloc_reqid();
-            P.invoke(conn, 'send', RpcRequest.encode_message({
+            P.try(() => conn.send(RpcRequest.encode_message({
                 op: 'ping',
                 reqid: conn._ping_last_reqid
-            })).fail(_.noop); // already means the conn is closed
+            }))).catch(_.noop); // already means the conn is closed
+            return null;
         }, RPC_PING_INTERVAL_MS);
     }
 };
@@ -727,19 +728,19 @@ RPC.prototype._connection_receive = function(conn, msg_buffer) {
         case 'req':
             P.fcall(function() {
                 return self.handle_request(conn, msg);
-            }).fail(function(err) {
+            }).catch(function(err) {
                 dbg.warn('RPC _connection_receive: ERROR from handle_request', err.stack || err);
-            }).done();
+            });
             break;
         case 'res':
             self.handle_response(conn, msg);
             break;
         case 'ping':
             dbg.log4('RPC PONG', conn.connid);
-            P.invoke(conn, 'send', RpcRequest.encode_message({
+            P.try(() => conn.send(RpcRequest.encode_message({
                 op: 'pong',
                 reqid: msg.header.reqid
-            })).fail(_.noop); // already means the conn is closed
+            }))).catch(_.noop); // already means the conn is closed
             break;
         case 'pong':
             if (conn._ping_last_reqid === msg.header.reqid) {
@@ -854,7 +855,7 @@ RPC.prototype.register_tcp_transport = function(port, tls_options) {
     dbg.log0('RPC register_tcp_transport');
     var tcp_server = new RpcTcpServer(tls_options);
     tcp_server.on('connection', conn => this._accept_new_connection(conn));
-    return P.when(tcp_server.listen(port)).return(tcp_server);
+    return P.resolve(tcp_server.listen(port)).return(tcp_server);
 };
 
 
@@ -867,7 +868,7 @@ RPC.prototype.register_ntcp_transport = function(port, tls_options) {
     dbg.log0('RPC register_ntcp_transport');
     var ntcp_server = new RpcNtcpServer(tls_options);
     ntcp_server.on('connection', conn => this._accept_new_connection(conn));
-    return P.when(ntcp_server.listen(port)).return(ntcp_server);
+    return P.resolve(ntcp_server.listen(port)).return(ntcp_server);
 };
 
 

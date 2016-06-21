@@ -8,7 +8,7 @@ const config = require('../../../config.js');
 const map_utils = require('./map_utils');
 const mongo_utils = require('../../util/mongo_utils');
 const md_store = require('./md_store');
-const nodes_store = require('../node_services/nodes_store').get_instance();
+const nodes_store = require('../node_services/nodes_store');
 const system_store = require('../system_services/system_store').get_instance();
 
 
@@ -139,7 +139,7 @@ function read_parts_mappings(params) {
     var chunk_ids = mongo_utils.uniq_ids(chunks, '_id');
 
     // find all blocks of the resulting parts
-    return P.when(md_store.DataBlock.collection.find({
+    return P.resolve(md_store.DataBlock.collection.find({
             chunk: {
                 $in: chunk_ids
             },
@@ -147,7 +147,7 @@ function read_parts_mappings(params) {
         }, {
             sort: 'frag'
         }).toArray())
-        .then(blocks => nodes_store.populate_nodes_for_map(blocks, 'node'))
+        .then(blocks => nodes_store.instance().populate_nodes_for_map(blocks, 'node'))
         .then(blocks => {
             var blocks_by_chunk = _.groupBy(blocks, 'chunk');
             return _.map(params.parts, part => {

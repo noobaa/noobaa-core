@@ -20,7 +20,7 @@ const map_reader = require('./map_reader');
 const map_deleter = require('./map_deleter');
 const ActivityLog = require('../analytic_services/activity_log');
 const mongo_utils = require('../../util/mongo_utils');
-const nodes_store = require('../node_services/nodes_store').get_instance();
+const nodes_store = require('../node_services/nodes_store');
 const ObjectStats = require('../analytic_services/object_stats');
 const system_store = require('../system_services/system_store').get_instance();
 const string_utils = require('../../util/string_utils');
@@ -55,7 +55,7 @@ function create_object_upload(req) {
     if (req.rpc_params.xattr) {
         info.xattr = req.rpc_params.xattr;
     }
-    return P.when(md_store.ObjectMD.findOne({
+    return P.resolve(md_store.ObjectMD.findOne({
             system: req.system._id,
             bucket: req.bucket._id,
             key: req.rpc_params.key,
@@ -358,7 +358,7 @@ function read_object_mappings(req) {
             // so that viewing the mapping in the ui will not increase read count
             // We do count the number of parts and return them
             if (req.rpc_params.adminfo) {
-                return P.when(md_store.ObjectPart.collection.count({
+                return P.resolve(md_store.ObjectPart.collection.count({
                         obj: obj._id,
                         deleted: null,
                     }))
@@ -376,7 +376,7 @@ function read_object_mappings(req) {
                         }]
                     }
                 });
-                return P.when(md_store.ObjectMD.collection.updateOne({
+                return P.resolve(md_store.ObjectMD.collection.updateOne({
                     _id: obj._id
                 }, {
                     $inc: {
@@ -396,7 +396,7 @@ function read_object_mappings(req) {
  */
 function read_node_mappings(req) {
     var node;
-    return nodes_store.find_node_by_name(req)
+    return nodes_store.instance().find_node_by_name(req)
         .then(
             node_arg => {
                 node = node_arg;
@@ -444,7 +444,7 @@ function read_object_md(req) {
             if (!req.rpc_params.get_parts_count) {
                 return info;
             } else {
-                return P.when(md_store.ObjectPart.count({
+                return P.resolve(md_store.ObjectPart.count({
                         obj: objid,
                         deleted: null,
                     }))
@@ -472,7 +472,7 @@ function update_object_md(req) {
             return obj.update(updates).exec();
         })
         .then(obj => mongo_utils.check_entity_not_deleted(obj, 'object'))
-        .thenResolve();
+        .return();
 }
 
 
@@ -566,7 +566,7 @@ function remove_s3_usage_reports(req) {
         throw new RpcError('NO TILL_TIME', 'Parameters do not have till_time: ' + req.rpc_params);
     }
     //q.limit(req.rpc_params.limit || 10);
-    return P.when(q.exec())
+    return P.resolve(q.exec())
         .catch(err => {
             throw new RpcError('COULD NOT DELETE REPORTS', 'Error Deleting Reports: ' + err);
         })
@@ -586,7 +586,7 @@ function read_s3_usage_report(req) {
         q.sort('-time');
     }
     //q.limit(req.rpc_params.limit || 10);
-    return P.when(q.exec())
+    return P.resolve(q.exec())
         .then(reports => {
             reports = _.map(reports, report_item => {
                 let report = _.pick(report_item, 'system', 's3_usage_info');
@@ -828,7 +828,7 @@ const object_md_cache = new LRUCache({
     expiry_ms: 1000, // 1 second of blissfull ignorance
     load: function(object_id) {
         console.log('ObjectMDCache: load', object_id);
-        return P.when(md_store.ObjectMD.findOne({
+        return P.resolve(md_store.ObjectMD.findOne({
             _id: object_id,
             deleted: null,
         }).exec());

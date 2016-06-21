@@ -11,7 +11,7 @@ const Semaphore = require('../../util/semaphore');
 const server_rpc = require('../server_rpc');
 const map_deleter = require('./map_deleter');
 const mongo_utils = require('../../util/mongo_utils');
-const nodes_store = require('../node_services/nodes_store').get_instance();
+const nodes_store = require('../node_services/nodes_store');
 const system_store = require('../system_services/system_store').get_instance();
 const node_allocator = require('../node_services/node_allocator');
 const system_server_utils = require('../utils/system_server_utils');
@@ -67,7 +67,7 @@ class MapBuilder {
     mark_building() {
         let chunks_need_update_to_building = _.reject(this.chunks, 'building');
         return chunks_need_update_to_building.length &&
-            P.when(md_store.DataChunk.collection.updateMany({
+            P.resolve(md_store.DataChunk.collection.updateMany({
                 _id: {
                     $in: _.map(chunks_need_update_to_building, '_id')
                 }
@@ -210,10 +210,10 @@ class MapBuilder {
 
         return P.join(
             this.new_blocks && this.new_blocks.length &&
-            P.when(md_store.DataBlock.collection.insertMany(this.new_blocks)),
+            P.resolve(md_store.DataBlock.collection.insertMany(this.new_blocks)),
 
             this.delete_blocks && this.delete_blocks.length &&
-            P.when(md_store.DataBlock.collection.updateMany({
+            P.resolve(md_store.DataBlock.collection.updateMany({
                 _id: {
                     $in: mongo_utils.uniq_ids(this.delete_blocks, '_id')
                 }
@@ -224,12 +224,12 @@ class MapBuilder {
             })),
             //delete actual blocks from agents.
             this.delete_blocks && this.delete_blocks.length &&
-            P.when(md_store.DataBlock.collection.find({
+            P.resolve(md_store.DataBlock.collection.find({
                 _id: {
                     $in: mongo_utils.uniq_ids(this.delete_blocks, '_id')
                 }
             }).toArray())
-            .then(blocks => nodes_store.populate_nodes_for_map(blocks, 'node'))
+            .then(blocks => nodes_store.instance().populate_nodes_for_map(blocks, 'node'))
             .then(deleted_blocks => {
                 //TODO: If the overload of these calls is too big, we should protect
                 //ourselves in a similar manner to the replication

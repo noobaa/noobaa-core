@@ -6,7 +6,7 @@ const P = require('../../util/promise');
 const dbg = require('../../util/debug_module')(__filename);
 const config = require('../../../config.js');
 const md_store = require('./md_store');
-const nodes_store = require('../node_services/nodes_store').get_instance();
+const nodes_store = require('../node_services/nodes_store');
 const system_store = require('../system_services/system_store').get_instance();
 // const js_utils = require('../../util/js_utils');
 
@@ -314,7 +314,7 @@ function get_block_info(block, adminfo) {
             pool_name: pool.name,
             node_name: node.name,
             node_ip: node.ip,
-            online: nodes_store.is_online_node(node),
+            online: nodes_store.instance().is_online_node(node),
         };
     }
     return ret;
@@ -372,7 +372,7 @@ function find_consecutive_parts(obj, parts) {
         }
         pos = part.end;
     });
-    return P.when(md_store.ObjectPart.collection.find({
+    return P.resolve(md_store.ObjectPart.collection.find({
         system: obj.system,
         obj: obj._id,
         upload_part_number: upload_part_number,

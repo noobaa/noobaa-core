@@ -85,7 +85,7 @@ function run_test() {
             return basic_server_ops.upload_file(argv.ip, fkey, 'bucket1', fkey);
         })
         .delay(3000)
-        .fail(function(err) {
+        .catch(function(err) {
             console.log('Failed uploading file (SPREAD)', err);
             throw new Error('Failed uploading file (SPREAD) ' + err);
         })
@@ -116,7 +116,7 @@ function run_test() {
             return basic_server_ops.upload_file(argv.ip, fkey, 'bucket1', fkey);
         })
         .delay(3000)
-        .fail(function(err) {
+        .catch(function(err) {
             console.log('Failed uploading file (MIRROR)', err);
             throw new Error('Failed uploading file (MIRROR) ' + err);
         })
@@ -160,7 +160,7 @@ function main() {
         .then(function() {
             process.exit(0);
         })
-        .fail(function(err) {
+        .catch(function(err) {
             process.exit(1);
         });
 }

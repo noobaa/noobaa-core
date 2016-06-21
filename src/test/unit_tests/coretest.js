@@ -13,11 +13,13 @@ var P = require('../../util/promise');
 var config = require('../../../config.js');
 var agentctl = require('./core_agent_control');
 var server_rpc = require('../../server/server_rpc');
-var nodes_store = require('../../server/node_services/nodes_store').get_instance();
-var mongo_client = require('../../util/mongo_client').get_instance();
+var nodes_store = require('../../server/node_services/nodes_store');
+var mongo_client = require('../../util/mongo_client');
 var mongoose_utils = require('../../util/mongoose_utils');
 
-P.longStackTraces();
+P.config({
+    longStackTraces: true
+});
 config.test_mode = true;
 config.NODES_FREE_SPACE_RESERVE = 10 * 1024 * 1024;
 
@@ -55,9 +57,9 @@ mocha.before('coretest-before', function() {
     return P.resolve()
         .then(() => mongoose_utils.mongoose_connect())
         .then(() => mongoose_utils.mongoose_wait_connected())
-        .then(() => P.npost(mongoose.connection.db, 'dropDatabase'))
+        .then(() => mongoose.connection.db.dropDatabase()) // returns promise
         .then(() => mongoose_utils.mongoose_ensure_indexes())
-        .then(() => mongo_client.connect())
+        .then(() => mongo_client.instance().connect())
         .then(() => server_rpc.rpc.start_http_server({
             port: http_port,
             secure: false,
@@ -96,7 +98,7 @@ mocha.after('coretest-after', function() {
     return agentctl.cleanup_agents()
         .delay(1000)
         .then(() => server_rpc.rpc.set_disconnected_state(true))
-        .then(() => mongo_client.disconnect())
+        .then(() => mongo_client.instance().disconnect())
         .then(() => {
             mongoose.connection.removeAllListeners('disconnected');
             mongoose.connection.removeAllListeners('error');
@@ -142,7 +144,7 @@ function clear_test_nodes() {
                     'it does work fine when running with gulp, so we let it be.\n\n');
                 process.exit(1);
             }, 3000);
-            return nodes_store.test_code_delete_all_nodes()
+            return nodes_store.instance().test_code_delete_all_nodes()
                 .finally(() => clearTimeout(warning_timeout));
         })
         .then(() => {

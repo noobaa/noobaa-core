@@ -12,8 +12,7 @@ const P = require('../../util/promise');
 const dbg = require('../../util/debug_module')(__filename);
 const config = require('../../../config.js');
 const Histogram = require('../../util/histogram');
-const node_server = require('../node_services/node_server');
-const nodes_store = require('../node_services/nodes_store').get_instance();
+const nodes_client = require('../node_services/nodes_client');
 const system_store = require('../system_services/system_store').get_instance();
 const system_server = require('../system_services/system_server');
 const object_server = require('../object_services/object_server');
@@ -134,24 +133,24 @@ function get_nodes_stats(req) {
     var nodes_histo = get_empty_nodes_histo();
     //Per each system fill out the needed info
     return P.all(_.map(system_store.data.systems,
-            system => node_server.monitor.list_nodes({
-                system: system._id
-            }, {})))
+            system => nodes_client.instance().list_nodes_by_system(system._id)))
         .then(results => {
-            for (var isys = 0; isys < results.length; ++isys) {
-                for (var inode = 0; inode < results[isys].nodes.length; ++inode) {
+            for (const system_nodes of results) {
+                for (const node of system_nodes.nodes) {
                     nodes_stats.count++;
-
-                    nodes_histo.histo_allocation.add_value(results[isys].nodes[inode].storage.alloc / SCALE_BYTES_TO_GB);
-                    nodes_histo.histo_usage.add_value(results[isys].nodes[inode].storage.used / SCALE_BYTES_TO_GB);
-                    nodes_histo.histo_free.add_value(results[isys].nodes[inode].storage.free / SCALE_BYTES_TO_GB);
-                    nodes_histo.histo_uptime.add_value((results[isys].nodes[inode].os_info.uptime / SCALE_SEC_TO_DAYS));
-
-                    if (results[isys].nodes[inode].os_info.ostype === 'Darwin') {
+                    nodes_histo.histo_allocation.add_value(
+                        node.storage.alloc / SCALE_BYTES_TO_GB);
+                    nodes_histo.histo_usage.add_value(
+                        node.storage.used / SCALE_BYTES_TO_GB);
+                    nodes_histo.histo_free.add_value(
+                        node.storage.free / SCALE_BYTES_TO_GB);
+                    nodes_histo.histo_uptime.add_value(
+                        node.os_info.uptime / SCALE_SEC_TO_DAYS);
+                    if (node.os_info.ostype === 'Darwin') {
                         nodes_stats.os.osx++;
-                    } else if (results[isys].nodes[inode].os_info.ostype === 'Windows_NT') {
+                    } else if (node.os_info.ostype === 'Windows_NT') {
                         nodes_stats.os.win++;
-                    } else if (results[isys].nodes[inode].os_info.ostype === 'Linux') {
+                    } else if (node.os_info.ostype === 'Linux') {
                         nodes_stats.os.linux++;
                     } else {
                         nodes_stats.os.other++;
@@ -194,9 +193,8 @@ function get_bucket_sizes_stats(req) {
 }
 
 function get_pool_stats(req) {
-    return nodes_store.aggregate_nodes_by_pool({
-            deleted: null
-        })
+    return P.resolve()
+        .then(() => nodes_client.instance().aggregate_nodes_by_pool())
         .then(nodes_aggregate_pool => {
             return _.map(system_store.data.pools, pool => {
                 var a = nodes_aggregate_pool[pool._id] || {};
@@ -214,7 +212,7 @@ function get_cloud_sync_stats(req) {
                 let new_req = _.defaults({
                     system: system
                 }, req);
-                return bucket_server.get_all_cloud_sync_policies(new_req);
+                return bucket_server.get_all_cloud_sync(new_req);
             }
         ))
         .then(results => {
@@ -245,7 +243,7 @@ function get_cloud_sync_stats(req) {
                                 sync_stats.sync_target.other++;
                             }
                         }
-                        sync_histo.histo_schedule.add_value(cloud_sync.policy.schedule);
+                        sync_histo.histo_schedule.add_value(cloud_sync.policy.schedule_min);
                     }
                 }
             }

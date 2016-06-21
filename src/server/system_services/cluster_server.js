@@ -15,7 +15,7 @@ const dbg = require('../../util/debug_module')(__filename);
 const config = require('../../../config.js');
 
 function _init() {
-    return P.when(MongoCtrl.init());
+    return P.resolve(MongoCtrl.init());
 }
 
 //
@@ -90,7 +90,7 @@ function add_member_to_cluster(req) {
                 timeout: 60000 //60s
             });
         })
-        .fail(function(err) {
+        .catch(function(err) {
             console.error('Failed adding members to cluster', req.rpc_params, 'with', err);
             throw new Error('Failed adding members to cluster');
         })
@@ -115,14 +115,15 @@ function join_to_cluster(req) {
     //though this creates more hassle for the admin and overall lengthier process
 
     // first thing we update the new topology as the local topoology.
-    // later it will be updated to hold this server's info
-    return P.when(cutil.update_cluster_info(req.rpc_params.topology))
+    // later it will be updated to hold this server's info in the cluster's DB
+    req.rpc_params.topology.owner_shardname = req.rpc_params.shard;
+    return P.resolve(cutil.update_cluster_info(req.rpc_params.topology))
         .then(() => {
             dbg.log0('server new role is', req.rpc_params.role);
             if (req.rpc_params.role === 'SHARD') {
                 //Server is joining as a new shard, update the shard topology
 
-                return P.when(cutil.update_cluster_info(
+                return P.resolve(cutil.update_cluster_info(
                         cutil.get_topology().shards.push({
                             shardname: req.rpc_params.shard,
                             servers: [{
@@ -161,10 +162,10 @@ function news_config_servers(req) {
 
     //If config servers changed, update
     //Only the first server in the cfg array does so
-    return P.when(_update_rs_if_needed(req.rpc_params.IPs, config.MONGO_DEFAULTS.CFG_RSET_NAME, true))
+    return P.resolve(_update_rs_if_needed(req.rpc_params.IPs, config.MONGO_DEFAULTS.CFG_RSET_NAME, true))
         .then(() => {
             //Update our view of the topology
-            return P.when(cutil.update_cluster_info({
+            return P.resolve(cutil.update_cluster_info({
                     config_servers: req.rpc_params.IPs
                 }))
                 .then(() => {
@@ -186,7 +187,7 @@ function news_replicaset_servers(req) {
     //Verify we recieved news on the cluster we are joined to
     cutil.verify_cluster_id(req.rpc_params.cluster_id);
     dbg.log0('replica set params - IPs:', req.rpc_params.IPs, 'name:', req.rpc_params.name);
-    return P.when(_update_rs_if_needed(req.rpc_params.IPs, req.rpc_params.name, false))
+    return P.resolve(_update_rs_if_needed(req.rpc_params.IPs, req.rpc_params.name, false))
         .return();
 }
 
@@ -197,13 +198,10 @@ function news_updated_topology(req) {
 
     dbg.log0('updating topolgy to the new published topology:', req.rpc_params);
     //Update our view of the topology
-    return P.when(cutil.update_cluster_info(req.rpc_params));
+    return P.resolve(cutil.update_cluster_info(req.rpc_params));
 }
 
-function heartbeat(req) {
-    //TODO:: ...
-    dbg.error('Clustering HB currently not implemented');
-}
+
 
 
 //
@@ -236,7 +234,7 @@ function _add_new_shard_on_server(shardname, ip, params) {
     dbg.log0('Adding shard, new topology', cutil.pretty_topology(current_topology));
 
     //Actually add a new mongo shard instance
-    return P.when(MongoCtrl.add_new_shard_server(shardname, params.first_shard))
+    return P.resolve(MongoCtrl.add_new_shard_server(shardname, params.first_shard))
         .then(function() {
             dbg.log0('Checking current config servers set, currently contains',
                 current_topology.config_servers.length, 'servers');
@@ -260,7 +258,7 @@ function _add_new_shard_on_server(shardname, ip, params) {
         .then(function() {
             dbg.log0('Adding shard to mongo shards');
             //add the new shard in the mongo configuration
-            return P.when(MongoCtrl.add_member_shard(shardname, ip));
+            return P.resolve(MongoCtrl.add_member_shard(shardname, ip));
         })
         .then(function() {
             if (!params.first_shard) {
@@ -302,9 +300,10 @@ function _initiate_replica_set(shardname) {
     }
 
     new_topology.is_clusterized = true;
+    new_topology.owner_shardname = shardname;
 
     // first update topology to indicate clusterization
-    return P.when(() => cutil.update_cluster_info(new_topology))
+    return P.resolve(() => cutil.update_cluster_info(new_topology))
         .then(() => MongoCtrl.add_replica_set_member(shardname, /*first_server=*/ true, new_topology.shards[shard_idx].servers))
         .then(() => {
             dbg.log0('Replica set created, calling initiate');
@@ -334,7 +333,8 @@ function _add_new_server_to_replica_set(shardname, ip) {
     });
 
 
-    return P.when(MongoCtrl.add_replica_set_member(shardname, /*first_server=*/ false, new_topology.shards[shard_idx].servers))
+    return P.resolve(MongoCtrl.add_replica_set_member(shardname, /*first_server=*/ false, new_topology.shards[shard_idx].servers))
+        .then(() => system_store.load())
         .then(() => {
             // insert an entry for this server in clusters collection.
             new_topology._id = system_store.generate_id();
@@ -360,7 +360,7 @@ function _add_new_server_to_replica_set(shardname, ip) {
 
 function _add_new_config_on_server(cfg_array, params) {
     dbg.log0('Adding new local config server', cfg_array);
-    return P.when(MongoCtrl.add_new_config())
+    return P.resolve(MongoCtrl.add_new_config())
         .then(function() {
             dbg.log0('Adding mongos on config array', cfg_array);
             return MongoCtrl.add_new_mongos(cfg_array);
@@ -429,4 +429,3 @@ exports.join_to_cluster = join_to_cluster;
 exports.news_config_servers = news_config_servers;
 exports.news_updated_topology = news_updated_topology;
 exports.news_replicaset_servers = news_replicaset_servers;
-exports.heartbeat = heartbeat;

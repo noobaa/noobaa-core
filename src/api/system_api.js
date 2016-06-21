@@ -570,7 +570,7 @@ module.exports = {
                     $ref: 'common_api#/definitions/storage_info'
                 },
                 nodes: {
-                    $ref: '#/definitions/nodes_info'
+                    $ref: 'node_api#/definitions/nodes_aggregate_info'
                 },
                 buckets: {
                     type: 'array',
@@ -693,6 +693,9 @@ module.exports = {
                         },
                     },
                 },
+                cluster: {
+                    $ref: '#/definitions/cluster_info'
+                },
             },
         },
 
@@ -725,19 +728,6 @@ module.exports = {
         role_enum: {
             enum: ['admin', 'user', 'viewer'],
             type: 'string',
-        },
-
-        nodes_info: {
-            type: 'object',
-            required: ['count', 'online'],
-            properties: {
-                count: {
-                    type: 'integer'
-                },
-                online: {
-                    type: 'integer'
-                },
-            }
         },
 
         access_keys: {
@@ -784,6 +774,58 @@ module.exports = {
                 },
             },
         },
+
+        cluster_info: {
+            type: 'object',
+            // required: ['count', 'online'],
+            properties: {
+                shards: {
+                    type: 'array',
+                    items: {
+                        type: 'object',
+                        properties: {
+                            shardname: {
+                                type: 'string',
+                            },
+                            high_availabilty: {
+                                type: 'boolean',
+                            },
+                            servers: {
+                                type: 'array',
+                                items: {
+                                    $ref: '#/definitions/cluster_server_info'
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+
+        cluster_server_info: {
+            type: 'object',
+            properties: {
+                version: {
+                    type: 'string'
+                },
+                server_name: {
+                    type: 'string'
+                },
+                is_connected: {
+                    type: 'boolean'
+                },
+                server_ip: {
+                    type: 'string'
+                },
+                memory_usage: {
+                    type: 'number'
+                },
+                cpu_usage: {
+                    type: 'number'
+                },
+            }
+        },
+
 
         time_config_type: {
             enum: ['NTP', 'MANUAL'],

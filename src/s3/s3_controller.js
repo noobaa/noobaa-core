@@ -271,10 +271,20 @@ class S3Controller {
                 return req.rpc_client.object.delete_multiple_objects({
                     bucket: req.params.bucket,
                     keys: keys
+                }).then(reply => {
+                    var response =  {
+                        DeleteResult: [{},
+                            _.map(keys, obj => ({
+                                Deleted: {
+                                    Key: obj,
+                                }
+                            }),{})
+                        ]
+                    };
+                return response;
                 });
             });
     }
-
 
     /**
      * http://docs.aws.amazon.com/AmazonS3/latest/API/RESTBucketGETacl.html

@@ -40,6 +40,8 @@ if (argv.help) {
     print_usage();
 } else if (argv.upload || argv.put) {
     upload_file();
+} else if (argv.delete) {
+    delete_objects();
 } else if (argv.get) {
     get_file();
 } else if (argv.head) {
@@ -122,6 +124,26 @@ function head_file() {
             return;
         }
         console.log('HEAD OBJECT', data);
+    });
+}
+
+function delete_objects() {
+    var arr = argv.keys.split(",");
+
+    var objs = {
+        Bucket: argv.bucket,
+        Delete: {
+            Objects: _.map(arr, obj => ({
+                Key: obj,
+            }))
+        }
+    };
+    s3.deleteObjects(objs, function(err, data) {
+        if (err) {
+            console.error('Delete ERROR:', err.stack);
+            return;
+        }
+        console.log(data);
     });
 }
 
@@ -389,6 +411,9 @@ function print_usage() {
         '  --size <MB>          if no file path, generate random data of size (default 10 GB) \n' +
         '  --part_size <MB>     multipart size \n' +
         '  --concur <num>       multipart concurrency \n' +
+        'Delete Flags: \n' +
+        '  --delete             delete key or keys \n'+
+        '  --keys <key>,<key>   list of keys\n' +
         'Get Flags: \n' +
         '  --get <key>          get key name \n' +
         '  --head <key>         head key name \n' +

@@ -47,7 +47,7 @@ TestRunner.prototype.wait_for_server_to_start = function(max_seconds_to_wait, po
                 return P.ninvoke(request, 'get', {
                     url: 'http://127.0.0.1:' + port,
                     rejectUnauthorized: false,
-                }).then(function(){
+                }).then(function() {
                     console.log('server started after ' + wait_counter + ' seconds');
                     isNotListening = false;
                 }).catch(function(err) {
@@ -83,7 +83,7 @@ TestRunner.prototype.restore_db_defaults = function() {
         })
         .delay(5000) //Workaround for agents sending HBs and re-registering to the server
         .catch(function(err) {
-            console.log('Failed restarting webserver',err);
+            console.log('Failed restarting webserver', err);
             throw new Error('Failed restarting webserver');
         });
 };
@@ -241,7 +241,7 @@ TestRunner.prototype._run_current_step = function(current_step, step_res) {
                     ((new Date() - ts) / 1000) + 's )';
                 //return step_res;
             }).catch(function(err) {
-                    console.warn('Failure while running '+step_res+' with error '+err);
+                console.warn('Failure while running ' + step_res + ' with error ' + err);
                 throw new Error(err);
             });
     } else if (current_step.action) {

@@ -1,0 +1,26 @@
+<section class="greedy tabs">
+    <nav>
+        <a data-bind="
+            href: { route: 'pools', params: { tab:'pools' } },
+            css: { selected: isTabSelected('pools') }
+        ">
+            Node Pools
+        </a>
+        <a data-bind="
+            href: { route: 'pools', params: { tab:'cloud' } },
+            css: { selected: isTabSelected('cloud') }
+        ">
+            Cloud Resources
+        </a>
+    </nav>
+
+    <div class="tabs-row">
+        <pools-table class="tab" data-bind="css: { selected: isTabSelected('pools') }">
+        </pools-table>
+
+        <div class="tab column" data-bind="css: { selected:  isTabSelected('cloud') }">
+        </div>
+    </div>
+</section>
+
+

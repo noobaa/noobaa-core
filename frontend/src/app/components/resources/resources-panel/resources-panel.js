@@ -1,11 +1,18 @@
-import template from './pools-panel.html';
+import template from './resources-panel.html';
 import ko from 'knockout';
-import { poolList } from 'model';
+import { uiState } from 'model';
 
 class PoolsPanelViewModel {
     constructor() {
-        this.pools = poolList;
         this.isCreatePoolWizardVisible = ko.observable(false);
+
+        this.selectedTab = ko.pureComputed(
+            () => uiState().tab
+        );
+    }
+
+    isTabSelected(tabName) {
+        return this.selectedTab() === tabName;
     }
 
     showCreatePoolWizard() {

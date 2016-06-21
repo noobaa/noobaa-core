@@ -66,11 +66,11 @@ export default function register(ko) {
     ko.components.register('object-preview-modal',  require('./object/object-preview-modal/object-preview-modal'));
 
     // -------------------------------
-    // Pools
+    // resources
     // -------------------------------
-    ko.components.register('pools-panel',           require('./pools/pools-panel/pools-panel'));
-    ko.components.register('pools-table',           require('./pools/pools-table/pools-table'));
-    ko.components.register('create-pool-wizard',    require('./pools/create-pool-wizard/create-pool-wizard'));
+    ko.components.register('resources-panel',       require('./resources/resources-panel/resources-panel'));
+    ko.components.register('pools-table',           require('./resources/pools-table/pools-table'));
+    ko.components.register('create-pool-wizard',    require('./resources/create-pool-wizard/create-pool-wizard'));
 
     // -------------------------------
     // Pool

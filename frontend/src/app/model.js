@@ -29,16 +29,8 @@ export const serverInfo = ko.observable();
 // Hold current system information.
 export const systemInfo = ko.observable();
 
-// Hold summary information on the current system.
-export const systemSummary = ko.observable();
-
 // Hold agent installation information.
 export const agentInstallationInfo = ko.observable();
-
-// Hold the current bucket list. deriv`ed` from system info.
-export const bucketList = ko.observableArray();
-bucketList.sortedBy = ko.observable('name');
-bucketList.order = ko.observable(1);
 
 // Hold the current bucket info.
 export const bucketInfo = ko.observable();
@@ -63,11 +55,6 @@ export const S3Connections = ko.observableArray();
 export const S3BucketList = ko.observableArray();
 export const isS3ConnectionValid = ko.observable(true)
     .extend({ notify: 'always' });
-
-// Hold the current pool list. derived from system info.
-export const poolList = ko.observableArray();
-poolList.sortedBy = ko.observable('name');
-poolList.order = ko.observable(1);
 
 // Hold the current pool info.
 export const poolInfo = ko.observable();

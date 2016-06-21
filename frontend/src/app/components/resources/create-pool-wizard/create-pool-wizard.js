@@ -5,7 +5,7 @@ import ko from 'knockout';
 import nameValidationRules from 'name-validation-rules';
 import NodeRowViewModel from './node-row';
 import { makeArray } from 'utils';
-import { poolList, nodeList } from 'model';
+import { systemInfo, nodeList } from 'model';
 import { loadNodeList, createPool } from 'actions';
 
 
@@ -15,8 +15,10 @@ class CreatePoolWizardViewModel {
         this.assignNodesStepTemplate = assignNodesStepTemplate;
         this.onClose = onClose;
 
-        let existingPoolNames = poolList.map(
-            ({ name }) => name
+        let existingPoolNames = ko.pureComputed(
+            () => (systemInfo() ? systemInfo().pools : []).map(
+                ({ name }) => name
+            )
         );
 
         this.poolName = ko.observable()

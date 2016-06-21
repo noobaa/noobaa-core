@@ -1,7 +1,7 @@
 import template from './bucket-data-placement-form.html';
 import ko from 'knockout';
-import { tierInfo, poolList } from 'model';
-import { loadTier, loadPoolList } from 'actions';
+import { tierInfo, systemInfo } from 'model';
+import { loadTier } from 'actions';
 import { formatSize } from 'utils';
 
 const placementTypeMapping = Object.freeze({
@@ -37,7 +37,7 @@ class BucketDataPlacementFormViewModel {
         this.pools = ko.pureComputed(
             () => tierInfo() && tierInfo().pools.map(
                 name => {
-                    let pool = poolList() && poolList().find(
+                    let pool = systemInfo() && systemInfo().pools.find(
                         pool => pool.name === name
                     );
 
@@ -53,7 +53,6 @@ class BucketDataPlacementFormViewModel {
         this.isPolicyModalVisible = ko.observable(false);
 
         tierName() && loadTier(tierName());
-        loadPoolList();
     }
 
     showPolicyModal() {

@@ -30,6 +30,7 @@ export default function routing(page) {
     }
 
     function ensureSystemInfo(cxt, next) {
+        console.debug('here');
         actions.loadSystemInfo();
         next();
     }
@@ -53,7 +54,7 @@ export default function routing(page) {
     page(routes.buckets, saveContext, actions.showBuckets);
     page(routes.bucket, saveContext, actions.showBucket);
     page(routes.object, saveContext, actions.showObject);
-    page(routes.pools,  saveContext, actions.showPools);
+    page(routes.pools,  saveContext, actions.showResources);
     page(routes.pool, saveContext, actions.showPool);
     page(routes.node, saveContext, actions.showNode);
     page(routes.management, saveContext, actions.showManagement);

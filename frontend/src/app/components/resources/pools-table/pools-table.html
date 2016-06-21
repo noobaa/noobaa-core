@@ -1,4 +1,9 @@
-<section class="data-table">
+<button class="btn2 align-end push-next"
+    data-bind="click: () => showCreatePoolWizard()">
+    Create Pool
+</button>
+
+<div class="data-table">
     <table>
         <thead>
             <tr>
@@ -66,4 +71,9 @@
             </tr>
         </tbody>
     </table>
-</section>
+</div>
+
+<!-- ko if: isCreatePoolWizardVisible -->
+<create-pool-wizard params="onClose: () => hideCreatePoolWizard()">
+</create-pool-wizard>
+<!-- /ko -->

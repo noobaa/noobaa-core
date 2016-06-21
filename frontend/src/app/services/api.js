@@ -11,4 +11,4 @@ rpc.set_request_logger(
     (...args) => console.info(...args)
 );
 
-export default rpc.new_client();
+export default window.api = rpc.new_client();

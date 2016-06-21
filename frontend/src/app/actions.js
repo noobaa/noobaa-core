@@ -4,11 +4,8 @@ import api from 'services/api';
 import config from 'config';
 import * as routes from 'routes';
 
-import {
-    isDefined, isUndefined, encodeBase64, cmpStrings, cmpInts, cmpBools,
-    last, clamp,  makeArray, execInOrder, realizeUri, downloadFile,
-    generateAccessKeys
-} from 'utils';
+import { isDefined, isUndefined, last, makeArray, execInOrder, realizeUri,
+    downloadFile, generateAccessKeys } from 'utils';
 
 // TODO: resolve browserify issue with export of the aws-sdk module.
 // The current workaround use the AWS that is set on the global window object.
@@ -124,8 +121,6 @@ export function showOverview() {
         ],
         panel: 'overview'
     });
-
-    loadSystemSummary();
 }
 
 export function showBuckets() {
@@ -140,9 +135,6 @@ export function showBuckets() {
         ],
         panel: 'buckets'
     });
-
-    let { sortBy, order } = model.routeContext().query;
-    loadBucketList(sortBy, order);
 }
 
 export function showBucket() {
@@ -175,8 +167,6 @@ export function showObject() {
     let { object, bucket, tab = 'details' } = ctx.params;
     let { page = 0 } = ctx.query;
 
-//    object =  decodeURIComponent(decodeURIComponent(object))
-
     model.uiState({
         layout: 'main-layout',
         title: object,
@@ -194,21 +184,21 @@ export function showObject() {
     loadObjectPartList(bucket, object, parseInt(page));
 }
 
-export function showPools() {
-    logAction('showPools');
+export function showResources() {
+    logAction('showResources');
 
+    let ctx = model.routeContext();
+    let { tab = 'pools' } = ctx.params;
     model.uiState({
         layout: 'main-layout',
         title: 'POOLS',
         breadcrumbs: [
             { route: 'system' },
-            { route: 'pools', label: 'POOLS'}
+            { route: 'pools', label: 'RESOURCES'}
         ],
-        panel: 'pools'
+        panel: 'resources',
+        tab: tab
     });
-
-    let { sortBy, order } = model.routeContext().query;
-    loadPoolList(sortBy, order);
 }
 
 export function showPool() {
@@ -384,116 +374,18 @@ export function loadSystemInfo() {
                     debugLevel: reply.debug_level,
                     maintenance: reply.maintenance_mode,
                     phoneHomeConfig: reply.phone_home_config,
-                    remoteSyslogConfig: reply.remote_system_config
-                });
-            }
-        )
-        .done();
-}
-
-export function loadSystemSummary() {
-    logAction('loadSystemSummary');
-
-    api.system.read_system()
-        .then(
-            reply => model.systemSummary({
-                capacity: reply.storage.total,
-                bucketCount: reply.buckets.length,
-                objectCount: reply.objects,
-                poolCount: reply.pools.length,
-                nodeCount: reply.nodes.count,
-                onlineNodeCount: reply.nodes.online,
-                offlineNodeCount: reply.nodes.count - reply.nodes.online
-            })
-        )
-        .done();
-}
-
-const bucketCmpFuncs = Object.freeze({
-    state: (b1, b2) => cmpBools(b1.state, b2.state),
-    name: (b1, b2) => cmpStrings(b1.name, b2.name),
-    filecount: (b1, b2) => cmpInts(b1.num_objects, b2.num_objects),
-    totalsize: (b1, b2) => cmpInts(b1.storage.total, b2.storage.total),
-    freesize: (b1, b2) => cmpInts(b1.storage.free, b2.storage.free),
-    cloudsync: (b1, b2) => cmpStrings(b1.cloud_sync_status, b2.cloud_sync_status)
-});
-
-export function loadBucketList(sortBy = 'name', order = 1) {
-    logAction('loadBucketList', { sortBy, order });
-
-    // Normalize the order.
-    order = clamp(order, -1, 1);
-
-    let bucketList = model.bucketList;
-    api.system.read_system()
-        .then(
-            ({ buckets }) => {
-                bucketList(
-                    buckets.sort(
-                        (b1, b2) => order * bucketCmpFuncs[sortBy](b1, b2)
-                    )
-                );
-                bucketList.sortedBy(sortBy);
-                bucketList.order(order);
-            }
-        )
-        .done();
-}
-
-const poolCmpFuncs = Object.freeze({
-    state: () => cmpBools(true, true),
-    name: (p1, p2) => cmpStrings(p1.name, p2.name),
-    nodecount: (p1, p2) => cmpInts(p1.nodes.count, p2.nodes.count),
-    onlinecount: (p1, p2) => cmpInts(p1.nodes.online, p2.nodes.online),
-    offlinecount: (p1, p2) => cmpInts(
-        p1.nodes.count - p1.nodes.online,
-        p2.nodes.count - p2.nodes.online
-    ),
-    usage: (p1, p2) => cmpInts(p1.storage.used, p2.storage.used),
-    capacity: (p1, p2) => cmpInts(p1.storage.total, p2.storage.total)
-});
-
-export function loadPoolList(sortBy = 'name', order = 1) {
-    logAction('loadPoolList', { sortBy, order });
-
-    // Normalize the order.
-    order = clamp(order, -1, 1);
-
-    let poolList = model.poolList;
-    api.system.read_system()
-        .then(
-            ({ pools }) => {
-                poolList(
-                    pools.sort(
-                        (b1, b2) => order * poolCmpFuncs[sortBy](b1, b2)
-                    )
-                );
-                poolList.sortedBy(sortBy);
-                poolList.order(order);
-            }
-        )
-        .done();
-}
-
-export function loadAgentInstallationInfo() {
-    logAction('loadAgentInstallationInfo');
-
-    let { agentInstallationInfo } = model;
-    api.system.read_system()
-        .then(
-            reply => {
-                let keys = reply.owner.access_keys[0];
-
-                agentInstallationInfo({
-                    agentConf: encodeBase64({
-                        address: reply.base_address,
-                        system: reply.name,
-                        access_key: keys.access_key,
-                        secret_key: keys.secret_key,
-                        tier: 'nodes',
-                        root_path: './agent_storage/'
-                    }),
-                    downloadUris: {
+                    remoteSyslogConfig: reply.remote_system_config,
+                    capacity: reply.storage.total,
+                    bucketCount: reply.buckets.length,
+                    objectCount: reply.objects,
+                    poolCount: reply.pools.length,
+                    nodeCount: reply.nodes.count,
+                    onlineNodeCount: reply.nodes.online,
+                    offlineNodeCount: reply.nodes.count - reply.nodes.online,
+                    baseAddress: reply.base_address,
+                    buckets: reply.buckets,
+                    pools: reply.pools,
+                    agentDownloadUris: {
                         windows: reply.web_links.agent_installer,
                         linux: reply.web_links.linux_agent_installer
                     }
@@ -555,34 +447,26 @@ export function loadObjectMetadata(bucketName, objectName) {
         model.objectInfo(null);
     }
 
-    let objInfoPromise = api.object.read_object_md({
+    let { accessKey ,secretKey } = model.systemInfo();
+    let s3 = new AWS.S3({
+        endpoint: endpoint,
+        credentials: {
+            accessKeyId:  accessKey,
+            secretAccessKey:  secretKey
+        },
+        s3ForcePathStyle: true,
+        sslEnabled: false,
+        signatureVersion: 'v4',
+        region: 'eu-central-1'
+    });
+
+    api.object.read_object_md({
         bucket: bucketName,
         key: objectName,
         get_parts_count: true
-    });
-
-    let S3Promise = api.system.read_system()
+    })
         .then(
-            reply => {
-                let { access_key, secret_key } = reply.owner.access_keys[0];
-
-                return new AWS.S3({
-                    endpoint: endpoint,
-                    credentials: {
-                        accessKeyId:  access_key,
-                        secretAccessKey:  secret_key
-                    },
-                    s3ForcePathStyle: true,
-                    sslEnabled: false,
-                    signatureVersion: 'v4',
-                    region: 'eu-central-1'
-                });
-            }
-        );
-
-    Promise.all([objInfoPromise, S3Promise])
-        .then(
-            ([objInfo, s3]) => {
+            objInfo => {
                 let s3_signed_url = s3.getSignedUrl(
                     'getObject',
                     { Bucket: bucketName, Key: objectName, Expires: 604800 }
@@ -592,7 +476,8 @@ export function loadObjectMetadata(bucketName, objectName) {
                     Object.assign(objInfo, { s3_signed_url })
                 );
             }
-        );
+        )
+        .done();
 }
 
 export function loadObjectPartList(bucketName, objectName, page) {
@@ -908,8 +793,6 @@ export function resetAccountPassword(email, password) {
 export function createBucket(name, dataPlacement, pools) {
     logAction('createBucket', { name, dataPlacement, pools });
 
-    let { bucketList } = model;
-
     // TODO: remove the random string after patching the server
     // with a delete bucket that deletes also the policy
     let bucket_with_suffix = `${name}#${Date.now().toString(36)}`;
@@ -938,9 +821,7 @@ export function createBucket(name, dataPlacement, pools) {
                 tiering: policy.name
             })
         )
-        .then(
-            () => loadBucketList(bucketList.sortedBy(), bucketList.order())
-        )
+        .then(loadSystemInfo)
         .done();
 }
 
@@ -969,11 +850,8 @@ export function updateTier(name, dataPlacement, pools) {
 export function createPool(name, nodes) {
     logAction('createPool', { name, nodes });
 
-    let { poolList } = model;
     api.pool.create_pool({ name, nodes })
-        .then(
-            () => loadPoolList(poolList.sortedBy(), poolList.order())
-        )
+        .then(loadSystemInfo)
         .done();
 }
 
@@ -1000,84 +878,76 @@ export function uploadFiles(bucketName, files) {
     logAction('uploadFiles', { bucketName, files });
 
     let recentUploads = model.recentUploads;
-    api.system.read_system()
-        .then(
-            reply => {
-                let { access_key, secret_key } = reply.owner.access_keys[0];
 
-                return new AWS.S3({
-                    endpoint: endpoint,
-                    credentials: {
-                        accessKeyId: access_key,
-                        secretAccessKey: secret_key
+    let { accessKey , secretKey } = model.systemInfo();
+    let s3 = new AWS.S3({
+        endpoint: endpoint,
+        credentials: {
+            accessKeyId: accessKey,
+            secretAccessKey: secretKey
+        },
+        s3ForcePathStyle: true,
+        sslEnabled: false
+    });
+
+    let uploadRequests = Array.from(files).map(
+        file => new Promise(
+            resolve => {
+                // Create an entry in the recent uploaded list.
+                let entry = {
+                    name: file.name,
+                    targetBucket: bucketName,
+                    state: 'UPLOADING',
+                    progress: 0,
+                    error: null
+                };
+                recentUploads.unshift(entry);
+
+                // Start the upload.
+                s3.upload(
+                    {
+                        Key: file.name,
+                        Bucket: bucketName,
+                        Body: file,
+                        ContentType: file.type
                     },
-                    s3ForcePathStyle: true,
-                    sslEnabled: false
-                });
-            }
-        )
-        .then(
-            s3 => {
-                let uploadRequests = Array.from(files).map(
-                    file => new Promise(
-                        resolve => {
-                            // Create an entry in the recent uploaded list.
-                            let entry = {
-                                name: file.name,
-                                targetBucket: bucketName,
-                                state: 'UPLOADING',
-                                progress: 0,
-                                error: null
-                            };
-                            recentUploads.unshift(entry);
+                    {
+                        partSize: 64 * 1024 * 1024,
+                        queueSize: 4
+                    },
+                    error => {
+                        if (!error) {
+                            entry.state = 'COMPLETED';
+                            entry.progress = 1;
+                            resolve(1);
 
-                            // Start the upload.
-                            s3.upload(
-                                {
-                                    Key: file.name,
-                                    Bucket: bucketName,
-                                    Body: file,
-                                    ContentType: file.type
-                                },
-                                {
-                                    partSize: 64 * 1024 * 1024,
-                                    queueSize: 4
-                                },
-                                error => {
-                                    if (!error) {
-                                        entry.state = 'COMPLETED';
-                                        entry.progress = 1;
-                                        resolve(1);
+                        } else {
+                            entry.state = 'FAILED';
+                            entry.error = error;
 
-                                    } else {
-                                        entry.state = 'FAILED';
-                                        entry.error = error;
-
-                                        // This is not a bug we want to resolve failed uploads
-                                        // in order to finalize the entire upload process.
-                                        resolve(0);
-                                    }
-
-                                    // Use replace to trigger change event.
-                                    recentUploads.replace(entry, entry);
-                                }
-                            )
-                            //  Report on progress.
-                            .on('httpUploadProgress',
-                                ({ loaded, total }) => {
-                                    entry.progress = loaded / total;
-
-                                    // Use replace to trigger change event.
-                                    recentUploads.replace(entry, entry);
-                                }
-                            );
+                            // This is not a bug we want to resolve failed uploads
+                            // in order to finalize the entire upload process.
+                            resolve(0);
                         }
-                    )
-                );
 
-                return Promise.all(uploadRequests);
+                        // Use replace to trigger change event.
+                        recentUploads.replace(entry, entry);
+                    }
+                )
+                //  Report on progress.
+                .on('httpUploadProgress',
+                    ({ loaded, total }) => {
+                        entry.progress = loaded / total;
+
+                        // Use replace to trigger change event.
+                        recentUploads.replace(entry, entry);
+                    }
+                );
             }
         )
+    );
+
+    Promise.all(uploadRequests)
         .then(
             results => results.reduce(
                 (sum, result) => sum += result

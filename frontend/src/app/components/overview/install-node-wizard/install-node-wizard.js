@@ -4,9 +4,8 @@ import installStepTemplate from './install-step.html';
 import reviewStepTemplate from './review-step.html';
 import ko from 'knockout';
 import { defaultPoolName } from 'config';
-import { agentInstallationInfo as installInfo, systemInfo } from 'model';
-import { copyTextToClipboard, lastSegment, realizeUri } from 'utils';
-import { loadAgentInstallationInfo } from 'actions';
+import { systemInfo } from 'model';
+import { copyTextToClipboard, lastSegment, realizeUri, encodeBase64 } from 'utils';
 import { asset as assetRoute } from 'routes';
 
 const installCommands = {
@@ -58,10 +57,6 @@ class InstallNodeWizardViewModel {
         this.reviewStepTemplate = reviewStepTemplate;
         this.onClose = onClose;
 
-        this.dataReady = ko.pureComputed(
-            () => !!installInfo()
-        );
-
         this.installationTypeOptions = installationTypeOptions;
         this.installationType = ko.observable(
             installationTypeOptions[0].value
@@ -77,23 +72,28 @@ class InstallNodeWizardViewModel {
         );
 
         this.packageUrl = ko.pureComputed(
-            () => ({
-                LINUX: installInfo().downloadUris.linux,
-                WINDOWS: installInfo().downloadUris.windows
-            })[
-                this.installationTarget()
+            () => systemInfo() && systemInfo().agentDownloadUris[
+                this.installationTarget().toLowerCase()
             ]
         );
 
-        this.selectedInstallCommand = ko.pureComputed(
-            () => {
-                let selector = this.commandSelector();
-                let pkg = lastSegment(this.packageUrl(), '/');
-                let conf = installInfo().agentConf;
-                let server = systemInfo().ipAddress;
+        let agentConf = ko.pureComputed(
+            () => systemInfo() && encodeBase64({
+                address: systemInfo().baseAddress,
+                system: systemInfo().name,
+                access_key: systemInfo().accessKey,
+                secret_key: systemInfo().secretKey,
+                tier: 'nodes',
+                root_path: './agent_storage/'
+            })
+        );
 
-                return installCommands[selector](pkg, conf, server);
-            }
+        this.selectedInstallCommand = ko.pureComputed(
+            () => installCommands[this.commandSelector()](
+                lastSegment(this.packageUrl(), '/'),
+                agentConf(),
+                systemInfo().ipAddress
+            )
         );
 
         this.defaultPool = defaultPoolName;
@@ -102,8 +102,6 @@ class InstallNodeWizardViewModel {
             assetRoute,
             { asset: 'nodesList_illustration.png' }
         );
-
-        loadAgentInstallationInfo();
     }
 
     copyInstallCommand() {

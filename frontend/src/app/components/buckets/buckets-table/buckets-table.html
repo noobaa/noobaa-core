@@ -1,3 +1,9 @@
+<button class="btn2 align-end push-next" data-bind="
+    click: () => showCreateBucketWizard()
+">
+    Create Bucket
+</button>
+
 <section class="data-table">
     <table>
         <thead>
@@ -65,3 +71,8 @@
         </tbody>
     </table>
 </section>
+
+<!-- ko if: isCreateBucketWizardVisible -->
+<create-bucket-wizard params="onClose: () => hideCreateBucketWizard()">
+</create-bucket-wizard>
+<!-- /ko -->

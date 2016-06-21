@@ -32,9 +32,6 @@ export const systemInfo = ko.observable();
 // Hold agent installation information.
 export const agentInstallationInfo = ko.observable();
 
-// Hold the current bucket info.
-export const bucketInfo = ko.observable();
-
 // Hold the current bucket object list.
 export const bucketObjectList = ko.observableArray();
 bucketObjectList.count = ko.observable(0);
@@ -55,9 +52,6 @@ export const S3Connections = ko.observableArray();
 export const S3BucketList = ko.observableArray();
 export const isS3ConnectionValid = ko.observable(true)
     .extend({ notify: 'always' });
-
-// Hold the current pool info.
-export const poolInfo = ko.observable();
 
 // Hold a list of all the nodes in the system.
 export const nodeList = ko.observableArray(null);

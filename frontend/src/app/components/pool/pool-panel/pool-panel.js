@@ -1,10 +1,15 @@
 import template from './pool-panel.html';
 import ko from 'knockout';
-import { poolInfo, poolNodeList } from 'model';
+import { poolNodeList, systemInfo, routeContext } from 'model';
 
 class PoolPanelViewModel {
     constructor() {
-        this.pool = poolInfo;
+        this.pool = ko.pureComputed(
+            () => systemInfo() && systemInfo().pools.find(
+                ({ name }) => routeContext().params.pool === name
+            )
+        );
+
         this.nodes = poolNodeList;
 
         this.ready = ko.pureComputed(

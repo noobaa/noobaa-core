@@ -156,7 +156,6 @@ export function showBucket() {
         tab: tab
     });
 
-    loadBucketInfo(bucket);
     loadBucketObjectList(bucket, filter, sortBy, parseInt(order), parseInt(page));
 }
 
@@ -221,7 +220,6 @@ export function showPool() {
         tab: tab
     });
 
-    loadPoolInfo(pool);
     loadPoolNodeList(pool, filter, sortBy, parseInt(order), parseInt(page));
 }
 
@@ -395,14 +393,6 @@ export function loadSystemInfo() {
         .done();
 }
 
-export function loadBucketInfo(name) {
-    logAction('loadBucketInfo', { name });
-
-    api.bucket.read_bucket({ name })
-        .then(model.bucketInfo)
-        .done();
-}
-
 export function loadBucketPolicy(name) {
     logAction('loadBucketPolicy', { name });
 
@@ -447,7 +437,7 @@ export function loadObjectMetadata(bucketName, objectName) {
         model.objectInfo(null);
     }
 
-    let { accessKey ,secretKey } = model.systemInfo();
+    let { accessKey = '' ,secretKey = '' } = model.systemInfo();
     let s3 = new AWS.S3({
         endpoint: endpoint,
         credentials: {
@@ -497,18 +487,6 @@ export function loadObjectPartList(bucketName, objectName, page) {
                 model.objectPartList.count(total_parts);
             }
         )
-        .done();
-}
-
-export function loadPoolInfo(name) {
-    logAction('loadPoolInfo', { name });
-
-    if (model.poolInfo() && model.poolInfo().name !== name) {
-        model.poolInfo(null);
-    }
-
-    api.pool.read_pool({ name })
-        .then(model.poolInfo)
         .done();
 }
 
@@ -829,7 +807,7 @@ export function deleteBucket(name) {
     logAction('deleteBucket', { name });
 
     api.bucket.delete_bucket({ name })
-        .then(refresh)
+        .then(loadSystemInfo)
         .done();
 }
 
@@ -859,7 +837,7 @@ export function deletePool(name) {
     logAction('deletePool', { name });
 
     api.pool.delete_pool({ name })
-        .then(refresh)
+        .then(loadSystemInfo)
         .done();
 }
 
@@ -870,7 +848,7 @@ export function assignNodes(name, nodes) {
         name: name,
         nodes: nodes
     })
-        .then(refresh)
+        .then(loadSystemInfo)
         .done();
 }
 
@@ -1241,11 +1219,7 @@ export function setCloudSyncPolicy(bucket, connection, targetBucket, direction, 
         .then(
             () => {
                 loadCloudSyncInfo(bucket);
-
-                let bucketInfo = model.bucketInfo();
-                if (bucketInfo && bucketInfo.name === bucket) {
-                    loadBucketInfo(bucket);
-                }
+                loadSystemInfo();
             }
         )
         .done();
@@ -1266,10 +1240,7 @@ export function updateCloudSyncPolicy(bucket, direction, frequency, syncDeletion
         .then(
             () => {
                 loadCloudSyncInfo(bucket);
-                let bucketInfo = model.bucketInfo();
-                if (bucketInfo && bucketInfo.name === bucket) {
-                    loadBucketInfo(bucket);
-                }
+                loadSystemInfo();
             }
         );
 }
@@ -1281,7 +1252,7 @@ export function removeCloudSyncPolicy(bucket) {
         .then(
             () => model.cloudSyncInfo(null)
         )
-        .then(refresh);
+        .then(loadSystemInfo);
 }
 
 export function toogleCloudSync(bucket, pause) {
@@ -1294,11 +1265,7 @@ export function toogleCloudSync(bucket, pause) {
         .then(
             () => {
                 loadCloudSyncInfo(bucket);
-
-                let bucketInfo = model.bucketInfo();
-                if (bucketInfo && bucketInfo.name === bucket) {
-                    loadBucketInfo(bucket);
-                }
+                loadSystemInfo();
             }
         )
         .done();

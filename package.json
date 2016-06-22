@@ -46,6 +46,7 @@
     "compression": "1.6.2",
     "cookie-parser": "1.4.3",
     "cookie-session": "1.2.0",
+    "dclassify": "^1.1.2",
     "debug": "2.2.0",
     "dotenv": "1.2.0",
     "eslint": "2.12.0",

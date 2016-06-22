@@ -466,7 +466,10 @@ module.exports = {
                 },
                 debug_level: {
                     type: 'integer',
-                }
+                },
+                suggested_pool: {
+                    type: 'string'
+                },
             }
         },
 

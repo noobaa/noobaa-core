@@ -40,13 +40,16 @@ P.promisifyAll(require('child_process'));
 
 // TODO remove backward compatibility to Q functions
 P.defer = function defer() {
-    let callback;
-    let promise = P.fromCallback(function(cb) {
-        callback = cb;
+    // see! http://bluebirdjs.com/docs/api/deferred-migration.html
+    let resolve;
+    let reject;
+    let promise = new Promise(function() {
+        resolve = arguments[0];
+        reject = arguments[1];
     });
     return {
-        resolve: res => callback(null, res),
-        reject: err => callback(err),
+        resolve: resolve,
+        reject: reject,
         promise: promise
     };
 };

@@ -144,6 +144,9 @@ function general_settings {
 	iptables -I INPUT 1 -i eth0 -p tcp --dport 80 -j ACCEPT
 	iptables -I INPUT 1 -i eth0 -p tcp --dport 8080 -j ACCEPT
 	iptables -I INPUT 1 -i eth0 -p tcp --dport 8443 -j ACCEPT
+	#CVE-1999-0524
+	iptables -A INPUT -p ICMP --icmp-type timestamp-request -j DROP
+	iptables -A INPUT -p ICMP --icmp-type timestamp-reply -j DROP
 
 	service iptables save
 	echo "export LC_ALL=C" >> ~/.bashrc
@@ -167,8 +170,42 @@ function general_settings {
 	chmod 4755 /etc/profile.d/first_install_diaglog.sh
 
 	fix_etc_issue
+	fix_security_issues
 }
 
+
+function fix_security_issues {
+
+	local exist=$(grep '#X11Forwarding no' /etc/ssh/sshd_config | wc -l)
+	if [ "${exist}" == "0" ]; then
+		#CVE-2016-3115
+		sed -i -e 's/X11Forwarding yes/#X11Forwarding yes/g' /etc/ssh/sshd_config
+		sed -i -e 's/#X11Forwarding no/X11Forwarding no/g' /etc/ssh/sshd_config
+		#CVE-2010-5107
+		sed -i -e 's/#MaxStartups/MaxStartups/g' /etc/ssh/sshd_config
+		sudo /etc/init.d/sshd restart
+	fi
+
+	#proxy settings for yum install - for future use
+	#http_proxy="http://yum-user:qwerty@mycache.mydomain.com:3128"
+	#export http_proxy
+	local exist=$(grep timeout /etc/yum.conf | wc -l)
+	if [ "${exist}" == "0" ]; then
+		echo timeout=20 >> /etc/yum.conf
+	fi
+	ping 8.8.8.8 -c 3
+	if [ $? -ne 0 ]; then
+		deploy_log "Missing internet connectivity"
+	else
+		yum clean all
+		yum update -y
+		if [ $? -ne 0 ]; then
+			deploy_log "Failed to update yum packages"
+		else
+			deploy_log "Updated yum packages"
+		fi
+	fi
+}
 function setup_supervisors {
 	mkdir -p /tmp/supervisor
 	deploy_log "setup_supervisors start"

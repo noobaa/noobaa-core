@@ -43,7 +43,7 @@ P.defer = function defer() {
     // see! http://bluebirdjs.com/docs/api/deferred-migration.html
     let resolve;
     let reject;
-    let promise = new Promise(function() {
+    let promise = new P(function() {
         resolve = arguments[0];
         reject = arguments[1];
     });

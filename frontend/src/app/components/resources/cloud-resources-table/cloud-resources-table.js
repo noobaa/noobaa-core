@@ -24,11 +24,11 @@ class CloudResourcesTableViewModel {
         let resources = ko.observable(makeArray(
             10,
             () => ({
-                name: 'aws bucket 1',
+                name: 'aws-bucket-1',
                 storage: {  used: Number.MAX_SAFE_INTEGER },
                 cloud_info: {
                     endpoint: 'https://s3.amazonaws.com',
-                    target_bucket: 'bucket 123'
+                    target_bucket: 'bucket-123'
                 }
             })
         ));
@@ -53,14 +53,6 @@ class CloudResourcesTableViewModel {
 
     hideCloudReousrceModal() {
         this.isAddCloudResourceModalVisible(false);
-    }
-
-    orderBy() {
-
-    }
-
-    orderClassFor() {
-
     }
 }
 

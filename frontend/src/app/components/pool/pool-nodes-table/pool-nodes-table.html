@@ -40,20 +40,40 @@
     <table>
         <thead>
             <tr>
-                <th class="state-col" data-bind="css: orderClassFor('state')">
-                    <a href data-bind="click: () => orderBy('state')">state</a>
+                <th class="state-col">
+                    <a href data-bind="
+                        click: () => orderBy('online'),
+                        css: orderClassFor('online')
+                    ">
+                        state
+                    </a>
                 </th>
 
-                <th class="name-col text-left" data-bind="css: orderClassFor('name')">
-                    <a href data-bind="click: () => orderBy('name')">node name</a>
+                <th class="name-col text-left">
+                    <a href data-bind="
+                        click: () => orderBy('name'),
+                        css: orderClassFor('name')
+                    ">
+                        node name
+                    </a>
                 </th>
 
-                <th class="ip-col" data-bind="css: orderClassFor('ip')">
-                    <a href data-bind="click: () => orderBy('ip')">ip</a>
+                <th class="ip-col">
+                    <a href data-bind="
+                        click: () => orderBy('ip'),
+                        css: orderClassFor('ip')
+                    ">
+                        ip
+                    </a>
                 </th>
 
-                <th class="capacity-col" data-bind="css: orderClassFor('used')">
-                    <a href data-bind="click: () => orderBy('used')">used capacity</a>
+                <th class="capacity-col">
+                    <a href data-bind="
+                        click: () => orderBy('used'),
+                        css: orderClassFor('used')
+                    ">
+                        used capacity
+                    </a>
                 </th>
 
                 <th class="data-access-col">

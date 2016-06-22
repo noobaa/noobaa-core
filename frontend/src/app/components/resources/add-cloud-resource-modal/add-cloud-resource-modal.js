@@ -1,7 +1,7 @@
 import template from './add-cloud-resource-modal.html';
 import ko from 'knockout';
 import { S3Connections, S3BucketList, systemInfo } from 'model';
-import { loadS3Connections, loadS3BucketList } from 'actions';
+import { loadS3Connections, loadS3BucketList, createCloudPool } from 'actions';
 
 const addConnectionOption = Object.freeze({
     label: 'Add new connection',
@@ -119,6 +119,7 @@ class AddCloudResourceModalViewModel {
         if (this.errors().length > 0) {
             this.errors.showAllMessages();
         } else {
+            createCloudPool(this.resourceName(), this.connection(), this.targetBucket());
             this.onClose();
         }
     }

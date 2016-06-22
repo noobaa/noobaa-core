@@ -7,33 +7,51 @@
     <table>
         <thead>
             <tr>
-                <th class="state-col" data-bind="css: orderClassFor('state')">
-                    <a href data-bind="click: () => orderBy('state')">
+                <th class="state-col">
+                    <a href data-bind="
+                        click: () => orderBy('state'),
+                        css: orderClassFor('state')
+                    ">
                         state
                     </a>
                 </th>
-                <th class="name-col text-left" data-bind="css: orderClassFor('name')">
-                    <a href data-bind="click: () => orderBy('name')">
+                <th class="name-col text-left">
+                    <a href data-bind="
+                        click: () => orderBy('name'),
+                        css: orderClassFor('name')
+                    ">
                         pool name
                     </a>
                 </th>
-                <th class="nodes-col" data-bind="css: orderClassFor('nodecount')">
-                    <a href data-bind="click: () => orderBy('nodecount')">
+                <th class="nodes-col">
+                    <a href data-bind="
+                        click: () => orderBy('nodecount'),
+                        css: orderClassFor('nodecount')
+                    ">
                         nodes
                     </a>
                 </th>
-                <th class="online-nodes-col" data-bind="css: orderClassFor('onlinecount')">
-                    <a href data-bind="click: () => orderBy('onlinecount')">
+                <th class="online-nodes-col">
+                    <a href data-bind="
+                        css: orderClassFor('onlinecount'),
+                        click: () => orderBy('onlinecount')
+                    ">
                         online
                     </a>
                 </th>
-                <th class="offline-nodes-col" data-bind="css: orderClassFor('offlinecount')">
-                    <a href data-bind="click: () => orderBy('offlinecount')">
+                <th class="offline-nodes-col">
+                    <a href data-bind="
+                        css: orderClassFor('offlinecount'),
+                        click: () => orderBy('offlinecount')
+                    ">
                         offline
                     </a>
                 </th>
-                <th class="capacity-col" data-bind="css: orderClassFor('usage')">
-                    <a href data-bind="click: () => orderBy('usage')">
+                <th class="capacity-col" data-bind="">
+                    <a href data-bind="
+                        click: () => orderBy('usage'),
+                        css: orderClassFor('usage')
+                    ">
                         used capacity
                     </a>
                 </th>

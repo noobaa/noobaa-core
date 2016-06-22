@@ -262,7 +262,7 @@ export function makeRange(start, end) {
 export function domFromHtml(html) {
     let parser = new DOMParser();
     let doc = parser.parseFromString(html, 'text/html');
-    return doc.body.children;
+    return doc.body.childNodes;
 }
 
 export function encodeBase64(obj) {

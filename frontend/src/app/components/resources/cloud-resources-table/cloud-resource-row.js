@@ -1,6 +1,21 @@
 import ko from 'knockout';
-import { formatSize } from 'utils';
+import { deepFreeze, formatSize } from 'utils';
 import { deletePool } from 'actions';
+
+const icons = deepFreeze([
+    {
+        pattern: 's3.amazonaws.com',
+        icon: 'amazon-resource'
+    },
+    {
+        pattern: 'storage.googleapis.com',
+        icon: 'google-resource'
+    },
+    {
+        pattern: '',
+        icon: 'cloud-resource'
+    }
+]);
 
 export default class CloudResourceRowViewModel {
     constructor(resource) {
@@ -15,9 +30,11 @@ export default class CloudResourceRowViewModel {
                 }
 
                 let endpoint = resource().cloud_info.endpoint.toLowerCase();
-                return endpoint.indexOf('s3.amazonaws.com') > 0 ?
-                    'amazon-bucket' :
-                    'cloud-bucket';
+                let { icon } = icons.find(
+                    ({ pattern }) => endpoint.indexOf(pattern) > -1
+                );
+
+                return icon;
             }
         );
 

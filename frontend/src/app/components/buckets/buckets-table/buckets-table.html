@@ -8,26 +8,38 @@
     <table>
         <thead>
              <tr>
-                <th class="state-col" data-bind="css: orderClassFor('state')">
-                    <a href data-bind="click: () => orderBy('state')">
+                <th class="state-col">
+                    <a href data-bind="
+                        click: () => orderBy('state'),
+                        css: orderClassFor('state')
+                    ">
                         state
                     </a>
                 </th>
-                <th class="name-col text-left" data-bind="css: orderClassFor('name')">
-                    <a href data-bind="click: () => orderBy('name')">
+                <th class="name-col text-left">
+                    <a href data-bind="
+                        click: () => orderBy('name'),
+                        css: orderClassFor('name')
+                    ">
                         bucket name
                     </a>
                 </th>
-                <th class="filecount-col" data-bind="css: orderClassFor('filecount')">
-                    <a href data-bind="click: () => orderBy('filecount')">
+                <th class="filecount-col">
+                    <a href data-bind="
+                        click: () => orderBy('filecount'),
+                        css: orderClassFor('filecount')
+                    ">
                         files
                     </a>
                 </th>
                 <th class="capacity-col">
                     used capacity
                 </th>
-                <th class="cloudsync-col" data-bind="css: orderClassFor('cloudsync')">
-                    <a href data-bind="click: () => orderBy('cloudsync')">
+                <th class="cloudsync-col">
+                    <a href data-bind="
+                        click: () => orderBy('cloudsync'),
+                        css: orderClassFor('cloudsync')
+                    ">
                         Cloud Sync
                     </a>
                 </th>

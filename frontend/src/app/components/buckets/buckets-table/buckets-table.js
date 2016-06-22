@@ -68,9 +68,9 @@ class BucketsTableViewModel {
     }
 
     orderClassFor(colName) {
-        if (this.sortedBy() === colName) {
-            return this.order() === 1 ? 'des' : 'asc' ;
-        }
+        return `sortable ${
+            this.sortedBy() === colName ? (this.order() === 1 ? 'des' : 'asc') : ''
+        }`;
     }
 }
 

@@ -17,6 +17,8 @@ const https = require('https');
 const express = require('express');
 const cluster = require('cluster');
 const numCPUs = require('os').cpus().length;
+const path = require('path');
+const rootdir = path.join(__dirname, '..', '..');
 
 const P = require('../util/promise');
 const dbg = require('../util/debug_module')(__filename);
@@ -59,12 +61,22 @@ function run_server() {
                 ssl_port: process.env.S3_SSL_PORT || 443,
             });
             dbg.log0('Generating selfSigned SSL Certificate...');
-            return P.nfcall(pem.createCertificate, {
-                days: 365 * 100,
-                selfSigned: true
-            }).then(certificate => {
-                params.certificate = certificate;
-            });
+            dbg.log0('certificate location:', path.join(rootdir, 'src', 'private_ssl_path', 'server.key'));
+            if (fs.existsSync(path.join(rootdir, 'src', 'private_ssl_path', 'server.key')) &&
+                fs.existsSync(path.join(rootdir, 'src', 'private_ssl_path', 'server.crt'))) {
+                dbg.log0('Using local certificate');
+                var local_certificate = {
+                    serviceKey: fs.readFileSync(path.join(rootdir, 'src', 'private_ssl_path', 'server.key')),
+                    certificate: fs.readFileSync(path.join(rootdir, 'src', 'private_ssl_path', 'server.crt'))
+                };
+                return local_certificate;
+            } else {
+                dbg.log0('Generating self signed certificate');
+                return P.nfcall(pem.createCertificate, {
+                    days: 365 * 100,
+                    selfSigned: true
+                });
+            }
         })
         .then(() => {
             const addr_url = url.parse(params.address || '');

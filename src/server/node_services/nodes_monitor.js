@@ -795,7 +795,7 @@ class NodesMonitor extends EventEmitter {
             classifier.train(data);
 
             dbg.log0("Trained with non default pool nodes:", classifier, 'probablity', JSON.stringify(classifier.probabilities, null, 4));
-        
+
             _.forEach(data_for_ml[default_pool_index].nodes, function(value, key) {
                 var result1 = classifier.classify(value);
                 var suggested_pool = "";

@@ -22,5 +22,9 @@ export default class NodeRowViewModel {
         this.currPool = ko.pureComputed(
             () => !!node() && node().pool
         );
+
+        this.suggestedPool = ko.pureComputed(
+            () => !!node() && node().suggested_pool
+        );
     }
 }

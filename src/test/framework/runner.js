@@ -389,7 +389,7 @@ TestRunner.prototype._restart_services = function(testrun) {
         .then(function() {
             return promise_utils.promised_exec('supervisorctl reload');
         })
-        .delay(1000)
+        .delay(5000)
         .then(function() {
             return promise_utils.promised_exec('supervisorctl restart webserver bg_workers');
         })

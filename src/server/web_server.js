@@ -44,6 +44,7 @@ var config = require('../../config.js');
 var time_utils = require('../util/time_utils');
 var mongo_client = require('../util/mongo_client');
 var mongoose_utils = require('../util/mongoose_utils');
+var promise_utils = require('../util/promise_utils');
 
 var rootdir = path.join(__dirname, '..', '..');
 var dev_mode = (process.env.DEV_MODE === 'true');
@@ -222,6 +223,49 @@ app.post('/upgrade',
             cwd: '/tmp'
         });
         res.end('<html><head><meta http-equiv="refresh" content="60;url=/console/" /></head>Upgrading. You will be redirected back to the upgraded site in 60 seconds.');
+    });
+
+app.post('/upload_certificate',
+    multer({
+        storage: multer.diskStorage({
+            destination: function(req, file, cb) {
+                cb(null, '/tmp');
+            },
+            filename: function(req, file, cb) {
+                dbg.log0('uploading SSL Certificate', file);
+                cb(null, 'nb_ssl_certificate_' + Date.now() + '_' + file.originalname);
+            }
+        })
+    })
+    .single('upload_file'),
+    function(req, res) {
+        var ssl_certificate = req.file;
+        dbg.log0('upload ssl certificate file', ssl_certificate);
+        promise_utils.promised_spawn(process.cwd() + '/src/deploy/NVA_build/ssl_verifier.sh', [
+                'from_file', ssl_certificate.path
+            ], {}, false)
+            .then(function() {
+                res.status(200).send('SUCCESS');
+            }).catch(function(err) {
+                let error_message = '';
+                dbg.log0('failed to upload certificate. ' + err.message, err);
+                if (err.message.indexOf(' error code 1') > 0) {
+                    error_message = 'No match between key and certificate.';
+                } else if (err.message.indexOf(' error code 2') > 0) {
+                    error_message = 'Only one key is required.';
+                } else if (err.message.indexOf(' error code 3') > 0) {
+                    error_message = 'Only one certificate is required.';
+                } else if (err.message.indexOf(' error code 5') > 0) {
+                    error_message = 'Not a zip file. Please upload zip with certificate and key in pem format';
+                } else {
+                    error_message = err.message;
+                }
+                dbg.error(error_message);
+
+                res.status(500).send(error_message);
+
+            });
+
     });
 
 app.post('/upload_package',

@@ -30,6 +30,8 @@ const node_allocator = require('./node_allocator');
 const mongoose_utils = require('../../util/mongoose_utils');
 const mongo_functions = require('../../util/mongo_functions');
 const system_server_utils = require('../utils/system_server_utils');
+const dclassify = require('dclassify');
+
 
 const RUN_DELAY_MS = 60000;
 const RUN_NODE_CONCUR = 50;
@@ -83,6 +85,11 @@ const NODE_INFO_DEFAULTS = {
     rpc_address: '',
     base_address: '',
 };
+
+// Utilities provided by dclassify
+var Classifier = dclassify.Classifier;
+var DataSet = dclassify.DataSet;
+var Document = dclassify.Document;
 
 
 class NodesMonitor extends EventEmitter {
@@ -731,13 +738,95 @@ class NodesMonitor extends EventEmitter {
         return list.slice(skip, skip + limit);
     }
 
+    _train_and_suggest(nodes) {
+        var data_for_ml = [];
+        var default_pool_index = -1;
+        var res_nodes = nodes;
+
+        _.forEach(res_nodes, function(curr_node) {
+            var node = curr_node.node_from_store;
+
+            var node_avg_read = node.latency_of_disk_read.reduce(function(a, m, i, p) {
+                return a + m / p.length;
+            }, 0);
+            var node_avg_write = node.latency_of_disk_write.reduce(function(a, m, i, p) {
+                return a + m / p.length;
+            }, 0);
+            var node_avg_latency = node.latency_to_server.reduce(function(a, m, i, p) {
+                return a + m / p.length;
+            }, 0);
+
+            var node_pool_name = system_store.data.get_by_id(node.pool).name;
+
+            var pool_index = _.findIndex(data_for_ml, function(obj) {
+                return obj.pool_name === node_pool_name;
+            });
+
+            if (node_pool_name === 'default_pool') {
+                default_pool_index = pool_index;
+            }
+            if (pool_index < 0) {
+                data_for_ml.push({
+                    pool_name: node_pool_name,
+                    nodes: [new Document(node._id, [node.ip, node.geolocation, node.storage.used, node.storage.total, node.storage.used, node_avg_latency, node_avg_read, node_avg_write])]
+                });
+            } else {
+                data_for_ml[pool_index].nodes.push(new Document(node._id, [node.ip, node.geolocation, node.storage.used, node.storage.total, node.storage.used, node_avg_latency, node_avg_read, node_avg_write]));
+            }
+        });
+
+        var data = new DataSet();
+        var options = {
+            applyInverse: true
+        };
+
+        //Push ML data with all nodes except default_pool nodes
+        _.forEach(data_for_ml, function(value, key) {
+            if (value.pool_name !== 'default_pool') {
+                data.add(value.pool_name, value.nodes);
+            }
+        });
+
+        if (data_for_ml.length > 2) {
+            // create a classifier
+            var classifier = new Classifier(options);
+
+            // train the classifier
+            classifier.train(data);
+
+            dbg.log0("Trained with non default pool nodes:", classifier, 'probablity', JSON.stringify(classifier.probabilities, null, 4));
+
+            _.forEach(data_for_ml[default_pool_index].nodes, function(value, key) {
+                var result1 = classifier.classify(value);
+                var suggested_pool = "";
+                dbg.log1("ML result for ", value.id, result1);
+                if (result1.category === 'default_pool') {
+                    suggested_pool = result1.secondCategory;
+                } else {
+                    suggested_pool = result1.category;
+                }
+
+                var node_index = _.findIndex(res_nodes, function(obj) {
+                    return (obj.node._id).toString() === (value.id).toString();
+                });
+                res_nodes[node_index].node.suggested_pool = suggested_pool;
+                dbg.log0('ML result for ', value.id, 'suggested pool:', suggested_pool);
+
+            });
+        }
+        return res_nodes;
+
+    }
+
     list_nodes(query, options) {
         console.log('list_nodes: query', query);
-        const list = this._filter_nodes(query);
+        const list = this._train_and_suggest(this._filter_nodes(query));
+
         this._sort_nodes_list(list, options);
         const res_list = options && options.pagination ?
             this._paginate_nodes_list(list, options) : list;
         console.log('list_nodes', res_list.length, '/', list.length);
+
         return {
             total_count: list.length,
             nodes: _.map(res_list, item => this.get_node_full_info(item))
@@ -828,6 +917,8 @@ class NodesMonitor extends EventEmitter {
         if (info.os_info.last_update) {
             info.os_info.last_update = new Date(info.os_info.last_update).getTime();
         }
+        info.suggested_pool = node.suggested_pool || "";
+
         return info;
     }
 

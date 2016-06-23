@@ -1,6 +1,7 @@
 /*global process */
 'use strict';
 
+let path = require('path');
 let argv = require('yargs').argv;
 let gulp = require('gulp');
 let $ = require('gulp-load-plugins')();
@@ -19,23 +20,40 @@ function generator(name, impl) {
 function scaffold(src, dest, params) {
     const replaceRegExp = /\[\[(.*?)\]\]/g;
 
-    return new Promise(
-        (resolve, reject) => {
-            let stream = gulp.src(src)
-                .pipe($.rename(
-                    path => {
-                        path.basename = path.basename.replace(
-                            replaceRegExp,
-                            (_, m) => params[m] || m
-                        );
-                    }
-                ))
-                .pipe($.replace(replaceRegExp, (_, m) => params[m] || m))
-                .pipe(gulp.dest(dest));
+    return streamToPromise(
+        gulp.src(src)
+            .pipe($.rename(
+                path => {
+                    path.basename = path.basename.replace(
+                        replaceRegExp,
+                        (_, m) => params[m] || m
+                    );
+                }
+            ))
+            .pipe($.replace(replaceRegExp, (_, m) => params[m] || m))
+            .pipe(gulp.dest(dest))
+    );
+}
 
-            stream.once('end', () => resolve());
-            stream.on('error', () => reject);
-        }
+function inject(src, tag, text, allowDuplicates) {
+    let match = `/** INJECT:${tag} **/`;
+    let dest = path.dirname(src);
+    let textFound = false;
+
+    return streamToPromise(
+        gulp.src(src)
+            .pipe($.contains({
+                search: text,
+                onFound: () => {
+                    textFound = true;
+                    return false;
+                }
+            }))
+            .pipe($.if(
+                () => allowDuplicates || !textFound,
+                $.injectString.beforeEach(match, text)
+            ))
+            .pipe(gulp.dest(dest))
     );
 }
 
@@ -43,9 +61,18 @@ function toCammelCase(str) {
     return ('-' + str).replace(/-\w/g, match => match[1].toUpperCase());
 }
 
+function streamToPromise(stream) {
+    return new Promise(
+        (resolve, reject) => {
+            stream.on('end', resolve);
+            stream.on('error', reject);
+        }
+    );
+}
+
 function logAndRject(message) {
     console.log(message);
-    return Promise.reject(new Error(message));
+    return Promise.reject();
 }
 
 // -----------------------------
@@ -62,6 +89,7 @@ generator('component', argv =>  {
 
     let src = 'src/scaffolding/component/**/*';
     let dest = `src/app/components/${area}/${name}`;
+    let registry = 'src/app/components/register.js';
     let params = {
         area: area,
         name: name,
@@ -78,6 +106,12 @@ generator('component', argv =>  {
         )
         .then(
             () => scaffold(src, dest, params)
+        )
+        .then(
+            () => {
+                let line = `ko.components.register('${name}', require('./${area}/${name}/${name}'));\n    `;
+                return inject(registry, area, line, false);
+            }
         );
 });
 
@@ -97,7 +131,10 @@ function main(argv) {
             () => console.log(`Scaffolding ${genName} completed successfully`)
         )
         .catch(
-            () => process.exit(-1)
+            err => {
+                err instanceof Error && console.error(err.stack);
+                process.exit(1);
+            }
         );
 }
 

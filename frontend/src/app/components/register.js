@@ -14,6 +14,7 @@ export default function register(ko) {
     ko.components.register('commands-bar',      require('./layout/commands-bar/commands-bar'));
     ko.components.register('breadcrumbs',       require('./layout/breadcrumbs/breadcrumbs'));
     ko.components.register('notification-bar',  require('./layout/notification-bar/notification-bar'));
+    /** INJECT:layout **/
 
     // -------------------------------
     // Login
@@ -21,6 +22,7 @@ export default function register(ko) {
     ko.components.register('login-layout',          require('./login/login-layout/login-layout'));
     ko.components.register('signin-form',           require('./login/signin-form/signin-form'));
     ko.components.register('create-system-form',    require('./login/create-system-form/create-system-form'));
+    /** INJECT:login **/
 
     // -------------------------------
     // Overview
@@ -31,6 +33,7 @@ export default function register(ko) {
     ko.components.register('install-node-wizard',   require('./overview/install-node-wizard/install-node-wizard'));
     ko.components.register('connect-app-wizard',    require('./overview/connect-app-wizard/connect-app-wizard'));
     ko.components.register('after-upgrade-modal',   require('./overview/after-upgrade-modal/after-upgrade-modal'));
+    /** INJECT:overview **/
 
     // -------------------------------
     // Buckets
@@ -38,6 +41,7 @@ export default function register(ko) {
     ko.components.register('buckets-panel',         require('./buckets/buckets-panel/buckets-panel'));
     ko.components.register('buckets-table',         require('./buckets/buckets-table/buckets-table'));
     ko.components.register('create-bucket-wizard',  require('./buckets/create-bucket-wizard/create-bucket-wizard'));
+    /** INJECT:buckets **/
 
     // -------------------------------
     // Bucket
@@ -55,6 +59,7 @@ export default function register(ko) {
     ko.components.register('bucket-s3-access-list',         require('./bucket/bucket-s3-access-list/bucket-s3-access-list'));
     ko.components.register('s3-access-details-modal',       require('./bucket/s3-access-details-modal/s3-access-details-modal'));
     ko.components.register('bucket-s3-access-modal',        require('./bucket/bucket-s3-access-modal/bucket-s3-access-modal'));
+    /** INJECT:bucket **/
 
     // -------------------------------
     // Object
@@ -64,6 +69,7 @@ export default function register(ko) {
     ko.components.register('object-details-form',   require('./object/object-details-form/object-details-form'));
     ko.components.register('object-parts-list',     require('./object/object-parts-list/object-parts-list'));
     ko.components.register('object-preview-modal',  require('./object/object-preview-modal/object-preview-modal'));
+    /** INJECT:object **/
 
     // -------------------------------
     // Pools
@@ -71,6 +77,7 @@ export default function register(ko) {
     ko.components.register('pools-panel',           require('./pools/pools-panel/pools-panel'));
     ko.components.register('pools-table',           require('./pools/pools-table/pools-table'));
     ko.components.register('create-pool-wizard',    require('./pools/create-pool-wizard/create-pool-wizard'));
+    /** INJECT:pools **/
 
     // -------------------------------
     // Pool
@@ -79,6 +86,7 @@ export default function register(ko) {
     ko.components.register('pool-summary',          require('./pool/pool-summary/pool-summary'));
     ko.components.register('pool-nodes-table',      require('./pool/pool-nodes-table/pool-nodes-table'));
     ko.components.register('assign-nodes-modal',    require('./pool/assign-nodes-modal/assign-nodes-modal'));
+    /** INJECT:pool **/
 
     // -------------------------------
     // Node
@@ -89,6 +97,7 @@ export default function register(ko) {
     ko.components.register('node-details-form',     require('./node/node-details-form/node-details-form'));
     ko.components.register('node-diagnostics-form', require('./node/node-diagnostics-form/node-diagnostics-form'));
     ko.components.register('test-node-modal',       require('./node/test-node-modal/test-node-modal'));
+    /** INJECT:node **/
 
     // -------------------------------
     // Management
@@ -109,11 +118,13 @@ export default function register(ko) {
     ko.components.register('phone-home-form',           require('./management/phone-home-form/phone-home-form'));
     ko.components.register('remote-syslog-form',        require('./management/remote-syslog-form/remote-syslog-form'));
     ko.components.register('server-ssl-form',           require('./management/server-ssl-form/server-ssl-form'));
+    /** INJECT:management **/
 
     // -------------------------------
     // Admin
     // -------------------------------
     ko.components.register('audit-pane',         require('./admin/audit-pane/audit-pane'));
+    /** INJECT:admin **/
 
     // -------------------------------
     // shared
@@ -141,4 +152,5 @@ export default function register(ko) {
     ko.components.register('toggle-switch',     require('./shared/toggle-switch/toggle-switch'));
     ko.components.register('property-sheet',    require('./shared/property-sheet/property-sheet'));
     ko.components.register('capacity-bar',      require('./shared/capacity-bar/capacity-bar'));
+    /** INJECT:shared **/
 }

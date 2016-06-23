@@ -436,6 +436,7 @@ function upgrade_cluster() {
     //global param_secret:true, params_cluster_id:true, param_ip:true
 
     db.clusters.insert({
+        is_clusterized: false,
         owner_secret: param_secret, // eslint-disable-line no-undef
         owner_address: param_ip, // eslint-disable-line no-undef
         cluster_id: params_cluster_id, // eslint-disable-line no-undef

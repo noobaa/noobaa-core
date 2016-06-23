@@ -40,6 +40,8 @@ if (argv.help) {
     print_usage();
 } else if (argv.upload || argv.put) {
     upload_file();
+} else if (argv.delete) {
+    delete_objects();
 } else if (argv.get) {
     get_file();
 } else if (argv.head) {
@@ -125,6 +127,24 @@ function head_file() {
     });
 }
 
+function delete_objects() {
+    var arr = argv.keys.split(",");
+    var objs = {
+        Bucket: argv.bucket,
+        Delete: {
+            Objects: _.map(arr, obj => ({
+                Key: obj,
+            }))
+        }
+    };
+    s3.deleteObjects(objs, function(err, data) {
+        if (err) {
+            console.error('Delete ERROR:', err.stack);
+            return;
+        }
+        console.log(data);
+    });
+}
 
 function upload_file() {
     let bucket = argv.bucket;
@@ -381,6 +401,9 @@ List Objects Flags:
   --long/ll            run list objects with long output
   --prefix <path>      prefix used for list objects
   --delimiter <key>    delimiter used for list objects
+Delete Flags:
+  --delete             delete key or keys
+  --keys <key>,<key>   list of keys
 Upload Flags:
   --upload <key>       upload (multipart) to key (key can be omited
   --put <key>          put (single) to key (key can be omited

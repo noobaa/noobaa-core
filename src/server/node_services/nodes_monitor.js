@@ -375,7 +375,7 @@ class NodesMonitor extends EventEmitter {
         return P.resolve()
             .then(() => nodes_store.instance().bulk_update(bulk_items))
             .then(() => P.map(new_nodes, item => {
-                Dispatcher.activity({
+                Dispatcher.instance().activity({
                     level: 'info',
                     event: 'node.create',
                     system: item.node.system,
@@ -1030,7 +1030,7 @@ class NodesMonitor extends EventEmitter {
                 });
             })
             .then(() => {
-                Dispatcher.activity({
+                Dispatcher.instance().activity({
                     system: req.system._id,
                     level: 'info',
                     event: 'dbg.set_debug_node',

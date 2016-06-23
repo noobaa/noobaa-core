@@ -127,7 +127,7 @@ function update_tier(req) {
             }
 
             if (bucket) {
-                Dispatcher.activity({
+                Dispatcher.instance().activity({
                     event: 'bucket.edit_policy',
                     level: 'info',
                     system: req.system._id,

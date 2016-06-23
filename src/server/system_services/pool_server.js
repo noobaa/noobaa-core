@@ -47,7 +47,7 @@ function create_pool(req) {
             return _assign_nodes_to_pool(req, pool);
         })
         .then(res => {
-            Dispatcher.activity({
+            Dispatcher.instance().activity({
                 event: 'pool.create',
                 level: 'info',
                 system: req.system._id,
@@ -87,7 +87,7 @@ function create_cloud_pool(req) {
         })
         .then(() => {
             // TODO: should we add different event for cloud pool?
-            Dispatcher.activity({
+            Dispatcher.instance().activity({
                 event: 'pool.create',
                 level: 'info',
                 system: req.system._id,
@@ -155,7 +155,7 @@ function delete_pool(req) {
             });
         })
         .then(res => {
-            Dispatcher.activity({
+            Dispatcher.instance().activity({
                 event: 'pool.delete',
                 level: 'info',
                 system: req.system._id,
@@ -199,7 +199,7 @@ function delete_cloud_pool(req) {
             }
         }))
         .then(res => {
-            Dispatcher.activity({
+            Dispatcher.instance().activity({
                 event: 'pool.delete',
                 level: 'info',
                 system: req.system._id,
@@ -244,7 +244,7 @@ function _assign_nodes_to_pool(req, pool) {
                     _.forEach(nodes_before_change, node => {
                         desc_string.push(`${node.name} was assigned from ${node.pool.name} to ${pool.name}`);
                     });
-                    Dispatcher.activity({
+                    Dispatcher.instance().activity({
                         event: 'pool.assign_nodes',
                         level: 'info',
                         system: req.system._id,

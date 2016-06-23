@@ -70,7 +70,7 @@ function create_account(req) {
                 });
         })
         .then(changes => {
-            Dispatcher.activity({
+            Dispatcher.instance().activity({
                 event: 'account.create',
                 level: 'info',
                 system: req.system && req.system._id || changes.insert.systems[0]._id,
@@ -242,7 +242,7 @@ function update_account_s3_acl(req) {
             if (removed_buckets.length) {
                 desc_string.push(`Removed buckets: ${removed_buckets}`);
             }
-            return Dispatcher.activity({
+            return Dispatcher.instance().activity({
                 event: 'account.s3_access_updated',
                 level: 'info',
                 system: req.system && req.system._id,
@@ -283,7 +283,7 @@ function update_account(req) {
                 }
             });
         })
-        .then(() => Dispatcher.activity({
+        .then(() => Dispatcher.instance().activity({
             event: 'account.update',
             level: 'info',
             system: req.system && req.system._id,
@@ -332,7 +332,7 @@ function delete_account(req) {
         })
         .then(
             val => {
-                Dispatcher.activity({
+                Dispatcher.instance().activity({
                     event: 'account.delete',
                     level: 'info',
                     system: req.system && req.system._id,
@@ -343,7 +343,7 @@ function delete_account(req) {
                 return val;
             },
             err => {
-                Dispatcher.activity({
+                Dispatcher.instance().activity({
                     event: 'account.delete',
                     level: 'alert',
                     system: req.system && req.system._id,

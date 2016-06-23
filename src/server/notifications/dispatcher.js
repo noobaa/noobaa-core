@@ -1,13 +1,13 @@
 'use strict';
 
 const _ = require('lodash');
-var native_core = require('../../native_core')();
 const ActivityLog = require('../analytic_services/activity_log');
-const system_store = require('../system_services/system_store');
+const system_store = require('../system_services/system_store').get_instance();
 const nodes_store = require('../node_services/nodes_store');
 const md_store = require('../object_services/md_store');
 const P = require('../../util/promise');
 const mongo_utils = require('../../util/mongo_utils');
+const native_core = require('../../util/native_core')();
 const dbg = require('../../util/debug_module')(__filename);
 
 var NotificationTypes = Object.freeze({
@@ -18,9 +18,11 @@ var NotificationTypes = Object.freeze({
 
 class Dispatcher {
 
-    static get_instance() {
-        Dispatcher._dispatcher = Dispatcher._dispatcher || new Dispatcher();
-        return Dispatcher._dispatcher;
+    static instance() {
+        if (!Dispatcher._instance) {
+            Dispatcher._instance = new Dispatcher();
+        }
+        return Dispatcher._instance;
     }
 
     constructor() {
@@ -148,5 +150,5 @@ class Dispatcher {
 
 // EXPORTS
 exports.Dispatcher = Dispatcher;
-exports.get_instance = Dispatcher.get_instance;
+exports.instance = Dispatcher.instance;
 exports.NotificationTypes = NotificationTypes;

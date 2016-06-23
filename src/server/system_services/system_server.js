@@ -103,7 +103,7 @@ function new_system_changes(name, owner_account) {
                 system: system._id,
                 role: 'admin'
             };
-            Dispatcher.activity({
+            Dispatcher.instance().activity({
                 event: 'conf.create_system',
                 level: 'info',
                 system: system._id,
@@ -529,7 +529,7 @@ function export_activity_log(req) {
     const out_path = `/public/${file_name}`;
     const inner_path = `${process.cwd()}/build${out_path}`;
 
-    return Dispatcher.read_activity_log(req)
+    return Dispatcher.instance().read_activity_log(req)
         .then(logs => {
             let lines = logs.logs.reduce(
                 (lines, entry) => {
@@ -564,7 +564,7 @@ function export_activity_log(req) {
  *
  */
 function read_activity_log(req) {
-    return Dispatcher.read_activity_log(req);
+    return Dispatcher.instance().read_activity_log(req);
 }
 
 
@@ -584,7 +584,7 @@ function diagnose(req) {
             return out_path;
         })
         .then(res => {
-            Dispatcher.activity({
+            Dispatcher.instance().activity({
                 event: 'dbg.diagnose_system',
                 level: 'info',
                 system: req.system._id,
@@ -616,7 +616,7 @@ function diagnose_with_agent(data, req) {
             return out_path;
         })
         .then(res => {
-            Dispatcher.activity({
+            Dispatcher.instance().activity({
                 event: 'dbg.diagnose_node',
                 level: 'info',
                 system: req.system && req.system._id,
@@ -760,7 +760,7 @@ function update_base_address(req) {
                 .return(reply);
         })
         .then(res => {
-            Dispatcher.activity({
+            Dispatcher.instance().activity({
                 event: 'conf.dns_address',
                 level: 'info',
                 system: req.system,
@@ -878,7 +878,7 @@ function update_time_config(req) {
             if (date) {
                 desc_string.push(`Date and Time set to ${date}`);
             }
-            Dispatcher.activity({
+            Dispatcher.instance().activity({
                 event: 'conf.server_date_time_updated',
                 level: 'info',
                 system: req.system,

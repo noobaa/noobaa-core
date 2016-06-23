@@ -6,6 +6,17 @@ import { sslCertificateSuffix } from 'config';
 
 class SSLFormViewModel {
     constructor({ onClose }) {
+        this.expanded = ko.observable(false);
+
+        let config = ko.pureComputed(
+            () => systemInfo()
+        );
+
+        this.enabled = ko.observableWithDefault(
+            () => !!config()
+        );
+
+
         this.version = ko.pureComputed(
             () => systemInfo() && systemInfo().version
         );

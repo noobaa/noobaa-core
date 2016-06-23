@@ -44,6 +44,7 @@ var config = require('../../config.js');
 var time_utils = require('../util/time_utils');
 var mongo_client = require('../util/mongo_client');
 var mongoose_utils = require('../util/mongoose_utils');
+var system_store = require('./system_services/system_store').get_instance();
 
 var rootdir = path.join(__dirname, '..', '..');
 var dev_mode = (process.env.DEV_MODE === 'true');
@@ -83,6 +84,13 @@ app.use(function(req, res, next) {
     if (fwd_proto === 'http') {
         var host = req.get('Host');
         return res.redirect('https://' + host + req.url);
+    }
+    return next();
+});
+app.use(function(req, res, next) {
+    if (!system_store.is_cluster_master) {
+        res.status(301);
+        return res.redirect('https://26.04.92.24:8080' + req.url);
     }
     return next();
 });

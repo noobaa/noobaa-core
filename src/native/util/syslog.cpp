@@ -41,7 +41,11 @@ Syslog::~Syslog()
 NAN_METHOD(Syslog::log) {
     int priority = info[0]->Int32Value();
     Nan::Utf8String msg(info[1]);
-    syslog(priority|LOG_LOCAL0, "%s", *msg);
+    int facility = LOG_LOCAL0;
+    if (info.Length() == 3) {
+        facility = info[2]->Int32Value();
+    }
+    syslog(priority|facility, "%s", *msg);
 }
 
 static char ident[1024];

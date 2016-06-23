@@ -21,7 +21,7 @@ const server_rpc = require('../server_rpc');
 const auth_server = require('../common_services/auth_server');
 const nodes_store = require('./nodes_store');
 const mongo_utils = require('../../util/mongo_utils');
-const ActivityLog = require('../analytic_services/activity_log');
+const Dispatcher = require('../notifications/dispatcher');
 const buffer_utils = require('../../util/buffer_utils');
 const system_store = require('../system_services/system_store').get_instance();
 const system_server = require('../system_services/system_server');
@@ -375,7 +375,7 @@ class NodesMonitor extends EventEmitter {
         return P.resolve()
             .then(() => nodes_store.instance().bulk_update(bulk_items))
             .then(() => P.map(new_nodes, item => {
-                ActivityLog.create({
+                Dispatcher.instance().activity({
                     level: 'info',
                     event: 'node.create',
                     system: item.node.system,
@@ -1030,7 +1030,7 @@ class NodesMonitor extends EventEmitter {
                 });
             })
             .then(() => {
-                ActivityLog.create({
+                Dispatcher.instance().activity({
                     system: req.system._id,
                     level: 'info',
                     event: 'dbg.set_debug_node',

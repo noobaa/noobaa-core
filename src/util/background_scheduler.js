@@ -5,9 +5,9 @@
  */
 'use strict';
 
-const P = require('../../util/promise');
-const dbg = require('../../util/debug_module')(__filename);
-const promise_utils = require('./src/util/promise_utils');
+const P = require('./promise');
+const dbg = require('./debug_module')(__filename);
+const promise_utils = require('./promise_utils');
 
 /**
  *
@@ -16,11 +16,11 @@ const promise_utils = require('./src/util/promise_utils');
  * loads data from the database and keeps in memory optimized way.
  *
  */
-class Backgroud_Scheduler {
+class Background_Scheduler {
 
     static get_instance() {
-        Backgroud_Scheduler._instance = Backgroud_Scheduler._instance || new Backgroud_Scheduler();
-        return Backgroud_Scheduler._instance;
+        Background_Scheduler._instance = Background_Scheduler._instance || new Background_Scheduler();
+        return Background_Scheduler._instance;
     }
 
     constructor() {
@@ -63,5 +63,5 @@ class Backgroud_Scheduler {
 }
 
 // EXPORTS
-exports.Backgroud_Scheduler = Backgroud_Scheduler;
-exports.get_instance = Backgroud_Scheduler.get_instance;
+exports.Background_Scheduler = Background_Scheduler;
+exports.get_instance = Background_Scheduler.get_instance;

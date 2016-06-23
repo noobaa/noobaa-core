@@ -28,8 +28,7 @@ var cloud_sync = require('../server/bg_services/cloud_sync');
 var server_rpc = require('../server/server_rpc');
 var mongo_client = require('../util/mongo_client');
 var mongoose_utils = require('../util/mongoose_utils');
-//var promise_utils = require('../util/promise_utils');
-var backgroud_scheduler = require('../util/backgroud_scheduler').get_instance();
+var background_scheduler = require('../util/background_scheduler').get_instance();
 var config = require('../../config.js');
 
 const MASTER_BG_WORKERS = [
@@ -64,12 +63,12 @@ function register_bg_worker(options, run_batch_function) {
 
     dbg.log0('Registering', options.name, 'bg worker');
     options.run_batch = run_batch_function;
-    backgroud_scheduler.run_background_worker(options);
+    background_scheduler.run_background_worker(options);
 }
 
 function remove_master_workers() {
     MASTER_BG_WORKERS.forEach(worker_name => {
-        backgroud_scheduler.remove_background_worker(worker_name);
+        background_scheduler.remove_background_worker(worker_name);
     });
 }
 

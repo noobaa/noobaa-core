@@ -37,6 +37,8 @@ TestRunner.prototype.wait_for_server_to_start = function(max_seconds_to_wait, po
     var MAX_RETRIES = max_seconds_to_wait;
     var wait_counter = 1;
     //wait up to 10 seconds
+    console.log('waiting for server to start (1)');
+
     return promise_utils.pwhile(
             function() {
                 return isNotListening;
@@ -45,11 +47,11 @@ TestRunner.prototype.wait_for_server_to_start = function(max_seconds_to_wait, po
                 return P.ninvoke(request, 'get', {
                     url: 'http://127.0.0.1:' + port,
                     rejectUnauthorized: false,
-                }).spread(function(res, body) {
+                }).then(function() {
                     console.log('server started after ' + wait_counter + ' seconds');
                     isNotListening = false;
-                }, function(err) {
-                    console.log('waiting for server to start');
+                }).catch(function(err) {
+                    console.log('waiting for server to start(2)');
                     wait_counter += 1;
                     if (wait_counter >= MAX_RETRIES) {
                         console.Error('Too many retries after restart server');
@@ -81,7 +83,7 @@ TestRunner.prototype.restore_db_defaults = function() {
         })
         .delay(5000) //Workaround for agents sending HBs and re-registering to the server
         .catch(function(err) {
-            console.log('Failed restarting webserver');
+            console.log('Failed restarting webserver', err);
             throw new Error('Failed restarting webserver');
         });
 };
@@ -238,7 +240,10 @@ TestRunner.prototype._run_current_step = function(current_step, step_res) {
                 return step_res + ' - Successeful common step ( took ' +
                     ((new Date() - ts) / 1000) + 's )';
                 //return step_res;
-            }).catch();
+            }).catch(function(err) {
+                console.warn('Failure while running ' + step_res + ' with error ' + err);
+                throw new Error(err);
+            });
     } else if (current_step.action) {
         return self._run_action(current_step, step_res);
     } else if (current_step.lib_test) {
@@ -384,7 +389,7 @@ TestRunner.prototype._restart_services = function(testrun) {
         .then(function() {
             return promise_utils.promised_exec('supervisorctl reload');
         })
-        .delay(1000)
+        .delay(5000)
         .then(function() {
             return promise_utils.promised_exec('supervisorctl restart webserver bg_workers');
         })
@@ -403,6 +408,7 @@ function main() {
     return P.resolve(run.init_run())
         .catch(function(error) {
             console.error('Init run failed, stopping tests', error);
+            run._restart_services(false);
             process.exit(2);
         })
         .then(function() {
@@ -411,6 +417,7 @@ function main() {
         })
         .catch(function(error) {
             console.error('run tests failed', error);
+            run._restart_services(false);
             process.exit(3);
         })
         .then(function() {
@@ -419,6 +426,7 @@ function main() {
         })
         .catch(function(error) {
             console.error('Complete run failed', error);
+            run._restart_services(false);
             process.exit(4);
         })
         .then(function() {
@@ -426,6 +434,7 @@ function main() {
             if (!run._error) {
                 process.exit(0);
             } else {
+                run._restart_services(false);
                 process.exit(1);
             }
         });

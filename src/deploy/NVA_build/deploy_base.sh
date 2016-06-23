@@ -144,6 +144,8 @@ function general_settings {
 	iptables -I INPUT 1 -i eth0 -p tcp --dport 80 -j ACCEPT
 	iptables -I INPUT 1 -i eth0 -p tcp --dport 8080 -j ACCEPT
 	iptables -I INPUT 1 -i eth0 -p tcp --dport 8443 -j ACCEPT
+	iptables -I INPUT 1 -i eth0 -p tcp --dport 27000 -j ACCEPT
+	iptables -I INPUT 1 -i eth0 -p tcp --dport 26050 -j ACCEPT
 	#CVE-1999-0524
 	iptables -A INPUT -p ICMP --icmp-type timestamp-request -j DROP
 	iptables -A INPUT -p ICMP --icmp-type timestamp-reply -j DROP

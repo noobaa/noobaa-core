@@ -34,7 +34,8 @@ class Background_Scheduler {
         this.workers_by_name_cache[worker.name] = worker;
 
         function run() {
-            if (this.workers_by_name_cache[worker.name]) {
+            let self = Background_Scheduler.get_instance();
+            if (self.workers_by_name_cache[worker.name]) {
                 P.fcall(function() {
                         return worker.run_batch();
                     })

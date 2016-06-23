@@ -25,16 +25,16 @@ function background_worker() {
                 is_cluster_master = is_master.ismaster;
                 return send_master_update(is_cluster_master);
             })
-            .fail((err) => {
+            .catch((err) => {
                 is_cluster_master = false;
                 bg_workers_starter.remove_master_workers();
                 return send_master_update(is_cluster_master);
             });
     } else if (!is_cluster_master) {
-            dbg.log0('no local cluster info or server is not part of a cluster. therefore will be cluster master');
-            bg_workers_starter.run_master_workers();
-            is_cluster_master = true;
-            return send_master_update(is_cluster_master);
+        dbg.log0('no local cluster info or server is not part of a cluster. therefore will be cluster master');
+        bg_workers_starter.run_master_workers();
+        is_cluster_master = true;
+        return send_master_update(is_cluster_master);
     }
 }
 

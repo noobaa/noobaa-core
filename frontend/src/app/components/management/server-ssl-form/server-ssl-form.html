@@ -1,6 +1,6 @@
 <div class="row content-middle" data-bind="click: () => expanded.toggle()">
     <h2 class="heading3 greedy">
-        SSL Certificate 
+        SSL Certificate
     </h2>
 
     <button class="btn-flat expand-btn no-outline">
@@ -12,22 +12,24 @@
 </div>
 
 <p data-bind="visible: !expanded()">
-    <output class="emphasized" data-bind="
-		value: '',
-        css: { 'text-tech': enabled() }
-    "></output>
+    SSL Configured:
+    <output class="emphasized" data-bind="value: sslConfigured"></output>
 </p>
 
 
 <section class="column" data-bind="expand: expanded">
-    <h2 class="heading3"></h2>
-    <p class="paragraph">Please upload a zip with certificate and private key in pem format</p>
-    <file-selector params="
-        message: 'Drag SSL certificate here here',
+    <p class="paragraph push-next">
+        Please upload a zip with certificate and private key in pem format
+    </p>
+
+    <file-selector class="push-next" params="
+        message: 'Drag SSL certificate here',
         filter: sslCertificateSuffix,
         onFilesReady: files => uploadCertificate(files)
     "></file-selector>
+
+    <p class="emphasized">
+        <svg-icon class="icon-small" params="uri: uploadIcon"></svg-icon>
+        <span data-bind="text: uploadText"></span>
+    </p>
 </section>
-<!-- ko if: isUploadingSSLModalVisible -->
-<upload-ssl-modal params="onClose: () => isUploadingSSLModalVisible(false)"></upload-ssl-modal>
-<!-- /ko -->

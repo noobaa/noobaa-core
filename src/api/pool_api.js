@@ -27,7 +27,7 @@ module.exports = {
             method: 'POST',
             params: {
                 type: 'object',
-                required: ['name', 'cloud_info'],
+                required: ['name', 'connection', 'target_bucket'],
                 properties: {
                     name: {
                         type: 'string',

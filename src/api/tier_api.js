@@ -135,7 +135,6 @@ module.exports = {
             required: [
                 'name',
                 'node_pools',
-                'cloud_pools',
                 'data_placement',
                 'replicas',
                 'data_fragments',

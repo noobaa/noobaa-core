@@ -63,13 +63,20 @@ function create_nodes_pool(req) {
 
 function create_cloud_pool(req) {
     var name = req.rpc_params.name;
-    var cloud_info = req.rpc_params.cloud_info;
+    var connection = cloud_utils.find_cloud_connection(req.account, req.rpc_params.connection);
+    var cloud_info = {
+        endpoint: connection.endpoint,
+        target_bucket: req.rpc_params.target_bucket,
+        access_keys: {
+            access_key: connection.access_key,
+            secret_key: connection.secret_key
+        }
+    };
 
     var pool = new_pool_defaults(name, req.system._id);
     dbg.log0('Creating new cloud_pool', pool);
     pool.cloud_pool_info = cloud_info;
 
-    var connection = cloud_utils.find_cloud_connection(req.account, req.rpc_params.connection);
     dbg.log0('got connection for cloud pool:', connection);
     return system_store.make_changes({
             insert: {

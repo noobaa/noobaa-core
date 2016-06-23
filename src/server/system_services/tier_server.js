@@ -52,9 +52,13 @@ var TIER_PLACEMENT_FIELDS = [
  *
  */
 function create_tier(req) {
-    var pool_ids = _.map(req.rpc_params.node_pools, function(pool_name) {
+    var node_pool_ids = _.map(req.rpc_params.node_pools, function(pool_name) {
         return req.system.pools_by_name[pool_name]._id;
     });
+    let cloud_pool_ids = _.map(req.rpc_params.cloud_pools, function(pool_name) {
+        return req.system.pools_by_name[pool_name]._id;
+    });
+    let pool_ids = node_pool_ids.concat(cloud_pool_ids);
     var tier = new_tier_defaults(req.rpc_params.name, req.system._id, pool_ids);
     _.merge(tier, _.pick(req.rpc_params, TIER_PLACEMENT_FIELDS));
     dbg.log0('Creating new tier', tier);
@@ -103,6 +107,11 @@ function update_tier(req) {
             return req.system.pools_by_name[pool_name]._id;
         });
     }
+    if (req.rpc_params.cloud_pools) {
+        updates.pools = updates.pools.concat(_.map(req.rpc_params.cloud_pools, function(pool_name) {
+            return req.system.pools_by_name[pool_name]._id;
+        }));
+    }
     updates._id = tier._id;
     return system_store.make_changes({
             update: {
@@ -115,8 +124,8 @@ function update_tier(req) {
             let policy_type_change = String(tier.data_placement) === String(req.rpc_params.data_placement) ? 'No changes' :
                 `Changed to ${req.rpc_params.data_placement} from ${tier.data_placement}`;
             let tier_pools = _.map(tier.pools, pool => pool.name);
-            let added_pools = [] || _.difference(req.rpc_params.node_pools, tier_pools);
-            let removed_pools = [] || _.difference(tier_pools, req.rpc_params.node_pools);
+            let added_pools = [] || _.difference(req.rpc_params.node_pools.concat(req.rpc_params.cloud_pools), tier_pools);
+            let removed_pools = [] || _.difference(tier_pools, req.rpc_params.node_pools.concat(req.rpc_params.cloud_pools));
             desc_string.push(`Bucket policy was changed by: ${req.account && req.account.email}`);
             desc_string.push(`Policy type: ${policy_type_change}`);
             if (added_pools.length) {

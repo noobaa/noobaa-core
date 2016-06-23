@@ -33,7 +33,12 @@
                     </a>
                 </th>
                 <th class="capacity-col">
+                    <a href data-bind="
+                        click: () => orderBy('usage'),
+                        css: orderClassFor('usage')
+                    ">
                     used capacity
+                    </a>
                 </th>
                 <th class="cloudsync-col">
                     <a href data-bind="

@@ -11,8 +11,7 @@ const bucketCmpFuncs = Object.freeze({
     state: (b1, b2) => compareBools(b1.state, b2.state),
     name: (b1, b2) => compareStrings(b1.name, b2.name),
     filecount: (b1, b2) => compareInts(b1.num_objects, b2.num_objects),
-    totalsize: (b1, b2) => compareInts(b1.storage.total, b2.storage.total),
-    freesize: (b1, b2) => compareInts(b1.storage.free, b2.storage.free),
+    usage: (b1, b2) => compareInts(b1.storage.used, b2.storage.used),
     cloudsync: (b1, b2) => compareStrings(b1.cloud_sync_status, b2.cloud_sync_status)
 });
 

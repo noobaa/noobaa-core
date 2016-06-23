@@ -118,11 +118,11 @@ export const nodeTestInfo = ko.observable();
 // hold system upgrade status.
 export const upgradeStatus = ko.observable();
 
-// hold system uplaod ssl certificate status.
-export const uploadStatus = ko.observable();
-
 // Hold debug collection info.
 export const debugCollectionInfo = ko.observable();
 
 // Hold the last notifiction.
 export const lastNotification = ko.observable();
+
+// hold system upload ssl certificate status.
+export const sslCertificateUploadStatus = ko.observable();

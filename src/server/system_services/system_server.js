@@ -26,7 +26,6 @@ const upgrade_utils = require('../../util/upgrade_utils');
 const RpcError = require('../../rpc/rpc_error');
 const size_utils = require('../../util/size_utils');
 const server_rpc = require('../server_rpc');
-const mongo_utils = require('../../util/mongo_utils');
 const pool_server = require('./pool_server');
 const tier_server = require('./tier_server');
 const auth_server = require('../common_services/auth_server');
@@ -220,8 +219,6 @@ function read_system(req) {
             upgrade.status = 'UNAVAILABLE';
             upgrade.message = '';
         }
-
-
 
 
         // TODO use n2n_config.stun_servers ?

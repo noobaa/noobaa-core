@@ -16,7 +16,7 @@ const P = require('../../util/promise');
 const RpcError = require('../../rpc/rpc_error');
 const server_rpc = require('../server_rpc');
 const auth_server = require('../common_services/auth_server');
-const ActivityLog = require('../analytic_services/activity_log');
+const Dispatcher = require('../notifications/dispatcher');
 const system_store = require('../system_services/system_store').get_instance();
 const system_server = require('./system_server');
 const cluster_server = require('./cluster_server');
@@ -70,7 +70,7 @@ function create_account(req) {
                 });
         })
         .then(changes => {
-            ActivityLog.create({
+            Dispatcher.activity({
                 event: 'account.create',
                 level: 'info',
                 system: req.system && req.system._id || changes.insert.systems[0]._id,
@@ -242,7 +242,7 @@ function update_account_s3_acl(req) {
             if (removed_buckets.length) {
                 desc_string.push(`Removed buckets: ${removed_buckets}`);
             }
-            return ActivityLog.create({
+            return Dispatcher.activity({
                 event: 'account.s3_access_updated',
                 level: 'info',
                 system: req.system && req.system._id,
@@ -283,7 +283,7 @@ function update_account(req) {
                 }
             });
         })
-        .then(() => ActivityLog.create({
+        .then(() => Dispatcher.activity({
             event: 'account.update',
             level: 'info',
             system: req.system && req.system._id,
@@ -332,7 +332,7 @@ function delete_account(req) {
         })
         .then(
             val => {
-                ActivityLog.create({
+                Dispatcher.activity({
                     event: 'account.delete',
                     level: 'info',
                     system: req.system && req.system._id,
@@ -343,7 +343,7 @@ function delete_account(req) {
                 return val;
             },
             err => {
-                ActivityLog.create({
+                Dispatcher.activity({
                     event: 'account.delete',
                     level: 'alert',
                     system: req.system && req.system._id,

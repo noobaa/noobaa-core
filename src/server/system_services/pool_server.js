@@ -13,7 +13,7 @@ const config = require('../../../config');
 const RpcError = require('../../rpc/rpc_error');
 const size_utils = require('../../util/size_utils');
 const server_rpc = require('../server_rpc');
-const ActivityLog = require('../analytic_services/activity_log');
+const Dispatcher = require('../notifications/dispatcher');
 const nodes_store = require('../node_services/nodes_store');
 const nodes_client = require('../node_services/nodes_client');
 const system_store = require('../system_services/system_store').get_instance();
@@ -47,7 +47,7 @@ function create_pool(req) {
             return _assign_nodes_to_pool(req, pool);
         })
         .then(res => {
-            ActivityLog.create({
+            Dispatcher.activity({
                 event: 'pool.create',
                 level: 'info',
                 system: req.system._id,
@@ -87,7 +87,7 @@ function create_cloud_pool(req) {
         })
         .then(() => {
             // TODO: should we add different event for cloud pool?
-            ActivityLog.create({
+            Dispatcher.activity({
                 event: 'pool.create',
                 level: 'info',
                 system: req.system._id,
@@ -155,7 +155,7 @@ function delete_pool(req) {
             });
         })
         .then(res => {
-            ActivityLog.create({
+            Dispatcher.activity({
                 event: 'pool.delete',
                 level: 'info',
                 system: req.system._id,
@@ -199,7 +199,7 @@ function delete_cloud_pool(req) {
             }
         }))
         .then(res => {
-            ActivityLog.create({
+            Dispatcher.activity({
                 event: 'pool.delete',
                 level: 'info',
                 system: req.system._id,
@@ -244,7 +244,7 @@ function _assign_nodes_to_pool(req, pool) {
                     _.forEach(nodes_before_change, node => {
                         desc_string.push(`${node.name} was assigned from ${node.pool.name} to ${pool.name}`);
                     });
-                    ActivityLog.create({
+                    Dispatcher.activity({
                         event: 'pool.assign_nodes',
                         level: 'info',
                         system: req.system._id,

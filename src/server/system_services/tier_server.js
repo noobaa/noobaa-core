@@ -273,7 +273,11 @@ function find_policy_by_name(req) {
 
 function get_tier_info(tier, nodes_aggregate_pool) {
     var info = _.pick(tier, 'name', TIER_PLACEMENT_FIELDS);
-    info.node_pools = _.map(tier.pools, pool => pool.name);
+    let pools_partitions = _.partition(tier.pools, pool => _.isUndefined(pool.cloud_pool_info));
+    let node_pools_part = pools_partitions[0];
+    let cloud_pools_part = pools_partitions[1];
+    info.node_pools = node_pools_part.map(pool => pool.name);
+    info.cloud_pools = cloud_pools_part.map(pool => pool.name);
     var reducer;
     if (tier.data_placement === 'MIRROR') {
         reducer = size_utils.reduce_minimum;

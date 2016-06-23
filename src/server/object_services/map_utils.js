@@ -314,6 +314,7 @@ function get_block_info(block, adminfo) {
             pool_name: pool.name,
             node_name: node.name,
             node_ip: node.ip,
+            in_cloud_pool: !!node.is_cloud_node,
             online: nodes_store.instance().is_online_node(node),
         };
     }

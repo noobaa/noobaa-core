@@ -1076,6 +1076,10 @@ module.exports = {
                         online: {
                             type: 'boolean'
                         },
+                        in_cloud_pool: {
+                            type: 'boolean'
+                        },
+
                     }
                 }
             }

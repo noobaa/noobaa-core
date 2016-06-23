@@ -211,9 +211,13 @@ class Agent {
     _do_heartbeat() {
         if (!this.is_started) return;
 
-        return this.client.node.heartbeat({
-                version: pkg.version
-            }, {
+        let hb_info = {
+            version: pkg.version
+        };
+        if (this.cloud_info) {
+            hb_info.pool_name = this.cloud_info.cloud_pool_name;
+        }
+        return this.client.node.heartbeat(hb_info, {
                 return_rpc_req: true
             }).then(req => {
                 const res = req.reply;

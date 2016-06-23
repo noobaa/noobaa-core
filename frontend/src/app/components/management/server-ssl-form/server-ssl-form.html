@@ -1,6 +1,25 @@
-<h1 class="heading2">SSL Certificate Upload</h1>
+<div class="row content-middle" data-bind="click: () => expanded.toggle()">
+    <h2 class="heading3 greedy">
+        SSL Certificate 
+    </h2>
 
-<section class="container">
+    <button class="btn-flat expand-btn no-outline">
+        <svg-icon class="rotate"
+            params="uri: '/fe/assets/icons.svg#chevron'"
+            data-bind="css: { 'deg-90': !expanded() }">
+        </svg-icon>
+    </button>
+</div>
+
+<p data-bind="visible: !expanded()">
+    <output class="emphasized" data-bind="
+		value: '',
+        css: { 'text-tech': enabled() }
+    "></output>
+</p>
+
+
+<section class="column" data-bind="expand: expanded">
     <h2 class="heading3"></h2>
     <p class="paragraph">Please upload a zip with certificate and private key in pem format</p>
     <file-selector params="

@@ -60,7 +60,6 @@ function run_server() {
                 port: process.env.S3_PORT || 80,
                 ssl_port: process.env.S3_SSL_PORT || 443,
             });
-            dbg.log0('Generating selfSigned SSL Certificate...');
             dbg.log0('certificate location:', path.join(rootdir, 'src', 'private_ssl_path', 'server.key'));
             if (fs.existsSync(path.join(rootdir, 'src', 'private_ssl_path', 'server.key')) &&
                 fs.existsSync(path.join(rootdir, 'src', 'private_ssl_path', 'server.crt'))) {
@@ -71,6 +70,7 @@ function run_server() {
                 };
                 return local_certificate;
             } else {
+
                 dbg.log0('Generating self signed certificate');
                 return P.nfcall(pem.createCertificate, {
                     days: 365 * 100,
@@ -78,7 +78,8 @@ function run_server() {
                 });
             }
         })
-        .then(() => {
+        .then((certificate) => {
+            params.certificate = certificate;
             const addr_url = url.parse(params.address || '');
             const is_local_address = !params.address ||
                 addr_url.hostname === '127.0.0.1' ||

@@ -35,6 +35,16 @@ function fix_iptables {
     iptables -I INPUT 1 -i eth0 -p tcp --dport 8443 -j ACCEPT
   fi
 
+  local exist=$(iptables -L -n | grep 26050 | wc -l)
+  if [ "${exist}" == "0" ]; then
+    iptables -I INPUT 1 -i eth0 -p tcp --dport 26050 -j ACCEPT
+  fi
+
+  local exist=$(iptables -L -n | grep 27000 | wc -l)
+  if [ "${exist}" == "0" ]; then
+    iptables -I INPUT 1 -i eth0 -p tcp --dport 27000 -j ACCEPT
+  fi
+
   #If logging rules exist, remove them
   /sbin/iptables -D INPUT -m limit --limit 15/minute -j LOG --log-level 2 --log-prefix "Dropped by firewall: "
   /sbin/iptables -D OUTPUT -m limit --limit 15/minute -j LOG --log-level 2 --log-prefix "Dropped by firewall: "

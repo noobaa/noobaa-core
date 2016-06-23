@@ -1310,15 +1310,15 @@ export function upgradeSystem(upgradePackage) {
 }
 
 export function uploadSSLCertificate(SSLCertificate) {
-    logAction('SSLCertificate', { SSLCertificate });
+    logAction('uploadSSLCertificate', { SSLCertificate });
 
-    let { uploadStatus } = model;
-
+    let uploadStatus = model.sslCertificateUploadStatus;
     uploadStatus({
-        step: 'UPLOAD',
+        state: 'IN_PROGRESS',
         progress: 0,
-        state: 'IN_PROGRESS'
+        error: ''
     });
+
     let xhr = new XMLHttpRequest();
     xhr.open('POST', '/upload_certificate', true);
 
@@ -1326,31 +1326,30 @@ export function uploadSSLCertificate(SSLCertificate) {
         if (xhr.status !== 200) {
             uploadStatus.assign ({
                 state: 'FAILED',
-                text: evt.target.responseText
+                error: evt.target.responseText
             });
 
-        }else
-        {
+        } else {
             uploadStatus.assign ({
-                state: 'SUCCESS',
+                state: 'SUCCESS'
             });
         }
-        };
+    };
 
     xhr.upload.onprogress = function(evt) {
         uploadStatus.assign({
-                progress: evt.lengthComputable && evt.loaded / evt.total
-            })
-        };
+            progress: evt.lengthComputable && (evt.loaded / evt.total)
+        });
+    };
 
     xhr.onerror = function(evt) {
         uploadStatus.assign({
             state: 'FAILED',
-            text: evt.target.responseText
+            error: evt.target.responseText
         });
     };
 
-    xhr.onabort = function(evt) {
+    xhr.onabort = function() {
         uploadStatus.assign ({
             state: 'CANCELED'
         });

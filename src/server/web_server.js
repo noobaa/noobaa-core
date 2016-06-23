@@ -45,9 +45,11 @@ var time_utils = require('../util/time_utils');
 var mongo_client = require('../util/mongo_client');
 var mongoose_utils = require('../util/mongoose_utils');
 var promise_utils = require('../util/promise_utils');
+var os = require('os');
 
 var rootdir = path.join(__dirname, '..', '..');
 var dev_mode = (process.env.DEV_MODE === 'true');
+const SupervisorCtl = require('./utils/supervisor_ctrl');
 
 dbg.set_process_name('WebServer');
 mongoose_utils.mongoose_connect();
@@ -138,10 +140,21 @@ P.fcall(function() {
         return P.ninvoke(http_server, 'listen', http_port);
     })
     .then(function() {
-        return P.nfcall(pem.createCertificate, {
-            days: 365 * 100,
-            selfSigned: true
-        });
+        if (fs.existsSync(path.join(rootdir, 'src', 'private_ssl_path', 'server.key')) &&
+            fs.existsSync(path.join(rootdir, 'src', 'private_ssl_path', 'server.crt'))) {
+            dbg.log0('Using local certificate');
+            var local_certificate = {
+                serviceKey: fs.readFileSync(path.join(rootdir, 'src', 'private_ssl_path', 'server.key')),
+                certificate: fs.readFileSync(path.join(rootdir, 'src', 'private_ssl_path', 'server.crt'))
+            };
+            return local_certificate;
+        } else {
+            dbg.log0('Using self-signed certificate');
+            return P.nfcall(pem.createCertificate, {
+                days: 365 * 100,
+                selfSigned: true
+            });
+        }
     })
     .then(function(cert) {
         https_server = https.createServer({
@@ -246,8 +259,12 @@ app.post('/upload_certificate',
             ], {}, false)
             .then(function() {
                 res.status(200).send('SUCCESS');
+                if (os.type() === 'Linux') {
+                    return SupervisorCtl.restart(['s3rver', 'webserver']);
+                }
             }).catch(function(err) {
                 let error_message = '';
+                //TODO: replace this ugly code.
                 dbg.log0('failed to upload certificate. ' + err.message, err);
                 if (err.message.indexOf(' error code 1') > 0) {
                     error_message = 'No match between key and certificate.';

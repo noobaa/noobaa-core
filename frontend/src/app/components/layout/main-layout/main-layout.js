@@ -9,7 +9,7 @@ class MainLayoutViewModel {
         );
 
         this.showDebugOutline = ko.pureComputed(
-            () => !!systemInfo() && systemInfo().debugLevel > 0
+            () => !!systemInfo() && systemInfo().debug_level > 0
         );
     }
 }

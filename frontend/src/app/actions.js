@@ -2,12 +2,10 @@ import * as model from 'model';
 import page from 'page';
 import api from 'services/api';
 import config from 'config';
+import * as routes from 'routes';
 
-import {
-    isDefined, isUndefined, encodeBase64, cmpStrings, cmpInts, cmpBools,
-    last, clamp,  makeArray, execInOrder, realizeUri, downloadFile,
-    generateAccessKeys
-} from 'utils';
+import { isDefined, isUndefined, last, makeArray, execInOrder, realizeUri,
+    downloadFile, generateAccessKeys, deepFreeze } from 'utils';
 
 // TODO: resolve browserify issue with export of the aws-sdk module.
 // The current workaround use the AWS that is set on the global window object.
@@ -55,27 +53,29 @@ export function start() {
 // -----------------------------------------------------
 // Navigation actions
 // -----------------------------------------------------
-export function navigateTo(path = window.location.pathname, query = {}) {
-    logAction('navigateTo', { path, query });
+export function navigateTo(route = window.location.pathname, params = {},  query = {}) {
+    logAction('navigateTo', { route, params, query });
 
     page.show(
-        realizeUri(path, model.routeContext().params, query)
+        realizeUri(route, Object.assign({}, model.routeContext().params, params), query)
     );
 }
 
-export function redirectTo(path = window.location.pathname, query = {}) {
-    logAction('redirectTo', { path, query });
+export function redirectTo(route = window.location.pathname, params = {}, query = {}) {
+    logAction('redirectTo', { route, params, query });
 
     page.redirect(
-        realizeUri(path, model.routeContext().params, query)
+        realizeUri(route, Object.assign({}, model.routeContext().params, params), query)
     );
 }
 
-export function reloadTo(path = window.location.pathname, query = {}) {
-    logAction('reloadTo', { path, query });
+export function reloadTo(route = window.location.pathname, params = {},  query = {}) {
+    logAction('reloadTo', { route, params, query });
 
     // Force full browser refresh
-    window.location.href = realizeUri(path, model.routeContext().params, query);
+    window.location.href = realizeUri(
+        route, Object.assign({}, model.routeContext().params, params), query
+    );
 }
 
 export function refresh() {
@@ -85,7 +85,6 @@ export function refresh() {
 
     // Refresh the current path
     page.redirect(pathname + search);
-
     model.refreshCounter(model.refreshCounter() + 1);
 }
 
@@ -99,7 +98,7 @@ export function showLogin() {
     let ctx = model.routeContext();
 
     if (session) {
-        redirectTo(`/fe/systems/${session.system}`);
+        redirectTo(routes.system, { system: session.system });
 
     } else {
         model.uiState({
@@ -118,12 +117,10 @@ export function showOverview() {
         layout: 'main-layout',
         title: 'OVERVIEW',
         breadcrumbs: [
-            { href: 'fe/systems/:system' }
+            { route: 'system' }
         ],
         panel: 'overview'
     });
-
-    loadSystemSummary();
 }
 
 export function showBuckets() {
@@ -133,14 +130,11 @@ export function showBuckets() {
         layout: 'main-layout',
         title: 'BUCKETS',
         breadcrumbs: [
-            { href: 'fe/systems/:system' },
-            { href: 'buckets', label: 'BUCKETS' }
+            { route: 'system' },
+            { route: 'buckets', label: 'BUCKETS' }
         ],
         panel: 'buckets'
     });
-
-    let { sortBy, order } = model.routeContext().query;
-    loadBucketList(sortBy, order);
 }
 
 export function showBucket() {
@@ -154,15 +148,14 @@ export function showBucket() {
         layout: 'main-layout',
         title: bucket,
         breadcrumbs: [
-            { href: 'fe/systems/:system' },
-            { href: 'buckets', label: 'BUCKETS' },
-            { href: ':bucket', label: bucket }
+            { route: 'system' },
+            { route: 'buckets', label: 'BUCKETS' },
+            { route: 'bucket', label: bucket }
         ],
         panel: 'bucket',
         tab: tab
     });
 
-    loadBucketInfo(bucket);
     loadBucketObjectList(bucket, filter, sortBy, parseInt(order), parseInt(page));
 }
 
@@ -173,16 +166,14 @@ export function showObject() {
     let { object, bucket, tab = 'details' } = ctx.params;
     let { page = 0 } = ctx.query;
 
-//    object =  decodeURIComponent(decodeURIComponent(object))
-
     model.uiState({
         layout: 'main-layout',
         title: object,
         breadcrumbs: [
-            { href: 'fe/systems/:system' },
-            { href: 'buckets', label: 'BUCKETS' },
-            { href: ':bucket', label: bucket },
-            { href: 'objects/:object', label: object }
+            { route: 'system' },
+            { route: 'buckets', label: 'BUCKETS' },
+            { route: 'bucket', label: bucket },
+            { route: 'object', label: object }
         ],
         panel: 'object',
         tab: tab
@@ -192,21 +183,21 @@ export function showObject() {
     loadObjectPartList(bucket, object, parseInt(page));
 }
 
-export function showPools() {
-    logAction('showPools');
+export function showResources() {
+    logAction('showResources');
 
+    let ctx = model.routeContext();
+    let { tab = 'pools' } = ctx.params;
     model.uiState({
         layout: 'main-layout',
-        title: 'POOLS',
+        title: 'RESOURCES',
         breadcrumbs: [
-            { href: 'fe/systems/:system' },
-            { href: 'pools', label: 'POOLS'}
+            { route: 'system' },
+            { route: 'pools', label: 'RESOURCES'}
         ],
-        panel: 'pools'
+        panel: 'resources',
+        tab: tab
     });
-
-    let { sortBy, order } = model.routeContext().query;
-    loadPoolList(sortBy, order);
 }
 
 export function showPool() {
@@ -221,15 +212,14 @@ export function showPool() {
         layout: 'main-layout',
         title: pool,
         breadcrumbs: [
-            { href: 'fe/systems/:system' },
-            { href: 'pools', label: 'POOLS' },
-            { href: ':pool', label: pool }
+            { route: 'system' },
+            { route: 'pools', label: 'RESOURCES'},
+            { route: 'pool', label: pool }
         ],
         panel: 'pool',
         tab: tab
     });
 
-    loadPoolInfo(pool);
     loadPoolNodeList(pool, filter, sortBy, parseInt(order), parseInt(page));
 }
 
@@ -244,10 +234,10 @@ export function showNode() {
         layout: 'main-layout',
         title: node,
         breadcrumbs: [
-            { href: 'fe/systems/:system' },
-            { href: 'pools', label: 'POOLS' },
-            { href: ':pool', label: pool },
-            { href: 'nodes/:node', label: node }
+            { route: 'system' },
+            { route: 'pools', label: 'RESOURCES'},
+            { route: 'pool', label: pool },
+            { route: 'node', label: node }
         ],
         panel: 'node',
         tab: tab
@@ -266,8 +256,8 @@ export function showManagement() {
         layout: 'main-layout',
         title: 'SYSTEM MANAGEMENT',
         breadcrumbs: [
-            { href: 'fe/systems/:system' },
-            { href: 'management', label: 'SYSTEM MANAGEMENT' }
+            { route: 'system' },
+            { route: 'management', label: 'SYSTEM MANAGEMENT' }
         ],
         panel: 'management',
         tab: tab
@@ -314,10 +304,10 @@ export function signIn(email, password, redirectUrl) {
                         model.loginInfo({ retryCount: 0 });
 
                         if (isUndefined(redirectUrl)) {
-                            redirectUrl = `/fe/systems/${system}`;
+                            redirectTo(routes.system, { system });
+                        } else {
+                            redirectTo(decodeURIComponent(redirectUrl));
                         }
-
-                        redirectTo(decodeURIComponent(redirectUrl));
                     });
             }
         )
@@ -362,150 +352,10 @@ export function loadSystemInfo() {
 
     api.system.read_system()
         .then(
-            reply => {
-                let { access_key, secret_key } = reply.owner.access_keys[0];
-
-                model.systemInfo({
-                    status: 'active',
-                    name: reply.name,
-                    version: reply.version,
-                    endpoint: endpoint,
-                    ipAddress: reply.ip_address,
-                    dnsName: reply.dns_name,
-                    port: reply.web_port,
-                    sslPort: reply.ssl_port,
-                    accessKey: access_key,
-                    secretKey: secret_key,
-                    P2PConfig: reply.n2n_config,
-                    owner: reply.owner.email,
-                    timeConfig: reply.time_config,
-                    debugLevel: reply.debug_level,
-                    maintenance: reply.maintenance_mode,
-                    phoneHomeConfig: reply.phone_home_config,
-                    remoteSyslogConfig: reply.remote_system_config
-                });
-            }
+            reply => model.systemInfo(
+                deepFreeze(Object.assign(reply, { endpoint }))
+            )
         )
-        .done();
-}
-
-export function loadSystemSummary() {
-    logAction('loadSystemSummary');
-
-    api.system.read_system()
-        .then(
-            reply => model.systemSummary({
-                capacity: reply.storage.total,
-                bucketCount: reply.buckets.length,
-                objectCount: reply.objects,
-                poolCount: reply.pools.length,
-                nodeCount: reply.nodes.count,
-                onlineNodeCount: reply.nodes.online,
-                offlineNodeCount: reply.nodes.count - reply.nodes.online
-            })
-        )
-        .done();
-}
-
-const bucketCmpFuncs = Object.freeze({
-    state: (b1, b2) => cmpBools(b1.state, b2.state),
-    name: (b1, b2) => cmpStrings(b1.name, b2.name),
-    filecount: (b1, b2) => cmpInts(b1.num_objects, b2.num_objects),
-    totalsize: (b1, b2) => cmpInts(b1.storage.total, b2.storage.total),
-    freesize: (b1, b2) => cmpInts(b1.storage.free, b2.storage.free),
-    cloudsync: (b1, b2) => cmpStrings(b1.cloud_sync_status, b2.cloud_sync_status)
-});
-
-export function loadBucketList(sortBy = 'name', order = 1) {
-    logAction('loadBucketList', { sortBy, order });
-
-    // Normalize the order.
-    order = clamp(order, -1, 1);
-
-    let bucketList = model.bucketList;
-    api.system.read_system()
-        .then(
-            ({ buckets }) => {
-                bucketList(
-                    buckets.sort(
-                        (b1, b2) => order * bucketCmpFuncs[sortBy](b1, b2)
-                    )
-                );
-                bucketList.sortedBy(sortBy);
-                bucketList.order(order);
-            }
-        )
-        .done();
-}
-
-const poolCmpFuncs = Object.freeze({
-    state: () => cmpBools(true, true),
-    name: (p1, p2) => cmpStrings(p1.name, p2.name),
-    nodecount: (p1, p2) => cmpInts(p1.nodes.count, p2.nodes.count),
-    onlinecount: (p1, p2) => cmpInts(p1.nodes.online, p2.nodes.online),
-    offlinecount: (p1, p2) => cmpInts(
-        p1.nodes.count - p1.nodes.online,
-        p2.nodes.count - p2.nodes.online
-    ),
-    usage: (p1, p2) => cmpInts(p1.storage.used, p2.storage.used),
-    capacity: (p1, p2) => cmpInts(p1.storage.total, p2.storage.total)
-});
-
-export function loadPoolList(sortBy = 'name', order = 1) {
-    logAction('loadPoolList', { sortBy, order });
-
-    // Normalize the order.
-    order = clamp(order, -1, 1);
-
-    let poolList = model.poolList;
-    api.system.read_system()
-        .then(
-            ({ pools }) => {
-                poolList(
-                    pools.sort(
-                        (b1, b2) => order * poolCmpFuncs[sortBy](b1, b2)
-                    )
-                );
-                poolList.sortedBy(sortBy);
-                poolList.order(order);
-            }
-        )
-        .done();
-}
-
-export function loadAgentInstallationInfo() {
-    logAction('loadAgentInstallationInfo');
-
-    let { agentInstallationInfo } = model;
-    api.system.read_system()
-        .then(
-            reply => {
-                let keys = reply.owner.access_keys[0];
-
-                agentInstallationInfo({
-                    agentConf: encodeBase64({
-                        address: reply.base_address,
-                        system: reply.name,
-                        access_key: keys.access_key,
-                        secret_key: keys.secret_key,
-                        tier: 'nodes',
-                        root_path: './agent_storage/'
-                    }),
-                    downloadUris: {
-                        windows: reply.web_links.agent_installer,
-                        linux: reply.web_links.linux_agent_installer
-                    }
-                });
-            }
-        )
-        .done();
-}
-
-export function loadBucketInfo(name) {
-    logAction('loadBucketInfo', { name });
-
-    api.bucket.read_bucket({ name })
-        .then(model.bucketInfo)
         .done();
 }
 
@@ -553,34 +403,26 @@ export function loadObjectMetadata(bucketName, objectName) {
         model.objectInfo(null);
     }
 
-    let objInfoPromise = api.object.read_object_md({
+    let { access_key ,secret_key } = model.systemInfo().owner.access_keys;
+    let s3 = new AWS.S3({
+        endpoint: endpoint,
+        credentials: {
+            accessKeyId:  access_key,
+            secretAccessKey:  secret_key
+        },
+        s3ForcePathStyle: true,
+        sslEnabled: false,
+        signatureVersion: 'v4',
+        region: 'eu-central-1'
+    });
+
+    api.object.read_object_md({
         bucket: bucketName,
         key: objectName,
         get_parts_count: true
-    });
-
-    let S3Promise = api.system.read_system()
+    })
         .then(
-            reply => {
-                let { access_key, secret_key } = reply.owner.access_keys[0];
-
-                return new AWS.S3({
-                    endpoint: endpoint,
-                    credentials: {
-                        accessKeyId:  access_key,
-                        secretAccessKey:  secret_key
-                    },
-                    s3ForcePathStyle: true,
-                    sslEnabled: false,
-                    signatureVersion: 'v4',
-                    region: 'eu-central-1'
-                });
-            }
-        );
-
-    Promise.all([objInfoPromise, S3Promise])
-        .then(
-            ([objInfo, s3]) => {
+            objInfo => {
                 let s3_signed_url = s3.getSignedUrl(
                     'getObject',
                     { Bucket: bucketName, Key: objectName, Expires: 604800 }
@@ -590,7 +432,8 @@ export function loadObjectMetadata(bucketName, objectName) {
                     Object.assign(objInfo, { s3_signed_url })
                 );
             }
-        );
+        )
+        .done();
 }
 
 export function loadObjectPartList(bucketName, objectName, page) {
@@ -610,18 +453,6 @@ export function loadObjectPartList(bucketName, objectName, page) {
                 model.objectPartList.count(total_parts);
             }
         )
-        .done();
-}
-
-export function loadPoolInfo(name) {
-    logAction('loadPoolInfo', { name });
-
-    if (model.poolInfo() && model.poolInfo().name !== name) {
-        model.poolInfo(null);
-    }
-
-    api.pool.read_pool({ name })
-        .then(model.poolInfo)
         .done();
 }
 
@@ -839,15 +670,15 @@ export function loadS3BucketList(connection) {
 // -----------------------------------------------------
 // Managment actions.
 // -----------------------------------------------------
-export function createSystemAccount(systemName, email, password, dnsName) {
-    logAction('createSystemAccount', { systemName, email, password, dnsName });
+export function createSystemAccount(system, email, password, dnsName) {
+    logAction('createSystemAccount', { system, email, password, dnsName });
 
-    let accessKeys = systemName === 'demo' && email === 'demo@noobaa.com' ?
+    let accessKeys = system === 'demo' && email === 'demo@noobaa.com' ?
         { access_key: '123', secret_key: 'abc' } :
         generateAccessKeys();
 
     api.account.create_account({
-        name: systemName,
+        name: system,
         email: email,
         password: password,
         access_keys: accessKeys
@@ -856,7 +687,7 @@ export function createSystemAccount(systemName, email, password, dnsName) {
             ({ token }) => {
                 api.options.auth_token = token;
                 localStorage.setItem('sessionToken', token);
-                model.sessionInfo({ user: email, system: systemName});
+                model.sessionInfo({ user: email, system: system});
             }
         )
         .then(
@@ -869,7 +700,7 @@ export function createSystemAccount(systemName, email, password, dnsName) {
             }
         )
         .then(
-            () => redirectTo(`/fe/systems/${systemName}`)
+            () => redirectTo(routes.system, { system })
         )
         .done();
 }
@@ -906,8 +737,6 @@ export function resetAccountPassword(email, password) {
 export function createBucket(name, dataPlacement, pools) {
     logAction('createBucket', { name, dataPlacement, pools });
 
-    let { bucketList } = model;
-
     // TODO: remove the random string after patching the server
     // with a delete bucket that deletes also the policy
     let bucket_with_suffix = `${name}#${Date.now().toString(36)}`;
@@ -936,9 +765,7 @@ export function createBucket(name, dataPlacement, pools) {
                 tiering: policy.name
             })
         )
-        .then(
-            () => loadBucketList(bucketList.sortedBy(), bucketList.order())
-        )
+        .then(loadSystemInfo)
         .done();
 }
 
@@ -946,7 +773,7 @@ export function deleteBucket(name) {
     logAction('deleteBucket', { name });
 
     api.bucket.delete_bucket({ name })
-        .then(refresh)
+        .then(loadSystemInfo)
         .done();
 }
 
@@ -967,11 +794,8 @@ export function updateTier(name, dataPlacement, pools) {
 export function createPool(name, nodes) {
     logAction('createPool', { name, nodes });
 
-    let { poolList } = model;
     api.pool.create_nodes_pool({ name, nodes })
-        .then(
-            () => loadPoolList(poolList.sortedBy(), poolList.order())
-        )
+        .then(loadSystemInfo)
         .done();
 }
 
@@ -979,7 +803,7 @@ export function deletePool(name) {
     logAction('deletePool', { name });
 
     api.pool.delete_pool({ name })
-        .then(refresh)
+        .then(loadSystemInfo)
         .done();
 }
 
@@ -990,7 +814,19 @@ export function assignNodes(name, nodes) {
         name: name,
         nodes: nodes
     })
-        .then(refresh)
+        .then(loadSystemInfo)
+        .done();
+}
+
+export function createCloudPool(name, connection, cloudBucket) {
+    logAction('createCloudPool', { name, connection, cloudBucket });
+
+    api.pool.create_cloud_pool({
+        name: name,
+        connection: connection,
+        target_bucket: cloudBucket
+    })
+        .then(loadSystemInfo)
         .done();
 }
 
@@ -998,84 +834,76 @@ export function uploadFiles(bucketName, files) {
     logAction('uploadFiles', { bucketName, files });
 
     let recentUploads = model.recentUploads;
-    api.system.read_system()
-        .then(
-            reply => {
-                let { access_key, secret_key } = reply.owner.access_keys[0];
 
-                return new AWS.S3({
-                    endpoint: endpoint,
-                    credentials: {
-                        accessKeyId: access_key,
-                        secretAccessKey: secret_key
+    let { access_key , secret_key } = model.systemInfo().owner.acess_keys;
+    let s3 = new AWS.S3({
+        endpoint: endpoint,
+        credentials: {
+            accessKeyId: access_key,
+            secretAccessKey: secret_key
+        },
+        s3ForcePathStyle: true,
+        sslEnabled: false
+    });
+
+    let uploadRequests = Array.from(files).map(
+        file => new Promise(
+            resolve => {
+                // Create an entry in the recent uploaded list.
+                let entry = {
+                    name: file.name,
+                    targetBucket: bucketName,
+                    state: 'UPLOADING',
+                    progress: 0,
+                    error: null
+                };
+                recentUploads.unshift(entry);
+
+                // Start the upload.
+                s3.upload(
+                    {
+                        Key: file.name,
+                        Bucket: bucketName,
+                        Body: file,
+                        ContentType: file.type
                     },
-                    s3ForcePathStyle: true,
-                    sslEnabled: false
-                });
-            }
-        )
-        .then(
-            s3 => {
-                let uploadRequests = Array.from(files).map(
-                    file => new Promise(
-                        resolve => {
-                            // Create an entry in the recent uploaded list.
-                            let entry = {
-                                name: file.name,
-                                targetBucket: bucketName,
-                                state: 'UPLOADING',
-                                progress: 0,
-                                error: null
-                            };
-                            recentUploads.unshift(entry);
+                    {
+                        partSize: 64 * 1024 * 1024,
+                        queueSize: 4
+                    },
+                    error => {
+                        if (!error) {
+                            entry.state = 'COMPLETED';
+                            entry.progress = 1;
+                            resolve(1);
 
-                            // Start the upload.
-                            s3.upload(
-                                {
-                                    Key: file.name,
-                                    Bucket: bucketName,
-                                    Body: file,
-                                    ContentType: file.type
-                                },
-                                {
-                                    partSize: 64 * 1024 * 1024,
-                                    queueSize: 4
-                                },
-                                error => {
-                                    if (!error) {
-                                        entry.state = 'COMPLETED';
-                                        entry.progress = 1;
-                                        resolve(1);
+                        } else {
+                            entry.state = 'FAILED';
+                            entry.error = error;
 
-                                    } else {
-                                        entry.state = 'FAILED';
-                                        entry.error = error;
-
-                                        // This is not a bug we want to resolve failed uploads
-                                        // in order to finalize the entire upload process.
-                                        resolve(0);
-                                    }
-
-                                    // Use replace to trigger change event.
-                                    recentUploads.replace(entry, entry);
-                                }
-                            )
-                            //  Report on progress.
-                            .on('httpUploadProgress',
-                                ({ loaded, total }) => {
-                                    entry.progress = loaded / total;
-
-                                    // Use replace to trigger change event.
-                                    recentUploads.replace(entry, entry);
-                                }
-                            );
+                            // This is not a bug we want to resolve failed uploads
+                            // in order to finalize the entire upload process.
+                            resolve(0);
                         }
-                    )
-                );
 
-                return Promise.all(uploadRequests);
+                        // Use replace to trigger change event.
+                        recentUploads.replace(entry, entry);
+                    }
+                )
+                //  Report on progress.
+                .on('httpUploadProgress',
+                    ({ loaded, total }) => {
+                        entry.progress = loaded / total;
+
+                        // Use replace to trigger change event.
+                        recentUploads.replace(entry, entry);
+                    }
+                );
             }
         )
+    );
+
+    Promise.all(uploadRequests)
         .then(
             results => results.reduce(
                 (sum, result) => sum += result
@@ -1252,7 +1080,7 @@ export function upgradeSystem(upgradePackage) {
     function ping() {
         let xhr = new XMLHttpRequest();
         xhr.open('GET', '/version', true);
-        xhr.onload = () => reloadTo('/fe/systems/:system', { afterupgrade: true });
+        xhr.onload = () => reloadTo(routes.system, undefined, { afterupgrade: true });
         xhr.onerror = () => setTimeout(ping, 10000);
         xhr.send();
     }
@@ -1420,11 +1248,7 @@ export function setCloudSyncPolicy(bucket, connection, targetBucket, direction, 
         .then(
             () => {
                 loadCloudSyncInfo(bucket);
-
-                let bucketInfo = model.bucketInfo();
-                if (bucketInfo && bucketInfo.name === bucket) {
-                    loadBucketInfo(bucket);
-                }
+                loadSystemInfo();
             }
         )
         .done();
@@ -1445,10 +1269,7 @@ export function updateCloudSyncPolicy(bucket, direction, frequency, syncDeletion
         .then(
             () => {
                 loadCloudSyncInfo(bucket);
-                let bucketInfo = model.bucketInfo();
-                if (bucketInfo && bucketInfo.name === bucket) {
-                    loadBucketInfo(bucket);
-                }
+                loadSystemInfo();
             }
         );
 }
@@ -1460,7 +1281,7 @@ export function removeCloudSyncPolicy(bucket) {
         .then(
             () => model.cloudSyncInfo(null)
         )
-        .then(refresh);
+        .then(loadSystemInfo);
 }
 
 export function toogleCloudSync(bucket, pause) {
@@ -1473,11 +1294,7 @@ export function toogleCloudSync(bucket, pause) {
         .then(
             () => {
                 loadCloudSyncInfo(bucket);
-
-                let bucketInfo = model.bucketInfo();
-                if (bucketInfo && bucketInfo.name === bucket) {
-                    loadBucketInfo(bucket);
-                }
+                loadSystemInfo();
             }
         )
         .done();

@@ -57,15 +57,15 @@ class CloudSyncModalViewModel {
             ]
         );
 
-        let connectionStorage = ko.observable();
+        let _connection = ko.observable();
         this.connection = ko.pureComputed({
-            read: connectionStorage,
-            write: val => {
-                if (val !== addConnectionOption.value) {
-                    connectionStorage(val);
+            read: _connection,
+            write: value => {
+                if (value !== addConnectionOption.value) {
+                    _connection(value);
                 } else {
-                    connectionStorage(connectionStorage() || null);
-                    this.isAWSCredentialsModalVisible(true);
+                    _connection(_connection() || null);
+                    this.isAddS3ConnectionModalVisible(true);
                 }
             }
         })
@@ -113,7 +113,7 @@ class CloudSyncModalViewModel {
             write: _syncDeletions
         });
 
-        this.isAWSCredentialsModalVisible = ko.observable(false);
+        this.isAddS3ConnectionModalVisible = ko.observable(false);
 
         this.errors = ko.validation.group([
             this.connection,
@@ -127,9 +127,12 @@ class CloudSyncModalViewModel {
         loadS3BucketList(this.connection().name);
     }
 
-    onNewCredentials(canceled) {
-        this.isAWSCredentialsModalVisible(false);
-        !canceled && this.connection();
+    showAddS3ConnectionModal() {
+        this.isAddS3ConnectionModalVisible(true);
+    }
+
+    hideAddS3ConnectionModal() {
+        this.isAddS3ConnectionModalVisible(false);
     }
 
     cancel() {

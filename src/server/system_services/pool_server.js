@@ -320,11 +320,6 @@ function get_pool_info(pool, nodes_aggregate_pool) {
     var n = nodes_aggregate_pool[pool._id] || {};
     var info = {
         name: pool.name,
-        nodes: {
-            count: n.count || 0,
-            online: n.online || 0,
-            usable: n.usable || 0,
-        },
         // notice that the pool storage is raw,
         // and does not consider number of replicas like in tier
         storage: size_utils.to_bigint_storage({
@@ -338,11 +333,16 @@ function get_pool_info(pool, nodes_aggregate_pool) {
             endpoint: pool.cloud_pool_info.endpoint,
             target_bucket: pool.cloud_pool_info.target_bucket
         };
+    } else {
+        info.nodes = {
+            count: n.count || 0,
+            online: n.online || 0,
+            usable: n.usable || 0,
+        };
+
+        info.undeletable = check_pool_deletion(pool, nodes_aggregate_pool);
     }
-    var reason = check_pool_deletion(pool, nodes_aggregate_pool);
-    if (reason) {
-        info.undeletable = reason;
-    }
+
     return info;
 }
 

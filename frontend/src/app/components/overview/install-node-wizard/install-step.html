@@ -25,7 +25,8 @@
         Click the button below to download the Windows installation package and copy it to the target machine.
     </p>
 
-    <a class="btn3 download-btn push-next" download data-bind="href: packageUrl">
+    <a class="btn3 download-btn push-next" download
+        data-bind="attr: { href: packageUrl }">
         Download Windows Package
     </a>
 
@@ -39,7 +40,7 @@
         Click the button below to download the Linux installation package and copy it to the target machine.
     </p>
 
-    <a class="btn3 push-next" download data-bind="href: packageUrl">
+    <a class="btn3 push-next" download data-bind="attr: { href: packageUrl }">
         Download Linux Package
     </a>
 
@@ -56,7 +57,7 @@
             tooltip: 'Copy to Clipboard',
             click: () => copyInstallCommand()
         ">
-            <svg-icon class="icon-small" params="uri: '/fe/assets/icons.svg#copy-to-clipboard'"></svg-icon>
+            <svg-icon class="icon-small" params="name: 'copy-to-clipboard'"></svg-icon>
         </button>
     </div>
 </div>

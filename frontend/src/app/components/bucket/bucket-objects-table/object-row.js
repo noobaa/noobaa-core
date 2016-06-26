@@ -4,15 +4,15 @@ import ko from 'knockout';
 const statusIconMapping = Object.freeze({
     AVALIABLE: {
         toolTip: 'Avaliable',
-        icon: '/fe/assets/icons.svg#object-available'
+        icon: 'object-available'
     },
     IN_PROCESS: {
         toolTip: 'In Process',
-        icon: '/fe/assets/icons.svg#object-in-process'
+        icon: 'object-in-process'
     },
     UNAVALIABLE: {
         toolTip: 'Unavaliable',
-        icon: '/fe/assets/icons.svg#object-unavailable'
+        icon: 'object-unavailable'
     }
 });
 
@@ -36,10 +36,6 @@ export default class ObjectRowViewModel {
 
         this.stateIcon = ko.pureComputed(
             () => stateMap() && stateMap().icon
-        );
-
-        this.href = ko.pureComputed(
-            () => `/fe/systems/:system/buckets/:bucket/objects/${this.name()}`
         );
 
         this.size = ko.pureComputed(

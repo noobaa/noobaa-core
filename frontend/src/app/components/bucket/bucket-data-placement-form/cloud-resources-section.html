@@ -1,0 +1,39 @@
+<div class="row push-next content-middle">
+    <div class="cloumn greedy">
+        <h3 class="heading3">Cloud Backup</h3>
+        <p>Cloud resources are used to backup the pool data, backup will apply an extra copy in each resource</p>
+    </div>
+
+    <button class="btn3" data-bind="click: showPolicyModal">
+        Edit cloud resources
+    </button>
+</div>
+
+<div class="data-table">
+    <table>
+        <thead>
+            <tr>
+                <th class="icon-col">
+                    type
+                </th>
+                <th class="name-col text-left">
+                    Resource name
+                </th>
+            </tr>
+        </thead>
+        <tbody data-bind="foreach: cloudResources">
+            <tr>
+                <td class="state-col">
+                    <svg-icon params="name: icon"></svg-icon>
+                </td>
+
+                <td class="name-col text-left" data-bind="
+                    text: name
+                "></td>
+            </tr>
+        </tbody>
+    </table>
+    <div class="empty-message" data-bind="visible: !cloudResourceCount()">
+        No cloud resources participate in policy
+    </div>
+</div>

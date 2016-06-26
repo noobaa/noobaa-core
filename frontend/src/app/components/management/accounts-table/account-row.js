@@ -17,7 +17,7 @@ export default class AccountRowViewModel {
         );
 
         let isSystemOwner = ko.pureComputed(
-            () => systemInfo() && this.username() === systemInfo().owner
+            () => systemInfo() && this.username() === systemInfo().owner.email
         );
 
         this.roles = ko.pureComputed(

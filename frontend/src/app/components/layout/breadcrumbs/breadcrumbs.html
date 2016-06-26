@@ -1,14 +1,14 @@
 <a data-bind="
-    href: 'fe/system/:system', 
+    href: { route: 'system' },
     tooltip: { text: 'OVERVIEW', align: 'left' }
 ">
     <span>
-        <svg-icon params="uri: '/fe/assets/icons.svg#logo'"></svg-icon>
+        <svg-icon params="name: 'logo'"></svg-icon>
     </span>
 </a>
 
  <!-- ko foreach: crumbs -->
- <a data-bind="href: href, tooltip: label">
+ <a data-bind="href: { route: route }, tooltip: label">
      <span data-bind="text: label"></span>
  </a>
  <!-- /ko -->

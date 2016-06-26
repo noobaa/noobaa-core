@@ -5,8 +5,8 @@ import { isDefined } from 'utils';
 
 const INPUT_THROTTLE = 1000;
 
-function matchByPrefix({ label }, input) {
-    return label.toString().toLowerCase().startsWith(input);
+function matchByPrefix({ label, value }, input) {
+    return (label || value) .toString().toLowerCase().startsWith(input);
 }
 
 class DropdownViewModel {
@@ -21,7 +21,7 @@ class DropdownViewModel {
         this.options = options;
         this.selected = selected;
         this.selectedIndex = ko.pureComputed(
-            () => ko.unwrap(options).findIndex(
+            () => (ko.unwrap(options) || []).findIndex(
                 opt => opt && opt.value === ko.unwrap(selected)
             )
         );
@@ -37,8 +37,11 @@ class DropdownViewModel {
 
         this.selectedLabel = ko.pureComputed(
             () => {
-                let selectedOpt = isDefined(selected()) ? ko.unwrap(options).find(
-                    opt => !!opt && opt.value === this.selected()
+                let options = ko.unwrap(this.options);
+                let selected = this.selected();
+
+                let selectedOpt = options && isDefined(selected) ? options.find(
+                    opt => !!opt && opt.value === selected
                 ) : null;
 
                 return selectedOpt ? (selectedOpt.label || selectedOpt.value) : placeholder;
@@ -60,12 +63,12 @@ class DropdownViewModel {
 
             case 38: /* up arrow */
                 this.active(true);
-                this.selectPrevOption();
+                this.moveSelection(false);
                 break;
 
             case 40: /* down arrow */
                 this.active(true);
-                this.selectNextOption();
+                this.moveSelection(true);
                 break;
 
             default:
@@ -76,17 +79,18 @@ class DropdownViewModel {
         return true;
     }
 
-    selectPrevOption() {
+    moveSelection(moveDown) {
         let options = ko.unwrap(this.options);
-        let prev = options[Math.max(this.selectedIndex() - 1, 0)];
-        this.selected(prev.value);
-        this.searchInput = '';
-    }
 
-    selectNextOption() {
-        let options = ko.unwrap(this.options);
-        let next = options[Math.min(this.selectedIndex() + 1, options.length - 1)];
-        this.selected(next.value);
+        let i = this.selectedIndex();
+        do {
+            i += moveDown ? 1 : -1;
+        } while (options[i] == null);
+
+
+        if (options[i]) {
+            this.selected(options[i].value);
+        }
         this.searchInput = '';
     }
 
@@ -97,7 +101,7 @@ class DropdownViewModel {
             char;
 
         let option = ko.unwrap(this.options).find(
-            option => this.matchOperator(option, this.searchInput)
+            option => option && this.matchOperator(option, this.searchInput)
         );
 
         if (option) {

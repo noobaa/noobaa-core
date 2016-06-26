@@ -6,9 +6,9 @@ import { formatSize, bitsToNumber } from 'utils';
 import style from 'style';
 
 const accessibilityMapping = Object.freeze({
-    0: { text: 'No Access', icon: '/fe/assets/icons.svg#node-no-access' },
-    1: { text: 'Read Only', icon: '/fe/assets/icons.svg#node-read-only-access' },
-    3: { text: 'Read & Write', icon: '/fe/assets/icons.svg#node-full-access' }
+    0: { text: 'No Access', icon: 'node-no-access' },
+    1: { text: 'Read Only', icon: 'node-read-only-access' },
+    3: { text: 'Read & Write', icon: 'node-full-access' }
 });
 
 const activityLabelMapping = Object.freeze({
@@ -51,7 +51,7 @@ class NodeSummaryViewModel {
         );
 
         this.stateIcon = ko.pureComputed(
-            () => `/fe/assets/icons.svg#node-${node().online ? 'online' : 'offline'}`
+            () => `node-${node().online ? 'online' : 'offline'}`
         );
 
         this.trustText = ko.pureComputed(
@@ -59,7 +59,7 @@ class NodeSummaryViewModel {
         );
 
         this.trustIcon = ko.pureComputed(
-            () => `/fe/assets/icons.svg#${node().trusted ? 'trusted' : 'untrusted'}`
+            () => node().trusted ? 'trusted' : 'untrusted'
         );
 
         this.accessibility = ko.pureComputed(

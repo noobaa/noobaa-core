@@ -1,0 +1,47 @@
+<modal params="onClose: () => cancel()">
+    <h1 class="heading2">
+        Add Cloud Resource
+    </h1>
+
+    <p class="push-next text-center">Use a bucket from a public cloud to serve as a NooBaa storage resource</p>
+
+    <editor params="label: 'Target Connection'" class="push-prev">
+        <dropdown params="
+            placeholder: 'Choose a connection',
+            options: connectionOptions,
+            selected: connection
+        "></dropdown>
+        <div class="val-msg" data-bind="validationMessage: connection"></div>
+    </editor>
+
+    <editor params="label: 'Target Bucket'">
+        <dropdown params="
+            placeholder: 'Choose bucket',
+            disabled: !targetBucketsOptions(),
+            options: targetBucketsOptions,
+            selected: targetBucket
+        "></dropdown>
+        <div class="val-msg" data-bind="validationMessage: targetBucket"></div>
+    </editor>
+
+    <editor params="label: 'Resource name'">
+        <input type="text" placeholder="Choose Name" data-bind="
+            enable: targetBucket,
+            textInput: resourceName
+        "/>
+    </editor>
+
+    <div class="row align-end push-prev">
+        <button class="link push-next" data-bind="click: cancel">
+            Cancel
+        </button>
+        <button class="btn2" data-bind="click: add">
+            Add
+        </button>
+    </div>
+</modal>
+
+<!-- ko if: isAddS3ConnectionModalVisible -->
+<add-s3-connection-modal params="onClose: canceled => hideAddS3ConnectionModal()">
+</add-s3-connection-modal>
+<!-- /ko -->

@@ -123,7 +123,7 @@ input[type="search"] {
     line-height: 1.4;
     font-size: @font-size-medium;
     padding-left: 2em;
-    background: url('/fe/assets/search.png') no-repeat;
+    background: url('@{assets}/search.png') no-repeat;
 }
 
 .row {
@@ -599,5 +599,54 @@ input[type="search"] {
         background-color: @bg-color1;
         font-size: @font-size-normal;
         font-weight: normal;
+    }
+}
+
+.pointer {
+    cursor: @cursor-pointer;
+}
+
+.sortable {
+    position: relative;
+    padding-right: 14px;
+
+    &::before, &::after {
+        content: '';
+        position: absolute;
+        display: inline-block;
+        vertical-align: middle;
+        right: 0;
+        border: 5px solid transparent;
+    }
+
+    &:before {
+        top: -3px;
+        border-bottom-color: @bg-color4;
+    }
+
+
+    &::after {
+        bottom: -3px;
+        border-top-color: @bg-color4;
+    }
+
+    &.des::before {
+        border-bottom-color: @bg-color11;
+    }
+
+    &.asc::after {
+        border-top-color: @bg-color11;
+    }
+}
+
+.column, .row {
+    .wireframe & > *, {
+        outline: 1px solid red;
+        outline-offset: -1px;
+
+        &:hover {
+            outline: 2px solid rgb(0, 255, 255);
+            outline-offset: -2px;
+        }
     }
 }

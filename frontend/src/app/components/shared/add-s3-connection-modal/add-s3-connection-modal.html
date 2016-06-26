@@ -1,0 +1,33 @@
+<modal params="onClose: () => cancel()">
+    <h1 class="heading2 push-next">
+        Add S3 Connection
+    </h1>
+
+    <section>
+        <editor params="label: 'Connection Name'">
+            <input type="text" placeholder="Enter name"
+                data-bind="value: name, hasFocus: true"/>
+        </editor>
+
+        <editor params="label: 'Target Endpoint'">
+            <input type="text" placeholder="S3 REST Endpoint" data-bind="value: endpoint" />
+        </editor>
+
+        <editor params="label: 'Access Key'">
+            <input type="text" placeholder="enter key"
+                data-bind="textInput: accessKey"/>
+        </editor>
+
+        <editor params="label: 'Secret Key'">
+            <input type="password" placeholder="enter secret"
+                data-bind="textInput: secretKey"/>
+        </editor>
+    </section>
+
+    <div class="val-msg" data-bind="validationMessage: isValidConenction"></div>
+
+    <div class="row align-end">
+        <button class="link push-next" data-bind="click: cancel">Cancel</button>
+        <button class="btn2" data-bind="click: tryConnection">Save</button>
+    </div>
+</modal>

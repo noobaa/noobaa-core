@@ -1,10 +1,16 @@
-<section data-bind="
-    css: { visible: visible }, 
-    transition: { end: removeLastNotification }, 
+<div class="box row">
+    <svg-icon class="icon-small push-next" params="name: 'notif-warning'"></svg-icon>
+    <span class="greedy warning">Cannot delete bucket</span>
+    <span>13:45:56</span>
+</div>
+<!-- <section data-bind="
+    css: { visible: visible },
+    transition: { end: removeLastNotification },
     foreach: notifications
 ">
     <div class="notification" data-bind="css: css">
-        <svg-icon class="icon-small" params="uri: icon"></svg-icon>
+        <svg-icon class="icon-small" params="name: icon"></svg-icon>
         <span class="notif-message" data-bind="text: message"></span>
     </div>
 </section>
+ -->

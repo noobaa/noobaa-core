@@ -12,7 +12,7 @@ const dbg = require('../../util/debug_module')(__filename);
 const RpcError = require('../../rpc/rpc_error');
 const size_utils = require('../../util/size_utils');
 const mongo_utils = require('../../util/mongo_utils');
-const ActivityLog = require('../analytic_services/activity_log');
+const Dispatcher = require('../notifications/dispatcher');
 const nodes_client = require('../node_services/nodes_client');
 const system_store = require('../system_services/system_store').get_instance();
 
@@ -127,7 +127,7 @@ function update_tier(req) {
             }
 
             if (bucket) {
-                ActivityLog.create({
+                Dispatcher.instance().activity({
                     event: 'bucket.edit_policy',
                     level: 'info',
                     system: req.system._id,

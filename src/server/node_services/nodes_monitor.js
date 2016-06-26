@@ -21,7 +21,7 @@ const server_rpc = require('../server_rpc');
 const auth_server = require('../common_services/auth_server');
 const nodes_store = require('./nodes_store');
 const mongo_utils = require('../../util/mongo_utils');
-const ActivityLog = require('../analytic_services/activity_log');
+const Dispatcher = require('../notifications/dispatcher');
 const buffer_utils = require('../../util/buffer_utils');
 const system_store = require('../system_services/system_store').get_instance();
 const system_server = require('../system_services/system_server');
@@ -375,7 +375,7 @@ class NodesMonitor extends EventEmitter {
         return P.resolve()
             .then(() => nodes_store.instance().bulk_update(bulk_items))
             .then(() => P.map(new_nodes, item => {
-                ActivityLog.create({
+                Dispatcher.instance().activity({
                     level: 'info',
                     event: 'node.create',
                     system: item.node.system,
@@ -744,34 +744,36 @@ class NodesMonitor extends EventEmitter {
         var res_nodes = nodes;
 
         _.forEach(res_nodes, function(curr_node) {
-            var node = curr_node.node_from_store;
+            if (curr_node.node_from_store) {
+              var node = curr_node.node_from_store;
 
-            var node_avg_read = node.latency_of_disk_read.reduce(function(a, m, i, p) {
-                return a + m / p.length;
-            }, 0);
-            var node_avg_write = node.latency_of_disk_write.reduce(function(a, m, i, p) {
-                return a + m / p.length;
-            }, 0);
-            var node_avg_latency = node.latency_to_server.reduce(function(a, m, i, p) {
-                return a + m / p.length;
-            }, 0);
+              var node_avg_read = node.latency_of_disk_read.reduce(function(a, m, i, p) {
+                  return a + m / p.length;
+              }, 0);
+              var node_avg_write = node.latency_of_disk_write.reduce(function(a, m, i, p) {
+                  return a + m / p.length;
+              }, 0);
+              var node_avg_latency = node.latency_to_server.reduce(function(a, m, i, p) {
+                  return a + m / p.length;
+              }, 0);
 
-            var node_pool_name = system_store.data.get_by_id(node.pool).name;
+              var node_pool_name = system_store.data.get_by_id(node.pool).name;
 
-            var pool_index = _.findIndex(data_for_ml, function(obj) {
-                return obj.pool_name === node_pool_name;
-            });
+              var pool_index = _.findIndex(data_for_ml, function(obj) {
+                  return obj.pool_name === node_pool_name;
+              });
 
-            if (node_pool_name === 'default_pool') {
-                default_pool_index = pool_index;
-            }
-            if (pool_index < 0) {
-                data_for_ml.push({
-                    pool_name: node_pool_name,
-                    nodes: [new Document(node._id, [node.ip, node.geolocation, node.storage.used, node.storage.total, node.storage.used, node_avg_latency, node_avg_read, node_avg_write])]
-                });
-            } else {
-                data_for_ml[pool_index].nodes.push(new Document(node._id, [node.ip, node.geolocation, node.storage.used, node.storage.total, node.storage.used, node_avg_latency, node_avg_read, node_avg_write]));
+              if (node_pool_name === 'default_pool') {
+                  default_pool_index = pool_index;
+              }
+              if (pool_index < 0) {
+                  data_for_ml.push({
+                      pool_name: node_pool_name,
+                      nodes: [new Document(node._id, [node.ip, node.geolocation, node.storage.used, node.storage.total, node.storage.used, node_avg_latency, node_avg_read, node_avg_write])]
+                  });
+              } else {
+                  data_for_ml[pool_index].nodes.push(new Document(node._id, [node.ip, node.geolocation, node.storage.used, node.storage.total, node.storage.used, node_avg_latency, node_avg_read, node_avg_write]));
+              }
             }
         });
 
@@ -1030,7 +1032,7 @@ class NodesMonitor extends EventEmitter {
                 });
             })
             .then(() => {
-                ActivityLog.create({
+                Dispatcher.instance().activity({
                     system: req.system._id,
                     level: 'info',
                     event: 'dbg.set_debug_node',

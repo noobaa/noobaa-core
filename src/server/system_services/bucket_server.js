@@ -20,7 +20,7 @@ const size_utils = require('../../util/size_utils');
 const server_rpc = require('../server_rpc');
 const tier_server = require('./tier_server');
 const mongo_utils = require('../../util/mongo_utils');
-const ActivityLog = require('../analytic_services/activity_log');
+const Dispatcher = require('../notifications/dispatcher');
 const nodes_client = require('../node_services/nodes_client');
 const system_store = require('../system_services/system_store').get_instance();
 const object_server = require('../object_services/object_server');
@@ -86,7 +86,7 @@ function create_bucket(req) {
         req.system._id,
         tiering_policy._id);
     changes.insert.buckets = [bucket];
-    ActivityLog.create({
+    Dispatcher.instance().activity({
         event: 'bucket.create',
         level: 'info',
         system: req.system._id,
@@ -258,7 +258,7 @@ function update_bucket_s3_acl(req) {
             if (removed_accounts.length) {
                 desc_string.push(`Removed accounts: ${removed_accounts}`);
             }
-            ActivityLog.create({
+            Dispatcher.instance().activity({
                 event: 'bucket.s3_access_updated',
                 level: 'info',
                 system: req.system._id,
@@ -296,7 +296,7 @@ function delete_bucket(req) {
             if (objects_aggregate_bucket.count) {
                 throw new RpcError('BUCKET_NOT_EMPTY', 'Bucket not empty: ' + bucket.name);
             }
-            ActivityLog.create({
+            Dispatcher.instance().activity({
                 event: 'bucket.delete',
                 level: 'info',
                 system: req.system._id,
@@ -426,7 +426,7 @@ function delete_cloud_sync(req) {
             });
         })
         .then(res => {
-            ActivityLog.create({
+            Dispatcher.instance().activity({
                 event: 'bucket.remove_cloud_sync',
                 level: 'info',
                 system: req.system._id,
@@ -526,7 +526,7 @@ function set_cloud_sync(req) {
             desc_string.push(`Direction: ${sync_direction}`);
             desc_string.push(`Sync Deletions: ${!cloud_sync.additions_only}`);
 
-            ActivityLog.create({
+            Dispatcher.instance().activity({
                 event: 'bucket.set_cloud_sync',
                 level: 'info',
                 system: req.system._id,
@@ -618,7 +618,7 @@ function update_cloud_sync(req) {
             desc_string.push(`Direction: ${sync_direction}`);
             desc_string.push(`Sync Deletions: ${!updated_policy.cloud_sync.additions_only}`);
 
-            ActivityLog.create({
+            Dispatcher.instance().activity({
                 event: 'bucket.update_cloud_sync',
                 level: 'info',
                 system: req.system._id,

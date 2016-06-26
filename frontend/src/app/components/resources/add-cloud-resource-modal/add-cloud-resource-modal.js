@@ -119,7 +119,7 @@ class AddCloudResourceModalViewModel {
         if (this.errors().length > 0) {
             this.errors.showAllMessages();
         } else {
-            createCloudPool(this.resourceName(), this.connection(), this.targetBucket());
+            createCloudPool(this.resourceName(), this.connection().name, this.targetBucket());
             this.onClose();
         }
     }

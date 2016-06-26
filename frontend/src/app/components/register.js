@@ -79,7 +79,7 @@ export default function register(ko) {
     ko.components.register('create-pool-wizard',        require('./resources/create-pool-wizard/create-pool-wizard'));
     ko.components.register('cloud-resources-table',     require('./resources/cloud-resources-table/cloud-resources-table'));
     ko.components.register('add-cloud-resource-modal',  require('./resources/add-cloud-resource-modal/add-cloud-resource-modal'));
-    /** INJECT:pools **/
+    /** INJECT:resources **/
 
     // -------------------------------
     // Pool

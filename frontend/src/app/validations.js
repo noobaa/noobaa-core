@@ -1,4 +1,4 @@
-    import ko from 'knockout';
+import ko from 'knockout';
 
 function notIn(value, params) {
     params = ko.unwrap(params);

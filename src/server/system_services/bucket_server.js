@@ -680,7 +680,10 @@ function get_cloud_buckets(req) {
     dbg.log0('get cloud buckets', req.rpc_params);
 
     return P.fcall(function() {
-        var connection = cloud_utils.find_cloud_connection(req);
+        var connection = cloud_utils.find_cloud_connection(
+            req.account,
+            req.rpc_params.connection
+        );
         var s3 = new AWS.S3({
             endpoint: connection.endpoint,
             accessKeyId: connection.access_key,

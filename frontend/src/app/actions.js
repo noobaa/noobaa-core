@@ -818,10 +818,10 @@ export function assignNodes(name, nodes) {
         .done();
 }
 
-export function createCloudPool({ name, connection, cloudBucket }) {
+export function createCloudPool(name, connection, cloudBucket) {
     logAction('createCloudPool', { name, connection, cloudBucket });
 
-    api.pool.delete_pool({
+    api.pool.create_cloud_pool({
         name: name,
         connection: connection,
         target_bucket: cloudBucket

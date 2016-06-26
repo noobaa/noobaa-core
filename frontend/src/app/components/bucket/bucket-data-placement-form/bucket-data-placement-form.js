@@ -69,7 +69,6 @@ class BucketDataPlacementFormViewModel {
             )
         );
 
-
         this.nodePoolCount = ko.pureComputed(
             () => this.nodePools() && this.nodePools().length
         );

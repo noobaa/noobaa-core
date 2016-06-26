@@ -9,29 +9,17 @@ const maxRows = 100;
 
 class CloudResourcesTableViewModel {
     constructor() {
-        // let resources = ko.pureComputed(
-        //     () => {
-        //         if (!systemInfo()) {
-        //             return;
-        //         }
-
-        //         return systemInfo().pools.filter(
-        //             ({ cloud_info }) => cloud_info
-        //         );
-        //     }
-        // );
-
-        let resources = ko.observable(makeArray(
-            10,
-            () => ({
-                name: 'aws-bucket-1',
-                storage: {  used: Number.MAX_SAFE_INTEGER },
-                cloud_info: {
-                    endpoint: 'https://s3.amazonaws.com',
-                    target_bucket: 'bucket-123'
+        let resources = ko.pureComputed(
+            () => {
+                if (!systemInfo()) {
+                    return;
                 }
-            })
-        ));
+
+                return systemInfo().pools.filter(
+                    ({ cloud_info }) => cloud_info
+                );
+            }
+        );
 
         let rows = makeArray(
             maxRows,

@@ -1,13 +1,14 @@
-/*global process */
 'use strict';
 
 let path = require('path');
-let argv = require('yargs').argv;
+let inquirer = require('inquirer');
+let fs = require('fs');
 let gulp = require('gulp');
 let $ = require('gulp-load-plugins')();
 let pathExists = require('path-exists');
 
 let generators = {};
+
 
 // -----------------------------
 // Utils
@@ -21,7 +22,7 @@ function scaffold(src, dest, params) {
     const replaceRegExp = /\[\[(.*?)\]\]/g;
 
     return streamToPromise(
-        gulp.src(src)
+        gulp.src(`${src}/**/*`)
             .pipe($.rename(
                 path => {
                     path.basename = path.basename.replace(
@@ -70,73 +71,220 @@ function streamToPromise(stream) {
     );
 }
 
-function logAndRject(message) {
-    console.log(message);
-    return Promise.reject();
+function listSubDirectiories(base) {
+    return fs.readdirSync(base).filter(
+        file => fs.statSync(path.join(base, file)).isDirectory()
+    );
 }
 
 // -----------------------------
 // Generators
 // -----------------------------
-generator('component', argv =>  {
-    let area = argv._[1];
-    let name = argv._[2];
-    let force = argv.force;
-
-    if (!area || !name) {
-        return logAndRject('usage: node scaf component <area> <name> [--force]');
+class Generator {
+    execute() {
+        return Promise.resolve()
+            .then(
+                () => this.prompt()
+            )
+            .then(
+                inquirer.prompt
+            )
+            .then(
+                answers => this.preprocess(answers)
+            )
+            .then(
+                params => this.generate(params)
+            );
     }
 
-    let src = 'src/scaffolding/component/**/*';
-    let dest = `src/app/components/${area}/${name}`;
-    let registry = 'src/app/components/register.js';
-    let params = {
-        area: area,
-        name: name,
-        nameCammelCased: toCammelCase(name)
-    };
+    // Return an inquirer prompt configuration.
+    prompt() {
+        return [];
+    }
 
-    return pathExists(dest)
-        .then(
-            exists => {
-                if (!force && exists) {
-                    return logAndRject(`Component ${dest} already exists, use --force to override current component`);
-                }
+    // Preprocess the ansers into a param object to be served to execute.
+    preprocess(answers) {
+        return answers;
+    }
+
+    generate(/* params */) {
+    }
+}
+
+class ComponentGenerator extends Generator {
+    get displayName() {
+        return 'component';
+    }
+
+    get template() {
+        return 'component';
+    }
+
+    constructor() {
+        super();
+        this.templatePath = `src/scaffolding/${this.template}`;
+        this.componentsPath = 'src/app/components';
+        this.registryPath = 'src/app/components/register.js';
+    }
+
+    prompt() {
+        return [
+            {
+                type: 'list',
+                name: 'area',
+                message: `To which area the new ${this.displayName} belong:`,
+                choices: () => listSubDirectiories(this.componentsPath)
+                    .concat([ { value: null, name: '- Create new area -' } ])
+            },
+            {
+                type: 'input',
+                name: 'area',
+                message: 'What is the name of the new area:',
+                when: answers => !answers.area,
+                validate: this.validateName
+            },
+            {
+                type: 'input',
+                name: 'name',
+                message: `What is the name of the new ${this.displayName}:`,
+                validate: this.validateName
             }
-        )
-        .then(
-            () => scaffold(src, dest, params)
-        )
-        .then(
-            () => {
-                let line = `ko.components.register('${name}', require('./${area}/${name}/${name}'));\n    `;
-                return inject(registry, area, line, false);
+        ];
+    }
+
+    preprocess(answers) {
+        return {
+            area: answers.area,
+            name: answers.name,
+            nameCammelCased: toCammelCase(answers.name),
+            folderName: answers.name
+        };
+    }
+
+    generate(params) {
+        let src = this.templatePath;
+        let dest = `${this.componentsPath}/${params.area}/${params.folderName}`;
+
+        return pathExists(dest)
+            .then(
+                exists => !exists || inquirer.prompt([{
+                    type: 'confirm',
+                    name: 'overwrite',
+                    message: () => `A component at ${dest} already exists, overwrite:`,
+                    default: false
+                }])
+                    .then(
+                        answer => answer.overwrite
+                    )
+            )
+            .then(
+                execute => execute && scaffold(src, dest, params)
+                    .then(
+                        () => inject(
+                            this.registryPath,
+                            params.area,
+                            this.generateRegisterLine(params.area, params.name),
+                            false
+                        )
+                    )
+                    .then(
+
+                        () => true
+                    )
+            );
+    }
+
+    validateName(name) {
+        return /^[a-z][a-z\-]*[a-z]$/.test(name) ||
+            'Name must start and end with a lowercased letter and may contain only dashes and lowercase letters';
+    }
+
+    generateRegisterLine(area, name) {
+        return `ko.components.register('${name}', require('./${area}/${name}/${name}'));\n    `;
+    }
+}
+
+class ModalGenerator extends ComponentGenerator {
+    get displayName() {
+        return 'modal';
+    }
+
+    get template() {
+        return 'modal';
+    }
+
+    prompt() {
+        return Promise.resolve()
+            .then(
+                () => super.prompt()
+            )
+            .then(
+                questions => questions.concat([
+                    {
+                        type: 'input',
+                        name: 'title',
+                        message: `What is the title of the ${this.displayName}:`
+                    },
+                    {
+                        type: 'list',
+                        name: 'action',
+                        message: 'What is action verb of the modal:',
+                        choices: [ 'save', 'create', 'configure', 'done']
+                    }
+                ])
+            );
+    }
+
+    preprocess(answers) {
+        return Object.assign(
+            super.preprocess(answers),
+            {
+                name: answers.name,
+                title: answers.title,
+                action: answers.action,
+                actionCammelCased: toCammelCase(answers.action),
+                folderName: `${answers.name}-modal`
             }
         );
-});
+    }
+}
+
+generator('General component', new ComponentGenerator());
+generator('Modal', new ModalGenerator());
 
 
 // -----------------------------
 // Main
 // -----------------------------
-function main(argv) {
-    let genName = argv._[0];
-    let gen = generators[genName];
-    if (!gen) {
-        return logAndRject('usage: node scaf <generator>');
-    }
+function main() {
+    let generatorNames = Object.keys(generators);
 
-    return gen(argv)
+    inquirer.prompt([
+        {
+            type: 'list',
+            name: 'generator',
+            message: 'Which generator would you like to use:',
+            choices: generatorNames,
+            default: generatorNames[0]
+        }
+    ])
         .then(
-            () => console.log(`Scaffolding ${genName} completed successfully`)
+            answers => {
+                let gen = generators[answers.generator];
+                return gen.execute();
+            }
+        )
+        .then(
+            completed => console.log(
+                completed ?
+                    'Scaffolding completed successfully' :
+                    'Scaffolding aborted'
+            )
         )
         .catch(
-            err => {
-                err instanceof Error && console.error(err.stack);
-                process.exit(1);
-            }
+            err => console.error(err.stack)
         );
 }
 
-main(argv);
+main();
 

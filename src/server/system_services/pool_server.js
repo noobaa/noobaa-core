@@ -17,7 +17,6 @@ const Dispatcher = require('../notifications/dispatcher');
 const nodes_store = require('../node_services/nodes_store');
 const nodes_client = require('../node_services/nodes_client');
 const system_store = require('../system_services/system_store').get_instance();
-const SupervisorCtl = require('../utils/supervisor_ctrl');
 const cloud_utils = require('../utils/cloud_utils');
 
 

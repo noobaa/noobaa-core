@@ -674,6 +674,8 @@ class NodesMonitor extends EventEmitter {
                 !query.geolocation.test(item.node.geolocation)) continue;
             if (query.skip_address &&
                 query.skip_address === item.node.rpc_address) continue;
+            if (query.skip_cloud_nodes &&
+                item.node.is_cloud_node) continue;
 
             if ('usable' in query &&
                 Boolean(query.usable) !== Boolean(item.usable)) continue;

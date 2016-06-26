@@ -19,14 +19,14 @@ if [ "$1" == "from_file" ]; then
             # based on https://kb.wisc.edu/middleware/page.php?id=4064
             valid_certificate_and_key=$((openssl x509 -noout -modulus -in $crt_list | openssl md5 ; openssl rsa -noout -modulus -in $key_list | openssl md5) | uniq |wc -l)
             if [ $valid_certificate_and_key -eq 1 ]; then
-                if [ ! -d "./src/private_ssl_path" ]; then
-                    mkdir ./src/private_ssl_path
+                if [ ! -d "/etc/private_ssl_path" ]; then
+                    mkdir /etc/private_ssl_path
                 else
                     old_ssl_folder=ssl_old_$(date +%F-%T)
                     mkdir ${TMP_PATH}/ssl_old_$old_ssl_folder
-                    mv ./src/private_ssl_path/* /tmp/ssl_old_$old_ssl_folder
+                    mv /etc/private_ssl_path/* /tmp/ssl_old_$old_ssl_folder
                 fi
-                cp $TMP_PATH/ssl/* ./src/private_ssl_path
+                cp $TMP_PATH/ssl/* /etc/private_ssl_path
             else
                 echo 'No match between key and certificate'
                 exit 1

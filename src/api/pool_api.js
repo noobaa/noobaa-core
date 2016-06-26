@@ -122,23 +122,6 @@ module.exports = {
             }
         },
 
-        delete_cloud_pool: {
-            doc: 'Delete Pool',
-            method: 'POST',
-            params: {
-                type: 'object',
-                required: ['name'],
-                properties: {
-                    name: {
-                        type: 'string',
-                    },
-                }
-            },
-            auth: {
-                system: 'admin'
-            }
-        },
-
         assign_nodes_to_pool: {
             doc: 'Add nodes to Pool',
             method: 'POST',

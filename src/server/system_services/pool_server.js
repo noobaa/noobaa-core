@@ -152,8 +152,17 @@ function read_pool(req) {
 }
 
 function delete_pool(req) {
-    dbg.log0('Deleting pool', req.rpc_params.name);
     var pool = find_pool_by_name(req);
+    if (_is_cloud_pool(pool)) {
+        return _delete_cloud_pool(req.system, pool, req.account);
+    } else {
+        return _delete_nodes_pool(req.system, pool, req.account);
+    }
+}
+
+
+function _delete_nodes_pool(system, pool, account) {
+    dbg.log0('Deleting pool', pool.name);
     return P.resolve()
         .then(() => nodes_client.instance().aggregate_nodes_by_pool([pool._id]))
         .then(function(nodes_aggregate_pool) {
@@ -171,21 +180,18 @@ function delete_pool(req) {
             Dispatcher.instance().activity({
                 event: 'pool.delete',
                 level: 'info',
-                system: req.system._id,
-                actor: req.account && req.account._id,
+                system: system._id,
+                actor: account && account._id,
                 pool: pool._id,
-                desc: `${pool.name} was deleted by ${req.account && req.account.email}`,
+                desc: `${pool.name} was deleted by ${account && account.email}`,
             });
             return res;
         })
         .return();
 }
 
-
-
-function delete_cloud_pool(req) {
-    dbg.log0('Deleting cloud pool', req.rpc_params.name);
-    var pool = find_pool_by_name(req);
+function _delete_cloud_pool(system, pool, account) {
+    dbg.log0('Deleting cloud pool', pool.name);
 
     // construct the cloud node name according to convention
     let cloud_node_name = 'noobaa-cloud-agent-' + os.hostname() + '-' + pool.name;
@@ -201,11 +207,12 @@ function delete_cloud_pool(req) {
                 }
             });
         })
-        .then(() => SupervisorCtl.remove_program('agent_' + pool.name))
-        .then(() => SupervisorCtl.apply_changes())
+        .then(() => server_rpc.client.hosted_agents.remove_agent({
+            name: pool.name
+        }))
         .then(() => nodes_store.instance().delete_node_by_name({
             system: {
-                _id: req.system._id
+                _id: system._id
             },
             rpc_params: {
                 name: cloud_node_name
@@ -215,10 +222,10 @@ function delete_cloud_pool(req) {
             Dispatcher.instance().activity({
                 event: 'pool.delete',
                 level: 'info',
-                system: req.system._id,
-                actor: req.account && req.account._id,
+                system: system._id,
+                actor: account && account._id,
                 pool: pool._id,
-                desc: `${pool.name} was deleted by ${req.account && req.account.email}`,
+                desc: `${pool.name} was deleted by ${account && account.email}`,
             });
         })
         .return();
@@ -326,7 +333,7 @@ function get_pool_info(pool, nodes_aggregate_pool) {
             used: n.used,
         })
     };
-    if (pool.cloud_pool_info) {
+    if (_is_cloud_pool(pool)) {
         info.cloud_info = {
             endpoint: pool.cloud_pool_info.endpoint,
             target_bucket: pool.cloud_pool_info.target_bucket
@@ -370,6 +377,11 @@ function check_cloud_pool_deletion(pool) {
 }
 
 
+function _is_cloud_pool(pool) {
+    return Boolean(pool.cloud_pool_info);
+}
+
+
 // EXPORTS
 exports.new_pool_defaults = new_pool_defaults;
 exports.get_pool_info = get_pool_info;
@@ -379,6 +391,5 @@ exports.update_pool = update_pool;
 exports.list_pool_nodes = list_pool_nodes;
 exports.read_pool = read_pool;
 exports.delete_pool = delete_pool;
-exports.delete_cloud_pool = delete_cloud_pool;
 exports.assign_nodes_to_pool = assign_nodes_to_pool;
 exports.get_associated_buckets = get_associated_buckets;

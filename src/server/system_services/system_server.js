@@ -169,7 +169,7 @@ function read_system(req) {
     var system = req.system;
     return P.join(
         // nodes - count, online count, allocated/used storage aggregate by pool
-        nodes_client.instance().aggregate_nodes_by_pool(null, system._id),
+        nodes_client.instance().aggregate_nodes_by_pool(null, system._id, /*skip_cloud_nodes=*/ true),
 
         // objects - size, count
         md_store.aggregate_objects({

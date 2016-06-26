@@ -156,10 +156,11 @@ class NodesMonitor extends EventEmitter {
         this._set_node_defaults(item);
     }
 
-    _add_new_node(conn, system_id, pool_id) {
+    _add_new_node(conn, system_id, pool_id, pool_name) {
         const system = system_store.data.get_by_id(system_id);
         const pool =
             system_store.data.get_by_id(pool_id) ||
+            system.pools_by_name[pool_name] ||
             system.pools_by_name.default_pool;
         if (pool.system !== system) {
             throw new Error('Node pool must belong to system');
@@ -648,7 +649,7 @@ class NodesMonitor extends EventEmitter {
         // new node heartbeat
         // create the node and then update the heartbeat
         if (!node_id && (req.role === 'create_node' || req.role === 'admin')) {
-            this._add_new_node(req.connection, req.system._id, extra.pool_id);
+            this._add_new_node(req.connection, req.system._id, extra.pool_id, req.rpc_params.pool_name);
             return reply;
         }
 

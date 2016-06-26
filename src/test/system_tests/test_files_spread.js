@@ -53,18 +53,18 @@ function run_test() {
                 return P.reject("Not Enough Nodes For 2 Pools");
             }
 
-            return client.pool.create_pool({
+            return client.pool.create_nodes_pool({
                 name: "pool1",
                 nodes: [sys_nodes.nodes[0].name, sys_nodes.nodes[1].name, sys_nodes.nodes[2].name],
             });
         })
-        .then(() => client.pool.create_pool({
+        .then(() => client.pool.create_nodes_pool({
             name: "pool2",
             nodes: [sys_nodes.nodes[3].name, sys_nodes.nodes[4].name, sys_nodes.nodes[5].name],
         }))
         .then(() => client.tier.create_tier({
             name: 'tier1',
-            pools: ['pool1', 'pool2'],
+            node_pools: ['pool1', 'pool2'],
             data_placement: 'SPREAD'
         }))
         .then(() =>

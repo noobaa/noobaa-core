@@ -11,7 +11,12 @@ module.exports = {
     id: 'pool_api',
 
     methods: {
+<<<<<<< HEAD
         create_nodes_pool: {
+=======
+
+        create_pool: {
+>>>>>>> master
             doc: 'Create Pool',
             method: 'POST',
             params: {
@@ -27,9 +32,12 @@ module.exports = {
             method: 'POST',
             params: {
                 type: 'object',
-                required: ['name', 'connection', 'target_bucket'],
+                required: ['name', 'cloud_info'],
                 properties: {
                     name: {
+                        type: 'string',
+                    },
+                    endpoint: {
                         type: 'string',
                     },
                     connection: {
@@ -106,6 +114,23 @@ module.exports = {
         },
 
         delete_pool: {
+            doc: 'Delete Pool',
+            method: 'POST',
+            params: {
+                type: 'object',
+                required: ['name'],
+                properties: {
+                    name: {
+                        type: 'string',
+                    },
+                }
+            },
+            auth: {
+                system: 'admin'
+            }
+        },
+
+        delete_cloud_pool: {
             doc: 'Delete Pool',
             method: 'POST',
             params: {
@@ -205,14 +230,11 @@ module.exports = {
                     $ref: 'common_api#/definitions/undeletable_enum'
                 },
                 cloud_info: {
-                    type: 'object',
-                    properties: {
-                        endpoint: {
-                            type: 'string'
-                        },
-                        target_bucket: {
-                            type: 'string'
-                        }
+                    endpoint: {
+                        type: 'string'
+                    },
+                    target_bucket: {
+                        type: 'string'
                     }
                 }
             },

@@ -18,7 +18,6 @@ const express = require('express');
 const cluster = require('cluster');
 const numCPUs = require('os').cpus().length;
 const path = require('path');
-const rootdir = path.join(__dirname, '..', '..');
 
 const P = require('../util/promise');
 const dbg = require('../util/debug_module')(__filename);
@@ -60,13 +59,13 @@ function run_server() {
                 port: process.env.S3_PORT || 80,
                 ssl_port: process.env.S3_SSL_PORT || 443,
             });
-            dbg.log0('certificate location:', path.join(rootdir, 'src', 'private_ssl_path', 'server.key'));
-            if (fs.existsSync(path.join(rootdir, 'src', 'private_ssl_path', 'server.key')) &&
-                fs.existsSync(path.join(rootdir, 'src', 'private_ssl_path', 'server.crt'))) {
+            dbg.log0('certificate location:', path.join('/etc', 'private_ssl_path', 'server.key'));
+            if (fs.existsSync(path.join('/etc', 'private_ssl_path', 'server.key')) &&
+                fs.existsSync(path.join('/etc', 'private_ssl_path', 'server.crt'))) {
                 dbg.log0('Using local certificate');
                 var local_certificate = {
-                    serviceKey: fs.readFileSync(path.join(rootdir, 'src', 'private_ssl_path', 'server.key')),
-                    certificate: fs.readFileSync(path.join(rootdir, 'src', 'private_ssl_path', 'server.crt'))
+                    serviceKey: fs.readFileSync(path.join('/etc', 'private_ssl_path', 'server.key')),
+                    certificate: fs.readFileSync(path.join('/etc', 'private_ssl_path', 'server.crt'))
                 };
                 return local_certificate;
             } else {

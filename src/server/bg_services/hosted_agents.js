@@ -4,7 +4,10 @@ const _ = require('lodash');
 const child_process = require('child_process');
 const dbg = require('../../util/debug_module')(__filename);
 const supervisor = require('../utils/supervisor_ctrl.js');
+const os_utils = require('../../util/os_utils');
 
+
+let spawned_hosted_agents = {};
 
 function create_agent(req) {
     let port = process.env.SSL_PORT || 5443;
@@ -36,23 +39,34 @@ function create_agent(req) {
         ]);
     }
 
-    if (process.env.DEBUG_MODE === 'true') {
+    if (os_utils.is_supervised_env()) {
+        dbg.log0('adding agent to supervior with arguments:', _.join(args, ' '));
+        return supervisor.add_agent(req.params.name, _.join(args, ' '));
+    } else {
         args.splice(0, 0, 'src/agent/agent_cli.js');
         dbg.log0('executing: node', _.join(args, ' '));
         let child = child_process.spawn('node', args, {
             stdio: 'inherit'
         });
+        spawned_hosted_agents[req.params.name] = child;
         dbg.log0('spawned process. pid =', child.pid);
-    } else {
-        dbg.log0('adding agent to supervior with arguments:', _.join(args, ' '));
-        return supervisor.add_agent(req.params.name, _.join(args, ' '));
     }
 }
 
 
 function remove_agent(req) {
-    return supervisor.remove_program(req.params.name)
-        .then(() => supervisor.apply_changes());
+    if (os_utils.is_supervised_env()) {
+        dbg.log0('removing agent from supervisor configuration', req.params.name);
+        return supervisor.remove_program(req.params.name)
+            .then(() => supervisor.apply_changes());
+    } else {
+        dbg.log0('looking for child process of', req.params.name);
+        let child = spawned_hosted_agents[req.params.name];
+        if (child) {
+            dbg.log0('killing agent', req.params.name, 'PID=', child.pid, ')');
+            child.kill('SIGKILL');
+        }
+    }
 }
 // EXPORTS
 exports.create_agent = create_agent;

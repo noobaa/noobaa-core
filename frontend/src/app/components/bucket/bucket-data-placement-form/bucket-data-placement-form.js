@@ -49,30 +49,24 @@ class BucketDataPlacementFormViewModel {
             ]
         );
 
-        let pools = ko.pureComputed(
-            () => tierInfo() && tierInfo().pools.map(
+        this.nodePools = ko.pureComputed(
+            () => tierInfo() && tierInfo().node_pools.map(
                 name => {
-                    let pool = systemInfo() && systemInfo().pools.find(
+                    if (!systemInfo()) {
+                        return;
+                    }
+
+                    let { nodes, storage } = systemInfo().pools.find(
                         pool => pool.name === name
                     );
 
-                    return pool;
+                    return {
+                        name: name,
+                        onlineNodeCount: nodes.count,
+                        freeSpace: formatSize(storage.free)
+                    };
                 }
             )
-        );
-
-        this.nodePools = ko.pureComputed(
-            () => pools() && pools()
-                .filter(
-                    pool => pool.nodes
-                )
-                .map(
-                    pool => ({
-                        name: pool.name,
-                        onlineNodeCount: pool ? pool.nodes.count : 'N/A',
-                        freeSpace: pool ? formatSize(pool.storage.free) : 'N/A'
-                    })
-                )
         );
 
 
@@ -81,20 +75,24 @@ class BucketDataPlacementFormViewModel {
         );
 
         this.cloudResources = ko.pureComputed(
-            () => pools() && pools().
-                filter(
-                    pool => pool.cloud_info
-                )
-                .map(
-                    ({ name, cloud_info }) => {
-                        let endpoint = cloud_info.endpoint.toLowerCase();
-                        let { icon } = resourceIcons.find(
-                            ({ pattern }) => endpoint.indexOf(pattern) > 0
-                        );
-
-                        return { name, icon };
+            () => tierInfo() && tierInfo().cloud_pools.map(
+                name => {
+                    if (!systemInfo()) {
+                        return;
                     }
-                )
+
+                    let { cloud_info } = systemInfo().pools.find(
+                        pool => pool.name === name
+                    );
+
+                    let endpoint = cloud_info.endpoint.toLowerCase();
+                    let { icon } = resourceIcons.find(
+                        ({ pattern }) => endpoint.indexOf(pattern) > 0
+                    );
+
+                    return { name: name, icon: icon };
+                }
+            )
         );
 
         this.cloudResourceCount = ko.pureComputed(

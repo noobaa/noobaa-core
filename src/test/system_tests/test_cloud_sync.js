@@ -208,7 +208,7 @@ function run_test() {
             if (should_create_bucket) {
                 client.tier.create_tier({
                         name: 'tier1',
-                        pools: ['default_pool'],
+                        node_pools: ['default_pool'],
                         data_placement: 'SPREAD'
                     })
                     .then(() =>

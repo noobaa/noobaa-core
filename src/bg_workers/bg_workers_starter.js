@@ -22,9 +22,10 @@ var url = require('url');
 var dbg = require('../util/debug_module')(__filename);
 var scrubber = require('../server/bg_services/scrubber');
 var stats_aggregator = require('../server/system_services/stats_aggregator');
+var cluster_hb = require('../server/bg_services/cluster_hb');
 var cloud_sync = require('../server/bg_services/cloud_sync');
 var server_rpc = require('../server/server_rpc');
-var mongo_client = require('../util/mongo_client').get_instance();
+var mongo_client = require('../util/mongo_client');
 var mongoose_utils = require('../util/mongoose_utils');
 var promise_utils = require('../util/promise_utils');
 var config = require('../../config.js');
@@ -32,7 +33,7 @@ var config = require('../../config.js');
 
 dbg.set_process_name('BGWorkers');
 mongoose_utils.mongoose_connect();
-mongo_client.connect();
+mongo_client.instance().connect();
 register_rpc();
 
 
@@ -80,5 +81,11 @@ if (process.env.SCRUBBER_DISABLED !== 'true') {
         building_timeout: 300000, // TODO increase?
     }, scrubber.background_worker);
 }
+
+
+register_bg_worker({
+    name: 'cluster_heartbeat_writer',
+    delay: config.CLUSTER_HB_INTERVAL
+}, cluster_hb.do_heartbeat);
 
 dbg.log('BG Workers Server started');

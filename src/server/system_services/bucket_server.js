@@ -20,8 +20,8 @@ const size_utils = require('../../util/size_utils');
 const server_rpc = require('../server_rpc');
 const tier_server = require('./tier_server');
 const mongo_utils = require('../../util/mongo_utils');
-const ActivityLog = require('../analytic_services/activity_log');
-const nodes_store = require('../node_services/nodes_store').get_instance();
+const Dispatcher = require('../notifications/dispatcher');
+const nodes_client = require('../node_services/nodes_client');
 const system_store = require('../system_services/system_store').get_instance();
 const object_server = require('../object_services/object_server');
 const cloud_sync_utils = require('../utils/cloud_sync_utils');
@@ -86,7 +86,7 @@ function create_bucket(req) {
         req.system._id,
         tiering_policy._id);
     changes.insert.buckets = [bucket];
-    ActivityLog.create({
+    Dispatcher.instance().activity({
         event: 'bucket.create',
         level: 'info',
         system: req.system._id,
@@ -129,13 +129,7 @@ function read_bucket(req) {
             bucket: bucket._id,
             deleted: null,
         }),
-        nodes_store.aggregate_nodes_by_pool({
-            system: req.system._id,
-            pool: {
-                $in: pool_ids
-            },
-            deleted: null,
-        }),
+        nodes_client.instance().aggregate_nodes_by_pool(pool_ids),
         get_cloud_sync(req, bucket)
     ).spread(function(objects_aggregate, nodes_aggregate_pool, cloud_sync_policy) {
         return get_bucket_info(bucket, objects_aggregate, nodes_aggregate_pool, cloud_sync_policy);
@@ -264,7 +258,7 @@ function update_bucket_s3_acl(req) {
             if (removed_accounts.length) {
                 desc_string.push(`Removed accounts: ${removed_accounts}`);
             }
-            ActivityLog.create({
+            Dispatcher.instance().activity({
                 event: 'bucket.s3_access_updated',
                 level: 'info',
                 system: req.system._id,
@@ -302,7 +296,7 @@ function delete_bucket(req) {
             if (objects_aggregate_bucket.count) {
                 throw new RpcError('BUCKET_NOT_EMPTY', 'Bucket not empty: ' + bucket.name);
             }
-            ActivityLog.create({
+            Dispatcher.instance().activity({
                 event: 'bucket.delete',
                 level: 'info',
                 system: req.system._id,
@@ -432,7 +426,7 @@ function delete_cloud_sync(req) {
             });
         })
         .then(res => {
-            ActivityLog.create({
+            Dispatcher.instance().activity({
                 event: 'bucket.remove_cloud_sync',
                 level: 'info',
                 system: req.system._id,
@@ -532,7 +526,7 @@ function set_cloud_sync(req) {
             desc_string.push(`Direction: ${sync_direction}`);
             desc_string.push(`Sync Deletions: ${!cloud_sync.additions_only}`);
 
-            ActivityLog.create({
+            Dispatcher.instance().activity({
                 event: 'bucket.set_cloud_sync',
                 level: 'info',
                 system: req.system._id,
@@ -566,12 +560,25 @@ function update_cloud_sync(req) {
         cloud_sync: Object.assign({}, bucket.cloud_sync, req.rpc_params.policy)
     };
 
-    var should_resync = Object.keys(req.rpc_params.policy)
+    var sync_directions_changed = Object.keys(req.rpc_params.policy)
         .filter(
-            key => key !== 'schedule_min'
+            key => key !== 'schedule_min' && key !== 'additions_only'
         ).some(
             key => updated_policy.cloud_sync[key] !== bucket.cloud_sync[key]
         );
+
+    var should_resync = false;
+    var should_resync_deleted_files = false;
+
+    // Please see the explanation and decision table below (at the end of the file).
+    if (updated_policy.cloud_sync.additions_only === bucket.cloud_sync.additions_only) {
+        should_resync = should_resync_deleted_files = sync_directions_changed && (bucket.cloud_sync.c2n_enabled && !bucket.cloud_sync.n2c_enabled);
+    } else
+    if (updated_policy.cloud_sync.additions_only) {
+        should_resync = sync_directions_changed && (bucket.cloud_sync.c2n_enabled && !bucket.cloud_sync.n2c_enabled);
+    } else {
+        should_resync = should_resync_deleted_files = !(updated_policy.cloud_sync.c2n_enabled && !updated_policy.cloud_sync.n2c_enabled);
+    }
 
     return system_store.make_changes({
             update: {
@@ -581,7 +588,7 @@ function update_cloud_sync(req) {
         .then(function() {
             //TODO:: scale, fine for 1000 objects, not for 1M
             if (should_resync) {
-                return object_server.set_all_files_for_sync(req.system._id, bucket._id);
+                return object_server.set_all_files_for_sync(req.system._id, bucket._id, should_resync_deleted_files);
             }
         })
         .then(function() {
@@ -611,7 +618,7 @@ function update_cloud_sync(req) {
             desc_string.push(`Direction: ${sync_direction}`);
             desc_string.push(`Sync Deletions: ${!updated_policy.cloud_sync.additions_only}`);
 
-            ActivityLog.create({
+            Dispatcher.instance().activity({
                 event: 'bucket.update_cloud_sync',
                 level: 'info',
                 system: req.system._id,
@@ -752,6 +759,47 @@ function resolve_tiering_policy(req, policy_name) {
 }
 
 
+/*
+                ***UPDATE CLOUD SYNC DECISION TABLES***
+Below are the files syncing decision tables for all cases of policy change:
+
+RS - Stands for marking the files for Re-Sync (NOT deleted files only!).
+DF - Stands for marking the DELETED files for Re-Sync.
+NS - Stands for NOT marking files for Re-Sync (Both deleted and not).
+
+Sync Deletions property did not change:
++------------------------------+----------------+------------------+------------------+
+| Previous Sync / Updated Sync | Bi-Directional | Source To Target | Target To Source |
++------------------------------+----------------+------------------+------------------+
+| Bi-Directional               | NS             | NS               | NS               |
++------------------------------+----------------+------------------+------------------+
+| Source To Target             | NS             | NS               | NS               |
++------------------------------+----------------+------------------+------------------+
+| Target To Source             | RS + DF        | RS + DF          | NS               |
++------------------------------+----------------+------------------+------------------+
+
+Sync Deletions property changed to TRUE:
++------------------------------+----------------+------------------+------------------+
+| Previous Sync / Updated Sync | Bi-Directional | Source To Target | Target To Source |
++------------------------------+----------------+------------------+------------------+
+| Bi-Directional               | NS             | NS               | NS               |
++------------------------------+----------------+------------------+------------------+
+| Source To Target             | RS + DF        | RS + DF          | NS               |
++------------------------------+----------------+------------------+------------------+
+| Target To Source             | RS + DF        | RS + DF          | NS               |
++------------------------------+----------------+------------------+------------------+
+
+Sync Deletions property changed to FALSE:
++------------------------------+----------------+------------------+------------------+
+| Previous Sync / Updated Sync | Bi-Directional | Source To Target | Target To Source |
++------------------------------+----------------+------------------+------------------+
+| Bi-Directional               | NS             | NS               | NS               |
++------------------------------+----------------+------------------+------------------+
+| Source To Target             | NS             | NS               | NS               |
++------------------------------+----------------+------------------+------------------+
+| Target To Source             | RS             | RS               | NS               |
++------------------------------+----------------+------------------+------------------+
+*/
 
 
 // EXPORTS

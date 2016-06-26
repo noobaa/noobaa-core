@@ -54,6 +54,17 @@ SupervisorCtrl.prototype.apply_changes = function() {
         });
 };
 
+SupervisorCtrl.prototype.restart = function(services) {
+    return promise_utils.promised_spawn('supervisorctl', ['restart', services.join(' ')], {
+            detached: true
+        }, false)
+        .delay(5000) //TODO:: Better solution
+        .catch(function(err) {
+            console.error('failed to restart services', services);
+            throw new Error('failed to restart services ' + services + err);
+        });
+};
+
 SupervisorCtrl.prototype.add_program = function(prog) {
     let self = this;
 

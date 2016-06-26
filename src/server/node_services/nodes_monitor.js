@@ -19,9 +19,9 @@ const md_store = require('../object_services/md_store');
 const MapBuilder = require('../object_services/map_builder').MapBuilder;
 const server_rpc = require('../server_rpc');
 const auth_server = require('../common_services/auth_server');
-const nodes_store = require('./nodes_store').get_instance();
+const nodes_store = require('./nodes_store');
 const mongo_utils = require('../../util/mongo_utils');
-const ActivityLog = require('../analytic_services/activity_log');
+const Dispatcher = require('../notifications/dispatcher');
 const buffer_utils = require('../../util/buffer_utils');
 const system_store = require('../system_services/system_store').get_instance();
 const system_server = require('../system_services/system_server');
@@ -30,6 +30,8 @@ const node_allocator = require('./node_allocator');
 const mongoose_utils = require('../../util/mongoose_utils');
 const mongo_functions = require('../../util/mongo_functions');
 const system_server_utils = require('../utils/system_server_utils');
+const dclassify = require('dclassify');
+
 
 const RUN_DELAY_MS = 60000;
 const RUN_NODE_CONCUR = 50;
@@ -84,6 +86,11 @@ const NODE_INFO_DEFAULTS = {
     base_address: '',
 };
 
+// Utilities provided by dclassify
+var Classifier = dclassify.Classifier;
+var DataSet = dclassify.DataSet;
+var Document = dclassify.Document;
+
 
 class NodesMonitor extends EventEmitter {
 
@@ -118,7 +125,8 @@ class NodesMonitor extends EventEmitter {
         if (!this._started) return;
         dbg.log0('_load_from_store ...');
         return mongoose_utils.mongoose_wait_connected()
-            .then(() => nodes_store.find_nodes({
+            .then(() => nodes_store.instance().connect())
+            .then(() => nodes_store.instance().find_nodes({
                 deleted: null
             }))
             .then(nodes => {
@@ -132,7 +140,7 @@ class NodesMonitor extends EventEmitter {
                 this._schedule_next_run(3000);
             })
             .catch(err => {
-                dbg.log0('_load_from_store ERROR', err);
+                dbg.log0('_load_from_store ERROR', err.stack);
                 return P.delay(1000).then(() => this._load_from_store());
             });
     }
@@ -160,8 +168,8 @@ class NodesMonitor extends EventEmitter {
             connection: null,
             node_from_store: null,
             node: {
-                _id: nodes_store.make_node_id(),
-                peer_id: nodes_store.make_node_id(),
+                _id: nodes_store.instance().make_node_id(),
+                peer_id: nodes_store.instance().make_node_id(),
                 system: system._id,
                 pool: pool._id,
                 heartbeat: new Date(),
@@ -365,9 +373,9 @@ class NodesMonitor extends EventEmitter {
         }
 
         return P.resolve()
-            .then(() => nodes_store.bulk_update(bulk_items))
+            .then(() => nodes_store.instance().bulk_update(bulk_items))
             .then(() => P.map(new_nodes, item => {
-                ActivityLog.create({
+                Dispatcher.instance().activity({
                     level: 'info',
                     event: 'node.create',
                     system: item.node.system,
@@ -433,7 +441,13 @@ class NodesMonitor extends EventEmitter {
         item.writable = Boolean(
             item.online &&
             item.trusted &&
-            !item.storage_full &&
+            !item.node.decommissioning &&
+            !item.node.disabled &&
+            !item.storage_full);
+
+        item.usable = Boolean(
+            item.online &&
+            item.trusted &&
             !item.node.decommissioning &&
             !item.node.disabled);
 
@@ -642,9 +656,7 @@ class NodesMonitor extends EventEmitter {
         throw new RpcError('FORBIDDEN', 'Bad heartbeat request');
     }
 
-    list_nodes(query, options) {
-        console.log('list_nodes: query', query);
-        // const minimum_online_heartbeat = nodes_store.get_minimum_online_heartbeat();
+    _filter_nodes(query) {
         const list = [];
         for (const item of this._map_node_id.values()) {
             // update the status of every node we go over
@@ -662,6 +674,8 @@ class NodesMonitor extends EventEmitter {
             if (query.skip_address &&
                 query.skip_address === item.node.rpc_address) continue;
 
+            if ('usable' in query &&
+                Boolean(query.usable) !== Boolean(item.usable)) continue;
             if ('online' in query &&
                 Boolean(query.online) !== Boolean(item.online)) continue;
             if ('readable' in query &&
@@ -690,13 +704,19 @@ class NodesMonitor extends EventEmitter {
             console.log('list_nodes: adding node', item.node.name);
             list.push(item);
         }
+        return list;
+    }
 
+    _sort_nodes_list(list, options) {
+        if (!options || !options.sort) return;
         if (options.sort === 'name') {
             list.sort(js_utils.sort_compare_by(item => String(item.node.name), options.order));
         } else if (options.sort === 'ip') {
             list.sort(js_utils.sort_compare_by(item => String(item.node.ip), options.order));
+        } else if (options.sort === 'usable') {
+            list.sort(js_utils.sort_compare_by(item => Boolean(item.usable), options.order));
         } else if (options.sort === 'online') {
-            list.sort(js_utils.sort_compare_by(item => Boolean(item.connection), options.order));
+            list.sort(js_utils.sort_compare_by(item => Boolean(item.online), options.order));
         } else if (options.sort === 'trusted') {
             list.sort(js_utils.sort_compare_by(item => Boolean(item.trusted), options.order));
         } else if (options.sort === 'used') {
@@ -710,19 +730,157 @@ class NodesMonitor extends EventEmitter {
         } else if (options.sort === 'shuffle') {
             chance.shuffle(list);
         }
+    }
 
-        let sliced_list = list;
-        if (options.pagination) {
-            const skip = options.skip || 0;
-            const limit = options.limit || list.length;
-            sliced_list = list.slice(skip, skip + limit);
+    _paginate_nodes_list(list, options) {
+        const skip = options.skip || 0;
+        const limit = options.limit || list.length;
+        return list.slice(skip, skip + limit);
+    }
+
+    _train_and_suggest(nodes) {
+        var data_for_ml = [];
+        var default_pool_index = -1;
+        var res_nodes = nodes;
+
+        _.forEach(res_nodes, function(curr_node) {
+            if (curr_node.node_from_store) {
+              var node = curr_node.node_from_store;
+
+              var node_avg_read = node.latency_of_disk_read.reduce(function(a, m, i, p) {
+                  return a + m / p.length;
+              }, 0);
+              var node_avg_write = node.latency_of_disk_write.reduce(function(a, m, i, p) {
+                  return a + m / p.length;
+              }, 0);
+              var node_avg_latency = node.latency_to_server.reduce(function(a, m, i, p) {
+                  return a + m / p.length;
+              }, 0);
+
+              var node_pool_name = system_store.data.get_by_id(node.pool).name;
+
+              var pool_index = _.findIndex(data_for_ml, function(obj) {
+                  return obj.pool_name === node_pool_name;
+              });
+
+              if (node_pool_name === 'default_pool') {
+                  default_pool_index = pool_index;
+              }
+              if (pool_index < 0) {
+                  data_for_ml.push({
+                      pool_name: node_pool_name,
+                      nodes: [new Document(node._id, [node.ip, node.geolocation, node.storage.used, node.storage.total, node.storage.used, node_avg_latency, node_avg_read, node_avg_write])]
+                  });
+              } else {
+                  data_for_ml[pool_index].nodes.push(new Document(node._id, [node.ip, node.geolocation, node.storage.used, node.storage.total, node.storage.used, node_avg_latency, node_avg_read, node_avg_write]));
+              }
+            }
+        });
+
+        var data = new DataSet();
+        var options = {
+            applyInverse: true
+        };
+
+        //Push ML data with all nodes except default_pool nodes
+        _.forEach(data_for_ml, function(value, key) {
+            if (value.pool_name !== 'default_pool') {
+                data.add(value.pool_name, value.nodes);
+            }
+        });
+
+        if (data_for_ml.length > 2) {
+            // create a classifier
+            var classifier = new Classifier(options);
+
+            // train the classifier
+            classifier.train(data);
+
+            dbg.log0("Trained with non default pool nodes:", classifier, 'probablity', JSON.stringify(classifier.probabilities, null, 4));
+
+            _.forEach(data_for_ml[default_pool_index].nodes, function(value, key) {
+                var result1 = classifier.classify(value);
+                var suggested_pool = "";
+                dbg.log1("ML result for ", value.id, result1);
+                if (result1.category === 'default_pool') {
+                    suggested_pool = result1.secondCategory;
+                } else {
+                    suggested_pool = result1.category;
+                }
+
+                var node_index = _.findIndex(res_nodes, function(obj) {
+                    return (obj.node._id).toString() === (value.id).toString();
+                });
+                res_nodes[node_index].node.suggested_pool = suggested_pool;
+                dbg.log0('ML result for ', value.id, 'suggested pool:', suggested_pool);
+
+            });
         }
+        return res_nodes;
 
-        console.log('list_nodes', sliced_list.length, '/', list.length);
+    }
+
+    list_nodes(query, options) {
+        console.log('list_nodes: query', query);
+        const list = this._train_and_suggest(this._filter_nodes(query));
+
+        this._sort_nodes_list(list, options);
+        const res_list = options && options.pagination ?
+            this._paginate_nodes_list(list, options) : list;
+        console.log('list_nodes', res_list.length, '/', list.length);
+
         return {
             total_count: list.length,
-            nodes: _.map(sliced_list, item => this.get_node_full_info(item))
+            nodes: _.map(res_list, item => this.get_node_full_info(item))
         };
+    }
+
+    _aggregate_nodes_list(list) {
+        let count = 0;
+        let online = 0;
+        let usable = 0;
+        const storage = {
+            total: 0,
+            free: 0,
+            used: 0,
+            reserved: 0,
+        };
+        _.each(list, item => {
+            count += 1;
+            if (item.online) online += 1;
+            if (item.usable) {
+                usable += 1;
+                // TODO use bigint for nodes storage sum
+                storage.total += item.node.storage.total || 0;
+                storage.free += item.node.storage.free || 0;
+                storage.used += item.node.storage.used || 0;
+                storage.reserved += config.NODES_FREE_SPACE_RESERVE || 0;
+            }
+        });
+        return {
+            nodes: {
+                count: count,
+                online: online,
+                usable: usable,
+            },
+            storage: storage
+        };
+    }
+
+    aggregate_nodes(query, group_by) {
+        const list = this._filter_nodes(query);
+        const res = this._aggregate_nodes_list(list);
+        if (group_by) {
+            if (group_by === 'pool') {
+                const pool_groups = _.groupBy(list,
+                    item => String(item.node.pool));
+                res.groups = _.mapValues(pool_groups,
+                    items => this._aggregate_nodes_list(items));
+            } else {
+                throw new Error('aggregate_nodes: Invalid group_by ' + group_by);
+            }
+        }
+        return res;
     }
 
     get_node_full_info(item) {
@@ -761,6 +919,8 @@ class NodesMonitor extends EventEmitter {
         if (info.os_info.last_update) {
             info.os_info.last_update = new Date(info.os_info.last_update).getTime();
         }
+        info.suggested_pool = node.suggested_pool || "";
+
         return info;
     }
 
@@ -841,8 +1001,8 @@ class NodesMonitor extends EventEmitter {
 
     delete_node(req) {
         // TODO notify to initiate rebuild of blocks
-        return nodes_store.find_node_by_name(req)
-            .then(node => nodes_store.delete_node_by_name(req))
+        return nodes_store.instance().find_node_by_name(req)
+            .then(node => nodes_store.instance().delete_node_by_name(req))
             .return();
     }
 
@@ -872,7 +1032,7 @@ class NodesMonitor extends EventEmitter {
                 });
             })
             .then(() => {
-                ActivityLog.create({
+                Dispatcher.instance().activity({
                     system: req.system._id,
                     level: 'info',
                     event: 'dbg.set_debug_node',
@@ -913,7 +1073,7 @@ class NodesMonitor extends EventEmitter {
 
             // update the node to mark the error
             // this marking is transient and will be unset on next heartbeat
-            return nodes_store.update_node_by_id(node_id, {
+            return nodes_store.instance().update_node_by_id(node_id, {
                 $set: {
                     error_since_hb: new Date(),
                 }

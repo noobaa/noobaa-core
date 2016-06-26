@@ -11,23 +11,26 @@ const _ = require('lodash');
 // const pkg = require('../../../package.json');
 // const dbg = require('../../util/debug_module')(__filename);
 // const config = require('../../../config');
-// const ActivityLog = require('../analytic_services/activity_log');
-// const nodes_store = require('./nodes_store').get_instance();
 const string_utils = require('../../util/string_utils');
+const system_store = require('../system_services/system_store').get_instance();
 const nodes_monitor = require('./nodes_monitor');
-const monitor = new nodes_monitor.NodesMonitor();
 
+let monitor;
 
-
+// called on rpc server init
 function _init() {
+    monitor = new nodes_monitor.NodesMonitor();
     return monitor.start();
 }
-
 
 function ping(req) {
     // nothing to do - the caller is just testing it can reach the server.
 }
 
+function get_local_monitor() {
+    if (!monitor) throw new Error('NodesMonitor not running here');
+    return monitor;
+}
 
 /**
  *
@@ -35,6 +38,31 @@ function ping(req) {
  *
  */
 function list_nodes(req) {
+    const query = _prepare_nodes_query(req);
+    const options = _.pick(req.rpc_params,
+        'pagination',
+        'skip',
+        'limit',
+        'sort',
+        'order');
+    return monitor.list_nodes(query, options);
+}
+
+function aggregate_nodes(req) {
+    const query = _prepare_nodes_query(req);
+    const res = monitor.aggregate_nodes(query, req.rpc_params.group_by);
+    if (res.groups) {
+        res.groups = _.map(res.groups, (group, group_key) => {
+            if (req.rpc_params.group_by === 'pool') {
+                const pool = system_store.get_by_id(group_key);
+                group.name = pool.name;
+            }
+            return group;
+        });
+    }
+}
+
+function _prepare_nodes_query(req) {
     const query = req.rpc_params.query || {};
     query.system = String(req.system._id);
     if (query.filter) {
@@ -49,15 +77,8 @@ function list_nodes(req) {
             return String(pool._id);
         }));
     }
-    const options = _.pick(req.rpc_params,
-        'pagination',
-        'skip',
-        'limit',
-        'sort',
-        'order');
-    return monitor.list_nodes(query, options);
+    return query;
 }
-
 
 
 /*
@@ -82,11 +103,12 @@ function get_test_nodes(req) {
 
 
 // EXPORTS
-exports.monitor = monitor;
 exports._init = _init;
+exports.get_local_monitor = get_local_monitor;
 exports.ping = ping;
 exports.list_nodes = list_nodes;
 exports.get_test_nodes = get_test_nodes;
+exports.aggregate_nodes = aggregate_nodes;
 exports.sync_monitor_to_store = req => monitor.sync_to_store();
 exports.heartbeat = req => monitor.heartbeat(req);
 exports.read_node = req => monitor.read_node_by_name(req.rpc_params.name);

@@ -18,9 +18,9 @@ const RpcError = require('../../rpc/rpc_error');
 const map_writer = require('./map_writer');
 const map_reader = require('./map_reader');
 const map_deleter = require('./map_deleter');
-const ActivityLog = require('../analytic_services/activity_log');
+const Dispatcher = require('../notifications/dispatcher');
 const mongo_utils = require('../../util/mongo_utils');
-const nodes_store = require('../node_services/nodes_store').get_instance();
+const nodes_store = require('../node_services/nodes_store');
 const ObjectStats = require('../analytic_services/object_stats');
 const system_store = require('../system_services/system_store').get_instance();
 const string_utils = require('../../util/string_utils');
@@ -137,7 +137,7 @@ function complete_object_upload(req) {
             }
         })
         .then(object_size => {
-            ActivityLog.create({
+            Dispatcher.instance().activity({
                 system: req.system,
                 level: 'info',
                 event: 'obj.uploaded',
@@ -302,7 +302,7 @@ function copy_object(req) {
             return copy.run();
         })
         .then(() => {
-            ActivityLog.create({
+            Dispatcher.instance().activity({
                 system: req.system,
                 level: 'info',
                 event: 'obj.uploaded',
@@ -396,7 +396,7 @@ function read_object_mappings(req) {
  */
 function read_node_mappings(req) {
     var node;
-    return nodes_store.find_node_by_name(req)
+    return nodes_store.instance().find_node_by_name(req)
         .then(
             node_arg => {
                 node = node_arg;
@@ -496,7 +496,7 @@ function delete_object(req) {
             delete_object_internal(obj);
         })
         .then(() => {
-            ActivityLog.create({
+            Dispatcher.instance().activity({
                 system: req.system,
                 level: 'info',
                 event: 'obj.deleted',
@@ -732,7 +732,7 @@ function list_objects(req) {
 
 //mark all objects on specific bucket for sync
 //TODO:: use mongoDB bulk instead of two mongoose ops
-function set_all_files_for_sync(sysid, bucketid) {
+function set_all_files_for_sync(sysid, bucketid, should_resync_deleted_files) {
     dbg.log2('marking all objects on sys', sysid, 'bucket', bucketid, 'as sync needed');
     //Mark all "live" objects to be cloud synced
     return P.fcall(() => md_store.ObjectMD.update({
@@ -745,25 +745,29 @@ function set_all_files_for_sync(sysid, bucketid) {
         }, {
             multi: true
         }).exec())
-        .then(() => md_store.ObjectMD.update({
-            //Mark all "previous" deleted objects as not needed for cloud sync
-            system: sysid,
-            bucket: bucketid,
-            cloud_synced: false,
-            deleted: {
-                $ne: null
-            },
-        }, {
-            cloud_synced: true
-        }, {
-            multi: true
-        }).exec());
+        .then(() => {
+            if (should_resync_deleted_files) {
+                return md_store.ObjectMD.update({
+                    //Mark all "previous" deleted objects as not needed for cloud sync
+                    system: sysid,
+                    bucket: bucketid,
+                    cloud_synced: false,
+                    deleted: {
+                        $ne: null
+                    },
+                }, {
+                    cloud_synced: true
+                }, {
+                    multi: true
+                }).exec();
+            }
+        });
 }
 // UTILS //////////////////////////////////////////////////////////
 
 
 function get_object_info(md) {
-    var info = _.pick(md, 'size', 'content_type', 'etag', 'xattr', 'key' ,'cloud_synced');
+    var info = _.pick(md, 'size', 'content_type', 'etag', 'xattr', 'key', 'cloud_synced');
     var bucket = system_store.data.get_by_id(md.bucket);
 
     info.bucket = bucket.name;

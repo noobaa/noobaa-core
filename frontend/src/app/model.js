@@ -107,3 +107,6 @@ export const debugCollectionInfo = ko.observable();
 
 // Hold the last notifiction.
 export const lastNotification = ko.observable();
+
+// hold system upload ssl certificate status.
+export const sslCertificateUploadStatus = ko.observable();

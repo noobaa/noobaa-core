@@ -28,7 +28,7 @@ Use the following credentials to connect to the NooBaa console:<br>
 function makeS3AccessMessage({ access_key, secret_key }) {
     return `
 <p class="paragraph">
-Use the follwoing S3 access to connect an S3 compatible application to NooBaa:<br>
+Use the following S3 access to connect an S3 compatible application to NooBaa:<br>
 <span class="emphasized">Access Key:</span> ${access_key}<br>
 <span class="emphasized">Secret Key:</span> ${secret_key}
 </p>

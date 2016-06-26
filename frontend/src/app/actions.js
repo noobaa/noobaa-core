@@ -1137,6 +1137,57 @@ export function upgradeSystem(upgradePackage) {
     xhr.send(formData);
 }
 
+export function uploadSSLCertificate(SSLCertificate) {
+    logAction('uploadSSLCertificate', { SSLCertificate });
+
+    let uploadStatus = model.sslCertificateUploadStatus;
+    uploadStatus({
+        state: 'IN_PROGRESS',
+        progress: 0,
+        error: ''
+    });
+
+    let xhr = new XMLHttpRequest();
+    xhr.open('POST', '/upload_certificate', true);
+
+    xhr.onload = function(evt) {
+        if (xhr.status !== 200) {
+            uploadStatus.assign ({
+                state: 'FAILED',
+                error: evt.target.responseText
+            });
+
+        } else {
+            uploadStatus.assign ({
+                state: 'SUCCESS'
+            });
+        }
+    };
+
+    xhr.upload.onprogress = function(evt) {
+        uploadStatus.assign({
+            progress: evt.lengthComputable && (evt.loaded / evt.total)
+        });
+    };
+
+    xhr.onerror = function(evt) {
+        uploadStatus.assign({
+            state: 'FAILED',
+            error: evt.target.responseText
+        });
+    };
+
+    xhr.onabort = function() {
+        uploadStatus.assign ({
+            state: 'CANCELED'
+        });
+    };
+
+    let formData = new FormData();
+    formData.append('upload_file', SSLCertificate);
+    xhr.send(formData);
+}
+
 export function downloadNodeDiagnosticPack(nodeName) {
     logAction('downloadDiagnosticFile', { nodeName });
 

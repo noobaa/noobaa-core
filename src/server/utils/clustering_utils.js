@@ -10,7 +10,6 @@ const system_store = require('../system_services/system_store').get_instance();
 const os_utils = require('../../util/os_utils');
 const dbg = require('../../util/debug_module')(__filename);
 
-
 function get_topology() {
     return system_store.get_local_cluster_info();
 }
@@ -39,6 +38,7 @@ function update_cluster_info(params) {
             throw err;
         });
 }
+
 
 function update_host_address(address) {
     var current_clustering = system_store.get_local_cluster_info();

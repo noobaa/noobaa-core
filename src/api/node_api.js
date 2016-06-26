@@ -49,57 +49,7 @@ module.exports = {
                 // required: [],
                 properties: {
                     query: {
-                        type: 'object',
-                        // required: [],
-                        properties: {
-                            pools: {
-                                type: 'array',
-                                items: {
-                                    type: 'string',
-                                },
-                            },
-                            filter: {
-                                // regexp on name & ip
-                                type: 'string'
-                            },
-                            geolocation: {
-                                // regexp
-                                type: 'string'
-                            },
-                            online: {
-                                type: 'boolean',
-                            },
-                            readable: {
-                                type: 'boolean',
-                            },
-                            writable: {
-                                type: 'boolean',
-                            },
-                            trusted: {
-                                type: 'boolean',
-                            },
-                            migrating_to_pool: {
-                                type: 'boolean'
-                            },
-                            decommissioning: {
-                                type: 'boolean',
-                            },
-                            decommissioned: {
-                                type: 'boolean',
-                            },
-                            disabled: {
-                                type: 'boolean',
-                            },
-                            accessibility: {
-                                $ref: '#/definitions/accessibility_type'
-                            },
-                            connectivity: {
-                                $ref: '#/definitions/connectivity_type'
-                            },
-                            data_activity: {
-                                $ref: '#/definitions/data_activity_type'
-                            },
-                        }
+                        $ref: '#/definitions/nodes_query'
                     },
                     skip: {
                         type: 'integer'
@@ -162,6 +112,54 @@ module.exports = {
             },
             reply: {
                 $ref: '#/definitions/node_full_info'
+            },
+            auth: {
+                system: 'admin'
+            }
+        },
+
+        aggregate_nodes: {
+            method: 'GET',
+            params: {
+                type: 'object',
+                properties: {
+                    query: {
+                        $ref: '#/definitions/nodes_query'
+                    },
+                    group_by: {
+                        type: 'string',
+                        enum: ['pool']
+                    }
+                }
+            },
+            reply: {
+                type: 'object',
+                required: ['nodes', 'storage'],
+                properties: {
+                    nodes: {
+                        $ref: '#/definitions/nodes_aggregate_info'
+                    },
+                    storage: {
+                        $ref: 'common_api#/definitions/storage_info'
+                    },
+                    groups: {
+                        type: 'array',
+                        items: {
+                            type: 'object',
+                            properties: {
+                                name: {
+                                    type: 'string',
+                                },
+                                nodes: {
+                                    $ref: '#/definitions/nodes_aggregate_info'
+                                },
+                                storage: {
+                                    $ref: 'common_api#/definitions/storage_info'
+                                },
+                            }
+                        }
+                    },
+                }
             },
             auth: {
                 system: 'admin'
@@ -378,6 +376,9 @@ module.exports = {
                 heartbeat: {
                     format: 'idate'
                 },
+                usable: {
+                    type: 'boolean',
+                },
                 online: {
                     type: 'boolean',
                 },
@@ -465,7 +466,87 @@ module.exports = {
                 },
                 debug_level: {
                     type: 'integer',
-                }
+                },
+                suggested_pool: {
+                    type: 'string'
+                },
+            }
+        },
+
+        nodes_query: {
+            type: 'object',
+            // required: [],
+            properties: {
+                pools: {
+                    type: 'array',
+                    items: {
+                        type: 'string',
+                    },
+                },
+                filter: {
+                    // regexp on name & ip
+                    type: 'string'
+                },
+                geolocation: {
+                    // regexp
+                    type: 'string'
+                },
+                usable: {
+                    type: 'boolean',
+                },
+                online: {
+                    type: 'boolean',
+                },
+                readable: {
+                    type: 'boolean',
+                },
+                writable: {
+                    type: 'boolean',
+                },
+                trusted: {
+                    type: 'boolean',
+                },
+                migrating_to_pool: {
+                    type: 'boolean'
+                },
+                decommissioning: {
+                    type: 'boolean',
+                },
+                decommissioned: {
+                    type: 'boolean',
+                },
+                disabled: {
+                    type: 'boolean',
+                },
+                accessibility: {
+                    $ref: '#/definitions/accessibility_type'
+                },
+                connectivity: {
+                    $ref: '#/definitions/connectivity_type'
+                },
+                data_activity: {
+                    $ref: '#/definitions/data_activity_type'
+                },
+            }
+        },
+
+        nodes_aggregate_info: {
+            type: 'object',
+            required: [
+                'count',
+                'online',
+                'usable'
+            ],
+            properties: {
+                count: {
+                    type: 'integer'
+                },
+                online: {
+                    type: 'integer'
+                },
+                usable: {
+                    type: 'integer'
+                },
             }
         },
 

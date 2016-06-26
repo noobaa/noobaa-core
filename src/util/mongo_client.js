@@ -10,9 +10,11 @@ var config = require('../../config.js');
 
 class MongoClient extends EventEmitter {
 
-    static get_instance() {
-        MongoClient._client = MongoClient._client || new MongoClient();
-        return MongoClient._client;
+    static instance() {
+        if (!MongoClient._instance) {
+            MongoClient._instance = new MongoClient();
+        }
+        return MongoClient._instance;
     }
 
     constructor() {
@@ -159,6 +161,40 @@ class MongoClient extends EventEmitter {
         }
     }
 
+    get_mongo_rs_status() {
+        return P.resolve().then(() => {
+            if (this.db) {
+                return P.ninvoke(this.db.admin(), 'replSetGetStatus')
+                    .then(status => {
+                        dbg.log0('got rs status from mongo:', status);
+                        if (status.ok) {
+                            // return rs status fields specified in HB schema (cluster_schema)
+                            let rs_status = {
+                                set: status.set,
+                                members: status.members.map(member => {
+                                    let member_status = {
+                                        name: member.name,
+                                        health: member.health,
+                                        uptime: member.uptime,
+                                        stateStr: member.stateStr
+                                    };
+                                    if (member.syncingTo) {
+                                        member_status.syncingTo = member.syncingTo;
+                                    }
+                                    return member_status;
+                                })
+                            };
+                            return rs_status;
+                        }
+
+                    })
+                    .catch(err => {
+                        dbg.warn('got error when trying to get mongo rs status for HB', err.errmsg);
+                    });
+            }
+        });
+    }
+
     replica_update_members(set, members, is_config_set) {
         var port = is_config_set ? config.MONGO_DEFAULTS.CFG_PORT : config.MONGO_DEFAULTS.SHARD_SRV_PORT;
         var rep_config = this._build_replica_config(set, members, port, is_config_set);
@@ -285,4 +321,4 @@ class MongoClient extends EventEmitter {
 
 // EXPORTS
 exports.MongoClient = MongoClient;
-exports.get_instance = MongoClient.get_instance;
+exports.instance = MongoClient.instance;

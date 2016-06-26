@@ -13,8 +13,9 @@ const config = require('../../../config');
 const RpcError = require('../../rpc/rpc_error');
 const size_utils = require('../../util/size_utils');
 const server_rpc = require('../server_rpc');
-const ActivityLog = require('../analytic_services/activity_log');
-const nodes_store = require('../node_services/nodes_store').get_instance();
+const Dispatcher = require('../notifications/dispatcher');
+const nodes_store = require('../node_services/nodes_store');
+const nodes_client = require('../node_services/nodes_client');
 const system_store = require('../system_services/system_store').get_instance();
 const SupervisorCtl = require('../utils/supervisor_ctrl');
 
@@ -45,8 +46,8 @@ function create_pool(req) {
         .then(function() {
             return _assign_nodes_to_pool(req, pool);
         })
-        .then((res) => {
-            ActivityLog.create({
+        .then(res => {
+            Dispatcher.instance().activity({
                 event: 'pool.create',
                 level: 'info',
                 system: req.system._id,
@@ -86,7 +87,7 @@ function create_cloud_pool(req) {
         })
         .then(() => {
             // TODO: should we add different event for cloud pool?
-            ActivityLog.create({
+            Dispatcher.instance().activity({
                 event: 'pool.create',
                 level: 'info',
                 system: req.system._id,
@@ -120,29 +121,18 @@ function update_pool(req) {
 
 function list_pool_nodes(req) {
     var pool = find_pool_by_name(req);
-    return nodes_store.find_nodes({
-            system: req.system._id,
-            pool: pool._id,
-            deleted: null
-        }, {
-            fields: {
-                _id: 0,
-                name: 1,
-            }
-        })
-        .then(nodes => ({
+    return P.resolve()
+        .then(() => nodes_client.instance().list_nodes_by_pool(pool._id))
+        .then(res => ({
             name: pool.name,
-            nodes: _.map(nodes, 'name')
+            nodes: _.map(res.nodes, 'name')
         }));
 }
 
 function read_pool(req) {
     var pool = find_pool_by_name(req);
-    return nodes_store.aggregate_nodes_by_pool({
-            system: req.system._id,
-            pool: pool._id,
-            deleted: null,
-        })
+    return P.resolve()
+        .then(() => nodes_client.instance().aggregate_nodes_by_pool([pool._id]))
         .then(function(nodes_aggregate_pool) {
             return get_pool_info(pool, nodes_aggregate_pool);
         });
@@ -151,11 +141,8 @@ function read_pool(req) {
 function delete_pool(req) {
     dbg.log0('Deleting pool', req.rpc_params.name);
     var pool = find_pool_by_name(req);
-    return nodes_store.aggregate_nodes_by_pool({
-            system: req.system._id,
-            pool: pool._id,
-            deleted: null,
-        })
+    return P.resolve()
+        .then(() => nodes_client.instance().aggregate_nodes_by_pool([pool._id]))
         .then(function(nodes_aggregate_pool) {
             var reason = check_pool_deletion(pool, nodes_aggregate_pool);
             if (reason) {
@@ -167,8 +154,8 @@ function delete_pool(req) {
                 }
             });
         })
-        .then((res) => {
-            ActivityLog.create({
+        .then(res => {
+            Dispatcher.instance().activity({
                 event: 'pool.delete',
                 level: 'info',
                 system: req.system._id,
@@ -203,7 +190,7 @@ function delete_cloud_pool(req) {
         })
         .then(() => SupervisorCtl.remove_program('agent_' + pool.name))
         .then(() => SupervisorCtl.apply_changes())
-        .then(() => nodes_store.delete_node_by_name({
+        .then(() => nodes_store.instance().delete_node_by_name({
             system: {
                 _id: req.system._id
             },
@@ -211,8 +198,8 @@ function delete_cloud_pool(req) {
                 name: cloud_node_name
             }
         }))
-        .then((res) => {
-            ActivityLog.create({
+        .then(res => {
+            Dispatcher.instance().activity({
                 event: 'pool.delete',
                 level: 'info',
                 system: req.system._id,
@@ -228,7 +215,7 @@ function delete_cloud_pool(req) {
 function _assign_nodes_to_pool(req, pool) {
     var assign_nodes = req.rpc_params.nodes;
     var nodes_before_change;
-    return nodes_store.find_nodes({
+    return nodes_store.instance().find_nodes({
             deleted: null,
             name: {
                 $in: assign_nodes
@@ -241,7 +228,7 @@ function _assign_nodes_to_pool(req, pool) {
         })
         .then(nodes_res => {
             nodes_before_change = nodes_res;
-            return nodes_store.update_nodes({
+            return nodes_store.instance().update_nodes({
                     system: req.system._id,
                     name: {
                         $in: assign_nodes
@@ -257,7 +244,7 @@ function _assign_nodes_to_pool(req, pool) {
                     _.forEach(nodes_before_change, node => {
                         desc_string.push(`${node.name} was assigned from ${node.pool.name} to ${pool.name}`);
                     });
-                    ActivityLog.create({
+                    Dispatcher.instance().activity({
                         event: 'pool.assign_nodes',
                         level: 'info',
                         system: req.system._id,
@@ -316,6 +303,7 @@ function get_pool_info(pool, nodes_aggregate_pool) {
         nodes: {
             count: n.count || 0,
             online: n.online || 0,
+            usable: n.usable || 0,
         },
         // notice that the pool storage is raw,
         // and does not consider number of replicas like in tier

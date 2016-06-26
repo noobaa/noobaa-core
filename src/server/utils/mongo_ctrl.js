@@ -6,7 +6,7 @@ var P = require('../../util/promise');
 var fs_utils = require('../../util/fs_utils');
 var config = require('../../../config.js');
 var SupervisorCtl = require('./supervisor_ctrl');
-var mongo_client = require('../../util/mongo_client').get_instance();
+var mongo_client = require('../../util/mongo_client');
 var mongoose_client = require('../../util/mongoose_utils');
 var dotenv = require('../../util/dotenv');
 var dbg = require('../../util/debug_module')(__filename);
@@ -61,22 +61,22 @@ MongoCtrl.prototype.add_new_config = function() {
 
 MongoCtrl.prototype.initiate_replica_set = function(set, members, is_config_set) {
     dbg.log0('Initiate replica set', set, members, 'is_config_set', is_config_set);
-    return mongo_client.initiate_replica_set(set, members, is_config_set);
+    return mongo_client.instance().initiate_replica_set(set, members, is_config_set);
 };
 
 MongoCtrl.prototype.add_member_to_replica_set = function(set, members, is_config_set) {
     dbg.log0('Add members replica set', set, members, is_config_set);
-    return mongo_client.replica_update_members(set, members, is_config_set);
+    return mongo_client.instance().replica_update_members(set, members, is_config_set);
 
 };
 
 MongoCtrl.prototype.add_member_shard = function(name, ip) {
     dbg.log0('Add member shard', name, ip);
-    return mongo_client.add_shard(ip, config.MONGO_DEFAULTS.SHARD_SRV_PORT, name);
+    return mongo_client.instance().add_shard(ip, config.MONGO_DEFAULTS.SHARD_SRV_PORT, name);
 };
 
 MongoCtrl.prototype.is_master = function(is_config_set, set_name) {
-    return mongo_client.is_master(is_config_set, set_name);
+    return mongo_client.instance().is_master(is_config_set, set_name);
 };
 
 MongoCtrl.prototype.update_connection_string = function() {
@@ -86,12 +86,16 @@ MongoCtrl.prototype.update_connection_string = function() {
 
     return P.resolve(mongoose_client.mongoose_disconnect())
         .then(() => {
-            mongo_client.disconnect();
-            mongo_client.update_connection_string();
+            mongo_client.instance().disconnect();
+            mongo_client.instance().update_connection_string();
             mongoose_client.mongoose_update_connection_string();
             return mongoose_client.mongoose_connect();
         })
-        .then(() => mongo_client.connect());
+        .then(() => mongo_client.instance().connect());
+};
+
+MongoCtrl.prototype.get_mongo_rs_status = function() {
+    return mongo_client.get_mongo_rs_status();
 };
 
 //

@@ -915,7 +915,7 @@ export function createBucket(name, dataPlacement, pools) {
     api.tier.create_tier({
         name: bucket_with_suffix,
         data_placement: dataPlacement,
-        pools: pools
+        node_pools: pools
     })
         .then(
             tier => {
@@ -956,7 +956,7 @@ export function updateTier(name, dataPlacement, pools) {
     api.tier.update_tier({
         name: name,
         data_placement: dataPlacement,
-        pools: pools
+        node_pools: pools
     })
         .then(
             () => loadTier(name)
@@ -968,7 +968,7 @@ export function createPool(name, nodes) {
     logAction('createPool', { name, nodes });
 
     let { poolList } = model;
-    api.pool.create_pool({ name, nodes })
+    api.pool.create_nodes_pool({ name, nodes })
         .then(
             () => loadPoolList(poolList.sortedBy(), poolList.order())
         )

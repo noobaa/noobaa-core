@@ -21,7 +21,7 @@ class BucketPolicyModalViewModel {
         );
 
         this.selectedPools = ko.observableWithDefault(
-            () => !!tierInfo() && tierInfo().pools
+            () => !!tierInfo() && tierInfo().node_pools
         );
 
         this.pools = poolList.map(

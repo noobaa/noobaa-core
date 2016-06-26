@@ -25,7 +25,7 @@ class BucketDataPlacementFormViewModel {
         );
 
         this.poolCount = ko.pureComputed(
-            () => tierInfo() && tierInfo().pools.length
+            () => tierInfo() && tierInfo().node_pools.length
         );
 
         this.placementType = ko.pureComputed(
@@ -35,7 +35,7 @@ class BucketDataPlacementFormViewModel {
         );
 
         this.pools = ko.pureComputed(
-            () => tierInfo() && tierInfo().pools.map(
+            () => tierInfo() && tierInfo().node_pools.map(
                 name => {
                     let pool = poolList() && poolList().find(
                         pool => pool.name === name

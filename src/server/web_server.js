@@ -44,6 +44,7 @@ var config = require('../../config.js');
 var time_utils = require('../util/time_utils');
 var mongo_client = require('../util/mongo_client');
 var mongoose_utils = require('../util/mongoose_utils');
+var system_store = require('./system_services/system_store').get_instance();
 var promise_utils = require('../util/promise_utils');
 var os = require('os');
 
@@ -61,6 +62,13 @@ var app = express();
 // copied from s3rver. not sure why. but copy.
 app.disable('x-powered-by');
 
+var server_rpc = require('./server_rpc');
+server_rpc.register_system_services();
+server_rpc.register_node_services();
+server_rpc.register_object_services();
+server_rpc.register_common_services();
+server_rpc.rpc.register_http_transport(app);
+server_rpc.rpc.router.default = 'fcall://fcall';
 
 ////////////////
 // MIDDLEWARE //
@@ -88,6 +96,23 @@ app.use(function(req, res, next) {
         return res.redirect('https://' + host + req.url);
     }
     return next();
+});
+app.use(function(req, res, next) {
+    let current_clustering = system_store.get_local_cluster_info();
+    if ((current_clustering && current_clustering.is_clusterized) && !system_store.is_cluster_master) {
+        P.fcall(function() {
+            return server_rpc.client.cluster_server.redirect_to_cluster_master();
+        })
+        .then((host) => {
+            res.status(307);
+            return res.redirect(`http://${host}:8080` + req.url);
+        })
+        .catch((err) => {
+            res.status(500);
+        });
+    } else {
+        return next();
+    }
 });
 app.use(express_method_override());
 app.use(express_cookie_parser(process.env.COOKIE_SECRET));
@@ -121,15 +146,6 @@ function use_exclude(route_path, middleware) {
 /////////
 // RPC //
 /////////
-
-// register RPC services and transports
-var server_rpc = require('./server_rpc');
-server_rpc.register_system_services();
-server_rpc.register_node_services();
-server_rpc.register_object_services();
-server_rpc.register_common_services();
-server_rpc.rpc.register_http_transport(app);
-server_rpc.rpc.router.default = 'fcall://fcall';
 
 var http_port = process.env.PORT = process.env.PORT || 5001;
 var https_port = process.env.SSL_PORT = process.env.SSL_PORT || 5443;

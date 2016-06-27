@@ -88,6 +88,23 @@ module.exports = {
             }
         },
 
+        set_webserver_master_state: {
+            doc: 'Set if webserver is master',
+            method: 'PUT',
+            params: {
+                type: 'object',
+                required: ['is_master'],
+                properties: {
+                    is_master: {
+                        type: 'boolean',
+                    },
+                }
+            },
+            auth: {
+                system: false,
+            }
+        },
+
         delete_system: {
             doc: 'Delete the authorized system',
             method: 'DELETE',

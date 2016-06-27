@@ -393,7 +393,7 @@ export function loadObjectMetadata(bucketName, objectName) {
         model.objectInfo(null);
     }
 
-    let { access_key ,secret_key } = model.systemInfo().owner.access_keys;
+    let { access_key ,secret_key } = model.systemInfo().owner.access_keys[0];
     let s3 = new AWS.S3({
         endpoint: endpoint,
         credentials: {
@@ -822,7 +822,7 @@ export function uploadFiles(bucketName, files) {
 
     let recentUploads = model.recentUploads;
 
-    let { access_key , secret_key } = model.systemInfo().owner.acess_keys;
+    let { access_key , secret_key } = model.systemInfo().owner.access_keys[0];
     let s3 = new AWS.S3({
         endpoint: endpoint,
         credentials: {

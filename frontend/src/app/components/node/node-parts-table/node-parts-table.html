@@ -1,16 +1,10 @@
 
-<div class="row push-next content-middle">
-    <h3 class="heading3 greedy">
-        File parts stored on this node:
-        <span data-bind="text: count"></span>
-    </h3>
+<h3 class="heading3 push-next">
+    File parts stored on this node:
+    <span data-bind="text: count"></span>
+</h3>
 
-    <paginator  class="align-end" params="
-        pageSize: pageSize, itemCount: count, page: page
-    "></paginator>
-</div>
-
-<div class="data-table greedy">
+<div class="data-table greedy push-next">
     <table>
         <thead>
             <tr>
@@ -53,3 +47,7 @@
         No file parts are stored on the node
     </div>
 </div>
+
+<paginator class="align-end" params="
+    pageSize: pageSize, itemCount: count, page: page
+"></paginator>

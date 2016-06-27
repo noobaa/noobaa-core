@@ -7,18 +7,11 @@
     <button class="btn3" data-bind="click: () => showUploadFilesModal()">Upload Files</button>
 </div>
 
-<div class="row push-next">
-    <div class="greedy">
-        <input type="search" placeholder="Filter Files" data-bind="
-            textInput: filter
-        "/>
-    </div>
+<input class="push-next" type="search" placeholder="Filter Files" data-bind="
+    textInput: filter
+"/>
 
-    <paginator params="pageSize: pageSize, itemCount: filteredObjectCount, page: page">
-    </paginator>
-</div>
-
-<div class="data-table">
+<div class="data-table greedy push-next">
     <table>
         <thead>
             <tr>
@@ -60,6 +53,12 @@
         No files in bucket
     </div>
 </div>
+
+<paginator class="align-end" params="
+    pageSize: pageSize,
+    itemCount:
+    filteredObjectCount, page: page
+"></paginator>
 
 <!-- ko if: isUploadFilesModalVisible -->
 <upload-files-modal params="

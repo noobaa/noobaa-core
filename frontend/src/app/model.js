@@ -43,9 +43,6 @@ bucketObjectList.page = ko.observable(0);
 // Hold the current bucket S3 access permissions.
 export const bucketS3ACL = ko.observableArray();
 
-// Hold the current tier information.
-export const tierInfo = ko.observable();
-
 // Hold the current cloud sync information.
 export const cloudSyncInfo = ko.observable();
 export const S3Connections = ko.observableArray();

@@ -359,15 +359,6 @@ export function loadSystemInfo() {
         .done();
 }
 
-export function loadBucketPolicy(name) {
-    logAction('loadBucketPolicy', { name });
-
-    model.bucketPolicy(null);
-    api.tiering_policy.read_policy({ name })
-        .then(model.bucketPolicy)
-        .done();
-}
-
 export function loadBucketObjectList(bucketName, filter, sortBy, order, page) {
     logAction('loadBucketObjectList', { bucketName, filter, sortBy, order, page });
 
@@ -630,14 +621,6 @@ export function loadAccountInfo(email) {
         .done();
 }
 
-export function loadTier(name) {
-    logAction('loadTier', { name });
-
-    api.tier.read_tier({ name })
-        .then(model.tierInfo)
-        .done();
-}
-
 export function loadCloudSyncInfo(bucket) {
     logAction('loadCloudSyncInfo', { bucket });
 
@@ -777,17 +760,26 @@ export function deleteBucket(name) {
         .done();
 }
 
-export function updateTier(name, dataPlacement, pools) {
-    logAction('updateTier', { name, dataPlacement, pools });
+export function updateBucketPlacementPolicy(tierName, placementType, node_pools) {
+    logAction('updateBucketPlacementPolicy', { tierName, placementType, node_pools });
 
     api.tier.update_tier({
-        name: name,
-        data_placement: dataPlacement,
-        node_pools: pools
+        name: tierName,
+        data_placement: placementType,
+        node_pools: node_pools
     })
-        .then(
-            () => loadTier(name)
-        )
+        .then(loadSystemInfo)
+        .done();
+}
+
+export function updateBucketBackupPolicy(tierName, cloudResources) {
+    logAction('updateBucketBackupPolicy', { tierName, cloudResources });
+
+    api.tier.update_tier({
+        name: tierName,
+        cloud_pools: cloudResources
+    })
+        .then(loadSystemInfo)
         .done();
 }
 

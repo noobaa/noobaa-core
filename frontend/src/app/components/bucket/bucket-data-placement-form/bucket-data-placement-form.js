@@ -1,9 +1,8 @@
 import template from './bucket-data-placement-form.html';
-import nodePoolsSectionTemplate from './node-pools-section.html';
-import cloudResourcesSectionTemplate from './cloud-resources-section.html';
+import placementSectionTemplate from './placement-policy-section.html';
+import backupPolicySectionTemplate from './backup-policy-section.html';
 import ko from 'knockout';
-import { tierInfo, systemInfo } from 'model';
-import { loadTier } from 'actions';
+import { systemInfo } from 'model';
 import { formatSize, deepFreeze } from 'utils';
 
 const placementTypeMapping = deepFreeze({
@@ -28,29 +27,34 @@ const resourceIcons = deepFreeze([
 
 class BucketDataPlacementFormViewModel {
     constructor({ bucket }) {
-        this.nodePoolsSectionTemplate = nodePoolsSectionTemplate;
-        this.cloudResourcesSectionTemplate = cloudResourcesSectionTemplate;
+        this.placementSectionTemplate = placementSectionTemplate;
+        this.backupPolicySectionTemplate = backupPolicySectionTemplate;
 
         this.policy = ko.pureComputed(
-            () => bucket() && bucket().tiering
+            () => ko.unwrap(bucket) && ko.unwrap(bucket).tiering
         );
 
-        let tierName = ko.pureComputed(
-            () => this.policy() && this.policy().tiers[0].tier
-        );
+        let tier = ko.pureComputed(
+            () => {
+                if (!systemInfo() || !this.policy()) {
+                    return;
+                }
 
-        this.tierSub = tierName.subscribe(
-            name => loadTier(name)
+                let tierName = this.policy().tiers[0].tier;
+                return systemInfo().tiers.find(
+                    ({ name }) =>  tierName === name
+                );
+            }
         );
 
         this.placementType = ko.pureComputed(
-            () => tierInfo() && placementTypeMapping[
-                tierInfo().data_placement
+            () => tier() && placementTypeMapping[
+                tier().data_placement
             ]
         );
 
         this.nodePools = ko.pureComputed(
-            () => tierInfo() && tierInfo().node_pools.map(
+            () => tier() && tier().node_pools.map(
                 name => {
                     if (!systemInfo()) {
                         return;
@@ -74,7 +78,7 @@ class BucketDataPlacementFormViewModel {
         );
 
         this.cloudResources = ko.pureComputed(
-            () => tierInfo() && tierInfo().cloud_pools.map(
+            () => tier() && tier().cloud_pools.map(
                 name => {
                     if (!systemInfo()) {
                         return;
@@ -98,21 +102,24 @@ class BucketDataPlacementFormViewModel {
             () => this.cloudResources() && this.cloudResources().length
         );
 
-        this.isPolicyModalVisible = ko.observable(false);
-
-        tierName() && loadTier(tierName());
+        this.isPlacementPolicyModalVisible = ko.observable(false);
+        this.isBackupPolicyModalVisible = ko.observable(false);
     }
 
-    showPolicyModal() {
-        this.isPolicyModalVisible(true);
+    showPlacementPolicyModal() {
+        this.isPlacementPolicyModalVisible(true);
     }
 
-    hidePolicyModal() {
-        this.isPolicyModalVisible(false);
+    hidePlacementPolicyModal() {
+        this.isPlacementPolicyModalVisible(false);
     }
 
-    dispose() {
-        this.tierSub.dispose();
+    showBackupPolicyModal() {
+        this.isBackupPolicyModalVisible(true);
+    }
+
+    hideBackupPolicyModal() {
+        this.isBackupPolicyModalVisible(false);
     }
 }
 

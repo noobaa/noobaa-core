@@ -16,7 +16,7 @@ export default function routing(page) {
         if (!session) {
             let uri = realizeUri(
                 routes.login,
-                routeContext().params,
+                ctx.params,
                 { 'return-url': encodeURIComponent(ctx.pathname) }
             );
             page.redirect(uri);

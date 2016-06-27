@@ -26,8 +26,9 @@
                 <td class="delete-col">
                     <delete-button params="
                         group: $component.deleteGroup,
+                        disabled: !canBeDeleted(),
                         onDelete: () => del(),
-                        toolTip: 'delete resource'
+                        toolTip: deleteToolTip
                     "></delete-button>
                 </td>
             </tr>

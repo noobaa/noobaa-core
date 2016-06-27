@@ -4,7 +4,7 @@ import { deletePool } from 'actions';
 
 const cannotDeleteReasons = Object.freeze({
     SYSTEM_ENTITY: 'Cannot delete system defined default pool',
-    NOT_EMPTY: 'Cannot delete pool with nodes',
+    NOT_EMPTY: 'Cannot delete a pool which contains nodes',
     IN_USE: 'Cannot delete a pool that is assigned to a bucket policy'
 });
 

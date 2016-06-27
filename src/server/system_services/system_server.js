@@ -355,6 +355,13 @@ function set_maintenance_mode(req) {
     }).return();
 }
 
+function set_webserver_master_state(req) {
+    // TODO: This is for future use when we will need to realize if master state changed
+    if (system_store.is_cluster_master !== req.rpc_params.is_master) {
+        system_store.is_cluster_master = req.rpc_params.is_master;
+    }
+}
+
 // function read_maintenance_config(req) {
 //     let system = system_store.data.systems_by_name[req.rpc_params.name];
 //     if (!system) {
@@ -992,6 +999,7 @@ exports.update_hostname = update_hostname;
 exports.update_system_certificate = update_system_certificate;
 exports.update_time_config = update_time_config;
 exports.set_maintenance_mode = set_maintenance_mode;
+exports.set_webserver_master_state = set_webserver_master_state;
 exports.configure_remote_syslog = configure_remote_syslog;
 
 exports.upload_upgrade_package = upload_upgrade_package;

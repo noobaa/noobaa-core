@@ -248,7 +248,8 @@ class MongoClient extends EventEmitter {
 
     is_master(is_config_set, set_name) {
         var command = {
-            isMaster: 1
+            //isMaster: 1,
+            replSetGetStatus: 1
         };
 
         if (is_config_set) {

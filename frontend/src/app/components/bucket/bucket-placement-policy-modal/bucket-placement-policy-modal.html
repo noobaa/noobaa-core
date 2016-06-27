@@ -1,0 +1,74 @@
+<modal params="onClose: () => cancel()">
+    <h1 class="heading2 push-next">
+        Bucket Data Placment Policy
+    </h1>
+
+    <h2 class="heading3">Policy Type</h2>
+    <ul class="list-no-style push-next">
+        <li>
+            <radio-btn  params="
+                group: 'policy-type',
+                value: 'SPREAD',
+                selected: placementType,
+                label: 'Spread'
+            "></radio-btn>
+            | Spreading the data across the chosen pools
+        </li>
+
+        <li>
+            <radio-btn params="
+                group: 'policy-type',
+                value: 'MIRROR',
+                selected: placementType,
+                label: 'Mirror'
+            "></radio-btn>
+            | Full duplication of the data in each chosen pool
+        </li>
+    </ul>
+
+    <section class="row content-middle">
+        <h2 class="heading3 greedy">Pools in policy</h2>
+        <div>
+            <button class="link" data-bind="click: selectAllPools">Select all</button>
+            |
+            <button class="link" data-bind="click: clearAllPools">Clear</button>
+        </div>
+    </section>
+
+    <div class="box push-next">
+        <div class="data-table">
+            <table>
+                <thead>
+                    <tr>
+                        <th class="select-col"></th>
+                        <th class="state-col">Type</th>
+                        <th class="name-col text-left">Pool Name</th>
+                        <th class="online-count-col">Online Nodes in Pool</th>
+                        <th class="free-space-col">Free Space</th>
+                    </tr>
+                </thead>
+                <tbody data-bind="foreach: pools">
+                    <td class="select-col">
+                        <checkbox params="
+                            checked: selected,
+                            checkedValue: name
+                        "></checkbox>
+                    </td>
+                    <td class="state-col">
+                        <svg-icon params="name: icon"></svg-icon>
+                    </td>
+                    <td class="name-col text-left" data-bind="text: name"></td>
+                    <td class="online-count-col" data-bind="text: onlineNodeCount">
+                    </td>
+                    <td class="free-space-col" data-bind="text: freeSpace"></td>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+
+    <div class="row align-end push-prev">
+        <button class="link push-next" data-bind="click: cancel">Cancel</button>
+        <button class="btn2" data-bind="click: save">Save</button>
+    </div>
+</modal>

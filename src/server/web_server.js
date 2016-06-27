@@ -62,6 +62,13 @@ var app = express();
 // copied from s3rver. not sure why. but copy.
 app.disable('x-powered-by');
 
+var server_rpc = require('./server_rpc');
+server_rpc.register_system_services();
+server_rpc.register_node_services();
+server_rpc.register_object_services();
+server_rpc.register_common_services();
+server_rpc.rpc.register_http_transport(app);
+server_rpc.rpc.router.default = 'fcall://fcall';
 
 ////////////////
 // MIDDLEWARE //
@@ -91,11 +98,21 @@ app.use(function(req, res, next) {
     return next();
 });
 app.use(function(req, res, next) {
-    if (!system_store.is_cluster_master) {
-        res.status(301);
-        return res.redirect('https://26.04.92.24:8080' + req.url);
+    let current_clustering = system_store.get_local_cluster_info();
+    if ((current_clustering && current_clustering.is_clusterized) && !system_store.is_cluster_master) {
+        P.fcall(function() {
+            return server_rpc.client.cluster_server.redirect_to_cluster_master();
+        })
+        .then((host) => {
+            res.status(307);
+            return res.redirect(`http://${host}:8080` + req.url);
+        })
+        .catch((err) => {
+            res.status(500);
+        });
+    } else {
+        return next();
     }
-    return next();
 });
 app.use(express_method_override());
 app.use(express_cookie_parser(process.env.COOKIE_SECRET));
@@ -129,15 +146,6 @@ function use_exclude(route_path, middleware) {
 /////////
 // RPC //
 /////////
-
-// register RPC services and transports
-var server_rpc = require('./server_rpc');
-server_rpc.register_system_services();
-server_rpc.register_node_services();
-server_rpc.register_object_services();
-server_rpc.register_common_services();
-server_rpc.rpc.register_http_transport(app);
-server_rpc.rpc.router.default = 'fcall://fcall';
 
 var http_port = process.env.PORT = process.env.PORT || 5001;
 var https_port = process.env.SSL_PORT = process.env.SSL_PORT || 5443;

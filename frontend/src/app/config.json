@@ -5,6 +5,7 @@
     "notificationInterval": 5000,
     "sslCertificateSuffix": ".zip",
     "upgradePackageSuffix": ".gz",
+    "defaultIconFile": "icons.svg",
     "nodeTest": {
         "targetCount": 20,
         "testSettings": {

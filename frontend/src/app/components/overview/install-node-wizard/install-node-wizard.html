@@ -1,6 +1,5 @@
-<!-- ko if: dataReady -->
 <wizard params="
-    heading: 'Install Node', 
+    heading: 'Install Node',
     steps: ['select', 'install', 'review'],
     onClose: onClose
 ">
@@ -11,9 +10,8 @@
     <section class="column" data-bind="
         template: { html: installStepTemplate }
     "></section>
-    
+
     <section class="column content-middle" data-bind="
         template: { html: reviewStepTemplate }
     "></section>
 </wizard>
-<!-- /ko -->

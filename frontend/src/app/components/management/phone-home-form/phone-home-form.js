@@ -8,7 +8,7 @@ class PhoneHomeFormViewModel {
         this.expanded = ko.observable(false);
 
         let config = ko.pureComputed(
-            () => systemInfo() && systemInfo().phoneHomeConfig
+            () => systemInfo() && systemInfo().phone_home_config
         );
 
         this.proxyAddress = ko.pureComputed(

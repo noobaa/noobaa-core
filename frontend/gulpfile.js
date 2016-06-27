@@ -18,7 +18,8 @@ let $ = require('gulp-load-plugins')();
 
 let buildPath = './dist';
 let uglify = !!argv.uglify;
-let errorCount = 0;
+let buildErrors = 0;
+let lintErrors = 0;
 
 let libs = [
     { name: 'knockout',             path: './src/lib/knockout/dist/knockout.debug.js' },
@@ -86,7 +87,7 @@ gulp.task('build-api', () => {
         .pipe(gulp.dest(buildPath));
 });
 
-gulp.task('build-app', ['build-js-style'], () => {
+gulp.task('build-app', ['lint-app', 'build-js-style'], () => {
     return bundleApp(false);
 });
 
@@ -119,9 +120,26 @@ gulp.task('install-deps', () => {
         .pipe($.install());
 });
 
+gulp.task('lint-app' , () => {
+    lintErrors = 0;
+    return gulp.src('src/app/**/*.js')
+        .pipe($.eslint())
+        .pipe($.eslint.format('table'))
+        .pipe($.eslint.results(
+            result => { lintErrors = result.errorCount; }
+        ));
+});
+
 gulp.task('verify-build', cb => {
-    if (errorCount > 0) {
-        console.error(`Verfiy: Frontend build encountered ${errorCount} errors`);
+    if (lintErrors > 0) {
+        console.error(`[${moment().format('HH:mm:ss')}] Build encountered ${lintErrors} lint errors`);
+    }
+
+    if (buildErrors > 0) {
+        console.error(`[${moment().format('HH:mm:ss')}] Build encountered ${buildErrors} build errors`);
+    }
+
+    if (buildErrors > 0 || lintErrors > 0) {
         process.exit(1);
     }
 
@@ -148,7 +166,7 @@ gulp.task('watch-lib', ['build-lib'], () => {
     });
 });
 
-gulp.task('watch-app', ['build-js-style'], () => {
+gulp.task('watch-app', ['lint-app', 'build-js-style'], () => {
     return bundleApp(true);
 });
 
@@ -270,7 +288,7 @@ function cssClassToJson() {
 }
 
 function errorHandler(err) {
-    ++errorCount;
+    ++buildErrors;
     console.log(err.toString(), '\u0007');
     this.emit('end');
 }

@@ -4,21 +4,21 @@
     </h2>
 
     <button class="btn-flat expand-btn no-outline">
-        <svg-icon class="rotate" 
-            params="uri: '/fe/assets/icons.svg#chevron'" 
+        <svg-icon class="rotate"
+            params="name: 'chevron'"
             data-bind="css: { 'deg-90': !expanded() }">
         </svg-icon>
     </button>
 </div>
 
 <p data-bind="visible: !expanded()">
-    Current Server Time: 
+    Current Server Time:
     <output class="text-tech emphasized" data-bind="text: serverTimeText"></output>
 </p>
 
 <div class="column" data-bind="expand: expanded">
     <radio-group class="push-next" params="
-        options: configTypes, 
+        options: configTypes,
         selected: selectedConfigType
     "></radio-group>
 
@@ -26,7 +26,7 @@
     <section class="push-next">
         <editor params="label: 'Time Zone'">
             <dropdown params="
-                options: timezones, 
+                options: timezones,
                 selected: timezone,
                 matchOperator: matchByTimezoneName
             "></dropdown>
@@ -56,13 +56,13 @@
 
         <editor params="label: 'Time', insertValMessages: false">
             <div class="row editor-row">
-                <input type="number" class="push-next" min="0" max="23" 
+                <input type="number" class="push-next" min="0" max="23"
                     placeholder="HH" data-bind="textInput: hour"/>
 
-                <input type="number" class="push-next" min="0" max="59"  
+                <input type="number" class="push-next" min="0" max="59"
                     placeholder="MM" data-bind="textInput: minute"/>
 
-                <input type="number" min="0" max="59" 
+                <input type="number" min="0" max="59"
                     placeholder="SS" data-bind="textInput: second"/>
             </div>
         </editor>
@@ -73,7 +73,7 @@
     <section class="push-next">
         <editor params="label: 'Time Zone'">
             <dropdown params="
-                options: timezones, 
+                options: timezones,
                 selected: timezone,
                 matchOperator: matchByTimezoneName
             "></dropdown>

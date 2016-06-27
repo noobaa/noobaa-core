@@ -16,18 +16,18 @@ class ServerDNSFormViewModel {
         this.addressOptions = addressOptions;
 
         this.addressType = ko.observableWithDefault(
-            () => systemInfo() && (!systemInfo().dnsName ? IP : DNS)
+            () => systemInfo() && (!systemInfo().dns_name ? IP : DNS)
         );
 
         this.usingIP = this.addressType.is(IP);
         this.usingDNS = this.addressType.is(DNS);
 
         this.ipAddress = ko.pureComputed(
-            ()=> systemInfo() && systemInfo().ipAddress
+            ()=> systemInfo() && systemInfo().ip_address
         );
 
         this.dnsName = ko.observableWithDefault(
-            () => systemInfo() && systemInfo().dnsName
+            () => systemInfo() && systemInfo().dns_name
         )
             .extend({
                 required: {
@@ -51,7 +51,7 @@ class ServerDNSFormViewModel {
             this.errors.showAllMessages();
 
         } else {
-            updateHostname(this.baseAddress(), systemInfo().sslPort, true);
+            updateHostname(this.baseAddress(), systemInfo().ssl_port, true);
         }
     }
 }

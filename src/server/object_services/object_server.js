@@ -18,7 +18,7 @@ const RpcError = require('../../rpc/rpc_error');
 const map_writer = require('./map_writer');
 const map_reader = require('./map_reader');
 const map_deleter = require('./map_deleter');
-const ActivityLog = require('../analytic_services/activity_log');
+const Dispatcher = require('../notifications/dispatcher');
 const mongo_utils = require('../../util/mongo_utils');
 const nodes_store = require('../node_services/nodes_store');
 const ObjectStats = require('../analytic_services/object_stats');
@@ -137,7 +137,7 @@ function complete_object_upload(req) {
             }
         })
         .then(object_size => {
-            ActivityLog.create({
+            Dispatcher.instance().activity({
                 system: req.system,
                 level: 'info',
                 event: 'obj.uploaded',
@@ -302,7 +302,7 @@ function copy_object(req) {
             return copy.run();
         })
         .then(() => {
-            ActivityLog.create({
+            Dispatcher.instance().activity({
                 system: req.system,
                 level: 'info',
                 event: 'obj.uploaded',
@@ -496,7 +496,7 @@ function delete_object(req) {
             delete_object_internal(obj);
         })
         .then(() => {
-            ActivityLog.create({
+            Dispatcher.instance().activity({
                 system: req.system,
                 level: 'info',
                 event: 'obj.deleted',

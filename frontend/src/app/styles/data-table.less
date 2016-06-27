@@ -1,8 +1,8 @@
 .data-table {
     .column();
-    .greedy();
     position: relative;
     text-align: center;
+
 
     table {
         display: block;
@@ -11,9 +11,9 @@
     }
 
     .text(
-        @font-type2, 
-        @font-weight-light, 
-        @font-size-normal, 
+        @font-type2,
+        @font-weight-light,
+        @font-size-normal,
         @text-color4
     );
 
@@ -41,7 +41,7 @@
             background: linear-gradient(to bottom, transparent, @bg-color2);
         }
     }
-    
+
     thead {
         position: absolute;
         top: 0;
@@ -58,7 +58,7 @@
             border: none;
         };
     }
-    
+
 
     th {
         text-transform: uppercase;
@@ -66,28 +66,6 @@
 
         a {
             display: inline-block;
-        }
-
-        &.asc, &.des {
-            &::after {
-                content: '';
-                vertical-align: middle;
-                margin-right: -1em;
-                display: inline-block;
-                border: 5px solid transparent;
-            }
-        }
-
-        &.asc::after {
-            margin-top: -2.5px;
-            border-bottom: none;
-            border-top-color: @text-color4;
-        }
-
-        &.des::after {
-            margin-top: -4px;
-            border-top: none;
-            border-bottom-color: @text-color4;
         }
     }
 

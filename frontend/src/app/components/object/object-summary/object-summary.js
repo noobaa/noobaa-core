@@ -27,7 +27,7 @@ class ObjectSummaryViewModel {
         );
 
         this.stateIcon = ko.pureComputed(
-            () => this.state() && `/fe/assets/icons.svg#${this.state().icon}`
+            () => this.state() && this.state().icon
         );
 
         this.sizeLabel = ko.pureComputed(
@@ -35,7 +35,7 @@ class ObjectSummaryViewModel {
         );
 
         this.sizeIcon = ko.pureComputed(
-            () => '/fe/assets/icons.svg#object-size'
+            () => 'object-size'
         );
 
         this.isPreviewModalVisible = ko.observable(false);

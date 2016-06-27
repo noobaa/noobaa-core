@@ -20,11 +20,11 @@ const size_utils = require('../../util/size_utils');
 const server_rpc = require('../server_rpc');
 const tier_server = require('./tier_server');
 const mongo_utils = require('../../util/mongo_utils');
-const ActivityLog = require('../analytic_services/activity_log');
+const Dispatcher = require('../notifications/dispatcher');
 const nodes_client = require('../node_services/nodes_client');
 const system_store = require('../system_services/system_store').get_instance();
 const object_server = require('../object_services/object_server');
-const cloud_sync_utils = require('../utils/cloud_sync_utils');
+const cloud_utils = require('../utils/cloud_utils');
 
 const VALID_BUCKET_NAME_REGEXP =
     /^(([a-z0-9]|[a-z0-9][a-z0-9\-]*[a-z0-9])\.)*([a-z0-9]|[a-z0-9][a-z0-9\-]*[a-z0-9])$/;
@@ -86,7 +86,7 @@ function create_bucket(req) {
         req.system._id,
         tiering_policy._id);
     changes.insert.buckets = [bucket];
-    ActivityLog.create({
+    Dispatcher.instance().activity({
         event: 'bucket.create',
         level: 'info',
         system: req.system._id,
@@ -258,7 +258,7 @@ function update_bucket_s3_acl(req) {
             if (removed_accounts.length) {
                 desc_string.push(`Removed accounts: ${removed_accounts}`);
             }
-            ActivityLog.create({
+            Dispatcher.instance().activity({
                 event: 'bucket.s3_access_updated',
                 level: 'info',
                 system: req.system._id,
@@ -296,7 +296,7 @@ function delete_bucket(req) {
             if (objects_aggregate_bucket.count) {
                 throw new RpcError('BUCKET_NOT_EMPTY', 'Bucket not empty: ' + bucket.name);
             }
-            ActivityLog.create({
+            Dispatcher.instance().activity({
                 event: 'bucket.delete',
                 level: 'info',
                 system: req.system._id,
@@ -372,7 +372,7 @@ function get_cloud_sync(req, bucket) {
                 endpoint: bucket.cloud_sync.endpoint,
                 access_key: bucket.cloud_sync.access_keys.access_key,
                 health: res.health,
-                status: cloud_sync_utils.resolve_cloud_sync_info(bucket.cloud_sync),
+                status: cloud_utils.resolve_cloud_sync_info(bucket.cloud_sync),
                 last_sync: bucket.cloud_sync.last_sync.getTime(),
                 target_bucket: bucket.cloud_sync.target_bucket,
                 policy: {
@@ -426,7 +426,7 @@ function delete_cloud_sync(req) {
             });
         })
         .then(res => {
-            ActivityLog.create({
+            Dispatcher.instance().activity({
                 event: 'bucket.remove_cloud_sync',
                 level: 'info',
                 system: req.system._id,
@@ -447,7 +447,7 @@ function delete_cloud_sync(req) {
 function set_cloud_sync(req) {
     dbg.log0('set_cloud_sync:', req.rpc_params);
 
-    var connection = find_cloud_sync_connection(req);
+    var connection = cloud_utils.find_cloud_connection(req.account, req.rpc_params.connection);
     var bucket = find_bucket(req);
     var force_stop = false;
     //Verify parameters, bi-directional sync can't be set with additions_only
@@ -526,7 +526,7 @@ function set_cloud_sync(req) {
             desc_string.push(`Direction: ${sync_direction}`);
             desc_string.push(`Sync Deletions: ${!cloud_sync.additions_only}`);
 
-            ActivityLog.create({
+            Dispatcher.instance().activity({
                 event: 'bucket.set_cloud_sync',
                 level: 'info',
                 system: req.system._id,
@@ -618,7 +618,7 @@ function update_cloud_sync(req) {
             desc_string.push(`Direction: ${sync_direction}`);
             desc_string.push(`Sync Deletions: ${!updated_policy.cloud_sync.additions_only}`);
 
-            ActivityLog.create({
+            Dispatcher.instance().activity({
                 event: 'bucket.update_cloud_sync',
                 level: 'info',
                 system: req.system._id,
@@ -680,7 +680,10 @@ function get_cloud_buckets(req) {
     dbg.log0('get cloud buckets', req.rpc_params);
 
     return P.fcall(function() {
-        var connection = find_cloud_sync_connection(req);
+        var connection = cloud_utils.find_cloud_connection(
+            req.account,
+            req.rpc_params.connection
+        );
         var s3 = new AWS.S3({
             endpoint: connection.endpoint,
             accessKeyId: connection.access_key,
@@ -707,19 +710,6 @@ function get_cloud_buckets(req) {
 
 // UTILS //////////////////////////////////////////////////////////
 
-function find_cloud_sync_connection(req) {
-    let account = req.account;
-    let conn_name = req.rpc_params.connection;
-    let conn = (account.sync_credentials_cache || [])
-        .filter(sync_conn => sync_conn.name === conn_name)[0];
-
-    if (!conn) {
-        dbg.error('CONNECTION NOT FOUND', account, conn_name);
-        throw new RpcError('INVALID_CONNECTION', 'Connection dosn\'t exists: "' + conn_name + '"');
-    }
-
-    return conn;
-}
 
 function find_bucket(req) {
     var bucket = req.system.buckets_by_name[req.rpc_params.name];

@@ -156,16 +156,16 @@ P.fcall(function() {
         return P.ninvoke(http_server, 'listen', http_port);
     })
     .then(function() {
-        if (fs.existsSync(path.join(rootdir, 'src', 'private_ssl_path', 'server.key')) &&
-            fs.existsSync(path.join(rootdir, 'src', 'private_ssl_path', 'server.crt'))) {
+        if (fs.existsSync(path.join('/etc', 'private_ssl_path', 'server.key')) &&
+            fs.existsSync(path.join('/etc', 'private_ssl_path', 'server.crt'))) {
             dbg.log0('Using local certificate');
             var local_certificate = {
-                serviceKey: fs.readFileSync(path.join(rootdir, 'src', 'private_ssl_path', 'server.key')),
-                certificate: fs.readFileSync(path.join(rootdir, 'src', 'private_ssl_path', 'server.crt'))
+                serviceKey: fs.readFileSync(path.join('/etc', 'private_ssl_path', 'server.key')),
+                certificate: fs.readFileSync(path.join('/etc', 'private_ssl_path', 'server.crt'))
             };
             return local_certificate;
         } else {
-            dbg.log0('Using self-signed certificate');
+            dbg.log0('Using self-signed certificate',path.join('/etc', 'private_ssl_path', 'server.key'));
             return P.nfcall(pem.createCertificate, {
                 days: 365 * 100,
                 selfSigned: true

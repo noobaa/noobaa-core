@@ -1,18 +1,23 @@
 import template from './bucket-panel.html';
 import ko from 'knockout';
-import { uiState, bucketInfo, bucketObjectList } from 'model';
+import { uiState, systemInfo, routeContext, bucketObjectList } from 'model';
 
 class BucketPanelViewModel {
     constructor() {
-        this.bucket = bucketInfo;
+        this.bucket = ko.pureComputed(
+            () => systemInfo() && systemInfo().buckets.find(
+                ({ name }) => routeContext().params.bucket === name
+            )
+        );
+
         this.objects = bucketObjectList;
 
         this.ready = ko.pureComputed(
-            () => !!bucketInfo()
+            () => !!this.bucket()
         );
 
         this.bucketName = ko.pureComputed(
-            () => bucketInfo() && bucketInfo().name
+            () => this.bucket() && this.bucket().name
         );
 
         this.selectedTab = ko.pureComputed(

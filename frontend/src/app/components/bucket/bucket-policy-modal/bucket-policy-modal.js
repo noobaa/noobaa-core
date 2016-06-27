@@ -1,8 +1,8 @@
 import template from './bucket-policy-modal.html';
 import ko from 'knockout';
 import { noop } from 'utils';
-import { poolList, tierInfo } from 'model';
-import { loadPoolList, loadTier, updateTier } from 'actions';
+import { systemInfo, tierInfo } from 'model';
+import { loadTier, updateTier } from 'actions';
 
 class BucketPolicyModalViewModel {
     constructor({ policy, onClose = noop }) {
@@ -21,15 +21,16 @@ class BucketPolicyModalViewModel {
         );
 
         this.selectedPools = ko.observableWithDefault(
-            () => !!tierInfo() && tierInfo().pools
+            () => !!tierInfo() && tierInfo().node_pools
         );
 
-        this.pools = poolList.map(
-            pool => pool.name
+        this.pools = ko.pureComputed(
+            () => (systemInfo() ? systemInfo().pools : []).map(
+                ({ name }) => name
+            )
         );
 
         loadTier(this.tierName());
-        loadPoolList();
     }
 
     selectAllPools() {

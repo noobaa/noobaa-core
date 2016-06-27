@@ -6,12 +6,12 @@ import { deleteBucket } from'actions';
 const stateMapping = Object.freeze({
     true: {
         toolTip: 'Healthy',
-        icon: '/fe/assets/icons.svg#bucket-healthy'
+        icon: 'bucket-healthy'
     },
 
     false: {
         toolTip: 'Problem',
-        icon: '/fe/assets/icons.svg#bucket-problem'
+        icon: 'bucket-problem'
     }
 });
 
@@ -45,10 +45,6 @@ export default class BucketRowViewModel {
 
         this.name = ko.pureComputed(
             () => bucket() && bucket().name
-        );
-
-        this.href = ko.pureComputed(
-            () => bucket() && `/fe/systems/:system/buckets/${bucket().name}`
         );
 
         this.fileCount = ko.pureComputed(

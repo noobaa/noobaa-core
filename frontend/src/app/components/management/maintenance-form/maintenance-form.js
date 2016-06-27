@@ -10,7 +10,7 @@ class MaintenanceFormViewModel {
         this.expanded = ko.observable(false);
 
         this.state = ko.pureComputed(
-            () => !!systemInfo() && systemInfo().maintenance.state
+            () => !!systemInfo() && systemInfo().maintenance_mode.state
         );
 
         this.stateText = ko.pureComputed(
@@ -18,7 +18,7 @@ class MaintenanceFormViewModel {
         );
 
         let till = ko.pureComputed(
-            () => systemInfo() && systemInfo().maintenance.till
+            () => systemInfo() && systemInfo().maintenance_mode.till
         );
 
         let now = ko.observable(Date.now());

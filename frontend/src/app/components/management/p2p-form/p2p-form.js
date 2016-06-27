@@ -17,7 +17,7 @@ class P2PFormViewModel {
         this.portOptions = portOptions;
 
         let ports = ko.pureComputed(
-            () => (systemInfo() && systemInfo().P2PConfig.tcp_permanent_passive)
+            () => (systemInfo() && systemInfo().n2n_config.tcp_permanent_passive)
         );
 
         this.portType = ko.observableWithDefault(

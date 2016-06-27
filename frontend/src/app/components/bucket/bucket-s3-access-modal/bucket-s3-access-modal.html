@@ -19,15 +19,15 @@
     </div>
 
     <multiselect class="push-next" params="
-        options: accounts, 
+        options: accounts,
         selected: selectedAccounts
     "></multiselect>
-    
+
     <p>
-        <svg-icon class="icon-small" params="uri: '/fe/assets/icons.svg#notif-info'"></svg-icon>
+        <svg-icon class="icon-small" params="name: 'notif-info'"></svg-icon>
         to create a new account go to System Managemnet >
         <a class="link" data-bind="
-            href: '/fe/systems/:system/management/accounts'
+            href: { route: 'management, params: { tab: 'accounts' } }
         ">
             Accounts
         </a>

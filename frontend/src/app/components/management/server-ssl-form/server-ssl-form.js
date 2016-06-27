@@ -1,33 +1,61 @@
 import template from './server-ssl-form.html';
 import ko from 'knockout';
-import { systemInfo } from 'model';
-import { uploadSSLCertificate } from 'actions';
+import numeral from 'numeral';
 import { sslCertificateSuffix } from 'config';
+import { deepFreeze } from 'utils';
+import { uploadSSLCertificate } from 'actions';
+import { sslCertificateUploadStatus } from 'model';
+
+const uploadStateMapping = deepFreeze({
+    IN_PROGRESS: ({ progress }) => ({
+        icon: '/fe/assets/icons.svg#in-progress',
+        message: `Uploading cartificate ${numeral(progress).format('0%')}`
+    }),
+
+    SUCCESS: () => ({
+        icon: '/fe/assets/icons.svg#notif-success',
+        message: 'Certificate uploaded and verified'
+    }),
+
+    ABORTED: () => ({
+        icon: '/fe/assets/icons.svg#notif-warning',
+        message: 'Upload aborted'
+    }),
+
+    FAILED: ({ error }) => ({
+        icon: '/fe/assets/icons.svg#notif-warning',
+        message: `Upload failed: ${error}`
+    })
+});
 
 class SSLFormViewModel {
-    constructor({ onClose }) {
+    constructor() {
         this.expanded = ko.observable(false);
-
-        let config = ko.pureComputed(
-            () => systemInfo()
-        );
-
-        this.enabled = ko.observableWithDefault(
-            () => !!config()
-        );
-
-
-        this.version = ko.pureComputed(
-            () => systemInfo() && systemInfo().version
-        );
-
         this.sslCertificateSuffix = sslCertificateSuffix;
-        this.isUploadingSSLModalVisible = ko.observable(false);
 
-        }
+        this.sslConfigured = ko.observable('No');
+
+        let uploadMetadata = ko.pureComputed(
+            () => {
+                if (!sslCertificateUploadStatus()) {
+                    return { message: '', icon: '' };
+                }
+
+                let mapper = uploadStateMapping[sslCertificateUploadStatus().state];
+                return mapper(sslCertificateUploadStatus());
+            }
+        );
+
+        this.uploadIcon = ko.pureComputed(
+            () => uploadMetadata().icon
+        );
+
+        this.uploadText = ko.pureComputed(
+            () => uploadMetadata().message
+        );
+    }
 
     uploadCertificate(certificate) {
-        this.isUploadingSSLModalVisible(true);
         uploadSSLCertificate(certificate);
     }
 }
@@ -35,4 +63,4 @@ class SSLFormViewModel {
 export default {
     viewModel: SSLFormViewModel,
     template: template
-}
+};

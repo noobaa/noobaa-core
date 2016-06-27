@@ -1,7 +1,7 @@
 
 <div class="row push-next content-middle">
     <h3 class="heading3 greedy">
-        File parts stored on this node: 
+        File parts stored on this node:
         <span data-bind="text: count"></span>
     </h3>
 
@@ -27,11 +27,17 @@
             <!-- ko if: isVisible -->
             <tr>
                 <td class="state-col" data-bind="tooltip: stateToolTip">
-                    <svg-icon params="uri: stateIcon"></svg-icon>
+                    <svg-icon params="name: stateIcon"></svg-icon>
                 </td>
 
                 <td class="name-col text-left">
-                    <a class="link" data-bind="href: href, text: object"></a>
+                    <a class="link" data-bind="
+                        href: {
+                            route: 'object',
+                            params: { bucket: bucket,  object: object, tab: null }
+                        },
+                        text: object
+                    "></a>
                 </td>
 
                 <td class="bucket-col no-wrap" data-bind="text: bucket"></td>

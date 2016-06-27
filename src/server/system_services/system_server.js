@@ -26,11 +26,10 @@ const upgrade_utils = require('../../util/upgrade_utils');
 const RpcError = require('../../rpc/rpc_error');
 const size_utils = require('../../util/size_utils');
 const server_rpc = require('../server_rpc');
-const mongo_utils = require('../../util/mongo_utils');
 const pool_server = require('./pool_server');
 const tier_server = require('./tier_server');
 const auth_server = require('../common_services/auth_server');
-const ActivityLog = require('../analytic_services/activity_log');
+const Dispatcher = require('../notifications/dispatcher');
 const nodes_store = require('../node_services/nodes_store');
 const nodes_client = require('../node_services/nodes_client');
 const system_store = require('../system_services/system_store').get_instance();
@@ -104,7 +103,7 @@ function new_system_changes(name, owner_account) {
                 system: system._id,
                 role: 'admin'
             };
-            ActivityLog.create({
+            Dispatcher.instance().activity({
                 event: 'conf.create_system',
                 level: 'info',
                 system: system._id,
@@ -170,7 +169,7 @@ function read_system(req) {
     var system = req.system;
     return P.join(
         // nodes - count, online count, allocated/used storage aggregate by pool
-        nodes_client.instance().aggregate_nodes_by_pool(null, system._id),
+        nodes_client.instance().aggregate_nodes_by_pool(null, system._id, /*skip_cloud_nodes=*/ true),
 
         // objects - size, count
         md_store.aggregate_objects({
@@ -220,8 +219,6 @@ function read_system(req) {
             upgrade.status = 'UNAVAILABLE';
             upgrade.message = '';
         }
-
-
 
 
         // TODO use n2n_config.stun_servers ?
@@ -531,111 +528,6 @@ function set_last_stats_report_time(req) {
     }).return();
 }
 
-function _read_activity_log_internal(req) {
-    var q = ActivityLog.find({
-        system: req.system._id,
-    });
-
-    var reverse = true;
-    if (req.rpc_params.till) {
-        // query backwards from given time
-        req.rpc_params.till = new Date(req.rpc_params.till);
-        q.where('time').lt(req.rpc_params.till).sort('-time');
-
-    } else if (req.rpc_params.since) {
-        // query forward from given time
-        req.rpc_params.since = new Date(req.rpc_params.since);
-        q.where('time').gte(req.rpc_params.since).sort('time');
-        reverse = false;
-    } else {
-        // query backward from last time
-        q.sort('-time');
-    }
-    if (req.rpc_params.event) {
-        q.where({
-            event: new RegExp(req.rpc_params.event)
-        });
-    }
-    if (req.rpc_params.events) {
-        q.where('event').in(req.rpc_params.events);
-    }
-    if (req.rpc_params.csv) {
-        //limit to million lines just in case (probably ~100MB of text)
-        q.limit(1000000);
-    } else {
-        if (req.rpc_params.skip) q.skip(req.rpc_params.skip);
-        q.limit(req.rpc_params.limit || 10);
-    }
-
-    return P.resolve(q.lean().exec())
-        .then(logs => P.join(
-            nodes_store.instance().populate_nodes_fields(logs, 'node', {
-                name: 1
-            }),
-            mongo_utils.populate(logs, 'obj', md_store.ObjectMD.collection, {
-                key: 1
-            })).return(logs))
-        .then(logs => {
-            logs = _.map(logs, function(log_item) {
-                var l = {
-                    id: String(log_item._id),
-                    level: log_item.level,
-                    event: log_item.event,
-                    time: log_item.time.getTime(),
-                };
-
-                let tier = log_item.tier && system_store.data.get_by_id(log_item.tier);
-                if (tier) {
-                    l.tier = _.pick(tier, 'name');
-                }
-
-                if (log_item.node) {
-                    l.node = _.pick(log_item.node, 'name');
-                }
-
-                if (log_item.desc) {
-                    l.desc = log_item.desc.split('\n');
-                }
-
-                let bucket = log_item.bucket && system_store.data.get_by_id(log_item.bucket);
-                if (bucket) {
-                    l.bucket = _.pick(bucket, 'name');
-                }
-
-                let pool = log_item.pool && system_store.data.get_by_id(log_item.pool);
-                if (pool) {
-                    l.pool = _.pick(pool, 'name');
-                }
-
-                if (log_item.obj) {
-                    l.obj = _.pick(log_item.obj, 'key');
-                }
-
-                let account = log_item.account && system_store.data.get_by_id(log_item.account);
-                if (account) {
-                    l.account = _.pick(account, 'email');
-                }
-
-                let actor = log_item.actor && system_store.data.get_by_id(log_item.actor);
-                if (actor) {
-                    l.actor = _.pick(actor, 'email');
-                }
-
-                return l;
-            });
-            if (reverse) {
-                logs.reverse();
-            }
-            return {
-                logs: logs
-            };
-        });
-}
-
-
-
-
-
 function export_activity_log(req) {
     req.rpc_params.csv = true;
 
@@ -644,7 +536,7 @@ function export_activity_log(req) {
     const out_path = `/public/${file_name}`;
     const inner_path = `${process.cwd()}/build${out_path}`;
 
-    return _read_activity_log_internal(req)
+    return Dispatcher.instance().read_activity_log(req)
         .then(logs => {
             let lines = logs.logs.reduce(
                 (lines, entry) => {
@@ -679,7 +571,7 @@ function export_activity_log(req) {
  *
  */
 function read_activity_log(req) {
-    return _read_activity_log_internal(req);
+    return Dispatcher.instance().read_activity_log(req);
 }
 
 
@@ -699,7 +591,7 @@ function diagnose(req) {
             return out_path;
         })
         .then(res => {
-            ActivityLog.create({
+            Dispatcher.instance().activity({
                 event: 'dbg.diagnose_system',
                 level: 'info',
                 system: req.system._id,
@@ -731,7 +623,7 @@ function diagnose_with_agent(data, req) {
             return out_path;
         })
         .then(res => {
-            ActivityLog.create({
+            Dispatcher.instance().activity({
                 event: 'dbg.diagnose_node',
                 level: 'info',
                 system: req.system && req.system._id,
@@ -875,7 +767,7 @@ function update_base_address(req) {
                 .return(reply);
         })
         .then(res => {
-            ActivityLog.create({
+            Dispatcher.instance().activity({
                 event: 'conf.dns_address',
                 level: 'info',
                 system: req.system,
@@ -993,7 +885,7 @@ function update_time_config(req) {
             if (date) {
                 desc_string.push(`Date and Time set to ${date}`);
             }
-            ActivityLog.create({
+            Dispatcher.instance().activity({
                 event: 'conf.server_date_time_updated',
                 level: 'info',
                 system: req.system,

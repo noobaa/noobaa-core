@@ -149,7 +149,7 @@ function move_one_block_to_different_pool(object_mapping) {
             };
             // console.log('calling create_pool with these parameters: ', create_pool_params);
             console.log('moving 3 nodes to \'test\' pool: ', new_pool_nodes);
-            return client.pool.create_pool(create_pool_params);
+            return client.pool.create_nodes_pool(create_pool_params);
         });
 }
 

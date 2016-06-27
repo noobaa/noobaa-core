@@ -40,7 +40,7 @@ class ConnectApplicationWizard {
 
         this.selectedAccount = ko.observableWithDefault(
             () => systemInfo() && accountList() && accountList().filter(
-                account => account.email === systemInfo().owner
+                account => account.email === systemInfo().owner.email
             )[0]
         );
 

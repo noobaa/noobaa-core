@@ -4,18 +4,18 @@
     <section class="column greedy">
         <!-- ko if: isReady -->
         <pools-overview class="push-next" params="
-            poolCount: poolCount, 
+            poolCount: poolCount,
             nodeCount: nodeCount
         ">
         </pools-overview>
         <!-- /ko -->
-        
-        <button class="btn" data-bind="click: () => isInstallNodeWizardlVisible(true)">
+
+        <button class="btn" data-bind="click: () => showInstallNodeWizard()">
             install node
         </button>
 
         <!-- ko if: isInstallNodeWizardlVisible -->
-        <install-node-wizard params="onClose: () => isInstallNodeWizardlVisible(false)">
+        <install-node-wizard params="onClose: () => hideInstallNodeWizard()">
         </install-node-wizard>
         <!-- /ko -->
     </section>
@@ -25,17 +25,17 @@
     <section class="column greedy">
         <!-- ko if: isReady -->
         <buckets-overview class="push-next" params="
-            bucketCount: bucketCount, 
+            bucketCount: bucketCount,
             objectCount: objectCount
         ">π</buckets-overview>
         <!-- /ko -->
-        
-        <button class="btn" data-bind="click: () => isConnectAppWizardVisible(true)">
+
+        <button class="btn" data-bind="click: () => showConnectApplicationWizard()">
             connect application
         </button>
 
-        <!-- ko if: isConnectAppWizardVisible -->
-        <connect-app-wizard params="onClose: () => isConnectAppWizardVisible(false)">
+        <!-- ko if: isConnectApplicationWizardVisible -->
+        <connect-app-wizard params="onClose: () => hideConnectApplicationWizard()">
         </connect-app-wizard>
         <!-- /ko -->
     </section>
@@ -58,7 +58,7 @@
 
     <div class="counters">
         <ul class="list-no-style row bounded">
-            <li class="counter greedy"> 
+            <li class="counter greedy">
                 <div class="counter-value" data-bind="text: systemCapacity"></div>
                 Total Capacity
             </li>
@@ -75,7 +75,7 @@
 </section>
 
 <!-- ko if: isAfterUpgradeModalVisible -->
-<after-upgrade-modal params="onClose: () => closeAfterUpgradeModal()">
+<after-upgrade-modal params="onClose: () => hideAfterUpgradeModal()">
 </after-upgrade-modal>
 <!-- /ko -->
-    
+

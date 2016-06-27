@@ -1,6 +1,6 @@
 <div class="row push-next">
-    <input class="greedy align-middle" type="search" 
-        placeholder="Filter by Node Name or IP" 
+    <input class="greedy align-middle" type="search"
+        placeholder="Filter by Node Name or IP"
         data-bind=" textInput: filter"/>
 
     <button class="btn3" data-bind="click: () => showAssignNodesModal()">
@@ -26,7 +26,7 @@
 
     <dropdown class="push-next" params="
         options: activityOptions,
-        selected: activityFilter 
+        selected: activityFilter
     "></dropdown>
 
     <div class="greedy column">
@@ -40,20 +40,40 @@
     <table>
         <thead>
             <tr>
-                <th class="state-col" data-bind="css: orderClassFor('state')">
-                    <a href data-bind="click: () => orderBy('state')">state</a>
+                <th class="state-col">
+                    <a href data-bind="
+                        click: () => orderBy('online'),
+                        css: orderClassFor('online')
+                    ">
+                        state
+                    </a>
                 </th>
 
-                <th class="name-col text-left" data-bind="css: orderClassFor('name')">
-                    <a href data-bind="click: () => orderBy('name')">node name</a>
+                <th class="name-col text-left">
+                    <a href data-bind="
+                        click: () => orderBy('name'),
+                        css: orderClassFor('name')
+                    ">
+                        node name
+                    </a>
                 </th>
 
-                <th class="ip-col" data-bind="css: orderClassFor('ip')">
-                    <a href data-bind="click: () => orderBy('ip')">ip</a>
+                <th class="ip-col">
+                    <a href data-bind="
+                        click: () => orderBy('ip'),
+                        css: orderClassFor('ip')
+                    ">
+                        ip
+                    </a>
                 </th>
 
-                <th class="capacity-col" data-bind="css: orderClassFor('used')">
-                    <a href data-bind="click: () => orderBy('used')">used capacity</a>
+                <th class="capacity-col">
+                    <a href data-bind="
+                        click: () => orderBy('used'),
+                        css: orderClassFor('used')
+                    ">
+                        used capacity
+                    </a>
                 </th>
 
                 <th class="data-access-col">
@@ -73,20 +93,23 @@
             <!-- ko if: isVisible -->
             <tr>
                 <td class="state-col" data-bind="tooltip: stateToolTip">
-                    <svg-icon params="uri: stateIcon"></svg-icon>
+                    <svg-icon params="name: stateIcon"></svg-icon>
                 </td>
                 <td class="name-col text-left" >
-                    <a class="link" data-bind="text: name, href: href"></a>
+                    <a class="link" data-bind="
+                        text: name,
+                        href: { route: 'node', params: { node: name, tab: null } }
+                    "></a>
                 </td>
 
                 <td class="ip-col" data-bind="text: ip"></td>
-                
+
                 <td class="capacity-col">
                     <capacity-bar params="total: total, used: used"></capacity-bar>
                 </td>
 
                 <td class="data-access-col" data-bind="
-                    text: dataAccessText, 
+                    text: dataAccessText,
                     css: dataAccessClass
                 "></td>
                 <td class="trust-level-col" data-bind="text: trustLevel"></td>

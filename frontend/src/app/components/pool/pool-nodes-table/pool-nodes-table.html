@@ -1,42 +1,21 @@
 <div class="row push-next">
-    <input class="greedy align-middle" type="search"
-        placeholder="Filter by Node Name or IP"
-        data-bind=" textInput: filter"/>
+    <toggle-filter class="push-next" params="
+        options: issuesFilterOptions,
+        selected: issuesOnly
+    "></toggle-filter>
+
+    <div class="greedy align-middle push-next">
+        <input type="search"
+            placeholder="Filter by Node Name or IP"
+            data-bind=" textInput: filter"/>
+    </div>
 
     <button class="btn3" data-bind="click: () => showAssignNodesModal()">
         Assign Nodes
     </button>
 </div>
 
-<div class="row push-next content-middle">
-    <dropdown class="push-next" params="
-        options: dataAccessOptions,
-        selected: dataAccessFilter
-    "></dropdown>
-
-    <dropdown class="push-next" params="
-        options: trustOptions,
-        selected: trustFilter
-    "></dropdown>
-
-    <dropdown class="push-next" params="
-        options: stateOptions,
-        selected: stateFilter
-    "></dropdown>
-
-    <dropdown class="push-next" params="
-        options: activityOptions,
-        selected: activityFilter
-    "></dropdown>
-
-    <div class="greedy column">
-        <paginator class="align-end" params="
-            itemCount: count, pageSize: pageSize, page: page
-        "></paginator>
-    </div>
-</div>
-
-<div class="data-table greedy">
+<div class="data-table greedy push-both">
     <table>
         <thead>
             <tr>
@@ -124,9 +103,12 @@
         </tbody>
     </table>
 
-    <div class="empty-message" data-bind="visible: !hasNodes()">
-        Pool does not contain any nodes
+    <div class="empty-message" data-bind="visible: emptyMessage, text: emptyMessage">
     </div>
+</div>
+
+<div class="row content-middle">
+    <paginator params="itemCount: count, pageSize: pageSize, page: page"></paginator>
 </div>
 
 <!-- ko if: isAssignNodeModalVisible -->

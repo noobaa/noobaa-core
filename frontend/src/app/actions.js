@@ -205,8 +205,6 @@ export function showPool() {
 
     let ctx = model.routeContext();
     let { pool, tab = 'nodes' } = ctx.params;
-    let { filter, sortBy = 'name', order = 1, page = 0 } = ctx.query;
-
 
     model.uiState({
         layout: 'main-layout',
@@ -220,7 +218,8 @@ export function showPool() {
         tab: tab
     });
 
-    loadPoolNodeList(pool, filter, sortBy, parseInt(order), parseInt(page));
+    let { filter, hasIssues, sortBy = 'name', order = 1, page = 0 } = ctx.query;
+    loadPoolNodeList(pool, filter, hasIssues, sortBy, parseInt(order), parseInt(page));
 }
 
 export function showNode() {
@@ -447,13 +446,14 @@ export function loadObjectPartList(bucketName, objectName, page) {
         .done();
 }
 
-export function loadPoolNodeList(poolName, filter, sortBy, order, page) {
-    logAction('loadPoolNodeList', { poolName, filter, sortBy, order, page });
+export function loadPoolNodeList(poolName, filter, hasIssues, sortBy, order, page) {
+    logAction('loadPoolNodeList', { poolName, filter, hasIssues, sortBy, order, page });
 
     api.node.list_nodes({
         query: {
             pools: [ poolName ],
-            filter: filter
+            filter: filter,
+            has_issues: hasIssues
         },
         sort: sortBy,
         order: order,
@@ -462,14 +462,9 @@ export function loadPoolNodeList(poolName, filter, sortBy, order, page) {
         pagination: true
     })
         .then(
-            reply => {
-                model.poolNodeList(reply.nodes);
-                model.poolNodeList.count(reply.total_count);
-                model.poolNodeList.filter(filter);
-                model.poolNodeList.sortedBy(sortBy);
-                model.poolNodeList.order(order);
-                model.poolNodeList.page(page);
-            }
+            reply => model.poolNodeList(
+                deepFreeze(reply)
+            )
         )
         .done();
 }

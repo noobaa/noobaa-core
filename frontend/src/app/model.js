@@ -54,13 +54,7 @@ export const isS3ConnectionValid = ko.observable(true)
 export const nodeList = ko.observableArray(null);
 
 // Hold the current pool node list.
-export const poolNodeList = ko.observableArray();
-poolNodeList.count = ko.observable(0);
-poolNodeList.sortedBy = ko.observable('name');
-poolNodeList.order = ko.observable(1);
-poolNodeList.filter = ko.observable();
-poolNodeList.page = ko.observable(0);
-
+export const poolNodeList = ko.observable();
 
 // Hold the current node info.
 export const nodeInfo = ko.observable();

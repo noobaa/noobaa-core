@@ -10,5 +10,5 @@ class [[nameCammelCased]]ViewModel {
 
 export default {
     viewModel: [[nameCammelCased]]ViewModel,
-    tempalte: template
+    template: template
 };

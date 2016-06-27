@@ -337,7 +337,7 @@ function get_pool_info(pool, nodes_aggregate_pool) {
         info.nodes = {
             count: n.count || 0,
             online: n.online || 0,
-            usable: n.usable || 0,
+            has_issues: n.has_issues || 0,
         };
 
         info.undeletable = check_pool_deletion(pool, nodes_aggregate_pool);

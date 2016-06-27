@@ -156,5 +156,6 @@ export default function register(ko) {
     ko.components.register('property-sheet',            require('./shared/property-sheet/property-sheet'));
     ko.components.register('capacity-bar',              require('./shared/capacity-bar/capacity-bar'));
     ko.components.register('add-s3-connection-modal',   require('./shared/add-s3-connection-modal/add-s3-connection-modal'));
+    ko.components.register('toggle-filter', require('./shared/toggle-filter/toggle-filter'));
     /** INJECT:shared **/
 }

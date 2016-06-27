@@ -1,9 +1,10 @@
 import template from './radio-group.html';
+import ko from 'knockout';
 import { randomString } from 'utils';
 
 class RadioGroupViewModel {
     constructor({
-            selected,
+            selected = ko.observable(),
             name = randomString(5),
             options,
             multiline = false,

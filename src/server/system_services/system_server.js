@@ -259,7 +259,7 @@ function read_system(req) {
             nodes: {
                 count: nodes_sys.count || 0,
                 online: nodes_sys.online || 0,
-                usable: nodes_sys.usable || 0,
+                has_issues: nodes_sys.has_issues || 0,
             },
             owner: account_server.get_account_info(system_store.data.get_by_id(system._id).owner),
             last_stats_report: system.last_stats_report && new Date(system.last_stats_report).getTime(),

@@ -4,62 +4,69 @@ import ko from 'knockout';
 import { paginationPageSize } from 'config';
 import { makeArray, throttle} from 'utils';
 import { redirectTo } from 'actions';
-
-const dataAccessOptions = Object.freeze([
-    { value: null, label: 'All data access' },
-    { value: 'FULL_ACCESS', label: 'Read & write' },
-    { value: 'READ_ONLY', label: 'Read only' },
-    { value: 'NO_ACCESS', label: 'No access' }
-]);
-
-const trustOptions = Object.freeze([
-    { value: null, label: 'All trust levels' },
-    { value: true, label: 'Trusted' },
-    { value: false, label: 'Untrusted' }
-]);
-
-const stateOptions = Object.freeze([
-    { value: null, label: 'All states'},
-    { value: true, label: 'Online' },
-    { value: false, label: 'Offline' }
-]);
-
-const activityOptions = Object.freeze([
-    { value: null, label: 'All activities' },
-    { value: 'EVACUATING', label: 'Evacuating' },
-    { value: 'REBUILDING',  label: 'Rebuilding' },
-    { value: 'MIGRATING', label: 'Migrating' }
-]);
-
+import { routeContext } from 'model';
 
 class PoolNodesTableViewModel {
-    constructor({ pool, nodes }) {
+    constructor({ pool, nodeList }) {
         this.poolName = ko.pureComputed(
             () => pool() && pool().name
         );
 
         this.pageSize = paginationPageSize;
-        this.count = nodes.count;
-        this.sortedBy = nodes.sortedBy;
-        this.order = nodes.order;
+
+        this.count = ko.pureComputed(
+            () => nodeList() && nodeList().total_count
+        );
+
+        let query = ko.pureComputed(
+            () => routeContext().query
+        );
+
+        this.sortedBy = ko.pureComputed(
+            () => query().sortBy || 'name'
+        );
+
+        this.order = ko.pureComputed(
+            () => Number(query().order) || 1
+        );
+
+        this.issuesOnly = ko.pureComputed({
+            read: () => Boolean(query().hasIssues),
+            write: value => this.toggleIssues(value)
+        });
+
+        this.issuesFilterOptions = [
+            {
+                label: ko.pureComputed(
+                    () => `All Nodes (${ pool() ? pool().nodes.count : 'N/A'})`
+                ),
+                value: false
+            },
+            {
+                label: ko.pureComputed(
+                    () => `Issues (${ pool() ? pool().nodes.has_issues : 'N/A'})`
+                ),
+                value: true
+            }
+        ];
 
         this.page = ko.pureComputed({
-            read: nodes.page,
+            read: () => Number(query().page) || 0,
             write:  page => this.pageTo(page)
         });
 
         this.filter = ko.pureComputed({
-            read: nodes.filter,
+            read: () => query().filter,
             write: throttle(phrase => this.filterObjects(phrase), 750)
         });
 
         this.rows = makeArray(
             this.pageSize,
-            i => new NodeRowViewModel(() => nodes()[i])
+            i => new NodeRowViewModel(() => nodeList() && nodeList().nodes[i])
         );
 
         this.hasNodes = ko.pureComputed(
-            () => nodes().length > 0
+            () => nodeList() && nodeList().nodes.length > 0
         );
 
         this.dataAccessOptions = [
@@ -68,18 +75,17 @@ class PoolNodesTableViewModel {
             { value: 'NO_ACCESS', label: 'No Access' }
         ];
 
-        this.dataAccessOptions = dataAccessOptions;
-        this.dataAccessFilter = ko.observable(null);
+        this.emptyMessage = ko.pureComputed(
+            () => {
+                if (pool() && pool().nodes.count === 0) {
+                    return 'Pool does not contain any nodes';
+                }
 
-        this.trustOptions = trustOptions;
-        this.trustFilter = ko.observable(null);
-
-        this.stateOptions = stateOptions;
-        this.stateFilter = ko.observable(null);
-
-        this.activityOptions = activityOptions;
-        this.activityFilter = ko.observable(null);
-
+                if (nodeList() && nodeList().nodes.length === 0) {
+                    return 'No matching nodes';
+                }
+            }
+        );
 
         this.isAssignNodeModalVisible = ko.observable(false);
     }
@@ -95,6 +101,7 @@ class PoolNodesTableViewModel {
     pageTo(page) {
         redirectTo(undefined, undefined, {
             filter: this.filter(),
+            hasIssues: this.issuesOnly() || undefined,
             sortBy: this.sortedBy(),
             order: this.order(),
             page: page
@@ -104,6 +111,7 @@ class PoolNodesTableViewModel {
     filterObjects(phrase) {
         redirectTo(undefined, undefined, {
             filter: phrase || undefined,
+            hasIssues: this.issuesOnly() || undefined,
             sortBy: this.sortedBy(),
             order: this.order(),
             page: 0
@@ -113,8 +121,19 @@ class PoolNodesTableViewModel {
     orderBy(colName) {
         redirectTo(undefined, undefined, {
             filter: this.filter(),
+            hasIssues: this.issuesOnly() || undefined,
             sortBy: colName,
             order: this.sortedBy() === colName ? 0 - this.order() : 1,
+            page: 0
+        });
+    }
+
+    toggleIssues(value) {
+        redirectTo(undefined, undefined, {
+            filter: this.filter(),
+            hasIssues: value || undefined,
+            sortBy: this.sortedBy(),
+            order: this.order(),
             page: 0
         });
     }

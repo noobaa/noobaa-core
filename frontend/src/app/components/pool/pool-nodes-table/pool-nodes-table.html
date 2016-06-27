@@ -107,9 +107,11 @@
     </div>
 </div>
 
-<div class="row content-middle">
-    <paginator params="itemCount: count, pageSize: pageSize, page: page"></paginator>
-</div>
+<paginator class="align-end" params="
+    itemCount: count,
+    pageSize: pageSize,
+    page: page
+"></paginator>
 
 <!-- ko if: isAssignNodeModalVisible -->
     <assign-nodes-modal params="

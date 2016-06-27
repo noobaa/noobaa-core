@@ -4,8 +4,8 @@
         <p>Cloud resources are used to backup the pool data, backup will apply an extra copy in each resource</p>
     </div>
 
-    <button class="btn3" data-bind="click: showPolicyModal">
-        Edit cloud resources
+    <button class="btn3" data-bind="click: showBackupPolicyModal">
+        Edit backup policy
     </button>
 </div>
 
@@ -37,3 +37,9 @@
         No cloud resources participate in policy
     </div>
 </div>
+
+<!-- ko if: isBackupPolicyModalVisible -->
+<bucket-backup-policy-modal params="
+    policy: policy, onClose: () => hideBackupPolicyModal()
+"></bucket-backup-policy-modal>
+<!-- /ko -->

@@ -46,19 +46,20 @@ export default function register(ko) {
     // -------------------------------
     // Bucket
     // -------------------------------
-    ko.components.register('bucket-panel',                  require('./bucket/bucket-panel/bucket-panel'));
-    ko.components.register('bucket-summary',                require('./bucket/bucket-summary/bucket-summary'));
-    ko.components.register('bucket-objects-table',          require('./bucket/bucket-objects-table/bucket-objects-table'));
-    ko.components.register('bucket-data-placement-form',    require('./bucket/bucket-data-placement-form/bucket-data-placement-form'));
-    ko.components.register('bucket-cloud-sync-form',        require('./bucket/bucket-cloud-sync-form/bucket-cloud-sync-form'));
-    ko.components.register('bucket-policy-modal',           require('./bucket/bucket-policy-modal/bucket-policy-modal'));
-    ko.components.register('upload-files-modal',            require('./bucket/upload-files-modal/upload-files-modal'));
-    ko.components.register('set-cloud-sync-modal',          require('./bucket/set-cloud-sync-modal/set-cloud-sync-modal'));
-    ko.components.register('edit-cloud-sync-modal',         require('./bucket/edit-cloud-sync-modal/edit-cloud-sync-modal'));
-    ko.components.register('aws-credentials-modal',         require('./bucket/aws-credentials-modal/aws-credentials-modal'));
-    ko.components.register('bucket-s3-access-list',         require('./bucket/bucket-s3-access-list/bucket-s3-access-list'));
-    ko.components.register('s3-access-details-modal',       require('./bucket/s3-access-details-modal/s3-access-details-modal'));
-    ko.components.register('bucket-s3-access-modal',        require('./bucket/bucket-s3-access-modal/bucket-s3-access-modal'));
+    ko.components.register('bucket-panel',                          require('./bucket/bucket-panel/bucket-panel'));
+    ko.components.register('bucket-summary',                        require('./bucket/bucket-summary/bucket-summary'));
+    ko.components.register('bucket-objects-table',                  require('./bucket/bucket-objects-table/bucket-objects-table'));
+    ko.components.register('bucket-data-placement-form',            require('./bucket/bucket-data-placement-form/bucket-data-placement-form'));
+    ko.components.register('bucket-cloud-sync-form',                require('./bucket/bucket-cloud-sync-form/bucket-cloud-sync-form'));
+    ko.components.register('bucket-placement-policy-modal',         require('./bucket/bucket-placement-policy-modal/bucket-placement-policy-modal'));
+    ko.components.register('upload-files-modal',                    require('./bucket/upload-files-modal/upload-files-modal'));
+    ko.components.register('set-cloud-sync-modal',                  require('./bucket/set-cloud-sync-modal/set-cloud-sync-modal'));
+    ko.components.register('edit-cloud-sync-modal',                 require('./bucket/edit-cloud-sync-modal/edit-cloud-sync-modal'));
+    ko.components.register('aws-credentials-modal',                 require('./bucket/aws-credentials-modal/aws-credentials-modal'));
+    ko.components.register('bucket-s3-access-list',                 require('./bucket/bucket-s3-access-list/bucket-s3-access-list'));
+    ko.components.register('s3-access-details-modal',               require('./bucket/s3-access-details-modal/s3-access-details-modal'));
+    ko.components.register('bucket-s3-access-modal',                require('./bucket/bucket-s3-access-modal/bucket-s3-access-modal'));
+    ko.components.register('bucket-backup-policy-modal', require('./bucket/bucket-backup-policy-modal/bucket-backup-policy-modal'));
     /** INJECT:bucket **/
 
     // -------------------------------

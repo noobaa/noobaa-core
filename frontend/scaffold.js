@@ -183,7 +183,7 @@ class ComponentGenerator extends Generator {
                         () => inject(
                             this.registryPath,
                             params.area,
-                            this.generateRegisterLine(params.area, params.name),
+                            this.generateRegisterLine(params.area, params.folderName),
                             false
                         )
                     )

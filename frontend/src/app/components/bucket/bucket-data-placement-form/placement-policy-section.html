@@ -5,8 +5,8 @@
     </div>
 
 
-    <button class="btn3" data-bind="click: showPolicyModal">
-        Edit node pools
+    <button class="btn3" data-bind="click: showPlacementPolicyModal">
+        Edit placement policy
     </button>
 </div>
 
@@ -64,7 +64,8 @@
     </div>
 </div>
 
-<!-- ko if: isPolicyModalVisible -->
-<bucket-policy-modal params="policy: policy, onClose: () => hidePolicyModal()">
-</bucket-policy-modal>
+<!-- ko if: isPlacementPolicyModalVisible -->
+<bucket-placement-policy-modal params="
+    policy: policy, onClose: () => hidePlacementPolicyModal()
+"></bucket-placement-policy-modal>
 <!-- /ko -->

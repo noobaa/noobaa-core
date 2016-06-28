@@ -285,35 +285,41 @@ function read_system(req) {
 
         // fill cluster information if we have a cluster.
         let local_info = system_store.get_local_cluster_info();
-        if (local_info.is_clusterized) {
-            let shards = local_info.shards.map(shard => ({
-                shardname: shard.shardname,
-                servers: []
-            }));
-            _.each(system_store.data.clusters, cinfo => {
-                let shard = shards.find(s => s.shardname === cinfo.owner_shardname);
-                let memory_usage = (1 - cinfo.heartbeat.health.os_info.freemem / cinfo.heartbeat.health.os_info.totalmem) * 100;
-                let cpu_usage = cinfo.heartbeat.health.os_info.loadavg[0] * 100;
-                let server_info = {
-                    version: cinfo.heartbeat.version,
-                    server_name: cinfo.owner_address,
-                    is_connected: ((Date.now() - cinfo.heartbeat.time) < config.CLUSTER_NODE_MISSING_TIME),
-                    server_ip: cinfo.owner_address,
-                    memory_usage: memory_usage,
-                    cpu_usage: cpu_usage
-                };
-                shard.servers.push(server_info);
-            });
-            _.each(shards, shard => {
-                let num_connected = shard.servers.filter(server => server.is_connected).length;
-                shard.high_availabilty = (num_connected / shard.servers.length) > (shard.servers.length / 2);
-            });
-            let cluster_info = {
-                shards: shards
+        let shards = local_info.shards.map(shard => ({
+            shardname: shard.shardname,
+            servers: []
+        }));
+        _.each(system_store.data.clusters, cinfo => {
+            console.warn('NBNB:: cinfo', cinfo);
+            let shard = shards.find(s => s.shardname === cinfo.owner_shardname);
+            let memory_usage = 0;
+            let cpu_usage = 0;
+            let version = '0';
+            let is_connected = true;
+            if (cinfo.heartbeat) {
+                memory_usage = (1 - cinfo.heartbeat.health.os_info.freemem / cinfo.heartbeat.health.os_info.totalmem) * 100;
+                cpu_usage = cinfo.heartbeat.health.os_info.loadavg[0] * 100;
+                version = cinfo.heartbeat.version;
+                is_connected = ((Date.now() - cinfo.heartbeat.time) < config.CLUSTER_NODE_MISSING_TIME);
+            }
+            let server_info = {
+                version: version,
+                server_name: cinfo.owner_address,
+                is_connected: is_connected,
+                server_ip: cinfo.owner_address,
+                memory_usage: memory_usage,
+                cpu_usage: cpu_usage
             };
-            response.cluster = cluster_info;
-        }
-
+            shard.servers.push(server_info);
+        });
+        _.each(shards, shard => {
+            let num_connected = shard.servers.filter(server => server.is_connected).length;
+            shard.high_availabilty = (num_connected / shard.servers.length) > (shard.servers.length / 2);
+        });
+        let cluster_info = {
+            shards: shards
+        };
+        response.cluster = cluster_info;
 
         if (system.base_address) {
             let hostname = url.parse(system.base_address).hostname;

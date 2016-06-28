@@ -102,16 +102,41 @@ function update_tier(req) {
     if (req.rpc_params.new_name) {
         updates.name = req.rpc_params.new_name;
     }
+    let pools_partitions = _.partition(tier.pools, pool => _.isUndefined(pool.cloud_pool_info));
+    let node_pools_part = pools_partitions[0];
+    let cloud_pools_part = pools_partitions[1];
+    let node_pools_update = [];
+    let cloud_pools_update = [];
+
+    // if node_pools are defined use it for the update otherwise use the existing
     if (req.rpc_params.node_pools) {
-        updates.pools = _.map(req.rpc_params.node_pools, function(pool_name) {
-            return req.system.pools_by_name[pool_name]._id;
+        // validate that all pools in node pools are actually node pools
+        _.each(req.rpc_params.node_pools, pool_name => {
+            if (req.system.pools_by_name[pool_name].cloud_pool_info) {
+                throw new RpcError('ILLEGAL NODE POOLS LIST', 'received a cloud pool in node_pools');
+            }
         });
+
+        node_pools_update = req.rpc_params.node_pools.map(pool_name => req.system.pools_by_name[pool_name]._id);
+    } else {
+        node_pools_update = node_pools_part.map(node_pool => node_pool._id);
     }
+
+    // if cloud_pools are defined use it for the update otherwise use the existing
     if (req.rpc_params.cloud_pools) {
-        updates.pools = updates.pools.concat(_.map(req.rpc_params.cloud_pools, function(pool_name) {
-            return req.system.pools_by_name[pool_name]._id;
-        }));
+        // validate that all pools in cloud pools are actually cloud pools
+        _.each(req.rpc_params.node_pools, pool_name => {
+            if (!req.system.pools_by_name[pool_name].cloud_pool_info) {
+                throw new RpcError('ILLEGAL NODE POOLS LIST', 'received a cloud pool in node_pools');
+            }
+        });
+
+        cloud_pools_update = req.rpc_params.cloud_pools.map(pool_name => req.system.pools_by_name[pool_name]._id);
+    } else {
+        cloud_pools_update = cloud_pools_part.map(cloud_pool => cloud_pool._id);
     }
+
+    updates.pools = node_pools_update.concat(cloud_pools_update);
     updates._id = tier._id;
     return system_store.make_changes({
             update: {

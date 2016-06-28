@@ -332,11 +332,12 @@ function get_pool_info(pool, nodes_aggregate_pool) {
             endpoint: pool.cloud_pool_info.endpoint,
             target_bucket: pool.cloud_pool_info.target_bucket
         };
+        info.undeletable = check_cloud_pool_deletion(pool, nodes_aggregate_pool);
     } else {
         info.nodes = {
             count: n.count || 0,
             online: n.online || 0,
-            usable: n.usable || 0,
+            has_issues: n.has_issues || 0,
         };
 
         info.undeletable = check_pool_deletion(pool, nodes_aggregate_pool);

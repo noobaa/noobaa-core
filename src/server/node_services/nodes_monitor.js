@@ -446,11 +446,11 @@ class NodesMonitor extends EventEmitter {
             !item.node.disabled &&
             !item.storage_full);
 
-        item.usable = Boolean(
-            item.online &&
-            item.trusted &&
-            !item.node.decommissioning &&
-            !item.node.disabled);
+        item.has_issues = Boolean(
+            !item.online ||
+            !item.trusted ||
+            item.node.decommissioning &&
+            item.node.disabled);
 
         item.accessibility =
             (item.readable && item.writable && 'FULL_ACCESS') ||
@@ -677,8 +677,8 @@ class NodesMonitor extends EventEmitter {
             if (query.skip_cloud_nodes &&
                 item.node.is_cloud_node) continue;
 
-            if ('usable' in query &&
-                Boolean(query.usable) !== Boolean(item.usable)) continue;
+            if ('has_issues' in query &&
+                Boolean(query.has_issues) !== Boolean(item.has_issues)) continue;
             if ('online' in query &&
                 Boolean(query.online) !== Boolean(item.online)) continue;
             if ('readable' in query &&
@@ -716,8 +716,8 @@ class NodesMonitor extends EventEmitter {
             list.sort(js_utils.sort_compare_by(item => String(item.node.name), options.order));
         } else if (options.sort === 'ip') {
             list.sort(js_utils.sort_compare_by(item => String(item.node.ip), options.order));
-        } else if (options.sort === 'usable') {
-            list.sort(js_utils.sort_compare_by(item => Boolean(item.usable), options.order));
+        } else if (options.sort === 'has_issues') {
+            list.sort(js_utils.sort_compare_by(item => Boolean(item.has_issues), options.order));
         } else if (options.sort === 'online') {
             list.sort(js_utils.sort_compare_by(item => Boolean(item.online), options.order));
         } else if (options.sort === 'trusted') {
@@ -841,7 +841,7 @@ class NodesMonitor extends EventEmitter {
     _aggregate_nodes_list(list) {
         let count = 0;
         let online = 0;
-        let usable = 0;
+        let has_issues = 0;
         const storage = {
             total: 0,
             free: 0,
@@ -851,8 +851,8 @@ class NodesMonitor extends EventEmitter {
         _.each(list, item => {
             count += 1;
             if (item.online) online += 1;
-            if (item.usable) {
-                usable += 1;
+            if (item.has_issues) {
+                has_issues += 1;
                 // TODO use bigint for nodes storage sum
                 storage.total += item.node.storage.total || 0;
                 storage.free += item.node.storage.free || 0;
@@ -864,7 +864,7 @@ class NodesMonitor extends EventEmitter {
             nodes: {
                 count: count,
                 online: online,
-                usable: usable,
+                has_issues: has_issues,
             },
             storage: storage
         };

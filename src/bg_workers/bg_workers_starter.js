@@ -33,7 +33,8 @@ var config = require('../../config.js');
 
 const MASTER_BG_WORKERS = [
     'scrubber',
-    'cloud_sync_refresher'
+    'cloud_sync_refresher',
+    'system_server_stats_aggregator'
 ];
 
 dbg.set_process_name('BGWorkers');
@@ -73,6 +74,14 @@ function remove_master_workers() {
 }
 
 function run_master_workers() {
+    if ((config.central_stats.send_stats === 'true') &&
+        (config.central_stats.central_listener)) {
+        register_bg_worker({
+            name: 'system_server_stats_aggregator',
+            delay: config.central_stats.send_time_cycle,
+        }, stats_aggregator.background_worker);
+    }
+
     register_bg_worker({
         name: 'cloud_sync_refresher'
     }, cloud_sync.background_worker);
@@ -85,14 +94,6 @@ function run_master_workers() {
             building_timeout: 300000, // TODO increase?
         }, scrubber.background_worker);
     }
-}
-
-if ((config.central_stats.send_stats === 'true') &&
-    (config.central_stats.central_listener)) {
-    register_bg_worker({
-        name: 'system_server_stats_aggregator',
-        delay: config.central_stats.send_time_cycle,
-    }, stats_aggregator.background_worker);
 }
 
 register_bg_worker({

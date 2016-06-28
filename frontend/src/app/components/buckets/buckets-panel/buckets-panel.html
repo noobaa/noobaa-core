@@ -1,16 +1,7 @@
 <section class="box column greedy">
     <h2 class="box-header">Bucket List</h2>
 
-    <button class="btn2 align-end push-next" data-bind="
-        click: () => isCreateBucketWizardVisible(true)
-    ">
-        Create Bucket
-    </button>
-
-    <buckets-table class="column greedy" params="buckets: buckets"></buckets-table>
+    <buckets-table class="column greedy"></buckets-table>
 </section>
 
-<!-- ko if: isCreateBucketWizardVisible -->
-<create-bucket-wizard params="onClose: () => isCreateBucketWizardVisible(false)">
-</create-bucket-wizard>
-<!-- /ko -->
+

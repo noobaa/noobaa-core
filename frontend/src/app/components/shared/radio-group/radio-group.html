@@ -1,6 +1,9 @@
-<div data-bind="foreach: options, css: $component.layoutClass">
+<div class="content-middle" data-bind="
+    foreach: options,
+    css: $component.layoutClass
+">
     <radio-btn  class="push-next" params="
-        group: $component.Name, 
+        group: $component.Name,
         selected: $component.selected,
         label: label,
         value: value,

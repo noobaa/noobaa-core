@@ -1,4 +1,20 @@
 import ko from 'knockout';
+import { isObject } from 'utils';
+
+ko.deepUnwrap = function(value) {
+    let uw = ko.unwrap(value);
+    if (isObject(uw)) {
+        return Object.keys(uw).reduce(
+            (res, key) => {
+                res[key] = ko.deepUnwrap(uw[key]);
+                return res;
+            },
+            {}
+        );
+    } else {
+        return uw;
+    }
+};
 
 ko.subscribable.fn.is = function(value) {
     return ko.pureComputed(
@@ -6,7 +22,7 @@ ko.subscribable.fn.is = function(value) {
     );
 };
 
-ko.subscribable.fn.toggle = function () {
+ko.subscribable.fn.toggle = function() {
     this(!this());
     return this;
 };

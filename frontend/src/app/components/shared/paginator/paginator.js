@@ -28,8 +28,6 @@ class PaginatorViewModel {
         this.isLastPage = ko.pureComputed(
             () => (this.page() + 1) * pageSize >= this.count()
         );
-
-        this.icon = '/fe/assets/icons.svg#chevron';
     }
 
     pageForward() {

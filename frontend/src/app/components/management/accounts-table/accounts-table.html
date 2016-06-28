@@ -19,7 +19,7 @@
             <!-- ko if: isVisible -->
             <tr>
                 <td class="user-col text-left">
-                    <svg-icon params="uri: '/fe/assets/icons.svg#account'"></svg-icon>
+                    <svg-icon params="name: 'account'"></svg-icon>
                     <span data-bind="text: username"></span>
                 </td>
 
@@ -32,7 +32,7 @@
                         click: () => $component.openS3AccessModal(username)
                     ">edit</button>
                 </td>
-                
+
                 <td class="password-col">
                     <button class="link" data-bind="
                         click: () => $component.openResetPasswordModal(username)

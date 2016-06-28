@@ -4,7 +4,7 @@ import { deletePool } from 'actions';
 
 const cannotDeleteReasons = Object.freeze({
     SYSTEM_ENTITY: 'Cannot delete system defined default pool',
-    NOT_EMPTY: 'Cannot delete pool with nodes',
+    NOT_EMPTY: 'Cannot delete a pool which contains nodes',
     IN_USE: 'Cannot delete a pool that is assigned to a bucket policy'
 });
 
@@ -14,14 +14,10 @@ export default class PoolRowViewModel {
             () => !!pool()
         );
 
-        this.stateIcon = '/fe/assets/icons.svg#pool';
+        this.stateIcon = 'pool';
 
         this.name = ko.pureComputed(
             () => pool() && pool().name
-        );
-
-        this.href = ko.pureComputed(
-            () => pool() && `/fe/systems/:system/pools/${pool().name}`
         );
 
         this.nodeCount = ko.pureComputed(

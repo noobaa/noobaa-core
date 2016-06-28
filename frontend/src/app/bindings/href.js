@@ -1,16 +1,19 @@
 import ko from 'knockout';
-import { realizeUri } from 'utils';
+import * as routes from 'routes';
 import { routeContext } from 'model';
+import { realizeUri } from 'utils';
 
 export default {
     update: function(element, valueAccessor, allBindings, viewModel, bindingContext) {
-        let value = ko.unwrap(valueAccessor());
-        let params = routeContext().params;
-        let href = realizeUri(value, params);
+        let { route, params } = ko.deepUnwrap(valueAccessor());
+        let href = realizeUri(
+            routes[route] || '',
+            Object.assign({}, routeContext().params, params)
+        );
 
         return ko.bindingHandlers.attr.update(
             element,
-            () => (href ? { href } : {}),
+            () => href ? { href } : {},
             allBindings,
             viewModel,
             bindingContext

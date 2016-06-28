@@ -1,5 +1,6 @@
-import { parseQueryString } from 'utils';
+import { parseQueryString, realizeUri } from 'utils';
 import { sessionInfo, routeContext } from 'model';
+import * as routes from 'routes';
 import * as actions from 'actions';
 
 export default function routing(page) {
@@ -13,11 +14,15 @@ export default function routing(page) {
     function authorize(ctx, next) {
         let session = sessionInfo();
         if (!session) {
-            let returnUrl = encodeURIComponent(ctx.pathname);
-            page.redirect(`/fe/login?return-url=${returnUrl}`);
+            let uri = realizeUri(
+                routes.login,
+                ctx.params,
+                { 'return-url': encodeURIComponent(ctx.pathname) }
+            );
+            page.redirect(uri);
 
         } else if (session.system !== ctx.params.system) {
-            page.redirect('/fe/unauthorized');
+            page.redirect(routes.unauthorized);
 
         } else {
             next();
@@ -39,22 +44,22 @@ export default function routing(page) {
     page('*', parseQuery);
 
     // Check authentication and authorization for the following paths.
-    page('/fe/systems/:system', authorize, ensureSystemInfo);
-    page('/fe/systems/:system/*', authorize, ensureSystemInfo);
+    page(routes.system, authorize, ensureSystemInfo);
+    page(`${routes.system}/*`, authorize, ensureSystemInfo);
 
     // Screens handlers.
-    page('/fe/login', saveContext, actions.showLogin);
-    page('/fe/systems/:system', saveContext, actions.showOverview);
-    page('/fe/systems/:system/buckets', saveContext, actions.showBuckets);
-    page('/fe/systems/:system/buckets/:bucket/:tab?', saveContext, actions.showBucket);
-    page('/fe/systems/:system/buckets/:bucket/objects/:object/:tab?', saveContext, actions.showObject);
-    page('/fe/systems/:system/pools',  saveContext, actions.showPools);
-    page('/fe/systems/:system/pools/:pool/:tab?', saveContext, actions.showPool);
-    page('/fe/systems/:system/pools/:pool/nodes/:node/:tab?', saveContext, actions.showNode);
-    page('/fe/systems/:system/management/:tab?', saveContext, actions.showManagement);
+    page(routes.login, saveContext, actions.showLogin);
+    page(routes.system, saveContext, actions.showOverview);
+    page(routes.buckets, saveContext, actions.showBuckets);
+    page(routes.bucket, saveContext, actions.showBucket);
+    page(routes.object, saveContext, actions.showObject);
+    page(routes.pools,  saveContext, actions.showResources);
+    page(routes.pool, saveContext, actions.showPool);
+    page(routes.node, saveContext, actions.showNode);
+    page(routes.management, saveContext, actions.showManagement);
 
     // Redirect any other request to the login page.
-    page.redirect('*', '/fe/login');
+    page.redirect('*', routes.login);
 }
 
 

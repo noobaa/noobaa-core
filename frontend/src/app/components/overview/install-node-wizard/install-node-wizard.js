@@ -4,11 +4,11 @@ import installStepTemplate from './install-step.html';
 import reviewStepTemplate from './review-step.html';
 import ko from 'knockout';
 import { defaultPoolName } from 'config';
-import { agentInstallationInfo as installInfo, systemInfo } from 'model';
-import { copyTextToClipboard, lastSegment } from 'utils';
-import { loadAgentInstallationInfo } from 'actions';
+import { systemInfo } from 'model';
+import { copyTextToClipboard, lastSegment, realizeUri, encodeBase64 } from 'utils';
+import { asset as assetRoute } from 'routes';
 
-const installCommands = {
+const installCommands = Object.freeze({
     NETWORK_WINDOWS(pkg, conf, server) {
         return `Invoke-WebRequest ${server}:8080/public/${pkg} -OutFile C:\\${pkg}; C:\\${pkg} /S /config ${conf}`;
     },
@@ -24,9 +24,9 @@ const installCommands = {
     LOCAL_LINUX(pkg, conf) {
         return `${pkg} /S /config ${conf}`;
     }
-};
+});
 
-const installationTypeOptions = [
+const installationTypeOptions = Object.freeze([
     {
         value: 'NETWORK',
         label: 'Network Installation (recommended)',
@@ -37,9 +37,9 @@ const installationTypeOptions = [
         label: 'Local Installation',
         description: 'Choose this option when your target machine does not have direct access to the NooBaa server'
     }
-];
+]);
 
-const installationTargetOptions = [
+const installationTargetOptions = Object.freeze([
     {
         value: 'LINUX',
         label: 'Linux'
@@ -48,7 +48,7 @@ const installationTargetOptions = [
         value: 'WINDOWS',
         label: 'Windows'
     }
-];
+]);
 
 class InstallNodeWizardViewModel {
     constructor({ onClose }) {
@@ -56,10 +56,6 @@ class InstallNodeWizardViewModel {
         this.installStepTemplate = installStepTemplate;
         this.reviewStepTemplate = reviewStepTemplate;
         this.onClose = onClose;
-
-        this.dataReady = ko.pureComputed(
-            () => !!installInfo()
-        );
 
         this.installationTypeOptions = installationTypeOptions;
         this.installationType = ko.observable(
@@ -76,28 +72,52 @@ class InstallNodeWizardViewModel {
         );
 
         this.packageUrl = ko.pureComputed(
-            () => ({
-                LINUX: installInfo().downloadUris.linux,
-                WINDOWS: installInfo().downloadUris.windows
-            })[
-                this.installationTarget()
-            ]
-        );
-
-        this.selectedInstallCommand = ko.pureComputed(
             () => {
-                let selector = this.commandSelector();
-                let pkg = lastSegment(this.packageUrl(), '/');
-                let conf = installInfo().agentConf;
-                let server = systemInfo().ipAddress;
+                if (!systemInfo()) {
+                    return;
+                }
 
-                return installCommands[selector](pkg, conf, server);
+                return {
+                    'LINUX': systemInfo().web_links.linux_agent_installer,
+                    'WINDOWS': systemInfo().web_links.agent_installer
+                }[
+                    this.installationTarget()
+                ];
             }
         );
 
-        this.defaultPoolUrl = `/fe/systems/:system/pools/${defaultPoolName}`;
+        let agentConf = ko.pureComputed(
+            () => {
+                if (!systemInfo()) {
+                    return;
+                }
 
-        loadAgentInstallationInfo();
+                let { access_key, secret_key } = systemInfo().owner.access_keys;
+                return encodeBase64({
+                    address: systemInfo().base_address,
+                    system: systemInfo().name,
+                    access_key: access_key,
+                    secret_key: secret_key,
+                    tier: 'nodes',
+                    root_path: './agent_storage/'
+                });
+            }
+        );
+
+        this.selectedInstallCommand = ko.pureComputed(
+            () => installCommands[this.commandSelector()](
+                lastSegment(this.packageUrl(), '/'),
+                agentConf(),
+                systemInfo().ip_addresss
+            )
+        );
+
+        this.defaultPool = defaultPoolName;
+
+        this.nodeListImageUrl = realizeUri(
+            assetRoute,
+            { asset: 'nodesList_illustration.png' }
+        );
     }
 
     copyInstallCommand() {

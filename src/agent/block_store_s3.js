@@ -60,7 +60,7 @@ class BlockStoreS3 extends BlockStoreBase {
     _read_block(block_md) {
         return P.ninvoke(this.s3cloud, 'getObject', {
                 Bucket: this.cloud_info.target_bucket,
-                Key: this._block_key(block_md),
+                Key: this._block_key(block_md.id),
             })
             .then(data => {
                 return {
@@ -80,7 +80,7 @@ class BlockStoreS3 extends BlockStoreBase {
     _write_block(block_md, data) {
         return P.ninvoke(this.s3cloud, 'putObject', {
                 Bucket: this.cloud_info.target_bucket,
-                Key: this._block_key(block_md),
+                Key: this._block_key(block_md.id),
                 Metadata: {
                     noobaa_block_md: this._encode_block_md(block_md)
                 },

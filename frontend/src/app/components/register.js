@@ -46,19 +46,20 @@ export default function register(ko) {
     // -------------------------------
     // Bucket
     // -------------------------------
-    ko.components.register('bucket-panel',                  require('./bucket/bucket-panel/bucket-panel'));
-    ko.components.register('bucket-summary',                require('./bucket/bucket-summary/bucket-summary'));
-    ko.components.register('bucket-objects-table',          require('./bucket/bucket-objects-table/bucket-objects-table'));
-    ko.components.register('bucket-data-placement-form',    require('./bucket/bucket-data-placement-form/bucket-data-placement-form'));
-    ko.components.register('bucket-cloud-sync-form',        require('./bucket/bucket-cloud-sync-form/bucket-cloud-sync-form'));
-    ko.components.register('bucket-policy-modal',           require('./bucket/bucket-policy-modal/bucket-policy-modal'));
-    ko.components.register('upload-files-modal',            require('./bucket/upload-files-modal/upload-files-modal'));
-    ko.components.register('set-cloud-sync-modal',          require('./bucket/set-cloud-sync-modal/set-cloud-sync-modal'));
-    ko.components.register('edit-cloud-sync-modal',         require('./bucket/edit-cloud-sync-modal/edit-cloud-sync-modal'));
-    ko.components.register('aws-credentials-modal',         require('./bucket/aws-credentials-modal/aws-credentials-modal'));
-    ko.components.register('bucket-s3-access-list',         require('./bucket/bucket-s3-access-list/bucket-s3-access-list'));
-    ko.components.register('s3-access-details-modal',       require('./bucket/s3-access-details-modal/s3-access-details-modal'));
-    ko.components.register('bucket-s3-access-modal',        require('./bucket/bucket-s3-access-modal/bucket-s3-access-modal'));
+    ko.components.register('bucket-panel',                          require('./bucket/bucket-panel/bucket-panel'));
+    ko.components.register('bucket-summary',                        require('./bucket/bucket-summary/bucket-summary'));
+    ko.components.register('bucket-objects-table',                  require('./bucket/bucket-objects-table/bucket-objects-table'));
+    ko.components.register('bucket-data-placement-form',            require('./bucket/bucket-data-placement-form/bucket-data-placement-form'));
+    ko.components.register('bucket-cloud-sync-form',                require('./bucket/bucket-cloud-sync-form/bucket-cloud-sync-form'));
+    ko.components.register('bucket-placement-policy-modal',         require('./bucket/bucket-placement-policy-modal/bucket-placement-policy-modal'));
+    ko.components.register('upload-files-modal',                    require('./bucket/upload-files-modal/upload-files-modal'));
+    ko.components.register('set-cloud-sync-modal',                  require('./bucket/set-cloud-sync-modal/set-cloud-sync-modal'));
+    ko.components.register('edit-cloud-sync-modal',                 require('./bucket/edit-cloud-sync-modal/edit-cloud-sync-modal'));
+    ko.components.register('aws-credentials-modal',                 require('./bucket/aws-credentials-modal/aws-credentials-modal'));
+    ko.components.register('bucket-s3-access-list',                 require('./bucket/bucket-s3-access-list/bucket-s3-access-list'));
+    ko.components.register('s3-access-details-modal',               require('./bucket/s3-access-details-modal/s3-access-details-modal'));
+    ko.components.register('bucket-s3-access-modal',                require('./bucket/bucket-s3-access-modal/bucket-s3-access-modal'));
+    ko.components.register('bucket-backup-policy-modal', require('./bucket/bucket-backup-policy-modal/bucket-backup-policy-modal'));
     /** INJECT:bucket **/
 
     // -------------------------------
@@ -72,12 +73,14 @@ export default function register(ko) {
     /** INJECT:object **/
 
     // -------------------------------
-    // Pools
+    // resources
     // -------------------------------
-    ko.components.register('pools-panel',           require('./pools/pools-panel/pools-panel'));
-    ko.components.register('pools-table',           require('./pools/pools-table/pools-table'));
-    ko.components.register('create-pool-wizard',    require('./pools/create-pool-wizard/create-pool-wizard'));
-    /** INJECT:pools **/
+    ko.components.register('resources-panel',           require('./resources/resources-panel/resources-panel'));
+    ko.components.register('pools-table',               require('./resources/pools-table/pools-table'));
+    ko.components.register('create-pool-wizard',        require('./resources/create-pool-wizard/create-pool-wizard'));
+    ko.components.register('cloud-resources-table',     require('./resources/cloud-resources-table/cloud-resources-table'));
+    ko.components.register('add-cloud-resource-modal',  require('./resources/add-cloud-resource-modal/add-cloud-resource-modal'));
+    /** INJECT:resources **/
 
     // -------------------------------
     // Pool
@@ -129,28 +132,30 @@ export default function register(ko) {
     // -------------------------------
     // shared
     // -------------------------------
-    ko.components.register('svg-icon',          require('./shared/svg-icon/svg-icon'));
-    ko.components.register('modal',             require('./shared/modal/modal'));
-    ko.components.register('dropdown',          require('./shared/dropdown/dropdown'));
-    ko.components.register('radio-btn',         require('./shared/radio-btn/radio-btn'));
-    ko.components.register('radio-group',       require('./shared/radio-group/radio-group'));
-    ko.components.register('checkbox',          require('./shared/checkbox/checkbox'));
-    ko.components.register('quantity-gauge',    require('./shared/quantity-gauge/quantity-gauge'));
-    ko.components.register('needle-gauge',      require('./shared/needle-gauge/needle-gauge'));
-    ko.components.register('bar',               require('./shared/bar/bar'));
-    ko.components.register('range-indicator',   require('./shared/range-indicator/range-indicator'));
-    ko.components.register('stepper',           require('./shared/stepper/stepper'));
-    ko.components.register('multiselect',       require('./shared/multiselect/multiselect'));
-    ko.components.register('slider',            require('./shared/slider/slider'));
-    ko.components.register('wizard',            require('./shared/wizard/wizard'));
-    ko.components.register('paginator',         require('./shared/paginator/paginator'));
-    ko.components.register('drawer',            require('./shared/drawer/drawer'));
-    ko.components.register('delete-button',     require('./shared/delete-button/delete-button'));
-    ko.components.register('file-selector',     require('./shared/file-selector/file-selector'));
-    ko.components.register('autocomplete',      require('./shared/autocomplete/autocomplete'));
-    ko.components.register('editor',            require('./shared/editor/editor'));
-    ko.components.register('toggle-switch',     require('./shared/toggle-switch/toggle-switch'));
-    ko.components.register('property-sheet',    require('./shared/property-sheet/property-sheet'));
-    ko.components.register('capacity-bar',      require('./shared/capacity-bar/capacity-bar'));
+    ko.components.register('svg-icon',                  require('./shared/svg-icon/svg-icon'));
+    ko.components.register('modal',                     require('./shared/modal/modal'));
+    ko.components.register('dropdown',                  require('./shared/dropdown/dropdown'));
+    ko.components.register('radio-btn',                 require('./shared/radio-btn/radio-btn'));
+    ko.components.register('radio-group',               require('./shared/radio-group/radio-group'));
+    ko.components.register('checkbox',                  require('./shared/checkbox/checkbox'));
+    ko.components.register('quantity-gauge',            require('./shared/quantity-gauge/quantity-gauge'));
+    ko.components.register('needle-gauge',              require('./shared/needle-gauge/needle-gauge'));
+    ko.components.register('bar',                       require('./shared/bar/bar'));
+    ko.components.register('range-indicator',           require('./shared/range-indicator/range-indicator'));
+    ko.components.register('stepper',                   require('./shared/stepper/stepper'));
+    ko.components.register('multiselect',               require('./shared/multiselect/multiselect'));
+    ko.components.register('slider',                    require('./shared/slider/slider'));
+    ko.components.register('wizard',                    require('./shared/wizard/wizard'));
+    ko.components.register('paginator',                 require('./shared/paginator/paginator'));
+    ko.components.register('drawer',                    require('./shared/drawer/drawer'));
+    ko.components.register('delete-button',             require('./shared/delete-button/delete-button'));
+    ko.components.register('file-selector',             require('./shared/file-selector/file-selector'));
+    ko.components.register('autocomplete',              require('./shared/autocomplete/autocomplete'));
+    ko.components.register('editor',                    require('./shared/editor/editor'));
+    ko.components.register('toggle-switch',             require('./shared/toggle-switch/toggle-switch'));
+    ko.components.register('property-sheet',            require('./shared/property-sheet/property-sheet'));
+    ko.components.register('capacity-bar',              require('./shared/capacity-bar/capacity-bar'));
+    ko.components.register('add-s3-connection-modal',   require('./shared/add-s3-connection-modal/add-s3-connection-modal'));
+    ko.components.register('toggle-filter', require('./shared/toggle-filter/toggle-filter'));
     /** INJECT:shared **/
 }

@@ -52,7 +52,7 @@ class BucketSummrayViewModel {
         );
 
         this.stateIcon = ko.pureComputed(
-            () => '/fe/assets/icons.svg#bucket-healthy'
+            () => 'bucket-healthy'
         );
 
         let cloudSyncStatus = ko.pureComputed(
@@ -64,16 +64,14 @@ class BucketSummrayViewModel {
         );
 
         this.cloudSyncIcon = ko.pureComputed(
-            () => cloudSyncStatus() && `/fe/assets/icons.svg#${
-                cloudSyncStatus().icon
-            }`
+            () => cloudSyncStatus() && cloudSyncStatus().icon
         );
 
         this.hasCloudSyncPolicy = ko.pureComputed(
             () => bucket() && bucket().cloud_sync_status !== 'NOTSET'
         );
 
-        this.dataPlacementIcon = '/fe/assets/icons.svg#policy';
+        this.dataPlacementIcon = 'policy';
         this.isPolicyModalVisible = ko.observable(false);
         this.isSetCloudSyncModalVisible = ko.observable(false);
         this.isViewCloudSyncModalVisible = ko.observable(false);

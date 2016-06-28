@@ -1,16 +1,17 @@
 import template from './overview-panel.html';
 import ko from 'knockout';
-import { systemSummary, routeContext } from 'model';
+import { systemInfo, routeContext } from 'model';
 import { redirectTo } from 'actions';
+import { system as systemRoute } from 'routes';
 
 class OverviewPanelViewModel {
     constructor() {
         this.isReady = ko.pureComputed(
-            () => !!systemSummary()
+            () => !!systemInfo()
         );
 
         this.systemCapacity = ko.pureComputed(
-            () => systemSummary() && systemSummary().capacity
+            () => systemInfo() && systemInfo().storage.total
         )
         .extend({
             tween: { useDiscreteValues: true, resetValue: 0 },
@@ -18,7 +19,7 @@ class OverviewPanelViewModel {
         });
 
         this.onlineNodeCount = ko.pureComputed(
-            () => systemSummary() && systemSummary().onlineNodeCount
+            () => systemInfo() && systemInfo().nodes.online
         )
         .extend({
             tween: { useDiscreteValues: true, resetValue: 0 },
@@ -26,7 +27,14 @@ class OverviewPanelViewModel {
         });
 
         this.offlineNodeCount = ko.pureComputed(
-            () => systemSummary() && systemSummary().offlineNodeCount
+            () => {
+                if (!systemInfo()) {
+                    return;
+                }
+
+                let { count, online } = systemInfo().nodes;
+                return online - count;
+            }
         )
         .extend({
             tween: { useDiscreteValues: true, resetValue: 0 },
@@ -34,35 +42,51 @@ class OverviewPanelViewModel {
         });
 
         this.poolCount = ko.pureComputed(
-            () => systemSummary() && systemSummary().poolCount
+            () => systemInfo() && systemInfo().pools.length
         )
         .extend({ formatNumber: true });
 
         this.nodeCount = ko.pureComputed(
-            () => systemSummary() && systemSummary().nodeCount
+            () => systemInfo() && systemInfo().nodes.count
         )
         .extend({ formatNumber: true });
 
         this.bucketCount = ko.pureComputed(
-            () => systemSummary() && systemSummary().bucketCount
+            () => systemInfo() && systemInfo().buckets.length
         )
         .extend({ formatNumber: true });
 
         this.objectCount = ko.pureComputed(
-            () => systemSummary() && systemSummary().objectCount
+            () => systemInfo() && systemInfo().objects
         )
         .extend({ formatNumber: true });
 
         this.isInstallNodeWizardlVisible = ko.observable(false);
-        this.isConnectAppWizardVisible = ko.observable(false);
+        this.isConnectApplicationWizardVisible = ko.observable(false);
 
         this.isAfterUpgradeModalVisible = ko.pureComputed(
             () => !!routeContext().query.afterupgrade
         );
     }
 
-    closeAfterUpgradeModal() {
-        redirectTo('/fe/systems/:system');
+    showInstallNodeWizard() {
+        this.isInstallNodeWizardlVisible(true);
+    }
+
+    hideInstallNodeWizard() {
+        this.isInstallNodeWizardlVisible(false);
+    }
+
+    showConnectApplicationWizard() {
+        this.isConnectApplicationWizardVisible(true);
+    }
+
+    hideConnectApplicationWizard() {
+        this.isConnectApplicationWizardVisible(false);
+    }
+
+    hideAfterUpgradeModal() {
+        redirectTo(systemRoute);
     }
 }
 

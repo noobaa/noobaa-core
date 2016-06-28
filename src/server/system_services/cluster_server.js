@@ -34,6 +34,7 @@ function new_cluster_info() {
         owner_secret: system_store.get_server_secret(),
         cluster_id: uuid().substring(0, 8),
         owner_address: address,
+        owner_shardname: 'shard1',
         shards: [{
             shardname: 'shard1',
             servers: [{
@@ -202,6 +203,33 @@ function news_updated_topology(req) {
 }
 
 
+function redirect_to_cluster_master(req) {
+    return P.fcall(function() {
+            return MongoCtrl.redirect_to_cluster_master();
+        })
+        .catch((err) => {
+            let topology = cutil.get_topology();
+            let res_host;
+            if (topology && topology.shards) {
+                _.forEach(topology.shards, shard => {
+                    if (String(shard.shardname) === String(topology.owner_shardname)) {
+                        let hosts_excluding_current = _.difference(shard.servers, [{
+                            address: topology.owner_address
+                        }]);
+                        if (hosts_excluding_current.length > 0) {
+                            res_host = hosts_excluding_current[Math.floor(Math.random() * hosts_excluding_current.length)];
+                        }
+                    }
+                });
+            }
+
+            if (res_host) {
+                return res_host.address;
+            } else {
+                throw new Error('Could not find server to redirect');
+            }
+        });
+}
 
 
 //
@@ -424,6 +452,7 @@ function _update_rs_if_needed(IPs, name, is_config) {
 // EXPORTS
 exports._init = _init;
 exports.new_cluster_info = new_cluster_info;
+exports.redirect_to_cluster_master = redirect_to_cluster_master;
 exports.add_member_to_cluster = add_member_to_cluster;
 exports.join_to_cluster = join_to_cluster;
 exports.news_config_servers = news_config_servers;

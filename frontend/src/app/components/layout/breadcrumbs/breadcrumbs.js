@@ -4,9 +4,7 @@ import ko from 'knockout';
 class BreadcrumbsViewModel {
     constructor({ crumbs }) {
         this.crumbs = ko.pureComputed(
-            () => crumbs() && crumbs()
-                .reduce(this._reduceCrumbs, [])
-                .slice(1)
+            () => crumbs() && crumbs().slice(1)
         );
     }
 

@@ -156,10 +156,11 @@ class NodesMonitor extends EventEmitter {
         this._set_node_defaults(item);
     }
 
-    _add_new_node(conn, system_id, pool_id) {
+    _add_new_node(conn, system_id, pool_id, pool_name) {
         const system = system_store.data.get_by_id(system_id);
         const pool =
             system_store.data.get_by_id(pool_id) ||
+            system.pools_by_name[pool_name] ||
             system.pools_by_name.default_pool;
         if (pool.system !== system) {
             throw new Error('Node pool must belong to system');
@@ -445,11 +446,11 @@ class NodesMonitor extends EventEmitter {
             !item.node.disabled &&
             !item.storage_full);
 
-        item.usable = Boolean(
-            item.online &&
-            item.trusted &&
-            !item.node.decommissioning &&
-            !item.node.disabled);
+        item.has_issues = Boolean(
+            !item.online ||
+            !item.trusted ||
+            item.node.decommissioning &&
+            item.node.disabled);
 
         item.accessibility =
             (item.readable && item.writable && 'FULL_ACCESS') ||
@@ -648,7 +649,7 @@ class NodesMonitor extends EventEmitter {
         // new node heartbeat
         // create the node and then update the heartbeat
         if (!node_id && (req.role === 'create_node' || req.role === 'admin')) {
-            this._add_new_node(req.connection, req.system._id, extra.pool_id);
+            this._add_new_node(req.connection, req.system._id, extra.pool_id, req.rpc_params.pool_name);
             return reply;
         }
 
@@ -673,9 +674,11 @@ class NodesMonitor extends EventEmitter {
                 !query.geolocation.test(item.node.geolocation)) continue;
             if (query.skip_address &&
                 query.skip_address === item.node.rpc_address) continue;
+            if (query.skip_cloud_nodes &&
+                item.node.is_cloud_node) continue;
 
-            if ('usable' in query &&
-                Boolean(query.usable) !== Boolean(item.usable)) continue;
+            if ('has_issues' in query &&
+                Boolean(query.has_issues) !== Boolean(item.has_issues)) continue;
             if ('online' in query &&
                 Boolean(query.online) !== Boolean(item.online)) continue;
             if ('readable' in query &&
@@ -713,8 +716,8 @@ class NodesMonitor extends EventEmitter {
             list.sort(js_utils.sort_compare_by(item => String(item.node.name), options.order));
         } else if (options.sort === 'ip') {
             list.sort(js_utils.sort_compare_by(item => String(item.node.ip), options.order));
-        } else if (options.sort === 'usable') {
-            list.sort(js_utils.sort_compare_by(item => Boolean(item.usable), options.order));
+        } else if (options.sort === 'has_issues') {
+            list.sort(js_utils.sort_compare_by(item => Boolean(item.has_issues), options.order));
         } else if (options.sort === 'online') {
             list.sort(js_utils.sort_compare_by(item => Boolean(item.online), options.order));
         } else if (options.sort === 'trusted') {
@@ -838,7 +841,7 @@ class NodesMonitor extends EventEmitter {
     _aggregate_nodes_list(list) {
         let count = 0;
         let online = 0;
-        let usable = 0;
+        let has_issues = 0;
         const storage = {
             total: 0,
             free: 0,
@@ -848,8 +851,8 @@ class NodesMonitor extends EventEmitter {
         _.each(list, item => {
             count += 1;
             if (item.online) online += 1;
-            if (item.usable) {
-                usable += 1;
+            if (item.has_issues) {
+                has_issues += 1;
                 // TODO use bigint for nodes storage sum
                 storage.total += item.node.storage.total || 0;
                 storage.free += item.node.storage.free || 0;
@@ -861,7 +864,7 @@ class NodesMonitor extends EventEmitter {
             nodes: {
                 count: count,
                 online: online,
-                usable: usable,
+                has_issues: has_issues,
             },
             storage: storage
         };

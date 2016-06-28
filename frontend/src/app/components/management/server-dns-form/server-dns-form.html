@@ -1,16 +1,16 @@
 <h2 class="row heading3" data-bind="click: () => expanded.toggle()">
     <span class="greedy align-middle">Server DNS Address</span>
-    
+
     <button class="btn-flat expand-btn no-outline" >
-        <svg-icon class="rotate" 
-            params="uri: '/fe/assets/icons.svg#chevron'" 
+        <svg-icon class="rotate"
+            params="name: 'chevron'"
             data-bind="css: { 'deg-90': !expanded() }">
         </svg-icon>
     </button>
 </h2>
 
 <p class="summary" data-bind="visible: !expanded()">
-    Server Address: 
+    Server Address:
     <output class="text-tech emphasized" data-bind="text: baseAddress"></output>
 </p>
 
@@ -32,7 +32,7 @@
     </div>
 
     <div class="column push-next" data-bind="
-        visible: usingDNS, 
+        visible: usingDNS,
         validationOptions: { insertMessages: false }
     ">
         <p class="emphasized">
@@ -44,23 +44,23 @@
                 IP:
                 <output class="text-tech emphasized" data-bind="value: ipAddress"></output>
             </span>
-            
+
             <span>
                 Name:
                 <output class="text-tech emphasized" data-bind="value: dnsName"></output>
             </span>
         </div>
-    </div>    
+    </div>
 
     <div class="push-next">
-        Changing DNS name procedure: 
-        
+        Changing DNS name procedure:
+
         <ol class="remark bullet-list">
             <li>Add the new name in your DNS to have both old and new names avaliable</li>
             <li>Apply the changes in the forms above</li>
             <li>Once all nodes are updated with the new name, the old name can be removed from the DNS</li>
         </ol>
-        
+
         <p class="remark">
             In any case, reinstalling a node (from the install node wizard) will update the server address used by that node.
             <br>

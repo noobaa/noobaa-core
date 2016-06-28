@@ -6,16 +6,16 @@
     css: { disabled: disabled, active: active },
     validationOptions: { insertMessages: false }
 ">
-    <svg-icon params="uri: '/fe/assets/icons.svg#chevron'"></svg-icon>
-    
+    <svg-icon params="name: 'chevron'"></svg-icon>
+
     <div type="text" class="value no-wrap" data-bind="
-        value: selected, 
+        value: selected,
         text: selectedLabel,
         css: { placeholder: selected() == null }
     "></div>
 
     <div class="options" data-bind="
-        visible: active(), 
+        visible: active(),
         click: () => active(false) && true,
         clickBubble: false
     ">
@@ -24,7 +24,7 @@
                 <label class="option">
                     <input type="radio" data-bind="
                         attr: { name: $component.name },
-                        checked: $component.selected, 
+                        checked: $component.selected,
                         checkedValue: value
                     "/>
                     <span class="option-label no-wrap" data-bind="

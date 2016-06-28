@@ -376,7 +376,7 @@ module.exports = {
                 heartbeat: {
                     format: 'idate'
                 },
-                usable: {
+                has_issues: {
                     type: 'boolean',
                 },
                 online: {
@@ -491,7 +491,7 @@ module.exports = {
                     // regexp
                     type: 'string'
                 },
-                usable: {
+                has_issues: {
                     type: 'boolean',
                 },
                 online: {
@@ -535,7 +535,7 @@ module.exports = {
             required: [
                 'count',
                 'online',
-                'usable'
+                'has_issues'
             ],
             properties: {
                 count: {
@@ -544,7 +544,7 @@ module.exports = {
                 online: {
                     type: 'integer'
                 },
-                usable: {
+                has_issues: {
                     type: 'integer'
                 },
             }

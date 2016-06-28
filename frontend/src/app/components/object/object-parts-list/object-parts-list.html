@@ -1,20 +1,12 @@
-<div class="row">
-    <h3 class="heading3 greedy push-next">
-        Part count for this file:
-        <span data-bind="text: count"></span>
-    </h3>
-
-    <paginator class="push-next" params="
-        page: page, itemCount: count, pageSize: pageSize
-    "></paginator>
-</div>
-
-<hr>
+<h3 class="heading3 push-next">
+    Part count for this file:
+    <span data-bind="text: count"></span>
+</h3>
 
 <ul class="part-list greedy" data-bind="foreach: rows">
     <li>
-        <div class="row content-middle" data-bind="click: toggleExpend">
-            <svg-icon class="push-next" params="uri: stateIcon" data-bind="
+        <div class="row content-middle pointer" data-bind="click: toggleExpend">
+            <svg-icon class="push-next" params="name: stateIcon" data-bind="
                 tooltip: stateToolTip
             "></svg-icon>
 
@@ -27,7 +19,7 @@
                 css: { 'deg-90': !isExpended() }
             ">
                 <svg-icon class="expand-icon icon-small" params="
-                    uri: '/fe/assets/icons.svg#chevron'
+                    name: 'chevron'
                 "></svg-icon>
             </button>
         </div>
@@ -36,8 +28,8 @@
             <tbody data-bind="foreach: blocks">
                 <tr content-middle">
                     <td class="status-col">
-                        <svg-icon class="icon-small" 
-                            params="uri: nodeStateIcon" 
+                        <svg-icon class="icon-small"
+                            params="name: nodeStateIcon"
                             data-bind="tooltip: nodeStateToolTip">
                         </svg-icon>
                     </td>
@@ -49,14 +41,28 @@
                         <a class="link" data-bind="
                             text: shortenNodeName,
                             tooltip: nodeName,
-                            href: nodeUrl
+                            href: {
+                                route: 'node',
+                                params: {
+                                    pool: poolName,
+                                    node: nodeName,
+                                    tab: null
+                                }
+                            }
                         "></a>
                     </td>
 
                     <td class="node-ip-col">
                         <a class="link" data-bind="
                             text: nodeIp,
-                            href: nodeUrl
+                            href: {
+                                route: 'node',
+                                params: {
+                                    pool: poolName,
+                                    node: nodeName,
+                                    tab: null
+                                }
+                            }
                         "></a>
                     </td>
 
@@ -64,7 +70,13 @@
                         <a class="link" data-bind="
                             text: poolName,
                             tooltip: poolName,
-                            href: poolUrl
+                            href: {
+                                route: 'pool',
+                                params: {
+                                    pool: poolName,
+                                    tab: null
+                                }
+                            }
                         "></a>
                     </td>
                 </tr>
@@ -72,3 +84,7 @@
         </table>
     </li>
 </ul>
+
+<paginator class="align-end push-prev" params="
+    page: page, itemCount: count, pageSize: pageSize
+"></paginator>

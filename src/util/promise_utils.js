@@ -17,7 +17,7 @@ module.exports = {
     loop: loop,
     retry: retry,
     delay_unblocking: delay_unblocking,
-    run_background_worker: run_background_worker,
+    //run_background_worker: run_background_worker,
     next_tick: next_tick,
     set_immediate: set_immediate,
     promised_spawn: promised_spawn,
@@ -172,7 +172,7 @@ function delay_unblocking(delay) {
 
 
 
-// for the sake of tests to be able to exit we schedule the worker with unblocking delay
+/*// for the sake of tests to be able to exit we schedule the worker with unblocking delay
 // so that it won't prevent the process from existing if it's the only timer left
 function run_background_worker(worker) {
     var DEFUALT_DELAY = 10000;
@@ -192,7 +192,7 @@ function run_background_worker(worker) {
     dbg.log('run_background_worker:', 'INIT', worker.name);
     delay_unblocking(worker.boot_delay || worker.delay || DEFUALT_DELAY).then(run);
     return worker;
-}
+}*/
 
 function next_tick() {
     var defer = P.defer();

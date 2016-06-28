@@ -1,9 +1,9 @@
-<svg-icon class="icon-big push-next" params="uri: '/fe/assets/icons.svg#bucket'"></svg-icon>
+<svg-icon class="icon-big push-next" params="name: 'bucket'"></svg-icon>
 
 <div class="column align-middle">
     <a class="link" data-bind="
-        text: bucketCountText, 
-        href: '/fe/systems/:system/buckets'
+        text: bucketCountText,
+        href: { route: 'buckets' }
     "></a>
     <span data-bind="text: objectCountText"></span>
 </div>

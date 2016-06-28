@@ -290,6 +290,7 @@ class SystemStore extends EventEmitter {
 
     constructor() {
         super();
+        this.is_cluster_master = false;
         this.START_REFRESH_THRESHOLD = 10 * 60 * 1000;
         this.FORCE_REFRESH_THRESHOLD = 60 * 60 * 1000;
         this._json_validator = new Ajv({

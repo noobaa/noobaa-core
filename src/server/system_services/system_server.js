@@ -169,7 +169,7 @@ function read_system(req) {
     var system = req.system;
     return P.join(
         // nodes - count, online count, allocated/used storage aggregate by pool
-        nodes_client.instance().aggregate_nodes_by_pool(null, system._id),
+        nodes_client.instance().aggregate_nodes_by_pool(null, system._id, /*skip_cloud_nodes=*/ true),
 
         // objects - size, count
         md_store.aggregate_objects({
@@ -259,7 +259,7 @@ function read_system(req) {
             nodes: {
                 count: nodes_sys.count || 0,
                 online: nodes_sys.online || 0,
-                usable: nodes_sys.usable || 0,
+                has_issues: nodes_sys.has_issues || 0,
             },
             owner: account_server.get_account_info(system_store.data.get_by_id(system._id).owner),
             last_stats_report: system.last_stats_report && new Date(system.last_stats_report).getTime(),
@@ -353,6 +353,13 @@ function set_maintenance_mode(req) {
             systems: [updates]
         }
     }).return();
+}
+
+function set_webserver_master_state(req) {
+    // TODO: This is for future use when we will need to realize if master state changed
+    if (system_store.is_cluster_master !== req.rpc_params.is_master) {
+        system_store.is_cluster_master = req.rpc_params.is_master;
+    }
 }
 
 // function read_maintenance_config(req) {
@@ -992,6 +999,7 @@ exports.update_hostname = update_hostname;
 exports.update_system_certificate = update_system_certificate;
 exports.update_time_config = update_time_config;
 exports.set_maintenance_mode = set_maintenance_mode;
+exports.set_webserver_master_state = set_webserver_master_state;
 exports.configure_remote_syslog = configure_remote_syslog;
 
 exports.upload_upgrade_package = upload_upgrade_package;

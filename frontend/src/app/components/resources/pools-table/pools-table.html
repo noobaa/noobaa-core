@@ -1,0 +1,97 @@
+<button class="btn2 align-end push-next"
+    data-bind="click: () => showCreatePoolWizard()">
+    Create Pool
+</button>
+
+<div class="data-table">
+    <table>
+        <thead>
+            <tr>
+                <th class="state-col">
+                    <a href data-bind="
+                        click: () => orderBy('state'),
+                        css: orderClassFor('state')
+                    ">
+                        state
+                    </a>
+                </th>
+                <th class="name-col text-left">
+                    <a href data-bind="
+                        click: () => orderBy('name'),
+                        css: orderClassFor('name')
+                    ">
+                        pool name
+                    </a>
+                </th>
+                <th class="nodes-col">
+                    <a href data-bind="
+                        click: () => orderBy('nodecount'),
+                        css: orderClassFor('nodecount')
+                    ">
+                        nodes
+                    </a>
+                </th>
+                <th class="online-nodes-col">
+                    <a href data-bind="
+                        css: orderClassFor('onlinecount'),
+                        click: () => orderBy('onlinecount')
+                    ">
+                        online
+                    </a>
+                </th>
+                <th class="offline-nodes-col">
+                    <a href data-bind="
+                        css: orderClassFor('offlinecount'),
+                        click: () => orderBy('offlinecount')
+                    ">
+                        offline
+                    </a>
+                </th>
+                <th class="capacity-col" data-bind="">
+                    <a href data-bind="
+                        click: () => orderBy('usage'),
+                        css: orderClassFor('usage')
+                    ">
+                        used capacity
+                    </a>
+                </th>
+                <th class="delete-col"></th>
+            </tr>
+        </thead>
+
+        <tbody data-bind="foreach: visibleRows">
+            <tr>
+                <td class="state-col">
+                    <svg-icon params="name: stateIcon"></svg-icon>
+                </td>
+                <td class="name-col text-left">
+                    <a href class="link" data-bind="
+                        text: name,
+                        href: { route: 'pool', params: { pool: name } }
+                    "></a>
+                </td>
+                <td class="nodes-col" data-bind="text: nodeCount"></td>
+                <td class="online-nodes-col" data-bind="text: onlineCount"></td>
+                <td class="offline-nodes-col" data-bind="text: offlineCount"></td>
+
+                <td class="capacity-col">
+                    <capacity-bar params="total: total, used: used"></capacity-bar>
+                </td>
+
+                <td class="delete-col">
+                    <delete-button params="
+                        group: $component.deleteGroup,
+                        disabled: !canBeDeleted(),
+                        onDelete: () => del(),
+                        toolTip: deleteToolTip
+                    "></delete-button>
+                </td>
+            </tr>
+        </tbody>
+    </table>
+</div>
+
+<!-- ko if: isCreatePoolWizardVisible -->
+<create-pool-wizard params="onClose: () => hideCreatePoolWizard()">
+</create-pool-wizard>
+<!-- /ko -->

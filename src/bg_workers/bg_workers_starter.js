@@ -81,7 +81,7 @@ function run_master_workers() {
             delay: config.central_stats.send_time_cycle,
         }, stats_aggregator.background_worker);
     }
-    
+
     register_bg_worker({
         name: 'cloud_sync_refresher'
     }, cloud_sync.background_worker);

@@ -14,7 +14,6 @@ const gulp_istanbul = require('gulp-istanbul');
 const gulp_json_editor = require('gulp-json-editor');
 
 const _ = require('lodash');
-const Q = require('q');
 const argv = require('minimist')(process.argv);
 const path = require('path');
 const dotenv = require('dotenv');
@@ -23,6 +22,7 @@ const event_stream = require('event-stream');
 const child_process = require('child_process');
 const jshint_stylish = require('jshint-stylish');
 
+const P = require('./src/util/promise');
 const pkg = require('./package.json');
 const promise_utils = require('./src/util/promise_utils');
 
@@ -288,7 +288,7 @@ gulp.task('frontend', function() {
 });
 
 function gulp_spawn(cmd, args, options) {
-    return new Promise(function(resolve, reject) {
+    return new P((resolve, reject) => {
         options = options || {};
         options.stdio = options.stdio || 'inherit';
         var proc = child_process.spawn(cmd, args, options);
@@ -309,21 +309,22 @@ function package_build_task() {
     var NAME = 'noobaa-NVA';
 
     //Remove previously build package
-    return Q.nfcall(child_process.exec, 'rm -f ' + DEST + '/' + NAME + '*.tar.gz')
+    return P.nfcall(child_process.exec, 'rm -f ' + DEST + '/' + NAME + '*.tar.gz')
         .then(function(res) { //build agent distribution setup
             if (!use_local_executable) {
                 gutil.log('before downloading setup and rest');
-                return Q.fcall(function() {
-                        return promise_utils.promised_exec('curl -u tamireran:0436dd1acfaf9cd247b3dd22a37f561f -L http://127.0.0.1:8080/job/LinuxBuild/lastBuild/artifact/build/linux/noobaa-setup-' + current_pkg_version + ' >build/public/noobaa-setup-' + current_pkg_version);
+                return P.resolve()
+                    .then(function() {
+                        return promise_utils.exec('curl -u tamireran:0436dd1acfaf9cd247b3dd22a37f561f -L http://127.0.0.1:8080/job/LinuxBuild/lastBuild/artifact/build/linux/noobaa-setup-' + current_pkg_version + ' >build/public/noobaa-setup-' + current_pkg_version);
                     })
                     .then(function() {
-                        return promise_utils.promised_exec('curl -u tamireran:0436dd1acfaf9cd247b3dd22a37f561f -L http://127.0.0.1:8080/job/win_agent_remote/lastBuild/artifact/build/windows/noobaa-setup-' + current_pkg_version + '.exe >build/public/noobaa-setup-' + current_pkg_version + '.exe');
+                        return promise_utils.exec('curl -u tamireran:0436dd1acfaf9cd247b3dd22a37f561f -L http://127.0.0.1:8080/job/win_agent_remote/lastBuild/artifact/build/windows/noobaa-setup-' + current_pkg_version + '.exe >build/public/noobaa-setup-' + current_pkg_version + '.exe');
                     })
                     .then(function() {
-                        return promise_utils.promised_exec('curl -u tamireran:0436dd1acfaf9cd247b3dd22a37f561f -L http://127.0.0.1:8080/job/win_s3_remote/lastBuild/artifact/build/windows/noobaa-s3rest-' + current_pkg_version + '.exe>build/public/noobaa-s3rest-' + current_pkg_version + '.exe');
+                        return promise_utils.exec('curl -u tamireran:0436dd1acfaf9cd247b3dd22a37f561f -L http://127.0.0.1:8080/job/win_s3_remote/lastBuild/artifact/build/windows/noobaa-s3rest-' + current_pkg_version + '.exe>build/public/noobaa-s3rest-' + current_pkg_version + '.exe');
                     })
                     .then(function() {
-                        return promise_utils.promised_exec('chmod 777 build/public/noobaa-setup*');
+                        return promise_utils.exec('chmod 777 build/public/noobaa-setup*');
                     }).catch(function(err) {
                         gutil.log('Failed to download packages. Aborting due to ' + err.message + "     " + err.stack);
                         throw new Error('Failed to download packages. Aborting due to ' + err.message + "     " + err.stack);
@@ -332,10 +333,10 @@ function package_build_task() {
         })
         .then(function() {
             gutil.log('before downloading nvm and node package');
-            return promise_utils.promised_exec('curl -o- https://raw.githubusercontent.com/creationix/nvm/master/nvm.sh >build/public/nvm.sh', [], process.cwd());
+            return promise_utils.exec('curl -o- https://raw.githubusercontent.com/creationix/nvm/master/nvm.sh >build/public/nvm.sh', [], process.cwd());
         })
         .then(function() {
-            return promise_utils.promised_exec('curl -o- https://nodejs.org/dist/v4.4.4/node-v4.4.4-linux-x64.tar.xz >build/public/node-v4.4.4-linux-x64.tar.xz', [], process.cwd());
+            return promise_utils.exec('curl -o- https://nodejs.org/dist/v4.4.4/node-v4.4.4-linux-x64.tar.xz >build/public/node-v4.4.4-linux-x64.tar.xz', [], process.cwd());
         })
         .then(function() {
             //call for packing

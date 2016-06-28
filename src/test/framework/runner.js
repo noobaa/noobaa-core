@@ -67,14 +67,14 @@ TestRunner.prototype.wait_for_server_to_start = function(max_seconds_to_wait, po
 TestRunner.prototype.restore_db_defaults = function() {
     var self = this;
 
-    return promise_utils.promised_exec(
+    return promise_utils.exec(
             'mongo nbcore /root/node_modules/noobaa-core/src/test/system_tests/mongodb_defaults.js')
         .catch(function(err) {
             console.warn('failed on mongodb_defaults', err);
             throw new Error('Failed pn mongodb reset');
         })
         .then(function() {
-            return promise_utils.promised_exec('supervisorctl restart webserver');
+            return promise_utils.exec('supervisorctl restart webserver');
         })
         .then(function() {
             return self.wait_for_server_to_start(30, 8080);
@@ -110,14 +110,14 @@ TestRunner.prototype.init_run = function() {
             return self._client.create_auth_token(auth_params);
         })
         .then(function() {
-            return promise_utils.promised_exec('rm -rf ' + COVERAGE_DIR + '/*');
+            return promise_utils.exec('rm -rf ' + COVERAGE_DIR + '/*');
         })
         .catch(function(err) {
             console.error('Failed cleaning ', COVERAGE_DIR, 'from previous run results', err);
             throw new Error('Failed cleaning dir');
         })
         .then(function() {
-            return promise_utils.promised_exec('rm -rf /root/node_modules/noobaa-core/coverage/*');
+            return promise_utils.exec('rm -rf /root/node_modules/noobaa-core/coverage/*');
         })
         .catch(function(err) {
             console.error('Failed cleaning istanbul data from previous run results', err);
@@ -143,7 +143,7 @@ TestRunner.prototype.complete_run = function() {
             throw new Error('Failed writing coverage for test runs');
         })
         .then(function() {
-            return promise_utils.promised_exec('tar --warning=no-file-changed -zcvf ' + dst + ' ' + COVERAGE_DIR + '/*');
+            return promise_utils.exec('tar --warning=no-file-changed -zcvf ' + dst + ' ' + COVERAGE_DIR + '/*');
         })
         .catch(function(err) {
             console.error('Failed archiving test runs', err);
@@ -233,7 +233,8 @@ TestRunner.prototype._run_current_step = function(current_step, step_res) {
     console.warn('---------------------------------  ' + step_res + '  ---------------------------------');
     if (current_step.common) {
         var ts = new Date();
-        return P.try(() => self[current_step.common].apply(self))
+        return P.resolve()
+            .then(() => self[current_step.common].apply(self))
             .then(function() {
                 return step_res + ' - Successeful common step ( took ' +
                     ((new Date() - ts) / 1000) + 's )';
@@ -380,13 +381,13 @@ TestRunner.prototype._restart_services = function(testrun) {
         command += " ; sed -i 's/\\(.*bg_workers_starter.js\\).*--TESTRUN/\\1/' /etc/noobaa_supervisor.conf ";
     }
 
-    return promise_utils.promised_exec(command)
+    return promise_utils.exec(command)
         .then(function() {
-            return promise_utils.promised_exec('supervisorctl reload');
+            return promise_utils.exec('supervisorctl reload');
         })
         .delay(1000)
         .then(function() {
-            return promise_utils.promised_exec('supervisorctl restart webserver bg_workers');
+            return promise_utils.exec('supervisorctl restart webserver bg_workers');
         })
         .delay(5000);
 

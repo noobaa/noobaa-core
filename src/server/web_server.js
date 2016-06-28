@@ -347,12 +347,7 @@ app.use('/fe/assets', express.static(path.join(rootdir, 'frontend', 'dist', 'ass
 app.use('/fe', express.static(path.join(rootdir, 'frontend', 'dist')));
 app.get('/fe/**/', function(req, res) {
     var filePath = path.join(rootdir, 'frontend', 'dist', 'index.html');
-    if (fs.existsSync(filePath)) {
-        res.sendFile(filePath);
-    } else {
-        res.statusCode = 404;
-        res.end();
-    }
+    res.sendFile(filePath);
 });
 
 app.use('/', express.static(path.join(rootdir, 'public')));

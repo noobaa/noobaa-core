@@ -93,7 +93,6 @@
     "node-uuid": "1.4.7",
     "pem": "1.8.3",
     "performance-now": "0.2.0",
-    "q": "1.4.1",
     "readdirp": "2.0.0",
     "request": "2.72.0",
     "rimraf": "2.5.2",

@@ -183,7 +183,8 @@ RPC.prototype.client_request = function(api, method_api, params, options) {
             var req_buffers = req.export_request_buffers();
 
             // send request over the connection
-            var send_promise = P.try(() => req.connection.send(req_buffers, 'req', req));
+            var send_promise = P.resolve()
+                .then(() => req.connection.send(req_buffers, 'req', req));
 
             // set timeout to abort if the specific connection/transport
             // can do anything with it, for http this calls req.abort()
@@ -579,10 +580,12 @@ RPC.prototype._accept_new_connection = function(conn) {
         conn._ping_interval = setInterval(function() {
             dbg.log4('RPC PING', conn.connid);
             conn._ping_last_reqid = conn._alloc_reqid();
-            P.try(() => conn.send(RpcRequest.encode_message({
-                op: 'ping',
-                reqid: conn._ping_last_reqid
-            }))).catch(_.noop); // already means the conn is closed
+            P.resolve()
+                .then(() => conn.send(RpcRequest.encode_message({
+                    op: 'ping',
+                    reqid: conn._ping_last_reqid
+                })))
+                .catch(_.noop); // already means the conn is closed
             return null;
         }, RPC_PING_INTERVAL_MS);
     }
@@ -737,10 +740,12 @@ RPC.prototype._connection_receive = function(conn, msg_buffer) {
             break;
         case 'ping':
             dbg.log4('RPC PONG', conn.connid);
-            P.try(() => conn.send(RpcRequest.encode_message({
-                op: 'pong',
-                reqid: msg.header.reqid
-            }))).catch(_.noop); // already means the conn is closed
+            P.resolve()
+                .then(() => conn.send(RpcRequest.encode_message({
+                    op: 'pong',
+                    reqid: msg.header.reqid
+                })))
+                .catch(_.noop); // already means the conn is closed
             break;
         case 'pong':
             if (conn._ping_last_reqid === msg.header.reqid) {

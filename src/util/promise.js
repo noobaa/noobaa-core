@@ -56,7 +56,7 @@ P.defer = function defer() {
 P.fcall = function fcall() {
     var func = arguments[0];
     var args = Array.prototype.slice.call(arguments, 1);
-    return P.try(() => func.apply(null, args));
+    return P.resolve().then(() => func.apply(null, args));
 };
 P.nfcall = function nfcall() {
     var func = arguments[0];
@@ -77,7 +77,10 @@ P.ninvoke = function ninvoke() {
 };
 P.hijackQ = function hijackQ() {
     try {
-        var Q = require('q');
+        // the reason we define the module name as a variable
+        // is to avoid browserify loading it to the bundle
+        const q_module_name = 'q';
+        const Q = require(q_module_name);
         _.forIn(P, function(key, val) {
             Q[key] = val;
         });

@@ -35,8 +35,44 @@ module.exports = {
             }
         },
 
-        sync_monitor_to_store: {
-            method: 'PUT',
+        read_node: {
+            method: 'GET',
+            params: {
+                $ref: '#/definitions/node_identity'
+            },
+            reply: {
+                $ref: '#/definitions/node_full_info'
+            },
+            auth: {
+                system: 'admin'
+            }
+        },
+
+        decommission_node: {
+            method: 'DELETE',
+            params: {
+                $ref: '#/definitions/node_identity'
+            },
+            auth: {
+                system: 'admin'
+            }
+        },
+
+        recommission_node: {
+            method: 'DELETE',
+            params: {
+                $ref: '#/definitions/node_identity'
+            },
+            auth: {
+                system: 'admin'
+            }
+        },
+
+        delete_node: {
+            method: 'DELETE',
+            params: {
+                $ref: '#/definitions/node_identity'
+            },
             auth: {
                 system: 'admin'
             }
@@ -99,25 +135,6 @@ module.exports = {
             }
         },
 
-        read_node: {
-            method: 'GET',
-            params: {
-                type: 'object',
-                required: ['name'],
-                properties: {
-                    name: {
-                        type: 'string'
-                    }
-                }
-            },
-            reply: {
-                $ref: '#/definitions/node_full_info'
-            },
-            auth: {
-                system: 'admin'
-            }
-        },
-
         aggregate_nodes: {
             method: 'GET',
             params: {
@@ -158,22 +175,6 @@ module.exports = {
                                 },
                             }
                         }
-                    },
-                }
-            },
-            auth: {
-                system: 'admin'
-            }
-        },
-
-        delete_node: {
-            method: 'DELETE',
-            params: {
-                type: 'object',
-                required: ['name'],
-                properties: {
-                    name: {
-                        type: 'string',
                     },
                 }
             },
@@ -224,16 +225,16 @@ module.exports = {
         collect_agent_diagnostics: {
             method: 'GET',
             params: {
-                type: 'object',
-                required: ['name'],
-                properties: {
-                    name: {
-                        type: 'string'
-                    }
-                },
+                $ref: '#/definitions/node_identity'
             },
             reply: {
-                type: 'string',
+                type: 'object',
+                required: ['data'],
+                properties: {
+                    data: {
+                        buffer: true
+                    },
+                },
             },
             auth: {
                 system: 'admin',
@@ -244,10 +245,10 @@ module.exports = {
             method: 'POST',
             params: {
                 type: 'object',
-                required: ['name', 'level'],
+                required: ['node', 'level'],
                 properties: {
-                    name: {
-                        type: 'string',
+                    node: {
+                        $ref: '#/definitions/node_identity'
                     },
                     level: {
                         type: 'integer',
@@ -323,6 +324,13 @@ module.exports = {
             }
         },
 
+        sync_monitor_to_store: {
+            method: 'PUT',
+            auth: {
+                system: 'admin'
+            }
+        },
+
     },
 
 
@@ -352,6 +360,9 @@ module.exports = {
                 pool: {
                     type: 'string'
                 },
+                peer_id: {
+                    type: 'string'
+                },
                 geolocation: {
                     type: 'string'
                 },
@@ -359,9 +370,6 @@ module.exports = {
                     type: 'string'
                 },
                 base_address: {
-                    type: 'string'
-                },
-                peer_id: {
                     type: 'string'
                 },
                 ip: {
@@ -376,7 +384,7 @@ module.exports = {
                 heartbeat: {
                     format: 'idate'
                 },
-                usable: {
+                has_issues: {
                     type: 'boolean',
                 },
                 online: {
@@ -395,16 +403,19 @@ module.exports = {
                     type: 'boolean',
                 },
                 migrating_to_pool: {
-                    type: 'boolean'
+                    format: 'idate'
                 },
                 decommissioning: {
-                    type: 'boolean',
+                    format: 'idate'
                 },
                 decommissioned: {
-                    type: 'boolean',
+                    format: 'idate'
                 },
-                disabled: {
-                    type: 'boolean',
+                deleting: {
+                    format: 'idate'
+                },
+                deleted: {
+                    format: 'idate'
                 },
                 accessibility: {
                     $ref: '#/definitions/accessibility_type'
@@ -470,10 +481,33 @@ module.exports = {
             }
         },
 
+        node_identity: {
+            type: 'object',
+            properties: {
+                id: {
+                    type: 'string'
+                },
+                name: {
+                    type: 'string'
+                },
+                peer_id: {
+                    type: 'string'
+                },
+                rpc_address: {
+                    type: 'string'
+                },
+            }
+        },
+
         nodes_query: {
             type: 'object',
-            // required: [],
             properties: {
+                nodes: {
+                    type: 'array',
+                    items: {
+                        $ref: '#/definitions/node_identity'
+                    }
+                },
                 pools: {
                     type: 'array',
                     items: {
@@ -488,7 +522,7 @@ module.exports = {
                     // regexp
                     type: 'string'
                 },
-                usable: {
+                has_issues: {
                     type: 'boolean',
                 },
                 online: {
@@ -512,7 +546,10 @@ module.exports = {
                 decommissioned: {
                     type: 'boolean',
                 },
-                disabled: {
+                deleting: {
+                    type: 'boolean',
+                },
+                deleted: {
                     type: 'boolean',
                 },
                 accessibility: {
@@ -532,7 +569,7 @@ module.exports = {
             required: [
                 'count',
                 'online',
-                'usable'
+                'has_issues'
             ],
             properties: {
                 count: {
@@ -541,7 +578,7 @@ module.exports = {
                 online: {
                     type: 'integer'
                 },
-                usable: {
+                has_issues: {
                     type: 'integer'
                 },
             }
@@ -553,7 +590,8 @@ module.exports = {
                 'RESTORING',
                 'FREEING_SPACE',
                 'MIGRATING',
-                'DECOMMISSIONING'
+                'DECOMMISSIONING',
+                'DELETING'
             ]
         },
 

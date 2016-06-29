@@ -141,7 +141,7 @@ module.exports = {
                     nodes: {
                         type: 'array',
                         items: {
-                            type: 'string',
+                            $ref: 'node_api#/definitions/node_identity'
                         }
                     }
                 }
@@ -177,6 +177,7 @@ module.exports = {
     },
 
     definitions: {
+
         pool_definition: {
             type: 'object',
             required: ['name', 'nodes'],
@@ -187,7 +188,7 @@ module.exports = {
                 nodes: {
                     type: 'array',
                     items: {
-                        type: 'string',
+                        $ref: 'node_api#/definitions/node_identity'
                     }
                 }
             }

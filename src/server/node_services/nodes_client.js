@@ -30,6 +30,14 @@ class NodesClient {
         return nodes_aggregate_pool;
     }
 
+    migrate_nodes_to_pool(node_identities, pool_id) {
+        return node_server.get_local_monitor().migrate_nodes_to_pool(node_identities, pool_id);
+    }
+
+    collect_agent_diagnostics(node_identity) {
+        return node_server.get_local_monitor().collect_agent_diagnostics(node_identity);
+    }
+
     static instance() {
         if (!NodesClient._instance) {
             NodesClient._instance = new NodesClient();

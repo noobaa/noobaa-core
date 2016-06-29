@@ -259,7 +259,7 @@ function read_system(req) {
             nodes: {
                 count: nodes_sys.count || 0,
                 online: nodes_sys.online || 0,
-                usable: nodes_sys.usable || 0,
+                has_issues: nodes_sys.has_issues || 0,
             },
             owner: account_server.get_account_info(system_store.data.get_by_id(system._id).owner),
             last_stats_report: system.last_stats_report && new Date(system.last_stats_report).getTime(),
@@ -643,19 +643,13 @@ function read_activity_log(req) {
 
 
 
-function diagnose(req) {
+function diagnose_system(req) {
     dbg.log0('Recieved diag req');
     var out_path = '/public/diagnostics.tgz';
     var inner_path = process.cwd() + '/build' + out_path;
-    return P.fcall(function() {
-            return diag.collect_server_diagnostics(req);
-        })
-        .then(function() {
-            return diag.pack_diagnostics(inner_path);
-        })
-        .then(function() {
-            return out_path;
-        })
+    return P.resolve()
+        .then(() => diag.collect_server_diagnostics(req))
+        .then(() => diag.pack_diagnostics(inner_path))
         .then(res => {
             ActivityLog.create({
                 event: 'dbg.diagnose_system',
@@ -664,31 +658,20 @@ function diagnose(req) {
                 actor: req.account && req.account._id,
                 desc: `${req.system.name} diagnostics package was exported by ${req.account && req.account.email}`,
             });
-            return res;
-        })
-        .then(null, function(err) {
-            dbg.log0('Error while collecting diagnostics', err, err.stack);
-            return '';
+            return out_path;
         });
 }
 
-function diagnose_with_agent(data, req) {
+function diagnose_node(req) {
     dbg.log0('Recieved diag with agent req');
     var out_path = '/public/diagnostics.tgz';
     var inner_path = process.cwd() + '/build' + out_path;
-    return P.fcall(function() {
-            return diag.collect_server_diagnostics(req);
-        })
-        .then(function() {
-            return diag.write_agent_diag_file(data.data);
-        })
-        .then(function() {
-            return diag.pack_diagnostics(inner_path);
-        })
-        .then(function() {
-            return out_path;
-        })
-        .then(res => {
+    return P.resolve()
+        .then(() => diag.collect_server_diagnostics(req))
+        .then(() => nodes_client.instance().collect_agent_diagnostics(req.rpc_params))
+        .then(res => diag.write_agent_diag_file(res.data))
+        .then(() => diag.pack_diagnostics(inner_path))
+        .then(() => {
             ActivityLog.create({
                 event: 'dbg.diagnose_node',
                 level: 'info',
@@ -697,11 +680,7 @@ function diagnose_with_agent(data, req) {
                 node: req.rpc_params && req.rpc_params.id,
                 desc: `${req.rpc_params.name} diagnostics package was exported by ${req.account && req.account.email}`,
             });
-            return res;
-        })
-        .then(null, function(err) {
-            dbg.log0('Error while collecting diagnostics with agent', err, err.stack);
-            return '';
+            return out_path;
         });
 }
 
@@ -1052,8 +1031,8 @@ exports.remove_role = remove_role;
 exports.read_activity_log = read_activity_log;
 exports.export_activity_log = export_activity_log;
 
-exports.diagnose = diagnose;
-exports.diagnose_with_agent = diagnose_with_agent;
+exports.diagnose_system = diagnose_system;
+exports.diagnose_node = diagnose_node;
 exports.log_frontend_stack_trace = log_frontend_stack_trace;
 exports.set_last_stats_report_time = set_last_stats_report_time;
 exports.set_debug_level = set_debug_level;

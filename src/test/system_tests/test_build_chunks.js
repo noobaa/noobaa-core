@@ -140,7 +140,9 @@ function move_one_block_to_different_pool(object_mapping) {
                 if ((node.id === node_id) ||
                     (node.id !== blocks[1].block_md.node && node.id !== blocks[2].block_md.node)) {
                     // console.log('adding node to pool: ' + node.name);
-                    new_pool_nodes.push(node.name);
+                    new_pool_nodes.push({
+                        name: node.name
+                    });
                 }
             });
             var create_pool_params = {

@@ -148,11 +148,11 @@ mocha.describe('system_servers', function() {
             .then(res => {
                 nodes_list = res.nodes;
             })
-            .then(res => client.pool.create_pool({
+            .then(() => client.pool.create_nodes_pool({
                 name: POOL,
                 nodes: _.map(nodes_list.slice(0, 3),
                     node => _.pick(node, 'name')),
-            }).return(res))
+            }))
             .then(() => client.pool.read_pool({
                 name: POOL,
             }))
@@ -186,7 +186,7 @@ mocha.describe('system_servers', function() {
             ////////////
             .then(() => client.tier.create_tier({
                 name: TIER,
-                pools: [POOL],
+                node_pools: [POOL],
                 data_placement: 'SPREAD',
                 replicas: 17,
                 data_fragments: 919,

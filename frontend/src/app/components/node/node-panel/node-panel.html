@@ -7,21 +7,21 @@
 <div class="tabs greedy">
     <nav>
         <a data-bind="
-            href: '/fe/systems/:system/pools/:pool/nodes/:node/details',
+            href: { route: 'node', params: { tab: 'details' } },
             css: { selected: isTabSelected('details') }
         ">
             Details
         </a>
 
         <a data-bind="
-            href: '/fe/systems/:system/pools/:pool/nodes/:node/parts',
+            href: { route: 'node', params: { tab: 'parts' } },
             css: { selected: isTabSelected('parts') }
         ">
             Stored File Parts
         </a>
 
         <a data-bind="
-            href: '/fe/systems/:system/pools/:pool/nodes/:node/diagnostics',
+            href: { route: 'node', params: { tab: 'diagnostics' } },
             css: { selected: isTabSelected('diagnostics') }
         ">
             Test &amp; Diagnostics

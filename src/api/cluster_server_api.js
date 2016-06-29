@@ -100,6 +100,17 @@ module.exports = {
             }
         },
 
+        redirect_to_cluster_master: {
+            doc: 'redirect to master server to our knowledge',
+            method: 'GET',
+            reply: {
+                type: 'string',
+            },
+            auth: {
+                system: false
+            }
+        },
+
         news_updated_topology: {
             doc: 'published updated clustering topology info',
             method: 'POST',
@@ -126,11 +137,6 @@ module.exports = {
             }
         },
 
-        heartbeat: {
-            doc: 'HB passed between members of the cluster',
-            method: 'POST',
-
-        },
 
     },
     definitions: {

@@ -71,7 +71,7 @@ class PoolSummaryViewModel {
         );
 
         this.stateIcon = ko.pureComputed(
-            () => '/fe/assets/icons.svg#pool'
+            () => 'pool'
         );
 
         this.nodeCount = ko.pureComputed(
@@ -83,9 +83,7 @@ class PoolSummaryViewModel {
         );
 
         this.onlineIcon = ko.pureComputed(
-            () => `/fe/assets/icons.svg#node-${
-                onlineCount() > 0 ? 'online' : 'online'
-            }`
+            () => `node-${onlineCount() > 0 ? 'online' : 'online'}`
         );
 
         this.onlineText = ko.pureComputed(
@@ -99,9 +97,7 @@ class PoolSummaryViewModel {
         );
 
         this.offlineIcon = ko.pureComputed(
-            () => `/fe/assets/icons.svg#node-${
-                onlineCount() > 0 ? 'offline' : 'offline'
-            }`
+            () => `node-${onlineCount() > 0 ? 'offline' : 'offline'}`
         );
 
         this.offlineText = ko.pureComputed(
@@ -109,8 +105,6 @@ class PoolSummaryViewModel {
                 offlineCount() > 0 ?  numeral(offlineCount()).format('0,0') : 'No'
             } Offline`
         );
-
-
 
         this.offlineText = ko.pureComputed(
             () => {

@@ -12,31 +12,38 @@
                         <th class="ip-col">ip</th>
                         <th class="capacity-col">capacity</th>
                         <th class="pool-col">pool</th>
+                        <th class="suggested-pool-col">recommended</th>
                     </tr>
                 </thead>
                 <tbody data-bind="
-                    foreach: rows, 
+                    foreach: rows,
                     validationOptions: { insertMessages: false }
                 ">
                     <!-- ko if: isVisible -->
                     <tr>
                         <td class="name-col text-left">
                             <checkbox params="
-                                value: name, 
+                                value: name,
                                 checked: $parent.selectedNodes
                             "></checkbox>
                         </td>
 
                         <td class="ip-col" data-bind="text: ip"></td>
-                        
+
                         <td class="capacity-col" data-bind="text: capacity"></td>
 
                         <td class="pool-col">
                             <div class="no-wrap" data-bind="
-                                text: currPool, 
+                                text: currPool,
                                 tooltip: currPool
                             "></div>
                         </td>
+                        <td class="suggested-pool-col">
+                             <div class="no-wrap" data-bind="
+                                 text: suggestedPool,
+                                 tooltip: suggestedPool
+                             "></div>
+                         </td>
                     </tr>
                     <!-- /ko -->
                 </tbody>

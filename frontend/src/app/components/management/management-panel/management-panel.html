@@ -1,33 +1,33 @@
 <div class="greedy tabs">
     <nav>
         <a data-bind="
-            href: '/fe/systems/:system/management/accounts',
+            href: { route: 'management', params: { tab:'accounts' } },
             css: { selected: isTabSelected('accounts') }
         ">
             Accounts
         </a>
         <a data-bind="
-            href: '/fe/systems/:system/management/settings',
+            href: { route: 'management', params: { tab: 'settings' } },
             css: { selected: isTabSelected('settings') }
         ">
             Configuration
         </a>
 
         <a data-bind="
-            href: '/fe/systems/:system/management/diagnostics',
+            href: { route: 'management', params: { tab: 'diagnostics' } },
             css: { selected: isTabSelected('diagnostics') }
         ">
             Support &amp; Diagnose
         </a>
 
         <a data-bind="
-            href: '/fe/systems/:system/management/about',
+            href: { route: 'management', params: { tab: 'about' } },
             css: { selected: isTabSelected('about') }
         ">
             Version
         </a>
         <a data-bind="
-            href: '/fe/systems/:system/management/advanced-options',
+            href: { route: 'management', params: { tab: 'advanced-options' } },
             css: { selected: isTabSelected('advanced-options') }
         ">
             Advanced Options
@@ -51,6 +51,9 @@
             <phone-home-form></phone-home-form>
             <hr />
             <remote-syslog-form></remote-syslog-form>
+            <hr />
+            <server-ssl-form></server-ssl-form>
+
         </section>
 
         <diagnostics-form class="tab" data-bind="

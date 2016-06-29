@@ -1,30 +1,23 @@
 <div class="row content-middle  push-next">
     <h3 class="heading3 greedy push-next">
-        Files in this bucket: 
+        Files in this bucket:
         <span data-bind="text: objectCount"></span>
     </h3>
 
     <button class="btn3" data-bind="click: () => showUploadFilesModal()">Upload Files</button>
 </div>
 
-<div class="row push-next">
-    <div class="greedy">
-        <input type="search" placeholder="Filter Files" data-bind="
-            textInput: filter
-        "/>
-    </div>
+<input class="push-next" type="search" placeholder="Filter Files" data-bind="
+    textInput: filter
+"/>
 
-    <paginator params="pageSize: pageSize, itemCount: filteredObjectCount, page: page">
-    </paginator>
-</div>
-
-<div class="data-table">
+<div class="data-table greedy push-next">
     <table>
         <thead>
             <tr>
                 <th class="state-col" data-bind="css: orderClassFor('state')">
                     <a href data-bind="click: () => orderBy('state')">State</a>
-                </th>    
+                </th>
                 <th class="name-col text-left" data-bind="css: orderClassFor('name')">
                     <a href data-bind="click: () => orderBy('name')">Name</a>
                 </th>
@@ -38,11 +31,16 @@
             <!-- ko if: isVisible -->
             <tr>
                 <td class="state-col">
-                    <svg-icon params="uri: stateIcon" data-bind="tooltip: stateToolTip"></svg-icon>
+                    <svg-icon params="name: stateIcon" data-bind="
+                        tooltip: stateToolTip
+                    "></svg-icon>
                 </td>
 
                 <td class="name-col text-left">
-                    <a class="link" data-bind="text: name, href: href"></a>
+                    <a class="link" data-bind="
+                        text: name,
+                        href: { route: 'object', params: { object: name, tab: null } }
+                    "></a>
                 </td>
 
                 <td class="size-col" data-bind="text: size"></td>
@@ -56,9 +54,15 @@
     </div>
 </div>
 
+<paginator class="align-end" params="
+    pageSize: pageSize,
+    itemCount:
+    filteredObjectCount, page: page
+"></paginator>
+
 <!-- ko if: isUploadFilesModalVisible -->
 <upload-files-modal params="
-    bucketName: bucketName, 
+    bucketName: bucketName,
     onClose: () => hideUploadFilesModal()
 "></upload-files-modal>
-<!-- /ko -->    
+<!-- /ko -->

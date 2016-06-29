@@ -83,7 +83,8 @@ mocha.describe('node_server', function() {
             // .then(() => client.node.delete_node({
             // name: NODE
             // }))
-            .then(() => coretest.clear_test_nodes());
+            .then(() => coretest.clear_test_nodes())
+            .done();
     });
 
 });

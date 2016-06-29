@@ -17,10 +17,11 @@ class NodesClient {
         });
     }
 
-    aggregate_nodes_by_pool(pool_ids, system_id) {
+    aggregate_nodes_by_pool(pool_ids, system_id, skip_cloud_nodes) {
         const res = node_server.get_local_monitor().aggregate_nodes({
             system: system_id && String(system_id),
-            pools: pool_ids && new Set(_.map(pool_ids, String))
+            pools: pool_ids && new Set(_.map(pool_ids, String)),
+            skip_cloud_nodes: skip_cloud_nodes
         }, 'pool');
         // recreating a structure existing code callers expect,
         // might want to change the callers instead.

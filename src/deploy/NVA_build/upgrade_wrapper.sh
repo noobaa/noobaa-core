@@ -35,10 +35,26 @@ function fix_iptables {
     iptables -I INPUT 1 -i eth0 -p tcp --dport 8443 -j ACCEPT
   fi
 
+  local exist=$(iptables -L -n | grep 26050 | wc -l)
+  if [ "${exist}" == "0" ]; then
+    iptables -I INPUT 1 -i eth0 -p tcp --dport 26050 -j ACCEPT
+  fi
+
+  local exist=$(iptables -L -n | grep 27000 | wc -l)
+  if [ "${exist}" == "0" ]; then
+    iptables -I INPUT 1 -i eth0 -p tcp --dport 27000 -j ACCEPT
+  fi
+
   #If logging rules exist, remove them
   /sbin/iptables -D INPUT -m limit --limit 15/minute -j LOG --log-level 2 --log-prefix "Dropped by firewall: "
   /sbin/iptables -D OUTPUT -m limit --limit 15/minute -j LOG --log-level 2 --log-prefix "Dropped by firewall: "
 
+  #CVE-1999-0524
+  local exist=$(iptables -L -n | grep icmp | wc -l)
+  if [ "${exist}" == "0" ]; then
+ 	iptables -A INPUT -p ICMP --icmp-type timestamp-request -j DROP
+	iptables -A INPUT -p ICMP --icmp-type timestamp-reply -j DROP
+  fi
   service iptables save
 }
 
@@ -207,14 +223,17 @@ function post_upgrade {
   fi
   echo "${AGENT_VERSION_VAR}" >> ${CORE_DIR}/.env
 
-	#if noobaa supervisor.conf is pre clustering, fix it
-	local FOUND=$(grep "dbpath /var/lib/mongo/cluster/shard1" /etc/noobaa_supervisor.conf | wc -l)
-	if [ ${FOUND} -eq 0 ]; then
-		cp -f ${CORE_DIR}/src/deploy/NVA_build/noobaa_supervisor.conf /etc/noobaa_supervisor.conf
-	fi
+  #if noobaa supervisor.conf is pre clustering, fix it
+  local FOUND=$(grep "dbpath /var/lib/mongo/cluster/shard1" /etc/noobaa_supervisor.conf | wc -l)
+  if [ ${FOUND} -eq 0 ]; then
+    cp -f ${CORE_DIR}/src/deploy/NVA_build/noobaa_supervisor.conf /etc/noobaa_supervisor.conf
+  fi
 
-	#Fix login message
-	fix_etc_issue
+  #Fix login message
+  fix_etc_issue
+
+  #fix and upgrade security
+  fix_security_issues
 
   deploy_log "NooBaa supervisor services configuration changes"
   #NooBaa supervisor services configuration changes

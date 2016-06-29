@@ -290,6 +290,7 @@ class SystemStore extends EventEmitter {
 
     constructor() {
         super();
+        this.is_cluster_master = false;
         this.START_REFRESH_THRESHOLD = 10 * 60 * 1000;
         this.FORCE_REFRESH_THRESHOLD = 60 * 60 * 1000;
         this._json_validator = new Ajv({
@@ -538,9 +539,9 @@ class SystemStore extends EventEmitter {
     get_local_cluster_info() {
         let owner_secret = this.get_server_secret();
         let reply;
-        _.each(this.data.clusters, function(cluster_info) {
+        _.each(this.data && this.data.clusters, function(cluster_info) {
             if (cluster_info.owner_secret === owner_secret) {
-                reply = cluster_info;
+                reply = _.omit(cluster_info, ['heartbeat']);
             }
         });
         return reply;

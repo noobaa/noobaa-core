@@ -7,7 +7,7 @@ import { isUndefined } from 'utils';
 class DiagnosticsFormViewModel {
     constructor() {
         this.debugLevel = ko.pureComputed(
-            () => systemInfo() && systemInfo().debugLevel
+            () => systemInfo() && systemInfo().debug_level
         );
 
         this.debugLevelText = ko.pureComputed(

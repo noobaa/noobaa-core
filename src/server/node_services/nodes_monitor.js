@@ -21,7 +21,7 @@ const server_rpc = require('../server_rpc');
 const auth_server = require('../common_services/auth_server');
 const nodes_store = require('./nodes_store');
 const mongo_utils = require('../../util/mongo_utils');
-const ActivityLog = require('../analytic_services/activity_log');
+const Dispatcher = require('../notifications/dispatcher');
 const buffer_utils = require('../../util/buffer_utils');
 const system_store = require('../system_services/system_store').get_instance();
 const promise_utils = require('../../util/promise_utils');
@@ -29,6 +29,8 @@ const node_allocator = require('./node_allocator');
 const mongoose_utils = require('../../util/mongoose_utils');
 const mongo_functions = require('../../util/mongo_functions');
 const system_server_utils = require('../utils/system_server_utils');
+const dclassify = require('dclassify');
+
 
 const RUN_DELAY_MS = 60000;
 const RUN_NODE_CONCUR = 50;
@@ -38,6 +40,7 @@ const REBUILD_CLIFF = 3 * 60000;
 const REBUILD_WORKERS = 10;
 const REBUILD_BATCH_SIZE = 500;
 const REBUILD_BATCH_DELAY = 0;
+const REBUILD_BATCH_ERROR_DELAY = 3000;
 // const REBUILD_CLIFF = 0;
 // const REBUILD_WORKERS = 1;
 // const REBUILD_BATCH_SIZE = 1;
@@ -86,6 +89,11 @@ const NODE_INFO_DEFAULTS = {
     base_address: '',
 };
 
+// Utilities provided by dclassify
+var Classifier = dclassify.Classifier;
+var DataSet = dclassify.DataSet;
+var Document = dclassify.Document;
+
 
 class NodesMonitor extends EventEmitter {
 
@@ -120,6 +128,7 @@ class NodesMonitor extends EventEmitter {
         if (!this._started) return;
         dbg.log0('_load_from_store ...');
         return mongoose_utils.mongoose_wait_connected()
+            .then(() => nodes_store.instance().connect())
             .then(() => nodes_store.instance().find_nodes({
                 deleted: null
             }))
@@ -134,7 +143,7 @@ class NodesMonitor extends EventEmitter {
                 this._schedule_next_run(3000);
             })
             .catch(err => {
-                dbg.log0('_load_from_store ERROR', err);
+                dbg.log0('_load_from_store ERROR', err.stack);
                 return P.delay(1000).then(() => this._load_from_store());
             });
     }
@@ -150,10 +159,11 @@ class NodesMonitor extends EventEmitter {
         this._set_node_defaults(item);
     }
 
-    _add_new_node(conn, system_id, pool_id) {
+    _add_new_node(conn, system_id, pool_id, pool_name) {
         const system = system_store.data.get_by_id(system_id);
         const pool =
             system_store.data.get_by_id(pool_id) ||
+            system.pools_by_name[pool_name] ||
             system.pools_by_name.default_pool;
         if (pool.system !== system) {
             throw new Error('Node pool must belong to system');
@@ -369,7 +379,7 @@ class NodesMonitor extends EventEmitter {
         return P.resolve()
             .then(() => nodes_store.instance().bulk_update(bulk_items))
             .then(() => P.map(new_nodes, item => {
-                ActivityLog.create({
+                Dispatcher.instance().activity({
                     level: 'info',
                     event: 'node.create',
                     system: item.node.system,
@@ -606,7 +616,7 @@ class NodesMonitor extends EventEmitter {
                 setTimeout(() => {
                     this._set_need_rebuild.add(item);
                     this._wakeup_rebuild();
-                }, REBUILD_BATCH_DELAY).unref();
+                }, REBUILD_BATCH_ERROR_DELAY).unref();
             });
     }
 
@@ -653,7 +663,7 @@ class NodesMonitor extends EventEmitter {
         // new node heartbeat
         // create the node and then update the heartbeat
         if (!node_id && (req.role === 'create_node' || req.role === 'admin')) {
-            this._add_new_node(req.connection, req.system._id, extra.pool_id);
+            this._add_new_node(req.connection, req.system._id, extra.pool_id, req.rpc_params.pool_name);
             return reply;
         }
 
@@ -675,13 +685,16 @@ class NodesMonitor extends EventEmitter {
             if (String(item.node.pool) === String(pool_id)) return;
             item.node.migrating_to_pool = new Date();
             item.node.pool = pool_id;
+            this._set_need_update.add(item);
+            dbg.log0('migrate_nodes_to_pool:', item.node.name, 'pool_id', pool_id);
         });
+        this._schedule_next_run(1);
         // let desc_string = [];
         // desc_string.push(`${assign_nodes && assign_nodes.length} Nodes were assigned to ${pool.name} successfully by ${req.account && req.account.email}`);
         // _.forEach(nodes_before_change, node => {
         //     desc_string.push(`${node.name} was assigned from ${node.pool.name} to ${pool.name}`);
         // });
-        // ActivityLog.create({
+        // Dispatcher.instance().activity({
         //     event: 'pool.assign_nodes',
         //     level: 'info',
         //     system: req.system._id,
@@ -736,6 +749,8 @@ class NodesMonitor extends EventEmitter {
                 !query.geolocation.test(item.node.geolocation)) continue;
             if (query.skip_address &&
                 query.skip_address === item.node.rpc_address) continue;
+            if (query.skip_cloud_nodes &&
+                item.node.is_cloud_node) continue;
 
             if ('has_issues' in query &&
                 Boolean(query.has_issues) !== Boolean(item.has_issues)) continue;
@@ -801,13 +816,97 @@ class NodesMonitor extends EventEmitter {
         return list.slice(skip, skip + limit);
     }
 
+    _train_and_suggest(nodes) {
+        var data_for_ml = [];
+        var default_pool_index = -1;
+        var res_nodes = nodes;
+
+        _.forEach(res_nodes, function(curr_node) {
+            if (curr_node.node_from_store) {
+                var node = curr_node.node_from_store;
+
+                var node_avg_read = node.latency_of_disk_read.reduce(function(a, m, i, p) {
+                    return a + m / p.length;
+                }, 0);
+                var node_avg_write = node.latency_of_disk_write.reduce(function(a, m, i, p) {
+                    return a + m / p.length;
+                }, 0);
+                var node_avg_latency = node.latency_to_server.reduce(function(a, m, i, p) {
+                    return a + m / p.length;
+                }, 0);
+
+                var node_pool_name = system_store.data.get_by_id(node.pool).name;
+
+                var pool_index = _.findIndex(data_for_ml, function(obj) {
+                    return obj.pool_name === node_pool_name;
+                });
+
+                if (node_pool_name === 'default_pool') {
+                    default_pool_index = pool_index;
+                }
+                if (pool_index < 0) {
+                    data_for_ml.push({
+                        pool_name: node_pool_name,
+                        nodes: [new Document(node._id, [node.ip, node.geolocation, node.storage.used, node.storage.total, node.storage.used, node_avg_latency, node_avg_read, node_avg_write])]
+                    });
+                } else {
+                    data_for_ml[pool_index].nodes.push(new Document(node._id, [node.ip, node.geolocation, node.storage.used, node.storage.total, node.storage.used, node_avg_latency, node_avg_read, node_avg_write]));
+                }
+            }
+        });
+
+        var data = new DataSet();
+        var options = {
+            applyInverse: true
+        };
+
+        //Push ML data with all nodes except default_pool nodes
+        _.forEach(data_for_ml, function(value, key) {
+            if (value.pool_name !== 'default_pool') {
+                data.add(value.pool_name, value.nodes);
+            }
+        });
+
+        if (data_for_ml.length > 2) {
+            // create a classifier
+            var classifier = new Classifier(options);
+
+            // train the classifier
+            classifier.train(data);
+
+            dbg.log0("Trained with non default pool nodes:", classifier, 'probablity', JSON.stringify(classifier.probabilities, null, 4));
+
+            _.forEach(data_for_ml[default_pool_index].nodes, function(value, key) {
+                var result1 = classifier.classify(value);
+                var suggested_pool = "";
+                dbg.log1("ML result for ", value.id, result1);
+                if (result1.category === 'default_pool') {
+                    suggested_pool = result1.secondCategory;
+                } else {
+                    suggested_pool = result1.category;
+                }
+
+                var node_index = _.findIndex(res_nodes, function(obj) {
+                    return (obj.node._id).toString() === (value.id).toString();
+                });
+                res_nodes[node_index].node.suggested_pool = suggested_pool;
+                dbg.log0('ML result for ', value.id, 'suggested pool:', suggested_pool);
+
+            });
+        }
+        return res_nodes;
+
+    }
+
     list_nodes(query, options) {
         console.log('list_nodes: query', query);
-        const list = this._filter_nodes(query);
+        const list = this._train_and_suggest(this._filter_nodes(query));
+
         this._sort_nodes_list(list, options);
         const res_list = options && options.pagination ?
             this._paginate_nodes_list(list, options) : list;
         console.log('list_nodes', res_list.length, '/', list.length);
+
         return {
             total_count: list.length,
             nodes: _.map(res_list, item => this._get_node_full_info(item))
@@ -904,6 +1003,8 @@ class NodesMonitor extends EventEmitter {
         if (info.os_info.last_update) {
             info.os_info.last_update = new Date(info.os_info.last_update).getTime();
         }
+        info.suggested_pool = node.suggested_pool || "";
+
         return info;
     }
 
@@ -1006,7 +1107,7 @@ class NodesMonitor extends EventEmitter {
                 });
             })
             .then(() => {
-                ActivityLog.create({
+                Dispatcher.instance().activity({
                     system: req.system._id,
                     level: 'info',
                     event: 'dbg.set_debug_node',

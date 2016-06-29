@@ -2,6 +2,7 @@ toggle-switch {
     @radius: .55em;
     @margin: .2em;
     @size: (@radius + @margin) * 2;
+    position: relative;
 
     display: inline-block;
     vertical-align: middle;
@@ -35,8 +36,8 @@ toggle-switch {
             top: @margin;
             background-color: @bg-color4;
             left: @margin;
-            transition: 
-                left 250ms ease-in-out, 
+            transition:
+                left 250ms ease-in-out,
                 background-color 250ms linear;
         }
     }

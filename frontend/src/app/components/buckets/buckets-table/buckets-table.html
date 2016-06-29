@@ -1,27 +1,50 @@
+<button class="btn2 align-end push-next" data-bind="
+    click: () => showCreateBucketWizard()
+">
+    Create Bucket
+</button>
+
 <section class="data-table">
     <table>
         <thead>
              <tr>
-                <th class="state-col" data-bind="css: orderClassFor('state')">
-                    <a href data-bind="click: () => orderBy('state')">
+                <th class="state-col">
+                    <a href data-bind="
+                        click: () => orderBy('state'),
+                        css: orderClassFor('state')
+                    ">
                         state
                     </a>
                 </th>
-                <th class="name-col text-left" data-bind="css: orderClassFor('name')">
-                    <a href data-bind="click: () => orderBy('name')">
+                <th class="name-col text-left">
+                    <a href data-bind="
+                        click: () => orderBy('name'),
+                        css: orderClassFor('name')
+                    ">
                         bucket name
                     </a>
                 </th>
-                <th class="filecount-col" data-bind="css: orderClassFor('filecount')">
-                    <a href data-bind="click: () => orderBy('filecount')">
+                <th class="filecount-col">
+                    <a href data-bind="
+                        click: () => orderBy('filecount'),
+                        css: orderClassFor('filecount')
+                    ">
                         files
                     </a>
                 </th>
                 <th class="capacity-col">
+                    <a href data-bind="
+                        click: () => orderBy('usage'),
+                        css: orderClassFor('usage')
+                    ">
                     used capacity
+                    </a>
                 </th>
-                <th class="cloudsync-col" data-bind="css: orderClassFor('cloudsync')">
-                    <a href data-bind="click: () => orderBy('cloudsync')">
+                <th class="cloudsync-col">
+                    <a href data-bind="
+                        click: () => orderBy('cloudsync'),
+                        css: orderClassFor('cloudsync')
+                    ">
                         Cloud Sync
                     </a>
                 </th>
@@ -32,11 +55,14 @@
         <tbody data-bind="foreach: visibleRows">
             <tr>
                 <td class="state-col" data-bind="tooltip: stateToolTip">
-                    <svg-icon params="uri: stateIcon"></svg-icon>
+                    <svg-icon params="name: stateIcon"></svg-icon>
                 </td>
 
                 <td class="name-col text-left">
-                    <a class="link" data-bind="text: name, href: href"></a>
+                    <a class="link" data-bind="
+                        text: name,
+                        href: { route: 'bucket', params: { bucket: name } }
+                    "></a>
                 </td>
 
                 <td class="filecount-col" data-bind="text: fileCount"></td>
@@ -46,7 +72,7 @@
                 </td>
 
                 <td class="cloudsync-col" data-bind="
-                    text: cloudSyncStatus().label, 
+                    text: cloudSyncStatus().label,
                     css: cloudSyncStatus().css"
                 ></td>
 
@@ -62,3 +88,8 @@
         </tbody>
     </table>
 </section>
+
+<!-- ko if: isCreateBucketWizardVisible -->
+<create-bucket-wizard params="onClose: () => hideCreateBucketWizard()">
+</create-bucket-wizard>
+<!-- /ko -->

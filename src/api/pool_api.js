@@ -11,8 +11,7 @@ module.exports = {
     id: 'pool_api',
 
     methods: {
-
-        create_pool: {
+        create_nodes_pool: {
             doc: 'Create Pool',
             method: 'POST',
             params: {
@@ -27,7 +26,19 @@ module.exports = {
             doc: 'Create Cloud Pool',
             method: 'POST',
             params: {
-                $ref: '#/definitions/cloud_pool_definition'
+                type: 'object',
+                required: ['name', 'connection', 'target_bucket'],
+                properties: {
+                    name: {
+                        type: 'string',
+                    },
+                    connection: {
+                        type: 'string',
+                    },
+                    target_bucket: {
+                        type: 'string',
+                    }
+                }
             },
             auth: {
                 system: 'admin'
@@ -111,23 +122,6 @@ module.exports = {
             }
         },
 
-        delete_cloud_pool: {
-            doc: 'Delete Pool',
-            method: 'POST',
-            params: {
-                type: 'object',
-                required: ['name'],
-                properties: {
-                    name: {
-                        type: 'string',
-                    },
-                }
-            },
-            auth: {
-                system: 'admin'
-            }
-        },
-
         assign_nodes_to_pool: {
             doc: 'Add nodes to Pool',
             method: 'POST',
@@ -194,35 +188,10 @@ module.exports = {
             }
         },
 
-        cloud_pool_definition: {
-            type: 'object',
-            required: ['name', 'cloud_info'],
-            properties: {
-                name: {
-                    type: 'string',
-                },
-                cloud_info: {
-                    type: 'object',
-                    required: ['endpoint', 'target_bucket', 'access_keys'],
-                    properties: {
-                        endpoint: {
-                            type: 'string',
-                        },
-                        target_bucket: {
-                            type: 'string',
-                        },
-                        access_keys: {
-                            $ref: 'system_api#/definitions/access_keys',
-                        }
-                    }
-                }
-            }
-        },
-
 
         pool_extended_info: {
             type: 'object',
-            required: ['name', 'nodes', 'storage'],
+            required: ['name', 'storage'],
             properties: {
                 name: {
                     type: 'string'
@@ -235,6 +204,17 @@ module.exports = {
                 },
                 undeletable: {
                     $ref: 'common_api#/definitions/undeletable_enum'
+                },
+                cloud_info: {
+                    type: 'object',
+                    properties: {
+                        endpoint: {
+                            type: 'string'
+                        },
+                        target_bucket: {
+                            type: 'string'
+                        }
+                    }
                 }
             },
         },

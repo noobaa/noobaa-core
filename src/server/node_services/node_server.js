@@ -11,7 +11,6 @@ const _ = require('lodash');
 // const pkg = require('../../../package.json');
 // const dbg = require('../../util/debug_module')(__filename);
 // const config = require('../../../config');
-// const ActivityLog = require('../analytic_services/activity_log');
 const string_utils = require('../../util/string_utils');
 const system_store = require('../system_services/system_store').get_instance();
 const nodes_monitor = require('./nodes_monitor');

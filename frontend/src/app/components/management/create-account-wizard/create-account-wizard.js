@@ -3,8 +3,8 @@ import nameAndPermissionsStepTemplate from './name-and-permissions-step.html';
 import detailsStepTemplate from './details-step.html';
 import ko from 'knockout';
 import { randomString, copyTextToClipboard, generateAccessKeys } from 'utils';
-import { systemInfo, bucketList, accountList } from 'model';
-import { loadBucketList, createAccount } from 'actions';
+import { systemInfo, accountList } from 'model';
+import { createAccount } from 'actions';
 
 function makeUserMessage(loginInfo, S3AccessInfo) {
     return `
@@ -28,7 +28,7 @@ Use the following credentials to connect to the NooBaa console:<br>
 function makeS3AccessMessage({ access_key, secret_key }) {
     return `
 <p class="paragraph">
-Use the follwoing S3 access to connect an S3 compatible application to NooBaa:<br>
+Use the following S3 access to connect an S3 compatible application to NooBaa:<br>
 <span class="emphasized">Access Key:</span> ${access_key}<br>
 <span class="emphasized">Secret Key:</span> ${secret_key}
 </p>
@@ -53,8 +53,10 @@ class CreateAccountWizardViewModel {
 
         this.enableS3Access = ko.observable(false);
 
-        this.buckets = bucketList.map(
-            bucket => bucket.name
+        this.buckets = ko.pureComputed(
+            () => (systemInfo() ? systemInfo().buckets : []).map(
+                ({ name }) => name
+            )
         );
 
         let selectedBuckets = ko.observableArray();
@@ -69,7 +71,7 @@ class CreateAccountWizardViewModel {
 
         let loginInfo = ko.pureComputed(
             () => ({
-                serverAddress: `https://${systemInfo().endpoint}:${systemInfo().sslPort}`,
+                serverAddress: `https://${systemInfo().endpoint}:${systemInfo().ssl_port}`,
                 username: this.emailAddress(),
                 password: this.password
             })
@@ -85,8 +87,6 @@ class CreateAccountWizardViewModel {
         this.nameAndPermissionsErrors = ko.validation.group([
             this.emailAddress
         ]);
-
-        loadBucketList();
     }
 
     validateStep(step) {

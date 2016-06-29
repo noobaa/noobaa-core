@@ -2,16 +2,20 @@
     <h2 class="box-header">General Information</h2>
     <pool-summary params="pool: pool"></pool-summary>
 </div>
-    
+
 <div class="tabs greedy">
     <nav>
-        <a class="selected" data-bind="href: '/fe/systems/:system/pools/:pool/nodes'">
+        <a class="selected" data-bind="
+            href: { route: 'pool', params: { tab: 'nodes' } }
+        ">
             Nodes
         </a>
     </nav>
-    
+
     <div class="tabs-row">
-        <pool-nodes-table class="selected greedy" params="pool: pool, nodes: nodes">
-        </pool-nodes-table>
+        <pool-nodes-table class="selected greedy" params="
+            pool: pool,
+            nodeList: nodes
+        "></pool-nodes-table>
     </div>
 </div>

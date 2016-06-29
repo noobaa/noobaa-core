@@ -47,6 +47,8 @@
             'util/rabin_karp.h',
             'util/syslog.h',
             'util/syslog.cpp',
+            'util/signup_validator.h',
+            'util/signup_validator.cpp',
             'util/tpool.cpp',
             'util/tpool.h',
             'module.cpp',

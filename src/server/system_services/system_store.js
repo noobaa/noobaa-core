@@ -539,7 +539,7 @@ class SystemStore extends EventEmitter {
     get_local_cluster_info() {
         let owner_secret = this.get_server_secret();
         let reply;
-        _.each(this.data.clusters, function(cluster_info) {
+        _.each(this.data && this.data.clusters, function(cluster_info) {
             if (cluster_info.owner_secret === owner_secret) {
                 reply = _.omit(cluster_info, ['heartbeat']);
             }

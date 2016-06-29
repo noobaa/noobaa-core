@@ -105,18 +105,19 @@ function get_test_nodes(req) {
 // EXPORTS
 exports._init = _init;
 exports.get_local_monitor = get_local_monitor;
-exports.ping = ping;
-exports.list_nodes = list_nodes;
-exports.get_test_nodes = get_test_nodes;
-exports.aggregate_nodes = aggregate_nodes;
-exports.sync_monitor_to_store = req => monitor.sync_to_store();
 exports.heartbeat = req => monitor.heartbeat(req);
-exports.read_node = req => monitor.read_node_by_name(req.rpc_params.name);
-exports.n2n_signal = req => monitor.n2n_signal(req);
-exports.n2n_proxy = req => monitor.n2n_proxy(req);
-exports.test_node_network = req => monitor.test_node_network(req);
+exports.read_node = req => monitor.read_node(req.rpc_params);
+exports.decommission_node = req => monitor.decommission_node(req.rpc_params);
+exports.recommission_node = req => monitor.recommission_node(req.rpc_params);
+exports.delete_node = req => monitor.delete_node(req.rpc_params);
+exports.list_nodes = list_nodes;
+exports.aggregate_nodes = aggregate_nodes;
+exports.get_test_nodes = get_test_nodes;
+exports.ping = ping;
+exports.n2n_signal = req => monitor.n2n_signal(req.rpc_params);
+exports.n2n_proxy = req => monitor.n2n_proxy(req.rpc_params);
+exports.test_node_network = req => monitor.test_node_network(req.rpc_params);
 exports.set_debug_node = req => monitor.set_debug_node(req);
-exports.collect_agent_diagnostics = req => monitor.collect_agent_diagnostics(req);
-exports.report_node_block_error = req =>
-    monitor.report_node_block_error(req.rpc_params.block_md.address, req);
-exports.delete_node = req => monitor.delete_node_by_name(req.rpc_params.name);
+exports.collect_agent_diagnostics = req => monitor.collect_agent_diagnostics(req.rpc_params);
+exports.report_node_block_error = req => monitor.report_node_block_error(req);
+exports.sync_monitor_to_store = req => monitor.sync_to_store();

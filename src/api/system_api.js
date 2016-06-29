@@ -371,8 +371,21 @@ module.exports = {
             }
         },
 
-        diagnose: {
+        diagnose_system: {
             method: 'GET',
+            reply: {
+                type: 'string',
+            },
+            auth: {
+                system: 'admin',
+            }
+        },
+
+        diagnose_node: {
+            method: 'GET',
+            params: {
+                $ref: 'node_api#/definitions/node_identity'
+            },
             reply: {
                 type: 'string',
             },

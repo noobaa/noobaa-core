@@ -204,7 +204,7 @@ function generate_random_file(size_mb) {
         dd_cmd = 'dd if=/dev/urandom of=' + fname + ' count=' + size_mb + ' bs=1M';
     }
 
-    return promise_utils.promised_exec(dd_cmd)
+    return promise_utils.exec(dd_cmd)
         .then(function() {
             return fname;
         });

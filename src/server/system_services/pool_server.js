@@ -43,9 +43,7 @@ function create_nodes_pool(req) {
                 pools: [pool]
             }
         })
-        .then(function() {
-            return _assign_nodes_to_pool(req, pool);
-        })
+        .then(() => nodes_client.instance().migrate_nodes_to_pool(nodes, pool._id))
         .then(res => {
             Dispatcher.instance().activity({
                 event: 'pool.create',
@@ -137,7 +135,8 @@ function list_pool_nodes(req) {
         .then(() => nodes_client.instance().list_nodes_by_pool(pool._id))
         .then(res => ({
             name: pool.name,
-            nodes: _.map(res.nodes, 'name')
+            nodes: _.map(res.nodes, node =>
+                _.pick(node, 'id', 'name', 'peer_id', 'rpc_address'))
         }));
 }
 
@@ -231,57 +230,11 @@ function _delete_cloud_pool(system, pool, account) {
 }
 
 
-function _assign_nodes_to_pool(req, pool) {
-    var assign_nodes = req.rpc_params.nodes;
-    var nodes_before_change;
-    return nodes_store.instance().find_nodes({
-            deleted: null,
-            name: {
-                $in: assign_nodes
-            },
-        }, {
-            fields: {
-                pool: 1,
-                name: 1,
-            }
-        })
-        .then(nodes_res => {
-            nodes_before_change = nodes_res;
-            return nodes_store.instance().update_nodes({
-                    system: req.system._id,
-                    name: {
-                        $in: assign_nodes
-                    }
-                }, {
-                    $set: {
-                        pool: pool._id,
-                    }
-                })
-                .then(res => {
-                    let desc_string = [];
-                    desc_string.push(`${assign_nodes && assign_nodes.length} Nodes were assigned to ${pool.name} successfully by ${req.account && req.account.email}`);
-                    _.forEach(nodes_before_change, node => {
-                        desc_string.push(`${node.name} was assigned from ${node.pool.name} to ${pool.name}`);
-                    });
-                    Dispatcher.instance().activity({
-                        event: 'pool.assign_nodes',
-                        level: 'info',
-                        system: req.system._id,
-                        actor: req.account && req.account._id,
-                        pool: pool._id,
-                        desc: desc_string.join('\n'),
-                    });
-                    return res;
-                });
-        })
-        .return();
-}
-
-
 function assign_nodes_to_pool(req) {
     dbg.log0('Adding nodes to pool', req.rpc_params.name, 'nodes', req.rpc_params.nodes);
     var pool = find_pool_by_name(req);
-    return _assign_nodes_to_pool(req, pool);
+    return nodes_client.instance().migrate_nodes_to_pool(
+        req.rpc_params.nodes, pool._id);
 }
 
 

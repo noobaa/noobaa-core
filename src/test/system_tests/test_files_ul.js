@@ -45,9 +45,9 @@ function show_usage() {
 function pre_generation() {
     var dirs = Math.ceil(UL_TEST.num_files / UL_TEST.files_per_dir);
     console.log('Creating directory structure');
-    return promise_utils.promised_exec('mkdir -p ' + UL_TEST.base_dir)
+    return promise_utils.exec('mkdir -p ' + UL_TEST.base_dir)
         .then(function() {
-            return promise_utils.promised_exec('rm -rf ' + UL_TEST.base_dir + '/*');
+            return promise_utils.exec('rm -rf ' + UL_TEST.base_dir + '/*');
         })
         .then(function() {
             var i = 0;
@@ -57,7 +57,7 @@ function pre_generation() {
                 },
                 function() {
                     ++i;
-                    return promise_utils.promised_exec('mkdir -p ' + UL_TEST.base_dir + '/dir' + i);
+                    return promise_utils.exec('mkdir -p ' + UL_TEST.base_dir + '/dir' + i);
                 });
         })
         .catch(function(err) {
@@ -78,7 +78,7 @@ function pre_generation() {
                     for (var i = 1; i <= files; ++i) {
                         UL_TEST.files.push(UL_TEST.base_dir + '/dir' + d + '/file_' + i);
                     }
-                    return promise_utils.promised_exec('for i in `seq 1 ' + files + '` ; do' +
+                    return promise_utils.exec('for i in `seq 1 ' + files + '` ; do' +
                         ' dd if=/dev/urandom of=' + UL_TEST.base_dir + '/dir' + d +
                         '/file_$i  bs=' + UL_TEST.file_size + 'k count=1 ; done');
                 });
@@ -232,14 +232,14 @@ function main() {
         .then(function() {
             print_summary();
             if (!UL_TEST.skip_cleanup) {
-                return promise_utils.promised_exec('rm -rf /tmp/' + UL_TEST.base_dir);
+                return promise_utils.exec('rm -rf /tmp/' + UL_TEST.base_dir);
             }
             console.log('Finished running upload test');
             return;
         })
         .catch(function(err) {
             if (!UL_TEST.skip_cleanup) {
-                return promise_utils.promised_exec('rm -rf /tmp/' + UL_TEST.base_dir);
+                return promise_utils.exec('rm -rf /tmp/' + UL_TEST.base_dir);
             }
         });
 }

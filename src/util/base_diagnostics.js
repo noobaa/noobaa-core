@@ -1,36 +1,28 @@
-'use strict';
-
 /*
  * Basic (Common) Diagnostics between server and agent,
  * see agent diagnostics and server diagnostics as well
  */
+'use strict';
 
-module.exports = {
-    collect_basic_diagnostics: collect_basic_diagnostics,
-    write_agent_diag_file: write_agent_diag_file,
-    pack_diagnostics: pack_diagnostics,
-};
+const _ = require('lodash');
+const fs = require('fs');
+const mkdirp = require('mkdirp');
 
-var _ = require('lodash');
-var P = require('../util/promise');
-var fs = require('fs');
-var mkdirp = require('mkdirp');
-var promise_utils = require('../util/promise_utils');
-var os_utils = require('../util/os_utils');
-var config = require('../../config.js');
+const P = require('../util/promise');
+const config = require('../../config.js');
+const os_utils = require('../util/os_utils');
+const fs_utils = require('../util/fs_utils');
 
-var is_windows = (process.platform === "win32");
+const is_windows = (process.platform === "win32");
 
-var TMP_WORK_DIR = is_windows ? process.env.ProgramData + '/diag' : '/tmp/diag';
+const TMP_WORK_DIR = is_windows ? process.env.ProgramData + '/diag' : '/tmp/diag';
 
 function collect_basic_diagnostics(limit_logs_size) {
     return P.fcall(function() {
-            return promise_utils.folder_delete(TMP_WORK_DIR);
-            //return promise_utils.promised_spawn('rm', ['-rf', TMP_WORK_DIR], process.cwd(), true);
+            return fs_utils.folder_delete(TMP_WORK_DIR);
         })
         .then(function() {
-            return promise_utils.file_delete(process.cwd() + '/build/public/diagnose.tgz');
-            //return promise_utils.promised_spawn('rm', ['-rf', process.cwd() + '/build/public/diagnose.tgz'], process.cwd(), true);
+            return fs_utils.file_delete(process.cwd() + '/build/public/diagnose.tgz');
         })
         .then(function() {
             console.log('creating ', TMP_WORK_DIR);
@@ -40,9 +32,9 @@ function collect_basic_diagnostics(limit_logs_size) {
             if (fs.existsSync(process.cwd() + '/logs')) {
                 if (limit_logs_size) {
                     //will take only noobaa.log and the first 9 zipped logs
-                    return promise_utils.full_dir_copy(process.cwd() + '/logs', TMP_WORK_DIR, 'noobaa?[1-9][0-9].log.gz');
+                    return fs_utils.full_dir_copy(process.cwd() + '/logs', TMP_WORK_DIR, 'noobaa?[1-9][0-9].log.gz');
                 } else {
-                    return promise_utils.full_dir_copy(process.cwd() + '/logs', TMP_WORK_DIR);
+                    return fs_utils.full_dir_copy(process.cwd() + '/logs', TMP_WORK_DIR);
                 }
             } else {
                 return;
@@ -50,15 +42,13 @@ function collect_basic_diagnostics(limit_logs_size) {
         })
         .then(function() {
             if (fs.existsSync('/var/log/noobaa_local_service.log')) {
-                return promise_utils.file_copy('/var/log/noobaa_local_service.log', TMP_WORK_DIR);
-                //return promise_utils.promised_spawn('cp', ['-f', '/var/log/noobaa_local_service.log', TMP_WORK_DIR], process.cwd());
+                return fs_utils.file_copy('/var/log/noobaa_local_service.log', TMP_WORK_DIR);
             } else {
                 return;
             }
         })
         .then(function() {
-            return promise_utils.file_copy(process.cwd() + '/package.json', TMP_WORK_DIR);
-            //return promise_utils.promised_spawn('cp', ['-f', process.cwd() + '/package.json', TMP_WORK_DIR], process.cwd());
+            return fs_utils.file_copy(process.cwd() + '/package.json', TMP_WORK_DIR);
         })
         .then(function() {
             return os_utils.netstat_single(TMP_WORK_DIR + '/netstat.out');
@@ -73,33 +63,31 @@ function collect_basic_diagnostics(limit_logs_size) {
 }
 
 function write_agent_diag_file(data) {
-    return P.nfcall(fs.writeFile, TMP_WORK_DIR + '/from_agent_diag.tgz', data);
+    return fs.writeFileAsync(TMP_WORK_DIR + '/from_agent_diag.tgz', data);
 }
 
 function pack_diagnostics(dst) {
     return P.fcall(function() {
-            return promise_utils.file_delete(dst);
+            return fs_utils.file_delete(dst);
         }).then(function() {
-            console.log('pack - ', dst);
-            return promise_utils.pack(dst, TMP_WORK_DIR);
-            //            return promise_utils.promised_exec('tar -zcvf ' + dst + ' ' + TMP_WORK_DIR + '/*');
+            return fs_utils.tar_pack(dst, TMP_WORK_DIR);
         })
         .then(function() {
             return archive_diagnostics_pack(dst);
         })
-        .then(null, function(err) {
+        .catch(function(err) {
             //The reason is that every distribution has its own issues.
             //We had a case where it failed due to file change during the file.
             //This flag can help, but not all the distributions support it
             //This is not valid for windows where we have our own executable
             console.error("failed to tar, an attempt to ignore file changes", err);
             return P.fcall(function() {
-                    return promise_utils.promised_exec('tar --warning=no-file-changed -zcvf ' + dst + ' ' + TMP_WORK_DIR + '/*');
+                    return fs_utils.tar_pack(dst, TMP_WORK_DIR, 'ignore_file_changes');
                 })
                 .then(function() {
                     return archive_diagnostics_pack(dst);
                 })
-                .then(null, function(err2) {
+                .catch(function(err2) {
                     console.error('Error in packing diagnostics', err2);
                     throw new Error('Error in packing diagnostics ' + err2);
                 });
@@ -138,15 +126,19 @@ function archive_diagnostics_pack(dst) {
         })
         .then(function() {
             console.log('archive_diagnostics_pack6');
-
             //Archive the current pack
             var now = new Date();
             var tail = now.getDate() + '-' + (now.getMonth() + 1) + '_' + now.getHours() + '-' + now.getMinutes();
-            return promise_utils.file_copy(dst, config.central_stats.previous_diag_packs_dir + '/DiagPack_' + tail + '.tgz');
-            //return promise_utils.file_copy('cp ' + dst + ' ' + config.central_stats.previous_diag_packs_dir + '/DiagPack_' + tail + '.tgz');
+            return fs_utils.file_copy(dst, config.central_stats.previous_diag_packs_dir + '/DiagPack_' + tail + '.tgz');
         })
         .then(null, function(err) {
             console.error('Error in archive_diagnostics_pack', err, err.stack);
             return;
         });
 }
+
+
+// EXPORTS
+exports.collect_basic_diagnostics = collect_basic_diagnostics;
+exports.write_agent_diag_file = write_agent_diag_file;
+exports.pack_diagnostics = pack_diagnostics;

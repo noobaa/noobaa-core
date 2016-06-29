@@ -97,7 +97,8 @@ class RpcBaseConnection extends EventEmitter {
         if (this._state !== STATE_CONNECTED) {
             throw new Error('RPC CONN NOT CONNECTED ' + this._state + ' ' + this.connid);
         }
-        return P.try(() => this._send(msg, op, req))
+        return P.resolve()
+            .then(() => this._send(msg, op, req))
             .catch(this.emit_error);
     }
 

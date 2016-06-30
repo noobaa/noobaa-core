@@ -211,11 +211,11 @@ module.exports = {
 
 function deploy_ceph() {
     var command = `chmod a+x ${CEPH_TEST.test_dir}${CEPH_TEST.ceph_deploy}`;
-    return promise_utils.promised_exec(command, false, true)
+    return promise_utils.exec(command, false, true)
         .then((res) => {
             console.log('Starting Deployment Of Ceph Tests...');
             command = `cd ${CEPH_TEST.test_dir};./${CEPH_TEST.ceph_deploy}`;
-            return promise_utils.promised_exec(command, false, true);
+            return promise_utils.exec(command, false, true);
         })
         .then((res) => {
             return console.log(res);
@@ -237,7 +237,7 @@ function s3_ceph_test() {
             },
             function() {
                 var command = `S3TEST_CONF=${CEPH_TEST.test_dir}${CEPH_TEST.ceph_config} ./${CEPH_TEST.test_dir}${CEPH_TEST.s3_test_dir}virtualenv/bin/nosetests ${S3_CEPH_TEST_WHITELIST[i]}`;
-                return promise_utils.promised_exec(command, false, true)
+                return promise_utils.exec(command, false, true)
                     .then(() => {
                         console.log('Test Passed:', S3_CEPH_TEST_WHITELIST[i]);
                     })
@@ -269,7 +269,7 @@ function system_ceph_test() {
             },
             function() {
                 var command = `S3TEST_CONF=${CEPH_TEST.test_dir}${CEPH_TEST.ceph_config} ./${CEPH_TEST.test_dir}${CEPH_TEST.s3_test_dir}virtualenv/bin/nosetests -w ${process.cwd()}/${CEPH_TEST.test_dir}${CEPH_TEST.s3_test_dir} ${SYSTEM_CEPH_TEST_WHITELIST[i]}`;
-                return promise_utils.promised_exec(command, false, true)
+                return promise_utils.exec(command, false, true)
                     .then(() => {
                         console.log('Test Passed:', SYSTEM_CEPH_TEST_WHITELIST[i]);
                     })
@@ -304,7 +304,7 @@ function run_test() {
     return P.fcall(function() {
             return deploy_ceph();
         })
-        .then(() => promise_utils.promised_exec(command, false, true))
+        .then(() => promise_utils.exec(command, false, true))
         .then((res) => console.log(res))
         .then(() => system_ceph_test())
         .then(() => s3_ceph_test())

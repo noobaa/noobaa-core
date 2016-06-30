@@ -177,6 +177,23 @@ class SystemStoreData {
         return id ? this.idmap[id.toString()] : null;
     }
 
+    get_by_id_include_deleted(id, name) {
+        var ret = id ? this.idmap[id.toString()] : null;
+        if (ret) {
+            return ret;
+        } else { //Query deleted !== null
+            return P.resolve(mongo_client.instance().db.collection(name).findOne({
+                    _id: id,
+                    deleted: {
+                        $ne: null
+                    }
+                }))
+                .then((item) => {
+                    return item;
+                });
+        }
+    }
+
     resolve_object_ids_paths(item, paths, allow_missing) {
         return mongo_utils.resolve_object_ids_paths(this.idmap, item, paths, allow_missing);
     }
@@ -539,7 +556,7 @@ class SystemStore extends EventEmitter {
     get_local_cluster_info() {
         let owner_secret = this.get_server_secret();
         let reply;
-        _.each(this.data.clusters, function(cluster_info) {
+        _.each(this.data && this.data.clusters, function(cluster_info) {
             if (cluster_info.owner_secret === owner_secret) {
                 reply = _.omit(cluster_info, ['heartbeat']);
             }

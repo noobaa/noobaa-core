@@ -1,37 +1,12 @@
-// module targets: nodejs & browserify
 'use strict';
 
-var _ = require('lodash');
-var fs = require('fs');
-var child_process = require('child_process');
+const _ = require('lodash');
+const child_process = require('child_process');
+
+const P = require('./promise');
+const dbg = require('../util/debug_module')(__filename);
+
 require('setimmediate');
-var ncp = require('ncp').ncp;
-var P = require('./promise');
-var dbg = require('../util/debug_module')(__filename);
-
-var is_windows = (process.platform === "win32");
-
-module.exports = {
-    join: join,
-    iterate: iterate,
-    loop: loop,
-    retry: retry,
-    delay_unblocking: delay_unblocking,
-    //run_background_worker: run_background_worker,
-    next_tick: next_tick,
-    set_immediate: set_immediate,
-    promised_spawn: promised_spawn,
-    promised_exec: promised_exec,
-    full_dir_copy: full_dir_copy,
-    file_copy: file_copy,
-    file_delete: file_delete,
-    folder_delete: folder_delete,
-    pack: pack,
-    wait_for_event: wait_for_event,
-    pwhile: pwhile,
-    auto: auto,
-    all_obj: all_obj,
-};
 
 
 /**
@@ -172,7 +147,7 @@ function delay_unblocking(delay) {
 
 
 
-/*// for the sake of tests to be able to exit we schedule the worker with unblocking delay
+// for the sake of tests to be able to exit we schedule the worker with unblocking delay
 // so that it won't prevent the process from existing if it's the only timer left
 function run_background_worker(worker) {
     var DEFUALT_DELAY = 10000;
@@ -192,7 +167,7 @@ function run_background_worker(worker) {
     dbg.log('run_background_worker:', 'INIT', worker.name);
     delay_unblocking(worker.boot_delay || worker.delay || DEFUALT_DELAY).then(run);
     return worker;
-}*/
+}
 
 function next_tick() {
     var defer = P.defer();
@@ -240,7 +215,7 @@ function promised_spawn(command, args, options, ignore_rc) {
     });
 }
 
-function promised_exec(command, ignore_rc, return_stdout) {
+function exec(command, ignore_rc, return_stdout) {
     return new P((resolve, reject) => {
         dbg.log2('promise exec', command, ignore_rc);
         child_process.exec(command, {
@@ -260,70 +235,6 @@ function promised_exec(command, ignore_rc, return_stdout) {
             }
         });
     });
-}
-
-function pack(tar_file_name, source) {
-    console.log('pack windows?', is_windows);
-    if (is_windows) {
-        console.log('in windows', '7za.exe a -ttar -so tmp.tar ' + source.replace(/\//g, '\\') + '| 7za.exe a -si ' + tar_file_name.replace(/\//g, '\\'));
-        return promised_exec('7za.exe a -ttar -so tmp.tar ' + source.replace(/\//g, '\\') + '| 7za.exe a -si ' + tar_file_name.replace(/\//g, '\\'));
-    } else {
-        console.log('not windows?', is_windows);
-        return promised_exec('tar -zcvf ' + tar_file_name + ' ' + source + '/*');
-    }
-}
-
-function file_copy(src, dst) {
-    if (is_windows) {
-        console.log('file copy ' + src.replace(/\//g, '\\') + ' ' + dst.replace(/\//g, '\\'));
-        return promised_exec('copy /Y  "' + src.replace(/\//g, '\\') + '" "' + dst.replace(/\//g, '\\') + '"');
-    } else {
-        return promised_exec('cp -f ' + src + ' ' + dst);
-    }
-}
-
-function folder_delete(path) {
-    if (fs.existsSync(path)) {
-        fs.readdirSync(path).forEach(function(file, index) {
-            var curPath = path + "/" + file;
-            if (fs.lstatSync(curPath).isDirectory()) { // recurse
-                folder_delete(curPath);
-            } else { // delete file
-                fs.unlinkSync(curPath);
-            }
-        });
-        fs.rmdirSync(path);
-    }
-}
-
-function file_delete(file_name) {
-    if (fs.existsSync(file_name)) {
-        return fs.unlinkAsync(file_name);
-    }
-}
-
-function full_dir_copy(src, dst, filter_regex) {
-    ncp.limit = 10;
-    let ncp_options = {};
-    if (filter_regex) {
-        //this regexp will filter out files that matches, except path.
-        var ncp_filter_regex = new RegExp(filter_regex);
-        var ncp_filter_function = function(input) {
-            if (input.indexOf('/') > 0) {
-                return false;
-            } else if (ncp_filter_regex.test(input)) {
-                return false;
-            } else {
-                return true;
-            }
-        };
-        ncp_options.filter = ncp_filter_function;
-    }
-    if (!src || !dst) {
-        return P.reject(new Error('Both src and dst must be given'));
-    }
-
-    return P.nfcall(ncp, src, dst, ncp_options).return();
 }
 
 function wait_for_event(emitter, event, timeout) {
@@ -403,3 +314,20 @@ function all_obj(obj, func) {
         }))
         .return(new_obj);
 }
+
+
+// EXPORTS
+exports.join = join;
+exports.iterate = iterate;
+exports.loop = loop;
+exports.retry = retry;
+exports.delay_unblocking = delay_unblocking;
+exports.run_background_worker = run_background_worker;
+exports.next_tick = next_tick;
+exports.set_immediate = set_immediate;
+exports.promised_spawn = promised_spawn;
+exports.exec = exec;
+exports.wait_for_event = wait_for_event;
+exports.pwhile = pwhile;
+exports.auto = auto;
+exports.all_obj = all_obj;

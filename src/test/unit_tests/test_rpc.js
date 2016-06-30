@@ -322,8 +322,7 @@ mocha.describe('RPC', function() {
             })
             .then(() => https_client.test.get(PARAMS))
             .then(() => wss_client.test.get(PARAMS))
-            .then(() => https_server.close())
-            .done();
+            .then(() => https_server.close());
     });
 
     mocha.it('TCP', function() {

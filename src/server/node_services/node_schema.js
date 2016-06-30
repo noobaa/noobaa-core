@@ -38,9 +38,6 @@ module.exports = {
         _id: {
             format: 'objectid'
         },
-        deleted: {
-            format: 'idate'
-        },
         name: {
             type: 'string'
         },
@@ -54,6 +51,7 @@ module.exports = {
             // the identifier used for p2p signaling
             format: 'objectid'
         },
+
         ip: {
             // the public ip of the node
             type: 'string',
@@ -75,18 +73,21 @@ module.exports = {
             type: 'string',
         },
 
-        // migrating_to_pool: {
-        //     type: 'boolean'
-        // },
-        // decommissioning: {
-        //     type: 'boolean',
-        // },
-        // decommissioned: {
-        //     type: 'boolean',
-        // },
-        // disabled: {
-        //     type: 'boolean',
-        // },
+        migrating_to_pool: {
+            format: 'idate'
+        },
+        decommissioning: {
+            format: 'idate'
+        },
+        decommissioned: {
+            format: 'idate'
+        },
+        deleting: {
+            format: 'idate'
+        },
+        deleted: {
+            format: 'idate'
+        },
 
         // node storage stats - sum of drives
         storage: storage_stat_schema,

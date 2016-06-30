@@ -11,7 +11,7 @@ var assert = require('assert');
 var mongoose = require('mongoose');
 var P = require('../../util/promise');
 var config = require('../../../config.js');
-var agentctl = require('./core_agent_control');
+var core_agent_control = require('./core_agent_control');
 var server_rpc = require('../../server/server_rpc');
 var nodes_store = require('../../server/node_services/nodes_store');
 var mongo_client = require('../../util/mongo_client');
@@ -95,7 +95,7 @@ mocha.after('coretest-after', function() {
         }
     }
 
-    return agentctl.cleanup_agents()
+    return core_agent_control.cleanup_agents()
         .delay(1000)
         .then(() => server_rpc.rpc.set_disconnected_state(true))
         .then(() => mongo_client.instance().disconnect())
@@ -123,11 +123,11 @@ function init_test_nodes(client, system, count) {
         }))
         .then(res => {
             var create_node_token = res.token;
-            agentctl.use_local_agents(
+            core_agent_control.use_local_agents(
                 'ws://127.0.0.1:' + http_port,
                 create_node_token);
-            agentctl.create_agent(count);
-            return agentctl.start_all_agents();
+            core_agent_control.create_agent(count);
+            return core_agent_control.start_all_agents();
         })
         .then(() => client.node.sync_monitor_to_store());
 }
@@ -149,7 +149,7 @@ function clear_test_nodes() {
         })
         .then(() => {
             console.log('CLEANING AGENTS');
-            return agentctl.cleanup_agents();
+            return core_agent_control.cleanup_agents();
         });
 }
 
@@ -162,8 +162,8 @@ module.exports = {
 };
 
 //Expose Agent Control API via coretest
-_.each(agentctl, prop => {
-    if (agentctl.hasOwnProperty(prop)) {
-        module.exports[prop] = agentctl[prop];
+_.each(core_agent_control, prop => {
+    if (core_agent_control.hasOwnProperty(prop)) {
+        module.exports[prop] = core_agent_control[prop];
     }
 });

@@ -24,7 +24,6 @@ const mongo_utils = require('../../util/mongo_utils');
 const Dispatcher = require('../notifications/dispatcher');
 const buffer_utils = require('../../util/buffer_utils');
 const system_store = require('../system_services/system_store').get_instance();
-const system_server = require('../system_services/system_server');
 const promise_utils = require('../../util/promise_utils');
 const node_allocator = require('./node_allocator');
 const mongoose_utils = require('../../util/mongoose_utils');
@@ -37,8 +36,15 @@ const RUN_DELAY_MS = 60000;
 const RUN_NODE_CONCUR = 50;
 const MAX_NUM_LATENCIES = 20;
 const UPDATE_STORE_MIN_ITEMS = 100;
-const NODE_REBUILD_WORKERS = 10;
 const REBUILD_CLIFF = 3 * 60000;
+const REBUILD_WORKERS = 10;
+const REBUILD_BATCH_SIZE = 500;
+const REBUILD_BATCH_DELAY = 0;
+const REBUILD_BATCH_ERROR_DELAY = 3000;
+// const REBUILD_CLIFF = 0;
+// const REBUILD_WORKERS = 1;
+// const REBUILD_BATCH_SIZE = 1;
+// const REBUILD_BATCH_DELAY = 2000;
 
 const AGENT_INFO_FIELDS = [
     'name',
@@ -54,6 +60,7 @@ const AGENT_INFO_FIELDS = [
     'is_internal_agent'
 ];
 const MONITOR_INFO_FIELDS = [
+    'has_issues',
     'online',
     'readable',
     'writable',
@@ -69,10 +76,6 @@ const NODE_INFO_FIELDS = [
     'rpc_address',
     'base_address',
     'version',
-    'migrating_to_pool',
-    'decommissioning',
-    'decommissioned',
-    'disabled',
     'latency_to_server',
     'latency_of_disk_read',
     'latency_of_disk_write',
@@ -424,33 +427,42 @@ class NodesMonitor extends EventEmitter {
     _update_status(item) {
         // TODO update the node status fields for real
         dbg.log0('_update_status:', item.node.name);
-        item.trusted = true;
-        item.n2n_connectivity = true;
-        item.connectivity = 'TCP';
 
         item.online = Boolean(item.connection);
+
+        // TODO GUYM implement node trusted status
+        item.trusted = true;
+
+        // TODO GUYM implement node n2n_connectivity & connectivity status
+        item.n2n_connectivity = true;
+        item.connectivity = 'TCP';
 
         item.storage_full =
             item.node.storage.limit ?
             (item.node.storage.used >= item.node.storage.limit) :
             (item.node.storage.free <= config.NODES_FREE_SPACE_RESERVE);
 
-        item.readable = Boolean(
-            item.online &&
-            item.trusted);
-
-        item.writable = Boolean(
+        item.has_issues = !(
             item.online &&
             item.trusted &&
             !item.node.decommissioning &&
-            !item.node.disabled &&
-            !item.storage_full);
+            !item.node.decommissioned &&
+            !item.node.deleting &&
+            !item.node.deleted);
 
-        item.has_issues = Boolean(
-            !item.online ||
-            !item.trusted ||
-            item.node.decommissioning &&
-            item.node.disabled);
+        item.readable = Boolean(
+            item.online &&
+            item.trusted &&
+            !item.node.deleting &&
+            !item.node.deleted);
+
+        item.writable = Boolean(!item.storage_full &&
+            item.online &&
+            item.trusted &&
+            !item.node.decommissioning &&
+            !item.node.decommissioned &&
+            !item.node.deleting &&
+            !item.node.deleted);
 
         item.accessibility =
             (item.readable && item.writable && 'FULL_ACCESS') ||
@@ -458,10 +470,11 @@ class NodesMonitor extends EventEmitter {
             'NO_ACCESS';
 
         item.data_activity_reason =
-            (item.node.decommissioning && !item.node.decommissioned && 'DECOMMISSIONING') ||
+            (item.node.deleting && 'DELETING') ||
+            (item.node.decommissioning && 'DECOMMISSIONING') ||
             (item.node.migrating_to_pool && 'MIGRATING') ||
-            (!item.readable && 'RESTORING') ||
-            (!item.writable && 'FREEING_SPACE');
+            (!item.online && 'RESTORING') ||
+            (item.storage_full && 'FREEING_SPACE');
 
         if (item.data_activity && !item.data_activity_reason) {
             dbg.warn('_update_status: unset node data_activity for', item.node.name);
@@ -473,7 +486,7 @@ class NodesMonitor extends EventEmitter {
                     'while system in maintenance', item.node.name);
             } else {
                 const time_left = REBUILD_CLIFF - (Date.now() - item.node.heartbeat.getTime());
-                if (time_left > 0) {
+                if (time_left > 0 && item.data_activity_reason === 'RESTORING') {
                     dbg.warn('_update_status: schedule node data_activity for', item.node.name,
                         'in', time_left, 'ms');
                     clearTimeout(item.data_activity_timout);
@@ -498,7 +511,7 @@ class NodesMonitor extends EventEmitter {
 
     _wakeup_rebuild() {
         const count = Math.min(
-            NODE_REBUILD_WORKERS,
+            REBUILD_WORKERS,
             this._set_need_rebuild.size - this._num_running_rebuilds);
         for (let i = 0; i < count; ++i) {
             this._rebuild_worker(i);
@@ -542,7 +555,6 @@ class NodesMonitor extends EventEmitter {
             };
         }
         let blocks;
-        const batch_size = 500;
         act.running = true;
         return P.join(
                 md_store.DataBlock.collection.mapReduce(
@@ -560,7 +572,7 @@ class NodesMonitor extends EventEmitter {
                         chunk: 1,
                         size: 1
                     },
-                    limit: batch_size
+                    limit: REBUILD_BATCH_SIZE
                 }).toArray())
             .spread((remaining_size_res, blocks_res) => {
                 blocks = blocks_res;
@@ -580,14 +592,16 @@ class NodesMonitor extends EventEmitter {
             })
             .then(() => {
                 act.running = false;
-                if (blocks.length === batch_size) {
+                if (blocks.length === REBUILD_BATCH_SIZE) {
                     act.last_block_id = blocks[blocks.length - 1]._id;
                     act.completed_size += _.sumBy(blocks, 'size');
                     act.remaining_time = (Date.now() - act.start_time) *
                         act.total_size / act.completed_size;
                     dbg.log0('_rebuild_node: continue', item.node.name, act);
-                    this._set_need_rebuild.add(item);
-                    this._wakeup_rebuild();
+                    setTimeout(() => {
+                        this._set_need_rebuild.add(item);
+                        this._wakeup_rebuild();
+                    }, REBUILD_BATCH_DELAY).unref();
                 } else {
                     act.last_block_id = undefined;
                     act.remaining_size = 0;
@@ -602,7 +616,7 @@ class NodesMonitor extends EventEmitter {
                 setTimeout(() => {
                     this._set_need_rebuild.add(item);
                     this._wakeup_rebuild();
-                }, 5000).unref();
+                }, REBUILD_BATCH_ERROR_DELAY).unref();
             });
     }
 
@@ -657,9 +671,70 @@ class NodesMonitor extends EventEmitter {
         throw new RpcError('FORBIDDEN', 'Bad heartbeat request');
     }
 
+    read_node(node_identity) {
+        const item = this._get_node(node_identity, 'allow_offline');
+        this._update_status(item);
+        return this._get_node_full_info(item);
+    }
+
+    migrate_nodes_to_pool(nodes_identities, pool_id) {
+        const items = _.map(nodes_identities, node_identity =>
+            this._get_node(node_identity, 'allow_offline'));
+        _.each(items, item => {
+            this._update_status(item);
+            if (String(item.node.pool) === String(pool_id)) return;
+            item.node.migrating_to_pool = new Date();
+            item.node.pool = pool_id;
+            this._set_need_update.add(item);
+            dbg.log0('migrate_nodes_to_pool:', item.node.name, 'pool_id', pool_id);
+        });
+        this._schedule_next_run(1);
+        // let desc_string = [];
+        // desc_string.push(`${assign_nodes && assign_nodes.length} Nodes were assigned to ${pool.name} successfully by ${req.account && req.account.email}`);
+        // _.forEach(nodes_before_change, node => {
+        //     desc_string.push(`${node.name} was assigned from ${node.pool.name} to ${pool.name}`);
+        // });
+        // Dispatcher.instance().activity({
+        //     event: 'pool.assign_nodes',
+        //     level: 'info',
+        //     system: req.system._id,
+        //     actor: req.account && req.account._id,
+        //     pool: pool._id,
+        //     desc: desc_string.join('\n'),
+        // });
+    }
+
+    decommission_node(node_identity) {
+        const item = this._get_node(node_identity, 'allow_offline');
+        this._update_status(item);
+
+        // TODO GUYM implement decommission_node
+        throw new RpcError('TODO', 'decommission_node');
+    }
+
+    recommission_node(node_identity) {
+        const item = this._get_node(node_identity, 'allow_offline');
+        this._update_status(item);
+
+        // TODO GUYM implement recommission_node
+        throw new RpcError('TODO', 'recommission_node');
+    }
+
+    delete_node(node_identity) {
+        const item = this._get_node(node_identity, 'allow_offline');
+        this._update_status(item);
+
+        // TODO GUYM implement delete_node
+        throw new RpcError('TODO', 'delete_node');
+    }
+
     _filter_nodes(query) {
         const list = [];
-        for (const item of this._map_node_id.values()) {
+        const items = query.nodes ?
+            new Set(_.map(query.nodes, node_identity =>
+                this._get_node(node_identity, 'allow_offline'))) :
+            this._map_node_id.values();
+        for (const item of items) {
             // update the status of every node we go over
             this._update_status(item);
 
@@ -748,35 +823,35 @@ class NodesMonitor extends EventEmitter {
 
         _.forEach(res_nodes, function(curr_node) {
             if (curr_node.node_from_store) {
-              var node = curr_node.node_from_store;
+                var node = curr_node.node_from_store;
 
-              var node_avg_read = node.latency_of_disk_read.reduce(function(a, m, i, p) {
-                  return a + m / p.length;
-              }, 0);
-              var node_avg_write = node.latency_of_disk_write.reduce(function(a, m, i, p) {
-                  return a + m / p.length;
-              }, 0);
-              var node_avg_latency = node.latency_to_server.reduce(function(a, m, i, p) {
-                  return a + m / p.length;
-              }, 0);
+                var node_avg_read = node.latency_of_disk_read.reduce(function(a, m, i, p) {
+                    return a + m / p.length;
+                }, 0);
+                var node_avg_write = node.latency_of_disk_write.reduce(function(a, m, i, p) {
+                    return a + m / p.length;
+                }, 0);
+                var node_avg_latency = node.latency_to_server.reduce(function(a, m, i, p) {
+                    return a + m / p.length;
+                }, 0);
 
-              var node_pool_name = system_store.data.get_by_id(node.pool).name;
+                var node_pool_name = system_store.data.get_by_id(node.pool).name;
 
-              var pool_index = _.findIndex(data_for_ml, function(obj) {
-                  return obj.pool_name === node_pool_name;
-              });
+                var pool_index = _.findIndex(data_for_ml, function(obj) {
+                    return obj.pool_name === node_pool_name;
+                });
 
-              if (node_pool_name === 'default_pool') {
-                  default_pool_index = pool_index;
-              }
-              if (pool_index < 0) {
-                  data_for_ml.push({
-                      pool_name: node_pool_name,
-                      nodes: [new Document(node._id, [node.ip, node.geolocation, node.storage.used, node.storage.total, node.storage.used, node_avg_latency, node_avg_read, node_avg_write])]
-                  });
-              } else {
-                  data_for_ml[pool_index].nodes.push(new Document(node._id, [node.ip, node.geolocation, node.storage.used, node.storage.total, node.storage.used, node_avg_latency, node_avg_read, node_avg_write]));
-              }
+                if (node_pool_name === 'default_pool') {
+                    default_pool_index = pool_index;
+                }
+                if (pool_index < 0) {
+                    data_for_ml.push({
+                        pool_name: node_pool_name,
+                        nodes: [new Document(node._id, [node.ip, node.geolocation, node.storage.used, node.storage.total, node.storage.used, node_avg_latency, node_avg_read, node_avg_write])]
+                    });
+                } else {
+                    data_for_ml[pool_index].nodes.push(new Document(node._id, [node.ip, node.geolocation, node.storage.used, node.storage.total, node.storage.used, node_avg_latency, node_avg_read, node_avg_write]));
+                }
             }
         });
 
@@ -834,7 +909,7 @@ class NodesMonitor extends EventEmitter {
 
         return {
             total_count: list.length,
-            nodes: _.map(res_list, item => this.get_node_full_info(item))
+            nodes: _.map(res_list, item => this._get_node_full_info(item))
         };
     }
 
@@ -853,6 +928,7 @@ class NodesMonitor extends EventEmitter {
             if (item.online) online += 1;
             if (item.has_issues) {
                 has_issues += 1;
+            } else {
                 // TODO use bigint for nodes storage sum
                 storage.total += item.node.storage.total || 0;
                 storage.free += item.node.storage.free || 0;
@@ -886,7 +962,7 @@ class NodesMonitor extends EventEmitter {
         return res;
     }
 
-    get_node_full_info(item) {
+    _get_node_full_info(item) {
         const node = item.node;
         const info = _.defaults(
             _.pick(item, MONITOR_INFO_FIELDS),
@@ -896,6 +972,11 @@ class NodesMonitor extends EventEmitter {
         info.peer_id = String(node.peer_id);
         info.pool = system_store.data.get_by_id(node.pool).name;
         info.heartbeat = node.heartbeat.getTime();
+        if (node.migrating_to_pool) info.migrating_to_pool = node.migrating_to_pool.getTime();
+        if (node.decommissioning) info.decommissioning = node.decommissioning.getTime();
+        if (node.decommissioned) info.decommissioned = node.decommissioned.getTime();
+        if (node.deleting) info.deleting = node.deleting.getTime();
+        if (node.deleted) info.deleted = node.deleted.getTime();
         const act = item.data_activity;
         if (act && !act.done) {
             info.data_activity = _.pick(act,
@@ -927,57 +1008,59 @@ class NodesMonitor extends EventEmitter {
         return info;
     }
 
-    _get_node_by_name(name, allow_offline) {
+    _get_node(node_identity, allow_offline, allow_missing) {
         if (!this._loaded) throw new RpcError('MONITOR_NOT_LOADED');
-        const item = this._map_node_name.get(name);
-        if (!item) throw new RpcError('NO_SUCH_NODE', 'No node with name ' + name);
-        if (!item.connection && allow_offline !== 'allow_offline') {
-            throw new RpcError('NODE_OFFLINE', 'Node is offline ' + name);
+        let item;
+        if (node_identity.id) {
+            item = this._map_node_id.get(String(node_identity.id));
+        } else if (node_identity.name) {
+            item = this._map_node_name.get(String(node_identity.name));
+        } else if (node_identity.peer_id) {
+            item = this._map_peer_id.get(String(node_identity.peer_id));
+        } else if (node_identity.rpc_address) {
+            item = this._map_peer_id.get(node_identity.rpc_address.slice('n2n://'.length));
         }
-        return item;
-    }
-    _get_node_by_address(address, allow_offline) {
-        if (!this._loaded) throw new RpcError('MONITOR_NOT_LOADED');
-        const item = this._map_peer_id.get(address.slice('n2n://'.length));
-        if (!item) throw new RpcError('NO_SUCH_NODE', 'No node with address ' + address);
-        if (!item.connection && allow_offline !== 'allow_offline') {
-            throw new RpcError('NODE_OFFLINE', 'Node is offline ' + address);
+        if (!item && allow_missing !== 'allow_missing') {
+            throw new RpcError('NO_SUCH_NODE',
+                'No node ' + JSON.stringify(node_identity));
+        }
+        if (item && !item.connection && allow_offline !== 'allow_offline') {
+            throw new RpcError('NODE_OFFLINE',
+                'Node is offline ' + JSON.stringify(node_identity));
         }
         return item;
     }
 
-    read_node_by_name(name) {
-        const item = this._get_node_by_name(name, 'allow_offline');
-        this._update_status(item);
-        return this.get_node_full_info(item);
-    }
-
-    n2n_signal(req) {
-        dbg.log1('n2n_signal:', req.rpc_params.target);
-        const item = this._get_node_by_address(req.rpc_params.target);
+    n2n_signal(signal_params) {
+        dbg.log1('n2n_signal:', signal_params.target);
+        const item = this._get_node({
+            rpc_address: signal_params.target
+        });
         if (!item) {
             // TODO do the hockey pocky in the cluster like was in redirector
         }
-        return this.client.agent.n2n_signal(req.rpc_params, {
+        return this.client.agent.n2n_signal(signal_params, {
             connection: item.connection,
         });
     }
 
-    n2n_proxy(req) {
-        dbg.log3('n2n_proxy: target', req.rpc_params.target,
-            'call', req.rpc_params.method_api + '.' + req.rpc_params.method_name,
-            'params', req.rpc_params.request_params);
+    n2n_proxy(proxy_params) {
+        dbg.log3('n2n_proxy: target', proxy_params.target,
+            'call', proxy_params.method_api + '.' + proxy_params.method_name,
+            'params', proxy_params.request_params);
 
-        const item = this._get_node_by_address(req.rpc_params.target);
-        const api = req.rpc_params.method_api.slice(0, -4); //Remove _api suffix
-        const method_name = req.rpc_params.method_name;
-        const method = server_rpc.rpc.schema[req.rpc_params.method_api].methods[method_name];
+        const item = this._get_node({
+            rpc_address: proxy_params.target
+        });
+        const api = proxy_params.method_api.slice(0, -4); //Remove _api suffix
+        const method_name = proxy_params.method_name;
+        const method = server_rpc.rpc.schema[proxy_params.method_api].methods[method_name];
         if (method.params_import_buffers) {
-            // dbg.log5('n2n_proxy: params_import_buffers', req.rpc_params);
-            method.params_import_buffers(req.rpc_params.request_params, req.rpc_params.proxy_buffer);
+            // dbg.log5('n2n_proxy: params_import_buffers', proxy_params);
+            method.params_import_buffers(proxy_params.request_params, proxy_params.proxy_buffer);
         }
 
-        return this.client[api][method_name](req.rpc_params.request_params, {
+        return this.client[api][method_name](proxy_params.request_params, {
                 connection: item.connection,
             })
             .then(reply => {
@@ -992,44 +1075,33 @@ class NodesMonitor extends EventEmitter {
             });
     }
 
-    test_node_network(req) {
-        dbg.log0('test_node_network:',
-            'target', req.rpc_params.target,
-            'source', req.rpc_params.source);
-        const item = this._get_node_by_address(req.rpc_params.source);
-        return this.client.agent.test_network_perf_to_peer(req.rpc_params, {
+    test_node_network(self_test_params) {
+        dbg.log0('test_node_network:', self_test_params);
+        const item = this._get_node({
+            rpc_address: self_test_params.source
+        });
+        return this.client.agent.test_network_perf_to_peer(self_test_params, {
             connection: item.connection,
         });
     }
 
-    delete_node(req) {
-        // TODO notify to initiate rebuild of blocks
-        return nodes_store.instance().find_node_by_name(req)
-            .then(node => nodes_store.instance().delete_node_by_name(req))
-            .return();
-    }
-
-    collect_agent_diagnostics(req) {
-        const item = this._get_node_by_name(req.rpc_params.name);
-        return server_rpc.client.agent.collect_diagnostics({}, {
-                connection: item.connection,
-            })
-            .then(data => {
-                return system_server.diagnose_with_agent(data, req);
-            })
-            .catch(err => {
-                dbg.log0('Error on collect_agent_diagnostics', err);
-                return '';
-            });
+    collect_agent_diagnostics(node_identity) {
+        const item = this._get_node(node_identity);
+        return server_rpc.client.agent.collect_diagnostics(undefined, {
+            connection: item.connection,
+        });
     }
 
     set_debug_node(req) {
-        const item = this._get_node_by_name(req.rpc_params.name);
-        return P.fcall(() => {
-                item.node.debug_level = req.rpc_params.level;
+        const debug_level = req.rpc_params.level;
+        const node_identity = req.rpc_params.node;
+        const item = this._get_node(node_identity);
+        return P.resolve()
+            .then(() => {
+                item.node.debug_level = debug_level;
                 this._set_need_update.add(item);
                 return server_rpc.client.agent.set_debug_node({
-                    level: req.rpc_params.level
+                    level: debug_level
                 }, {
                     connection: item.connection,
                 });
@@ -1044,12 +1116,7 @@ class NodesMonitor extends EventEmitter {
                     desc: `${item.node.name} debug level was raised by ${req.account && req.account.email}`,
                 });
                 dbg.log1('set_debug_node was successful for agent', item.node.name,
-                    'level', req.rpc_params.level);
-                return '';
-            })
-            .catch(err => {
-                dbg.log0('Error on set_debug_node', err);
-                return '';
+                    'level', debug_level);
             });
     }
 

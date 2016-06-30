@@ -33,7 +33,7 @@ class OverviewPanelViewModel {
                 }
 
                 let { count, online } = systemInfo().nodes;
-                return online - count;
+                return count - online;
             }
         )
         .extend({

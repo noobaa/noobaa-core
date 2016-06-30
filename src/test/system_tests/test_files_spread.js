@@ -55,12 +55,12 @@ function run_test() {
 
             return client.pool.create_nodes_pool({
                 name: "pool1",
-                nodes: [sys_nodes.nodes[0].name, sys_nodes.nodes[1].name, sys_nodes.nodes[2].name],
+                nodes: _.map(sys_nodes.nodes.slice(0, 3), node => _.pick(node, 'name'))
             });
         })
         .then(() => client.pool.create_nodes_pool({
             name: "pool2",
-            nodes: [sys_nodes.nodes[3].name, sys_nodes.nodes[4].name, sys_nodes.nodes[5].name],
+            nodes: _.map(sys_nodes.nodes.slice(3, 6), node => _.pick(node, 'name'))
         }))
         .then(() => client.tier.create_tier({
             name: 'tier1',

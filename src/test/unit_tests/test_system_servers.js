@@ -1,15 +1,16 @@
 'use strict';
 
-// let _ = require('lodash');
-let P = require('../../util/promise');
-var mocha = require('mocha');
-let assert = require('assert');
-let coretest = require('./coretest');
-let promise_utils = require('../../util/promise_utils');
-var S3Auth = require('aws-sdk/lib/signers/s3');
-var s3_auth = new S3Auth();
-var dotenv = require('dotenv');
+const _ = require('lodash');
+const mocha = require('mocha');
+const assert = require('assert');
+const dotenv = require('dotenv');
+const S3Auth = require('aws-sdk/lib/signers/s3');
+
+const P = require('../../util/promise');
+const coretest = require('./coretest');
+
 dotenv.load();
+const s3_auth = new S3Auth();
 
 mocha.describe('system_servers', function() {
 
@@ -30,10 +31,11 @@ mocha.describe('system_servers', function() {
     };
     const CLOUD_SYNC_CONNECTION = 'Connection 1';
 
-    let client = coretest.new_test_client();
+    const client = coretest.new_test_client();
 
     mocha.it('works', function() {
         this.timeout(60000);
+        let nodes_list;
         return P.resolve()
             ///////////////
             //  ACCOUNT  //
@@ -123,7 +125,7 @@ mocha.describe('system_servers', function() {
                 .catch(err => assert.deepEqual(err.rpc_code, 'TODO'))
             )
             //.then(() => client.system.start_debug({level:0}))
-            .then(() => client.system.diagnose())
+            .then(() => client.system.diagnose_system())
             .then(() => client.system.create_system({
                 name: SYS1
             }))
@@ -141,21 +143,15 @@ mocha.describe('system_servers', function() {
             ////////////
             //  POOL  //
             ////////////
-            .then(() => client.auth.create_auth({
-                email: EMAIL,
-                password: PASSWORD,
-                system: SYS,
-                role: 'create_node'
-            }))
-            .then(res => promise_utils.loop(10,
-                i => client.node.heartbeat({
-                    name: 'node' + i
-                }, {
-                    auth_token: res.token
-                })))
+            .then(() => coretest.init_test_nodes(client, SYS, 6))
+            .then(() => client.node.list_nodes({}))
+            .then(res => {
+                nodes_list = res.nodes;
+            })
             .then(() => client.pool.create_nodes_pool({
                 name: POOL,
-                nodes: ['node0', 'node1', 'node2'],
+                nodes: _.map(nodes_list.slice(0, 3),
+                    node => _.pick(node, 'name')),
             }))
             .then(() => client.pool.read_pool({
                 name: POOL,
@@ -166,7 +162,8 @@ mocha.describe('system_servers', function() {
             }))
             .then(() => client.pool.assign_nodes_to_pool({
                 name: POOL + 1,
-                nodes: ['node3', 'node4', 'node5'],
+                nodes: _.map(nodes_list.slice(3, 6),
+                    node => _.pick(node, 'name')),
             }))
             .then(() => client.pool.update_pool({
                 name: POOL + 1,
@@ -174,7 +171,8 @@ mocha.describe('system_servers', function() {
             }))
             .then(() => client.pool.assign_nodes_to_pool({
                 name: 'default_pool',
-                nodes: ['node1', 'node3', 'node5'],
+                nodes: _.map([nodes_list[1], nodes_list[3], nodes_list[5]],
+                    node => _.pick(node, 'name')),
             }))
             .then(() => client.system.read_system())
             .then(() => client.pool.list_pool_nodes({
@@ -301,39 +299,32 @@ mocha.describe('system_servers', function() {
                 name: BUCKET,
             }))
             .then(() => client.tiering_policy.delete_policy({
-                name: TIERING_POLICY,
-            }))
-            .then(res => {
+                    name: TIERING_POLICY,
+                })
+                .then(res => {
                     throw new Error('TIERING_POLICY: ' + TIERING_POLICY +
                         ' should have been deleted by now');
-                },
-                err => {
-                    if (err.rpc_code && err.rpc_code.indexOf('NO_SUCH_TIERING_POLICY') > -1) {
-                        return;
-                    } else {
-                        throw new Error(err);
-                    }
-                }
+                })
+                .catch(err => {
+                    if (err.rpc_code !== 'NO_SUCH_TIERING_POLICY') throw err;
+                })
             )
             .then(() => client.tier.delete_tier({
-                name: TIER,
-            }))
-            .then(() => {
+                    name: TIER,
+                })
+                .then(() => {
                     throw new Error('TIER: ' + TIER +
                         ' should have been deleted by now');
-                },
-                err => {
-                    if (err.rpc_code && err.rpc_code.indexOf('NO_SUCH_TIER') > -1) {
-                        return;
-                    } else {
-                        throw new Error(err);
-                    }
-                }
+                })
+                .catch(err => {
+                    if (err.rpc_code !== 'NO_SUCH_TIER') throw err;
+                })
             )
             .then(() => client.pool.assign_nodes_to_pool({
                 name: 'default_pool',
-                nodes: ['node0', 'node2', 'node4'],
+                nodes: _.map(nodes_list, node => _.pick(node, 'name')),
             }))
+            .then(() => coretest.clear_test_nodes())
             .then(() => client.pool.delete_pool({
                 name: POOL,
             }))

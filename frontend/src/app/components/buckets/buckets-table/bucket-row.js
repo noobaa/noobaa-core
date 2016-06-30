@@ -53,7 +53,6 @@ export default class BucketRowViewModel {
                     let count = bucket().num_objects;
                     return isDefined(count) ? numeral(count).format('0,0') : 'N/A';
                 }
-
             }
         );
 

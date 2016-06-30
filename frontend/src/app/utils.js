@@ -165,16 +165,6 @@ export function realizeUri(template, params = {}, query = {}) {
     return search ? `${base}?${search}` : base;
 }
 
-export function createCompareFunc(accessor, descending = false) {
-    return function (obj1, obj2) {
-        let value1 = accessor(obj1);
-        let value2 = accessor(obj2);
-
-        return (descending ? -1 : 1) *
-            (value1 < value2 ? -1 : (value1 > value2 ? 1 : 0));
-    };
-}
-
 export function throttle(func, grace, owner) {
     let handle = null;
     return function(...args) {
@@ -183,16 +173,12 @@ export function throttle(func, grace, owner) {
     };
 }
 
-export function compareStrings(a, b) {
+export function compare(a, b) {
     return a < b ? -1 : ( b < a ? 1 : 0);
 }
 
-export function compareInts(a, b) {
-    return a - b;
-}
-
-export function compareBools(a, b) {
-    return b - a;
+export function createCompareFunc(accessor, factor = 1) {
+    return (a,b) => factor * compare(accessor(a), accessor(b));
 }
 
 export function equalNoCase(str1, str2) {

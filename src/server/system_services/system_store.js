@@ -177,6 +177,23 @@ class SystemStoreData {
         return id ? this.idmap[id.toString()] : null;
     }
 
+    get_by_id_include_deleted(id, name) {
+        var ret = id ? this.idmap[id.toString()] : null;
+        if (ret) {
+            return ret;
+        } else { //Query deleted !== null
+            return P.resolve(mongo_client.instance().db.collection(name).findOne({
+                    _id: id,
+                    deleted: {
+                        $ne: null
+                    }
+                }))
+                .then((item) => {
+                    return item;
+                });
+        }
+    }
+
     resolve_object_ids_paths(item, paths, allow_missing) {
         return mongo_utils.resolve_object_ids_paths(this.idmap, item, paths, allow_missing);
     }
@@ -512,7 +529,7 @@ class SystemStore extends EventEmitter {
             .then(() =>
                 // notify all the cluster (including myself) to reload
                 server_rpc.client.redirector.publish_to_cluster({
-                    method_api: 'cluster_member_api',
+                    method_api: 'server_inter_process_api',
                     method_name: 'load_system_store',
                     target: ''
                 })

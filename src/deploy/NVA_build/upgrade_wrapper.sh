@@ -293,6 +293,12 @@ function post_upgrade {
 			ln -sf /usr/share/zoneinfo/US/Pacific /etc/localtime
 	fi
 
+	local noobaa_dns=$(grep 'NooBaa Configured Primary DNS Server' /etc/resolv.conf | wc -l)
+	if [ ${noobaa_dns} -eq 0 ]; then #was not configured yet
+			echo "#NooBaa Configured Primary DNS Server" >> /etc/resolv.conf
+			echo "#NooBaa Configured Secondary DNS Server" >> /etc/resolv.conf
+	fi
+
 	#Upgrade mongo to 3.2 if needed
 	upgrade_mongo_version
 

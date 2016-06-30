@@ -44,6 +44,8 @@ class ServerRpc {
             require('./system_services/pool_server'), options);
         rpc.register_service(schema.cluster_server_api,
             require('./system_services/cluster_server'), options);
+        rpc.register_service(schema.cluster_internal_api,
+            require('./system_services/cluster_server'), options);
         rpc.register_service(schema.stats_api,
             require('./system_services/stats_aggregator'), options);
         rpc.register_service(schema.redirector_api,
@@ -91,8 +93,8 @@ class ServerRpc {
             require('./common_services/auth_server'), options);
         rpc.register_service(schema.debug_api,
             require('./common_services/debug_server'), options);
-        rpc.register_service(schema.cluster_member_api,
-            require('./common_services/cluster_member'), options);
+        rpc.register_service(schema.server_inter_process_api,
+            require('./common_services/server_inter_process'), options);
     }
 
 }

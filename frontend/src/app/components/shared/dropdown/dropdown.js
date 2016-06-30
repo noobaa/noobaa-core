@@ -58,9 +58,13 @@ class DropdownViewModel {
 
         switch(which) {
             case 9: /* tab */
-            case 13: /* enter */
                 this.searchInput = '';
                 this.active(false);
+                break;
+
+            case 13: /* enter */
+                this.searchInput = '';
+                this.active.toggle();
                 break;
 
             case 33: /* page up */

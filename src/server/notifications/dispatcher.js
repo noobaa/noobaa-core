@@ -89,7 +89,7 @@ class Dispatcher {
                         .then(() => {
                             return l;
                         });
-                })
+                });
             })
             .then((logs) => {
                 if (reverse) {

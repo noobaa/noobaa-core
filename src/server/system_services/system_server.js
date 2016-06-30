@@ -289,7 +289,7 @@ function read_system(req) {
             shardname: shard.shardname,
             servers: []
         }));
-        _.each(system_store.data.clusters, cinfo => {            
+        _.each(system_store.data.clusters, cinfo => {
             let shard = shards.find(s => s.shardname === cinfo.owner_shardname);
             let memory_usage = 0;
             let cpu_usage = 0;

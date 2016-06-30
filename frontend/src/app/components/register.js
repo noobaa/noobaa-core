@@ -55,7 +55,6 @@ export default function register(ko) {
     ko.components.register('upload-files-modal',                    require('./bucket/upload-files-modal/upload-files-modal'));
     ko.components.register('set-cloud-sync-modal',                  require('./bucket/set-cloud-sync-modal/set-cloud-sync-modal'));
     ko.components.register('edit-cloud-sync-modal',                 require('./bucket/edit-cloud-sync-modal/edit-cloud-sync-modal'));
-    ko.components.register('aws-credentials-modal',                 require('./bucket/aws-credentials-modal/aws-credentials-modal'));
     ko.components.register('bucket-s3-access-list',                 require('./bucket/bucket-s3-access-list/bucket-s3-access-list'));
     ko.components.register('s3-access-details-modal',               require('./bucket/s3-access-details-modal/s3-access-details-modal'));
     ko.components.register('bucket-s3-access-modal',                require('./bucket/bucket-s3-access-modal/bucket-s3-access-modal'));

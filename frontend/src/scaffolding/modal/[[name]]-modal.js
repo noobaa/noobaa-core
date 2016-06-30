@@ -1,15 +1,22 @@
 import template from './[[name]]-modal.html';
-// import ko from 'knockout';
+import ko from 'knockout';
 // import numeral from 'numeral';
 // import moment from 'moment';
 
 class [[nameCammelCased]]ModalViewModel {
     constructor({ onClose }) {
         this.onClose = onClose;
+
+        this.errors = ko.validation.group(this);
     }
 
     [[action]]() {
-        this.onClose();
+        if (this.errors().length > 0) {
+            this.errors.showAllMessages();
+
+        } else {
+            this.onClose();
+        }
     }
 
     cancel() {

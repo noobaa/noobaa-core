@@ -1,0 +1,21 @@
+<table>
+    <thead>
+        <tr data-bind="foreach: columns">
+            <th data-bind="css: thCss">
+                <span data-bind="
+                    text: label,
+                    css: spanCss,
+                    click: () => sortable && $component.sortBy(name)
+                "></span>
+            </th>
+        </tr>
+    </thead>
+    <tbody data-bind="foreach: { data: rows, as: 'row' }">
+        <tr data-bind="foreach: $component.columns">
+            <td data-bind="
+                css: thCss,
+                template: { html: templateHtml, data: row[name], if: row[name] }
+            "></td>
+        </tr>
+    </tbody>
+</table>

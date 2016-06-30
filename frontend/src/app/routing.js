@@ -57,6 +57,7 @@ export default function routing(page) {
     page(routes.pool, saveContext, actions.showPool);
     page(routes.node, saveContext, actions.showNode);
     page(routes.management, saveContext, actions.showManagement);
+    page(routes.cluster, saveContext, actions.showCluster);
 
     // Redirect any other request to the login page.
     page.redirect('*', routes.login);

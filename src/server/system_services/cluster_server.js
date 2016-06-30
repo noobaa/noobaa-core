@@ -77,17 +77,17 @@ function add_member_to_cluster(req) {
         })
         .then(function() {
             // after a cluster was initiated, join the new member
-            dbg.log0('Sending join_to_cluster to', req.rpc_params.ip, cutil.get_topology());
+            dbg.log0('Sending join_to_cluster to', req.rpc_params.address, cutil.get_topology());
             //Send a join_to_cluster command to the new joining server
             return server_rpc.client.cluster_server.join_to_cluster({
-                ip: req.rpc_params.ip,
+                ip: req.rpc_params.address,
                 topology: cutil.get_topology(),
                 cluster_id: id,
                 secret: req.rpc_params.secret,
                 role: req.rpc_params.role,
                 shard: req.rpc_params.shard,
             }, {
-                address: 'ws://' + req.rpc_params.ip + ':8080',
+                address: 'ws://' + req.rpc_params.address + ':8080',
                 timeout: 60000 //60s
             });
         })
@@ -96,7 +96,7 @@ function add_member_to_cluster(req) {
             throw new Error('Failed adding members to cluster');
         })
         .then(function() {
-            dbg.log0('Added member', req.rpc_params.ip, 'to cluster. New topology',
+            dbg.log0('Added member', req.rpc_params.address, 'to cluster. New topology',
                 cutil.pretty_topology(cutil.get_topology()));
             return;
         });

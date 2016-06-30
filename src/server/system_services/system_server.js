@@ -304,9 +304,9 @@ function read_system(req) {
             }
             let server_info = {
                 version: version,
-                server_name: cinfo.owner_address,
+                hostname: cinfo.owner_address,
+                address: cinfo.owner_address,
                 is_connected: is_connected,
-                server_ip: cinfo.owner_address,
                 memory_usage: memory_usage,
                 cpu_usage: cpu_usage
             };

@@ -17,9 +17,9 @@ module.exports = {
             method: 'POST',
             params: {
                 type: 'object',
-                required: ['ip', 'secret', 'role', 'shard'],
+                required: ['address', 'secret', 'role', 'shard'],
                 properties: {
-                    ip: {
+                    address: {
                         type: 'string',
                     },
                     secret: {

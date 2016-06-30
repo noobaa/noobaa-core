@@ -124,6 +124,14 @@ export default function register(ko) {
     /** INJECT:management **/
 
     // -------------------------------
+    // Cluster
+    // -------------------------------
+    ko.components.register('cluster-panel', require('./cluster/cluster-panel/cluster-panel'));
+    ko.components.register('server-table', require('./cluster/server-table/server-table'));
+    ko.components.register('attach-server-modal', require('./cluster/attach-server-modal/attach-server-modal'));
+    /** INJECT:cluster **/
+
+    // -------------------------------
     // Admin
     // -------------------------------
     ko.components.register('audit-pane',         require('./admin/audit-pane/audit-pane'));
@@ -157,5 +165,6 @@ export default function register(ko) {
     ko.components.register('capacity-bar',              require('./shared/capacity-bar/capacity-bar'));
     ko.components.register('add-s3-connection-modal',   require('./shared/add-s3-connection-modal/add-s3-connection-modal'));
     ko.components.register('toggle-filter', require('./shared/toggle-filter/toggle-filter'));
+    ko.components.register('data-table', require('./shared/data-table/data-table'));
     /** INJECT:shared **/
 }

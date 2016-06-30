@@ -263,8 +263,18 @@ export function showManagement() {
     });
 }
 
-export function showCreateBucketWizard() {
-    logAction('showCreateBucketModal');
+export function showCluster() {
+    logAction('showCluster');
+
+    model.uiState({
+        layout: 'main-layout',
+        title: 'CLUSTER',
+        breadcrumbs: [
+            { route: 'system' },
+            { route: 'cluster', label: 'CLUSTER' }
+        ],
+        panel: 'cluster'
+    });
 }
 
 export function openDrawer() {
@@ -1435,6 +1445,19 @@ export function disableRemoteSyslog() {
     logAction ('disableRemoteSyslog');
 
     api.system.configure_remote_syslog({ enabled: false })
+        .then(loadSystemInfo)
+        .done();
+}
+
+export function attachServerToCluster(serverAddress, serverSecret) {
+    logAction('attachServerToCluster', { serverAddress, serverSecret });
+
+    api.cluster_server.add_member_to_cluster({
+        address: serverAddress,
+        secret: serverSecret,
+        role: 'REPLICA',
+        shard: 'shard1'
+    })
         .then(loadSystemInfo)
         .done();
 }

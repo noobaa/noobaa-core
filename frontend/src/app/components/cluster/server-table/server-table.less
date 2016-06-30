@@ -1,0 +1,32 @@
+server-table {
+    display: block;
+
+    data-table > table::before {
+        content: unset;
+    }
+
+    .state-col {
+        min-width: 8em;
+    }
+
+    .hostname-col{
+        text-align: left;
+        width: 100%;
+    }
+
+    .address-col{
+        min-width: 9em;
+    }
+
+    .memory-usage-col {
+        min-width: 10em;
+    }
+
+    .cpu-usage-col {
+        min-width: 10em;
+    }
+
+    .version-col {
+        min-width: 6em;
+    }
+}

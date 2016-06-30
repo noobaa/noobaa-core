@@ -838,13 +838,13 @@ module.exports = {
                 version: {
                     type: 'string'
                 },
-                server_name: {
-                    type: 'string'
-                },
                 is_connected: {
                     type: 'boolean'
                 },
-                server_ip: {
+                hostname: {
+                    type: 'string'
+                },
+                address: {
                     type: 'string'
                 },
                 memory_usage: {

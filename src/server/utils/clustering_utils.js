@@ -164,6 +164,7 @@ function get_cluster_info() {
         let version = '0';
         let is_connected = true;
         let hostname = os.hostname();
+        let location = cinfo.location;
         if (cinfo.heartbeat) {
             memory_usage = (1 - cinfo.heartbeat.health.os_info.freemem / cinfo.heartbeat.health.os_info.totalmem) * 100;
             cpu_usage = cinfo.heartbeat.health.os_info.loadavg[0] * 100;
@@ -177,7 +178,8 @@ function get_cluster_info() {
             address: cinfo.owner_address,
             is_connected: is_connected,
             memory_usage: memory_usage,
-            cpu_usage: cpu_usage
+            cpu_usage: cpu_usage,
+            location: location
         };
         shard.servers.push(server_info);
     });

@@ -34,6 +34,9 @@ module.exports = {
                     shard: {
                         type: 'string',
                     },
+                    location: {
+                        type: 'string'
+                    },
                     topology: {
                         type: 'object',
                         additionalProperties: true,

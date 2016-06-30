@@ -29,7 +29,10 @@ module.exports = {
                         $ref: '#/definitions/cluster_member_role'
                     },
                     shard: {
-                        type: 'string',
+                        type: 'string'
+                    },
+                    location: {
+                        type: 'string'
                     }
                 },
             },
@@ -37,6 +40,25 @@ module.exports = {
                 system: 'admin'
             }
         },
+        update_server_location: {
+            doc: 'Add new member to the cluster',
+            method: 'POST',
+            params: {
+                type: 'object',
+                required: ['secret', 'location'],
+                properties: {
+                    secret: {
+                        type: 'string',
+                    },
+                    location: {
+                        type: 'string'
+                    }
+                },
+            },
+            auth: {
+                system: 'admin'
+            }
+        }
     },
 
     definitions: {

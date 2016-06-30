@@ -853,6 +853,9 @@ module.exports = {
                 cpu_usage: {
                     type: 'number'
                 },
+                location: {
+                    type: 'string'
+                }
             }
         },
 

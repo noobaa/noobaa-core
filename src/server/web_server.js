@@ -148,7 +148,7 @@ app.use(function(req, res, next) {
     let current_clustering = system_store.get_local_cluster_info();
     if ((current_clustering && current_clustering.is_clusterized) && !system_store.is_cluster_master) {
         P.fcall(function() {
-                return server_rpc.client.cluster_server.redirect_to_cluster_master();
+                return server_rpc.client.cluster_internal.redirect_to_cluster_master();
             })
             .then(host => {
                 res.status(307);

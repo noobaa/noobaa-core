@@ -440,6 +440,7 @@ function upgrade_cluster() {
         owner_secret: param_secret, // eslint-disable-line no-undef
         owner_address: param_ip, // eslint-disable-line no-undef
         owner_shardname: 'shard1',
+        location: 'Earth',
         cluster_id: params_cluster_id, // eslint-disable-line no-undef
         shards: [{
             shardname: 'shard1',

@@ -38,7 +38,7 @@ module.exports = {
             }
         },
     },
-    
+
     definitions: {
         cluster_member_role: {
             enum: ['SHARD', 'REPLICA'],

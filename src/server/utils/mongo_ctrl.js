@@ -254,7 +254,7 @@ MongoCtrl.prototype.update_dotenv = function(name, IPs) {
 
 MongoCtrl.prototype._publish_rs_name_current_server = function(name) {
     return server_rpc.client.redirector.publish_to_cluster({
-        method_api: 'cluster_member_api',
+        method_api: 'server_inter_process_api',
         method_name: 'update_mongo_connection_string',
         target: '', // required but irrelevant
         request_params: {

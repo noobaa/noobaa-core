@@ -4,12 +4,12 @@ class EditorViewModel {
     constructor({
         label = '',
         visible = true,
-        disable = false,
+        disabled = false,
         insertValMessages = true
     }) {
         this.label = label;
         this.visible = visible;
-        this.disable = disable;
+        this.disabled = disabled;
         this.insertValMessages = insertValMessages;
     }
 }

@@ -1,7 +1,7 @@
 import template from './dropdown.html';
 import { randomString } from 'utils';
 import ko from 'knockout';
-import { isDefined } from 'utils';
+import { isDefined, clamp } from 'utils';
 
 const INPUT_THROTTLE = 1000;
 
@@ -54,21 +54,47 @@ class DropdownViewModel {
     }
 
     handleKeyPress({ which }) {
+        let optionsCount = ko.unwrap(this.options).length;
+
         switch(which) {
             case 9: /* tab */
-            case 13: /* enter */
                 this.searchInput = '';
                 this.active(false);
                 break;
 
+            case 13: /* enter */
+                this.searchInput = '';
+                this.active.toggle();
+                break;
+
+            case 33: /* page up */
+                this.active(true);
+                this.moveSelectionBy(-6);
+                break;
+
+            case 34: /* page down */
+                this.active(true);
+                this.moveSelectionBy(6);
+                break;
+
+            case 35: /* end */
+                this.active(true);
+                this.moveSelectionBy(optionsCount);
+                break;
+
+            case 36: /* home */
+                this.active(true);
+                this.moveSelectionBy(-optionsCount);
+                break;
+
             case 38: /* up arrow */
                 this.active(true);
-                this.moveSelection(false);
+                this.moveSelectionBy(-1);
                 break;
 
             case 40: /* down arrow */
                 this.active(true);
-                this.moveSelection(true);
+                this.moveSelectionBy(1);
                 break;
 
             default:
@@ -79,14 +105,15 @@ class DropdownViewModel {
         return true;
     }
 
-    moveSelection(moveDown) {
+    moveSelectionBy(step) {
         let options = ko.unwrap(this.options);
 
-        let i = this.selectedIndex();
-        do {
-            i += moveDown ? 1 : -1;
-        } while (options[i] == null);
+        let i = clamp(this.selectedIndex() + step, 0, options.length - 1);
+        let dir = clamp(step, -1, 1);
 
+        while (options[i] === null) {
+            i += dir;
+        }
 
         if (options[i]) {
             this.selected(options[i].value);

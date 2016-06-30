@@ -5,7 +5,7 @@ import ko from 'knockout';
 
 class DataTableViewModel {
     constructor({ columns = [], rows = [], sorting }, customTemplates) {
-        let columnTemplates = Object.assign(
+        this.columnTemplates = Object.assign(
             {},
             defaultColumnTemplates,
             customTemplates
@@ -13,12 +13,32 @@ class DataTableViewModel {
 
         this.columns = ko.pureComputed(
             () => ko.unwrap(columns).map(
-                value => new ColumnViewModel(value, columnTemplates, sorting)
+                value => new ColumnViewModel(value, sorting)
             )
         );
 
         this.rows = rows;
         this.sorting = sorting;
+    }
+
+    getSortCss(columnName, sortable) {
+        if (!this.sorting || !sortable) {
+            return '';
+        }
+
+        let { sortBy, order } = ko.unwrap(this.sorting) || {};
+        return `sortable ${
+            sortBy === columnName ? (order === 1 ? 'des' : 'asc') : ''
+        }`;
+    }
+
+    getCellTemplate(row, { name, template }) {
+        let cell = row[name];
+        return {
+            if: cell,
+            html: this.columnTemplates[template],
+            data: () => cell
+        };
     }
 
     sortBy(newColumn) {

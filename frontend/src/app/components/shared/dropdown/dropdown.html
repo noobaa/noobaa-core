@@ -6,9 +6,9 @@
     css: { disabled: disabled, active: active },
     validationOptions: { insertMessages: false }
 ">
-    <svg-icon params="name: 'chevron'"></svg-icon>
+    <svg-icon class="icon-small" params="name: 'chevron'"></svg-icon>
 
-    <div type="text" class="value no-wrap" data-bind="
+    <div class="value no-wrap" data-bind="
         value: selected,
         text: selectedLabel,
         css: { placeholder: selected() == null }

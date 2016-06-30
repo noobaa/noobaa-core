@@ -26,13 +26,13 @@
     <editor class="push-next" params="label: 'Use Proxy'">
         <toggle-switch params="value: usingProxy"></toggle-switch>
     </editor>
-    <editor params="label: 'Proxy address', disable: !usingProxy()">
+    <editor params="label: 'Proxy address', disabled: !usingProxy()">
         <input class="proxy-name" type="text" placeholder="IP or DNS name" data-bind="
             value: proxyIPOrDNS,
             enable: usingProxy
         "/>
     </editor>
-    <editor params="label: 'Proxy port', disable: !usingProxy()">
+    <editor params="label: 'Proxy port', disabled: !usingProxy()">
         <input type="number" min="1" max="65535" placeholder="port" data-bind="
             value: proxyPort,
             enable: usingProxy

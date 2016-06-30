@@ -2,7 +2,7 @@ import ko from 'knockout';
 import { deepFreeze, formatSize } from 'utils';
 import { deletePool } from 'actions';
 
-const cannotDeleteReasons = Object.freeze({
+const undeletableReasons = Object.freeze({
     IN_USE: 'Cannot delete a resource which is used in a bucket backup policy'
 });
 
@@ -22,18 +22,14 @@ const icons = deepFreeze([
 ]);
 
 export default class CloudResourceRowViewModel {
-    constructor(resource) {
-        this.isVisible = ko.pureComputed(
-            () => !!resource()
-        );
-
-        this.typeIcon = ko.pureComputed(
+    constructor(resource, deleteGroup) {
+        this.type = ko.pureComputed(
             () => {
-                if (!resource()) {
+                if (!resource) {
                     return;
                 }
 
-                let endpoint = resource().cloud_info.endpoint.toLowerCase();
+                let endpoint = resource.cloud_info.endpoint.toLowerCase();
                 let { icon } = icons.find(
                     ({ pattern }) => endpoint.indexOf(pattern) > -1
                 );
@@ -43,27 +39,31 @@ export default class CloudResourceRowViewModel {
         );
 
         this.name = ko.pureComputed(
-            () => resource() && resource().name
+            () => resource && resource.name
         );
 
         this.usage = ko.pureComputed(
-            () => resource() && formatSize(resource().storage.used)
+            () => resource && formatSize(resource.storage.used)
         );
 
         this.cloudBucket = ko.pureComputed(
-            () => resource() && resource().cloud_info.target_bucket
+            () => resource && resource.cloud_info.target_bucket
         );
 
-        this.canBeDeleted = ko.pureComputed(
-            () => resource() && !resource().undeletable
-        );
+        this.delete = ko.pureComputed(
+            () => {
+                let undeletable = resource && resource.undeletable;
+                let deleteToolTip = undeletable ?
+                    undeletableReasons[undeletable] :
+                    'delete resources';
 
-        this.deleteToolTip = ko.pureComputed(
-            () => resource() && (
-                this.canBeDeleted() ?
-                    'delete resource' :
-                    cannotDeleteReasons[resource().undeletable]
-            )
+                return {
+                    deleteGroup: deleteGroup,
+                    undeletable: Boolean(undeletable),
+                    deleteToolTip: deleteToolTip,
+                    onDelete: () => this.del()
+                };
+            }
         );
     }
 

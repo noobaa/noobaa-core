@@ -1,16 +1,19 @@
 <div class="row push-next">
+
+    <div class="align-middle push-next">
+        <input type="search" class="filter-pool-nodes"
+            placeholder="Filter by Node Name or IP"
+            data-bind=" textInput: filter"/>
+    </div>
+
     <toggle-filter class="push-next" params="
         options: issuesFilterOptions,
         selected: issuesOnly
     "></toggle-filter>
 
-    <div class="greedy align-middle push-next">
-        <input type="search"
-            placeholder="Filter by Node Name or IP"
-            data-bind=" textInput: filter"/>
-    </div>
+    <div class="greedy"></div>
 
-    <button class="btn3" data-bind="click: () => showAssignNodesModal()">
+    <button class="btn3 " data-bind="click: () => showAssignNodesModal()">
         Assign Nodes
     </button>
 </div>

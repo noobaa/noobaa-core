@@ -83,7 +83,7 @@ class CloudSyncModalViewModel {
         this.targetBucketsOptions = ko.pureComputed(
             () => {
                 if (!this.connection() || !S3BucketList()) {
-                    return [];
+                    return;
                 }
 
                 return S3BucketList().map(

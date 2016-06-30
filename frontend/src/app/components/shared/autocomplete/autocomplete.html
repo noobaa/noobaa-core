@@ -1,15 +1,15 @@
 <div class="autocomplete-wrapper">
     <input type="text" data-bind="
-        textInput: value, 
-        disable: disabled, 
+        textInput: value,
+        disable: disabled,
         hasFocus: focused,
-        attr: { placeholder: placeholder } 
+        attr: { placeholder: placeholder }
     "/>
 
     <!-- ko if: hasSuggestions -->
     <ul class="suggestions list-no-style" data-bind="foreach: suggestions, visible: focused">
         <li class="suggestion" data-bind="
-            text: $data, 
+            text: $data,
             event: { mousedown: val => $component.value(val) && true }
         "></li>
     </ul>

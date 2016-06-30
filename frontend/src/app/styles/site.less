@@ -105,10 +105,11 @@ output {
 
 input[type="text"] {
     .textfield();
+
 }
 
 input[type="number"] {
-    .textfield(4em);
+    .textfield(6em);
     text-align: center;
 }
 
@@ -121,14 +122,10 @@ input[type="search"] {
 
     margin: 0;
     line-height: 1;
-    padding: .75em 1em;;
     padding-left: 2em;
-    background-color: @bg-color3;
     background-image: url('@{assets}/search.png');
     background-position: @gutter/2;
     background-repeat: no-repeat;
-    border-radius: @gutter/4;
-    border: none;
 }
 
 .row {
@@ -462,7 +459,6 @@ input[type="search"] {
     background: none;
     cursor: @cursor-pointer;
     padding: .75em 1em;
-    border-radius: @gutter/4;
 
     &[disabled] {
         cursor: default;
@@ -567,9 +563,8 @@ input[type="search"] {
 }
 
 .val-msg {
-    display: block !important;
     height: 1.4em;
-    margin-bottom: .25em;
+    margin: .25em 0;
 
     .text(
         @font-type2,

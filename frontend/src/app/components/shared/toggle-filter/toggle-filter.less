@@ -1,7 +1,6 @@
 toggle-filter {
     .row();
-    border: 1px solid @bg-color11;
-    border-radius: @gutter/4;
+    border: 1px solid @bg-color7;
     overflow: hidden;
 
     input {
@@ -10,7 +9,7 @@ toggle-filter {
         z-index: -1;
 
         &:checked + .toggle-btn {
-            background-color: @bg-color11;
+            background-color: @bg-color7;
             color: @text-color1;
         }
     }
@@ -20,5 +19,6 @@ toggle-filter {
         text-align: center;
         padding: .75em 1em;
         cursor: @cursor-pointer;
+        min-width: 120px;
     }
 }

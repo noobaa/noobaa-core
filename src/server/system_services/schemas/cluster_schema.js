@@ -26,6 +26,9 @@ module.exports = {
         owner_shardname: {
             type: 'string',
         },
+        location: {
+            type: 'string'
+        },
         shards: {
             type: 'array',
             items: {

@@ -5,6 +5,7 @@ const fs = require('fs');
 const ncp = require('ncp').ncp;
 const path = require('path');
 const rimraf = require('rimraf');
+const mkdirp = require('mkdirp');
 const readdirp = require('readdirp');
 
 const P = require('./promise');
@@ -124,10 +125,14 @@ function find_line_in_file(file_name, line_sub_string) {
         });
 }
 
+function create_path(dir) {
+    return P.fromCallback(callback => mkdirp(dir, callback));
+}
+
 function create_fresh_path(dir) {
     return P.resolve()
         .then(() => folder_delete(dir))
-        .then(() => fs.mkdirAsync(dir));
+        .then(() => create_path(dir));
 }
 
 function file_copy(src, dst) {
@@ -205,6 +210,7 @@ exports.disk_usage = disk_usage;
 exports.list_directory = list_directory;
 exports.list_directory_to_file = list_directory_to_file;
 exports.find_line_in_file = find_line_in_file;
+exports.create_path = create_path;
 exports.create_fresh_path = create_fresh_path;
 exports.full_dir_copy = full_dir_copy;
 exports.file_copy = file_copy;

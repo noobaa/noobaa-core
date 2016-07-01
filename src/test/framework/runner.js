@@ -1,29 +1,30 @@
 'use strict';
-var _ = require('lodash');
-var fs = require('fs');
-var argv = require('minimist')(process.argv);
-var istanbul = require('istanbul');
-var request = require('request');
-var mkdirp = require('mkdirp');
-var dbg = require('../../util/debug_module')(__filename);
-var path = require('path');
 
 require('dotenv').load();
 
-var promise_utils = require('../../util/promise_utils');
-var P = require('../../util/promise');
-var ops = require('../system_tests/basic_server_ops');
-var api = require('../../api');
+const _ = require('lodash');
+const fs = require('fs');
+const path = require('path');
+const argv = require('minimist')(process.argv);
+const request = require('request');
+const istanbul = require('istanbul');
 
-var COVERAGE_DIR = './report/cov';
-var REPORT_PATH = COVERAGE_DIR + '/regression_report.log';
+const P = require('../../util/promise');
+const api = require('../../api');
+const dbg = require('../../util/debug_module')(__filename);
+const ops = require('../system_tests/basic_server_ops');
+const fs_utils = require('../../util/fs_utils');
+const promise_utils = require('../../util/promise_utils');
 
-function TestRunner(argv) {
-    this._version = argv.GIT_VERSION;
-    this._argv = argv;
+const COVERAGE_DIR = './report/cov';
+const REPORT_PATH = COVERAGE_DIR + '/regression_report.log';
+
+function TestRunner(args) {
+    this._version = args.GIT_VERSION;
+    this._argv = args;
     this._error = false;
-    if (argv.FLOW_FILE) {
-        this._steps = require(argv.FLOW_FILE);
+    if (args.FLOW_FILE) {
+        this._steps = require(args.FLOW_FILE);
     } else {
         this._steps = require(process.cwd() + '/src/test/framework/flow.js');
     }
@@ -94,41 +95,30 @@ TestRunner.prototype.restore_db_defaults = function() {
 
 TestRunner.prototype.init_run = function() {
     var self = this;
-    //Clean previous run results
-    console.log('Clearing previous test run results');
-    if (!fs.existsSync(COVERAGE_DIR)) {
-        P.nfcall(mkdirp, COVERAGE_DIR);
-    }
-
     self._rpc = api.new_rpc();
     self._client = self._rpc.new_client();
 
-    return P.fcall(function() {
-            var auth_params = {
-                email: 'demo@noobaa.com',
-                password: 'DeMo',
-                system: 'demo'
-            };
-            return self._client.create_auth_token(auth_params);
-        })
-        .then(function() {
-            return promise_utils.exec('rm -rf ' + COVERAGE_DIR + '/*');
-        })
-        .catch(function(err) {
-            console.error('Failed cleaning ', COVERAGE_DIR, 'from previous run results', err);
-            throw new Error('Failed cleaning dir');
-        })
-        .then(function() {
-            return promise_utils.exec('rm -rf /root/node_modules/noobaa-core/coverage/*');
-        })
-        .catch(function(err) {
-            console.error('Failed cleaning istanbul data from previous run results', err);
-            throw new Error('Failed cleaning istanbul data');
-        })
-        .then(function() {
-            //Restart services to hook require instanbul
-            return self._restart_services(true);
-        })
+    //Clean previous run results
+    console.log('Clearing previous test run results');
+
+    return P.resolve()
+        .then(() => fs_utils.create_fresh_path(COVERAGE_DIR)
+            .catch(function(err) {
+                console.error('Failed cleaning ', COVERAGE_DIR, 'from previous run results', err);
+                throw new Error('Failed cleaning dir');
+            }))
+        .then(() => promise_utils.exec('rm -rf /root/node_modules/noobaa-core/coverage/*')
+            .catch(function(err) {
+                console.error('Failed cleaning istanbul data from previous run results', err);
+                throw new Error('Failed cleaning istanbul data');
+            }))
+        .then(() => self._client.create_auth_token({
+            email: 'demo@noobaa.com',
+            password: 'DeMo',
+            system: 'demo'
+        }))
+        //Restart services to hook require instanbul
+        .then(() => self._restart_services(true))
         .then(function() {
             fs.appendFileSync(REPORT_PATH, 'Init Test Run for version ' + self._version + '\n');
         });
@@ -432,11 +422,11 @@ function main() {
         })
         .then(function() {
             run.print_conclusion();
-            if (!run._error) {
-                process.exit(0);
-            } else {
+            if (run._error) {
                 run._restart_services(false);
                 process.exit(1);
+            } else {
+                process.exit(0);
             }
         });
 }

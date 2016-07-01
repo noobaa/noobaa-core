@@ -10,7 +10,7 @@
  * which gets serialized as well and breaks the mongodb execution
  * with ReferenceError.
  *
- * This file is excluded from the coverage code injection in gulpfile.
+ * This file is excluded from the coverage code injection in package.json.
  *
  */
 

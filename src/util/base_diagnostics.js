@@ -6,7 +6,7 @@
 
 const _ = require('lodash');
 const fs = require('fs');
-const mkdirp = require('mkdirp');
+const path = require('path');
 
 const P = require('../util/promise');
 const config = require('../../config.js');
@@ -26,7 +26,7 @@ function collect_basic_diagnostics(limit_logs_size) {
         })
         .then(function() {
             console.log('creating ', TMP_WORK_DIR);
-            return mkdirp.sync(TMP_WORK_DIR);
+            return fs_utils.create_path(TMP_WORK_DIR);
         })
         .then(function() {
             if (fs.existsSync(process.cwd() + '/logs')) {
@@ -67,27 +67,21 @@ function write_agent_diag_file(data) {
 }
 
 function pack_diagnostics(dst) {
-    return P.fcall(function() {
-            return fs_utils.file_delete(dst);
-        }).then(function() {
-            return fs_utils.tar_pack(dst, TMP_WORK_DIR);
-        })
-        .then(function() {
-            return archive_diagnostics_pack(dst);
-        })
-        .catch(function(err) {
+    return P.resolve()
+        .then(() => fs_utils.file_delete(dst))
+        .then(() => fs_utils.create_path(path.dirname(dst)))
+        .then(() => fs_utils.tar_pack(dst, TMP_WORK_DIR))
+        .then(() => archive_diagnostics_pack(dst))
+        .catch(err => {
             //The reason is that every distribution has its own issues.
             //We had a case where it failed due to file change during the file.
             //This flag can help, but not all the distributions support it
             //This is not valid for windows where we have our own executable
             console.error("failed to tar, an attempt to ignore file changes", err);
-            return P.fcall(function() {
-                    return fs_utils.tar_pack(dst, TMP_WORK_DIR, 'ignore_file_changes');
-                })
-                .then(function() {
-                    return archive_diagnostics_pack(dst);
-                })
-                .catch(function(err2) {
+            return P.resolve()
+                .then(() => fs_utils.tar_pack(dst, TMP_WORK_DIR, 'ignore_file_changes'))
+                .then(() => archive_diagnostics_pack(dst))
+                .catch(err2 => {
                     console.error('Error in packing diagnostics', err2);
                     throw new Error('Error in packing diagnostics ' + err2);
                 });
@@ -102,7 +96,7 @@ function pack_diagnostics(dst) {
 function archive_diagnostics_pack(dst) {
     return P.fcall(function() {
             console.log('archive_diagnostics_pack1');
-            return mkdirp.sync(config.central_stats.previous_diag_packs_dir);
+            return fs_utils.create_path(config.central_stats.previous_diag_packs_dir);
         })
         .then(function() {
             console.log('archive_diagnostics_pack2');

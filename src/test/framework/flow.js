@@ -3,14 +3,17 @@ var steps = [
     {
         //Run unit tests
         name: 'Unit Tests',
-        action: './node_modules/.bin/gulp',
+        action: 'npm',
         params: [{
+            arg: 'run',
+        }, {
             arg: 'mocha',
         }, {
-            arg: '--COV_DIR',
-        }, {
-            arg: './report/cov/mocha',
+            arg: '--coverage',
         }],
+        env: {
+            COVDIR: './report/cov/mocha'
+        }
     }, {
         //Restore DB to defaults
         name: 'Restore DB Defaults',

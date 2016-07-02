@@ -269,7 +269,7 @@ app.post('/upload_certificate',
     function(req, res) {
         var ssl_certificate = req.file;
         dbg.log0('upload ssl certificate file', ssl_certificate);
-        promise_utils.promised_spawn(process.cwd() + '/src/deploy/NVA_build/ssl_verifier.sh', [
+        promise_utils.spawn(process.cwd() + '/src/deploy/NVA_build/ssl_verifier.sh', [
                 'from_file', ssl_certificate.path
             ], {}, false)
             .then(function() {

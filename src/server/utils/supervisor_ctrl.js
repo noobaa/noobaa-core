@@ -55,7 +55,7 @@ SupervisorCtrl.prototype.apply_changes = function() {
 };
 
 SupervisorCtrl.prototype.restart = function(services) {
-    return promise_utils.promised_spawn('supervisorctl', ['restart', services.join(' ')], {
+    return promise_utils.spawn('supervisorctl', ['restart', services.join(' ')], {
             detached: true
         }, false)
         .delay(5000) //TODO:: Better solution

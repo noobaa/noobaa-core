@@ -261,8 +261,9 @@ TestRunner.prototype._run_action = function(current_step, step_res) {
             }
         }
     }));
+    var options = _.pick(current_step, 'env');
 
-    return promise_utils.promised_spawn(command, args)
+    return promise_utils.spawn(command, args, options)
         .then(function(res) {
             step_res = '        ' + step_res + ' - Successeful running action  ( took ' +
                 ((new Date() - ts) / 1000) + 's )';

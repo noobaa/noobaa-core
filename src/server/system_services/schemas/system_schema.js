@@ -80,18 +80,18 @@ module.exports = {
             }
         },
 
-        //NTP configuration
-        ntp: {
-            type: 'object',
-            properties: {
-                server: {
-                    type: 'string'
-                },
-                timezone: {
-                    type: 'string'
-                },
-            }
-        },
+        // //NTP configuration
+        // ntp: {
+        //     type: 'object',
+        //     properties: {
+        //         server: {
+        //             type: 'string'
+        //         },
+        //         timezone: {
+        //             type: 'string'
+        //         },
+        //     }
+        // },
 
         //Debug Level:
         debug_level: {

@@ -50,6 +50,7 @@ module.exports = {
                 },
             },
         },
+
         config_servers: {
             type: 'array',
             items: {
@@ -60,6 +61,26 @@ module.exports = {
                         type: 'string',
                     },
                 },
+            },
+        },
+
+        //NTP configuration
+        ntp: {
+            type: 'object',
+            properties: {
+                server: {
+                    type: 'string'
+                },
+                timezone: {
+                    type: 'string'
+                },
+            }
+        },
+
+        dns_servers: {
+            type: 'array',
+            items: {
+                type: 'string'
             },
         },
 

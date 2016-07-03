@@ -77,52 +77,43 @@ function new_system_defaults(name, owner_account_id) {
 }
 
 function new_system_changes(name, owner_account) {
-    return fs_utils.find_line_in_file('/etc/ntp.conf', '#NooBaa Configured NTP Server')
-        .then(line => {
-            const default_pool_name = 'default_pool';
-            const default_bucket_name = 'files';
-            const bucket_with_suffix = default_bucket_name + '#' + Date.now().toString(36);
-            var system = new_system_defaults(name, owner_account._id);
-            if (line) {
-                let ntp_server = line.split(' ')[1];
-                system.ntp = {
-                    server: ntp_server
-                };
-                dbg.log0('found configured NTP server in ntp.conf:', ntp_server);
-            }
-            var pool = pool_server.new_pool_defaults(default_pool_name, system._id);
-            var tier = tier_server.new_tier_defaults(bucket_with_suffix, system._id, [pool._id]);
-            var policy = tier_server.new_policy_defaults(bucket_with_suffix, system._id, [{
-                tier: tier._id,
-                order: 0
-            }]);
-            var bucket = bucket_server.new_bucket_defaults(default_bucket_name, system._id, policy._id);
-            var role = {
-                _id: system_store.generate_id(),
-                account: owner_account._id,
-                system: system._id,
-                role: 'admin'
-            };
-            Dispatcher.instance().activity({
-                event: 'conf.create_system',
-                level: 'info',
-                system: system._id,
-                actor: owner_account._id,
-                desc: `${name} was created by ${owner_account && owner_account.email}`,
-            });
-
-            return {
-                insert: {
-                    systems: [system],
-                    buckets: [bucket],
-                    tieringpolicies: [policy],
-                    tiers: [tier],
-                    pools: [pool],
-                    roles: [role],
-                }
-            };
-
+    P.fcall(function() {
+        const default_pool_name = 'default_pool';
+        const default_bucket_name = 'files';
+        const bucket_with_suffix = default_bucket_name + '#' + Date.now().toString(36);
+        var system = new_system_defaults(name, owner_account._id);
+        var pool = pool_server.new_pool_defaults(default_pool_name, system._id);
+        var tier = tier_server.new_tier_defaults(bucket_with_suffix, system._id, [pool._id]);
+        var policy = tier_server.new_policy_defaults(bucket_with_suffix, system._id, [{
+            tier: tier._id,
+            order: 0
+        }]);
+        var bucket = bucket_server.new_bucket_defaults(default_bucket_name, system._id, policy._id);
+        var role = {
+            _id: system_store.generate_id(),
+            account: owner_account._id,
+            system: system._id,
+            role: 'admin'
+        };
+        Dispatcher.instance().activity({
+            event: 'conf.create_system',
+            level: 'info',
+            system: system._id,
+            actor: owner_account._id,
+            desc: `${name} was created by ${owner_account && owner_account.email}`,
         });
+
+        return {
+            insert: {
+                systems: [system],
+                buckets: [bucket],
+                tieringpolicies: [policy],
+                tiers: [tier],
+                pools: [pool],
+                roles: [role],
+            }
+        };
+    });
 }
 
 
@@ -303,6 +294,7 @@ function read_system(req) {
             }
             let server_info = {
                 version: version,
+                secret: cinfo.owner_secret,
                 server_name: cinfo.owner_address,
                 is_connected: is_connected,
                 server_ip: cinfo.owner_address,
@@ -316,6 +308,7 @@ function read_system(req) {
             shard.high_availabilty = (num_connected / shard.servers.length) > (shard.servers.length / 2);
         });
         let cluster_info = {
+            master_secret: system_store.get_server_secret();
             shards: shards
         };
         response.cluster = cluster_info;
@@ -834,51 +827,51 @@ function update_system_certificate(req) {
     throw new RpcError('TODO', 'update_system_certificate');
 }
 
-function update_time_config(req) {
-    dbg.log0('update_time_config', req.rpc_params);
-    var config = {
-        timezone: req.rpc_params.timezone,
-        server: (req.rpc_params.config_type === 'NTP') ?
-            req.rpc_params.server : ''
-    };
-
-    return system_store.make_changes({
-            update: {
-                systems: [{
-                    _id: req.system._id,
-                    ntp: config
-                }]
-            }
-        })
-        .then(() => {
-            if (req.rpc_params.config_type === 'NTP') { //set NTP
-                return os_utils.set_ntp(config.server, config.timezone);
-            } else { //manual set
-                return os_utils.set_manual_time(req.rpc_params.epoch, config.timezone);
-            }
-        })
-        .then(res => {
-            let desc_string = [];
-            desc_string.push(`Date and Time was updated to ${req.rpc_params.config_type} time by ${req.account && req.account.email}`);
-            desc_string.push(`Timezone was set to ${req.rpc_params.timezone}`);
-            if (req.rpc_params.server) {
-                desc_string.push(`NTP server ${req.rpc_params.server}`);
-            }
-            let date = req.rpc_params.epoch &&
-                moment.unix(req.rpc_params.epoch).tz(req.rpc_params.timezone);
-            if (date) {
-                desc_string.push(`Date and Time set to ${date}`);
-            }
-            Dispatcher.instance().activity({
-                event: 'conf.server_date_time_updated',
-                level: 'info',
-                system: req.system,
-                actor: req.account && req.account._id,
-                desc: desc_string.join('\n'),
-            });
-            return res;
-        });
-}
+// function update_time_config(req) {
+//     dbg.log0('update_time_config', req.rpc_params);
+//     var config = {
+//         timezone: req.rpc_params.timezone,
+//         server: (req.rpc_params.config_type === 'NTP') ?
+//             req.rpc_params.server : ''
+//     };
+//
+//     return system_store.make_changes({
+//             update: {
+//                 systems: [{
+//                     _id: req.system._id,
+//                     ntp: config
+//                 }]
+//             }
+//         })
+//         .then(() => {
+//             if (req.rpc_params.config_type === 'NTP') { //set NTP
+//                 return os_utils.set_ntp(config.server, config.timezone);
+//             } else { //manual set
+//                 return os_utils.set_manual_time(req.rpc_params.epoch, config.timezone);
+//             }
+//         })
+//         .then(res => {
+//             let desc_string = [];
+//             desc_string.push(`Date and Time was updated to ${req.rpc_params.config_type} time by ${req.account && req.account.email}`);
+//             desc_string.push(`Timezone was set to ${req.rpc_params.timezone}`);
+//             if (req.rpc_params.server) {
+//                 desc_string.push(`NTP server ${req.rpc_params.server}`);
+//             }
+//             let date = req.rpc_params.epoch &&
+//                 moment.unix(req.rpc_params.epoch).tz(req.rpc_params.timezone);
+//             if (date) {
+//                 desc_string.push(`Date and Time set to ${date}`);
+//             }
+//             Dispatcher.instance().activity({
+//                 event: 'conf.server_date_time_updated',
+//                 level: 'info',
+//                 system: req.system,
+//                 actor: req.account && req.account._id,
+//                 desc: desc_string.join('\n'),
+//             });
+//             return res;
+//         });
+// }
 
 // UPGRADE ////////////////////////////////////////////////////////
 function upload_upgrade_package(req) {
@@ -981,7 +974,7 @@ exports.update_base_address = update_base_address;
 exports.update_phone_home_config = update_phone_home_config;
 exports.update_hostname = update_hostname;
 exports.update_system_certificate = update_system_certificate;
-exports.update_time_config = update_time_config;
+// exports.update_time_config = update_time_config;
 exports.set_maintenance_mode = set_maintenance_mode;
 exports.set_webserver_master_state = set_webserver_master_state;
 exports.configure_remote_syslog = configure_remote_syslog;

@@ -5,6 +5,7 @@
 
 const _ = require('lodash');
 const uuid = require('node-uuid');
+const RpcError = require('../rpc/rpc_error');
 const system_store = require('./system_store').get_instance();
 const server_rpc = require('../server_rpc');
 const MongoCtrl = require('../utils/mongo_ctrl');
@@ -28,23 +29,26 @@ function new_cluster_info() {
         return;
     }
 
-    var address = os_utils.get_local_ipv4_ips()[0];
-    var cluster = {
-        is_clusterized: false,
-        owner_secret: system_store.get_server_secret(),
-        cluster_id: uuid().substring(0, 8),
-        owner_address: address,
-        owner_shardname: 'shard1',
-        shards: [{
-            shardname: 'shard1',
-            servers: [{
-                address: address //TODO:: on multiple nics support, fix this
-            }],
-        }],
-        config_servers: [],
-    };
+    return P.fcall(function() {
+            var address = os_utils.get_local_ipv4_ips()[0];
+            var cluster = {
+                is_clusterized: false,
+                owner_secret: system_store.get_server_secret(),
+                cluster_id: uuid().substring(0, 8),
+                owner_address: address,
+                owner_shardname: 'shard1',
+                shards: [{
+                    shardname: 'shard1',
+                    servers: [{
+                        address: address //TODO:: on multiple nics support, fix this
+                    }],
+                }],
+                config_servers: [],
+            };
 
-    return cluster;
+            return cluster;
+        })
+        .then((cluster) => _attach_server_configuration(cluster));
 }
 
 //Initiate process of adding a server to the cluster
@@ -229,6 +233,92 @@ function redirect_to_cluster_master(req) {
                 throw new Error('Could not find server to redirect');
             }
         });
+}
+
+
+function update_time_config(req) {
+    var time_config = req.rpc_params.time_config;
+    var target_address;
+    return P.fcall(function() {
+            let cluster_server = system_store.data.cluster_by_server[req.rpc_params.target_secret];
+            if (!cluster_server) {
+                throw new RpcError('CLUSTER_SERVER_NOT_FOUND', 'Server with secret key:', req.rpc_params.target_secret, ' was not found');
+            }
+            target_address = cluster_server.owner_address;
+            let config_to_update = {
+                timezone: time_config.timezone,
+                server: (time_config.config_type === 'NTP') ?
+                    time_config.server : ''
+            };
+
+            return system_store.make_changes({
+                update: {
+                    clusters: [{
+                        _id: cluster_server._id,
+                        ntp: config_to_update
+                    }]
+                }
+            });
+        })
+        .then(() => {
+            return server_rpc.client.cluster_server.apply_updated_time_config({
+                time_config: time_config,
+            }, {
+                address: 'ws://' + target_address + ':8080',
+                timeout: 60000 //60s
+            });
+        })
+        .return();
+}
+
+
+function apply_updated_time_config(req) {
+    var time_config = req.rpc_params.time_config;
+    return P.fcall(function() {
+            if (time_config.config_type === 'NTP') { //set NTP
+                return os_utils.set_ntp(time_config.server, time_config.timezone);
+            } else { //manual set
+                return os_utils.set_manual_time(time_config.epoch, time_config.timezone);
+            }
+        })
+        .return();
+}
+
+
+function update_dns_servers(req) {
+    var target_address;
+    return P.fcall(function() {
+            let cluster_server = system_store.data.cluster_by_server[req.rpc_params.target_secret];
+            if (!cluster_server) {
+                throw new RpcError('CLUSTER_SERVER_NOT_FOUND', 'Server with secret key:', req.rpc_params.target_secret, ' was not found');
+            }
+            target_address = cluster_server.owner_address;
+            return system_store.make_changes({
+                update: {
+                    clusters: [{
+                        _id: cluster_server._id,
+                        dns_servers: req.rpc_params.dns_servers
+                    }]
+                }
+            });
+        })
+        .then(() => {
+            return server_rpc.client.cluster_server.apply_updated_dns_servers({
+                dns_servers: req.rpc_params.dns_servers,
+            }, {
+                address: 'ws://' + target_address + ':8080',
+                timeout: 60000 //60s
+            });
+        })
+        .return();
+}
+
+
+function apply_updated_dns_servers(req) {
+    return P.fcall(function() {
+            return os_utils.set_dns_server(req.rpc_params.dns_servers);
+        })
+        .return();
 }
 
 
@@ -449,6 +539,41 @@ function _update_rs_if_needed(IPs, name, is_config) {
     return;
 }
 
+
+function _attach_server_configuration(cluster_server) {
+    return P.join(fs_utils.find_line_in_file('/etc/ntp.conf', '#NooBaa Configured NTP Server'),
+            os_utils.get_time_config(),
+            fs_utils.find_line_in_file('/etc/resolv.conf', '#NooBaa Configured Primary DNS Server'),
+            fs_utils.find_line_in_file('/etc/resolv.conf', '#NooBaa Configured Secondary DNS Server'))
+        .spread(function(ntp_line, time_config, primary_dns_line, secondary_dns_line) {
+            cluster_server.ntp = {
+                timezone: time_config.timezone
+            };
+            if (ntp_line) {
+                cluster_server.ntp.server = ntp_line.split(' ')[1];
+                dbg.log0('found configured NTP server in ntp.conf:', cluster_server.ntp.server);
+            }
+
+            let dns_servers;
+            if (primary_dns_line) {
+                let pri_dns = primary_dns_line.split(' ')[1];
+                dns_servers.push(pri_dns);
+                dbg.log0('found configured Primary DNS server in resolv.conf:', pri_dns);
+            }
+            if (secondary_dns_line) {
+                let sec_dns = secondary_dns_line.split(' ')[1];
+                dns_servers.push(sec_dns);
+                dbg.log0('found configured Secondary DNS server in resolv.conf:', sec_dns);
+            }
+            if (dns_servers) {
+                cluster_server.dns_servers = dns_servers;
+            }
+
+            return cluster_server;
+        });
+}
+
+
 // EXPORTS
 exports._init = _init;
 exports.new_cluster_info = new_cluster_info;
@@ -458,3 +583,7 @@ exports.join_to_cluster = join_to_cluster;
 exports.news_config_servers = news_config_servers;
 exports.news_updated_topology = news_updated_topology;
 exports.news_replicaset_servers = news_replicaset_servers;
+exports.update_time_config = update_time_config;
+exports.apply_updated_time_config = apply_updated_time_config;
+exports.update_dns_servers = update_dns_servers;
+exports.apply_updated_dns_servers = apply_updated_dns_servers;

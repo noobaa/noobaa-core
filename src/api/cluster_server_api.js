@@ -124,6 +124,66 @@ module.exports = {
             }
         },
 
+        update_time_config: {
+            method: 'POST',
+            params: {
+                target_secret: {
+                    type: 'string'
+                },
+                time_config: {
+                    $ref: '#/definitions/time_config'
+                }
+            },
+            auth: {
+                system: 'admin',
+            }
+        },
+
+        apply_updated_time_config: {
+            method: 'POST',
+            params: {
+                time_config: {
+                    $ref: '#/definitions/time_config'
+                }
+            },
+            auth: {
+                system: 'admin',
+            }
+        },
+
+        update_dns_servers: {
+            method: 'POST',
+            params: {
+                target_secret: {
+                    type: 'string'
+                },
+                dns_servers: {
+                    type: 'array',
+                    items: {
+                        type: 'string'
+                    },
+                }
+            },
+            auth: {
+                system: 'admin',
+            }
+        },
+
+        apply_updated_dns_servers: {
+            method: 'POST',
+            params: {
+                dns_servers: {
+                    type: 'array',
+                    items: {
+                        type: 'string'
+                    },
+                }
+            },
+            auth: {
+                system: 'admin',
+            }
+        },
+
         news_replicaset_servers: {
             doc: 'published updated replica set clustering topology info',
             method: 'POST',
@@ -144,5 +204,29 @@ module.exports = {
             enum: ['SHARD', 'REPLICA'],
             type: 'string',
         },
+
+        time_config: {
+            type: 'object',
+            required: ['config_type', 'timezone'],
+            properties: {
+                config_type: {
+                    $ref: '#/definitions/time_config_type'
+                },
+                timezone: {
+                    type: 'string'
+                },
+                server: {
+                    type: 'string'
+                },
+                epoch: {
+                    type: 'number'
+                },
+            },
+        },
+
+        time_config_type: {
+            enum: ['NTP', 'MANUAL'],
+            type: 'string',
+        }
     },
 };

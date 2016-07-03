@@ -264,6 +264,21 @@ function set_ntp(server, timez) {
     }
 }
 
+function set_dns_server(servers) {
+    if (os.type() === 'Linux') {
+        var primary_command = "sed -i 's/.*NooBaa Configured Primary DNS Server.*/nameserver " +
+            servers[0] + " #NooBaa Configured Primary DNS Server/' /etc/resolv.conf";
+        var secondary_command = "sed -i 's/.*NooBaa Configured Secondary DNS Server.*/nameserver " +
+            servers[1] + " #NooBaa Configured Secondary DNS Server/' /etc/resolv.conf";
+        return promise_utils.exec(primary_command)
+            .then(() => promise_utils.exec(secondary_command));
+    } else if (os.type() === 'Darwin') { //Bypass for dev environment
+        return;
+    } else {
+        throw new Error('setting DNS not supported on non-Linux platforms');
+    }
+}
+
 function restart_rsyslogd() {
     return promise_utils.exec('/etc/init.d/rsyslog restart');
 }

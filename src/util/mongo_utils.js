@@ -14,7 +14,7 @@ const RpcError = require('../rpc/rpc_error');
  *@out - return an array of string containing values in base which did no appear in values
  */
 function obj_ids_difference(base, values) {
-    let map_base = {};
+    const map_base = {};
     for (let i = 0; i < base.length; ++i) {
         map_base[base[i]] = base[i];
     }
@@ -30,9 +30,9 @@ function obj_ids_difference(base, values) {
  * logically correct for it even for two objects with the same id.
  */
 function uniq_ids(docs, doc_path) {
-    let map = {};
+    const map = {};
     _.each(docs, doc => {
-        let id = _.get(doc, doc_path);
+        const id = _.get(doc, doc_path);
         if (id) {
             map[id.toString()] = id;
         }
@@ -44,8 +44,8 @@ function uniq_ids(docs, doc_path) {
  * populate a certain doc path which contains object ids to another collection
  */
 function populate(docs, doc_path, collection, fields) {
-    let docs_list = _.isArray(docs) ? docs : [docs];
-    let ids = uniq_ids(docs_list, doc_path);
+    const docs_list = _.isArray(docs) ? docs : [docs];
+    const ids = uniq_ids(docs_list, doc_path);
     collection = collection.collection || collection;
     if (!ids.length) return docs;
     return P.resolve(collection.find({
@@ -56,14 +56,11 @@ function populate(docs, doc_path, collection, fields) {
             fields: fields
         }).toArray())
         .then(items => {
-            let idmap = _.keyBy(items, '_id');
+            const idmap = _.keyBy(items, '_id');
             _.each(docs_list, doc => {
-                let item;
-                let id = _.get(doc, doc_path);
+                const id = _.get(doc, doc_path);
                 if (id) {
-                    item = idmap[id.toString()];
-                }
-                if (item) {
+                    const item = idmap[String(id)];
                     _.set(doc, doc_path, item);
                 }
             });
@@ -76,7 +73,7 @@ function resolve_object_ids_recursive(idmap, item) {
     _.each(item, (val, key) => {
         if (val instanceof mongodb.ObjectId) {
             if (key !== '_id') {
-                let obj = idmap[val];
+                const obj = idmap[val];
                 if (obj) {
                     item[key] = obj;
                 }
@@ -90,9 +87,9 @@ function resolve_object_ids_recursive(idmap, item) {
 
 function resolve_object_ids_paths(idmap, item, paths, allow_missing) {
     _.each(paths, path => {
-        let ref = _.get(item, path);
+        const ref = _.get(item, path);
         if (is_object_id(ref)) {
-            let obj = idmap[ref];
+            const obj = idmap[ref];
             if (obj) {
                 _.set(item, path, obj);
             } else if (!allow_missing) {

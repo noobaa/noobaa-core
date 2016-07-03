@@ -74,7 +74,7 @@ mocha.describe('debug_module', function() {
     mocha.it('should log when level is appropriate', function() {
         var dbg = new DebugModule('/web/noise/noobaa-core/src/blabla.asd/lll.asd');
         dbg.log0("test_debug_module: log0 should appear in the log");
-        return file_content_verify("text", "core.blabla.asd.lll:: test_debug_module: log0 should appear in the log");
+        return file_content_verify("text", "test_debug_module: log0 should appear in the log");
     });
 
     mocha.it('should NOT log when level is lower', function() {

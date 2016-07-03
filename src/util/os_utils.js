@@ -424,3 +424,4 @@ exports.get_networking_info = get_networking_info;
 exports.read_server_secret = read_server_secret;
 exports.is_supervised_env = is_supervised_env;
 exports.reload_syslog_configuration = reload_syslog_configuration;
+exports.set_dns_server = set_dns_server;

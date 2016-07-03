@@ -841,13 +841,16 @@ module.exports = {
                 version: {
                     type: 'string'
                 },
-                server_name: {
-                    type: 'string'
+                secret: {
+                    type: 'string',
                 },
                 is_connected: {
                     type: 'boolean'
                 },
-                server_ip: {
+                hostname: {
+                    type: 'string'
+                },
+                address: {
                     type: 'string'
                 },
                 memory_usage: {
@@ -856,6 +859,9 @@ module.exports = {
                 cpu_usage: {
                     type: 'number'
                 },
+                location: {
+                    type: 'string'
+                }
             }
         },
 

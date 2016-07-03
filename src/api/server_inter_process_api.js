@@ -8,7 +8,7 @@
  */
 module.exports = {
 
-    id: 'cluster_member_api',
+    id: 'server_inter_process_api',
 
     methods: {
         load_system_store: {

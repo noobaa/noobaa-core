@@ -89,14 +89,13 @@ function configure_networking_dialog {
           dns2=$(tail -1 answer_dns)
         done
 
-        sudo bash -c "echo 'nameserver ${dns1}' > /etc/resolv.conf"
+
+        sudo sed -i "s/.*NooBaa Configured Primary DNS Server.*/nameserver ${dns1} #NooBaa Configured Primary DNS Server/" /etc/resolv.conf
         if [ "${dns2}" -ne "" ]; then
-          sudo bash -c "echo 'nameserver ${dns2}' >> /etc/resolv.conf"
-          #sudo echo "First Install adding dns ${dns}">> /var/log/noobaa_deploy.log
+          sudo sed -i "s/.*NooBaa Configured Secondary DNS Server.*/nameserver ${dns2} #NooBaa Configured Secondary DNS Server/" /etc/resolv.conf
         fi
 
       elif [ "${dynamic}" -eq "2" ]; then #Dynamic IP
-        #sudo echo "First Install Choose Dynamic IP">> /var/log/noobaa_deploy.log
         clean_ifcfg
         sudo bash -c "echo 'BOOTPROTO=dhcp' >> /etc/sysconfig/network-scripts/ifcfg-eth0"
       fi
@@ -147,7 +146,7 @@ function configure_ntp_dialog {
     fi
 
   done
-     echo "${ntp_server}" > /tmp/ntp
+    echo "${ntp_server}" > /tmp/ntp
 
     sudo sed -i "s/.*NooBaa Configured NTP Server.*/server ${ntp_server} iburst #NooBaa Configured NTP Server/" /etc/ntp.conf
 

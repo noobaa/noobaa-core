@@ -11,6 +11,7 @@ const server_rpc = require('../server_rpc');
 const MongoCtrl = require('../utils/mongo_ctrl');
 const cutil = require('../utils/clustering_utils');
 const P = require('../../util/promise');
+const fs_utils = require('../../util/fs_utils');
 const os_utils = require('../../util/os_utils');
 const dbg = require('../../util/debug_module')(__filename);
 const config = require('../../../config.js');
@@ -37,6 +38,7 @@ function new_cluster_info() {
                 cluster_id: uuid().substring(0, 8),
                 owner_address: address,
                 owner_shardname: 'shard1',
+                location: 'Earth',
                 shards: [{
                     shardname: 'shard1',
                     servers: [{
@@ -81,17 +83,18 @@ function add_member_to_cluster(req) {
         })
         .then(function() {
             // after a cluster was initiated, join the new member
-            dbg.log0('Sending join_to_cluster to', req.rpc_params.ip, cutil.get_topology());
+            dbg.log0('Sending join_to_cluster to', req.rpc_params.address, cutil.get_topology());
             //Send a join_to_cluster command to the new joining server
-            return server_rpc.client.cluster_server.join_to_cluster({
-                ip: req.rpc_params.ip,
+            return server_rpc.client.cluster_internal.join_to_cluster({
+                ip: req.rpc_params.address,
                 topology: cutil.get_topology(),
                 cluster_id: id,
                 secret: req.rpc_params.secret,
                 role: req.rpc_params.role,
                 shard: req.rpc_params.shard,
+                location: req.rpc_params.location
             }, {
-                address: 'ws://' + req.rpc_params.ip + ':8080',
+                address: 'ws://' + req.rpc_params.address + ':8080',
                 timeout: 60000 //60s
             });
         })
@@ -100,7 +103,7 @@ function add_member_to_cluster(req) {
             throw new Error('Failed adding members to cluster');
         })
         .then(function() {
-            dbg.log0('Added member', req.rpc_params.ip, 'to cluster. New topology',
+            dbg.log0('Added member', req.rpc_params.address, 'to cluster. New topology',
                 cutil.pretty_topology(cutil.get_topology()));
             return;
         });
@@ -261,7 +264,7 @@ function update_time_config(req) {
             });
         })
         .then(() => {
-            return server_rpc.client.cluster_server.apply_updated_time_config({
+            return server_rpc.client.cluster_internal.apply_updated_time_config({
                 time_config: time_config,
             }, {
                 address: 'ws://' + target_address + ':8080',
@@ -303,7 +306,7 @@ function update_dns_servers(req) {
             });
         })
         .then(() => {
-            return server_rpc.client.cluster_server.apply_updated_dns_servers({
+            return server_rpc.client.cluster_internal.apply_updated_dns_servers({
                 dns_servers: req.rpc_params.dns_servers,
             }, {
                 address: 'ws://' + target_address + ':8080',
@@ -319,6 +322,23 @@ function apply_updated_dns_servers(req) {
             return os_utils.set_dns_server(req.rpc_params.dns_servers);
         })
         .return();
+}
+
+
+function update_server_location(req) {
+    let server = system_store.data.cluster_by_server[req.rpc_params.secret];
+    if (!server) {
+        throw new Error('server secret not found in cluster');
+    }
+    let update = {
+        _id: server._id,
+        location: req.rpc_params.location
+    };
+    return system_store.make_changes({
+        update: {
+            clusters: [update]
+        }
+    }).return();
 }
 
 
@@ -509,7 +529,7 @@ function _publish_to_cluster(apiname, req_params) {
 
     dbg.log0('Sending cluster news:', apiname, 'to:', servers, 'with:', req_params);
     return P.each(servers, function(server) {
-        return server_rpc.client.cluster_server[apiname](req_params, {
+        return server_rpc.client.cluster_internal[apiname](req_params, {
             address: 'ws://' + server + ':8080',
             timeout: 60000 //60s
         });
@@ -579,6 +599,7 @@ exports._init = _init;
 exports.new_cluster_info = new_cluster_info;
 exports.redirect_to_cluster_master = redirect_to_cluster_master;
 exports.add_member_to_cluster = add_member_to_cluster;
+exports.update_server_location = update_server_location;
 exports.join_to_cluster = join_to_cluster;
 exports.news_config_servers = news_config_servers;
 exports.news_updated_topology = news_updated_topology;

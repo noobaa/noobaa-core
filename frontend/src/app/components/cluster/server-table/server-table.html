@@ -1,0 +1,16 @@
+<button class="btn2 align-end push-next" data-bind="
+    click: () => showAttachServerModal()
+">
+    Attach Server
+</button>
+
+<data-table params="columns: columns, rows: rows, sorting: sorting">
+    <template name="custom">
+        Custom <span data-bind="text: $data">
+    </template>
+</data-table>
+
+<!-- ko if:isAttachServerModalVisible -->
+<attach-server-modal params="onClose: () => hideAttachServerModal()">
+</attach-server-modal>
+<!-- /ko -->

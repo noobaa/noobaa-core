@@ -1,6 +1,6 @@
 import template from './delete-button.html';
 import ko from 'knockout';
-import { noop } from 'utils';
+import { isFunction, noop } from 'utils';
 
 const disabledIcon = 'bin-disabled';
 const closedIcon = 'bin-closed';
@@ -9,11 +9,11 @@ const opendIcon = 'bin-opened';
 class DeleteButtonViewModel {
     constructor({
         group = ko.observable(),
-        onDelete = noop,
-        toolTip,
+        onDelete,
+        toolTip = 'delete',
         disabled = false
     }) {
-        this.onDelete = onDelete;
+        this.onDelete = isFunction(onDelete) ? onDelete : noop;
         this.toolTip = toolTip;
         this.disabled = disabled;
 

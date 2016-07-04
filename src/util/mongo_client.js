@@ -21,6 +21,7 @@ class MongoClient extends EventEmitter {
         super();
         this.db = null; // will be set once connected
         this.cfg_db = null; // will be set once a part of a cluster & connected
+        this.admin_db = null;
         this.collections = {};
         this.url =
             process.env.MONGO_RS_URL ||
@@ -66,8 +67,14 @@ class MongoClient extends EventEmitter {
         dbg.log0('connect called, current url', this.url);
         this._disconnected_state = false;
         if (this.promise) return this.promise;
-        var url = this.url;
+        let url = this.url.replace(config.MONGO_DEFAULTS.USER_PLACE_HOLDER,
+            config.MONGO_DEFAULTS.DEFAULT_USER + ':roonoobaa');
+        let admin_url = this.url.replace(config.MONGO_DEFAULTS.USER_PLACE_HOLDER,
+            config.MONGO_DEFAULTS.DEFAULT_ADMIN_USER + ':roonoobaa').replace('/nbcore', '');
         this.promise = this._connect('db', url, this.config);
+        // .then(db => {
+        //     // return this._connect('admin_db', admin_url, this.config).then(() => db);
+        // });
         return this.promise;
     }
 
@@ -153,7 +160,7 @@ class MongoClient extends EventEmitter {
         };
         dbg.log0('Calling initiate_replica_set', util.inspect(command, false, null));
         if (!is_config_set) { //connect the mongod server
-            return P.resolve(this.db.admin().command(command))
+            return P.resolve(this.admin_db.command(command))
                 .catch(err => {
                     dbg.error('Failed initiate_replica_set', set, members, 'with', err.message);
                     throw err;
@@ -164,7 +171,7 @@ class MongoClient extends EventEmitter {
     get_mongo_rs_status() {
         return P.resolve().then(() => {
             if (this.db) {
-                return P.ninvoke(this.db.admin(), 'replSetGetStatus')
+                return P.ninvoke(this.admin_db, 'replSetGetStatus')
                     .then(status => {
                         dbg.log0('got rs status from mongo:', status);
                         if (status.ok) {
@@ -207,7 +214,7 @@ class MongoClient extends EventEmitter {
                 rep_config.version = ++ver;
                 dbg.log0('Calling replica_update_members', util.inspect(command, false, null));
                 if (!is_config_set) { //connect the mongod server
-                    return P.resolve(this.db.admin().command(command))
+                    return P.resolve(this.admin_db.command(command))
                         .catch((err) => {
                             dbg.error('Failed replica_update_members', set, members, 'with', err.message);
                             throw err;
@@ -225,7 +232,7 @@ class MongoClient extends EventEmitter {
         return P.resolve(this.connect())
             .then(() => {
                 dbg.log0('add_shard connected, calling db.admin addShard{}');
-                return P.resolve(this.db.admin().command({
+                return P.resolve(this.admin_db.command({
                     addShard: host + ':' + port,
                     name: shardname
                 }));
@@ -255,7 +262,7 @@ class MongoClient extends EventEmitter {
         if (is_config_set) {
             return P.resolve(this._send_command_config_rs(command));
         } else {
-            return P.resolve(this.db.admin().command(command));
+            return P.resolve(this.admin_db.command(command));
         }
     }
 
@@ -267,7 +274,7 @@ class MongoClient extends EventEmitter {
 
         return P.fcall(function() {
                 if (!is_config_set) { //connect the mongod server
-                    return P.resolve(self.db.admin().command(command))
+                    return P.resolve(self.admin_db.command(command))
                         .catch((err) => {
                             dbg.error('Failed get_rs_version with', err.message);
                             throw err;

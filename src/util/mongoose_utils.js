@@ -5,6 +5,7 @@ var mongoose = require('mongoose');
 var P = require('./promise');
 var dbg = require('./debug_module')(__filename);
 var mongoose_logger = require('./mongoose_logger');
+var config = require('../../config.js');
 
 var debug_mode = (process.env.DEBUG_MODE === 'true');
 var mongoose_connected = false;
@@ -58,6 +59,8 @@ function mongoose_connect() {
     mongoose_timeout = null;
     mongoose_disconnected = false;
     var new_url = MONGODB_URL;
+    new_url = new_url.replace(config.MONGO_DEFAULTS.USER_PLACE_HOLDER,
+        config.MONGO_DEFAULTS.DEFAULT_USER + ':roonoobaa');
     if (!mongoose_connected) {
         dbg.log0('connecting mongoose to', new_url);
         mongoose.connect(new_url);

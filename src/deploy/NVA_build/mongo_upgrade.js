@@ -7,11 +7,41 @@ upgrade();
 
 /* Upade mongo structures and values with new things since the latest version*/
 function upgrade() {
+    setup_users();
     upgrade_systems();
     upgrade_cluster();
     upgrade_chunks_add_ref_to_bucket();
     upgrade_system_access_keys();
     print('\nUPGRADE DONE.');
+}
+
+function setup_users() {
+    print('\nChecking mongodb users ...');
+    var adminDb = db.getSiblingDB('admin');
+    var pwd = 'roonoobaa'; // eslint-disable-line no-undef
+    // try to authenticate with nbadmin. if succesful nothing to do
+    var res = adminDb.auth('nbadmin', pwd);
+    if (res === 1) return;
+    print('\nusers are not set. creating users ...');
+    var adminUser = {
+        user: 'nbadmin',
+        pwd: pwd,
+        roles: [{
+            role: "root",
+            db: "admin"
+        }]
+    };
+    adminDb.createUser(adminUser);
+    adminDb.auth('nbadmin', pwd);
+    var nbcoreUser = {
+        user: 'nbsrv',
+        pwd: pwd,
+        roles: [{
+            role: "readWrite",
+            db: "nbcore"
+        }]
+    };
+    db.createUser(nbcoreUser);
 }
 
 function upgrade_systems() {

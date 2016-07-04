@@ -78,32 +78,34 @@ MongoCtrl.prototype.add_member_shard = function(name, ip) {
 MongoCtrl.prototype.is_master = function(is_config_set, set_name) {
     var mongo_res;
     return mongo_client.instance().is_master(is_config_set, set_name)
-    .then((res) => {
-        mongo_res = res;
-        return cutil.get_topology();
-    })
-    .then((topo) => {
-        let res_master = false;
-        _.forEach(mongo_res.members, member => {
-            if (member.name.indexOf(topo.owner_address) > -1 && member.stateStr === 'PRIMARY') {
-                res_master = true;
-            }
+        .then((res) => {
+            mongo_res = res;
+            return cutil.get_topology();
+        })
+        .then((topo) => {
+            let res_master = false;
+            _.forEach(mongo_res.members, member => {
+                if (member.name.indexOf(topo.owner_address) > -1 && member.stateStr === 'PRIMARY') {
+                    res_master = true;
+                }
+            });
+            return {
+                ismaster: res_master
+            };
         });
-        return {ismaster: res_master};
-    });
 };
 
 MongoCtrl.prototype.redirect_to_cluster_master = function() {
     return mongo_client.instance().is_master()
-    .then((mongo_res) => {
-        let res_address;
-        _.forEach(mongo_res.members, member => {
-            if (member.stateStr === 'PRIMARY') {
-                res_address = member.name.substring(0, member.name.indexOf(':'));
-            }
+        .then((mongo_res) => {
+            let res_address;
+            _.forEach(mongo_res.members, member => {
+                if (member.stateStr === 'PRIMARY') {
+                    res_address = member.name.substring(0, member.name.indexOf(':'));
+                }
+            });
+            return res_address;
         });
-        return res_address;
-    });
 };
 
 MongoCtrl.prototype.update_connection_string = function() {
@@ -240,7 +242,7 @@ MongoCtrl.prototype._refresh_services_list = function() {
 
 MongoCtrl.prototype.update_dotenv = function(name, IPs) {
     dbg.log0('will update dotenv for replica set', name, 'with IPs', IPs);
-    let servers_str = IPs.map(ip => ip + ':' + config.MONGO_DEFAULTS.SHARD_SRV_PORT).join(',');
+    let servers_str = IPs.map(ip => '$$USER$$' + ip + ':' + config.MONGO_DEFAULTS.SHARD_SRV_PORT).join(',');
     let url = 'mongodb://' + servers_str + '/nbcore?replicaSet=' + name;
     let old_url = process.env.MONGO_RS_URL || '';
     dbg.log0('updating MONGO_RS_URL in .env from', old_url, 'to', url);

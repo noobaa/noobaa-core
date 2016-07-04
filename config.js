@@ -64,6 +64,9 @@ config.MONGO_DEFAULTS = {
     CFG_RSET_NAME: 'config0',
     SHARD_SRV_PORT: '27000',
     COMMON_PATH: '/var/lib/mongo/cluster',
+    USER_PLACE_HOLDER: '$$USER$$',
+    DEFAULT_USER: 'nbsrv',
+    DEFAULT_ADMIN_USER: 'nbadmin',
 };
 
 config.CLUSTERING_PATHS = {

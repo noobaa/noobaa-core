@@ -28,7 +28,7 @@ SupervisorCtrl.prototype.init = function() {
             throw err;
         })
         .then(function() {
-            return P.nfcall(fs.readFile, config.CLUSTERING_PATHS.SUPER_FILE)
+            return fs.readFileAsync(config.CLUSTERING_PATHS.SUPER_FILE)
                 .then(function(data) {
                     return self._parse_config(data.toString());
                 });
@@ -55,7 +55,7 @@ SupervisorCtrl.prototype.apply_changes = function() {
 };
 
 SupervisorCtrl.prototype.restart = function(services) {
-    return promise_utils.promised_spawn('supervisorctl', ['restart', services.join(' ')], {
+    return promise_utils.spawn('supervisorctl', ['restart', services.join(' ')], {
             detached: true
         }, false)
         .delay(5000) //TODO:: Better solution

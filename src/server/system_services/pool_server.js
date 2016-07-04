@@ -14,7 +14,6 @@ const RpcError = require('../../rpc/rpc_error');
 const size_utils = require('../../util/size_utils');
 const server_rpc = require('../server_rpc');
 const Dispatcher = require('../notifications/dispatcher');
-const nodes_store = require('../node_services/nodes_store');
 const nodes_client = require('../node_services/nodes_client');
 const system_store = require('../system_services/system_store').get_instance();
 const cloud_utils = require('../utils/cloud_utils');
@@ -208,14 +207,7 @@ function _delete_cloud_pool(system, pool, account) {
         .then(() => server_rpc.client.hosted_agents.remove_agent({
             name: pool.name
         }))
-        .then(() => nodes_store.instance().delete_node_by_name({
-            system: {
-                _id: system._id
-            },
-            rpc_params: {
-                name: cloud_node_name
-            }
-        }))
+        .then(() => nodes_client.instance().delete_node_by_name(system._id, cloud_node_name))
         .then(res => {
             Dispatcher.instance().activity({
                 event: 'pool.delete',

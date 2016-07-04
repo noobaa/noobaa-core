@@ -6,7 +6,6 @@ const fs = require('fs');
 const uuid = require('node-uuid');
 const moment = require('moment-timezone');
 const node_df = require('node-df');
-const child_process = require('child_process');
 
 const P = require('./promise');
 const config = require('../../config.js');
@@ -61,16 +60,16 @@ function get_mount_of_path(path) {
     console.log('get_mount_of_path');
 
     if (os.type() === 'Windows_NT') {
-        return P.nfcall(fs.realpath, path)
+        return fs.realpathAsync(path)
             .then(function(fullpath) {
                 // fullpath[0] = drive letter (C, D, E, ..)
                 // fullpath[1] = ':'
                 return fullpath[0] + fullpath[1];
             });
     } else {
-        return P.nfcall(node_df, {
+        return P.fromCallback(callback => node_df({
                 file: path
-            })
+            }, callback))
             .then(function(drives) {
                 return drives && drives[0] && drives[0].mount;
             });
@@ -79,7 +78,7 @@ function get_mount_of_path(path) {
 
 function get_drive_of_path(path) {
     if (os.type() === 'Windows_NT') {
-        return P.nfcall(fs.realpath, path)
+        return fs.realpathAsync(path)
             .then(function(fullpath) {
                 const drive_letter = fullpath[0] + fullpath[1];
                 return wmic('volume where DriveLetter="' + drive_letter + '"');
@@ -89,9 +88,9 @@ function get_drive_of_path(path) {
                 volumes[0] &&
                 windows_volume_to_drive(volumes[0]));
     } else {
-        return P.nfcall(node_df, {
+        return P.fromCallback(callback => node_df({
                 file: path
-            })
+            }, callback))
             .then(volumes =>
                 volumes &&
                 volumes[0] &&
@@ -101,11 +100,11 @@ function get_drive_of_path(path) {
 
 
 function read_mac_linux_drives() {
-    return P.nfcall(node_df, {
+    return P.fromCallback(callback => node_df({
             // this is a hack to make node_df append the -l flag to the df command
             // in order to get only local file systems.
             file: '-l'
-        })
+        }, callback))
         .then(function(volumes) {
             return _.compact(_.map(volumes, function(vol) {
                 return linux_volume_to_drive(vol);
@@ -178,7 +177,7 @@ function windows_volume_to_drive(vol) {
 }
 
 function wmic(topic) {
-    return P.nfcall(child_process.exec, 'wmic ' + topic + ' get /value')
+    return promise_utils.exec('wmic ' + topic + ' get /value')
         .then(function(res) {
             return wmic_parse_list(res[0]);
         });
@@ -352,13 +351,13 @@ function _set_time_zone(tzone) {
 
 function read_server_secret() {
     if (os.type() === 'Linux') {
-        return P.nfcall(fs.readFile, config.CLUSTERING_PATHS.SECRET_FILE)
+        return fs.readFileAsync(config.CLUSTERING_PATHS.SECRET_FILE)
             .then(function(data) {
                 var sec = data.toString();
                 return sec.substring(0, sec.length - 1);
             });
     } else if (os.type() === 'Darwin') {
-        return P.nfcall(fs.readFile, config.CLUSTERING_PATHS.DARWIN_SECRET_FILE)
+        return fs.readFileAsync(config.CLUSTERING_PATHS.DARWIN_SECRET_FILE)
             .then(function(data) {
                 var sec = data.toString();
                 return sec.substring(0, sec.length - 1);
@@ -368,7 +367,7 @@ function read_server_secret() {
                 //In linux its created as part of the server build process or in an upgrade
                 if (err.code === 'ENOENT') {
                     var id = uuid().substring(0, 8);
-                    return P.nfcall(fs.writeFile, config.CLUSTERING_PATHS.DARWIN_SECRET_FILE,
+                    return fs.writeFileAsync(config.CLUSTERING_PATHS.DARWIN_SECRET_FILE,
                             JSON.stringify(id))
                         .then(() => id);
                 } else {
@@ -393,16 +392,17 @@ function reload_syslog_configuration(conf) {
     }
 
     if (conf.enabled) {
-        return P.nfcall(fs.readFile, 'src/deploy/NVA_build/noobaa_syslog.conf')
+        return fs.readFileAsync('src/deploy/NVA_build/noobaa_syslog.conf')
             .then(data => {
                 // Sending everything except NooBaa logs
                 let add_destination = `if $syslogfacility-text != 'local0' then ${conf.protocol === 'TCP' ? '@@' : '@'}${conf.address}:${conf.port}`;
-                return P.nfcall(fs.writeFile, '/etc/rsyslog.d/noobaa_syslog.conf', data + '\n' + add_destination);
+                return fs.writeFileAsync('/etc/rsyslog.d/noobaa_syslog.conf',
+                    data + '\n' + add_destination);
             })
             .then(() => promise_utils.exec('service rsyslog restart'));
     } else {
-        return P.nfcall(fs.readFile, 'src/deploy/NVA_build/noobaa_syslog.conf')
-            .then(data => P.nfcall(fs.writeFile, '/etc/rsyslog.d/noobaa_syslog.conf', data))
+        return fs.readFileAsync('src/deploy/NVA_build/noobaa_syslog.conf')
+            .then(data => fs.writeFileAsync('/etc/rsyslog.d/noobaa_syslog.conf', data))
             .then(() => promise_utils.exec('service rsyslog restart'));
     }
 }

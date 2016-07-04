@@ -184,30 +184,30 @@ function set_immediate() {
 /*
  * Run child process spawn wrapped by a promise
  */
-function promised_spawn(command, args, options, ignore_rc) {
+function spawn(command, args, options, ignore_rc) {
     return new P((resolve, reject) => {
         options = options || {};
-        dbg.log0('promised_spawn:', command, args.join(' '), options, ignore_rc);
+        dbg.log0('spawn:', command, args.join(' '), options, ignore_rc);
         options.stdio = options.stdio || 'inherit';
         var proc = child_process.spawn(command, args, options);
         proc.on('exit', function(code) {
             if (code === 0 || ignore_rc) {
                 resolve();
             } else {
-                reject(new Error('promised_spawn "' +
+                reject(new Error('spawn "' +
                     command + ' ' + args.join(' ') +
                     '" exit with error code ' + code));
             }
         });
         proc.on('error', function(error) {
             if (ignore_rc) {
-                dbg.warn('promised_spawn ' +
+                dbg.warn('spawn ' +
                     command + ' ' + args.join(' ') +
                     ' exited with error ' + error +
                     ' and ignored');
                 resolve();
             } else {
-                reject(new Error('promised_spawn ' +
+                reject(new Error('spawn ' +
                     command + ' ' + args.join(' ') +
                     ' exited with error ' + error));
             }
@@ -325,7 +325,7 @@ exports.delay_unblocking = delay_unblocking;
 exports.run_background_worker = run_background_worker;
 exports.next_tick = next_tick;
 exports.set_immediate = set_immediate;
-exports.promised_spawn = promised_spawn;
+exports.spawn = spawn;
 exports.exec = exec;
 exports.wait_for_event = wait_for_event;
 exports.pwhile = pwhile;

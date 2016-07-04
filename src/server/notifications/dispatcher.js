@@ -91,7 +91,7 @@ class Dispatcher {
                         });
                 });
             })
-            .then((logs) => {
+            .then(logs => {
                 if (reverse) {
                     logs.reverse();
                 }
@@ -111,7 +111,7 @@ class Dispatcher {
     _resolve_activity_item(log_item, l) {
         return P.resolve()
             .then(() => nodes_client.instance().populate_nodes(
-                log_item.system, log_item, 'node', 'name'))
+                log_item.system, log_item, 'node', ['name']))
             .then(() => mongo_utils.populate(
                 log_item, 'obj', md_store.ObjectMD.collection, {
                     key: 1
@@ -126,33 +126,33 @@ class Dispatcher {
                 }
                 return P.resolve(log_item.tier && system_store.data.get_by_id_include_deleted(log_item.tier, 'tiers'));
             })
-            .then((tier) => {
+            .then(tier => {
                 if (tier) {
                     l.tier = _.pick(tier, 'name');
                 }
                 return P.resolve(log_item.bucket && system_store.data.get_by_id_include_deleted(log_item.bucket, 'buckets'));
             })
-            .then((bucket) => {
+            .then(bucket => {
                 if (bucket) {
                     l.bucket = _.pick(bucket, 'name');
                 }
                 return P.resolve(log_item.pool && system_store.data.get_by_id_include_deleted(log_item.pool, 'pools'));
             })
-            .then((pool) => {
+            .then(pool => {
                 if (pool) {
                     l.pool = _.pick(pool, 'name');
                 }
 
                 return P.resolve(log_item.account && system_store.data.get_by_id_include_deleted(log_item.account, 'accounts'));
             })
-            .then((account) => {
+            .then(account => {
                 if (account) {
                     l.account = _.pick(account, 'email');
                 }
 
                 return P.resolve(log_item.actor && system_store.data.get_by_id_include_deleted(log_item.actor, 'accounts'));
             })
-            .then((actor) => {
+            .then(actor => {
                 if (actor) {
                     l.actor = _.pick(actor, 'email');
                 }

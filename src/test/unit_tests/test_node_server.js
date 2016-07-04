@@ -47,6 +47,7 @@ mocha.describe('node_server', function() {
                 source: nodes[0].rpc_address,
             }))
             .then(() => client.node.ping())
+            .delay(2000)
             .then(() => client.node.set_debug_node({
                 node: {
                     name: nodes[0].name
@@ -83,7 +84,10 @@ mocha.describe('node_server', function() {
             // .then(() => client.node.delete_node({
             // name: NODE
             // }))
-            .then(() => coretest.clear_test_nodes());
+            .then(() => coretest.clear_test_nodes())
+            .catch((err) => {
+                console.log('Failure while testing:' + err, err.stack);
+            });
     });
 
 });

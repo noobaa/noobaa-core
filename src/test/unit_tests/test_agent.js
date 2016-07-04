@@ -34,7 +34,7 @@ mocha.describe('agent', function() {
             .delay(2000)
             .then(() => coretest.clear_test_nodes())
             .catch((err) => {
-                console.log('Failure during testing agent:'+err,err.stack);
+                console.log('Failure during testing agent:' + err, err.stack);
             });
     });
 

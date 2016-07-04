@@ -66,11 +66,11 @@ nvm install 4.4.4 64
 nvm use 4.4.4 64
 nvm list
 
-call .\node_modules\.bin\node-gyp --arch=x64 configure
-call .\node_modules\.bin\node-gyp --arch=x64 build
+REM call .\node_modules\.bin\node-gyp --arch=x64 configure
+REM call .\node_modules\.bin\node-gyp --arch=x64 build
+REM rd /q/s .\node_modules\node-gyp
 
-rd /q/s .\node_modules\node-gyp
-
+call npm install
 xcopy /Y/I/E .\build\Release .\build\Release-64
 
 call curl -L https://nodejs.org/dist/v4.4.4/win-x86/node.exe > node-32.exe

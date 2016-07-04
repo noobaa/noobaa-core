@@ -5,7 +5,7 @@
 
 const _ = require('lodash');
 const uuid = require('node-uuid');
-const RpcError = require('../rpc/rpc_error');
+const RpcError = require('../../rpc/rpc_error');
 const system_store = require('./system_store').get_instance();
 const server_rpc = require('../server_rpc');
 const MongoCtrl = require('../utils/mongo_ctrl');

@@ -64,11 +64,14 @@ module.exports = {
         update_time_config: {
             method: 'POST',
             params: {
-                target_secret: {
-                    type: 'string'
-                },
-                time_config: {
-                    $ref: 'cluster_internal_api#/definitions/time_config'
+                type: 'object',
+                properties: {
+                    target_secret: {
+                        type: 'string'
+                    },
+                    time_config: {
+                        $ref: 'cluster_internal_api#/definitions/time_config'
+                    }
                 }
             },
             auth: {
@@ -79,14 +82,17 @@ module.exports = {
         update_dns_servers: {
             method: 'POST',
             params: {
-                target_secret: {
-                    type: 'string'
-                },
-                dns_servers: {
-                    type: 'array',
-                    items: {
+                type: 'object',
+                properties: {
+                    target_secret: {
                         type: 'string'
                     },
+                    dns_servers: {
+                        type: 'array',
+                        items: {
+                            type: 'string'
+                        },
+                    }
                 }
             },
             auth: {

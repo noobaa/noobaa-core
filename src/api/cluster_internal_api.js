@@ -117,8 +117,11 @@ module.exports = {
         apply_updated_time_config: {
             method: 'POST',
             params: {
-                time_config: {
-                    $ref: '#/definitions/time_config'
+                type: 'object',
+                properties: {
+                    time_config: {
+                        $ref: '#/definitions/time_config'
+                    }
                 }
             },
             auth: {
@@ -129,11 +132,14 @@ module.exports = {
         apply_updated_dns_servers: {
             method: 'POST',
             params: {
-                dns_servers: {
-                    type: 'array',
-                    items: {
-                        type: 'string'
-                    },
+                type: 'object',
+                properties: {
+                    dns_servers: {
+                        type: 'array',
+                        items: {
+                            type: 'string'
+                        },
+                    }
                 }
             },
             auth: {

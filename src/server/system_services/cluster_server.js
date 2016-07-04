@@ -155,6 +155,8 @@ function join_to_cluster(req) {
                 throw new Error('Unknown server role ' + req.rpc_params.role);
             }
         })
+        .then(() => _attach_server_configuration({}))
+        .then((res_params) => cutil.update_cluster_info(res_params))
         .then(function() {
             dbg.log0('Added member, publishing updated topology', cutil.pretty_topology(cutil.get_topology()));
             //Mongo servers are up, update entire cluster with the new topology

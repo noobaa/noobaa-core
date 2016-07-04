@@ -23,10 +23,6 @@ function _init() {
     return monitor.start();
 }
 
-function ping(req) {
-    // nothing to do - the caller is just testing it can reach the server.
-}
-
 function get_local_monitor() {
     if (!monitor) throw new Error('NodesMonitor not running here');
     return monitor;
@@ -99,6 +95,12 @@ function get_test_nodes(req) {
         node => _.pick(node, 'name', 'rpc_address'));
 }
 
+function allocate_nodes(req) {
+    const params = req.rpc_params;
+    params.system = String(req.system._id);
+    return monitor.allocate_nodes(params);
+}
+
 // UTILS //////////////////////////////////////////////////////////
 
 
@@ -113,7 +115,7 @@ exports.delete_node = req => monitor.delete_node(req.rpc_params);
 exports.list_nodes = list_nodes;
 exports.aggregate_nodes = aggregate_nodes;
 exports.get_test_nodes = get_test_nodes;
-exports.ping = ping;
+exports.allocate_nodes = allocate_nodes;
 exports.n2n_signal = req => monitor.n2n_signal(req.rpc_params);
 exports.n2n_proxy = req => monitor.n2n_proxy(req.rpc_params);
 exports.test_node_network = req => monitor.test_node_network(req.rpc_params);
@@ -121,3 +123,4 @@ exports.set_debug_node = req => monitor.set_debug_node(req);
 exports.collect_agent_diagnostics = req => monitor.collect_agent_diagnostics(req.rpc_params);
 exports.report_node_block_error = req => monitor.report_node_block_error(req);
 exports.sync_monitor_to_store = req => monitor.sync_to_store();
+exports.ping = req => {};

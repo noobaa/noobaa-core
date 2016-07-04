@@ -60,7 +60,8 @@ function create_auth(req) {
         if (!password) return;
 
         // use bcrypt to verify password
-        return P.nfcall(bcrypt.compare, password, target_account.password)
+        return P.fromCallback(callback =>
+                bcrypt.compare(password, target_account.password, callback))
             .then(function(match) {
                 if (!match) throw new RpcError('UNAUTHORIZED', 'password mismatch');
                 // authentication passed!

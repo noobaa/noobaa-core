@@ -7,7 +7,7 @@ const chance = require('chance')();
 const P = require('../../util/promise');
 const dbg = require('../../util/debug_module')(__filename);
 const config = require('../../../config.js');
-const nodes_store = require('./nodes_store');
+const nodes_client = require('./nodes_client');
 
 const alloc_group_by_pool = {};
 const alloc_group_by_pool_set = {};
@@ -25,7 +25,6 @@ function refresh_pool_alloc(pool) {
         alloc_group_by_pool[pool._id] || {
             last_refresh: new Date(0),
             nodes: [],
-            aggregate: {}
         };
 
     dbg.log1('refresh_pool_alloc: checking pool', pool._id, 'group', group);
@@ -37,66 +36,25 @@ function refresh_pool_alloc(pool) {
 
     if (group.promise) return group.promise;
 
-    group.promise = P.join(
-        nodes_store.instance().find_nodes({
-            system: pool.system._id,
-            pool: pool._id,
-            heartbeat: {
-                $gt: nodes_store.instance().get_minimum_alloc_heartbeat()
-            },
-            $or: [{
-                'storage.free': {
-                    $gt: config.NODES_FREE_SPACE_RESERVE
+    group.promise = P.resolve()
+        .then(() => nodes_client.instance().allocate_nodes(pool.system._id, pool._id))
+        .then(res => {
+            group.last_refresh = new Date();
+            group.promise = null;
+            group.nodes = res.nodes;
+            dbg.log0('refresh_pool_alloc: updated pool', pool._id,
+                'nodes', _.map(group.nodes, 'name'));
+            _.each(alloc_group_by_pool_set, (g, pool_set) => {
+                if (_.includes(pool_set, pool._id.toString())) {
+                    dbg.log0('invalidate alloc_group_by_pool_set for', pool_set,
+                        'on change to pool', pool._id);
+                    delete alloc_group_by_pool_set[pool_set];
                 }
-            }, {
-                $and: [{
-                    'storage.free': {
-                        $gt: 0
-                    }
-                }, {
-                    'storage.limit': {
-                        $exists: true
-                    }
-                }]
-            }],
-
-            deleted: null,
-            srvmode: null,
-        }, {
-            fields: nodes_store.instance().NODE_FIELDS_FOR_MAP,
-            sort: {
-                // sorting with lowest used storage nodes first
-                'storage.used': 1
-            },
-            limit: 1000
-        }).then(nodes => {
-            // TODO not sure if really needed resolve_node_object_ids, but just in case
-            _.each(nodes, node =>
-                nodes_store.instance().resolve_node_object_ids(node, 'allow_missing'));
-            return nodes;
-        })
-        // nodes_client.instance().aggregate_nodes_by_pool([pool._id])
-    ).spread((nodes, nodes_aggregate_pool) => {
-        group.last_refresh = new Date();
-        group.promise = null;
-        // filter out nodes that exceeded the storage limit
-        group.nodes = _.filter(nodes, function(node) {
-            return _.isUndefined(node.storage.limit) || node.storage.limit > node.storage.used;
+            });
+        }, err => {
+            group.promise = null;
+            throw err;
         });
-        // group.aggregate = nodes_aggregate_pool[pool._id];
-        dbg.log1('refresh_pool_alloc: updated pool', pool._id,
-            'nodes', group.nodes);
-        _.each(alloc_group_by_pool_set, (g, pool_set) => {
-            if (_.includes(pool_set, pool._id.toString())) {
-                dbg.log0('invalidate alloc_group_by_pool_set for', pool_set,
-                    'on change to pool', pool._id);
-                delete alloc_group_by_pool_set[pool_set];
-            }
-        });
-    }, err => {
-        group.promise = null;
-        throw err;
-    });
 
     return group.promise;
 }
@@ -142,7 +100,8 @@ function allocate_node(pools, avoid_nodes, content_tiering_params) {
             throw new Error('allocate_node: cloud_pool allocations should have only one node (cloud node)');
         }
     } else if (num_nodes < config.NODES_MIN_COUNT) {
-        throw new Error('allocate_node: not enough online nodes in pool set ' + pool_set);
+        throw new Error('allocate_node: not enough online nodes in pool set ' +
+            pool_set + ' num_nodes ' + num_nodes);
     }
 
     // allocate first tries from nodes with no error,

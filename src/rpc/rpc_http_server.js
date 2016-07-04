@@ -106,10 +106,11 @@ class RpcHttpServer extends EventEmitter {
         this.install(app);
 
         return P.fcall(() => {
-                return options.secure && P.nfcall(pem.createCertificate, {
-                    days: 365 * 100,
-                    selfSigned: true
-                });
+                return options.secure && P.fromCallback(callback =>
+                    pem.createCertificate({
+                        days: 365 * 100,
+                        selfSigned: true
+                    }, callback));
             })
             .then(cert => {
                 let http_server = options.secure ?

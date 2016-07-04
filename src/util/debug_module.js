@@ -92,7 +92,7 @@ function extract_module(mod, ignore_extension) {
     // the 'core.' prefix is helpful for setting the level for all modules
     var stems = {
         "/src/": "core.",
-        "Program Files\\NooBaa": "core."
+        "\\src\\": "core."
     };
 
     //for initial module construction, filename is passed, remove extension

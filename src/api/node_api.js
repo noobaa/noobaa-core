@@ -41,7 +41,7 @@ module.exports = {
                 $ref: '#/definitions/node_identity'
             },
             reply: {
-                $ref: '#/definitions/node_full_info'
+                $ref: '#/definitions/node_info'
             },
             auth: {
                 system: 'admin'
@@ -87,6 +87,12 @@ module.exports = {
                     query: {
                         $ref: '#/definitions/nodes_query'
                     },
+                    fields: {
+                        type: 'array',
+                        items: {
+                            type: 'string'
+                        }
+                    },
                     skip: {
                         type: 'integer'
                     },
@@ -125,7 +131,7 @@ module.exports = {
                     nodes: {
                         type: 'array',
                         items: {
-                            $ref: '#/definitions/node_full_info'
+                            $ref: '#/definitions/node_info'
                         }
                     }
                 }
@@ -301,6 +307,40 @@ module.exports = {
             }
         },
 
+        allocate_nodes: {
+            method: 'PUT',
+            params: {
+                type: 'object',
+                required: ['pool_id'],
+                properties: {
+                    pool_id: {
+                        type: 'string'
+                    },
+                    fields: {
+                        type: 'array',
+                        items: {
+                            type: 'string'
+                        }
+                    },
+                }
+            },
+            reply: {
+                type: 'object',
+                required: ['nodes'],
+                properties: {
+                    nodes: {
+                        type: 'array',
+                        items: {
+                            $ref: '#/definitions/node_info'
+                        }
+                    }
+                }
+            },
+            auth: {
+                system: 'admin'
+            }
+        },
+
         report_node_block_error: {
             method: 'POST',
             params: {
@@ -336,22 +376,11 @@ module.exports = {
 
     definitions: {
 
-        node_full_info: {
+        node_info: {
             type: 'object',
-            required: [
-                'id',
-                'name',
-                'pool',
-                'rpc_address',
-                'peer_id',
-                'ip',
-                'online',
-                'heartbeat',
-                'version',
-                'storage',
-            ],
+            required: ['_id'],
             properties: {
-                id: {
+                _id: {
                     type: 'string'
                 },
                 name: {
@@ -362,6 +391,9 @@ module.exports = {
                 },
                 peer_id: {
                     type: 'string'
+                },
+                is_cloud_node: {
+                    type: 'boolean'
                 },
                 geolocation: {
                     type: 'string'
@@ -443,10 +475,16 @@ module.exports = {
                         remaining_size: {
                             type: 'number',
                         },
+                        total_size: {
+                            type: 'number',
+                        },
                         start_time: {
                             format: 'idate'
                         },
                         remaining_time: {
+                            format: 'idate'
+                        },
+                        total_time: {
                             format: 'idate'
                         },
                     }

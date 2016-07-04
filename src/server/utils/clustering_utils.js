@@ -166,8 +166,8 @@ function get_cluster_info() {
         let hostname = os.hostname();
         let location = cinfo.location;
         if (cinfo.heartbeat) {
-            memory_usage = (1 - cinfo.heartbeat.health.os_info.freemem / cinfo.heartbeat.health.os_info.totalmem) * 100;
-            cpu_usage = cinfo.heartbeat.health.os_info.loadavg[0] * 100;
+            memory_usage = (1 - cinfo.heartbeat.health.os_info.freemem / cinfo.heartbeat.health.os_info.totalmem);
+            cpu_usage = cinfo.heartbeat.health.os_info.loadavg[0];
             version = cinfo.heartbeat.version;
             is_connected = ((Date.now() - cinfo.heartbeat.time) < config.CLUSTER_NODE_MISSING_TIME);
             hostname = cinfo.heartbeat.health.os_info.hostname;

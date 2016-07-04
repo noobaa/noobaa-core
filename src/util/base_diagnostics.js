@@ -100,7 +100,7 @@ function archive_diagnostics_pack(dst) {
         })
         .then(function() {
             console.log('archive_diagnostics_pack2');
-            return P.nfcall(fs.readdir, config.central_stats.previous_diag_packs_dir);
+            return fs.readdirAsync(config.central_stats.previous_diag_packs_dir);
         })
         .then(function(files) {
             console.log('archive_diagnostics_pack3');
@@ -111,7 +111,7 @@ function archive_diagnostics_pack(dst) {
                 console.log('archive_diagnostics_pack4');
 
                 var sorted_files = _.orderBy(files);
-                return P.nfcall(fs.unlink, config.central_stats.previous_diag_packs_dir + '/' + sorted_files[0]);
+                return fs.unlinkAsync(config.central_stats.previous_diag_packs_dir + '/' + sorted_files[0]);
             } else {
                 console.log('archive_diagnostics_pack5');
 

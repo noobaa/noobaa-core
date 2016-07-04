@@ -193,10 +193,10 @@ class Agent {
             .then(token => {
                 // use the token as authorization (either 'create_node' or 'agent' role)
                 this.client.options.auth_token = token.toString();
-                return P.nfcall(pem.createCertificate, {
+                return P.fromCallback(callback => pem.createCertificate({
                     days: 365 * 100,
                     selfSigned: true
-                });
+                }, callback));
             })
             .then(pem_cert => {
                 this.ssl_cert = {
@@ -439,7 +439,7 @@ class Agent {
             return P.fcall(() => this.client.node.ping(null, {
                     address: base_address
                 }))
-                .then(() => P.nfcall(fs.readFile, 'agent_conf.json')
+                .then(() => fs.readFileAsync('agent_conf.json')
                     .then(data => {
                         const agent_conf = JSON.parse(data);
                         dbg.log0('update_base_address: old address in agent_conf.json was -', agent_conf.address);
@@ -455,7 +455,7 @@ class Agent {
                 .then(agent_conf => {
                     agent_conf.address = base_address;
                     const data = JSON.stringify(agent_conf);
-                    return P.nfcall(fs.writeFile, 'agent_conf.json', data);
+                    return fs.writeFileAsync('agent_conf.json', data);
                 })
                 .then(() => {
                     dbg.log0('update_base_address: done -', base_address);

@@ -28,7 +28,7 @@ SupervisorCtrl.prototype.init = function() {
             throw err;
         })
         .then(function() {
-            return P.nfcall(fs.readFile, config.CLUSTERING_PATHS.SUPER_FILE)
+            return fs.readFileAsync(config.CLUSTERING_PATHS.SUPER_FILE)
                 .then(function(data) {
                     return self._parse_config(data.toString());
                 });

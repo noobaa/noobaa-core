@@ -57,7 +57,7 @@ function collect_server_diagnostics(req) {
         .then(function(restats) {
             if (stats_aggregator) {
                 var stats_data = JSON.stringify(restats);
-                return P.nfcall(fs.writeFile, TMP_WORK_DIR + '/phone_home_stats.out', stats_data);
+                return fs.writeFileAsync(TMP_WORK_DIR + '/phone_home_stats.out', stats_data);
             } else {
                 return;
             }

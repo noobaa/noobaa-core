@@ -90,10 +90,10 @@ P.fcall(function() {
             return local_certificate;
         } else {
             dbg.log0('Using self-signed certificate', path.join('/etc', 'private_ssl_path', 'server.key'));
-            return P.nfcall(pem.createCertificate, {
+            return P.fromCallback(callback => pem.createCertificate({
                 days: 365 * 100,
                 selfSigned: true
-            });
+            }, callback));
         }
     })
     .then(function(cert) {

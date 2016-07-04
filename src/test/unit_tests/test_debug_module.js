@@ -116,8 +116,8 @@ mocha.describe('debug_module', function() {
         var s1 = 'this';
         var s2 = 'should';
         var s3 = 'expected';
-        dbg.log0("%s string %s be logged as %s", s1, s2, s3);
-        return file_content_verify("text", "core.blabla.asd.lll:: this string should be logged as expected");
+        dbg.log0("%s string substitutions %s be logged as %s", s1, s2, s3);
+        return file_content_verify("text", "this string substitutions should be logged as expected");
     });
 
     mocha.it('console various logs should be logged as well', function() {

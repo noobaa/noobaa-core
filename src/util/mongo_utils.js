@@ -106,6 +106,10 @@ function resolve_object_ids_paths(idmap, item, paths, allow_missing) {
     return item;
 }
 
+function make_object_id(id_str) {
+    return new mongodb.ObjectId(id_str);
+}
+
 // apparently mongoose defined it's own class of ObjectID
 // instead of using the class from mongodb driver,
 // so we have to check both for now,
@@ -141,14 +145,26 @@ function check_entity_not_deleted(doc, entity) {
     throw new RpcError('NO_SUCH_' + entity.toUpperCase());
 }
 
+function make_object_diff(current, prev) {
+    const set_map = _.pickBy(current, (value, key) => !_.isEqual(value, prev[key]));
+    const unset_map = _.pickBy(prev, (value, key) => !(key in current));
+    const diff = {};
+    if (!_.isEmpty(set_map)) diff.$set = set_map;
+    if (!_.isEmpty(unset_map)) diff.$unset = _.mapValues(unset_map, () => 1);
+    return diff;
+}
+
+
 // EXPORTS
 exports.obj_ids_difference = obj_ids_difference;
 exports.uniq_ids = uniq_ids;
 exports.populate = populate;
 exports.resolve_object_ids_recursive = resolve_object_ids_recursive;
 exports.resolve_object_ids_paths = resolve_object_ids_paths;
+exports.make_object_id = make_object_id;
 exports.is_object_id = is_object_id;
 exports.is_err_duplicate_key = is_err_duplicate_key;
 exports.check_duplicate_key_conflict = check_duplicate_key_conflict;
 exports.check_entity_not_found = check_entity_not_found;
 exports.check_entity_not_deleted = check_entity_not_deleted;
+exports.make_object_diff = make_object_diff;

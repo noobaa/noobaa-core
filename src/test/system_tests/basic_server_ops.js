@@ -250,9 +250,9 @@ function wait_on_agents_upgrade(ip) {
                                     online: true,
                                 }
                             }))
-                            .then(function(nodes) {
+                            .then(function(res) {
                                 old_agents = false;
-                                _.each(nodes.nodes, function(n) {
+                                _.each(res.nodes, function(n) {
                                     if (n.version !== sys_ver) {
                                         old_agents = true;
                                     }

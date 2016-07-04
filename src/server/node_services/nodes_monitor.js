@@ -73,6 +73,7 @@ const NODE_INFO_FIELDS = [
     'name',
     'geolocation',
     'ip',
+    'is_cloud_node',
     'rpc_address',
     'base_address',
     'version',
@@ -88,11 +89,6 @@ const NODE_INFO_DEFAULTS = {
     rpc_address: '',
     base_address: '',
 };
-
-// Utilities provided by dclassify
-var Classifier = dclassify.Classifier;
-var DataSet = dclassify.DataSet;
-var Document = dclassify.Document;
 
 
 class NodesMonitor extends EventEmitter {
@@ -498,9 +494,11 @@ class NodesMonitor extends EventEmitter {
                         reason: item.data_activity_reason,
                         // stage: 'REBUILDING', // TODO
                         start_time: Date.now(),
+                        remaining_time: 0,
+                        total_time: 0,
                         completed_size: 0,
-                        remaining_size: -1,
-                        remaining_time: -1
+                        remaining_size: 0,
+                        total_size: 0,
                     };
                     this._set_need_rebuild.add(item);
                     this._wakeup_rebuild();
@@ -556,48 +554,63 @@ class NodesMonitor extends EventEmitter {
         }
         let blocks;
         act.running = true;
-        return P.join(
-                md_store.DataBlock.collection.mapReduce(
-                    mongo_functions.map_size,
-                    mongo_functions.reduce_sum, {
-                        query: blocks_query,
-                        out: {
-                            inline: 1
-                        }
-                    }),
-                md_store.DataBlock.collection.find(blocks_query, {
-                    sort: '-_id', // start with latest blocks and go back
-                    fields: {
-                        _id: 1,
-                        chunk: 1,
-                        size: 1
-                    },
-                    limit: REBUILD_BATCH_SIZE
-                }).toArray())
-            .spread((remaining_size_res, blocks_res) => {
+        return P.resolve()
+            .then(() => md_store.DataBlock.collection.find(blocks_query, {
+                sort: {
+                    _id: -1 // start with latest blocks and go back
+                },
+                fields: {
+                    _id: 1,
+                    chunk: 1,
+                    size: 1
+                },
+                limit: REBUILD_BATCH_SIZE
+            }).toArray())
+            .then(blocks_res => {
                 blocks = blocks_res;
-                act.remaining_size =
-                    remaining_size_res[0] &&
-                    remaining_size_res[0].value || 0;
-                act.total_size = act.completed_size + act.remaining_size;
-                return md_store.DataChunk.collection.find({
-                    _id: {
-                        $in: mongo_utils.uniq_ids(blocks, 'chunk')
-                    }
-                }).toArray();
+                if (blocks.length) {
+                    blocks_query._id = {
+                        $lt: blocks[blocks.length - 1]._id
+                    };
+                }
+                return P.join(
+                    md_store.DataBlock.collection.mapReduce(
+                        mongo_functions.map_size,
+                        mongo_functions.reduce_sum, {
+                            query: blocks_query,
+                            out: {
+                                inline: 1
+                            }
+                        }),
+                    md_store.DataChunk.collection.find({
+                        _id: {
+                            $in: mongo_utils.uniq_ids(blocks, 'chunk')
+                        }
+                    }).toArray()
+                    .then(chunks => {
+                        const builder = new MapBuilder(chunks);
+                        return builder.run();
+                    }));
             })
-            .then(chunks => {
-                const builder = new MapBuilder(chunks);
-                return builder.run();
-            })
-            .then(() => {
+            .spread(remaining_size_res => {
                 act.running = false;
-                if (blocks.length === REBUILD_BATCH_SIZE) {
+                if (blocks.length) {
                     act.last_block_id = blocks[blocks.length - 1]._id;
+                    act.remaining_size =
+                        remaining_size_res[0] &&
+                        remaining_size_res[0].value || 0;
                     act.completed_size += _.sumBy(blocks, 'size');
-                    act.remaining_time = (Date.now() - act.start_time) *
-                        act.total_size / act.completed_size;
+                    act.total_size = act.completed_size + act.remaining_size;
+                    const elapsed_time = Date.now() - act.start_time;
+                    act.remaining_time = elapsed_time * act.total_size / act.completed_size;
+                    act.total_time = elapsed_time + act.remaining_time;
                     dbg.log0('_rebuild_node: continue', item.node.name, act);
+                    setTimeout(() => {
+                        this._set_need_rebuild.add(item);
+                        this._wakeup_rebuild();
+                    }, REBUILD_BATCH_DELAY).unref();
+                } else if (act.last_block_id) {
+                    act.last_block_id = undefined;
                     setTimeout(() => {
                         this._set_need_rebuild.add(item);
                         this._wakeup_rebuild();
@@ -607,6 +620,16 @@ class NodesMonitor extends EventEmitter {
                     act.remaining_size = 0;
                     act.remaining_time = 0;
                     act.done = true;
+                    if (item.node.migrating_to_pool) {
+                        delete item.node.migrating_to_pool;
+                    }
+                    if (item.node.decommissioning) {
+                        item.node.decommissioned = new Date();
+                    }
+                    if (item.node.deleting) {
+                        item.node.deleted = new Date();
+                    }
+                    this._set_need_update.add(item);
                     dbg.log0('_rebuild_node: DONE', item.node.name, act);
                 }
             })
@@ -674,7 +697,7 @@ class NodesMonitor extends EventEmitter {
     read_node(node_identity) {
         const item = this._get_node(node_identity, 'allow_offline');
         this._update_status(item);
-        return this._get_node_full_info(item);
+        return this._get_node_info(item);
     }
 
     migrate_nodes_to_pool(nodes_identities, pool_id) {
@@ -845,17 +868,27 @@ class NodesMonitor extends EventEmitter {
                     default_pool_index = pool_index;
                 }
                 if (pool_index < 0) {
+                    pool_index = 0;
                     data_for_ml.push({
                         pool_name: node_pool_name,
-                        nodes: [new Document(node._id, [node.ip, node.geolocation, node.storage.used, node.storage.total, node.storage.used, node_avg_latency, node_avg_read, node_avg_write])]
+                        nodes: []
                     });
-                } else {
-                    data_for_ml[pool_index].nodes.push(new Document(node._id, [node.ip, node.geolocation, node.storage.used, node.storage.total, node.storage.used, node_avg_latency, node_avg_read, node_avg_write]));
                 }
+                data_for_ml[pool_index].nodes.push(
+                    new dclassify.Document(node._id, [
+                        node.ip,
+                        node.geolocation,
+                        node.storage.used,
+                        node.storage.total,
+                        node.storage.used,
+                        node_avg_latency,
+                        node_avg_read,
+                        node_avg_write
+                    ]));
             }
         });
 
-        var data = new DataSet();
+        var data = new dclassify.DataSet();
         var options = {
             applyInverse: true
         };
@@ -869,7 +902,7 @@ class NodesMonitor extends EventEmitter {
 
         if (data_for_ml.length > 2) {
             // create a classifier
-            var classifier = new Classifier(options);
+            var classifier = new dclassify.Classifier(options);
 
             // train the classifier
             classifier.train(data);
@@ -909,7 +942,7 @@ class NodesMonitor extends EventEmitter {
 
         return {
             total_count: list.length,
-            nodes: _.map(res_list, item => this._get_node_full_info(item))
+            nodes: _.map(res_list, item => this._get_node_info(item, options.fields))
         };
     }
 
@@ -962,13 +995,13 @@ class NodesMonitor extends EventEmitter {
         return res;
     }
 
-    _get_node_full_info(item) {
+    _get_node_info(item, fields) {
         const node = item.node;
         const info = _.defaults(
             _.pick(item, MONITOR_INFO_FIELDS),
             _.pick(node, NODE_INFO_FIELDS),
             NODE_INFO_DEFAULTS);
-        info.id = String(node._id);
+        info._id = String(node._id);
         info.peer_id = String(node.peer_id);
         info.pool = system_store.data.get_by_id(node.pool).name;
         info.heartbeat = node.heartbeat.getTime();
@@ -984,9 +1017,11 @@ class NodesMonitor extends EventEmitter {
                 // 'stage',
                 // 'pending',
                 'start_time',
+                'remaining_time',
+                'total_time',
                 'completed_size',
                 'remaining_size',
-                'remaining_time');
+                'total_size');
         }
         info.storage = get_storage_info(node.storage);
         info.drives = _.map(node.drives, drive => {
@@ -1005,7 +1040,7 @@ class NodesMonitor extends EventEmitter {
         }
         info.suggested_pool = node.suggested_pool || "";
 
-        return info;
+        return fields ? _.pick(info, '_id', fields) : info;
     }
 
     _get_node(node_identity, allow_offline, allow_missing) {
@@ -1120,6 +1155,22 @@ class NodesMonitor extends EventEmitter {
             });
     }
 
+    allocate_nodes(params) {
+        const pool_id = String(params.pool_id);
+        const list = [];
+        for (const item of this._map_node_id.values()) {
+            this._update_status(item);
+            if (!item.writable) continue;
+            if (String(item.node.pool) !== String(pool_id)) continue;
+            list.push(item);
+        }
+        list.sort(js_utils.sort_compare_by(item => item.node.storage.used, 1));
+        const max = 1000;
+        const res_list = list.length < max ? list : list.slice(0, max);
+        return {
+            nodes: _.map(res_list, item => this._get_node_info(item, params.fields))
+        };
+    }
 
     /**
      *

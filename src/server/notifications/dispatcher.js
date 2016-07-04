@@ -1,14 +1,14 @@
 'use strict';
 
 const _ = require('lodash');
-const ActivityLog = require('../analytic_services/activity_log');
-const system_store = require('../system_services/system_store').get_instance();
-const nodes_store = require('../node_services/nodes_store');
-const md_store = require('../object_services/md_store');
 const P = require('../../util/promise');
+const dbg = require('../../util/debug_module')(__filename);
+const md_store = require('../object_services/md_store');
 const mongo_utils = require('../../util/mongo_utils');
 const native_core = require('../../util/native_core')();
-const dbg = require('../../util/debug_module')(__filename);
+const ActivityLog = require('../analytic_services/activity_log');
+const system_store = require('../system_services/system_store').get_instance();
+const nodes_client = require('../node_services/nodes_client');
 
 var NotificationTypes = Object.freeze({
     ALERT: 1,
@@ -109,12 +109,13 @@ class Dispatcher {
     //Internals
 
     _resolve_activity_item(log_item, l) {
-        return P.resolve(nodes_store.instance().populate_nodes_fields(log_item, 'node', {
-                name: 1
-            }))
-            .then(() => mongo_utils.populate(log_item, 'obj', md_store.ObjectMD.collection, {
-                key: 1
-            }))
+        return P.resolve()
+            .then(() => nodes_client.instance().populate_nodes(
+                log_item.system, log_item, 'node', 'name'))
+            .then(() => mongo_utils.populate(
+                log_item, 'obj', md_store.ObjectMD.collection, {
+                    key: 1
+                }))
             .then(() => {
                 if (log_item.node) {
                     l.node = _.pick(log_item.node, 'name');

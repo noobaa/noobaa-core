@@ -263,8 +263,18 @@ export function showManagement() {
     });
 }
 
-export function showCreateBucketWizard() {
-    logAction('showCreateBucketModal');
+export function showCluster() {
+    logAction('showCluster');
+
+    model.uiState({
+        layout: 'main-layout',
+        title: 'CLUSTER',
+        breadcrumbs: [
+            { route: 'system' },
+            { route: 'cluster', label: 'CLUSTER' }
+        ],
+        panel: 'cluster'
+    });
 }
 
 export function openDrawer() {
@@ -781,6 +791,8 @@ export function updateBucketBackupPolicy(tierName, cloudResources) {
 export function createPool(name, nodes) {
     logAction('createPool', { name, nodes });
 
+    nodes = nodes.map(name => ({ name }));
+
     api.pool.create_nodes_pool({ name, nodes })
         .then(loadSystemInfo)
         .done();
@@ -799,7 +811,7 @@ export function assignNodes(name, nodes) {
 
     api.pool.assign_nodes_to_pool({
         name: name,
-        nodes: nodes
+        nodes: nodes.map(name => ({ name }))
     })
         .then(loadSystemInfo)
         .done();
@@ -1178,7 +1190,7 @@ export function uploadSSLCertificate(SSLCertificate) {
 export function downloadNodeDiagnosticPack(nodeName) {
     logAction('downloadDiagnosticFile', { nodeName });
 
-    api.node.collect_agent_diagnostics({ name: nodeName })
+    api.system.diagnose_node({ name: nodeName })
         .then(
             url => downloadFile(url)
         )
@@ -1189,7 +1201,7 @@ export function downloadNodeDiagnosticPack(nodeName) {
 export function downloadSystemDiagnosticPack() {
     logAction('downloadSystemDiagnosticPack');
 
-    api.system.diagnose()
+    api.system.diagnose_system()
         .then(downloadFile)
         .done();
 }
@@ -1200,7 +1212,9 @@ export function setNodeDebugLevel(node, level) {
     api.node.read_node({ name: node })
         .then(
             node => api.node.set_debug_node({
-                name: node.name,
+                node: {
+                    name: node.name
+                },
                 level: level
             })
         )
@@ -1431,6 +1445,19 @@ export function disableRemoteSyslog() {
     logAction ('disableRemoteSyslog');
 
     api.system.configure_remote_syslog({ enabled: false })
+        .then(loadSystemInfo)
+        .done();
+}
+
+export function attachServerToCluster(serverAddress, serverSecret) {
+    logAction('attachServerToCluster', { serverAddress, serverSecret });
+
+    api.cluster_server.add_member_to_cluster({
+        address: serverAddress,
+        secret: serverSecret,
+        role: 'REPLICA',
+        shard: 'shard1'
+    })
         .then(loadSystemInfo)
         .done();
 }

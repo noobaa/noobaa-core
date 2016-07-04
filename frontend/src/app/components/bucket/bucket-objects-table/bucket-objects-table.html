@@ -1,15 +1,15 @@
 <div class="row content-middle  push-next">
-    <h3 class="heading3 greedy push-next">
+    <h3 class="heading3 push-next">
         Files in this bucket:
         <span data-bind="text: objectCount"></span>
     </h3>
 
-    <button class="btn3" data-bind="click: () => showUploadFilesModal()">Upload Files</button>
-</div>
+    <input class="push-next" type="search" placeholder="Search by file name" data-bind="
+        textInput: filter
+    "/>
 
-<input class="push-next" type="search" placeholder="Filter Files" data-bind="
-    textInput: filter
-"/>
+    <button class="upload-btn btn3" data-bind="click: () => showUploadFilesModal()">Upload Files</button>
+</div>
 
 <div class="data-table greedy push-next">
     <table>

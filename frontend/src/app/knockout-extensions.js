@@ -9,7 +9,7 @@ ko.deepUnwrap = function(value) {
                 res[key] = ko.deepUnwrap(uw[key]);
                 return res;
             },
-            {}
+            uw instanceof Array ? [] : {}
         );
     } else {
         return uw;

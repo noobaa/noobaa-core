@@ -6,6 +6,7 @@
 #include "n2n/ntcp.h"
 #include "n2n/nudp.h"
 #include "util/syslog.h"
+#include "util/signup_validator.h"
 
 namespace noobaa {
 
@@ -32,6 +33,7 @@ NAN_MODULE_INIT(setup)
     ObjectCoding::setup(target);
     Nudp::setup(target);
     Ntcp::setup(target);
+    SignupValidator::setup(target);
 #ifndef WIN32
     Syslog::setup(target);
 #endif

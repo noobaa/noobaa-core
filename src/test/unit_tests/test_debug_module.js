@@ -29,30 +29,30 @@ mocha.describe('debug_module', function() {
         //CI integration workaround
         var filename = __filename.indexOf('noobaa-util') >= 0 ?
                       __filename :
-                      '/Users/someuser/github/noobaa-util/test_debug_module.js';
+                      '/Users/someuser/github/noobaa-core/src/util/test_debug_module.js';
 
         var dbg = new DebugModule(filename);
-        assert.strictEqual(dbg._name, 'util.test_debug_module');
+        assert.strictEqual(dbg._name, 'core.util.test_debug_module');
     });
 
     mocha.it('should parse heroku path names', function() {
         var dbg = new DebugModule('/app/src/blabla');
-        assert.strictEqual(dbg._name, 'app.src.blabla');
+        assert.strictEqual(dbg._name, 'core.blabla');
     });
 
     mocha.it('should parse file names with extension', function() {
         var dbg = new DebugModule('/app/src/blabla.asd');
-        assert.strictEqual(dbg._name, 'app.src.blabla');
+        assert.strictEqual(dbg._name, 'core.blabla');
     });
 
     mocha.it('should parse file names with folder with extention', function() {
         var dbg = new DebugModule('/app/src/blabla.asd/lll.asd');
-        assert.strictEqual(dbg._name, 'app.src.blabla.asd.lll');
+        assert.strictEqual(dbg._name, 'core.blabla.asd.lll');
     });
 
     mocha.it('should parse file names with stems', function() {
-        var dbg = new DebugModule('/noobaa-util/blabla.asd/lll.asd');
-        assert.strictEqual(dbg._name, 'util.blabla.asd.lll');
+        var dbg = new DebugModule('/noobaa-core/src/blabla.asd/lll.asd');
+        assert.strictEqual(dbg._name, 'core.blabla.asd.lll');
     });
 
     mocha.it('should parse file names with stems and prefix', function() {
@@ -62,7 +62,7 @@ mocha.describe('debug_module', function() {
 
     mocha.it('should parse windows style paths', function() {
         var dbg = new DebugModule('C:\\Program Files\\NooBaa\\src\\agent\\agent_cli.js');
-        assert.strictEqual(dbg._name, 'core.src.agent.agent_cli');
+        assert.strictEqual(dbg._name, 'core.agent.agent_cli');
     });
 
     mocha.it('should set level for windows style module and propogate', function() {
@@ -74,7 +74,7 @@ mocha.describe('debug_module', function() {
     mocha.it('should log when level is appropriate', function() {
         var dbg = new DebugModule('/web/noise/noobaa-core/src/blabla.asd/lll.asd');
         dbg.log0("test_debug_module: log0 should appear in the log");
-        return file_content_verify("text", "core.blabla.asd.lll:: test_debug_module: log0 should appear in the log");
+        return file_content_verify("text", "test_debug_module: log0 should appear in the log");
     });
 
     mocha.it('should NOT log when level is lower', function() {
@@ -105,9 +105,9 @@ mocha.describe('debug_module', function() {
 
     mocha.it('setting a higher module should affect sub module', function() {
         var dbg = new DebugModule('/web/noise/noobaa-core/src/blabla.asd/lll.asd');
-        dbg.set_level(2, 'util');
+        dbg.set_level(2, 'core');
         dbg.log2("test_debug_module: log2 setting a higher level module level should affect current");
-        dbg.set_level(0, 'util');
+        dbg.set_level(0, 'core');
         return file_content_verify("text", "core.blabla.asd.lll:: test_debug_module: log2 setting a higher level module level should affect current");
     });
 
@@ -116,8 +116,8 @@ mocha.describe('debug_module', function() {
         var s1 = 'this';
         var s2 = 'should';
         var s3 = 'expected';
-        dbg.log0("%s string %s be logged as %s", s1, s2, s3);
-        return file_content_verify("text", "core.blabla.asd.lll:: this string should be logged as expected");
+        dbg.log0("%s string substitutions %s be logged as %s", s1, s2, s3);
+        return file_content_verify("text", "this string substitutions should be logged as expected");
     });
 
     mocha.it('console various logs should be logged as well', function() {

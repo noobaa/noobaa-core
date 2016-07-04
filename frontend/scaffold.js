@@ -228,21 +228,37 @@ class ModalGenerator extends ComponentGenerator {
                     {
                         type: 'list',
                         name: 'action',
-                        message: 'What is action verb of the modal:',
-                        choices: [ 'save', 'create', 'configure', 'done']
+                        message: 'Select a main action for the modal:',
+                        choices: [
+                            'save',
+                            'create',
+                            'configure',
+                            'done',
+                            { value: null, name: '- Custom action -' }
+                        ]
+                    },
+                    {
+                        type: 'input',
+                        name: 'action',
+                        when: answers => !answers.action,
+                        message: 'Give the custom action a label:'
                     }
                 ])
             );
     }
 
     preprocess(answers) {
+        let actionMethodName = answers.action
+            .toLowerCase()
+            .replace(/\s*/, m => m && m[1].toUpperCase());
+
         return Object.assign(
             super.preprocess(answers),
             {
                 name: answers.name,
                 title: answers.title,
-                action: answers.action,
-                actionCammelCased: toCammelCase(answers.action),
+                action: actionMethodName,
+                actionLabel: answers.action,
                 folderName: `${answers.name}-modal`
             }
         );

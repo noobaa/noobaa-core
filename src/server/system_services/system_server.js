@@ -138,7 +138,7 @@ function create_system(req) {
         .then(function() {
             if (process.env.ON_PREMISE === 'true') {
                 return P.fcall(function() {
-                        return promise_utils.promised_exec('supervisorctl restart s3rver');
+                        return promise_utils.exec('supervisorctl restart s3rver');
                     })
                     .then(null, function(err) {
                         dbg.error('Failed to restart s3rver', err);
@@ -284,35 +284,7 @@ function read_system(req) {
         };
 
         // fill cluster information if we have a cluster.
-        let local_info = system_store.get_local_cluster_info();
-        if (local_info.is_clusterized) {
-            let shards = local_info.shards.map(shard => ({
-                shardname: shard.shardname,
-                servers: []
-            }));
-            _.each(system_store.data.clusters, cinfo => {
-                let shard = shards.find(s => s.shardname === cinfo.owner_shardname);
-                let memory_usage = (1 - cinfo.heartbeat.health.os_info.freemem / cinfo.heartbeat.health.os_info.totalmem) * 100;
-                let cpu_usage = cinfo.heartbeat.health.os_info.loadavg[0] * 100;
-                let server_info = {
-                    version: cinfo.heartbeat.version,
-                    server_name: cinfo.owner_address,
-                    is_connected: ((Date.now() - cinfo.heartbeat.time) < config.CLUSTER_NODE_MISSING_TIME),
-                    server_ip: cinfo.owner_address,
-                    memory_usage: memory_usage,
-                    cpu_usage: cpu_usage
-                };
-                shard.servers.push(server_info);
-            });
-            _.each(shards, shard => {
-                let num_connected = shard.servers.filter(server => server.is_connected).length;
-                shard.high_availabilty = (num_connected / shard.servers.length) > (shard.servers.length / 2);
-            });
-            let cluster_info = {
-                shards: shards
-            };
-            response.cluster = cluster_info;
-        }
+        response.cluster = cutil.get_cluster_info();
 
 
         if (system.base_address) {
@@ -577,19 +549,13 @@ function read_activity_log(req) {
 
 
 
-function diagnose(req) {
+function diagnose_system(req) {
     dbg.log0('Recieved diag req');
     var out_path = '/public/diagnostics.tgz';
     var inner_path = process.cwd() + '/build' + out_path;
-    return P.fcall(function() {
-            return diag.collect_server_diagnostics(req);
-        })
-        .then(function() {
-            return diag.pack_diagnostics(inner_path);
-        })
-        .then(function() {
-            return out_path;
-        })
+    return P.resolve()
+        .then(() => diag.collect_server_diagnostics(req))
+        .then(() => diag.pack_diagnostics(inner_path))
         .then(res => {
             Dispatcher.instance().activity({
                 event: 'dbg.diagnose_system',
@@ -598,31 +564,20 @@ function diagnose(req) {
                 actor: req.account && req.account._id,
                 desc: `${req.system.name} diagnostics package was exported by ${req.account && req.account.email}`,
             });
-            return res;
-        })
-        .then(null, function(err) {
-            dbg.log0('Error while collecting diagnostics', err, err.stack);
-            return '';
+            return out_path;
         });
 }
 
-function diagnose_with_agent(data, req) {
+function diagnose_node(req) {
     dbg.log0('Recieved diag with agent req');
     var out_path = '/public/diagnostics.tgz';
     var inner_path = process.cwd() + '/build' + out_path;
-    return P.fcall(function() {
-            return diag.collect_server_diagnostics(req);
-        })
-        .then(function() {
-            return diag.write_agent_diag_file(data.data);
-        })
-        .then(function() {
-            return diag.pack_diagnostics(inner_path);
-        })
-        .then(function() {
-            return out_path;
-        })
-        .then(res => {
+    return P.resolve()
+        .then(() => diag.collect_server_diagnostics(req))
+        .then(() => nodes_client.instance().collect_agent_diagnostics(req.rpc_params))
+        .then(res => diag.write_agent_diag_file(res.data))
+        .then(() => diag.pack_diagnostics(inner_path))
+        .then(() => {
             Dispatcher.instance().activity({
                 event: 'dbg.diagnose_node',
                 level: 'info',
@@ -631,11 +586,7 @@ function diagnose_with_agent(data, req) {
                 node: req.rpc_params && req.rpc_params.id,
                 desc: `${req.rpc_params.name} diagnostics package was exported by ${req.account && req.account.email}`,
             });
-            return res;
-        })
-        .then(null, function(err) {
-            dbg.log0('Error while collecting diagnostics with agent', err, err.stack);
-            return '';
+            return out_path;
         });
 }
 
@@ -914,7 +865,7 @@ function upload_upgrade_package(req) {
             }
         })
         .then(() => upgrade_utils.pre_upgrade())
-        .then((res) => {
+        .then(res => {
             //Update result of pre_upgrade and message in DB
             var upgrade;
             if (res.result) {
@@ -986,8 +937,8 @@ exports.remove_role = remove_role;
 exports.read_activity_log = read_activity_log;
 exports.export_activity_log = export_activity_log;
 
-exports.diagnose = diagnose;
-exports.diagnose_with_agent = diagnose_with_agent;
+exports.diagnose_system = diagnose_system;
+exports.diagnose_node = diagnose_node;
 exports.log_frontend_stack_trace = log_frontend_stack_trace;
 exports.set_last_stats_report_time = set_last_stats_report_time;
 exports.set_debug_level = set_debug_level;

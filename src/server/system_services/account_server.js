@@ -572,13 +572,12 @@ function bcrypt_password(account) {
     if (!account.password) {
         return P.resolve();
     }
-    return P.fcall(function() {
-            return P.nfcall(bcrypt.genSalt, 10);
-        })
-        .then(function(salt) {
-            return P.nfcall(bcrypt.hash, account.password, salt);
-        })
-        .then(function(password_hash) {
+    return P.resolve()
+        .then(() => P.fromCallback(callback =>
+            bcrypt.genSalt(10, callback)))
+        .then(salt => P.fromCallback(callback =>
+            bcrypt.hash(account.password, salt, callback)))
+        .then(password_hash => {
             account.password = password_hash;
         });
 }

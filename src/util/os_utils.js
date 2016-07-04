@@ -1,33 +1,15 @@
 'use strict';
 
-module.exports = {
-    os_info: os_info,
-    read_drives: read_drives,
-    get_main_drive_name: get_main_drive_name,
-    get_mount_of_path: get_mount_of_path,
-    get_drive_of_path: get_drive_of_path,
-    top_single: top_single,
-    netstat_single: netstat_single,
-    set_manual_time: set_manual_time,
-    set_ntp: set_ntp,
-    get_time_config: get_time_config,
-    get_local_ipv4_ips: get_local_ipv4_ips,
-    get_networking_info: get_networking_info,
-    read_server_secret: read_server_secret,
-    is_supervised_env: is_supervised_env,
-    reload_syslog_configuration: reload_syslog_configuration
-};
+const _ = require('lodash');
+const os = require('os');
+const fs = require('fs');
+const uuid = require('node-uuid');
+const moment = require('moment-timezone');
+const node_df = require('node-df');
 
-var _ = require('lodash');
-var moment = require('moment-timezone');
-var os = require('os');
-var fs = require('fs');
-var child_process = require('child_process');
-var node_df = require('node-df');
-var uuid = require('node-uuid');
-var promise_utils = require('./promise_utils');
-var P = require('./promise');
-var config = require('../../config.js');
+const P = require('./promise');
+const config = require('../../config.js');
+const promise_utils = require('./promise_utils');
 
 function os_info() {
 
@@ -78,16 +60,16 @@ function get_mount_of_path(path) {
     console.log('get_mount_of_path');
 
     if (os.type() === 'Windows_NT') {
-        return P.nfcall(fs.realpath, path)
+        return fs.realpathAsync(path)
             .then(function(fullpath) {
                 // fullpath[0] = drive letter (C, D, E, ..)
                 // fullpath[1] = ':'
                 return fullpath[0] + fullpath[1];
             });
     } else {
-        return P.nfcall(node_df, {
+        return P.fromCallback(callback => node_df({
                 file: path
-            })
+            }, callback))
             .then(function(drives) {
                 return drives && drives[0] && drives[0].mount;
             });
@@ -96,7 +78,7 @@ function get_mount_of_path(path) {
 
 function get_drive_of_path(path) {
     if (os.type() === 'Windows_NT') {
-        return P.nfcall(fs.realpath, path)
+        return fs.realpathAsync(path)
             .then(function(fullpath) {
                 const drive_letter = fullpath[0] + fullpath[1];
                 return wmic('volume where DriveLetter="' + drive_letter + '"');
@@ -106,9 +88,9 @@ function get_drive_of_path(path) {
                 volumes[0] &&
                 windows_volume_to_drive(volumes[0]));
     } else {
-        return P.nfcall(node_df, {
+        return P.fromCallback(callback => node_df({
                 file: path
-            })
+            }, callback))
             .then(volumes =>
                 volumes &&
                 volumes[0] &&
@@ -118,11 +100,11 @@ function get_drive_of_path(path) {
 
 
 function read_mac_linux_drives() {
-    return P.nfcall(node_df, {
+    return P.fromCallback(callback => node_df({
             // this is a hack to make node_df append the -l flag to the df command
             // in order to get only local file systems.
             file: '-l'
-        })
+        }, callback))
         .then(function(volumes) {
             return _.compact(_.map(volumes, function(vol) {
                 return linux_volume_to_drive(vol);
@@ -195,7 +177,7 @@ function windows_volume_to_drive(vol) {
 }
 
 function wmic(topic) {
-    return P.nfcall(child_process.exec, 'wmic ' + topic + ' get /value')
+    return promise_utils.exec('wmic ' + topic + ' get /value')
         .then(function(res) {
             return wmic_parse_list(res[0]);
         });
@@ -229,9 +211,9 @@ function wmic_parse_list(text) {
 function top_single(dst) {
     var file_redirect = dst ? ' &> ' + dst : '';
     if (os.type() === 'Darwin') {
-        return promise_utils.promised_exec('top -l 1' + file_redirect);
+        return promise_utils.exec('top -l 1' + file_redirect);
     } else if (os.type() === 'Linux') {
-        return promise_utils.promised_exec('top -b -n 1' + file_redirect);
+        return promise_utils.exec('top -b -n 1' + file_redirect);
     } else if (os.type() === 'Windows_NT') {
         return;
     } else {
@@ -242,11 +224,11 @@ function top_single(dst) {
 function netstat_single(dst) {
     var file_redirect = dst ? ' &> ' + dst : '';
     if (os.type() === 'Darwin') {
-        return promise_utils.promised_exec('netstat -na' + file_redirect);
+        return promise_utils.exec('netstat -na' + file_redirect);
     } else if (os.type() === 'Windows_NT') {
-        return promise_utils.promised_exec('netstat -na >' + dst);
+        return promise_utils.exec('netstat -na >' + dst);
     } else if (os.type() === 'Linux') {
-        return promise_utils.promised_exec('netstat -nap' + file_redirect);
+        return promise_utils.exec('netstat -nap' + file_redirect);
     } else {
         throw new Error('netstat_single ' + os.type + ' not supported');
     }
@@ -255,9 +237,9 @@ function netstat_single(dst) {
 function set_manual_time(time_epoch, timez) {
     if (os.type() === 'Linux') {
         return _set_time_zone(timez)
-            .then(() => promise_utils.promised_exec('/sbin/chkconfig ntpd off 2345'))
-            .then(() => promise_utils.promised_exec('/etc/init.d/ntpd stop'))
-            .then(() => promise_utils.promised_exec('date +%s -s @' + time_epoch))
+            .then(() => promise_utils.exec('/sbin/chkconfig ntpd off 2345'))
+            .then(() => promise_utils.exec('/etc/init.d/ntpd stop'))
+            .then(() => promise_utils.exec('date +%s -s @' + time_epoch))
             .then(() => restart_rsyslogd());
     } else if (os.type() === 'Darwin') { //Bypass for dev environment
         return;
@@ -270,9 +252,9 @@ function set_ntp(server, timez) {
     if (os.type() === 'Linux') {
         var command = "sed -i 's/.*NooBaa Configured NTP Server.*/server " + server + " iburst #NooBaa Configured NTP Server/' /etc/ntp.conf";
         return _set_time_zone(timez)
-            .then(() => promise_utils.promised_exec('/sbin/chkconfig ntpd on 2345'))
-            .then(() => promise_utils.promised_exec('/etc/init.d/ntpd restart'))
-            .then(() => promise_utils.promised_exec(command))
+            .then(() => promise_utils.exec('/sbin/chkconfig ntpd on 2345'))
+            .then(() => promise_utils.exec('/etc/init.d/ntpd restart'))
+            .then(() => promise_utils.exec(command))
             .then(() => restart_rsyslogd());
     } else if (os.type() === 'Darwin') { //Bypass for dev environment
         return;
@@ -282,7 +264,7 @@ function set_ntp(server, timez) {
 }
 
 function restart_rsyslogd() {
-    return promise_utils.promised_exec('/etc/init.d/rsyslog restart');
+    return promise_utils.exec('/etc/init.d/rsyslog restart');
 }
 
 function get_time_config() {
@@ -293,14 +275,14 @@ function get_time_config() {
     };
 
     if (os.type() === 'Linux') {
-        return promise_utils.promised_exec('/usr/bin/ntpstat | head -1', false, true)
-            .then((res) => {
+        return promise_utils.exec('/usr/bin/ntpstat | head -1', false, true)
+            .then(res => {
                 if (res.indexOf('synchronized to') !== -1) {
                     reply.status = true;
                 }
-                return promise_utils.promised_exec('ls -l /etc/localtime', false, true);
+                return promise_utils.exec('ls -l /etc/localtime', false, true);
             })
-            .then((tzone) => {
+            .then(tzone => {
                 if (tzone && !tzone.split('>')[1]) {
                     reply.srv_time = moment().format();
                     reply.timezone = '';
@@ -313,8 +295,8 @@ function get_time_config() {
             });
     } else if (os.type() === 'Darwin') {
         reply.status = true;
-        return promise_utils.promised_exec('ls -l /etc/localtime', false, true)
-            .then((tzone) => {
+        return promise_utils.exec('ls -l /etc/localtime', false, true)
+            .then(tzone => {
                 var symlink = tzone.split('>')[1].split('/usr/share/zoneinfo/')[1].trim();
                 reply.srv_time = moment().tz(symlink).format();
                 reply.timezone = symlink;
@@ -347,20 +329,20 @@ function get_networking_info() {
 }
 
 function _set_time_zone(tzone) {
-    //TODO:: Ugly Ugly, change to datectrl on centos7
-    return promise_utils.promised_exec('ln -sf /usr/share/zoneinfo/' +
+    // TODO _set_time_zone: Ugly Ugly, change to datectrl on centos7
+    return promise_utils.exec('ln -sf /usr/share/zoneinfo/' +
         tzone + ' /etc/localtime');
 }
 
 function read_server_secret() {
     if (os.type() === 'Linux') {
-        return P.nfcall(fs.readFile, config.CLUSTERING_PATHS.SECRET_FILE)
+        return fs.readFileAsync(config.CLUSTERING_PATHS.SECRET_FILE)
             .then(function(data) {
                 var sec = data.toString();
                 return sec.substring(0, sec.length - 1);
             });
     } else if (os.type() === 'Darwin') {
-        return P.nfcall(fs.readFile, config.CLUSTERING_PATHS.DARWIN_SECRET_FILE)
+        return fs.readFileAsync(config.CLUSTERING_PATHS.DARWIN_SECRET_FILE)
             .then(function(data) {
                 var sec = data.toString();
                 return sec.substring(0, sec.length - 1);
@@ -370,7 +352,7 @@ function read_server_secret() {
                 //In linux its created as part of the server build process or in an upgrade
                 if (err.code === 'ENOENT') {
                     var id = uuid().substring(0, 8);
-                    return P.nfcall(fs.writeFile, config.CLUSTERING_PATHS.DARWIN_SECRET_FILE,
+                    return fs.writeFileAsync(config.CLUSTERING_PATHS.DARWIN_SECRET_FILE,
                             JSON.stringify(id))
                         .then(() => id);
                 } else {
@@ -395,22 +377,35 @@ function reload_syslog_configuration(conf) {
     }
 
     if (conf.enabled) {
-        return P.nfcall(fs.readFile, 'src/deploy/NVA_build/noobaa_syslog.conf')
+        return fs.readFileAsync('src/deploy/NVA_build/noobaa_syslog.conf')
             .then(data => {
                 // Sending everything except NooBaa logs
                 let add_destination = `if $syslogfacility-text != 'local0' then ${conf.protocol === 'TCP' ? '@@' : '@'}${conf.address}:${conf.port}`;
-                return P.nfcall(fs.writeFile, '/etc/rsyslog.d/noobaa_syslog.conf', data + '\n' + add_destination);
+                return fs.writeFileAsync('/etc/rsyslog.d/noobaa_syslog.conf',
+                    data + '\n' + add_destination);
             })
-            .then(() => promise_utils.promised_exec('service rsyslog restart'));
+            .then(() => promise_utils.exec('service rsyslog restart'));
     } else {
-        return P.nfcall(fs.readFile, 'src/deploy/NVA_build/noobaa_syslog.conf')
-            .then(data => P.nfcall(fs.writeFile, '/etc/rsyslog.d/noobaa_syslog.conf', data))
-            .then(() => promise_utils.promised_exec('service rsyslog restart'));
+        return fs.readFileAsync('src/deploy/NVA_build/noobaa_syslog.conf')
+            .then(data => fs.writeFileAsync('/etc/rsyslog.d/noobaa_syslog.conf', data))
+            .then(() => promise_utils.exec('service rsyslog restart'));
     }
 }
 
-if (require.main === module) {
-    read_drives().then(function(drives) {
-        console.log(drives);
-    });
-}
+
+// EXPORTS
+exports.os_info = os_info;
+exports.read_drives = read_drives;
+exports.get_main_drive_name = get_main_drive_name;
+exports.get_mount_of_path = get_mount_of_path;
+exports.get_drive_of_path = get_drive_of_path;
+exports.top_single = top_single;
+exports.netstat_single = netstat_single;
+exports.set_manual_time = set_manual_time;
+exports.set_ntp = set_ntp;
+exports.get_time_config = get_time_config;
+exports.get_local_ipv4_ips = get_local_ipv4_ips;
+exports.get_networking_info = get_networking_info;
+exports.read_server_secret = read_server_secret;
+exports.is_supervised_env = is_supervised_env;
+exports.reload_syslog_configuration = reload_syslog_configuration;

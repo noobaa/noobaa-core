@@ -322,8 +322,7 @@ mocha.describe('RPC', function() {
             })
             .then(() => https_client.test.get(PARAMS))
             .then(() => wss_client.test.get(PARAMS))
-            .then(() => https_server.close())
-            .done();
+            .then(() => https_server.close());
     });
 
     mocha.it('TCP', function() {
@@ -353,10 +352,10 @@ mocha.describe('RPC', function() {
             allow_missing_methods: true
         });
         let tls_server;
-        return P.nfcall(pem.createCertificate, {
+        return P.fromCallback(callback => pem.createCertificate({
                 days: 365 * 100,
                 selfSigned: true
-            })
+            }, callback))
             .then(cert => {
                 return rpc.register_tcp_transport(0, {
                     key: cert.serviceKey,

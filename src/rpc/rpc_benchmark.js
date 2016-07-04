@@ -32,7 +32,7 @@ argv.time = argv.time || undefined;
 // io concurrency
 argv.concur = argv.concur || 16;
 // io size in bytes
-argv.wsize = !_.isUndefined(argv.wsize) ? argv.wsize : MB;
+argv.wsize = _.isUndefined(argv.wsize) ? MB : argv.wsize;
 argv.rsize = argv.rsize || 0;
 argv.n2n = argv.n2n || false;
 argv.nconn = argv.nconn || 1;
@@ -164,10 +164,10 @@ function start() {
                 'tls:': 1,
             };
             if (tcp) {
-                return P.nfcall(pem.createCertificate, {
+                return P.fromCall(callback => pem.createCertificate({
                         days: 365 * 100,
                         selfSigned: true
-                    })
+                    }, callback))
                     .then(function(cert) {
                         return rpc.register_tcp_transport(argv.addr.port,
                             argv.addr.protocol === 'tls:' && {
@@ -182,10 +182,10 @@ function start() {
                 'ntls:': 1,
             };
             if (ntcp) {
-                return P.nfcall(pem.createCertificate, {
+                return P.fromCallback(callback => pem.createCertificate({
                         days: 365 * 100,
                         selfSigned: true
-                    })
+                    }, callback))
                     .then(function(cert) {
                         return rpc.register_ntcp_transport(argv.addr.port,
                             argv.addr.protocol === 'ntls:' && {

@@ -21,46 +21,47 @@ require('../util/panic');
 // dump heap with kill -USR2 <pid>
 require('heapdump');
 
-var _ = require('lodash');
-var fs = require('fs');
-var path = require('path');
-var util = require('util');
-var http = require('http');
-var https = require('https');
-var multer = require('multer');
-var express = require('express');
-var express_favicon = require('serve-favicon');
-var express_compress = require('compression');
-var express_body_parser = require('body-parser');
-var express_morgan_logger = require('morgan');
-var express_cookie_parser = require('cookie-parser');
-var express_cookie_session = require('cookie-session');
-var express_method_override = require('method-override');
-var P = require('../util/promise');
-var dbg = require('../util/debug_module')(__filename);
-var pem = require('../util/pem');
-var pkg = require('../../package.json');
-var config = require('../../config.js');
-var time_utils = require('../util/time_utils');
-var mongo_client = require('../util/mongo_client');
-var mongoose_utils = require('../util/mongoose_utils');
-var system_store = require('./system_services/system_store').get_instance();
-var promise_utils = require('../util/promise_utils');
-var os = require('os');
-
-var rootdir = path.join(__dirname, '..', '..');
-var dev_mode = (process.env.DEV_MODE === 'true');
+const _ = require('lodash');
+const fs = require('fs');
+const os = require('os');
+const path = require('path');
+const util = require('util');
+const http = require('http');
+const https = require('https');
+const multer = require('multer');
+const express = require('express');
+const express_favicon = require('serve-favicon');
+const express_compress = require('compression');
+const express_body_parser = require('body-parser');
+const express_morgan_logger = require('morgan');
+const express_cookie_parser = require('cookie-parser');
+const express_cookie_session = require('cookie-session');
+const express_method_override = require('method-override');
+const P = require('../util/promise');
+const dbg = require('../util/debug_module')(__filename);
+const pem = require('../util/pem');
+const pkg = require('../../package.json');
+const config = require('../../config.js');
+const time_utils = require('../util/time_utils');
+const mongo_client = require('../util/mongo_client');
+const mongoose_utils = require('../util/mongoose_utils');
+const system_store = require('./system_services/system_store').get_instance();
+const promise_utils = require('../util/promise_utils');
 const SupervisorCtl = require('./utils/supervisor_ctrl');
+
+const rootdir = path.join(__dirname, '..', '..');
+const dev_mode = (process.env.DEV_MODE === 'true');
+const app = express();
+
 
 dbg.set_process_name('WebServer');
 mongoose_utils.mongoose_connect();
 mongo_client.instance().connect();
 
-// create express app
-var app = express();
 
-// copied from s3rver. not sure why. but copy.
-app.disable('x-powered-by');
+/////////
+// RPC //
+/////////
 
 var server_rpc = require('./server_rpc');
 server_rpc.register_system_services();
@@ -70,9 +71,55 @@ server_rpc.register_common_services();
 server_rpc.rpc.register_http_transport(app);
 server_rpc.rpc.router.default = 'fcall://fcall';
 
+var http_port = process.env.PORT = process.env.PORT || 5001;
+var https_port = process.env.SSL_PORT = process.env.SSL_PORT || 5443;
+var http_server = http.createServer(app);
+var https_server;
+
+P.fcall(function() {
+        return P.ninvoke(http_server, 'listen', http_port);
+    })
+    .then(function() {
+        if (fs.existsSync(path.join('/etc', 'private_ssl_path', 'server.key')) &&
+            fs.existsSync(path.join('/etc', 'private_ssl_path', 'server.crt'))) {
+            dbg.log0('Using local certificate');
+            var local_certificate = {
+                serviceKey: fs.readFileSync(path.join('/etc', 'private_ssl_path', 'server.key')),
+                certificate: fs.readFileSync(path.join('/etc', 'private_ssl_path', 'server.crt'))
+            };
+            return local_certificate;
+        } else {
+            dbg.log0('Using self-signed certificate', path.join('/etc', 'private_ssl_path', 'server.key'));
+            return P.fromCallback(callback => pem.createCertificate({
+                days: 365 * 100,
+                selfSigned: true
+            }, callback));
+        }
+    })
+    .then(function(cert) {
+        https_server = https.createServer({
+            key: cert.serviceKey,
+            cert: cert.certificate
+        }, app);
+        return P.ninvoke(https_server, 'listen', https_port);
+    })
+    .then(function() {
+        dbg.log('Web Server Started, ports: http', http_port, 'https', https_port);
+        server_rpc.rpc.register_ws_transport(http_server);
+        server_rpc.rpc.register_ws_transport(https_server);
+    })
+    .catch(function(err) {
+        dbg.error('Web Server FAILED TO START', err.stack || err);
+        process.exit(1);
+    });
+
+
 ////////////////
 // MIDDLEWARE //
 ////////////////
+
+// copied from s3rver. not sure why. but copy.
+app.disable('x-powered-by');
 
 // configure app middleware handlers in the order to use them
 
@@ -101,15 +148,15 @@ app.use(function(req, res, next) {
     let current_clustering = system_store.get_local_cluster_info();
     if ((current_clustering && current_clustering.is_clusterized) && !system_store.is_cluster_master) {
         P.fcall(function() {
-            return server_rpc.client.cluster_server.redirect_to_cluster_master();
-        })
-        .then((host) => {
-            res.status(307);
-            return res.redirect(`http://${host}:8080` + req.url);
-        })
-        .catch((err) => {
-            res.status(500);
-        });
+                return server_rpc.client.cluster_internal.redirect_to_cluster_master();
+            })
+            .then(host => {
+                res.status(307);
+                return res.redirect(`http://${host}:8080` + req.url);
+            })
+            .catch(err => {
+                res.status(500);
+            });
     } else {
         return next();
     }
@@ -141,54 +188,6 @@ function use_exclude(route_path, middleware) {
         }
     };
 }
-
-
-/////////
-// RPC //
-/////////
-
-var http_port = process.env.PORT = process.env.PORT || 5001;
-var https_port = process.env.SSL_PORT = process.env.SSL_PORT || 5443;
-var http_server = http.createServer(app);
-var https_server;
-
-P.fcall(function() {
-        return P.ninvoke(http_server, 'listen', http_port);
-    })
-    .then(function() {
-        if (fs.existsSync(path.join('/etc', 'private_ssl_path', 'server.key')) &&
-            fs.existsSync(path.join('/etc', 'private_ssl_path', 'server.crt'))) {
-            dbg.log0('Using local certificate');
-            var local_certificate = {
-                serviceKey: fs.readFileSync(path.join('/etc', 'private_ssl_path', 'server.key')),
-                certificate: fs.readFileSync(path.join('/etc', 'private_ssl_path', 'server.crt'))
-            };
-            return local_certificate;
-        } else {
-            dbg.log0('Using self-signed certificate',path.join('/etc', 'private_ssl_path', 'server.key'));
-            return P.nfcall(pem.createCertificate, {
-                days: 365 * 100,
-                selfSigned: true
-            });
-        }
-    })
-    .then(function(cert) {
-        https_server = https.createServer({
-            key: cert.serviceKey,
-            cert: cert.certificate
-        }, app);
-        return P.ninvoke(https_server, 'listen', https_port);
-    })
-    .then(function() {
-        dbg.log('Web Server Started, ports: http', http_port, 'https', https_port);
-        server_rpc.rpc.register_ws_transport(http_server);
-        server_rpc.rpc.register_ws_transport(https_server);
-    })
-    .catch(function(err) {
-        dbg.error('Web Server FAILED TO START', err.stack || err);
-        process.exit(1);
-    });
-
 
 
 ////////////
@@ -270,7 +269,7 @@ app.post('/upload_certificate',
     function(req, res) {
         var ssl_certificate = req.file;
         dbg.log0('upload ssl certificate file', ssl_certificate);
-        promise_utils.promised_spawn(process.cwd() + '/src/deploy/NVA_build/ssl_verifier.sh', [
+        promise_utils.spawn(process.cwd() + '/src/deploy/NVA_build/ssl_verifier.sh', [
                 'from_file', ssl_certificate.path
             ], {}, false)
             .then(function() {
@@ -424,12 +423,7 @@ app.use('/fe/assets', express.static(path.join(rootdir, 'frontend', 'dist', 'ass
 app.use('/fe', express.static(path.join(rootdir, 'frontend', 'dist')));
 app.get('/fe/**/', function(req, res) {
     var filePath = path.join(rootdir, 'frontend', 'dist', 'index.html');
-    if (fs.existsSync(filePath)) {
-        res.sendFile(filePath);
-    } else {
-        res.statusCode = 404;
-        res.end();
-    }
+    res.sendFile(filePath);
 });
 
 app.use('/', express.static(path.join(rootdir, 'public')));

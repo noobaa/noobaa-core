@@ -10,13 +10,15 @@ class AssignNodeModalViewModel {
         this.poolName = poolName;
         this.onClose = onClose;
 
-        let relevantNodes = nodeList.filter(
-            node => node.pool !== ko.unwrap(this.poolName)
+        this.relevantNodes = ko.pureComputed(
+            () => nodeList() && nodeList().filter(
+                node => node.pool !== ko.unwrap(this.poolName)
+            )
         );
 
         this.rows = makeArray(
             500,
-            i => new NodeRowViewModel(() => relevantNodes()[i])
+            i => new NodeRowViewModel(() => this.relevantNodes()[i])
         );
 
         this.emptyMessage = ko.pureComputed(
@@ -25,7 +27,7 @@ class AssignNodeModalViewModel {
                     if (nodeList().length === 0) {
                         return 'The system contain no nodes';
 
-                    } else if (relevantNodes().length === 0) {
+                    } else if (this.relevantNodes().length === 0) {
                         return 'All nodes are already in this pool';
                     }
                 }
@@ -36,6 +38,18 @@ class AssignNodeModalViewModel {
 
         // Need to load the pool list
         loadNodeList();
+    }
+
+    selectAllNodes() {
+        this.selectedNodes(
+            this.relevantNodes().map(
+                node => node.name
+            )
+        );
+    }
+
+    clearAllNodes() {
+        this.selectedNodes([]);
     }
 
     assign() {

@@ -55,7 +55,6 @@ export default function register(ko) {
     ko.components.register('upload-files-modal',                    require('./bucket/upload-files-modal/upload-files-modal'));
     ko.components.register('set-cloud-sync-modal',                  require('./bucket/set-cloud-sync-modal/set-cloud-sync-modal'));
     ko.components.register('edit-cloud-sync-modal',                 require('./bucket/edit-cloud-sync-modal/edit-cloud-sync-modal'));
-    ko.components.register('aws-credentials-modal',                 require('./bucket/aws-credentials-modal/aws-credentials-modal'));
     ko.components.register('bucket-s3-access-list',                 require('./bucket/bucket-s3-access-list/bucket-s3-access-list'));
     ko.components.register('s3-access-details-modal',               require('./bucket/s3-access-details-modal/s3-access-details-modal'));
     ko.components.register('bucket-s3-access-modal',                require('./bucket/bucket-s3-access-modal/bucket-s3-access-modal'));
@@ -124,6 +123,14 @@ export default function register(ko) {
     /** INJECT:management **/
 
     // -------------------------------
+    // Cluster
+    // -------------------------------
+    ko.components.register('cluster-panel', require('./cluster/cluster-panel/cluster-panel'));
+    ko.components.register('server-table', require('./cluster/server-table/server-table'));
+    ko.components.register('attach-server-modal', require('./cluster/attach-server-modal/attach-server-modal'));
+    /** INJECT:cluster **/
+
+    // -------------------------------
     // Admin
     // -------------------------------
     ko.components.register('audit-pane',         require('./admin/audit-pane/audit-pane'));
@@ -157,5 +164,6 @@ export default function register(ko) {
     ko.components.register('capacity-bar',              require('./shared/capacity-bar/capacity-bar'));
     ko.components.register('add-s3-connection-modal',   require('./shared/add-s3-connection-modal/add-s3-connection-modal'));
     ko.components.register('toggle-filter', require('./shared/toggle-filter/toggle-filter'));
+    ko.components.register('data-table', require('./shared/data-table/data-table'));
     /** INJECT:shared **/
 }

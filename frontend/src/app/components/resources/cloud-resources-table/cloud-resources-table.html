@@ -3,38 +3,8 @@
     Add Cloud Resource
 </button>
 
-<div class="data-table">
-    <table>
-        <thead>
-            <tr>
-                <th class="type-col">type</th>
-                <th class="name-col text-left">resource name</th>
-                <th class="usage-col">used capacity by noobaa</th>
-                <th class="cloud-bucket-col">cloud bucket</th>
-                <th class="delete-col"></th>
-            </tr>
-        </thead>
-
-        <tbody data-bind="foreach: visibleRows">
-            <tr>
-                <td class="type-col">
-                    <svg-icon params="name: typeIcon"></svg-icon>
-                </td>
-                <td class="name-col text-left" data-bind="text: name"></td>
-                <td class="usage-col" data-bind="text: usage"></td>
-                <td class="cloud-bucket-col" data-bind="text: cloudBucket"></td>
-                <td class="delete-col">
-                    <delete-button params="
-                        group: $component.deleteGroup,
-                        disabled: !canBeDeleted(),
-                        onDelete: () => del(),
-                        toolTip: deleteToolTip
-                    "></delete-button>
-                </td>
-            </tr>
-        </tbody>
-    </table>
-</div>
+<data-table params="columns: columns, rows: rows, sorting: sorting">
+</data-table>
 
 <!-- ko if: isAddCloudResourceModalVisible -->
 <add-cloud-resource-modal params="onClose: () => hideCloudReousrceModal()">

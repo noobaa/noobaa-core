@@ -371,8 +371,21 @@ module.exports = {
             }
         },
 
-        diagnose: {
+        diagnose_system: {
             method: 'GET',
+            reply: {
+                type: 'string',
+            },
+            auth: {
+                system: 'admin',
+            }
+        },
+
+        diagnose_node: {
+            method: 'GET',
+            params: {
+                $ref: 'node_api#/definitions/node_identity'
+            },
             reply: {
                 type: 'string',
             },
@@ -825,13 +838,13 @@ module.exports = {
                 version: {
                     type: 'string'
                 },
-                server_name: {
-                    type: 'string'
-                },
                 is_connected: {
                     type: 'boolean'
                 },
-                server_ip: {
+                hostname: {
+                    type: 'string'
+                },
+                address: {
                     type: 'string'
                 },
                 memory_usage: {
@@ -840,6 +853,9 @@ module.exports = {
                 cpu_usage: {
                     type: 'number'
                 },
+                location: {
+                    type: 'string'
+                }
             }
         },
 

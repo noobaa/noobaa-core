@@ -49,7 +49,9 @@ mocha.describe('node_server', function() {
             .then(() => client.node.ping())
             .delay(2000)
             .then(() => client.node.set_debug_node({
-                name: nodes[0].name,
+                node: {
+                    name: nodes[0].name
+                },
                 level: 0,
             }))
             .then(() => client.node.collect_agent_diagnostics({

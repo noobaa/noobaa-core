@@ -1,21 +1,18 @@
 'use strict';
 
-// var _ = require('lodash');
-var P = require('./promise');
-var promise_utils = require('./promise_utils');
-var fs = require('fs');
-var path = require('path');
-var readdirp = require('readdirp');
+// const _ = require('lodash');
+const fs = require('fs');
+const ncp = require('ncp').ncp;
+const path = require('path');
+const rimraf = require('rimraf');
+const mkdirp = require('mkdirp');
+const readdirp = require('readdirp');
 
-module.exports = {
-    file_must_not_exist: file_must_not_exist,
-    file_must_exist: file_must_exist,
-    disk_usage: disk_usage,
-    list_directory: list_directory,
-    list_directory_to_file: list_directory_to_file,
-    find_line_in_file: find_line_in_file,
-    create_fresh_path: create_fresh_path,
-};
+const P = require('./promise');
+const promise_utils = require('./promise_utils');
+
+const is_windows = (process.platform === "win32");
+const is_mac = (process.platform === "darwin");
 
 
 /**
@@ -128,7 +125,95 @@ function find_line_in_file(file_name, line_sub_string) {
         });
 }
 
-function create_fresh_path(path) {
-    return P.resolve(promise_utils.folder_delete(path))
-        .then(() => fs.mkdir(path));
+function create_path(dir) {
+    return P.fromCallback(callback => mkdirp(dir, callback));
 }
+
+function create_fresh_path(dir) {
+    return P.resolve()
+        .then(() => folder_delete(dir))
+        .then(() => create_path(dir));
+}
+
+function file_copy(src, dst) {
+    let cmd;
+    if (is_windows) {
+        cmd = 'copy /Y  "' +
+            src.replace(/\//g, '\\') + '" "' +
+            dst.replace(/\//g, '\\') + '"';
+    } else {
+        cmd = 'cp -f ' + src + ' ' + dst;
+    }
+    console.log('file_copy:', cmd);
+    return promise_utils.exec(cmd);
+}
+
+function folder_delete(dir) {
+    return P.fromCallback(callback => rimraf(dir, callback));
+}
+
+function file_delete(file_name) {
+    return fs.unlinkAsync(file_name)
+        .catch(err => {
+            if (err.code !== 'ENOENT') throw err;
+        })
+        .return();
+}
+
+function full_dir_copy(src, dst, filter_regex) {
+    return P.fromCallback(callback => {
+        ncp.limit = 10;
+        let ncp_options = {};
+        if (filter_regex) {
+            //this regexp will filter out files that matches, except path.
+            var ncp_filter_regex = new RegExp(filter_regex);
+            var ncp_filter_function = function(input) {
+                if (input.indexOf('/') > 0) {
+                    return false;
+                } else if (ncp_filter_regex.test(input)) {
+                    return false;
+                } else {
+                    return true;
+                }
+            };
+            ncp_options.filter = ncp_filter_function;
+        }
+        if (!src || !dst) {
+            throw new Error('Both src and dst must be given');
+        }
+        ncp(src, dst, ncp_options, callback);
+    }).return();
+}
+
+function tar_pack(tar_file_name, source, ignore_file_changes) {
+    let cmd;
+    if (is_windows) {
+        cmd = '7za.exe a -ttar -so tmp.tar ' +
+            source.replace(/\//g, '\\') + '| 7za.exe a -si ' +
+            tar_file_name.replace(/\//g, '\\');
+    } else if (is_mac) {
+        cmd = 'tar -zcvf ' + tar_file_name + ' ' + source + '/*';
+    } else {
+        cmd = 'tar -zcvf ' +
+            (ignore_file_changes ? '--warning=no-file-changed ' : '') +
+            tar_file_name + ' ' + source + '/*';
+    }
+    console.log('tar_pack:', cmd);
+    return promise_utils.exec(cmd);
+}
+
+
+// EXPORTS
+exports.file_must_not_exist = file_must_not_exist;
+exports.file_must_exist = file_must_exist;
+exports.disk_usage = disk_usage;
+exports.list_directory = list_directory;
+exports.list_directory_to_file = list_directory_to_file;
+exports.find_line_in_file = find_line_in_file;
+exports.create_path = create_path;
+exports.create_fresh_path = create_fresh_path;
+exports.full_dir_copy = full_dir_copy;
+exports.file_copy = file_copy;
+exports.file_delete = file_delete;
+exports.folder_delete = folder_delete;
+exports.tar_pack = tar_pack;

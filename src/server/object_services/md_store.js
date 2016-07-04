@@ -9,7 +9,7 @@ const ObjectPart = require('./schemas/object_part');
 const DataChunk = require('./schemas/data_chunk');
 const DataBlock = require('./schemas/data_block');
 const map_utils = require('./map_utils');
-const nodes_store = require('../node_services/nodes_store');
+const nodes_client = require('../node_services/nodes_client');
 const mongo_utils = require('../../util/mongo_utils');
 const mongo_functions = require('../../util/mongo_functions');
 // const dbg = require('../../util/debug_module')(__filename);
@@ -74,7 +74,8 @@ function load_blocks_for_chunks(chunks) {
             },
             deleted: null,
         }).toArray())
-        .then(blocks => nodes_store.instance().populate_nodes_for_map(blocks, 'node'))
+        .then(blocks => nodes_client.instance().populate_nodes_for_map(
+            blocks[0] && blocks[0].system, blocks, 'node'))
         .then(blocks => {
             // remove from the list blocks that their node is not found
             // and consider these blocks just like deleted blocks

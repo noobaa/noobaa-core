@@ -53,7 +53,7 @@ class BlockStoreS3 extends BlockStoreBase {
         return {
             total: PETABYTE,
             free: PETABYTE,
-            used: 0,
+            used: 0, // TODO need to count while serving and count by listing on load
         };
     }
 

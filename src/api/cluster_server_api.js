@@ -17,9 +17,9 @@ module.exports = {
             method: 'POST',
             params: {
                 type: 'object',
-                required: ['ip', 'secret', 'role', 'shard'],
+                required: ['address', 'secret', 'role', 'shard'],
                 properties: {
-                    ip: {
+                    address: {
                         type: 'string',
                     },
                     secret: {
@@ -29,7 +29,10 @@ module.exports = {
                         $ref: '#/definitions/cluster_member_role'
                     },
                     shard: {
-                        type: 'string',
+                        type: 'string'
+                    },
+                    location: {
+                        type: 'string'
                     }
                 },
             },
@@ -37,108 +40,27 @@ module.exports = {
                 system: 'admin'
             }
         },
-
-        join_to_cluster: {
-            doc: 'direct current server to join to the cluster',
+        update_server_location: {
+            doc: 'Add new member to the cluster',
             method: 'POST',
             params: {
                 type: 'object',
-                required: ['topology', 'cluster_id', 'secret', 'role', 'shard'],
+                required: ['secret', 'location'],
                 properties: {
-                    ip: {
-                        type: 'string',
-                    },
-                    cluster_id: {
-                        type: 'string'
-                    },
                     secret: {
-                        type: 'string'
-                    },
-                    role: {
-                        $ref: '#/definitions/cluster_member_role'
-                    },
-                    shard: {
                         type: 'string',
                     },
-                    topology: {
-                        type: 'object',
-                        additionalProperties: true,
-                        properties: {}
-                    },
-                }
-            },
-            auth: {
-                system: false
-            }
-        },
-
-        news_config_servers: {
-            doc: 'published the config server IPs to the cluster',
-            method: 'POST',
-            params: {
-                type: 'object',
-                required: ['IPs', 'cluster_id'],
-                properties: {
-                    IPs: {
-                        type: 'array',
-                        items: {
-                            type: 'object',
-                            properties: {
-                                address: {
-                                    type: 'string'
-                                },
-                            }
-                        },
-                    },
-                    cluster_id: {
+                    location: {
                         type: 'string'
-                    },
+                    }
                 },
             },
             auth: {
-                system: false
+                system: 'admin'
             }
-        },
-
-        redirect_to_cluster_master: {
-            doc: 'redirect to master server to our knowledge',
-            method: 'GET',
-            reply: {
-                type: 'string',
-            },
-            auth: {
-                system: false
-            }
-        },
-
-        news_updated_topology: {
-            doc: 'published updated clustering topology info',
-            method: 'POST',
-            params: {
-                type: 'object',
-                additionalProperties: true,
-                properties: {}
-            },
-            auth: {
-                system: false
-            }
-        },
-
-        news_replicaset_servers: {
-            doc: 'published updated replica set clustering topology info',
-            method: 'POST',
-            params: {
-                type: 'object',
-                additionalProperties: true,
-                properties: {}
-            },
-            auth: {
-                system: false
-            }
-        },
-
-
+        }
     },
+
     definitions: {
         cluster_member_role: {
             enum: ['SHARD', 'REPLICA'],

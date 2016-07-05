@@ -459,6 +459,14 @@ function upgrade_cluster() {
 
     var clusters = db.clusters.find();
     if (clusters.size()) {
+        // if owner_shardname does not exist, set it to default
+        if (!clusters[0].owner_shardname) {
+            db.clusters.update({}, {
+                $set: {
+                    owner_shardname: 'shard1'
+                }
+            });
+        }
         print('\n*** Clusters up to date');
         return;
     }

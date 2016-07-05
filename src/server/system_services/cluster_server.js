@@ -155,12 +155,13 @@ function join_to_cluster(req) {
                 throw new Error('Unknown server role ' + req.rpc_params.role);
             }
         })
-        .then(() => _attach_server_configuration({}))
-        .then((res_params) => cutil.update_cluster_info(res_params))
+        //.then(() => _attach_server_configuration({}))
+        //.then((res_params) => cutil.update_cluster_info(res_params))
         .then(function() {
-            dbg.log0('Added member, publishing updated topology', cutil.pretty_topology(cutil.get_topology()));
+            var topology_to_send = _.omit(cutil.get_topology(), 'dns_servers', 'ntp');
+            dbg.log0('Added member, publishing updated topology', cutil.pretty_topology(topology_to_send));
             //Mongo servers are up, update entire cluster with the new topology
-            return _publish_to_cluster('news_updated_topology', cutil.get_topology());
+            return _publish_to_cluster('news_updated_topology', topology_to_send);
         })
         .return();
 }
@@ -475,6 +476,7 @@ function _add_new_server_to_replica_set(shardname, ip) {
 
     return P.resolve(MongoCtrl.add_replica_set_member(shardname, /*first_server=*/ false, new_topology.shards[shard_idx].servers))
         .then(() => system_store.load())
+        .then(() => _attach_server_configuration(new_topology))
         .then(() => {
             // insert an entry for this server in clusters collection.
             new_topology._id = system_store.generate_id();
@@ -571,23 +573,23 @@ function _attach_server_configuration(cluster_server) {
             cluster_server.ntp = {
                 timezone: time_config.timezone
             };
-            if (ntp_line) {
+            if (ntp_line && ntp_line.split(' ')[0] === 'server') {
                 cluster_server.ntp.server = ntp_line.split(' ')[1];
                 dbg.log0('found configured NTP server in ntp.conf:', cluster_server.ntp.server);
             }
 
-            let dns_servers;
-            if (primary_dns_line) {
+            var dns_servers = [];
+            if (primary_dns_line && primary_dns_line.split(' ')[0] === 'nameserver') {
                 let pri_dns = primary_dns_line.split(' ')[1];
                 dns_servers.push(pri_dns);
                 dbg.log0('found configured Primary DNS server in resolv.conf:', pri_dns);
             }
-            if (secondary_dns_line) {
+            if (secondary_dns_line && secondary_dns_line.split(' ')[0] === 'nameserver') {
                 let sec_dns = secondary_dns_line.split(' ')[1];
                 dns_servers.push(sec_dns);
                 dbg.log0('found configured Secondary DNS server in resolv.conf:', sec_dns);
             }
-            if (dns_servers) {
+            if (dns_servers.length > 0) {
                 cluster_server.dns_servers = dns_servers;
             }
 

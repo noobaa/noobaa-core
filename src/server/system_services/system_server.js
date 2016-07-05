@@ -76,7 +76,7 @@ function new_system_defaults(name, owner_account_id) {
 }
 
 function new_system_changes(name, owner_account) {
-    P.fcall(function() {
+    return P.fcall(function() {
         const default_pool_name = 'default_pool';
         const default_bucket_name = 'files';
         const bucket_with_suffix = default_bucket_name + '#' + Date.now().toString(36);

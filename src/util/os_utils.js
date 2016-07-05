@@ -265,12 +265,20 @@ function set_ntp(server, timez) {
 
 function set_dns_server(servers) {
     if (os.type() === 'Linux') {
-        var primary_command = "sed -i 's/.*NooBaa Configured Primary DNS Server.*/nameserver " +
-            servers[0] + " #NooBaa Configured Primary DNS Server/' /etc/resolv.conf";
-        var secondary_command = "sed -i 's/.*NooBaa Configured Secondary DNS Server.*/nameserver " +
-            servers[1] + " #NooBaa Configured Secondary DNS Server/' /etc/resolv.conf";
-        return promise_utils.exec(primary_command)
-            .then(() => promise_utils.exec(secondary_command));
+        var commands_to_exec = [];
+        if (servers[0]) {
+            commands_to_exec.push("sed -i 's/.*NooBaa Configured Primary DNS Server.*/nameserver " +
+                servers[0] + " #NooBaa Configured Primary DNS Server/' /etc/resolv.conf");
+        }
+
+        if (servers[1]) {
+            commands_to_exec.push("sed -i 's/.*NooBaa Configured Secondary DNS Server.*/nameserver " +
+                servers[1] + " #NooBaa Configured Secondary DNS Server/' /etc/resolv.conf");
+        }
+
+        return P.each(commands_to_exec, function(command) {
+            return promise_utils.exec(command);
+        });
     } else if (os.type() === 'Darwin') { //Bypass for dev environment
         return;
     } else {

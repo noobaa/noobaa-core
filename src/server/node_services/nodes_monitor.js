@@ -701,8 +701,14 @@ class NodesMonitor extends EventEmitter {
     }
 
     migrate_nodes_to_pool(nodes_identities, pool_id) {
-        const items = _.map(nodes_identities, node_identity =>
-            this._get_node(node_identity, 'allow_offline'));
+        const items = _.map(nodes_identities, node_identity => {
+            let item = this._get_node(node_identity, 'allow_offline');
+            // validate that the node doesn't belong to a cloud pool
+            if (item.node.is_cloud_node) {
+                throw new RpcError('migrating a cloud node is not allowed');
+            }
+            return item;
+        });
         _.each(items, item => {
             this._update_status(item);
             if (String(item.node.pool) === String(pool_id)) return;

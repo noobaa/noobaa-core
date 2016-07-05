@@ -269,11 +269,15 @@ function set_dns_server(servers) {
         if (servers[0]) {
             commands_to_exec.push("sed -i 's/.*NooBaa Configured Primary DNS Server.*/nameserver " +
                 servers[0] + " #NooBaa Configured Primary DNS Server/' /etc/resolv.conf");
+        } else {
+            commands_to_exec.push("sed -i 's/.*NooBaa Configured Primary DNS Server.*/#NooBaa Configured Primary DNS Server/' /etc/resolv.conf");
         }
 
         if (servers[1]) {
             commands_to_exec.push("sed -i 's/.*NooBaa Configured Secondary DNS Server.*/nameserver " +
                 servers[1] + " #NooBaa Configured Secondary DNS Server/' /etc/resolv.conf");
+        } else {
+            commands_to_exec.push("sed -i 's/.*NooBaa Configured Secondary DNS Server.*/#NooBaa Configured Secondary DNS Server/' /etc/resolv.conf");
         }
 
         return P.each(commands_to_exec, function(command) {

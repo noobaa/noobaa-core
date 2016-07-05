@@ -2,10 +2,16 @@
 CONFIG=false
 #if we have the folder and agent_conf.json, we will assume upgrade. Need to revisit in the future.
 openssl version
-if [ $? ne 0 ]; then
-    echo "missing openssl, please install openssl and rerun the setup"
+if [ $? -ne 0 ]; then
+    echo "Missing openssl, please install openssl and rerun the setup"
     exit 1
 fi
+initctl --version
+if [ $? -ne 0 ]; then
+    echo "Missing upstart, please install it by typing: sudo apt install upstart, and rerun the setup"
+    exit 1
+fi
+
 if [ ! -d "/usr/local/noobaa" ]; then
    if [[ $# -lt 2 ]]; then
   	echo "usage: noobaa-setup /S /Config <configuration string>"

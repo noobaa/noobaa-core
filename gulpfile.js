@@ -15,6 +15,7 @@ const event_stream = require('event-stream');
 
 const P = require('./src/util/promise');
 const pkg = require('./package.json');
+const fs_utils = require('./src/util/fs_utils');
 const promise_utils = require('./src/util/promise_utils');
 
 if (!process.env.PORT) {
@@ -142,6 +143,7 @@ function package_build_task() {
             if (!use_local_executable) {
                 gutil.log('before downloading setup and rest');
                 return P.resolve()
+                    .then(() => fs_utils.create_path(DEST))
                     .then(function() {
                         return promise_utils.exec('curl -u tamireran:0436dd1acfaf9cd247b3dd22a37f561f -L http://127.0.0.1:8080/job/LinuxBuild/lastBuild/artifact/build/linux/noobaa-setup-' + current_pkg_version + ' >build/public/noobaa-setup-' + current_pkg_version);
                     })

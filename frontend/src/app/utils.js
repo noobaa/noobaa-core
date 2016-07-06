@@ -98,16 +98,6 @@ export function randomString(len = 8) {
     ).join('');
 }
 
-export function ensureDblEncode(str) {
-    // return decodeURIComponent(
-    //     decodeURIComponent(
-    //         encodeURIComponent(
-    //             encodeURIComponent(str)
-    //         )
-    //     )
-    // );
-}
-
 export function parseQueryString(str) {
     return decodeURIComponent(str)
         .replace(/(^\?)/,'')
@@ -173,7 +163,7 @@ export function realizeUri(template, params = {}, query = {}) {
 export function throttle(func, grace, owner) {
     let handle = null;
     return function(...args) {
-        clearTimeout(handle);``
+        clearTimeout(handle);
         handle = setTimeout(() => func.apply(owner || this, args), grace);
     };
 }

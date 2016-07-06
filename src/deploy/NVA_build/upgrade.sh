@@ -59,6 +59,13 @@ function restart_webserver {
 
 }
 
+function setup_users {
+	deploy_log "setting up mongo users for admin and nbcore databases"
+	/usr/bin/mongo nbcore ${CORE_DIR}/src/deploy/NVA_build/mongo_setup_users.js
+	deploy_log "setup_users done"
+}
+
+
 function restart_s3rver {
     ${SUPERCTL} restart s3rver
 }

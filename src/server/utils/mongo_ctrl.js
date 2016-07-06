@@ -242,7 +242,7 @@ MongoCtrl.prototype._refresh_services_list = function() {
 
 MongoCtrl.prototype.update_dotenv = function(name, IPs) {
     dbg.log0('will update dotenv for replica set', name, 'with IPs', IPs);
-    let servers_str = IPs.map(ip => '$$USER$$' + ip + ':' + config.MONGO_DEFAULTS.SHARD_SRV_PORT).join(',');
+    let servers_str = IPs.map(ip => ip + ':' + config.MONGO_DEFAULTS.SHARD_SRV_PORT).join(',');
     let url = 'mongodb://' + servers_str + '/nbcore?replicaSet=' + name;
     let old_url = process.env.MONGO_RS_URL || '';
     dbg.log0('updating MONGO_RS_URL in .env from', old_url, 'to', url);

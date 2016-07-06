@@ -3,8 +3,12 @@
     Add Cloud Resource
 </button>
 
-<data-table params="columns: columns, rows: rows, sorting: sorting">
-</data-table>
+<data-table params="
+    columns: columns,
+    rowFactory: rowFactory.bind($component),
+    sorting: sorting,
+    data: resources
+"></data-table>
 
 <!-- ko if: isAddCloudResourceModalVisible -->
 <add-cloud-resource-modal params="onClose: () => hideCloudReousrceModal()">

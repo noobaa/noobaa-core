@@ -27,8 +27,9 @@ const columns = deepFreeze([
         sortable: true
     },
     {
-        name: 'delete',
+        name: 'deleteBtn',
         label: '',
+        css: 'delete-col',
         template: 'delete'
     }
 ]);
@@ -44,47 +45,34 @@ class CloudResourcesTableViewModel {
     constructor() {
         this.columns = columns;
 
-        let deleteGroup = ko.observable();
-
-        let resources = ko.pureComputed(
-            () => {
-                if (!systemInfo()) {
-                    return;
-                }
-
-                return systemInfo().pools.filter(
-                    ({ cloud_info }) => cloud_info
-                );
-            }
-        );
-
-        let query = ko.pureComputed(
-            () => routeContext().query
-        );
-
         this.sorting = ko.pureComputed({
             read: () => ({
-                sortBy: query().sortBy || 'name',
-                order: Number(query().order) || 1
+                sortBy: routeContext().query.sortBy || 'name',
+                order: Number(routeContext().query.order) || 1
             }),
             write: value => redirectTo(undefined, undefined, value)
         });
 
-        this.rows = ko.pureComputed(
+        this.resources = ko.pureComputed(
             () => {
                 let { sortBy, order } = this.sorting();
                 let compareOp = createCompareFunc(compareAccessors[sortBy], order);
 
-                return resources() && resources()
+                return systemInfo() && systemInfo().pools
+                    .filter(
+                        pool => pool.cloud_info
+                    )
                     .slice(0)
-                    .sort(compareOp)
-                    .map(
-                        resource => new CloudResourceRowViewModel(resource, deleteGroup)
-                    );
+                    .sort(compareOp);
             }
         );
 
+        this.deleteGroup = ko.observable();
         this.isAddCloudResourceModalVisible = ko.observable(false);
+    }
+
+    rowFactory(resource) {
+        return new CloudResourceRowViewModel(resource, this.deleteGroup);
     }
 
     showAddCloudResourceModal() {

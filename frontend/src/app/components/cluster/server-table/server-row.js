@@ -10,27 +10,27 @@ const stateMapping = deepFreeze({
 export default class ServerRow {
     constructor(server) {
         this.state = ko.pureComputed(
-            () => server ? stateMapping[server.is_connected] : ''
+            () => server() ? stateMapping[server().is_connected] : ''
         );
 
         this.hostname = ko.pureComputed(
-            () => server ? server.hostname : ''
+            () => server() ? server().hostname : ''
         );
 
         this.address = ko.pureComputed(
-            () => server ? server.address : ''
+            () => server() ? server().address : ''
         );
 
         this.memoryUsage = ko.pureComputed(
-            () => server ? numeral(server.memory_usage).format('%') : 'N/A'
+            () => server() ? numeral(server().memory_usage).format('%') : 'N/A'
         );
 
         this.cpuUsage = ko.pureComputed(
-            () => server ? numeral(server.cpu_usage).format('%') : 'N/A'
+            () => server() ? numeral(server().cpu_usage).format('%') : 'N/A'
         );
 
         this.version = ko.pureComputed(
-            () => server ? server.version : 'N/A'
+            () => server() ? server().version : 'N/A'
         );
     }
 }

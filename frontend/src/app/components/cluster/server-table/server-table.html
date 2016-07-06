@@ -4,11 +4,12 @@
     Attach Server
 </button>
 
-<data-table params="columns: columns, rows: rows, sorting: sorting">
-    <template name="custom">
-        Custom <span data-bind="text: $data">
-    </template>
-</data-table>
+<data-table params="
+    columns: columns,
+    rowFactory: rowFactory,
+    sorting: sorting,
+    data: servers
+"></data-table>
 
 <!-- ko if:isAttachServerModalVisible -->
 <attach-server-modal params="onClose: () => hideAttachServerModal()">

@@ -25,11 +25,11 @@ export default class CloudResourceRowViewModel {
     constructor(resource, deleteGroup) {
         this.type = ko.pureComputed(
             () => {
-                if (!resource) {
+                if (!resource()) {
                     return;
                 }
 
-                let endpoint = resource.cloud_info.endpoint.toLowerCase();
+                let endpoint = resource().cloud_info.endpoint.toLowerCase();
                 let { icon } = icons.find(
                     ({ pattern }) => endpoint.indexOf(pattern) > -1
                 );
@@ -39,35 +39,34 @@ export default class CloudResourceRowViewModel {
         );
 
         this.name = ko.pureComputed(
-            () => resource && resource.name
+            () => resource() && resource().name
         );
 
         this.usage = ko.pureComputed(
-            () => resource && formatSize(resource.storage.used)
+            () => resource() && formatSize(resource().storage.used)
         );
 
         this.cloudBucket = ko.pureComputed(
-            () => resource && resource.cloud_info.target_bucket
+            () => resource() && resource().cloud_info.target_bucket
         );
 
-        this.delete = ko.pureComputed(
-            () => {
-                let undeletable = resource && resource.undeletable;
-                let deleteToolTip = undeletable ?
-                    undeletableReasons[undeletable] :
-                    'delete resources';
-
-                return {
-                    deleteGroup: deleteGroup,
-                    undeletable: Boolean(undeletable),
-                    deleteToolTip: deleteToolTip,
-                    onDelete: () => this.del()
-                };
-            }
+        let undeletable = ko.pureComputed(
+            () => resource() && resource().undeletable
         );
+
+        this.deleteBtn = {
+            deleteGroup: deleteGroup,
+            undeletable: undeletable,
+            deleteToolTip: ko.pureComputed(
+                () => undeletable() ? undeletableReasons[undeletable()] : 'delete resources'
+            ),
+            onDelete: () => this.del()
+        };
+
     }
 
     del() {
+        console.debug('DETELING:', this.name());
         deletePool(this.name());
     }
 }

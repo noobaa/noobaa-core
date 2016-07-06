@@ -63,7 +63,6 @@ function restart_s3rver {
     ${SUPERCTL} restart s3rver
 }
 
-
 function check_latest_version {
   local current=$(grep CURRENT_VERSION $ENV_FILE | sed 's:.*=\(.*\):\1:')
   local path=$(node $VER_CHECK $current)
@@ -145,6 +144,7 @@ function do_upgrade {
   deploy_log "Finished post upgrade"
 
   enable_supervisord
+  setup_users
   deploy_log "Enabling supervisor"
   #workaround - from some reason, without sleep + restart, the server starts with odd behavior
   #TODO: understand why and fix.
@@ -154,8 +154,8 @@ function do_upgrade {
   restart_webserver
   #Update Mongo Upgrade status
   deploy_log "Updating system.upgrade on success"
-  local id=$(/usr/bin/mongo nbcore --eval "db.systems.find({},{'_id':'1'})" | grep _id | sed 's:.*ObjectId("\(.*\)").*:\1:')
-  /usr/bin/mongo nbcore --eval "db.systems.update({'_id':ObjectId('${id}')},{\$set:{'upgrade':{'path':'','status':'UNAVAILABLE','error':''}}});"
+  local id=$(/usr/bin/mongo admin -u nbadmin -p roonoobaa --eval "db.getSiblingDB('nbcore').systems.find({},{'_id':'1'})" | grep _id | sed 's:.*ObjectId("\(.*\)").*:\1:')
+  /usr/bin/mongo admin -u nbadmin -p roonoobaa --eval "db.getSiblingDB('nbcore').systems.update({'_id':ObjectId('${id}')},{\$set:{'upgrade':{'path':'','status':'UNAVAILABLE','error':''}}});"
 
   deploy_log "Upgrade finished successfully!"
 }

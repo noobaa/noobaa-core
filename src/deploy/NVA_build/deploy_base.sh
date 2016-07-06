@@ -235,11 +235,17 @@ function setup_supervisors {
 	deploy_log "setup_supervisors done"
 }
 
+function setup_users {
+	deploy_log "setting up mongo users for admin and nbcore databases"
+	/usr/bin/mongo nbcore ${CORE_DIR}/src/deploy/NVA_build/mongo_setup_users.js
+	deploy_log "setup_users done"
+}
+
 function install_id_gen {
 	deploy_log "install_id_gen start"
 	sleep 10 #workaround for mongo starting
 	local id=$(uuidgen)
-	/usr/bin/mongo nbcore --eval "db.clusters.insert({cluster_id: '${id}'})"
+	/usr/bin/mongo admin -u nbadmin -p roonoobaa --eval "db.getSiblingDB('nbcore').clusters.insert({cluster_id: '${id}'})"
 	deploy_log "install_id_gen done"
 }
 
@@ -294,6 +300,7 @@ if [ "$1" == "runinstall" ]; then
 	install_mongo
 	general_settings
 	setup_supervisors
+	setup_users
 	setup_syslog
 	install_id_gen
 	reboot -fn

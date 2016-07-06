@@ -251,10 +251,10 @@ function post_upgrade {
 
   #Installation ID generation if needed
   #TODO: Move this into the mongo_upgrade.js
-  local id=$(/usr/bin/mongo nbcore --eval "db.clusters.find().shellPrint()" | grep cluster_id | wc -l)
+  local id=$(/usr/bin/mongo admin -u nbadmin -p roonoobaa --eval "db.getSiblingDB('nbcore').clusters.find().shellPrint()" | grep cluster_id | wc -l)
   if [ ${id} -eq 0 ]; then
       id=$(uuidgen)
-      /usr/bin/mongo nbcore --eval "db.clusters.insert({cluster_id: '${id}'})"
+      /usr/bin/mongo admin -u nbadmin -p roonoobaa --eval "db.getSiblingDB('nbcore').clusters.insert({cluster_id: '${id}'})"
   fi
 
   unset AGENT_VERSION

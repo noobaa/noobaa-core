@@ -154,7 +154,7 @@ function do_upgrade {
   restart_webserver
   #Update Mongo Upgrade status
   deploy_log "Updating system.upgrade on success"
-  local id=$(/mongodb/bin/mongo nbcore --eval "db.systems.find({},{'_id':'1'})" | grep _id | sed 's:.*ObjectId("\(.*\)").*:\1:')
+  local id=$(/usr/bin/mongo nbcore --eval "db.systems.find({},{'_id':'1'})" | grep _id | sed 's:.*ObjectId("\(.*\)").*:\1:')
   /usr/bin/mongo nbcore --eval "db.systems.update({'_id':ObjectId('${id}')},{\$set:{'upgrade':{'path':'','status':'UNAVAILABLE','error':''}}});"
 
   deploy_log "Upgrade finished successfully!"

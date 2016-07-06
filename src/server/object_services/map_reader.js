@@ -8,7 +8,7 @@ const config = require('../../../config.js');
 const map_utils = require('./map_utils');
 const mongo_utils = require('../../util/mongo_utils');
 const md_store = require('./md_store');
-const nodes_store = require('../node_services/nodes_store');
+const nodes_client = require('../node_services/nodes_client');
 const system_store = require('../system_services/system_store').get_instance();
 
 
@@ -75,7 +75,7 @@ function read_node_mappings(params) {
     return P.fcall(function() {
             return md_store.DataBlock.collection.find({
                 system: params.system._id,
-                node: params.node_id,
+                node: mongo_utils.make_object_id(params.node_id),
                 deleted: null,
             }, {
                 sort: '-_id',
@@ -147,15 +147,18 @@ function read_parts_mappings(params) {
         }, {
             sort: 'frag'
         }).toArray())
-        .then(blocks => nodes_store.instance().populate_nodes_for_map(blocks, 'node'))
+        .then(blocks => nodes_client.instance().populate_nodes_for_map(
+            blocks[0] && blocks[0].system, blocks, 'node'))
         .then(blocks => {
             var blocks_by_chunk = _.groupBy(blocks, 'chunk');
             return _.map(params.parts, part => {
-                // console.log('GGG part', require('util').inspect(part, {
-                //     depth: null
-                // }), require('util').inspect(blocks_by_chunk[part.chunk._id], {
-                //     depth: null
-                // }));
+                // console.log('GGG part',
+                //     require('util').inspect(part, {
+                //         depth: null
+                //     }),
+                //     require('util').inspect(blocks_by_chunk[part.chunk._id], {
+                //         depth: null
+                //     }));
                 map_utils.set_chunk_frags_from_blocks(
                     part.chunk, blocks_by_chunk[part.chunk._id]);
                 let part_info = map_utils.get_part_info(part, params.adminfo);

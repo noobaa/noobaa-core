@@ -21,7 +21,7 @@ mocha.describe('semaphore', function() {
             woke++;
         };
 
-        return P.fcall(function() {
+        return P.resolve().then(function() {
             sem = new Semaphore(10);
             assert.strictEqual(sem.length, 0);
             assert.strictEqual(sem.value, 10);
@@ -62,7 +62,7 @@ mocha.describe('semaphore', function() {
 
             sem.release(14);
 
-        }).delay(0).then(function() {
+        }).delay(0).delay(0).then(function() {
             assert.strictEqual(sem.length, 0);
             assert.strictEqual(sem.value, 5);
             assert.strictEqual(woke, 4);

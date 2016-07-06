@@ -6,38 +6,28 @@
 'use strict';
 
 require('../util/panic');
-var _ = require('lodash');
-var P = require('../util/promise');
-var fs = require('fs');
-var os = require('os');
-var path = require('path');
-var util = require('util');
-var repl = require('repl');
-var mkdirp = require('mkdirp');
-var argv = require('minimist')(process.argv);
-var Semaphore = require('../util/semaphore');
-var api = require('../api');
-var Agent = require('./agent');
-var fs_utils = require('../util/fs_utils');
-var promise_utils = require('../util/promise_utils');
-// var config = require('../../config.js');
-var dbg = require('../util/debug_module')(__filename);
-var child_process = require('child_process');
-var S3Auth = require('aws-sdk/lib/signers/s3');
-var uuid = require('node-uuid');
-var os_utils = require('../util/os_utils');
+
+const _ = require('lodash');
+const fs = require('fs');
+const os = require('os');
+const path = require('path');
+const util = require('util');
+const repl = require('repl');
+const uuid = require('node-uuid');
+const argv = require('minimist')(process.argv);
+const S3Auth = require('aws-sdk/lib/signers/s3');
+const child_process = require('child_process');
+
+const P = require('../util/promise');
+const api = require('../api');
+const dbg = require('../util/debug_module')(__filename);
+const Agent = require('./agent');
+const fs_utils = require('../util/fs_utils');
+const os_utils = require('../util/os_utils');
+const Semaphore = require('../util/semaphore');
+const promise_utils = require('../util/promise_utils');
 
 module.exports = AgentCLI;
-
-setInterval(function() {
-    dbg.log0('memory usage', process.memoryUsage());
-}, 30000);
-
-if (argv.node_name) {
-    dbg.set_process_name('Internal-Agent-' + argv.node_name);
-} else {
-    dbg.set_process_name('Agent');
-}
 
 /**
  *
@@ -57,22 +47,6 @@ function AgentCLI(params) {
     this.agents = {};
 }
 
-function deleteFolderRecursive(path) {
-    if (fs.existsSync(path)) {
-        fs.readdirSync(path).forEach(function(file, index) {
-            var curPath = path + "/" + file;
-            dbg.log0('deleting0', curPath);
-
-            if (fs.lstatSync(curPath).isDirectory()) { // recurse
-                deleteFolderRecursive(curPath);
-            } else { // delete file
-                dbg.log0('deleting', curPath);
-                fs.unlinkSync(curPath);
-            }
-        });
-        fs.rmdirSync(path);
-    }
-}
 /**
  *
  * INIT
@@ -106,7 +80,7 @@ AgentCLI.prototype.init = function() {
     // for now node name is passed only for internal agents.
     self.params.internal_agent = Boolean(self.params.node_name);
 
-    return P.nfcall(fs.readFile, 'agent_conf.json')
+    return fs.readFileAsync('agent_conf.json')
         .then(function(data) {
             var agent_conf = JSON.parse(data);
             dbg.log0('using agent_conf.json', util.inspect(agent_conf));
@@ -153,7 +127,7 @@ AgentCLI.prototype.init = function() {
                         hd_info.mount = './agent_storage/';
                         mount_points.push(hd_info);
                     } else {
-                        hd_info.mount = hd_info.mount + '\\agent_storage\\';
+                        hd_info.mount += '\\agent_storage\\';
                         mount_points.push(hd_info);
                     }
                 });
@@ -176,10 +150,10 @@ AgentCLI.prototype.init = function() {
             self.params.all_storage_paths = mount_points;
 
             if (self.params.cleanup) {
-                return P.all(_.map(self.params.all_storage_paths, function(storage_path_info) {
+                return P.all(_.map(self.params.all_storage_paths, storage_path_info => {
                     var storage_path = storage_path_info.mount;
                     var path_modification = storage_path.replace('/agent_storage/', '').replace('/', '').replace('.', '');
-                    deleteFolderRecursive(path_modification);
+                    return fs_utils.folder_delete(path_modification);
                 }));
             } else {
                 return self.load()
@@ -223,8 +197,9 @@ AgentCLI.prototype.load = function() {
         }
         dbg.log0('loading agents with cloud_info: ', self.cloud_info);
         let storage_path = self.params.all_storage_paths[0].mount;
-        return P.nfcall(mkdirp, storage_path)
-            .then(() => P.nfcall(fs.readdir, storage_path))
+        return P.resolve()
+            .then(() => fs_utils.create_path(storage_path))
+            .then(() => fs.readdirAsync(storage_path))
             .then(nodes_names => {
                 return P.all(internal_nodes_names.map(name => {
                     if (nodes_names.indexOf(name) >= 0) {
@@ -244,31 +219,27 @@ AgentCLI.prototype.load = function() {
     dbg.log0('Loading agents', self.params.all_storage_paths);
     return P.all(_.map(self.params.all_storage_paths, function(storage_path_info) {
             var storage_path = storage_path_info.mount;
+            dbg.log0('root_path', storage_path);
 
-            return P.fcall(function() {
-                    return P.nfcall(mkdirp, storage_path);
-                })
-                .then(function() {
-                    return self.hide_storage_folder(storage_path);
-                })
-                .then(null, function(err) {
-                    dbg.error('Windows - failed to hide', err.stack || err);
-                    // TODO really continue on error?
-                })
-                .then(function() {
-                    dbg.log0('root_path', storage_path);
-                    return P.nfcall(fs.readdir, storage_path);
-                })
-                .then(function(nodes_names) {
+            return P.resolve()
+                .then(() => fs_utils.create_path(storage_path))
+                .then(() => P.resolve(self.hide_storage_folder(storage_path))
+                    .catch(err => {
+                        dbg.error('Windows - failed to hide', err.stack || err);
+                        // TODO really continue on error?
+                    }))
+                .then(() => fs.readdirAsync(storage_path))
+                .then(nodes_names => {
                     // filter out cloud agents:
-                    let regular_node_names = _.reject(nodes_names, name => name.startsWith(internal_agent_prefix));
+                    let regular_node_names = _.reject(nodes_names,
+                        name => name.startsWith(internal_agent_prefix));
 
                     dbg.log0('nodes_names:', regular_node_names);
-                    return P.all(_.map(regular_node_names, function(node_name) {
+                    return P.map(regular_node_names, node_name => {
                         dbg.log0('node_name', node_name, 'storage_path', storage_path);
                         var node_path = path.join(storage_path, node_name);
                         return self.start(node_name, node_path);
-                    }));
+                    });
                 });
         }))
         .then(function(storage_path_nodes) {
@@ -305,12 +276,10 @@ AgentCLI.prototype.load = function() {
                 return self.create_some(nodes_to_add);
             }
         })
-        .then(null, function(err) {
+        .catch(err => {
             dbg.log0('load failed ' + err.stack);
             throw err;
         });
-
-
 };
 
 AgentCLI.prototype.hide_storage_folder = function(current_storage_path) {
@@ -321,11 +290,11 @@ AgentCLI.prototype.hide_storage_folder = function(current_storage_path) {
         current_path = current_path.replace('./', '');
 
         //hiding storage folder
-        return P.nfcall(child_process.exec, 'attrib +H ' + current_path)
+        return child_process.execAsync('attrib +H ' + current_path)
             .then(function() {
                 //Setting system full permissions and remove builtin users permissions.
                 //TODO: remove other users
-                return P.nfcall(child_process.exec,
+                return child_process.execAsync(
                     'icacls ' + current_path +
                     ' /t' +
                     ' /grant:r administrators:(oi)(ci)F' +
@@ -392,21 +361,21 @@ AgentCLI.prototype.create_node_helper = function(current_node_path_info, interna
                 } else {
                     dbg.log0('has token', self.create_node_token);
                 }
-                return P.nfcall(mkdirp, node_path);
+                return fs_utils.create_path(node_path);
             }).then(function() {
                 dbg.log0('writing token', token_path);
-                return P.nfcall(fs.writeFile, token_path, self.create_node_token);
+                return fs.writeFileAsync(token_path, self.create_node_token);
             })
             .then(function() {
                 if (_.isUndefined(self.params.internal_agent)) {
                     // remove access_key and secret_key from agent_conf after a token was acquired
-                    return P.nfcall(fs.readFile, 'agent_conf.json')
+                    return fs.readFileAsync('agent_conf.json')
                         .then(function(data) {
                             let agent_conf = JSON.parse(data);
                             delete agent_conf.access_key;
                             delete agent_conf.secret_key;
                             var write_data = JSON.stringify(agent_conf);
-                            return P.nfcall(fs.writeFile, 'agent_conf.json', write_data);
+                            return fs.writeFileAsync('agent_conf.json', write_data);
                         })
                         .catch(function(err) {
                             if (err.code === 'ENOENT') {
@@ -627,6 +596,16 @@ function populate_general_help(general) {
 AgentCLI.main = main;
 
 function main() {
+    setInterval(function() {
+        dbg.log0('memory usage', process.memoryUsage());
+    }, 30000);
+
+    if (argv.node_name) {
+        dbg.set_process_name('Internal-Agent-' + argv.node_name);
+    } else {
+        dbg.set_process_name('Agent');
+    }
+
     var cli = new AgentCLI(argv);
     cli.init().then(function() {
         if (!argv.repl) return;

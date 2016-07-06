@@ -71,13 +71,13 @@ function run_server() {
             } else {
 
                 dbg.log0('Generating self signed certificate');
-                return P.nfcall(pem.createCertificate, {
+                return P.fromCallback(callback => pem.createCertificate({
                     days: 365 * 100,
                     selfSigned: true
-                });
+                }, callback));
             }
         })
-        .then((certificate) => {
+        .then(certificate => {
             params.certificate = certificate;
             const addr_url = url.parse(params.address || '');
             const is_local_address = !params.address ||
@@ -107,7 +107,7 @@ function run_server() {
 }
 
 function read_config_file() {
-    return P.nfcall(fs.readFile, 'agent_conf.json')
+    return fs.readFileAsync('agent_conf.json')
         .then(data => {
             let agent_conf = JSON.parse(data);
             dbg.log0('using agent_conf.json', util.inspect(agent_conf));

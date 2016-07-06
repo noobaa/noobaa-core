@@ -90,10 +90,10 @@ P.fcall(function() {
             return local_certificate;
         } else {
             dbg.log0('Using self-signed certificate', path.join('/etc', 'private_ssl_path', 'server.key'));
-            return P.nfcall(pem.createCertificate, {
+            return P.fromCallback(callback => pem.createCertificate({
                 days: 365 * 100,
                 selfSigned: true
-            });
+            }, callback));
         }
     })
     .then(function(cert) {
@@ -269,7 +269,7 @@ app.post('/upload_certificate',
     function(req, res) {
         var ssl_certificate = req.file;
         dbg.log0('upload ssl certificate file', ssl_certificate);
-        promise_utils.promised_spawn(process.cwd() + '/src/deploy/NVA_build/ssl_verifier.sh', [
+        promise_utils.spawn(process.cwd() + '/src/deploy/NVA_build/ssl_verifier.sh', [
                 'from_file', ssl_certificate.path
             ], {}, false)
             .then(function() {

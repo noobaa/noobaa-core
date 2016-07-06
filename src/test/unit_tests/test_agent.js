@@ -31,7 +31,11 @@ mocha.describe('agent', function() {
                 client.options.auth_token = res.token;
             })
             .then(() => coretest.init_test_nodes(client, SYS, 5))
-            .then(() => coretest.clear_test_nodes());
+            .delay(2000)
+            .then(() => coretest.clear_test_nodes())
+            .catch((err) => {
+                console.log('Failure during testing agent:' + err, err.stack);
+            });
     });
 
 });

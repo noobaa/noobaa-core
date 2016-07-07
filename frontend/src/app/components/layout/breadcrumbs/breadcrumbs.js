@@ -7,17 +7,6 @@ class BreadcrumbsViewModel {
             () => crumbs() && crumbs().slice(1)
         );
     }
-
-    _reduceCrumbs(list, crumb, i) {
-        let base = list[i-1] ? list[i-1].href : '';
-
-        list.push({
-            label: crumb.label || '',
-            href: `${base}/${crumb.href}`
-        });
-
-        return list;
-    }
 }
 
 export default {

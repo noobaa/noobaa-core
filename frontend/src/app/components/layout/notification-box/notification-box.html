@@ -1,0 +1,14 @@
+<section data-bind="
+    css: { visible: visible },
+    animation: { name: 'notif-out', end: onTransition },
+    transition: { end: onTransition },
+    hover: hovered
+">
+    <div data-bind="foreach: notifications">
+        <div class="row content-middle notif">
+            <svg-icon class="push-next" params="name: icon"></svg-icon>
+            <span data-bind="html: text"></span>
+            <span>
+        </div>
+    </div>
+</section>

@@ -26,6 +26,7 @@ ko.subscribable.fn.once = function(callback, ctx, event) {
         ctx,
         event
     );
+    return sub;
 };
 
 ko.observableWithDefault = function(valueAccessor) {

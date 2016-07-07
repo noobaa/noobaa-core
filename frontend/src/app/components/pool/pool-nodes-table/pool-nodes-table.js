@@ -38,7 +38,7 @@ class PoolNodesTableViewModel {
         this.issuesFilterOptions = [
             {
                 label: ko.pureComputed(
-                    () => `All Nodes (${ pool() ? pool().nodes.count : 'N/A'})`
+                    () => `All Nodes (${ this.count() != null ? this.count() : 'N/A'})`
                 ),
                 value: false
             },

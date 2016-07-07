@@ -1,6 +1,6 @@
 import ko from 'knockout';
 import { deepFreeze, formatSize } from 'utils';
-import { deletePool } from 'actions';
+import { deleteCloudResource } from 'actions';
 
 const undeletableReasons = Object.freeze({
     IN_USE: 'Cannot delete a resource which is used in a bucket backup policy'
@@ -67,6 +67,6 @@ export default class CloudResourceRowViewModel {
 
     del() {
         console.debug('DETELING:', this.name());
-        deletePool(this.name());
+        deleteCloudResource(this.name());
     }
 }

@@ -40,13 +40,19 @@ const BlockStoreMem = require('./block_store_mem').BlockStoreMem;
 const promise_utils = require('../util/promise_utils');
 
 
+
 class Agent {
 
     constructor(params) {
         dbg.log0('process.env.DEBUG_MODE=' + process.env.DEBUG_MODE);
-
-        this.rpc = api.new_rpc(params.address);
-        this.client = this.rpc.new_client();
+        this.servers = [];
+        if (params && params.address) {
+            this.servers.push({
+                address: params.address
+            });
+        }
+        this.current_server = 0;
+        this.connect_attempts = 0;
 
         assert(params.node_name, 'missing param: node_name');
         this.node_name = params.node_name;
@@ -58,11 +64,26 @@ class Agent {
 
         this.is_internal_agent = params.is_internal_agent;
 
+        // AGENT API methods - bind to self
+        // (rpc registration requires bound functions)
+        js_utils.self_bind(this, [
+            'get_agent_info_and_update_masters',
+            'update_auth_token',
+            'update_rpc_config',
+            'n2n_signal',
+            'test_store_perf',
+            'test_network_perf',
+            'test_network_perf_to_peer',
+            'collect_diagnostics',
+            'set_debug_node',
+        ]);
+
         const block_store_options = {
             node_name: this.node_name,
             rpc_client: this.client,
             storage_limit: params.storage_limit,
         };
+
         if (this.storage_path) {
             assert(!this.token, 'unexpected param: token. ' +
                 'with storage_path the token is expected in the file <storage_path>/token');
@@ -97,36 +118,7 @@ class Agent {
             return app;
         })();
 
-        // AGENT API methods - bind to self
-        // (rpc registration requires bound functions)
-        js_utils.self_bind(this, [
-            'get_agent_info',
-            'update_auth_token',
-            'update_rpc_config',
-            'n2n_signal',
-            'test_store_perf',
-            'test_network_perf',
-            'test_network_perf_to_peer',
-            'collect_diagnostics',
-            'set_debug_node',
-        ]);
-
-        // register rpc to serve the apis
-        this.rpc.register_service(
-            this.rpc.schema.agent_api,
-            this, {
-                middleware: [req => this._authenticate_agent_api(req)]
-            });
-        this.rpc.register_service(
-            this.rpc.schema.block_store_api,
-            this.block_store, {
-                // TODO verify requests for block store?
-                // middleware: [ ... ]
-            });
-        // register rpc http server
-        this.rpc.register_http_transport(this.agent_app);
-        // register rpc n2n
-        this.n2n_agent = this.rpc.register_n2n_agent(this.client.node.n2n_signal);
+        this._init_rpc_connectivity();
 
         // TODO these sample geolocations are just for testing
         this.geolocation = _.sample([
@@ -173,6 +165,58 @@ class Agent {
         });
     }
 
+    _init_rpc_connectivity() {
+        let address;
+        if (this.servers.length) {
+            address = this.servers[this.current_server];
+        }
+        dbg.log0('_init_rpc_connectivity', address);
+
+        this.rpc = api.new_rpc(address);
+        this.client = this.rpc.new_client();
+
+        // register rpc to serve the apis
+        this.rpc.register_service(
+            this.rpc.schema.agent_api,
+            this, {
+                middleware: [req => this._authenticate_agent_api(req)]
+            });
+        this.rpc.register_service(
+            this.rpc.schema.block_store_api,
+            this.block_store, {
+                // TODO verify requests for block store?
+                // middleware: [ ... ]
+            });
+
+        // register rpc http server
+        this.rpc.register_http_transport(this.agent_app);
+
+        // register rpc n2n
+        this.n2n_agent = this.rpc.register_n2n_agent(this.client.node.n2n_signal);
+    }
+
+    _handle_server_change(suggested) {
+        if (suggested) {
+            //Find if the suggested server appears in the list we got from the initial connect
+            this.current_server = _.findIndex(this.servers, function(s) {
+                return s.address === suggested;
+            });
+            if (this.current_server === -1) {
+                dbg.log0('Could not find suggested server', suggested, 'in existing servers list');
+                this.current_server = 0;
+            }
+        } else {
+            //Skip to the next server in list
+            this.current_server++;
+            if (this.current_server > this.servers.length) {
+                this.current_server = 0;
+            }
+        }
+
+        this.connect_attempts = 0;
+        this._init_rpc_connectivity();
+    }
+
     _init_node() {
         return P.resolve()
             .then(() => {
@@ -211,6 +255,10 @@ class Agent {
     _do_heartbeat() {
         if (!this.is_started) return;
 
+        if (this.connect_attempts > 10) {
+            this._handle_server_change();
+        }
+
         let hb_info = {
             version: pkg.version
         };
@@ -223,6 +271,10 @@ class Agent {
                 const res = req.reply;
                 const conn = req.connection;
                 this._server_connection = conn;
+                if (res.redirect) {
+                    this._handle_server_change(res.redirect);
+                    return P.delay(1000).then(() => this._do_heartbeat());
+                }
                 if (res.version !== pkg.version) {
                     dbg.warn('exit no version change:',
                         'res.version', res.version,
@@ -238,7 +290,11 @@ class Agent {
             })
             .catch(err => {
                 dbg.error('heartbeat failed', err);
-                return P.delay(3000).then(() => this._do_heartbeat());
+                return P.delay(3000).then(() => {
+                    this.connect_attempts++;
+                    this._do_heartbeat();
+                });
+
             });
     }
 
@@ -336,9 +392,11 @@ class Agent {
     // AGENT API //////////////////////////////////////////////////////////////////
 
 
-    get_agent_info(req) {
+    get_agent_info_and_update_masters(req) {
         const extended_hb = true;
         const ip = ip_module.address();
+        dbg.log('Recieved potential servers list', req.rpc_params.addresses);
+        this.servers = req.rpc_params.addresses;
         const reply = {
             version: pkg.version || '',
             name: this.node_name || '',

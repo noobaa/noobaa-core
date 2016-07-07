@@ -19,6 +19,7 @@ const md_store = require('../object_services/md_store');
 const MapBuilder = require('../object_services/map_builder').MapBuilder;
 const server_rpc = require('../server_rpc');
 const auth_server = require('../common_services/auth_server');
+const cluster_server = require('../system_services/cluster_server');
 const nodes_store = require('./nodes_store');
 const mongo_utils = require('../../util/mongo_utils');
 const Dispatcher = require('../notifications/dispatcher');
@@ -29,6 +30,7 @@ const node_allocator = require('./node_allocator');
 const mongoose_utils = require('../../util/mongoose_utils');
 const mongo_functions = require('../../util/mongo_functions');
 const system_server_utils = require('../utils/system_server_utils');
+const clustering_utils = require('../utils/clustering_utils');
 const dclassify = require('dclassify');
 
 
@@ -284,7 +286,15 @@ class NodesMonitor extends EventEmitter {
     _get_agent_info(item) {
         if (!item.connection) return;
         dbg.log0('_get_agent_info:', item.node.name);
-        return this.client.agent.get_agent_info(undefined, {
+        let potential_masters = clustering_utils.get_potential_masters();
+        //NBNB:: REMOVE this
+        potential_masters.push({
+            address: '127.0.0.1'
+        });
+
+        return this.client.agent.get_agent_info_and_update_masters({
+                addresses: potential_masters
+            }, {
                 connection: item.connection
             })
             .then(info => {
@@ -638,6 +648,17 @@ class NodesMonitor extends EventEmitter {
             version: pkg.version || '0',
             delay_ms: 0 // delay_ms was required in 0.3.X
         };
+
+        //If this server is not the master, redirect the agent to the master
+        let current_clustering = system_store.get_local_cluster_info();
+        if ((current_clustering && current_clustering.is_clusterized) && !system_store.is_cluster_master) {
+            return P.resolve(cluster_server.redirect_to_cluster_master())
+                .then((addr) => {
+                    dbg.log0('heartbeat: current is not master redirecting to', addr);
+                    reply.redirect = addr;
+                    return reply;
+                });
+        }
 
         // since the heartbeat api is dynamic through new versions
         // if we detect that this is a new version we return immediately

@@ -3,10 +3,10 @@
 'use strict';
 
 print('\nChecking mongodb users ...');
-var adminDb = db.getSiblingDB('admin');
+var nbcoreDb = db.getSiblingDB('nbcore');
 var pwd = 'roonoobaa'; // eslint-disable-line no-undef
 // try to authenticate with nbadmin. if succesful nothing to do
-var res = adminDb.auth('nbadmin', pwd);
+var res = db.auth('nbadmin', pwd);
 if (res !== 1) {
     print('\nusers are not set. creating users ...');
     var adminUser = {
@@ -17,8 +17,8 @@ if (res !== 1) {
             db: "admin"
         }]
     };
-    adminDb.createUser(adminUser);
-    adminDb.auth('nbadmin', pwd);
+    db.createUser(adminUser);
+    db.auth('nbadmin', pwd);
     var nbcoreUser = {
         user: 'nbsrv',
         pwd: pwd,
@@ -27,5 +27,5 @@ if (res !== 1) {
             db: "nbcore"
         }]
     };
-    db.createUser(nbcoreUser);
+    nbcoreDb.createUser(nbcoreUser);
 }

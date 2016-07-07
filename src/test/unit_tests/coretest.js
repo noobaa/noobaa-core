@@ -129,7 +129,10 @@ function init_test_nodes(client, system, count) {
             core_agent_control.create_agent(count);
             return core_agent_control.start_all_agents();
         })
-        .then(() => client.node.sync_monitor_to_store());
+        .then(() => {
+            console.log('after creating ' + count + ' agents');
+            client.node.sync_monitor_to_store();
+        });
 }
 
 // delete all edge nodes directly from the db

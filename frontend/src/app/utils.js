@@ -98,10 +98,6 @@ export function randomString(len = 8) {
     ).join('');
 }
 
-export function dblEncode(str) {
-    return encodeURIComponent(encodeURIComponent(str));
-}
-
 export function parseQueryString(str) {
     return decodeURIComponent(str)
         .replace(/(^\?)/,'')
@@ -145,7 +141,7 @@ export function realizeUri(template, params = {}, query = {}) {
                     let value = params[name ];
 
                     if (value) {
-                        return value;
+                        return encodeURIComponent(value);
                     } else if (isOptional) {
                         return null;
                     } else {
@@ -159,7 +155,6 @@ export function realizeUri(template, params = {}, query = {}) {
         .filter(
             part => part !== null
         )
-        .map(dblEncode)
         .join('/');
 
     return search ? `${base}?${search}` : base;

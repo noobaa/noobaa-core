@@ -2,7 +2,7 @@
     font-family: @type;
     font-size: @size;
     font-weight: @weight;
-    color: @color;  
+    color: @color;
 }
 
 .text(@type, @weight, @size, @color, @hover-color) {
@@ -30,7 +30,7 @@
 
     &:active {
         background-color:@active;
-    }   
+    }
 
     &[disabled] {
         &, &:hover, &:active {
@@ -45,15 +45,15 @@
     }
 
     &:-moz-placeholder { /* Firefox 18- */
-       color: @color;  
+       color: @color;
     }
 
     ::-moz-placeholder {  /* Firefox 19+ */
-       color: @color;  
+       color: @color;
     }
 
-    :-ms-input-placeholder {  
-       color: @color;  
+    :-ms-input-placeholder {
+       color: @color;
     }
 
     &::placholder {
@@ -61,16 +61,15 @@
     }
 }
 
-.textfield(@width: 20em) {
+.textfield(@width: 30em) {
     width: @width;
     display: inline-block;
     outline: none;
     background: none;
-    border: none;
-    border-bottom: 1px solid @bg-color7;
-    margin-bottom: .5em;
     line-height: 1.4;
     vertical-align: middle;
+    padding: @gutter/2;
+    border: 1px solid @bg-color7;
 
     .text(
         @font-type2,
@@ -79,23 +78,22 @@
         @text-color2
     );
 
-    .placeholder(@text-color5); 
+    .placeholder(@text-color5);
 
     &:focus, &.invalid:focus {
         color: @text-color2;
-        border-color: @text-color6;
+        border-color: @bg-color11;
     }
 
     &[disabled] {
         color: @text-color5;
-        border-color: @text-color5;
-        border-bottom-style: dotted;
+        border: 1px solid @bg-color4;
     }
 
     &.invalid {
         color: @text-color8;
         border-color: @text-color8;
-    }       
+    }
 }
 
 .hide() {

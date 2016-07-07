@@ -3,8 +3,11 @@
         Please Sign In
     </h2>
 
-    <div data-bind="event: { focusin: () => isDirty(true) }">
+    <div class="push-next">
         <input type="text" placeholder="Email Address" data-bind="textInput: email"/>
+    </div>
+
+    <div class="push-next">
         <input type="password" placeholder="Password" data-bind="textInput: password"/>
     </div>
 
@@ -14,7 +17,7 @@
 
     <button class="btn main-action push-prev" data-bind="
         click: signIn,
-        css: { shake: shake }, 
+        css: { shake: shake },
         animation: { end: () => shake(false) }
     ">
         Sign In

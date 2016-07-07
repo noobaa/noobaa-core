@@ -11,7 +11,6 @@ const Semaphore = require('../../util/semaphore');
 const server_rpc = require('../server_rpc');
 const map_deleter = require('./map_deleter');
 const mongo_utils = require('../../util/mongo_utils');
-const nodes_store = require('../node_services/nodes_store');
 const system_store = require('../system_services/system_store').get_instance();
 const node_allocator = require('../node_services/node_allocator');
 const system_server_utils = require('../utils/system_server_utils');
@@ -34,12 +33,13 @@ class MapBuilder {
 
     constructor(chunks) {
         this.chunks = chunks;
+        this.system_id = chunks[0] && chunks[0].system;
     }
 
     run() {
         dbg.log1('MapBuilder.run:', 'batch start', this.chunks.length, 'chunks');
         if (!this.chunks.length) return;
-        if (system_server_utils.system_in_maintenance(this.chunks[0].system)) return;
+        if (system_server_utils.system_in_maintenance(this.system_id)) return;
         return P.resolve()
             .then(() => P.join(
                 system_store.refresh(),
@@ -136,7 +136,6 @@ class MapBuilder {
     }
 
     replicate_blocks() {
-        const now = Date.now();
         return P.all(_.map(this.chunks, chunk => {
             return P.all(_.map(chunk.status.allocations, alloc => {
                 let block = alloc.block;
@@ -147,7 +146,7 @@ class MapBuilder {
 
                 let f = alloc.fragment;
                 f.accessible_blocks = f.accessible_blocks ||
-                    _.filter(f.blocks, block => map_utils.is_block_accessible(block, now));
+                    _.filter(f.blocks, block => map_utils.is_block_accessible(block));
                 f.next_source = f.next_source || 0;
                 let source_block = f.accessible_blocks[f.next_source];
                 //if no accessible_blocks - skip replication
@@ -222,18 +221,13 @@ class MapBuilder {
                     deleted: new Date()
                 }
             })),
+
             //delete actual blocks from agents.
             this.delete_blocks && this.delete_blocks.length &&
-            P.resolve(md_store.DataBlock.collection.find({
-                _id: {
-                    $in: mongo_utils.uniq_ids(this.delete_blocks, '_id')
-                }
-            }).toArray())
-            .then(blocks => nodes_store.instance().populate_nodes_for_map(blocks, 'node'))
-            .then(deleted_blocks => {
+            P.resolve().then(() => {
                 //TODO: If the overload of these calls is too big, we should protect
                 //ourselves in a similar manner to the replication
-                var blocks_by_node = _.groupBy(deleted_blocks, block => block.node._id);
+                var blocks_by_node = _.groupBy(this.delete_blocks, block => block.node._id);
                 return P.all(_.map(blocks_by_node, map_deleter.agent_delete_call));
             }),
 

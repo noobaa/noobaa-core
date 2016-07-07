@@ -13,7 +13,7 @@ export default {
 
         return ko.bindingHandlers.attr.update(
             element,
-            () => href ? { href } : {},
+            () => href ? { href: encodeURI(href) } : {},
             allBindings,
             viewModel,
             bindingContext

@@ -1,20 +1,19 @@
 <table>
     <thead>
         <tr data-bind="foreach: columns">
-            <th data-bind="css: thCss">
+            <th data-bind="css: css">
                 <span data-bind="
                     text: label,
-                    css: spanCss,
+                    css: $component.getSortCss(name, sortable),
                     click: () => sortable && $component.sortBy(name)
                 "></span>
             </th>
         </tr>
     </thead>
-    <tbody data-bind="foreach: { data: rows, as: 'row' }">
+    <tbody data-bind="foreach: rows">
         <tr data-bind="foreach: $component.columns">
-            <td data-bind="
-                css: thCss,
-                template: { html: templateHtml, data: row[name], if: row[name] }
+            <td data-bind="css: css,
+                template: $component.getCellTemplate($parent, $data)
             "></td>
         </tr>
     </tbody>

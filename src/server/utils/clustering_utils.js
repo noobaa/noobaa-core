@@ -9,6 +9,8 @@ const url = require('url');
 const system_store = require('../system_services/system_store').get_instance();
 const os_utils = require('../../util/os_utils');
 const dbg = require('../../util/debug_module')(__filename);
+const config = require('../../../config');
+const os = require('os');
 
 function get_topology() {
     return system_store.get_local_cluster_info();
@@ -149,6 +151,48 @@ function find_shard_index(shardname) {
     return shard_idx;
 }
 
+function get_cluster_info() {
+    let local_info = system_store.get_local_cluster_info();
+    let shards = local_info.shards.map(shard => ({
+        shardname: shard.shardname,
+        servers: []
+    }));
+    _.each(system_store.data.clusters, cinfo => {
+        let shard = shards.find(s => s.shardname === cinfo.owner_shardname);
+        let memory_usage = 0;
+        let cpu_usage = 0;
+        let version = '0';
+        let is_connected = true;
+        let hostname = os.hostname();
+        let location = cinfo.location;
+        if (cinfo.heartbeat) {
+            memory_usage = (1 - cinfo.heartbeat.health.os_info.freemem / cinfo.heartbeat.health.os_info.totalmem);
+            cpu_usage = cinfo.heartbeat.health.os_info.loadavg[0];
+            version = cinfo.heartbeat.version;
+            is_connected = ((Date.now() - cinfo.heartbeat.time) < config.CLUSTER_NODE_MISSING_TIME);
+            hostname = cinfo.heartbeat.health.os_info.hostname;
+        }
+        let server_info = {
+            version: version,
+            hostname: hostname,
+            address: cinfo.owner_address,
+            is_connected: is_connected,
+            memory_usage: memory_usage,
+            cpu_usage: cpu_usage,
+            location: location
+        };
+        shard.servers.push(server_info);
+    });
+    _.each(shards, shard => {
+        let num_connected = shard.servers.filter(server => server.is_connected).length;
+        shard.high_availabilty = (num_connected / shard.servers.length) > (shard.servers.length / 2);
+    });
+    let cluster_info = {
+        shards: shards
+    };
+    return cluster_info;
+}
+
 function get_potential_masters() {
     //TODO: For multiple shards, this should probably change?
     var masters = [];
@@ -159,6 +203,7 @@ function get_potential_masters() {
     });
     return masters;
 }
+
 
 //Exports
 exports.get_topology = get_topology;
@@ -171,4 +216,5 @@ exports.get_all_cluster_members = get_all_cluster_members;
 exports.pretty_topology = pretty_topology;
 exports.rs_array_changes = rs_array_changes;
 exports.find_shard_index = find_shard_index;
+exports.get_cluster_info = get_cluster_info;
 exports.get_potential_masters = get_potential_masters;

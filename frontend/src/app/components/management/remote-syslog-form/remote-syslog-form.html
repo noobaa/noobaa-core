@@ -25,20 +25,20 @@
     <editor class="push-next" params="label: 'Enable'">
             <toggle-switch params="value: enabled"></toggle-switch>
         </editor>
-        <editor params="label: 'Protocol', disable: !enabled()" class="push-next">
+        <editor params="label: 'Protocol', disabled: !enabled()" class="push-next">
             <radio-group params="
                 options: protocolOptions,
                 selected: protocol,
                 disabled: !enabled()
             "></radio-group>
         </editor>
-        <editor params="label: 'Server address', disable: !enabled()">
+        <editor params="label: 'Server address', disabled: !enabled()">
             <input class="proxy-name" type="text" placeholder="IP or DNS name" data-bind="
                 value: address,
                 enable: enabled
             "/>
         </editor>
-        <editor params="label: 'Server port', disable: !enabled()">
+        <editor params="label: 'Server port', disabled: !enabled()">
             <input type="number" min="1" max="65535" placeholder="port" data-bind="
                 value: port,
                 enable: enabled

@@ -6,8 +6,8 @@ const P = require('../../util/promise');
 const dbg = require('../../util/debug_module')(__filename);
 const md_store = require('./md_store');
 const server_rpc = require('../server_rpc');
-const nodes_store = require('../node_services/nodes_store');
 const mongo_utils = require('../../util/mongo_utils');
+const nodes_client = require('../node_services/nodes_client');
 
 
 /**
@@ -98,7 +98,8 @@ function delete_objects_from_agents(deleted_chunk_ids) {
             //delete_object_mappings with P.all along with the DataBlocks
             //deletion update
         }).toArray())
-        .then(blocks => nodes_store.instance().populate_nodes_for_map(blocks, 'node'))
+        .then(blocks => nodes_client.instance().populate_nodes_for_map(
+            blocks[0] && blocks[0].system, blocks, 'node'))
         .then(deleted_blocks => {
             //TODO: If the overload of these calls is too big, we should protect
             //ourselves in a similar manner to the replication

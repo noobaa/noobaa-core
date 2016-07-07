@@ -2,7 +2,7 @@ import ko from 'knockout';
 import { deepFreeze, formatSize } from 'utils';
 import { deletePool } from 'actions';
 
-const cannotDeleteReasons = Object.freeze({
+const undeletableReasons = Object.freeze({
     IN_USE: 'Cannot delete a resource which is used in a bucket backup policy'
 });
 
@@ -22,12 +22,8 @@ const icons = deepFreeze([
 ]);
 
 export default class CloudResourceRowViewModel {
-    constructor(resource) {
-        this.isVisible = ko.pureComputed(
-            () => !!resource()
-        );
-
-        this.typeIcon = ko.pureComputed(
+    constructor(resource, deleteGroup) {
+        this.type = ko.pureComputed(
             () => {
                 if (!resource()) {
                     return;
@@ -54,20 +50,23 @@ export default class CloudResourceRowViewModel {
             () => resource() && resource().cloud_info.target_bucket
         );
 
-        this.canBeDeleted = ko.pureComputed(
-            () => resource() && !resource().undeletable
+        let undeletable = ko.pureComputed(
+            () => resource() && resource().undeletable
         );
 
-        this.deleteToolTip = ko.pureComputed(
-            () => resource() && (
-                this.canBeDeleted() ?
-                    'delete resource' :
-                    cannotDeleteReasons[resource().undeletable]
-            )
-        );
+        this.deleteBtn = {
+            deleteGroup: deleteGroup,
+            undeletable: undeletable,
+            deleteToolTip: ko.pureComputed(
+                () => undeletable() ? undeletableReasons[undeletable()] : 'delete resources'
+            ),
+            onDelete: () => this.del()
+        };
+
     }
 
     del() {
+        console.debug('DETELING:', this.name());
         deletePool(this.name());
     }
 }

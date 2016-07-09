@@ -1,7 +1,7 @@
 import ko from 'knockout';
 import { formatSize } from 'utils';
 
-export default class PoolRow {
+export default class PoolRowViewModel {
     constructor(pool, tier) {
         this.selected = ko.observable(
             tier.node_pools.indexOf(pool.name) > -1

@@ -7,7 +7,7 @@ const stateMapping = deepFreeze({
     false: { text: 'disconnected', css: 'error' }
 });
 
-export default class ServerRow {
+export default class ServerRowViewModel {
     constructor(server) {
         this.state = ko.pureComputed(
             () => server() ? stateMapping[server().is_connected] : ''

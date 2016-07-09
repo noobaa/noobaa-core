@@ -2,7 +2,7 @@ import template from './after-upgrade-modal.html';
 import ko from 'knockout';
 import { systemInfo } from 'model';
 
-class AfterUpgradeModal {
+class AfterUpgradeModalViewModel {
     constructor({ onClose }) {
         this.onClose = onClose;
         this.version = ko.pureComputed(
@@ -16,6 +16,6 @@ class AfterUpgradeModal {
 }
 
 export default {
-    viewModel: AfterUpgradeModal,
+    viewModel: AfterUpgradeModalViewModel,
     template: template
 };

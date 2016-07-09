@@ -16,7 +16,7 @@ const icons = deepFreeze([
     }
 ]);
 
-export default class ResourceRow {
+export default class ResourceRowViewModel {
     constructor(pool, tier) {
         this.selected = ko.observable(
             tier.cloud_pools.indexOf(pool.name) > -1

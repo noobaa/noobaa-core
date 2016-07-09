@@ -25,7 +25,7 @@ const connectionTypes = Object.freeze([
     }
 ]);
 
-class ConnectApplicationWizard {
+class ConnectApplicationWizardViewModel {
     constructor({ onClose }) {
         this.onClose = onClose;
         this.selectSlideTemplate = selectSlideTemplate;
@@ -81,6 +81,6 @@ class ConnectApplicationWizard {
 }
 
 export default {
-    viewModel: ConnectApplicationWizard,
+    viewModel: ConnectApplicationWizardViewModel,
     template: template
 };

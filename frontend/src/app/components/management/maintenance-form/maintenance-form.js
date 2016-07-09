@@ -1,12 +1,15 @@
 import template from './maintenance-form.html';
+import BaseViewModel from 'base-view-model';
 import ko from 'knockout';
 import moment from 'moment';
 import { systemInfo } from 'model';
 import { exitMaintenanceMode } from 'actions';
 import { pad } from 'utils';
 
-class MaintenanceFormViewModel {
+class MaintenanceFormViewModel extends BaseViewModel {
     constructor() {
+        super();
+
         this.expanded = ko.observable(false);
 
         this.state = ko.pureComputed(

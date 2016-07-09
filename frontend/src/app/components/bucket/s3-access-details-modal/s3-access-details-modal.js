@@ -1,11 +1,14 @@
 import template from './s3-access-details-modal.html';
+import BaseViewModel from 'base-view-model';
 import ko from 'knockout';
 import { systemInfo, accountInfo } from 'model';
 import { loadAccountInfo } from 'actions';
 import { noop, copyTextToClipboard } from 'utils';
 
-class S3AccessDetailsModalViewModel {
+class S3AccessDetailsModalViewModel extends BaseViewModel {
     constructor({ account, onClose = noop }) {
+        super();
+
         this.onClose = onClose;
 
         let endpoint = ko.pureComputed(

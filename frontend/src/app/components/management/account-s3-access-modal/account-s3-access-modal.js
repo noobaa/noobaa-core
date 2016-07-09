@@ -1,10 +1,13 @@
 import template from './account-s3-access-modal.html';
+import BaseViewModel from 'base-view-model';
 import ko from 'knockout';
 import { accountInfo, accountS3ACL } from 'model';
 import { loadAccountInfo, loadAccountS3ACL, updateAccountS3ACL } from 'actions';
 
-class AccountS3AccessModalViewModel {
+class AccountS3AccessModalViewModel extends BaseViewModel {
     constructor({ email, onClose }) {
+        super();
+
         this.onClose = onClose;
         this.email = email;
 

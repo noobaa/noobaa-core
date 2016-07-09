@@ -1,12 +1,15 @@
 import template from './assign-nodes-modal.html';
 import NodeRowViewModel from './node-row';
+import BaseViewModel from 'base-view-model';
 import ko from 'knockout';
 import { makeArray, noop } from 'utils';
 import { nodeList } from 'model';
 import { loadNodeList, assignNodes } from 'actions';
 
-class AssignNodeModalViewModel {
+class AssignNodeModalViewModel extends BaseViewModel {
     constructor({ poolName, onClose = noop }) {
+        super();
+
         this.poolName = poolName;
         this.onClose = onClose;
 

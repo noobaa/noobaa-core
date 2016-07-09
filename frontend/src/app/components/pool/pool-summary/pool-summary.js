@@ -1,4 +1,5 @@
 import template from './pool-summary.html';
+import BaseViewModel from 'base-view-model';
 import ko from 'knockout';
 import moment from 'moment';
 import numeral from 'numeral';
@@ -31,8 +32,10 @@ function mapActivity({ reason, node_count, completed_size, total_size, eta }) {
     };
 }
 
-class PoolSummaryViewModel {
+class PoolSummaryViewModel extends BaseViewModel {
     constructor({ pool }) {
+        super();
+
         this.dataReady = ko.pureComputed(
             () => !!pool()
         );

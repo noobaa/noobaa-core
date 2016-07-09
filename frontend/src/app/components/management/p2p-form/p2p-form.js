@@ -1,4 +1,5 @@
 import template from './p2p-form.html';
+import BaseViewModel from 'base-view-model';
 import ko from 'knockout';
 import { systemInfo } from 'model';
 import { makeRange } from 'utils';
@@ -11,8 +12,10 @@ const portOptions = [
     { label: 'Port Range', value: PORT_RANGE }
 ];
 
-class P2PFormViewModel {
+class P2PFormViewModel extends BaseViewModel {
     constructor() {
+        super();
+
         this.expanded = ko.observable(false);
         this.portOptions = portOptions;
 

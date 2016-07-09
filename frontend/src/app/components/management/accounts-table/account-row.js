@@ -1,9 +1,12 @@
+import BaseViewModel from 'base-view-model';
 import ko from 'knockout';
 import { systemInfo } from 'model';
 import { deleteAccount } from 'actions';
 
-export default class AccountRowViewModel {
+export default class AccountRowViewModel extends BaseViewModel {
     constructor(account) {
+        super();
+
         let systemName = ko.pureComputed(
             () => systemInfo() ? systemInfo().name : ''
         );

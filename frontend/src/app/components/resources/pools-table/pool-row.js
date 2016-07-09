@@ -1,3 +1,4 @@
+import BaseViewModel from 'base-view-model';
 import ko from 'knockout';
 import numeral from 'numeral';
 import { deletePool } from 'actions';
@@ -8,8 +9,10 @@ const cannotDeleteReasons = Object.freeze({
     IN_USE: 'Cannot delete a pool that is assigned to a bucket policy'
 });
 
-export default class PoolRowViewModel {
+export default class PoolRowViewModel extends BaseViewModel {
     constructor(pool) {
+        super();
+
         this.isVisible = ko.pureComputed(
             () => !!pool()
         );

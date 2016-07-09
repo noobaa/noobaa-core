@@ -1,3 +1,4 @@
+import BaseViewModel from 'base-view-model';
 import ko from 'knockout';
 import { shortString, formatSize } from 'utils';
 
@@ -7,8 +8,10 @@ const partStateMapping = Object.freeze({
     unavailable: { toolTip: 'unavailable', icon: 'part-unavailable' }
 });
 
-class BlockRowViewModel {
+class BlockRowViewModel extends BaseViewModel {
     constructor({ adminfo }, index, count) {
+        super();
+
         let { online, node_ip, node_name, pool_name } = adminfo;
 
         this.label = `Replica ${index + 1} of ${count}`;
@@ -21,8 +24,10 @@ class BlockRowViewModel {
     }
 }
 
-export default class ObjectPartRowViewModel {
+export default class ObjectPartRowViewModel extends BaseViewModel {
     constructor(part, partNumber, partsCount) {
+        super();
+
         let size = formatSize(part.chunk.size);
         let state = part.chunk.adminfo.health;
         let blocks = part.chunk.frags[0].blocks;

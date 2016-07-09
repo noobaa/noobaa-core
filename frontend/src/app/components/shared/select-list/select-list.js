@@ -1,7 +1,10 @@
 import template from './dropdown.html';
+import BaseViewModel from 'base-view-model';
 
-class SelectListViewModel {
+class SelectListViewModel extends BaseViewModel {
     constructor(params) {
+        super();
+
         this.options = params.options.map(opt => {
             if (opt !== 'object') {
                 opt = {

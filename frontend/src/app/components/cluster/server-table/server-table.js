@@ -1,4 +1,5 @@
 import template from './server-table.html';
+import BaseViewModel from 'base-view-model';
 import ko from 'knockout';
 import ServerRowViewModel from './server-row';
 import { createCompareFunc, deepFreeze } from 'utils';
@@ -43,8 +44,10 @@ const compareAccessors = deepFreeze({
     version: server => server.version
 });
 
-class ServerTableViewModel {
+class ServerTableViewModel extends BaseViewModel {
     constructor() {
+        super();
+
         this.columns = columns;
 
         this.sorting = ko.pureComputed({

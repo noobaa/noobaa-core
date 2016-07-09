@@ -1,4 +1,5 @@
 import { formatSize } from 'utils';
+import BaseViewModel from 'base-view-model';
 import ko from 'knockout';
 
 const statusIconMapping = Object.freeze({
@@ -16,8 +17,10 @@ const statusIconMapping = Object.freeze({
     }
 });
 
-export default class ObjectRowViewModel {
+export default class ObjectRowViewModel extends BaseViewModel {
     constructor(obj) {
+        super();
+
         this.isVisible = ko.pureComputed(
             () => !!obj()
         );

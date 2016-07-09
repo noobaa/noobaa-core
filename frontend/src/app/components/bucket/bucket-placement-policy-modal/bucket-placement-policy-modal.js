@@ -1,12 +1,15 @@
 import template from './bucket-placement-policy-modal.html';
 import PoolRow from './pool-row';
+import BaseViewModel from 'base-view-model';
 import ko from 'knockout';
 import { noop } from 'utils';
 import { systemInfo } from 'model';
 import { updateBucketPlacementPolicy } from 'actions';
 
-class BacketPlacementPolicyModalViewModel {
+class BacketPlacementPolicyModalViewModel extends BaseViewModel {
     constructor({ policy, onClose = noop }) {
+        super();
+
         this.onClose = onClose;
 
         this.tierName = ko.pureComputed(

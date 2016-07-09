@@ -1,4 +1,5 @@
 import template from './object-summary.html';
+import BaseViewModel from 'base-view-model';
 import ko from 'knockout';
 import { formatSize } from 'utils';
 
@@ -7,8 +8,10 @@ const objectStateMapping = Object.freeze({
     false: { label: 'Unavailable', icon: 'object-unavailable' }
 });
 
-class ObjectSummaryViewModel {
+class ObjectSummaryViewModel extends BaseViewModel {
     constructor({ obj }) {
+        super();
+
         this.dataReady = ko.pureComputed(
             () => !!obj()
         );

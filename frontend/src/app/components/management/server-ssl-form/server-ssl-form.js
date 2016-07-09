@@ -1,4 +1,5 @@
 import template from './server-ssl-form.html';
+import BaseViewModel from 'base-view-model';
 import ko from 'knockout';
 import numeral from 'numeral';
 import { sslCertificateSuffix } from 'config';
@@ -28,8 +29,10 @@ const uploadStateMapping = deepFreeze({
     })
 });
 
-class SSLFormViewModel {
+class SSLFormViewModel extends BaseViewModel {
     constructor() {
+        super();
+
         this.expanded = ko.observable(false);
         this.sslCertificateSuffix = sslCertificateSuffix;
 

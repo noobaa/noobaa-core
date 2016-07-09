@@ -1,8 +1,9 @@
 import template from './wizard.html';
+import BaseViewModel from 'base-view-model';
 import ko from 'knockout';
 import { noop } from 'utils';
 
-class WizardViewModel {
+class WizardViewModel extends BaseViewModel {
     constructor({
         heading = '[wizard-heading]',
         steps = [],
@@ -13,6 +14,8 @@ class WizardViewModel {
         onComplete = noop,
         onClose = noop
     }) {
+        super();
+
         this.heading = heading;
         this.steps = steps;
         this.actionLabel = actionLabel;

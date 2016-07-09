@@ -1,5 +1,6 @@
 import template from './audit-pane.html';
 import AuditRowViewModel from './audit-row';
+import BaseViewModel from 'base-view-model';
 import ko from 'knockout';
 import { auditLog } from 'model';
 import { loadAuditEntries, loadMoreAuditEntries, exportAuditEnteries, closeDrawer } from 'actions';
@@ -8,8 +9,10 @@ import categories from './categories';
 const pageSize = 25;
 const scrollThrottle = 750;
 
-class AuditPaneViewModel {
+class AuditPaneViewModel extends BaseViewModel {
     constructor() {
+        super();
+
         this.categories = Object.keys(categories).map(
             key => ({
                 value: key,
@@ -39,8 +42,10 @@ class AuditPaneViewModel {
                 }
             });
 
-        this.scroll.subscribe(
-            pos => pos > .9 && loadMoreAuditEntries(pageSize)
+        this.autoDispose(
+            this.scroll.subscribe(
+                pos => pos > .9 && loadMoreAuditEntries(pageSize)
+            )
         );
 
         this.description = ko.pureComputed(

@@ -1,8 +1,11 @@
+import BaseViewModel from 'base-view-model';
 import ko from 'knockout';
 import { formatSize } from 'utils';
 
-export default class NodeRowViewModel {
+export default class NodeRowViewModel extends BaseViewModel {
     constructor(node) {
+        super();
+
         this.isVisible = ko.pureComputed(
             () => !!node()
         );

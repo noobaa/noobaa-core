@@ -1,8 +1,11 @@
 import template from './range-indicator.html';
+import BaseViewModel from 'base-view-model';
 import ko from 'knockout';
 
-class RangeIndicatorViewModel {
+class RangeIndicatorViewModel extends BaseViewModel {
     constructor({ values }) {
+        super();
+
         this.values = values;
         this.total = ko.computed(() => values.reduce( (sum, { value }) => {
             return sum + ko.unwrap(value);

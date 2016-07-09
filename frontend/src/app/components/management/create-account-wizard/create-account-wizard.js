@@ -1,6 +1,7 @@
 import template from './create-account-wizard.html';
 import nameAndPermissionsStepTemplate from './name-and-permissions-step.html';
 import detailsStepTemplate from './details-step.html';
+import BaseViewModel from 'base-view-model';
 import ko from 'knockout';
 import { randomString, copyTextToClipboard, generateAccessKeys } from 'utils';
 import { systemInfo, accountList } from 'model';
@@ -35,8 +36,10 @@ Use the following S3 access to connect an S3 compatible application to NooBaa:<b
     `;
 }
 
-class CreateAccountWizardViewModel {
+class CreateAccountWizardViewModel extends BaseViewModel {
     constructor({ onClose }) {
+        super();
+
         this.onClose = onClose;
         this.nameAndPermissionsStepTemplate = nameAndPermissionsStepTemplate;
         this.detailsStepTemplate = detailsStepTemplate;

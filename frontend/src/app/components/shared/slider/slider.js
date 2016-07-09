@@ -1,8 +1,11 @@
 import template from './slider.html';
+import BaseViewModel from 'base-view-model';
 import ko from 'knockout';
 
-class SliderViewModel {
+class SliderViewModel extends BaseViewModel {
     constructor({ current = 1 }) {
+        super();
+
         this.current = current;
 
         this.transform = ko.pureComputed(

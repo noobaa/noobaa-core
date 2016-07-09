@@ -1,12 +1,15 @@
 import template from './bucket-objects-table.html';
+import BaseViewModel from 'base-view-model';
 import ko from 'knockout';
 import { paginationPageSize } from 'config';
 import { throttle, makeArray } from 'utils';
 import ObjectRowViewModel from './object-row';
 import { redirectTo } from 'actions';
 
-class BucketObjectsTableViewModel {
+class BucketObjectsTableViewModel extends BaseViewModel {
     constructor({ bucket, objects }) {
+        super();
+
         this.bucketName = ko.pureComputed(
             () => bucket() && bucket().name
         );

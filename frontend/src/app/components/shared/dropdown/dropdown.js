@@ -1,5 +1,6 @@
 import template from './dropdown.html';
 import { randomString } from 'utils';
+import BaseViewModel from 'base-view-model';
 import ko from 'knockout';
 import { isDefined, clamp } from 'utils';
 
@@ -9,7 +10,7 @@ function matchByPrefix({ label, value }, input) {
     return (label || value) .toString().toLowerCase().startsWith(input);
 }
 
-class DropdownViewModel {
+class DropdownViewModel extends BaseViewModel {
     constructor({
         selected = ko.observable(),
         options = [],
@@ -17,6 +18,8 @@ class DropdownViewModel {
         disabled = false,
         matchOperator = matchByPrefix
     }) {
+        super();
+
         this.name = randomString(5);
         this.options = options;
         this.selected = selected;

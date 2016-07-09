@@ -1,10 +1,13 @@
 import template from './bucket-s3-access-list.html';
+import BaseViewModel from 'base-view-model';
 import ko from 'knockout';
 import { bucketS3ACL } from 'model';
 import { loadBucketS3ACL } from 'actions';
 
-class BucketS3AccessListViewModel {
+class BucketS3AccessListViewModel extends BaseViewModel {
     constructor({ bucketName }) {
+        super();
+
         this.accessList = bucketS3ACL
             .filter(
                 ({ is_allowed }) => is_allowed

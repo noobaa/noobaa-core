@@ -1,8 +1,11 @@
+import BaseViewModel from 'base-view-model';
 import ko from 'knockout';
 import { formatSize } from 'utils';
 
-export default class PoolRowViewModel {
+export default class PoolRowViewModel extends BaseViewModel {
     constructor(pool, tier) {
+        super();
+
         this.selected = ko.observable(
             tier.node_pools.indexOf(pool.name) > -1
         );

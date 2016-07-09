@@ -1,11 +1,14 @@
 import template from './data-table.html';
 import ColumnViewModel from './column';
 import * as defaultColumnTemplates from './column-templates';
+import BaseViewModel from 'base-view-model';
 import ko from 'knockout';
 import { noop } from 'utils';
 
-class DataTableViewModel {
+class DataTableViewModel extends BaseViewModel {
     constructor(params, customTemplates) {
+        super();
+
         let { columns = [], rowFactory = noop, data = [], sorting } = params;
 
         this.columnTemplates = Object.assign(
@@ -21,22 +24,25 @@ class DataTableViewModel {
         );
 
         this.rows = ko.observableArray();
-        this.rowsUpdater = ko.computed(
-            () => {
-                let target = (ko.unwrap(data) || []).length;
-                let curr = this.rows().length;
-                let diff = curr - target;
 
-                if (diff < 0) {
-                    for (let i = curr; i < target; ++i) {
-                        this.rows.push(
-                            rowFactory(() => (ko.unwrap(data) || [])[i])
-                        );
+        this.autoDispose(
+            ko.computed(
+                () => {
+                    let target = (ko.unwrap(data) || []).length;
+                    let curr = this.rows().length;
+                    let diff = curr - target;
+
+                    if (diff < 0) {
+                        for (let i = curr; i < target; ++i) {
+                            this.rows.push(
+                                rowFactory(() => (ko.unwrap(data) || [])[i])
+                            );
+                        }
+                    } else if (diff > 0) {
+                        this.rows.splice(-diff, diff);
                     }
-                } else if (diff > 0) {
-                    this.rows.splice(-diff, diff);
                 }
-            }
+            )
         );
 
         this.sorting = sorting;
@@ -68,10 +74,6 @@ class DataTableViewModel {
             sortBy: newColumn,
             order: sortBy === newColumn ? 0 - order : 1
         });
-    }
-
-    dispose() {
-        this.rowsUpdater.dispose();
     }
 }
 

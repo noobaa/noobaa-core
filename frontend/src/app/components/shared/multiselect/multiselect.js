@@ -1,13 +1,16 @@
 import template from './multiselect.html';
+import BaseViewModel from 'base-view-model';
 import ko from 'knockout';
 
-class MultiSelectViewModel {
+class MultiSelectViewModel extends BaseViewModel {
     constructor({
         options = [],
         selected = [],
         disabled = false,
         insertValidationMessage = false
     }) {
+        super();
+
         this.options = ko.pureComputed(
             () => ko.unwrap(options).map(
                 option => typeof ko.unwrap(option) === 'object' ?

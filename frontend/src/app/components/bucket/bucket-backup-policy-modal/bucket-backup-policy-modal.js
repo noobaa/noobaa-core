@@ -1,11 +1,14 @@
 import template from './bucket-backup-policy-modal.html';
+import BaseViewModel from 'base-view-model';
 import ko from 'knockout';
 import ResourceRow from './resource-row';
 import { systemInfo } from 'model';
 import { updateBucketBackupPolicy } from 'actions';
 
-class BucketBackupPolicyModalViewModel {
+class BucketBackupPolicyModalViewModel extends BaseViewModel {
     constructor({ policy, onClose }) {
+        super();
+
         this.onClose = onClose;
 
         this.tierName = ko.pureComputed(

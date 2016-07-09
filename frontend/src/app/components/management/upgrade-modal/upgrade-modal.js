@@ -1,10 +1,13 @@
 import template from './upgrade-modal.html';
+import BaseViewModel from 'base-view-model';
 import ko from 'knockout';
 import numeral from 'numeral';
 import { upgradeStatus } from 'model';
 
-class UpgradeModalViewModel {
+class UpgradeModalViewModel extends BaseViewModel {
     constructor({ onClose }) {
+        super();
+
         this.onClose = onClose;
 
         let step = ko.pureComputed(

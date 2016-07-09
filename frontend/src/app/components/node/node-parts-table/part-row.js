@@ -1,3 +1,4 @@
+import BaseViewModel from 'base-view-model';
 import ko from 'knockout';
 import numeral from 'numeral';
 
@@ -16,8 +17,10 @@ const partStateMapping = Object.freeze({
     }
 });
 
-export default class ObjectRowViewModel {
+export default class ObjectRowViewModel extends BaseViewModel {
     constructor(part) {
+
+        super();
 
         this.isVisible = ko.pureComputed(
             () => !!part()

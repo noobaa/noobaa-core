@@ -1,10 +1,13 @@
 import template from './drawer.html';
+import BaseViewModel from 'base-view-model';
 import ko from 'knockout';
 import { uiState } from 'model';
 import { closeDrawer } from 'actions';
 
-class DrawerViewModel {
+class DrawerViewModel extends BaseViewModel {
     constructor() {
+        super();
+
         this.isOpen = ko.pureComputed(
             () => uiState().drawer
         );

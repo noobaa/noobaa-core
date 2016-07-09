@@ -2,6 +2,7 @@ import template from './install-node-wizard.html';
 import selectStepTemplate from './select-step.html';
 import installStepTemplate from './install-step.html';
 import reviewStepTemplate from './review-step.html';
+import BaseViewModel from 'base-view-model';
 import ko from 'knockout';
 import { defaultPoolName } from 'config';
 import { systemInfo } from 'model';
@@ -50,8 +51,10 @@ const installationTargetOptions = Object.freeze([
     }
 ]);
 
-class InstallNodeWizardViewModel {
+class InstallNodeWizardViewModel extends BaseViewModel {
     constructor({ onClose }) {
+        super();
+
         this.selectStepTemplate = selectStepTemplate;
         this.installStepTemplate = installStepTemplate;
         this.reviewStepTemplate = reviewStepTemplate;

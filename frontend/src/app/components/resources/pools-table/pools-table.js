@@ -1,4 +1,5 @@
 import template from './pools-table.html';
+import BaseViewModel from 'base-view-model';
 import ko from 'knockout';
 import PoolRowViewModel from './pool-row';
 import { makeArray, compare } from 'utils';
@@ -20,8 +21,10 @@ const compareFuncs = Object.freeze({
     capacity: (p1, p2) => compare(p1.storage.total, p2.storage.total)
 });
 
-class PoolsTableViewModel {
+class PoolsTableViewModel extends BaseViewModel {
     constructor() {
+        super();
+
         let query = ko.pureComputed(
             () => routeContext().query
         );

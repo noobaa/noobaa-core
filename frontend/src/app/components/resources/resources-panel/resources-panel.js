@@ -1,9 +1,12 @@
 import template from './resources-panel.html';
+import BaseViewModel from 'base-view-model';
 import ko from 'knockout';
 import { uiState } from 'model';
 
-class PoolsPanelViewModel {
+class PoolsPanelViewModel extends BaseViewModel {
     constructor() {
+        super();
+
         this.isCreatePoolWizardVisible = ko.observable(false);
 
         this.selectedTab = ko.pureComputed(

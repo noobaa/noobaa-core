@@ -1,11 +1,14 @@
 import template from './about-form.html';
+import BaseViewModel from 'base-view-model';
 import ko from 'knockout';
 import { systemInfo } from 'model';
 import { upgradeSystem } from 'actions';
 import { upgradePackageSuffix } from 'config';
 
-class AboutFormViewModel {
+class AboutFormViewModel extends BaseViewModel {
     constructor() {
+        super();
+
         this.version = ko.pureComputed(
             () => systemInfo() && systemInfo().version
         );

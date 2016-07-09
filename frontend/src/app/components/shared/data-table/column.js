@@ -1,7 +1,10 @@
+import BaseViewModel from 'base-view-model';
 import { isObject, noop, toDashedCase } from 'utils';
 
-export default class ColumnViewModel {
+export default class ColumnViewModel extends BaseViewModel {
     constructor(config) {
+        super();
+
         config = isObject(config) ? config : { name: config.toString() };
         let {
             name,

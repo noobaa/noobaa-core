@@ -1,12 +1,15 @@
 import template from './capacity-bar.html';
+import BaseViewModel from 'base-view-model';
 import ko from 'knockout';
 import { isDefined, formatSize } from 'utils';
 import style from 'style';
 
 const minUsedRatio = .03;
 
-class CapacityBarViewModel {
+class CapacityBarViewModel extends BaseViewModel {
     constructor({ total, used }) {
+        super();
+
         this.totalText = ko.pureComputed(
             () => {
                 let val = ko.unwrap(total);

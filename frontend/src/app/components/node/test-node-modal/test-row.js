@@ -1,8 +1,11 @@
+import BaseViewModel from 'base-view-model';
 import ko from 'knockout';
 import numeral from 'numeral';
 
-export default class TestRowViewModel {
+export default class TestRowViewModel extends BaseViewModel {
     constructor(result) {
+        super();
+
         this.isVisible = ko.pureComputed(
             () => !!result()
         );

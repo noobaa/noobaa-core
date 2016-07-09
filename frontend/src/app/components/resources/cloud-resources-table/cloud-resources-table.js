@@ -1,4 +1,5 @@
 import template from './cloud-resources-table.html';
+import BaseViewModel from 'base-view-model';
 import ko from 'knockout';
 import CloudResourceRowViewModel from './cloud-resource-row';
 import { systemInfo, routeContext } from 'model';
@@ -41,8 +42,10 @@ const compareAccessors = Object.freeze({
     cloudBucket: resource => resource.cloud_info.target_bucket
 });
 
-class CloudResourcesTableViewModel {
+class CloudResourcesTableViewModel extends BaseViewModel {
     constructor() {
+        super();
+
         this.columns = columns;
 
         this.sorting = ko.pureComputed({

@@ -1,9 +1,12 @@
 import template from './object-panel.html';
+import BaseViewModel from 'base-view-model';
 import ko from 'knockout';
 import { uiState, objectInfo, objectPartList } from 'model';
 
-class ObjectPanelViewModel {
+class ObjectPanelViewModel extends BaseViewModel {
     constructor() {
+        super();
+
         this.obj = objectInfo;
         this.parts  = objectPartList;
 

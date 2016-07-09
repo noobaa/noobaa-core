@@ -1,9 +1,12 @@
 import template from './create-system-form.html';
+import BaseViewModel from 'base-view-model';
 import ko from 'knockout';
 import { createSystemAccount } from 'actions';
 
-class CreateSystemFormViewModel {
+class CreateSystemFormViewModel extends BaseViewModel {
     constructor() {
+        super();
+
         this.ownerEmail = ko.observable()
             .extend({
                 required: { message: 'Please enter an email address' },

@@ -1,8 +1,11 @@
 import template from './stepper.html';
+import BaseViewModel from 'base-view-model';
 import ko from 'knockout';
 
-class StepperViewModel {
+class StepperViewModel extends BaseViewModel {
     constructor({ steps, current = 0 }) {
+        super();
+
         this.current = current;
 
         this.steps = steps.map(

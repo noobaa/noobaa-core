@@ -1,8 +1,11 @@
 import template from './paginator.html';
+import BaseViewModel from 'base-view-model';
 import ko from 'knockout';
 
-class PaginatorViewModel {
+class PaginatorViewModel extends BaseViewModel {
     constructor({ itemCount, pageSize, page }) {
+        super();
+
         this.page = page;
 
         this.count = ko.pureComputed(

@@ -1,4 +1,5 @@
 import template from './add-cloud-resource-modal.html';
+import BaseViewModel from 'base-view-model';
 import ko from 'knockout';
 import { S3Connections, S3BucketList, systemInfo } from 'model';
 import { loadS3Connections, loadS3BucketList, createCloudResource } from 'actions';
@@ -8,8 +9,10 @@ const addConnectionOption = Object.freeze({
     value: {}
 });
 
-class AddCloudResourceModalViewModel {
+class AddCloudResourceModalViewModel extends BaseViewModel {
     constructor({ onClose }) {
+        super();
+
         this.onClose = onClose;
 
         this.connectionOptions = ko.pureComputed(
@@ -41,11 +44,13 @@ class AddCloudResourceModalViewModel {
                 required: { message: 'Please select a connection from the list' }
             });
 
-        this.connectionSub = this.connection.subscribe(
-            value => {
-                this.targetBucket(null);
-                value && this.loadBucketsList();
-            }
+        this.autoDispose(
+            this.connection.subscribe(
+                value => {
+                    this.targetBucket(null);
+                    value && this.loadBucketsList();
+                }
+            )
         );
 
         this.targetBucketsOptions = ko.pureComputed(

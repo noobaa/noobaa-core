@@ -1,3 +1,4 @@
+import BaseViewModel from 'base-view-model';
 import ko from 'knockout';
 import { deepFreeze } from 'utils';
 
@@ -16,8 +17,10 @@ const icons = deepFreeze([
     }
 ]);
 
-export default class ResourceRowViewModel {
+export default class ResourceRowViewModel extends BaseViewModel {
     constructor(pool, tier) {
+        super();
+
         this.selected = ko.observable(
             tier.cloud_pools.indexOf(pool.name) > -1
         );

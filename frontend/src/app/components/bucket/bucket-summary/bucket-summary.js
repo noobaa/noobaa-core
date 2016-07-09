@@ -1,4 +1,5 @@
 import template from './bucket-summary.html';
+import BaseViewModel from 'base-view-model';
 import ko from 'knockout';
 import style from 'style';
 import { formatSize } from 'utils';
@@ -12,8 +13,10 @@ const cloudSyncStatusMapping = Object.freeze({
     NOTSET: { text: 'Cloud sync not set', icon: 'cloud-not-set' }
 });
 
-class BucketSummrayViewModel {
+class BucketSummrayViewModel extends BaseViewModel {
     constructor({ bucket }) {
+        super();
+
         this.dataReady = ko.pureComputed(
             () => !!bucket()
         );

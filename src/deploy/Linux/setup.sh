@@ -6,10 +6,17 @@ if [ $? -ne 0 ]; then
     echo "Missing openssl, please install openssl and rerun the setup"
     exit 1
 fi
-initctl --version
-if [ $? -ne 0 ]; then
-    echo "Missing upstart, please install it by typing: sudo apt install upstart, and rerun the setup"
-    exit 1
+linux_dist=$(gawk -F=    '/^NAME/{print $2}' /etc/os-release)
+if [[ "$linux_dist" == *"Ubuntu"* ]]; then
+    initctl --version
+    if [ $? -ne 0 ]; then
+        echo "Missing upstart, please install it by typing: sudo apt install upstart, and rerun the setup"
+        exit 1
+    else
+        echo 'initctl exists'
+    fi
+else
+    echo 'not ubuntu'
 fi
 
 if [ ! -d "/usr/local/noobaa" ]; then

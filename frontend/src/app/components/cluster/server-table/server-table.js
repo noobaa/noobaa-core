@@ -1,11 +1,11 @@
 import template from './server-table.html';
 import ko from 'knockout';
-import ServerRow from './server-row';
-import { createCompareFunc } from 'utils';
+import ServerRowViewModel from './server-row';
+import { createCompareFunc, deepFreeze } from 'utils';
 import { redirectTo } from 'actions';
 import { systemInfo, routeContext } from 'model';
 
-const columns = [
+const columns = deepFreeze([
     {
         name: 'state',
         sortable: true
@@ -32,9 +32,9 @@ const columns = [
         name: 'version',
         sortable: true
     }
-];
+]);
 
-const compareAccessors = Object.freeze({
+const compareAccessors = deepFreeze({
     state: server => server.is_connected,
     hostname: server => server.hostname,
     address: server => server.address,
@@ -47,19 +47,15 @@ class ServerTableViewModel {
     constructor() {
         this.columns = columns;
 
-        let query = ko.pureComputed(
-            () => routeContext().query
-        );
-
         this.sorting = ko.pureComputed({
             read: () => ({
-                sortBy: query().sortBy || 'hostname',
-                order: Number(query().order) || 1
+                sortBy: routeContext().query.sortBy || 'hostname',
+                order: Number(routeContext().query.order) || 1
             }),
             write: value => redirectTo(undefined, undefined, value)
         });
 
-        let servers = ko.pureComputed(
+        this.servers = ko.pureComputed(
             () => {
                 let { sortBy, order } = this.sorting();
                 let compareOp = createCompareFunc(compareAccessors[sortBy], order);
@@ -70,13 +66,11 @@ class ServerTableViewModel {
             }
         );
 
-        this.rows = ko.pureComputed(
-            () => servers() && servers().map(
-                server => new ServerRow(server)
-            )
-        );
-
         this.isAttachServerModalVisible = ko.observable(false);
+    }
+
+    rowFactory(server) {
+        return new ServerRowViewModel(server);
     }
 
     showAttachServerModal() {

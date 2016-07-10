@@ -70,17 +70,18 @@ class MongoClient extends EventEmitter {
         let url = this.url.replace(config.MONGO_DEFAULTS.USER_PLACE_HOLDER,
             config.MONGO_DEFAULTS.DEFAULT_USER + ':roonoobaa');
         let admin_url = this.url.replace(config.MONGO_DEFAULTS.USER_PLACE_HOLDER,
-            config.MONGO_DEFAULTS.DEFAULT_ADMIN_USER + ':roonoobaa').replace('/nbcore', '');
-        this.promise = this._connect('db', url, this.config);
-        // .then(db => {
-        //     // return this._connect('admin_db', admin_url, this.config).then(() => db);
-        // });
+            config.MONGO_DEFAULTS.DEFAULT_ADMIN_USER + ':roonoobaa');
+        admin_url = admin_url.substring(0, admin_url.indexOf('/nbcore'));
+        this.promise = this._connect('db', url, this.config)
+            .then(db => {
+                return this._connect('admin_db', admin_url, this.config).then(() => db);
+            });
         return this.promise;
     }
 
     _connect(access_db, url, config) {
         if (this._disconnected_state) return;
-        if (this[access_db]) return this[access_db];
+        if (this[access_db]) return P.resolve(this[access_db]);
         dbg.log0('_connect called with', url);
         return mongodb.MongoClient.connect(url, config)
             .then(db => {
@@ -112,6 +113,7 @@ class MongoClient extends EventEmitter {
         if (this.db) {
             this.db.close();
             this.db = null;
+            this.admin_db = null;
         }
         if (this.cfg_db) {
             this.cfg_db.close();
@@ -160,7 +162,7 @@ class MongoClient extends EventEmitter {
         };
         dbg.log0('Calling initiate_replica_set', util.inspect(command, false, null));
         if (!is_config_set) { //connect the mongod server
-            return P.resolve(this.admin_db.command(command))
+            return P.resolve(this.db.admin().command(command))
                 .catch(err => {
                     dbg.error('Failed initiate_replica_set', set, members, 'with', err.message);
                     throw err;
@@ -171,7 +173,7 @@ class MongoClient extends EventEmitter {
     get_mongo_rs_status() {
         return P.resolve().then(() => {
             if (this.db) {
-                return P.ninvoke(this.admin_db, 'replSetGetStatus')
+                return P.ninvoke(this.db.admin(), 'replSetGetStatus')
                     .then(status => {
                         dbg.log0('got rs status from mongo:', status);
                         if (status.ok) {
@@ -214,7 +216,7 @@ class MongoClient extends EventEmitter {
                 rep_config.version = ++ver;
                 dbg.log0('Calling replica_update_members', util.inspect(command, false, null));
                 if (!is_config_set) { //connect the mongod server
-                    return P.resolve(this.admin_db.command(command))
+                    return P.resolve(this.db.admin().command(command))
                         .catch((err) => {
                             dbg.error('Failed replica_update_members', set, members, 'with', err.message);
                             throw err;
@@ -232,7 +234,7 @@ class MongoClient extends EventEmitter {
         return P.resolve(this.connect())
             .then(() => {
                 dbg.log0('add_shard connected, calling db.admin addShard{}');
-                return P.resolve(this.admin_db.command({
+                return P.resolve(this.db.admin().command({
                     addShard: host + ':' + port,
                     name: shardname
                 }));
@@ -262,7 +264,7 @@ class MongoClient extends EventEmitter {
         if (is_config_set) {
             return P.resolve(this._send_command_config_rs(command));
         } else {
-            return P.resolve(this.admin_db.command(command));
+            return P.resolve(this.db.admin().command(command));
         }
     }
 
@@ -274,7 +276,7 @@ class MongoClient extends EventEmitter {
 
         return P.fcall(function() {
                 if (!is_config_set) { //connect the mongod server
-                    return P.resolve(self.admin_db.command(command))
+                    return P.resolve(self.db.admin().command(command))
                         .catch((err) => {
                             dbg.error('Failed get_rs_version with', err.message);
                             throw err;

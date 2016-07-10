@@ -263,6 +263,33 @@ function set_ntp(server, timez) {
     }
 }
 
+function set_dns_server(servers) {
+    if (os.type() === 'Linux') {
+        var commands_to_exec = [];
+        if (servers[0]) {
+            commands_to_exec.push("sed -i 's/.*NooBaa Configured Primary DNS Server.*/nameserver " +
+                servers[0] + " #NooBaa Configured Primary DNS Server/' /etc/resolv.conf");
+        } else {
+            commands_to_exec.push("sed -i 's/.*NooBaa Configured Primary DNS Server.*/#NooBaa Configured Primary DNS Server/' /etc/resolv.conf");
+        }
+
+        if (servers[1]) {
+            commands_to_exec.push("sed -i 's/.*NooBaa Configured Secondary DNS Server.*/nameserver " +
+                servers[1] + " #NooBaa Configured Secondary DNS Server/' /etc/resolv.conf");
+        } else {
+            commands_to_exec.push("sed -i 's/.*NooBaa Configured Secondary DNS Server.*/#NooBaa Configured Secondary DNS Server/' /etc/resolv.conf");
+        }
+
+        return P.each(commands_to_exec, function(command) {
+            return promise_utils.exec(command);
+        });
+    } else if (os.type() === 'Darwin') { //Bypass for dev environment
+        return;
+    } else {
+        throw new Error('setting DNS not supported on non-Linux platforms');
+    }
+}
+
 function restart_rsyslogd() {
     return promise_utils.exec('/etc/init.d/rsyslog restart');
 }
@@ -409,3 +436,4 @@ exports.get_networking_info = get_networking_info;
 exports.read_server_secret = read_server_secret;
 exports.is_supervised_env = is_supervised_env;
 exports.reload_syslog_configuration = reload_syslog_configuration;
+exports.set_dns_server = set_dns_server;

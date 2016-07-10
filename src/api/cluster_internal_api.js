@@ -114,6 +114,69 @@ module.exports = {
             }
         },
 
+        apply_updated_time_config: {
+            method: 'POST',
+            params: {
+                $ref: '#/definitions/time_config'
+            },
+            auth: {
+                system: false,
+            }
+        },
 
+        apply_updated_dns_servers: {
+            method: 'POST',
+            params: {
+                $ref: '#/definitions/dns_servers_config'
+            },
+            auth: {
+                system: false,
+            }
+        },
+    },
+
+    definitions: {
+        time_config: {
+            type: 'object',
+            required: ['config_type', 'timezone'],
+            properties: {
+                target_secret: {
+                    type: 'string'
+                },
+                config_type: {
+                    $ref: '#/definitions/time_config_type'
+                },
+                timezone: {
+                    type: 'string'
+                },
+                server: {
+                    type: 'string'
+                },
+                epoch: {
+                    type: 'number'
+                },
+            },
+        },
+
+        dns_servers_config: {
+            type: 'object',
+            required: ['dns_servers'],
+            properties: {
+                target_secret: {
+                    type: 'string'
+                },
+                dns_servers: {
+                    type: 'array',
+                    items: {
+                        type: 'string'
+                    },
+                }
+            },
+        },
+
+        time_config_type: {
+            enum: ['NTP', 'MANUAL'],
+            type: 'string',
+        }
     },
 };

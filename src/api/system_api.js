@@ -495,15 +495,15 @@ module.exports = {
             }
         },
 
-        update_time_config: {
-            method: 'POST',
-            params: {
-                $ref: '#/definitions/time_config'
-            },
-            auth: {
-                system: 'admin',
-            }
-        },
+        // update_time_config: {
+        //     method: 'POST',
+        //     params: {
+        //         $ref: '#/definitions/time_config'
+        //     },
+        //     auth: {
+        //         system: 'admin',
+        //     }
+        // },
 
         update_hostname: {
             method: 'POST',
@@ -652,9 +652,6 @@ module.exports = {
                 n2n_config: {
                     $ref: 'common_api#/definitions/n2n_config'
                 },
-                ip_address: {
-                    type: 'string'
-                },
                 phone_home_config: {
                     type: 'object',
                     properties: {
@@ -682,6 +679,9 @@ module.exports = {
                         }
                     }
                 },
+                ip_address: {
+                    type: 'string'
+                },
                 dns_name: {
                     type: 'string'
                 },
@@ -690,23 +690,6 @@ module.exports = {
                 },
                 version: {
                     type: 'string'
-                },
-                time_config: {
-                    type: 'object',
-                    properties: {
-                        srv_time: {
-                            type: 'string'
-                        },
-                        ntp_server: {
-                            type: 'string'
-                        },
-                        synced: {
-                            type: 'boolean'
-                        },
-                        timezone: {
-                            type: 'string'
-                        },
-                    }
                 },
                 debug_level: {
                     type: 'integer'
@@ -786,29 +769,13 @@ module.exports = {
             }
         },
 
-        time_config: {
-            type: 'object',
-            required: ['config_type', 'timezone'],
-            properties: {
-                config_type: {
-                    $ref: '#/definitions/time_config_type'
-                },
-                timezone: {
-                    type: 'string'
-                },
-                server: {
-                    type: 'string'
-                },
-                epoch: {
-                    type: 'number'
-                },
-            },
-        },
-
         cluster_info: {
             type: 'object',
             // required: ['count', 'online'],
             properties: {
+                master_secret: {
+                    type: 'string',
+                },
                 shards: {
                     type: 'array',
                     items: {
@@ -838,6 +805,9 @@ module.exports = {
                 version: {
                     type: 'string'
                 },
+                secret: {
+                    type: 'string',
+                },
                 is_connected: {
                     type: 'boolean'
                 },
@@ -855,14 +825,25 @@ module.exports = {
                 },
                 location: {
                     type: 'string'
+                },
+                ntp: {
+                    type: 'object',
+                    properties: {
+                        server: {
+                            type: 'string'
+                        },
+                        timezone: {
+                            type: 'string'
+                        },
+                    }
+                },
+                dns_servers: {
+                    type: 'array',
+                    items: {
+                        type: 'string'
+                    },
                 }
             }
         },
-
-
-        time_config_type: {
-            enum: ['NTP', 'MANUAL'],
-            type: 'string',
-        }
     }
 };

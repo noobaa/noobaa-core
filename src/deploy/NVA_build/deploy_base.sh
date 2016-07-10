@@ -72,7 +72,7 @@ function install_aux {
 	# install NTP server
 	yum install -y ntp
 	# By Default, NTP is disabled, set local TZ to US Pacific
-	echo "# NooBaa Configured NTP Server"	 >> /etc/ntp.conf
+	echo "#NooBaa Configured NTP Server"	 >> /etc/ntp.conf
 	echo "#NooBaa Configured Primary DNS Server" >> /etc/resolv.conf
 	echo "#NooBaa Configured Secondary DNS Server" >> /etc/resolv.conf
 	sed -i 's:\(^server.*\):#\1:g' /etc/ntp.conf

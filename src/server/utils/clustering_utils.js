@@ -175,11 +175,14 @@ function get_cluster_info() {
         let server_info = {
             version: version,
             hostname: hostname,
+            secret: cinfo.owner_secret,
             address: cinfo.owner_address,
             is_connected: is_connected,
             memory_usage: memory_usage,
             cpu_usage: cpu_usage,
-            location: location
+            location: location,
+            ntp: cinfo.ntp,
+            dns_servers: cinfo.dns_servers
         };
         shard.servers.push(server_info);
     });
@@ -188,6 +191,7 @@ function get_cluster_info() {
         shard.high_availabilty = (num_connected / shard.servers.length) > (shard.servers.length / 2);
     });
     let cluster_info = {
+        master_secret: system_store.get_server_secret(),
         shards: shards
     };
     return cluster_info;

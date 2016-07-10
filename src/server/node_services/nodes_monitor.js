@@ -16,12 +16,13 @@ const config = require('../../../config');
 const js_utils = require('../../util/js_utils');
 const RpcError = require('../../rpc/rpc_error');
 const md_store = require('../object_services/md_store');
+const size_utils = require('../../util/size_utils');
+const Dispatcher = require('../notifications/dispatcher');
 const MapBuilder = require('../object_services/map_builder').MapBuilder;
 const server_rpc = require('../server_rpc');
 const auth_server = require('../common_services/auth_server');
 const nodes_store = require('./nodes_store');
 const mongo_utils = require('../../util/mongo_utils');
-const Dispatcher = require('../notifications/dispatcher');
 const buffer_utils = require('../../util/buffer_utils');
 const system_store = require('../system_services/system_store').get_instance();
 const promise_utils = require('../../util/promise_utils');
@@ -64,6 +65,7 @@ const MONITOR_INFO_FIELDS = [
     'n2n_connectivity',
     'connectivity',
     'storage_full',
+    'suggested_pool',
 ];
 const NODE_INFO_FIELDS = [
     'name',
@@ -114,6 +116,11 @@ class NodesMonitor extends EventEmitter {
         this._set_need_update = new Set();
         this._set_need_rebuild = new Set();
         this._set_need_rebuild_iter = null;
+    }
+
+    _throw_if_not_started_and_loaded() {
+        if (!this._started) throw new RpcError('MONITOR_NOT_STARTED');
+        if (!this._loaded) throw new RpcError('MONITOR_NOT_LOADED');
     }
 
     _load_from_store() {
@@ -169,7 +176,7 @@ class NodesMonitor extends EventEmitter {
                 system: system._id,
                 pool: pool._id,
                 heartbeat: new Date(),
-                name: 'New-Node-' + Date.now().toString(36),
+                name: 'a-node-has-no-name-' + Date.now().toString(36),
             },
         };
         if (pool.cloud_pool_info) {
@@ -250,6 +257,7 @@ class NodesMonitor extends EventEmitter {
             return this._run_node(item).then(worker);
         };
         return P.all(_.times(concur, worker))
+            .then(() => this._suggest_pool_assign())
             .then(() => this._update_nodes_store('force'));
     }
 
@@ -282,6 +290,8 @@ class NodesMonitor extends EventEmitter {
             .then(info => {
                 item.agent_info = info;
                 if (info.name !== item.node.name) {
+                    dbg.log0('_get_agent_info: rename node from', item.node.name,
+                        'to', info.name);
                     this._map_node_name.delete(String(item.node.name));
                     this._map_node_name.set(String(info.name), item);
                 }
@@ -428,6 +438,10 @@ class NodesMonitor extends EventEmitter {
         // TODO GUYM implement node n2n_connectivity & connectivity status
         item.n2n_connectivity = true;
         item.connectivity = 'TCP';
+
+        item.avg_ping = _.mean(item.node.latency_to_server);
+        item.avg_disk_read = _.mean(item.node.latency_of_disk_read);
+        item.avg_disk_write = _.mean(item.node.latency_of_disk_write);
 
         item.storage_full =
             item.node.storage.limit ?
@@ -670,8 +684,7 @@ class NodesMonitor extends EventEmitter {
             return reply;
         }
 
-        if (!this._started) throw new RpcError('MONITOR_NOT_STARTED');
-        if (!this._loaded) throw new RpcError('MONITOR_NOT_LOADED');
+        this._throw_if_not_started_and_loaded();
 
         // existing node heartbeat
         if (node_id && (req.role === 'agent' || req.role === 'admin')) {
@@ -691,12 +704,14 @@ class NodesMonitor extends EventEmitter {
     }
 
     read_node(node_identity) {
+        this._throw_if_not_started_and_loaded();
         const item = this._get_node(node_identity, 'allow_offline');
         this._update_status(item);
         return this._get_node_info(item);
     }
 
     migrate_nodes_to_pool(nodes_identities, pool_id) {
+        this._throw_if_not_started_and_loaded();
         const items = _.map(nodes_identities, node_identity => {
             let item = this._get_node(node_identity, 'allow_offline');
             // validate that the node doesn't belong to a cloud pool
@@ -730,6 +745,7 @@ class NodesMonitor extends EventEmitter {
     }
 
     decommission_node(node_identity) {
+        this._throw_if_not_started_and_loaded();
         const item = this._get_node(node_identity, 'allow_offline');
         this._update_status(item);
 
@@ -738,6 +754,7 @@ class NodesMonitor extends EventEmitter {
     }
 
     recommission_node(node_identity) {
+        this._throw_if_not_started_and_loaded();
         const item = this._get_node(node_identity, 'allow_offline');
         this._update_status(item);
 
@@ -746,6 +763,7 @@ class NodesMonitor extends EventEmitter {
     }
 
     delete_node(node_identity) {
+        this._throw_if_not_started_and_loaded();
         const item = this._get_node(node_identity, 'allow_offline');
         this._update_status(item);
 
@@ -841,102 +859,110 @@ class NodesMonitor extends EventEmitter {
         return list.slice(skip, skip + limit);
     }
 
-    _train_and_suggest(nodes) {
-        var data_for_ml = [];
-        var default_pool_index = -1;
-        var res_nodes = nodes;
-
-        _.forEach(res_nodes, function(curr_node) {
-            if (curr_node.node_from_store) {
-                var node = curr_node.node_from_store;
-
-                var node_avg_read = node.latency_of_disk_read.reduce(function(a, m, i, p) {
-                    return a + m / p.length;
-                }, 0);
-                var node_avg_write = node.latency_of_disk_write.reduce(function(a, m, i, p) {
-                    return a + m / p.length;
-                }, 0);
-                var node_avg_latency = node.latency_to_server.reduce(function(a, m, i, p) {
-                    return a + m / p.length;
-                }, 0);
-
-                var node_pool_name = system_store.data.get_by_id(node.pool).name;
-
-                var pool_index = _.findIndex(data_for_ml, function(obj) {
-                    return obj.pool_name === node_pool_name;
-                });
-
-                if (node_pool_name === 'default_pool') {
-                    default_pool_index = pool_index;
-                }
-                if (pool_index < 0) {
-                    pool_index = 0;
-                    data_for_ml.push({
-                        pool_name: node_pool_name,
-                        nodes: []
-                    });
-                }
-                data_for_ml[pool_index].nodes.push(
-                    new dclassify.Document(node._id, [
-                        node.ip,
-                        node.geolocation,
-                        node.storage.used,
-                        node.storage.total,
-                        node.storage.used,
-                        node_avg_latency,
-                        node_avg_read,
-                        node_avg_write
-                    ]));
+    _suggest_pool_assign() {
+        // prepare nodes data per pool
+        const pools_data_map = new Map();
+        for (const item of this._map_node_id.values()) {
+            const node_id = String(item.node._id);
+            const pool_id = String(item.node.pool);
+            const pool = system_store.data.get_by_id(pool_id);
+            dbg.log0('_suggest_pool_assign: node', item.node.name, 'pool', pool && pool.name);
+            if (!pool) continue;
+            let pool_data = pools_data_map.get(pool_id);
+            if (!pool_data) {
+                pool_data = {
+                    pool_id: pool_id,
+                    pool_name: pool.name,
+                    docs: []
+                };
+                pools_data_map.set(pool_id, pool_data);
             }
-        });
 
-        var data = new dclassify.DataSet();
-        var options = {
-            applyInverse: true
-        };
-
-        //Push ML data with all nodes except default_pool nodes
-        _.forEach(data_for_ml, function(value, key) {
-            if (value.pool_name !== 'default_pool') {
-                data.add(value.pool_name, value.nodes);
-            }
-        });
-
-        if (data_for_ml.length > 2) {
-            // create a classifier
-            var classifier = new dclassify.Classifier(options);
-
-            // train the classifier
-            classifier.train(data);
-
-            dbg.log0("Trained with non default pool nodes:", classifier, 'probablity', JSON.stringify(classifier.probabilities, null, 4));
-
-            _.forEach(data_for_ml[default_pool_index].nodes, function(value, key) {
-                var result1 = classifier.classify(value);
-                var suggested_pool = "";
-                dbg.log1("ML result for ", value.id, result1);
-                if (result1.category === 'default_pool') {
-                    suggested_pool = result1.secondCategory;
-                } else {
-                    suggested_pool = result1.category;
+            // cannot use numbers as dclassify tokens only discrete strings,
+            // so we have to transform numbers to some relevant tokens
+            const tokens = [];
+            if (item.node.ip) {
+                const x = item.node.ip.split('.');
+                if (x.length === 4) {
+                    tokens.push('ip:' + x[0] + '.x.x.x');
+                    tokens.push('ip:' + x[0] + '.' + x[1] + '.x.x');
+                    tokens.push('ip:' + x[0] + '.' + x[1] + '.' + x[2] + '.x');
+                    tokens.push('ip:' + x[0] + '.' + x[1] + '.' + x[2] + '.' + x[3]);
                 }
-
-                var node_index = _.findIndex(res_nodes, function(obj) {
-                    return (obj.node._id).toString() === (value.id).toString();
-                });
-                res_nodes[node_index].node.suggested_pool = suggested_pool;
-                dbg.log0('ML result for ', value.id, 'suggested pool:', suggested_pool);
-
-            });
+            }
+            if (item.node.os_info) {
+                tokens.push('platform:' + item.node.os_info.platform);
+                tokens.push('arch:' + item.node.os_info.arch);
+                tokens.push('totalmem:' + scale_size_token(item.node.os_info.totalmem));
+            }
+            if (_.isNumber(item.avg_ping)) {
+                tokens.push('avg_ping:' + scale_number_token(item.avg_ping));
+            }
+            if (_.isNumber(item.avg_disk_read)) {
+                tokens.push('avg_disk_read:' + scale_number_token(item.avg_disk_read));
+            }
+            if (_.isNumber(item.avg_disk_write)) {
+                tokens.push('avg_disk_write:' + scale_number_token(item.avg_disk_write));
+            }
+            if (item.node.storage && _.isNumber(item.node.storage.total)) {
+                const storage_other =
+                    item.node.storage.total -
+                    item.node.storage.used -
+                    item.node.storage.free;
+                tokens.push('storage_other:' + scale_size_token(storage_other));
+                tokens.push('storage_total:' + scale_size_token(item.node.storage.total));
+            }
+            pool_data.docs.push(new dclassify.Document(node_id, tokens));
         }
-        return res_nodes;
 
+        // take the data of all the pools without the default_pool
+        // and use it to train a classifier of nodes to pools
+        const data_set = new dclassify.DataSet();
+        const classifier = new dclassify.Classifier({
+            applyInverse: true
+        });
+        let num_trained_pools = 0;
+        for (const pool_data of pools_data_map.values()) {
+            if (pool_data.pool_name === 'default_pool') continue;
+            dbg.log0('_suggest_pool_assign: add to data set',
+                pool_data.pool_name, pool_data.docs);
+            data_set.add(pool_data.pool_name, pool_data.docs);
+            num_trained_pools += 1;
+        }
+        if (num_trained_pools <= 0) {
+            dbg.log0('_suggest_pool_assign: no pools to suggest');
+            return;
+        } else if (num_trained_pools === 1) {
+            // the classifier requires at least two options to work
+            dbg.log0('_suggest_pool_assign: only one pool to suggest,',
+                'too small for real suggestion');
+            return;
+        }
+        classifier.train(data_set);
+        dbg.log0('_suggest_pool_assign: Trained:', classifier,
+            'probabilities', JSON.stringify(classifier.probabilities));
+
+        // for nodes in the default_pool use the classifier to suggest a pool
+        for (const pool_data of pools_data_map.values()) {
+            if (pool_data.pool_name !== 'default_pool') continue;
+            for (const doc of pool_data.docs) {
+                const item = this._map_node_id.get(doc.id);
+                dbg.log0('_suggest_pool_assign: classify start', item.node.name, doc);
+                const res = classifier.classify(doc);
+                dbg.log0('_suggest_pool_assign: classify result', item.node.name, res);
+                if (res.category !== 'default_pool') {
+                    item.suggested_pool = res.category;
+                } else if (res.secondCategory !== 'default_pool') {
+                    item.suggested_pool = res.secondCategory;
+                }
+            }
+        }
     }
 
     list_nodes(query, options) {
         console.log('list_nodes: query', query);
-        const list = this._train_and_suggest(this._filter_nodes(query));
-
+        this._throw_if_not_started_and_loaded();
+        const list = this._filter_nodes(query);
         this._sort_nodes_list(list, options);
         const res_list = options && options.pagination ?
             this._paginate_nodes_list(list, options) : list;
@@ -982,6 +1008,7 @@ class NodesMonitor extends EventEmitter {
     }
 
     aggregate_nodes(query, group_by) {
+        this._throw_if_not_started_and_loaded();
         const list = this._filter_nodes(query);
         const res = this._aggregate_nodes_list(list);
         if (group_by) {
@@ -1040,7 +1067,6 @@ class NodesMonitor extends EventEmitter {
         if (info.os_info.last_update) {
             info.os_info.last_update = new Date(info.os_info.last_update).getTime();
         }
-        info.suggested_pool = node.suggested_pool || "";
 
         return fields ? _.pick(info, '_id', fields) : info;
     }
@@ -1058,6 +1084,8 @@ class NodesMonitor extends EventEmitter {
             item = this._map_peer_id.get(node_identity.rpc_address.slice('n2n://'.length));
         }
         if (!item && allow_missing !== 'allow_missing') {
+            dbg.log0('Nodes ids:', Array.from(this._map_node_id.keys()));
+            dbg.log0('Nodes names:', Array.from(this._map_node_name.keys()));
             throw new RpcError('NO_SUCH_NODE',
                 'No node ' + JSON.stringify(node_identity));
         }
@@ -1070,6 +1098,7 @@ class NodesMonitor extends EventEmitter {
 
     n2n_signal(signal_params) {
         dbg.log1('n2n_signal:', signal_params.target);
+        this._throw_if_not_started_and_loaded();
         const item = this._get_node({
             rpc_address: signal_params.target
         });
@@ -1085,6 +1114,7 @@ class NodesMonitor extends EventEmitter {
         dbg.log3('n2n_proxy: target', proxy_params.target,
             'call', proxy_params.method_api + '.' + proxy_params.method_name,
             'params', proxy_params.request_params);
+        this._throw_if_not_started_and_loaded();
 
         const item = this._get_node({
             rpc_address: proxy_params.target
@@ -1114,6 +1144,7 @@ class NodesMonitor extends EventEmitter {
 
     test_node_network(self_test_params) {
         dbg.log0('test_node_network:', self_test_params);
+        this._throw_if_not_started_and_loaded();
         const item = this._get_node({
             rpc_address: self_test_params.source
         });
@@ -1123,6 +1154,7 @@ class NodesMonitor extends EventEmitter {
     }
 
     collect_agent_diagnostics(node_identity) {
+        this._throw_if_not_started_and_loaded();
         const item = this._get_node(node_identity);
         return server_rpc.client.agent.collect_diagnostics(undefined, {
             connection: item.connection,
@@ -1130,6 +1162,7 @@ class NodesMonitor extends EventEmitter {
     }
 
     set_debug_node(req) {
+        this._throw_if_not_started_and_loaded();
         const debug_level = req.rpc_params.level;
         const node_identity = req.rpc_params.node;
         const item = this._get_node(node_identity);
@@ -1158,6 +1191,7 @@ class NodesMonitor extends EventEmitter {
     }
 
     allocate_nodes(params) {
+        this._throw_if_not_started_and_loaded();
         const pool_id = String(params.pool_id);
         const list = [];
         for (const item of this._map_node_id.values()) {
@@ -1182,6 +1216,7 @@ class NodesMonitor extends EventEmitter {
      *
      */
     report_node_block_error(req) {
+        this._throw_if_not_started_and_loaded();
         let action = req.rpc_params.action;
         let block_md = req.rpc_params.block_md;
         let node_id = block_md.node;
@@ -1217,6 +1252,14 @@ function get_storage_info(storage) {
     };
 }
 
+function scale_number_token(num) {
+    return Math.pow(2, Math.round(Math.log2(num)));
+}
+
+function scale_size_token(size) {
+    const scaled = Math.max(scale_number_token(size), size_utils.GIGABYTE);
+    return size_utils.human_size(scaled);
+}
 
 // EXPORTS
 exports.NodesMonitor = NodesMonitor;

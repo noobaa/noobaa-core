@@ -1,6 +1,7 @@
 import template from './bucket-data-placement-form.html';
 import placementSectionTemplate from './placement-policy-section.html';
 import backupPolicySectionTemplate from './backup-policy-section.html';
+import Disposable from 'disposable';
 import ko from 'knockout';
 import { systemInfo } from 'model';
 import { formatSize, deepFreeze } from 'utils';
@@ -25,8 +26,10 @@ const resourceIcons = deepFreeze([
     }
 ]);
 
-class BucketDataPlacementFormViewModel {
+class BucketDataPlacementFormViewModel extends Disposable {
     constructor({ bucket }) {
+        super();
+
         this.placementSectionTemplate = placementSectionTemplate;
         this.backupPolicySectionTemplate = backupPolicySectionTemplate;
 

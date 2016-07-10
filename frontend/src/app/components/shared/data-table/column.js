@@ -1,7 +1,10 @@
+import Disposable from 'disposable';
 import { isObject, noop, toDashedCase } from 'utils';
 
-export default class ColumnViewModel {
+export default class ColumnViewModel extends Disposable {
     constructor(config) {
+        super();
+
         config = isObject(config) ? config : { name: config.toString() };
         let {
             name,

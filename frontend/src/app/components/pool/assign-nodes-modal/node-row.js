@@ -1,8 +1,11 @@
+import Disposable from 'disposable';
 import ko from 'knockout';
 import { formatSize } from 'utils';
 
-export default class NodeRowViewModel {
+export default class NodeRowViewModel extends Disposable {
     constructor(node) {
+        super();
+
         this.isVisible = ko.pureComputed(
             () => !!node()
         );

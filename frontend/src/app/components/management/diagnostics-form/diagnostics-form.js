@@ -1,11 +1,14 @@
 import template from './diagnostics-form.html';
+import Disposable from 'disposable';
 import ko from 'knockout';
 import { systemInfo } from 'model';
 import { downloadSystemDiagnosticPack, setSystemDebugLevel } from 'actions';
 import { isUndefined } from 'utils';
 
-class DiagnosticsFormViewModel {
+class DiagnosticsFormViewModel extends Disposable {
     constructor() {
+        super();
+
         this.debugLevel = ko.pureComputed(
             () => systemInfo() && systemInfo().debug_level
         );

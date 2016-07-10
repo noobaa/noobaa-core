@@ -1,9 +1,12 @@
 import template from './object-panel.html';
+import Disposable from 'disposable';
 import ko from 'knockout';
 import { uiState, objectInfo, objectPartList } from 'model';
 
-class ObjectPanelViewModel {
+class ObjectPanelViewModel extends Disposable {
     constructor() {
+        super();
+
         this.obj = objectInfo;
         this.parts  = objectPartList;
 

@@ -1,13 +1,16 @@
 import template from './autocomplete.html';
+import Disposable from 'disposable';
 import ko from 'knockout';
 
-class AutoCompleteViewModel {
+class AutoCompleteViewModel extends Disposable {
     constructor({
         value,
         suggestions = [],
         placeholder = '',
         disabled = false
     }) {
+        super();
+
         this.value = value;
         this.placeholder = placeholder;
         this.disabled = disabled;

@@ -1,10 +1,13 @@
 import template from './object-details-form.html';
+import Disposable from 'disposable';
 import ko from 'knockout';
 import moment from 'moment';
 
-class ObjectInfoFormViewModel {
+class ObjectInfoFormViewModel extends Disposable {
     constructor({ obj }) {
 
+
+        super();
 
         this.name = ko.pureComputed(
             () => obj() && obj().key

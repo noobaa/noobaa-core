@@ -1,10 +1,13 @@
 import template from './commands-bar.html';
+import Disposable from 'disposable';
 import ko from 'knockout';
 import { uiState } from 'model';
 import { refresh, signOut, openDrawer, closeDrawer } from 'actions';
 
-class CommandBarViewModel {
+class CommandBarViewModel extends Disposable {
     constructor() {
+        super();
+
         this.isDrawerOpen = ko.pureComputed(
             () => !!uiState().drawer
         );

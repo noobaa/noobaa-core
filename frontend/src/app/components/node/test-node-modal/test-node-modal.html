@@ -1,11 +1,13 @@
 <modal params="onClose: () => close()">
 
-        <h1 class="heading1 text-center push-next">Test Node</h1>
+        <h1 class="heading1 text-center push-next">
+            Node's connectivity test
+        </h1>
 
         <h2 class="heading3">Test Type</h2>
         <div class="row content-middle push-next">
             <radio-group class="greedy" params="
-                selected: selectedTests, 
+                selected: selectedTests,
                 options: testTypeOptions
             "></radio-group>
             <button class="btn3" data-bind="click: runTest, visible: !testing()">

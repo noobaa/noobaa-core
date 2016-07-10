@@ -1,3 +1,4 @@
+import Disposable from 'disposable';
 import ko from 'knockout';
 import numeral from 'numeral';
 import { deepFreeze } from 'utils';
@@ -7,8 +8,10 @@ const stateMapping = deepFreeze({
     false: { text: 'disconnected', css: 'error' }
 });
 
-export default class ServerRow {
+export default class ServerRowViewModel extends Disposable {
     constructor(server) {
+        super();
+
         this.state = ko.pureComputed(
             () => server() ? stateMapping[server().is_connected] : ''
         );

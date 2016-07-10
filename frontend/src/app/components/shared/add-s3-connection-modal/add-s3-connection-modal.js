@@ -1,10 +1,13 @@
 import template from './add-s3-connection-modal.html';
+import Disposable from 'disposable';
 import ko from 'knockout';
 import { S3Connections, isS3ConnectionValid } from 'model';
 import { checkS3Connection, addS3Connection } from 'actions';
 
-class AddS3ConnectionModalViewModel {
+class AddS3ConnectionModalViewModel extends Disposable {
     constructor({ onClose }) {
+        super();
+
         isS3ConnectionValid(true);
         this.onClose = onClose;
 
@@ -69,10 +72,11 @@ class AddS3ConnectionModalViewModel {
                 }
             });
 
-        this.checkSub = isS3ConnectionValid
-            .subscribe(
+        this.autoDispsoe(
+            isS3ConnectionValid.subscribe(
                 isValid => isValid && this.save()
-            );
+            )
+        );
 
         this.errors = ko.validation.group([
             this.name,
@@ -98,10 +102,6 @@ class AddS3ConnectionModalViewModel {
     cancel() {
         isS3ConnectionValid(false);
         this.onClose(true);
-    }
-
-    dispose() {
-        this.checkSub.dispose();
     }
 }
 

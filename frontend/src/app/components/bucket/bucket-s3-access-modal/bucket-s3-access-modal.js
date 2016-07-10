@@ -1,11 +1,14 @@
 import template from './bucket-s3-access-modal.html';
+import Disposable from 'disposable';
 import ko from 'knockout';
 import { noop } from 'utils';
 import { bucketS3ACL } from 'model';
 import { loadBucketS3ACL, updateBucketS3ACL } from 'actions';
 
-class BucketS3AccessModalViewModel {
+class BucketS3AccessModalViewModel extends Disposable {
     constructor({ bucketName, onClose = noop }) {
+        super();
+
         this.onClose = onClose;
 
         this.bucketName = bucketName;

@@ -1,0 +1,66 @@
+@keyframes notif-in {
+    from {
+        transform: translateY(100%);
+    }
+    to {
+        transform: translateY(0);
+    }
+}
+
+@keyframes notif-out {
+    from {
+        transform: translateY(0);
+    }
+    to {
+        transform: translateY(-100%);
+    }
+}
+
+notification-box {
+    section {
+        position: fixed;
+        bottom: @gutter/2;
+        left: @gutter/2;
+        padding: @gutter;
+        border: 1px solid fadeout(white, 85%);
+        background-color: fadeout(@bg-color5, 65%);
+        color: white;
+        font-size: @font-size-normal;
+        transform: translateY(120%);
+        transition: transform 500ms ease-out;
+
+        &:hover {
+            border-color: fadeout(white, 50%);
+            background-color: @bg-color5;
+        }
+
+        > div {
+            position: relative;
+            overflow: hidden;
+            width: 400px;
+            height: 30px;
+            line-height: 30px;
+
+        }
+
+
+        &.visible {
+            transform: translateY(0);
+        }
+    }
+
+    .notif {
+        position: absolute;
+        animation: notif-in 500ms linear both;
+        line-height: 1.2;
+
+        &:only-child {
+            animation: none;
+        }
+
+        + .notif {
+            animation: notif-out 500ms linear both;
+        }
+    }
+}
+

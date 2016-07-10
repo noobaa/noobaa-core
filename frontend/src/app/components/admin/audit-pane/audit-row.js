@@ -1,8 +1,11 @@
+import Disposable from 'disposable';
 import moment from 'moment';
 import categories from './categories';
 
-export default class AuditRowViewModel {
+export default class AuditRowViewModel extends Disposable {
     constructor(entry) {
+        super();
+
         let [ categoryName, eventName] = entry.event.split('.');
         let categoryInfo = categories[categoryName];
         let eventInfo = categoryInfo.events[eventName];

@@ -1,10 +1,13 @@
 import template from './signin-form.html';
+import Disposable from 'disposable';
 import ko from 'knockout';
 import { uiState, loginInfo } from 'model';
 import { signIn } from 'actions';
 
-class SignInFormViewModel {
+class SignInFormViewModel extends Disposable {
     constructor() {
+        super();
+
         this.email = ko.observable()
             .extend({
                 required: { message: 'Please enter an email address' },
@@ -33,8 +36,12 @@ class SignInFormViewModel {
             this.password
         ]);
 
-        this.countSub = retryCount.subscribe(
-            () => this.shake(true)
+
+        this.disposeWithMe(
+            this.subscribe(
+                retryCount,
+                () => this.shake(true)
+            )
         );
     }
 
@@ -47,10 +54,6 @@ class SignInFormViewModel {
             this.shake(true);
             this.errors.showAllMessages();
         }
-    }
-
-    dispose() {
-        this.countSub.dispose();
     }
 }
 

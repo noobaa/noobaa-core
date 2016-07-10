@@ -17,7 +17,7 @@ const SERVICES = [{
     fork: './src/s3/s3rver.js'
 }, {
     fork: './src/agent/agent_cli.js',
-    args: ['--scale', '6'],
+    args: ['--scale', '20'],
     boot_delay: 5000
 }, {
     spawn: 'mongod',

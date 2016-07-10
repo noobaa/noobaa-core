@@ -288,7 +288,7 @@ function post_upgrade {
 	sudo /etc/init.d/ntpd start
 	local noobaa_ntp=$(grep 'NooBaa Configured NTP Server' /etc/ntp.conf | wc -l)
 	if [ ${noobaa_ntp} -eq 0 ]; then #was not configured yet, no tz config as well
-			echo "# NooBaa Configured NTP Server"	 >> /etc/ntp.conf
+			echo "#NooBaa Configured NTP Server"	 >> /etc/ntp.conf
 			sed -i 's:\(^server.*\):#\1:g' /etc/ntp.conf
 			ln -sf /usr/share/zoneinfo/US/Pacific /etc/localtime
 	fi

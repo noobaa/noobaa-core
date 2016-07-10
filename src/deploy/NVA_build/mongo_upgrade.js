@@ -438,6 +438,7 @@ function upgrade_system_access_keys() {
 function upgrade_cluster() {
     print('\n*** upgrade_cluster ...');
 
+    var system = db.systems.findOne();
     var clusters = db.clusters.find();
     if (clusters.size()) {
         // if owner_shardname does not exist, set it to default
@@ -452,9 +453,7 @@ function upgrade_cluster() {
         return;
     }
 
-    //global param_secret:true, params_cluster_id:true, param_ip:true
-
-    db.clusters.insert({
+    var cluster = {
         is_clusterized: false,
         owner_secret: param_secret, // eslint-disable-line no-undef
         owner_address: param_ip, // eslint-disable-line no-undef
@@ -468,6 +467,20 @@ function upgrade_cluster() {
             }]
         }],
         config_servers: [],
+    };
 
-    });
+    if (system.ntp) {
+        cluster.ntp = system.ntp;
+        db.systems.update({
+            _id: system._id
+        }, {
+            $unset: {
+                ntp: 1,
+                __v: 1
+            }
+        });
+    }
+
+    //global param_secret:true, params_cluster_id:true, param_ip:true
+    db.clusters.insert(cluster);
 }

@@ -19,7 +19,7 @@ export default function routing(page) {
                 ctx.params,
                 { 'return-url': encodeURIComponent(ctx.pathname) }
             );
-            page.redirect(uri);
+            page.redirect(encodeURI(uri));
 
         } else if (session.system !== ctx.params.system) {
             page.redirect(routes.unauthorized);

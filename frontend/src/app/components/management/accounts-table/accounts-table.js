@@ -1,5 +1,5 @@
 import template from './accounts-table.html';
-import BaseViewModel from 'base-view-model';
+import Disposable from 'disposable';
 import ko from 'knockout';
 import AccountRowViewModel from './account-row';
 import { accountList } from 'model';
@@ -8,7 +8,7 @@ import { makeArray } from 'utils';
 
 const maxRows = 100;
 
-class AccountsTableViewModel extends BaseViewModel {
+class AccountsTableViewModel extends Disposable {
     constructor() {
         super();
 

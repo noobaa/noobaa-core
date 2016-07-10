@@ -1,8 +1,8 @@
 import template from './paginator.html';
-import BaseViewModel from 'base-view-model';
+import Disposable from 'disposable';
 import ko from 'knockout';
 
-class PaginatorViewModel extends BaseViewModel {
+class PaginatorViewModel extends Disposable {
     constructor({ itemCount, pageSize, page }) {
         super();
 

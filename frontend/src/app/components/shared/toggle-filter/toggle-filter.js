@@ -1,9 +1,9 @@
 import template from './toggle-filter.html';
-import BaseViewModel from 'base-view-model';
+import Disposable from 'disposable';
 import ko from 'knockout';
 import { randomString } from 'utils';
 
-class ToggleFilterViewModel extends BaseViewModel {
+class ToggleFilterViewModel extends Disposable {
     constructor({
             options = [],
             selected = ko.observable(),

@@ -1,9 +1,9 @@
 import template from './after-upgrade-modal.html';
-import BaseViewModel from 'base-view-model';
+import Disposable from 'disposable';
 import ko from 'knockout';
 import { systemInfo } from 'model';
 
-class AfterUpgradeModalViewModel extends BaseViewModel {
+class AfterUpgradeModalViewModel extends Disposable {
     constructor({ onClose }) {
         super();
 

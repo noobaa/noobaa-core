@@ -1,9 +1,9 @@
 import template from './create-system-form.html';
-import BaseViewModel from 'base-view-model';
+import Disposable from 'disposable';
 import ko from 'knockout';
 import { createSystemAccount } from 'actions';
 
-class CreateSystemFormViewModel extends BaseViewModel {
+class CreateSystemFormViewModel extends Disposable {
     constructor() {
         super();
 

@@ -1,6 +1,6 @@
 import template from './reset-password-modal.html';
 import userMessageTemplate from './user-message-template.html';
-import BaseViewModel from 'base-view-model';
+import Disposable from 'disposable';
 import ko from 'knockout';
 import { resetAccountPassword } from 'actions';
 import { randomString, copyTextToClipboard } from 'utils';
@@ -11,7 +11,7 @@ const userMessage = new Function(
     'return `' + userMessageTemplate + '`'
 );
 
-class RestPasswordModalViewModel extends BaseViewModel {
+class RestPasswordModalViewModel extends Disposable {
     constructor({ onClose, email }) {
         super();
 

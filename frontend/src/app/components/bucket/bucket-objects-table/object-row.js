@@ -1,5 +1,5 @@
 import { formatSize } from 'utils';
-import BaseViewModel from 'base-view-model';
+import Disposable from 'disposable';
 import ko from 'knockout';
 
 const statusIconMapping = Object.freeze({
@@ -17,7 +17,7 @@ const statusIconMapping = Object.freeze({
     }
 });
 
-export default class ObjectRowViewModel extends BaseViewModel {
+export default class ObjectRowViewModel extends Disposable {
     constructor(obj) {
         super();
 

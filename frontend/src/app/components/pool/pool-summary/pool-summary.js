@@ -1,5 +1,5 @@
 import template from './pool-summary.html';
-import BaseViewModel from 'base-view-model';
+import Disposable from 'disposable';
 import ko from 'knockout';
 import moment from 'moment';
 import numeral from 'numeral';
@@ -32,7 +32,7 @@ function mapActivity({ reason, node_count, completed_size, total_size, eta }) {
     };
 }
 
-class PoolSummaryViewModel extends BaseViewModel {
+class PoolSummaryViewModel extends Disposable {
     constructor({ pool }) {
         super();
 

@@ -1,9 +1,9 @@
 import template from './pool-panel.html';
-import BaseViewModel from 'base-view-model';
+import Disposable from 'disposable';
 import ko from 'knockout';
 import { poolNodeList, systemInfo, routeContext } from 'model';
 
-class PoolPanelViewModel extends BaseViewModel {
+class PoolPanelViewModel extends Disposable {
     constructor() {
         super();
 

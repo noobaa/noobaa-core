@@ -1,9 +1,9 @@
 import template from './main-header.html';
-import BaseViewModel from 'base-view-model';
+import Disposable from 'disposable';
 import ko from 'knockout';
 import { uiState } from 'model';
 
-class HeaderViewModel extends BaseViewModel {
+class HeaderViewModel extends Disposable {
     constructor() {
         super();
 

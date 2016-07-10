@@ -1,5 +1,5 @@
 import template from './p2p-form.html';
-import BaseViewModel from 'base-view-model';
+import Disposable from 'disposable';
 import ko from 'knockout';
 import { systemInfo } from 'model';
 import { makeRange } from 'utils';
@@ -12,7 +12,7 @@ const portOptions = [
     { label: 'Port Range', value: PORT_RANGE }
 ];
 
-class P2PFormViewModel extends BaseViewModel {
+class P2PFormViewModel extends Disposable {
     constructor() {
         super();
 

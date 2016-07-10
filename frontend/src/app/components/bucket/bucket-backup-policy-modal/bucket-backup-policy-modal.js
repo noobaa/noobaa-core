@@ -1,11 +1,11 @@
 import template from './bucket-backup-policy-modal.html';
-import BaseViewModel from 'base-view-model';
+import Disposable from 'disposable';
 import ko from 'knockout';
 import ResourceRow from './resource-row';
 import { systemInfo } from 'model';
 import { updateBucketBackupPolicy } from 'actions';
 
-class BucketBackupPolicyModalViewModel extends BaseViewModel {
+class BucketBackupPolicyModalViewModel extends Disposable {
     constructor({ policy, onClose }) {
         super();
 

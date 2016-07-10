@@ -1,7 +1,7 @@
 import template from './editor.html';
-import BaseViewModel from 'base-view-model';
+import Disposable from 'disposable';
 
-class EditorViewModel extends BaseViewModel {
+class EditorViewModel extends Disposable {
     constructor({
         label = '',
         visible = true,

@@ -1,6 +1,6 @@
 import template from './buckets-table.html';
 import BucketRowViewModel from './bucket-row';
-import BaseViewModel from 'base-view-model';
+import Disposable from 'disposable';
 import ko from 'knockout';
 import { makeArray, compare } from 'utils';
 import { redirectTo } from 'actions';
@@ -16,7 +16,7 @@ const bucketCmpFuncs = Object.freeze({
     cloudsync: (b1, b2) => compare(b1.cloud_sync_status, b2.cloud_sync_status)
 });
 
-class BucketsTableViewModel extends BaseViewModel {
+class BucketsTableViewModel extends Disposable {
     constructor() {
         super();
 

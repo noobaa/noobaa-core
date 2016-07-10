@@ -1,5 +1,5 @@
 import template from './node-details-form.html';
-import BaseViewModel from 'base-view-model';
+import Disposable from 'disposable';
 import ko from 'knockout';
 import moment from 'moment';
 import { formatSize, avgOp } from 'utils';
@@ -10,7 +10,7 @@ const conactivityTypeMapping = Object.freeze({
     UDP: 'UDP'
 });
 
-class NodeInfoViewModel extends BaseViewModel {
+class NodeInfoViewModel extends Disposable {
     constructor({ node  }) {
         super();
 

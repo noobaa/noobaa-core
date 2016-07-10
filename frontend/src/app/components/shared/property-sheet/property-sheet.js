@@ -1,9 +1,9 @@
 import template from './property-sheet.html';
-import BaseViewModel from 'base-view-model';
+import Disposable from 'disposable';
 import ko from 'knockout';
 import { copyTextToClipboard } from 'utils';
 
-class PropertySheetViewModel extends BaseViewModel {
+class PropertySheetViewModel extends Disposable {
     constructor({ properties = [] }) {
         super();
 

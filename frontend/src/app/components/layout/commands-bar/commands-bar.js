@@ -1,10 +1,10 @@
 import template from './commands-bar.html';
-import BaseViewModel from 'base-view-model';
+import Disposable from 'disposable';
 import ko from 'knockout';
 import { uiState } from 'model';
 import { refresh, signOut, openDrawer, closeDrawer } from 'actions';
 
-class CommandBarViewModel extends BaseViewModel {
+class CommandBarViewModel extends Disposable {
     constructor() {
         super();
 

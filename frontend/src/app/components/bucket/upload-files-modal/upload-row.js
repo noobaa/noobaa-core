@@ -1,8 +1,8 @@
-import BaseViewModel from 'base-view-model';
+import Disposable from 'disposable';
 import ko from 'knockout';
 import numeral from 'numeral';
 
-export default class UploadRowViewModel extends BaseViewModel {
+export default class UploadRowViewModel extends Disposable {
     constructor(upload) {
         super();
 

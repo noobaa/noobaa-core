@@ -1,11 +1,11 @@
 import template from './overview-panel.html';
-import BaseViewModel from 'base-view-model';
+import Disposable from 'disposable';
 import ko from 'knockout';
 import { systemInfo, routeContext } from 'model';
 import { redirectTo } from 'actions';
 import { system as systemRoute } from 'routes';
 
-class OverviewPanelViewModel extends BaseViewModel {
+class OverviewPanelViewModel extends Disposable {
     constructor() {
         super();
 

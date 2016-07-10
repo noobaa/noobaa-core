@@ -1,10 +1,10 @@
 import template from './add-s3-connection-modal.html';
-import BaseViewModel from 'base-view-model';
+import Disposable from 'disposable';
 import ko from 'knockout';
 import { S3Connections, isS3ConnectionValid } from 'model';
 import { checkS3Connection, addS3Connection } from 'actions';
 
-class AddS3ConnectionModalViewModel extends BaseViewModel {
+class AddS3ConnectionModalViewModel extends Disposable {
     constructor({ onClose }) {
         super();
 

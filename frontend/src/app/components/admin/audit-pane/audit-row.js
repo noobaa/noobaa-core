@@ -1,8 +1,8 @@
-import BaseViewModel from 'base-view-model';
+import Disposable from 'disposable';
 import moment from 'moment';
 import categories from './categories';
 
-export default class AuditRowViewModel extends BaseViewModel {
+export default class AuditRowViewModel extends Disposable {
     constructor(entry) {
         super();
 

@@ -1,9 +1,9 @@
 import template from './resources-panel.html';
-import BaseViewModel from 'base-view-model';
+import Disposable from 'disposable';
 import ko from 'knockout';
 import { uiState } from 'model';
 
-class PoolsPanelViewModel extends BaseViewModel {
+class PoolsPanelViewModel extends Disposable {
     constructor() {
         super();
 

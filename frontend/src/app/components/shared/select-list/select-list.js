@@ -1,7 +1,7 @@
 import template from './dropdown.html';
-import BaseViewModel from 'base-view-model';
+import Disposable from 'disposable';
 
-class SelectListViewModel extends BaseViewModel {
+class SelectListViewModel extends Disposable {
     constructor(params) {
         super();
 

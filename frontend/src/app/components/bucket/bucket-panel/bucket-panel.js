@@ -1,9 +1,9 @@
 import template from './bucket-panel.html';
-import BaseViewModel from 'base-view-model';
+import Disposable from 'disposable';
 import ko from 'knockout';
 import { uiState, systemInfo, routeContext, bucketObjectList } from 'model';
 
-class BucketPanelViewModel extends BaseViewModel {
+class BucketPanelViewModel extends Disposable {
     constructor() {
         super();
 

@@ -1,4 +1,4 @@
-import BaseViewModel from 'base-view-model';
+import Disposable from 'disposable';
 import ko from 'knockout';
 import { deepFreeze } from 'utils';
 
@@ -17,7 +17,7 @@ const icons = deepFreeze([
     }
 ]);
 
-export default class ResourceRowViewModel extends BaseViewModel {
+export default class ResourceRowViewModel extends Disposable {
     constructor(pool, tier) {
         super();
 

@@ -1,5 +1,5 @@
 import template from './needle-gauge.html';
-import BaseViewModel from 'base-view-model';
+import Disposable from 'disposable';
 import ko from 'knockout';
 import numeral from 'numeral';
 import style from 'style';
@@ -23,7 +23,7 @@ const needleColor = style['gray-lv6'];
 const textFont = `${style['font-size-large']} ${style['font-type2']}`;
 const textColor = style['gray-lv6'];
 
-class NeedleGaugeViewModel extends BaseViewModel {
+class NeedleGaugeViewModel extends Disposable {
     constructor({ value, threshold, scale = 1  }) {
         super();
 

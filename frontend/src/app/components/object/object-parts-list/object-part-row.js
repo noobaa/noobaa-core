@@ -1,4 +1,4 @@
-import BaseViewModel from 'base-view-model';
+import Disposable from 'disposable';
 import ko from 'knockout';
 import { shortString, formatSize } from 'utils';
 
@@ -8,7 +8,7 @@ const partStateMapping = Object.freeze({
     unavailable: { toolTip: 'unavailable', icon: 'part-unavailable' }
 });
 
-class BlockRowViewModel extends BaseViewModel {
+class BlockRowViewModel extends Disposable {
     constructor({ adminfo }, index, count) {
         super();
 
@@ -24,7 +24,7 @@ class BlockRowViewModel extends BaseViewModel {
     }
 }
 
-export default class ObjectPartRowViewModel extends BaseViewModel {
+export default class ObjectPartRowViewModel extends Disposable {
     constructor(part, partNumber, partsCount) {
         super();
 

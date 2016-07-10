@@ -1,12 +1,12 @@
 import template from './bucket-placement-policy-modal.html';
 import PoolRow from './pool-row';
-import BaseViewModel from 'base-view-model';
+import Disposable from 'disposable';
 import ko from 'knockout';
 import { noop } from 'utils';
 import { systemInfo } from 'model';
 import { updateBucketPlacementPolicy } from 'actions';
 
-class BacketPlacementPolicyModalViewModel extends BaseViewModel {
+class BacketPlacementPolicyModalViewModel extends Disposable {
     constructor({ policy, onClose = noop }) {
         super();
 

@@ -1,9 +1,9 @@
 import template from './object-details-form.html';
-import BaseViewModel from 'base-view-model';
+import Disposable from 'disposable';
 import ko from 'knockout';
 import moment from 'moment';
 
-class ObjectInfoFormViewModel extends BaseViewModel {
+class ObjectInfoFormViewModel extends Disposable {
     constructor({ obj }) {
 
 

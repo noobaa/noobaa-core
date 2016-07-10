@@ -1,7 +1,7 @@
-import BaseViewModel from 'base-view-model';
+import Disposable from 'disposable';
 import { isObject, noop, toDashedCase } from 'utils';
 
-export default class ColumnViewModel extends BaseViewModel {
+export default class ColumnViewModel extends Disposable {
     constructor(config) {
         super();
 

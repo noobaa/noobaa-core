@@ -1,12 +1,12 @@
 import template from './bucket-objects-table.html';
-import BaseViewModel from 'base-view-model';
+import Disposable from 'disposable';
 import ko from 'knockout';
 import { paginationPageSize } from 'config';
 import { throttle, makeArray } from 'utils';
 import ObjectRowViewModel from './object-row';
 import { redirectTo } from 'actions';
 
-class BucketObjectsTableViewModel extends BaseViewModel {
+class BucketObjectsTableViewModel extends Disposable {
     constructor({ bucket, objects }) {
         super();
 

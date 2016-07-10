@@ -1,9 +1,9 @@
 import template from './start-maintenance-modal.html';
-import BaseViewModel from 'base-view-model';
+import Disposable from 'disposable';
 import ko from 'knockout';
 import  { enterMaintenanceMode } from 'actions';
 
-class StartMaintenanceModalViewModel extends BaseViewModel {
+class StartMaintenanceModalViewModel extends Disposable {
     constructor({ onClose }) {
         super();
 

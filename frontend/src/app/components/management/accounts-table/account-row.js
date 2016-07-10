@@ -1,9 +1,9 @@
-import BaseViewModel from 'base-view-model';
+import Disposable from 'disposable';
 import ko from 'knockout';
 import { systemInfo } from 'model';
 import { deleteAccount } from 'actions';
 
-export default class AccountRowViewModel extends BaseViewModel {
+export default class AccountRowViewModel extends Disposable {
     constructor(account) {
         super();
 

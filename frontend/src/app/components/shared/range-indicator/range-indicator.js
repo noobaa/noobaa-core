@@ -1,8 +1,8 @@
 import template from './range-indicator.html';
-import BaseViewModel from 'base-view-model';
+import Disposable from 'disposable';
 import ko from 'knockout';
 
-class RangeIndicatorViewModel extends BaseViewModel {
+class RangeIndicatorViewModel extends Disposable {
     constructor({ values }) {
         super();
 

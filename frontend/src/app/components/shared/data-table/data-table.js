@@ -1,11 +1,11 @@
 import template from './data-table.html';
 import ColumnViewModel from './column';
 import * as defaultColumnTemplates from './column-templates';
-import BaseViewModel from 'base-view-model';
+import Disposable from 'disposable';
 import ko from 'knockout';
 import { noop } from 'utils';
 
-class DataTableViewModel extends BaseViewModel {
+class DataTableViewModel extends Disposable {
     constructor(params, customTemplates) {
         super();
 
@@ -25,7 +25,7 @@ class DataTableViewModel extends BaseViewModel {
 
         this.rows = ko.observableArray();
 
-        this.autoDispose(
+        this.disposeWithMe(
             ko.computed(
                 () => {
                     let target = (ko.unwrap(data) || []).length;

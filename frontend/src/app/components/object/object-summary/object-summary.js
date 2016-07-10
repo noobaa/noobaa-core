@@ -1,5 +1,5 @@
 import template from './object-summary.html';
-import BaseViewModel from 'base-view-model';
+import Disposable from 'disposable';
 import ko from 'knockout';
 import { formatSize } from 'utils';
 
@@ -8,7 +8,7 @@ const objectStateMapping = Object.freeze({
     false: { label: 'Unavailable', icon: 'object-unavailable' }
 });
 
-class ObjectSummaryViewModel extends BaseViewModel {
+class ObjectSummaryViewModel extends Disposable {
     constructor({ obj }) {
         super();
 

@@ -1,4 +1,4 @@
-import BaseViewModel from 'base-view-model';
+import Disposable from 'disposable';
 import ko from 'knockout';
 import numeral from 'numeral';
 import { deepFreeze } from 'utils';
@@ -8,7 +8,7 @@ const stateMapping = deepFreeze({
     false: { text: 'disconnected', css: 'error' }
 });
 
-export default class ServerRowViewModel extends BaseViewModel {
+export default class ServerRowViewModel extends Disposable {
     constructor(server) {
         super();
 

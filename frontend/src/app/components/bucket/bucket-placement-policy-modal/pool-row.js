@@ -1,8 +1,8 @@
-import BaseViewModel from 'base-view-model';
+import Disposable from 'disposable';
 import ko from 'knockout';
 import { formatSize } from 'utils';
 
-export default class PoolRowViewModel extends BaseViewModel {
+export default class PoolRowViewModel extends Disposable {
     constructor(pool, tier) {
         super();
 

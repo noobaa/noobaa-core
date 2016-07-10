@@ -1,9 +1,9 @@
 import template from './radio-group.html';
-import BaseViewModel from 'base-view-model';
+import Disposable from 'disposable';
 import ko from 'knockout';
 import { randomString } from 'utils';
 
-class RadioGroupViewModel extends BaseViewModel {
+class RadioGroupViewModel extends Disposable {
     constructor({
             selected = ko.observable(),
             name = randomString(5),

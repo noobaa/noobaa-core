@@ -1,10 +1,10 @@
 import template from './signin-form.html';
-import BaseViewModel from 'base-view-model';
+import Disposable from 'disposable';
 import ko from 'knockout';
 import { uiState, loginInfo } from 'model';
 import { signIn } from 'actions';
 
-class SignInFormViewModel extends BaseViewModel {
+class SignInFormViewModel extends Disposable {
     constructor() {
         super();
 
@@ -37,7 +37,7 @@ class SignInFormViewModel extends BaseViewModel {
         ]);
 
 
-        this.autoDispose(
+        this.disposeWithMe(
             this.subscribe(
                 retryCount,
                 () => this.shake(true)

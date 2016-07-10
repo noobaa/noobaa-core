@@ -1,6 +1,6 @@
 import template from './audit-pane.html';
 import AuditRowViewModel from './audit-row';
-import BaseViewModel from 'base-view-model';
+import Disposable from 'disposable';
 import ko from 'knockout';
 import { auditLog } from 'model';
 import { loadAuditEntries, loadMoreAuditEntries, exportAuditEnteries, closeDrawer } from 'actions';
@@ -9,7 +9,7 @@ import categories from './categories';
 const pageSize = 25;
 const scrollThrottle = 750;
 
-class AuditPaneViewModel extends BaseViewModel {
+class AuditPaneViewModel extends Disposable {
     constructor() {
         super();
 
@@ -42,7 +42,7 @@ class AuditPaneViewModel extends BaseViewModel {
                 }
             });
 
-        this.autoDispose(
+        this.disposeWithMe(
             this.scroll.subscribe(
                 pos => pos > .9 && loadMoreAuditEntries(pageSize)
             )

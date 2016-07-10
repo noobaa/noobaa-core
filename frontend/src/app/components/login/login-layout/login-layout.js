@@ -1,10 +1,10 @@
 import template from './login-layout.html';
-import BaseViewModel from 'base-view-model';
+import Disposable from 'disposable';
 import ko from 'knockout';
 import { isDefined } from 'utils';
 import { serverInfo } from 'model';
 
-class LoginLayoutViewModel extends BaseViewModel {
+class LoginLayoutViewModel extends Disposable {
     constructor() {
         super();
 

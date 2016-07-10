@@ -1,5 +1,5 @@
 import template from './quantity-gauge.html';
-import BaseViewModel from 'base-view-model';
+import Disposable from 'disposable';
 import ko from 'knockout';
 import numeral from 'numeral';
 import style from 'style';
@@ -15,7 +15,7 @@ const emptyColor = style['text-color5'];
 const textFont = `${style['font-size-xlarge']} ${style['font-type2']}`;
 const textColor = style['gray-lv6'];
 
-class CapacityGaugeViewModel extends BaseViewModel {
+class CapacityGaugeViewModel extends Disposable {
     constructor({ values }) {
         super();
 

@@ -1,4 +1,4 @@
-import BaseViewModel from 'base-view-model';
+import Disposable from 'disposable';
 import ko from 'knockout';
 import { deepFreeze, formatSize } from 'utils';
 import { deleteCloudResource } from 'actions';
@@ -22,7 +22,7 @@ const icons = deepFreeze([
     }
 ]);
 
-export default class CloudResourceRowViewModel extends BaseViewModel {
+export default class CloudResourceRowViewModel extends Disposable {
     constructor(resource, deleteGroup) {
         super();
 

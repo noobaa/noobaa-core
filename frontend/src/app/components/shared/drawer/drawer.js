@@ -1,10 +1,10 @@
 import template from './drawer.html';
-import BaseViewModel from 'base-view-model';
+import Disposable from 'disposable';
 import ko from 'knockout';
 import { uiState } from 'model';
 import { closeDrawer } from 'actions';
 
-class DrawerViewModel extends BaseViewModel {
+class DrawerViewModel extends Disposable {
     constructor() {
         super();
 

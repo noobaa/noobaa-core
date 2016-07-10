@@ -1,12 +1,12 @@
 import template from './node-parts-table.html';
-import BaseViewModel from 'base-view-model';
+import Disposable from 'disposable';
 import ko from 'knockout';
 import { makeArray } from 'utils';
 import PartRowViewModel from './part-row';
 import { paginationPageSize } from 'config';
 import { redirectTo } from 'actions';
 
-class NodePartsViewModel extends BaseViewModel {
+class NodePartsViewModel extends Disposable {
     constructor({ parts }) {
         super();
 

@@ -1,10 +1,10 @@
 import template from './upgrade-modal.html';
-import BaseViewModel from 'base-view-model';
+import Disposable from 'disposable';
 import ko from 'knockout';
 import numeral from 'numeral';
 import { upgradeStatus } from 'model';
 
-class UpgradeModalViewModel extends BaseViewModel {
+class UpgradeModalViewModel extends Disposable {
     constructor({ onClose }) {
         super();
 

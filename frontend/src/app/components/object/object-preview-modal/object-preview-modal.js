@@ -1,7 +1,7 @@
 import template from './object-preview-modal.html';
-import BaseViewModel from 'base-view-model';
+import Disposable from 'disposable';
 
-class ObjectPreviewModalViewModel extends BaseViewModel {
+class ObjectPreviewModalViewModel extends Disposable {
     constructor({ uri, onClose }) {
         super();
 

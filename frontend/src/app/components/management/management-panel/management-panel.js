@@ -1,9 +1,9 @@
 import template from './management-panel.html';
-import BaseViewModel from 'base-view-model';
+import Disposable from 'disposable';
 import ko from 'knockout';
 import { uiState } from 'model';
 
-class ManagementPanelViewModel extends BaseViewModel {
+class ManagementPanelViewModel extends Disposable {
     constructor() {
         super();
 

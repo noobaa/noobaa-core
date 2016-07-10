@@ -1,8 +1,8 @@
 import template from './stepper.html';
-import BaseViewModel from 'base-view-model';
+import Disposable from 'disposable';
 import ko from 'knockout';
 
-class StepperViewModel extends BaseViewModel {
+class StepperViewModel extends Disposable {
     constructor({ steps, current = 0 }) {
         super();
 

@@ -1,5 +1,5 @@
 import template from './upload-files-modal.html';
-import BaseViewModel from 'base-view-model';
+import Disposable from 'disposable';
 import ko from 'knockout';
 import UploadRowViewModel from './upload-row';
 import { paginationPageSize } from 'config';
@@ -7,7 +7,7 @@ import { makeArray } from 'utils';
 import { recentUploads } from 'model';
 import { uploadFiles } from 'actions';
 
-class UploadFilesModalViewModel extends BaseViewModel {
+class UploadFilesModalViewModel extends Disposable {
     constructor({ bucketName, onClose }){
         super();
 

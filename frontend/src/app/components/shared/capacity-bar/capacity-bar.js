@@ -1,12 +1,12 @@
 import template from './capacity-bar.html';
-import BaseViewModel from 'base-view-model';
+import Disposable from 'disposable';
 import ko from 'knockout';
 import { isDefined, formatSize } from 'utils';
 import style from 'style';
 
 const minUsedRatio = .03;
 
-class CapacityBarViewModel extends BaseViewModel {
+class CapacityBarViewModel extends Disposable {
     constructor({ total, used }) {
         super();
 

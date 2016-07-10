@@ -1,9 +1,9 @@
-import BaseViewModel from 'base-view-model';
+import Disposable from 'disposable';
 import ko from 'knockout';
 import numeral from 'numeral';
 import template from './pools-overview.html';
 
-class PoolsOverviewViewModel extends BaseViewModel {
+class PoolsOverviewViewModel extends Disposable {
     constructor({poolCount, nodeCount}) {
         super();
 

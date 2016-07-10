@@ -1,5 +1,5 @@
 import template from './delete-button.html';
-import BaseViewModel from 'base-view-model';
+import Disposable from 'disposable';
 import ko from 'knockout';
 import { isFunction, noop } from 'utils';
 
@@ -7,7 +7,7 @@ const disabledIcon = 'bin-disabled';
 const closedIcon = 'bin-closed';
 const opendIcon = 'bin-opened';
 
-class DeleteButtonViewModel extends BaseViewModel {
+class DeleteButtonViewModel extends Disposable {
     constructor({
         group = ko.observable(),
         onDelete,

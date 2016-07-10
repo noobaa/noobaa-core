@@ -1,11 +1,11 @@
 import template from './notification-box.html';
-import BaseViewModel from 'base-view-model';
+import Disposable from 'disposable';
 import ko from 'knockout';
 import { lastNotification } from 'model';
 import { waitFor } from 'utils';
 import { notificaitons as config } from 'config';
 
-class NotificationBarViewModel extends BaseViewModel {
+class NotificationBarViewModel extends Disposable {
     constructor() {
         super();
 
@@ -18,7 +18,7 @@ class NotificationBarViewModel extends BaseViewModel {
 
         this.next = Promise.resolve();
 
-        this.autoDispose(
+        this.disposeWithMe(
             lastNotification.subscribe(
                 notif => this.handleIncomingNotification(notif)
             )

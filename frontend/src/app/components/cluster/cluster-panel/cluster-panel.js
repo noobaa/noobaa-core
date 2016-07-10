@@ -1,7 +1,7 @@
 import template from './cluster-panel.html';
-import BaseViewModel from 'base-view-model';
+import Disposable from 'disposable';
 
-class ClusterPanelViewModel extends BaseViewModel {
+class ClusterPanelViewModel extends Disposable {
 }
 
 export default {

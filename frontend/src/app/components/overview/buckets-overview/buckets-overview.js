@@ -1,9 +1,9 @@
 import template from './buckets-overview.html';
-import BaseViewModel from 'base-view-model';
+import Disposable from 'disposable';
 import ko from 'knockout';
 import numeral from 'numeral';
 
-class BucketsOverviewViewModel extends BaseViewModel {
+class BucketsOverviewViewModel extends Disposable {
     constructor({ bucketCount, objectCount }) {
 
         super();

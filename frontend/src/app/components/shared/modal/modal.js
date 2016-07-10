@@ -1,8 +1,8 @@
 import template from './modal.html';
-import BaseViewModel from 'base-view-model';
+import Disposable from 'disposable';
 import { noop } from 'utils';
 
-class ModalViewModel extends BaseViewModel {
+class ModalViewModel extends Disposable {
     constructor({ onClose = noop }) {
         super();
 

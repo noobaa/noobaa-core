@@ -1,5 +1,5 @@
 import template from './server-time-form.html';
-import BaseViewModel from 'base-view-model';
+import Disposable from 'disposable';
 import ko from 'knockout';
 import moment from 'moment';
 import 'moment-timezone';
@@ -12,7 +12,7 @@ const configTypes =  Object.freeze([
     { label: 'Network Time (NTP)', value: 'NTP' }
 ]);
 
-class ServerTimeFormViewModel extends BaseViewModel {
+class ServerTimeFormViewModel extends Disposable {
     constructor() {
         super();
 
@@ -135,7 +135,7 @@ class ServerTimeFormViewModel extends BaseViewModel {
                 }
             );
 
-        this.autoDispose(
+        this.disposeWithMe(
             setInterval(
                 () => serverTime(
                     moment.parseZone(serverTime()).add(1, 'second').format()

@@ -1,9 +1,9 @@
 import template from './main-layout.html';
-import BaseViewModel from 'base-view-model';
+import Disposable from 'disposable';
 import ko from 'knockout';
 import { uiState, systemInfo } from 'model';
 
-class MainLayoutViewModel extends BaseViewModel {
+class MainLayoutViewModel extends Disposable {
     constructor() {
         super();
 

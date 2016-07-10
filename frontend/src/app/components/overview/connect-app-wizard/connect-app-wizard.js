@@ -1,7 +1,7 @@
 import template from './connect-app-wizard.html';
 import selectSlideTemplate from './select-slide.html';
 import connecSlideTemplate from './connect-slide.html';
-import BaseViewModel from 'base-view-model';
+import Disposable from 'disposable';
 import ko from 'knockout';
 import { systemInfo, accountList } from 'model';
 import { loadAccountList } from 'actions';
@@ -26,7 +26,7 @@ const connectionTypes = Object.freeze([
     }
 ]);
 
-class ConnectApplicationWizardViewModel extends BaseViewModel {
+class ConnectApplicationWizardViewModel extends Disposable {
     constructor({ onClose }) {
         super();
 

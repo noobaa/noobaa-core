@@ -1,13 +1,13 @@
 import template from './pool-nodes-table.html';
 import NodeRowViewModel from './node-row';
-import BaseViewModel from 'base-view-model';
+import Disposable from 'disposable';
 import ko from 'knockout';
 import { paginationPageSize } from 'config';
 import { makeArray, throttle} from 'utils';
 import { redirectTo } from 'actions';
 import { routeContext } from 'model';
 
-class PoolNodesTableViewModel extends BaseViewModel {
+class PoolNodesTableViewModel extends Disposable {
     constructor({ pool, nodeList }) {
         super();
 

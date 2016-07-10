@@ -1,12 +1,12 @@
 import template from './maintenance-form.html';
-import BaseViewModel from 'base-view-model';
+import Disposable from 'disposable';
 import ko from 'knockout';
 import moment from 'moment';
 import { systemInfo } from 'model';
 import { exitMaintenanceMode } from 'actions';
 import { pad } from 'utils';
 
-class MaintenanceFormViewModel extends BaseViewModel {
+class MaintenanceFormViewModel extends Disposable {
     constructor() {
         super();
 

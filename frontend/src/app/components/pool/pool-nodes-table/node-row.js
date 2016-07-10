@@ -1,4 +1,4 @@
-import BaseViewModel from 'base-view-model';
+import Disposable from 'disposable';
 import ko from 'knockout';
 import numeral from 'numeral';
 import { bitsToNumber } from 'utils';
@@ -15,7 +15,7 @@ const activityLabelMapping = Object.freeze({
     MIGRATING: 'Migrating'
 });
 
-export default class NodeRowViewModel extends BaseViewModel {
+export default class NodeRowViewModel extends Disposable {
     constructor(node) {
         super();
 

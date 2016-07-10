@@ -1,8 +1,8 @@
 import template from './slider.html';
-import BaseViewModel from 'base-view-model';
+import Disposable from 'disposable';
 import ko from 'knockout';
 
-class SliderViewModel extends BaseViewModel {
+class SliderViewModel extends Disposable {
     constructor({ current = 1 }) {
         super();
 

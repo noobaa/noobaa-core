@@ -1,9 +1,9 @@
 import template from './wizard.html';
-import BaseViewModel from 'base-view-model';
+import Disposable from 'disposable';
 import ko from 'knockout';
 import { noop } from 'utils';
 
-class WizardViewModel extends BaseViewModel {
+class WizardViewModel extends Disposable {
     constructor({
         heading = '[wizard-heading]',
         steps = [],

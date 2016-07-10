@@ -1,6 +1,6 @@
 import template from './test-node-modal.html';
 import TestRowViewModel from './test-row';
-import BaseViewModel from 'base-view-model';
+import Disposable from 'disposable';
 import ko from 'knockout';
 import { nodeTestInfo } from 'model';
 import { testNode, abortNodeTest } from 'actions';
@@ -22,7 +22,7 @@ const testTypes = Object.freeze([
     }
 ]);
 
-class TestNodeModalViewModel extends BaseViewModel {
+class TestNodeModalViewModel extends Disposable {
     constructor({ sourceRpcAddress, onClose }) {
         super();
 

@@ -1,8 +1,8 @@
 import template from './multiselect.html';
-import BaseViewModel from 'base-view-model';
+import Disposable from 'disposable';
 import ko from 'knockout';
 
-class MultiSelectViewModel extends BaseViewModel {
+class MultiSelectViewModel extends Disposable {
     constructor({
         options = [],
         selected = [],

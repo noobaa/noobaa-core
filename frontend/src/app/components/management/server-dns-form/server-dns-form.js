@@ -1,5 +1,5 @@
 import template from './server-dns-form.html';
-import BaseViewModel from 'base-view-model';
+import Disposable from 'disposable';
 import ko from 'knockout';
 import { systemInfo } from 'model';
 import { makeRange } from 'utils';
@@ -11,7 +11,7 @@ const addressOptions = [
     { label: 'Use DNS Name (recommended)', value: DNS }
 ];
 
-class ServerDNSFormViewModel extends BaseViewModel {
+class ServerDNSFormViewModel extends Disposable {
     constructor() {
         super();
 

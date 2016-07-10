@@ -1,8 +1,8 @@
 import template from './breadcrumbs.html';
-import BaseViewModel from 'base-view-model';
+import Disposable from 'disposable';
 import ko from 'knockout';
 
-class BreadcrumbsViewModel extends BaseViewModel {
+class BreadcrumbsViewModel extends Disposable {
     constructor({ crumbs }) {
         super();
 

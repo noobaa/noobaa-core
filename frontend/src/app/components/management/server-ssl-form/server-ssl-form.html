@@ -28,8 +28,8 @@
         onFilesReady: files => uploadCertificate(files)
     "></file-selector>
 
-    <p class="emphasized">
-        <svg-icon class="icon-small" params="uri: uploadIcon"></svg-icon>
+    <p class="emphasized" data-bind="if: uploading">
+        <svg-icon class="icon-small" params="name: uploadIcon"></svg-icon>
         <span data-bind="text: uploadText"></span>
     </p>
 </section>

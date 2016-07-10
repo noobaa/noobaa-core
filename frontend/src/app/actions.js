@@ -801,27 +801,45 @@ export function deleteBucket(name) {
         .done();
 }
 
-// TODO: notificaiton - find bucket name
 export function updateBucketPlacementPolicy(tierName, placementType, node_pools) {
     logAction('updateBucketPlacementPolicy', { tierName, placementType, node_pools });
+
+    let bucket = model.systemInfo().buckets.find(
+        bucket => bucket.tiering.tiers.find(
+            entry => entry.tier === tierName
+        )
+    );
 
     api.tier.update_tier({
         name: tierName,
         data_placement: placementType,
         node_pools: node_pools
     })
+        .then(
+            () => notify(`${bucket.name} placement policy updated successffully`, 'success'),
+            () => notify(`Updating ${bucket.name} placement policy failed`, 'error')
+        )
         .then(loadSystemInfo)
         .done();
 }
 
-// TODO: notificaiton - find bucket name
 export function updateBucketBackupPolicy(tierName, cloudResources) {
     logAction('updateBucketBackupPolicy', { tierName, cloudResources });
+
+    let bucket = model.systemInfo().buckets.find(
+        bucket => bucket.tiering.tiers.find(
+            entry => entry.tier === tierName
+        )
+    );
 
     api.tier.update_tier({
         name: tierName,
         cloud_pools: cloudResources
     })
+        .then(
+            () => notify(`${bucket.name} backup policy updated successffully`, 'success'),
+            () => notify(`Updating ${bucket.name} backup policy failed`, 'error')
+        )
         .then(loadSystemInfo)
         .done();
 }
@@ -895,7 +913,6 @@ export function deleteCloudResource(name) {
         .done();
 }
 
-// TODO: notificaitons - come back later... (10sec)
 export function uploadFiles(bucketName, files) {
     logAction('uploadFiles', { bucketName, files });
 
@@ -941,7 +958,7 @@ export function uploadFiles(bucketName, files) {
                         if (!error) {
                             entry.state = 'COMPLETED';
                             entry.progress = 1;
-                            resolve(1);
+                            resolve(true);
 
                         } else {
                             entry.state = 'FAILED';
@@ -949,7 +966,7 @@ export function uploadFiles(bucketName, files) {
 
                             // This is not a bug we want to resolve failed uploads
                             // in order to finalize the entire upload process.
-                            resolve(0);
+                            resolve(false);
                         }
 
                         // Use replace to trigger change event.
@@ -969,18 +986,64 @@ export function uploadFiles(bucketName, files) {
         )
     );
 
-    Promise.all(uploadRequests)
-        .then(
-            results => results.reduce(
-                (sum, result) => sum += result
-            )
-        )
-        .then(
-            completedCount => completedCount > 0 && refresh()
-        );
+    Promise.all(uploadRequests).then(
+        results => {
+            let { completed, failed } = results.reduce(
+                (stats, result) => {
+                    result ? ++stats.completed : ++stats.failed;
+                    return stats;
+                },
+                { completed: 0, failed: 0 }
+            );
+
+            if (failed === 0) {
+                notify(
+                    `Uploading ${
+                        completed
+                    } file${
+                        completed === 1 ? '' : 's'
+                    } to ${
+                        bucketName
+                    } completed successffully`,
+                    'success'
+                );
+
+            } else if (completed === 0) {
+                notify(
+                    `Uploading ${
+                        failed
+                    } file${
+                        failed === 1 ? '' : 's'
+                    } to ${
+                        bucketName
+                    } failed`,
+                    'error'
+                );
+
+            } else {
+                notify(
+                    `Uploading to ${
+                        bucketName
+                    } completed. ${
+                        completed
+                    } file${
+                        completed === 1 ? '' : 's'
+                    } uploaded successffully, ${
+                        failed
+                    } file${
+                        failed === 1 ? '' : 's'
+                    } failed`,
+                    'warning'
+                );
+            }
+
+            if (completed > 0) {
+                refresh();
+            }
+        }
+    );
 }
 
-// TODO: notifications - ????
 export function testNode(source, testSet) {
     logAction('testNode', { source, testSet });
 
@@ -1228,15 +1291,21 @@ export function uploadSSLCertificate(SSLCertificate) {
 
     xhr.onload = function(evt) {
         if (xhr.status !== 200) {
+            let error = evt.target.responseText;
+
             uploadStatus.assign ({
                 state: 'FAILED',
-                error: evt.target.responseText
+                error: error
             });
+
+            notify(`Uploading SSL cartificate failed: ${error}`, 'error');
 
         } else {
             uploadStatus.assign ({
                 state: 'SUCCESS'
             });
+
+            notify('SSL cartificate uploaded successfully', 'success');
         }
     };
 
@@ -1247,16 +1316,22 @@ export function uploadSSLCertificate(SSLCertificate) {
     };
 
     xhr.onerror = function(evt) {
+        let error = evt.target.responseText;
+
         uploadStatus.assign({
             state: 'FAILED',
-            error: evt.target.responseText
+            error: error
         });
+
+        notify(`Uploading SSL cartificate failed: ${error}`, 'error');
     };
 
     xhr.onabort = function() {
         uploadStatus.assign ({
             state: 'CANCELED'
         });
+
+        notify('Uploading SSL cartificate canceled', 'info');
     };
 
     let formData = new FormData();
@@ -1463,7 +1538,7 @@ export function updateBucketS3ACL(bucketName, acl) {
         access_control: acl
     })
         .then(
-            () => notify(`${bucketName} S3 access control was updated successffully`, 'success'),
+            () => notify(`${bucketName} S3 access control updated successffully`, 'success'),
             () => notify(`Updating ${bucketName} S3 access control failed`, 'error')
         )
         .then(
@@ -1482,7 +1557,6 @@ export function loadAccountS3ACL(email) {
         .done();
 }
 
-// TODO: notificaitons
 export function updateAccountS3ACL(email, acl) {
     logAction('updateAccountS3ACL', { email, acl });
 
@@ -1579,7 +1653,6 @@ export function disableRemoteSyslog() {
         .done();
 }
 
-//TODO: notificaiton  decide if action reurn after attach or depend on push notificaion.
 export function attachServerToCluster(serverAddress, serverSecret) {
     logAction('attachServerToCluster', { serverAddress, serverSecret });
 
@@ -1589,6 +1662,10 @@ export function attachServerToCluster(serverAddress, serverSecret) {
         role: 'REPLICA',
         shard: 'shard1'
     })
+        .then(
+            () => notify(`Server ${serverAddress} attached to cluster successffully`, 'success'),
+            () => notify(`Adding ${serverAddress} to cluster failed`, 'error')
+        )
         .then(loadSystemInfo)
         .done();
 }

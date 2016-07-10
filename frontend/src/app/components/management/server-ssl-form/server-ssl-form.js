@@ -3,31 +3,8 @@ import BaseViewModel from 'base-view-model';
 import ko from 'knockout';
 import numeral from 'numeral';
 import { sslCertificateSuffix } from 'config';
-import { deepFreeze } from 'utils';
 import { uploadSSLCertificate } from 'actions';
-import { sslCertificateUploadStatus } from 'model';
-
-const uploadStateMapping = deepFreeze({
-    IN_PROGRESS: ({ progress }) => ({
-        icon: '/fe/assets/icons.svg#in-progress',
-        message: `Uploading cartificate ${numeral(progress).format('0%')}`
-    }),
-
-    SUCCESS: () => ({
-        icon: '/fe/assets/icons.svg#notif-success',
-        message: 'Certificate uploaded and verified'
-    }),
-
-    ABORTED: () => ({
-        icon: '/fe/assets/icons.svg#notif-warning',
-        message: 'Upload aborted'
-    }),
-
-    FAILED: ({ error }) => ({
-        icon: '/fe/assets/icons.svg#notif-warning',
-        message: `Upload failed: ${error}`
-    })
-});
+import { sslCertificateUploadStatus as uploadStatus } from 'model';
 
 class SSLFormViewModel extends BaseViewModel {
     constructor() {
@@ -38,23 +15,18 @@ class SSLFormViewModel extends BaseViewModel {
 
         this.sslConfigured = ko.observable('No');
 
-        let uploadMetadata = ko.pureComputed(
-            () => {
-                if (!sslCertificateUploadStatus()) {
-                    return { message: '', icon: '' };
-                }
-
-                let mapper = uploadStateMapping[sslCertificateUploadStatus().state];
-                return mapper(sslCertificateUploadStatus());
-            }
+        this.uploading = ko.pureComputed(
+            () => uploadStatus() && uploadStatus().state === 'IN_PROGRESS'
         );
 
         this.uploadIcon = ko.pureComputed(
-            () => uploadMetadata().icon
+            () => this.uploading() ? 'in-progress' : ''
         );
 
         this.uploadText = ko.pureComputed(
-            () => uploadMetadata().message
+            () => this.uploading && `Uploading cartificate ${
+                numeral(uploadStatus().progress).format('0%')
+            }`
         );
     }
 

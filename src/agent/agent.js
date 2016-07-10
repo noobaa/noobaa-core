@@ -168,9 +168,9 @@ class Agent {
     _init_rpc_connectivity() {
         let address;
         if (this.servers.length) {
-            address = this.servers[this.current_server];
+            address = this.servers[this.current_server].address;
         }
-        dbg.log0('_init_rpc_connectivity', address);
+        dbg.log0('_init_rpc_connectivity', address ? 'using ' + address : 'address undefined, using defaults');
 
         this.rpc = api.new_rpc(address);
         this.client = this.rpc.new_client();
@@ -196,6 +196,7 @@ class Agent {
     }
 
     _handle_server_change(suggested) {
+        dbg.error('_handle_server_change', suggested ? 'suggested server ' + suggested : 'no suggested server, trying next in list');
         if (suggested) {
             //Find if the suggested server appears in the list we got from the initial connect
             this.current_server = _.findIndex(this.servers, function(s) {
@@ -255,8 +256,10 @@ class Agent {
     _do_heartbeat() {
         if (!this.is_started) return;
 
-        if (this.connect_attempts > 10) {
+        if (this.connect_attempts > 20) {
+            dbg.error('too many failure to connect, switching servers');
             this._handle_server_change();
+            return P.delay(3000).then(() => this._do_heartbeat());
         }
 
         let hb_info = {

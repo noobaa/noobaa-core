@@ -53,7 +53,7 @@ export function start() {
 // -----------------------------------------------------
 // Navigation actions
 // -----------------------------------------------------
-export function navigateTo(route = window.location.pathname, params = {},  query = {}) {
+export function navigateTo(route = model.routeContext().pathname, params = {},  query = {}) {
     logAction('navigateTo', { route, params, query });
 
     page.show(
@@ -61,15 +61,19 @@ export function navigateTo(route = window.location.pathname, params = {},  query
     );
 }
 
-export function redirectTo(route = window.location.pathname, params = {}, query = {}) {
+export function redirectTo(route = model.routeContext().pathname, params = {}, query = {}) {
     logAction('redirectTo', { route, params, query });
 
+    route = route || model.routeContext().pathname;
+
     page.redirect(
-        realizeUri(route, Object.assign({}, model.routeContext().params, params), query)
+        encodeURI(
+            realizeUri(route, Object.assign({}, model.routeContext().params, params), query)
+        )
     );
 }
 
-export function reloadTo(route = window.location.pathname, params = {},  query = {}) {
+export function reloadTo(route = model.routeContext().pathname, params = {},  query = {}) {
     logAction('reloadTo', { route, params, query });
 
     // Force full browser refresh
@@ -193,7 +197,7 @@ export function showResources() {
         title: 'RESOURCES',
         breadcrumbs: [
             { route: 'system' },
-            { route: 'pools', label: 'RESOURCES'}
+            { route: 'pools', label: 'RESOURCES' }
         ],
         panel: 'resources',
         tab: tab

@@ -60,7 +60,7 @@ function mongoose_connect() {
     mongoose_disconnected = false;
     var new_url = MONGODB_URL;
     new_url = new_url.replace(config.MONGO_DEFAULTS.USER_PLACE_HOLDER,
-        config.MONGO_DEFAULTS.DEFAULT_USER + ':roonoobaa');
+        config.MONGO_DEFAULTS.DEFAULT_USER + ':' + config.MONGO_DEFAULTS.DEFAULT_MONGO_PWD);
     if (!mongoose_connected) {
         dbg.log0('connecting mongoose to', new_url);
         mongoose.connect(new_url);

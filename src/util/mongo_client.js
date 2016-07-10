@@ -68,9 +68,9 @@ class MongoClient extends EventEmitter {
         this._disconnected_state = false;
         if (this.promise) return this.promise;
         let url = this.url.replace(config.MONGO_DEFAULTS.USER_PLACE_HOLDER,
-            config.MONGO_DEFAULTS.DEFAULT_USER + ':roonoobaa');
+            config.MONGO_DEFAULTS.DEFAULT_USER + ':' + config.MONGO_DEFAULTS.DEFAULT_MONGO_PWD);
         let admin_url = this.url.replace(config.MONGO_DEFAULTS.USER_PLACE_HOLDER,
-            config.MONGO_DEFAULTS.DEFAULT_ADMIN_USER + ':roonoobaa');
+            config.MONGO_DEFAULTS.DEFAULT_ADMIN_USER + ':' + config.MONGO_DEFAULTS.DEFAULT_MONGO_PWD);
         admin_url = admin_url.substring(0, admin_url.indexOf('/nbcore'));
         this.promise = this._connect('db', url, this.config)
             .then(db => {

@@ -21,6 +21,7 @@ class MongoClient extends EventEmitter {
         super();
         this.db = null; // will be set once connected
         this.cfg_db = null; // will be set once a part of a cluster & connected
+        this.admin_db = null;
         this.collections = {};
         this.url =
             process.env.MONGO_RS_URL ||
@@ -66,14 +67,21 @@ class MongoClient extends EventEmitter {
         dbg.log0('connect called, current url', this.url);
         this._disconnected_state = false;
         if (this.promise) return this.promise;
-        var url = this.url;
-        this.promise = this._connect('db', url, this.config);
+        let url = this.url.replace(config.MONGO_DEFAULTS.USER_PLACE_HOLDER,
+            config.MONGO_DEFAULTS.DEFAULT_USER + ':' + config.MONGO_DEFAULTS.DEFAULT_MONGO_PWD);
+        let admin_url = this.url.replace(config.MONGO_DEFAULTS.USER_PLACE_HOLDER,
+            config.MONGO_DEFAULTS.DEFAULT_ADMIN_USER + ':' + config.MONGO_DEFAULTS.DEFAULT_MONGO_PWD);
+        admin_url = admin_url.substring(0, admin_url.indexOf('/nbcore'));
+        this.promise = this._connect('db', url, this.config)
+            .then(db => {
+                return this._connect('admin_db', admin_url, this.config).then(() => db);
+            });
         return this.promise;
     }
 
     _connect(access_db, url, config) {
         if (this._disconnected_state) return;
-        if (this[access_db]) return this[access_db];
+        if (this[access_db]) return P.resolve(this[access_db]);
         dbg.log0('_connect called with', url);
         return mongodb.MongoClient.connect(url, config)
             .then(db => {
@@ -105,6 +113,7 @@ class MongoClient extends EventEmitter {
         if (this.db) {
             this.db.close();
             this.db = null;
+            this.admin_db = null;
         }
         if (this.cfg_db) {
             this.cfg_db.close();

@@ -117,12 +117,7 @@ module.exports = {
         apply_updated_time_config: {
             method: 'POST',
             params: {
-                type: 'object',
-                properties: {
-                    time_config: {
-                        $ref: '#/definitions/time_config'
-                    }
-                }
+                $ref: '#/definitions/time_config'
             },
             auth: {
                 system: false,
@@ -132,15 +127,7 @@ module.exports = {
         apply_updated_dns_servers: {
             method: 'POST',
             params: {
-                type: 'object',
-                properties: {
-                    dns_servers: {
-                        type: 'array',
-                        items: {
-                            type: 'string'
-                        },
-                    }
-                }
+                $ref: '#/definitions/dns_servers_config'
             },
             auth: {
                 system: false,
@@ -153,6 +140,9 @@ module.exports = {
             type: 'object',
             required: ['config_type', 'timezone'],
             properties: {
+                target_secret: {
+                    type: 'string'
+                },
                 config_type: {
                     $ref: '#/definitions/time_config_type'
                 },
@@ -165,6 +155,22 @@ module.exports = {
                 epoch: {
                     type: 'number'
                 },
+            },
+        },
+
+        dns_servers_config: {
+            type: 'object',
+            required: ['dns_servers'],
+            properties: {
+                target_secret: {
+                    type: 'string'
+                },
+                dns_servers: {
+                    type: 'array',
+                    items: {
+                        type: 'string'
+                    },
+                }
             },
         },
 

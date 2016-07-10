@@ -180,7 +180,9 @@ function get_cluster_info() {
             is_connected: is_connected,
             memory_usage: memory_usage,
             cpu_usage: cpu_usage,
-            location: location
+            location: location,
+            ntp: cinfo.ntp,
+            dns_servers: cinfo.dns_servers
         };
         shard.servers.push(server_info);
     });

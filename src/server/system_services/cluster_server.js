@@ -243,35 +243,42 @@ function redirect_to_cluster_master(req) {
 
 
 function update_time_config(req) {
-    var time_config = req.rpc_params.time_config;
-    var target_address;
+    var time_config = req.rpc_params;
+    var target_servers = [];
     return P.fcall(function() {
-            let cluster_server = system_store.data.cluster_by_server[req.rpc_params.target_secret];
-            if (!cluster_server) {
-                throw new RpcError('CLUSTER_SERVER_NOT_FOUND', 'Server with secret key:', req.rpc_params.target_secret, ' was not found');
+            if (time_config.target_secret) {
+                let cluster_server = system_store.data.cluster_by_server[time_config.target_secret];
+                if (!cluster_server) {
+                    throw new RpcError('CLUSTER_SERVER_NOT_FOUND', 'Server with secret key:', time_config.target_secret, ' was not found');
+                }
+                target_servers.push(cluster_server);
+            } else {
+                _.each(system_store.data.clusters, cluster => target_servers.push(cluster));
             }
-            target_address = cluster_server.owner_address;
+
             let config_to_update = {
                 timezone: time_config.timezone,
                 server: (time_config.config_type === 'NTP') ?
                     time_config.server : ''
             };
 
+            let updates = _.map(target_servers, server => ({
+                    _id: server._id,
+                    ntp: config_to_update
+            }));
+
             return system_store.make_changes({
                 update: {
-                    clusters: [{
-                        _id: cluster_server._id,
-                        ntp: config_to_update
-                    }]
+                    clusters: updates,
                 }
             });
         })
         .then(() => {
-            return server_rpc.client.cluster_internal.apply_updated_time_config({
-                time_config: time_config,
-            }, {
-                address: 'ws://' + target_address + ':8080',
-                timeout: 60000 //60s
+            return P.each(target_servers, function(server) {
+                return server_rpc.client.cluster_internal.apply_updated_time_config(time_config, {
+                    address: 'ws://' + server.owner_address + ':8080',
+                    timeout: 60000 //60s
+                });
             });
         })
         .return();
@@ -279,7 +286,7 @@ function update_time_config(req) {
 
 
 function apply_updated_time_config(req) {
-    var time_config = req.rpc_params.time_config;
+    var time_config = req.rpc_params;
     return P.fcall(function() {
             if (time_config.config_type === 'NTP') { //set NTP
                 return os_utils.set_ntp(time_config.server, time_config.timezone);
@@ -292,28 +299,36 @@ function apply_updated_time_config(req) {
 
 
 function update_dns_servers(req) {
-    var target_address;
+    var dns_servers_config = req.rpc_params;
+    var target_servers = [];
     return P.fcall(function() {
-            let cluster_server = system_store.data.cluster_by_server[req.rpc_params.target_secret];
-            if (!cluster_server) {
-                throw new RpcError('CLUSTER_SERVER_NOT_FOUND', 'Server with secret key:', req.rpc_params.target_secret, ' was not found');
+            if (dns_servers_config.target_secret) {
+                let cluster_server = system_store.data.cluster_by_server[dns_servers_config.target_secret];
+                if (!cluster_server) {
+                    throw new RpcError('CLUSTER_SERVER_NOT_FOUND', 'Server with secret key:', dns_servers_config.target_secret, ' was not found');
+                }
+                target_servers.push(cluster_server);
+            } else {
+                _.each(system_store.data.clusters, cluster => target_servers.push(cluster));
             }
-            target_address = cluster_server.owner_address;
+
+            let updates = _.map(target_servers, server => ({
+                    _id: server._id,
+                    dns_servers: dns_servers_config.dns_servers
+            }));
+
             return system_store.make_changes({
                 update: {
-                    clusters: [{
-                        _id: cluster_server._id,
-                        dns_servers: req.rpc_params.dns_servers
-                    }]
+                    clusters: updates,
                 }
             });
         })
         .then(() => {
-            return server_rpc.client.cluster_internal.apply_updated_dns_servers({
-                dns_servers: req.rpc_params.dns_servers,
-            }, {
-                address: 'ws://' + target_address + ':8080',
-                timeout: 60000 //60s
+            return P.each(target_servers, function(server) {
+                return server_rpc.client.cluster_internal.apply_updated_dns_servers(dns_servers_config, {
+                    address: 'ws://' + server.owner_address + ':8080',
+                    timeout: 60000 //60s
+                });
             });
         })
         .return();

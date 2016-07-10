@@ -175,31 +175,17 @@ function read_system(req) {
                 }
             }, req);
             return bucket_server.get_cloud_sync(new_req);
-        }),
-
-        os_utils.get_time_config()
+        })
 
     ).spread(function(
         nodes_aggregate_pool,
         objects_aggregate,
-        cloud_sync_by_bucket,
-        time_status) {
+        cloud_sync_by_bucket) {
 
         var nodes_sys = nodes_aggregate_pool[''] || {};
         var objects_sys = objects_aggregate[''] || {};
         var ip_address = ip_module.address();
         var n2n_config = system.n2n_config;
-        var time_config = {
-            srv_time: time_status.srv_time,
-            synced: time_status.status,
-        };
-        if (system.ntp) {
-            time_config.ntp_server = system.ntp.server;
-            time_config.timezone = system.ntp.timezone ? system.ntp.timezone : time_status.timezone;
-        } else {
-            time_config.timezone = time_status.timezone;
-        }
-
         let debug_level = system.debug_level;
         var upgrade = {};
         if (system.upgrade) {
@@ -262,7 +248,6 @@ function read_system(req) {
             web_links: get_system_web_links(system),
             n2n_config: n2n_config,
             ip_address: ip_address,
-            time_config: time_config,
             base_address: system.base_address || 'wss://' + ip_address + ':' + process.env.SSL_PORT,
             remote_syslog_config: system.remote_syslog_config,
             phone_home_config: system.phone_home_proxy_address && {

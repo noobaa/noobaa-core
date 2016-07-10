@@ -371,7 +371,7 @@ function get_all_stats(req) {
             return stats_payload;
         })
         .catch(err => {
-            dbg.warn('SYSTEM_SERVER_STATS_AGGREGATOR:', 'ERROR', err);
+            dbg.warn('SYSTEM_SERVER_STATS_AGGREGATOR:', 'ERROR', err.stack);
             return {};
         });
 }

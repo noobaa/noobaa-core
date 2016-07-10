@@ -262,6 +262,10 @@ function update_time_config(req) {
                     time_config.server : ''
             };
 
+            if (time_config.config_type === "MANUAL" && _.isUndefined(time_config.epoch)) {
+                throw new RpcError('EPOCH_NOT_PROVIDED', 'Cannot configure manual time without epoch');
+            }
+
             let updates = _.map(target_servers, server => ({
                     _id: server._id,
                     ntp: config_to_update

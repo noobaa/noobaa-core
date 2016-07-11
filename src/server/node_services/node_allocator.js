@@ -46,7 +46,7 @@ function refresh_pool_alloc(pool) {
             dbg.log0('refresh_pool_alloc: updated pool', pool._id,
                 'nodes', _.map(group.nodes, 'name'));
             _.each(alloc_group_by_pool_set, (g, pool_set) => {
-                if (_.includes(pool_set, pool._id.toString())) {
+                if (_.includes(pool_set, String(pool._id))) {
                     dbg.log0('invalidate alloc_group_by_pool_set for', pool_set,
                         'on change to pool', pool._id);
                     delete alloc_group_by_pool_set[pool_set];
@@ -71,7 +71,7 @@ function refresh_pool_alloc(pool) {
  *
  */
 function allocate_node(pools, avoid_nodes, content_tiering_params) {
-    let pool_set = _.map(pools, pool => pool._id.toString()).sort().join(',');
+    let pool_set = _.map(pools, pool => String(pool._id)).sort().join(',');
     let alloc_group =
         alloc_group_by_pool_set[pool_set] =
         alloc_group_by_pool_set[pool_set] || {
@@ -120,7 +120,7 @@ function allocate_from_list(nodes, avoid_nodes, use_nodes_with_errors) {
         var node = get_round_robin(nodes);
         if (Boolean(use_nodes_with_errors) ===
             Boolean(node.report_error_on_node_alloc) &&
-            !_.includes(avoid_nodes, node._id.toString())) {
+            !_.includes(avoid_nodes, String(node._id))) {
             dbg.log1('allocate_node: allocated node', node.name,
                 'avoid_nodes', avoid_nodes);
             return node;

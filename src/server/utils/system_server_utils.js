@@ -1,14 +1,9 @@
 'use strict';
 
-module.exports = {
-    system_in_maintenance: system_in_maintenance,
-};
-
-var system_store = require('../system_services/system_store').get_instance();
-var moment = require('moment');
+const system_store = require('../system_services/system_store').get_instance();
 
 function system_in_maintenance(system_id) {
-    let system = system_store.data.get_by_id(system_id);
+    const system = system_store.data.get_by_id(system_id);
 
     if (!system) {
         // we don't want to throw here because callers will handle system deletion
@@ -16,9 +11,12 @@ function system_in_maintenance(system_id) {
         return false;
     }
 
-    if (system.maintenance_mode && moment().diff(system.maintenance_mode) < 0) {
+    if (system.maintenance_mode &&
+        system.maintenance_mode > Date.now()) {
         return true;
     }
 
     return false;
 }
+
+exports.system_in_maintenance = system_in_maintenance;

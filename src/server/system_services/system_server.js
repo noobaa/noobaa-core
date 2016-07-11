@@ -10,7 +10,6 @@ const fs = require('fs');
 const url = require('url');
 const net = require('net');
 // const uuid = require('node-uuid');
-const moment = require('moment');
 const ip_module = require('ip');
 
 const P = require('../../util/promise');
@@ -195,7 +194,12 @@ function read_system(req) {
             upgrade.status = 'UNAVAILABLE';
             upgrade.message = '';
         }
-
+        const maintenance_mode = {
+            state: system_server_utils.system_in_maintenance(system._id)
+        };
+        if (maintenance_mode.state) {
+            maintenance_mode.till = system.maintenance_mode;
+        }
 
         // TODO use n2n_config.stun_servers ?
         // var stun_address = 'stun://' + ip_address + ':' + stun.PORT;
@@ -238,11 +242,8 @@ function read_system(req) {
                 has_issues: nodes_sys.has_issues || 0,
             },
             owner: account_server.get_account_info(system_store.data.get_by_id(system._id).owner),
-            last_stats_report: system.last_stats_report && new Date(system.last_stats_report).getTime(),
-            maintenance_mode: {
-                state: system_server_utils.system_in_maintenance(system._id),
-                till: system_server_utils.system_in_maintenance(system._id) ? new Date(system.maintenance_mode).getTime() : undefined,
-            },
+            last_stats_report: system.last_stats_report || 0,
+            maintenance_mode: maintenance_mode,
             ssl_port: process.env.SSL_PORT,
             web_port: process.env.PORT,
             web_links: get_system_web_links(system),
@@ -288,12 +289,9 @@ function update_system(req) {
 
 function set_maintenance_mode(req) {
     var updates = {};
-    //let maintenance_mode = _.pick(req.rpc_params, 'maintenance_mode');
     updates._id = req.system._id;
-    updates.maintenance_mode = moment().add(req.rpc_params.duration, 'm').toISOString();
-    /*{
-            till: new Date(maintenance_mode.till),
-        };*/
+    // duration is in minutes (?!$%)
+    updates.maintenance_mode = Date.now() + (req.rpc_params.duration * 60000);
     return system_store.make_changes({
         update: {
             systems: [updates]
@@ -466,7 +464,7 @@ function get_system_web_links(system) {
 function set_last_stats_report_time(req) {
     var updates = {};
     updates._id = req.system._id;
-    updates.last_stats_report = new Date(req.rpc_params.last_stats_report);
+    updates.last_stats_report = req.rpc_params.last_stats_report;
     return system_store.make_changes({
         update: {
             systems: [updates]

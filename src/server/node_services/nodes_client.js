@@ -7,6 +7,7 @@ const server_rpc = require('../server_rpc');
 const node_server = require('./node_server');
 const auth_server = require('../common_services/auth_server');
 const mongo_utils = require('../../util/mongo_utils');
+const node_allocator = require('./node_allocator');
 
 const NODE_FIELDS_FOR_MAP = [
     'name',
@@ -144,6 +145,27 @@ class NodesClient {
 
     populate_nodes_for_map(system_id, docs, doc_path) {
         return this.populate_nodes(system_id, docs, doc_path, NODE_FIELDS_FOR_MAP);
+    }
+
+    report_error_on_node_blocks(system_id, blocks_report) {
+
+        // node_allocator keeps nodes in memory,
+        // and in the write path it allocated a block on a node that failed to write
+        // so we notify about the error to remove the node from next allocations
+        // until it will refresh the alloc.
+        _.each(blocks_report, block_report => {
+            const node_id = block_report.block_md.node;
+            node_allocator.report_error_on_node_alloc(node_id);
+        });
+
+        return server_rpc.client.node.report_error_on_node_blocks({
+            blocks_report: blocks_report
+        }, {
+            auth_token: auth_server.make_auth_token({
+                system_id: system_id,
+                role: 'admin'
+            })
+        });
     }
 
     static instance() {

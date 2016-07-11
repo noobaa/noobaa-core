@@ -341,23 +341,16 @@ module.exports = {
             }
         },
 
-        report_node_block_error: {
-            method: 'POST',
+        report_error_on_node_blocks: {
+            method: 'PUT',
             params: {
                 type: 'object',
-                required: [
-                    'action',
-                    'block_md'
-                ],
+                required: ['blocks_report'],
                 properties: {
-                    action: {
-                        type: 'string',
-                        enum: ['write', 'read'],
-                    },
-                    block_md: {
-                        $ref: 'common_api#/definitions/block_md'
-                    },
-                },
+                    blocks_report: {
+                        $ref: 'common_api#/definitions/blocks_report'
+                    }
+                }
             },
             auth: {
                 system: ['admin', 'user', 'agent']

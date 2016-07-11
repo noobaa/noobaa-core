@@ -26,7 +26,6 @@ const mongo_utils = require('../../util/mongo_utils');
 const buffer_utils = require('../../util/buffer_utils');
 const system_store = require('../system_services/system_store').get_instance();
 const promise_utils = require('../../util/promise_utils');
-const node_allocator = require('./node_allocator');
 const mongoose_utils = require('../../util/mongoose_utils');
 const mongo_functions = require('../../util/mongo_functions');
 const system_server_utils = require('../utils/system_server_utils');
@@ -175,7 +174,7 @@ class NodesMonitor extends EventEmitter {
                 peer_id: nodes_store.instance().make_node_id(),
                 system: system._id,
                 pool: pool._id,
-                heartbeat: new Date(),
+                heartbeat: Date.now(),
                 name: 'a-node-has-no-name-' + Date.now().toString(36),
             },
         };
@@ -221,17 +220,19 @@ class NodesMonitor extends EventEmitter {
             dbg.warn('heartbeat: closing old connection', item.connection.connid);
             item.connection.close();
         }
-        conn.on('close', () => {
-            // if connection already replaced ignore the close event
-            if (item.connection !== conn) return;
-            item.connection = null;
-            // TODO GUYM what to wakeup on disconnect?
-            setTimeout(() => this._run_node(item), 1000).unref();
-        });
         item.connection = conn;
-        item.node.heartbeat = new Date();
         this._set_need_update.add(item);
         setTimeout(() => this._run_node(item), 1000).unref();
+        if (conn) {
+            item.node.heartbeat = Date.now();
+            conn.on('close', () => {
+                // if connection already replaced ignore the close event
+                if (item.connection !== conn) return;
+                item.connection = null;
+                // TODO GUYM what to wakeup on disconnect?
+                setTimeout(() => this._run_node(item), 1000).unref();
+            });
+        }
     }
 
     _schedule_next_run(delay_ms) {
@@ -296,7 +297,7 @@ class NodesMonitor extends EventEmitter {
                     this._map_node_name.set(String(info.name), item);
                 }
                 const updates = _.pick(info, AGENT_INFO_FIELDS);
-                updates.heartbeat = new Date();
+                updates.heartbeat = Date.now();
                 _.extend(item.node, updates);
                 this._set_need_update.add(item);
             });
@@ -432,8 +433,18 @@ class NodesMonitor extends EventEmitter {
 
         item.online = Boolean(item.connection);
 
-        // TODO GUYM implement node trusted status
+        // to decide the node trusted status we check the reported issues
         item.trusted = true;
+        if (item.node.issues_report) {
+            for (const issue of item.node.issues_report) {
+                // tampering is a trust issue, but maybe we need to refine this
+                // and only consider trust issue after 3 tampering strikes
+                // which are not too old
+                if (issue.reason === 'TAMPERING') {
+                    item.trusted = false;
+                }
+            }
+        }
 
         // TODO GUYM implement node n2n_connectivity & connectivity status
         item.n2n_connectivity = true;
@@ -491,7 +502,7 @@ class NodesMonitor extends EventEmitter {
                 dbg.warn('_update_status: delay node data_activity',
                     'while system in maintenance', item.node.name);
             } else {
-                const time_left = REBUILD_CLIFF - (Date.now() - item.node.heartbeat.getTime());
+                const time_left = REBUILD_CLIFF - (Date.now() - item.node.heartbeat);
                 if (time_left > 0 && item.data_activity_reason === 'RESTORING') {
                     dbg.warn('_update_status: schedule node data_activity for', item.node.name,
                         'in', time_left, 'ms');
@@ -1033,7 +1044,7 @@ class NodesMonitor extends EventEmitter {
         info._id = String(node._id);
         info.peer_id = String(node.peer_id);
         info.pool = system_store.data.get_by_id(node.pool).name;
-        info.heartbeat = node.heartbeat.getTime();
+        info.heartbeat = node.heartbeat;
         if (node.migrating_to_pool) info.migrating_to_pool = node.migrating_to_pool.getTime();
         if (node.decommissioning) info.decommissioning = node.decommissioning.getTime();
         if (node.decommissioned) info.decommissioned = node.decommissioned.getTime();
@@ -1208,34 +1219,41 @@ class NodesMonitor extends EventEmitter {
         };
     }
 
-    /**
-     *
-     * report_node_block_error
-     *
-     * sent by object IO when failed to read/write to node agent.
-     *
-     */
-    report_node_block_error(req) {
+    report_error_on_node_blocks(params) {
         this._throw_if_not_started_and_loaded();
-        let action = req.rpc_params.action;
-        let block_md = req.rpc_params.block_md;
-        let node_id = block_md.node;
-
-        if (action === 'write') {
-
-            // node_allocator keeps nodes in memory,
-            // and in the write path it allocated a block on a node that failed to write
-            // so we notify about the error to remove the node from next allocations
-            // until it will refresh the alloc and see the error_since_hb on the node too
-            node_allocator.report_node_error(node_id);
-
-            // update the node to mark the error
-            // this marking is transient and will be unset on next heartbeat
-            return nodes_store.instance().update_node_by_id(node_id, {
-                $set: {
-                    error_since_hb: new Date(),
+        for (const block_report of params.blocks_report) {
+            const node_id = block_report.block_md.node;
+            const item = this._get_node({
+                id: node_id
+            }, 'allow_offline', 'allow_missing');
+            if (!item) {
+                dbg.warn('report_error_on_node_blocks: node not found for block',
+                    block_report);
+                continue;
+            }
+            // mark the issue on the node
+            item.node.issues_report = item.node.issues_report || [];
+            item.node.issues_report.push({
+                time: Date.now(),
+                action: block_report.action,
+                reason: block_report.rpc_code || ''
+            });
+            // TODO pack issues_report by action and reason, instead of naive
+            while (item.node.issues_report.length > 20) {
+                const oldest = item.node.issues_report.shift();
+                const first = item.node.issues_report[0];
+                first.count = (first.count || 0) + 1;
+                if (!first.count_since ||
+                    first.count_since > oldest.time) {
+                    first.count_since = oldest.time;
                 }
-            }).return();
+            }
+            dbg.log0('report_error_on_node_blocks:',
+                'node', item.node.name,
+                'issues_report', item.node.issues_report,
+                'block_report', block_report);
+            // disconnect from the node to force reconnect
+            this._set_connection(item, null);
         }
     }
 

@@ -185,12 +185,33 @@ module.exports = {
             type: 'boolean',
         },
 
-        error_since_hb: {
-            format: 'idate'
-        },
-
         debug_level: {
             type: 'integer',
         },
+
+        issues_report: {
+            type: 'array',
+            items: {
+                type: 'object',
+                properties: {
+                    time: {
+                        format: 'idate'
+                    },
+                    action: {
+                        type: 'string'
+                    },
+                    reason: {
+                        type: 'string'
+                    },
+                    count_since: {
+                        format: 'idate'
+                    },
+                    count: {
+                        type: 'integer'
+                    },
+                }
+            }
+        },
+
     }
 };

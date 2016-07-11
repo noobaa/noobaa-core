@@ -604,7 +604,7 @@ function add_region_instances(region_name, count, is_docker_host, number_of_dock
                                             progress_func(operationResource);
 
                                             if (operationResource.status === 'DONE') {
-                                                console.log('Instance ' + instanceName+':::' + ' is up and started installation ' + JSON.stringify(operationResource.status));
+                                                console.log('Instance ' + instanceName + '::: is up and started installation ' + JSON.stringify(operationResource.status));
                                                 var instanceDetailedInformationParams = {
                                                     instance: operationsParams.instanceName,
                                                     zone: operationsParams.zone,
@@ -621,14 +621,14 @@ function add_region_instances(region_name, count, is_docker_host, number_of_dock
                                                         }
                                                         clearInterval(interval);
                                                     }).then(null, function(err) {
-                                                        console.log('Instance get details err (2):',err);
+                                                        console.log('Instance get details err (2):', err);
                                                     });
                                             }
 
 
                                         })
                                         .catch(function(err) {
-                                            console.log('Zone Operation err(1):',err);
+                                            console.log('Zone Operation err(1):', err);
                                             console.log('Zone Operation err:' + JSON.stringify(err) + JSON.stringify(operationsParams));
                                             deferred.resolve(null);
                                             clearInterval(interval);

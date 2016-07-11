@@ -50,8 +50,12 @@ if (argv.help) {
     } else {
         head_bucket();
     }
-} else if (argv.buckets) {
+} else if (argv.lb || argv.buckets) {
     list_buckets();
+} else if (argv.mb) {
+    create_bucket();
+} else if (argv.rb) {
+    delete_bucket();
 } else if (argv.list || argv.ls || argv.ll || true) {
     list_objects();
 }
@@ -99,6 +103,30 @@ function list_buckets() {
         _.each(data.Buckets, bucket => {
             console.log(bucket.Name);
         });
+    });
+}
+
+function create_bucket() {
+    s3.createBucket({
+        Bucket: argv.mb
+    }, (err, data) => {
+        if (err) {
+            console.error('CREATE BUCKET ERROR:', err);
+            return;
+        }
+        console.log('CREATED BUCKET', data);
+    });
+}
+
+function delete_bucket() {
+    s3.deleteBucket({
+        Bucket: argv.rb
+    }, (err, data) => {
+        if (err) {
+            console.error('DELETE BUCKET ERROR:', err);
+            return;
+        }
+        console.log('DELETED BUCKET', data);
     });
 }
 
@@ -397,13 +425,10 @@ General S3 Flags:
   --secret_key <key>   (default is abc)
   --bucket <name>      (default is "files")
 List Objects Flags:
-  --list/ls            run list objects
-  --long/ll            run list objects with long output
+  --list/ls            list objects
+  --long/ll            list objects with long output
   --prefix <path>      prefix used for list objects
   --delimiter <key>    delimiter used for list objects
-Delete Flags:
-  --delete             delete key or keys
-  --keys <key>,<key>   list of keys
 Upload Flags:
   --upload <key>       upload (multipart) to key (key can be omited
   --put <key>          put (single) to key (key can be omited
@@ -415,5 +440,12 @@ Upload Flags:
 Get Flags:
   --get <key>          get key name
   --head <key>         head key name
+Delete Flags:
+  --delete             delete key or keys
+  --keys <key>,<key>   list of keys
+Buckets Flags:
+  --lb/buckets         list buckets
+  --mb <name>          create bucket
+  --rb <name>          delete bucket
 `);
 }

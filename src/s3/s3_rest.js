@@ -208,8 +208,7 @@ function s3_rest(controller) {
         let s3err =
             (err instanceof s3_errors.S3Error) && err ||
             RPC_ERRORS_TO_S3[err.rpc_code] ||
-            // s3_errors.InternalError;
-            s3_errors.AccessDenied;
+            s3_errors.InternalError;
         let reply = s3err.reply(req.url, req.request_id);
         dbg.error('S3 ERROR', reply,
             JSON.stringify(req.headers),

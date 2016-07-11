@@ -51,9 +51,6 @@ module.exports = {
             format: 'idate'
         },
         maintenance_mode: {
-            // type: 'object',
-            // additionalProperties: true,
-            // properties: {}
             format: 'idate'
         },
         // the DNS name or IP address used for the server

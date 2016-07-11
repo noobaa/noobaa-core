@@ -397,20 +397,18 @@ function read_object_mappings(req) {
 function read_node_mappings(req) {
     var node;
     return nodes_client.instance().read_node_by_name(req.system._id, req.params.name)
-        .then(
-            node_arg => {
-                node = node_arg;
-                var params = _.pick(req.rpc_params, 'skip', 'limit');
-                params.node_id = node._id;
-                params.system = req.system;
-                return map_reader.read_node_mappings(params);
-            }
-        )
+        .then(node_arg => {
+            node = node_arg;
+            var params = _.pick(req.rpc_params, 'skip', 'limit');
+            params.node_id = node._id;
+            params.system = req.system;
+            return map_reader.read_node_mappings(params);
+        })
         .then(objects => {
             if (req.rpc_params.adminfo) {
                 return md_store.DataBlock.collection.count({
                         system: req.system._id,
-                        node: node._id,
+                        node: mongo_utils.make_object_id(node._id),
                         deleted: null
                     })
                     .then(count => ({

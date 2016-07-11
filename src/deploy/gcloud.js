@@ -216,7 +216,7 @@ function get_zones(func) {
  */
 function foreach_zone(func) {
     return get_zones(function(res) {
-        return P.all(_.map(res[0].items, func));
+        return P.all(_.map(res.items, func));
     }).catch(function(err) {
         console.log('err zone:', err);
     });
@@ -368,9 +368,9 @@ function describe_instances(params, filter) {
 
         return P.nfcall(compute.instances.list, instancesListParams).then(
             function(instances_list_results) {
-                if (instances_list_results[0].hasOwnProperty('items')) {
+                if (instances_list_results.hasOwnProperty('items')) {
                     // var number_of_instances_in_zone = instances_list_results[0].items.length;
-                    created_instance_data = created_instance_data.concat(instances_list_results[0].items);
+                    created_instance_data = created_instance_data.concat(instances_list_results.items);
                 }
 
             }).catch(function(error) {
@@ -583,7 +583,7 @@ function add_region_instances(region_name, count, is_docker_host, number_of_dock
                     console.log('New instance name: in region:' + region_name, instanceResource.resource.tags);
                     return P.nfcall(compute.instances.insert, instanceResource)
                         .then(function(instanceInformation) {
-                            var pieces_array = instanceInformation[0].targetLink.split('/');
+                            var pieces_array = instanceInformation.targetLink.split('/');
                             var instanceName = pieces_array[pieces_array.length - 1];
                             console.log('New instance name:' + JSON.stringify(instanceName));
 
@@ -594,7 +594,7 @@ function add_region_instances(region_name, count, is_docker_host, number_of_dock
                                     var operationsParams = {
                                         project: NooBaaProject,
                                         zone: instanceResource.zone,
-                                        operation: instanceInformation[0].name,
+                                        operation: instanceInformation.name,
                                         auth: authClient,
                                         instanceName: instanceName
                                     };
@@ -603,8 +603,8 @@ function add_region_instances(region_name, count, is_docker_host, number_of_dock
                                         .then(function(operationResource) {
                                             progress_func(operationResource);
 
-                                            if (operationResource[0].status === 'DONE') {
-                                                console.log('Instance ' + operationsParams.instanceName + ' is up and started installation ' + JSON.stringify(operationResource[0].status));
+                                            if (operationResource.status === 'DONE') {
+                                                console.log('Instance ' + instanceName+':::' + ' is up and started installation ' + JSON.stringify(operationResource.status));
                                                 var instanceDetailedInformationParams = {
                                                     instance: operationsParams.instanceName,
                                                     zone: operationsParams.zone,
@@ -614,20 +614,21 @@ function add_region_instances(region_name, count, is_docker_host, number_of_dock
                                                 };
                                                 return P.nfcall(compute.instances.get, instanceDetailedInformationParams)
                                                     .then(function(instanceDetails) {
-                                                        console.log('instanceDetails up:' + instanceDetails[0].name);
-                                                        instancesDetails.push(instanceDetails[0]);
+                                                        console.log('instanceDetails up:' + instanceDetails.name);
+                                                        instancesDetails.push(instanceDetails);
                                                         if (instancesDetails.length === count) {
                                                             deferred.resolve(instancesDetails);
                                                         }
                                                         clearInterval(interval);
                                                     }).then(null, function(err) {
-                                                        console.log('Instance get details err:' + JSON.stringify(err));
+                                                        console.log('Instance get details err (2):',err);
                                                     });
                                             }
 
 
                                         })
                                         .catch(function(err) {
+                                            console.log('Zone Operation err(1):',err);
                                             console.log('Zone Operation err:' + JSON.stringify(err) + JSON.stringify(operationsParams));
                                             deferred.resolve(null);
                                             clearInterval(interval);

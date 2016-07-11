@@ -1,6 +1,7 @@
 import template from './create-pool-wizard.html';
 import chooseNameStepTemplate from './choose-name-step.html';
 import assignNodesStepTemplate from './assign-nodes-step.html';
+import Disposable from 'disposable';
 import ko from 'knockout';
 import nameValidationRules from 'name-validation-rules';
 import NodeRowViewModel from './node-row';
@@ -9,8 +10,10 @@ import { systemInfo, nodeList } from 'model';
 import { loadNodeList, createPool } from 'actions';
 
 
-class CreatePoolWizardViewModel {
+class CreatePoolWizardViewModel extends Disposable {
     constructor({ onClose }) {
+        super();
+
         this.chooseNameStepTemplate = chooseNameStepTemplate;
         this.assignNodesStepTemplate = assignNodesStepTemplate;
         this.onClose = onClose;

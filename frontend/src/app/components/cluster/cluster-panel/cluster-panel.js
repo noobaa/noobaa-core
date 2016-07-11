@@ -1,11 +1,7 @@
 import template from './cluster-panel.html';
-// import ko from 'knockout';
-// import numeral from 'numeral';
-// import moment from 'moment';
+import Disposable from 'disposable';
 
-class ClusterPanelViewModel {
-    constructor() {
-    }
+class ClusterPanelViewModel extends Disposable {
 }
 
 export default {

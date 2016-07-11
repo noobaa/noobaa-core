@@ -20,7 +20,6 @@ const diag = require('../utils/server_diagnostics');
 const cutil = require('../utils/clustering_utils');
 const config = require('../../../config');
 const md_store = require('../object_services/md_store');
-const fs_utils = require('../../util/fs_utils');
 const os_utils = require('../../util/os_utils');
 const upgrade_utils = require('../../util/upgrade_utils');
 const RpcError = require('../../rpc/rpc_error');
@@ -77,52 +76,43 @@ function new_system_defaults(name, owner_account_id) {
 }
 
 function new_system_changes(name, owner_account) {
-    return fs_utils.find_line_in_file('/etc/ntp.conf', '#NooBaa Configured NTP Server')
-        .then(line => {
-            const default_pool_name = 'default_pool';
-            const default_bucket_name = 'files';
-            const bucket_with_suffix = default_bucket_name + '#' + Date.now().toString(36);
-            var system = new_system_defaults(name, owner_account._id);
-            if (line) {
-                let ntp_server = line.split(' ')[1];
-                system.ntp = {
-                    server: ntp_server
-                };
-                dbg.log0('found configured NTP server in ntp.conf:', ntp_server);
-            }
-            var pool = pool_server.new_pool_defaults(default_pool_name, system._id);
-            var tier = tier_server.new_tier_defaults(bucket_with_suffix, system._id, [pool._id]);
-            var policy = tier_server.new_policy_defaults(bucket_with_suffix, system._id, [{
-                tier: tier._id,
-                order: 0
-            }]);
-            var bucket = bucket_server.new_bucket_defaults(default_bucket_name, system._id, policy._id);
-            var role = {
-                _id: system_store.generate_id(),
-                account: owner_account._id,
-                system: system._id,
-                role: 'admin'
-            };
-            Dispatcher.instance().activity({
-                event: 'conf.create_system',
-                level: 'info',
-                system: system._id,
-                actor: owner_account._id,
-                desc: `${name} was created by ${owner_account && owner_account.email}`,
-            });
-
-            return {
-                insert: {
-                    systems: [system],
-                    buckets: [bucket],
-                    tieringpolicies: [policy],
-                    tiers: [tier],
-                    pools: [pool],
-                    roles: [role],
-                }
-            };
-
+    return P.fcall(function() {
+        const default_pool_name = 'default_pool';
+        const default_bucket_name = 'files';
+        const bucket_with_suffix = default_bucket_name + '#' + Date.now().toString(36);
+        var system = new_system_defaults(name, owner_account._id);
+        var pool = pool_server.new_pool_defaults(default_pool_name, system._id);
+        var tier = tier_server.new_tier_defaults(bucket_with_suffix, system._id, [pool._id]);
+        var policy = tier_server.new_policy_defaults(bucket_with_suffix, system._id, [{
+            tier: tier._id,
+            order: 0
+        }]);
+        var bucket = bucket_server.new_bucket_defaults(default_bucket_name, system._id, policy._id);
+        var role = {
+            _id: system_store.generate_id(),
+            account: owner_account._id,
+            system: system._id,
+            role: 'admin'
+        };
+        Dispatcher.instance().activity({
+            event: 'conf.create_system',
+            level: 'info',
+            system: system._id,
+            actor: owner_account._id,
+            desc: `${name} was created by ${owner_account && owner_account.email}`,
         });
+
+        return {
+            insert: {
+                systems: [system],
+                buckets: [bucket],
+                tieringpolicies: [policy],
+                tiers: [tier],
+                pools: [pool],
+                roles: [role],
+            }
+        };
+    });
 }
 
 
@@ -185,31 +175,17 @@ function read_system(req) {
                 }
             }, req);
             return bucket_server.get_cloud_sync(new_req);
-        }),
-
-        os_utils.get_time_config()
+        })
 
     ).spread(function(
         nodes_aggregate_pool,
         objects_aggregate,
-        cloud_sync_by_bucket,
-        time_status) {
+        cloud_sync_by_bucket) {
 
         var nodes_sys = nodes_aggregate_pool[''] || {};
         var objects_sys = objects_aggregate[''] || {};
         var ip_address = ip_module.address();
         var n2n_config = system.n2n_config;
-        var time_config = {
-            srv_time: time_status.srv_time,
-            synced: time_status.status,
-        };
-        if (system.ntp) {
-            time_config.ntp_server = system.ntp.server;
-            time_config.timezone = system.ntp.timezone ? system.ntp.timezone : time_status.timezone;
-        } else {
-            time_config.timezone = time_status.timezone;
-        }
-
         let debug_level = system.debug_level;
         var upgrade = {};
         if (system.upgrade) {
@@ -272,7 +248,6 @@ function read_system(req) {
             web_links: get_system_web_links(system),
             n2n_config: n2n_config,
             ip_address: ip_address,
-            time_config: time_config,
             base_address: system.base_address || 'wss://' + ip_address + ':' + process.env.SSL_PORT,
             remote_syslog_config: system.remote_syslog_config,
             phone_home_config: system.phone_home_proxy_address && {
@@ -285,7 +260,6 @@ function read_system(req) {
 
         // fill cluster information if we have a cluster.
         response.cluster = cutil.get_cluster_info();
-
 
         if (system.base_address) {
             let hostname = url.parse(system.base_address).hostname;
@@ -801,51 +775,51 @@ function update_system_certificate(req) {
     throw new RpcError('TODO', 'update_system_certificate');
 }
 
-function update_time_config(req) {
-    dbg.log0('update_time_config', req.rpc_params);
-    var config = {
-        timezone: req.rpc_params.timezone,
-        server: (req.rpc_params.config_type === 'NTP') ?
-            req.rpc_params.server : ''
-    };
-
-    return system_store.make_changes({
-            update: {
-                systems: [{
-                    _id: req.system._id,
-                    ntp: config
-                }]
-            }
-        })
-        .then(() => {
-            if (req.rpc_params.config_type === 'NTP') { //set NTP
-                return os_utils.set_ntp(config.server, config.timezone);
-            } else { //manual set
-                return os_utils.set_manual_time(req.rpc_params.epoch, config.timezone);
-            }
-        })
-        .then(res => {
-            let desc_string = [];
-            desc_string.push(`Date and Time was updated to ${req.rpc_params.config_type} time by ${req.account && req.account.email}`);
-            desc_string.push(`Timezone was set to ${req.rpc_params.timezone}`);
-            if (req.rpc_params.server) {
-                desc_string.push(`NTP server ${req.rpc_params.server}`);
-            }
-            let date = req.rpc_params.epoch &&
-                moment.unix(req.rpc_params.epoch).tz(req.rpc_params.timezone);
-            if (date) {
-                desc_string.push(`Date and Time set to ${date}`);
-            }
-            Dispatcher.instance().activity({
-                event: 'conf.server_date_time_updated',
-                level: 'info',
-                system: req.system,
-                actor: req.account && req.account._id,
-                desc: desc_string.join('\n'),
-            });
-            return res;
-        });
-}
+// function update_time_config(req) {
+//     dbg.log0('update_time_config', req.rpc_params);
+//     var config = {
+//         timezone: req.rpc_params.timezone,
+//         server: (req.rpc_params.config_type === 'NTP') ?
+//             req.rpc_params.server : ''
+//     };
+//
+//     return system_store.make_changes({
+//             update: {
+//                 systems: [{
+//                     _id: req.system._id,
+//                     ntp: config
+//                 }]
+//             }
+//         })
+//         .then(() => {
+//             if (req.rpc_params.config_type === 'NTP') { //set NTP
+//                 return os_utils.set_ntp(config.server, config.timezone);
+//             } else { //manual set
+//                 return os_utils.set_manual_time(req.rpc_params.epoch, config.timezone);
+//             }
+//         })
+//         .then(res => {
+//             let desc_string = [];
+//             desc_string.push(`Date and Time was updated to ${req.rpc_params.config_type} time by ${req.account && req.account.email}`);
+//             desc_string.push(`Timezone was set to ${req.rpc_params.timezone}`);
+//             if (req.rpc_params.server) {
+//                 desc_string.push(`NTP server ${req.rpc_params.server}`);
+//             }
+//             let date = req.rpc_params.epoch &&
+//                 moment.unix(req.rpc_params.epoch).tz(req.rpc_params.timezone);
+//             if (date) {
+//                 desc_string.push(`Date and Time set to ${date}`);
+//             }
+//             Dispatcher.instance().activity({
+//                 event: 'conf.server_date_time_updated',
+//                 level: 'info',
+//                 system: req.system,
+//                 actor: req.account && req.account._id,
+//                 desc: desc_string.join('\n'),
+//             });
+//             return res;
+//         });
+// }
 
 // UPGRADE ////////////////////////////////////////////////////////
 function upload_upgrade_package(req) {
@@ -948,7 +922,7 @@ exports.update_base_address = update_base_address;
 exports.update_phone_home_config = update_phone_home_config;
 exports.update_hostname = update_hostname;
 exports.update_system_certificate = update_system_certificate;
-exports.update_time_config = update_time_config;
+// exports.update_time_config = update_time_config;
 exports.set_maintenance_mode = set_maintenance_mode;
 exports.set_webserver_master_state = set_webserver_master_state;
 exports.configure_remote_syslog = configure_remote_syslog;

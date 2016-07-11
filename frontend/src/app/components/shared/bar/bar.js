@@ -1,9 +1,12 @@
 import template from './bar.html';
+import Disposable from 'disposable';
 import ko from 'knockout';
 import style from 'style';
 
-class BarViewModel {
+class BarViewModel extends Disposable {
     constructor({ values = [], bgColor = style['bg-color4'] }) {
+        super();
+
         this.values = values;
         this.bgColor = bgColor;
     }

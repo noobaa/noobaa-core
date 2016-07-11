@@ -1,4 +1,5 @@
 import template from './set-cloud-sync-modal.html';
+import Disposable from 'disposable';
 import ko from 'knockout';
 import { S3Connections, S3BucketList } from 'model';
 import { loadS3Connections, loadS3BucketList, setCloudSyncPolicy } from 'actions';
@@ -39,8 +40,10 @@ const addConnectionOption = Object.freeze({
     value: {}
 });
 
-class CloudSyncModalViewModel {
+class CloudSyncModalViewModel extends Disposable {
     constructor({ bucketName, onClose }) {
+        super();
+
         this.onClose = onClose;
         this.bucketName = bucketName;
 
@@ -73,11 +76,13 @@ class CloudSyncModalViewModel {
                 required: { message: 'Please select a connection from the list' }
             });
 
-        this.connectionSub = this.connection.subscribe(
-            value => {
-                this.targetBucket(null);
-                value && this.loadBucketsList();
-            }
+        this.disposeWithMe(
+            this.connection.subscribe(
+                value => {
+                    this.targetBucket(null);
+                    value && this.loadBucketsList();
+                }
+            )
         );
 
         this.targetBucketsOptions = ko.pureComputed(
@@ -153,10 +158,6 @@ class CloudSyncModalViewModel {
             );
             this.onClose();
         }
-    }
-
-    dispose() {
-        this.connectionSub.dispose();
     }
 }
 

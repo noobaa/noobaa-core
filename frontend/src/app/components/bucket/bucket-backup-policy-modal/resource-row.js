@@ -1,3 +1,4 @@
+import Disposable from 'disposable';
 import ko from 'knockout';
 import { deepFreeze } from 'utils';
 
@@ -16,8 +17,10 @@ const icons = deepFreeze([
     }
 ]);
 
-export default class ResourceRow {
+export default class ResourceRowViewModel extends Disposable {
     constructor(pool, tier) {
+        super();
+
         this.selected = ko.observable(
             tier.cloud_pools.indexOf(pool.name) > -1
         );

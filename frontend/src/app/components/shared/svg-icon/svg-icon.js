@@ -1,11 +1,14 @@
 import template from './svg-icon.html';
+import Disposable from 'disposable';
 import ko from 'knockout';
 import { realizeUri } from 'utils';
 import { asset as assetsRoute } from 'routes';
 import { defaultIconFile } from 'config.json';
 
-class SVGIconViewModel {
+class SVGIconViewModel extends Disposable {
     constructor({ name, asset = defaultIconFile, fill, stroke }) {
+        super();
+
         this.href = ko.pureComputed(
             () => `${
                 realizeUri(assetsRoute, { asset: ko.unwrap(asset) })

@@ -7,11 +7,22 @@ upgrade();
 
 /* Upade mongo structures and values with new things since the latest version*/
 function upgrade() {
+    authenticate();
     upgrade_systems();
     upgrade_cluster();
     upgrade_chunks_add_ref_to_bucket();
     upgrade_system_access_keys();
     print('\nUPGRADE DONE.');
+}
+
+function authenticate() {
+    var adminDb = db.getSiblingDB('admin');
+    var pwd = 'roonoobaa'; // eslint-disable-line no-undef
+    // try to authenticate with nbadmin. if succesful nothing to do
+    var res = adminDb.auth('nbadmin', pwd);
+    if (res === 1) {
+        print('\nERROR - mongo authentication failed');
+    }
 }
 
 function upgrade_systems() {
@@ -427,15 +438,22 @@ function upgrade_system_access_keys() {
 function upgrade_cluster() {
     print('\n*** upgrade_cluster ...');
 
+    var system = db.systems.findOne();
     var clusters = db.clusters.find();
     if (clusters.size()) {
+        // if owner_shardname does not exist, set it to default
+        if (!clusters[0].owner_shardname) {
+            db.clusters.update({}, {
+                $set: {
+                    owner_shardname: 'shard1'
+                }
+            });
+        }
         print('\n*** Clusters up to date');
         return;
     }
 
-    //global param_secret:true, params_cluster_id:true, param_ip:true
-
-    db.clusters.insert({
+    var cluster = {
         is_clusterized: false,
         owner_secret: param_secret, // eslint-disable-line no-undef
         owner_address: param_ip, // eslint-disable-line no-undef
@@ -449,6 +467,20 @@ function upgrade_cluster() {
             }]
         }],
         config_servers: [],
+    };
 
-    });
+    if (system.ntp) {
+        cluster.ntp = system.ntp;
+        db.systems.update({
+            _id: system._id
+        }, {
+            $unset: {
+                ntp: 1,
+                __v: 1
+            }
+        });
+    }
+
+    //global param_secret:true, params_cluster_id:true, param_ip:true
+    db.clusters.insert(cluster);
 }

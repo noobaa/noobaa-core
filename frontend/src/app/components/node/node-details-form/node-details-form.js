@@ -1,4 +1,5 @@
 import template from './node-details-form.html';
+import Disposable from 'disposable';
 import ko from 'knockout';
 import moment from 'moment';
 import { formatSize, avgOp } from 'utils';
@@ -9,8 +10,10 @@ const conactivityTypeMapping = Object.freeze({
     UDP: 'UDP'
 });
 
-class NodeInfoViewModel {
+class NodeInfoViewModel extends Disposable {
     constructor({ node  }) {
+        super();
+
         this.dataReady = ko.pureComputed(
             () => !!node()
         );

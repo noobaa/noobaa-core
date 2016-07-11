@@ -1,3 +1,4 @@
+import Disposable from 'disposable';
 import ko from 'knockout';
 import numeral from 'numeral';
 
@@ -16,8 +17,10 @@ const partStateMapping = Object.freeze({
     }
 });
 
-export default class ObjectRowViewModel {
+export default class ObjectRowViewModel extends Disposable {
     constructor(part) {
+
+        super();
 
         this.isVisible = ko.pureComputed(
             () => !!part()

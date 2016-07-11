@@ -1,14 +1,17 @@
 import template from './file-selector.html';
+import Disposable from 'disposable';
 import ko from 'knockout';
 import { noop } from 'utils';
 
-class FileSelectorViewModel {
+class FileSelectorViewModel extends Disposable {
     constructor({
         onFilesReady = noop,
         allowMultiSelect = false,
         filter = '',
         message = 'Drag Here'
     }) {
+        super();
+
         this.onFilesReady = onFilesReady;
         this.allowMultiSelect = allowMultiSelect;
         this.filter = filter;

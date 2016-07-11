@@ -5,11 +5,13 @@
 
 const _ = require('lodash');
 const uuid = require('node-uuid');
+const RpcError = require('../../rpc/rpc_error');
 const system_store = require('./system_store').get_instance();
 const server_rpc = require('../server_rpc');
 const MongoCtrl = require('../utils/mongo_ctrl');
 const cutil = require('../utils/clustering_utils');
 const P = require('../../util/promise');
+const fs_utils = require('../../util/fs_utils');
 const os_utils = require('../../util/os_utils');
 const dbg = require('../../util/debug_module')(__filename);
 const config = require('../../../config.js');
@@ -28,24 +30,27 @@ function new_cluster_info() {
         return;
     }
 
-    var address = os_utils.get_local_ipv4_ips()[0];
-    var cluster = {
-        is_clusterized: false,
-        owner_secret: system_store.get_server_secret(),
-        cluster_id: uuid().substring(0, 8),
-        owner_address: address,
-        owner_shardname: 'shard1',
-        location: 'Earth',
-        shards: [{
-            shardname: 'shard1',
-            servers: [{
-                address: address //TODO:: on multiple nics support, fix this
-            }],
-        }],
-        config_servers: [],
-    };
+    return P.fcall(function() {
+            var address = os_utils.get_local_ipv4_ips()[0];
+            var cluster = {
+                is_clusterized: false,
+                owner_secret: system_store.get_server_secret(),
+                cluster_id: uuid().substring(0, 8),
+                owner_address: address,
+                owner_shardname: 'shard1',
+                location: 'Earth',
+                shards: [{
+                    shardname: 'shard1',
+                    servers: [{
+                        address: address //TODO:: on multiple nics support, fix this
+                    }],
+                }],
+                config_servers: [],
+            };
 
-    return cluster;
+            return cluster;
+        })
+        .then((cluster) => _attach_server_configuration(cluster));
 }
 
 //Initiate process of adding a server to the cluster
@@ -150,10 +155,13 @@ function join_to_cluster(req) {
                 throw new Error('Unknown server role ' + req.rpc_params.role);
             }
         })
+        //.then(() => _attach_server_configuration({}))
+        //.then((res_params) => cutil.update_cluster_info(res_params))
         .then(function() {
-            dbg.log0('Added member, publishing updated topology', cutil.pretty_topology(cutil.get_topology()));
+            var topology_to_send = _.omit(cutil.get_topology(), 'dns_servers', 'ntp');
+            dbg.log0('Added member, publishing updated topology', cutil.pretty_topology(topology_to_send));
             //Mongo servers are up, update entire cluster with the new topology
-            return _publish_to_cluster('news_updated_topology', cutil.get_topology());
+            return _publish_to_cluster('news_updated_topology', topology_to_send);
         })
         .return();
 }
@@ -234,6 +242,111 @@ function redirect_to_cluster_master(req) {
 }
 
 
+function update_time_config(req) {
+    var time_config = req.rpc_params;
+    var target_servers = [];
+    return P.fcall(function() {
+            if (time_config.target_secret) {
+                let cluster_server = system_store.data.cluster_by_server[time_config.target_secret];
+                if (!cluster_server) {
+                    throw new RpcError('CLUSTER_SERVER_NOT_FOUND', 'Server with secret key:', time_config.target_secret, ' was not found');
+                }
+                target_servers.push(cluster_server);
+            } else {
+                _.each(system_store.data.clusters, cluster => target_servers.push(cluster));
+            }
+
+            let config_to_update = {
+                timezone: time_config.timezone,
+                server: (time_config.config_type === 'NTP') ?
+                    time_config.server : ''
+            };
+
+            if (time_config.config_type === "MANUAL" && _.isUndefined(time_config.epoch)) {
+                throw new RpcError('EPOCH_NOT_PROVIDED', 'Cannot configure manual time without epoch');
+            }
+
+            let updates = _.map(target_servers, server => ({
+                    _id: server._id,
+                    ntp: config_to_update
+            }));
+
+            return system_store.make_changes({
+                update: {
+                    clusters: updates,
+                }
+            });
+        })
+        .then(() => {
+            return P.each(target_servers, function(server) {
+                return server_rpc.client.cluster_internal.apply_updated_time_config(time_config, {
+                    address: 'ws://' + server.owner_address + ':8080',
+                    timeout: 60000 //60s
+                });
+            });
+        })
+        .return();
+}
+
+
+function apply_updated_time_config(req) {
+    var time_config = req.rpc_params;
+    return P.fcall(function() {
+            if (time_config.config_type === 'NTP') { //set NTP
+                return os_utils.set_ntp(time_config.server, time_config.timezone);
+            } else { //manual set
+                return os_utils.set_manual_time(time_config.epoch, time_config.timezone);
+            }
+        })
+        .return();
+}
+
+
+function update_dns_servers(req) {
+    var dns_servers_config = req.rpc_params;
+    var target_servers = [];
+    return P.fcall(function() {
+            if (dns_servers_config.target_secret) {
+                let cluster_server = system_store.data.cluster_by_server[dns_servers_config.target_secret];
+                if (!cluster_server) {
+                    throw new RpcError('CLUSTER_SERVER_NOT_FOUND', 'Server with secret key:', dns_servers_config.target_secret, ' was not found');
+                }
+                target_servers.push(cluster_server);
+            } else {
+                _.each(system_store.data.clusters, cluster => target_servers.push(cluster));
+            }
+
+            let updates = _.map(target_servers, server => ({
+                    _id: server._id,
+                    dns_servers: dns_servers_config.dns_servers
+            }));
+
+            return system_store.make_changes({
+                update: {
+                    clusters: updates,
+                }
+            });
+        })
+        .then(() => {
+            return P.each(target_servers, function(server) {
+                return server_rpc.client.cluster_internal.apply_updated_dns_servers(dns_servers_config, {
+                    address: 'ws://' + server.owner_address + ':8080',
+                    timeout: 60000 //60s
+                });
+            });
+        })
+        .return();
+}
+
+
+function apply_updated_dns_servers(req) {
+    return P.fcall(function() {
+            return os_utils.set_dns_server(req.rpc_params.dns_servers);
+        })
+        .return();
+}
+
+
 function update_server_location(req) {
     let server = system_store.data.cluster_by_server[req.rpc_params.secret];
     if (!server) {
@@ -249,6 +362,7 @@ function update_server_location(req) {
         }
     }).return();
 }
+
 
 //
 //Internals Cluster Control
@@ -381,6 +495,7 @@ function _add_new_server_to_replica_set(shardname, ip) {
 
     return P.resolve(MongoCtrl.add_replica_set_member(shardname, /*first_server=*/ false, new_topology.shards[shard_idx].servers))
         .then(() => system_store.load())
+        .then(() => _attach_server_configuration(new_topology))
         .then(() => {
             // insert an entry for this server in clusters collection.
             new_topology._id = system_store.generate_id();
@@ -467,6 +582,41 @@ function _update_rs_if_needed(IPs, name, is_config) {
     return;
 }
 
+
+function _attach_server_configuration(cluster_server) {
+    return P.join(fs_utils.find_line_in_file('/etc/ntp.conf', '#NooBaa Configured NTP Server'),
+            os_utils.get_time_config(),
+            fs_utils.find_line_in_file('/etc/resolv.conf', '#NooBaa Configured Primary DNS Server'),
+            fs_utils.find_line_in_file('/etc/resolv.conf', '#NooBaa Configured Secondary DNS Server'))
+        .spread(function(ntp_line, time_config, primary_dns_line, secondary_dns_line) {
+            cluster_server.ntp = {
+                timezone: time_config.timezone
+            };
+            if (ntp_line && ntp_line.split(' ')[0] === 'server') {
+                cluster_server.ntp.server = ntp_line.split(' ')[1];
+                dbg.log0('found configured NTP server in ntp.conf:', cluster_server.ntp.server);
+            }
+
+            var dns_servers = [];
+            if (primary_dns_line && primary_dns_line.split(' ')[0] === 'nameserver') {
+                let pri_dns = primary_dns_line.split(' ')[1];
+                dns_servers.push(pri_dns);
+                dbg.log0('found configured Primary DNS server in resolv.conf:', pri_dns);
+            }
+            if (secondary_dns_line && secondary_dns_line.split(' ')[0] === 'nameserver') {
+                let sec_dns = secondary_dns_line.split(' ')[1];
+                dns_servers.push(sec_dns);
+                dbg.log0('found configured Secondary DNS server in resolv.conf:', sec_dns);
+            }
+            if (dns_servers.length > 0) {
+                cluster_server.dns_servers = dns_servers;
+            }
+
+            return cluster_server;
+        });
+}
+
+
 // EXPORTS
 exports._init = _init;
 exports.new_cluster_info = new_cluster_info;
@@ -477,3 +627,7 @@ exports.join_to_cluster = join_to_cluster;
 exports.news_config_servers = news_config_servers;
 exports.news_updated_topology = news_updated_topology;
 exports.news_replicaset_servers = news_replicaset_servers;
+exports.update_time_config = update_time_config;
+exports.apply_updated_time_config = apply_updated_time_config;
+exports.update_dns_servers = update_dns_servers;
+exports.apply_updated_dns_servers = apply_updated_dns_servers;

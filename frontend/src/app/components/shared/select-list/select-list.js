@@ -1,7 +1,10 @@
 import template from './dropdown.html';
+import Disposable from 'disposable';
 
-class SelectListViewModel {
+class SelectListViewModel extends Disposable {
     constructor(params) {
+        super();
+
         this.options = params.options.map(opt => {
             if (opt !== 'object') {
                 opt = {

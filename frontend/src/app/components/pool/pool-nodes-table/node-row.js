@@ -1,3 +1,4 @@
+import Disposable from 'disposable';
 import ko from 'knockout';
 import numeral from 'numeral';
 import { bitsToNumber } from 'utils';
@@ -14,8 +15,10 @@ const activityLabelMapping = Object.freeze({
     MIGRATING: 'Migrating'
 });
 
-export default class NodeRowViewModel {
+export default class NodeRowViewModel extends Disposable {
     constructor(node) {
+        super();
+
         this.isVisible = ko.pureComputed(
             () => !!node()
         );

@@ -1,9 +1,12 @@
+import Disposable from 'disposable';
 import ko from 'knockout';
 import { systemInfo } from 'model';
 import { deleteAccount } from 'actions';
 
-export default class AccountRowViewModel {
+export default class AccountRowViewModel extends Disposable {
     constructor(account) {
+        super();
+
         let systemName = ko.pureComputed(
             () => systemInfo() ? systemInfo().name : ''
         );

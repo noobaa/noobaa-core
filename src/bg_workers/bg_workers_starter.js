@@ -2,7 +2,7 @@
 // load .env file before any other modules so that it will contain
 // all the arguments even when the modules are loading.
 console.log('loading .env file');
-require('dotenv').load();
+require('../util/dotenv').load();
 
 //If test mode, use Istanbuk for coverage
 for (var i = 0; i < process.argv.length; ++i) {

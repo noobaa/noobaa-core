@@ -2,7 +2,7 @@ export default function register(ko) {
     // Extending existing handlers
     ko.bindingHandlers.template        = require('./template-ex');
 
-    // Registering new handlers 
+    // Registering new handlers
     ko.bindingHandlers.let          = require('./let');
     ko.bindingHandlers.visibility   = require('./visibility');
     ko.bindingHandlers.href         = require('./href');
@@ -13,4 +13,5 @@ export default function register(ko) {
     ko.bindingHandlers.expand       = require('./expand');
     ko.bindingHandlers.tooltip      = require('./tooltip');
     ko.bindingHandlers.scrollTo     = require('./scroll-to');
+    ko.bindingHandlers.hover        = require('./hover');
 }

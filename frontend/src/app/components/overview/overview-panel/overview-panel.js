@@ -1,11 +1,14 @@
 import template from './overview-panel.html';
+import Disposable from 'disposable';
 import ko from 'knockout';
 import { systemInfo, routeContext } from 'model';
 import { redirectTo } from 'actions';
 import { system as systemRoute } from 'routes';
 
-class OverviewPanelViewModel {
+class OverviewPanelViewModel extends Disposable {
     constructor() {
+        super();
+
         this.isReady = ko.pureComputed(
             () => !!systemInfo()
         );

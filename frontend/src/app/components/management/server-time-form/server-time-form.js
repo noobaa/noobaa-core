@@ -1,4 +1,5 @@
 import template from './server-time-form.html';
+import Disposable from 'disposable';
 import ko from 'knockout';
 import moment from 'moment';
 import 'moment-timezone';
@@ -11,8 +12,10 @@ const configTypes =  Object.freeze([
     { label: 'Network Time (NTP)', value: 'NTP' }
 ]);
 
-class ServerTimeFormViewModel {
+class ServerTimeFormViewModel extends Disposable {
     constructor() {
+        super();
+
         this.expanded = ko.observable(false);
 
         this.configTypes = configTypes;
@@ -132,11 +135,14 @@ class ServerTimeFormViewModel {
                 }
             );
 
-        this.autoIncHandle = setInterval(
-            () => serverTime(
-                moment.parseZone(serverTime()).add(1, 'second').format()
+        this.disposeWithMe(
+            setInterval(
+                () => serverTime(
+                    moment.parseZone(serverTime()).add(1, 'second').format()
+                ),
+                1000
             ),
-            1000
+            clearInterval
         );
 
         this.manualErrors = ko.validation.group([
@@ -187,10 +193,6 @@ class ServerTimeFormViewModel {
         } else {
             updateServerNTP(this.timezone(), this.ntpServer());
         }
-    }
-
-    dispose() {
-        clearInterval(this.autoIncHandle);
     }
 }
 

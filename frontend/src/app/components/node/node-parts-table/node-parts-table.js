@@ -1,12 +1,15 @@
 import template from './node-parts-table.html';
+import Disposable from 'disposable';
 import ko from 'knockout';
 import { makeArray } from 'utils';
 import PartRowViewModel from './part-row';
 import { paginationPageSize } from 'config';
 import { redirectTo } from 'actions';
 
-class NodePartsViewModel {
+class NodePartsViewModel extends Disposable {
     constructor({ parts }) {
+        super();
+
         this.pageSize = paginationPageSize;
         this.count = parts.count;
 

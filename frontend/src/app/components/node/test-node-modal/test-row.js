@@ -1,8 +1,11 @@
+import Disposable from 'disposable';
 import ko from 'knockout';
 import numeral from 'numeral';
 
-export default class TestRowViewModel {
+export default class TestRowViewModel extends Disposable {
     constructor(result) {
+        super();
+
         this.isVisible = ko.pureComputed(
             () => !!result()
         );

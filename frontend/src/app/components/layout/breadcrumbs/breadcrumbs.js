@@ -1,22 +1,14 @@
 import template from './breadcrumbs.html';
+import Disposable from 'disposable';
 import ko from 'knockout';
 
-class BreadcrumbsViewModel {
+class BreadcrumbsViewModel extends Disposable {
     constructor({ crumbs }) {
+        super();
+
         this.crumbs = ko.pureComputed(
             () => crumbs() && crumbs().slice(1)
         );
-    }
-
-    _reduceCrumbs(list, crumb, i) {
-        let base = list[i-1] ? list[i-1].href : '';
-
-        list.push({
-            label: crumb.label || '',
-            href: `${base}/${crumb.href}`
-        });
-
-        return list;
     }
 }
 

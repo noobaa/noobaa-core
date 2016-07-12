@@ -165,6 +165,9 @@ function complete_object_upload(req) {
                         _id: obj.bucket,
                         $inc: {
                             'stats.writes': 1
+                        },
+                        $set: {
+                            'stats.last_write': new Date()
                         }
                     }]
                 }
@@ -372,6 +375,9 @@ function read_object_mappings(req) {
                             _id: obj.bucket,
                             $inc: {
                                 'stats.reads': 1
+                            },
+                            $set: {
+                                'stats.last_read': new Date()
                             }
                         }]
                     }
@@ -381,6 +387,9 @@ function read_object_mappings(req) {
                 }, {
                     $inc: {
                         'stats.reads': 1
+                    },
+                    $set: {
+                        'stats.last_read': new Date()
                     }
                 }));
             }

@@ -732,12 +732,15 @@ class NodesMonitor extends EventEmitter {
             return item;
         });
         _.each(items, item => {
+            dbg.log0('migrate_nodes_to_pool:', item.node.name,
+                'pool_id', pool_id, 'from pool', item.node.pool);
+            if (String(item.node.pool) !== String(pool_id)) {
+                item.node.migrating_to_pool = new Date();
+                item.node.pool = pool_id;
+                item.suggested_pool = ''; // reset previous suggestion
+            }
             this._update_status(item);
-            if (String(item.node.pool) === String(pool_id)) return;
-            item.node.migrating_to_pool = new Date();
-            item.node.pool = pool_id;
             this._set_need_update.add(item);
-            dbg.log0('migrate_nodes_to_pool:', item.node.name, 'pool_id', pool_id);
         });
         this._schedule_next_run(1);
         // let desc_string = [];
@@ -874,6 +877,7 @@ class NodesMonitor extends EventEmitter {
         // prepare nodes data per pool
         const pools_data_map = new Map();
         for (const item of this._map_node_id.values()) {
+            item.suggested_pool = ''; // reset previous suggestion
             const node_id = String(item.node._id);
             const pool_id = String(item.node.pool);
             const pool = system_store.data.get_by_id(pool_id);

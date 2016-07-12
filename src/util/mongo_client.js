@@ -1,12 +1,13 @@
 'use strict';
 
-var _ = require('lodash');
-var util = require('util');
-var mongodb = require('mongodb');
-var EventEmitter = require('events').EventEmitter;
-var P = require('./promise');
-var dbg = require('./debug_module')(__filename);
-var config = require('../../config.js');
+const _ = require('lodash');
+const util = require('util');
+const mongodb = require('mongodb');
+const mongodb_uri = require('mongodb-uri');
+const EventEmitter = require('events').EventEmitter;
+const P = require('./promise');
+const dbg = require('./debug_module')(__filename);
+const config = require('../../config.js');
 
 class MongoClient extends EventEmitter {
 
@@ -44,7 +45,13 @@ class MongoClient extends EventEmitter {
             db: {
                 // bufferMaxEntries=0 is required for autoReconnect
                 // see: http://mongodb.github.io/node-mongodb-native/2.0/tutorials/connection_failures/
-                bufferMaxEntries: 0
+                bufferMaxEntries: 0,
+                // authSource defined on which db the auth credentials are verified.
+                // when running mongod instance with --auth, the first and only
+                // user we can create is on the admin db.
+                // since we do not need to manage multiple users we simply use
+                // this user to authenticate also to our db.
+                authSource: 'admin',
             }
         };
     }
@@ -67,11 +74,18 @@ class MongoClient extends EventEmitter {
         dbg.log0('connect called, current url', this.url);
         this._disconnected_state = false;
         if (this.promise) return this.promise;
-        let url = this.url.replace(config.MONGO_DEFAULTS.USER_PLACE_HOLDER,
-            config.MONGO_DEFAULTS.DEFAULT_USER + ':' + config.MONGO_DEFAULTS.DEFAULT_MONGO_PWD);
-        let admin_url = this.url.replace(config.MONGO_DEFAULTS.USER_PLACE_HOLDER,
-            config.MONGO_DEFAULTS.DEFAULT_ADMIN_USER + ':' + config.MONGO_DEFAULTS.DEFAULT_MONGO_PWD);
-        admin_url = admin_url.substring(0, admin_url.indexOf('/nbcore'));
+        const url_obj = mongodb_uri.parse(this.url);
+        if (url_obj.username) {
+            url_obj.username = config.MONGO_DEFAULTS.DEFAULT_USER;
+            url_obj.password = config.MONGO_DEFAULTS.DEFAULT_MONGO_PWD;
+        }
+        let url = mongodb_uri.format(url_obj);
+        if (url_obj.username) {
+            url_obj.username = config.MONGO_DEFAULTS.DEFAULT_ADMIN_USER;
+            url_obj.password = config.MONGO_DEFAULTS.DEFAULT_MONGO_PWD;
+        }
+        url_obj.database = 'admin';
+        let admin_url = mongodb_uri.format(url_obj);
         this.promise = this._connect('db', url, this.config)
             .then(db => {
                 return this._connect('admin_db', admin_url, this.config).then(() => db);
@@ -79,30 +93,32 @@ class MongoClient extends EventEmitter {
         return this.promise;
     }
 
-    _connect(access_db, url, config) {
+    _connect(access_db, url, options) {
         if (this._disconnected_state) return;
         if (this[access_db]) return P.resolve(this[access_db]);
         dbg.log0('_connect called with', url);
-        return mongodb.MongoClient.connect(url, config)
+        return mongodb.MongoClient.connect(url, options)
             .then(db => {
                 dbg.log0('MongoClient: connected', url);
-                db.on('reconnect', () => {
-                    this.emit('reconnect');
-                    this._init_collections();
-                    dbg.log('MongoClient: got reconnect', url);
-                });
-                db.on('close', () => {
-                    this.emit('close');
-                    dbg.warn('MongoClient: got close', url);
-                });
                 this[access_db] = db;
-                this._init_collections();
+                if (access_db === 'db') { // GGG WORKAROUND
+                    db.on('reconnect', () => {
+                        this.emit('reconnect');
+                        this._init_collections();
+                        dbg.log('MongoClient: got reconnect', url);
+                    });
+                    db.on('close', () => {
+                        this.emit('close');
+                        dbg.warn('MongoClient: got close', url);
+                    });
+                    this._init_collections();
+                }
                 return db;
             }, err => {
                 // autoReconnect only works once initial connection is created,
                 // so we need to handle retry in initial connect.
                 dbg.error('MongoClient: initial connect failed, will retry', err.message);
-                return P.delay(3000).then(() => this._connect(access_db, url, config));
+                return P.delay(3000).then(() => this._connect(access_db, url, options));
             });
     }
 

@@ -4,6 +4,7 @@ const _ = require('lodash');
 
 const P = require('../../util/promise');
 const dbg = require('../../util/debug_module')(__filename);
+const config = require('../../../config');
 const md_store = require('./md_store');
 const server_rpc = require('../server_rpc');
 const mongo_utils = require('../../util/mongo_utils');
@@ -123,7 +124,7 @@ function agent_delete_call(del_blocks, node_id) {
         block_ids: block_ids
     }, {
         address: address,
-        timeout: 30000,
+        timeout: config.IO_DELETE_BLOCK_TIMEOUT,
     }).then(() => {
         dbg.log0('agent_delete_call: DONE. node', node_id, address,
             'block_ids', block_ids.length);

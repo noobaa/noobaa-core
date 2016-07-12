@@ -6,7 +6,7 @@ const crypto = require('crypto');
 
 const P = require('../util/promise');
 const dbg = require('../util/debug_module')(__filename);
-const config = require('../../config.js');
+const config = require('../../config');
 const RpcError = require('../rpc/rpc_error');
 const js_utils = require('../util/js_utils');
 const Pipeline = require('../util/pipeline');
@@ -22,10 +22,6 @@ const promise_utils = require('../util/promise_utils');
 const dedup_options = require("./dedup_options");
 
 // dbg.set_level(5, 'core');
-
-const WRITE_BLOCK_RETRIES = 5;
-const REPLICATE_BLOCK_RETRIES = 3;
-const WRITE_RETRY_DELAY_MS = 100;
 
 const PART_ATTRS = [
     'start',
@@ -82,13 +78,9 @@ const FRAG_DEFAULTS = {
 class ObjectIO {
 
     constructor() {
-        this.OBJECT_RANGE_ALIGN = 32 * 1024 * 1024;
-        this.HTTP_PART_ALIGN = 32 * 1024 * 1024;
-        this.HTTP_TRUNCATE_PART_SIZE = false;
-
-        this._block_write_sem = new Semaphore(config.WRITE_CONCURRENCY);
-        this._block_replicate_sem = new Semaphore(config.REPLICATE_CONCURRENCY);
-        this._block_read_sem = new Semaphore(config.READ_CONCURRENCY);
+        this._block_write_sem = new Semaphore(config.IO_WRITE_CONCURRENCY);
+        this._block_replicate_sem = new Semaphore(config.IO_REPLICATE_CONCURRENCY);
+        this._block_read_sem = new Semaphore(config.IO_READ_CONCURRENCY);
 
         this._init_object_range_cache();
 
@@ -202,10 +194,10 @@ class ObjectIO {
         let md5_stream;
         let sha256_stream;
         let source_stream = params.source_stream;
-        source_stream._readableState.highWaterMark = 1024 * 1024;
+        source_stream._readableState.highWaterMark = size_utils.MEGABYTE;
         if (params.calculate_md5) {
             md5_stream = new HashStream({
-                highWaterMark: 1024 * 1024,
+                highWaterMark: size_utils.MEGABYTE,
                 hash_type: 'md5'
             });
             source_stream.pipe(md5_stream);
@@ -213,7 +205,7 @@ class ObjectIO {
         }
         if (params.calculate_sha256) {
             sha256_stream = new HashStream({
-                highWaterMark: 1024 * 1024,
+                highWaterMark: size_utils.MEGABYTE,
                 hash_type: 'sha256'
             });
             source_stream.pipe(sha256_stream);
@@ -232,7 +224,7 @@ class ObjectIO {
 
         let pipeline = new Pipeline(source_stream);
 
-        pipeline.pipe(new ChunkStream(128 * 1024 * 1024, {
+        pipeline.pipe(new ChunkStream(config.IO_STREAM_CHUNK_SIZE, {
             highWaterMark: 1,
             objectMode: true
         }));
@@ -518,8 +510,8 @@ class ObjectIO {
     // once retry exhaust we report and throw an error
     _retry_write_block(params, desc, buffer, source_block) {
         return promise_utils.retry(
-                WRITE_BLOCK_RETRIES,
-                WRITE_RETRY_DELAY_MS,
+                config.IO_WRITE_BLOCK_RETRIES,
+                config.IO_WRITE_RETRY_DELAY_MS,
                 () => this._write_block(
                     params, buffer, source_block.block_md, desc)
             )
@@ -532,8 +524,8 @@ class ObjectIO {
     _retry_replicate_blocks(params, desc, source_block, blocks_to_replicate) {
         return P.map(blocks_to_replicate,
             b => promise_utils.retry(
-                REPLICATE_BLOCK_RETRIES,
-                WRITE_RETRY_DELAY_MS,
+                config.IO_REPLICATE_BLOCK_RETRIES,
+                config.IO_REPLICATE_RETRY_DELAY_MS,
                 () => this._replicate_block(
                     params, source_block.block_md, b.block_md, desc)
             )
@@ -562,7 +554,7 @@ class ObjectIO {
                 data: buffer,
             }, {
                 address: block_md.address,
-                timeout: config.write_block_timeout,
+                timeout: config.IO_WRITE_BLOCK_TIMEOUT,
             });
         }).catch(err => {
             dbg.warn('UPLOAD:', desc,
@@ -588,7 +580,7 @@ class ObjectIO {
                 source: source_md,
             }, {
                 address: target_md.address,
-                timeout: config.write_block_timeout,
+                timeout: config.IO_REPLICATE_BLOCK_TIMEOUT,
             });
         }).catch(err => {
             dbg.warn('UPLOAD:', desc,
@@ -676,7 +668,7 @@ class ObjectIO {
             // highWaterMark Number - The maximum number of bytes to store
             // in the internal buffer before ceasing to read
             // from the underlying resource. Default=16kb
-            highWaterMark: watermark || this.OBJECT_RANGE_ALIGN,
+            highWaterMark: watermark || config.IO_OBJECT_RANGE_ALIGN,
             // encoding String - If specified, then buffers will be decoded to strings
             // using the specified encoding. Default=null
             encoding: null,
@@ -745,12 +737,12 @@ class ObjectIO {
         let pos = params.start;
         let promises = [];
 
-        while (pos < params.end && promises.length < config.READ_RANGE_CONCURRENCY) {
+        while (pos < params.end && promises.length < config.IO_READ_RANGE_CONCURRENCY) {
             let range = _.clone(params);
             range.start = pos;
             range.end = Math.min(
                 params.end,
-                range_utils.align_up(pos + 1, this.OBJECT_RANGE_ALIGN)
+                range_utils.align_up(pos + 1, config.IO_OBJECT_RANGE_ALIGN)
             );
             dbg.log2('read_object: submit concurrent range', range_utils.human_range(range));
             promises.push(this._object_range_cache.get_with_cache(range));
@@ -775,15 +767,15 @@ class ObjectIO {
             expiry_ms: 600000, // 10 minutes
             make_key: params => {
                 let start = range_utils.align_down(
-                    params.start, this.OBJECT_RANGE_ALIGN);
-                let end = start + this.OBJECT_RANGE_ALIGN;
+                    params.start, config.IO_OBJECT_RANGE_ALIGN);
+                let end = start + config.IO_OBJECT_RANGE_ALIGN;
                 return params.bucket + '\0' + params.key + '\0' + start + '\0' + end;
             },
             load: params => {
                 let range_params = _.clone(params);
                 range_params.start = range_utils.align_down(
-                    params.start, this.OBJECT_RANGE_ALIGN);
-                range_params.end = range_params.start + this.OBJECT_RANGE_ALIGN;
+                    params.start, config.IO_OBJECT_RANGE_ALIGN);
+                range_params.end = range_params.start + config.IO_OBJECT_RANGE_ALIGN;
                 dbg.log1('RangesCache: load', range_utils.human_range(range_params), params.key);
                 return this._read_object_range(range_params);
             },
@@ -809,8 +801,8 @@ class ObjectIO {
                     return buffer;
                 }
                 let start = range_utils.align_down(
-                    params.start, this.OBJECT_RANGE_ALIGN);
-                let end = start + this.OBJECT_RANGE_ALIGN;
+                    params.start, config.IO_OBJECT_RANGE_ALIGN);
+                let end = start + config.IO_OBJECT_RANGE_ALIGN;
                 let inter = range_utils.intersection(
                     start, end, params.start, params.end);
                 if (!inter) {
@@ -950,7 +942,7 @@ class ObjectIO {
                     block_md: block_md
                 }, {
                     address: block_md.address,
-                    timeout: config.read_block_timeout,
+                    timeout: config.IO_READ_BLOCK_TIMEOUT,
                     auth_token: null // ignore the client options when talking to agents
                 });
             })
@@ -1072,7 +1064,7 @@ class ObjectIO {
 
         if (!range) {
             dbg.log1('+++ serve_http_stream: send all');
-            read_stream = this.open_read_stream(params, this.HTTP_PART_ALIGN);
+            read_stream = this.open_read_stream(params, config.IO_HTTP_PART_ALIGN);
             read_stream.pipe(res);
             return 200;
         }
@@ -1086,12 +1078,12 @@ class ObjectIO {
         // more quickly and only once it gets to play it, but it actually seems
         // to prevent it from properly keeping a video buffer, so disabled it.
         if (this.HTTP_TRUNCATE_PART_SIZE) {
-            if (end > start + this.HTTP_PART_ALIGN) {
-                end = start + this.HTTP_PART_ALIGN;
+            if (end > start + config.IO_HTTP_PART_ALIGN) {
+                end = start + config.IO_HTTP_PART_ALIGN;
             }
             // snap end to the alignment boundary, to make next requests aligned
             end = range_utils.truncate_range_end_to_boundary(
-                start, end, this.HTTP_PART_ALIGN);
+                start, end, config.IO_HTTP_PART_ALIGN);
         }
 
         dbg.log1('+++ serve_http_stream: send range',
@@ -1105,7 +1097,7 @@ class ObjectIO {
         read_stream = this.open_read_stream(_.extend({
             start: start,
             end: end,
-        }, params), this.HTTP_PART_ALIGN);
+        }, params), config.IO_HTTP_PART_ALIGN);
         read_stream.pipe(res);
 
         // when starting to stream also prefrech the last part of the file

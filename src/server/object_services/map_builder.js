@@ -17,7 +17,7 @@ const system_server_utils = require('../utils/system_server_utils');
 // const promise_utils = require('../../util/promise_utils');
 
 
-const replicate_block_sem = new Semaphore(config.REPLICATE_CONCURRENCY);
+const replicate_block_sem = new Semaphore(config.IO_REPLICATE_CONCURRENCY);
 
 
 /**

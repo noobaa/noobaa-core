@@ -162,7 +162,9 @@ RPC.prototype.client_request = function(api, method_api, params, options) {
         return self._proxy(api, method_api, params, options);
     }
 
-    return P.fcall(function() {
+    const request_promise = P.resolve()
+        .then(function() {
+
             dbg.log1('RPC client_request: START',
                 'srv', req.srv,
                 'reqid', req.reqid);
@@ -183,17 +185,7 @@ RPC.prototype.client_request = function(api, method_api, params, options) {
             var req_buffers = req.export_request_buffers();
 
             // send request over the connection
-            var send_promise = P.resolve()
-                .then(() => req.connection.send(req_buffers, 'req', req));
-
-            // set timeout to abort if the specific connection/transport
-            // can do anything with it, for http this calls req.abort()
-            if (options.timeout) {
-                send_promise = send_promise.timeout(
-                    options.timeout, 'RPC client_request: send TIMEOUT');
-            }
-
-            return send_promise;
+            return req.connection.send(req_buffers, 'req', req);
 
         })
         .then(function() {
@@ -202,14 +194,7 @@ RPC.prototype.client_request = function(api, method_api, params, options) {
                 'srv', req.srv,
                 'reqid', req.reqid);
 
-            var reply_promise = req.response_defer.promise;
-
-            if (options.timeout) {
-                reply_promise = reply_promise.timeout(
-                    options.timeout, 'RPC client_request: response TIMEOUT');
-            }
-
-            return reply_promise;
+            return req.response_defer.promise;
 
         })
         .then(function(reply) {
@@ -251,13 +236,6 @@ RPC.prototype.client_request = function(api, method_api, params, options) {
 
             self.emit_stats('stats.client_request.error', req);
 
-            // TODO move to rpc_code and retries - postponed for now
-
-            if (err.message === 'RPC client_request: send TIMEOUT') {
-                dbg.log1('closing connection due to timeout');
-                self._connection_closed(req.connection);
-            }
-
             throw err;
 
         })
@@ -265,6 +243,12 @@ RPC.prototype.client_request = function(api, method_api, params, options) {
             // dbg.log0('RPC', req.srv, 'took', time_utils.millitook(millistamp));
             return self._release_connection(req);
         });
+
+    if (options.timeout) {
+        request_promise.timeout(options.timeout, 'RPC REQUEST TIMEOUT');
+    }
+
+    return request_promise;
 };
 
 

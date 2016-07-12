@@ -38,8 +38,7 @@ class SignInFormViewModel extends Disposable {
 
 
         this.disposeWithMe(
-            this.subscribe(
-                retryCount,
+            retryCount.subscribe(
                 () => this.shake(true)
             )
         );

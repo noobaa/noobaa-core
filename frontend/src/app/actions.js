@@ -724,7 +724,7 @@ export function createAccount(name, email, password, accessKeys, S3AccessList) {
         allowed_buckets: S3AccessList
     })
         .then(
-            () => notify(`Account ${email} created successffully`, 'success'),
+            () => notify(`Account ${email} created successfully`, 'success'),
             () => notify(`Account ${email} creation failed`, 'error')
         )
         .then(loadAccountList)
@@ -736,7 +736,7 @@ export function deleteAccount(email) {
 
     api.account.delete_account({ email })
         .then(
-            () => notify(`Account ${email} deleted successffully`, 'success'),
+            () => notify(`Account ${email} deleted successfully`, 'success'),
             () => notify(`Account ${email} deletion failed`, 'error')
         )
         .then(loadAccountList)
@@ -747,6 +747,10 @@ export function resetAccountPassword(email, password) {
     logAction('resetAccountPassword', { email, password });
 
     api.account.update_account({ email, password })
+        .then(
+            () => notify(`${email} password has been reset successfully`, 'success'),
+            () => notify(`Resetting ${email}'s password failed`, 'error')
+        )
         .done();
 }
 
@@ -782,7 +786,7 @@ export function createBucket(name, dataPlacement, pools) {
             })
         )
         .then(
-            () => notify(`Bucket ${name} created successffully`, 'success'),
+            () => notify(`Bucket ${name} created successfully`, 'success'),
             () => notify(`Bucket ${name} creation failed`, 'error')
         )
         .then(loadSystemInfo)
@@ -794,7 +798,7 @@ export function deleteBucket(name) {
 
     api.bucket.delete_bucket({ name })
         .then(
-            () => notify(`Bucket ${name} deleted successffully`, 'success'),
+            () => notify(`Bucket ${name} deleted successfully`, 'success'),
             () => notify(`Bucket ${name} deletion failed`, 'error')
         )
         .then(loadSystemInfo)
@@ -816,7 +820,7 @@ export function updateBucketPlacementPolicy(tierName, placementType, node_pools)
         node_pools: node_pools
     })
         .then(
-            () => notify(`${bucket.name} placement policy updated successffully`, 'success'),
+            () => notify(`${bucket.name} placement policy updated successfully`, 'success'),
             () => notify(`Updating ${bucket.name} placement policy failed`, 'error')
         )
         .then(loadSystemInfo)
@@ -837,7 +841,7 @@ export function updateBucketBackupPolicy(tierName, cloudResources) {
         cloud_pools: cloudResources
     })
         .then(
-            () => notify(`${bucket.name} backup policy updated successffully`, 'success'),
+            () => notify(`${bucket.name} backup policy updated successfully`, 'success'),
             () => notify(`Updating ${bucket.name} backup policy failed`, 'error')
         )
         .then(loadSystemInfo)
@@ -851,7 +855,7 @@ export function createPool(name, nodes) {
 
     api.pool.create_nodes_pool({ name, nodes })
         .then(
-            () => notify(`Pool ${name} created successffully`, 'success'),
+            () => notify(`Pool ${name} created successfully`, 'success'),
             () => notify(`Pool ${name} creation failed`, 'error')
         )
         .then(loadSystemInfo)
@@ -863,7 +867,7 @@ export function deletePool(name) {
 
     api.pool.delete_pool({ name })
         .then(
-            () => notify(`Bucket ${name} deleted successffully`, 'success'),
+            () => notify(`Bucket ${name} deleted successfully`, 'success'),
             () => notify(`Bucket ${name} deletion failed`, 'error')
         )
         .then(loadSystemInfo)
@@ -894,7 +898,7 @@ export function createCloudResource(name, connection, cloudBucket) {
         target_bucket: cloudBucket
     })
         .then(
-            () => notify(`Cloud resource ${name} created successffully`, 'success'),
+            () => notify(`Cloud resource ${name} created successfully`, 'success'),
             () => notify(`Pool ${name} creation failed`, 'error')
         )
         .then(loadSystemInfo)
@@ -906,7 +910,7 @@ export function deleteCloudResource(name) {
 
     api.pool.delete_pool({ name })
         .then(
-            () => notify(`Cloud resource ${name} deleted successffully`, 'success'),
+            () => notify(`Cloud resource ${name} deleted successfully`, 'success'),
             () => notify(`Cloud resource ${name} deletion failed`, 'error')
         )
         .then(loadSystemInfo)
@@ -1004,7 +1008,7 @@ export function uploadFiles(bucketName, files) {
                         completed === 1 ? '' : 's'
                     } to ${
                         bucketName
-                    } completed successffully`,
+                    } completed successfully`,
                     'success'
                 );
 
@@ -1028,7 +1032,7 @@ export function uploadFiles(bucketName, files) {
                         completed
                     } file${
                         completed === 1 ? '' : 's'
-                    } uploaded successffully, ${
+                    } uploaded successfully, ${
                         failed
                     } file${
                         failed === 1 ? '' : 's'
@@ -1193,7 +1197,7 @@ export function updateP2PSettings(minPort, maxPort) {
         tcp_permanent_passive: tcpPermanentPassive
     })
         .then(
-            () => notify('Peer to peer settings updated successffully', 'success'),
+            () => notify('Peer to peer settings updated successfully', 'success'),
             () => notify('Peer to peer settings update failed', 'error')
         )
         .then(loadSystemInfo)
@@ -1205,7 +1209,7 @@ export function updateHostname(hostname) {
 
     api.system.update_hostname({ hostname })
         .then(
-            () => notify('Hostname updated successffully', 'success'),
+            () => notify('Hostname updated successfully', 'success'),
             () => notify('Hostname update failed', 'error')
         )
         .then(loadSystemInfo)
@@ -1420,7 +1424,7 @@ export function setCloudSyncPolicy(bucket, connection, targetBucket, direction, 
         }
     })
         .then(
-            () => notify(`${bucket} cloud sync policy was set successffully`, 'success'),
+            () => notify(`${bucket} cloud sync policy was set successfully`, 'success'),
             () => notify(`Setting ${bucket} cloud sync policy failed`, 'error')
         )
         .then(
@@ -1445,7 +1449,7 @@ export function updateCloudSyncPolicy(bucket, direction, frequency, syncDeletion
         }
     })
         .then(
-            () => notify(`${bucket} cloud sync policy updated successffully`, 'success'),
+            () => notify(`${bucket} cloud sync policy updated successfully`, 'success'),
             () => notify(`Updating ${bucket} cloud sync policy failed`, 'error')
         )
         .then(
@@ -1461,7 +1465,7 @@ export function removeCloudSyncPolicy(bucket) {
 
     api.bucket.delete_cloud_sync({ name: bucket })
         .then(
-            () => notify(`${bucket} cloud sync policy removed successffully`, 'success'),
+            () => notify(`${bucket} cloud sync policy removed successfully`, 'success'),
             () => notify(`Removing ${bucket} cloud sync policy failed`, 'error')
         )
         .then(
@@ -1538,7 +1542,7 @@ export function updateBucketS3ACL(bucketName, acl) {
         access_control: acl
     })
         .then(
-            () => notify(`${bucketName} S3 access control updated successffully`, 'success'),
+            () => notify(`${bucketName} S3 access control updated successfully`, 'success'),
             () => notify(`Updating ${bucketName} S3 access control failed`, 'error')
         )
         .then(
@@ -1564,6 +1568,10 @@ export function updateAccountS3ACL(email, acl) {
         email: email,
         access_control: acl
     })
+        .then(
+            () => notify(`${email} S3 accces control updated successfully`, 'success'),
+            () => notify(`Updating ${email} S3 access control failed`, 'error')
+        )
         .then(loadAccountList)
         .done();
 }
@@ -1578,7 +1586,7 @@ export function updateServerTime(timezone, epoch) {
         epoch: epoch
     })
         .then(
-            () => notify('Date & time updated successffully', 'success'),
+            () => notify('Date & time updated successfully', 'success'),
             () => notify('Updating date & time failed', 'error')
         )
         .then(loadSystemInfo)
@@ -1594,7 +1602,7 @@ export function updateServerNTP(timezone, server) {
         server: server
     })
         .then(
-            () => notify('NTP settings updated successffully', 'success'),
+            () => notify('NTP settings updated successfully', 'success'),
             () => notify('Updating NTP settings failed', 'error')
         )
         .then(loadSystemInfo)
@@ -1622,7 +1630,7 @@ export function updatePhoneHomeConfig(proxyAddress) {
 
     api.system.update_phone_home_config({ proxy_address: proxyAddress })
         .then(
-            () => notify('Phone home proxy settings updated successffully', 'success'),
+            () => notify('Phone home proxy settings updated successfully', 'success'),
             () => notify('Updating phone home proxy settings failed', 'error')
         )
         .then(loadSystemInfo)
@@ -1663,7 +1671,7 @@ export function attachServerToCluster(serverAddress, serverSecret) {
         shard: 'shard1'
     })
         .then(
-            () => notify(`Server ${serverAddress} attached to cluster successffully`, 'success'),
+            () => notify(`Server ${serverAddress} attached to cluster successfully`, 'success'),
             () => notify(`Adding ${serverAddress} to cluster failed`, 'error')
         )
         .then(loadSystemInfo)

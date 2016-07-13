@@ -71,7 +71,11 @@ const objmd_schema = new Schema({
     stats: {
         reads: {
             type: Number,
-        }
+        },
+
+        last_read: {
+            type: Date,
+        },
     },
 
     // on delete set deletion time

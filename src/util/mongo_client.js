@@ -51,7 +51,7 @@ class MongoClient extends EventEmitter {
                 // user we can create is on the admin db.
                 // since we do not need to manage multiple users we simply use
                 // this user to authenticate also to our db.
-                authSource: 'admin',
+                //authSource: 'admin',
             }
         };
     }

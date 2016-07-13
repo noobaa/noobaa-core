@@ -1048,7 +1048,7 @@ class NodesMonitor extends EventEmitter {
         info._id = String(node._id);
         info.peer_id = String(node.peer_id);
         info.pool = system_store.data.get_by_id(node.pool).name;
-        info.heartbeat = node.heartbeat;
+        info.heartbeat = node.heartbeat.getTime();
         if (node.migrating_to_pool) info.migrating_to_pool = node.migrating_to_pool.getTime();
         if (node.decommissioning) info.decommissioning = node.decommissioning.getTime();
         if (node.decommissioned) info.decommissioned = node.decommissioned.getTime();

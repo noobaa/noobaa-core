@@ -128,6 +128,7 @@ export default function register(ko) {
     ko.components.register('cluster-panel', require('./cluster/cluster-panel/cluster-panel'));
     ko.components.register('server-table', require('./cluster/server-table/server-table'));
     ko.components.register('attach-server-modal', require('./cluster/attach-server-modal/attach-server-modal'));
+    ko.components.register('cluster-summary', require('./cluster/cluster-summary/cluster-summary'));
     /** INJECT:cluster **/
 
     // -------------------------------

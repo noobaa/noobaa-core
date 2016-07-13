@@ -1,9 +1,12 @@
 import template from './node-panel.html';
+import Disposable from 'disposable';
 import ko from 'knockout';
 import { uiState, nodeInfo, nodeStoredPartList } from 'model';
 
-class NodePanelViewModel {
+class NodePanelViewModel extends Disposable {
     constructor() {
+        super();
+
         this.node = nodeInfo;
         this.storedParts = nodeStoredPartList;
 

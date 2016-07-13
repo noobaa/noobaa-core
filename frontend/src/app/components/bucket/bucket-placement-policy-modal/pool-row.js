@@ -1,8 +1,11 @@
+import Disposable from 'disposable';
 import ko from 'knockout';
 import { formatSize } from 'utils';
 
-export default class PoolRow {
+export default class PoolRowViewModel extends Disposable {
     constructor(pool, tier) {
+        super();
+
         this.selected = ko.observable(
             tier.node_pools.indexOf(pool.name) > -1
         );

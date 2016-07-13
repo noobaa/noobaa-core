@@ -1,4 +1,5 @@
 import template from './bucket-summary.html';
+import Disposable from 'disposable';
 import ko from 'knockout';
 import style from 'style';
 import { formatSize } from 'utils';
@@ -12,8 +13,10 @@ const cloudSyncStatusMapping = Object.freeze({
     NOTSET: { text: 'Cloud sync not set', icon: 'cloud-not-set' }
 });
 
-class BucketSummrayViewModel {
+class BucketSummrayViewModel extends Disposable {
     constructor({ bucket }) {
+        super();
+
         this.dataReady = ko.pureComputed(
             () => !!bucket()
         );

@@ -1,4 +1,5 @@
 import template from './node-summary.html';
+import Disposable from 'disposable';
 import ko from 'knockout';
 import moment from 'moment';
 import numeral from 'numeral';
@@ -35,8 +36,10 @@ function mapActivity({ reason, completed_size, total_size, eta }) {
     };
 }
 
-class NodeSummaryViewModel {
+class NodeSummaryViewModel extends Disposable {
     constructor({ node }) {
+
+        super();
 
         this.dataReady = ko.pureComputed(
             () => !!node()

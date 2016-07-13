@@ -1,4 +1,5 @@
 import template from './edit-cloud-sync-modal.html';
+import Disposable from 'disposable';
 import ko from 'knockout';
 import { cloudSyncInfo } from 'model';
 import { loadCloudSyncInfo, updateCloudSyncPolicy } from 'actions';
@@ -30,8 +31,10 @@ function minutesToUnit(minutes) {
     return minutes % DAY === 0 ? DAY : (minutes % HOUR === 0 ? HOUR : MIN);
 }
 
-class EditCloudSyncModalViewModel {
+class EditCloudSyncModalViewModel extends Disposable {
     constructor({ bucketName, onClose }) {
+        super();
+
         this.onClose = onClose;
 
         this.sourceBucket = bucketName;

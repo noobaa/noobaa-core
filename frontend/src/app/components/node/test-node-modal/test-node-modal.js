@@ -1,5 +1,6 @@
 import template from './test-node-modal.html';
 import TestRowViewModel from './test-row';
+import Disposable from 'disposable';
 import ko from 'knockout';
 import { nodeTestInfo } from 'model';
 import { testNode, abortNodeTest } from 'actions';
@@ -21,8 +22,10 @@ const testTypes = Object.freeze([
     }
 ]);
 
-class TestNodeModalViewModel {
+class TestNodeModalViewModel extends Disposable {
     constructor({ sourceRpcAddress, onClose }) {
+        super();
+
         this.onClose = onClose;
 
         this.testTypeOptions = testTypes.map(

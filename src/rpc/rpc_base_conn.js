@@ -1,15 +1,17 @@
 'use strict';
 
-let _ = require('lodash');
-let EventEmitter = require('events').EventEmitter;
-let P = require('../util/promise');
-let time_utils = require('../util/time_utils');
-let dbg = require('../util/debug_module')(__filename);
+const _ = require('lodash');
+const EventEmitter = require('events').EventEmitter;
 
-let STATE_INIT = 'init';
-let STATE_CONNECTING = 'connecting';
-let STATE_CONNECTED = 'connected';
-let STATE_CLOSED = 'closed';
+const P = require('../util/promise');
+const dbg = require('../util/debug_module')(__filename);
+const config = require('../../config');
+const time_utils = require('../util/time_utils');
+
+const STATE_INIT = 'init';
+const STATE_CONNECTING = 'connecting';
+const STATE_CONNECTED = 'connected';
+const STATE_CLOSED = 'closed';
 
 class RpcBaseConnection extends EventEmitter {
 
@@ -74,7 +76,9 @@ class RpcBaseConnection extends EventEmitter {
                 // start connecting and wait for the 'connect' event
                 this._state = STATE_CONNECTING;
                 // set a timer to limit how long we are waiting for connect
-                this._connect_timeout = setTimeout(this.emit_error, 5000, 'RPC CONN TIMEOUT');
+                this._connect_timeout = setTimeout(
+                    () => this.emit_error(new P.TimeoutError('RPC CONNECT TIMEOUT')),
+                    config.RPC_CONNECT_TIMEOUT);
                 this._connect();
                 return this.connecting_defer.promise;
             case STATE_CONNECTING:
@@ -99,6 +103,7 @@ class RpcBaseConnection extends EventEmitter {
         }
         return P.resolve()
             .then(() => this._send(msg, op, req))
+            .timeout(config.RPC_SEND_TIMEOUT, 'RPC SEND TIMEOUT')
             .catch(this.emit_error);
     }
 

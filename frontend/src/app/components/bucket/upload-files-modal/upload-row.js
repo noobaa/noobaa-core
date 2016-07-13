@@ -1,8 +1,11 @@
+import Disposable from 'disposable';
 import ko from 'knockout';
 import numeral from 'numeral';
 
-export default class UploadRowViewModel {
+export default class UploadRowViewModel extends Disposable {
     constructor(upload) {
+        super();
+
         this.isVisible =  ko.pureComputed(
             () => !!upload()
         );

@@ -1,10 +1,13 @@
 import template from './drawer.html';
+import Disposable from 'disposable';
 import ko from 'knockout';
 import { uiState } from 'model';
 import { closeDrawer } from 'actions';
 
-class DrawerViewModel {
+class DrawerViewModel extends Disposable {
     constructor() {
+        super();
+
         this.isOpen = ko.pureComputed(
             () => uiState().drawer
         );

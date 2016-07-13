@@ -1,10 +1,13 @@
 import template from './phone-home-form.html';
+import Disposable from 'disposable';
 import ko from 'knockout';
 import { systemInfo } from 'model';
 import { updatePhoneHomeConfig } from 'actions';
 
-class PhoneHomeFormViewModel {
+class PhoneHomeFormViewModel extends Disposable {
     constructor() {
+        super();
+
         this.expanded = ko.observable(false);
 
         let config = ko.pureComputed(

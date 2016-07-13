@@ -1,10 +1,13 @@
 import template from './node-diagnostics-form.html';
+import Disposable from 'disposable';
 import ko from 'knockout';
 import { setNodeDebugLevel, downloadNodeDiagnosticPack } from 'actions';
 import { isUndefined } from 'utils';
 
-class NodeDiagnosticsFormViewModel {
+class NodeDiagnosticsFormViewModel extends Disposable {
     constructor({ node }) {
+        super();
+
         this.nodeName = ko.pureComputed(
             () => node() && node().name
         );

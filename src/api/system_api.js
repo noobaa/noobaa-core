@@ -842,6 +842,9 @@ module.exports = {
                     items: {
                         type: 'string'
                     },
+                },
+                debug_level: {
+                    type: 'integer'
                 }
             }
         },

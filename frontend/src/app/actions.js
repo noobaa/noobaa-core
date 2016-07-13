@@ -1678,6 +1678,28 @@ export function attachServerToCluster(serverAddress, serverSecret) {
         .done();
 }
 
+export function updateServerDNSSettings(serverSecret, primaryDNS, secondaryDNS) {
+    logAction('updateServerDNSSettings', { primaryDNS, secondaryDNS });
+
+    let dnsServers = [primaryDNS, secondaryDNS].filter(
+        server => server
+    );
+
+    let { address} = model.systemInfo().cluster.shards[0].servers.find(
+        server => server.secret === serverSecret
+    );
+
+    api.cluster_server.update_dns_servers({
+        target_secret: serverSecret,
+        dns_servers: dnsServers
+    })
+        .then(
+            () => notify(`${address} DNS settings updated successfully`, 'success'),
+            () => notify(`Updating ${address} DNS settings failed`, 'error')
+        )
+        .done();
+}
+
 export function notify(message, severity = 'info') {
     logAction('notify', { message, severity });
 

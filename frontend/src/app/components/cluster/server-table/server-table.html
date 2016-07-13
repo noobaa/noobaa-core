@@ -9,9 +9,22 @@
     rowFactory: rowFactory,
     sorting: sorting,
     data: servers
-"></data-table>
+">
+    <template name="actions">
+        <button class="link" data-bind="
+            click: () => $parents[3].showServerDNSSettingsModal()
+        ">
+            DNS Settings
+        </button>
+    </template>
+</data-table>
 
 <!-- ko if:isAttachServerModalVisible -->
 <attach-server-modal params="onClose: () => hideAttachServerModal()">
 </attach-server-modal>
+<!-- /ko -->
+
+<!-- ko if:isServerDNSSettingsModalVisible -->
+<server-dns-settings-modal params="onClose: () => hideServerDNSSettingsModal()">
+</server-dns-settings-modal>
 <!-- /ko -->

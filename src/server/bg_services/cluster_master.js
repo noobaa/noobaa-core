@@ -1,6 +1,8 @@
 'use strict';
 
 const system_store = require('../system_services/system_store').get_instance();
+const promise_utils = require('../../util/promise_utils');
+const config = require('../../../config.js');
 const dbg = require('../../util/debug_module')(__filename);
 const MongoCtrl = require('../utils/mongo_ctrl');
 const bg_workers_starter = require('../../bg_workers/bg_workers_starter');
@@ -20,7 +22,14 @@ function background_worker() {
                 if (!is_master.ismaster && is_cluster_master) {
                     bg_workers_starter.remove_master_workers();
                 } else if (is_master.ismaster && !is_cluster_master) {
-                    bg_workers_starter.run_master_workers();
+                    // Used in order to disable race condition on master switch
+                    promise_utils.delay_unblocking(config.CLUSTER_MASTER_INTERVAL)
+                        .then(() => {
+                            // Need to run the workers only if the server still master
+                            if (system_store.is_cluster_master) {
+                                return bg_workers_starter.run_master_workers();
+                            }
+                        });
                 }
                 is_cluster_master = is_master.ismaster;
                 return send_master_update(is_cluster_master);

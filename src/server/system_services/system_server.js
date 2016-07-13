@@ -18,7 +18,7 @@ const pkg = require('../../../package.json');
 const dbg = require('../../util/debug_module')(__filename);
 const diag = require('../utils/server_diagnostics');
 const cutil = require('../utils/clustering_utils');
-const config = require('../../../config');
+// const config = require('../../../config');
 const md_store = require('../object_services/md_store');
 const os_utils = require('../../util/os_utils');
 const upgrade_utils = require('../../util/upgrade_utils');
@@ -305,6 +305,13 @@ function set_webserver_master_state(req) {
     // TODO: This is for future use when we will need to realize if master state changed
     if (system_store.is_cluster_master !== req.rpc_params.is_master) {
         system_store.is_cluster_master = req.rpc_params.is_master;
+        // if (system_store.is_cluster_master) {
+        //     // If current server became master
+        //
+        // } else {
+        //     // If current server not master anymore
+        //
+        // }
     }
 }
 
@@ -564,46 +571,46 @@ function diagnose_node(req) {
         });
 }
 
-function _set_debug_level_internal(id, level, auth_token) {
-    return server_rpc.client.redirector.publish_to_cluster({
-            target: '', // required but irrelevant
-            method_api: 'debug_api',
-            method_name: 'set_debug_level',
-            request_params: {
-                level: level,
-                module: 'core'
-            }
-        }, {
-            auth_token: auth_token
-        })
-        .then(() => system_store.make_changes({
-            update: {
-                systems: [{
-                    _id: id,
-                    debug_level: level
-                }]
-            }
-        }));
-}
-
-function set_debug_level(req) {
-    let level = req.params.level;
-    let id = req.system._id;
-    dbg.log0('Recieved set_debug_level req. level =', level);
-    if (req.system.debug_level === level) {
-        dbg.log0('requested to set debug level to the same as current level. skipping.. level =', level);
-        return;
-    }
-
-    return _set_debug_level_internal(id, level, req.auth_token)
-        .then(() => {
-            if (level > 0) { //If level was set, remove it after 10m
-                promise_utils.delay_unblocking(config.DEBUG_MODE_PERIOD) //10m
-                    .then(() => _set_debug_level_internal(id, 0, req.auth_token));
-            }
-        })
-        .return();
-}
+// function _set_debug_level_internal(id, level, auth_token) {
+//     return server_rpc.client.redirector.publish_to_cluster({
+//             target: '', // required but irrelevant
+//             method_api: 'debug_api',
+//             method_name: 'set_debug_level',
+//             request_params: {
+//                 level: level,
+//                 module: 'core'
+//             }
+//         }, {
+//             auth_token: auth_token
+//         })
+//         .then(() => system_store.make_changes({
+//             update: {
+//                 systems: [{
+//                     _id: id,
+//                     debug_level: level
+//                 }]
+//             }
+//         }));
+// }
+//
+// function set_debug_level(req) {
+//     let level = req.params.level;
+//     let id = req.system._id;
+//     dbg.log0('Recieved set_debug_level req. level =', level);
+//     if (req.system.debug_level === level) {
+//         dbg.log0('requested to set debug level to the same as current level. skipping.. level =', level);
+//         return;
+//     }
+//
+//     return _set_debug_level_internal(id, level, req.auth_token)
+//         .then(() => {
+//             if (level > 0) { //If level was set, remove it after 10m
+//                 promise_utils.delay_unblocking(config.DEBUG_MODE_PERIOD) //10m
+//                     .then(() => _set_debug_level_internal(id, 0, req.auth_token));
+//             }
+//         })
+//         .return();
+// }
 
 
 function update_n2n_config(req) {
@@ -915,7 +922,7 @@ exports.diagnose_system = diagnose_system;
 exports.diagnose_node = diagnose_node;
 exports.log_frontend_stack_trace = log_frontend_stack_trace;
 exports.set_last_stats_report_time = set_last_stats_report_time;
-exports.set_debug_level = set_debug_level;
+// exports.set_debug_level = set_debug_level;
 
 exports.update_n2n_config = update_n2n_config;
 exports.update_base_address = update_base_address;

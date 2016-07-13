@@ -24,7 +24,7 @@ const columns = deepFreeze([
     },
     {
         name: 'cloudBucket',
-        label: 'colud bucket',
+        label: 'cloud bucket',
         sortable: true
     },
     {

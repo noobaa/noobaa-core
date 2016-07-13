@@ -846,6 +846,9 @@ module.exports = {
                     properties: {
                         reads: {
                             type: 'integer',
+                        },
+                        last_read: {
+                            format: 'idate',
                         }
                     }
                 },

@@ -165,6 +165,9 @@ function complete_object_upload(req) {
                         _id: obj.bucket,
                         $inc: {
                             'stats.writes': 1
+                        },
+                        $set: {
+                            'stats.last_write': new Date()
                         }
                     }]
                 }
@@ -366,12 +369,16 @@ function read_object_mappings(req) {
                         reply.total_parts = c;
                     });
             } else {
+                let date = new Date();
                 system_store.make_changes_in_background({
                     update: {
                         buckets: [{
                             _id: obj.bucket,
                             $inc: {
                                 'stats.reads': 1
+                            },
+                            $set: {
+                                'stats.last_read': date
                             }
                         }]
                     }
@@ -381,6 +388,9 @@ function read_object_mappings(req) {
                 }, {
                     $inc: {
                         'stats.reads': 1
+                    },
+                    $set: {
+                        'stats.last_read': new Date()
                     }
                 }));
             }
@@ -796,6 +806,9 @@ function get_object_info(md) {
     }
     if (md.stats) {
         info.stats = _.pick(md.stats, 'reads');
+        if (md.stats.last_read !== undefined) {
+            info.stats.last_read = md.stats.last_read.getTime();
+        }
     }
     return info;
 }

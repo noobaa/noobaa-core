@@ -7,6 +7,7 @@ upgrade();
 
 /* Upade mongo structures and values with new things since the latest version*/
 function upgrade() {
+    authenticate();
     upgrade_systems();
     upgrade_cluster();
     upgrade_chunks_add_ref_to_bucket();
@@ -14,10 +15,21 @@ function upgrade() {
     print('\nUPGRADE DONE.');
 }
 
+function authenticate() {
+    var adminDb = db.getSiblingDB('admin');
+    var pwd = 'roonoobaa'; // eslint-disable-line no-undef
+    // try to authenticate with nbadmin. if succesful nothing to do
+    var res = adminDb.auth('nbadmin', pwd);
+    if (res === 1) {
+        print('\nERROR - mongo authentication failed');
+    }
+}
+
 function upgrade_systems() {
     print('\n*** updating systems resources links ...');
     db.systems.find().forEach(function(system) {
         var updates = {};
+
         if (!system.resources.linux_agent_installer) {
             updates.resources = {
                 linux_agent_installer: 'noobaa-setup',
@@ -25,6 +37,7 @@ function upgrade_systems() {
                 s3rest_installer: 'noobaa-s3rest.exe'
             };
         }
+
         if (!system.n2n_config) {
             updates.n2n_config = {
                 tcp_tls: true,
@@ -37,6 +50,7 @@ function upgrade_systems() {
                 udp_port: true,
             };
         }
+
         var updated_access_keys = system.access_keys;
         if (updated_access_keys) {
             for (var i = 0; i < updated_access_keys.length; ++i) {
@@ -44,22 +58,29 @@ function upgrade_systems() {
                     delete updated_access_keys[i]._id;
                 }
             }
-
             updates.access_keys = updated_access_keys;
-
-            print('updating system', system.name, '...');
-            printjson(updates);
-            printjson(system);
-            db.systems.update({
-                _id: system._id
-            }, {
-                $set: updates,
-                $unset: {
-                    __v: 1
-                }
-            });
-
         }
+
+        // optional fix - convert to idate format from ISO date
+        if (typeof(system.last_stats_report) !== 'number') {
+            updates.last_stats_report = new Date(system.last_stats_report).getTime() || 0;
+        }
+        if (typeof(system.maintenance_mode) !== 'number') {
+            updates.maintenance_mode = new Date(system.maintenance_mode).getTime() || 0;
+        }
+
+        print('updating system', system.name, '...');
+        printjson(updates);
+        printjson(system);
+        db.systems.update({
+            _id: system._id
+        }, {
+            $set: updates,
+            $unset: {
+                __v: 1
+            }
+        });
+
     });
     db.systems.find().forEach(upgrade_system);
 }
@@ -430,6 +451,14 @@ function upgrade_cluster() {
     var system = db.systems.findOne();
     var clusters = db.clusters.find();
     if (clusters.size()) {
+        // if owner_shardname does not exist, set it to default
+        if (!clusters[0].owner_shardname) {
+            db.clusters.update({}, {
+                $set: {
+                    owner_shardname: 'shard1'
+                }
+            });
+        }
         print('\n*** Clusters up to date');
         return;
     }

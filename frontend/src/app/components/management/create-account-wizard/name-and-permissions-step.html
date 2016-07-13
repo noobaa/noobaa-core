@@ -1,6 +1,6 @@
 <h2 class="heading3">Enter user email address</h2>
-<input type="text" placeholder="Email Address" data-bind="
-    textInput: emailAddress, 
+<input type="text" placeholder="Email Address" class="push-next" data-bind="
+    textInput: emailAddress,
     hasFocus: true
 "/>
 
@@ -16,14 +16,14 @@
 
     <div>
         <button class="link" data-bind="
-            click: selectAllBuckets, 
+            click: selectAllBuckets,
             enable: enableS3Access
         ">
             Select all
         </button>
         |
         <button class="link" data-bind="
-            click: clearAllBuckets, 
+            click: clearAllBuckets,
             enable: enableS3Access
         ">
             Clear
@@ -32,7 +32,7 @@
 </div>
 
 <multiselect params="
-    options: buckets, 
+    options: buckets,
     selected: selectedBuckets,
     disabled: !enableS3Access()">
 </multiselect>

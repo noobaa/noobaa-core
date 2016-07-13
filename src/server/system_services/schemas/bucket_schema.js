@@ -84,6 +84,12 @@ module.exports = {
                 },
                 writes: {
                     type: 'integer',
+                },
+                last_read: {
+                    format: 'idate'
+                },
+                last_write: {
+                    format: 'idate'
                 }
             }
         }

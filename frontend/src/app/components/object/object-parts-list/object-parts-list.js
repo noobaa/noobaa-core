@@ -1,11 +1,14 @@
 import template from './object-parts-list.html';
 import ObjectPartRowViewModel from './object-part-row';
+import Disposable from 'disposable';
 import ko from 'knockout';
 import { paginationPageSize } from 'config';
 import { redirectTo } from 'actions';
 
-class ObjectPartsListViewModel {
+class ObjectPartsListViewModel extends Disposable {
     constructor({ parts }) {
+        super();
+
         this.pageSize = paginationPageSize;
         this.count = parts.count;
 

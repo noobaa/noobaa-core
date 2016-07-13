@@ -1,4 +1,5 @@
 import template from './accounts-table.html';
+import Disposable from 'disposable';
 import ko from 'knockout';
 import AccountRowViewModel from './account-row';
 import { accountList } from 'model';
@@ -7,8 +8,10 @@ import { makeArray } from 'utils';
 
 const maxRows = 100;
 
-class AccountsTableViewModel {
+class AccountsTableViewModel extends Disposable {
     constructor() {
+        super();
+
         this.deleteGroup = ko.observable();
         this.selectedAccount = ko.observable();
 

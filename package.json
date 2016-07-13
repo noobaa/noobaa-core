@@ -99,6 +99,7 @@
     "moment": "2.13.0",
     "moment-timezone": "0.5.4",
     "mongodb": "2.1.18",
+    "mongodb-uri": "0.9.7",
     "mongoose": "4.5.0",
     "morgan": "1.7.0",
     "multer": "1.1.0",

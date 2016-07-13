@@ -1,9 +1,12 @@
 import template from './buckets-overview.html';
+import Disposable from 'disposable';
 import ko from 'knockout';
 import numeral from 'numeral';
 
-class BucketsOverviewViewModel {
+class BucketsOverviewViewModel extends Disposable {
     constructor({ bucketCount, objectCount }) {
+
+        super();
 
         this.bucketCountText = ko.pureComputed(() => {
             let count = ko.unwrap(bucketCount);

@@ -10,11 +10,11 @@ echo ""
 echo "running ..."
 echo ""
 
-DB="mongo nbcore --quiet --eval"
-echo "removing DataBlocks  ..." `$DB 'db.datablocks.remove({})'`
-echo "removing DataChunks  ..." `$DB 'db.datachunks.remove({})'`
-echo "removing ObjectParts ..." `$DB 'db.objectparts.remove({})'`
-echo "removing ObjectMDs   ..." `$DB 'db.objectmds.remove({})'`
+DB="mongo admin -u nbadmin -p roonoobaa --quiet --eval"
+echo "removing DataBlocks  ..." `$DB 'db.getSiblingDB("nbcore").datablocks.remove({})'`
+echo "removing DataChunks  ..." `$DB 'db.getSiblingDB("nbcore").datachunks.remove({})'`
+echo "removing ObjectParts ..." `$DB 'db.getSiblingDB("nbcore").objectparts.remove({})'`
+echo "removing ObjectMDs   ..." `$DB 'db.getSiblingDB("nbcore").objectmds.remove({})'`
 echo "done."
 echo ""
 

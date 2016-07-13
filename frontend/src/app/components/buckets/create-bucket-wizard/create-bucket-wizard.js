@@ -1,14 +1,17 @@
 import template from './create-bucket-wizard.html';
 import chooseNameStepTemplate from './choose-name-step.html';
 import setPolicyStepTemplate from './set-policy-step.html';
+import Disposable from 'disposable';
 import ko from 'knockout';
 import nameValidationRules from 'name-validation-rules';
 import { systemInfo } from 'model';
 import { createBucket } from 'actions';
 import { defaultPoolName } from 'config';
 
-class CreateBucketWizardViewModel {
+class CreateBucketWizardViewModel extends Disposable {
     constructor({ onClose }) {
+        super();
+
         this.onClose = onClose;
         this.chooseNameStepTemplate = chooseNameStepTemplate;
         this.setPolicyStepTemplate = setPolicyStepTemplate;

@@ -1,9 +1,12 @@
 import template from './bucket-panel.html';
+import Disposable from 'disposable';
 import ko from 'knockout';
 import { uiState, systemInfo, routeContext, bucketObjectList } from 'model';
 
-class BucketPanelViewModel {
+class BucketPanelViewModel extends Disposable {
     constructor() {
+        super();
+
         this.bucket = ko.pureComputed(
             () => systemInfo() && systemInfo().buckets.find(
                 ({ name }) => routeContext().params.bucket === name

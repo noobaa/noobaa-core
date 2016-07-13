@@ -1,3 +1,4 @@
+import Disposable from 'disposable';
 import ko from 'knockout';
 import numeral from 'numeral';
 import { isDefined } from 'utils';
@@ -25,8 +26,10 @@ const cloudSyncStatusMapping = Object.freeze({
     UNABLE:         { label: 'unable to sync',  css: 'unable-to-sync' }
 });
 
-export default class BucketRowViewModel {
+export default class BucketRowViewModel extends Disposable {
     constructor(bucket, isLastBucket) {
+        super();
+
         this.isVisible = ko.pureComputed(
             () => !!bucket()
         );

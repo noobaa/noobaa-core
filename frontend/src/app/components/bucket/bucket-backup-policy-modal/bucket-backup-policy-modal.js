@@ -1,11 +1,14 @@
 import template from './bucket-backup-policy-modal.html';
+import Disposable from 'disposable';
 import ko from 'knockout';
 import ResourceRow from './resource-row';
 import { systemInfo } from 'model';
 import { updateBucketBackupPolicy } from 'actions';
 
-class BucketBackupPolicyModalViewModel {
+class BucketBackupPolicyModalViewModel extends Disposable {
     constructor({ policy, onClose }) {
+        super();
+
         this.onClose = onClose;
 
         this.tierName = ko.pureComputed(

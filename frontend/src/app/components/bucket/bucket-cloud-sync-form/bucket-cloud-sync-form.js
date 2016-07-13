@@ -1,4 +1,5 @@
 import template from './bucket-cloud-sync-form.html';
+import Disposable from 'disposable';
 import ko from 'knockout';
 import moment from 'moment';
 import { cloudSyncInfo } from 'model';
@@ -21,14 +22,18 @@ const directionMapping = Object.freeze({
     3: 'Bi directional'
 });
 
-class BucketCloudSyncFormViewModel {
+class BucketCloudSyncFormViewModel extends Disposable {
     constructor({ bucket }) {
+        super();
+
         this.bucketName = ko.pureComputed(
             () => bucket() && bucket().name
         );
 
-        this.nameSub = this.bucketName.subscribe(
-            name => loadCloudSyncInfo(name)
+        this.disposeWithMe(
+            this.bucketName.subscribe(
+              name => loadCloudSyncInfo(name)
+            )
         );
 
         this.hasCloudSyncPolicy = ko.pureComputed(
@@ -133,10 +138,6 @@ class BucketCloudSyncFormViewModel {
 
     hideEditCloudSyncModal() {
         this.isEditCloudSyncModalVisible(false);
-    }
-
-    dispose() {
-        this.nameSub.dispose();
     }
 }
 

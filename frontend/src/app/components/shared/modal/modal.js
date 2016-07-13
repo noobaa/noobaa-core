@@ -1,13 +1,16 @@
 import template from './modal.html';
+import Disposable from 'disposable';
 import { noop } from 'utils';
 
-class ModalViewModal {
+class ModalViewModel extends Disposable {
     constructor({ onClose = noop }) {
+        super();
+
         this.onClose = onClose;
     }
 }
 
 export default {
-    viewModel: ModalViewModal,
+    viewModel: ModalViewModel,
     template: template
 };

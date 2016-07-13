@@ -1,6 +1,6 @@
 'use strict';
 
-require('dotenv').load();
+require('../../util/dotenv').load();
 
 const _ = require('lodash');
 const fs = require('fs');

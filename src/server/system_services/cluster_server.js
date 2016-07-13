@@ -347,6 +347,23 @@ function apply_updated_dns_servers(req) {
 }
 
 
+function read_server_time(req) {
+    let cluster_server = system_store.data.cluster_by_server[req.rpc_params.target_secret];
+    if (!cluster_server) {
+        throw new RpcError('CLUSTER_SERVER_NOT_FOUND', 'Server with secret key:', req.rpc_params.target_secret, ' was not found');
+    }
+
+    return server_rpc.client.cluster_internal.apply_read_server_time(req.rpc_params, {
+        address: 'ws://' + cluster_server.owner_address + ':8080',
+    });
+}
+
+
+function apply_read_server_time(req) {
+    return Date.now();
+}
+
+
 function update_server_location(req) {
     let server = system_store.data.cluster_by_server[req.rpc_params.secret];
     if (!server) {
@@ -631,3 +648,5 @@ exports.update_time_config = update_time_config;
 exports.apply_updated_time_config = apply_updated_time_config;
 exports.update_dns_servers = update_dns_servers;
 exports.apply_updated_dns_servers = apply_updated_dns_servers;
+exports.read_server_time = read_server_time;
+exports.apply_read_server_time = apply_read_server_time;

@@ -34,7 +34,7 @@ function new_bucket_defaults(name, system_id, tiering_policy_id, tag) {
     return {
         _id: system_store.generate_id(),
         name: name,
-        tag: tag,
+        tag: js_utils.default_value(tag, ''),
         system: system_id,
         tiering: tiering_policy_id,
         stats: {
@@ -62,7 +62,6 @@ function create_bucket(req) {
         throw new RpcError('BUCKET_ALREADY_EXISTS');
     }
     let tiering_policy;
-    let tag = js_utils.default_value(req.rpc_params.tag, '');
     let changes = {
         insert: {},
         update: {}
@@ -89,7 +88,7 @@ function create_bucket(req) {
         req.rpc_params.name,
         req.system._id,
         tiering_policy._id,
-        tag);
+        req.rpc_params.tag);
     changes.insert.buckets = [bucket];
     Dispatcher.instance().activity({
         event: 'bucket.create',
@@ -737,7 +736,7 @@ function get_bucket_info(bucket, objects_aggregate, nodes_aggregate_pool, cloud_
         info.tiering = tier_server.get_tiering_policy_info(bucket.tiering, nodes_aggregate_pool);
     }
 
-    info.tag = js_utils.default_value(bucket.tag, '');
+    info.tag = bucket.tag ? bucket.tag : '';
     info.num_objects = objects_aggregate_bucket.count || 0;
     info.storage = size_utils.to_bigint_storage({
         used: objects_aggregate_bucket.size || 0,

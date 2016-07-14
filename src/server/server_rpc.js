@@ -13,6 +13,10 @@ class ServerRpc {
         this.rpc.register_n2n_proxy(this.client.node.n2n_proxy);
     }
 
+    get_base_port() {
+        return parseInt(process.env.PORT, 10) || 5001;
+    }
+
     get_server_options() {
         let system_store = require('./system_services/system_store').get_instance();
         let auth_server = require('./common_services/auth_server');

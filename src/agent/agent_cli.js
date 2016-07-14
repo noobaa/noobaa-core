@@ -198,7 +198,7 @@ AgentCLI.prototype.load = function() {
         dbg.log0('loading agents with cloud_info: ', self.cloud_info);
         let storage_path = self.params.all_storage_paths[0].mount;
         return P.resolve()
-            .then(() => fs_utils.create_path(storage_path))
+            .then(() => fs_utils.create_path(storage_path, fs_utils.PRIVATE_DIR_PERMISSIONS))
             .then(() => fs.readdirAsync(storage_path))
             .then(nodes_names => {
                 return P.all(internal_nodes_names.map(name => {
@@ -222,7 +222,7 @@ AgentCLI.prototype.load = function() {
             dbg.log0('root_path', storage_path);
 
             return P.resolve()
-                .then(() => fs_utils.create_path(storage_path))
+                .then(() => fs_utils.create_path(storage_path ,fs_utils.PRIVATE_DIR_PERMISSIONS))
                 .then(() => P.resolve(self.hide_storage_folder(storage_path))
                     .catch(err => {
                         dbg.error('Windows - failed to hide', err.stack || err);
@@ -361,7 +361,7 @@ AgentCLI.prototype.create_node_helper = function(current_node_path_info, interna
                 } else {
                     dbg.log0('has token', self.create_node_token);
                 }
-                return fs_utils.create_path(node_path);
+                return fs_utils.create_path(node_path, fs_utils.PRIVATE_DIR_PERMISSIONS);
             }).then(function() {
                 dbg.log0('writing token', token_path);
                 return fs.writeFileAsync(token_path, self.create_node_token);

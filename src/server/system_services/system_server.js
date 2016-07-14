@@ -31,6 +31,7 @@ const tier_server = require('./tier_server');
 const auth_server = require('../common_services/auth_server');
 const Dispatcher = require('../notifications/dispatcher');
 const nodes_store = require('../node_services/nodes_store');
+const node_server = require('../node_services/node_server');
 const nodes_client = require('../node_services/nodes_client');
 const system_store = require('../system_services/system_store').get_instance();
 const promise_utils = require('../../util/promise_utils');
@@ -331,6 +332,13 @@ function set_webserver_master_state(req) {
     // TODO: This is for future use when we will need to realize if master state changed
     if (system_store.is_cluster_master !== req.rpc_params.is_master) {
         system_store.is_cluster_master = req.rpc_params.is_master;
+        if (system_store.is_cluster_master) {
+            //Going Master
+            node_server.start_monitor();
+        } else {
+            //Stepping Down
+            node_server.stop_monitor();
+        }
     }
 }
 

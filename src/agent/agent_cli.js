@@ -397,7 +397,7 @@ AgentCLI.prototype.create_node_helper = function(current_node_path_info, interna
                 return P.nfcall(fs.writeFile, token_path, self.create_node_token);
             })
             .then(function() {
-                if (_.isUndefined(self.params.internal_agent)) {
+                if (!self.params.internal_agent) {
                     // remove access_key and secret_key from agent_conf after a token was acquired
                     return P.nfcall(fs.readFile, 'agent_conf.json')
                         .then(function(data) {
@@ -441,7 +441,7 @@ AgentCLI.prototype.create = function(number_of_nodes) {
     //create root path last. First, create all other.
     // for internal_agents only use root path
     return P.all(_.map(_.drop(self.params.all_storage_paths, 1), function(current_storage_path) {
-            if (_.isUndefined(self.params.internal_agent)) {
+            if (!self.params.internal_agent) {
                 return fs_utils.list_directory(current_storage_path.mount)
                     .then(function(files) {
                         if (files.length > 0 && number_of_nodes === 0) {

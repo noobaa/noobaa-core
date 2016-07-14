@@ -24,7 +24,7 @@ class BlockStoreFs extends BlockStoreBase {
         this.root_path = options.root_path;
         this.blocks_path = path.join(this.root_path, 'blocks');
         this.config_path = path.join(this.root_path, 'config');
-        mkdirp.sync(this.blocks_path);
+        mkdirp.sync(this.blocks_path, fs_utils.PRIVATE_DIR_PERMISSIONS);
     }
 
     get_storage_info() {

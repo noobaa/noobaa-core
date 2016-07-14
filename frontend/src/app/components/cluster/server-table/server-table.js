@@ -32,6 +32,10 @@ const columns = deepFreeze([
     {
         name: 'version',
         sortable: true
+    },
+    {
+        name: 'actions',
+        template: 'actions'
     }
 ]);
 
@@ -70,6 +74,7 @@ class ServerTableViewModel extends Disposable {
         );
 
         this.isAttachServerModalVisible = ko.observable(false);
+        this.isServerDNSSettingsModalVisible = ko.observable(false);
     }
 
     rowFactory(server) {
@@ -82,6 +87,14 @@ class ServerTableViewModel extends Disposable {
 
     hideAttachServerModal() {
         this.isAttachServerModalVisible(false);
+    }
+
+    showServerDNSSettingsModal() {
+        this.isServerDNSSettingsModalVisible(true);
+    }
+
+    hideServerDNSSettingsModal() {
+        this.isServerDNSSettingsModalVisible(false);
     }
 }
 

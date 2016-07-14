@@ -36,4 +36,8 @@ export default class ServerRowViewModel extends Disposable {
             () => server() ? server().version : 'N/A'
         );
     }
+
+    actions() {
+
+    }
 }

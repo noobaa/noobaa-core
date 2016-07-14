@@ -19,6 +19,7 @@ const promise_utils = require('../../util/promise_utils');
 const os = require('os');
 const diag = require('../utils/server_diagnostics');
 
+
 function _init() {
     return P.resolve(MongoCtrl.init());
 }
@@ -97,7 +98,7 @@ function add_member_to_cluster(req) {
                 shard: req.rpc_params.shard,
                 location: req.rpc_params.location
             }, {
-                address: 'ws://' + req.rpc_params.address + ':8080',
+                address: 'ws://' + req.rpc_params.address + ':' + server_rpc.get_base_port(),
                 timeout: 60000 //60s
             });
         })
@@ -283,7 +284,7 @@ function update_time_config(req) {
         .then(() => {
             return P.each(target_servers, function(server) {
                 return server_rpc.client.cluster_internal.apply_updated_time_config(time_config, {
-                    address: 'ws://' + server.owner_address + ':8080'
+                    address: 'ws://' + server.owner_address + ':' + server_rpc.get_base_port()
                 });
             });
         })
@@ -332,7 +333,7 @@ function update_dns_servers(req) {
         .then(() => {
             return P.each(target_servers, function(server) {
                 return server_rpc.client.cluster_internal.apply_updated_dns_servers(dns_servers_config, {
-                    address: 'ws://' + server.owner_address + ':8080'
+                    address: 'ws://' + server.owner_address + ':' + server_rpc.get_base_port()
                 });
             });
         })
@@ -495,7 +496,7 @@ function read_server_time(req) {
     }
 
     return server_rpc.client.cluster_internal.apply_read_server_time(req.rpc_params, {
-        address: 'ws://' + cluster_server.owner_address + ':8080',
+        address: 'ws://' + cluster_server.owner_address + ':' + server_rpc.get_base_port(),
     });
 }
 
@@ -711,7 +712,7 @@ function _publish_to_cluster(apiname, req_params) {
     dbg.log0('Sending cluster news:', apiname, 'to:', servers, 'with:', req_params);
     return P.each(servers, function(server) {
         return server_rpc.client.cluster_internal[apiname](req_params, {
-            address: 'ws://' + server + ':8080',
+            address: 'ws://' + server + ':' + server_rpc.get_base_port(),
             timeout: 60000 //60s
         });
     });

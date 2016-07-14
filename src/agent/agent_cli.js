@@ -318,17 +318,15 @@ AgentCLI.prototype.create_node_helper = function(current_node_path_info, interna
         var path_modification = current_node_path.replace('/agent_storage/', '').replace('/', '').replace('.', '');
         //windows
         path_modification = path_modification.replace('\\agent_storage\\', '');
-
-
-        var node_path = path.join(current_node_path, node_name);
-        var token_path = path.join(node_path, 'token');
-        dbg.log0('create_node_helper with path_modification', path_modification, 'node:', node_path, 'current_node_path', current_node_path, 'exists');
-
+        dbg.log0('create_node_helper with path_modification', path_modification, 'node:', node_name, 'current_node_path', current_node_path, 'exists');
         if (os.type().indexOf('Windows') >= 0) {
             node_name = node_name + '-' + current_node_path_info.drive_id.replace(':', '');
         } else if (!_.isEmpty(path_modification)) {
             node_name = node_name + '-' + path_modification.replace('/', '');
         }
+
+        var node_path = path.join(current_node_path, node_name);
+        var token_path = path.join(node_path, 'token');
         dbg.log0('create new node for node name', node_name, ' path:', node_path, ' token path:', token_path);
 
 
@@ -367,7 +365,7 @@ AgentCLI.prototype.create_node_helper = function(current_node_path_info, interna
                 return fs.writeFileAsync(token_path, self.create_node_token);
             })
             .then(function() {
-                if (_.isUndefined(self.params.internal_agent)) {
+                if (!self.params.internal_agent) {
                     // remove access_key and secret_key from agent_conf after a token was acquired
                     return fs.readFileAsync('agent_conf.json')
                         .then(function(data) {
@@ -411,7 +409,7 @@ AgentCLI.prototype.create = function(number_of_nodes) {
     //create root path last. First, create all other.
     // for internal_agents only use root path
     return P.all(_.map(_.drop(self.params.all_storage_paths, 1), function(current_storage_path) {
-            if (_.isUndefined(self.params.internal_agent) || !self.params.internal_agent) {
+            if (!self.params.internal_agent) {
                 return fs_utils.list_directory(current_storage_path.mount)
                     .then(function(files) {
                         if (files.length > 0 && number_of_nodes === 0) {

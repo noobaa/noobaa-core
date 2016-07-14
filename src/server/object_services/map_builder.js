@@ -104,7 +104,7 @@ class MapBuilder {
 
     allocate_blocks() {
         _.each(this.chunks, chunk => {
-            let avoid_nodes = _.map(chunk.blocks, block => block.node._id.toString());
+            let avoid_nodes = _.map(chunk.blocks, block => String(block.node._id));
             _.each(chunk.status.allocations, alloc => {
                 let f = alloc.fragment;
                 let block = _.pick(f,
@@ -126,11 +126,11 @@ class MapBuilder {
                     this.had_errors = true;
                     return;
                 }
-                block.node = node;
+                block.node = node; // keep the node ref, same when populated
                 block.system = chunk.system;
                 block.chunk = chunk;
                 alloc.block = block;
-                avoid_nodes.push(node._id.toString());
+                avoid_nodes.push(String(node._id));
             });
         });
     }
@@ -146,7 +146,7 @@ class MapBuilder {
 
                 let f = alloc.fragment;
                 f.accessible_blocks = f.accessible_blocks ||
-                    _.filter(f.blocks, block => map_utils.is_block_accessible(block));
+                    _.filter(f.blocks, b => map_utils.is_block_accessible(b));
                 f.next_source = f.next_source || 0;
                 let source_block = f.accessible_blocks[f.next_source];
                 //if no accessible_blocks - skip replication
@@ -187,7 +187,7 @@ class MapBuilder {
 
     update_db() {
         _.each(this.new_blocks, block => {
-            block.node = block.node._id;
+            block.node = mongo_utils.make_object_id(block.node._id);
             block.chunk = block.chunk._id;
         });
         let success_chunk_ids = mongo_utils.uniq_ids(
@@ -227,7 +227,8 @@ class MapBuilder {
             P.resolve().then(() => {
                 //TODO: If the overload of these calls is too big, we should protect
                 //ourselves in a similar manner to the replication
-                var blocks_by_node = _.groupBy(this.delete_blocks, block => block.node._id);
+                var blocks_by_node = _.groupBy(this.delete_blocks,
+                    block => String(block.node._id));
                 return P.all(_.map(blocks_by_node, map_deleter.agent_delete_call));
             }),
 

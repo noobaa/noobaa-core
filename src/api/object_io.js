@@ -7,6 +7,7 @@ const crypto = require('crypto');
 const P = require('../util/promise');
 const dbg = require('../util/debug_module')(__filename);
 const config = require('../../config.js');
+const RpcError = require('../rpc/rpc_error');
 const js_utils = require('../util/js_utils');
 const Pipeline = require('../util/pipeline');
 const LRUCache = require('../util/lru_cache');
@@ -21,6 +22,10 @@ const promise_utils = require('../util/promise_utils');
 const dedup_options = require("./dedup_options");
 
 // dbg.set_level(5, 'core');
+
+const WRITE_BLOCK_RETRIES = 5;
+const REPLICATE_BLOCK_RETRIES = 3;
+const WRITE_RETRY_DELAY_MS = 100;
 
 const PART_ATTRS = [
     'start',
@@ -290,8 +295,8 @@ class ObjectIO {
 
         return pipeline.run()
             .then(() => {
-                var md5_promise = md5_stream && md5_stream.wait_digest();
-                var sha256_promise = params.calculate_sha256 &&
+                const md5_promise = md5_stream && md5_stream.wait_digest();
+                const sha256_promise = params.calculate_sha256 &&
                     sha256_stream && sha256_stream.wait_digest();
                 return P.join(md5_promise, sha256_promise)
                     .spread((md5, sha256) => {
@@ -496,28 +501,45 @@ class ObjectIO {
     }
 
     _write_fragment(params, fragment, buffer, desc) {
+        const source_block = fragment.blocks[0];
+        const blocks_to_replicate = fragment.blocks.slice(1);
+
         dbg.log1('UPLOAD:', desc,
             'write fragment num blocks', fragment.blocks.length);
 
-        const WRITE_BLOCK_RETRIES = 5;
-        const REPLICATE_BLOCK_RETRIES = 3;
-        const RETRY_DELAY_MS = 100;
+        return P.resolve()
+            .then(() => this._retry_write_block(
+                params, desc, buffer, source_block))
+            .then(() => this._retry_replicate_blocks(
+                params, desc, source_block, blocks_to_replicate));
+    }
 
-        let source_block = fragment.blocks[0];
-        let blocks_to_replicate = fragment.blocks.slice(1);
+    // retry the write operation
+    // once retry exhaust we report and throw an error
+    _retry_write_block(params, desc, buffer, source_block) {
+        return promise_utils.retry(
+                WRITE_BLOCK_RETRIES,
+                WRITE_RETRY_DELAY_MS,
+                () => this._write_block(
+                    params, buffer, source_block.block_md, desc)
+            )
+            .catch(err => this._report_error_on_object_upload(
+                params, source_block.block_md, 'write', err));
+    }
 
-        // retry the write/replicate operations
-        // per each block once retry count exhaust we report it as error
-        return promise_utils.retry(WRITE_BLOCK_RETRIES, RETRY_DELAY_MS, () =>
-                this._write_block(
-                    params, buffer, source_block.block_md, desc))
-            .catch(() => this._report_node_block_error(params, source_block.block_md))
-            .then(() => P.map(blocks_to_replicate, b => {
-                return promise_utils.retry(REPLICATE_BLOCK_RETRIES, RETRY_DELAY_MS, () =>
-                        this._replicate_block(
-                            params, source_block.block_md, b.block_md, desc))
-                    .catch(() => this._report_node_block_error(params, b.block_md));
-            }));
+    // retry the replicate operations
+    // once any retry exhaust we report and throw an error
+    _retry_replicate_blocks(params, desc, source_block, blocks_to_replicate) {
+        return P.map(blocks_to_replicate,
+            b => promise_utils.retry(
+                REPLICATE_BLOCK_RETRIES,
+                WRITE_RETRY_DELAY_MS,
+                () => this._replicate_block(
+                    params, source_block.block_md, b.block_md, desc)
+            )
+            .catch(err => this._report_error_on_object_upload(
+                params, b.block_md, 'replicate', err))
+        );
     }
 
     /**
@@ -577,22 +599,37 @@ class ObjectIO {
         });
     }
 
+    _report_error_on_object_upload(params, block_md, action, err) {
+        return params.client.object.report_error_on_object({
+                action: 'upload',
+                bucket: params.bucket,
+                key: params.key,
+                upload_id: params.upload_id,
+                blocks_report: [{
+                    block_md: block_md,
+                    action: action,
+                    rpc_code: err.rpc_code || '',
+                    error_message: err.message || '',
+                }]
+            })
+            .catch(reporting_err => {
+                // reporting failed, we don't have much to do with it now
+                // so will drop it, and wait for next failure to retry reporting
+                dbg.warn('_report_error_on_object_upload:',
+                    'will throw original upload error',
+                    'and ignore this reporting error -', reporting_err);
+            })
+            .finally(() => {
+                // throw the original read error, for the convinience of the caller
+                throw err;
+            });
+    }
+
     _error_injection_on_write() {
         if (process.env.ERROR_INJECTON_ON_WRITE &&
             process.env.ERROR_INJECTON_ON_WRITE > Math.random()) {
-            throw new Error('ERROR_INJECTON_ON_WRITE');
+            throw new RpcError('ERROR_INJECTON_ON_WRITE');
         }
-    }
-
-    _report_node_block_error(params, block_md) {
-        return params.client.node.report_node_block_error({
-            action: 'write',
-            block_md: block_md
-        }).then(() => {
-            // we throw from here for convinience
-            // since the caller would like to report and then fail
-            throw new Error('REPORTED NODE BLOCK ERROR');
-        });
     }
 
 
@@ -810,7 +847,7 @@ class ObjectIO {
         return params.client.object.read_object_mappings(map_params)
             .then(mappings_arg => {
                 mappings = mappings_arg;
-                return P.map(mappings.parts, part => this._read_object_part(part, params.client));
+                return P.map(mappings.parts, part => this._read_object_part(params, part));
             })
             .then(parts => {
                 // once all parts finish we can construct the complete buffer.
@@ -827,13 +864,13 @@ class ObjectIO {
     /**
      * read one part of the object.
      */
-    _read_object_part(part, client) {
+    _read_object_part(params, part) {
         dbg.log1('_read_object_part:', range_utils.human_range(part));
         this.lazy_init_natives();
         // read the data fragments of the chunk
         let frags_by_layer = _.groupBy(part.chunk.frags, 'layer');
         let data_frags = frags_by_layer.D;
-        return P.map(data_frags, fragment => this._read_fragment(part, fragment, client))
+        return P.map(data_frags, fragment => this._read_fragment(params, part, fragment))
             .then(() => {
                 let chunk = _.pick(part.chunk, CHUNK_ATTRS);
                 chunk.frags = _.map(part.chunk.frags, fragment => {
@@ -854,15 +891,19 @@ class ObjectIO {
             });
     }
 
-    _read_fragment(part, fragment, client) {
-        let frag_desc = size_utils.human_offset(part.start) + '-' + get_frag_key(fragment);
+    _read_fragment(params, part, fragment) {
+        const frag_desc = size_utils.human_offset(part.start) + '-' + get_frag_key(fragment);
         dbg.log1('_read_fragment', frag_desc);
-        let next_block = 0;
+        const blocks_results = [];
+        blocks_results.length = fragment.blocks.length;
         if (this._verification_mode) {
             // in verification mode we read all the blocks
             // which will also verify their digest
             // and finally we return the first of them.
-            return P.map(fragment.blocks, block => this._read_block(block.block_md, client))
+            return P.map(fragment.blocks,
+                    block => this._read_block(params, block.block_md)
+                    .catch(err => this._report_error_on_object_read(
+                        params, part, block.block_md, err)))
                 .then(buffers => {
                     if (!fragment.blocks.length ||
                         _.compact(buffers).length !== fragment.blocks.length) {
@@ -873,20 +914,21 @@ class ObjectIO {
                     fragment.block = buffers[0];
                 });
         }
-        let finish = buffer => {
-            fragment.block = buffer;
-        };
-        let read_next_block = () => {
-            if (next_block >= fragment.blocks.length) {
+        const read_next_block = index => {
+            if (index >= fragment.blocks.length) {
                 dbg.error('_read_fragment: EXHAUSTED', frag_desc, fragment.blocks);
                 throw new Error('_read_fragment: EXHAUSTED');
             }
-            let block = fragment.blocks[next_block];
-            next_block += 1;
-            return this._read_block(block.block_md, client)
-                .then(finish, read_next_block);
+            const block = fragment.blocks[index];
+            return this._read_block(params, block.block_md)
+                .then(buffer => {
+                    fragment.block = buffer;
+                })
+                .catch(err => this._report_error_on_object_read(
+                    params, part, block.block_md, err))
+                .catch(err => read_next_block(index + 1));
         };
-        return read_next_block();
+        return read_next_block(0);
     }
 
     /**
@@ -896,36 +938,73 @@ class ObjectIO {
      * read a block from the storage node
      *
      */
-    _read_block(block_md, client) {
+    _read_block(params, block_md) {
         // use semaphore to surround the IO
         return this._block_read_sem.surround(() => {
-            dbg.log1('_read_block:', block_md.id, 'from', block_md.address);
-            return client.block_store.read_block({
+
+                dbg.log1('_read_block:', block_md.id, 'from', block_md.address);
+
+                this._error_injection_on_read();
+
+                return params.client.block_store.read_block({
                     block_md: block_md
                 }, {
                     address: block_md.address,
                     timeout: config.read_block_timeout,
                     auth_token: null // ignore the client options when talking to agents
-                })
-                .then(res => {
-                    if (this._verification_mode) {
-                        let digest_b64 = crypto.createHash(block_md.digest_type)
-                            .update(res.data)
-                            .digest('base64');
-                        if (digest_b64 !== block_md.digest_b64) {
-                            dbg.error('_read_block: FAILED digest verification', block_md);
-                            throw new Error('_read_block: FAILED digest verification');
-                        }
-                    }
-                    return res.data;
-                })
-                .catch(err => {
-                    dbg.error('_read_block: FAILED', block_md.id, 'from', block_md.address, err);
-                    throw err;
                 });
-        });
+            })
+            .then(res => {
+                if (this._verification_mode) {
+                    let digest_b64 = crypto.createHash(block_md.digest_type)
+                        .update(res.data)
+                        .digest('base64');
+                    if (digest_b64 !== block_md.digest_b64) {
+                        throw new RpcError('TAMPERING',
+                            'Block digest varification failed ' + block_md.id);
+                    }
+                }
+                return res.data;
+            })
+            .catch(err => {
+                dbg.error('_read_block: FAILED', block_md.id, 'from', block_md.address, err);
+                throw err;
+            });
     }
 
+    _report_error_on_object_read(params, part, block_md, err) {
+        return params.client.object.report_error_on_object({
+                action: 'read',
+                bucket: params.bucket,
+                key: params.key,
+                start: part.start,
+                end: part.end,
+                blocks_report: [{
+                    block_md: block_md,
+                    action: 'read',
+                    rpc_code: err.rpc_code || '',
+                    error_message: err.message || '',
+                }]
+            })
+            .catch(reporting_err => {
+                // reporting failed, we don't have much to do with it now
+                // so will drop it, and wait for next failure to retry reporting
+                dbg.warn('report_error_on_object_read:',
+                    'will throw original upload error',
+                    'and ignore this reporting error -', reporting_err);
+            })
+            .finally(() => {
+                // throw the original read error, for the convinience of the caller
+                throw err;
+            });
+    }
+
+    _error_injection_on_read() {
+        if (process.env.ERROR_INJECTON_ON_READ &&
+            process.env.ERROR_INJECTON_ON_READ > Math.random()) {
+            throw new RpcError('ERROR_INJECTON_ON_READ');
+        }
+    }
 
 
     // HTTP FLOW //////////////////////////////////////////////////////////////////

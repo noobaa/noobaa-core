@@ -69,21 +69,19 @@ function read_object_mappings(params) {
  * @params: node_id, skip, limit
  */
 function read_node_mappings(params) {
-    var objects = {};
-    var parts_per_obj_id = {};
-
-    return P.fcall(function() {
-            return md_store.DataBlock.collection.find({
-                system: params.system._id,
-                node: mongo_utils.make_object_id(params.node_id),
-                deleted: null,
-            }, {
-                sort: '-_id',
-                skip: params.skip || 0,
-                limit: params.limit || 0
-            }).toArray();
-        })
-        .then(function(blocks) {
+    return P.resolve()
+        .then(() => md_store.DataBlock.collection.find({
+            system: params.system._id,
+            node: mongo_utils.make_object_id(params.node_id),
+            deleted: null,
+        }, {
+            sort: {
+                _id: -1
+            },
+            skip: params.skip || 0,
+            limit: params.limit || 0
+        }).toArray())
+        .then(blocks => {
             dbg.warn('read_node_mappings: SLOW QUERY',
                 'ObjectPart.find(chunk $in array).',
                 'adding chunk index?');
@@ -98,29 +96,27 @@ function read_node_mappings(params) {
             mongo_utils.populate(parts, 'chunk', md_store.DataChunk),
             mongo_utils.populate(parts, 'obj', md_store.ObjectMD)
         ).return(parts))
-        .then(function(parts) {
-            return read_parts_mappings({
-                parts: parts,
-                set_obj: true,
-                adminfo: true
-            });
-        })
-        .then(function(parts) {
-            objects = {};
-            parts_per_obj_id = _.groupBy(parts, function(part) {
+        .then(parts => read_parts_mappings({
+            parts: parts,
+            set_obj: true,
+            adminfo: true
+        }))
+        .then(parts => {
+            const objects_by_id = {};
+            const parts_per_obj_id = _.groupBy(parts, part => {
                 var obj = part.obj;
                 delete part.obj;
-                objects[obj._id] = obj;
+                objects_by_id[obj._id] = obj;
                 return obj._id;
             });
-
-            return _.map(objects, function(obj, obj_id) {
+            const objects_reply = _.map(objects_by_id, (obj, obj_id) => {
                 return {
                     key: obj.key,
                     bucket: system_store.data.get_by_id(obj.bucket).name,
                     parts: parts_per_obj_id[obj_id]
                 };
             });
+            return objects_reply;
         });
 }
 

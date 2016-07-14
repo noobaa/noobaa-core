@@ -397,20 +397,18 @@ function read_object_mappings(req) {
 function read_node_mappings(req) {
     var node;
     return nodes_client.instance().read_node_by_name(req.system._id, req.params.name)
-        .then(
-            node_arg => {
-                node = node_arg;
-                var params = _.pick(req.rpc_params, 'skip', 'limit');
-                params.node_id = node._id;
-                params.system = req.system;
-                return map_reader.read_node_mappings(params);
-            }
-        )
+        .then(node_arg => {
+            node = node_arg;
+            var params = _.pick(req.rpc_params, 'skip', 'limit');
+            params.node_id = node._id;
+            params.system = req.system;
+            return map_reader.read_node_mappings(params);
+        })
         .then(objects => {
             if (req.rpc_params.adminfo) {
                 return md_store.DataBlock.collection.count({
                         system: req.system._id,
-                        node: node._id,
+                        node: mongo_utils.make_object_id(node._id),
                         deleted: null
                     })
                     .then(count => ({
@@ -545,61 +543,6 @@ function delete_multiple_objects(req) {
 function one_level_delimiter(delimiter) {
     var d = string_utils.escapeRegExp(delimiter[0]);
     return '[^' + d + ']*' + d + '?$';
-}
-
-function add_s3_usage_report(req) {
-    return P.fcall(() => {
-        return ObjectStats.create({
-            system: req.system,
-            s3_usage_info: req.rpc_params.s3_usage_info,
-        });
-    }).return();
-}
-
-function remove_s3_usage_reports(req) {
-    var q = ObjectStats.remove();
-    if (req.rpc_params.till_time) {
-        // query backwards from given time
-        req.rpc_params.till_time = new Date(req.rpc_params.till_time);
-        q.where('time').lte(req.rpc_params.till_time);
-    } else {
-        throw new RpcError('NO TILL_TIME', 'Parameters do not have till_time: ' + req.rpc_params);
-    }
-    //q.limit(req.rpc_params.limit || 10);
-    return P.resolve(q.exec())
-        .catch(err => {
-            throw new RpcError('COULD NOT DELETE REPORTS', 'Error Deleting Reports: ' + err);
-        })
-        .return();
-}
-
-function read_s3_usage_report(req) {
-    var q = ObjectStats.find({
-        deleted: null
-    }).lean();
-    if (req.rpc_params.from_time) {
-        // query backwards from given time
-        req.rpc_params.from_time = new Date(req.rpc_params.from_time);
-        q.where('time').gt(req.rpc_params.from_time).sort('-time');
-    } else {
-        // query backward from last time
-        q.sort('-time');
-    }
-    //q.limit(req.rpc_params.limit || 10);
-    return P.resolve(q.exec())
-        .then(reports => {
-            reports = _.map(reports, report_item => {
-                let report = _.pick(report_item, 'system', 's3_usage_info');
-                report.time = report_item.time.getTime();
-                return report;
-            });
-            // if (reverse) {
-            //     reports.reverse();
-            // }
-            return {
-                reports: reports
-            };
-        });
 }
 
 /**
@@ -763,6 +706,78 @@ function set_all_files_for_sync(sysid, bucketid, should_resync_deleted_files) {
             }
         });
 }
+
+
+
+function report_error_on_object(req) {
+    // const bucket = req.rpc_params.bucket;
+    // const key = req.rpc_params.key;
+    // TODO should mark read errors on the object part & chunk?
+
+    // report the blocks error to nodes monitor and allocator
+    // so that next allocation attempts will use working nodes
+    return nodes_client.instance().report_error_on_node_blocks(
+        req.system._id, req.rpc_params.blocks_report);
+}
+
+
+function add_s3_usage_report(req) {
+    return P.fcall(() => {
+        return ObjectStats.create({
+            system: req.system,
+            s3_usage_info: req.rpc_params.s3_usage_info,
+        });
+    }).return();
+}
+
+function remove_s3_usage_reports(req) {
+    var q = ObjectStats.remove();
+    if (req.rpc_params.till_time) {
+        // query backwards from given time
+        req.rpc_params.till_time = new Date(req.rpc_params.till_time);
+        q.where('time').lte(req.rpc_params.till_time);
+    } else {
+        throw new RpcError('NO TILL_TIME', 'Parameters do not have till_time: ' + req.rpc_params);
+    }
+    //q.limit(req.rpc_params.limit || 10);
+    return P.resolve(q.exec())
+        .catch(err => {
+            throw new RpcError('COULD NOT DELETE REPORTS', 'Error Deleting Reports: ' + err);
+        })
+        .return();
+}
+
+function read_s3_usage_report(req) {
+    var q = ObjectStats.find({
+        deleted: null
+    }).lean();
+    if (req.rpc_params.from_time) {
+        // query backwards from given time
+        req.rpc_params.from_time = new Date(req.rpc_params.from_time);
+        q.where('time').gt(req.rpc_params.from_time).sort('-time');
+    } else {
+        // query backward from last time
+        q.sort('-time');
+    }
+    //q.limit(req.rpc_params.limit || 10);
+    return P.resolve(q.exec())
+        .then(reports => {
+            reports = _.map(reports, report_item => {
+                let report = _.pick(report_item, 'system', 's3_usage_info');
+                report.time = report_item.time.getTime();
+                return report;
+            });
+            // if (reverse) {
+            //     reports.reverse();
+            // }
+            return {
+                reports: reports
+            };
+        });
+}
+
+
+
 // UTILS //////////////////////////////////////////////////////////
 
 
@@ -923,6 +938,7 @@ exports.allocate_object_parts = allocate_object_parts;
 exports.finalize_object_parts = finalize_object_parts;
 exports.complete_part_upload = complete_part_upload;
 exports.copy_object = copy_object;
+exports.report_error_on_object = report_error_on_object;
 // read
 exports.read_object_mappings = read_object_mappings;
 exports.read_node_mappings = read_node_mappings;

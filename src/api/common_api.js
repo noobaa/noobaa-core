@@ -243,6 +243,43 @@ module.exports = {
             }
         },
 
+        block_action: {
+            type: 'string',
+            enum: [
+                'read',
+                'write',
+                'replicate',
+                'delete'
+            ]
+        },
+
+        blocks_report: {
+            type: 'array',
+            items: {
+                type: 'object',
+                required: [
+                    'block_md',
+                    'action',
+                    'rpc_code',
+                    'error_message'
+                ],
+                properties: {
+                    block_md: {
+                        $ref: '#/definitions/block_md'
+                    },
+                    action: {
+                        $ref: '#/definitions/block_action'
+                    },
+                    rpc_code: {
+                        type: 'string'
+                    },
+                    error_message: {
+                        type: 'string'
+                    },
+                }
+            }
+        },
+
         proxy_params: {
             type: 'object',
             required: ['target', 'method_api', 'method_name'],

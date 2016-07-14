@@ -103,7 +103,8 @@ function delete_objects_from_agents(deleted_chunk_ids) {
         .then(deleted_blocks => {
             //TODO: If the overload of these calls is too big, we should protect
             //ourselves in a similar manner to the replication
-            var blocks_by_node = _.groupBy(deleted_blocks, block => block.node._id);
+            var blocks_by_node = _.groupBy(deleted_blocks,
+                block => String(block.node._id));
             return P.all(_.map(blocks_by_node, agent_delete_call));
         });
 }
@@ -115,7 +116,7 @@ function delete_objects_from_agents(deleted_chunk_ids) {
  */
 function agent_delete_call(del_blocks, node_id) {
     var address = del_blocks[0].node.rpc_address;
-    var block_ids = _.map(del_blocks, block => block._id.toString());
+    var block_ids = _.map(del_blocks, block => String(block._id));
     dbg.log0('agent_delete_call: node', node_id, address,
         'block_ids', block_ids.length);
     return server_rpc.client.block_store.delete_blocks({

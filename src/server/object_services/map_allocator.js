@@ -73,7 +73,7 @@ class MapAllocator {
                         if (map_utils.is_chunk_good(dup_chunk, this.bucket.tiering)) {
                             // we set the part's chunk_dedup to the chunk id
                             // so that the client will send it back to finalize
-                            part.chunk_dedup = dup_chunk._id.toString();
+                            part.chunk_dedup = String(dup_chunk._id);
                             delete part.chunk;
                             // returning explicit false to break from _.each
                             return false;
@@ -101,7 +101,7 @@ class MapAllocator {
                 block.node = node;
                 f.blocks = f.blocks || [];
                 f.blocks.push(map_utils.get_block_info(block));
-                avoid_nodes.push(node._id.toString());
+                avoid_nodes.push(String(node._id));
             });
         });
     }

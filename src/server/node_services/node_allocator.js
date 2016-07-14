@@ -1,13 +1,14 @@
 'use strict';
 
 const _ = require('lodash');
-const moment = require('moment');
 const chance = require('chance')();
 
 const P = require('../../util/promise');
 const dbg = require('../../util/debug_module')(__filename);
 const config = require('../../../config.js');
 const nodes_client = require('./nodes_client');
+
+const ALLOC_REFRESH_MS = 10000;
 
 const alloc_group_by_pool = {};
 const alloc_group_by_pool_set = {};
@@ -23,14 +24,14 @@ function refresh_pool_alloc(pool) {
     var group =
         alloc_group_by_pool[pool._id] =
         alloc_group_by_pool[pool._id] || {
-            last_refresh: new Date(0),
+            last_refresh: 0,
             nodes: [],
         };
 
     dbg.log1('refresh_pool_alloc: checking pool', pool._id, 'group', group);
 
-    // cache the nodes for 1 minutes and then refresh
-    if (group.last_refresh >= moment().subtract(1, 'minute').toDate()) {
+    // cache the nodes for some time before refreshing
+    if (Date.now() < group.last_refresh + ALLOC_REFRESH_MS) {
         return P.resolve();
     }
 
@@ -39,13 +40,13 @@ function refresh_pool_alloc(pool) {
     group.promise = P.resolve()
         .then(() => nodes_client.instance().allocate_nodes(pool.system._id, pool._id))
         .then(res => {
-            group.last_refresh = new Date();
+            group.last_refresh = Date.now();
             group.promise = null;
             group.nodes = res.nodes;
             dbg.log0('refresh_pool_alloc: updated pool', pool._id,
                 'nodes', _.map(group.nodes, 'name'));
             _.each(alloc_group_by_pool_set, (g, pool_set) => {
-                if (_.includes(pool_set, pool._id.toString())) {
+                if (_.includes(pool_set, String(pool._id))) {
                     dbg.log0('invalidate alloc_group_by_pool_set for', pool_set,
                         'on change to pool', pool._id);
                     delete alloc_group_by_pool_set[pool_set];
@@ -70,7 +71,7 @@ function refresh_pool_alloc(pool) {
  *
  */
 function allocate_node(pools, avoid_nodes, content_tiering_params) {
-    let pool_set = _.map(pools, pool => pool._id.toString()).sort().join(',');
+    let pool_set = _.map(pools, pool => String(pool._id)).sort().join(',');
     let alloc_group =
         alloc_group_by_pool_set[pool_set] =
         alloc_group_by_pool_set[pool_set] || {
@@ -117,8 +118,9 @@ function allocate_node(pools, avoid_nodes, content_tiering_params) {
 function allocate_from_list(nodes, avoid_nodes, use_nodes_with_errors) {
     for (var i = 0; i < nodes.length; ++i) {
         var node = get_round_robin(nodes);
-        if (Boolean(use_nodes_with_errors) === Boolean(node.error_since_hb) &&
-            !_.includes(avoid_nodes, node._id.toString())) {
+        if (Boolean(use_nodes_with_errors) ===
+            Boolean(node.report_error_on_node_alloc) &&
+            !_.includes(avoid_nodes, String(node._id))) {
             dbg.log1('allocate_node: allocated node', node.name,
                 'avoid_nodes', avoid_nodes);
             return node;
@@ -135,11 +137,11 @@ function get_round_robin(nodes) {
 /**
  * find the node in the memory groups and mark the error time
  */
-function report_node_error(node_id) {
+function report_error_on_node_alloc(node_id) {
     _.each(alloc_group_by_pool, (group, pool_id) => {
         _.each(group.nodes, node => {
             if (String(node._id) === String(node_id)) {
-                node.error_since_hb = new Date();
+                node.report_error_on_node_alloc = new Date();
             }
         });
     });
@@ -150,4 +152,4 @@ function report_node_error(node_id) {
 exports.refresh_tiering_alloc = refresh_tiering_alloc;
 exports.refresh_pool_alloc = refresh_pool_alloc;
 exports.allocate_node = allocate_node;
-exports.report_node_error = report_node_error;
+exports.report_error_on_node_alloc = report_error_on_node_alloc;

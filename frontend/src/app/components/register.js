@@ -111,7 +111,6 @@ export default function register(ko) {
     ko.components.register('account-s3-access-modal',   require('./management/account-s3-access-modal/account-s3-access-modal'));
     ko.components.register('p2p-form',                  require('./management/p2p-form/p2p-form'));
     ko.components.register('server-dns-form',           require('./management/server-dns-form/server-dns-form'));
-    ko.components.register('server-time-form',          require('./management/server-time-form/server-time-form'));
     ko.components.register('about-form',                require('./management/about-form/about-form'));
     ko.components.register('upgrade-modal',             require('./management/upgrade-modal/upgrade-modal'));
     ko.components.register('diagnostics-form',          require('./management/diagnostics-form/diagnostics-form'));
@@ -125,12 +124,12 @@ export default function register(ko) {
     // -------------------------------
     // Cluster
     // -------------------------------
-    ko.components.register('cluster-panel',             require('./cluster/cluster-panel/cluster-panel'));
-    ko.components.register('server-table',              require('./cluster/server-table/server-table'));
-    ko.components.register('attach-server-modal',       require('./cluster/attach-server-modal/attach-server-modal'));
-    ko.components.register('cluster-summary',           require('./cluster/cluster-summary/cluster-summary'));
-    ko.components.register('server-dns-settings-modal', require('./cluster/server-dns-settings-modal/server-dns-settings-modal'));
-    ko.components.register('server-time-settings-modal', require('./cluster/server-time-settings-modal/server-time-settings-modal'));
+    ko.components.register('cluster-panel',                 require('./cluster/cluster-panel/cluster-panel'));
+    ko.components.register('server-table',                  require('./cluster/server-table/server-table'));
+    ko.components.register('attach-server-modal',           require('./cluster/attach-server-modal/attach-server-modal'));
+    ko.components.register('cluster-summary',               require('./cluster/cluster-summary/cluster-summary'));
+    ko.components.register('server-dns-settings-modal',     require('./cluster/server-dns-settings-modal/server-dns-settings-modal'));
+    ko.components.register('server-time-settings-modal',    require('./cluster/server-time-settings-modal/server-time-settings-modal'));
     /** INJECT:cluster **/
 
     // -------------------------------

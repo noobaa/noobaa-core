@@ -1,7 +1,7 @@
 import template from './server-time-settings-modal.html';
 import Disposable from 'disposable';
 import ko from 'knockout';
-import moment from 'moment';
+import moment from 'moment-timezone';
 import { makeRange } from 'utils';
 import { systemInfo, serverTime } from 'model';
 import { loadServerTime, updateServerClock, updateServerNTPSettings } from 'actions';

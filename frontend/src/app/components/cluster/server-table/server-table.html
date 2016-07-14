@@ -4,20 +4,24 @@
     Attach Server
 </button>
 
-<data-table params="
-    columns: columns,
-    rowFactory: rowFactory,
-    sorting: sorting,
-    data: servers
-">
-    <template name="actions">
-        <button class="link" data-bind="
-            click: () => $parents[3].showServerDNSSettingsModal()
-        ">
-            DNS Settings
-        </button>
-    </template>
-</data-table>
+<div data-bind="let: { vm: $component }">
+    <data-table params="
+        columns: columns,
+        rowFactory: rowFactory,
+        sorting: sorting,
+        data: servers
+    ">
+        <template name="actions">
+            <button class="link" data-bind="
+                click: () => vm.showServerDNSSettingsModal($data)
+            ">DNS</button>
+            |
+            <button class="link" data-bind="
+                click: () => vm.showServerTimeSettingsModal($data)
+            ">Time</button>
+        </template>
+    </data-table>
+</div>
 
 <!-- ko if:isAttachServerModalVisible -->
 <attach-server-modal params="onClose: () => hideAttachServerModal()">
@@ -25,6 +29,15 @@
 <!-- /ko -->
 
 <!-- ko if:isServerDNSSettingsModalVisible -->
-<server-dns-settings-modal params="onClose: () => hideServerDNSSettingsModal()">
-</server-dns-settings-modal>
+<server-dns-settings-modal params="
+    serverSecret: actionContext,
+    onClose: () => hideServerDNSSettingsModal()
+"></server-dns-settings-modal>
+<!-- /ko -->
+
+<!-- ko if:isServerTimeSettingsModalVisible -->
+<server-time-settings-modal params="
+    serverSecret: actionContext,
+    onClose: () => hideServerTimeSettingsModal()
+"></server-time-settings-modal>
 <!-- /ko -->

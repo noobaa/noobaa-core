@@ -346,12 +346,7 @@ AgentCLI.prototype.create_node_helper = function(current_node_path_info, interna
         var path_modification = current_node_path.replace('/agent_storage/', '').replace('/', '').replace('.', '');
         //windows
         path_modification = path_modification.replace('\\agent_storage\\', '');
-
-
-        var node_path = path.join(current_node_path, node_name);
-        var token_path = path.join(node_path, 'token');
-        dbg.log0('create_node_helper with path_modification', path_modification, 'node:', node_path, 'current_node_path', current_node_path, 'exists');
-
+        dbg.log0('create_node_helper with path_modification', path_modification, 'node:', node_name, 'current_node_path', current_node_path, 'exists');
         if (os.type().indexOf('Windows') >= 0) {
             node_name = node_name + '-' + current_node_path_info.drive_id.replace(':', '');
         } else {
@@ -359,6 +354,9 @@ AgentCLI.prototype.create_node_helper = function(current_node_path_info, interna
                 node_name = node_name + '-' + path_modification.replace('/', '');
             }
         }
+
+        var node_path = path.join(current_node_path, node_name);
+        var token_path = path.join(node_path, 'token');
         dbg.log0('create new node for node name', node_name, ' path:', node_path, ' token path:', token_path);
 
 

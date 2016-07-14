@@ -5,33 +5,37 @@ import { systemInfo } from 'model';
 import { updateServerDNSSettings } from 'actions';
 
 class ServerDNSSettingsModalViewModel extends Disposable {
-    constructor({ onClose }) {
+    constructor({ serverSecret, onClose }) {
         super();
 
+        this.serverSecret = ko.unwrap(serverSecret);
         this.onClose = onClose;
 
         let server = ko.pureComputed(
-            () => systemInfo() && systemInfo().cluster.shards[0].servers[0]
+            () => systemInfo() && systemInfo().cluster.shards[0].servers.find(
+                server => server.secret === this.serverSecret
+            )
         );
 
         let dnsServers = ko.pureComputed(
-            () => server() && server().dns_servers
+            () => server() ? server().dns_servers : []
         );
 
-        this.secret = ko.pureComputed(
-            () => server() && server().secret
-        );
+
 
         this.primaryDNS = ko.observableWithDefault(
-            () => dnsServers[0]
+            () => dnsServers()[0]
         )
             .extend({
-                required: { onlyIf: () => this.secondaryDNS() },
+                required: {
+                    onlyIf: () => this.secondaryDNS(),
+                    message: 'A primary DNS must be configured prior to a secondary DNS'
+                },
                 isIPOrDNSName: true
             });
 
         this.secondaryDNS = ko.observableWithDefault(
-            () => dnsServers[1]
+            () => dnsServers()[1]
         )
             .extend({ isIPOrDNSName: true });
 
@@ -44,9 +48,7 @@ class ServerDNSSettingsModalViewModel extends Disposable {
 
         } else {
             updateServerDNSSettings(
-                this.secret(),
-                this.primaryDNS(),
-                this.secondaryDNS()
+                this.serverSecret, this.primaryDNS(), this.secondaryDNS()
             );
 
             this.onClose();

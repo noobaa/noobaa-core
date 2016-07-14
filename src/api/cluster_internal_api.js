@@ -134,7 +134,7 @@ module.exports = {
             }
         },
 
-        read_server_time: {
+        apply_read_server_time: {
             method: 'POST',
             params: {
                 type: 'object',
@@ -157,18 +157,15 @@ module.exports = {
     definitions: {
         time_config: {
             type: 'object',
-            required: ['config_type', 'timezone'],
+            required: ['timezone'],
             properties: {
                 target_secret: {
                     type: 'string'
                 },
-                config_type: {
-                    $ref: '#/definitions/time_config_type'
-                },
                 timezone: {
                     type: 'string'
                 },
-                server: {
+                ntp_server: {
                     type: 'string'
                 },
                 epoch: {
@@ -191,11 +188,6 @@ module.exports = {
                     },
                 }
             },
-        },
-
-        time_config_type: {
-            enum: ['NTP', 'MANUAL'],
-            type: 'string',
         }
     },
 };

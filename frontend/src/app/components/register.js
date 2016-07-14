@@ -130,6 +130,7 @@ export default function register(ko) {
     ko.components.register('attach-server-modal',       require('./cluster/attach-server-modal/attach-server-modal'));
     ko.components.register('cluster-summary',           require('./cluster/cluster-summary/cluster-summary'));
     ko.components.register('server-dns-settings-modal', require('./cluster/server-dns-settings-modal/server-dns-settings-modal'));
+    ko.components.register('server-time-settings-modal', require('./cluster/server-time-settings-modal/server-time-settings-modal'));
     /** INJECT:cluster **/
 
     // -------------------------------

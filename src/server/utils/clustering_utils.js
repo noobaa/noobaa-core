@@ -183,7 +183,7 @@ function get_cluster_info() {
             location: location,
             ntp_server: cinfo.ntp && cinfo.ntp.server,
             timezone: cinfo.ntp && cinfo.ntp.timezone,
-            dns_servers: cinfo.dns_servers
+            dns_servers: cinfo.dns_servers || []
         };
         shard.servers.push(server_info);
     });

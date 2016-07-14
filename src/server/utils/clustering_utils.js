@@ -181,9 +181,10 @@ function get_cluster_info() {
             memory_usage: memory_usage,
             cpu_usage: cpu_usage,
             location: location,
-            ntp: cinfo.ntp,
-            dns_servers: cinfo.dns_servers,
-            debug_level: cinfo.debug_level
+            debug_level: cinfo.debug_level,
+            ntp_server: cinfo.ntp && cinfo.ntp.server,
+            timezone: cinfo.ntp && cinfo.ntp.timezone,
+            dns_servers: cinfo.dns_servers
         };
         shard.servers.push(server_info);
     });

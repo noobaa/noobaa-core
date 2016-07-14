@@ -826,16 +826,11 @@ module.exports = {
                 location: {
                     type: 'string'
                 },
-                ntp: {
-                    type: 'object',
-                    properties: {
-                        server: {
-                            type: 'string'
-                        },
-                        timezone: {
-                            type: 'string'
-                        },
-                    }
+                ntp_server: {
+                    type: 'string'
+                },
+                timezone: {
+                    type: 'string'
                 },
                 dns_servers: {
                     type: 'array',

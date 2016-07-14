@@ -175,7 +175,26 @@ module.exports = {
             auth: {
                 system: 'admin',
             }
-        }
+        },
+
+        read_server_time: {
+            method: 'POST',
+            params: {
+                type: 'object',
+                required: ['target_secret'],
+                properties: {
+                    target_secret: {
+                        type: 'string',
+                    }
+                },
+            },
+            reply: {
+                format: 'idate',
+            },
+            auth: {
+                system: false,
+            }
+        },
     },
 
     definitions: {

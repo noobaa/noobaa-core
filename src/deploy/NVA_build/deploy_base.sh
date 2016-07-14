@@ -198,18 +198,18 @@ function fix_security_issues {
 	if [ "${exist}" == "0" ]; then
 		echo timeout=20 >> /etc/yum.conf
 	fi
-	ping 8.8.8.8 -c 3
-	if [ $? -ne 0 ]; then
-		deploy_log "Missing internet connectivity"
-	else
-		yum clean all
-		yum update -y
-		if [ $? -ne 0 ]; then
-			deploy_log "Failed to update yum packages"
-		else
-			deploy_log "Updated yum packages"
-		fi
-	fi
+	# ping 8.8.8.8 -c 3
+	# if [ $? -ne 0 ]; then
+	# 	deploy_log "Missing internet connectivity"
+	# else
+	# 	yum clean all
+	# 	yum update -y
+	# 	if [ $? -ne 0 ]; then
+	# 		deploy_log "Failed to update yum packages"
+	# 	else
+	# 		deploy_log "Updated yum packages"
+	# 	fi
+	# fi
 
 
 

@@ -9,7 +9,9 @@ import { routeContext, systemInfo } from 'model';
 const maxRows = 100;
 
 const compareFuncs = Object.freeze({
-    state: () => compare(true, true),
+    state: (p1, p2) => {
+        return compare(p1.nodes.online >= 3, p2.nodes.online >= 3);
+    },
     name: (p1, p2) => compare(p1.name, p2.name),
     nodecount: (p1, p2) => compare(p1.nodes.count, p2.nodes.count),
     onlinecount: (p1, p2) => compare(p1.nodes.online, p2.nodes.online),

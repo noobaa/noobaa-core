@@ -81,7 +81,7 @@ class ServerTimeSettingsModalViewModel extends Disposable {
             }
         );
 
-        this.disposeWithMe(
+        this.addToDisposeList(
             setInterval(
                 () => timeInMilliseconds() && timeInMilliseconds(
                         timeInMilliseconds() + 1000

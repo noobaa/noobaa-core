@@ -672,17 +672,6 @@ class NodesMonitor extends EventEmitter {
             delay_ms: 0 // delay_ms was required in 0.3.X
         };
 
-        //If this server is not the master, redirect the agent to the master
-        let current_clustering = system_store.get_local_cluster_info();
-        if ((current_clustering && current_clustering.is_clusterized) && !system_store.is_cluster_master) {
-            return P.resolve(cluster_server.redirect_to_cluster_master())
-                .then((addr) => {
-                    dbg.log0('heartbeat: current is not master redirecting to', addr);
-                    reply.redirect = addr;
-                    return reply;
-                });
-        }
-
         // since the heartbeat api is dynamic through new versions
         // if we detect that this is a new version we return immediately
         // with the new version so that the agent will update the code first
@@ -694,6 +683,18 @@ class NodesMonitor extends EventEmitter {
                 'pkg.version', pkg.version);
             return reply;
         }
+
+        //If this server is not the master, redirect the agent to the master
+        let current_clustering = system_store.get_local_cluster_info();
+        if ((current_clustering && current_clustering.is_clusterized) && !system_store.is_cluster_master) {
+            return P.resolve(cluster_server.redirect_to_cluster_master())
+                .then((addr) => {
+                    dbg.log0('heartbeat: current is not master redirecting to', addr);
+                    reply.redirect = addr;
+                    return reply;
+                });
+        }
+
 
         if (!this._started) throw new RpcError('MONITOR_NOT_STARTED');
         if (!this._loaded) throw new RpcError('MONITOR_NOT_LOADED');

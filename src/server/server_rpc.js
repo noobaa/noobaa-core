@@ -14,7 +14,7 @@ class ServerRpc {
     }
 
     get_base_port() {
-        return parseInt(process.env.PORT, 10) || 5001;
+        return api.get_base_port();
     }
 
     get_server_options() {

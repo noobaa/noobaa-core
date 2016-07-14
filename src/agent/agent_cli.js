@@ -198,7 +198,7 @@ AgentCLI.prototype.load = function() {
         dbg.log0('loading agents with cloud_info: ', self.cloud_info);
         let storage_path = self.params.all_storage_paths[0].mount;
         return P.resolve()
-            .then(() => fs_utils.create_path(storage_path))
+            .then(() => fs_utils.create_path(storage_path, fs_utils.PRIVATE_DIR_PERMISSIONS))
             .then(() => fs.readdirAsync(storage_path))
             .then(nodes_names => {
                 return P.all(internal_nodes_names.map(name => {
@@ -222,7 +222,7 @@ AgentCLI.prototype.load = function() {
             dbg.log0('root_path', storage_path);
 
             return P.resolve()
-                .then(() => fs_utils.create_path(storage_path))
+                .then(() => fs_utils.create_path(storage_path ,fs_utils.PRIVATE_DIR_PERMISSIONS))
                 .then(() => P.resolve(self.hide_storage_folder(storage_path))
                     .catch(err => {
                         dbg.error('Windows - failed to hide', err.stack || err);
@@ -318,17 +318,15 @@ AgentCLI.prototype.create_node_helper = function(current_node_path_info, interna
         var path_modification = current_node_path.replace('/agent_storage/', '').replace('/', '').replace('.', '');
         //windows
         path_modification = path_modification.replace('\\agent_storage\\', '');
-
-
-        var node_path = path.join(current_node_path, node_name);
-        var token_path = path.join(node_path, 'token');
-        dbg.log0('create_node_helper with path_modification', path_modification, 'node:', node_path, 'current_node_path', current_node_path, 'exists');
-
+        dbg.log0('create_node_helper with path_modification', path_modification, 'node:', node_name, 'current_node_path', current_node_path, 'exists');
         if (os.type().indexOf('Windows') >= 0) {
             node_name = node_name + '-' + current_node_path_info.drive_id.replace(':', '');
         } else if (!_.isEmpty(path_modification)) {
             node_name = node_name + '-' + path_modification.replace('/', '');
         }
+
+        var node_path = path.join(current_node_path, node_name);
+        var token_path = path.join(node_path, 'token');
         dbg.log0('create new node for node name', node_name, ' path:', node_path, ' token path:', token_path);
 
 
@@ -361,13 +359,13 @@ AgentCLI.prototype.create_node_helper = function(current_node_path_info, interna
                 } else {
                     dbg.log0('has token', self.create_node_token);
                 }
-                return fs_utils.create_path(node_path);
+                return fs_utils.create_path(node_path, fs_utils.PRIVATE_DIR_PERMISSIONS);
             }).then(function() {
                 dbg.log0('writing token', token_path);
                 return fs.writeFileAsync(token_path, self.create_node_token);
             })
             .then(function() {
-                if (_.isUndefined(self.params.internal_agent)) {
+                if (!self.params.internal_agent) {
                     // remove access_key and secret_key from agent_conf after a token was acquired
                     return fs.readFileAsync('agent_conf.json')
                         .then(function(data) {
@@ -411,7 +409,7 @@ AgentCLI.prototype.create = function(number_of_nodes) {
     //create root path last. First, create all other.
     // for internal_agents only use root path
     return P.all(_.map(_.drop(self.params.all_storage_paths, 1), function(current_storage_path) {
-            if (_.isUndefined(self.params.internal_agent) || !self.params.internal_agent) {
+            if (!self.params.internal_agent) {
                 return fs_utils.list_directory(current_storage_path.mount)
                     .then(function(files) {
                         if (files.length > 0 && number_of_nodes === 0) {

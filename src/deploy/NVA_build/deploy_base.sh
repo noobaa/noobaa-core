@@ -202,6 +202,7 @@ function fix_security_issues {
 	# if [ $? -ne 0 ]; then
 	# 	deploy_log "Missing internet connectivity"
 	# else
+	#   /bin/cp -fd /etc/localtime /tmp
 	# 	yum clean all
 	# 	yum update -y
 	# 	if [ $? -ne 0 ]; then
@@ -209,6 +210,7 @@ function fix_security_issues {
 	# 	else
 	# 		deploy_log "Updated yum packages"
 	# 	fi
+	#   /bin/cp -fd /tmp/localtime /etc
 	# fi
 
 

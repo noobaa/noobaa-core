@@ -43,7 +43,7 @@ function restart_webserver {
             deploy_log ${mongodown}
     else
             echo sleep
-            sleep 1
+            sleep 5
     fi
     done
 

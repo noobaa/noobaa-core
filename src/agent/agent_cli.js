@@ -391,10 +391,12 @@ AgentCLI.prototype.create_node_helper = function(current_node_path_info, interna
                 }
                 return P.nfcall(mkdirp, node_path);
             }).then(function() {
+                dbg.log0('Add uninstall command', node_path);
+                return promise_utils.promised_exec('echo \'rm -rf '+current_node_path+'\' >> ./noobaa_service_uninstall.sh ');
+            }).then(function() {
                 dbg.log0('writing token', token_path);
                 return P.nfcall(fs.writeFile, token_path, self.create_node_token);
-            })
-            .then(function() {
+            }).then(function() {
                 if (!self.params.internal_agent) {
                     // remove access_key and secret_key from agent_conf after a token was acquired
                     return P.nfcall(fs.readFile, 'agent_conf.json')

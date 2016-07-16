@@ -119,6 +119,7 @@ function extract_package {
 }
 
 function do_upgrade {
+  setup_users
   disable_supervisord
 
   unalias cp
@@ -151,7 +152,6 @@ function do_upgrade {
   deploy_log "Finished post upgrade"
 
   enable_supervisord
-  setup_users
   deploy_log "Enabling supervisor"
   #workaround - from some reason, without sleep + restart, the server starts with odd behavior
   #TODO: understand why and fix.

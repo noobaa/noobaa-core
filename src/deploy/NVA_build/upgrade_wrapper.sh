@@ -75,9 +75,19 @@ function fix_bashrc {
 }
 
 function pre_upgrade {
-  yum install -y dialog
-  useradd noobaa
-  echo Passw0rd | passwd noobaa --stdin
+  if yum list installed dialog >/dev/null 2>&1; then
+      deploy_log "dialog installed"
+  else
+	  deploy_log "installing dialog"
+	  yum install -y dialog
+  fi
+
+  if getent passwd noobaa > /dev/null 2>&1; then
+    echo "noobaa user exists"
+  else
+	useradd noobaa
+	echo Passw0rd | passwd noobaa --stdin
+  fi
 
   fix_iptables
 
@@ -233,15 +243,21 @@ function post_upgrade {
   fi
 
   # temporary - adding NTP package
-  yum install -y ntp
-  sudo /sbin/chkconfig ntpd on 2345
-	sudo /etc/init.d/ntpd start
-	local noobaa_ntp=$(grep 'NooBaa Configured NTP Server' /etc/ntp.conf | wc -l)
-	if [ ${noobaa_ntp} -eq 0 ]; then #was not configured yet, no tz config as well
-			echo "# NooBaa Configured NTP Server"	 >> /etc/ntp.conf
-			sed -i 's:\(^server.*\):#\1:g' /etc/ntp.conf
-			ln -sf /usr/share/zoneinfo/US/Pacific /etc/localtime
-	fi
+  if yum list installed ntp >/dev/null 2>&1; then
+	  deploy_log "ntp installed"
+  else
+	deploy_log "installing ntp"
+	yum install -y ntp
+	sudo /sbin/chkconfig ntpd on 2345
+  	sudo /etc/init.d/ntpd start
+  	local noobaa_ntp=$(grep 'NooBaa Configured NTP Server' /etc/ntp.conf | wc -l)
+  	if [ ${noobaa_ntp} -eq 0 ]; then #was not configured yet, no tz config as well
+  			echo "# NooBaa Configured NTP Server"	 >> /etc/ntp.conf
+  			sed -i 's:\(^server.*\):#\1:g' /etc/ntp.conf
+  			ln -sf /usr/share/zoneinfo/US/Pacific /etc/localtime
+  	fi
+  fi
+
 
   rm -f /tmp/*.tar.gz
   rm -rf /tmp/v*

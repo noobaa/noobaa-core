@@ -1270,9 +1270,9 @@ export function upgradeSystem(upgradePackage) {
                         state: 'IN_PROGRESS'
                     });
 
-                    setTimeout(ping, 7000);
+                    setTimeout(ping, 5000);
                 },
-                3000
+                20000
             );
         } else {
             upgradeStatus.assign({

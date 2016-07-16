@@ -1237,6 +1237,7 @@ export function upgradeSystem(upgradePackage) {
     logAction('upgradeSystem', { upgradePackage });
 
     function ping() {
+        logAction('ping');
         let xhr = new XMLHttpRequest();
         xhr.open('GET', '/version', true);
         xhr.onload = () => reloadTo('/fe/systems/:system', { afterupgrade: true });
@@ -1270,7 +1271,7 @@ export function upgradeSystem(upgradePackage) {
                         state: 'IN_PROGRESS'
                     });
 
-                    setTimeout(ping, 5000);
+                    setTimeout(ping, 20000);
                 },
                 20000
             );

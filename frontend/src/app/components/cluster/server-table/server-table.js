@@ -35,7 +35,7 @@ const columns = deepFreeze([
     },
     {
         name: 'actions',
-        template: 'actions'
+        cellTemplate: 'actions'
     }
 ]);
 

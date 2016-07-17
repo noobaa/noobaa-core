@@ -493,11 +493,12 @@ export function loadPoolNodeList(poolName, filter, hasIssues, sortBy, order, pag
         .done();
 }
 
-export function loadNodeList() {
-    logAction('loadNodeList');
+export function loadNodeList(filter, pools, online) {
+    logAction('loadNodeList', { filter, pools, online });
 
-    model.nodeList([]);
-    api.node.list_nodes({})
+    api.node.list_nodes({
+        query: { filter, pools, online }
+    })
         .then(
             ({ nodes }) => model.nodeList(nodes)
         )

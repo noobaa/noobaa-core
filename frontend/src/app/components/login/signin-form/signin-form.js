@@ -36,8 +36,7 @@ class SignInFormViewModel extends Disposable {
             this.password
         ]);
 
-
-        this.disposeWithMe(
+        this.addToDisposeList(
             retryCount.subscribe(
                 () => this.shake(true)
             )

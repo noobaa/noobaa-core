@@ -18,7 +18,7 @@ class NotificationBarViewModel extends Disposable {
 
         this.next = Promise.resolve();
 
-        this.disposeWithMe(
+        this.addToDisposeList(
             lastNotification.subscribe(
                 notif => this.handleIncomingNotification(notif)
             )

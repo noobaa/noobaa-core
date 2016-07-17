@@ -241,9 +241,11 @@ export function makeRange(start, end) {
 }
 
 export function domFromHtml(html) {
-    let parser = new DOMParser();
-    let doc = parser.parseFromString(html, 'text/html');
-    return doc.body.childNodes;
+    // Switched to template element because DOMParser did not parsed
+    // <tr>, <td>, <option> and <li> elements as root elements.
+    let template = document.createElement('template');
+    template.innerHTML = html;
+    return template.content.childNodes;
 }
 
 export function encodeBase64(obj) {
@@ -342,4 +344,8 @@ export function waitFor(miliseconds) {
     return new Promise(
         resolve => setTimeout(resolve, miliseconds)
     );
+}
+
+export function areSame(a, b) {
+    return a === b;
 }

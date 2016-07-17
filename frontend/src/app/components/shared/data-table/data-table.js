@@ -3,21 +3,20 @@ import ColumnViewModel from './column';
 import * as defaultCellTemplates from './cell-templates';
 import Disposable from 'disposable';
 import ko from 'knockout';
-import { noop, isDefined, isFunction, areSame } from 'utils';
+import { noop, isFunction } from 'utils';
 
 function generateRowTemplate(columns) {
-    return `<tr> ${
-        columns
-            .map(
-                ({ name, css, cellTemplate }) => `<td data-bind="css: '${css}',let: ${
-                    `{ $data: ko.unwrap(${name}), $rawData: ${name} }`
-                }">${
+    return `<tr>${
+        columns.map(
+            ({ name, css, cellTemplate }) =>
+                `<td data-bind="css:'${css}',let:{$data:${name},$rawData:${name}}">${
                     cellTemplate
                 }</td>`
-            )
-            .join('\n')
+        )
+        .join('\n')
     }</tr> `;
 }
+
 
 class DataTableViewModel extends Disposable {
     constructor(params, customTemplates) {
@@ -53,12 +52,14 @@ class DataTableViewModel extends Disposable {
         this.rows = ko.observableArray();
 
         // Init the table rows.
-        this.updateRows(ko.unwrap(data) || []);
+        this.updateRows(data);
 
         // Update the table rows on data change event.
         if (ko.isObservable(data)) {
             this.addToDisposeList(
-                data.subscribe(this.updateRows, this)
+                data.subscribe(
+                    () => this.updateRows(data)
+                )
             );
         }
 
@@ -68,14 +69,16 @@ class DataTableViewModel extends Disposable {
 
     updateRows(data) {
         let curr = this.rows().length;
-        let diff = curr - data.length;
+        let target = (ko.unwrap(data) || []).length;
+        let diff = curr - target;
 
         if (diff < 0) {
-            for (let i = curr; i < data.length; ++i) {
+            for (let i = curr; i < target; ++i) {
                 this.rows.push(
                     this.rowFactory(() => (ko.unwrap(data) || [])[i])
                 );
             }
+
         } else if (diff > 0) {
             while(diff-- > 0) {
                 let row = this.rows.pop();

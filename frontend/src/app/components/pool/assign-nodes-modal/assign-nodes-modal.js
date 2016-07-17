@@ -21,7 +21,7 @@ const columns = [
     'ip',
     'capacity',
     'pool',
-    'recomended'
+    'recommended'
 ];
 
 class AssignNodeModalViewModel extends Disposable {
@@ -88,7 +88,7 @@ class AssignNodeModalViewModel extends Disposable {
                     0
                 );
 
-                return `${selectedCount} nodes selected out of ${totalCount}`;
+                return `${selectedCount} nodes selected of ${totalCount}`;
             }
         );
 

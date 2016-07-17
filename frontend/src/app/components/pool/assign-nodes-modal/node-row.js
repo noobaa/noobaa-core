@@ -44,9 +44,9 @@ export default class NodeRowViewModel extends Disposable {
             () => node() && node().pool
         );
 
-        this.recomended = ko.pureComputed(
+        this.recommended = ko.pureComputed(
             () => node() && (
-                node().suggested_pool === ko.unwrap(currPoolName) ? 'yes' : ''
+                node().suggested_pool === ko.unwrap(currPoolName) ? 'yes' : '---'
             )
         );
     }

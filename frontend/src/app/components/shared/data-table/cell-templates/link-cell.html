@@ -1,1 +1,4 @@
-<a class="link" data-bind="href: $data.href || $data, text: $data.text || $data"></a>
+<a class="link" data-bind="
+    href: ko.unwrap($data).href || $data,
+    text: ko.unwrap($data).text || $data
+"></a>

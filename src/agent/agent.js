@@ -58,6 +58,7 @@ class Agent {
         }
 
         this.is_internal_agent = params.is_internal_agent;
+        this.current_server = 0;
 
         const block_store_options = {
             node_name: this.node_name,
@@ -190,7 +191,7 @@ class Agent {
         } else {
             //Skip to the next server in list
             this.current_server++;
-            if (this.current_server > this.servers.length) {
+            if (this.current_server >= this.servers.length) {
                 this.current_server = 0;
             }
         }

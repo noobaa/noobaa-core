@@ -40,6 +40,7 @@ const BlockStoreMem = require('./block_store_mem').BlockStoreMem;
 const promise_utils = require('../util/promise_utils');
 
 
+
 class Agent {
 
     constructor(params) {
@@ -173,6 +174,33 @@ class Agent {
         });
     }
 
+    _handle_server_change(suggested) {
+        dbg.error('_handle_server_change', suggested ? 'suggested server ' + suggested : 'no suggested server, trying next in list');
+        let previous_address = this.servers[this.current_server].address;
+        let new_address;
+        if (suggested) {
+            //Find if the suggested server appears in the list we got from the initial connect
+            this.current_server = _.findIndex(this.servers, function(s) {
+                return s.address === suggested;
+            });
+            if (this.current_server === -1) {
+                dbg.log0('Could not find suggested server', suggested, 'in existing servers list');
+                this.current_server = 0;
+            }
+        } else {
+            //Skip to the next server in list
+            this.current_server++;
+            if (this.current_server > this.servers.length) {
+                this.current_server = 0;
+            }
+        }
+        new_address = this.servers[this.current_server].address;
+        return P.resolve(this._update_rpc_config_internal({
+            base_address: new_address,
+            old_base_address: previous_address,
+        }));
+    }
+
     _init_node() {
         return P.resolve()
             .then(() => {
@@ -211,6 +239,11 @@ class Agent {
     _do_heartbeat() {
         if (!this.is_started) return;
 
+        if (this.connect_attempts > 20) { //NBNB
+            dbg.error('too many failure to connect, switching servers');
+            return this._handle_server_change();
+        }
+
         let hb_info = {
             version: pkg.version
         };
@@ -223,6 +256,9 @@ class Agent {
                 const res = req.reply;
                 const conn = req.connection;
                 this._server_connection = conn;
+                if (res.redirect) {
+                    return this._handle_server_change(res.redirect);
+                }
                 if (res.version !== pkg.version) {
                     dbg.warn('exit no version change:',
                         'res.version', res.version,
@@ -238,7 +274,11 @@ class Agent {
             })
             .catch(err => {
                 dbg.error('heartbeat failed', err);
-                return P.delay(3000).then(() => this._do_heartbeat());
+                return P.delay(3000).then(() => {
+                    this.connect_attempts++;
+                    this._do_heartbeat();
+                });
+
             });
     }
 
@@ -332,13 +372,60 @@ class Agent {
         // otherwise it's good
     }
 
+    _update_rpc_config_internal(params) {
+        if (params.n2n_config) {
+            this.n2n_agent.update_n2n_config(params.n2n_config);
+        }
+
+        if (params.rpc_address && params.rpc_address !== params.old_rpc_address) {
+            dbg.log0('new rpc_address', params.rpc_address,
+                'old', params.old_rpc_address);
+            this.rpc_address = params.rpc_address;
+            this._start_stop_server();
+        }
+
+        if (params.base_address && params.base_address !== params.old_base_address) {
+            dbg.log0('new base_address', params.base_address,
+                'old', params.old_base_address);
+            // test this new address first by pinging it
+            return P.fcall(() => this.client.node.ping(null, {
+                    address: params.base_address
+                }))
+                .then(() => fs.readFileAsync('agent_conf.json')
+                    .then(data => {
+                        const agent_conf = JSON.parse(data);
+                        dbg.log0('update_base_address: old address in agent_conf.json was -', agent_conf.address);
+                        return agent_conf;
+                    }, err => {
+                        if (err.code === 'ENOENT') {
+                            dbg.log0('update_base_address: no agent_conf.json file. creating new one...');
+                            return {};
+                        } else {
+                            throw err;
+                        }
+                    }))
+                .then(agent_conf => {
+                    agent_conf.address = params.base_address;
+                    const data = JSON.stringify(agent_conf);
+                    return fs.writeFileAsync('agent_conf.json', data);
+                })
+                .then(() => {
+                    dbg.log0('update_base_address: done -', params.base_address);
+                    this.rpc.router = api.new_router(params.base_address);
+                    // this.rpc.disconnect_all();
+                    this._do_heartbeat();
+                });
+        }
+    }
 
     // AGENT API //////////////////////////////////////////////////////////////////
 
 
-    get_agent_info(req) {
+    get_agent_info_and_update_masters(req) {
         const extended_hb = true;
         const ip = ip_module.address();
+        dbg.log('Recieved potential servers list', req.rpc_params.addresses);
+        this.servers = req.rpc_params.addresses;
         const reply = {
             version: pkg.version || '',
             name: this.node_name || '',
@@ -421,49 +508,13 @@ class Agent {
         const old_base_address = this.rpc.router.default;
         dbg.log0('update_rpc_config', req.rpc_params);
 
-        if (n2n_config) {
-            this.n2n_agent.update_n2n_config(n2n_config);
-        }
-
-        if (rpc_address && rpc_address !== old_rpc_address) {
-            dbg.log0('new rpc_address', rpc_address,
-                'old', old_rpc_address);
-            this.rpc_address = rpc_address;
-            this._start_stop_server();
-        }
-
-        if (base_address && base_address !== old_base_address) {
-            dbg.log0('new base_address', base_address,
-                'old', old_base_address);
-            // test this new address first by pinging it
-            return P.fcall(() => this.client.node.ping(null, {
-                    address: base_address
-                }))
-                .then(() => fs.readFileAsync('agent_conf.json')
-                    .then(data => {
-                        const agent_conf = JSON.parse(data);
-                        dbg.log0('update_base_address: old address in agent_conf.json was -', agent_conf.address);
-                        return agent_conf;
-                    }, err => {
-                        if (err.code === 'ENOENT') {
-                            dbg.log0('update_base_address: no agent_conf.json file. creating new one...');
-                            return {};
-                        } else {
-                            throw err;
-                        }
-                    }))
-                .then(agent_conf => {
-                    agent_conf.address = base_address;
-                    const data = JSON.stringify(agent_conf);
-                    return fs.writeFileAsync('agent_conf.json', data);
-                })
-                .then(() => {
-                    dbg.log0('update_base_address: done -', base_address);
-                    this.rpc.router = api.new_router(base_address);
-                    // this.rpc.disconnect_all();
-                    this._do_heartbeat();
-                });
-        }
+        this._update_rpc_config_internal({
+            n2n_config: n2n_config,
+            rpc_address: rpc_address,
+            old_rpc_address: old_rpc_address,
+            base_address: base_address,
+            old_base_address: old_base_address,
+        });
     }
 
     n2n_signal(req) {

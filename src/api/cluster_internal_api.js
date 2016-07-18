@@ -134,6 +134,49 @@ module.exports = {
             }
         },
 
+        apply_set_debug_level: {
+            method: 'POST',
+            params: {
+                type: 'object',
+                required: ['level'],
+                properties: {
+                    target_secret: {
+                        type: 'string',
+                    },
+                    level: {
+                        type: 'integer',
+                    }
+                },
+            },
+            auth: {
+                system: 'admin',
+            }
+        },
+
+        collect_server_diagnostics: {
+            method: 'POST',
+            params: {
+                type: 'object',
+                properties: {
+                    target_secret: {
+                        type: 'string',
+                    }
+                },
+            },
+            reply: {
+                type: 'object',
+                required: ['data'],
+                properties: {
+                    data: {
+                        buffer: true
+                    },
+                },
+            },
+            auth: {
+                system: 'admin',
+            }
+        },
+
         apply_read_server_time: {
             method: 'POST',
             params: {

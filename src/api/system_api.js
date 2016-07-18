@@ -101,7 +101,7 @@ module.exports = {
                 }
             },
             auth: {
-                system: false,
+                system: 'admin',
             }
         },
 

@@ -12,11 +12,11 @@ const MongoCtrl = require('../utils/mongo_ctrl');
 const cutil = require('../utils/clustering_utils');
 const P = require('../../util/promise');
 const fs_utils = require('../../util/fs_utils');
+const fs = require('fs');
 const os_utils = require('../../util/os_utils');
 const dbg = require('../../util/debug_module')(__filename);
 const config = require('../../../config.js');
 const promise_utils = require('../../util/promise_utils');
-const os = require('os');
 const diag = require('../utils/server_diagnostics');
 
 
@@ -350,6 +350,7 @@ function apply_updated_dns_servers(req) {
 
 
 function set_debug_level(req) {
+    dbg.log0('Recieved set_debug_level req', req);
     var debug_params = req.rpc_params;
     var target_servers = [];
     return P.fcall(function() {
@@ -375,12 +376,20 @@ function set_debug_level(req) {
 
 
 function apply_set_debug_level(req) {
-    // var debug_params = req.rpc_params;
-    // dbg.log0('Recieved set_debug_level req. level =', debug_params.level);
-    // if (req.system.debug_level === debug_params.level) {
-    //     dbg.log0('requested to set debug level to the same as current level. skipping.. level =', debug_params.level);
-    //     return;
-    // }
+    dbg.log0('Recieved apply_set_debug_level req', req.rpc_params);
+    if (req.rpc_params.target_secret) {
+        let cluster_server = system_store.data.cluster_by_server[req.rpc_params.target_secret];
+        if (!cluster_server) {
+            throw new RpcError('CLUSTER_SERVER_NOT_FOUND', 'Server with secret key:', req.rpc_params.target_secret, ' was not found');
+        }
+        if (cluster_server.debug_level === req.rpc_params.level) {
+            dbg.log0('requested to set debug level to the same as current level. skipping..', req.rpc_params);
+            return;
+        }
+    } else if (req.system.debug_level === req.rpc_params.level) {
+        dbg.log0('requested to set debug level to the same as current level. skipping..', req.rpc_params);
+        return;
+    }
 
     return _set_debug_level_internal(req, req.rpc_params.level)
         .then(() => {
@@ -394,7 +403,8 @@ function apply_set_debug_level(req) {
 
 
 function _set_debug_level_internal(req, level) {
-    return server_rpc.client.debug_api.set_debug_level({
+    dbg.log0('Recieved _set_debug_level_internal req', req.rpc_params, 'With Level', level);
+    return server_rpc.client.debug.set_debug_level({
             level: level,
             module: 'core'
         }, {
@@ -413,6 +423,8 @@ function _set_debug_level_internal(req, level) {
                 }];
             } else {
                 // Only master can update the whole system debug mode level
+                // TODO: If master falls in the process and we already passed him
+                // It means that nobody will update the system in the DB, yet it will be in debug
                 if (!system_store.is_cluster_master) {
                     return;
                 }
@@ -446,32 +458,37 @@ function diagnose_system(req) {
         _.each(system_store.data.clusters, cluster => target_servers.push(cluster));
     }
 
-    return P.each(target_servers, function(server) {
+    return fs_utils.create_fresh_path(`${TMP_WORK_DIR}`)
+    .then(() => {
+        return P.each(target_servers, function(server) {
             return server_rpc.client.cluster_internal.collect_server_diagnostics(req.rpc_params, {
                     address: 'ws://' + server.owner_address + ':8080',
                     auth_token: req.auth_token
                 })
                 .then((res_data) => {
+                    var server_hostname = 'unknown' || (server.heartbeat && server.heartbeat.health.os_info.hostname);
                     // Should never exist since above we delete the root folder
-                    return fs_utils.create_fresh_path(`${TMP_WORK_DIR}/${os.hostname()}_${server.owner_secret}`)
-                        .then(() => fs_utils.writeFileAsync(`${TMP_WORK_DIR}/${os.hostname()}_${server.owner_secret}/diagnostics.tgz`, res_data.data));
+                    return fs_utils.create_fresh_path(`${TMP_WORK_DIR}/${server_hostname}_${server.owner_secret}`)
+                        .then(() => fs.writeFileAsync(`${TMP_WORK_DIR}/${server_hostname}_${server.owner_secret}/diagnostics.tgz`, res_data.data));
                 });
-        })
-        .then(() => promise_utils.exec(`find ${TMP_WORK_DIR} -type f -maxdepth 1 -exec rm -f {} \;`))
-        .then(() => diag.pack_diagnostics(WORKING_PATH))
-        .then(() => (OUT_PATH));
+        });
+    })
+    .then(() => promise_utils.exec(`find ${TMP_WORK_DIR} -maxdepth 1 -type f -delete`))
+    .then(() => diag.pack_diagnostics(WORKING_PATH))
+    .then(() => (OUT_PATH));
+
 }
 
 
 function collect_server_diagnostics(req) {
     const INNER_PATH = `${process.cwd()}/build`;
     return P.resolve()
-        .then(() => server_rpc.client.system_api.diagnose_system(undefined, {
+        .then(() => server_rpc.client.system.diagnose_system(undefined, {
             auth_token: req.auth_token
         }))
         .then((out_path) => {
             dbg.log1('Reading packed file');
-            return fs_utils.readFileAsync(`${INNER_PATH}${out_path}`)
+            return fs.readFileAsync(`${INNER_PATH}${out_path}`)
                 .then(data => ({
                     data: new Buffer(data),
                 }))

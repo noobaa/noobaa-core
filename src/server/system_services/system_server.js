@@ -17,7 +17,7 @@ const pkg = require('../../../package.json');
 const dbg = require('../../util/debug_module')(__filename);
 const diag = require('../utils/server_diagnostics');
 const cutil = require('../utils/clustering_utils');
-// const config = require('../../../config');
+const config = require('../../../config');
 const md_store = require('../object_services/md_store');
 const os_utils = require('../../util/os_utils');
 const upgrade_utils = require('../../util/upgrade_utils');
@@ -35,6 +35,44 @@ const promise_utils = require('../../util/promise_utils');
 const bucket_server = require('./bucket_server');
 const account_server = require('./account_server');
 const system_server_utils = require('../utils/system_server_utils');
+
+// called on rpc server init
+function _init() {
+    const DEFUALT_DELAY = 5000;
+
+    function wait_for_system_store() {
+        var update_done = false;
+        P.fcall(function() {
+                if (system_store.is_finished_initial_load) {
+                    update_done = true;
+                    // The purpose of this code is to initialize the debug level
+                    // on server's startup, to synchronize the db with the actual value
+                    let current_clustering = system_store.get_local_cluster_info();
+                    if (current_clustering) {
+                        var update_object = {};
+                        update_object.clusters = [{
+                            _id: current_clustering._id,
+                            debug_level: 0
+                        }];
+                        return system_store.make_changes({
+                            update: update_object
+                        });
+                    }
+                }
+            })
+            .catch((err) => {
+                dbg.log('system_server _init', 'UNCAUGHT ERROR', err, err.stack);
+                return promise_utils.delay_unblocking(DEFUALT_DELAY).then(wait_for_system_store);
+            })
+            .then(() => {
+                if (!update_done) {
+                    return promise_utils.delay_unblocking(DEFUALT_DELAY).then(wait_for_system_store);
+                }
+            });
+    }
+    promise_utils.delay_unblocking(DEFUALT_DELAY).then(wait_for_system_store);
+}
+
 
 function new_system_defaults(name, owner_account_id) {
     var system = {
@@ -303,13 +341,15 @@ function set_webserver_master_state(req) {
     // TODO: This is for future use when we will need to realize if master state changed
     if (system_store.is_cluster_master !== req.rpc_params.is_master) {
         system_store.is_cluster_master = req.rpc_params.is_master;
-        // if (system_store.is_cluster_master) {
-        //     // If current server became master
-        //
-        // } else {
-        //     // If current server not master anymore
-        //
-        // }
+        if (system_store.is_cluster_master) {
+            // If current server became master
+            promise_utils.delay_unblocking(config.DEBUG_MODE_PERIOD) //10m
+                .then(() => server_rpc.client.cluster_server.set_debug_level({
+                    level: 0
+                }, {
+                    auth_token: req.auth_token
+                }));
+        }
     }
 }
 
@@ -899,6 +939,7 @@ function find_account_by_email(req) {
 
 
 // EXPORTS
+exports._init = _init;
 exports.new_system_defaults = new_system_defaults;
 exports.new_system_changes = new_system_changes;
 

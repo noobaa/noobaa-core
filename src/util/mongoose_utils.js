@@ -65,7 +65,7 @@ function mongoose_connect() {
         url_obj.username = config.MONGO_DEFAULTS.DEFAULT_USER;
         url_obj.password = config.MONGO_DEFAULTS.DEFAULT_MONGO_PWD;
     }
-    const new_url = mongodb_uri.formatMongoose(url_obj);
+    const new_url = mongodb_uri.format(url_obj);
     if (!mongoose_connected) {
         dbg.log0('connecting mongoose to', new_url);
         mongoose.connect(new_url);

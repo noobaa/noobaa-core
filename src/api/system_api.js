@@ -101,7 +101,7 @@ module.exports = {
                 }
             },
             auth: {
-                system: false,
+                system: 'admin',
             }
         },
 
@@ -394,21 +394,21 @@ module.exports = {
             }
         },
 
-        set_debug_level: {
-            method: 'POST',
-            params: {
-                type: 'object',
-                required: ['level'],
-                properties: {
-                    level: {
-                        type: 'integer',
-                    }
-                },
-            },
-            auth: {
-                system: 'admin',
-            }
-        },
+        // set_debug_level: {
+        //     method: 'POST',
+        //     params: {
+        //         type: 'object',
+        //         required: ['level'],
+        //         properties: {
+        //             level: {
+        //                 type: 'integer',
+        //             }
+        //         },
+        //     },
+        //     auth: {
+        //         system: 'admin',
+        //     }
+        // },
 
         update_n2n_config: {
             method: 'POST',
@@ -840,6 +840,9 @@ module.exports = {
                     items: {
                         type: 'string'
                     },
+                },
+                debug_level: {
+                    type: 'integer'
                 }
             }
         },

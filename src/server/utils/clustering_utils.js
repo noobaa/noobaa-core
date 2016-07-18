@@ -11,6 +11,7 @@ const os_utils = require('../../util/os_utils');
 const dbg = require('../../util/debug_module')(__filename);
 const config = require('../../../config');
 const os = require('os');
+const moment = require('moment');
 
 function get_topology() {
     return system_store.get_local_cluster_info();
@@ -165,6 +166,7 @@ function get_cluster_info() {
         let single_server = system_store.data.clusters.length === 1;
         let is_connected = single_server;
         let hostname = os.hostname();
+        let time_epoch = moment().unix();
         let location = cinfo.location;
         if (cinfo.heartbeat) {
             memory_usage = (1 - cinfo.heartbeat.health.os_info.freemem / cinfo.heartbeat.health.os_info.totalmem);
@@ -187,7 +189,8 @@ function get_cluster_info() {
             debug_level: cinfo.debug_level,
             ntp_server: cinfo.ntp && cinfo.ntp.server,
             timezone: cinfo.ntp && cinfo.ntp.timezone,
-            dns_servers: cinfo.dns_servers || []
+            dns_servers: cinfo.dns_servers || [],
+            time_epoch: time_epoch
         };
         shard.servers.push(server_info);
     });

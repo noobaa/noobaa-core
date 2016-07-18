@@ -829,6 +829,9 @@ module.exports = {
                 ntp_server: {
                     type: 'string'
                 },
+                time_epoch: {
+                    format: 'idate'
+                },
                 timezone: {
                     type: 'string'
                 },

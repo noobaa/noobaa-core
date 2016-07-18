@@ -12,16 +12,14 @@ const P = require('../util/promise');
 const config = require('../../config.js');
 const os_utils = require('../util/os_utils');
 const fs_utils = require('../util/fs_utils');
-const system_store = require('../server/system_services/system_store').get_instance();
 
 const is_windows = (process.platform === "win32");
 
 const TMP_WORK_DIR = is_windows ? process.env.ProgramData + '/diag' : '/tmp/diag';
 
-function collect_basic_diagnostics(limit_logs_size) {
-    var current_clustering = system_store.get_local_cluster_info();
+function collect_basic_diagnostics(limit_logs_size, is_clusterized) {
     return P.fcall(function() {
-            if (!current_clustering || (current_clustering && !current_clustering.is_clusterized)) {
+            if (!is_clusterized) {
                 return fs_utils.folder_delete(TMP_WORK_DIR);
             }
             return;
@@ -30,7 +28,7 @@ function collect_basic_diagnostics(limit_logs_size) {
             return fs_utils.file_delete(process.cwd() + '/build/public/diagnose.tgz');
         })
         .then(function() {
-            if (!current_clustering || (current_clustering && !current_clustering.is_clusterized)) {
+            if (!is_clusterized) {
                 console.log('creating ', TMP_WORK_DIR);
                 return fs_utils.create_path(TMP_WORK_DIR);
             }

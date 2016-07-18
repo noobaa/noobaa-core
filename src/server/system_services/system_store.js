@@ -304,6 +304,7 @@ class SystemStore extends EventEmitter {
     constructor() {
         super();
         this.is_cluster_master = false;
+        this.is_finished_initial_load = false;
         this.START_REFRESH_THRESHOLD = 10 * 60 * 1000;
         this.FORCE_REFRESH_THRESHOLD = 60 * 60 * 1000;
         this._json_validator = new Ajv({
@@ -360,6 +361,7 @@ class SystemStore extends EventEmitter {
                 dbg.log0('SystemStore: rebuild took', time_utils.millitook(millistamp));
                 this.data = new_data;
                 this.emit('load');
+                this.is_finished_initial_load = true;
                 return this.data;
             })
             .finally(() => {

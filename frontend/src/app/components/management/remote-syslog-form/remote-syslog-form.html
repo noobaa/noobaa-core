@@ -22,7 +22,7 @@
 <section class="column" data-bind="expand: expanded">
     <p class="push-next">Configuring a remote syslog server enables the appliance to collect and forward it's internal logs to the configured server</p>
 
-    <editor class="push-next" params="label: 'Enable'">
+    <editor class="push-next" params="label: 'Remote syslog'">
             <toggle-switch params="value: enabled"></toggle-switch>
         </editor>
         <editor params="label: 'Protocol', disabled: !enabled()" class="push-next">

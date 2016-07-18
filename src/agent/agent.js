@@ -195,6 +195,7 @@ class Agent {
             }
         }
         new_address = this.servers[this.current_server].address;
+        this.connect_attempts = 0;
         return P.resolve(this._update_rpc_config_internal({
             base_address: new_address,
             old_base_address: previous_address,
@@ -253,6 +254,7 @@ class Agent {
         return this.client.node.heartbeat(hb_info, {
                 return_rpc_req: true
             }).then(req => {
+                this.connect_attempts = 0;
                 const res = req.reply;
                 const conn = req.connection;
                 this._server_connection = conn;

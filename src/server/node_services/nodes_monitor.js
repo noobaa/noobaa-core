@@ -205,6 +205,9 @@ class NodesMonitor extends EventEmitter {
     }
 
     _set_node_defaults(item) {
+        if (!_.isNumber(item.node.hearbeat)) {
+            item.node.hearbeat = new Date(item.node.hearbeat).getTime() || 0;
+        }
         item.node.drives = item.node.drives || [];
         item.node.latency_to_server = item.node.latency_to_server || [];
         item.node.latency_of_disk_read = item.node.latency_of_disk_read || [];

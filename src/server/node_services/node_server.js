@@ -20,9 +20,10 @@ let monitor;
 // called on rpc server init
 function _init() {
     monitor = new nodes_monitor.NodesMonitor();
-    if (system_store.is_cluster_master) {
-        return monitor.start();
-    }
+    //TODO:: return this once we enable HA
+    //if (system_store.is_cluster_master) {
+    return monitor.start();
+    //}
 }
 
 function get_local_monitor() {

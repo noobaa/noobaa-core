@@ -13,7 +13,7 @@ function notIn(value, params) {
     );
 }
 
-function hasNoLeadingOrTrailingSpaces() {
+function hasNoLeadingOrTrailingSpaces(value) {
     return value.trim() === value;
 }
 

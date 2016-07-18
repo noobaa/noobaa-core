@@ -211,9 +211,9 @@ function wmic_parse_list(text) {
 function top_single(dst) {
     var file_redirect = dst ? ' &> ' + dst : '';
     if (os.type() === 'Darwin') {
-        return promise_utils.exec('top -l 1' + file_redirect);
+        return promise_utils.exec('top -c -l 1' + file_redirect);
     } else if (os.type() === 'Linux') {
-        return promise_utils.exec('top -b -n 1' + file_redirect);
+        return promise_utils.exec('top -c -b -n 1' + file_redirect);
     } else if (os.type() === 'Windows_NT') {
         return;
     } else {

@@ -262,7 +262,7 @@ class Agent {
                     return this._handle_server_change(res.redirect);
                 }
                 if (res.version !== pkg.version) {
-                    dbg.warn('exit no version change:',
+                    dbg.warn('exit on version change:',
                         'res.version', res.version,
                         'pkg.version', pkg.version);
                     process.exit(0);

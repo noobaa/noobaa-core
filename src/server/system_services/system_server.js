@@ -350,11 +350,11 @@ function set_webserver_master_state(req) {
                 }, {
                     auth_token: req.auth_token
                 }));
-            //Going Master
-            node_server.start_monitor();
+            //Going Master //TODO:: add this one we get back to HA
+            //node_server.start_monitor();
         } else {
             //Stepping Down
-            node_server.stop_monitor();
+            //node_server.stop_monitor();
         }
     }
 }

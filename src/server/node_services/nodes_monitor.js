@@ -107,6 +107,14 @@ class NodesMonitor extends EventEmitter {
         this._started = false;
     }
 
+
+
+
+    ///////////////////
+    // INTERNAL IMPL //
+    ///////////////////
+
+
     _clear() {
         this._loaded = false;
         this._map_node_id = new Map();
@@ -665,15 +673,16 @@ class NodesMonitor extends EventEmitter {
     }
 
 
-
-
-    //////////////////////////////////////////////////////////////
-
-
+    /**
+     * sync_to_store is used for testing to get the info from all nodes
+     */
     sync_to_store() {
         return P.resolve(this._run()).return();
     }
 
+    /**
+     * heartbeat request from node agent
+     */
     heartbeat(req) {
         const extra = req.auth.extra || {};
         const node_id = String(extra.node_id || '');
@@ -714,6 +723,9 @@ class NodesMonitor extends EventEmitter {
         throw new RpcError('FORBIDDEN', 'Bad heartbeat request');
     }
 
+    /**
+     * read_node returns information about one node
+     */
     read_node(node_identity) {
         this._throw_if_not_started_and_loaded();
         const item = this._get_node(node_identity, 'allow_offline');
@@ -1111,6 +1123,11 @@ class NodesMonitor extends EventEmitter {
         return item;
     }
 
+    /**
+     * n2n_signal sends an n2n signal to the target node,
+     * and returns the reply to the source node,
+     * in order to assist with n2n ICE connection establishment between two nodes.
+     */
     n2n_signal(signal_params) {
         dbg.log1('n2n_signal:', signal_params.target);
         this._throw_if_not_started_and_loaded();
@@ -1125,6 +1142,9 @@ class NodesMonitor extends EventEmitter {
         });
     }
 
+    /**
+     * n2n_proxy sends an rpc call to the target node like a proxy.
+     */
     n2n_proxy(proxy_params) {
         dbg.log3('n2n_proxy: target', proxy_params.target,
             'call', proxy_params.method_api + '.' + proxy_params.method_name,

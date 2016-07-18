@@ -283,10 +283,6 @@ class NodesMonitor extends EventEmitter {
         if (!item.connection) return;
         dbg.log0('_get_agent_info:', item.node.name);
         let potential_masters = clustering_utils.get_potential_masters();
-        //NBNB:: REMOVE this
-        potential_masters.push({
-            address: '127.0.0.1'
-        });
 
         return this.client.agent.get_agent_info_and_update_masters({
                 addresses: potential_masters

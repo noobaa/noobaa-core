@@ -101,3 +101,6 @@ export const lastNotification = ko.observable();
 
 // hold system upload ssl certificate status.
 export const sslCertificateUploadStatus = ko.observable();
+
+// Used to replay read server time events.
+export const serverTime = ko.observable();

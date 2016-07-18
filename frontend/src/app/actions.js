@@ -493,11 +493,12 @@ export function loadPoolNodeList(poolName, filter, hasIssues, sortBy, order, pag
         .done();
 }
 
-export function loadNodeList() {
-    logAction('loadNodeList');
+export function loadNodeList(filter, pools, online) {
+    logAction('loadNodeList', { filter, pools, online });
 
-    model.nodeList([]);
-    api.node.list_nodes({})
+    api.node.list_nodes({
+        query: { filter, pools, online }
+    })
         .then(
             ({ nodes }) => model.nodeList(nodes)
         )
@@ -1576,39 +1577,6 @@ export function updateAccountS3ACL(email, acl) {
         .done();
 }
 
-
-export function updateServerTime(timezone, epoch) {
-    logAction('updateServerTime', { timezone, epoch });
-
-    api.system.update_time_config({
-        config_type: 'MANUAL',
-        timezone: timezone,
-        epoch: epoch
-    })
-        .then(
-            () => notify('Date & time updated successfully', 'success'),
-            () => notify('Updating date & time failed', 'error')
-        )
-        .then(loadSystemInfo)
-        .done();
-}
-
-export function updateServerNTP(timezone, server) {
-    logAction('updateServerNTP', { timezone, server });
-
-    api.system.update_time_config({
-        config_type: 'NTP',
-        timezone: timezone,
-        server: server
-    })
-        .then(
-            () => notify('NTP settings updated successfully', 'success'),
-            () => notify('Updating NTP settings failed', 'error')
-        )
-        .then(loadSystemInfo)
-        .done();
-}
-
 export function enterMaintenanceMode(duration) {
     logAction('enterMaintenanceMode', { duration });
 
@@ -1685,7 +1653,7 @@ export function updateServerDNSSettings(serverSecret, primaryDNS, secondaryDNS) 
         server => server
     );
 
-    let { address} = model.systemInfo().cluster.shards[0].servers.find(
+    let { address } = model.systemInfo().cluster.shards[0].servers.find(
         server => server.secret === serverSecret
     );
 
@@ -1697,6 +1665,59 @@ export function updateServerDNSSettings(serverSecret, primaryDNS, secondaryDNS) 
             () => notify(`${address} DNS settings updated successfully`, 'success'),
             () => notify(`Updating ${address} DNS settings failed`, 'error')
         )
+        .then(loadSystemInfo)
+        .done();
+}
+
+export function loadServerTime(serverSecret) {
+    logAction('loadServerTime', { serverSecret });
+
+
+    api.cluster_server.read_server_time({ target_secret: serverSecret })
+        .then(
+            time => model.serverTime({
+                server: serverSecret,
+                time: time
+            })
+        )
+        .done();
+}
+
+export function updateServerClock(serverSecret, timezone, epoch) {
+    logAction('updateServerClock', { serverSecret, timezone, epoch });
+
+    let { address } = model.systemInfo().cluster.shards[0].servers.find(
+        server => server.secret === serverSecret
+    );
+
+    api.cluster_server.update_time_config({
+        target_secret: serverSecret,
+        timezone: timezone,
+        epoch: epoch
+    })
+        .then(
+            () => notify(`${address} time settings updated successfully`, 'success'),
+            () => notify(`Updating ${address} time settings failed`, 'error')
+        )
+        .then(loadSystemInfo)
+        .done();
+}
+export function updateServerNTPSettings(serverSecret, timezone, ntpServerAddress) {
+    logAction('updateServerNTP', { serverSecret, timezone, ntpServerAddress });
+
+    let { address } = model.systemInfo().cluster.shards[0].servers.find(
+        server => server.secret === serverSecret
+    );
+
+    api.cluster_server.update_time_config({
+        timezone: timezone,
+        ntp_server: ntpServerAddress
+    })
+        .then(
+            () => notify(`${address} time settings updated successfully`, 'success'),
+            () => notify(`Updating ${address} time settings failed`, 'error')
+        )
+        .then(loadSystemInfo)
         .done();
 }
 

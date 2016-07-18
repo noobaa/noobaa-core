@@ -9,7 +9,7 @@ export default class Disposable {
         Object.defineProperty(this, 'disposeList', { value: [] });
     }
 
-    disposeWithMe(subject, disposer = dispose) {
+    addToDisposeList(subject, disposer = dispose) {
         this.disposeList.push(
             () => disposer(subject)
         );

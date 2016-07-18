@@ -2,7 +2,7 @@ import template from './pool-nodes-table.html';
 import NodeRowViewModel from './node-row';
 import Disposable from 'disposable';
 import ko from 'knockout';
-import { paginationPageSize } from 'config';
+import { paginationPageSize, inputThrottle } from 'config';
 import { makeArray, throttle} from 'utils';
 import { redirectTo } from 'actions';
 import { routeContext } from 'model';
@@ -60,7 +60,7 @@ class PoolNodesTableViewModel extends Disposable {
 
         this.filter = ko.pureComputed({
             read: () => query().filter,
-            write: throttle(phrase => this.filterObjects(phrase), 750)
+            write: throttle(phrase => this.filterObjects(phrase), inputThrottle)
         });
 
         this.rows = makeArray(

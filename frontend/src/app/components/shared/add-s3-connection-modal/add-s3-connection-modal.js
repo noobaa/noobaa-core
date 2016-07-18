@@ -72,7 +72,7 @@ class AddS3ConnectionModalViewModel extends Disposable {
                 }
             });
 
-        this.autoDispsoe(
+        this.addToDisposeList(
             isS3ConnectionValid.subscribe(
                 isValid => isValid && this.save()
             )

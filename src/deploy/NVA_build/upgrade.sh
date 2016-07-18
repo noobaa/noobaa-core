@@ -61,7 +61,7 @@ function restart_webserver {
 
 function setup_users {
 	deploy_log "setting up mongo users for admin and nbcore databases"
-	/usr/bin/mongo admin ${CORE_DIR}/src/deploy/NVA_build/mongo_setup_users.js
+	/usr/bin/mongo admin ${EXTRACTION_PATH}noobaa-core/src/deploy/NVA_build/mongo_setup_users.js
 	deploy_log "setup_users done"
 }
 
@@ -119,6 +119,7 @@ function extract_package {
 }
 
 function do_upgrade {
+  setup_users
   disable_supervisord
 
   unalias cp
@@ -151,7 +152,6 @@ function do_upgrade {
   deploy_log "Finished post upgrade"
 
   enable_supervisord
-  setup_users
   deploy_log "Enabling supervisor"
   #workaround - from some reason, without sleep + restart, the server starts with odd behavior
   #TODO: understand why and fix.

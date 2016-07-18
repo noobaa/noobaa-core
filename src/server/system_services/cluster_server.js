@@ -18,6 +18,7 @@ const dbg = require('../../util/debug_module')(__filename);
 const config = require('../../../config.js');
 const promise_utils = require('../../util/promise_utils');
 const diag = require('../utils/server_diagnostics');
+const moment = require('moment');
 
 
 function _init() {
@@ -260,14 +261,20 @@ function update_time_config(req) {
                 _.each(system_store.data.clusters, cluster => target_servers.push(cluster));
             }
 
+            if (!time_config.ntp_server && !time_config.epoch) {
+                throw new RpcError('CONFIG_NOT_FOUND', 'Missing time configuration (ntp_server or epoch)');
+            }
+
+            if (time_config.ntp_server && time_config.epoch) {
+                throw new RpcError('DUAL_CONFIG', 'Dual configuration provided (ntp_server and epoch)');
+            }
+
             let config_to_update = {
-                timezone: time_config.timezone,
-                server: (time_config.config_type === 'NTP') ?
-                    time_config.server : ''
+                timezone: time_config.timezone
             };
 
-            if (time_config.config_type === "MANUAL" && _.isUndefined(time_config.epoch)) {
-                throw new RpcError('EPOCH_NOT_PROVIDED', 'Cannot configure manual time without epoch');
+            if (time_config.ntp_server) {
+                config_to_update.server = time_config.ntp_server;
             }
 
             let updates = _.map(target_servers, server => ({
@@ -295,7 +302,7 @@ function update_time_config(req) {
 function apply_updated_time_config(req) {
     var time_config = req.rpc_params;
     return P.fcall(function() {
-            if (time_config.config_type === 'NTP') { //set NTP
+            if (time_config.ntp_server) { //set NTP
                 return os_utils.set_ntp(time_config.server, time_config.timezone);
             } else { //manual set
                 return os_utils.set_manual_time(time_config.epoch, time_config.timezone);
@@ -519,7 +526,7 @@ function read_server_time(req) {
 
 
 function apply_read_server_time(req) {
-    return Date.now();
+    return moment().unix();
 }
 
 

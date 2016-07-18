@@ -42,7 +42,7 @@ class AuditPaneViewModel extends Disposable {
                 }
             });
 
-        this.disposeWithMe(
+        this.addToDisposeList(
             this.scroll.subscribe(
                 pos => pos > .9 && loadMoreAuditEntries(pageSize)
             )

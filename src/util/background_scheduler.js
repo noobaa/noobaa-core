@@ -49,7 +49,11 @@ class Background_Scheduler {
             }
         }
         dbg.log('run_background_worker:', 'INIT', worker.name);
-        promise_utils.delay_unblocking(worker.boot_delay || worker.delay || DEFUALT_DELAY).then(run);
+        let initial_delay = 0;
+        if (!worker.run_immediate) {
+            initial_delay = worker.boot_delay || worker.delay || DEFUALT_DELAY;
+        }
+        promise_utils.delay_unblocking(initial_delay).then(run);
         return worker;
     }
 

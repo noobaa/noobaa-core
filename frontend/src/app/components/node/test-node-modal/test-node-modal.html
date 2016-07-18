@@ -1,62 +1,75 @@
 <modal params="onClose: () => close()">
 
-        <h1 class="heading1 text-center push-next">
-            Node's connectivity test
-        </h1>
+    <h1 class="heading1 text-center push-next">
+        Node's connectivity test
+    </h1>
 
-        <h2 class="heading3">Test Type</h2>
-        <div class="row content-middle push-next">
-            <radio-group class="greedy" params="
-                selected: selectedTests,
-                options: testTypeOptions
-            "></radio-group>
-            <button class="btn3" data-bind="click: runTest, visible: !testing()">
-                Run Test
-            </button>
-            <button class="btn3" data-bind="click: abortTest, visible: testing">
-                Abort Test
-            </button>
-        </div>
-
-        <h2 class="heading3">
-            Test Results
-            <span class="remark" data-bind="text: lastTestTime"></span>
-        </h2>
-        <div class="results box column greedy">
-            <!-- ko ifnot: hasResults -->
-            Click on the Run Test button to start the test
-            <!-- /ko -->
-
-            <!-- ko if: hasResults -->
-            <div class="data-table greedy">
-                <table>
-                    <thead>
-                        <tr>
-                            <th class="test-col">Test</th>
-                            <th class="target-col text-left">Target</th>
-                            <th class="time-col">Time</th>
-                            <th class="speed-col">Speed</th>
-                            <th class="progress-col">Progress</th>
-                        </tr>
-                    </thead>
-
-                    <tbody data-bind="foreach: rows">
-                        <!-- ko if: isVisible -->
-                        <tr class="result" data-bind="css: stateClass">
-                            <td class="test-col" data-bind="text: test"></td>
-                            <td class="target-col text-left" data-bind="text: target"></td>
-                            <td class="time-col" data-bind="text: time"></td>
-                            <td class="speed-col" data-bind="text: speed"></td>
-                            <td class="progress-col" data-bind="text: progress"></td>
-                        </tr>
-                        <!-- /ko -->
-                    </tbody>
-                </table>
-            </div>
-            <!-- /ko -->
-        </div>
-
-        <button class="action btn2 align-end push-prev" data-bind="click: close">
-            Close
+    <div class="config box row content-middle push-next">
+        <radio-group class="c8" params="
+            selected: selectedTests,
+            options: testTypeOptions
+        "></radio-group>
+        <button class="btn3 c2 push-next" data-bind="
+            click: runTest,
+            disable: testing
+        ">
+            Run
         </button>
+        <button class="btn3 c2" data-bind="
+            click: abortTest,
+            enable: testing
+        ">
+            Stop
+        </button>
+    </div>
+
+    <section class="box column greedy">
+        <data-table params="
+            columns: columns,
+            rowFactory: createTestRow,
+            data: results,
+            emptyMessage: 'Click on the run button to start the test'
+        "></data-table>
+    </section>
+
+    <section class="box summary row content-middle">
+        <span class="push-next">Summary:</span>
+
+        <!-- ko if:summary -->
+        <span class="summary-counter success push-both">
+            <svg-icon params="name: 'notif-success'" class="icon-small"></svg-icon>
+            <span>Completed</span>
+            <span class="emphasized" data-bind="text: summary().completed"></span>
+        </span>
+
+        <span class="summary-counter error push-both">
+            <svg-icon params="name: 'notif-error'" class="icon-small"></svg-icon>
+            <span>Failed</span>
+            <span class="emphasized" data-bind="text: summary().failed"></span>
+        </span>
+
+        <span class="summary-counter push-both" data-bind="
+            visible: summary().inProcess
+        ">
+            <svg-icon params="name: 'in-progress'" class="icon-small"></svg-icon>
+            <span>In Process</span>
+            <span class="emphasized" data-bind="text: summary().inProcess"></span>
+        </span>
+
+        <span class="summary-counter warning push-both" data-bind="
+            visible: summary().aborted
+        ">
+            <svg-icon params="name: 'notif-warning'" class="icon-small"></svg-icon>
+            <span>Aborted</span>
+            <span class="emphasized" data-bind="text: summary().aborted"></span>
+        </span>
+        <!-- /ko -->
+    </section>
+
+    <button class="action btn2 align-end push-prev" data-bind="
+        click: close,
+        text: closeBtnText
+    ">
+        Close
+    </button>
 </modal>

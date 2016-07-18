@@ -39,16 +39,29 @@ class RemoteSyslogFormViewModel extends Disposable {
                     onlyIf: this.enabled,
                     message: 'Please enter an IP or DNS name'
                 },
-                isIPOrDNSName: true
+                isIPOrDNSName: {
+                    onlyIf: this.enabled
+                }
             });
 
         this.port = ko.observableWithDefault(
             () => config() ? config().port : protocols[this.protocol()].defaultPort
         )
             .extend({
-                required: { onlyIf: this.enabled, message: portValMessage },
-                min: { params: 1, message: portValMessage },
-                max: { params: 65535, message: portValMessage }
+                required: {
+                    onlyIf: this.enabled,
+                    message: portValMessage
+                },
+                min: {
+                    onlyIf: this.enabled,
+                    params: 1,
+                    message: portValMessage
+                },
+                max: {
+                    onlyIf: this.enabled,
+                    params: 65535,
+                    message: portValMessage
+                }
             });
 
         this.protocolOptions = Object.keys(protocols).map(

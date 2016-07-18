@@ -69,7 +69,7 @@ class BucketDataPlacementFormViewModel extends Disposable {
 
                     return {
                         name: name,
-                        onlineNodeCount: nodes.count,
+                        onlineNodeCount: nodes.online,
                         freeSpace: formatSize(storage.free)
                     };
                 }

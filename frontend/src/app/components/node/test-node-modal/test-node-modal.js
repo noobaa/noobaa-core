@@ -4,12 +4,12 @@ import Disposable from 'disposable';
 import ko from 'knockout';
 import { nodeTestInfo } from 'model';
 import { testNode, abortNodeTest } from 'actions';
-import { makeArray } from 'utils';
+import { deepFreeze } from 'utils';
 import moment from 'moment';
 
 const testTypes = Object.freeze([
     {
-        name: 'Full',
+        name: 'Full test',
         tests: ['connectivity', 'bandwidth']
     },
     {
@@ -22,11 +22,20 @@ const testTypes = Object.freeze([
     }
 ]);
 
+const columns = deepFreeze([
+    'test',
+    'target',
+    'time',
+    'speed',
+    'progress'
+]);
+
 class TestNodeModalViewModel extends Disposable {
     constructor({ sourceRpcAddress, onClose }) {
         super();
 
         this.onClose = onClose;
+        this.columns = columns;
 
         this.testTypeOptions = testTypes.map(
             ({ name, tests }) => {
@@ -38,27 +47,53 @@ class TestNodeModalViewModel extends Disposable {
 
         this.selectedTests = ko.observable(testTypes[0].tests);
 
-        let results = ko.pureComputed(
+        this.results = ko.pureComputed(
             () => nodeTestInfo() && nodeTestInfo().results
-        );
-
-        this.hasResults = ko.pureComputed(
-            () => !!results() && results().length > 0
         );
 
         this.lastTestTime = ko.pureComputed(
             () => nodeTestInfo() &&
-                `( From: ${moment(nodeTestInfo().timestemp).format('HH:mm:ss')} )`
+                `( Last test results from: ${
+                    moment(nodeTestInfo().timestemp).format('HH:mm:ss')
+            } )`
         );
 
         this.testing = ko.pureComputed(
             () => !!nodeTestInfo() && nodeTestInfo().state === 'IN_PROGRESS'
         );
 
-        this.rows = makeArray(
-            100,
-            i => new TestRowViewModel(() => results()[i])
+        this.summary = ko.pureComputed(
+            () => this.results() && this._summarizeResults(this.results())
         );
+
+        this.bandwidthSummary = ko.pureComputed(
+            () => this._getTestSummary(this.results(), 'bandwidth')
+        );
+
+        this.closeBtnText = ko.pureComputed(
+            () => this.testing() ? 'Run in background' : 'close'
+        );
+    }
+
+    _summarizeResults(results) {
+        return results.reduce(
+            (summary, { state }) => {
+                summary.inProcess += Number(state === 'RUNNING' || state === 'WAITING');
+                summary.completed += Number(state === 'COMPLETED');
+                summary.failed += Number(state === 'FAILED');
+                summary.aborted += Number(state === 'ABORTED');
+                return summary;
+            }, {
+                inProcess: 0,
+                completed: 0,
+                failed: 0,
+                aborted: 0
+            }
+        );
+    }
+
+    createTestRow(result) {
+        return new TestRowViewModel(result);
     }
 
     runTest() {

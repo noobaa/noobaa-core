@@ -61,7 +61,7 @@
 
         <tbody data-bind="foreach: visibleRows">
             <tr>
-                <td class="state-col">
+                <td class="state-col" data-bind="tooltip: stateTooltip">
                     <svg-icon params="name: stateIcon"></svg-icon>
                 </td>
                 <td class="name-col text-left">

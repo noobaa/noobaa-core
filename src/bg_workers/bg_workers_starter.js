@@ -89,9 +89,6 @@ function run_master_workers() {
     if (process.env.SCRUBBER_DISABLED !== 'true') {
         register_bg_worker({
             name: 'scrubber',
-            batch_size: 1000,
-            time_since_last_build: 60000, // TODO increase?
-            building_timeout: 300000, // TODO increase?
         }, scrubber.background_worker);
     }
 }

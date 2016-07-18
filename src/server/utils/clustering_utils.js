@@ -207,6 +207,17 @@ function get_cluster_info() {
     return cluster_info;
 }
 
+function get_potential_masters() {
+    //TODO: For multiple shards, this should probably change?
+    var masters = [];
+    _.each(get_topology().shards[0].servers, function(s) {
+        masters.push({
+            address: s.address
+        });
+    });
+    return masters;
+}
+
 
 //Exports
 exports.get_topology = get_topology;
@@ -220,3 +231,4 @@ exports.pretty_topology = pretty_topology;
 exports.rs_array_changes = rs_array_changes;
 exports.find_shard_index = find_shard_index;
 exports.get_cluster_info = get_cluster_info;
+exports.get_potential_masters = get_potential_masters;

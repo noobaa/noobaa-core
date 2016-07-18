@@ -98,12 +98,14 @@ function run_master_workers() {
 
 register_bg_worker({
     name: 'cluster_master_publish',
-    delay: config.CLUSTER_MASTER_INTERVAL
+    delay: config.CLUSTER_MASTER_INTERVAL,
+    run_immediate: true
 }, cluster_master.background_worker);
 
 register_bg_worker({
     name: 'cluster_heartbeat_writer',
-    delay: config.CLUSTER_HB_INTERVAL
+    delay: config.CLUSTER_HB_INTERVAL,
+    run_immediate: true
 }, cluster_hb.do_heartbeat);
 
 dbg.log('BG Workers Server started');

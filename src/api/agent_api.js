@@ -13,8 +13,25 @@ module.exports = {
 
     methods: {
 
-        get_agent_info: {
+        get_agent_info_and_update_masters: {
             method: 'PUT',
+            params: {
+                type: 'object',
+                required: ['addresses'],
+                properties: {
+                    addresses: {
+                        type: 'array',
+                        items: {
+                            type: 'object',
+                            properties: {
+                                address: {
+                                    type: 'string'
+                                },
+                            },
+                        },
+                    },
+                },
+            },
             reply: {
                 type: 'object',
                 properties: {

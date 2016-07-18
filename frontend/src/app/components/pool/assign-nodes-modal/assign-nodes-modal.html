@@ -7,77 +7,52 @@
         Choose the nodes you wish to pull into this pool and increase your pool potential capacity
     </p>
 
-    <div class="row push-next content-middle">
-        <input type="search" placeholder="Search node by name or ip" class="push-next"/>
+    <div class="row push-both content-middle">
+        <input type="search" placeholder="filter by node name or ip" class="push-next"
+            data-bind="textInput: nameOrIpFilter"/>
+
         <span class="push-next">in</span>
-        <dropdown params="placeholder: 'all pools'"></dropdown>
+
+        <dropdown params="
+            placeholder: 'All Pools',
+            options: poolFilterOptions,
+            selected: poolFilter
+        "></dropdown>
     </div>
+
+    <checkbox class="push-next" params="
+        checked: onlineFilter,
+        label: 'Show online nodes only'
+    "></checkbox>
 
 
     <div class="row content-middle push-prev">
         <h2 class="heading3 greedy">Select nodes to assign to this pool</h2>
         <div>
-            <button class="link" data-bind="click: selectAllNodes">
-                Select all
+            <button class="link" data-bind="click: selectListedNodes">
+                Select nodes
             </button>
             |
-            <button class="link" data-bind="click: clearAllNodes">
-                Clear
+            <button class="link" data-bind="click: clearListedNodes">
+                Clear nodes
             </button>
         </div>
     </div>
 
-    <div class="box row greedy push-next">
-        <div class="data-table">
-        <table>
-            <thead>
-                <tr>
-                    <th class="name-col text-left">name</th>
-                    <th class="ip-col">ip</th>
-                    <th class="capacity-col">capacity</th>
-                    <th class="pool-col">pool</th>
-                    <th class="suggested-pool-col">recommended</th>
-                </tr>
-            </thead>
-            <tbody data-bind="
-                foreach: rows,
-                validationOptions: { insertMessages: false }
-            ">
-                <!-- ko if: isVisible -->
-                <tr>
-                    <td class="name-col text-left">
-                        <checkbox params="
-                            value: name,
-                            checked: $parent.selectedNodes
-                        "></checkbox>
-                    </td>
+    <div class="box greedy row">
+        <data-table params="
+            columns: columns,
+            rowFactory: node => rowFactory(node),
+            data: nodes,
+            emptyMessage: emptyMessage
+        "></data-table>
+    </div>
 
-                    <td class="ip-col" data-bind="text: ip"></td>
-
-                    <td class="capacity-col" data-bind="text: capacity"></td>
-
-                    <td class="pool-col">
-                        <div class="no-wrap" data-bind="
-                            text: currPool,
-                            tooltip: currPool
-                        "></div>
-                    </td>
-                    <td class="suggested-pool-col">
-                         <div class="no-wrap" data-bind="
-                             text: suggestedPool,
-                             tooltip: suggestedPool
-                         "></div>
-                     </td>
-                </tr>
-                <!-- /ko -->
-            </tbody>
-        </table>
-
-        <div class="empty-message" data-bind="
-            visible: !!emptyMessage(),
-            text: emptyMessage()
-        "></div>
-        </div>
+    <div class="box selected-box push-next row">
+        <span class="greedy push-next selection-summary" data-bind="text: selectedMessage"></span>
+        <button class="link" data-bind="click: clearAllNodes">
+            Clear All Selections
+        </button>
     </div>
 
     <div class="row align-end ">

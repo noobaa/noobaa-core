@@ -1,0 +1,31 @@
+<section class="c6 column">
+    <h3 class="heading4 push-next">Cluster status</h3>
+    <div class="row push-next">
+        <span class="c3">Highly avaliable:</span>
+        <span class="emphasized" data-bind="text: highlyAvaliable"></span>
+    </div>
+
+    <div class="row">
+        <span class="c3">Fault tolerance:</span>
+        <span class="emphasized" data-bind="text: faultTolerance"></span>
+    </div>
+</section>
+
+<vr></vr>
+
+<section class="c6 column">
+    <h3 class="heading4 push-next">
+        Servers in cluster:
+        <span data-bind="text: serverCount"></span>
+    </h3>
+    <div class="row">
+        <div class="push-next">
+            <span class="success">Connected:</span>
+            <span class="emphasized" data-bind="text: connectedCount"></span>
+        </div>
+        <div>
+            <span class="error">Disconnected:</span>
+            <span class="emphasized" data-bind="text: disconnectedCount"></span>
+        </div>
+    </div>
+</section>

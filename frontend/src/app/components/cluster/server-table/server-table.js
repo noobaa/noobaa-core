@@ -1,4 +1,5 @@
 import template from './server-table.html';
+import Disposable from 'disposable';
 import ko from 'knockout';
 import ServerRowViewModel from './server-row';
 import { createCompareFunc, deepFreeze } from 'utils';
@@ -31,6 +32,10 @@ const columns = deepFreeze([
     {
         name: 'version',
         sortable: true
+    },
+    {
+        name: 'actions',
+        cellTemplate: 'actions'
     }
 ]);
 
@@ -43,8 +48,10 @@ const compareAccessors = deepFreeze({
     version: server => server.version
 });
 
-class ServerTableViewModel {
+class ServerTableViewModel extends Disposable {
     constructor() {
+        super();
+
         this.columns = columns;
 
         this.sorting = ko.pureComputed({
@@ -66,7 +73,10 @@ class ServerTableViewModel {
             }
         );
 
+        this.actionContext = ko.observable();
         this.isAttachServerModalVisible = ko.observable(false);
+        this.isServerDNSSettingsModalVisible = ko.observable(false);
+        this.isServerTimeSettingsModalVisible = ko.observable(false);
     }
 
     rowFactory(server) {
@@ -79,6 +89,24 @@ class ServerTableViewModel {
 
     hideAttachServerModal() {
         this.isAttachServerModalVisible(false);
+    }
+
+    showServerDNSSettingsModal(targetSecret) {
+        this.actionContext(targetSecret);
+        this.isServerDNSSettingsModalVisible(true);
+    }
+
+    hideServerDNSSettingsModal() {
+        this.isServerDNSSettingsModalVisible(false);
+    }
+
+    showServerTimeSettingsModal(targetSecret) {
+        this.actionContext(targetSecret);
+        this.isServerTimeSettingsModalVisible(true);
+    }
+
+    hideServerTimeSettingsModal() {
+        this.isServerTimeSettingsModalVisible(false);
     }
 }
 

@@ -40,6 +40,7 @@ module.exports = {
                 system: 'admin'
             }
         },
+
         update_server_location: {
             doc: 'Add new member to the cluster',
             method: 'POST',
@@ -56,9 +57,48 @@ module.exports = {
                 },
             },
             auth: {
-                system: 'admin'
+                system: 'admin',
             }
-        }
+        },
+
+        update_time_config: {
+            method: 'POST',
+            params: {
+                $ref: 'cluster_internal_api#/definitions/time_config'
+            },
+            auth: {
+                system: 'admin',
+            }
+        },
+
+        update_dns_servers: {
+            method: 'POST',
+            params: {
+                $ref: 'cluster_internal_api#/definitions/dns_servers_config'
+            },
+            auth: {
+                system: 'admin',
+            }
+        },
+
+        read_server_time: {
+            method: 'POST',
+            params: {
+                type: 'object',
+                required: ['target_secret'],
+                properties: {
+                    target_secret: {
+                        type: 'string',
+                    }
+                },
+            },
+            reply: {
+                format: 'idate',
+            },
+            auth: {
+                system: 'admin',
+            }
+        },
     },
 
     definitions: {

@@ -7,6 +7,7 @@ const server_rpc = require('../server_rpc');
 const node_server = require('./node_server');
 const auth_server = require('../common_services/auth_server');
 const mongo_utils = require('../../util/mongo_utils');
+const node_allocator = require('./node_allocator');
 
 const NODE_FIELDS_FOR_MAP = [
     'name',
@@ -28,15 +29,17 @@ class NodesClient {
     // LOCAL CALLS
 
     list_nodes_by_system(system_id) {
-        return node_server.get_local_monitor().list_nodes({
-            system: system_id
-        });
+        return P.resolve(node_server.get_local_monitor().list_nodes({
+                system: system_id
+            }))
+            .tap(res => mongo_utils.fix_id_type(res.nodes));
     }
 
     list_nodes_by_pool(pool_id) {
-        return node_server.get_local_monitor().list_nodes({
-            pools: new Set([pool_id])
-        });
+        return P.resolve(node_server.get_local_monitor().list_nodes({
+                pools: new Set([pool_id])
+            }))
+            .tap(res => mongo_utils.fix_id_type(res.nodes));
     }
 
     delete_node_by_name(system_id, node_name) {
@@ -74,13 +77,14 @@ class NodesClient {
             throw new Error('read_node_by_name: expected system_id');
         }
         return server_rpc.client.node.read_node({
-            name: node_name
-        }, {
-            auth_token: auth_server.make_auth_token({
-                system_id: system_id,
-                role: 'admin'
+                name: node_name
+            }, {
+                auth_token: auth_server.make_auth_token({
+                    system_id: system_id,
+                    role: 'admin'
+                })
             })
-        });
+            .tap(node => mongo_utils.fix_id_type(node));
     }
 
     allocate_nodes(system_id, pool_id) {
@@ -88,15 +92,16 @@ class NodesClient {
             dbg.error('allocate_nodes: expected system_id. pool_id', pool_id);
             throw new Error('allocate_nodes: expected system_id');
         }
-        return server_rpc.client.node.allocate_nodes({
-            pool_id: String(pool_id),
-            fields: NODE_FIELDS_FOR_MAP
-        }, {
-            auth_token: auth_server.make_auth_token({
-                system_id: system_id,
-                role: 'admin'
-            })
-        });
+        return P.resolve(server_rpc.client.node.allocate_nodes({
+                pool_id: String(pool_id),
+                fields: NODE_FIELDS_FOR_MAP
+            }, {
+                auth_token: auth_server.make_auth_token({
+                    system_id: system_id,
+                    role: 'admin'
+                })
+            }))
+            .tap(res => mongo_utils.fix_id_type(res.nodes));
     }
 
     populate_nodes(system_id, docs, doc_path, fields) {
@@ -128,6 +133,7 @@ class NodesClient {
                     const id = _.get(doc, doc_path);
                     const node = idmap[String(id)];
                     if (node) {
+                        mongo_utils.fix_id_type(node);
                         _.set(doc, doc_path, node);
                     } else {
                         dbg.warn('populate_nodes: missing node for id',
@@ -144,6 +150,27 @@ class NodesClient {
 
     populate_nodes_for_map(system_id, docs, doc_path) {
         return this.populate_nodes(system_id, docs, doc_path, NODE_FIELDS_FOR_MAP);
+    }
+
+    report_error_on_node_blocks(system_id, blocks_report) {
+
+        // node_allocator keeps nodes in memory,
+        // and in the write path it allocated a block on a node that failed to write
+        // so we notify about the error to remove the node from next allocations
+        // until it will refresh the alloc.
+        _.each(blocks_report, block_report => {
+            const node_id = block_report.block_md.node;
+            node_allocator.report_error_on_node_alloc(node_id);
+        });
+
+        return server_rpc.client.node.report_error_on_node_blocks({
+            blocks_report: blocks_report
+        }, {
+            auth_token: auth_server.make_auth_token({
+                system_id: system_id,
+                role: 'admin'
+            })
+        });
     }
 
     static instance() {

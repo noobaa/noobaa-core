@@ -22,22 +22,22 @@
         <span class="c10" data-bind="text: bucketName"></span>
     </li>
     <li class="row">
-        <span class="c2">Creation date:</span>
+        <span class="c2">Creation time:</span>
         <span class="c10" data-bind="text: creationTime"></span>
+    </li>
+    <li class="row">
+        <span class="c2">Last read time:</span>
+        <span class="c10" data-bind="text: lastRead"></span>
     </li>
     <li class="row">
         <span class="c2">Content Type:</span>
         <span class="c10" data-bind="text: contentType"></span>
     </li>
-    <li class="row">
-        <span class="c2">Synced with cloud:</span>
-        <span class="c10" data-bind="text: cloudSynced"></span>
-    </li>    
 </ul>
 
 <!-- ko if: isPreviewModalVisible -->
 <object-preview-modal params="
-    onClose: () => hidePreviewModal(), 
+    onClose: () => hidePreviewModal(),
     uri: s3SignedUrl
 "></object-preview-modal>
 <!-- /ko -->

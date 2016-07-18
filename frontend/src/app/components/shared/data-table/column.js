@@ -1,12 +1,14 @@
+import Disposable from 'disposable';
 import { isObject, noop, toDashedCase } from 'utils';
 
-export default class ColumnViewModel {
-    constructor(config) {
+export default class ColumnViewModel extends Disposable {
+    constructor(config, cellTemplates) {
+        super();
         config = isObject(config) ? config : { name: config.toString() };
         let {
             name,
             label = name,
-            template = 'text',
+            cellTemplate = 'text',
             sortable = false,
             accessor = noop,
             css = `${toDashedCase(name)}-col`
@@ -15,7 +17,7 @@ export default class ColumnViewModel {
         this.name = name;
         this.label = label;
         this.accessor = accessor;
-        this.template = template;
+        this.cellTemplate = cellTemplates[cellTemplate];
         this.sortable = sortable;
         this.css = css;
     }

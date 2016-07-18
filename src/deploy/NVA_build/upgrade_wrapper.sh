@@ -224,7 +224,7 @@ function post_upgrade {
   echo "${AGENT_VERSION_VAR}" >> ${CORE_DIR}/.env
 
   #if noobaa supervisor.conf is pre clustering, fix it
-  local FOUND=$(grep "dbpath /var/lib/mongo/cluster/shard1" /etc/noobaa_supervisor.conf | wc -l)
+  local FOUND=$(grep "dbpath /var/lib/mongo/cluster/shard1" /etc/noobaa_supervisor.conf | grep "auth" | wc -l)
   if [ ${FOUND} -eq 0 ]; then
     cp -f ${CORE_DIR}/src/deploy/NVA_build/noobaa_supervisor.conf /etc/noobaa_supervisor.conf
   fi
@@ -251,10 +251,10 @@ function post_upgrade {
 
   #Installation ID generation if needed
   #TODO: Move this into the mongo_upgrade.js
-  local id=$(/usr/bin/mongo nbcore --eval "db.clusters.find().shellPrint()" | grep cluster_id | wc -l)
+  local id=$(/usr/bin/mongo admin -u nbadmin -p roonoobaa --eval "db.getSiblingDB('nbcore').clusters.find().shellPrint()" | grep cluster_id | wc -l)
   if [ ${id} -eq 0 ]; then
       id=$(uuidgen)
-      /usr/bin/mongo nbcore --eval "db.clusters.insert({cluster_id: '${id}'})"
+      /usr/bin/mongo admin -u nbadmin -p roonoobaa --eval "db.getSiblingDB('nbcore').clusters.insert({cluster_id: '${id}'})"
   fi
 
   unset AGENT_VERSION
@@ -288,7 +288,7 @@ function post_upgrade {
 	sudo /etc/init.d/ntpd start
 	local noobaa_ntp=$(grep 'NooBaa Configured NTP Server' /etc/ntp.conf | wc -l)
 	if [ ${noobaa_ntp} -eq 0 ]; then #was not configured yet, no tz config as well
-			echo "# NooBaa Configured NTP Server"	 >> /etc/ntp.conf
+			echo "#NooBaa Configured NTP Server"	 >> /etc/ntp.conf
 			sed -i 's:\(^server.*\):#\1:g' /etc/ntp.conf
 			ln -sf /usr/share/zoneinfo/US/Pacific /etc/localtime
 	fi

@@ -30,15 +30,18 @@ const VALID_BUCKET_NAME_REGEXP =
     /^(([a-z0-9]|[a-z0-9][a-z0-9\-]*[a-z0-9])\.)*([a-z0-9]|[a-z0-9][a-z0-9\-]*[a-z0-9])$/;
 
 
-function new_bucket_defaults(name, system_id, tiering_policy_id) {
+function new_bucket_defaults(name, system_id, tiering_policy_id, tag) {
     return {
         _id: system_store.generate_id(),
         name: name,
+        tag: js_utils.default_value(tag, ''),
         system: system_id,
         tiering: tiering_policy_id,
         stats: {
             reads: 0,
             writes: 0,
+            last_read: 0,
+            last_write: 0,
         }
     };
 }
@@ -84,7 +87,8 @@ function create_bucket(req) {
     let bucket = new_bucket_defaults(
         req.rpc_params.name,
         req.system._id,
-        tiering_policy._id);
+        tiering_policy._id,
+        req.rpc_params.tag);
     changes.insert.buckets = [bucket];
     Dispatcher.instance().activity({
         event: 'bucket.create',
@@ -152,6 +156,9 @@ function update_bucket(req) {
     };
     if (req.rpc_params.new_name) {
         updates.name = req.rpc_params.new_name;
+    }
+    if (req.rpc_params.new_tag) {
+        updates.tag = req.rpc_params.new_tag;
     }
     if (tiering_policy) {
         updates.tiering = tiering_policy._id;
@@ -729,6 +736,7 @@ function get_bucket_info(bucket, objects_aggregate, nodes_aggregate_pool, cloud_
         info.tiering = tier_server.get_tiering_policy_info(bucket.tiering, nodes_aggregate_pool);
     }
 
+    info.tag = bucket.tag ? bucket.tag : '';
     info.num_objects = objects_aggregate_bucket.count || 0;
     info.storage = size_utils.to_bigint_storage({
         used: objects_aggregate_bucket.size || 0,

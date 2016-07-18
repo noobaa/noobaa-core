@@ -48,9 +48,13 @@ RPC.Client.prototype.create_access_key_auth = function(params) {
         });
 };
 
+function get_base_port() {
+    return parseInt(process.env.PORT, 10) || 5001;
+}
+
 function default_base_address() {
     // the default 5001 port is for development
-    return 'ws://127.0.0.1:' + (parseInt(process.env.PORT, 10) || 5001);
+    return 'ws://127.0.0.1:' + get_base_port();
 }
 
 function new_router(base_address) {
@@ -90,4 +94,5 @@ module.exports = {
     new_rpc: new_rpc,
     new_router: new_router,
     default_base_address: default_base_address,
+    get_base_port: get_base_port,
 };

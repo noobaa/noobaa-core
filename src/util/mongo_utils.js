@@ -34,7 +34,7 @@ function uniq_ids(docs, doc_path) {
     _.each(docs, doc => {
         const id = _.get(doc, doc_path);
         if (id) {
-            map[id.toString()] = id;
+            map[String(id)] = id;
         }
     });
     return _.values(map);
@@ -110,6 +110,15 @@ function make_object_id(id_str) {
     return new mongodb.ObjectId(id_str);
 }
 
+function fix_id_type(doc) {
+    if (_.isArray(doc)) {
+        _.each(doc, d => fix_id_type(d));
+    } else if (doc && doc._id) {
+        doc._id = make_object_id(doc._id);
+    }
+    return doc;
+}
+
 // apparently mongoose defined it's own class of ObjectID
 // instead of using the class from mongodb driver,
 // so we have to check both for now,
@@ -162,6 +171,7 @@ exports.populate = populate;
 exports.resolve_object_ids_recursive = resolve_object_ids_recursive;
 exports.resolve_object_ids_paths = resolve_object_ids_paths;
 exports.make_object_id = make_object_id;
+exports.fix_id_type = fix_id_type;
 exports.is_object_id = is_object_id;
 exports.is_err_duplicate_key = is_err_duplicate_key;
 exports.check_duplicate_key_conflict = check_duplicate_key_conflict;

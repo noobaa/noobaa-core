@@ -1,0 +1,68 @@
+<modal params="onClose: () => cancel()" class="text-left">
+    <h1 class="heading2 push-next">
+        Server Time Settings
+    </h1>
+
+    <radio-group class="push-next" params="
+        options: configTypes,
+        selected: selectedConfigType
+    "></radio-group>
+
+    <editor params="label: 'Time Zone'">
+        <dropdown params="
+            options: timezoneOptions,
+            selected: timezone,
+            matchOperator: matchByTimezoneName
+        "></dropdown>
+    </editor>
+
+    <div class="forms row push-next">
+        <div class="manual-form" data-bind="visibility: usingManualTime">
+             <editor params="label: 'Date'">
+                <div class="row editor-row">
+                    <dropdown class="small-field text-center push-next" params="
+                        options: monthOptions,
+                        placeholder: 'month',
+                        selected: month
+                    "></dropdown>
+
+                    <dropdown class="small-field text-center push-next" params="
+                        options: dayOptions,
+                        placeholder: 'day',
+                        selected: day
+                    "></dropdown>
+
+                    <dropdown class="small-field text-center" params="
+                        options: yearOptions,
+                        placeholder: 'year',
+                        selected: year
+                    "></dropdown>
+                </div>
+            </editor>
+
+            <editor params="label: 'Time', insertValMessages: false">
+                <div class="row editor-row">
+                    <input type="number" class="small-field push-next" min="0" max="23"
+                        placeholder="hours" data-bind="textInput: hour"/>
+
+                    <input type="number" class="small-field push-next" min="0" max="59"
+                        placeholder="minutes" data-bind="textInput: minute"/>
+
+                    <input type="number" class="small-field" min="0" max="59"
+                        placeholder="seconds" data-bind="textInput: second"/>
+                </div>
+            </editor>
+        </div>
+
+        <editor class="ntp-form" params="label: 'NTP Server'" data-bind="visibility: usingNTP">
+            <input type="text" placeholder="IP or DNS name" data-bind="
+                value: ntpServer
+            "/>
+        </editor>
+    </div>
+
+    <div class="row content-middle align-end push-prev">
+        <button class="link push-next" data-bind="click: cancel">Cancel</button>
+        <button class="btn2" data-bind="click: save">save</button>
+    </div>
+</modal>

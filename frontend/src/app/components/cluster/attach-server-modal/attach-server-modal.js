@@ -1,9 +1,12 @@
 import template from './attach-server-modal.html';
+import Disposable from 'disposable';
 import ko from 'knockout';
 import { attachServerToCluster } from 'actions';
 
-class AttachServerModalViewModel {
+class AttachServerModalViewModel extends Disposable {
     constructor({ onClose }) {
+        super();
+
         this.onClose = onClose;
 
         this.address = ko.observable()

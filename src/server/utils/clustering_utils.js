@@ -162,32 +162,46 @@ function get_cluster_info() {
         let memory_usage = 0;
         let cpu_usage = 0;
         let version = '0';
-        let is_connected = true;
+        let single_server = system_store.data.clusters.length === 1;
+        let is_connected = single_server;
         let hostname = os.hostname();
         let location = cinfo.location;
         if (cinfo.heartbeat) {
             memory_usage = (1 - cinfo.heartbeat.health.os_info.freemem / cinfo.heartbeat.health.os_info.totalmem);
             cpu_usage = cinfo.heartbeat.health.os_info.loadavg[0];
             version = cinfo.heartbeat.version;
-            is_connected = ((Date.now() - cinfo.heartbeat.time) < config.CLUSTER_NODE_MISSING_TIME);
+            let now = Date.now();
+            let diff = now - cinfo.heartbeat.time;
+            is_connected = single_server || (diff < config.CLUSTER_NODE_MISSING_TIME);
             hostname = cinfo.heartbeat.health.os_info.hostname;
         }
         let server_info = {
             version: version,
             hostname: hostname,
+            secret: cinfo.owner_secret,
             address: cinfo.owner_address,
             is_connected: is_connected,
             memory_usage: memory_usage,
             cpu_usage: cpu_usage,
-            location: location
+            location: location,
+            ntp_server: cinfo.ntp && cinfo.ntp.server,
+            timezone: cinfo.ntp && cinfo.ntp.timezone,
+            dns_servers: cinfo.dns_servers || []
         };
         shard.servers.push(server_info);
     });
     _.each(shards, shard => {
-        let num_connected = shard.servers.filter(server => server.is_connected).length;
-        shard.high_availabilty = (num_connected / shard.servers.length) > (shard.servers.length / 2);
+        if (shard.servers.length < 3) {
+            shard.high_availabilty = false;
+        } else {
+            let num_connected = shard.servers.filter(server => server.is_connected).length;
+            // to be highly available the cluster must be able to stand a failure and still
+            // have a majority to vote for a master.
+            shard.high_availabilty = num_connected > (shard.servers.length + 1) / 2;
+        }
     });
     let cluster_info = {
+        master_secret: system_store.get_server_secret(),
         shards: shards
     };
     return cluster_info;

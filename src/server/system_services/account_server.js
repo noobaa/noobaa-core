@@ -55,14 +55,11 @@ function create_account(req) {
                     }
                 };
             }
-            return system_server.new_system_changes(account.name, account)
-                .then(changes => {
+            return P.join(system_server.new_system_changes(account.name, account),
+                    cluster_server.new_cluster_info())
+                .spread(function(changes, cluster_info) {
                     account.allowed_buckets = [changes.insert.buckets[0]._id];
                     changes.insert.accounts = [account];
-                    return changes;
-                })
-                .then(changes => {
-                    var cluster_info = cluster_server.new_cluster_info();
                     if (cluster_info) {
                         changes.insert.clusters = [cluster_info];
                     }

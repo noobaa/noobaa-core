@@ -174,24 +174,20 @@ class SystemStoreData {
     }
 
     get_by_id(id) {
-        return id ? this.idmap[id.toString()] : null;
+        return id ? this.idmap[String(id)] : null;
     }
 
     get_by_id_include_deleted(id, name) {
-        var ret = id ? this.idmap[id.toString()] : null;
-        if (ret) {
-            return ret;
-        } else { //Query deleted !== null
-            return P.resolve(mongo_client.instance().db.collection(name).findOne({
-                    _id: id,
-                    deleted: {
-                        $ne: null
-                    }
-                }))
-                .then((item) => {
-                    return item;
-                });
-        }
+        const res = this.get_by_id(id);
+        if (res) return res;
+        //Query deleted !== null
+        const collection = mongo_client.instance().db.collection(name);
+        return P.resolve(collection.findOne({
+            _id: id,
+            deleted: {
+                $ne: null
+            }
+        }));
     }
 
     resolve_object_ids_paths(item, paths, allow_missing) {
@@ -214,7 +210,7 @@ class SystemStoreData {
         _.each(COLLECTIONS, col => {
             let items = this[col.name];
             _.each(items, item => {
-                let idstr = item._id.toString();
+                let idstr = String(item._id);
                 let existing = this.idmap[idstr];
                 if (existing) {
                     dbg.error('SystemStoreData: id collision', item, existing);

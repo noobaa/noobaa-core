@@ -1,0 +1,6 @@
+<delete-button params="
+    group: ko.unwrap($data).deleteGroup,
+    disabled: ko.unwrap($data).undeletable,
+    onDelete: ko.unwrap($data).onDelete || $data,
+    toolTip: ko.unwrap($data).deleteToolTip
+"></delete-button>

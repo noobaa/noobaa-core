@@ -263,7 +263,8 @@ export function showManagement() {
             { route: 'management', label: 'SYSTEM MANAGEMENT' }
         ],
         panel: 'management',
-        tab: tab
+        tab: tab,
+        working: model.uiState().working
     });
 }
 
@@ -363,11 +364,20 @@ export function loadServerInfo() {
 export function loadSystemInfo() {
     logAction('loadSystemInfo');
 
+    model.uiState.assign({
+        working: true
+    });
+
     api.system.read_system()
         .then(
             reply => model.systemInfo(
                 deepFreeze(Object.assign(reply, { endpoint }))
             )
+        )
+        .then(
+            () => model.uiState.assign({
+                working: false
+            })
         )
         .done();
 }
@@ -483,11 +493,12 @@ export function loadPoolNodeList(poolName, filter, hasIssues, sortBy, order, pag
         .done();
 }
 
-export function loadNodeList() {
-    logAction('loadNodeList');
+export function loadNodeList(filter, pools, online) {
+    logAction('loadNodeList', { filter, pools, online });
 
-    model.nodeList([]);
-    api.node.list_nodes({})
+    api.node.list_nodes({
+        query: { filter, pools, online }
+    })
         .then(
             ({ nodes }) => model.nodeList(nodes)
         )
@@ -606,6 +617,12 @@ export function exportAuditEnteries(categories) {
         .join('|');
 
     api.system.export_activity_log({ event: filter || '^$' })
+        .catch(
+            err => {
+                notify('Exporting activity log failed', 'error');
+                throw err;
+            }
+        )
         .then(downloadFile)
         .done();
 }
@@ -707,6 +724,10 @@ export function createAccount(name, email, password, accessKeys, S3AccessList) {
         access_keys: accessKeys,
         allowed_buckets: S3AccessList
     })
+        .then(
+            () => notify(`Account ${email} created successfully`, 'success'),
+            () => notify(`Account ${email} creation failed`, 'error')
+        )
         .then(loadAccountList)
         .done();
 }
@@ -715,6 +736,10 @@ export function deleteAccount(email) {
     logAction('deleteAccount', { email });
 
     api.account.delete_account({ email })
+        .then(
+            () => notify(`Account ${email} deleted successfully`, 'success'),
+            () => notify(`Account ${email} deletion failed`, 'error')
+        )
         .then(loadAccountList)
         .done();
 }
@@ -723,6 +748,10 @@ export function resetAccountPassword(email, password) {
     logAction('resetAccountPassword', { email, password });
 
     api.account.update_account({ email, password })
+        .then(
+            () => notify(`${email} password has been reset successfully`, 'success'),
+            () => notify(`Resetting ${email}'s password failed`, 'error')
+        )
         .done();
 }
 
@@ -757,6 +786,10 @@ export function createBucket(name, dataPlacement, pools) {
                 tiering: policy.name
             })
         )
+        .then(
+            () => notify(`Bucket ${name} created successfully`, 'success'),
+            () => notify(`Bucket ${name} creation failed`, 'error')
+        )
         .then(loadSystemInfo)
         .done();
 }
@@ -765,6 +798,10 @@ export function deleteBucket(name) {
     logAction('deleteBucket', { name });
 
     api.bucket.delete_bucket({ name })
+        .then(
+            () => notify(`Bucket ${name} deleted successfully`, 'success'),
+            () => notify(`Bucket ${name} deletion failed`, 'error')
+        )
         .then(loadSystemInfo)
         .done();
 }
@@ -772,11 +809,21 @@ export function deleteBucket(name) {
 export function updateBucketPlacementPolicy(tierName, placementType, node_pools) {
     logAction('updateBucketPlacementPolicy', { tierName, placementType, node_pools });
 
+    let bucket = model.systemInfo().buckets.find(
+        bucket => bucket.tiering.tiers.find(
+            entry => entry.tier === tierName
+        )
+    );
+
     api.tier.update_tier({
         name: tierName,
         data_placement: placementType,
         node_pools: node_pools
     })
+        .then(
+            () => notify(`${bucket.name} placement policy updated successfully`, 'success'),
+            () => notify(`Updating ${bucket.name} placement policy failed`, 'error')
+        )
         .then(loadSystemInfo)
         .done();
 }
@@ -784,10 +831,20 @@ export function updateBucketPlacementPolicy(tierName, placementType, node_pools)
 export function updateBucketBackupPolicy(tierName, cloudResources) {
     logAction('updateBucketBackupPolicy', { tierName, cloudResources });
 
+    let bucket = model.systemInfo().buckets.find(
+        bucket => bucket.tiering.tiers.find(
+            entry => entry.tier === tierName
+        )
+    );
+
     api.tier.update_tier({
         name: tierName,
         cloud_pools: cloudResources
     })
+        .then(
+            () => notify(`${bucket.name} backup policy updated successfully`, 'success'),
+            () => notify(`Updating ${bucket.name} backup policy failed`, 'error')
+        )
         .then(loadSystemInfo)
         .done();
 }
@@ -798,6 +855,10 @@ export function createPool(name, nodes) {
     nodes = nodes.map(name => ({ name }));
 
     api.pool.create_nodes_pool({ name, nodes })
+        .then(
+            () => notify(`Pool ${name} created successfully`, 'success'),
+            () => notify(`Pool ${name} creation failed`, 'error')
+        )
         .then(loadSystemInfo)
         .done();
 }
@@ -806,6 +867,10 @@ export function deletePool(name) {
     logAction('deletePool', { name });
 
     api.pool.delete_pool({ name })
+        .then(
+            () => notify(`Bucket ${name} deleted successfully`, 'success'),
+            () => notify(`Bucket ${name} deletion failed`, 'error')
+        )
         .then(loadSystemInfo)
         .done();
 }
@@ -817,18 +882,38 @@ export function assignNodes(name, nodes) {
         name: name,
         nodes: nodes.map(name => ({ name }))
     })
+        .then(
+            () => notify(`${nodes.length} nodes has been assigend to pool ${name}`, 'success'),
+            () => notify(`Assinging nodes to pool ${name} failed`, 'error')
+        )
         .then(loadSystemInfo)
         .done();
 }
 
-export function createCloudPool(name, connection, cloudBucket) {
-    logAction('createCloudPool', { name, connection, cloudBucket });
+export function createCloudResource(name, connection, cloudBucket) {
+    logAction('createCloudResource', { name, connection, cloudBucket });
 
     api.pool.create_cloud_pool({
         name: name,
         connection: connection,
         target_bucket: cloudBucket
     })
+        .then(
+            () => notify(`Cloud resource ${name} created successfully`, 'success'),
+            () => notify(`Pool ${name} creation failed`, 'error')
+        )
+        .then(loadSystemInfo)
+        .done();
+}
+
+export function deleteCloudResource(name) {
+    logAction('deleteCloudResource', { name });
+
+    api.pool.delete_pool({ name })
+        .then(
+            () => notify(`Cloud resource ${name} deleted successfully`, 'success'),
+            () => notify(`Cloud resource ${name} deletion failed`, 'error')
+        )
         .then(loadSystemInfo)
         .done();
 }
@@ -878,7 +963,7 @@ export function uploadFiles(bucketName, files) {
                         if (!error) {
                             entry.state = 'COMPLETED';
                             entry.progress = 1;
-                            resolve(1);
+                            resolve(true);
 
                         } else {
                             entry.state = 'FAILED';
@@ -886,7 +971,7 @@ export function uploadFiles(bucketName, files) {
 
                             // This is not a bug we want to resolve failed uploads
                             // in order to finalize the entire upload process.
-                            resolve(0);
+                            resolve(false);
                         }
 
                         // Use replace to trigger change event.
@@ -906,15 +991,62 @@ export function uploadFiles(bucketName, files) {
         )
     );
 
-    Promise.all(uploadRequests)
-        .then(
-            results => results.reduce(
-                (sum, result) => sum += result
-            )
-        )
-        .then(
-            completedCount => completedCount > 0 && refresh()
-        );
+    Promise.all(uploadRequests).then(
+        results => {
+            let { completed, failed } = results.reduce(
+                (stats, result) => {
+                    result ? ++stats.completed : ++stats.failed;
+                    return stats;
+                },
+                { completed: 0, failed: 0 }
+            );
+
+            if (failed === 0) {
+                notify(
+                    `Uploading ${
+                        completed
+                    } file${
+                        completed === 1 ? '' : 's'
+                    } to ${
+                        bucketName
+                    } completed successfully`,
+                    'success'
+                );
+
+            } else if (completed === 0) {
+                notify(
+                    `Uploading ${
+                        failed
+                    } file${
+                        failed === 1 ? '' : 's'
+                    } to ${
+                        bucketName
+                    } failed`,
+                    'error'
+                );
+
+            } else {
+                notify(
+                    `Uploading to ${
+                        bucketName
+                    } completed. ${
+                        completed
+                    } file${
+                        completed === 1 ? '' : 's'
+                    } uploaded successfully, ${
+                        failed
+                    } file${
+                        failed === 1 ? '' : 's'
+                    } failed`,
+                    'warning'
+                );
+            }
+
+            if (completed > 0) {
+                refresh();
+            }
+        }
+    );
 }
 
 export function testNode(source, testSet) {
@@ -1065,6 +1197,10 @@ export function updateP2PSettings(minPort, maxPort) {
     api.system.update_n2n_config({
         tcp_permanent_passive: tcpPermanentPassive
     })
+        .then(
+            () => notify('Peer to peer settings updated successfully', 'success'),
+            () => notify('Peer to peer settings update failed', 'error')
+        )
         .then(loadSystemInfo)
         .done();
 }
@@ -1073,6 +1209,10 @@ export function updateHostname(hostname) {
     logAction('updateHostname', { hostname });
 
     api.system.update_hostname({ hostname })
+        .then(
+            () => notify('Hostname updated successfully', 'success'),
+            () => notify('Hostname update failed', 'error')
+        )
         .then(loadSystemInfo)
         .done();
 }
@@ -1140,6 +1280,7 @@ export function upgradeSystem(upgradePackage) {
     xhr.send(formData);
 }
 
+// TODO: Notificaitons - remove message
 export function uploadSSLCertificate(SSLCertificate) {
     logAction('uploadSSLCertificate', { SSLCertificate });
 
@@ -1155,15 +1296,21 @@ export function uploadSSLCertificate(SSLCertificate) {
 
     xhr.onload = function(evt) {
         if (xhr.status !== 200) {
+            let error = evt.target.responseText;
+
             uploadStatus.assign ({
                 state: 'FAILED',
-                error: evt.target.responseText
+                error: error
             });
+
+            notify(`Uploading SSL cartificate failed: ${error}`, 'error');
 
         } else {
             uploadStatus.assign ({
                 state: 'SUCCESS'
             });
+
+            notify('SSL cartificate uploaded successfully', 'success');
         }
     };
 
@@ -1174,16 +1321,22 @@ export function uploadSSLCertificate(SSLCertificate) {
     };
 
     xhr.onerror = function(evt) {
+        let error = evt.target.responseText;
+
         uploadStatus.assign({
             state: 'FAILED',
-            error: evt.target.responseText
+            error: error
         });
+
+        notify(`Uploading SSL cartificate failed: ${error}`, 'error');
     };
 
     xhr.onabort = function() {
         uploadStatus.assign ({
             state: 'CANCELED'
         });
+
+        notify('Uploading SSL cartificate canceled', 'info');
     };
 
     let formData = new FormData();
@@ -1195,17 +1348,28 @@ export function downloadNodeDiagnosticPack(nodeName) {
     logAction('downloadDiagnosticFile', { nodeName });
 
     api.system.diagnose_node({ name: nodeName })
+        .catch(
+            err => {
+                notify(`Packing diagnostic file for ${nodeName} failed`, 'error');
+                throw err;
+            }
+        )
         .then(
             url => downloadFile(url)
         )
         .done();
 }
 
-
 export function downloadSystemDiagnosticPack() {
     logAction('downloadSystemDiagnosticPack');
 
     api.system.diagnose_system()
+        .catch(
+            err => {
+                notify('Packing system diagnostic file failed', 'error');
+                throw err;
+            }
+        )
         .then(downloadFile)
         .done();
 }
@@ -1221,6 +1385,16 @@ export function setNodeDebugLevel(node, level) {
                 },
                 level: level
             })
+        )
+        .then(
+            () => notify(
+                `Debug level has been ${level === 0 ? 'lowered' : 'rasied'} for node ${node}`,
+                'success'
+            ),
+            () => notify(
+                `Cloud not ${level === 0 ? 'lower' : 'raise'} debug level for node ${node}`,
+                'error'
+            )
         )
         .then(
             () => loadNodeInfo(node)
@@ -1251,6 +1425,10 @@ export function setCloudSyncPolicy(bucket, connection, targetBucket, direction, 
         }
     })
         .then(
+            () => notify(`${bucket} cloud sync policy was set successfully`, 'success'),
+            () => notify(`Setting ${bucket} cloud sync policy failed`, 'error')
+        )
+        .then(
             () => {
                 loadCloudSyncInfo(bucket);
                 loadSystemInfo();
@@ -1272,6 +1450,10 @@ export function updateCloudSyncPolicy(bucket, direction, frequency, syncDeletion
         }
     })
         .then(
+            () => notify(`${bucket} cloud sync policy updated successfully`, 'success'),
+            () => notify(`Updating ${bucket} cloud sync policy failed`, 'error')
+        )
+        .then(
             () => {
                 loadCloudSyncInfo(bucket);
                 loadSystemInfo();
@@ -1283,6 +1465,10 @@ export function removeCloudSyncPolicy(bucket) {
     logAction('removeCloudSyncPolicy', { bucket });
 
     api.bucket.delete_cloud_sync({ name: bucket })
+        .then(
+            () => notify(`${bucket} cloud sync policy removed successfully`, 'success'),
+            () => notify(`Removing ${bucket} cloud sync policy failed`, 'error')
+        )
         .then(
             () => model.cloudSyncInfo(null)
         )
@@ -1296,6 +1482,10 @@ export function toogleCloudSync(bucket, pause) {
         name: bucket,
         pause: pause
     })
+        .then(
+            () => notify(`${bucket} cloud sync has been ${pause ? 'paused' : 'resumed'}`, 'success'),
+            () => notify(`${pause ? 'Pausing' : 'Resuming'} ${bucket} cloud sync failed`, 'error')
+        )
         .then(
             () => {
                 loadCloudSyncInfo(bucket);
@@ -1335,12 +1525,6 @@ export function addS3Connection(name, endpoint, accessKey, secretKey) {
         .done();
 }
 
-export function notify(message, severity = 'INFO') {
-    logAction('notify', { message, severity });
-
-    model.lastNotification({ message, severity });
-}
-
 export function loadBucketS3ACL(bucketName) {
     logAction('loadBucketS3ACL', { bucketName });
 
@@ -1358,6 +1542,10 @@ export function updateBucketS3ACL(bucketName, acl) {
         name: bucketName,
         access_control: acl
     })
+        .then(
+            () => notify(`${bucketName} S3 access control updated successfully`, 'success'),
+            () => notify(`Updating ${bucketName} S3 access control failed`, 'error')
+        )
         .then(
             () => model.bucketS3ACL(acl)
         )
@@ -1382,34 +1570,10 @@ export function updateAccountS3ACL(email, acl) {
         access_control: acl
     })
         .then(
-            () => model.accountS3ACL
+            () => notify(`${email} S3 accces control updated successfully`, 'success'),
+            () => notify(`Updating ${email} S3 access control failed`, 'error')
         )
         .then(loadAccountList)
-        .done();
-}
-
-
-export function updateServerTime(timezone, epoch) {
-    logAction('updateServerTime', { timezone, epoch });
-
-    api.system.update_time_config({
-        config_type: 'MANUAL',
-        timezone: timezone,
-        epoch: epoch
-    })
-        .then(loadSystemInfo)
-        .done();
-}
-
-export function updateServerNTP(timezone, server) {
-    logAction('updateServerNTP', { timezone, server });
-
-    api.system.update_time_config({
-        config_type: 'NTP',
-        timezone: timezone,
-        server: server
-    })
-        .then(loadSystemInfo)
         .done();
 }
 
@@ -1433,6 +1597,10 @@ export function updatePhoneHomeConfig(proxyAddress) {
     logAction('updatePhoneHomeConfig', { proxyAddress });
 
     api.system.update_phone_home_config({ proxy_address: proxyAddress })
+        .then(
+            () => notify('Phone home proxy settings updated successfully', 'success'),
+            () => notify('Updating phone home proxy settings failed', 'error')
+        )
         .then(loadSystemInfo)
         .done();
 }
@@ -1441,6 +1609,10 @@ export function enableRemoteSyslog(protocol, address, port) {
     logAction ('enableRemoteSyslog', { protocol, address, port });
 
     api.system.configure_remote_syslog({ enabled: true, protocol, address, port })
+        .then(
+            () => notify('Remote syslog has been enabled', 'success'),
+            () => notify('Enabling remote syslog failed', 'error')
+        )
         .then(loadSystemInfo)
         .done();
 }
@@ -1449,6 +1621,10 @@ export function disableRemoteSyslog() {
     logAction ('disableRemoteSyslog');
 
     api.system.configure_remote_syslog({ enabled: false })
+        .then(
+            () => notify('Remote syslog has been disabled', 'success'),
+            () => notify('Enabling remote syslog failed', 'error')
+        )
         .then(loadSystemInfo)
         .done();
 }
@@ -1462,6 +1638,91 @@ export function attachServerToCluster(serverAddress, serverSecret) {
         role: 'REPLICA',
         shard: 'shard1'
     })
+        .then(
+            () => notify(`Server ${serverAddress} attached to cluster successfully`, 'success'),
+            () => notify(`Adding ${serverAddress} to cluster failed`, 'error')
+        )
         .then(loadSystemInfo)
         .done();
+}
+
+export function updateServerDNSSettings(serverSecret, primaryDNS, secondaryDNS) {
+    logAction('updateServerDNSSettings', { primaryDNS, secondaryDNS });
+
+    let dnsServers = [primaryDNS, secondaryDNS].filter(
+        server => server
+    );
+
+    let { address } = model.systemInfo().cluster.shards[0].servers.find(
+        server => server.secret === serverSecret
+    );
+
+    api.cluster_server.update_dns_servers({
+        target_secret: serverSecret,
+        dns_servers: dnsServers
+    })
+        .then(
+            () => notify(`${address} DNS settings updated successfully`, 'success'),
+            () => notify(`Updating ${address} DNS settings failed`, 'error')
+        )
+        .then(loadSystemInfo)
+        .done();
+}
+
+export function loadServerTime(serverSecret) {
+    logAction('loadServerTime', { serverSecret });
+
+
+    api.cluster_server.read_server_time({ target_secret: serverSecret })
+        .then(
+            time => model.serverTime({
+                server: serverSecret,
+                time: time
+            })
+        )
+        .done();
+}
+
+export function updateServerClock(serverSecret, timezone, epoch) {
+    logAction('updateServerClock', { serverSecret, timezone, epoch });
+
+    let { address } = model.systemInfo().cluster.shards[0].servers.find(
+        server => server.secret === serverSecret
+    );
+
+    api.cluster_server.update_time_config({
+        target_secret: serverSecret,
+        timezone: timezone,
+        epoch: epoch
+    })
+        .then(
+            () => notify(`${address} time settings updated successfully`, 'success'),
+            () => notify(`Updating ${address} time settings failed`, 'error')
+        )
+        .then(loadSystemInfo)
+        .done();
+}
+export function updateServerNTPSettings(serverSecret, timezone, ntpServerAddress) {
+    logAction('updateServerNTP', { serverSecret, timezone, ntpServerAddress });
+
+    let { address } = model.systemInfo().cluster.shards[0].servers.find(
+        server => server.secret === serverSecret
+    );
+
+    api.cluster_server.update_time_config({
+        timezone: timezone,
+        ntp_server: ntpServerAddress
+    })
+        .then(
+            () => notify(`${address} time settings updated successfully`, 'success'),
+            () => notify(`Updating ${address} time settings failed`, 'error')
+        )
+        .then(loadSystemInfo)
+        .done();
+}
+
+export function notify(message, severity = 'info') {
+    logAction('notify', { message, severity });
+
+    model.lastNotification({ message, severity });
 }

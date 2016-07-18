@@ -114,6 +114,80 @@ module.exports = {
             }
         },
 
+        apply_updated_time_config: {
+            method: 'POST',
+            params: {
+                $ref: '#/definitions/time_config'
+            },
+            auth: {
+                system: false,
+            }
+        },
 
+        apply_updated_dns_servers: {
+            method: 'POST',
+            params: {
+                $ref: '#/definitions/dns_servers_config'
+            },
+            auth: {
+                system: false,
+            }
+        },
+
+        apply_read_server_time: {
+            method: 'POST',
+            params: {
+                type: 'object',
+                required: ['target_secret'],
+                properties: {
+                    target_secret: {
+                        type: 'string',
+                    }
+                },
+            },
+            reply: {
+                format: 'idate',
+            },
+            auth: {
+                system: false,
+            }
+        },
+    },
+
+    definitions: {
+        time_config: {
+            type: 'object',
+            required: ['timezone'],
+            properties: {
+                target_secret: {
+                    type: 'string'
+                },
+                timezone: {
+                    type: 'string'
+                },
+                ntp_server: {
+                    type: 'string'
+                },
+                epoch: {
+                    type: 'number'
+                },
+            },
+        },
+
+        dns_servers_config: {
+            type: 'object',
+            required: ['dns_servers'],
+            properties: {
+                target_secret: {
+                    type: 'string'
+                },
+                dns_servers: {
+                    type: 'array',
+                    items: {
+                        type: 'string'
+                    },
+                }
+            },
+        }
     },
 };

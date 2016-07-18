@@ -1,3 +1,4 @@
+import Disposable from 'disposable';
 import ko from 'knockout';
 import numeral from 'numeral';
 import { deletePool } from 'actions';
@@ -8,13 +9,17 @@ const cannotDeleteReasons = Object.freeze({
     IN_USE: 'Cannot delete a pool that is assigned to a bucket policy'
 });
 
-export default class PoolRowViewModel {
+export default class PoolRowViewModel extends Disposable {
     constructor(pool) {
+        super();
+
         this.isVisible = ko.pureComputed(
             () => !!pool()
         );
 
-        this.stateIcon = 'pool';
+        this.stateIcon = ko.pureComputed(
+            () => pool() && `pool-${pool().nodes.online >= 3 ? 'healthy' : 'problem'}`
+        );
 
         this.name = ko.pureComputed(
             () => pool() && pool().name

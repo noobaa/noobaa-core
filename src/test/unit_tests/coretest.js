@@ -131,7 +131,7 @@ function init_test_nodes(client, system, count) {
         })
         .then(() => {
             console.log('after creating ' + count + ' agents');
-            client.node.sync_monitor_to_store();
+            return client.node.sync_monitor_to_store();
         });
 }
 

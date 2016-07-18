@@ -1,30 +1,53 @@
+import Disposable from 'disposable';
 import ko from 'knockout';
-import { formatSize } from 'utils';
+import { formatSize, deepFreeze } from 'utils';
 
-export default class NodeRowViewModel {
-    constructor(node) {
-        this.isVisible = ko.pureComputed(
-            () => !!node()
+const stateIconMapping = deepFreeze({
+    true: {
+        name: 'node-online',
+        tooltip: 'online'
+    },
+    false: {
+        name: 'node-offline',
+        tooltip: 'offline'
+    }
+});
+
+export default class NodeRowViewModel extends Disposable {
+    constructor(node, currPoolName, selectedNodes) {
+        super();
+
+        this.selected = ko.pureComputed({
+            read: () => selectedNodes().includes(this.name()),
+            write: selected => selected ?
+                selectedNodes.push(this.name()) :
+                selectedNodes.remove(this.name())
+        });
+
+        this.state = ko.pureComputed(
+            () => node() && stateIconMapping[node().online]
         );
 
         this.name = ko.pureComputed(
-            () => !!node() && node().name
+            () => node() && node().name
         );
 
         this.ip = ko.pureComputed(
-            () => !!node() && node().ip
+            () => node() && node().ip
         );
 
         this.capacity = ko.pureComputed(
-            () => !!node() && (node().storage ? formatSize(node().storage.total) : 'N/A')
+            () => node() && (node().storage ? formatSize(node().storage.total) : 'N/A')
         );
 
-        this.currPool = ko.pureComputed(
-            () => !!node() && node().pool
+        this.pool = ko.pureComputed(
+            () => node() && node().pool
         );
 
-        this.suggestedPool = ko.pureComputed(
-            () => !!node() && node().suggested_pool
+        this.recommended = ko.pureComputed(
+            () => node() && (
+                node().suggested_pool === ko.unwrap(currPoolName) ? 'yes' : '---'
+            )
         );
     }
 }

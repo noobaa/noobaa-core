@@ -140,11 +140,12 @@ function do_upgrade {
   # Re-setup Repos
   setup_repos
 
-  if [ ! -d  /var/lib/mongo/cluster/shard1 ]; then
+  if [ ! -d  /var/lib/mongo/cluster/shard1 ] || [ ! "$(ls -A /var/lib/mongo/cluster/shard1)" ]; then
       deploy_log "Moving mongo db files into new location"
       mkdir -p /var/lib/mongo/cluster/shard1
       chmod +x /var/lib/mongo/cluster/shard1
       cp -r /data/db/* /var/lib/mongo/cluster/shard1/
+      mv /data/db /backup/old_db
   fi
 
   deploy_log "Running post upgrade"

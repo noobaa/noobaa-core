@@ -14,7 +14,7 @@ class DropdownViewModel extends Disposable {
     constructor({
         selected = ko.observable(),
         options = [],
-        placeholder = '',
+        placeholder = 'Choose...',
         disabled = false,
         matchOperator = matchByPrefix
     }) {

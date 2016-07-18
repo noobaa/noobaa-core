@@ -34,7 +34,10 @@
                     "></a>
                 </td>
 
-                <td class="bucket-col no-wrap" data-bind="text: bucket"></td>
+                <td class="bucket-col no-wrap" data-bind="
+                    text: bucket,
+                    tooltip: bucket
+                "></td>
 
                 <td class="start-col" data-bind="text: startOffset"></td>
                 <td class="end-col" data-bind="text: endOffset"></td>

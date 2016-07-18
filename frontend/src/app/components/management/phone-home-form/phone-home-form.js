@@ -40,7 +40,9 @@ class PhoneHomeFormViewModel extends Disposable {
                     onlyIf: this.usingProxy,
                     message: 'Please enter an IP or DNS name'
                 },
-                isIPOrDNSName: true
+                isIPOrDNSName: {
+                    onlyIf: this.usingProxy
+                }
             });
 
         let portValMessage = 'Please enter a port number between 1 and 65535';
@@ -51,9 +53,20 @@ class PhoneHomeFormViewModel extends Disposable {
             }
         )
             .extend({
-                required: { onlyIf: this.usingProxy, message: portValMessage },
-                min: { params: 1, message: portValMessage },
-                max: { params: 65535, message: portValMessage }
+                required: {
+                    onlyIf: this.usingProxy,
+                    message: portValMessage
+                },
+                min: {
+                    onlyIf: this.usingProxy,
+                    params: 1,
+                    message: portValMessage
+                },
+                max: {
+                    onlyIf: this.usingProxy,
+                    params: 65535,
+                    message: portValMessage
+                }
             });
 
         this.errors = ko.validation.group([

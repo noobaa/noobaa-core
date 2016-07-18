@@ -886,7 +886,7 @@ export function assignNodes(name, nodes) {
             () => notify(`${nodes.length} nodes has been assigend to pool ${name}`, 'success'),
             () => notify(`Assinging nodes to pool ${name} failed`, 'error')
         )
-        .then(loadSystemInfo)
+        .then(refresh)
         .done();
 }
 

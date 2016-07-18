@@ -51,6 +51,10 @@ class DataTableViewModel extends Disposable {
 
         this.rows = ko.observableArray();
 
+        this.isEmpty = ko.pureComputed(
+            () => this.rows().length === 0
+        );
+
         // Init the table rows.
         this.updateRows(data);
 

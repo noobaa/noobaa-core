@@ -33,16 +33,10 @@ const system_server_utils = require('../utils/system_server_utils');
 const clustering_utils = require('../utils/clustering_utils');
 const dclassify = require('dclassify');
 
-
 const RUN_DELAY_MS = 60000;
 const RUN_NODE_CONCUR = 50;
 const MAX_NUM_LATENCIES = 20;
 const UPDATE_STORE_MIN_ITEMS = 100;
-const REBUILD_CLIFF = 3 * 60000;
-const REBUILD_WORKERS = 10;
-const REBUILD_BATCH_SIZE = 500;
-const REBUILD_BATCH_DELAY = 0;
-const REBUILD_BATCH_ERROR_DELAY = 3000;
 
 const AGENT_INFO_FIELDS = [
     'name',
@@ -519,7 +513,7 @@ class NodesMonitor extends EventEmitter {
                 dbg.warn('_update_status: delay node data_activity',
                     'while system in maintenance', item.node.name);
             } else {
-                const time_left = REBUILD_CLIFF - (Date.now() - item.node.heartbeat);
+                const time_left = config.REBUILD_NODE_OFFLINE_CLIFF - (Date.now() - item.node.heartbeat);
                 if (time_left > 0 && item.data_activity_reason === 'RESTORING') {
                     dbg.warn('_update_status: schedule node data_activity for', item.node.name,
                         'in', time_left, 'ms');
@@ -547,7 +541,7 @@ class NodesMonitor extends EventEmitter {
 
     _wakeup_rebuild() {
         const count = Math.min(
-            REBUILD_WORKERS,
+            config.REBUILD_NODE_CONCURRENCY,
             this._set_need_rebuild.size - this._num_running_rebuilds);
         for (let i = 0; i < count; ++i) {
             this._rebuild_worker(i);
@@ -602,7 +596,7 @@ class NodesMonitor extends EventEmitter {
                     chunk: 1,
                     size: 1
                 },
-                limit: REBUILD_BATCH_SIZE
+                limit: config.REBUILD_BATCH_SIZE
             }).toArray())
             .then(blocks_res => {
                 blocks = blocks_res;
@@ -646,13 +640,13 @@ class NodesMonitor extends EventEmitter {
                     setTimeout(() => {
                         this._set_need_rebuild.add(item);
                         this._wakeup_rebuild();
-                    }, REBUILD_BATCH_DELAY).unref();
+                    }, config.REBUILD_BATCH_DELAY).unref();
                 } else if (act.last_block_id) {
                     act.last_block_id = undefined;
                     setTimeout(() => {
                         this._set_need_rebuild.add(item);
                         this._wakeup_rebuild();
-                    }, REBUILD_BATCH_DELAY).unref();
+                    }, config.REBUILD_BATCH_DELAY).unref();
                 } else {
                     act.last_block_id = undefined;
                     act.remaining_size = 0;
@@ -677,7 +671,7 @@ class NodesMonitor extends EventEmitter {
                 setTimeout(() => {
                     this._set_need_rebuild.add(item);
                     this._wakeup_rebuild();
-                }, REBUILD_BATCH_ERROR_DELAY).unref();
+                }, config.REBUILD_BATCH_ERROR_DELAY).unref();
             });
     }
 

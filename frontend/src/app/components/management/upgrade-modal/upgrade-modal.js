@@ -15,15 +15,16 @@ class UpgradeModalViewModel extends Disposable {
         );
 
         this.progress = ko.pureComputed(
-            () => upgradeStatus() ? upgradeStatus().progress : 0
+            () => upgradeStatus() ?
+                (upgradeStatus().step === 'UPLOAD' ? upgradeStatus().progress : 1) :
+                0
         );
 
         this.upgradeFailed = ko.pureComputed(
-            () => !!upgradeStatus() && upgradeStatus().state === 'FAILED'
-        );
-
-        this.stepClass = ko.pureComputed(
-            () => (step() || '').toLowerCase()
+            () => !!upgradeStatus() && (
+                upgradeStatus().state === 'FAILED' ||
+                upgradeStatus().state === 'CANCELED'
+            )
         );
 
         this.progressText = ko.pureComputed(

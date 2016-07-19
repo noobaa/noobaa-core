@@ -180,6 +180,7 @@ class Agent {
 
     _handle_server_change(suggested) {
         dbg.warn('_handle_server_change', suggested ? 'suggested server ' + suggested : 'no suggested server, trying next in list', this.servers);
+        this.connect_attempts = 0;
         if (!this.servers.length) {
             dbg.error('_handle_server_change no server list');
             return;

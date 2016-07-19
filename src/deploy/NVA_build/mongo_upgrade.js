@@ -20,7 +20,7 @@ function authenticate() {
     var pwd = 'roonoobaa'; // eslint-disable-line no-undef
     // try to authenticate with nbadmin. if succesful nothing to do
     var res = adminDb.auth('nbadmin', pwd);
-    if (res === 1) {
+    if (res !== 1) {
         print('\nERROR - mongo authentication failed');
     }
 }

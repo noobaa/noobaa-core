@@ -245,10 +245,10 @@ class Agent {
     _do_heartbeat() {
         if (!this.is_started) return;
 
-        if (this.connect_attempts > 20) { //NBNB
+        /*if (this.connect_attempts > 20) {
             dbg.error('too many failure to connect, switching servers');
             return this._handle_server_change();
-        }
+        }*/
 
         let hb_info = {
             version: pkg.version

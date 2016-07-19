@@ -1,12 +1,17 @@
 <div class="dropdown-wrapper no-outline" data-bind="
-    click: () => active.toggle(),
-    event: { keydown: (_, evt) => handleKeyPress(evt) },
-    hasFocus: focused,
+    event: {
+        blur: () => active(false),
+        click: () => active.toggle() && true,
+        keydown: (_, evt) => handleKeyPress(evt)
+    },
     attr: { tabindex: !ko.unwrap(disabled) && '0' },
     css: { disabled: disabled, active: active },
-    validationOptions: { insertMessages: false }
+    validationOptions: { insertMessages: false },
+    let: { $wrapper: $element }
 ">
-    <svg-icon class="icon-small" params="name: 'chevron'"></svg-icon>
+    <svg-icon class="icon-small" params="name: 'chevron'" data-bind="
+        event: { mousedown: () => $wrapper.focus() }
+    "></svg-icon>
 
     <div class="value no-wrap" data-bind="
         value: selected,
@@ -16,7 +21,10 @@
 
     <div class="options" data-bind="
         visible: active(),
-        click: () => active(false) && true,
+        event: {
+            click: () => active(false) && true,
+            mousedown: () => $wrapper.focus()
+        },
         clickBubble: false
     ">
         <ul class="list-no-style" data-bind="foreach: options, scrollTo: selectedIndex">

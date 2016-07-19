@@ -22,22 +22,13 @@ class DropdownViewModel extends Disposable {
 
         this.name = randomString(5);
         this.options = options;
+
         this.selected = selected;
         this.selectedIndex = ko.pureComputed(
             () => (ko.unwrap(options) || []).findIndex(
                 opt => opt && opt.value === ko.unwrap(selected)
             )
         );
-
-        this.disabled = disabled;
-        this.focused = ko.observable(false);
-
-        let _active = ko.observable(false);
-        this.active = ko.pureComputed({
-            read: () => this.focused() && _active(),
-            write: _active
-        });
-
         this.selectedLabel = ko.pureComputed(
             () => {
                 let options = ko.unwrap(this.options);
@@ -51,6 +42,8 @@ class DropdownViewModel extends Disposable {
             }
         );
 
+        this.disabled = disabled;
+        this.active = ko.observable(false);
         this.matchOperator = matchOperator;
         this.searchInput = '';
         this.lastInput = 0;

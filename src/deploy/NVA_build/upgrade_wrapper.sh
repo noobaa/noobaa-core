@@ -58,6 +58,16 @@ function fix_iptables {
   service iptables save
 }
 
+
+function wait_for_mongo {
+  local running=$(supervisorctl status mongodb | awk '{ print $2 }' ) 
+  while [ "$running" != "RUNNING" ]; do 
+    sleep 1
+    running=$(supervisorctl status mongodb | awk '{ print $2 }' ) 
+  done
+  sleep 1
+}
+
 function fix_bashrc {
   fixbashrc=$(grep servicesstatus ~/.bashrc | wc -l)
   if [ ${fixbashrc} -eq 0 ]; then
@@ -82,11 +92,37 @@ function fix_bashrc {
   fi
 }
 
+function disable_autostart {
+  deploy_log "disable_autostart"
+  # we need to start supervisord, but we don't want to start all services.
+  # use sed to set autostart to false. replace back when finished.
+  sed -i "s:autostart=true:autostart=false:" /etc/noobaa_supervisor.conf
+  #web_server doesn't specify autostart. a hack to prevent it from loading
+  sed -i "s:web_server.js:WEB.JS:" /etc/noobaa_supervisor.conf  
+}
+
+function enable_autostart {
+  deploy_log "enable_autostart"
+  # restore autostart and web_server.js
+  sed -i "s:autostart=false:autostart=true:" /etc/noobaa_supervisor.conf
+  #web_server doesn't specify autostart. a hack to prevent it from loading
+  sed -i "s:WEB.JS:web_server.js:" /etc/noobaa_supervisor.conf  
+}
+
+
 function upgrade_mongo_version {
+
+
 	local ver=$(mongo --version | grep 3.2 | wc -l)
 	if [ ${ver} -ne 0 ]; then
 		return
 	fi
+
+
+  disable_autostart
+
+ 	${SUPERD}
+  sleep 3
 
 	deploy_log "RE-Enable mongo upgrades"
 	#RE-Enable mongo upgrades
@@ -99,12 +135,21 @@ function upgrade_mongo_version {
 	sed -i 's:baseurl=.*:baseurl=http\://repo.mongodb.org/yum/redhat/6Server/mongodb-org/3.0/x86_64/:' /etc/yum.repos.d/mongodb-org-3.0.repo
 	yum -y install mongodb-org
 	deploy_log "Start MongoDB 3.0"
+
+
 	${SUPERCTL} start mongodb
+  wait_for_mongo
+
 
 	#Export current mongo DB
+
 	deploy_log "Taking MongoDB backup"
 	mongodump --out /tmp/mongo_3.2_upgrade
+
+  deploy_log "stopping mongo"
 	${SUPERCTL} stop mongodb
+
+  # move mongo folder to /var/lib/mongo/cluster/shard1_old"
 	mv /var/lib/mongo/cluster/shard1 /var/lib/mongo/cluster/shard1_old
 	mkdir -p /var/lib/mongo/cluster/shard1
 
@@ -113,12 +158,25 @@ function upgrade_mongo_version {
 	cp -f ${CORE_DIR}/src/deploy/NVA_build/mongo.repo /etc/yum.repos.d/mongodb-org-3.2.repo
 	yum -y install mongodb-org
 	rm -f /etc/yum.repos.d/mongodb-org-3.0.repo
+
+  deploy_log "starting mongo"
 	${SUPERCTL} start mongodb
 	deploy_log "Importing Previous DB"
+
+  wait_for_mongo
+
+  #mongorestore from /tmp/mongo_3.2_upgrade"
 	mongorestore /tmp/mongo_3.2_upgrade
 
+  deploy_log "stopping mongo"
+	${SUPERCTL} stop mongodb
+  
 	#disable mongo upgrades
 	echo "exclude=mongodb-org,mongodb-org-server,mongodb-org-shell,mongodb-org-mongos,mongodb-org-tools" >> /etc/yum.conf
+
+  enable_autostart
+  ${SUPERCTL} shutdown
+
 }
 
 function pre_upgrade {
@@ -205,6 +263,7 @@ function post_upgrade {
     cp -f /tmp/agent_conf.json ${CORE_DIR}/agent_conf.json
   fi
 
+  # same as setup_repos in upgrade.sh. do we really need to perform it again?
   rm -f ${CORE_DIR}/.env
   cp -f ${CORE_DIR}/src/deploy/NVA_build/env.orig ${CORE_DIR}/.env
 
@@ -224,7 +283,7 @@ function post_upgrade {
   echo "${AGENT_VERSION_VAR}" >> ${CORE_DIR}/.env
 
   #if noobaa supervisor.conf is pre clustering, fix it
-  local FOUND=$(grep "dbpath /var/lib/mongo/cluster/shard1" /etc/noobaa_supervisor.conf | grep "auth" | wc -l)
+  local FOUND=$(grep "dbpath /var/lib/mongo/cluster/shard1" /etc/noobaa_supervisor.conf | wc -l)
   if [ ${FOUND} -eq 0 ]; then
     cp -f ${CORE_DIR}/src/deploy/NVA_build/noobaa_supervisor.conf /etc/noobaa_supervisor.conf
   fi
@@ -247,15 +306,15 @@ function post_upgrade {
   chown root:root /etc/profile.d/first_install_diaglog.sh
   chmod 4755 /etc/profile.d/first_install_diaglog.sh
 
-  deploy_log "Installation ID generation if needed"
-
-  #Installation ID generation if needed
-  #TODO: Move this into the mongo_upgrade.js
-  local id=$(/usr/bin/mongo admin -u nbadmin -p roonoobaa --eval "db.getSiblingDB('nbcore').clusters.find().shellPrint()" | grep cluster_id | wc -l)
-  if [ ${id} -eq 0 ]; then
-      id=$(uuidgen)
-      /usr/bin/mongo admin -u nbadmin -p roonoobaa --eval "db.getSiblingDB('nbcore').clusters.insert({cluster_id: '${id}'})"
-  fi
+  # seems unnecessary - cluster_id is added in mongo_upgrade
+  # deploy_log "Installation ID generation if needed"
+  # #Installation ID generation if needed
+  # #TODO: Move this into the mongo_upgrade.js
+  # local id=$(/usr/bin/mongo admin -u nbadmin -p roonoobaa --eval "db.getSiblingDB('nbcore').clusters.find().shellPrint()" | grep cluster_id | wc -l)
+  # if [ ${id} -eq 0 ]; then
+  #     id=$(uuidgen)
+  #     /usr/bin/mongo admin -u nbadmin -p roonoobaa --eval "db.getSiblingDB('nbcore').clusters.insert({cluster_id: '${id}'})"
+  # fi
 
   unset AGENT_VERSION
 
@@ -305,8 +364,6 @@ function post_upgrade {
   rm -f /tmp/*.tar.gz
   rm -rf /tmp/v*
 
-  /etc/rc.d/init.d/supervisord stop
-  /etc/rc.d/init.d/supervisord start
 }
 
 #Log file name supplied

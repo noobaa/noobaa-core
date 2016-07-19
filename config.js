@@ -50,6 +50,21 @@ config.IO_OBJECT_RANGE_ALIGN = 32 * 1024 * 1024;
 config.IO_HTTP_PART_ALIGN = 32 * 1024 * 1024;
 config.IO_HTTP_TRUNCATE_PART_SIZE = false;
 
+////////////////////
+// REBUILD CONFIG //
+////////////////////
+
+config.REBUILD_BATCH_SIZE = 100;
+config.REBUILD_BATCH_DELAY = 50;
+config.REBUILD_BATCH_ERROR_DELAY = 3000;
+config.REBUILD_LAST_BUILD_BACKOFF = 1 * 60000; // TODO increase?
+config.REBUILD_BUILDING_MODE_BACKOFF = 5 * 60000; // TODO increase?
+
+config.REBUILD_NODE_CONCURRENCY = 10;
+config.REBUILD_NODE_OFFLINE_CLIFF = 3 * 60000;
+
+config.SCRUBBER_RESTART_DELAY = 30000;
+
 //////////////////
 // DEBUG CONFIG //
 //////////////////

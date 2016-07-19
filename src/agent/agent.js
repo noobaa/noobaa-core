@@ -49,6 +49,10 @@ class Agent {
         this.rpc = api.new_rpc(params.address);
         this.client = this.rpc.new_client();
 
+        this.servers = [{
+            address: params.address
+        }];
+
         assert(params.node_name, 'missing param: node_name');
         this.node_name = params.node_name;
         this.token = params.token;
@@ -175,29 +179,30 @@ class Agent {
     }
 
     _handle_server_change(suggested) {
-        dbg.error('_handle_server_change', suggested ? 'suggested server ' + suggested : 'no suggested server, trying next in list');
-        let previous_address = this.servers[this.current_server].address;
-        let new_address;
+        dbg.warn('_handle_server_change', suggested ? 'suggested server ' + suggested : 'no suggested server, trying next in list', this.servers);
+        this.connect_attempts = 0;
+        if (!this.servers.length) {
+            dbg.error('_handle_server_change no server list');
+            return;
+        }
+        const previous_address = this.servers[0].address;
         if (suggested) {
             //Find if the suggested server appears in the list we got from the initial connect
-            this.current_server = _.findIndex(this.servers, function(s) {
-                return s.address === suggested;
+            const current_server = _.remove(this.servers, function(srv) {
+                return srv.address === suggested;
             });
-            if (this.current_server === -1) {
-                dbg.log0('Could not find suggested server', suggested, 'in existing servers list');
-                this.current_server = 0;
+            if (current_server[0]) {
+                this.servers.unshift(current_server);
+            } else {
+                this.servers.push(this.servers.shift());
             }
         } else {
             //Skip to the next server in list
-            this.current_server++;
-            if (this.current_server > this.servers.length) {
-                this.current_server = 0;
-            }
+            this.servers.push(this.servers.shift());
         }
-        new_address = this.servers[this.current_server].address;
-        this.connect_attempts = 0;
+        dbg.log('Chosen new address', this.servers[0].address, this.servers);
         return P.resolve(this._update_rpc_config_internal({
-            base_address: new_address,
+            base_address: this.servers[0].address,
             old_base_address: previous_address,
         }));
     }

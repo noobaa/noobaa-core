@@ -21,6 +21,10 @@ class PoolNodesTableViewModel extends Disposable {
             () => nodeList() && nodeList().total_count
         );
 
+        this.filter_counts = ko.pureComputed(
+            () => nodeList() && nodeList().filter_counts
+        );
+
         let query = ko.pureComputed(
             () => routeContext().query
         );
@@ -41,13 +45,15 @@ class PoolNodesTableViewModel extends Disposable {
         this.issuesFilterOptions = [
             {
                 label: ko.pureComputed(
-                    () => `All Nodes (${ this.count() != null ? this.count() : 'N/A'})`
+                    () => `All Nodes (${ this.filter_counts() ?
+                        this.filter_counts().count : 'N/A'})`
                 ),
                 value: false
             },
             {
                 label: ko.pureComputed(
-                    () => `Issues (${ pool() ? pool().nodes.has_issues : 'N/A'})`
+                    () => `Issues (${ this.filter_counts() ?
+                        this.filter_counts().has_issues : 'N/A'})`
                 ),
                 value: true
             }

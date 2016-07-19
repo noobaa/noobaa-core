@@ -886,7 +886,7 @@ export function assignNodes(name, nodes) {
             () => notify(`${nodes.length} nodes has been assigend to pool ${name}`, 'success'),
             () => notify(`Assinging nodes to pool ${name} failed`, 'error')
         )
-        .then(loadSystemInfo)
+        .then(refresh)
         .done();
 }
 
@@ -1347,6 +1347,7 @@ export function uploadSSLCertificate(SSLCertificate) {
 export function downloadNodeDiagnosticPack(nodeName) {
     logAction('downloadDiagnosticFile', { nodeName });
 
+    notify('Collecting data... might take a while');
     api.system.diagnose_node({ name: nodeName })
         .catch(
             err => {
@@ -1363,6 +1364,7 @@ export function downloadNodeDiagnosticPack(nodeName) {
 export function downloadSystemDiagnosticPack() {
     logAction('downloadSystemDiagnosticPack');
 
+    notify('Collecting data... might take a while');
     api.system.diagnose_system()
         .catch(
             err => {

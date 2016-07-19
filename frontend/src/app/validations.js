@@ -17,24 +17,24 @@ function hasNoLeadingOrTrailingSpaces(value) {
     return value.trim() === value;
 }
 
-function isIP(value) {
-    return !value || (
-        /^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/.test(value)
-    );
+function isIP(value, { onlyIf = true }) {
+    const regExp = /^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/;
+
+    return !value || !ko.unwrap(onlyIf) || regExp.test(value);
 }
 
-function isDNSName(value) {
-    return !value || (
-        value.length < 63 && /^[A-Za-z0-9][A-Za-z0-9-\.]*[A-Za-z0-9]$/.test(value)
-    );
+function isDNSName(value, { onlyIf = true }) {
+    const regExp = /^[A-Za-z0-9][A-Za-z0-9-\.]*[A-Za-z0-9]$/;
+
+    return !value || !ko.unwrap(onlyIf) || (value.length < 63 && regExp.test(value));
 }
 
-function isIPOrDNSName(value) {
-    return isIP(value) || isDNSName(value);
+function isIPOrDNSName(value, params) {
+    return isIP(value, params) || isDNSName(value, params);
 }
 
-function isURI(value) {
-    if (!value) {
+function isURI(value, { onlyIf }) {
+    if (!value || !ko.unwrap(onlyIf)) {
         return true;
     }
 

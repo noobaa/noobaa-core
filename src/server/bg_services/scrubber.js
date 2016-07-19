@@ -2,6 +2,7 @@
 
 const P = require('../../util/promise');
 const dbg = require('../../util/debug_module')(__filename);
+const config = require('../../../config');
 const md_store = require('../object_services/md_store');
 const map_builder = require('../object_services/map_builder');
 
@@ -23,7 +24,7 @@ function background_worker() {
                         last_build: null
                     }, {
                         last_build: {
-                            $lt: new Date(now - self.time_since_last_build)
+                            $lt: new Date(now - config.REBUILD_LAST_BUILD_BACKOFF)
                         }
                     }]
                 }, {
@@ -31,7 +32,7 @@ function background_worker() {
                         building: null
                     }, {
                         building: {
-                            $lt: new Date(now - self.building_timeout)
+                            $lt: new Date(now - config.REBUILD_BUILDING_MODE_BACKOFF)
                         }
                     }]
                 },
@@ -52,12 +53,12 @@ function background_worker() {
             query.deleted = null;
 
             return P.resolve(md_store.DataChunk.find(query)
-                .limit(self.batch_size)
+                .limit(config.REBUILD_BATCH_SIZE)
                 .sort('-_id')
                 .lean()
                 .exec());
             // return P.resolve(md_store.DataChunk.collection.find(query, {
-            //     limit: self.batch_size,
+            //     limit: config.REBUILD_BATCH_SIZE,
             //     sort: {
             //         _id: -1
             //     }
@@ -66,7 +67,7 @@ function background_worker() {
         .then(function(chunks) {
 
             // update the last_chunk_id for next time
-            if (chunks.length === self.batch_size) {
+            if (chunks.length === config.REBUILD_BATCH_SIZE) {
                 self.last_chunk_id = chunks[0]._id;
             } else {
                 self.last_chunk_id = undefined;
@@ -85,15 +86,15 @@ function background_worker() {
             // return the delay before next batch
             if (self.last_chunk_id) {
                 dbg.log0('SCRUBBER:', 'CONTINUE', self.last_chunk_id);
-                return 100;
+                return config.REBUILD_BATCH_DELAY;
             } else {
                 dbg.log0('SCRUBBER:', 'END');
-                return 60000;
+                return config.SCRUBBER_RESTART_DELAY;
             }
         }, function(err) {
             // return the delay before next batch
             dbg.error('SCRUBBER:', 'ERROR', err, err.stack);
-            return 10000;
+            return config.REBUILD_BATCH_ERROR_DELAY;
         });
 }
 

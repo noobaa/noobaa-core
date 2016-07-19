@@ -3,7 +3,7 @@
         Maintenance Mode
     </h1>
 
-    <p class="push-next">
+    <p>
         Exit maintenance mode automatically after
         <input type="number" min="0" data-bind="value: hours"/>
         hours and
@@ -11,11 +11,13 @@
         minutes.
     </p>
 
-    <div class="box push-next">
+    <div class="box push-both">
         <svg-icon params="name: 'notif-warning'">
         </svg-icon>
         Preformance and functionality issues may occur while the system is in maintenance mode
     </div>
+
+    <span class="val-msg push-next" data-bind="validationMessage: duration"></span>
 
     <div class="row content-middle align-end push-prev">
         <button class="link push-next" data-bind="click: cancel">Cancel</button>

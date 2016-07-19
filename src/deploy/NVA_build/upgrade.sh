@@ -10,6 +10,33 @@ EXTRACTION_PATH="/tmp/test/"
 VER_CHECK="/root/node_modules/noobaa-core/src/deploy/NVA_build/version_check.js"
 NEW_UPGRADE_SCRIPT="${EXTRACTION_PATH}noobaa-core/src/deploy/NVA_build/upgrade.sh"
 
+
+function wait_for_mongo {
+  local running=$(supervisorctl status mongodb | awk '{ print $2 }' ) 
+  while [ "$running" != "RUNNING" ]; do 
+    sleep 1
+    running=$(supervisorctl status mongodb | awk '{ print $2 }' ) 
+  done
+}
+
+
+function disable_autostart {
+  deploy_log "disable_autostart"
+  # we need to start supervisord, but we don't want to start all services.
+  # use sed to set autostart to false. replace back when finished.
+  sed -i "s:autostart=true:autostart=false:" /etc/noobaa_supervisor.conf
+  #web_server doesn't specify autostart. a hack to prevent it from loading
+  sed -i "s:web_server.js:WEB.JS:" /etc/noobaa_supervisor.conf  
+}
+
+function enable_autostart {
+  deploy_log "enable_autostart"
+  # restore autostart and web_server.js
+  sed -i "s:autostart=false:autostart=true:" /etc/noobaa_supervisor.conf
+  #web_server doesn't specify autostart. a hack to prevent it from loading
+  sed -i "s:WEB.JS:web_server.js:" /etc/noobaa_supervisor.conf  
+}
+
 function disable_supervisord {
   deploy_log "disable_supervisord"
   #services under supervisord
@@ -26,12 +53,36 @@ function disable_supervisord {
   deploy_log "Mongo status after disabling supervisord $mongostatus"
 }
 
-function enable_supervisord {
-  deploy_log "enable_supervisord"
-  local mongostatus_bef=$(ps -ef|grep mongod)
-  deploy_log "Mongo status before starting supervisord $mongostatus_bef"
+function mongo_upgrade {
+
+  disable_autostart
+
   ${SUPERD}
+  sleep 3
+
+  ${SUPERCTL} start mongodb
+  wait_for_mongo
+
+  # setup users for authentication
+  setup_users
+  #MongoDB nbcore upgrade
+  deploy_log "starting mongo data upgrade"
+  local sec=$(cat /etc/noobaa_sec)
+  local id=$(uuidgen | cut -f 1 -d'-')
+  local ip=$(/sbin/ifconfig eth0 | grep 'inet addr:' | cut -d: -f2 | cut -f 1 -d' ')
+  /usr/bin/mongo nbcore --eval "var param_secret='${sec}', params_cluster_id='${id}', param_ip='${ip}'" ${CORE_DIR}/src/deploy/NVA_build/mongo_upgrade.js
+  deploy_log "finished mongo data upgrade"
+
+  # add auth flag to mongo
+  sed -i "s:mongod --dbpath:mongod --auth --dbpath:" /etc/noobaa_supervisor.conf
+
+  enable_autostart
+
+
+  ${SUPERCTL} reload
+  sleep 3
 }
+
 
 function restart_webserver {
     ${SUPERCTL} stop webserver
@@ -61,7 +112,7 @@ function restart_webserver {
 
 function setup_users {
 	deploy_log "setting up mongo users for admin and nbcore databases"
-	/usr/bin/mongo admin ${EXTRACTION_PATH}noobaa-core/src/deploy/NVA_build/mongo_setup_users.js
+	/usr/bin/mongo admin ${CORE_DIR}/src/deploy/NVA_build/mongo_setup_users.js
 	deploy_log "setup_users done"
 }
 
@@ -119,7 +170,6 @@ function extract_package {
 }
 
 function do_upgrade {
-  setup_users
   disable_supervisord
 
   unalias cp
@@ -152,14 +202,10 @@ function do_upgrade {
   ${WRAPPER_FILE_PATH}${WRAPPER_FILE_NAME} post ${FSUFFIX}
   deploy_log "Finished post upgrade"
 
-  enable_supervisord
-  deploy_log "Enabling supervisor"
-  #workaround - from some reason, without sleep + restart, the server starts with odd behavior
-  #TODO: understand why and fix.
-  sleep 5;
-  restart_s3rver
-  deploy_log "Restarted s3rver"
-  restart_webserver
+
+  mongo_upgrade
+  wait_for_mongo
+
   #Update Mongo Upgrade status
   deploy_log "Updating system.upgrade on success"
   local id=$(/usr/bin/mongo admin -u nbadmin -p roonoobaa --eval "db.getSiblingDB('nbcore').systems.find({},{'_id':'1'})" | grep _id | sed 's:.*ObjectId("\(.*\)").*:\1:')

@@ -222,7 +222,7 @@ AgentCLI.prototype.load = function() {
             dbg.log0('root_path', storage_path);
 
             return P.resolve()
-                .then(() => fs_utils.create_path(storage_path ,fs_utils.PRIVATE_DIR_PERMISSIONS))
+                .then(() => fs_utils.create_path(storage_path, fs_utils.PRIVATE_DIR_PERMISSIONS))
                 .then(() => P.resolve(self.hide_storage_folder(storage_path))
                     .catch(err => {
                         dbg.error('Windows - failed to hide', err.stack || err);
@@ -363,6 +363,10 @@ AgentCLI.prototype.create_node_helper = function(current_node_path_info, interna
             }).then(function() {
                 dbg.log0('writing token', token_path);
                 return fs.writeFileAsync(token_path, self.create_node_token);
+            })
+            .then(function() {
+                dbg.log0('Add uninstall command', node_path);
+                return promise_utils.promised_exec('echo \'rm -rf ' + current_node_path + '\' >> ./noobaa_service_uninstall.sh ');
             })
             .then(function() {
                 if (!self.params.internal_agent) {

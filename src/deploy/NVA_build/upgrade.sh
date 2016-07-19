@@ -12,10 +12,10 @@ NEW_UPGRADE_SCRIPT="${EXTRACTION_PATH}noobaa-core/src/deploy/NVA_build/upgrade.s
 
 
 function wait_for_mongo {
-  local running=$(supervisorctl status mongodb | awk '{ print $2 }' ) 
-  while [ "$running" != "RUNNING" ]; do 
-    sleep 1
-    running=$(supervisorctl status mongodb | awk '{ print $2 }' ) 
+  local running=$(supervisorctl status mongodb | awk '{ print $2 }' )
+  while [ "$running" != "RUNNING" ]; do
+    sleep 5
+    running=$(supervisorctl status mongodb | awk '{ print $2 }' )
   done
 }
 
@@ -26,7 +26,7 @@ function disable_autostart {
   # use sed to set autostart to false. replace back when finished.
   sed -i "s:autostart=true:autostart=false:" /etc/noobaa_supervisor.conf
   #web_server doesn't specify autostart. a hack to prevent it from loading
-  sed -i "s:web_server.js:WEB.JS:" /etc/noobaa_supervisor.conf  
+  sed -i "s:web_server.js:WEB.JS:" /etc/noobaa_supervisor.conf
 }
 
 function enable_autostart {
@@ -34,7 +34,7 @@ function enable_autostart {
   # restore autostart and web_server.js
   sed -i "s:autostart=false:autostart=true:" /etc/noobaa_supervisor.conf
   #web_server doesn't specify autostart. a hack to prevent it from loading
-  sed -i "s:WEB.JS:web_server.js:" /etc/noobaa_supervisor.conf  
+  sed -i "s:WEB.JS:web_server.js:" /etc/noobaa_supervisor.conf
 }
 
 function disable_supervisord {

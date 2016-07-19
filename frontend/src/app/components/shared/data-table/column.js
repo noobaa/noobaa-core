@@ -1,13 +1,17 @@
 import Disposable from 'disposable';
 import { isObject, noop, toDashedCase } from 'utils';
 
+function addSpaces(str) {
+    return str.replace(/[A-Z1-9]+/g, match => ` ${match}`);
+}
+
 export default class ColumnViewModel extends Disposable {
     constructor(config, cellTemplates) {
         super();
         config = isObject(config) ? config : { name: config.toString() };
         let {
             name,
-            label = name,
+            label = addSpaces(name),
             cellTemplate = 'text',
             sortable = false,
             accessor = noop,

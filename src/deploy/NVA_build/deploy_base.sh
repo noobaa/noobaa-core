@@ -13,6 +13,7 @@ function deploy_log {
 	if [ "$1" != "" ]; then
 		local now=$(date)
 		echo "${now} ${1}" >> ${LOG_FILE}
+		echo "${now} ${1}"
 	fi
 }
 

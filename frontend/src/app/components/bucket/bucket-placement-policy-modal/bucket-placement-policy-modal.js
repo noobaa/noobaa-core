@@ -2,21 +2,36 @@ import template from './bucket-placement-policy-modal.html';
 import PoolRow from './pool-row';
 import Disposable from 'disposable';
 import ko from 'knockout';
-import { noop } from 'utils';
+import { noop, deepFreeze } from 'utils';
 import { systemInfo } from 'model';
 import { updateBucketPlacementPolicy } from 'actions';
+
+const columns = deepFreeze([
+    {
+        name: 'select',
+        cellTemplate: 'checkbox'
+    },
+    {
+        name: 'state',
+        cellTemplate: 'icon'
+    },
+    'name',
+    'onlineCount',
+    'freeSpace'
+]);
 
 class BacketPlacementPolicyModalViewModel extends Disposable {
     constructor({ policy, onClose = noop }) {
         super();
 
         this.onClose = onClose;
+        this.columns = columns;
 
         this.tierName = ko.pureComputed(
             () => ko.unwrap(policy) && ko.unwrap(policy).tiers[0].tier
         );
 
-        let tier = ko.pureComputed(
+        this.tier = ko.pureComputed(
             () => {
                 if (!systemInfo() || !this.tierName()) {
                     return;
@@ -29,48 +44,58 @@ class BacketPlacementPolicyModalViewModel extends Disposable {
         );
 
         this.placementType = ko.observableWithDefault(
-            () => tier() && tier().data_placement
+            () => this.tier() && this.tier().data_placement
         );
 
         this.pools = ko.pureComputed(
-            () => (systemInfo() ? systemInfo().pools : [])
-                .filter(
-                   ({ nodes }) => nodes
-                )
-                .map(
-                    pool => new PoolRow(pool, tier())
-                )
+            () => (systemInfo() ? systemInfo().pools : []).filter(
+               ({ nodes }) => nodes
+            )
         );
+
+        this.selectedPools = ko.observableArray(
+            Array.from(this.tier().node_pools)
+        ).extend({
+            validation: {
+                validator: selected => {
+                    return this.placementType() !== 'MIRROR' || selected.length !== 1;
+                },
+                message: 'Mirror policy requires at least 2 participating pools'
+            }
+        });
+
+        this.errors = ko.validation.group(this);
+    }
+
+    newPoolRow(pool) {
+        return new PoolRow(pool, this.selectedPools);
     }
 
     selectAllPools() {
-        this.pools().forEach(
-            ({ selected }) => selected(true)
+        this.selectedPools(
+            this.pools().map(
+                pool => pool.name
+            )
         );
     }
 
     clearAllPools() {
-        this.pools().forEach(
-            ({ selected }) => selected(false)
-        );
+        this.selectedPools([]);
     }
 
     save() {
-        let selectedPools = this.pools()
-            .filter(
-                ({ selected }) => selected()
-            )
-            .map(
-                ({ name }) => name
+        if (this.errors().length > 0) {
+            this.errors.showAllMessages();
+
+        } else {
+            updateBucketPlacementPolicy(
+                this.tierName(),
+                this.placementType(),
+                this.selectedPools()
             );
 
-        updateBucketPlacementPolicy(
-            this.tierName(),
-            this.placementType(),
-            selectedPools
-        );
-
-        this.onClose();
+            this.onClose();
+        }
     }
 
     cancel() {

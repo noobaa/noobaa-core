@@ -3,15 +3,41 @@ import ko from 'knockout';
 import { formatSize } from 'utils';
 
 export default class PoolRowViewModel extends Disposable {
-    constructor(pool, tier) {
+    constructor(pool, selectedPools) {
         super();
 
-        this.selected = ko.observable(
-            tier.node_pools.indexOf(pool.name) > -1
+        this.select = ko.pureComputed({
+            read: () => selectedPools().includes(this.name()),
+            write: val => val ?
+                selectedPools.push(this.name()) :
+                selectedPools.remove(this.name())
+        });
+
+        this.state = ko.pureComputed(
+            () => {
+                if (!pool()) {
+                    return;
+                }
+
+                let state = this.onlineCount() >= 3;
+                return {
+                    name: `pool-${state ? 'healthy' : 'problem'}`,
+                    tooltip: state ? 'healthy' : 'problem'
+                };
+            }
         );
-        this.icon = 'pool';
-        this.name = pool.name;
-        this.onlineNodeCount = pool.nodes.online;
-        this.freeSpace = formatSize(pool.storage.free);
+
+
+        this.name = ko.pureComputed(
+            () => pool() ? pool().name : ''
+        );
+
+        this.onlineCount = ko.pureComputed(
+            () => pool() ? pool().nodes.online : ''
+        );
+
+        this.freeSpace = ko.pureComputed(
+            () => pool() ? formatSize(pool().storage.free) : ''
+        );
     }
 }

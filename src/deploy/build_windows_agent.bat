@@ -63,6 +63,11 @@ nvm use 4.4.4 32
 call nvm list
 
 call npm install
+
+rem fail build if failed to build native
+
+if exist ".\build\Release" exit 1
+
 xcopy /Y/I/E .\build\Release .\build\Release-32
 
 del /q/s .\build\Release

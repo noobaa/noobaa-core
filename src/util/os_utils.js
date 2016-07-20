@@ -177,9 +177,9 @@ function windows_volume_to_drive(vol) {
 }
 
 function wmic(topic) {
-    return promise_utils.exec('wmic ' + topic + ' get /value')
+    return promise_utils.exec('wmic ' + topic + ' get /value', /*ignore_rc= */ false, /*return_stdout= */ true)
         .then(function(res) {
-            return wmic_parse_list(res[0]);
+            return wmic_parse_list(res);
         });
 }
 

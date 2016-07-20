@@ -119,6 +119,7 @@ export default function register(ko) {
     ko.components.register('phone-home-form',           require('./management/phone-home-form/phone-home-form'));
     ko.components.register('remote-syslog-form',        require('./management/remote-syslog-form/remote-syslog-form'));
     ko.components.register('server-ssl-form',           require('./management/server-ssl-form/server-ssl-form'));
+    ko.components.register('server-time-form', require('./management/server-time-form/server-time-form'));
     /** INJECT:management **/
 
     // -------------------------------

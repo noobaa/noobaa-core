@@ -1224,7 +1224,7 @@ export function upgradeSystem(upgradePackage) {
         let xhr = new XMLHttpRequest();
         xhr.open('GET', '/version', true);
         xhr.onload = () => reloadTo(routes.system, undefined, { afterupgrade: true });
-        xhr.onerror = () => setTimeout(ping, 10000);
+        xhr.onerror = () => setTimeout(ping, 20000);
         xhr.send();
     }
 
@@ -1254,9 +1254,9 @@ export function upgradeSystem(upgradePackage) {
                         state: 'IN_PROGRESS'
                     });
 
-                    setTimeout(ping, 7000);
+                    setTimeout(ping, 5000);
                 },
-                3000
+                20000
             );
         } else {
             upgradeStatus.assign({ state: 'FAILED' });

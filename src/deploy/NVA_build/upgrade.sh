@@ -14,7 +14,7 @@ NEW_UPGRADE_SCRIPT="${EXTRACTION_PATH}noobaa-core/src/deploy/NVA_build/upgrade.s
 function wait_for_mongo {
   local running=$(supervisorctl status mongodb | awk '{ print $2 }' )
   while [ "$running" != "RUNNING" ]; do
-    sleep 1
+    sleep 5
     running=$(supervisorctl status mongodb | awk '{ print $2 }' )
   done
 }

@@ -60,10 +60,10 @@ function fix_iptables {
 
 
 function wait_for_mongo {
-  local running=$(supervisorctl status mongodb | awk '{ print $2 }' ) 
-  while [ "$running" != "RUNNING" ]; do 
+  local running=$(supervisorctl status mongodb | awk '{ print $2 }' )
+  while [ "$running" != "RUNNING" ]; do
     sleep 1
-    running=$(supervisorctl status mongodb | awk '{ print $2 }' ) 
+    running=$(supervisorctl status mongodb | awk '{ print $2 }' )
   done
   sleep 1
 }
@@ -98,7 +98,7 @@ function disable_autostart {
   # use sed to set autostart to false. replace back when finished.
   sed -i "s:autostart=true:autostart=false:" /etc/noobaa_supervisor.conf
   #web_server doesn't specify autostart. a hack to prevent it from loading
-  sed -i "s:web_server.js:WEB.JS:" /etc/noobaa_supervisor.conf  
+  sed -i "s:web_server.js:WEB.JS:" /etc/noobaa_supervisor.conf
 }
 
 function enable_autostart {
@@ -106,7 +106,7 @@ function enable_autostart {
   # restore autostart and web_server.js
   sed -i "s:autostart=false:autostart=true:" /etc/noobaa_supervisor.conf
   #web_server doesn't specify autostart. a hack to prevent it from loading
-  sed -i "s:WEB.JS:web_server.js:" /etc/noobaa_supervisor.conf  
+  sed -i "s:WEB.JS:web_server.js:" /etc/noobaa_supervisor.conf
 }
 
 
@@ -170,7 +170,7 @@ function upgrade_mongo_version {
 
   deploy_log "stopping mongo"
 	${SUPERCTL} stop mongodb
-  
+
 	#disable mongo upgrades
 	echo "exclude=mongodb-org,mongodb-org-server,mongodb-org-shell,mongodb-org-mongos,mongodb-org-tools" >> /etc/yum.conf
 
@@ -184,9 +184,19 @@ function pre_upgrade {
 	yum -y remove centos-release-SCL
 	yum -y install centos-release-scl
 
-  yum install -y dialog
-  useradd noobaa
-  echo Passw0rd | passwd noobaa --stdin
+	if yum list installed dialog >/dev/null 2>&1; then
+		deploy_log "dialog installed"
+	else
+		deploy_log "installing dialog"
+		yum install -y dialog
+	fi
+
+	if getent passwd noobaa > /dev/null 2>&1; then
+		echo "noobaa user exists"
+	else
+		useradd noobaa
+		echo Passw0rd | passwd noobaa --stdin
+	fi
 
   fix_iptables
 
@@ -342,14 +352,20 @@ function post_upgrade {
   fi
 
   # temporary - adding NTP package
-  yum install -y ntp
-  sudo /sbin/chkconfig ntpd on 2345
-	sudo /etc/init.d/ntpd start
-	local noobaa_ntp=$(grep 'NooBaa Configured NTP Server' /etc/ntp.conf | wc -l)
-	if [ ${noobaa_ntp} -eq 0 ]; then #was not configured yet, no tz config as well
-			echo "#NooBaa Configured NTP Server"	 >> /etc/ntp.conf
+  # temporary - adding NTP package
+	if yum list installed ntp >/dev/null 2>&1; then
+		deploy_log "ntp installed"
+	else
+		deploy_log "installing ntp"
+		yum install -y ntp
+		sudo /sbin/chkconfig ntpd on 2345
+		sudo /etc/init.d/ntpd start
+		local noobaa_ntp=$(grep 'NooBaa Configured NTP Server' /etc/ntp.conf | wc -l)
+		if [ ${noobaa_ntp} -eq 0 ]; then #was not configured yet, no tz config as well
+			echo "# NooBaa Configured NTP Server"	 >> /etc/ntp.conf
 			sed -i 's:\(^server.*\):#\1:g' /etc/ntp.conf
 			ln -sf /usr/share/zoneinfo/US/Pacific /etc/localtime
+		fi
 	fi
 
 	local noobaa_dns=$(grep 'NooBaa Configured Primary DNS Server' /etc/resolv.conf | wc -l)

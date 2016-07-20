@@ -214,6 +214,18 @@ function do_upgrade {
   deploy_log "Upgrade finished successfully!"
 }
 
+function verify_supported_upgrade {
+    local current_ver=$(grep version /root/node_modules/noobaa-core/package.json  | cut -f 2 -d':' | cut -f 2 -d'"' | )
+    local second_digit=$(echo ${current_ver} | cut -f 2 -d'.')
+
+    if [ ${second_digit} == "0" or ${second_digit} == "3" ]; then
+        deploy_log "Unspported upgrade path from ${current_version}"
+        #delibaratly no auth, this is an old version!
+        #/usr/bin/mongo nbcore --eval "db.activitylogs.insert({level: 'info', desc: 'Upgrade is not supported from this version, please contact support'})"
+        exit 1
+    fi
+}
+
 #Node.js Cluster chnages the .spawn behavour. On a normal spawn FDs are not inherited,
 #on a node cluster they are, which meand the listening ports of the webserver are inherited by this upgrade.
 #murder them
@@ -248,6 +260,7 @@ else
     fi
 
     deploy_log "upgrade.sh called with ${allargs}"
+    verify_supported_upgrade #verify upgrade from ver > 0.4.5
     do_upgrade
     exit 0
   else

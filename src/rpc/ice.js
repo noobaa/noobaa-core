@@ -283,6 +283,7 @@ Ice.prototype._add_udp_candidates = function() {
     var self = this;
 
     if (!self.config.udp_port) return;
+    if (!process.env.ENABLE_N2N_UDP) return;
 
     return P.fcall(self.config.udp_socket, self.config.udp_port, self.config.udp_dtls)
         .then(function(udp) {

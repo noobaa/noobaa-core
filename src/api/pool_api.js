@@ -205,6 +205,9 @@ module.exports = {
                 undeletable: {
                     $ref: 'common_api#/definitions/undeletable_enum'
                 },
+                demo_pool: {
+                    type: 'boolean'
+                },
                 cloud_info: {
                     type: 'object',
                     properties: {

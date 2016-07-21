@@ -59,6 +59,10 @@ function create_account(req) {
                     cluster_server.new_cluster_info())
                 .spread(function(changes, cluster_info) {
                     account.allowed_buckets = [changes.insert.buckets[0]._id];
+                    if (process.env.LOCAL_AGENTS_ENABLED === 'true') {
+                        account.allowed_bucket.push(changes.insert.buckets[1]._id);
+                    }
+
                     changes.insert.accounts = [account];
                     if (cluster_info) {
                         changes.insert.clusters = [cluster_info];

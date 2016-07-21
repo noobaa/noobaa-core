@@ -225,6 +225,8 @@ class NodesMonitor extends EventEmitter {
         };
         if (pool.cloud_pool_info) {
             item.node.is_cloud_node = true;
+        } else if (pool.demo_pool) {
+            item.node.is_internal_node = true;
         }
         dbg.log0('_add_new_node', item.node);
         this._add_node_to_maps(item);
@@ -886,6 +888,9 @@ class NodesMonitor extends EventEmitter {
         }
         if (query.skip_cloud_nodes) {
             code += `if (item.node.is_cloud_node) return false; `;
+        }
+        if (query.skip_internal) {
+            code += `if (item.node.is_internal_node) return false; `;
         }
         for (const field of QUERY_FIELDS) {
             const value = query[field.query];

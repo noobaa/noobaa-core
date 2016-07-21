@@ -65,7 +65,10 @@ nvm install 4.4.4 32
 nvm use 4.4.4 32
 call nvm list
 
-call npm install
+rem fail build if failed to install and build
+call npm install || exit 1
+if not exist ".\build\Release" exit 1
+
 xcopy /Y/I/E .\build\Release .\build\Release-32
 
 del /q/s .\build\Release
@@ -124,7 +127,7 @@ cd build\windows
 
 echo "building installer"
 
-makensis -NOCD ..\..\src\deploy\windows_rest_script.nsi
+makensis -NOCD ..\..\src\deploy\windows_rest_script.nsi || exit 1
 
 IF EXIST "c:\Program Files\Microsoft SDKs\Windows\v7.1\Bin\signtool" (
 "c:\Program Files\Microsoft SDKs\Windows\v7.1\Bin\signtool"  sign /t http://timestamp.digicert.com /a noobaa-s3rest.exe

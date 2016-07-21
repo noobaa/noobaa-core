@@ -58,6 +58,13 @@ type package.json  | findstr /v npm-run-all | findstr /v forever-service | finds
 del /Q package.json
 rename package.json_s package.json
 copy ..\..\binding.gyp .
+
+REM need to have a frontend dir with empty package.json for npm install to work
+mkdir frontend
+cd frontend
+call npm init --force
+cd ..
+
 nvm install 4.4.4 32
 nvm use 4.4.4 32
 call nvm list

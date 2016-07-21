@@ -109,6 +109,11 @@ function new_system_defaults(name, owner_account_id) {
             status: 'UNAVAILABLE',
             error: '',
         },
+        freemium_cap: {
+            phone_home_upgraded: false,
+            phone_home_notified: false,
+            cap_terabytes: 20
+        }
     };
     return system;
 }
@@ -268,6 +273,14 @@ function read_system(req) {
             maintenance_mode.till = system.maintenance_mode;
         }
 
+        let phone_home_config = {};
+        phone_home_config.upgraded_cap_notification = system.freemium_cap.phone_home_upgraded ?
+            !system.freemium_cap.phone_home_notified : false;
+        if (system.phone_home_proxy_address) {
+            phone_home_config.proxy_address = system.phone_home_proxy_address;
+        }
+
+
         // TODO use n2n_config.stun_servers ?
         // var stun_address = 'stun://' + ip_address + ':' + stun.PORT;
         // var stun_address = 'stun://64.233.184.127:19302'; // === 'stun://stun.l.google.com:19302'
@@ -318,9 +331,7 @@ function read_system(req) {
             ip_address: ip_address,
             base_address: system.base_address || 'wss://' + ip_address + ':' + process.env.SSL_PORT,
             remote_syslog_config: system.remote_syslog_config,
-            phone_home_config: system.phone_home_proxy_address && {
-                proxy_address: system.phone_home_proxy_address
-            },
+            phone_home_config: phone_home_config,
             version: pkg.version,
             debug_level: debug_level,
             upgrade: upgrade,
@@ -386,15 +397,6 @@ function set_webserver_master_state(req) {
         }
     }
 }
-
-// function read_maintenance_config(req) {
-//     let system = system_store.data.systems_by_name[req.rpc_params.name];
-//     if (!system) {
-//         throw new RpcError('NOT FOUND', 'read_maintenance_config could not find the system: ' + req.rpc_params.name);
-//     } else {
-//         return system_server_utils.system_in_maintenance(system._id);
-//     }
-// }
 
 
 /**
@@ -643,47 +645,6 @@ function diagnose_node(req) {
         });
 }
 
-// function _set_debug_level_internal(id, level, auth_token) {
-//     return server_rpc.client.redirector.publish_to_cluster({
-//             target: '', // required but irrelevant
-//             method_api: 'debug_api',
-//             method_name: 'set_debug_level',
-//             request_params: {
-//                 level: level,
-//                 module: 'core'
-//             }
-//         }, {
-//             auth_token: auth_token
-//         })
-//         .then(() => system_store.make_changes({
-//             update: {
-//                 systems: [{
-//                     _id: id,
-//                     debug_level: level
-//                 }]
-//             }
-//         }));
-// }
-//
-// function set_debug_level(req) {
-//     let level = req.params.level;
-//     let id = req.system._id;
-//     dbg.log0('Recieved set_debug_level req. level =', level);
-//     if (req.system.debug_level === level) {
-//         dbg.log0('requested to set debug level to the same as current level. skipping.. level =', level);
-//         return;
-//     }
-//
-//     return _set_debug_level_internal(id, level, req.auth_token)
-//         .then(() => {
-//             if (level > 0) { //If level was set, remove it after 10m
-//                 promise_utils.delay_unblocking(config.DEBUG_MODE_PERIOD) //10m
-//                     .then(() => _set_debug_level_internal(id, 0, req.auth_token));
-//             }
-//         })
-//         .return();
-// }
-
 
 function update_n2n_config(req) {
     var n2n_config = req.rpc_params;
@@ -806,6 +767,24 @@ function update_phone_home_config(req) {
         .return();
 }
 
+function phone_home_capacity_notified(req) {
+    dbg.log0('phone_home_capacity_notified');
+    let update = {
+        _id: req.system._id
+    };
+
+    update.freemium_cap = {
+        phone_home_notified: true
+    };
+
+    return system_store.make_changes({
+            update: {
+                systems: [update]
+            }
+        })
+        .return();
+}
+
 
 function configure_remote_syslog(req) {
     let params = req.rpc_params;
@@ -853,52 +832,6 @@ function update_hostname(req) {
 function update_system_certificate(req) {
     throw new RpcError('TODO', 'update_system_certificate');
 }
-
-// function update_time_config(req) {
-//     dbg.log0('update_time_config', req.rpc_params);
-//     var config = {
-//         timezone: req.rpc_params.timezone,
-//         server: (req.rpc_params.config_type === 'NTP') ?
-//             req.rpc_params.server : ''
-//     };
-//
-//     return system_store.make_changes({
-//             update: {
-//                 systems: [{
-//                     _id: req.system._id,
-//                     ntp: config
-//                 }]
-//             }
-//         })
-//         .then(() => {
-//             if (req.rpc_params.config_type === 'NTP') { //set NTP
-//                 return os_utils.set_ntp(config.server, config.timezone);
-//             } else { //manual set
-//                 return os_utils.set_manual_time(req.rpc_params.epoch, config.timezone);
-//             }
-//         })
-//         .then(res => {
-//             let desc_string = [];
-//             desc_string.push(`Date and Time was updated to ${req.rpc_params.config_type} time by ${req.account && req.account.email}`);
-//             desc_string.push(`Timezone was set to ${req.rpc_params.timezone}`);
-//             if (req.rpc_params.server) {
-//                 desc_string.push(`NTP server ${req.rpc_params.server}`);
-//             }
-//             let date = req.rpc_params.epoch &&
-//                 moment.unix(req.rpc_params.epoch).tz(req.rpc_params.timezone);
-//             if (date) {
-//                 desc_string.push(`Date and Time set to ${date}`);
-//             }
-//             Dispatcher.instance().activity({
-//                 event: 'conf.server_date_time_updated',
-//                 level: 'info',
-//                 system: req.system,
-//                 actor: req.account && req.account._id,
-//                 desc: desc_string.join('\n'),
-//             });
-//             return res;
-//         });
-// }
 
 // UPGRADE ////////////////////////////////////////////////////////
 function upload_upgrade_package(req) {
@@ -995,14 +928,13 @@ exports.diagnose_system = diagnose_system;
 exports.diagnose_node = diagnose_node;
 exports.log_frontend_stack_trace = log_frontend_stack_trace;
 exports.set_last_stats_report_time = set_last_stats_report_time;
-// exports.set_debug_level = set_debug_level;
 
 exports.update_n2n_config = update_n2n_config;
 exports.update_base_address = update_base_address;
 exports.update_phone_home_config = update_phone_home_config;
+exports.phone_home_capacity_notified = phone_home_capacity_notified;
 exports.update_hostname = update_hostname;
 exports.update_system_certificate = update_system_certificate;
-// exports.update_time_config = update_time_config;
 exports.set_maintenance_mode = set_maintenance_mode;
 exports.set_webserver_master_state = set_webserver_master_state;
 exports.configure_remote_syslog = configure_remote_syslog;

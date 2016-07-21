@@ -69,11 +69,9 @@ nvm install 4.4.4 32
 nvm use 4.4.4 32
 call nvm list
 
-call npm install
-
-rem fail build if failed to build native
-
-if exist ".\build\Release" exit 1
+rem fail build if failed to install and build
+call npm install || exit 1
+if not exist ".\build\Release" exit 1
 
 xcopy /Y/I/E .\build\Release .\build\Release-32
 
@@ -132,7 +130,7 @@ cd build\windows
 
 echo "building installer"
 
-makensis -NOCD ..\..\src\deploy\atom_agent_win.nsi
+makensis -NOCD ..\..\src\deploy\atom_agent_win.nsi || exit 1
 
 rename noobaa-setup.exe noobaa-setup-%current_package_version%-%GIT_COMMIT%.exe
 

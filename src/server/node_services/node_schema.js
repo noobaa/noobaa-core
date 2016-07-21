@@ -185,6 +185,10 @@ module.exports = {
             type: 'boolean',
         },
 
+        is_internal_node: {
+            type: 'boolean',
+        },
+
         debug_level: {
             type: 'integer',
         },

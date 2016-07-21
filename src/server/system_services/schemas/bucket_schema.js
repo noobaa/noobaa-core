@@ -92,6 +92,10 @@ module.exports = {
                     format: 'idate'
                 }
             }
+        },
+        demo_bucket: {
+            type: 'boolean'
         }
+
     }
 };

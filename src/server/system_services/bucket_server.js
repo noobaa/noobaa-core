@@ -744,6 +744,7 @@ function get_bucket_info(bucket, objects_aggregate, nodes_aggregate_pool, cloud_
         free: info.tiering && info.tiering.storage && info.tiering.storage.free || 0,
     });
     info.cloud_sync_status = _.isEmpty(cloud_sync_policy) ? 'NOTSET' : cloud_sync_policy.status;
+    info.demo_bucket = Boolean(bucket.demo_bucket);
     return info;
 }
 

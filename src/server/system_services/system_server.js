@@ -138,6 +138,9 @@ function new_system_changes(name, owner_account) {
         }]);
         var demo_bucket = bucket_server.new_bucket_defaults(demo_bucket_name, system._id, demo_policy._id);
 
+        demo_bucket.demo_bucket = true;
+        demo_pool.demo_pool = true;
+
         var role = {
             _id: system_store.generate_id(),
             account: owner_account._id,

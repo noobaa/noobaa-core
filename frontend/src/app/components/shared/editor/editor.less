@@ -1,10 +1,21 @@
 editor {
     .row();
-    margin-bottom: @gutter;
+    padding-bottom: 1.5 * @gutter;
+
+    .val-msg {
+        position: relative;
+        margin-top: -1.6em;
+        top: 1.6em;
+
+    }
 
     > .editor-label {
-        width: 12em;
+        width: 152px;
         padding: @gutter/2 0;
-        margin: 1px;
+    }
+
+    > .editor-content {
+        width: 362px;
+        justify-content: center;
     }
 }

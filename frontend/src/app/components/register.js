@@ -169,6 +169,7 @@ export default function register(ko) {
     ko.components.register('add-s3-connection-modal',   require('./shared/add-s3-connection-modal/add-s3-connection-modal'));
     ko.components.register('toggle-filter',             require('./shared/toggle-filter/toggle-filter'));
     ko.components.register('data-table',                require('./shared/data-table/data-table'));
-
+    ko.components.register('timezone-chooser',          require('./shared/timezone-chooser/timezone-chooser'));
+    ko.components.register('date-time-chooser',         require('./shared/date-time-chooser/date-time-chooser'));
     /** INJECT:shared **/
 }

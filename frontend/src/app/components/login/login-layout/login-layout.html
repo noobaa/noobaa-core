@@ -1,16 +1,12 @@
-<main class="login-layout">
-    <div class="box" data-bind="with: form">
-        <h1 class="heading1 column content-middle">
-                <svg-icon class="icon-big" params="
-                    name: 'logo'
-                "></svg-icon>
+<main class="login-layout" data-bind="if: form">
+    <h1 class="heading1 row content-middle">
+            <svg-icon class="icon-big push-next" params="name: 'logo'">
+            </svg-icon>
 
-                <span>
-                    Welcome to <span class="noobaa">NooBaa</span>
-                </span>
-        </h1>
+            <span>
+                Welcome to <span class="noobaa">NooBaa</span>
+            </span>
+    </h1>
 
-        <!-- ko component: $data -->
-        <!-- /ko -->
-    </div>
+    <!-- ko component: form --><!-- /ko -->
 </main>

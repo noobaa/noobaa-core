@@ -1,10 +1,13 @@
 <h2 class="heading3">Enter user email address</h2>
-<input type="text" placeholder="Email Address" class="push-next" data-bind="
-    textInput: emailAddress,
+<input type="text" placeholder="Email Address" data-bind="
+    value: emailAddress,
     hasFocus: true
 "/>
 
-<h2 class="heading3">Allow S3 access for this user</h2>
+<h2 class="heading3 push-prev">
+    Allow S3 access for this user
+</h2>
+
 <toggle-switch params="value: enableS3Access"></toggle-switch>
 
 <div class="row push-prev content-middle">

@@ -22,30 +22,33 @@
 <section class="column" data-bind="expand: expanded">
     <p class="push-next">Configuring a remote syslog server enables the appliance to collect and forward it's internal logs to the configured server</p>
 
-    <editor class="push-next" params="label: 'Enable'">
-            <toggle-switch params="value: enabled"></toggle-switch>
-        </editor>
-        <editor params="label: 'Protocol', disabled: !enabled()" class="push-next">
-            <radio-group params="
-                options: protocolOptions,
-                selected: protocol,
-                disabled: !enabled()
-            "></radio-group>
-        </editor>
-        <editor params="label: 'Server address', disabled: !enabled()">
-            <input class="proxy-name" type="text" placeholder="IP or DNS name" data-bind="
-                value: address,
-                enable: enabled
-            "/>
-        </editor>
-        <editor params="label: 'Server port', disabled: !enabled()">
-            <input type="number" min="1" max="65535" placeholder="port" data-bind="
-                value: port,
-                enable: enabled
-            "/>
-       </editor>
+    <editor params="label: 'Remote syslog'">
+        <toggle-switch params="value: enabled"></toggle-switch>
+    </editor>
 
-        <button class="btn2 push-prev" data-bind="click: applyChanges">
-            Apply Changes
-        </button>
+    <editor params="label: 'Protocol', disabled: !enabled()">
+        <radio-group params="
+            options: protocolOptions,
+            selected: protocol,
+            disabled: !enabled()
+        "></radio-group>
+    </editor>
+
+    <editor params="label: 'Server address', disabled: !enabled()">
+        <input class="proxy-name" type="text" placeholder="IP or DNS name" data-bind="
+            value: address,
+            enable: enabled
+        "/>
+    </editor>
+
+    <editor params="label: 'Server port', disabled: !enabled()">
+        <input type="number" min="1" max="65535" placeholder="port" data-bind="
+            value: port,
+            enable: enabled
+        "/>
+   </editor>
+
+    <button class="btn2 push-prev" data-bind="click: applyChanges">
+        Apply Changes
+    </button>
 </section>

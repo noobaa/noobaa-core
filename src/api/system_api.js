@@ -495,6 +495,13 @@ module.exports = {
             }
         },
 
+        phone_home_capacity_notified: {
+            method: 'POST',
+            auth: {
+                system: 'admin',
+            }
+        },
+
         // update_time_config: {
         //     method: 'POST',
         //     params: {
@@ -661,6 +668,9 @@ module.exports = {
                             }, {
                                 type: 'string'
                             }]
+                        },
+                        upgraded_cap_notification: {
+                            type: 'boolean'
                         }
                     }
                 },

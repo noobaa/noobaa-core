@@ -348,6 +348,9 @@ module.exports = {
                 },
                 tag: {
                     type: 'string'
+                },
+                demo_bucket: {
+                    type: 'boolean'
                 }
             }
         },

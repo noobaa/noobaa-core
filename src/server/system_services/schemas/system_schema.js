@@ -61,6 +61,21 @@ module.exports = {
             type: 'string'
         },
 
+        freemium_cap: {
+            type: 'object',
+            properties: {
+                phone_home_upgraded: {
+                    type: 'boolean'
+                },
+                phone_home_notified: {
+                    type: 'boolean'
+                },
+                cap_terabytes: {
+                    type: 'number'
+                }
+            },
+        },
+
         //Remote syslog configuration
         remote_syslog_config: {
             type: 'object',

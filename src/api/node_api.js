@@ -589,6 +589,9 @@ module.exports = {
                 deleted: {
                     type: 'boolean',
                 },
+                skip_internal: {
+                    type: 'boolean'
+                },
                 accessibility: {
                     $ref: '#/definitions/accessibility_type'
                 },

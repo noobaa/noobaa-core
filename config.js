@@ -129,3 +129,8 @@ config.SUPERVISOR_DEFAULTS = {
     STOPSIGNAL: 'KILL',
     DIRECTORY: '/root/node_modules/noobaa-core'
 };
+
+
+config.DEMO_DEFAULTS = {
+    NAME: 'demo'
+};

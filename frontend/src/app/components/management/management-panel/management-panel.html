@@ -21,8 +21,8 @@
         </a>
 
         <a data-bind="
-            href: { route: 'management', params: { tab: 'about' } },
-            css: { selected: isTabSelected('about') }
+            href: { route: 'management', params: { tab: 'version' } },
+            css: { selected: isTabSelected('version') }
         ">
             Version
         </a>
@@ -48,6 +48,8 @@
             <hr />
             <phone-home-form></phone-home-form>
             <hr />
+            <server-time-form></server-time-form>
+            <hr />
             <remote-syslog-form></remote-syslog-form>
             <hr />
             <server-ssl-form></server-ssl-form>
@@ -58,9 +60,9 @@
             css: { selected: isTabSelected('diagnostics') }
         "></diagnostics-form>
 
-        <about-form class="tab" data-bind="
-            css: { selected: isTabSelected('about') }
-        "></about-form>
+        <version-form class="tab" data-bind="
+            css: { selected: isTabSelected('version') }
+        "></version-form>
 
         <section class="tab" data-bind="
             css: { selected: isTabSelected('advanced-options') }

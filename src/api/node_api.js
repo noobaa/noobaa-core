@@ -128,6 +128,9 @@ module.exports = {
                     total_count: {
                         type: 'integer'
                     },
+                    filter_counts: {
+                        $ref: '#/definitions/nodes_aggregate_info'
+                    },
                     nodes: {
                         type: 'array',
                         items: {

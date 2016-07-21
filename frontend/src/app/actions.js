@@ -886,7 +886,7 @@ export function assignNodes(name, nodes) {
             () => notify(`${nodes.length} nodes has been assigend to pool ${name}`, 'success'),
             () => notify(`Assinging nodes to pool ${name} failed`, 'error')
         )
-        .then(loadSystemInfo)
+        .then(refresh)
         .done();
 }
 
@@ -1224,7 +1224,7 @@ export function upgradeSystem(upgradePackage) {
         let xhr = new XMLHttpRequest();
         xhr.open('GET', '/version', true);
         xhr.onload = () => reloadTo(routes.system, undefined, { afterupgrade: true });
-        xhr.onerror = () => setTimeout(ping, 10000);
+        xhr.onerror = () => setTimeout(ping, 3000);
         xhr.send();
     }
 
@@ -1254,9 +1254,9 @@ export function upgradeSystem(upgradePackage) {
                         state: 'IN_PROGRESS'
                     });
 
-                    setTimeout(ping, 7000);
+                    setTimeout(ping, 3000);
                 },
-                3000
+                20000
             );
         } else {
             upgradeStatus.assign({ state: 'FAILED' });
@@ -1347,6 +1347,7 @@ export function uploadSSLCertificate(SSLCertificate) {
 export function downloadNodeDiagnosticPack(nodeName) {
     logAction('downloadDiagnosticFile', { nodeName });
 
+    notify('Collecting data... might take a while');
     api.system.diagnose_node({ name: nodeName })
         .catch(
             err => {
@@ -1363,6 +1364,7 @@ export function downloadNodeDiagnosticPack(nodeName) {
 export function downloadSystemDiagnosticPack() {
     logAction('downloadSystemDiagnosticPack');
 
+    notify('Collecting data... might take a while');
     api.system.diagnose_system()
         .catch(
             err => {

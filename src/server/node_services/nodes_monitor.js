@@ -33,16 +33,10 @@ const system_server_utils = require('../utils/system_server_utils');
 const clustering_utils = require('../utils/clustering_utils');
 const dclassify = require('dclassify');
 
-
 const RUN_DELAY_MS = 60000;
 const RUN_NODE_CONCUR = 50;
 const MAX_NUM_LATENCIES = 20;
 const UPDATE_STORE_MIN_ITEMS = 100;
-const REBUILD_CLIFF = 3 * 60000;
-const REBUILD_WORKERS = 10;
-const REBUILD_BATCH_SIZE = 500;
-const REBUILD_BATCH_DELAY = 0;
-const REBUILD_BATCH_ERROR_DELAY = 3000;
 
 const AGENT_INFO_FIELDS = [
     'name',
@@ -88,6 +82,47 @@ const NODE_INFO_DEFAULTS = {
     rpc_address: '',
     base_address: '',
 };
+const QUERY_FIELDS = [{
+    query: 'readable',
+    item: 'item.readable',
+    type: 'Boolean',
+}, {
+    query: 'writable',
+    item: 'item.writable',
+    type: 'Boolean',
+}, {
+    query: 'trusted',
+    item: 'item.trusted',
+    type: 'Boolean',
+}, {
+    query: 'migrating_to_pool',
+    item: 'item.node.migrating_to_pool',
+    type: 'Boolean',
+}, {
+    query: 'decommissioning',
+    item: 'item.node.decommissioning',
+    type: 'Boolean',
+}, {
+    query: 'decommissioned',
+    item: 'item.node.decommissioned',
+    type: 'Boolean',
+}, {
+    query: 'migrating_to_pool',
+    item: 'item.node.migrating_to_pool',
+    type: 'Boolean',
+}, {
+    query: 'accessibility',
+    item: 'item.accessibility',
+    type: 'String',
+}, {
+    query: 'connectivity',
+    item: 'item.connectivity',
+    type: 'String',
+}, {
+    query: 'data_activity',
+    item: 'item.data_activity.reason',
+    type: 'String',
+}];
 
 
 class NodesMonitor extends EventEmitter {
@@ -108,6 +143,14 @@ class NodesMonitor extends EventEmitter {
     stop() {
         this._started = false;
     }
+
+
+
+
+    ///////////////////
+    // INTERNAL IMPL //
+    ///////////////////
+
 
     _clear() {
         this._loaded = false;
@@ -197,6 +240,9 @@ class NodesMonitor extends EventEmitter {
     }
 
     _set_node_defaults(item) {
+        if (!_.isNumber(item.node.hearbeat)) {
+            item.node.hearbeat = new Date(item.node.hearbeat).getTime() || 0;
+        }
         item.node.drives = item.node.drives || [];
         item.node.latency_to_server = item.node.latency_to_server || [];
         item.node.latency_of_disk_read = item.node.latency_of_disk_read || [];
@@ -508,7 +554,7 @@ class NodesMonitor extends EventEmitter {
                 dbg.warn('_update_status: delay node data_activity',
                     'while system in maintenance', item.node.name);
             } else {
-                const time_left = REBUILD_CLIFF - (Date.now() - item.node.heartbeat);
+                const time_left = config.REBUILD_NODE_OFFLINE_CLIFF - (Date.now() - item.node.heartbeat);
                 if (time_left > 0 && item.data_activity_reason === 'RESTORING') {
                     dbg.warn('_update_status: schedule node data_activity for', item.node.name,
                         'in', time_left, 'ms');
@@ -536,7 +582,7 @@ class NodesMonitor extends EventEmitter {
 
     _wakeup_rebuild() {
         const count = Math.min(
-            REBUILD_WORKERS,
+            config.REBUILD_NODE_CONCURRENCY,
             this._set_need_rebuild.size - this._num_running_rebuilds);
         for (let i = 0; i < count; ++i) {
             this._rebuild_worker(i);
@@ -591,7 +637,7 @@ class NodesMonitor extends EventEmitter {
                     chunk: 1,
                     size: 1
                 },
-                limit: REBUILD_BATCH_SIZE
+                limit: config.REBUILD_BATCH_SIZE
             }).toArray())
             .then(blocks_res => {
                 blocks = blocks_res;
@@ -635,13 +681,13 @@ class NodesMonitor extends EventEmitter {
                     setTimeout(() => {
                         this._set_need_rebuild.add(item);
                         this._wakeup_rebuild();
-                    }, REBUILD_BATCH_DELAY).unref();
+                    }, config.REBUILD_BATCH_DELAY).unref();
                 } else if (act.last_block_id) {
                     act.last_block_id = undefined;
                     setTimeout(() => {
                         this._set_need_rebuild.add(item);
                         this._wakeup_rebuild();
-                    }, REBUILD_BATCH_DELAY).unref();
+                    }, config.REBUILD_BATCH_DELAY).unref();
                 } else {
                     act.last_block_id = undefined;
                     act.remaining_size = 0;
@@ -666,20 +712,21 @@ class NodesMonitor extends EventEmitter {
                 setTimeout(() => {
                     this._set_need_rebuild.add(item);
                     this._wakeup_rebuild();
-                }, REBUILD_BATCH_ERROR_DELAY).unref();
+                }, config.REBUILD_BATCH_ERROR_DELAY).unref();
             });
     }
 
 
-
-
-    //////////////////////////////////////////////////////////////
-
-
+    /**
+     * sync_to_store is used for testing to get the info from all nodes
+     */
     sync_to_store() {
         return P.resolve(this._run()).return();
     }
 
+    /**
+     * heartbeat request from node agent
+     */
     heartbeat(req) {
         const extra = req.auth.extra || {};
         const node_id = String(extra.node_id || '');
@@ -732,6 +779,9 @@ class NodesMonitor extends EventEmitter {
         throw new RpcError('FORBIDDEN', 'Bad heartbeat request');
     }
 
+    /**
+     * read_node returns information about one node
+     */
     read_node(node_identity) {
         this._throw_if_not_started_and_loaded();
         const item = this._get_node(node_identity, 'allow_offline');
@@ -805,6 +855,52 @@ class NodesMonitor extends EventEmitter {
 
     _filter_nodes(query) {
         const list = [];
+        const filter_counts = {
+            count: 0,
+            online: 0,
+            has_issues: 0,
+        };
+
+        // we are generating a function that will implement most of the query
+        // so that we can run it on every node item, and minimize the compare work.
+        let code = '';
+        if (query.system) {
+            code += `if ('${query.system}' !== String(item.node.system)) return false; `;
+        }
+        if (query.pools) {
+            code += `if (!(String(item.node.pool) in { `;
+            for (const pool_id of query.pools) {
+                code += `'${pool_id}': 1, `;
+            }
+            code += ` })) return false; `;
+        }
+        if (query.filter) {
+            code += `if (!${query.filter}.test(item.node.name) &&
+                !${query.filter}.test(item.node.ip)) return false; `;
+        }
+        if (query.geolocation) {
+            code += `if (!${query.geolocation}.test(item.node.geolocation)) return false; `;
+        }
+        if (query.skip_address) {
+            code += `if ('${query.skip_address}' === item.node.rpc_address) return false; `;
+        }
+        if (query.skip_cloud_nodes) {
+            code += `if (item.node.is_cloud_node) return false; `;
+        }
+        for (const field of QUERY_FIELDS) {
+            const value = query[field.query];
+            if (_.isUndefined(value)) continue;
+            if (field.type === 'Boolean') {
+                code += `if (${value} !== Boolean(${field.item})) return false; `;
+            } else if (field.type === 'String') {
+                code += `if ('${value}' !== String(${field.item})) return false; `;
+            }
+        }
+        code += `return true; `;
+        /* jslint evil: true */
+        // eslint-disable-next-line no-new-func
+        const filter_item_func = new Function('item', code);
+
         const items = query.nodes ?
             new Set(_.map(query.nodes, node_identity =>
                 this._get_node(node_identity, 'allow_offline'))) :
@@ -812,52 +908,29 @@ class NodesMonitor extends EventEmitter {
         for (const item of items) {
             // update the status of every node we go over
             this._update_status(item);
+            if (!filter_item_func(item)) continue;
 
-            if (query.system &&
-                query.system !== String(item.node.system)) continue;
-            if (query.pools &&
-                !query.pools.has(String(item.node.pool))) continue;
-            if (query.filter &&
-                !query.filter.test(item.node.name) &&
-                !query.filter.test(item.node.ip)) continue;
-            if (query.geolocation &&
-                !query.geolocation.test(item.node.geolocation)) continue;
-            if (query.skip_address &&
-                query.skip_address === item.node.rpc_address) continue;
-            if (query.skip_cloud_nodes &&
-                item.node.is_cloud_node) continue;
+            // the filter_counts count nodes that passed all filters besides
+            // the filters of online and has_issues filters
+            // this is used for the frontend to show the total count even
+            // when actually showing the filtered list of nodes with issues
+            if (item.has_issues) filter_counts.has_issues += 1;
+            if (item.online) filter_counts.online += 1;
+            filter_counts.count += 1;
 
-            if ('has_issues' in query &&
-                Boolean(query.has_issues) !== Boolean(item.has_issues)) continue;
-            if ('online' in query &&
-                Boolean(query.online) !== Boolean(item.online)) continue;
-            if ('readable' in query &&
-                Boolean(query.readable) !== Boolean(item.readable)) continue;
-            if ('writable' in query &&
-                Boolean(query.writable) !== Boolean(item.writable)) continue;
-            if ('trusted' in query &&
-                Boolean(query.trusted) !== Boolean(item.trusted)) continue;
-
-            if ('migrating_to_pool' in query &&
-                Boolean(query.migrating_to_pool) !== Boolean(item.node.migrating_to_pool)) continue;
-            if ('decommissioning' in query &&
-                Boolean(query.decommissioning) !== Boolean(item.node.decommissioning)) continue;
-            if ('decommissioned' in query &&
-                Boolean(query.decommissioned) !== Boolean(item.node.decommissioned)) continue;
-            if ('disabled' in query &&
-                Boolean(query.disabled) !== Boolean(item.node.disabled)) continue;
-
-            if ('accessibility' in query &&
-                query.accessibility !== item.accessibility) continue;
-            if ('connectivity' in query &&
-                query.connectivity !== item.connectivity) continue;
-            if ('data_activity' in query &&
-                query.data_activity !== item.data_activity.reason) continue;
+            // after counting, we can finally filter by
+            if (!_.isUndefined(query.has_issues) &&
+                query.has_issues !== Boolean(item.has_issues)) continue;
+            if (!_.isUndefined(query.online) &&
+                query.online !== Boolean(item.online)) continue;
 
             console.log('list_nodes: adding node', item.node.name);
             list.push(item);
         }
-        return list;
+        return {
+            list: list,
+            filter_counts: filter_counts,
+        };
     }
 
     _sort_nodes_list(list, options) {
@@ -995,7 +1068,8 @@ class NodesMonitor extends EventEmitter {
     list_nodes(query, options) {
         console.log('list_nodes: query', query);
         this._throw_if_not_started_and_loaded();
-        const list = this._filter_nodes(query);
+        const filter_res = this._filter_nodes(query);
+        const list = filter_res.list;
         this._sort_nodes_list(list, options);
         const res_list = options && options.pagination ?
             this._paginate_nodes_list(list, options) : list;
@@ -1003,7 +1077,9 @@ class NodesMonitor extends EventEmitter {
 
         return {
             total_count: list.length,
-            nodes: _.map(res_list, item => this._get_node_info(item, options.fields))
+            filter_counts: filter_res.filter_counts,
+            nodes: _.map(res_list, item =>
+                this._get_node_info(item, options && options.fields)),
         };
     }
 
@@ -1042,7 +1118,7 @@ class NodesMonitor extends EventEmitter {
 
     aggregate_nodes(query, group_by) {
         this._throw_if_not_started_and_loaded();
-        const list = this._filter_nodes(query);
+        const list = this._filter_nodes(query).list;
         const res = this._aggregate_nodes_list(list);
         if (group_by) {
             if (group_by === 'pool') {
@@ -1129,6 +1205,11 @@ class NodesMonitor extends EventEmitter {
         return item;
     }
 
+    /**
+     * n2n_signal sends an n2n signal to the target node,
+     * and returns the reply to the source node,
+     * in order to assist with n2n ICE connection establishment between two nodes.
+     */
     n2n_signal(signal_params) {
         dbg.log1('n2n_signal:', signal_params.target);
         this._throw_if_not_started_and_loaded();
@@ -1143,6 +1224,9 @@ class NodesMonitor extends EventEmitter {
         });
     }
 
+    /**
+     * n2n_proxy sends an rpc call to the target node like a proxy.
+     */
     n2n_proxy(proxy_params) {
         dbg.log3('n2n_proxy: target', proxy_params.target,
             'call', proxy_params.method_api + '.' + proxy_params.method_name,

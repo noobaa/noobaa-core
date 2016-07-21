@@ -29,13 +29,51 @@ const tier_server = require('./tier_server');
 const auth_server = require('../common_services/auth_server');
 const Dispatcher = require('../notifications/dispatcher');
 const nodes_store = require('../node_services/nodes_store');
-const node_server = require('../node_services/node_server');
+// const node_server = require('../node_services/node_server');
 const nodes_client = require('../node_services/nodes_client');
 const system_store = require('../system_services/system_store').get_instance();
 const promise_utils = require('../../util/promise_utils');
 const bucket_server = require('./bucket_server');
 const account_server = require('./account_server');
 const system_server_utils = require('../utils/system_server_utils');
+
+// called on rpc server init
+function _init() {
+    const DEFUALT_DELAY = 5000;
+
+    function wait_for_system_store() {
+        var update_done = false;
+        P.fcall(function() {
+                if (system_store.is_finished_initial_load) {
+                    update_done = true;
+                    // The purpose of this code is to initialize the debug level
+                    // on server's startup, to synchronize the db with the actual value
+                    let current_clustering = system_store.get_local_cluster_info();
+                    if (current_clustering) {
+                        var update_object = {};
+                        update_object.clusters = [{
+                            _id: current_clustering._id,
+                            debug_level: 0
+                        }];
+                        return system_store.make_changes({
+                            update: update_object
+                        });
+                    }
+                }
+            })
+            .catch((err) => {
+                dbg.log('system_server _init', 'UNCAUGHT ERROR', err, err.stack);
+                return promise_utils.delay_unblocking(DEFUALT_DELAY).then(wait_for_system_store);
+            })
+            .then(() => {
+                if (!update_done) {
+                    return promise_utils.delay_unblocking(DEFUALT_DELAY).then(wait_for_system_store);
+                }
+            });
+    }
+    promise_utils.delay_unblocking(DEFUALT_DELAY).then(wait_for_system_store);
+}
+
 
 function new_system_defaults(name, owner_account_id) {
     var system = {
@@ -305,11 +343,18 @@ function set_webserver_master_state(req) {
     if (system_store.is_cluster_master !== req.rpc_params.is_master) {
         system_store.is_cluster_master = req.rpc_params.is_master;
         if (system_store.is_cluster_master) {
-            //Going Master
-            node_server.start_monitor();
+            // If current server became master
+            promise_utils.delay_unblocking(config.DEBUG_MODE_PERIOD) //10m
+                .then(() => server_rpc.client.cluster_server.set_debug_level({
+                    level: 0
+                }, {
+                    auth_token: req.auth_token
+                }));
+            //Going Master //TODO:: add this one we get back to HA
+            //node_server.start_monitor();
         } else {
             //Stepping Down
-            node_server.stop_monitor();
+            //node_server.stop_monitor();
         }
     }
 }
@@ -570,46 +615,46 @@ function diagnose_node(req) {
         });
 }
 
-function _set_debug_level_internal(id, level, auth_token) {
-    return server_rpc.client.redirector.publish_to_cluster({
-            target: '', // required but irrelevant
-            method_api: 'debug_api',
-            method_name: 'set_debug_level',
-            request_params: {
-                level: level,
-                module: 'core'
-            }
-        }, {
-            auth_token: auth_token
-        })
-        .then(() => system_store.make_changes({
-            update: {
-                systems: [{
-                    _id: id,
-                    debug_level: level
-                }]
-            }
-        }));
-}
-
-function set_debug_level(req) {
-    let level = req.params.level;
-    let id = req.system._id;
-    dbg.log0('Recieved set_debug_level req. level =', level);
-    if (req.system.debug_level === level) {
-        dbg.log0('requested to set debug level to the same as current level. skipping.. level =', level);
-        return;
-    }
-
-    return _set_debug_level_internal(id, level, req.auth_token)
-        .then(() => {
-            if (level > 0) { //If level was set, remove it after 10m
-                promise_utils.delay_unblocking(config.DEBUG_MODE_PERIOD) //10m
-                    .then(() => _set_debug_level_internal(id, 0, req.auth_token));
-            }
-        })
-        .return();
-}
+// function _set_debug_level_internal(id, level, auth_token) {
+//     return server_rpc.client.redirector.publish_to_cluster({
+//             target: '', // required but irrelevant
+//             method_api: 'debug_api',
+//             method_name: 'set_debug_level',
+//             request_params: {
+//                 level: level,
+//                 module: 'core'
+//             }
+//         }, {
+//             auth_token: auth_token
+//         })
+//         .then(() => system_store.make_changes({
+//             update: {
+//                 systems: [{
+//                     _id: id,
+//                     debug_level: level
+//                 }]
+//             }
+//         }));
+// }
+//
+// function set_debug_level(req) {
+//     let level = req.params.level;
+//     let id = req.system._id;
+//     dbg.log0('Recieved set_debug_level req. level =', level);
+//     if (req.system.debug_level === level) {
+//         dbg.log0('requested to set debug level to the same as current level. skipping.. level =', level);
+//         return;
+//     }
+//
+//     return _set_debug_level_internal(id, level, req.auth_token)
+//         .then(() => {
+//             if (level > 0) { //If level was set, remove it after 10m
+//                 promise_utils.delay_unblocking(config.DEBUG_MODE_PERIOD) //10m
+//                     .then(() => _set_debug_level_internal(id, 0, req.auth_token));
+//             }
+//         })
+//         .return();
+// }
 
 
 function update_n2n_config(req) {
@@ -900,6 +945,7 @@ function find_account_by_email(req) {
 
 
 // EXPORTS
+exports._init = _init;
 exports.new_system_defaults = new_system_defaults;
 exports.new_system_changes = new_system_changes;
 
@@ -921,7 +967,7 @@ exports.diagnose_system = diagnose_system;
 exports.diagnose_node = diagnose_node;
 exports.log_frontend_stack_trace = log_frontend_stack_trace;
 exports.set_last_stats_report_time = set_last_stats_report_time;
-exports.set_debug_level = set_debug_level;
+// exports.set_debug_level = set_debug_level;
 
 exports.update_n2n_config = update_n2n_config;
 exports.update_base_address = update_base_address;

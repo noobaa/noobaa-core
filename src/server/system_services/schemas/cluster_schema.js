@@ -87,6 +87,10 @@ module.exports = {
             },
         },
 
+        debug_level: {
+            type: 'integer'
+        },
+
         heartbeat: {
             type: 'object',
             required: ['version', 'time'],

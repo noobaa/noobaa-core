@@ -13,6 +13,7 @@ function deploy_log {
 	if [ "$1" != "" ]; then
 		local now=$(date)
 		echo "${now} ${1}" >> ${LOG_FILE}
+		echo "${now} ${1}"
 	fi
 }
 
@@ -201,6 +202,7 @@ function fix_security_issues {
 	if [ $? -ne 0 ]; then
 		deploy_log "Missing internet connectivity"
 	else
+	  /bin/cp -fd /etc/localtime /tmp
 		yum clean all
 		yum update -y
 		if [ $? -ne 0 ]; then
@@ -208,6 +210,7 @@ function fix_security_issues {
 		else
 			deploy_log "Updated yum packages"
 		fi
+	  /bin/cp -fd /tmp/localtime /etc
 	fi
 }
 function setup_supervisors {

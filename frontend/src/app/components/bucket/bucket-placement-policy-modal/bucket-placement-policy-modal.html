@@ -1,6 +1,6 @@
 <modal params="onClose: () => cancel()">
     <h1 class="heading2 push-next">
-        Bucket Data Placment Policy
+        Bucket Data Placement Policy
     </h1>
 
     <h2 class="heading3">Policy Type</h2>
@@ -35,36 +35,16 @@
         </div>
     </section>
 
-    <div class="box push-next">
-        <div class="data-table">
-            <table>
-                <thead>
-                    <tr>
-                        <th class="select-col"></th>
-                        <th class="state-col">Type</th>
-                        <th class="name-col text-left">Pool Name</th>
-                        <th class="online-count-col">Online Nodes in Pool</th>
-                        <th class="free-space-col">Free Space</th>
-                    </tr>
-                </thead>
-                <tbody data-bind="foreach: pools">
-                    <td class="select-col">
-                        <checkbox params="
-                            checked: selected,
-                            checkedValue: name
-                        "></checkbox>
-                    </td>
-                    <td class="state-col">
-                        <svg-icon params="name: icon"></svg-icon>
-                    </td>
-                    <td class="name-col text-left" data-bind="text: name"></td>
-                    <td class="online-count-col" data-bind="text: onlineNodeCount">
-                    </td>
-                    <td class="free-space-col" data-bind="text: freeSpace"></td>
-                </tbody>
-            </table>
-        </div>
+    <div class="box">
+        <data-table params="
+            columns: columns,
+            rowFactory: pool => newPoolRow(pool),
+            data: pools
+        "></data-table>
     </div>
+    <p class="val-msg push-next" data-bind="
+        validationMessage: selectedPools
+    "></p>
 
 
     <div class="row align-end push-prev">

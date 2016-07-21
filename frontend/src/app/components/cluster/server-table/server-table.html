@@ -13,11 +13,11 @@
     ">
         <template name="actions">
             <button class="link" data-bind="
-                click: () => vm.showServerDNSSettingsModal($data)
+                click: () => vm.showServerDNSSettingsModal(ko.unwrap($data))
             ">DNS</button>
             |
             <button class="link" data-bind="
-                click: () => vm.showServerTimeSettingsModal($data)
+                click: () => vm.showServerTimeSettingsModal(ko.unwrap($data))
             ">Time</button>
         </template>
     </data-table>

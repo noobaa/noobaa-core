@@ -17,8 +17,16 @@ export default class PoolRowViewModel extends Disposable {
             () => !!pool()
         );
 
+        let healthy = ko.pureComputed(
+            () => pool() && pool().nodes.online >= 3
+        );
+
         this.stateIcon = ko.pureComputed(
-            () => pool() && `pool-${pool().nodes.online >= 3 ? 'healthy' : 'problem'}`
+            () => pool() && `pool-${healthy() ? 'healthy' : 'problem'}`
+        );
+
+        this.stateTooltip = ko.pureComputed(
+            () => healthy() ? 'Healthy' : 'Problem'
         );
 
         this.name = ko.pureComputed(

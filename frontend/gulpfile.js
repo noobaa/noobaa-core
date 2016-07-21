@@ -73,7 +73,11 @@ gulp.task('build-lib', ['install-deps'], () => {
 });
 
 gulp.task('build-api', () => {
-    let b = browserify({ debug: true });
+    let b = browserify({
+        paths: ['./node_modules'],
+        debug: true
+    })
+        .transform(babelify, { optional: ['runtime'] });
 
     b.require('../src/api/index.js', { expose: 'nb-api' });
 

@@ -5,7 +5,6 @@ import numeral from 'numeral';
 
 class ProgressBarViewModel extends Disposable {
     constructor({ progress = 0 }) {
-
         super();
 
         this.progress = ko.pureComputed(

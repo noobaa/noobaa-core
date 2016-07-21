@@ -1,4 +1,4 @@
-import template from './about-form.html';
+import template from './version-form.html';
 import Disposable from 'disposable';
 import ko from 'knockout';
 import { systemInfo } from 'model';

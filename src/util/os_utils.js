@@ -177,9 +177,9 @@ function windows_volume_to_drive(vol) {
 }
 
 function wmic(topic) {
-    return promise_utils.exec('wmic ' + topic + ' get /value')
+    return promise_utils.exec('wmic ' + topic + ' get /value', /*ignore_rc= */ false, /*return_stdout= */ true)
         .then(function(res) {
-            return wmic_parse_list(res[0]);
+            return wmic_parse_list(res);
         });
 }
 
@@ -211,9 +211,9 @@ function wmic_parse_list(text) {
 function top_single(dst) {
     var file_redirect = dst ? ' &> ' + dst : '';
     if (os.type() === 'Darwin') {
-        return promise_utils.exec('top -l 1' + file_redirect);
+        return promise_utils.exec('top -c -l 1' + file_redirect);
     } else if (os.type() === 'Linux') {
-        return promise_utils.exec('top -b -n 1' + file_redirect);
+        return promise_utils.exec('top -c -b -n 1' + file_redirect);
     } else if (os.type() === 'Windows_NT') {
         return;
     } else {

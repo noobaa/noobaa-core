@@ -126,6 +126,18 @@ function new_system_changes(name, owner_account) {
             order: 0
         }]);
         var bucket = bucket_server.new_bucket_defaults(default_bucket_name, system._id, policy._id);
+
+        const demo_pool_name = config.DEMO_DEFAULTS.NAME;
+        const demo_bucket_name = config.DEMO_DEFAULTS.NAME;
+        const demo_bucket_with_suffix = demo_bucket_name + '#' + Date.now().toString(36);
+        let demo_pool = pool_server.new_pool_defaults(demo_pool_name, system._id);
+        var demo_tier = tier_server.new_tier_defaults(demo_bucket_with_suffix, system._id, [demo_pool._id]);
+        var demo_policy = tier_server.new_policy_defaults(demo_bucket_with_suffix, system._id, [{
+            tier: demo_tier._id,
+            order: 0
+        }]);
+        var demo_bucket = bucket_server.new_bucket_defaults(demo_bucket_name, system._id, demo_policy._id);
+
         var role = {
             _id: system_store.generate_id(),
             account: owner_account._id,
@@ -143,10 +155,10 @@ function new_system_changes(name, owner_account) {
         return {
             insert: {
                 systems: [system],
-                buckets: [bucket],
-                tieringpolicies: [policy],
-                tiers: [tier],
-                pools: [pool],
+                buckets: [bucket, demo_bucket],
+                tieringpolicies: [policy, demo_policy],
+                tiers: [tier, demo_tier],
+                pools: [pool, demo_pool],
                 roles: [role],
             }
         };

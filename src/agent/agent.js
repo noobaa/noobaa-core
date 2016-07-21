@@ -255,6 +255,8 @@ class Agent {
         };
         if (this.cloud_info) {
             hb_info.pool_name = this.cloud_info.cloud_pool_name;
+        } else if (this.is_internal_agent) {
+            hb_info.pool_name = config.DEMO_DEFAULTS.NAME;
         }
         return this.client.node.heartbeat(hb_info, {
                 return_rpc_req: true

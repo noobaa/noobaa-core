@@ -127,19 +127,10 @@ function new_system_changes(name, owner_account) {
         }]);
         var bucket = bucket_server.new_bucket_defaults(default_bucket_name, system._id, policy._id);
 
-        const demo_pool_name = config.DEMO_DEFAULTS.NAME;
-        const demo_bucket_name = config.DEMO_DEFAULTS.NAME;
-        const demo_bucket_with_suffix = demo_bucket_name + '#' + Date.now().toString(36);
-        let demo_pool = pool_server.new_pool_defaults(demo_pool_name, system._id);
-        var demo_tier = tier_server.new_tier_defaults(demo_bucket_with_suffix, system._id, [demo_pool._id]);
-        var demo_policy = tier_server.new_policy_defaults(demo_bucket_with_suffix, system._id, [{
-            tier: demo_tier._id,
-            order: 0
-        }]);
-        var demo_bucket = bucket_server.new_bucket_defaults(demo_bucket_name, system._id, demo_policy._id);
-
-        demo_bucket.demo_bucket = true;
-        demo_pool.demo_pool = true;
+        let bucket_insert = [bucket];
+        let tieringpolicies_insert = [policy];
+        let tiers_insert = [tier];
+        let pools_insert = [pool];
 
         var role = {
             _id: system_store.generate_id(),
@@ -155,13 +146,35 @@ function new_system_changes(name, owner_account) {
             desc: `${name} was created by ${owner_account && owner_account.email}`,
         });
 
+
+        if (process.env.LOCAL_AGENTS_ENABLED === 'true') {
+            const demo_pool_name = config.DEMO_DEFAULTS.NAME;
+            const demo_bucket_name = config.DEMO_DEFAULTS.NAME;
+            const demo_bucket_with_suffix = demo_bucket_name + '#' + Date.now().toString(36);
+            let demo_pool = pool_server.new_pool_defaults(demo_pool_name, system._id);
+            var demo_tier = tier_server.new_tier_defaults(demo_bucket_with_suffix, system._id, [demo_pool._id]);
+            var demo_policy = tier_server.new_policy_defaults(demo_bucket_with_suffix, system._id, [{
+                tier: demo_tier._id,
+                order: 0
+            }]);
+            var demo_bucket = bucket_server.new_bucket_defaults(demo_bucket_name, system._id, demo_policy._id);
+
+            demo_bucket.demo_bucket = true;
+            demo_pool.demo_pool = true;
+
+            bucket_insert.push(demo_bucket);
+            tieringpolicies_insert.push(demo_policy);
+            tiers_insert.push(demo_tier);
+            pools_insert.push(demo_pool);
+        }
+
         return {
             insert: {
                 systems: [system],
-                buckets: [bucket, demo_bucket],
-                tieringpolicies: [policy, demo_policy],
-                tiers: [tier, demo_tier],
-                pools: [pool, demo_pool],
+                buckets: bucket_insert,
+                tieringpolicies: tieringpolicies_insert,
+                tiers: tiers_insert,
+                pools: pools_insert,
                 roles: [role],
             }
         };

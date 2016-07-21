@@ -17,24 +17,25 @@ function hasNoLeadingOrTrailingSpaces(value) {
     return value.trim() === value;
 }
 
-function isIP(value, { onlyIf = true }) {
+function isIP(value) {
     const regExp = /^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/;
 
-    return !value || !ko.unwrap(onlyIf) || regExp.test(value);
+    return !value || regExp.test(value);
 }
 
-function isDNSName(value, { onlyIf = true }) {
+function isDNSName(value) {
     const regExp = /^[A-Za-z0-9][A-Za-z0-9-\.]*[A-Za-z0-9]$/;
 
-    return !value || !ko.unwrap(onlyIf) || (value.length < 63 && regExp.test(value));
+    return !value || (value.length < 63 && regExp.test(value));
 }
 
-function isIPOrDNSName(value, params) {
-    return isIP(value, params) || isDNSName(value, params);
+function isIPOrDNSName(value) {
+    let a = isIP(value) || isDNSName(value);
+    return a;
 }
 
-function isURI(value, { onlyIf }) {
-    if (!value || !ko.unwrap(onlyIf)) {
+function isURI(value) {
+    if (!value) {
         return true;
     }
 

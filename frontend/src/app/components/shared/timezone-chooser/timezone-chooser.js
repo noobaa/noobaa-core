@@ -1,6 +1,5 @@
 import template from './timezone-chooser.html';
 import Disposable from 'disposable';
-import ko from 'knockout';
 import moment from 'moment-timezone';
 
 const options = moment.tz.names()

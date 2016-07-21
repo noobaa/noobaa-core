@@ -99,7 +99,7 @@ class CreateSystemFormViewModel extends Disposable {
         );
 
         this.isCreateSystemVisible = ko.pureComputed(
-            () => this.step() === this.steps.length - 1,
+            () => this.step() === this.steps.length - 1
         );
 
         this.errorsByStep = [

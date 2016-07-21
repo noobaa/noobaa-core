@@ -18,20 +18,24 @@ const icons = deepFreeze([
 ]);
 
 export default class ResourceRowViewModel extends Disposable {
-    constructor(pool, tier) {
+    constructor(pool, selectedResrouces) {
         super();
 
-        this.selected = ko.observable(
-            tier.cloud_pools.indexOf(pool.name) > -1
+        this.select = ko.pureComputed({
+            read: () => selectedResrouces().includes(this.name()),
+            write: val => val ?
+                selectedResrouces.push(this.name()) :
+                selectedResrouces.remove(this.name())
+        });
+
+        this.type = ko.pureComputed(
+            () => pool() && icons.find(
+                ({ pattern }) => pool().cloud_info.endpoint.indexOf(pattern) > -1
+            )
         );
 
-        let endpoint = pool.cloud_info.endpoint;
-        this.icon = icons
-            .find(
-                ({ pattern }) => endpoint.indexOf(pattern) > -1
-            )
-            .icon;
-
-        this.name = pool.name;
+        this.name = ko.pureComputed(
+            () => pool() && pool().name
+        );
     }
 }

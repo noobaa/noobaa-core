@@ -14,12 +14,9 @@ const bcrypt = require('bcrypt');
 const P = require('../../util/promise');
 // const dbg = require('../../util/debug_module')(__filename);
 const RpcError = require('../../rpc/rpc_error');
-const server_rpc = require('../server_rpc');
 const auth_server = require('../common_services/auth_server');
 const Dispatcher = require('../notifications/dispatcher');
 const system_store = require('../system_services/system_store').get_instance();
-const system_server = require('./system_server');
-const cluster_server = require('./cluster_server');
 
 system_store.on('load', ensure_support_account);
 
@@ -38,37 +35,21 @@ function create_account(req) {
             return bcrypt_password(account);
         })
         .then(function() {
-            if (req.system) {
-                if (req.rpc_params.allowed_buckets) {
-                    account.allowed_buckets = _.map(req.rpc_params.allowed_buckets,
-                        bucket => req.system.buckets_by_name[bucket]._id);
-                }
-                return {
-                    insert: {
-                        accounts: [account],
-                        roles: [{
-                            _id: system_store.generate_id(),
-                            account: account._id,
-                            system: req.system._id,
-                            role: 'admin',
-                        }]
-                    }
-                };
+            if (req.rpc_params.allowed_buckets) {
+                account.allowed_buckets = _.map(req.rpc_params.allowed_buckets,
+                    bucket => req.system.buckets_by_name[bucket]._id);
             }
-            return P.join(system_server.new_system_changes(account.name, account),
-                    cluster_server.new_cluster_info())
-                .spread(function(changes, cluster_info) {
-                    account.allowed_buckets = [changes.insert.buckets[0]._id];
-                    if (process.env.LOCAL_AGENTS_ENABLED === 'true') {
-                        account.allowed_bucket.push(changes.insert.buckets[1]._id);
-                    }
-
-                    changes.insert.accounts = [account];
-                    if (cluster_info) {
-                        changes.insert.clusters = [cluster_info];
-                    }
-                    return changes;
-                });
+            return {
+                insert: {
+                    accounts: [account],
+                    roles: [{
+                        _id: system_store.generate_id(),
+                        account: account._id,
+                        system: req.system._id,
+                        role: 'admin',
+                    }]
+                }
+            };
         })
         .then(changes => {
             Dispatcher.instance().activity({
@@ -86,7 +67,7 @@ function create_account(req) {
             var auth = {
                 account_id: created_account._id
             };
-            if (!req.system) {
+            if (req.rpc_params.new_system) {
                 // since we created the first system for this account
                 // we expect just one system, but use _.each to get it from the map
                 _.each(created_account.roles_by_system, (roles, system_id) => {
@@ -97,21 +78,6 @@ function create_account(req) {
             return {
                 token: auth_server.make_auth_token(auth),
             };
-        })
-        .then(token => {
-            if (process.env.LOCAL_AGENTS_ENABLED !== 'true') {
-                return token;
-            }
-            if (!req.system) {
-                return server_rpc.client.hosted_agents.create_agent({
-                        name: req.rpc_params.name,
-                        access_keys: req.rpc_params.access_keys,
-                        scale: 3,
-                        storage_limit: 100 * 1024 * 1024,
-                    })
-                    .then(() => token);
-            }
-
         });
 }
 

@@ -26,15 +26,14 @@ const size_utils = require('../../util/size_utils');
 const server_rpc = require('../server_rpc');
 const pool_server = require('./pool_server');
 const tier_server = require('./tier_server');
-const auth_server = require('../common_services/auth_server');
+const account_server = require('./account_server');
+const cluster_server = require('./cluster_server');
 const Dispatcher = require('../notifications/dispatcher');
 const nodes_store = require('../node_services/nodes_store');
-// const node_server = require('../node_services/node_server');
 const nodes_client = require('../node_services/nodes_client');
 const system_store = require('../system_services/system_store').get_instance();
 const promise_utils = require('../../util/promise_utils');
 const bucket_server = require('./bucket_server');
-const account_server = require('./account_server');
 const system_server_utils = require('../utils/system_server_utils');
 
 // called on rpc server init
@@ -193,30 +192,47 @@ function new_system_changes(name, owner_account) {
  *
  */
 function create_system(req) {
-    var name = req.rpc_params.name;
-    return new_system_changes(name, req.account)
-        .then(changes => system_store.make_changes(changes))
-        .then(function() {
-            if (process.env.ON_PREMISE === 'true') {
-                return P.fcall(function() {
-                        return promise_utils.exec('supervisorctl restart s3rver');
-                    })
-                    .then(null, function(err) {
-                        dbg.error('Failed to restart s3rver', err);
-                    });
+    var account = _.pick(req.rpc_params, 'name', 'email', 'password');
+    //Create the new system
+    return P.join(new_system_changes(account.name, account),
+            cluster_server.new_cluster_info())
+        .spread(function(changes, cluster_info) {
+            account.allowed_buckets = [changes.insert.buckets[0]._id];
+            if (process.env.LOCAL_AGENTS_ENABLED === 'true') {
+                account.allowed_bucket.push(changes.insert.buckets[1]._id);
             }
+
+            changes.insert.accounts = [account];
+            if (cluster_info) {
+                changes.insert.clusters = [cluster_info];
+            }
+            return changes;
         })
-        .then(function() {
-            var system = system_store.data.systems_by_name[name];
-            return {
-                // a token for the new system
-                token: auth_server.make_auth_token({
-                    account_id: req.account._id,
-                    system_id: system._id,
-                    role: 'admin',
-                }),
-                info: get_system_info(system)
-            };
+        .then(changes => {
+            return system_store.make_changes(changes);
+        })
+        .then(() => {
+            //Create the owner account
+            return account_server.create_account({
+                name: req.rpc_params.name,
+                email: req.rpc_params.email,
+                password: req.rpc_params.password,
+                access_keys: req.rpc_params.accessKeys,
+                new_system: true
+            });
+        })
+        .then(token => {
+            //If internal agents enabled, create them
+            if (process.env.LOCAL_AGENTS_ENABLED !== 'true') {
+                return token;
+            }
+            return server_rpc.client.hosted_agents.create_agent({
+                name: req.rpc_params.name,
+                access_keys: req.rpc_params.access_keys,
+                scale: 3,
+                storage_limit: 100 * 1024 * 1024,
+            })
+            .then(() => token);
         });
 }
 

@@ -42,7 +42,7 @@ mocha.describe('system_servers', function() {
             ///////////////
             .then(() => client.account.accounts_status())
             .then(res => assert(!res.has_accounts, '!has_accounts'))
-            .then(() => client.account.create_account({
+            .then(() => client.system.create_system({
                 name: SYS,
                 email: EMAIL,
                 password: PASSWORD,
@@ -126,9 +126,6 @@ mocha.describe('system_servers', function() {
             )
             //.then(() => client.system.start_debug({level:0}))
             .then(() => client.system.diagnose_system())
-            .then(() => client.system.create_system({
-                name: SYS1
-            }))
             .then(() => client.create_auth_token({
                 email: EMAIL,
                 password: PASSWORD,

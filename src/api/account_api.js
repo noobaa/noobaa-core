@@ -46,6 +46,9 @@ module.exports = {
                             type: 'string',
                         }
                     },
+                    new_system: {
+                        type: 'boolean'
+                    }
                 },
             },
             reply: {
@@ -349,26 +352,23 @@ module.exports = {
         },
 
         account_acl: {
-            anyOf: [
-                {
-                    type: 'null'
-                },
-                {
-                    type: 'array',
-                    items: {
-                        type: 'object',
-                        required: ['bucket_name', 'is_allowed'],
-                        properties: {
-                            bucket_name: {
-                                type: 'string'
-                            },
-                            is_allowed: {
-                                type: 'boolean'
-                            }
+            anyOf: [{
+                type: 'null'
+            }, {
+                type: 'array',
+                items: {
+                    type: 'object',
+                    required: ['bucket_name', 'is_allowed'],
+                    properties: {
+                        bucket_name: {
+                            type: 'string'
+                        },
+                        is_allowed: {
+                            type: 'boolean'
                         }
                     }
                 }
-            ]
+            }]
         }
     }
 };

@@ -242,7 +242,7 @@ class NodesMonitor extends EventEmitter {
     }
 
     _set_node_defaults(item) {
-        if (!_.isNumber(item.node.hearbeat)) {
+        if (!_.isNumber(item.node.heartbeat)) {
             item.node.heartbeat = new Date(item.node.heartbeat).getTime() || 0;
         }
         item.node.drives = item.node.drives || [];
@@ -266,6 +266,7 @@ class NodesMonitor extends EventEmitter {
     }
 
     _set_connection(item, conn) {
+        if (item.connection === conn) return;
         if (item.connection) {
             dbg.warn('heartbeat: closing old connection', item.connection.connid);
             item.connection.close();
@@ -908,9 +909,10 @@ class NodesMonitor extends EventEmitter {
 
         const items = query.nodes ?
             new Set(_.map(query.nodes, node_identity =>
-                this._get_node(node_identity, 'allow_offline'))) :
+                this._get_node(node_identity, 'allow_offline', 'allow_missing'))) :
             this._map_node_id.values();
         for (const item of items) {
+            if (!item) continue;
             // update the status of every node we go over
             this._update_status(item);
             if (!filter_item_func(item)) continue;

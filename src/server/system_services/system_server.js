@@ -189,6 +189,9 @@ function create_system(req) {
     //Create the new system
     account._id = system_store.generate_id();
     let allowed_buckets;
+    let reply_toekn;
+    let owner_secret = system_store.get_server_secret();
+    //Create system
     return P.join(new_system_changes(account.name, account),
             cluster_server.new_cluster_info())
         .spread(function(changes, cluster_info) {
@@ -220,18 +223,44 @@ function create_system(req) {
             });
         })
         .then(token => {
+            reply_toekn = token;
             //If internal agents enabled, create them
             if (process.env.LOCAL_AGENTS_ENABLED !== 'true') {
-                return token;
+                return;
             }
             return server_rpc.client.hosted_agents.create_agent({
                     name: req.rpc_params.name,
                     access_keys: req.rpc_params.access_keys,
                     scale: 3,
                     storage_limit: 100 * 1024 * 1024,
-                })
-                .then(() => token);
-        });
+                });
+        })
+        .then(() => {
+            //Time config, if supplied
+            if (!req.rpc_params.time_config) {
+                return;
+            }
+            let time_config = req.rpc_params.time_config;
+            time_config.target_secret = owner_secret;
+            return server_rpc.client.cluster_server.update_time_config(time_config);
+        })
+        .then(() => {
+            //DNS servers, if supplied
+            if (!req.rpc_params.dns_servers) {
+                return;
+            }
+            let dns_config = req.rpc_params.time_config;
+            dns_config.target_secret = owner_secret;
+            return server_rpc.client.cluster_server.update_dns_servers(dns_config);
+        })
+        .then(() => {
+            //DNS name, if supplied
+            if (!req.rpc_params.dns_name) {
+                return;
+            }
+            return;
+        })
+        .then(() => reply_toekn);
 }
 
 

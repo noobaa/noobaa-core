@@ -49,7 +49,7 @@ function create_account(req) {
                     bucket => req.system.buckets_by_name[bucket]._id);
             }
             if (req.rpc_params.new_system_parameters) {
-                account.allowed_buckets = _.map(req.rpc_params.allowed_buckets,
+                account.allowed_buckets = _.map(req.rpc_params.new_system_parameters.allowed_buckets,
                     bucket => mongo_utils.make_object_id(bucket));
             }
             return {

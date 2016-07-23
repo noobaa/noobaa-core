@@ -16,6 +16,7 @@ const P = require('../../util/promise');
 const RpcError = require('../../rpc/rpc_error');
 const auth_server = require('../common_services/auth_server');
 const Dispatcher = require('../notifications/dispatcher');
+const mongo_utils = require('../../util/mongo_utils');
 const system_store = require('../system_services/system_store').get_instance();
 
 system_store.on('load', ensure_support_account);
@@ -30,14 +31,27 @@ function create_account(req) {
     validate_create_account_params(req);
     account.access_keys = [req.rpc_params.access_keys];
 
-    account._id = system_store.generate_id();
+    let sys_id = req.rpc_params.new_system_id ?
+        mongo_utils.make_object_id(req.rpc_params.new_system_id) : req.system._id;
+
+    if (req.rpc_params.account_id) {
+        account._id = mongo_utils.make_object_id(req.rpc_params.account_id);
+    } else {
+        account._id = system_store.generate_id();
+    }
     return P.fcall(function() {
             return bcrypt_password(account);
         })
         .then(function() {
             if (req.rpc_params.allowed_buckets) {
-                account.allowed_buckets = _.map(req.rpc_params.allowed_buckets,
-                    bucket => req.system.buckets_by_name[bucket]._id);
+                if (req.rpc_params.new_system_id) {
+                    // Newly created system special handling
+                    account.allowed_buckets = _.map(req.rpc_params.allowed_buckets,
+                        bucket => mongo_utils.make_object_id(bucket));
+                } else {
+                    account.allowed_buckets = _.map(req.rpc_params.allowed_buckets,
+                        bucket => req.system.buckets_by_name[bucket]._id);
+                }
             }
             return {
                 insert: {
@@ -45,7 +59,7 @@ function create_account(req) {
                     roles: [{
                         _id: system_store.generate_id(),
                         account: account._id,
-                        system: req.system._id,
+                        system: sys_id,
                         role: 'admin',
                     }]
                 }
@@ -55,7 +69,7 @@ function create_account(req) {
             Dispatcher.instance().activity({
                 event: 'account.create',
                 level: 'info',
-                system: req.system && req.system._id || changes.insert.systems[0]._id,
+                system: req.system && req.system._id || sys_id,
                 actor: req.account && req.account._id,
                 account: account._id,
                 desc: `${account.email} was created ${req.account && 'by ' + req.account.email}`,
@@ -67,7 +81,7 @@ function create_account(req) {
             var auth = {
                 account_id: created_account._id
             };
-            if (req.rpc_params.new_system) {
+            if (req.rpc_params.new_system_id) {
                 // since we created the first system for this account
                 // we expect just one system, but use _.each to get it from the map
                 _.each(created_account.roles_by_system, (roles, system_id) => {

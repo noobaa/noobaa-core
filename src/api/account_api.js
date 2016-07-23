@@ -29,6 +29,9 @@ module.exports = {
                     password: {
                         type: 'string',
                     },
+                    account_id: {
+                        type: 'string'
+                    },
                     access_keys: {
                         type: 'object',
                         properties: {
@@ -46,8 +49,8 @@ module.exports = {
                             type: 'string',
                         }
                     },
-                    new_system: {
-                        type: 'boolean'
+                    new_system_id: {
+                        type: 'string'
                     }
                 },
             },

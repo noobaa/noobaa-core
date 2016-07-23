@@ -194,15 +194,17 @@ function new_system_changes(name, owner_account) {
 function create_system(req) {
     var account = _.pick(req.rpc_params, 'name', 'email', 'password');
     //Create the new system
+    account._id = system_store.generate_id();
+    let allowed_buckets;
     return P.join(new_system_changes(account.name, account),
             cluster_server.new_cluster_info())
         .spread(function(changes, cluster_info) {
-            account.allowed_buckets = [changes.insert.buckets[0]._id];
+            allowed_buckets = [changes.insert.buckets[0]._id.toString()];
             if (process.env.LOCAL_AGENTS_ENABLED === 'true') {
-                account.allowed_bucket.push(changes.insert.buckets[1]._id);
+                allowed_buckets.push(changes.insert.buckets[1]._id.toString());
             }
 
-            changes.insert.accounts = [account];
+            //NBNB  changes.insert.accounts = [account];
             if (cluster_info) {
                 changes.insert.clusters = [cluster_info];
             }
@@ -213,12 +215,14 @@ function create_system(req) {
         })
         .then(() => {
             //Create the owner account
-            return account_server.create_account({
+            return server_rpc.client.account.create_account({
                 name: req.rpc_params.name,
                 email: req.rpc_params.email,
                 password: req.rpc_params.password,
-                access_keys: req.rpc_params.accessKeys,
-                new_system: true
+                access_keys: req.rpc_params.access_keys,
+                account_id: account._id.toString(),
+                allowed_buckets: allowed_buckets,
+                new_system_id: system_store.data.systems[0]._id.toString(),
             });
         })
         .then(token => {
@@ -227,12 +231,12 @@ function create_system(req) {
                 return token;
             }
             return server_rpc.client.hosted_agents.create_agent({
-                name: req.rpc_params.name,
-                access_keys: req.rpc_params.access_keys,
-                scale: 3,
-                storage_limit: 100 * 1024 * 1024,
-            })
-            .then(() => token);
+                    name: req.rpc_params.name,
+                    access_keys: req.rpc_params.access_keys,
+                    scale: 3,
+                    storage_limit: 100 * 1024 * 1024,
+                })
+                .then(() => token);
         });
 }
 

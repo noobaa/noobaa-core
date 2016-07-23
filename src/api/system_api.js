@@ -44,6 +44,16 @@ module.exports = {
                             }
                         }
                     },
+                    //Optionals: DNS, NTP and NooBaa Domain Name
+                    time_config: {
+                        $ref: 'cluster_internal_api#/definitions/time_config'
+                    },
+                    dns_servers: {
+                        $ref: 'cluster_internal_api#/definitions/dns_servers_config'
+                    },
+                    dns_name: {
+                        type: 'string'
+                    }
                 },
             },
             reply: {

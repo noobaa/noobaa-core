@@ -136,12 +136,6 @@ function new_system_changes(name, owner_account) {
         let tiers_insert = [tier];
         let pools_insert = [pool];
 
-        var role = {
-            _id: system_store.generate_id(),
-            account: owner_account._id,
-            system: system._id,
-            role: 'admin'
-        };
         Dispatcher.instance().activity({
             event: 'conf.create_system',
             level: 'info',
@@ -179,7 +173,6 @@ function new_system_changes(name, owner_account) {
                 tieringpolicies: tieringpolicies_insert,
                 tiers: tiers_insert,
                 pools: pools_insert,
-                roles: [role],
             }
         };
     });
@@ -204,7 +197,6 @@ function create_system(req) {
                 allowed_buckets.push(changes.insert.buckets[1]._id.toString());
             }
 
-            //NBNB  changes.insert.accounts = [account];
             if (cluster_info) {
                 changes.insert.clusters = [cluster_info];
             }

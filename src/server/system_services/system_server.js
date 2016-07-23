@@ -220,9 +220,11 @@ function create_system(req) {
                 email: req.rpc_params.email,
                 password: req.rpc_params.password,
                 access_keys: req.rpc_params.access_keys,
-                account_id: account._id.toString(),
-                allowed_buckets: allowed_buckets,
-                new_system_id: system_store.data.systems[0]._id.toString(),
+                new_system_parameters: {
+                    account_id: account._id.toString(),
+                    allowed_buckets: allowed_buckets,
+                    new_system_id: system_store.data.systems[0]._id.toString(),
+                },
             });
         })
         .then(token => {

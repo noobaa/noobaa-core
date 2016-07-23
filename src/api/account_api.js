@@ -29,9 +29,6 @@ module.exports = {
                     password: {
                         type: 'string',
                     },
-                    account_id: {
-                        type: 'string'
-                    },
                     access_keys: {
                         type: 'object',
                         properties: {
@@ -49,9 +46,24 @@ module.exports = {
                             type: 'string',
                         }
                     },
-                    new_system_id: {
-                        type: 'string'
-                    }
+                    //Special handling for the first account created with create_system
+                    new_system_parameters: {
+                        type: 'object',
+                        properties: {
+                            new_system_id: {
+                                type: 'string'
+                            },
+                            account_id: {
+                                type: 'string'
+                            },
+                            allowed_buckets: {
+                                type: 'array',
+                                items: {
+                                    type: 'string',
+                                }
+                            },
+                        },
+                    },
                 },
             },
             reply: {

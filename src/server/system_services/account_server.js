@@ -31,11 +31,12 @@ function create_account(req) {
     validate_create_account_params(req);
     account.access_keys = [req.rpc_params.access_keys];
 
-    let sys_id = req.rpc_params.new_system_id ?
-        mongo_utils.make_object_id(req.rpc_params.new_system_id) : req.system._id;
+    let sys_id = req.rpc_params.new_system_parameters ?
+        mongo_utils.make_object_id(req.rpc_params.new_system_parameters.new_system_id) :
+        req.system._id;
 
-    if (req.rpc_params.account_id) {
-        account._id = mongo_utils.make_object_id(req.rpc_params.account_id);
+    if (req.rpc_params.new_system_parameters) {
+        account._id = mongo_utils.make_object_id(req.rpc_params.new_system_parameters.account_id);
     } else {
         account._id = system_store.generate_id();
     }
@@ -44,14 +45,12 @@ function create_account(req) {
         })
         .then(function() {
             if (req.rpc_params.allowed_buckets) {
-                if (req.rpc_params.new_system_id) {
-                    // Newly created system special handling
-                    account.allowed_buckets = _.map(req.rpc_params.allowed_buckets,
-                        bucket => mongo_utils.make_object_id(bucket));
-                } else {
-                    account.allowed_buckets = _.map(req.rpc_params.allowed_buckets,
-                        bucket => req.system.buckets_by_name[bucket]._id);
-                }
+                account.allowed_buckets = _.map(req.rpc_params.allowed_buckets,
+                    bucket => req.system.buckets_by_name[bucket]._id);
+            }
+            if (req.rpc_params.new_system_parameters) {
+                account.allowed_buckets = _.map(req.rpc_params.allowed_buckets,
+                    bucket => mongo_utils.make_object_id(bucket));
             }
             return {
                 insert: {

@@ -49,7 +49,10 @@ module.exports = {
                         $ref: 'cluster_internal_api#/definitions/time_config'
                     },
                     dns_servers: {
-                        $ref: 'cluster_internal_api#/definitions/dns_servers_config'
+                        type: 'array',
+                        items: {
+                            type: 'string'
+                        },
                     },
                     dns_name: {
                         type: 'string'

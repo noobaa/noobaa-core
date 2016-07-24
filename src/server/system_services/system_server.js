@@ -189,7 +189,7 @@ function create_system(req) {
     //Create the new system
     account._id = system_store.generate_id();
     let allowed_buckets;
-    let reply_toekn;
+    let reply_token;
     let owner_secret = system_store.get_server_secret();
     //Create system
     return P.join(new_system_changes(account.name, account),
@@ -222,8 +222,8 @@ function create_system(req) {
                 },
             });
         })
-        .then(token => {
-            reply_toekn = token;
+        .then(response => {
+            reply_token = response.token;
             //If internal agents enabled, create them
             if (process.env.LOCAL_AGENTS_ENABLED !== 'true') {
                 return;
@@ -233,6 +233,8 @@ function create_system(req) {
                     access_keys: req.rpc_params.access_keys,
                     scale: 3,
                     storage_limit: 100 * 1024 * 1024,
+                },{
+                    auth_token: reply_token
                 });
         })
         .then(() => {
@@ -242,16 +244,22 @@ function create_system(req) {
             }
             let time_config = req.rpc_params.time_config;
             time_config.target_secret = owner_secret;
-            return server_rpc.client.cluster_server.update_time_config(time_config);
+            return server_rpc.client.cluster_server.update_time_config(time_config, {
+                auth_token: reply_token
+            });
         })
         .then(() => {
             //DNS servers, if supplied
             if (!req.rpc_params.dns_servers) {
                 return;
             }
-            let dns_config = req.rpc_params.time_config;
-            dns_config.target_secret = owner_secret;
-            return server_rpc.client.cluster_server.update_dns_servers(dns_config);
+
+            return server_rpc.client.cluster_server.update_dns_servers({
+                target_secret: owner_secret,
+                dns_servers: req.rpc_params.dns_servers
+            }, {
+                auth_token: reply_token
+            });
         })
         .then(() => {
             //DNS name, if supplied
@@ -260,7 +268,9 @@ function create_system(req) {
             }
             return;
         })
-        .then(() => reply_toekn);
+        .then(() => ({
+            token: reply_token
+        }));
 }
 
 

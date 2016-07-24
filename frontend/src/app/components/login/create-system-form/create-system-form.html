@@ -1,6 +1,6 @@
 <section class="column create-system-form">
     <h2 class="heading3 text-center push-next">
-        3 quick steps and we are ready to go
+        Two quick steps and we are ready to go
     </h2>
 
     <stepper params="steps: steps, current: step" class="push-next"></stepper>
@@ -13,23 +13,23 @@
                 <editor params="
                     label: 'Activation code'
                 ">
-                    <input type="text" placeholder="enter your code here"
+                    <input type="text" placeholder="your actication code"
                         data-bind="value: activationCode">
                 </editor>
 
                 <editor params="label: 'Email address'">
-                    <input type="text" placeholder="jhonsnow@snow.com"
+                    <input type="text" placeholder="your email address"
                         data-bind="value: email">
                 </editor>
 
                 <editor params="label: 'Password'">
-                    <input type="password"
-                        data-bind="value: password">
+                    <input type="password" data-bind="value: password"
+                        placeholder="enter passowrd">
                 </editor>
 
                 <editor params="label: 'Confirm password'">
-                    <input type="password"
-                        data-bind="value: confirmPassword">
+                    <input type="password" data-bind="value: confirmPassword"
+                     placeholder="repeat password ">
                 </editor>
             </div>
 
@@ -47,34 +47,13 @@
 
                 <editor params="label: 'Server DNS name'">
                     <input type="text" data-bind="value: serverDNSName">
+                    <p class="hint">optional</p>
                 </editor>
 
                 <editor params="label: 'Primary DNS server IP'">
-                    <input type="text" data-bind="value: primaryDNSServerIP">
-                </editor>
-            </div>
-
-            <div class="page column" data-bind="css: { selected: step() === 2 }">
-                <p class="heading3 push-next">
-                    Confirm or edit system date and time
-                </p>
-
-                <editor params="label: 'Type'">
-                    <radio-group params="
-                        options: timeConfigTypes,
-                        selected: selectedTimeConfigType
-                    "></radio-group>
-                </editor>
-
-                <timezone-chooser params="timezone: timezone"></timezone-chooser>
-
-                <date-time-chooser params="time: time, timezone: timezone"
-                    data-bind="visible: !usingNTP()">
-                </date-time-chooser>
-
-                <editor params="label: 'NTP server'"
-                    data-bind="visible: usingNTP">
-                    <input type="text" data-bind="value: ntpServer">
+                    <input type="text" data-bind="value: primaryDNSServerIP"
+                        placeholder="The IP of your primary DNS server" >
+                    <p class="hint">optional</p>
                 </editor>
             </div>
         </div>

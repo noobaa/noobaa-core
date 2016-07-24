@@ -679,38 +679,47 @@ export function loadS3BucketList(connection) {
 // -----------------------------------------------------
 // Managment actions.
 // -----------------------------------------------------
-export function createSystemAccount(system, email, password, dnsName) {
-    logAction('createSystemAccount', { system, email, password, dnsName });
+export function createSystem(
+    activationCode,
+    email,
+    password,
+    systemName,
+    dnsName,
+    dnsServers,
+    timeConfig
+) {
+    logAction('createSystem', {
+        activationCode, email, password, systemName, dnsName,
+        dnsServers, timeConfig
+    });
 
-    let accessKeys = system === 'demo' && email === 'demo@noobaa.com' ?
+    let accessKeys = (systemName === 'demo' && email === 'demo@noobaa.com') ?
         { access_key: '123', secret_key: 'abc' } :
         generateAccessKeys();
 
     api.system.create_system({
-        activation_code: '1111',
-        name: system,
+        activation_code: activationCode,
+        name: systemName,
         email: email,
         password: password,
-        access_keys: accessKeys
+        access_keys: accessKeys,
+        dns_name: dnsName,
+        dns_servers: dnsServers,
+        time_config: timeConfig
     })
         .then(
             ({ token }) => {
                 api.options.auth_token = token;
                 localStorage.setItem('sessionToken', token);
-                model.sessionInfo({ user: email, system: system});
+
+                // Update the session info and redirect to system screen.
+                model.sessionInfo({
+                    user: email,
+                    system: systemName,
+                    token: token
+                });
+                redirectTo(routes.system, { system: systemName });
             }
-        )
-        .then(
-            () => {
-                if (dnsName) {
-                    return api.system.update_hostname({
-                        hostname: dnsName
-                    });
-                }
-            }
-        )
-        .then(
-            () => redirectTo(routes.system, { system })
         )
         .done();
 }

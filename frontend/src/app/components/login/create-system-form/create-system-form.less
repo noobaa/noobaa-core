@@ -39,14 +39,20 @@
     }
 
     .step0::before {
-        left: 140px;
+        left: 230px;
     }
 
     .step1::before {
-        left: 315px;
+        left: 400px;
     }
 
-    .step2::before {
-        left: 480px;
+    .hint {
+        .remark();
+        line-height: 2;
+        position: absolute;
+    }
+
+    .invalid ~ .hint {
+        display: none;
     }
 }

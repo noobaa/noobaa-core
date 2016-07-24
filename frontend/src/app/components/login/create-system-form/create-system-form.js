@@ -1,26 +1,19 @@
 import template from './create-system-form.html';
 import Disposable from 'disposable';
 import ko from 'knockout';
-import { createSystemAccount } from 'actions';
-
-const timeConfigTypes =  Object.freeze([
-    { label: 'Manual Time', value: 'MANUAL' },
-    { label: 'Network Time (NTP)', value: 'NTP' }
-]);
+import { createSystem } from 'actions';
 
 class CreateSystemFormViewModel extends Disposable {
     constructor() {
         super();
 
-        this.steps = [
-            'account details',
-            'system config',
-            'date and time'
-        ];
-
+        this.steps = ['account details', 'system config'];
         this.step = ko.observable(0);
 
-        this.activationCode = ko.observable();
+        this.activationCode = ko.observable()
+            .extend({
+                required: { message: 'Please enter your activation code' }
+            });
 
         this.email = ko.observable()
             .extend({
@@ -65,31 +58,6 @@ class CreateSystemFormViewModel extends Disposable {
                 isIP: true
             });
 
-        this.timeConfigTypes = timeConfigTypes;
-        this.selectedTimeConfigType = ko.observable(timeConfigTypes[0].value);
-
-        this.usingNTP = ko.pureComputed(
-            () => this.selectedTimeConfigType() === 'NTP'
-        );
-
-        this.timezone = ko.observable(
-            Intl.DateTimeFormat().resolved.timeZone
-        );
-
-        this.time = ko.observable(Date.now());
-
-        this.ntpServer = ko.observable()
-            .extend({
-                required: {
-                    onlyIf: this.usingNTP,
-                    message: 'Please enter an NTP server address'
-                },
-                isIPOrDNSName: {
-                    onlyIf: this.usingNTP,
-                    message: 'Please enter a valid NTP server address'
-                }
-            });
-
         this.isPrevVisible = ko.pureComputed(
             () => this.step() > 0
         );
@@ -116,13 +84,6 @@ class CreateSystemFormViewModel extends Disposable {
                 this.systemName,
                 this.serverDNSName,
                 this.primaryDNSServerIP
-            ]),
-
-            // Date and time validations
-            ko.validation.group([
-                this.timezone,
-                this.time,
-                this.ntpServer
             ])
         ];
     }
@@ -148,12 +109,24 @@ class CreateSystemFormViewModel extends Disposable {
     }
 
     createSystem() {
+        let dnsServers = this.primaryDNSServerIP() && [
+            this.primaryDNSServerIP()
+        ];
+
+        let timeConfig = {
+            timezone: Intl.DateTimeFormat().resolved.timeZone,
+            epoch: Date.now()
+        };
+
         if (this.validateStep(this.step())) {
-            createSystemAccount(
-                this.systemName(),
+            createSystem(
+                this.activationCode(),
                 this.email(),
                 this.password(),
-                this.serverDNSName()
+                this.systemName(),
+                this.serverDNSName(),
+                dnsServers,
+                timeConfig
             );
         }
     }

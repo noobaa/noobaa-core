@@ -109,9 +109,9 @@ class CreateSystemFormViewModel extends Disposable {
     }
 
     createSystem() {
-        let dnsServers = this.primaryDNSServerIP() && [
-            this.primaryDNSServerIP()
-        ];
+        let dnsServers = this.primaryDNSServerIP() ?
+            [ this.primaryDNSServerIP() ] :
+            undefined;
 
         let timeConfig = {
             timezone: Intl.DateTimeFormat().resolved.timeZone,

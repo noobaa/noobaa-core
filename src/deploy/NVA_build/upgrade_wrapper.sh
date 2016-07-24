@@ -30,6 +30,11 @@ function fix_iptables {
     iptables -I INPUT 1 -i eth0 -p tcp --dport 8080 -j ACCEPT
   fi
 
+  local exist=$(iptables -L -n | grep 8081 | wc -l)
+  if [ "${exist}" == "0" ]; then
+    iptables -I INPUT 1 -i eth0 -p tcp --dport 8081 -j ACCEPT
+  fi
+
   local exist=$(iptables -L -n | grep 8443 | wc -l)
   if [ "${exist}" == "0" ]; then
     iptables -I INPUT 1 -i eth0 -p tcp --dport 8443 -j ACCEPT

@@ -15,29 +15,58 @@ module.exports = {
     methods: {
 
         create_system: {
+            doc: 'Create a new system',
             method: 'POST',
             params: {
                 type: 'object',
-                required: ['name'],
+                required: ['name', 'email', 'password', 'access_keys', 'activation_code'],
                 properties: {
                     name: {
                         type: 'string',
                     },
+                    email: {
+                        type: 'string',
+                    },
+                    password: {
+                        type: 'string',
+                    },
+                    activation_code: {
+                        type: 'string',
+                    },
+                    access_keys: {
+                        type: 'object',
+                        properties: {
+                            access_key: {
+                                type: 'string'
+                            },
+                            secret_key: {
+                                type: 'string'
+                            }
+                        }
+                    },
+                    //Optionals: DNS, NTP and NooBaa Domain Name
+                    time_config: {
+                        $ref: 'cluster_internal_api#/definitions/time_config'
+                    },
+                    dns_servers: {
+                        $ref: 'cluster_internal_api#/definitions/dns_servers_config'
+                    },
+                    dns_name: {
+                        type: 'string'
+                    }
                 },
             },
             reply: {
                 type: 'object',
-                required: ['token', 'info'],
+                required: ['token'],
                 properties: {
                     token: {
-                        type: 'string',
-                    },
-                    info: {
-                        $ref: '#/definitions/system_info'
-                    },
+                        type: 'string'
+                    }
                 }
             },
             auth: {
+                account: false,
                 system: false,
             }
         },

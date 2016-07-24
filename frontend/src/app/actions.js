@@ -686,7 +686,8 @@ export function createSystemAccount(system, email, password, dnsName) {
         { access_key: '123', secret_key: 'abc' } :
         generateAccessKeys();
 
-    api.account.create_account({
+    api.system.create_system({
+        activation_code: '1111',
         name: system,
         email: email,
         password: password,

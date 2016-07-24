@@ -46,6 +46,24 @@ module.exports = {
                             type: 'string',
                         }
                     },
+                    //Special handling for the first account created with create_system
+                    new_system_parameters: {
+                        type: 'object',
+                        properties: {
+                            new_system_id: {
+                                type: 'string'
+                            },
+                            account_id: {
+                                type: 'string'
+                            },
+                            allowed_buckets: {
+                                type: 'array',
+                                items: {
+                                    type: 'string',
+                                }
+                            },
+                        },
+                    },
                 },
             },
             reply: {
@@ -349,26 +367,23 @@ module.exports = {
         },
 
         account_acl: {
-            anyOf: [
-                {
-                    type: 'null'
-                },
-                {
-                    type: 'array',
-                    items: {
-                        type: 'object',
-                        required: ['bucket_name', 'is_allowed'],
-                        properties: {
-                            bucket_name: {
-                                type: 'string'
-                            },
-                            is_allowed: {
-                                type: 'boolean'
-                            }
+            anyOf: [{
+                type: 'null'
+            }, {
+                type: 'array',
+                items: {
+                    type: 'object',
+                    required: ['bucket_name', 'is_allowed'],
+                    properties: {
+                        bucket_name: {
+                            type: 'string'
+                        },
+                        is_allowed: {
+                            type: 'boolean'
                         }
                     }
                 }
-            ]
+            }]
         }
     }
 };

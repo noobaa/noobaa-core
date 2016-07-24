@@ -80,6 +80,9 @@ AgentCLI.prototype.init = function() {
     // for now node name is passed only for internal agents.
     self.params.internal_agent = Boolean(self.params.node_name);
 
+    // suffix to add to all nodes on this machine (multidrive)
+    self.uuid_suffix = '-' + uuid().split('-')[0];
+
     return fs.readFileAsync('agent_conf.json')
         .then(function(data) {
             var agent_conf = JSON.parse(data);
@@ -314,7 +317,7 @@ AgentCLI.prototype.create_node_helper = function(current_node_path_info, interna
 
     return P.fcall(function() {
         var current_node_path = current_node_path_info.mount;
-        var node_name = internal_node_name || os.hostname() + '-' + uuid().split('-')[0];
+        var node_name = internal_node_name || os.hostname();
         var path_modification = current_node_path.replace('/agent_storage/', '').replace('/', '').replace('.', '');
         //windows
         path_modification = path_modification.replace('\\agent_storage\\', '');
@@ -323,6 +326,15 @@ AgentCLI.prototype.create_node_helper = function(current_node_path_info, interna
             node_name = node_name + '-' + current_node_path_info.drive_id.replace(':', '');
         } else if (!_.isEmpty(path_modification)) {
             node_name = node_name + '-' + path_modification.replace('/', '');
+        }
+
+        if (!internal_node_name) {
+            if (self.params.scale) {
+                // when running with scale use new uuid for each node
+                node_name = node_name + '-' + uuid().split('-')[0];
+            } else {
+                node_name += self.uuid_suffix;
+            }
         }
 
         var node_path = path.join(current_node_path, node_name);

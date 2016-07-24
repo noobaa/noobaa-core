@@ -55,7 +55,7 @@ function new_cluster_info() {
 
             return cluster;
         })
-        .then((cluster) => _attach_server_configuration(cluster));
+        .then((cluster) => cutil.attach_server_configuration(cluster));
 }
 
 //Initiate process of adding a server to the cluster
@@ -160,7 +160,7 @@ function join_to_cluster(req) {
                 throw new Error('Unknown server role ' + req.rpc_params.role);
             }
         })
-        //.then(() => _attach_server_configuration({}))
+        //.then(() => cutil.attach_server_configuration({}))
         //.then((res_params) => cutil.update_cluster_info(res_params))
         .then(function() {
             var topology_to_send = _.omit(cutil.get_topology(), 'dns_servers', 'ntp');
@@ -678,7 +678,7 @@ function _add_new_server_to_replica_set(shardname, ip) {
 
     return P.resolve(MongoCtrl.add_replica_set_member(shardname, /*first_server=*/ false, new_topology.shards[shard_idx].servers))
         .then(() => system_store.load())
-        .then(() => _attach_server_configuration(new_topology))
+        .then(() => cutil.attach_server_configuration(new_topology))
         .then(() => {
             // insert an entry for this server in clusters collection.
             new_topology._id = system_store.generate_id();
@@ -764,41 +764,6 @@ function _update_rs_if_needed(IPs, name, is_config) {
     }
     return;
 }
-
-
-function _attach_server_configuration(cluster_server) {
-    return P.join(fs_utils.find_line_in_file('/etc/ntp.conf', '#NooBaa Configured NTP Server'),
-            os_utils.get_time_config(),
-            fs_utils.find_line_in_file('/etc/resolv.conf', '#NooBaa Configured Primary DNS Server'),
-            fs_utils.find_line_in_file('/etc/resolv.conf', '#NooBaa Configured Secondary DNS Server'))
-        .spread(function(ntp_line, time_config, primary_dns_line, secondary_dns_line) {
-            cluster_server.ntp = {
-                timezone: time_config.timezone
-            };
-            if (ntp_line && ntp_line.split(' ')[0] === 'server') {
-                cluster_server.ntp.server = ntp_line.split(' ')[1];
-                dbg.log0('found configured NTP server in ntp.conf:', cluster_server.ntp.server);
-            }
-
-            var dns_servers = [];
-            if (primary_dns_line && primary_dns_line.split(' ')[0] === 'nameserver') {
-                let pri_dns = primary_dns_line.split(' ')[1];
-                dns_servers.push(pri_dns);
-                dbg.log0('found configured Primary DNS server in resolv.conf:', pri_dns);
-            }
-            if (secondary_dns_line && secondary_dns_line.split(' ')[0] === 'nameserver') {
-                let sec_dns = secondary_dns_line.split(' ')[1];
-                dns_servers.push(sec_dns);
-                dbg.log0('found configured Secondary DNS server in resolv.conf:', sec_dns);
-            }
-            if (dns_servers.length > 0) {
-                cluster_server.dns_servers = dns_servers;
-            }
-
-            return cluster_server;
-        });
-}
-
 
 // EXPORTS
 exports._init = _init;

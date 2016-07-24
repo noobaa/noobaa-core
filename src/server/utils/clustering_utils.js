@@ -8,6 +8,8 @@ const util = require('util');
 const url = require('url');
 const system_store = require('../system_services/system_store').get_instance();
 const os_utils = require('../../util/os_utils');
+const fs_utils = require('../../util/fs_utils');
+const P = require('../../util/promise');
 const dbg = require('../../util/debug_module')(__filename);
 const config = require('../../../config');
 const os = require('os');
@@ -222,17 +224,55 @@ function get_potential_masters() {
     return masters;
 }
 
+function attach_server_configuration(cluster_server) {
+    return P.join(fs_utils.find_line_in_file('/etc/ntp.conf', '#NooBaa Configured NTP Server'),
+            os_utils.get_time_config(),
+            fs_utils.find_line_in_file('/etc/resolv.conf', '#NooBaa Configured Primary DNS Server'),
+            fs_utils.find_line_in_file('/etc/resolv.conf', '#NooBaa Configured Secondary DNS Server'))
+        .spread(function(ntp_line, time_config, primary_dns_line, secondary_dns_line) {
+            cluster_server.ntp = {
+                timezone: time_config.timezone
+            };
+            if (ntp_line && ntp_line.split(' ')[0] === 'server') {
+                cluster_server.ntp.server = ntp_line.split(' ')[1];
+                dbg.log0('found configured NTP server in ntp.conf:', cluster_server.ntp.server);
+            }
+
+            var dns_servers = [];
+            if (primary_dns_line && primary_dns_line.split(' ')[0] === 'nameserver') {
+                let pri_dns = primary_dns_line.split(' ')[1];
+                dns_servers.push(pri_dns);
+                dbg.log0('found configured Primary DNS server in resolv.conf:', pri_dns);
+            }
+            if (secondary_dns_line && secondary_dns_line.split(' ')[0] === 'nameserver') {
+                let sec_dns = secondary_dns_line.split(' ')[1];
+                dns_servers.push(sec_dns);
+                dbg.log0('found configured Secondary DNS server in resolv.conf:', sec_dns);
+            }
+            if (dns_servers.length > 0) {
+                cluster_server.dns_servers = dns_servers;
+            }
+
+            return cluster_server;
+        });
+}
+
 
 //Exports
 exports.get_topology = get_topology;
-exports.update_cluster_info = update_cluster_info;
-exports.update_host_address = update_host_address;
+exports.get_potential_masters = get_potential_masters;
 exports.extract_servers_ip = extract_servers_ip;
 exports.verify_cluster_id = verify_cluster_id;
 exports.is_single_server = is_single_server;
 exports.get_all_cluster_members = get_all_cluster_members;
+exports.get_cluster_info = get_cluster_info;
+
 exports.pretty_topology = pretty_topology;
+
+exports.update_cluster_info = update_cluster_info;
+exports.update_host_address = update_host_address;
+
 exports.rs_array_changes = rs_array_changes;
 exports.find_shard_index = find_shard_index;
-exports.get_cluster_info = get_cluster_info;
-exports.get_potential_masters = get_potential_masters;
+
+exports.attach_server_configuration = attach_server_configuration;

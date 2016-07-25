@@ -312,7 +312,7 @@ AgentCLI.prototype.load.helper = function() {
     dbg.log0("create token, start nodes ");
 };
 
-AgentCLI.prototype.create_node_helper = function(current_node_path_info, internal_node_name) {
+AgentCLI.prototype.create_node_helper = function(current_node_path_info, internal_node_name, assign_new_uuid) {
     var self = this;
 
     return P.fcall(function() {
@@ -329,7 +329,7 @@ AgentCLI.prototype.create_node_helper = function(current_node_path_info, interna
         }
 
         if (!internal_node_name) {
-            if (self.params.scale) {
+            if (self.params.scale || assign_new_uuid) {
                 // when running with scale use new uuid for each node
                 node_name = node_name + '-' + uuid().split('-')[0];
             } else {
@@ -433,7 +433,7 @@ AgentCLI.prototype.create = function(number_of_nodes) {
                             //if new HD introduced,  skip existing HD.
                             return;
                         } else {
-                            return self.create_node_helper(current_storage_path);
+                            return self.create_node_helper(current_storage_path, false, true);
                         }
                     });
             }
@@ -447,7 +447,7 @@ AgentCLI.prototype.create = function(number_of_nodes) {
                             //if new HD introduced,  skip existing HD.
                             return;
                         } else {
-                            return self.create_node_helper(self.params.all_storage_paths[0]);
+                            return self.create_node_helper(self.params.all_storage_paths[0], false, true);
                         }
                     });
             } else if (number_of_nodes === 0) {

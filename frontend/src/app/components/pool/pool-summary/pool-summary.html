@@ -1,12 +1,12 @@
 <!-- ko if: dataReady -->
-<section class="c4 column">
-    <h3 class="heading4 push-next">
-        Storage Capacity:
-        <span data-bind="text: totalText"></span>
-    </h3>
+<section class="c4 row">
+    <div class="column greedy">
+        <h3 class="heading4 push-next">
+            Storage Capacity:
+            <span data-bind="text: totalText"></span>
+        </h3>
 
-    <div class="row">
-        <ul class="c8 column list-no-style legend">
+        <ul class="c7 column list-no-style legend">
             <li class="row">
                 <span class="c6 emphasized">Used:</span>
                 <span class="highlight" data-bind="text: usedText"></span>
@@ -16,9 +16,9 @@
                 <span data-bind="text: freeText"></span>
             </li>
         </ul>
-
-        <quantity-gauge class="c4" params="values: gaugeValues"></quantity-gauge>
     </div>
+
+    <pie-chart class="" params="values: pieValues"></pie-chart>
 </section>
 
 <vr></vr>

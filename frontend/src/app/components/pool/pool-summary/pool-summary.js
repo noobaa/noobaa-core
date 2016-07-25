@@ -65,8 +65,14 @@ class PoolSummaryViewModel extends Disposable {
         );
 
         this.pieValues = [
-            { value: this.used, color: style['text-color6'] },
-            { value: this.free, color: style['text-color4'] }
+            {
+                value: this.used,
+                color: style['text-color6']
+            },
+            {
+                value: this.free,
+                color: style['text-color4']
+            }
         ];
 
         this.stateText = ko.pureComputed(

@@ -1,6 +1,7 @@
 import template from './pie-chart.html';
 import Disposable from 'disposable';
 import ko from 'knockout';
+import { makeArray } from 'utils';
 import style from 'style';
 
 const radius = 84;
@@ -50,22 +51,35 @@ class PieChartViewModel extends Disposable{
             )
         );
 
-        this.values = ko.pureComputed(
+        let normalized = ko.pureComputed(
             () => normalizeValues(
-                    values.map(
-                        entry => ko.unwrap(entry.value)
-                    )
-                ).map(
-                    value => ko.pureComputed(
-                        () => value
-                    ).extend({
-                        tween: {
-                            resetOnChange: true,
-                            resetValue: 0
-                        }
-                    })
+                values.map(
+                    entry => ko.unwrap(entry.value)
                 )
+            )
         );
+
+        this.values = makeArray(
+            values.length,
+            i => ko.pureComputed(
+                () => normalized()[i]
+            ).extend({
+                tween: {
+                    resetOnChange: true,
+                    resetValue: 0
+                }
+            })
+        );
+
+        // this.values = ko.pureComputed(
+        //     () => normalizeValues(
+        //             values.map(
+        //                 entry => ko.unwrap(entry.value)
+        //             )
+        //         ).map(
+        //             value =>
+        //         )
+        // );
     }
 
     draw(ctx) {
@@ -74,7 +88,7 @@ class PieChartViewModel extends Disposable{
         this.drawArc(ctx, 0, 1, style['bg-color1']);
 
         let colors = this.colors();
-        this.values().reduce(
+        this.values.reduce(
             (offset, ratio, i) => {
                 let len = Math.max(ratio() - seperator, 0);
                 if (len > 0) {

@@ -80,14 +80,14 @@ AgentCLI.prototype.init = function() {
     // for now node name is passed only for internal agents.
     self.params.internal_agent = Boolean(self.params.node_name);
 
-    // suffix to add to all nodes on this machine (multidrive)
-    self.uuid_suffix = '-' + uuid().split('-')[0];
-
     return fs.readFileAsync('agent_conf.json')
         .then(function(data) {
             var agent_conf = JSON.parse(data);
             dbg.log0('using agent_conf.json', util.inspect(agent_conf));
             _.defaults(self.params, agent_conf);
+            if (!self.params.host_id) {
+                self.params.host_id = uuid();
+            }
         })
         .then(null, function(err) {
             dbg.log0('cannot find configuration file. Using defaults.', err);
@@ -119,7 +119,7 @@ AgentCLI.prototype.init = function() {
                     return true;
                 }
             });
-            var server_uuid = os.hostname() + '-' + uuid();
+            var server_uuid = self.params.host_id;
             console.log('Server:' + server_uuid + ' with HD:' + JSON.stringify(hds));
 
             var mount_points = [];
@@ -333,7 +333,7 @@ AgentCLI.prototype.create_node_helper = function(current_node_path_info, interna
                 // when running with scale use new uuid for each node
                 node_name = node_name + '-' + uuid().split('-')[0];
             } else {
-                node_name += self.uuid_suffix;
+                node_name += '-' + self.params.host_id.split('-')[0];
             }
         }
 
@@ -388,6 +388,7 @@ AgentCLI.prototype.create_node_helper = function(current_node_path_info, interna
                             let agent_conf = JSON.parse(data);
                             delete agent_conf.access_key;
                             delete agent_conf.secret_key;
+                            agent_conf.host_id = self.params.host_id;
                             var write_data = JSON.stringify(agent_conf);
                             return fs.writeFileAsync('agent_conf.json', write_data);
                         })
@@ -507,10 +508,11 @@ AgentCLI.prototype.start = function(node_name, node_path) {
         agent = self.agents[node_name] = new Agent({
             address: self.params.address,
             node_name: node_name,
+            host_id: self.params.host_id,
             storage_path: node_path,
             cloud_info: self.cloud_info,
             storage_limit: self.params.storage_limit,
-            is_internal_agent: self.params.internal_agent
+            is_internal_agent: self.params.internal_agent,
         });
 
         dbg.log0('agent inited', node_name, self.params.addres, self.params.port, self.params.secure_port, node_path);

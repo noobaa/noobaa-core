@@ -1,51 +1,94 @@
 import template from './data-table.html';
 import ColumnViewModel from './column';
-import * as defaultColumnTemplates from './column-templates';
+import * as defaultCellTemplates from './cell-templates';
 import Disposable from 'disposable';
 import ko from 'knockout';
-import { noop } from 'utils';
+import { noop, isFunction } from 'utils';
+
+function generateRowTemplate(columns) {
+    return `<tr>${
+        columns.map(
+            ({ name, css, cellTemplate }) =>
+                `<td data-bind="css:'${css}',let:{$data:${name},$rawData:${name}}">${
+                    cellTemplate
+                }</td>`
+        )
+        .join('\n')
+    }</tr> `;
+}
+
 
 class DataTableViewModel extends Disposable {
     constructor(params, customTemplates) {
         super();
 
-        let { columns = [], rowFactory = noop, data = [], sorting } = params;
+        let {
+            columns = [],
+            rowFactory = noop,
+            data,
+            sorting,
+            emptyMessage
+        } = params;
 
-        this.columnTemplates = Object.assign(
+        let cellTemplates = Object.assign(
             {},
-            defaultColumnTemplates,
+            defaultCellTemplates,
             customTemplates
         );
 
         this.columns = ko.pureComputed(
             () => ko.unwrap(columns).map(
-                value => new ColumnViewModel(value, sorting)
+                value => new ColumnViewModel(value, cellTemplates)
             )
         );
+
+        // Generate a row template
+        this.rowTemplate = ko.pureComputed(
+            () => generateRowTemplate(ko.unwrap(this.columns))
+        );
+
+        this.rowFactory = rowFactory;
 
         this.rows = ko.observableArray();
 
-        this.disposeWithMe(
-            ko.computed(
-                () => {
-                    let target = (ko.unwrap(data) || []).length;
-                    let curr = this.rows().length;
-                    let diff = curr - target;
-
-                    if (diff < 0) {
-                        for (let i = curr; i < target; ++i) {
-                            this.rows.push(
-                                rowFactory(() => (ko.unwrap(data) || [])[i])
-                            );
-                        }
-                    } else if (diff > 0) {
-                        this.rows.splice(-diff, diff);
-                    }
-                }
-            )
+        this.isEmpty = ko.pureComputed(
+            () => this.rows().length === 0
         );
 
+        // Init the table rows.
+        this.updateRows(data);
+
+        // Update the table rows on data change event.
+        if (ko.isObservable(data)) {
+            this.addToDisposeList(
+                data.subscribe(
+                    () => this.updateRows(data)
+                )
+            );
+        }
+
         this.sorting = sorting;
+        this.emptyMessage = emptyMessage;
+    }
+
+    updateRows(data) {
+        let curr = this.rows().length;
+        let target = (ko.unwrap(data) || []).length;
+        let diff = curr - target;
+
+        if (diff < 0) {
+            for (let i = curr; i < target; ++i) {
+                this.rows.push(
+                    this.rowFactory(() => (ko.unwrap(data) || [])[i])
+                );
+            }
+
+        } else if (diff > 0) {
+            while(diff-- > 0) {
+                let row = this.rows.pop();
+                isFunction(row.dispose) && row.dispose();
+            }
+        }
     }
 
     getSortCss(columnName, sortable) {
@@ -59,15 +102,6 @@ class DataTableViewModel extends Disposable {
         }`;
     }
 
-    getCellTemplate(row, { name, template }) {
-        let cell = row[name];
-        return {
-            if: cell,
-            html: this.columnTemplates[template],
-            data: () => cell
-        };
-    }
-
     sortBy(newColumn) {
         let { sortBy, order } = this.sorting();
         this.sorting({
@@ -78,7 +112,7 @@ class DataTableViewModel extends Disposable {
 }
 
 function viewModelFactory(params, info) {
-    let columnTemplates = info.templateNodes
+    let cellTemplates = info.templateNodes
         .filter(
             ({ nodeType }) => nodeType === 1
         )
@@ -92,7 +126,7 @@ function viewModelFactory(params, info) {
             {}
         );
 
-    return new DataTableViewModel(params, columnTemplates);
+    return new DataTableViewModel(params, cellTemplates);
 }
 
 export default {

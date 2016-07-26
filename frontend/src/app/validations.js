@@ -18,19 +18,20 @@ function hasNoLeadingOrTrailingSpaces(value) {
 }
 
 function isIP(value) {
-    return !value || (
-        /^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/.test(value)
-    );
+    const regExp = /^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/;
+
+    return !value || regExp.test(value);
 }
 
 function isDNSName(value) {
-    return !value || (
-        value.length < 63 && /^[A-Za-z0-9][A-Za-z0-9-\.]*[A-Za-z0-9]$/.test(value)
-    );
+    const regExp = /^[A-Za-z0-9][A-Za-z0-9-\.]*[A-Za-z0-9]$/;
+
+    return !value || (value.length < 63 && regExp.test(value));
 }
 
 function isIPOrDNSName(value) {
-    return isIP(value) || isDNSName(value);
+    let a = isIP(value) || isDNSName(value);
+    return a;
 }
 
 function isURI(value) {

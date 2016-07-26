@@ -20,7 +20,7 @@ function authenticate() {
     var pwd = 'roonoobaa'; // eslint-disable-line no-undef
     // try to authenticate with nbadmin. if succesful nothing to do
     var res = adminDb.auth('nbadmin', pwd);
-    if (res === 1) {
+    if (res !== 1) {
         print('\nERROR - mongo authentication failed');
     }
 }
@@ -49,6 +49,14 @@ function upgrade_systems() {
                 udp_dtls: true,
                 udp_port: true,
             };
+        }
+
+        if (!system.freemium_cap) {
+            updates.freemium_cap = {
+                phone_home_upgraded: false,
+                phone_home_notified: false,
+                cap_terabytes: 0 //Upgraded systems which didn't have the cap before are customers, don't cap
+            }
         }
 
         var updated_access_keys = system.access_keys;

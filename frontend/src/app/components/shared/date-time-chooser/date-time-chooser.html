@@ -1,0 +1,34 @@
+<editor params="label: 'Date'">
+    <div class="row editor-row">
+        <dropdown class="text-center push-next" params="
+            options: monthOptions,
+            placeholder: 'month',
+            selected: month
+        "></dropdown>
+
+        <dropdown class="text-center push-next" params="
+            options: dayOptions,
+            placeholder: 'day',
+            selected: day
+        "></dropdown>
+
+        <dropdown class="text-center" params="
+            options: yearOptions,
+            placeholder: 'year',
+            selected: year
+        "></dropdown>
+    </div>
+</editor>
+
+<editor params="label: 'Time', insertValMessages: false">
+    <div class="row editor-row">
+        <input type="number" class="push-next" min="0" max="23"
+            placeholder="hours" data-bind="textInput: hour"/>
+
+        <input type="number" class="push-next" min="0" max="59"
+            placeholder="minutes" data-bind="textInput: minute"/>
+
+        <input type="number" min="0" max="59"
+            placeholder="seconds" data-bind="textInput: second"/>
+    </div>
+</editor>

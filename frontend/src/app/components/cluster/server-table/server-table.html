@@ -4,14 +4,40 @@
     Attach Server
 </button>
 
-<data-table params="
-    columns: columns,
-    rowFactory: rowFactory,
-    sorting: sorting,
-    data: servers
-"></data-table>
+<div data-bind="let: { vm: $component }">
+    <data-table params="
+        columns: columns,
+        rowFactory: rowFactory,
+        sorting: sorting,
+        data: servers
+    ">
+        <template name="actions">
+            <button class="link" data-bind="
+                click: () => vm.showServerDNSSettingsModal(ko.unwrap($data))
+            ">DNS</button>
+            |
+            <button class="link" data-bind="
+                click: () => vm.showServerTimeSettingsModal(ko.unwrap($data))
+            ">Time</button>
+        </template>
+    </data-table>
+</div>
 
 <!-- ko if:isAttachServerModalVisible -->
 <attach-server-modal params="onClose: () => hideAttachServerModal()">
 </attach-server-modal>
+<!-- /ko -->
+
+<!-- ko if:isServerDNSSettingsModalVisible -->
+<server-dns-settings-modal params="
+    serverSecret: actionContext,
+    onClose: () => hideServerDNSSettingsModal()
+"></server-dns-settings-modal>
+<!-- /ko -->
+
+<!-- ko if:isServerTimeSettingsModalVisible -->
+<server-time-settings-modal params="
+    serverSecret: actionContext,
+    onClose: () => hideServerTimeSettingsModal()
+"></server-time-settings-modal>
 <!-- /ko -->

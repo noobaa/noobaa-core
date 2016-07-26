@@ -3,10 +3,10 @@ import Disposable from 'disposable';
 import ko from 'knockout';
 import moment from 'moment';
 
+const timeFormat = 'DD MMM YYYY hh:mm:ss';
+
 class ObjectInfoFormViewModel extends Disposable {
     constructor({ obj }) {
-
-
         super();
 
         this.name = ko.pureComputed(
@@ -18,15 +18,19 @@ class ObjectInfoFormViewModel extends Disposable {
         );
 
         this.creationTime = ko.pureComputed(
-            () => obj() && moment(obj().creation_time).format('DD MMM YYYY hh:mm:ss')
+            () => obj() && (
+                obj().create_time ? moment(obj().create_time).format(timeFormat) : 'N/A'
+            )
         );
 
         this.contentType = ko.pureComputed(
             () => obj() && obj().content_type
         );
 
-        this.cloudSynced = ko.pureComputed(
-            () => obj() && obj().cloud_synced ? 'yes' : 'no'
+        this.lastRead = ko.pureComputed(
+            () => obj() && (
+                obj().stats.last_read ? moment(obj().stats.last_read).format(timeFormat) : 'N/A'
+            )
         );
 
         this.s3SignedUrl = ko.pureComputed(

@@ -12,9 +12,14 @@ const MongoCtrl = require('../utils/mongo_ctrl');
 const cutil = require('../utils/clustering_utils');
 const P = require('../../util/promise');
 const fs_utils = require('../../util/fs_utils');
+const fs = require('fs');
 const os_utils = require('../../util/os_utils');
 const dbg = require('../../util/debug_module')(__filename);
 const config = require('../../../config.js');
+const promise_utils = require('../../util/promise_utils');
+const diag = require('../utils/server_diagnostics');
+const moment = require('moment');
+
 
 function _init() {
     return P.resolve(MongoCtrl.init());
@@ -94,7 +99,7 @@ function add_member_to_cluster(req) {
                 shard: req.rpc_params.shard,
                 location: req.rpc_params.location
             }, {
-                address: 'ws://' + req.rpc_params.address + ':8080',
+                address: 'ws://' + req.rpc_params.address + ':' + server_rpc.get_base_port(),
                 timeout: 60000 //60s
             });
         })
@@ -256,19 +261,25 @@ function update_time_config(req) {
                 _.each(system_store.data.clusters, cluster => target_servers.push(cluster));
             }
 
+            if (!time_config.ntp_server && !time_config.epoch) {
+                throw new RpcError('CONFIG_NOT_FOUND', 'Missing time configuration (ntp_server or epoch)');
+            }
+
+            if (time_config.ntp_server && time_config.epoch) {
+                throw new RpcError('DUAL_CONFIG', 'Dual configuration provided (ntp_server and epoch)');
+            }
+
             let config_to_update = {
-                timezone: time_config.timezone,
-                server: (time_config.config_type === 'NTP') ?
-                    time_config.server : ''
+                timezone: time_config.timezone
             };
 
-            if (time_config.config_type === "MANUAL" && _.isUndefined(time_config.epoch)) {
-                throw new RpcError('EPOCH_NOT_PROVIDED', 'Cannot configure manual time without epoch');
+            if (time_config.ntp_server) {
+                config_to_update.server = time_config.ntp_server;
             }
 
             let updates = _.map(target_servers, server => ({
-                    _id: server._id,
-                    ntp: config_to_update
+                _id: server._id,
+                ntp: config_to_update
             }));
 
             return system_store.make_changes({
@@ -280,8 +291,7 @@ function update_time_config(req) {
         .then(() => {
             return P.each(target_servers, function(server) {
                 return server_rpc.client.cluster_internal.apply_updated_time_config(time_config, {
-                    address: 'ws://' + server.owner_address + ':8080',
-                    timeout: 60000 //60s
+                    address: 'ws://' + server.owner_address + ':' + server_rpc.get_base_port()
                 });
             });
         })
@@ -292,8 +302,8 @@ function update_time_config(req) {
 function apply_updated_time_config(req) {
     var time_config = req.rpc_params;
     return P.fcall(function() {
-            if (time_config.config_type === 'NTP') { //set NTP
-                return os_utils.set_ntp(time_config.server, time_config.timezone);
+            if (time_config.ntp_server) { //set NTP
+                return os_utils.set_ntp(time_config.ntp_server, time_config.timezone);
             } else { //manual set
                 return os_utils.set_manual_time(time_config.epoch, time_config.timezone);
             }
@@ -317,8 +327,8 @@ function update_dns_servers(req) {
             }
 
             let updates = _.map(target_servers, server => ({
-                    _id: server._id,
-                    dns_servers: dns_servers_config.dns_servers
+                _id: server._id,
+                dns_servers: dns_servers_config.dns_servers
             }));
 
             return system_store.make_changes({
@@ -330,8 +340,7 @@ function update_dns_servers(req) {
         .then(() => {
             return P.each(target_servers, function(server) {
                 return server_rpc.client.cluster_internal.apply_updated_dns_servers(dns_servers_config, {
-                    address: 'ws://' + server.owner_address + ':8080',
-                    timeout: 60000 //60s
+                    address: 'ws://' + server.owner_address + ':' + server_rpc.get_base_port()
                 });
             });
         })
@@ -344,6 +353,180 @@ function apply_updated_dns_servers(req) {
             return os_utils.set_dns_server(req.rpc_params.dns_servers);
         })
         .return();
+}
+
+
+function set_debug_level(req) {
+    dbg.log0('Recieved set_debug_level req', req);
+    var debug_params = req.rpc_params;
+    var target_servers = [];
+    return P.fcall(function() {
+            if (debug_params.target_secret) {
+                let cluster_server = system_store.data.cluster_by_server[debug_params.target_secret];
+                if (!cluster_server) {
+                    throw new RpcError('CLUSTER_SERVER_NOT_FOUND', 'Server with secret key:', debug_params.target_secret, ' was not found');
+                }
+                target_servers.push(cluster_server);
+            } else {
+                _.each(system_store.data.clusters, cluster => target_servers.push(cluster));
+            }
+
+            return P.each(target_servers, function(server) {
+                return server_rpc.client.cluster_internal.apply_set_debug_level(debug_params, {
+                    address: 'ws://' + server.owner_address + ':8080',
+                    auth_token: req.auth_token
+                });
+            });
+        })
+        .return();
+}
+
+
+function apply_set_debug_level(req) {
+    dbg.log0('Recieved apply_set_debug_level req', req.rpc_params);
+    if (req.rpc_params.target_secret) {
+        let cluster_server = system_store.data.cluster_by_server[req.rpc_params.target_secret];
+        if (!cluster_server) {
+            throw new RpcError('CLUSTER_SERVER_NOT_FOUND', 'Server with secret key:', req.rpc_params.target_secret, ' was not found');
+        }
+        if (cluster_server.debug_level === req.rpc_params.level) {
+            dbg.log0('requested to set debug level to the same as current level. skipping..', req.rpc_params);
+            return;
+        }
+    } else if (req.system.debug_level === req.rpc_params.level) {
+        dbg.log0('requested to set debug level to the same as current level. skipping..', req.rpc_params);
+        return;
+    }
+
+    return _set_debug_level_internal(req, req.rpc_params.level)
+        .then(() => {
+            if (req.rpc_params.level > 0) { //If level was set, remove it after 10m
+                promise_utils.delay_unblocking(config.DEBUG_MODE_PERIOD) //10m
+                    .then(() => _set_debug_level_internal(req, 0));
+            }
+        })
+        .return();
+}
+
+
+function _set_debug_level_internal(req, level) {
+    dbg.log0('Recieved _set_debug_level_internal req', req.rpc_params, 'With Level', level);
+    return server_rpc.client.debug.set_debug_level({
+            level: level,
+            module: 'core'
+        }, {
+            auth_token: req.auth_token
+        })
+        .then(() => {
+            var update_object = {};
+            if (req.rpc_params.target_secret) {
+                let cluster_server = system_store.data.cluster_by_server[req.rpc_params.target_secret];
+                if (!cluster_server) {
+                    throw new RpcError('CLUSTER_SERVER_NOT_FOUND', 'Server with secret key:', req.rpc_params.target_secret, ' was not found');
+                }
+                update_object.clusters = [{
+                    _id: cluster_server._id,
+                    debug_level: level
+                }];
+            } else {
+                // Only master can update the whole system debug mode level
+                // TODO: If master falls in the process and we already passed him
+                // It means that nobody will update the system in the DB, yet it will be in debug
+                if (!system_store.is_cluster_master) {
+                    return;
+                }
+
+                update_object.systems = [{
+                    _id: req.system._id,
+                    debug_level: level
+                }];
+            }
+
+            return system_store.make_changes({
+                update: update_object
+            });
+        });
+}
+
+
+function diagnose_system(req) {
+    var target_servers = [];
+    const TMP_WORK_DIR = `/tmp/diag`;
+    const INNER_PATH = `${process.cwd()}/build`;
+    const OUT_PATH = `/public/cluster_diagnostics.tgz`;
+    const WORKING_PATH = `${INNER_PATH}${OUT_PATH}`;
+    if (req.rpc_params.target_secret) {
+        let cluster_server = system_store.data.cluster_by_server[req.rpc_params.target_secret];
+        if (!cluster_server) {
+            throw new RpcError('CLUSTER_SERVER_NOT_FOUND', 'Server with secret key:', req.rpc_params.target_secret, ' was not found');
+        }
+        target_servers.push(cluster_server);
+    } else {
+        _.each(system_store.data.clusters, cluster => target_servers.push(cluster));
+    }
+
+    return fs_utils.create_fresh_path(`${TMP_WORK_DIR}`)
+        .then(() => {
+            return P.each(target_servers, function(server) {
+                return server_rpc.client.cluster_internal.collect_server_diagnostics(req.rpc_params, {
+                        address: 'ws://' + server.owner_address + ':8080',
+                        auth_token: req.auth_token
+                    })
+                    .then((res_data) => {
+                        var server_hostname = 'unknown' || (server.heartbeat && server.heartbeat.health.os_info.hostname);
+                        // Should never exist since above we delete the root folder
+                        return fs_utils.create_fresh_path(`${TMP_WORK_DIR}/${server_hostname}_${server.owner_secret}`)
+                            .then(() => fs.writeFileAsync(`${TMP_WORK_DIR}/${server_hostname}_${server.owner_secret}/diagnostics.tgz`, res_data.data));
+                    });
+            });
+        })
+        .then(() => promise_utils.exec(`find ${TMP_WORK_DIR} -maxdepth 1 -type f -delete`))
+        .then(() => diag.pack_diagnostics(WORKING_PATH))
+        .then(() => (OUT_PATH));
+
+}
+
+
+function collect_server_diagnostics(req) {
+    const INNER_PATH = `${process.cwd()}/build`;
+    return P.resolve()
+        .then(() => server_rpc.client.system.diagnose_system(undefined, {
+            auth_token: req.auth_token
+        }))
+        .then((out_path) => {
+            dbg.log1('Reading packed file');
+            return fs.readFileAsync(`${INNER_PATH}${out_path}`)
+                .then(data => ({
+                    data: new Buffer(data),
+                }))
+                .catch(err => {
+                    dbg.error('DIAGNOSTICS READ FAILED', err.stack || err);
+                    throw new Error('Server Collect Diag Error on reading packges diag file');
+                });
+        })
+        .catch(err => {
+            dbg.error('DIAGNOSTICS FAILED', err.stack || err);
+            return {
+                data: new Buffer(),
+            };
+        });
+}
+
+
+function read_server_time(req) {
+    let cluster_server = system_store.data.cluster_by_server[req.rpc_params.target_secret];
+    if (!cluster_server) {
+        throw new RpcError('CLUSTER_SERVER_NOT_FOUND', 'Server with secret key:', req.rpc_params.target_secret, ' was not found');
+    }
+
+    return server_rpc.client.cluster_internal.apply_read_server_time(req.rpc_params, {
+        address: 'ws://' + cluster_server.owner_address + ':' + server_rpc.get_base_port(),
+    });
+}
+
+
+function apply_read_server_time(req) {
+    return moment().unix();
 }
 
 
@@ -553,7 +736,7 @@ function _publish_to_cluster(apiname, req_params) {
     dbg.log0('Sending cluster news:', apiname, 'to:', servers, 'with:', req_params);
     return P.each(servers, function(server) {
         return server_rpc.client.cluster_internal[apiname](req_params, {
-            address: 'ws://' + server + ':8080',
+            address: 'ws://' + server + ':' + server_rpc.get_base_port(),
             timeout: 60000 //60s
         });
     });
@@ -631,3 +814,9 @@ exports.update_time_config = update_time_config;
 exports.apply_updated_time_config = apply_updated_time_config;
 exports.update_dns_servers = update_dns_servers;
 exports.apply_updated_dns_servers = apply_updated_dns_servers;
+exports.set_debug_level = set_debug_level;
+exports.apply_set_debug_level = apply_set_debug_level;
+exports.diagnose_system = diagnose_system;
+exports.collect_server_diagnostics = collect_server_diagnostics;
+exports.read_server_time = read_server_time;
+exports.apply_read_server_time = apply_read_server_time;

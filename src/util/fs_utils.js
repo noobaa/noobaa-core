@@ -14,7 +14,7 @@ const promise_utils = require('./promise_utils');
 const is_windows = (process.platform === "win32");
 const is_mac = (process.platform === "darwin");
 
-
+const PRIVATE_DIR_PERMISSIONS = parseInt('0700', 8);
 /**
  *
  * file_must_not_exist
@@ -125,8 +125,12 @@ function find_line_in_file(file_name, line_sub_string) {
         });
 }
 
-function create_path(dir) {
-    return P.fromCallback(callback => mkdirp(dir, callback));
+function create_path(dir, mode) {
+    if (mode) {
+        return P.fromCallback(callback => mkdirp(dir, mode, callback));
+    } else {
+        return P.fromCallback(callback => mkdirp(dir, callback));
+    }
 }
 
 function create_fresh_path(dir) {
@@ -217,3 +221,4 @@ exports.file_copy = file_copy;
 exports.file_delete = file_delete;
 exports.folder_delete = folder_delete;
 exports.tar_pack = tar_pack;
+exports.PRIVATE_DIR_PERMISSIONS = PRIVATE_DIR_PERMISSIONS;

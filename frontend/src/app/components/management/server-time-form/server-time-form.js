@@ -1,31 +1,40 @@
 import template from './server-time-form.html';
 import Disposable from 'disposable';
 import ko from 'knockout';
-import moment from 'moment';
-import 'moment-timezone';
-import { makeRange } from 'utils';
+import moment from 'moment-timezone';
 import { systemInfo } from 'model';
-import { updateServerTime, updateServerNTP } from 'actions';
+import { updateServerClock, updateServerNTPSettings } from 'actions';
 
 const configTypes =  Object.freeze([
     { label: 'Manual Time', value: 'MANUAL' },
     { label: 'Network Time (NTP)', value: 'NTP' }
 ]);
 
-class ServerTimeFormViewModel extends Disposable {
+class ServerTimeFormViewModel extends Disposable{
     constructor() {
         super();
 
-        this.expanded = ko.observable(false);
-
-        this.configTypes = configTypes;
-
-        let timeConfig = ko.pureComputed(
-            () => systemInfo() && systemInfo().time_config
+        let server = ko.pureComputed(
+            () => systemInfo() && systemInfo().cluster.shards[0].servers[0]
         );
 
+        this.serverSecret = ko.pureComputed(
+            () => server() && server().secret
+        );
+
+        this.expanded = ko.observable(false);
+
+        this.time = ko.observableWithDefault(
+            () => server() && server().time_epoch * 1000
+        );
+
+        this.formattedTime = ko.pureComputed(
+            () => this.time() && moment(this.time()).format('MM/DD/YYYY HH:mm:ss ([GMT]Z)')
+        );
+
+        this.configTypes = configTypes;
         this.selectedConfigType = ko.observableWithDefault(
-            () => timeConfig() && timeConfig().ntp_server ? 'NTP' : 'MANUAL'
+            () => server() && server().ntp_server ? 'NTP' : 'MANUAL'
         );
 
         this.usingManualTime = ko.pureComputed(
@@ -36,162 +45,59 @@ class ServerTimeFormViewModel extends Disposable {
             () => this.selectedConfigType() === 'NTP'
         );
 
-        let serverTime = ko.observableWithDefault(
-            () => timeConfig() && timeConfig().srv_time
-        );
-
-        this.serverTimeText = ko.pureComputed(
-            () => moment.parseZone(serverTime()).format('MM/DD/YYYY HH:mm:ss ([GMT]Z)')
-        );
-
         this.timezone = ko.observableWithDefault(
-            () => timeConfig() && timeConfig().timezone
-        );
-
-        this.year = ko.observableWithDefault(
-            () => moment.parseZone(serverTime()).year()
-        );
-
-        this.month = ko.observableWithDefault(
-            () => moment.parseZone(serverTime()).month()
-        );
-
-        let day = ko.observableWithDefault(
-            () => moment.parseZone(serverTime()).date()
-        );
-
-        this.day = ko.pureComputed({
-            read: () => Math.min(day(), lastDayOfMonth()),
-            write: day
-        });
-
-        this.hour = ko.observableWithDefault(
-            () => moment.parseZone(serverTime()).hour()
-        )
-            .extend({ required: true, min: 0, max: 23 });
-
-        this.minute = ko.observableWithDefault(
-            () => moment.parseZone(serverTime()).minute()
-        )
-            .extend({ required: true, min: 0, max: 59 });
-
-        this.second = ko.observableWithDefault(
-            () => moment.parseZone(serverTime()).second()
-        )
-            .extend({ required: true, min: 0, max: 59 });
-
-        this.years = makeRange(moment().year() - 10, moment().year() + 10)
-            .map(
-                value => ({ label: value, value: value })
-            );
-
-        this.months = makeRange(12).map(
-            month => ({
-                label: moment({ month }).format('MMM'),
-                value: month
-            })
-        );
-
-        let lastDayOfMonth = ko.pureComputed(
-            () => moment({ year: this.year(), month: this.month() })
-                .endOf('month')
-                .date()
-        );
-
-        this.days = ko.pureComputed(
-            () => makeRange(1, lastDayOfMonth()).map(
-                value => ({ label: value, value: value })
-            )
+            () => server() && server().timezone
         );
 
         this.ntpServer = ko.observableWithDefault(
-            () => timeConfig() && timeConfig().ntp_server
+            () => server() && server().ntp_server
         )
             .extend({
-                required: {
-                    message: 'Please fill in a NTP server address'
-                }
+                isIPOrDNSName: true,
+                required: { message: 'Please enter an NTP server address' }
             });
-
-        this.timezones = moment.tz.names()
-            .map(
-                name => ({
-                    name: name,
-                    offset: moment.tz(name).utcOffset()
-                })
-            )
-            .sort(
-                (tz1, tz2) => tz1.offset - tz2.offset
-            )
-            .map(
-                ({ name }) => {
-                    let offsetText = moment().tz(name).format('[GMT]Z');
-                    let label = name.replace(/\_/g, ' ');
-
-                    return {
-                        label: `(${offsetText}) ${label}`,
-                        value: name
-                    };
-                }
-            );
-
-        this.disposeWithMe(
-            setInterval(
-                () => serverTime(
-                    moment.parseZone(serverTime()).add(1, 'second').format()
-                ),
-                1000
-            ),
-            clearInterval
-        );
-
-        this.manualErrors = ko.validation.group([
-            this.hour,
-            this.minute,
-            this.second
-        ]);
 
         this.ntpErrors = ko.validation.group([
             this.ntpServer
         ]);
+    }
 
-        this.matchByTimezoneName = function({ label }, input) {
-            return !!label.toLowerCase().match(
-                new RegExp(`\\b${input.replace('/', '\\/')}`)
-            );
-        };
+    matchByTimezoneName(option, input) {
+        let regExp = new RegExp(`\\b${input.replace('/', '\\/')}`);
+        return regExp.test(option.label.toLowerCase());
     }
 
     applyChanges() {
-        this.usingManualTime() ? this.setManualTime() : this.setNTPTime();
+        this.usingNTP() ? this.setNTPTime() : this.setManualTime();
     }
 
     setManualTime() {
-        if (this.manualErrors().length > 0) {
-            this.manualErrors.showAllMessages();
-        } else {
-            let epoch = moment.tz(
-                {
-                    years: this.year(),
-                    months: this.month(),
-                    date: this.day(),
-                    hours: this.hour(),
-                    minutes: this.minute(),
-                    seconds: this.second()
-                },
-                this.timezone()
-            )
-            .unix();
+        let epoch = moment.tz(
+            {
+                years: this.year(),
+                months: this.month(),
+                date: this.day(),
+                hours: this.hour(),
+                minutes: this.minute(),
+                seconds: this.second()
+            },
+            this.timezone()
+        )
+        .unix();
 
-            updateServerTime(this.timezone(), epoch);
-        }
+        updateServerClock(
+            this.serverSecret(), this.timezone(), epoch
+        );
     }
 
     setNTPTime() {
         if (this.ntpErrors().length > 0) {
             this.ntpErrors.showAllMessages();
+
         } else {
-            updateServerNTP(this.timezone(), this.ntpServer());
+            updateServerNTPSettings(
+                this.serverSecret(), this.timezone(), this.ntpServer()
+            );
         }
     }
 }

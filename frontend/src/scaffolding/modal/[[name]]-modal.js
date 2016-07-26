@@ -1,12 +1,14 @@
 import template from './[[name]]-modal.html';
+import Disposable from 'disposable';
 import ko from 'knockout';
 // import numeral from 'numeral';
 // import moment from 'moment';
 
-class [[nameCammelCased]]ModalViewModel {
+class [[nameCammelCased]]ModalViewModel extends Disposable {
     constructor({ onClose }) {
-        this.onClose = onClose;
+        super();
 
+        this.onClose = onClose;
         this.errors = ko.validation.group(this);
     }
 

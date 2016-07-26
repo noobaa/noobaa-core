@@ -35,5 +35,9 @@ export default class ServerRowViewModel extends Disposable {
         this.version = ko.pureComputed(
             () => server() ? server().version : 'N/A'
         );
+
+        this.actions = ko.pureComputed(
+            () => server() && server().secret
+        );
     }
 }

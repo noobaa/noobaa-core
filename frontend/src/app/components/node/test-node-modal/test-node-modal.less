@@ -1,21 +1,7 @@
 test-node-modal {
     .modal-content {
         width: 60em;
-        height: 40em;
-    }
-
-    .result {
-        &.completed > .progress-col {
-            color: @text-color7;
-        }
-
-        &.failed {
-            color: @text-color8;
-        }
-
-        &.aborted > .progress-col {
-            color: @text-color8;
-        }
+        height: 50em;
     }
 
     .test-col {
@@ -23,6 +9,7 @@ test-node-modal {
     }
 
     .target-col {
+        text-align: left;
         width: 100%;
     }
 
@@ -35,6 +22,33 @@ test-node-modal {
     }
 
     .progress-col {
-        min-width: 6em;
+        min-width: 8em;
+        text-transform: capitalize;
+
+        > .completed  {
+            .success;
+        }
+
+        > .failed {
+            .error;
+        }
+
+        > .aborted {
+            .warning;
+        }
+    }
+
+    .summary {
+        margin-top: 6px;
+
+        .summary-counter {
+            svg-icon, span {
+                vertical-align: middle;
+            }
+        }
+
+        .emphasized {
+            font-size: @font-size-medium;
+        }
     }
 }

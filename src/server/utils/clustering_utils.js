@@ -11,6 +11,7 @@ const os_utils = require('../../util/os_utils');
 const dbg = require('../../util/debug_module')(__filename);
 const config = require('../../../config');
 const os = require('os');
+const moment = require('moment');
 
 function get_topology() {
     return system_store.get_local_cluster_info();
@@ -162,14 +163,18 @@ function get_cluster_info() {
         let memory_usage = 0;
         let cpu_usage = 0;
         let version = '0';
-        let is_connected = true;
+        let single_server = system_store.data.clusters.length === 1;
+        let is_connected = single_server;
         let hostname = os.hostname();
+        let time_epoch = moment().unix();
         let location = cinfo.location;
         if (cinfo.heartbeat) {
             memory_usage = (1 - cinfo.heartbeat.health.os_info.freemem / cinfo.heartbeat.health.os_info.totalmem);
             cpu_usage = cinfo.heartbeat.health.os_info.loadavg[0];
             version = cinfo.heartbeat.version;
-            is_connected = ((Date.now() - cinfo.heartbeat.time) < config.CLUSTER_NODE_MISSING_TIME);
+            let now = Date.now();
+            let diff = now - cinfo.heartbeat.time;
+            is_connected = single_server || (diff < config.CLUSTER_NODE_MISSING_TIME);
             hostname = cinfo.heartbeat.health.os_info.hostname;
         }
         let server_info = {
@@ -181,20 +186,40 @@ function get_cluster_info() {
             memory_usage: memory_usage,
             cpu_usage: cpu_usage,
             location: location,
-            ntp: cinfo.ntp,
-            dns_servers: cinfo.dns_servers
+            debug_level: cinfo.debug_level,
+            ntp_server: cinfo.ntp && cinfo.ntp.server,
+            timezone: cinfo.ntp && cinfo.ntp.timezone,
+            dns_servers: cinfo.dns_servers || [],
+            time_epoch: time_epoch
         };
         shard.servers.push(server_info);
     });
     _.each(shards, shard => {
-        let num_connected = shard.servers.filter(server => server.is_connected).length;
-        shard.high_availabilty = (num_connected / shard.servers.length) > (shard.servers.length / 2);
+        if (shard.servers.length < 3) {
+            shard.high_availabilty = false;
+        } else {
+            let num_connected = shard.servers.filter(server => server.is_connected).length;
+            // to be highly available the cluster must be able to stand a failure and still
+            // have a majority to vote for a master.
+            shard.high_availabilty = num_connected > (shard.servers.length + 1) / 2;
+        }
     });
     let cluster_info = {
         master_secret: system_store.get_server_secret(),
         shards: shards
     };
     return cluster_info;
+}
+
+function get_potential_masters() {
+    //TODO: For multiple shards, this should probably change?
+    var masters = [];
+    _.each(get_topology().shards[0].servers, function(s) {
+        masters.push({
+            address: s.address
+        });
+    });
+    return masters;
 }
 
 
@@ -210,3 +235,4 @@ exports.pretty_topology = pretty_topology;
 exports.rs_array_changes = rs_array_changes;
 exports.find_shard_index = find_shard_index;
 exports.get_cluster_info = get_cluster_info;
+exports.get_potential_masters = get_potential_masters;

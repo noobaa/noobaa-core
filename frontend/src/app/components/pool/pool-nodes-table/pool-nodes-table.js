@@ -2,7 +2,7 @@ import template from './pool-nodes-table.html';
 import NodeRowViewModel from './node-row';
 import Disposable from 'disposable';
 import ko from 'knockout';
-import { paginationPageSize } from 'config';
+import { paginationPageSize, inputThrottle } from 'config';
 import { makeArray, throttle} from 'utils';
 import { redirectTo } from 'actions';
 import { routeContext } from 'model';
@@ -19,6 +19,10 @@ class PoolNodesTableViewModel extends Disposable {
 
         this.count = ko.pureComputed(
             () => nodeList() && nodeList().total_count
+        );
+
+        this.filter_counts = ko.pureComputed(
+            () => nodeList() && nodeList().filter_counts
         );
 
         let query = ko.pureComputed(
@@ -41,13 +45,15 @@ class PoolNodesTableViewModel extends Disposable {
         this.issuesFilterOptions = [
             {
                 label: ko.pureComputed(
-                    () => `All Nodes (${ this.count() != null ? this.count() : 'N/A'})`
+                    () => `All Nodes (${ this.filter_counts() ?
+                        this.filter_counts().count : 'N/A'})`
                 ),
                 value: false
             },
             {
                 label: ko.pureComputed(
-                    () => `Issues (${ pool() ? pool().nodes.has_issues : 'N/A'})`
+                    () => `Issues (${ this.filter_counts() ?
+                        this.filter_counts().has_issues : 'N/A'})`
                 ),
                 value: true
             }
@@ -60,7 +66,7 @@ class PoolNodesTableViewModel extends Disposable {
 
         this.filter = ko.pureComputed({
             read: () => query().filter,
-            write: throttle(phrase => this.filterObjects(phrase), 750)
+            write: throttle(phrase => this.filterObjects(phrase), inputThrottle)
         });
 
         this.rows = makeArray(

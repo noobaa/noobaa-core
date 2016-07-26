@@ -15,29 +15,61 @@ module.exports = {
     methods: {
 
         create_system: {
+            doc: 'Create a new system',
             method: 'POST',
             params: {
                 type: 'object',
-                required: ['name'],
+                required: ['name', 'email', 'password', 'access_keys', 'activation_code'],
                 properties: {
                     name: {
                         type: 'string',
                     },
+                    email: {
+                        type: 'string',
+                    },
+                    password: {
+                        type: 'string',
+                    },
+                    activation_code: {
+                        type: 'string',
+                    },
+                    access_keys: {
+                        type: 'object',
+                        properties: {
+                            access_key: {
+                                type: 'string'
+                            },
+                            secret_key: {
+                                type: 'string'
+                            }
+                        }
+                    },
+                    //Optionals: DNS, NTP and NooBaa Domain Name
+                    time_config: {
+                        $ref: 'cluster_internal_api#/definitions/time_config'
+                    },
+                    dns_servers: {
+                        type: 'array',
+                        items: {
+                            type: 'string'
+                        },
+                    },
+                    dns_name: {
+                        type: 'string'
+                    }
                 },
             },
             reply: {
                 type: 'object',
-                required: ['token', 'info'],
+                required: ['token'],
                 properties: {
                     token: {
-                        type: 'string',
-                    },
-                    info: {
-                        $ref: '#/definitions/system_info'
-                    },
+                        type: 'string'
+                    }
                 }
             },
             auth: {
+                account: false,
                 system: false,
             }
         },
@@ -101,7 +133,7 @@ module.exports = {
                 }
             },
             auth: {
-                system: false,
+                system: 'admin',
             }
         },
 
@@ -394,21 +426,21 @@ module.exports = {
             }
         },
 
-        set_debug_level: {
-            method: 'POST',
-            params: {
-                type: 'object',
-                required: ['level'],
-                properties: {
-                    level: {
-                        type: 'integer',
-                    }
-                },
-            },
-            auth: {
-                system: 'admin',
-            }
-        },
+        // set_debug_level: {
+        //     method: 'POST',
+        //     params: {
+        //         type: 'object',
+        //         required: ['level'],
+        //         properties: {
+        //             level: {
+        //                 type: 'integer',
+        //             }
+        //         },
+        //     },
+        //     auth: {
+        //         system: 'admin',
+        //     }
+        // },
 
         update_n2n_config: {
             method: 'POST',
@@ -489,6 +521,13 @@ module.exports = {
         },
 
         update_system_certificate: {
+            method: 'POST',
+            auth: {
+                system: 'admin',
+            }
+        },
+
+        phone_home_capacity_notified: {
             method: 'POST',
             auth: {
                 system: 'admin',
@@ -661,6 +700,9 @@ module.exports = {
                             }, {
                                 type: 'string'
                             }]
+                        },
+                        upgraded_cap_notification: {
+                            type: 'boolean'
                         }
                     }
                 },
@@ -826,22 +868,23 @@ module.exports = {
                 location: {
                     type: 'string'
                 },
-                ntp: {
-                    type: 'object',
-                    properties: {
-                        server: {
-                            type: 'string'
-                        },
-                        timezone: {
-                            type: 'string'
-                        },
-                    }
+                ntp_server: {
+                    type: 'string'
+                },
+                time_epoch: {
+                    format: 'idate'
+                },
+                timezone: {
+                    type: 'string'
                 },
                 dns_servers: {
                     type: 'array',
                     items: {
                         type: 'string'
                     },
+                },
+                debug_level: {
+                    type: 'integer'
                 }
             }
         },

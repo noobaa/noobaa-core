@@ -20,12 +20,23 @@ let monitor;
 // called on rpc server init
 function _init() {
     monitor = new nodes_monitor.NodesMonitor();
+    //TODO:: return this once we enable HA
+    //if (system_store.is_cluster_master) {
     return monitor.start();
+    //}
 }
 
 function get_local_monitor() {
     if (!monitor) throw new Error('NodesMonitor not running here');
     return monitor;
+}
+
+function stop_monitor() {
+    return monitor.stop();
+}
+
+function start_monitor() {
+    return monitor.start();
 }
 
 /**
@@ -107,6 +118,8 @@ function allocate_nodes(req) {
 // EXPORTS
 exports._init = _init;
 exports.get_local_monitor = get_local_monitor;
+exports.stop_monitor = stop_monitor;
+exports.start_monitor = start_monitor;
 exports.heartbeat = req => monitor.heartbeat(req);
 exports.read_node = req => monitor.read_node(req.rpc_params);
 exports.decommission_node = req => monitor.decommission_node(req.rpc_params);

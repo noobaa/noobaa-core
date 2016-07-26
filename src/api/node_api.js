@@ -128,6 +128,9 @@ module.exports = {
                     total_count: {
                         type: 'integer'
                     },
+                    filter_counts: {
+                        $ref: '#/definitions/nodes_aggregate_info'
+                    },
                     nodes: {
                         type: 'array',
                         items: {
@@ -586,6 +589,9 @@ module.exports = {
                 deleted: {
                     type: 'boolean',
                 },
+                skip_internal: {
+                    type: 'boolean'
+                },
                 accessibility: {
                     $ref: '#/definitions/accessibility_type'
                 },
@@ -676,6 +682,9 @@ module.exports = {
                 // completely open, so that both the upgraded server and the
                 // under-graded agent will not reject each others request/reply
                 // version: {type:'string'}
+                // For HA purposes, we also want to redirect an agent to the current master server in the cluster
+                // Thus adding the following to the reply
+                // redirect: {type: 'string'}
             }
         }
 

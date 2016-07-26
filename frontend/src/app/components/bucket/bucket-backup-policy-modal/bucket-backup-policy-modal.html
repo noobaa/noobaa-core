@@ -3,7 +3,7 @@
         Bucket Backup Policy
     </h1>
 
-    <p class="push-next">Use cloud storage as backup storage for this bucket</p>
+    <p class="push-next">By adding a cloud resource you instruct NooBaa to create an extra copy (mirror) of your file parts that resides on the cloud bucket defined by the cloud resource.</p>
 
     <div class="row content-middle">
         <h2 class="heading3 greedy">Cloud resources in policy</h2>
@@ -19,34 +19,21 @@
     </div>
 
     <div class="box push-next">
-        <div class="data-table">
-            <table>
-                <thead>
-                    <tr>
-                        <th class="select-col"></th>
-                        <th class="type-col">Type</th>
-                        <th class="name-col text-left">Resource Name</th>
-                    </tr>
-                </thead>
-                <tbody data-bind="foreach: resources">
-                    <td class="select-col">
-                        <checkbox params="
-                            checked: selected,
-                            checkedValue: name
-                        "></checkbox>
-                    </td>
-                    <td class="type-col">
-                        <svg-icon params="name: icon"></svg-icon>
-                    </td>
-                    <td class="name-col text-left" data-bind="text: name"></td>
-                </tbody>
-            </table>
-        </div>
+        <data-table params="
+            columns: columns,
+            emptyMessage: 'System does not contain cloud resources',
+            data: resources,
+            rowFactory: resource => newResourceRow(resource)
+        "></data-table>
     </div>
 
-    <p class="remark push-next">
+    <p class="push-next">
         <svg-icon params="name: 'notif-info'" class="icon-small"></svg-icon>
-        By adding a cloud resource you instruct NooBaa to create an extra copy (mirror) of your file parts that resides on the cloud bucket defined by the cloud resource.
+        To create a new cloud resource got to
+        Resources >
+        <a class="link" data-bind="
+            href: { route: 'pools', params: { tab: 'cloud' } }
+        ">Cloud Resoruces</a>
     </p>
 
     <div class="row content-middle align-end push-prev">

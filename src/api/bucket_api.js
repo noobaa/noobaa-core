@@ -24,7 +24,10 @@ module.exports = {
                     },
                     tiering: {
                         type: 'string',
-                    }
+                    },
+                    tag: {
+                        type: 'string',
+                    },
                 }
             },
             reply: {
@@ -67,6 +70,9 @@ module.exports = {
                         type: 'string',
                     },
                     tiering: {
+                        type: 'string',
+                    },
+                    new_tag: {
                         type: 'string',
                     }
                 }
@@ -339,6 +345,12 @@ module.exports = {
                 },
                 cloud_sync_status: {
                     $ref: '#/definitions/api_cloud_sync_status'
+                },
+                tag: {
+                    type: 'string'
+                },
+                demo_bucket: {
+                    type: 'boolean'
                 }
             }
         },

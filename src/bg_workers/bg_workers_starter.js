@@ -89,21 +89,20 @@ function run_master_workers() {
     if (process.env.SCRUBBER_DISABLED !== 'true') {
         register_bg_worker({
             name: 'scrubber',
-            batch_size: 1000,
-            time_since_last_build: 60000, // TODO increase?
-            building_timeout: 300000, // TODO increase?
         }, scrubber.background_worker);
     }
 }
 
 register_bg_worker({
     name: 'cluster_master_publish',
-    delay: config.CLUSTER_MASTER_INTERVAL
+    delay: config.CLUSTER_MASTER_INTERVAL,
+    run_immediate: true
 }, cluster_master.background_worker);
 
 register_bg_worker({
     name: 'cluster_heartbeat_writer',
-    delay: config.CLUSTER_HB_INTERVAL
+    delay: config.CLUSTER_HB_INTERVAL,
+    run_immediate: true
 }, cluster_hb.do_heartbeat);
 
 dbg.log('BG Workers Server started');

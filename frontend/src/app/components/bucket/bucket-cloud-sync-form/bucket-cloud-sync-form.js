@@ -30,7 +30,7 @@ class BucketCloudSyncFormViewModel extends Disposable {
             () => bucket() && bucket().name
         );
 
-        this.disposeWithMe(
+        this.addToDisposeList(
             this.bucketName.subscribe(
               name => loadCloudSyncInfo(name)
             )

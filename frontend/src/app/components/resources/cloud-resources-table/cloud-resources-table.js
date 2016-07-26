@@ -9,7 +9,7 @@ import { redirectTo } from 'actions';
 const columns = deepFreeze([
     {
         name: 'type',
-        template: 'icon',
+        cellTemplate: 'icon',
         sortable: true
     },
     {
@@ -24,14 +24,14 @@ const columns = deepFreeze([
     },
     {
         name: 'cloudBucket',
-        label: 'colud bucket',
+        label: 'cloud bucket',
         sortable: true
     },
     {
         name: 'deleteBtn',
         label: '',
         css: 'delete-col',
-        template: 'delete'
+        cellTemplate: 'delete'
     }
 ]);
 

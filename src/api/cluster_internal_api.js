@@ -133,23 +133,82 @@ module.exports = {
                 system: false,
             }
         },
+
+        apply_set_debug_level: {
+            method: 'POST',
+            params: {
+                type: 'object',
+                required: ['level'],
+                properties: {
+                    target_secret: {
+                        type: 'string',
+                    },
+                    level: {
+                        type: 'integer',
+                    }
+                },
+            },
+            auth: {
+                system: 'admin',
+            }
+        },
+
+        collect_server_diagnostics: {
+            method: 'POST',
+            params: {
+                type: 'object',
+                properties: {
+                    target_secret: {
+                        type: 'string',
+                    }
+                },
+            },
+            reply: {
+                type: 'object',
+                required: ['data'],
+                properties: {
+                    data: {
+                        buffer: true
+                    },
+                },
+            },
+            auth: {
+                system: 'admin',
+            }
+        },
+
+        apply_read_server_time: {
+            method: 'POST',
+            params: {
+                type: 'object',
+                required: ['target_secret'],
+                properties: {
+                    target_secret: {
+                        type: 'string',
+                    }
+                },
+            },
+            reply: {
+                format: 'idate',
+            },
+            auth: {
+                system: false,
+            }
+        },
     },
 
     definitions: {
         time_config: {
             type: 'object',
-            required: ['config_type', 'timezone'],
+            required: ['timezone'],
             properties: {
                 target_secret: {
                     type: 'string'
                 },
-                config_type: {
-                    $ref: '#/definitions/time_config_type'
-                },
                 timezone: {
                     type: 'string'
                 },
-                server: {
+                ntp_server: {
                     type: 'string'
                 },
                 epoch: {
@@ -172,11 +231,6 @@ module.exports = {
                     },
                 }
             },
-        },
-
-        time_config_type: {
-            enum: ['NTP', 'MANUAL'],
-            type: 'string',
         }
     },
 };

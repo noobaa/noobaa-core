@@ -7,6 +7,7 @@ const fs_utils = require('../../util/fs_utils');
 const promise_utils = require('../../util/promise_utils');
 const base_diagnostics = require('../../util/base_diagnostics');
 const stats_aggregator = require('../system_services/stats_aggregator');
+const system_store = require('../system_services/system_store').get_instance();
 
 const TMP_WORK_DIR = '/tmp/diag';
 
@@ -15,7 +16,8 @@ const TMP_WORK_DIR = '/tmp/diag';
 function collect_server_diagnostics(req) {
     return P.fcall(function() {
             let limit_logs_size = false;
-            return base_diagnostics.collect_basic_diagnostics(limit_logs_size);
+            let local_cluster = system_store.get_local_cluster_info();
+            return base_diagnostics.collect_basic_diagnostics(limit_logs_size, local_cluster && local_cluster.is_clusterized);
         })
         .then(function() {
             return collect_supervisor_logs();
@@ -45,7 +47,7 @@ function collect_server_diagnostics(req) {
             return collect_ntp_diagnostics();
         })
         .then(function() {
-            if (stats_aggregator) {
+            if (stats_aggregator && system_store.is_cluster_master) {
                 return stats_aggregator.get_all_stats(req);
             } else {
                 return;

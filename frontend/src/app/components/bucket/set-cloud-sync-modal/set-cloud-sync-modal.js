@@ -76,7 +76,7 @@ class CloudSyncModalViewModel extends Disposable {
                 required: { message: 'Please select a connection from the list' }
             });
 
-        this.disposeWithMe(
+        this.addToDisposeList(
             this.connection.subscribe(
                 value => {
                     this.targetBucket(null);

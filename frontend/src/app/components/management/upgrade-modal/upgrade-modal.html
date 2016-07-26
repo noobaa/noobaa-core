@@ -1,29 +1,35 @@
-<modal params="onClose: () => close()" data-bind="css: stepClass">
-    
-    <section class="column" data-bind="visible: !upgradeFailed()">
-        <h1 class="heading2">Upgrade In Progress </h1>
-            
-        <p class="heading3">
-            Hold your horses! We are upgrading your system
-        </p>
+<modal params="
+    onClose: () => close(),
+    closeButton: false
+">
+    <section data-bind="visible: !upgradeFailed()">
+        <div class="content-wrapper column">
+            <h1 class="heading2">Upgrade In Progress</h1>
 
-        <progress-bar params="progress: progress"></progress-bar>
+            <p class="heading3 text-center">
+                Hold your horses! We are upgrading your system
+            </p>
 
-        <div class="text-center heading3 push-next" data-bind="
-            text: progressText
-        "></div>
+            <progress-bar params="progress: progress" class="push-both"></progress-bar>
+
+            <div class="text-center heading3 push-next" data-bind="
+                text: progressText
+            "></div>
+        </div>
     </section>
 
-    <section class="column" data-bind="visible: upgradeFailed"> 
-        <h1 class="heading2 push-both">
-            Oh snap! System upgrade has failed
-        </h1>
+    <section class="column" data-bind="visible: upgradeFailed">
+        <div class="content-wrapper column">
+            <h1 class="heading2 push-both">
+                Oh snap! System upgrade has failed
+            </h1>
 
-        <p class="heading3 text-center push-both">
-            Sorry for the hold up. You can download the upgrade package again and restart the upgrading process or contact support for more information.
-        </p>
+            <p class="heading3 text-center push-both">
+                Sorry for the hold up. You can download the upgrade package again and restart the upgrading process or contact support for more information.
+            </p>
+        </div>
 
-        <button class="btn2 align-end push-prev" data-bind="click: close">
+        <button class="btn2 align-end" data-bind="click: close">
             Close
         </button>
     </section>

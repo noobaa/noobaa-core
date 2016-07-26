@@ -80,6 +80,62 @@ module.exports = {
                 system: 'admin',
             }
         },
+
+        set_debug_level: {
+            method: 'POST',
+            params: {
+                type: 'object',
+                required: ['level'],
+                properties: {
+                    target_secret: {
+                        type: 'string',
+                    },
+                    level: {
+                        type: 'integer',
+                    }
+                },
+            },
+            auth: {
+                system: 'admin',
+            }
+        },
+
+        diagnose_system: {
+            method: 'POST',
+            params: {
+                type: 'object',
+                properties: {
+                    target_secret: {
+                        type: 'string',
+                    }
+                },
+            },
+            reply: {
+                type: 'string',
+            },
+            auth: {
+                system: 'admin',
+            }
+        },
+
+        read_server_time: {
+            method: 'POST',
+            params: {
+                type: 'object',
+                required: ['target_secret'],
+                properties: {
+                    target_secret: {
+                        type: 'string',
+                    }
+                },
+            },
+            reply: {
+                format: 'idate',
+            },
+            auth: {
+                system: 'admin',
+            }
+        }
     },
 
     definitions: {

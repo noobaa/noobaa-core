@@ -518,7 +518,10 @@ function update_c2n_worklist(policy) {
             cloud_object_list = _.map(cloud_obj.Contents, function(obj) {
                 return {
                     create_time: obj.LastModified,
-                    key: obj.Key
+                    key: obj.Key,
+                    orig_md: {
+                        obj
+                    }
                 };
             });
             dbg.log2('update_c2n_worklist cloud_object_list length', cloud_object_list.length);
@@ -528,7 +531,10 @@ function update_c2n_worklist(policy) {
             bucket_object_list = _.map(bucket_obj, function(obj) {
                 return {
                     create_time: obj.create_time,
-                    key: obj.key
+                    key: obj.key,
+                    orig_md: {
+                        obj
+                    }
                 };
             });
             dbg.log2('update_c2n_worklist bucket_object_list length', bucket_object_list.length);
@@ -586,11 +592,11 @@ function sync_single_file_to_cloud(policy, object, target) {
         Key: object.key,
     }).createReadStream().on('error', (err) => console.error('got error on createReadStream', err));
 
-    var params = {
-        Bucket: target,
-        Key: object.key,
-        Body: body
-    };
+    //Take all MD as is, and only overwrite what is needed
+    var params = _.omit(object.orig_md, ['_id','stats','__v','cloud_synced', 'bucket', 'system', 'key']);
+    params.Key = object.key;
+    params.Bucket = target;
+    params.Body = body;
 
     return P.ninvoke(policy.s3cloud, 'upload', params)
         .catch(function(err) {
@@ -629,12 +635,11 @@ function sync_single_file_to_noobaa(policy, object) {
         Key: object.key,
     }).createReadStream().on('error', (err) => console.error('got error on createReadStream', err));
 
-    var params = {
-        Bucket: policy.bucket.name,
-        Key: object.key,
-        ContentType: object.content_type,
-        Body: body
-    };
+    //Take all MD as is, and only overwrite what is needed
+    var params = object.orig_md;
+    params.Key = object.key;
+    params.Bucket = policy.bucket.name;
+    params.Body = body;
 
     return P.ninvoke(policy.s3rver, 'upload', params)
         .catch(function(err) {

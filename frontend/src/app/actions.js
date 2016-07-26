@@ -493,11 +493,12 @@ export function loadPoolNodeList(poolName, filter, hasIssues, sortBy, order, pag
         .done();
 }
 
-export function loadNodeList() {
-    logAction('loadNodeList');
+export function loadNodeList(filter, pools, online) {
+    logAction('loadNodeList', { filter, pools, online });
 
-    model.nodeList([]);
-    api.node.list_nodes({})
+    api.node.list_nodes({
+        query: { filter, pools, online }
+    })
         .then(
             ({ nodes }) => model.nodeList(nodes)
         )
@@ -678,37 +679,47 @@ export function loadS3BucketList(connection) {
 // -----------------------------------------------------
 // Managment actions.
 // -----------------------------------------------------
-export function createSystemAccount(system, email, password, dnsName) {
-    logAction('createSystemAccount', { system, email, password, dnsName });
+export function createSystem(
+    activationCode,
+    email,
+    password,
+    systemName,
+    dnsName,
+    dnsServers,
+    timeConfig
+) {
+    logAction('createSystem', {
+        activationCode, email, password, systemName, dnsName,
+        dnsServers, timeConfig
+    });
 
-    let accessKeys = system === 'demo' && email === 'demo@noobaa.com' ?
+    let accessKeys = (systemName === 'demo' && email === 'demo@noobaa.com') ?
         { access_key: '123', secret_key: 'abc' } :
         generateAccessKeys();
 
-    api.account.create_account({
-        name: system,
+    api.system.create_system({
+        activation_code: activationCode,
+        name: systemName,
         email: email,
         password: password,
-        access_keys: accessKeys
+        access_keys: accessKeys,
+        dns_name: dnsName,
+        dns_servers: dnsServers,
+        time_config: timeConfig
     })
         .then(
             ({ token }) => {
                 api.options.auth_token = token;
                 localStorage.setItem('sessionToken', token);
-                model.sessionInfo({ user: email, system: system});
+
+                // Update the session info and redirect to system screen.
+                model.sessionInfo({
+                    user: email,
+                    system: systemName,
+                    token: token
+                });
+                redirectTo(routes.system, { system: systemName });
             }
-        )
-        .then(
-            () => {
-                if (dnsName) {
-                    return api.system.update_hostname({
-                        hostname: dnsName
-                    });
-                }
-            }
-        )
-        .then(
-            () => redirectTo(routes.system, { system })
         )
         .done();
 }
@@ -724,7 +735,7 @@ export function createAccount(name, email, password, accessKeys, S3AccessList) {
         allowed_buckets: S3AccessList
     })
         .then(
-            () => notify(`Account ${email} created successffully`, 'success'),
+            () => notify(`Account ${email} created successfully`, 'success'),
             () => notify(`Account ${email} creation failed`, 'error')
         )
         .then(loadAccountList)
@@ -736,7 +747,7 @@ export function deleteAccount(email) {
 
     api.account.delete_account({ email })
         .then(
-            () => notify(`Account ${email} deleted successffully`, 'success'),
+            () => notify(`Account ${email} deleted successfully`, 'success'),
             () => notify(`Account ${email} deletion failed`, 'error')
         )
         .then(loadAccountList)
@@ -747,6 +758,10 @@ export function resetAccountPassword(email, password) {
     logAction('resetAccountPassword', { email, password });
 
     api.account.update_account({ email, password })
+        .then(
+            () => notify(`${email} password has been reset successfully`, 'success'),
+            () => notify(`Resetting ${email}'s password failed`, 'error')
+        )
         .done();
 }
 
@@ -782,7 +797,7 @@ export function createBucket(name, dataPlacement, pools) {
             })
         )
         .then(
-            () => notify(`Bucket ${name} created successffully`, 'success'),
+            () => notify(`Bucket ${name} created successfully`, 'success'),
             () => notify(`Bucket ${name} creation failed`, 'error')
         )
         .then(loadSystemInfo)
@@ -794,7 +809,7 @@ export function deleteBucket(name) {
 
     api.bucket.delete_bucket({ name })
         .then(
-            () => notify(`Bucket ${name} deleted successffully`, 'success'),
+            () => notify(`Bucket ${name} deleted successfully`, 'success'),
             () => notify(`Bucket ${name} deletion failed`, 'error')
         )
         .then(loadSystemInfo)
@@ -816,7 +831,7 @@ export function updateBucketPlacementPolicy(tierName, placementType, node_pools)
         node_pools: node_pools
     })
         .then(
-            () => notify(`${bucket.name} placement policy updated successffully`, 'success'),
+            () => notify(`${bucket.name} placement policy updated successfully`, 'success'),
             () => notify(`Updating ${bucket.name} placement policy failed`, 'error')
         )
         .then(loadSystemInfo)
@@ -837,7 +852,7 @@ export function updateBucketBackupPolicy(tierName, cloudResources) {
         cloud_pools: cloudResources
     })
         .then(
-            () => notify(`${bucket.name} backup policy updated successffully`, 'success'),
+            () => notify(`${bucket.name} backup policy updated successfully`, 'success'),
             () => notify(`Updating ${bucket.name} backup policy failed`, 'error')
         )
         .then(loadSystemInfo)
@@ -851,7 +866,7 @@ export function createPool(name, nodes) {
 
     api.pool.create_nodes_pool({ name, nodes })
         .then(
-            () => notify(`Pool ${name} created successffully`, 'success'),
+            () => notify(`Pool ${name} created successfully`, 'success'),
             () => notify(`Pool ${name} creation failed`, 'error')
         )
         .then(loadSystemInfo)
@@ -863,7 +878,7 @@ export function deletePool(name) {
 
     api.pool.delete_pool({ name })
         .then(
-            () => notify(`Bucket ${name} deleted successffully`, 'success'),
+            () => notify(`Bucket ${name} deleted successfully`, 'success'),
             () => notify(`Bucket ${name} deletion failed`, 'error')
         )
         .then(loadSystemInfo)
@@ -881,7 +896,7 @@ export function assignNodes(name, nodes) {
             () => notify(`${nodes.length} nodes has been assigend to pool ${name}`, 'success'),
             () => notify(`Assinging nodes to pool ${name} failed`, 'error')
         )
-        .then(loadSystemInfo)
+        .then(refresh)
         .done();
 }
 
@@ -894,7 +909,7 @@ export function createCloudResource(name, connection, cloudBucket) {
         target_bucket: cloudBucket
     })
         .then(
-            () => notify(`Cloud resource ${name} created successffully`, 'success'),
+            () => notify(`Cloud resource ${name} created successfully`, 'success'),
             () => notify(`Pool ${name} creation failed`, 'error')
         )
         .then(loadSystemInfo)
@@ -906,7 +921,7 @@ export function deleteCloudResource(name) {
 
     api.pool.delete_pool({ name })
         .then(
-            () => notify(`Cloud resource ${name} deleted successffully`, 'success'),
+            () => notify(`Cloud resource ${name} deleted successfully`, 'success'),
             () => notify(`Cloud resource ${name} deletion failed`, 'error')
         )
         .then(loadSystemInfo)
@@ -1004,7 +1019,7 @@ export function uploadFiles(bucketName, files) {
                         completed === 1 ? '' : 's'
                     } to ${
                         bucketName
-                    } completed successffully`,
+                    } completed successfully`,
                     'success'
                 );
 
@@ -1028,7 +1043,7 @@ export function uploadFiles(bucketName, files) {
                         completed
                     } file${
                         completed === 1 ? '' : 's'
-                    } uploaded successffully, ${
+                    } uploaded successfully, ${
                         failed
                     } file${
                         failed === 1 ? '' : 's'
@@ -1193,7 +1208,7 @@ export function updateP2PSettings(minPort, maxPort) {
         tcp_permanent_passive: tcpPermanentPassive
     })
         .then(
-            () => notify('Peer to peer settings updated successffully', 'success'),
+            () => notify('Peer to peer settings updated successfully', 'success'),
             () => notify('Peer to peer settings update failed', 'error')
         )
         .then(loadSystemInfo)
@@ -1205,7 +1220,7 @@ export function updateHostname(hostname) {
 
     api.system.update_hostname({ hostname })
         .then(
-            () => notify('Hostname updated successffully', 'success'),
+            () => notify('Hostname updated successfully', 'success'),
             () => notify('Hostname update failed', 'error')
         )
         .then(loadSystemInfo)
@@ -1219,7 +1234,7 @@ export function upgradeSystem(upgradePackage) {
         let xhr = new XMLHttpRequest();
         xhr.open('GET', '/version', true);
         xhr.onload = () => reloadTo(routes.system, undefined, { afterupgrade: true });
-        xhr.onerror = () => setTimeout(ping, 10000);
+        xhr.onerror = () => setTimeout(ping, 3000);
         xhr.send();
     }
 
@@ -1249,9 +1264,9 @@ export function upgradeSystem(upgradePackage) {
                         state: 'IN_PROGRESS'
                     });
 
-                    setTimeout(ping, 7000);
+                    setTimeout(ping, 3000);
                 },
-                3000
+                20000
             );
         } else {
             upgradeStatus.assign({ state: 'FAILED' });
@@ -1342,6 +1357,7 @@ export function uploadSSLCertificate(SSLCertificate) {
 export function downloadNodeDiagnosticPack(nodeName) {
     logAction('downloadDiagnosticFile', { nodeName });
 
+    notify('Collecting data... might take a while');
     api.system.diagnose_node({ name: nodeName })
         .catch(
             err => {
@@ -1358,6 +1374,7 @@ export function downloadNodeDiagnosticPack(nodeName) {
 export function downloadSystemDiagnosticPack() {
     logAction('downloadSystemDiagnosticPack');
 
+    notify('Collecting data... might take a while');
     api.system.diagnose_system()
         .catch(
             err => {
@@ -1420,7 +1437,7 @@ export function setCloudSyncPolicy(bucket, connection, targetBucket, direction, 
         }
     })
         .then(
-            () => notify(`${bucket} cloud sync policy was set successffully`, 'success'),
+            () => notify(`${bucket} cloud sync policy was set successfully`, 'success'),
             () => notify(`Setting ${bucket} cloud sync policy failed`, 'error')
         )
         .then(
@@ -1445,7 +1462,7 @@ export function updateCloudSyncPolicy(bucket, direction, frequency, syncDeletion
         }
     })
         .then(
-            () => notify(`${bucket} cloud sync policy updated successffully`, 'success'),
+            () => notify(`${bucket} cloud sync policy updated successfully`, 'success'),
             () => notify(`Updating ${bucket} cloud sync policy failed`, 'error')
         )
         .then(
@@ -1461,7 +1478,7 @@ export function removeCloudSyncPolicy(bucket) {
 
     api.bucket.delete_cloud_sync({ name: bucket })
         .then(
-            () => notify(`${bucket} cloud sync policy removed successffully`, 'success'),
+            () => notify(`${bucket} cloud sync policy removed successfully`, 'success'),
             () => notify(`Removing ${bucket} cloud sync policy failed`, 'error')
         )
         .then(
@@ -1538,7 +1555,7 @@ export function updateBucketS3ACL(bucketName, acl) {
         access_control: acl
     })
         .then(
-            () => notify(`${bucketName} S3 access control updated successffully`, 'success'),
+            () => notify(`${bucketName} S3 access control updated successfully`, 'success'),
             () => notify(`Updating ${bucketName} S3 access control failed`, 'error')
         )
         .then(
@@ -1564,40 +1581,11 @@ export function updateAccountS3ACL(email, acl) {
         email: email,
         access_control: acl
     })
+        .then(
+            () => notify(`${email} S3 accces control updated successfully`, 'success'),
+            () => notify(`Updating ${email} S3 access control failed`, 'error')
+        )
         .then(loadAccountList)
-        .done();
-}
-
-
-export function updateServerTime(timezone, epoch) {
-    logAction('updateServerTime', { timezone, epoch });
-
-    api.system.update_time_config({
-        config_type: 'MANUAL',
-        timezone: timezone,
-        epoch: epoch
-    })
-        .then(
-            () => notify('Date & time updated successffully', 'success'),
-            () => notify('Updating date & time failed', 'error')
-        )
-        .then(loadSystemInfo)
-        .done();
-}
-
-export function updateServerNTP(timezone, server) {
-    logAction('updateServerNTP', { timezone, server });
-
-    api.system.update_time_config({
-        config_type: 'NTP',
-        timezone: timezone,
-        server: server
-    })
-        .then(
-            () => notify('NTP settings updated successffully', 'success'),
-            () => notify('Updating NTP settings failed', 'error')
-        )
-        .then(loadSystemInfo)
         .done();
 }
 
@@ -1622,7 +1610,7 @@ export function updatePhoneHomeConfig(proxyAddress) {
 
     api.system.update_phone_home_config({ proxy_address: proxyAddress })
         .then(
-            () => notify('Phone home proxy settings updated successffully', 'success'),
+            () => notify('Phone home proxy settings updated successfully', 'success'),
             () => notify('Updating phone home proxy settings failed', 'error')
         )
         .then(loadSystemInfo)
@@ -1663,8 +1651,83 @@ export function attachServerToCluster(serverAddress, serverSecret) {
         shard: 'shard1'
     })
         .then(
-            () => notify(`Server ${serverAddress} attached to cluster successffully`, 'success'),
+            () => notify(`Server ${serverAddress} attached to cluster successfully`, 'success'),
             () => notify(`Adding ${serverAddress} to cluster failed`, 'error')
+        )
+        .then(loadSystemInfo)
+        .done();
+}
+
+export function updateServerDNSSettings(serverSecret, primaryDNS, secondaryDNS) {
+    logAction('updateServerDNSSettings', { primaryDNS, secondaryDNS });
+
+    let dnsServers = [primaryDNS, secondaryDNS].filter(
+        server => server
+    );
+
+    let { address } = model.systemInfo().cluster.shards[0].servers.find(
+        server => server.secret === serverSecret
+    );
+
+    api.cluster_server.update_dns_servers({
+        target_secret: serverSecret,
+        dns_servers: dnsServers
+    })
+        .then(
+            () => notify(`${address} DNS settings updated successfully`, 'success'),
+            () => notify(`Updating ${address} DNS settings failed`, 'error')
+        )
+        .then(loadSystemInfo)
+        .done();
+}
+
+export function loadServerTime(serverSecret) {
+    logAction('loadServerTime', { serverSecret });
+
+
+    api.cluster_server.read_server_time({ target_secret: serverSecret })
+        .then(
+            time => model.serverTime({
+                server: serverSecret,
+                time: time
+            })
+        )
+        .done();
+}
+
+export function updateServerClock(serverSecret, timezone, epoch) {
+    logAction('updateServerClock', { serverSecret, timezone, epoch });
+
+    let { address } = model.systemInfo().cluster.shards[0].servers.find(
+        server => server.secret === serverSecret
+    );
+
+    api.cluster_server.update_time_config({
+        target_secret: serverSecret,
+        timezone: timezone,
+        epoch: epoch
+    })
+        .then(
+            () => notify(`${address} time settings updated successfully`, 'success'),
+            () => notify(`Updating ${address} time settings failed`, 'error')
+        )
+        .then(loadSystemInfo)
+        .done();
+}
+export function updateServerNTPSettings(serverSecret, timezone, ntpServerAddress) {
+    logAction('updateServerNTP', { serverSecret, timezone, ntpServerAddress });
+
+    let { address } = model.systemInfo().cluster.shards[0].servers.find(
+        server => server.secret === serverSecret
+    );
+
+    api.cluster_server.update_time_config({
+        timezone: timezone,
+        ntp_server: ntpServerAddress
+    })
+        .then(
+            () => notify(`${address} time settings updated successfully`, 'success'),
+            () => notify(`Updating ${address} time settings failed`, 'error')
         )
         .then(loadSystemInfo)
         .done();

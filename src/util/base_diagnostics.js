@@ -17,16 +17,22 @@ const is_windows = (process.platform === "win32");
 
 const TMP_WORK_DIR = is_windows ? process.env.ProgramData + '/diag' : '/tmp/diag';
 
-function collect_basic_diagnostics(limit_logs_size) {
+function collect_basic_diagnostics(limit_logs_size, is_clusterized) {
     return P.fcall(function() {
-            return fs_utils.folder_delete(TMP_WORK_DIR);
+            if (!is_clusterized) {
+                return fs_utils.folder_delete(TMP_WORK_DIR);
+            }
+            return;
         })
         .then(function() {
             return fs_utils.file_delete(process.cwd() + '/build/public/diagnose.tgz');
         })
         .then(function() {
-            console.log('creating ', TMP_WORK_DIR);
-            return fs_utils.create_path(TMP_WORK_DIR);
+            if (!is_clusterized) {
+                console.log('creating ', TMP_WORK_DIR);
+                return fs_utils.create_path(TMP_WORK_DIR);
+            }
+            return;
         })
         .then(function() {
             if (fs.existsSync(process.cwd() + '/logs')) {

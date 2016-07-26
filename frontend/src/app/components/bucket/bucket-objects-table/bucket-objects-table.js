@@ -1,7 +1,7 @@
 import template from './bucket-objects-table.html';
 import Disposable from 'disposable';
 import ko from 'knockout';
-import { paginationPageSize } from 'config';
+import { paginationPageSize, inputThrottle } from 'config';
 import { throttle, makeArray } from 'utils';
 import ObjectRowViewModel from './object-row';
 import { redirectTo } from 'actions';
@@ -30,7 +30,7 @@ class BucketObjectsTableViewModel extends Disposable {
 
         this.filter = ko.pureComputed({
             read: objects.filter,
-            write: throttle(phrase => this.filterObjects(phrase), 750)
+            write: throttle(phrase => this.filterObjects(phrase), inputThrottle)
         });
 
         this.hasObjects = ko.pureComputed(

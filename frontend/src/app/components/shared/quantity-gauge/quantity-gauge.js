@@ -26,7 +26,12 @@ class CapacityGaugeViewModel extends Disposable {
             ({ value }) => ko.pureComputed(
                 () => ko.unwrap(value)
             )
-            .extend({ tween: { resetValue: 0, resetOnChange: true } })
+            .extend({
+                tween: {
+                    resetValue: 0,
+                    resetOnChange: true
+                }
+            })
         );
     }
 
@@ -53,17 +58,15 @@ class CapacityGaugeViewModel extends Disposable {
             );
 
             let percentage = sum/total;
-
-
             let text = 0 < percentage && percentage < 0.01 ?
                 '<1%' :
-                numeral(sum/total).format('0%');
+                numeral(percentage).format('0%');
 
             this._drawText(ctx, text);
 
         } else {
             this._drawSection(ctx, 0, 1, emptyColor);
-            this._drawText(ctx, 'N/A');
+            this._drawText(ctx, numeral(0).format('%'));
         }
     }
 

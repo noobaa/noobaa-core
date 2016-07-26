@@ -2,20 +2,38 @@ import template from './bucket-backup-policy-modal.html';
 import Disposable from 'disposable';
 import ko from 'knockout';
 import ResourceRow from './resource-row';
+import { deepFreeze } from 'utils';
 import { systemInfo } from 'model';
 import { updateBucketBackupPolicy } from 'actions';
+
+const columns = deepFreeze([
+    {
+        name: 'select',
+        label: '',
+        cellTemplate: 'checkbox'
+    },
+    {
+        name: 'type',
+        cellTemplate: 'icon'
+    },
+    {
+        name: 'name',
+        label: 'Resource Name'
+    }
+]);
 
 class BucketBackupPolicyModalViewModel extends Disposable {
     constructor({ policy, onClose }) {
         super();
 
+        this.columns = columns;
         this.onClose = onClose;
 
         this.tierName = ko.pureComputed(
             () => ko.unwrap(policy) && ko.unwrap(policy).tiers[0].tier
         );
 
-        let tier = ko.pureComputed(
+        this.tier = ko.pureComputed(
             () => {
                 if (!systemInfo() || !this.tierName()) {
                     return;
@@ -28,40 +46,36 @@ class BucketBackupPolicyModalViewModel extends Disposable {
         );
 
         this.resources = ko.pureComputed(
-            () => (systemInfo() ? systemInfo().pools : [])
-                .filter(
-                   ({ cloud_info }) => cloud_info
-                )
-                .map(
-                    pool => new ResourceRow(pool, tier())
-                )
+            () => (systemInfo() ? systemInfo().pools : []).filter(
+                pool => Boolean(pool.cloud_info)
+            )
+        );
+
+        this.selectedResources = ko.observableArray(
+            Array.from(this.tier().cloud_pools)
         );
     }
 
+    newResourceRow(resoruce) {
+        return new ResourceRow(resoruce, this.selectedResources);
+    }
+
     selectAllResources() {
-        this.resources().forEach(
-            ({ selected }) => selected(true)
+        this.selectedResources(
+            this.resources().map(
+                resource => resource.name
+            )
         );
     }
 
     clearAllResources() {
-        this.resources().forEach(
-            ({ selected }) => selected(false)
-        );
+        this.selectedResources([]);
     }
 
     save() {
-        let selectedResources = this.resources()
-            .filter(
-                ({ selected }) => selected()
-            )
-            .map(
-                ({ name }) => name
-            );
-
         updateBucketBackupPolicy(
             this.tierName(),
-            selectedResources
+            this.selectedResources()
         );
 
         this.onClose();

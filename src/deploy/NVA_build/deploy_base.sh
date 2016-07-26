@@ -13,6 +13,7 @@ function deploy_log {
 	if [ "$1" != "" ]; then
 		local now=$(date)
 		echo "${now} ${1}" >> ${LOG_FILE}
+		echo "${now} ${1}"
 	fi
 }
 
@@ -145,6 +146,7 @@ function general_settings {
 	iptables -I INPUT 1 -i eth0 -p tcp --dport 443 -j ACCEPT
 	iptables -I INPUT 1 -i eth0 -p tcp --dport 80 -j ACCEPT
 	iptables -I INPUT 1 -i eth0 -p tcp --dport 8080 -j ACCEPT
+	iptables -I INPUT 1 -i eth0 -p tcp --dport 8081 -j ACCEPT
 	iptables -I INPUT 1 -i eth0 -p tcp --dport 8443 -j ACCEPT
 	iptables -I INPUT 1 -i eth0 -p tcp --dport 27000 -j ACCEPT
 	iptables -I INPUT 1 -i eth0 -p tcp --dport 26050 -j ACCEPT
@@ -201,6 +203,7 @@ function fix_security_issues {
 	if [ $? -ne 0 ]; then
 		deploy_log "Missing internet connectivity"
 	else
+	  /bin/cp -fd /etc/localtime /tmp
 		yum clean all
 		yum update -y
 		if [ $? -ne 0 ]; then
@@ -208,6 +211,7 @@ function fix_security_issues {
 		else
 			deploy_log "Updated yum packages"
 		fi
+	  /bin/cp -fd /tmp/localtime /etc
 	fi
 }
 function setup_supervisors {

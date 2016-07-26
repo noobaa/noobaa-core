@@ -111,8 +111,7 @@ export default function register(ko) {
     ko.components.register('account-s3-access-modal',   require('./management/account-s3-access-modal/account-s3-access-modal'));
     ko.components.register('p2p-form',                  require('./management/p2p-form/p2p-form'));
     ko.components.register('server-dns-form',           require('./management/server-dns-form/server-dns-form'));
-    ko.components.register('server-time-form',          require('./management/server-time-form/server-time-form'));
-    ko.components.register('about-form',                require('./management/about-form/about-form'));
+    ko.components.register('version-form',              require('./management/version-form/version-form'));
     ko.components.register('upgrade-modal',             require('./management/upgrade-modal/upgrade-modal'));
     ko.components.register('diagnostics-form',          require('./management/diagnostics-form/diagnostics-form'));
     ko.components.register('maintenance-form',          require('./management/maintenance-form/maintenance-form'));
@@ -120,14 +119,18 @@ export default function register(ko) {
     ko.components.register('phone-home-form',           require('./management/phone-home-form/phone-home-form'));
     ko.components.register('remote-syslog-form',        require('./management/remote-syslog-form/remote-syslog-form'));
     ko.components.register('server-ssl-form',           require('./management/server-ssl-form/server-ssl-form'));
+    ko.components.register('server-time-form', require('./management/server-time-form/server-time-form'));
     /** INJECT:management **/
 
     // -------------------------------
     // Cluster
     // -------------------------------
-    ko.components.register('cluster-panel', require('./cluster/cluster-panel/cluster-panel'));
-    ko.components.register('server-table', require('./cluster/server-table/server-table'));
-    ko.components.register('attach-server-modal', require('./cluster/attach-server-modal/attach-server-modal'));
+    ko.components.register('cluster-panel',                 require('./cluster/cluster-panel/cluster-panel'));
+    ko.components.register('server-table',                  require('./cluster/server-table/server-table'));
+    ko.components.register('attach-server-modal',           require('./cluster/attach-server-modal/attach-server-modal'));
+    ko.components.register('cluster-summary',               require('./cluster/cluster-summary/cluster-summary'));
+    ko.components.register('server-dns-settings-modal',     require('./cluster/server-dns-settings-modal/server-dns-settings-modal'));
+    ko.components.register('server-time-settings-modal',    require('./cluster/server-time-settings-modal/server-time-settings-modal'));
     /** INJECT:cluster **/
 
     // -------------------------------
@@ -148,6 +151,7 @@ export default function register(ko) {
     ko.components.register('quantity-gauge',            require('./shared/quantity-gauge/quantity-gauge'));
     ko.components.register('needle-gauge',              require('./shared/needle-gauge/needle-gauge'));
     ko.components.register('bar',                       require('./shared/bar/bar'));
+    ko.components.register('progress-bar',              require('./shared/progress-bar/progress-bar'));
     ko.components.register('range-indicator',           require('./shared/range-indicator/range-indicator'));
     ko.components.register('stepper',                   require('./shared/stepper/stepper'));
     ko.components.register('multiselect',               require('./shared/multiselect/multiselect'));
@@ -163,7 +167,9 @@ export default function register(ko) {
     ko.components.register('property-sheet',            require('./shared/property-sheet/property-sheet'));
     ko.components.register('capacity-bar',              require('./shared/capacity-bar/capacity-bar'));
     ko.components.register('add-s3-connection-modal',   require('./shared/add-s3-connection-modal/add-s3-connection-modal'));
-    ko.components.register('toggle-filter', require('./shared/toggle-filter/toggle-filter'));
-    ko.components.register('data-table', require('./shared/data-table/data-table'));
+    ko.components.register('toggle-filter',             require('./shared/toggle-filter/toggle-filter'));
+    ko.components.register('data-table',                require('./shared/data-table/data-table'));
+    ko.components.register('timezone-chooser',          require('./shared/timezone-chooser/timezone-chooser'));
+    ko.components.register('date-time-chooser',         require('./shared/date-time-chooser/date-time-chooser'));
     /** INJECT:shared **/
 }

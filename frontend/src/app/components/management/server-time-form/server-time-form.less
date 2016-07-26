@@ -1,11 +1,21 @@
 server-time-form {
-    .heading2 {
-        cursor: @cursor-pointer;
-    }
+    display: block;
 
-    .editor-row {
-        > input,  > dropdown {
-            width: 9.25em;
+    .forms {
+        position: relative;;
+
+        .ntp-form {
+            position: absolute;
+            left: 0;
         }
     }
+
+    editor > .editor-label {
+        width: 8em;
+    }
+
+    .small-field {
+        width: 129px;
+    }
+
 }

@@ -18,29 +18,21 @@
     padding: @gutter/2;
     margin: 0;
     font-size: @font-size-small;
-    background-color: @bg-color1;
-    border: 1px solid @text-color2;
+    background-color: @bg-color7;
     border-radius: @gutter/4;
-    color: @text-color2;
+    color: @text-color1;
     pointer-events: none;
     text-align: left;
     animation: fade-in 250ms;
     max-width: 20em;
+    box-shadow: 1px 1px 1px 1px @bg-color4;
 
     &::before, &::after {
         content: '';
         position: absolute;
-        border: .5em solid transparent;
-    }
-
-    &::before {
-        top: -1.1em;
-        border-bottom-color:  @text-color2;
-    }
-
-    &::after {
         top: -1em;
-        border-bottom-color:  @bg-color1;
+        border: .5em solid transparent;
+        border-bottom-color:  @bg-color7;
     }
 
     &.left {

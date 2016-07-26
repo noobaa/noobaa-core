@@ -12,10 +12,10 @@ function tween(fromValue, toValue, duration, easing, cb) {
 }
 
 export default function tweenExtender(
-    target, 
-    { 
-        duration = 1000, 
-        easing = 'easeOutQuad', 
+    target,
+    {
+        duration = 1000,
+        easing = 'easeOutQuad',
         resetValue = target(),
         resetOnChange = false,
         useDiscreteValues = false
@@ -24,7 +24,7 @@ export default function tweenExtender(
     let result  = ko.observable(resetValue);
     tween(resetValue, target(), duration, easing, result);
 
-    // Create a pure observable to controll the life time of the subscription
+    // Create a pure observable to control the life time of the subscription
     // and to allow for automatic disposing in order to prevent memory leaks.
 
 
@@ -42,6 +42,6 @@ export default function tweenExtender(
     pure.subscribe(function() {
         subscription.dispose();
     }, null, 'asleep');
-    
+
     return pure;
 }

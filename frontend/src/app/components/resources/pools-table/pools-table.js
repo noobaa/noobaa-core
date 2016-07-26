@@ -2,77 +2,95 @@ import template from './pools-table.html';
 import Disposable from 'disposable';
 import ko from 'knockout';
 import PoolRowViewModel from './pool-row';
-import { makeArray, compare } from 'utils';
+import { deepFreeze, createCompareFunc } from 'utils';
 import { redirectTo } from 'actions';
 import { routeContext, systemInfo } from 'model';
 
-const maxRows = 100;
-
-const compareFuncs = Object.freeze({
-    state: (p1, p2) => {
-        return compare(p1.nodes.online >= 3, p2.nodes.online >= 3);
+const columns = deepFreeze([
+    {
+        name: 'state',
+        cellTemplate: 'icon',
+        sortable: true
     },
-    name: (p1, p2) => compare(p1.name, p2.name),
-    nodecount: (p1, p2) => compare(p1.nodes.count, p2.nodes.count),
-    onlinecount: (p1, p2) => compare(p1.nodes.online, p2.nodes.online),
-    offlinecount: (p1, p2) => compare(
-        p1.nodes.count - p1.nodes.online,
-        p2.nodes.count - p2.nodes.online
-    ),
-    usage: (p1, p2) => compare(p1.storage.used, p2.storage.used),
-    capacity: (p1, p2) => compare(p1.storage.total, p2.storage.total)
+    {
+        name: 'name',
+        label: 'pool name',
+        cellTemplate: 'link',
+        sortable: true
+    },
+    {
+        name: 'nodeCount',
+        label: 'nodes',
+        sortable: true
+    },
+    {
+        name: 'onlineCount',
+        label: 'online',
+        sortable: true
+    },
+    {
+        name: 'offlineCount',
+        label: 'offline',
+        sortable: true
+    },
+    {
+        name: 'capacity',
+        label: 'used capacity',
+        sortable: true,
+        cellTemplate: 'capacity'
+    },
+    {
+        name: 'deleteButton',
+        label: '',
+        css: 'delete-col',
+        cellTemplate: 'delete'
+    }
+
+]);
+
+const compareAccessors = deepFreeze({
+    state: pool => pool.nodes.online >= 3,
+    name: pool => pool.name,
+    nodeCount: pool => pool.nodes.count,
+    onlineCount: pool => pool.nodes.online,
+    offlineCount: pool => pool.nodes.count - pool.nodes.online,
+    capacity: pool => pool.storage.used
 });
 
 class PoolsTableViewModel extends Disposable {
     constructor() {
         super();
 
-        let query = ko.pureComputed(
-            () => routeContext().query
-        );
+        this.columns = columns;
 
-        this.sortedBy = ko.pureComputed(
-            () => query().sortBy || 'name'
-        );
+        this.sorting = ko.pureComputed({
+            read: () => ({
+                sortBy: routeContext().query.sortBy || 'name',
+                order: Number(routeContext().query.order) || 1
+            }),
+            write: value => redirectTo(undefined, undefined, value)
+        });
 
-        this.order = ko.pureComputed(
-            () => Number(query().order) || 1
-        );
+        this.pools = ko.pureComputed(
+            () => {
+                let { sortBy, order } = this.sorting();
+                let compareOp = createCompareFunc(compareAccessors[sortBy], order);
 
-        let pools = ko.pureComputed(
-            () => systemInfo() && systemInfo().pools
-                .filter(
-                    pool => pool.nodes
-                )
-                .sort(
-                    (b1, b2) => this.order() * compareFuncs[this.sortedBy()](b1, b2)
-                )
-        );
-
-        let rows = makeArray(
-            maxRows,
-            i => new PoolRowViewModel(() => pools() && pools()[i])
-        );
-
-        this.visibleRows = ko.pureComputed(
-            () => rows.filter(row => row.isVisible())
+                return systemInfo() && systemInfo().pools
+                    .filter(
+                        pool => pool.nodes
+                    )
+                    .slice(0)
+                    .sort(compareOp);
+            }
         );
 
         this.deleteGroup = ko.observable();
         this.isCreatePoolWizardVisible = ko.observable(false);
     }
 
-    orderBy(colName) {
-        redirectTo(undefined, undefined, {
-            sortBy: colName,
-            order: this.sortedBy() === colName ? 0 - this.order() : 1
-        });
-    }
-
-    orderClassFor(colName) {
-        return `sortable ${
-            this.sortedBy() === colName ? (this.order() === 1 ? 'des' : 'asc') : ''
-        }`;
+    newPoolRow(pool) {
+        return new PoolRowViewModel(pool, this.deleteGroup);
     }
 
     showCreatePoolWizard() {

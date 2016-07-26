@@ -558,6 +558,17 @@ module.exports = {
             auth: {
                 system: 'admin',
             }
+        },
+
+        validate_activation: {
+            method: 'GET',
+            reply: {
+                type: 'boolean',
+            },
+            auth: {
+                account: false,
+                system: false,
+            }
         }
     },
 

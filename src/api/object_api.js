@@ -414,6 +414,9 @@ module.exports = {
                     total_parts: {
                         type: 'integer'
                     },
+                    object_capacity: {
+                        type: 'integer'
+                    }
                 }
             },
             auth: {

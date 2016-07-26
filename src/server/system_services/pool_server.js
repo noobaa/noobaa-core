@@ -269,7 +269,10 @@ function get_pool_info(pool, nodes_aggregate_pool) {
         storage: size_utils.to_bigint_storage({
             total: n.total,
             free: n.free,
+            used_other: n.used_other,
+            unavailable_free: n.unavailable_free,
             used: n.used,
+            reserved: n.reserved,
         })
     };
     if (_is_cloud_pool(pool)) {

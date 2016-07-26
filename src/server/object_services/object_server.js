@@ -367,6 +367,10 @@ function read_object_mappings(req) {
                     }))
                     .then(c => {
                         reply.total_parts = c;
+                        reply.object_capacity = _.reduce(reply.parts, (sum_capacity, part) => {
+                            let frag = part.chunk.frags[0];
+                            return sum_capacity + (frag.size * frag.blocks.length);
+                        }, 0);
                     });
             } else {
                 let date = new Date();

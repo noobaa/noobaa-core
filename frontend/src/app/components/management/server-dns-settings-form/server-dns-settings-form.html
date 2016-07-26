@@ -12,14 +12,16 @@
 <div class="summary row" data-bind="visible: !expanded()">
     <div class="push-next">
         Primary:
-        <span class="text-tech emphasized" data-bind="
+        <span class="emphasized" data-bind="
+            css: { 'text-tech': primaryDNS },
             text: primaryDNS() || 'Not set'
         "></span>
     </div>
 
     <div>
         Secondary:
-        <span class="text-tech emphasized" data-bind="
+        <span class="emphasized" data-bind="
+            css: { 'text-tech': secondaryDNS },
             text: secondaryDNS() || 'Not set'
         "></span>
     </div>

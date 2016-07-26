@@ -8,6 +8,7 @@ const radius = 84;
 const lineWidth = 30;
 const seperator = (2 * Math.PI) / 1000;
 const threshold = 2 * seperator;
+const silhouetteColor = style['bg-color1'];
 
 function normalizeValues(values) {
     let sum = values.reduce(
@@ -70,22 +71,12 @@ class PieChartViewModel extends Disposable{
                 }
             })
         );
-
-        // this.values = ko.pureComputed(
-        //     () => normalizeValues(
-        //             values.map(
-        //                 entry => ko.unwrap(entry.value)
-        //             )
-        //         ).map(
-        //             value =>
-        //         )
-        // );
     }
 
     draw(ctx) {
         ctx.translate(radius, radius);
         ctx.rotate(Math.PI / 1.3);
-        this.drawArc(ctx, 0, 1, style['bg-color1']);
+        this.drawArc(ctx, 0, 1, silhouetteColor);
 
         let colors = this.colors();
         this.values.reduce(

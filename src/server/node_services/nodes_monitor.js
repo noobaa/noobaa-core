@@ -42,6 +42,7 @@ const AGENT_INFO_FIELDS = [
     'name',
     'version',
     'ip',
+    'host_id',
     'base_address',
     'rpc_address',
     'geolocation',

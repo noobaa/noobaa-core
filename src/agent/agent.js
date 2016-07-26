@@ -441,6 +441,7 @@ class Agent {
             version: pkg.version || '',
             name: this.node_name || '',
             ip: ip,
+            host_id: this.host_id,
             rpc_address: this.rpc_address || '',
             base_address: this.rpc.router.default,
             n2n_config: this.n2n_agent.get_plain_n2n_config(),

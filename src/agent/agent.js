@@ -53,6 +53,8 @@ class Agent {
             address: params.address
         }];
 
+        this.host_id = params.host_id;
+
         assert(params.node_name, 'missing param: node_name');
         this.node_name = params.node_name;
         this.token = params.token;

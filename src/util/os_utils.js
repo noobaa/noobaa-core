@@ -252,9 +252,9 @@ function set_ntp(server, timez) {
     if (os.type() === 'Linux') {
         var command = "sed -i 's/.*NooBaa Configured NTP Server.*/server " + server + " iburst #NooBaa Configured NTP Server/' /etc/ntp.conf";
         return _set_time_zone(timez)
+            .then(() => promise_utils.exec(command))
             .then(() => promise_utils.exec('/sbin/chkconfig ntpd on 2345'))
             .then(() => promise_utils.exec('/etc/init.d/ntpd restart'))
-            .then(() => promise_utils.exec(command))
             .then(() => restart_rsyslogd());
     } else if (os.type() === 'Darwin') { //Bypass for dev environment
         return;

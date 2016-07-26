@@ -30,6 +30,11 @@ function fix_iptables {
     iptables -I INPUT 1 -i eth0 -p tcp --dport 8080 -j ACCEPT
   fi
 
+  local exist=$(iptables -L -n | grep 8081 | wc -l)
+  if [ "${exist}" == "0" ]; then
+    iptables -I INPUT 1 -i eth0 -p tcp --dport 8081 -j ACCEPT
+  fi
+
   local exist=$(iptables -L -n | grep 8443 | wc -l)
   if [ "${exist}" == "0" ]; then
     iptables -I INPUT 1 -i eth0 -p tcp --dport 8443 -j ACCEPT
@@ -352,7 +357,6 @@ function post_upgrade {
   fi
 
   # temporary - adding NTP package
-  # temporary - adding NTP package
 	if yum list installed ntp >/dev/null 2>&1; then
 		deploy_log "ntp installed"
 	else
@@ -360,12 +364,14 @@ function post_upgrade {
 		yum install -y ntp
 		sudo /sbin/chkconfig ntpd on 2345
 		sudo /etc/init.d/ntpd start
-		local noobaa_ntp=$(grep 'NooBaa Configured NTP Server' /etc/ntp.conf | wc -l)
-		if [ ${noobaa_ntp} -eq 0 ]; then #was not configured yet, no tz config as well
-			echo "# NooBaa Configured NTP Server"	 >> /etc/ntp.conf
-			sed -i 's:\(^server.*\):#\1:g' /etc/ntp.conf
-			ln -sf /usr/share/zoneinfo/US/Pacific /etc/localtime
-		fi
+		sed -i 's:\(^server.*\):#\1:g' /etc/ntp.conf
+		ln -sf /usr/share/zoneinfo/US/Pacific /etc/localtime
+
+	fi
+
+	local noobaa_ntp=$(grep 'NooBaa Configured NTP Server' /etc/ntp.conf | wc -l)
+	if [ ${noobaa_ntp} -eq 0 ]; then #was not configured yet, no tz config as well
+		echo "# NooBaa Configured NTP Server"	 >> /etc/ntp.conf
 	fi
 
 	local noobaa_dns=$(grep 'NooBaa Configured Primary DNS Server' /etc/resolv.conf | wc -l)

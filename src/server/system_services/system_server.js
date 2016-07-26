@@ -229,13 +229,13 @@ function create_system(req) {
                 return;
             }
             return server_rpc.client.hosted_agents.create_agent({
-                    name: req.rpc_params.name,
-                    access_keys: req.rpc_params.access_keys,
-                    scale: 3,
-                    storage_limit: 100 * 1024 * 1024,
-                },{
-                    auth_token: reply_token
-                });
+                name: req.rpc_params.name,
+                access_keys: req.rpc_params.access_keys,
+                scale: 3,
+                storage_limit: 100 * 1024 * 1024,
+            }, {
+                auth_token: reply_token
+            });
         })
         .then(() => {
             //Time config, if supplied
@@ -266,7 +266,11 @@ function create_system(req) {
             if (!req.rpc_params.dns_name) {
                 return;
             }
-            return;
+            return server_rpc.client.system.update_hostname({
+                hostname: req.rpc_params.dns_name
+            }, {
+                auth_token: reply_token
+            });
         })
         .then(() => ({
             token: reply_token

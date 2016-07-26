@@ -44,8 +44,8 @@ const columns = deepFreeze([
 const compareAccessors = deepFreeze({
     state: bucket => bucket.state,
     name: bucket => bucket.name,
-    filecount: bucket => bucket.num_objects,
-    usage: bucket => bucket.storage.used,
+    fileCount: bucket => bucket.num_objects,
+    capacity: bucket => bucket.storage.used,
     cloudSync: bucket => bucket.cloud_sync_status
 });
 

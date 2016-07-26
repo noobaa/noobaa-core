@@ -120,6 +120,7 @@ export default function register(ko) {
     ko.components.register('remote-syslog-form',        require('./management/remote-syslog-form/remote-syslog-form'));
     ko.components.register('server-ssl-form',           require('./management/server-ssl-form/server-ssl-form'));
     ko.components.register('server-time-form',          require('./management/server-time-form/server-time-form'));
+    ko.components.register('server-dns-settings-form',  require('./management/server-dns-settings-form/server-dns-settings-form'));
     /** INJECT:management **/
 
     // -------------------------------

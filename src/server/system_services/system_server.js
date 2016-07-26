@@ -185,7 +185,10 @@ function new_system_changes(name, owner_account) {
  *
  */
 function create_system(req) {
-    var account = _.pick(req.rpc_params, 'name', 'email', 'password');
+    var account = _.pick(req.rpc_params, 'name', 'email', 'password');    
+    if (system_store.data.systems.length > 20) {
+        throw new Error('Too many created systems');
+    }
     //Create the new system
     account._id = system_store.generate_id();
     let allowed_buckets;

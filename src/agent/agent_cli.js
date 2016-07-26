@@ -377,6 +377,7 @@ AgentCLI.prototype.create_node_helper = function(current_node_path_info, interna
                 return fs.writeFileAsync(token_path, self.create_node_token);
             })
             .then(function() {
+                if (!fs.existsSync('./noobaa_service_uninstall.sh')) return;
                 dbg.log0('Add uninstall command', node_path);
                 return promise_utils.exec('echo \'rm -rf ' + current_node_path + '\' >> ./noobaa_service_uninstall.sh ');
             })

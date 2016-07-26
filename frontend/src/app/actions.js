@@ -1417,7 +1417,7 @@ export function setNodeDebugLevel(node, level) {
 export function setSystemDebugLevel(level){
     logAction('setSystemDebugLevel', { level });
 
-    api.system.set_debug_level({ level })
+    api.cluster_server.set_debug_level({ level })
         .then(loadSystemInfo)
         .done();
 }

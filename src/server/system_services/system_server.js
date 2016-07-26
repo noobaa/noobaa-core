@@ -944,6 +944,11 @@ function do_upgrade(req) {
     return;
 }
 
+function validate_activation(req) {
+    //TODO:: call actial validate_activation
+    return true;
+}
+
 
 // UTILS //////////////////////////////////////////////////////////
 
@@ -1001,3 +1006,5 @@ exports.configure_remote_syslog = configure_remote_syslog;
 
 exports.upload_upgrade_package = upload_upgrade_package;
 exports.do_upgrade = do_upgrade;
+
+exports.validate_activation = validate_activation;

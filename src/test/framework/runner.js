@@ -71,7 +71,7 @@ TestRunner.prototype.restore_db_defaults = function() {
     var self = this;
 
     return promise_utils.exec(
-            'mongo nbcore /root/node_modules/noobaa-core/src/test/system_tests/mongodb_defaults.js')
+            'mongo admin -u nbadmin -p roonoobaa /root/node_modules/noobaa-core/src/test/system_tests/mongodb_defaults.js')
         .catch(function(err) {
             console.warn('failed on mongodb_defaults', err);
             throw new Error('Failed pn mongodb reset');

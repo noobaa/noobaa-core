@@ -38,7 +38,7 @@ const S3_USAGE_INFO_DEFAULTS = {
     put_object_uploadId: 0,
 };
 
-const STORAGE_CLASS_STANDARD = 'Standard';
+const STORAGE_CLASS_STANDARD = 'STANDARD';
 const DEFAULT_S3_USER = Object.freeze({
     ID: '123',
     DisplayName: 'NooBaa'

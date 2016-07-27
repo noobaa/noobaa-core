@@ -426,22 +426,6 @@ module.exports = {
             }
         },
 
-        // set_debug_level: {
-        //     method: 'POST',
-        //     params: {
-        //         type: 'object',
-        //         required: ['level'],
-        //         properties: {
-        //             level: {
-        //                 type: 'integer',
-        //             }
-        //         },
-        //     },
-        //     auth: {
-        //         system: 'admin',
-        //     }
-        // },
-
         update_n2n_config: {
             method: 'POST',
             params: {
@@ -534,16 +518,6 @@ module.exports = {
             }
         },
 
-        // update_time_config: {
-        //     method: 'POST',
-        //     params: {
-        //         $ref: '#/definitions/time_config'
-        //     },
-        //     auth: {
-        //         system: 'admin',
-        //     }
-        // },
-
         update_hostname: {
             method: 'POST',
             params: {
@@ -583,6 +557,17 @@ module.exports = {
             method: 'POST',
             auth: {
                 system: 'admin',
+            }
+        },
+
+        validate_activation: {
+            method: 'GET',
+            reply: {
+                type: 'boolean',
+            },
+            auth: {
+                account: false,
+                system: false,
             }
         }
     },

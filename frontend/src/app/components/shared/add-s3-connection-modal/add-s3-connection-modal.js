@@ -68,7 +68,7 @@ class AddS3ConnectionModalViewModel extends Disposable {
             .extend({
                 equal: {
                     params: true,
-                    message: 'Invlalid endpoint or credentials'
+                    message: 'Invalid endpoint or credentials'
                 }
             });
 

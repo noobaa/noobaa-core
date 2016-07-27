@@ -1,0 +1,8 @@
+<div class="box">
+    <data-table params="
+        columns: columns,
+        data: pools,
+        rowFactory: pool => createRow(pool)
+    "></data-table>
+</div>
+<p class="val-msg" data-bind="validationMessage: selectedPools"></p>

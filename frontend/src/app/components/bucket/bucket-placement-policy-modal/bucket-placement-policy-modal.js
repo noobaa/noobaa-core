@@ -1,5 +1,4 @@
 import template from './bucket-placement-policy-modal.html';
-import PoolRow from './pool-row';
 import Disposable from 'disposable';
 import ko from 'knockout';
 import { noop, deepFreeze } from 'utils';
@@ -65,10 +64,6 @@ class BacketPlacementPolicyModalViewModel extends Disposable {
         });
 
         this.errors = ko.validation.group(this);
-    }
-
-    newPoolRow(pool) {
-        return new PoolRow(pool, this.selectedPools);
     }
 
     selectAllPools() {

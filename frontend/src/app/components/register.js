@@ -174,5 +174,6 @@ export default function register(ko) {
     ko.components.register('date-time-chooser',         require('./shared/date-time-chooser/date-time-chooser'));
     ko.components.register('pie-chart',                 require('./shared/pie-chart/pie-chart'));
     ko.components.register('bar-chart',                 require('./shared/bar-chart/bar-chart'));
+    ko.components.register('pool-selection-table',      require('./shared/pool-selection-table/pool-selection-table'));
     /** INJECT:shared **/
 }

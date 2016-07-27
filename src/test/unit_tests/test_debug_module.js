@@ -10,7 +10,7 @@ var DebugModule = require('../../util/debug_module');
 // File Content Verifier according to given expected result (positive/negative)
 function file_content_verify(flag, expected) {
     return P.delay(1).then(function() {
-            var content = fs.readFileSync("logs/noobaa.log", "utf8");
+            var content = fs.readFileSync("/var/log/noobaa.log", "utf8");
 
             if (flag === "text") { // Verify Log requests content
                 assert(content.indexOf(expected) !== -1);

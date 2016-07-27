@@ -64,9 +64,15 @@ class PoolSummaryViewModel extends Disposable {
             () => formatSize(this.free())
         );
 
-        this.gaugeValues = [
-            { value: this.used, color: style['text-color6'], emphasize: true },
-            { value: this.free, color: style['text-color4'], emphasize: false }
+        this.pieValues = [
+            {
+                value: this.used,
+                color: style['text-color6']
+            },
+            {
+                value: this.free,
+                color: style['text-color4']
+            }
         ];
 
         this.stateText = ko.pureComputed(

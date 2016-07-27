@@ -58,7 +58,7 @@ export default function register(ko) {
     ko.components.register('bucket-s3-access-list',                 require('./bucket/bucket-s3-access-list/bucket-s3-access-list'));
     ko.components.register('s3-access-details-modal',               require('./bucket/s3-access-details-modal/s3-access-details-modal'));
     ko.components.register('bucket-s3-access-modal',                require('./bucket/bucket-s3-access-modal/bucket-s3-access-modal'));
-    ko.components.register('bucket-backup-policy-modal', require('./bucket/bucket-backup-policy-modal/bucket-backup-policy-modal'));
+    ko.components.register('bucket-backup-policy-modal',            require('./bucket/bucket-backup-policy-modal/bucket-backup-policy-modal'));
     /** INJECT:bucket **/
 
     // -------------------------------
@@ -119,7 +119,8 @@ export default function register(ko) {
     ko.components.register('phone-home-form',           require('./management/phone-home-form/phone-home-form'));
     ko.components.register('remote-syslog-form',        require('./management/remote-syslog-form/remote-syslog-form'));
     ko.components.register('server-ssl-form',           require('./management/server-ssl-form/server-ssl-form'));
-    ko.components.register('server-time-form', require('./management/server-time-form/server-time-form'));
+    ko.components.register('server-time-form',          require('./management/server-time-form/server-time-form'));
+    ko.components.register('server-dns-settings-form',  require('./management/server-dns-settings-form/server-dns-settings-form'));
     /** INJECT:management **/
 
     // -------------------------------
@@ -171,5 +172,7 @@ export default function register(ko) {
     ko.components.register('data-table',                require('./shared/data-table/data-table'));
     ko.components.register('timezone-chooser',          require('./shared/timezone-chooser/timezone-chooser'));
     ko.components.register('date-time-chooser',         require('./shared/date-time-chooser/date-time-chooser'));
+    ko.components.register('pie-chart',                 require('./shared/pie-chart/pie-chart'));
+    ko.components.register('bar-chart',                 require('./shared/bar-chart/bar-chart'));
     /** INJECT:shared **/
 }

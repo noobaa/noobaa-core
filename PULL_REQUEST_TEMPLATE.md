@@ -7,7 +7,7 @@
 
 - [ ] Failure handling - describe how it behaves on failures: **Delay and retry** / **Return error to the user**
 - [ ] Platforms handling - describe how it behaves on different platforms: **Agnostic** / **Handled**
-- [ ] Created issues on technical debt - describe what is left for latert: **Does not support XXX**
+- [ ] Created issues on technical debt - describe what is left for later: **Does not support XXX**
 - [ ] Code Review - with someone besides myself
 - [ ] Code Covered - by automatic tests
 - [ ] Code Comments - on non-trivial parts

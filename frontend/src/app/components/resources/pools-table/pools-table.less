@@ -1,17 +1,25 @@
 pools-table {
     .column();
 
-    .state-col,
-    .nodes-col {
+    .state-col {
         min-width: 6em;
     }
 
-    .delete-col {
-        min-width: 8em;
+    .name-col{
+        text-align: left;
+        min-width: 6em;
+        width: 100%;
     }
 
-    .offline-nodes-col,
-    .online-nodes-col {
+    .node-count-col {
+        min-width: 6em;
+    }
+
+    .offline-count-col {
+        min-width: 7em;
+    }
+
+    .online-count-col {
         min-width: 7em;
     }
 
@@ -19,8 +27,8 @@ pools-table {
         min-width: 10em;
     }
 
-    .name-col{
-        min-width: 6em;
-        width: 100%;
+    .delete-col {
+        min-width: 8em;
     }
+
 }

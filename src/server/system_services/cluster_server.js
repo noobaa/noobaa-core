@@ -546,6 +546,26 @@ function update_server_location(req) {
     }).return();
 }
 
+function read_server_config(req) {
+    let reply = {};
+    let srvconf = {};
+    return P.resolve(_attach_server_configuration(srvconf))
+    .then(() => {
+        if (srvconf.ntp) {
+            if (srvconf.ntp.timezone) {
+                reply.timezone = srvconf.ntp.timezone;
+            }
+            if (srvconf.ntp.server) {
+                reply.ntp_server = srvconf.ntp.server;
+            }
+        }
+
+        if (srvconf.dns_servers) {
+            reply.dns_servers = srvconf.dns_servers;
+        }
+        return reply;
+    });
+}
 
 //
 //Internals Cluster Control
@@ -820,3 +840,4 @@ exports.diagnose_system = diagnose_system;
 exports.collect_server_diagnostics = collect_server_diagnostics;
 exports.read_server_time = read_server_time;
 exports.apply_read_server_time = apply_read_server_time;
+exports.read_server_config = read_server_config;

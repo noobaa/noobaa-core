@@ -1,33 +1,29 @@
 buckets-table {
     .column();
 
+    .state-col {
+        min-width: 6em;
+    }
+
     .name-col{
+        text-align: left;
         width: 100%;
     }
 
-    .state-col,
-    .freesize-col {
+    .file-count-col {
         min-width: 6em;
-    }
-
-    .totalsize-col {
-        min-width: 6em;
-    }
-
-    .delete-col {
-        min-width: 8em;
-    }
-
-    .filecount-col {
-        min-width: 6em;
-    }
-
-    .cloudsync-col {
-        min-width: 9em;
     }
 
     .capacity-col {
         min-width: 11em;
+    }
+
+    .cloud-sync-col {
+        min-width: 9em;
+    }
+
+    .delete-col {
+        min-width: 8em;
     }
 
     .unable-to-sync {

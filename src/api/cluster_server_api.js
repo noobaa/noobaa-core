@@ -135,6 +135,32 @@ module.exports = {
             auth: {
                 system: 'admin',
             }
+        },
+
+        read_server_config: {
+            method: 'GET',
+            reply: {
+                type: 'object',
+                required: [],
+                properties: {
+                    ntp_server: {
+                        type: 'string'
+                    },
+                    timezone: {
+                        type: 'string'
+                    },
+                    dns_servers: {
+                        type: 'array',
+                        items: {
+                            type: 'string'
+                        },
+                    },
+                }
+            },
+            auth: {
+                account: false,
+                system: false,
+            }
         }
     },
 

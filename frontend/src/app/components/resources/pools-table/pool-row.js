@@ -10,27 +10,30 @@ const cannotDeleteReasons = Object.freeze({
 });
 
 export default class PoolRowViewModel extends Disposable {
-    constructor(pool) {
+    constructor(pool, deleteGroup) {
         super();
 
-        this.isVisible = ko.pureComputed(
-            () => !!pool()
-        );
-
-        let healthy = ko.pureComputed(
-            () => pool() && pool().nodes.online >= 3
-        );
-
-        this.stateIcon = ko.pureComputed(
-            () => pool() && `pool-${healthy() ? 'healthy' : 'problem'}`
-        );
-
-        this.stateTooltip = ko.pureComputed(
-            () => healthy() ? 'Healthy' : 'Problem'
+        this.state = ko.pureComputed(
+            () => {
+                if (pool()) {
+                    let healthy = pool().nodes.online >= 3;
+                    return {
+                        name: `pool-${healthy ? 'healthy' : 'problem'}`,
+                        tooltip: healthy ? 'Healthy' : 'not enough online nodes'
+                    };
+                }
+            }
         );
 
         this.name = ko.pureComputed(
-            () => pool() && pool().name
+            () => {
+                if (pool()) {
+                    return {
+                        text: pool().name,
+                        href: { route: 'pool', params: { pool: pool().name } }
+                    };
+                }
+            }
         );
 
         this.nodeCount = ko.pureComputed(
@@ -45,25 +48,24 @@ export default class PoolRowViewModel extends Disposable {
             () => pool() && numeral(this.nodeCount() - this.onlineCount()).format('0,0')
         );
 
-        this.used = ko.pureComputed(
-            () => pool() && pool().storage.used
+        this.capacity = ko.pureComputed(
+            () => pool && pool().storage
         );
 
-        this.total = ko.pureComputed(
-            () => pool() && pool().storage.total
+        let undeletable = ko.pureComputed(
+            () => Boolean(pool() && pool().undeletable)
         );
 
-        this.canBeDeleted = ko.pureComputed(
-            () => pool() && !pool().undeletable
-        );
-
-        this.deleteToolTip = ko.pureComputed(
-            () => pool() && (
-                this.canBeDeleted() ?
-                    'delete pool' :
-                    cannotDeleteReasons[pool().undeletable]
-            )
-        );
+        this.deleteButton = {
+            deleteGroup: deleteGroup,
+            undeletable: undeletable,
+            deleteToolTip: ko.pureComputed(
+                () => pool() && (
+                    undeletable() ? cannotDeleteReasons[pool().undeletable] : 'delete pool'
+                )
+            ),
+            onDelete: () => this.del()
+        };
     }
 
     del() {

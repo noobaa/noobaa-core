@@ -28,4 +28,17 @@ if (res !== 1) {
         }]
     };
     nbcoreDb.createUser(nbcoreUser);
+
+    //Temporary until we will handle admin correctly for both databases
+    var coretestDb = db.getSiblingDB('coretest');
+    var coretestDbUser = {
+        user: 'nbsrv',
+        pwd: pwd,
+        roles: [{
+            role: "root",
+            db: "admin"
+        }]
+    };
+    coretestDb.createUser(coretestDbUser);
+
 }

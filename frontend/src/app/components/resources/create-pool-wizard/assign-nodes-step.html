@@ -1,6 +1,28 @@
+<h2 class="heading3">Filter the node list</h2>
 
-            </thead>
+<div class="row push-next content-middle">
+    <input type="search" placeholder="filter by node name or ip" class="push-next"
+        data-bind="textInput: nameOrIpFilter"/>
 
+    <span class="push-next">in</span>
 
+    <dropdown class="push-next" params="
+        placeholder: 'All Pools',
+        options: poolFilterOptions,
+        selected: poolFilter
+    "></dropdown>
+
+    <checkbox params="
+        checked: onlineFilter,
+        label: 'Show online nodes only'
+    "></checkbox>
 </div>
+
+<node-selection-table class="push-prev" params="
+    caption: 'Select nodes to be moved to the pool',
+    nodes: nodes,
+    selectedNodes: selectedNodes,
+    nodeCount: nodeCount,
+    emptyMessage: emptyMessage
+"></node-selection-table>
 

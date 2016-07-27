@@ -43,6 +43,7 @@ mocha.describe('system_servers', function() {
             .then(() => client.account.accounts_status())
             .then(res => assert(!res.has_accounts, '!has_accounts'))
             .then(() => client.system.create_system({
+                activation_code: '1111',
                 name: SYS,
                 email: EMAIL,
                 password: PASSWORD,

@@ -145,6 +145,10 @@ Section "Noobaa Local Service"
 	SetOutPath $INSTDIR
 
 	${If} $UPGRADE == "false"
+		WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\NooBaa" \
+			 "DisplayName" "NooBaa Local Service"
+		WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\NooBaa" \
+            "QuietUninstallString" "$\"$INSTDIR\uninstall-noobaa.exe$\" /S"
 		${If} $config == ""
 			${WriteFile} "$INSTDIR\agent_conf.json" "{"
 			${WriteFile} "$INSTDIR\agent_conf.json" "$\"dbg_log_level$\": 0,"
@@ -299,6 +303,7 @@ Section "uninstall"
 	;nsExec::ExecToStack 'NooBaa_Agent_wd remove "Noobaa Local Service" confirm >> "$INSTDIR\uninstall.log"'
 	;sleep 2000
 	nsExec::ExecToStack '$\"$INSTDIR\service_uninstaller.bat$\""'
+	DeleteRegKey HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\NooBaa"
 	Delete "$INSTDIR\NooBaa_Agent_wd.exe"
 	Delete "$INSTDIR\config.js"
 	Delete "$INSTDIR\7za.exe"

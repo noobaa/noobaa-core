@@ -67,6 +67,7 @@ const NODE_INFO_FIELDS = [
     'name',
     'geolocation',
     'ip',
+    'host_id',
     'is_cloud_node',
     'rpc_address',
     'base_address',

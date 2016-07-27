@@ -1,27 +1,31 @@
-<section class="c4 column">
-    <h3 class="heading4 push-next">
-        Node Capacity:
-        <span data-bind="text: totalText"></span>
-    </h3>
+<section class="c4 row">
+    <div class="column greedy">
+        <h3 class="heading4 push-next">
+            Node Capacity:
+            <span data-bind="text: totalText"></span>
+        </h3>
 
-    <div class="row">
-        <ul class="c7 column list-no-style legend">
-            <li class="row">
-                <span class="c6 emphasized">Noobaa:</span>
-                <span class="highlight" data-bind="text: usedText"></span>
-            </li>
-            <li class="row">
-                <span class="c6 emphasized">Other:</span>
-                <span class="emphasized" data-bind="text: otherText"></span>
-            </li>
+        <ul class="column list-no-style legend">
             <li class="row">
                 <span class="c6 emphasized">Free:</span>
                 <span data-bind="text: freeText"></span>
             </li>
-        </ul>
+            <li class="row">
+                <span class="c6 emphasized">Used (NooBaa):</span>
+                <span class="highlight" data-bind="text: usedText"></span>
+            </li>
+            <li class="row">
+                <span class="c6 emphasized">Used (Other):</span>
+                <span class="emphasized" data-bind="text: otherText"></span>
+            </li>
 
-        <quantity-gauge class="c5" params="values: gaugeValues"></quantity-gauge>
+            <li class="row">
+                <span class="c6 emphasized">Reserved:</span>
+            </li>
+        </ul>
     </div>
+
+    <pie-chart params="values: gaugeValues"></pie-chart>
 </section>
 
 <vr></vr>

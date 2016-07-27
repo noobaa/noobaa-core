@@ -66,18 +66,6 @@ class BacketPlacementPolicyModalViewModel extends Disposable {
         this.errors = ko.validation.group(this);
     }
 
-    selectAllPools() {
-        this.selectedPools(
-            this.pools().map(
-                pool => pool.name
-            )
-        );
-    }
-
-    clearAllPools() {
-        this.selectedPools([]);
-    }
-
     save() {
         if (this.errors().length > 0) {
             this.errors.showAllMessages();

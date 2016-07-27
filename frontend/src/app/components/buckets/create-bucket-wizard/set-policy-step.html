@@ -22,18 +22,8 @@
     </ul>
 </section>
 
-<section class="column">
-    <div class="row content-middle ">
-        <h2 class="heading3 greedy">Choose Pools for policy</h2>
-        <div>
-            <button class="link" data-bind="click: selectAllPools">Select all</button>
-            |
-            <button class="link" data-bind="click: clearAllPools">Clear</button>
-        </div>
-    </div>
-
-    <pool-selection-table params="
-        pools: pools,
-        selectedPools: selectedPools
-    "></pool-selection-table>
-</section>
+<pool-selection-table params="
+    caption: 'Select pools for policy',
+    pools: pools,
+    selectedPools: selectedPools
+"></pool-selection-table>

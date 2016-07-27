@@ -77,18 +77,6 @@ class CreateBucketWizardViewModel extends Disposable {
         return true;
     }
 
-    selectAllPools() {
-        this.selectedPools(
-            Array.from(this.pools().map(
-                pool => pool.name
-            ))
-        );
-    }
-
-    clearAllPools() {
-        this.selectedPools([]);
-    }
-
     createBucket() {
         createBucket(this.bucketName(), this.placementType(), this.selectedPools());
     }

@@ -21,18 +21,42 @@ const columns = deepFreeze([
 
 class PoolSelectionTableViewModel extends Disposable{
     constructor({
+        caption = 'Select pools'    ,
         pools = [],
         selectedPools = ko.observableArray()
     }) {
         super();
 
+        this.caption = caption;
         this.columns = columns;
         this.pools = pools;
         this.selectedPools = selectedPools;
+
+        this.poolNames = ko.pureComputed(
+            () => (ko.unwrap(pools) || []).map(
+                pool => pool.name
+            )
+        );
     }
 
     createRow(pool) {
         return new PoolRowViewModel(pool, this.selectedPools);
+    }
+
+    selectListedPools() {
+        let names = this.poolNames().filter(
+            name => !this.selectedPools().includes(name)
+        );
+
+        this.selectedPools(
+            this.selectedPools().concat(names)
+        );
+    }
+
+    clearListedPools() {
+        this.selectedPools.removeAll(
+            this.poolNames()
+        );
     }
 }
 

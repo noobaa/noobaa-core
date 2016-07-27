@@ -175,5 +175,6 @@ export default function register(ko) {
     ko.components.register('pie-chart',                 require('./shared/pie-chart/pie-chart'));
     ko.components.register('bar-chart',                 require('./shared/bar-chart/bar-chart'));
     ko.components.register('pool-selection-table',      require('./shared/pool-selection-table/pool-selection-table'));
+    ko.components.register('node-selection-table', require('./shared/node-selection-table/node-selection-table'));
     /** INJECT:shared **/
 }

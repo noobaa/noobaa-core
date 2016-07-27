@@ -26,17 +26,11 @@
         </li>
     </ul>
 
-    <section class="row content-middle">
-        <h2 class="heading3 greedy">Pools in policy</h2>
-        <div>
-            <button class="link" data-bind="click: selectAllPools">Select all</button>
-            |
-            <button class="link" data-bind="click: clearAllPools">Clear</button>
-        </div>
-    </section>
-
-    <pool-selection-table params="pools: pools, selectedPools: selectedPools">
-    </pool-selection-table>
+    <pool-selection-table params="
+        caption: 'Pools in policy',
+        pools: pools,
+        selectedPools: selectedPools
+    "></pool-selection-table>
 
     <div class="row align-end push-prev">
         <button class="link push-next" data-bind="click: cancel">Cancel</button>

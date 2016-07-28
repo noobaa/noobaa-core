@@ -98,7 +98,8 @@ AgentCLI.prototype.init = function() {
                 access_key: '123',
                 secret_key: 'abc',
                 system: 'demo',
-                bucket: 'files'
+                bucket: 'files',
+                host_id: uuid()
             });
             if (self.params.address) {
                 self.client.options.address = self.params.address;

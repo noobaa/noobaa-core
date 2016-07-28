@@ -75,20 +75,24 @@ class PoolSummaryViewModel extends Disposable {
             }
         ];
 
+        let onlineCount = ko.pureComputed(
+            () => pool().nodes.online
+        );
+
+        let healthy = ko.pureComputed(
+            () => onlineCount() >= 3
+        );
+
         this.stateText = ko.pureComputed(
-            () => 'Healthy'
+            () => healthy() ? 'Healthy' : 'Not enough online nodes'
         );
 
         this.stateIcon = ko.pureComputed(
-            () => 'pool'
+            () => `pool-${healthy() ? 'healthy' : 'problem'}`
         );
 
         this.nodeCount = ko.pureComputed(
             () => pool().nodes.count
-        );
-
-        let onlineCount = ko.pureComputed(
-            () => pool().nodes.online
         );
 
         this.onlineIcon = ko.pureComputed(

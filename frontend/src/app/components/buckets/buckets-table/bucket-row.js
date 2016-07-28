@@ -30,14 +30,16 @@ export default class BucketRowViewModel extends Disposable {
     constructor(bucket, deleteGroup, isLastBucket) {
         super();
 
+        this.bucket = bucket;
+
         this.state = ko.pureComputed(
-            () => bucket() && stateIconMapping[bucket().state || true]
+            () => bucket() ? stateIconMapping[bucket().state || true] : {}
         );
 
         this.name = ko.pureComputed(
             () => {
                 if (!bucket()) {
-                    return;
+                    return {};
                 }
 
                 let { name } = bucket();
@@ -50,20 +52,22 @@ export default class BucketRowViewModel extends Disposable {
 
         this.fileCount = ko.pureComputed(
             () => {
-                if (bucket()) {
-                    let count = bucket().num_objects;
-                    return isDefined(count) ? numeral(count).format('0,0') : 'N/A';
+                if (!bucket()) {
+                    return {};
                 }
+
+                let count = bucket().num_objects;
+                return isDefined(count) ? numeral(count).format('0,0') : 'N/A';
             }
         );
 
         this.capacity = ko.pureComputed(
-            () => bucket && bucket().storage
+            () => bucket() ? bucket().storage : ''
         );
 
 
         this.cloudSync = ko.pureComputed(
-            () => bucket() && cloudSyncStatusMapping[bucket().cloud_sync_status]
+            () => bucket() ? cloudSyncStatusMapping[bucket().cloud_sync_status] : ''
         );
 
 
@@ -87,6 +91,6 @@ export default class BucketRowViewModel extends Disposable {
 
 
     del() {
-        deleteBucket(this.name());
+        deleteBucket(this.bucket().name);
     }
 }

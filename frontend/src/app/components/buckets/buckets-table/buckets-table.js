@@ -24,6 +24,9 @@ const columns = deepFreeze([
         sortable: true
     },
     {
+        name: 'placementPolicy'
+    },
+    {
         name: 'capacity',
         label: 'used capacity',
         cellTemplate: 'capacity',

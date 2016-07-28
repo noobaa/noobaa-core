@@ -1,6 +1,7 @@
 import Disposable from 'disposable';
 import ko from 'knockout';
 import numeral from 'numeral';
+import { systemInfo } from 'model';
 import { deepFreeze, isDefined } from 'utils';
 import { deleteBucket } from'actions';
 
@@ -24,6 +25,11 @@ const cloudSyncStatusMapping = deepFreeze({
     PAUSED:         { text: 'paused',          css: 'paused'         },
     SYNCED:         { text: 'synced',          css: 'synced'         },
     UNABLE:         { text: 'unable to sync',  css: 'unable-to-sync' }
+});
+
+const policyTypeMapping = deepFreeze({
+    SPREAD: 'Spread',
+    MIRROR: 'Mirrored'
 });
 
 export default class BucketRowViewModel extends Disposable {
@@ -56,6 +62,40 @@ export default class BucketRowViewModel extends Disposable {
 
                 let count = bucket().num_objects;
                 return isDefined(count) ? numeral(count).format('0,0') : 'N/A';
+            }
+        );
+
+        let tierName = ko.pureComputed(
+            () => bucket() && bucket().tiering.tiers[0].tier
+        );
+
+        let tier = ko.pureComputed(
+            () => systemInfo() && systemInfo().tiers.find(
+                tier => tier.name === tierName()
+            )
+        );
+
+        this.placementPolicy = ko.pureComputed(
+            () => {
+                if (tier()) {
+                    let { data_placement, node_pools } = tier();
+                    let count = node_pools.length;
+
+                    let text = `${
+                        policyTypeMapping[data_placement]
+                    } on ${count} pool${count === 1 ? '' : 's'}`;
+
+                    let tooltip = count === 1 ?
+                        node_pools[0] :
+                        `<ul>${
+                            node_pools.map(
+                                name => `<li>${name}</li>`
+                            ).join('')
+                        }</ul>`;
+
+
+                    return  { text, tooltip };
+                }
             }
         );
 

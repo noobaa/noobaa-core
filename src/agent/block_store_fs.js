@@ -22,9 +22,18 @@ class BlockStoreFs extends BlockStoreBase {
     constructor(options) {
         super(options);
         this.root_path = options.root_path;
-        this.blocks_path = path.join(this.root_path, 'blocks');
+        this.blocks_path_root = path.join(this.root_path, 'blocks');
         this.config_path = path.join(this.root_path, 'config');
-        mkdirp.sync(this.blocks_path, fs_utils.PRIVATE_DIR_PERMISSIONS);
+        // create internal directories to hold blocks by their last 2 hex digits
+        // this is done to reduce the number of files in one directory which leads
+        // to bad performance
+        for (let i = 0; i < 256; ++i) {
+            let dir_str = i.toString(16);
+            if (i < 16) dir_str = '0' + dir_str;
+            let block_dir = path.join(this.blocks_path_root, dir_str);
+            mkdirp.sync(block_dir, fs_utils.PRIVATE_DIR_PERMISSIONS);
+        }
+
     }
 
     get_storage_info() {
@@ -122,7 +131,7 @@ class BlockStoreFs extends BlockStoreBase {
 
     _count_usage() {
         const sem = new Semaphore(10);
-        return fs_utils.disk_usage(this.blocks_path, sem, true)
+        return fs_utils.disk_usage(this.blocks_path_root, sem, true)
             .then(usage => {
                 dbg.log0('counted disk usage', usage);
                 this._usage = usage; // object with properties size and count
@@ -156,11 +165,19 @@ class BlockStoreFs extends BlockStoreBase {
     }
 
     _get_block_data_path(block_id) {
-        return path.join(this.blocks_path, block_id + '.data');
+        let block_dir = '';
+        if (this._is_hex_string(block_id)) block_dir = block_id.substring(block_id.length - 2);
+        return path.join(this.blocks_path_root, block_dir, block_id + '.data');
     }
 
     _get_block_meta_path(block_id) {
-        return path.join(this.blocks_path, block_id + '.meta');
+        let block_dir = '';
+        if (this._is_hex_string(block_id)) block_dir = block_id.substring(block_id.length - 2);
+        return path.join(this.blocks_path_root, block_dir, block_id + '.meta');
+    }
+
+    _is_hex_string(str) {
+        return /^[0-9a-fA-f]+$/.test(str);
     }
 
 }

@@ -115,9 +115,8 @@ class CreateAccountWizardViewModel extends Disposable {
         this.selectedBuckets([]);
     }
 
-    copyCreateEmailToClipboard() {
-
-
+    copyEmailTextToClipboard() {
+        copyTextToClipboard(this.userMessage());
     }
 
     create() {
@@ -129,7 +128,6 @@ class CreateAccountWizardViewModel extends Disposable {
             this.enableS3Access() ? this.selectedBuckets() : undefined
         );
 
-        copyTextToClipboard(this.userMessage());
         this.onClose();
 
     }

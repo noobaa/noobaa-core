@@ -13,9 +13,8 @@ class PoolsOverviewViewModel extends Disposable {
         });
 
         this.nodeCountText = ko.pureComputed(() => {
-
             let count = ko.unwrap(nodeCount);
-            return `${numeral(count).format('0,0')} Nodes`;
+            return `${numeral(count).format('0,0')} Node${count === 1 ? '' : 's'}`;
         });
     }
 }

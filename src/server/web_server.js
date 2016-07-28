@@ -77,6 +77,9 @@ var http_server = http.createServer(app);
 var https_server;
 
 P.fcall(function() {
+        // we register the rpc before listening on the port
+        // in order for the rpc services to be ready immediately
+        // with the http services like /fe and /version
         server_rpc.rpc.register_ws_transport(http_server);
         return P.ninvoke(http_server, 'listen', http_port);
     })

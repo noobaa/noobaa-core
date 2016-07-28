@@ -33,6 +33,9 @@ BigInteger.prototype.toJSON = function() {
     return bigint_to_json(this);
 };
 
+/**
+ * take a BigInteger object and convert to json {peta:.., n: ..} format if needed
+ */
 function bigint_to_json(bi) {
     const dm = bi.divmod(BigInteger.PETABYTE);
     const peta = dm.quotient.toJSNumber();
@@ -43,6 +46,9 @@ function bigint_to_json(bi) {
     } : n;
 }
 
+/**
+ * take a json format {peta:.., n: ..} and convert to BigInteger
+ */
 function json_to_bigint(x) {
     var n = 0;
     var peta = 0;
@@ -57,6 +63,12 @@ function json_to_bigint(x) {
         .add(new BigInteger(n));
 }
 
+/**
+ * For every key in the storage object parse as json number, and return to json
+ *
+ * This is needed specifically to enforce that the format
+ * of the numbers will be always be consistent.
+ */
 function to_bigint_storage(storage) {
     return _.mapValues(storage, x => bigint_to_json(json_to_bigint(x)));
 }
@@ -73,12 +85,15 @@ function reduce_storage(reducer, storage_items, mult_factor, div_factor) {
         make_object(SOTRAGE_OBJ_KEYS, key => []));
 
     return _.reduce(accumulator,
-        (storage, val, key) => {
-            if (!_.isEmpty(val)) {
-                const bi = json_to_bigint(reducer(key, val))
+        (storage, values, key) => {
+            if (!_.isEmpty(values)) {
+                // reduce the values
+                const reduced_value = reducer(key, values);
+                //  using BigInteger
+                const factored_value = json_to_bigint(reduced_value)
                     .multiply(mult_factor)
                     .divide(div_factor);
-                storage[key] = bigint_to_json(bi);
+                storage[key] = bigint_to_json(factored_value);
             }
             return storage;
         }, {});

@@ -8,7 +8,7 @@
 - [ ] Failure handling - describe how it behaves on failures: **Delay and retry** / **Return error to the user**
 - [ ] Platforms handling - describe how it behaves on different platforms: **Agnostic** / **Handled**
 - [ ] Issues opened on technical debt - describe what is left for later
- - [ ] **Does not support XXX**
+ - [ ] **Does not support XXX - issue #xxxx**
 - [ ] Code Review - with someone besides myself: **@metion**
 - [ ] Code Covered - by automatic tests: **Links to test**
 - [ ] Code Comments - on non-trivial parts

@@ -104,7 +104,8 @@ class MapBuilder {
 
     allocate_blocks() {
         _.each(this.chunks, chunk => {
-            let avoid_nodes = _.map(chunk.blocks, block => String(block.node._id));
+            let avoid_nodes = chunk.blocks.map(block => String(block.node._id));
+            let allocated_hosts = chunk.blocks.map(block => block.node.host_id);
             _.each(chunk.status.allocations, alloc => {
                 let f = alloc.fragment;
                 let block = _.pick(f,
@@ -117,7 +118,7 @@ class MapBuilder {
                 block._id = md_store.make_md_id();
                 // We send an additional flag in order to allocate
                 // replicas of content tiering feature on the best read latency nodes
-                let node = node_allocator.allocate_node(alloc.pools, avoid_nodes, {
+                let node = node_allocator.allocate_node(alloc.pools, avoid_nodes, allocated_hosts, {
                     special_replica: true
                 });
                 if (!node) {
@@ -131,6 +132,7 @@ class MapBuilder {
                 block.chunk = chunk;
                 alloc.block = block;
                 avoid_nodes.push(String(node._id));
+                allocated_hosts.push(node.host_id);
             });
         });
     }

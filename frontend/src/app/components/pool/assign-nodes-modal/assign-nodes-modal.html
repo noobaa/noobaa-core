@@ -3,7 +3,7 @@
         Assign Nodes
     </h1>
 
-    <p class="push-next text-center">
+    <p class="text-center">
         Choose the nodes you wish to pull into this pool and increase your pool potential capacity
     </p>
 
@@ -13,47 +13,25 @@
 
         <span class="push-next">in</span>
 
-        <dropdown params="
+        <dropdown class="push-next" params="
             placeholder: 'All Pools',
             options: poolFilterOptions,
             selected: poolFilter
         "></dropdown>
+
+        <checkbox class="push-next" params="
+            checked: onlineFilter,
+            label: 'Show online nodes only'
+        "></checkbox>
     </div>
 
-    <checkbox class="push-next" params="
-        checked: onlineFilter,
-        label: 'Show online nodes only'
-    "></checkbox>
-
-
-    <div class="row content-middle push-prev">
-        <h2 class="heading3 greedy">Select nodes to assign to this pool</h2>
-        <div>
-            <button class="link" data-bind="click: selectListedNodes">
-                Select nodes
-            </button>
-            |
-            <button class="link" data-bind="click: clearListedNodes">
-                Clear nodes
-            </button>
-        </div>
-    </div>
-
-    <div class="box greedy row">
-        <data-table params="
-            columns: columns,
-            rowFactory: node => rowFactory(node),
-            data: nodes,
-            emptyMessage: emptyMessage
-        "></data-table>
-    </div>
-
-    <div class="box selected-box push-next row">
-        <span class="greedy push-next selection-summary" data-bind="text: selectedMessage"></span>
-        <button class="link" data-bind="click: clearAllNodes">
-            Clear All Selections
-        </button>
-    </div>
+    <node-selection-table class="push-prev" params="
+        caption: 'Select nodes to be moved to the pool',
+        nodes: nodes,
+        selectedNodes: selectedNodes,
+        nodeCount: nodeCount,
+        emptyMessage: emptyMessage
+    "></node-selection-table>
 
     <div class="row align-end ">
         <button class="action link push-next" data-bind="click: cancel">

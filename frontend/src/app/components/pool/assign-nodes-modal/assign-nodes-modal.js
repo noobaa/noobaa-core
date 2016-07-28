@@ -1,5 +1,4 @@
 import template from './assign-nodes-modal.html';
-import NodeRowViewModel from './node-row';
 import Disposable from 'disposable';
 import ko from 'knockout';
 import { noop, throttle } from 'utils';
@@ -7,37 +6,13 @@ import { systemInfo, nodeList } from 'model';
 import { loadNodeList, assignNodes } from 'actions';
 import { inputThrottle } from 'config';
 
-const columns = [
-    {
-        name: 'selected',
-        label: '',
-        cellTemplate: 'checkbox'
-    },
-    {
-        name: 'state',
-        cellTemplate: 'icon'
-    },
-    'name',
-    'ip',
-    'capacity',
-    'pool',
-    'recommended'
-];
-
 class AssignNodeModalViewModel extends Disposable {
     constructor({ poolName, onClose = noop }) {
         super();
 
         this.poolName = poolName;
         this.onClose = onClose;
-        this.columns = columns;
         this.nodes = nodeList;
-
-        this.nodeNames = ko.pureComputed(
-            () => this.nodes() && this.nodes().map(
-                node => node.name
-            )
-        );
 
         let _nameOrIpFilter = ko.observable();
         this.nameOrIpFilter = ko.pureComputed({
@@ -80,22 +55,17 @@ class AssignNodeModalViewModel extends Disposable {
 
         this.selectedNodes = ko.observableArray();
 
-        this.selectedMessage = ko.pureComputed(
-            () => {
-                let selectedCount = this.selectedNodes().length;
-                let totalCount = relevantPools().reduce(
-                    (sum ,pool) => sum + pool.nodes.count,
-                    0
-                );
-
-                return `${selectedCount} nodes selected of ${totalCount}`;
-            }
-        );
-
         let isFiltered = ko.pureComputed(
             () => this.nameOrIpFilter() ||
                 this.onlineFilter() ||
                 this.poolFilter() !== relevantPoolNames()
+        );
+
+        this.nodeCount = ko.pureComputed(
+            () => relevantPools().reduce(
+                (sum ,pool) => sum + pool.nodes.count,
+                0
+            )
         );
 
         this.emptyMessage = ko.pureComputed(
@@ -125,30 +95,6 @@ class AssignNodeModalViewModel extends Disposable {
             this.poolFilter(),
             this.onlineFilter() || undefined
         );
-    }
-
-    selectListedNodes() {
-        let nodes = this.nodeNames().filter(
-            node => !this.selectedNodes().includes(node)
-        );
-
-        this.selectedNodes(
-            this.selectedNodes().concat(nodes)
-        );
-    }
-
-    clearListedNodes() {
-        this.selectedNodes.removeAll(
-            this.nodeNames()
-        );
-    }
-
-    clearAllNodes() {
-        this.selectedNodes([]);
-    }
-
-    rowFactory(node) {
-        return new NodeRowViewModel(node, this.poolName, this.selectedNodes);
     }
 
     assign() {

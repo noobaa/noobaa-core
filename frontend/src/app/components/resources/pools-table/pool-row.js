@@ -13,43 +13,49 @@ export default class PoolRowViewModel extends Disposable {
     constructor(pool, deleteGroup) {
         super();
 
+        this.pool = pool;
+
         this.state = ko.pureComputed(
             () => {
-                if (pool()) {
-                    let healthy = pool().nodes.online >= 3;
-                    return {
-                        name: `pool-${healthy ? 'healthy' : 'problem'}`,
-                        tooltip: healthy ? 'Healthy' : 'not enough online nodes'
-                    };
+                if (!pool()) {
+                    return {};
                 }
+
+                let healthy = pool().nodes.online >= 3;
+                return {
+                    name: `pool-${healthy ? 'healthy' : 'problem'}`,
+                    tooltip: healthy ? 'Healthy' : 'not enough online nodes'
+                };
             }
         );
 
         this.name = ko.pureComputed(
             () => {
-                if (pool()) {
-                    return {
-                        text: pool().name,
-                        href: { route: 'pool', params: { pool: pool().name } }
-                    };
+                if (!pool()) {
+                    return {};
                 }
+
+                return {
+                    text: pool().name,
+                    href: { route: 'pool', params: { pool: pool().name } }
+                };
             }
         );
 
         this.nodeCount = ko.pureComputed(
-            () => pool() && numeral(pool().nodes.count).format('0,0')
+            () => pool() ? numeral(pool().nodes.count).format('0,0') : ''
         );
 
         this.onlineCount = ko.pureComputed(
-            () => pool() && numeral(pool().nodes.online).format('0,0')
+            () => pool() ? numeral(pool().nodes.online).format('0,0') : ''
         );
 
         this.offlineCount = ko.pureComputed(
-            () => pool() && numeral(this.nodeCount() - this.onlineCount()).format('0,0')
+            () => pool() ? numeral(this.nodeCount() - this.onlineCount()).format('0,0') : ''
         );
 
         this.capacity = ko.pureComputed(
-            () => pool && pool().storage
+            () => pool() ? pool().storage : {}
         );
 
         let undeletable = ko.pureComputed(
@@ -69,6 +75,6 @@ export default class PoolRowViewModel extends Disposable {
     }
 
     del() {
-        deletePool(this.name());
+        deletePool(this.pool().name);
     }
 }

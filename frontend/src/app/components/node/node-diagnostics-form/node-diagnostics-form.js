@@ -13,12 +13,24 @@ class NodeDiagnosticsFormViewModel extends Disposable {
         );
 
         this.areActionsDisabled = ko.pureComputed(
-            () => Boolean(node() && node().demo_node)
+            () => Boolean(node() && (!node().online || node().demo_node))
         );
 
         this.actionsToolTip = ko.pureComputed(
-            () => this.areActionsDisabled() &&
-                'Diagnostics operations are not supported for demo nodes'
+            () => {
+                if (node()) {
+                    let { demo_node, online } = node();
+
+                    if (demo_node) {
+                        return 'Diagnostics operations are not supported for demo nodes';
+                    }
+
+                    if (!online) {
+                        return 'Node must be online for diagnostics operations';
+                    }
+                }
+            }
+
         );
 
         this.debugLevel = ko.pureComputed(

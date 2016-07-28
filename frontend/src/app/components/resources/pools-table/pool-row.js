@@ -13,8 +13,6 @@ export default class PoolRowViewModel extends Disposable {
     constructor(pool, deleteGroup) {
         super();
 
-        this.pool = pool;
-
         this.state = ko.pureComputed(
             () => {
                 if (!pool()) {
@@ -70,11 +68,7 @@ export default class PoolRowViewModel extends Disposable {
                     undeletable() ? cannotDeleteReasons[pool().undeletable] : 'delete pool'
                 )
             ),
-            onDelete: () => this.del()
+            onDelete: () => deletePool(pool().name)
         };
-    }
-
-    del() {
-        deletePool(this.pool().name);
     }
 }

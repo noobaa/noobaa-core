@@ -113,11 +113,24 @@ RPC.prototype.register_service = function(api, server, options) {
         };
     });
 
+
     //Service was registered, call _init (if exists)
     if (server._init) {
         dbg.log0('RPC register_service: calling _init() for', api.id);
         server._init();
     }
+};
+
+/**
+ *
+ * is_service_registered
+ *
+ */
+RPC.prototype.is_service_registered = function(api) {
+    if (!this._services[api]) {
+        return false;
+    }
+    return true;
 };
 
 RPC.prototype.new_client = function(options) {

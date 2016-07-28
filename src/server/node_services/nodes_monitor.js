@@ -42,6 +42,7 @@ const AGENT_INFO_FIELDS = [
     'name',
     'version',
     'ip',
+    'host_id',
     'base_address',
     'rpc_address',
     'geolocation',
@@ -66,6 +67,7 @@ const NODE_INFO_FIELDS = [
     'name',
     'geolocation',
     'ip',
+    'host_id',
     'is_cloud_node',
     'rpc_address',
     'base_address',
@@ -525,6 +527,7 @@ class NodesMonitor extends EventEmitter {
         item.readable = Boolean(
             item.online &&
             item.trusted &&
+            !item.node.decommissioned &&
             !item.node.deleting &&
             !item.node.deleted);
 
@@ -620,6 +623,7 @@ class NodesMonitor extends EventEmitter {
         if (act.running) return;
         dbg.log0('_rebuild_node: start', item.node.name, act);
         const blocks_query = {
+            system: item.node.system,
             node: item.node._id,
             deleted: null
         };

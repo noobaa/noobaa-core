@@ -79,9 +79,17 @@ export default class BucketRowViewModel extends Disposable {
                 () => isLastBucket() || hasObjects()
             ),
             deleteToolTip: ko.pureComputed(
-                () => isLastBucket() ?
-                    'Cannot delete last bucket' :
-                    (hasObjects() ? 'bucket not empty' : 'delete bucket')
+                () => {
+                    if (hasObjects()) {
+                        return 'bucket not empty';
+                    }
+
+                    if (isLastBucket()) {
+                        return 'cannot delete last bucket';
+                    }
+
+                    return 'delete bucket';
+                }
             ),
             onDelete: () => deleteBucket(bucket().name)
         };

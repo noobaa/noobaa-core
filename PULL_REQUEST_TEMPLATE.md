@@ -9,7 +9,7 @@
 - [ ] Platforms handling - describe how it behaves on different platforms: **Agnostic** / **Handled**
 - [ ] Issues opened on technical debt - describe what is left for later
  - [ ] **Does not support XXX - issue #xxxx**
-- [ ] Code Review - with someone besides myself: **@metion**
+- [ ] Code Review - with someone besides myself: **@mention**
 - [ ] Code Covered - by automatic tests: **Links to test**
 - [ ] Code Comments - on non-trivial parts
 - [ ] Diagnostics info - added: **Logs / Files**

@@ -87,12 +87,13 @@ function reduce_storage(reducer, storage_items, mult_factor, div_factor) {
     return _.reduce(accumulator,
         (storage, values, key) => {
             if (!_.isEmpty(values)) {
-                // reduce the values
+                // reduce the values using the provided reducer (sum/min)
                 const reduced_value = reducer(key, values);
-                //  using BigInteger
+                // using BigInteger to calculate the factors
                 const factored_value = json_to_bigint(reduced_value)
                     .multiply(mult_factor)
                     .divide(div_factor);
+                // convert back to json for json schemas (rpc/db)
                 storage[key] = bigint_to_json(factored_value);
             }
             return storage;

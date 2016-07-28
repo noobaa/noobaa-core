@@ -70,7 +70,7 @@ function refresh_pool_alloc(pool) {
  * from the chunk of nodes that we've received in pools.
  *
  */
-function allocate_node(pools, avoid_nodes, content_tiering_params) {
+function allocate_node(pools, avoid_nodes, allocated_hosts, content_tiering_params) {
     let pool_set = _.map(pools, pool => String(pool._id)).sort().join(',');
     let alloc_group =
         alloc_group_by_pool_set[pool_set] =
@@ -111,11 +111,15 @@ function allocate_node(pools, avoid_nodes, content_tiering_params) {
     // without failing to allocate.
     // nodes with error that are indeed offline they will eventually
     // be filtered by refresh_pool_alloc.
-    return allocate_from_list(alloc_group.nodes, avoid_nodes, false) ||
-        allocate_from_list(alloc_group.nodes, avoid_nodes, true);
+
+    // on the first try, filter out nodes (drives) from hosts that already hold a similar block
+    let unique_hosts_nodes = alloc_group.nodes.filter(node => allocated_hosts.indexOf(node.host_id) === -1);
+    return allocate_from_list(unique_hosts_nodes, avoid_nodes, allocated_hosts, false) ||
+        allocate_from_list(alloc_group.nodes, avoid_nodes, allocated_hosts, false) ||
+        allocate_from_list(alloc_group.nodes, avoid_nodes, allocated_hosts, true);
 }
 
-function allocate_from_list(nodes, avoid_nodes, use_nodes_with_errors) {
+function allocate_from_list(nodes, avoid_nodes, allocated_hosts, use_nodes_with_errors) {
     for (var i = 0; i < nodes.length; ++i) {
         var node = get_round_robin(nodes);
         if (Boolean(use_nodes_with_errors) ===

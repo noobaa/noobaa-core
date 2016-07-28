@@ -382,6 +382,11 @@ AgentCLI.prototype.create_node_helper = function(current_node_path_info, interna
                 return promise_utils.exec('echo \'rm -rf ' + current_node_path + '\' >> ./noobaa_service_uninstall.sh ');
             })
             .then(function() {
+                if (!fs.existsSync('./service_uninstaller.bat')) return;
+                dbg.log0('Add uninstall command', node_path);
+                return promise_utils.exec('echo rd /s /q ' + current_node_path + ' >> ./service_uninstaller.bat ');
+            })
+            .then(function() {
                 if (!self.params.internal_agent) {
                     // remove access_key and secret_key from agent_conf after a token was acquired
                     return fs.readFileAsync('agent_conf.json')

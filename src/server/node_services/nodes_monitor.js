@@ -525,6 +525,7 @@ class NodesMonitor extends EventEmitter {
         item.readable = Boolean(
             item.online &&
             item.trusted &&
+            !item.node.decommissioned &&
             !item.node.deleting &&
             !item.node.deleted);
 

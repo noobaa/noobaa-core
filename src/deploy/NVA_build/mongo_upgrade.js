@@ -56,7 +56,7 @@ function upgrade_systems() {
                 phone_home_upgraded: false,
                 phone_home_notified: false,
                 cap_terabytes: 0 //Upgraded systems which didn't have the cap before are customers, don't cap
-            }
+            };
         }
 
         var updated_access_keys = system.access_keys;

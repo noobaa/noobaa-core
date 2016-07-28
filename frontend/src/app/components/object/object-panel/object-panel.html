@@ -7,13 +7,6 @@
 <div class="tabs greedy">
     <nav>
         <a data-bind="
-            href: { route: 'object', params: { tab: 'details' } },
-            css: { selected: isTabSelected('details') }
-        ">
-            Details
-        </a>
-
-        <a data-bind="
             href: { route: 'object', params: { tab: 'parts' } },
             css: { selected: isTabSelected('parts') }
         ">
@@ -22,14 +15,9 @@
     </nav>
 
     <div class="tabs-row">
-        <object-details-form class="tab"
-            data-bind="css: { selected: isTabSelected('details') }",
-            params="obj: obj"
-        "></object-details-form>
-
         <object-parts-list class="tab"
             data-bind="css: { selected: isTabSelected('parts') }",
-            params="parts: parts"
+            params="obj: obj, parts: parts"
         ></object-parts-list>
     </div>
 </div>

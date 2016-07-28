@@ -1,10 +1,36 @@
 <!-- ko if: dataReady -->
-<section class="c3 column">
-    <h3 class="heading4 push-next">
+<section class="column c4">
+    <h3 class="heading4 push-next">File details</h3>
+
+    <ul class="list-no-style column">
+        <li class="row">
+            <span class="c4">Bucket name:</span>
+            <span class="c8" data-bind="text: bucketName"></span>
+        </li>
+        <li class="row">
+            <span class="c4">Content Type:</span>
+            <span class="c8" data-bind="text: contentType"></span>
+        </li>
+
+        <li class="row">
+            <span class="c4">Creation time:</span>
+            <span class="c8" data-bind="text: creationTime"></span>
+        </li>
+        <li class="row">
+            <span class="c4">Last read time:</span>
+            <span class="c8" data-bind="text: lastRead"></span>
+        </li>
+    </ul>
+</section>
+
+<vr></vr>
+
+<section class="c4 row">
+    <h3 class="heading4 push-next c7">
         Reads in last 7 days:
     </h3>
 
-    <needle-gauge class="align-middle" params="
+    <needle-gauge class="align-middle c5" params="
         value: reads, threshold: 500, scale: 1.5
     ">
     </needle-gauge>
@@ -13,30 +39,6 @@
 <vr></vr>
 
 <section class="c4 column">
-    <h3 class="heading4 push-next">
-        Status
-    </h3>
-    <div class="push-next">
-        <svg-icon params="name: stateIcon" data-bind="
-            tooltip: 'File state'
-        "></svg-icon>
-        <span data-bind="text: stateLabel"></span>
-    </div>
-
-    <h3 class="heading4 push-next">
-        File Size
-    </h3>
-    <div>
-        <svg-icon params="name: sizeIcon" data-bind="
-            tooltip: 'File size'
-        "></svg-icon>
-        <span data-bind="text: sizeLabel"></span>
-    </div>
-</section>
-
-<vr></vr>
-
-<section class="c5 column">
     <h3 class="heading4 push-next">
         Activity
     </h3>

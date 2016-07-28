@@ -167,7 +167,7 @@ export function showObject() {
     logAction('showObject');
 
     let ctx = model.routeContext();
-    let { object, bucket, tab = 'details' } = ctx.params;
+    let { object, bucket, tab = 'parts' } = ctx.params;
     let { page = 0 } = ctx.query;
 
     model.uiState({

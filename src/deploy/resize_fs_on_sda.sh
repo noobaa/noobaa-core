@@ -11,6 +11,8 @@ if (( $(fdisk -s /dev/sda1) + (1024*1024) < $(fdisk -s /dev/sda) ))
 then
     logger -s -t resize_fs_on_sda "Running fdisk to resize sda1 partition and reboot ..."
     echo -e "c\nu\nd\nn\np\n1\n\n\nw\n" | fdisk /dev/sda
+    logger -s -t resize_fs_on_sda "Running fdisk -l after repartitioning:"
+    logger -s -t resize_fs_on_sda "$(fdisk -l)"
     reboot
 else
     logger -s -t resize_fs_on_sda "Running (just in case): resize2fs /dev/sda1"

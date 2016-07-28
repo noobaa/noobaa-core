@@ -68,24 +68,31 @@ export default class BucketRowViewModel extends Disposable {
             () => bucket() ? cloudSyncStatusMapping[bucket().cloud_sync_status] : ''
         );
 
-
         let hasObjects = ko.pureComputed(
-            () => !!bucket() && bucket().num_objects > 0
+            () => Boolean(bucket() && bucket().num_objects > 0)
+        );
+
+        let isDemoBucket = ko.pureComputed(
+            () => Boolean(bucket() && bucket().demo_bucket)
         );
 
         this.deleteButton = {
             deleteGroup: deleteGroup,
             undeletable: ko.pureComputed(
-                () => isLastBucket() || hasObjects()
+                () => isDemoBucket() || isLastBucket() || hasObjects()
             ),
             deleteToolTip: ko.pureComputed(
                 () => {
+                    if (isDemoBucket()) {
+                        return 'Demo buckets cannot be deleted';
+                    }
+
                     if (hasObjects()) {
-                        return 'bucket not empty';
+                        return 'Bucket not empty';
                     }
 
                     if (isLastBucket()) {
-                        return 'cannot delete last bucket';
+                        return 'Last bucket cannot be deleted';
                     }
 
                     return 'delete bucket';

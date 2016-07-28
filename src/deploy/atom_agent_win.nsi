@@ -240,6 +240,8 @@ Section "Noobaa Local Service"
 			 "DisplayName" "NooBaa Local Service"
 		WriteRegStr HKLM "Software\Wow6432Node\Microsoft\Windows\CurrentVersion\Uninstall\NooBaa" \
             "QuietUninstallString" "$\"$INSTDIR\uninstall-noobaa.exe$\" /S"
+		WriteRegStr HKLM "Software\Wow6432Node\Microsoft\Windows\CurrentVersion\Uninstall\NooBaa" \
+	        "UninstallString" "$\"$INSTDIR\uninstall-noobaa.exe$\""
 
 	${Else}
     # 32 bit code
@@ -255,6 +257,8 @@ Section "Noobaa Local Service"
 			 "DisplayName" "NooBaa Local Service"
 		WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\NooBaa" \
             "QuietUninstallString" "$\"$INSTDIR\uninstall-noobaa.exe$\" /S"
+		WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\NooBaa" \
+			"UninstallString" "$\"$INSTDIR\uninstall-noobaa.exe$\""
 
 	${EndIf}
 

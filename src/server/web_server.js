@@ -384,8 +384,12 @@ app.get('/get_log_level', function(req, res) {
 
 // Get the current version
 app.get('/version', function(req, res) {
-    res.send(pkg.version);
-    res.end();
+    if (server_rpc.is_service_registered('system_api.read_system')) {
+        res.send(pkg.version);
+        res.end();
+    } else {
+        res.status(404).end();
+    }
 });
 
 ////////////

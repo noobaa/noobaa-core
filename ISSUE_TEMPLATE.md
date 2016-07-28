@@ -1,5 +1,5 @@
 ### Environment info
-- Version: **output of `git rev-parse HEAD`** / **package.json** / **UI**
+- Version: **output of `git rev-parse HEAD`** | **package.json** | **UI**
 - Deployment: choose from - **N/A** | **Dev** | **VBox** | **ESX** | **GCloud** | **AWS**
 - Customer: choose from - **N/A** | **name**
 

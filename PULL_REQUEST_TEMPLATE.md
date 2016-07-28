@@ -7,13 +7,14 @@
 
 - [ ] Failure handling - describe how it behaves on failures: **Delay and retry** / **Return error to the user**
 - [ ] Platforms handling - describe how it behaves on different platforms: **Agnostic** / **Handled**
-- [ ] Created issues on technical debt - describe what is left for latert: **Does not support XXX**
-- [ ] Code Review - with someone besides myself
-- [ ] Code Covered - by automatic tests
+- [ ] Issues opened on technical debt - describe what is left for later
+ - [ ] **Does not support XXX - issue #xxxx**
+- [ ] Code Review - with someone besides myself: **@mention**
+- [ ] Code Covered - by automatic tests: **Links to test**
 - [ ] Code Comments - on non-trivial parts
-- [ ] Diagnostics info - added: Logs / Files
-- [ ] Phone Home info - added: Stats / Actions 
-- [ ] Tests added - unit-tests / system-tests
+- [ ] Diagnostics info - added: **Logs / Files**
+- [ ] Phone Home info - added: **Stats / Actions**
+- [ ] Tests added - **Links to unit-tests / system-tests**
 - [ ] Tested with `npm test`
 
 ### Issues References

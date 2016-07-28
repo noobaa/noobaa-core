@@ -52,6 +52,11 @@ module.exports = {
             format: 'objectid'
         },
 
+        // a uuid to identify the host machine of the node (one host can hold several nodes, one for each drive)
+        host_id: {
+            type: 'string'
+        },
+
         ip: {
             // the public ip of the node
             type: 'string',

@@ -403,6 +403,9 @@ module.exports = {
                 ip: {
                     type: 'string'
                 },
+                host_id: {
+                    type: 'string'
+                },
                 version: {
                     type: 'string'
                 },

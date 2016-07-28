@@ -13,6 +13,7 @@ const NODE_FIELDS_FOR_MAP = [
     'name',
     'pool',
     'ip',
+    'host_id',
     'heartbeat',
     'rpc_address',
     'is_cloud_node',

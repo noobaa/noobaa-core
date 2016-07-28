@@ -12,6 +12,15 @@ class NodeDiagnosticsFormViewModel extends Disposable {
             () => node() && node().name
         );
 
+        this.areActionsDisabled = ko.pureComputed(
+            () => Boolean(node() && node().demo_node)
+        );
+
+        this.actionsToolTip = ko.pureComputed(
+            () => this.areActionsDisabled() &&
+                'Diagnostics operations are not supported for demo nodes'
+        );
+
         this.debugLevel = ko.pureComputed(
             () => node() && node().debug_level
         );

@@ -15,6 +15,15 @@ class PoolNodesTableViewModel extends Disposable {
             () => pool() && pool().name
         );
 
+        this.isAssignNodesDisabled = ko.pureComputed(
+            () => Boolean(pool() && pool().demo_pool)
+        );
+
+        this.assignNodeTooltip = ko.pureComputed(
+            () => this.isAssignNodesDisabled() &&
+                'Node assigment in not supported for demo pools'
+        );
+
         this.pageSize = paginationPageSize;
 
         this.count = ko.pureComputed(

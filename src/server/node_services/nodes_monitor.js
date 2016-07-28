@@ -527,6 +527,7 @@ class NodesMonitor extends EventEmitter {
         item.readable = Boolean(
             item.online &&
             item.trusted &&
+            !item.node.decommissioned &&
             !item.node.deleting &&
             !item.node.deleted);
 
@@ -622,6 +623,7 @@ class NodesMonitor extends EventEmitter {
         if (act.running) return;
         dbg.log0('_rebuild_node: start', item.node.name, act);
         const blocks_query = {
+            system: item.node.system,
             node: item.node._id,
             deleted: null
         };

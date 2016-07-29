@@ -23,7 +23,8 @@ mocha.describe('node_server', function() {
         this.timeout(20000);
         let nodes;
         return P.resolve()
-            .then(() => client.account.create_account({
+            .then(() => client.system.create_system({
+                activation_code: '1111',
                 name: SYS,
                 email: EMAIL,
                 password: PASSWORD,

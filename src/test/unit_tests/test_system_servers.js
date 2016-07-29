@@ -36,6 +36,7 @@ mocha.describe('system_servers', function() {
     mocha.it('works', function() {
         this.timeout(60000);
         let nodes_list;
+        console.log('ETETET');
         return P.resolve()
             ///////////////
             //  ACCOUNT  //
@@ -50,6 +51,8 @@ mocha.describe('system_servers', function() {
                 access_keys: ACCESS_KEYS
             }))
             .then(res => {
+                console.log('ETETET 1');
+
                 client.options.auth_token = res.token;
             })
             .then(() => client.account.accounts_status())
@@ -60,23 +63,29 @@ mocha.describe('system_servers', function() {
             .then(() => client.account.list_accounts())
             .then(() => client.account.get_account_sync_credentials_cache())
             .then(() => client.system.read_system())
+            .then(() => {
+                console.log('ETETET 2');
+                return client.system.update_system({
+                    name: SYS1,
+                });
+            })
             .then(() => client.account.update_account({
                 email: EMAIL,
-                name: SYS1,
-            }))
-            .then(() => client.system.update_system({
                 name: SYS1,
             }))
             .then(() => client.system.read_system())
             .then(() => client.system.update_system({
                 name: SYS,
             }))
-            .then(() => client.account.create_account({
-                name: EMAIL1,
-                email: EMAIL1,
-                password: PASSWORD,
-                access_keys: ACCESS_KEYS
-            }))
+            .then(() => {
+                console.log('ETETET 3');
+                return client.account.create_account({
+                    name: EMAIL1,
+                    email: EMAIL1,
+                    password: PASSWORD,
+                    access_keys: ACCESS_KEYS
+                });
+            })
             .then(() => client.system.read_system())
             .then(() => client.system.add_role({
                 email: EMAIL1,
@@ -127,14 +136,24 @@ mocha.describe('system_servers', function() {
             )
             //.then(() => client.system.start_debug({level:0}))
             .then(() => client.system.diagnose_system())
+            .then(() => client.system.update_system({
+                name: SYS1,
+            }))
             .then(() => client.create_auth_token({
                 email: EMAIL,
                 password: PASSWORD,
                 system: SYS1,
             }))
             .then(() => client.system.delete_system())
+            .then(() => client.system.create_system({
+                activation_code: '1111',
+                name: SYS,
+                email: EMAIL1,
+                password: PASSWORD,
+                access_keys: ACCESS_KEYS
+            }))
             .then(() => client.create_auth_token({
-                email: EMAIL,
+                email: EMAIL1,
                 password: PASSWORD,
                 system: SYS,
             }))
@@ -264,13 +283,13 @@ mocha.describe('system_servers', function() {
                     schedule_min: 11
                 }
             }))
-            .then(() => client.bucket.get_cloud_buckets({
-                connection: CLOUD_SYNC_CONNECTION
-            }))
+            // .then(() => client.bucket.get_cloud_buckets({
+            //     connection: CLOUD_SYNC_CONNECTION
+            // }))
             .then(() => client.system.read_system())
-            .then(() => client.bucket.get_cloud_sync({
-                name: BUCKET,
-            }))
+            // .then(() => client.bucket.get_cloud_sync({
+            //     name: BUCKET,
+            // }))
             .then(() => client.bucket.delete_cloud_sync({
                 name: BUCKET,
             }))

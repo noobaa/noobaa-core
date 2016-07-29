@@ -36,7 +36,6 @@ mocha.describe('system_servers', function() {
     mocha.it('works', function() {
         this.timeout(60000);
         let nodes_list;
-        console.log('ETETET');
         return P.resolve()
             ///////////////
             //  ACCOUNT  //
@@ -51,8 +50,6 @@ mocha.describe('system_servers', function() {
                 access_keys: ACCESS_KEYS
             }))
             .then(res => {
-                console.log('ETETET 1');
-
                 client.options.auth_token = res.token;
             })
             .then(() => client.account.accounts_status())
@@ -64,7 +61,6 @@ mocha.describe('system_servers', function() {
             .then(() => client.account.get_account_sync_credentials_cache())
             .then(() => client.system.read_system())
             .then(() => {
-                console.log('ETETET 2');
                 return client.system.update_system({
                     name: SYS1,
                 });
@@ -78,7 +74,6 @@ mocha.describe('system_servers', function() {
                 name: SYS,
             }))
             .then(() => {
-                console.log('ETETET 3');
                 return client.account.create_account({
                     name: EMAIL1,
                     email: EMAIL1,

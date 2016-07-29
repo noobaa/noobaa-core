@@ -391,6 +391,9 @@ module.exports = {
                 is_cloud_node: {
                     type: 'boolean'
                 },
+                demo_node: {
+                    type: 'boolean'
+                },
                 geolocation: {
                     type: 'string'
                 },

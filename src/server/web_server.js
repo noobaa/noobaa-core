@@ -77,6 +77,10 @@ var http_server = http.createServer(app);
 var https_server;
 
 P.fcall(function() {
+        // we register the rpc before listening on the port
+        // in order for the rpc services to be ready immediately
+        // with the http services like /fe and /version
+        server_rpc.rpc.register_ws_transport(http_server);
         return P.ninvoke(http_server, 'listen', http_port);
     })
     .then(function() {
@@ -101,12 +105,11 @@ P.fcall(function() {
             key: cert.serviceKey,
             cert: cert.certificate
         }, app);
+        server_rpc.rpc.register_ws_transport(https_server);
         return P.ninvoke(https_server, 'listen', https_port);
     })
     .then(function() {
         dbg.log('Web Server Started, ports: http', http_port, 'https', https_port);
-        server_rpc.rpc.register_ws_transport(http_server);
-        server_rpc.rpc.register_ws_transport(https_server);
     })
     .catch(function(err) {
         dbg.error('Web Server FAILED TO START', err.stack || err);

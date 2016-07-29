@@ -105,6 +105,15 @@ class BucketDataPlacementFormViewModel extends Disposable {
             () => this.cloudResources() && this.cloudResources().length
         );
 
+        this.editingDisabled = ko.pureComputed(
+            () => Boolean(bucket() && bucket().demo_bucket)
+        );
+
+        this.editingDisabledToolTip = ko.pureComputed(
+            () => this.editingDisabled() &&
+                'Editing policies is not supported for demo buckets'
+        );
+
         this.isPlacementPolicyModalVisible = ko.observable(false);
         this.isBackupPolicyModalVisible = ko.observable(false);
     }

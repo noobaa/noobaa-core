@@ -5,9 +5,14 @@
     </div>
 
 
-    <button class="btn3" data-bind="click: showPlacementPolicyModal">
-        Edit placement policy
-    </button>
+    <div data-bind="tooltip: editingDisabledToolTip">
+        <button class="btn3" data-bind="
+            disable: editingDisabled,
+            click: showPlacementPolicyModal
+        ">
+            Edit placement policy
+        </button>
+    </div>
 </div>
 
 <div class="row push-next">

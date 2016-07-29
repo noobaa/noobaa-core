@@ -28,8 +28,11 @@ class RestPasswordModalViewModel extends Disposable {
 
     }
 
-    reset() {
+    copyEmailTextToClipboard() {
         copyTextToClipboard(this.userMessage());
+    }
+
+    reset() {
         resetAccountPassword(ko.unwrap(this.email), this.password);
         this.onClose();
     }

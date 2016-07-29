@@ -13,9 +13,14 @@
 
     <div class="greedy"></div>
 
-    <button class="btn3 " data-bind="click: () => showAssignNodesModal()">
-        Assign Nodes
-    </button>
+    <div data-bind="tooltip: assignNodeTooltip">
+        <button class="btn3 " data-bind="
+            disable: isAssignNodesDisabled,
+            click: () => showAssignNodesModal()
+        ">
+            Assign Nodes
+        </button>
+    </div>
 </div>
 
 <div class="data-table greedy push-both">

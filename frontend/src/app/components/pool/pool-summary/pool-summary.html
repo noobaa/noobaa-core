@@ -1,29 +1,6 @@
 <!-- ko if: dataReady -->
-<section class="c4 row">
-    <div class="column greedy">
-        <h3 class="heading4 push-next">
-            Storage Capacity:
-            <span data-bind="text: totalText"></span>
-        </h3>
 
-        <ul class="c7 column list-no-style legend">
-            <li class="row">
-                <span class="c6 emphasized">Used:</span>
-                <span class="highlight" data-bind="text: usedText"></span>
-            </li>
-            <li class="row">
-                <span class="c6 emphasized">Free:</span>
-                <span data-bind="text: freeText"></span>
-            </li>
-        </ul>
-    </div>
-
-    <pie-chart class="" params="values: pieValues"></pie-chart>
-</section>
-
-<vr></vr>
-
-<section class="c3 column">
+<section class="c4 column">
     <h3 class="heading4 push-next">Status</h3>
     <div class="push-next">
         <svg-icon params="name: stateIcon" data-bind="
@@ -54,7 +31,31 @@
 
 <vr></vr>
 
-<section class="column c5">
+<section class="c4 row">
+    <div class="column greedy">
+        <h3 class="heading4 push-next">
+            Storage Capacity:
+            <span data-bind="text: totalText"></span>
+        </h3>
+
+        <ul class="c7 column list-no-style legend">
+            <li class="row">
+                <span class="c6 emphasized">Used:</span>
+                <span class="highlight" data-bind="text: usedText"></span>
+            </li>
+            <li class="row">
+                <span class="c6 emphasized">Free:</span>
+                <span data-bind="text: freeText"></span>
+            </li>
+        </ul>
+    </div>
+
+    <pie-chart class="" params="values: pieValues"></pie-chart>
+</section>
+
+<vr></vr>
+
+<section class="column c4">
     <h3 class="heading4 push-next">Activity</h3>
     <!-- ko foreach: dataActivities -->
     <p class="paragraph">

@@ -1159,6 +1159,7 @@ class NodesMonitor extends EventEmitter {
         if (node.decommissioned) info.decommissioned = node.decommissioned.getTime();
         if (node.deleting) info.deleting = node.deleting.getTime();
         if (node.deleted) info.deleted = node.deleted.getTime();
+        if (node.is_internal_node) info.demo_node = true;
         const act = item.data_activity;
         if (act && !act.done) {
             info.data_activity = _.pick(act,

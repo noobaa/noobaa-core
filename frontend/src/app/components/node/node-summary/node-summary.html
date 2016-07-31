@@ -1,3 +1,28 @@
+<section class="c4 column">
+    <h3 class="heading4 push-next">Status</h3>
+    <ul class="list-no-style row multiline status">
+        <li class="c6">
+            <svg-icon params="name: stateIcon" data-bind="tooltip: 'State'">
+            </svg-icon>
+            <span data-bind="text: stateText"></span>
+        </li>
+        <li class="c6">
+            <svg-icon params="name: trustIcon" data-bind="tooltip: 'Trust'">
+            </svg-icon>
+            <span data-bind="text: trustText"></span>
+        </li>
+
+        <li class="c12">
+            <svg-icon params="name: accessibilityIcon" data-bind="
+                tooltip: 'Accessibility'
+            "></svg-icon>
+            <span data-bind="text: accessibilityText"></span>
+        </li>
+    </ul>
+</section>
+
+<vr></vr>
+
 <section class="c4 row">
     <div class="column greedy">
         <h3 class="heading4 push-next">
@@ -30,32 +55,7 @@
 
 <vr></vr>
 
-<section class="c3 column">
-    <h3 class="heading4 push-next">Status</h3>
-    <ul class="list-no-style row multiline status">
-        <li class="c6">
-            <svg-icon params="name: stateIcon" data-bind="tooltip: 'State'">
-            </svg-icon>
-            <span data-bind="text: stateText"></span>
-        </li>
-        <li class="c6">
-            <svg-icon params="name: trustIcon" data-bind="tooltip: 'Trust'">
-            </svg-icon>
-            <span data-bind="text: trustText"></span>
-        </li>
-
-        <li class="c12">
-            <svg-icon params="name: accessibilityIcon" data-bind="
-                tooltip: 'Accessibility'
-            "></svg-icon>
-            <span data-bind="text: accessibilityText"></span>
-        </li>
-    </ul>
-</section>
-
-<vr></vr>
-
-<section class="column c5">
+<section class="column c4">
     <h3 class="heading4 push-next">Activity</h3>
     <!-- ko if: dataActivity -->
     <p class="paragraph" data-bind="with: dataActivity">

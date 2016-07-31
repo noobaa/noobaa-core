@@ -3,17 +3,9 @@ import ko from 'knockout';
 import numeral from 'numeral';
 import { deletePool } from 'actions';
 
-const cannotDeleteReasons = Object.freeze({
-    SYSTEM_ENTITY: 'Cannot delete system defined default pool',
-    NOT_EMPTY: 'Cannot delete a pool which contains nodes',
-    IN_USE: 'Cannot delete a pool that is assigned to a bucket policy'
-});
-
 export default class PoolRowViewModel extends Disposable {
     constructor(pool, deleteGroup) {
         super();
-
-        this.pool = pool;
 
         this.state = ko.pureComputed(
             () => {
@@ -58,23 +50,39 @@ export default class PoolRowViewModel extends Disposable {
             () => pool() ? pool().storage : {}
         );
 
-        let undeletable = ko.pureComputed(
+        let isDemoPool = ko.pureComputed(
+            () => Boolean(pool() && pool().demo_pool)
+        );
+
+        let isUndeletable = ko.pureComputed(
             () => Boolean(pool() && pool().undeletable)
         );
 
         this.deleteButton = {
             deleteGroup: deleteGroup,
-            undeletable: undeletable,
+            undeletable: isUndeletable,
             deleteToolTip: ko.pureComputed(
-                () => pool() && (
-                    undeletable() ? cannotDeleteReasons[pool().undeletable] : 'delete pool'
-                )
-            ),
-            onDelete: () => this.del()
-        };
-    }
+                () => {
+                    if (isDemoPool()) {
+                        return 'Demo pools cannot be deleted';
+                    }
 
-    del() {
-        deletePool(this.pool().name);
+                    let { undeletable } = pool();
+                    if (undeletable === 'SYSTEM_ENTITY') {
+                        return 'Cannot delete system defined default pool';
+                    }
+
+                    if (undeletable === 'NOT_EMPTY') {
+                        return 'Cannot delete a pool which contains nodes';
+                    }
+
+                    if (undeletable === 'IN_USE') {
+                        return 'Cannot delete a pool that is assigned to a bucket policy';
+                    }
+
+                }
+            ),
+            onDelete: () => deletePool(pool().name)
+        };
     }
 }

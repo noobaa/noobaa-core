@@ -15,7 +15,7 @@ class BucketsOverviewViewModel extends Disposable {
 
         this.objectCountText = ko.pureComputed(() => {
             let count = ko.unwrap(objectCount);
-            return `${numeral(count).format('0,0')} Files`;
+            return `${numeral(count).format('0,0')} File${count === 1 ? '' : 's'}`;
         });
     }
 }

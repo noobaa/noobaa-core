@@ -5,6 +5,36 @@ import { paginationPageSize, inputThrottle } from 'config';
 import { throttle, makeArray } from 'utils';
 import ObjectRowViewModel from './object-row';
 import { redirectTo } from 'actions';
+import { systemInfo } from 'model';
+
+// TODO: logic should move to server side.
+function hasEnoughBackingNodeForUpload(bucket) {
+    if (!bucket() || !systemInfo()) {
+        return false;
+    }
+
+    let tier = systemInfo().tiers.find(
+        tier => tier.name === bucket().tiering.tiers[0].tier
+    );
+
+    let pools = systemInfo().pools.filter(
+        pool => tier.node_pools.includes(pool.name)
+    );
+
+    if (tier.data_placement === 'SPREAD') {
+        let nodeCount = pools.reduce(
+            (count, pool) => count + pool.nodes.online,
+            0
+        );
+
+        return nodeCount >= 3;
+
+    } else {
+        return pools.every(
+            pool => pool.nodes.online >= 3
+        );
+    }
+}
 
 class BucketObjectsTableViewModel extends Disposable {
     constructor({ bucket, objects }) {
@@ -12,6 +42,15 @@ class BucketObjectsTableViewModel extends Disposable {
 
         this.bucketName = ko.pureComputed(
             () => bucket() && bucket().name
+        );
+
+        this.uploadDisabled = ko.pureComputed(
+            () => !hasEnoughBackingNodeForUpload(bucket)
+        );
+
+        this.uploadTooltip = ko.pureComputed(
+            () => this.uploadDisabled() &&
+                'Cannot upload, not enough nodes in bucket storage'
         );
 
         this.objectCount = ko.pureComputed(

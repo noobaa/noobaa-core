@@ -16,7 +16,7 @@
     "build": "npm run build:native && npm run build:fe",
     "----": "-----------------------------------------------------------------",
     "lint": "eslint src",
-    "mocha": "istanbul test --include-all-sources --es-modules --no-default-excludes -x '**/node_modules/**' -x 'frontend/**' -x 'src/util/mongo_functions.js' --dir $COVDIR -- ./node_modules/.bin/_mocha src/test/unit_tests",
+    "mocha": "istanbul test --include-all-sources --es-modules --no-default-excludes -x '**/bower_components/**' -x '**/node_modules/**' -x 'frontend/**' -x 'src/util/mongo_functions.js' --dir $COVDIR -- ./node_modules/.bin/_mocha src/test/unit_tests",
     "test:lint": "npm run lint",
     "test:mocha": "npm run mocha --coverage",
     "test": "npm run test:lint && npm run test:mocha",

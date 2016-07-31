@@ -110,6 +110,12 @@ function create_auth(req) {
                 authenticated_account.is_support ||
                 // system owner can do anything
                 String(system.owner) === String(authenticated_account._id) ||
+                // From some reason, which I couldn't find, system store is
+                // missing roles_by_account from time to time.
+                // In addition, it's not clear why do we need the line above,
+                // as system.owner is an object. I left it for case, I may not
+                //see right now.
+                String(system.owner._id) === String(authenticated_account._id) ||
                 // system admin can do anything
                 _.includes(roles, 'admin') ||
                 // non admin is not allowed to delegate roles to other accounts

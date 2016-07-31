@@ -56,49 +56,47 @@ class DropdownViewModel extends Disposable {
             case 9: /* tab */
                 this.searchInput = '';
                 this.active(false);
-                break;
+                return true;
 
             case 13: /* enter */
                 this.searchInput = '';
                 this.active.toggle();
-                break;
+                return false;
 
             case 33: /* page up */
                 this.active(true);
                 this.moveSelectionBy(-6);
-                break;
+                return false;
 
             case 34: /* page down */
                 this.active(true);
                 this.moveSelectionBy(6);
-                break;
+                return false;
 
             case 35: /* end */
                 this.active(true);
                 this.moveSelectionBy(optionsCount);
-                break;
+                return false;
 
             case 36: /* home */
                 this.active(true);
                 this.moveSelectionBy(-optionsCount);
-                break;
+                return false;
 
             case 38: /* up arrow */
                 this.active(true);
                 this.moveSelectionBy(-1);
-                break;
+                return false;
 
             case 40: /* down arrow */
                 this.active(true);
                 this.moveSelectionBy(1);
-                break;
+                return false;
 
             default:
                 this.sreachBy(which);
-                break;
+                return true;
         }
-
-        return true;
     }
 
     moveSelectionBy(step) {

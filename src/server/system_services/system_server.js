@@ -186,6 +186,9 @@ function new_system_changes(name, owner_account) {
  */
 function create_system(req) {
     var account = _.pick(req.rpc_params, 'name', 'email', 'password');
+    if (system_store.data.systems.length > 20) {
+        throw new Error('Too many created systems');
+    }
     //Create the new system
     account._id = system_store.generate_id();
     let allowed_buckets;
@@ -229,13 +232,13 @@ function create_system(req) {
                 return;
             }
             return server_rpc.client.hosted_agents.create_agent({
-                    name: req.rpc_params.name,
-                    access_keys: req.rpc_params.access_keys,
-                    scale: 3,
-                    storage_limit: 100 * 1024 * 1024,
-                },{
-                    auth_token: reply_token
-                });
+                name: req.rpc_params.name,
+                access_keys: req.rpc_params.access_keys,
+                scale: 3,
+                storage_limit: 100 * 1024 * 1024,
+            }, {
+                auth_token: reply_token
+            });
         })
         .then(() => {
             //Time config, if supplied
@@ -266,7 +269,11 @@ function create_system(req) {
             if (!req.rpc_params.dns_name) {
                 return;
             }
-            return;
+            return server_rpc.client.system.update_hostname({
+                hostname: req.rpc_params.dns_name
+            }, {
+                auth_token: reply_token
+            });
         })
         .then(() => ({
             token: reply_token
@@ -937,6 +944,11 @@ function do_upgrade(req) {
     return;
 }
 
+function validate_activation(req) {
+    //TODO:: call actial validate_activation
+    return true;
+}
+
 
 // UTILS //////////////////////////////////////////////////////////
 
@@ -994,3 +1006,5 @@ exports.configure_remote_syslog = configure_remote_syslog;
 
 exports.upload_upgrade_package = upload_upgrade_package;
 exports.do_upgrade = do_upgrade;
+
+exports.validate_activation = validate_activation;

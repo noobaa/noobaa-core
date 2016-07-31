@@ -118,7 +118,6 @@ function background_worker() {
                 let bigint_ex_obj_agg = new size_utils.BigInteger((existing_objects_aggregate[bucket._id] && existing_objects_aggregate[bucket._id].size) || 0);
                 let bigint_de_obj_agg = new size_utils.BigInteger((deleted_objects_aggregate[bucket._id] && deleted_objects_aggregate[bucket._id].size) || 0);
 
-                // TODO: Convert to using bigint
                 let delta_chunk_compress_size = bigint_ex_chunks_agg.minus(bigint_de_chunks_agg);
                 let delta_object_size = bigint_ex_obj_agg.minus(bigint_de_obj_agg);
                 let delta_object_count = ((existing_objects_aggregate[bucket._id] && existing_objects_aggregate[bucket._id].count) || 0) -

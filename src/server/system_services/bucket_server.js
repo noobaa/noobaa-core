@@ -758,7 +758,7 @@ function get_bucket_info(bucket, nodes_aggregate_pool, cloud_sync_policy) {
         free: info.tiering && info.tiering.storage && info.tiering.storage.free || 0,
         // This is the physical compressed capacity
         // TODO: Does not include the movie multiplication, and rebuilds
-        real: ((bucket.storage_stats && bucket.storage_stats.chunks_capacity) || 0) * tier_of_bucket.replicas * placement_mul
+        real: new size_utils.BigInteger((bucket.storage_stats && bucket.storage_stats.chunks_capacity) || 0).multiply(tier_of_bucket.replicas).multiply(placement_mul)
     });
 
     info.cloud_sync_status = _.isEmpty(cloud_sync_policy) ? 'NOTSET' : cloud_sync_policy.status;

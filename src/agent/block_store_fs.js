@@ -39,7 +39,7 @@ class BlockStoreFs extends BlockStoreBase {
             let dir_str = string_utils.left_pad_zeros(i.toString(16), num_digits) + '.blocks';
             dir_list.push(path.join(this.blocks_path_root, dir_str));
         }
-        dir_list.push(path.join(this.blocks_path_root, 'other'));
+        dir_list.push(path.join(this.blocks_path_root, 'other.blocks'));
 
         return P.map(dir_list, dir => fs_utils.create_path(dir), {
                 concurrency: 10
@@ -185,35 +185,35 @@ class BlockStoreFs extends BlockStoreBase {
         return path.join(this.blocks_path_root, block_dir, block_id + '.meta');
     }
 
+    _get_block_other_path(file) {
+        let block_dir = this._get_block_internal_dir('other');
+        return path.join(this.blocks_path_root, block_dir, file);
+    }
     upgrade_dir_structure() {
         let concurrency = 10; // the number of promises to use for moving blocks - set arbitrarily for now
         return fs.readdirAsync(this.old_blocks_path)
-            .then(entries => {
-                // filter out the '.blocks' directories
-                let files = entries.filter(entry => entry.indexOf('.blocks') === -1);
+            .then(files => {
                 dbg.log2('found', files.length, 'files to move. files:', files);
                 return P.map(files, file => {
                     let file_split = file.split('.');
+                    let new_path = this._get_block_other_path(file);
                     if (file_split.length === 2) {
                         let block_id = file_split[0];
                         let suffix = file_split[1];
-                        let new_path = '';
                         if (suffix === 'data') new_path = this._get_block_data_path(block_id);
                         else if (suffix === 'meta') new_path = this._get_block_meta_path(block_id);
-                        if (new_path) {
-                            let old_path = path.join(this.old_blocks_path, file);
-                            return fs.renameAsync(old_path, new_path)
-                                .catch(err => dbg.error('upgrade_dir_structure: failed moving from:', old_path, 'to:', new_path));
-                        }
                     }
-                    return P.resolve();
+                    let old_path = path.join(this.old_blocks_path, file);
+                    return fs.renameAsync(old_path, new_path)
+                        .catch(err => dbg.error('upgrade_dir_structure: failed moving from:', old_path, 'to:', new_path));
                 }, {
                     concurrency: concurrency
                 });
-            }, err => {
-                dbg.error('readdir on', this.old_blocks_path, 'failed with error:', err);
             })
-            .then(() => fs.rmdirAsync(this.old_blocks_path));
+            .then(() => fs.rmdirAsync(this.old_blocks_path))
+            .catch(err => {
+                dbg.error('readdir on', this.old_blocks_path, 'failed with error:', err);
+            });
     }
 
 }

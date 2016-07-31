@@ -128,7 +128,7 @@ class BlockStoreBase {
         let hex_str_regex = /^[0-9a-fA-f]+$/;
         let internal_dir = hex_str_regex.test(block_id) ?
             block_id.substring(block_id.length - 3) + '.blocks' :
-            'other';
+            'other.blocks';
         return internal_dir;
     }
 

@@ -16,6 +16,7 @@ const fs_utils = require('../util/fs_utils');
 const os_utils = require('../util/os_utils');
 const Semaphore = require('../util/semaphore');
 const BlockStoreBase = require('./block_store_base').BlockStoreBase;
+const string_utils = require('../util/string_utils');
 
 class BlockStoreFs extends BlockStoreBase {
 
@@ -24,16 +25,21 @@ class BlockStoreFs extends BlockStoreBase {
         this.root_path = options.root_path;
         this.blocks_path_root = path.join(this.root_path, 'blocks');
         this.config_path = path.join(this.root_path, 'config');
-        // create internal directories to hold blocks by their last 2 hex digits
+
+        // create internal directories to hold blocks by their last 3 hex digits
         // this is done to reduce the number of files in one directory which leads
         // to bad performance
-        for (let i = 0; i < 256; ++i) {
-            let dir_str = i.toString(16);
-            if (i < 16) dir_str = '0' + dir_str;
+        let num_digits = 3;
+        for (let i = 0; i < Math.pow(16, num_digits); ++i) {
+            let dir_str = string_utils.left_pad_zeros(i.toString(16), num_digits) + '.blocks';
             let block_dir = path.join(this.blocks_path_root, dir_str);
             mkdirp.sync(block_dir, fs_utils.PRIVATE_DIR_PERMISSIONS);
         }
 
+    }
+
+    init() {
+        return this.upgrade_dir_structure();
     }
 
     get_storage_info() {
@@ -165,19 +171,41 @@ class BlockStoreFs extends BlockStoreBase {
     }
 
     _get_block_data_path(block_id) {
-        let block_dir = '';
-        if (this._is_hex_string(block_id)) block_dir = block_id.substring(block_id.length - 2);
+        let block_dir = this._get_block_internal_dir(block_id);
         return path.join(this.blocks_path_root, block_dir, block_id + '.data');
     }
 
     _get_block_meta_path(block_id) {
-        let block_dir = '';
-        if (this._is_hex_string(block_id)) block_dir = block_id.substring(block_id.length - 2);
+        let block_dir = this._get_block_internal_dir(block_id);
         return path.join(this.blocks_path_root, block_dir, block_id + '.meta');
     }
 
-    _is_hex_string(str) {
-        return /^[0-9a-fA-f]+$/.test(str);
+    upgrade_dir_structure() {
+        let concurrency = 10; // the number of promises to use for moving blocks - set arbitrarily for now
+        return fs.readdirAsync(this.blocks_path_root)
+            .then(entries => {
+                // filter out the '.blocks' directories
+                let files = entries.filter(entry => entry.indexOf('.blocks') === -1);
+                dbg.log2('found', files.length, 'files to move. files:', files);
+                return P.map(files, file => {
+                    let file_split = file.split('.');
+                    if (file_split.length === 2) {
+                        let block_id = file_split[0];
+                        let suffix = file_split[1];
+                        let new_path = '';
+                        if (suffix === 'data') new_path = this._get_block_data_path(block_id);
+                        else if (suffix === 'meta') new_path = this._get_block_meta_path(block_id);
+                        if (new_path) {
+                            let old_path = path.join(this.blocks_path_root, file);
+                            return fs.renameAsync(old_path, new_path)
+                                .catch(err => dbg.error('upgrade_dir_structure: failed moving from:', old_path, 'to:', new_path));
+                        }
+                    }
+                    return P.resolve();
+                }, {
+                    concurrency: concurrency
+                });
+            });
     }
 
 }

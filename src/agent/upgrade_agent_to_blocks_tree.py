@@ -26,30 +26,30 @@ for node in os.listdir(path):
         break
 
     blocks_tree_path = path + node + '/blocks_tree/'
+    print 'Creating tree dirs under:', blocks_tree_path
     if not os.path.isdir(blocks_tree_path):
         if wet: os.mkdir(blocks_tree_path)
-
-    print 'Creating tree dirs under:', blocks_tree_path
+    blocks_tree_other_path = blocks_tree_path + 'other.blocks/'
+    if not os.path.isdir(blocks_tree_other_path):
+        if wet: os.mkdir(blocks_tree_other_path)
     for i in xrange(0, 0x1000):
         tree_path = blocks_tree_path + ('%03x' % i) + '.blocks'
-        if os.path.isdir(tree_path): continue
-        print 'Creating tree dir:', tree_path
-        if wet: os.mkdir(tree_path)
+        if not os.path.isdir(tree_path):
+            if wet: os.mkdir(tree_path)
 
     print 'Moving blocks to:', blocks_tree_path
     count = 0
     for f in os.listdir(blocks_path):
         sp = f.split('.')
-        if sp[1] != 'data' and sp[1] != 'meta':
-            print '*** Skipping non data/meta block extension:', f
-            continue
-        tree_path = None
+        tree_path = blocks_tree_other_path
         try:
-            i = int(sp[0], 16) % 0x1000
-            tree_path = blocks_tree_path + ('%03x' % i) + '.blocks/'
-        except ValueError:
-            tree_path = blocks_tree_path + 'other.blocks/'
-            continue
+            if len(sp) == 2 and (sp[1] == 'data' or sp[1] == 'meta'):
+                i = int(sp[0], 16) % 0x1000
+                tree_path = blocks_tree_path + ('%03x' % i) + '.blocks/'
+        except:
+            # When the file name is not a hex id we expect a ValueError
+            # and will use the tree_path of 'other.blocks'
+            pass
         if verbose: print 'Moving block:', f, '->', tree_path
         if wet: os.rename(blocks_path + f, tree_path + f)
         count += 1

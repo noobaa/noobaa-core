@@ -46,10 +46,15 @@ function background_worker() {
             });
     } else if (!is_cluster_master) {
         dbg.log0('no local cluster info or server is not part of a cluster. therefore will be cluster master');
-        return send_master_update(true).then(() => {
-            bg_workers_starter.run_master_workers();
-            is_cluster_master = true;
-        });
+        return send_master_update(true)
+            .then(() => {
+                bg_workers_starter.run_master_workers();
+                is_cluster_master = true;
+            })
+            .catch(err => {
+                dbg.error('send_master_update had an error:', err.stack || err);
+                return;
+            });
     }
 }
 

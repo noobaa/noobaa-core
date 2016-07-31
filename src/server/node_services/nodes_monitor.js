@@ -35,7 +35,7 @@ const system_server_utils = require('../utils/system_server_utils');
 const clustering_utils = require('../utils/clustering_utils');
 
 const RUN_DELAY_MS = 60000;
-const RUN_NODE_CONCUR = 50;
+const RUN_NODE_CONCUR = 10;
 const MAX_NUM_LATENCIES = 20;
 const UPDATE_STORE_MIN_ITEMS = 100;
 
@@ -51,7 +51,7 @@ const AGENT_INFO_FIELDS = [
     'drives',
     'os_info',
     'debug_level',
-    'is_internal_agent'
+    'is_internal_agent',
 ];
 const MONITOR_INFO_FIELDS = [
     'has_issues',
@@ -77,6 +77,12 @@ const NODE_INFO_FIELDS = [
     'latency_of_disk_read',
     'latency_of_disk_write',
     'debug_level',
+    'heartbeat',
+    'migrating_to_pool',
+    'decommissioning',
+    'decommissioned',
+    'deleting',
+    'deleted',
 ];
 const NODE_INFO_DEFAULTS = {
     ip: '0.0.0.0',
@@ -527,11 +533,12 @@ class NodesMonitor extends EventEmitter {
         item.readable = Boolean(
             item.online &&
             item.trusted &&
-            !item.node.decommissioned &&
+            !item.node.decommissioned && // but readable when decommissioning !
             !item.node.deleting &&
             !item.node.deleted);
 
-        item.writable = Boolean(!item.storage_full &&
+        item.writable = Boolean(
+            !item.storage_full &&
             item.online &&
             item.trusted &&
             !item.node.decommissioning &&
@@ -545,11 +552,10 @@ class NodesMonitor extends EventEmitter {
             'NO_ACCESS';
 
         item.data_activity_reason =
-            (item.node.deleting && 'DELETING') ||
-            (item.node.decommissioning && 'DECOMMISSIONING') ||
+            (item.node.deleting && !item.node.deleted && 'DELETING') ||
+            (item.node.decommissioning && !item.node.decommissioned && 'DECOMMISSIONING') ||
             (item.node.migrating_to_pool && 'MIGRATING') ||
-            (!item.online && 'RESTORING') ||
-            (item.storage_full && 'FREEING_SPACE');
+            (!item.online && 'RESTORING');
 
         if (item.data_activity && !item.data_activity_reason) {
             dbg.warn('_update_status: unset node data_activity for', item.node.name);
@@ -704,10 +710,10 @@ class NodesMonitor extends EventEmitter {
                         delete item.node.migrating_to_pool;
                     }
                     if (item.node.decommissioning) {
-                        item.node.decommissioned = new Date();
+                        item.node.decommissioned = Date.now();
                     }
                     if (item.node.deleting) {
-                        item.node.deleted = new Date();
+                        item.node.deleted = Date.now();
                     }
                     this._set_need_update.add(item);
                     dbg.log0('_rebuild_node: DONE', item.node.name, act);
@@ -810,12 +816,12 @@ class NodesMonitor extends EventEmitter {
             dbg.log0('migrate_nodes_to_pool:', item.node.name,
                 'pool_id', pool_id, 'from pool', item.node.pool);
             if (String(item.node.pool) !== String(pool_id)) {
-                item.node.migrating_to_pool = new Date();
+                item.node.migrating_to_pool = Date.now();
                 item.node.pool = pool_id;
                 item.suggested_pool = ''; // reset previous suggestion
             }
-            this._update_status(item);
             this._set_need_update.add(item);
+            this._update_status(item);
         });
         this._schedule_next_run(1);
         // let desc_string = [];
@@ -836,24 +842,29 @@ class NodesMonitor extends EventEmitter {
     decommission_node(node_identity) {
         this._throw_if_not_started_and_loaded();
         const item = this._get_node(node_identity, 'allow_offline');
+        if (!item.node.decommissioning) {
+            item.node.decommissioning = Date.now();
+        }
+        this._set_need_update.add(item);
         this._update_status(item);
-
-        // TODO GUYM implement decommission_node
-        throw new RpcError('TODO', 'decommission_node');
     }
 
     recommission_node(node_identity) {
         this._throw_if_not_started_and_loaded();
         const item = this._get_node(node_identity, 'allow_offline');
+        delete item.node.decommissioning;
+        delete item.node.decommissioned;
+        this._set_need_update.add(item);
         this._update_status(item);
-
-        // TODO GUYM implement recommission_node
-        throw new RpcError('TODO', 'recommission_node');
     }
 
     delete_node(node_identity) {
         this._throw_if_not_started_and_loaded();
         const item = this._get_node(node_identity, 'allow_offline');
+        if (!item.node.deleting) {
+            item.node.deleting = Date.now();
+        }
+        this._set_need_update.add(item);
         this._update_status(item);
 
         // TODO GUYM implement delete_node
@@ -1177,12 +1188,6 @@ class NodesMonitor extends EventEmitter {
         info._id = String(node._id);
         info.peer_id = String(node.peer_id);
         info.pool = system_store.data.get_by_id(node.pool).name;
-        info.heartbeat = node.heartbeat;
-        if (node.migrating_to_pool) info.migrating_to_pool = node.migrating_to_pool.getTime();
-        if (node.decommissioning) info.decommissioning = node.decommissioning.getTime();
-        if (node.decommissioned) info.decommissioned = node.decommissioned.getTime();
-        if (node.deleting) info.deleting = node.deleting.getTime();
-        if (node.deleted) info.deleted = node.deleted.getTime();
         if (node.is_internal_node) info.demo_node = true;
         const act = item.data_activity;
         if (act && !act.done) {

@@ -39,7 +39,21 @@ class BlockStoreFs extends BlockStoreBase {
     }
 
     init() {
-        return this.upgrade_dir_structure();
+        // create internal directories to hold blocks by their last 3 hex digits
+        // this is done to reduce the number of files in one directory which leads
+        // to bad performance
+        let num_digits = 3;
+        let dir_list = [];
+        let num_dirs = Math.pow(16, num_digits);
+        for (let i = 0; i < num_dirs; ++i) {
+            let dir_str = string_utils.left_pad_zeros(i.toString(16), num_digits) + '.blocks';
+            dir_list.push(path.join(this.blocks_path_root, dir_str));
+        }
+
+        return P.map(dir_list, dir => fs_utils.create_path(dir), {
+                concurrency: 10
+            })
+            .then(() => this.upgrade_dir_structure());
     }
 
     get_storage_info() {

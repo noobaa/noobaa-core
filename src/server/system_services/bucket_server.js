@@ -37,6 +37,12 @@ function new_bucket_defaults(name, system_id, tiering_policy_id, tag) {
         tag: js_utils.default_value(tag, ''),
         system: system_id,
         tiering: tiering_policy_id,
+        storage_stats: {
+            chunks_capacity: 0,
+            objects_size: 0,
+            objects_count: 0,
+            last_update: Date.now()
+        },
         stats: {
             reads: 0,
             writes: 0,
@@ -135,8 +141,8 @@ function read_bucket(req) {
         }),
         nodes_client.instance().aggregate_nodes_by_pool(pool_ids),
         get_cloud_sync(req, bucket)
-    ).spread(function(objects_aggregate, nodes_aggregate_pool, cloud_sync_policy) {
-        return get_bucket_info(bucket, objects_aggregate, nodes_aggregate_pool, cloud_sync_policy);
+    ).spread(function(nodes_aggregate_pool, cloud_sync_policy) {
+        return get_bucket_info(bucket, nodes_aggregate_pool, cloud_sync_policy);
     });
 }
 
@@ -728,21 +734,33 @@ function find_bucket(req) {
     return bucket;
 }
 
-function get_bucket_info(bucket, objects_aggregate, nodes_aggregate_pool, cloud_sync_policy) {
+function get_bucket_info(bucket, nodes_aggregate_pool, cloud_sync_policy) {
     var info = _.pick(bucket, 'name');
-    objects_aggregate = objects_aggregate || {};
-    var objects_aggregate_bucket = objects_aggregate[bucket._id] || {};
+    var tier_of_bucket;
     if (bucket.tiering) {
+        // We always have tiering so this if is irrelevant
+        tier_of_bucket = bucket.tiering.tiers[0].tier;
         info.tiering = tier_server.get_tiering_policy_info(bucket.tiering, nodes_aggregate_pool);
     }
 
+    info.storage_stats = bucket.storage_stats;
+    let objects_aggregate = {
+        size: (bucket.storage_stats && bucket.storage_stats.objects_size) || 0,
+        count: (bucket.storage_stats && bucket.storage_stats.objects_count) || 0
+    };
+
     info.tag = bucket.tag ? bucket.tag : '';
-    info.num_objects = objects_aggregate_bucket.count || 0;
+    let placement_mul = (tier_of_bucket.data_placement === 'MIRROR') ? Math.max(tier_of_bucket.pools.length, 1) : 1;
+    info.num_objects = objects_aggregate.count;
     info.storage = size_utils.to_bigint_storage({
-        used: objects_aggregate_bucket.size || 0,
+        used: objects_aggregate.size,
         total: info.tiering && info.tiering.storage && info.tiering.storage.total || 0,
         free: info.tiering && info.tiering.storage && info.tiering.storage.free || 0,
+        // This is the physical compressed capacity
+        // TODO: Does not include the movie multiplication, and rebuilds
+        real: new size_utils.BigInteger((bucket.storage_stats && bucket.storage_stats.chunks_capacity) || 0).multiply(tier_of_bucket.replicas).multiply(placement_mul)
     });
+
     info.cloud_sync_status = _.isEmpty(cloud_sync_policy) ? 'NOTSET' : cloud_sync_policy.status;
     info.demo_bucket = Boolean(bucket.demo_bucket);
     return info;

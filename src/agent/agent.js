@@ -241,7 +241,8 @@ class Agent {
                 };
                 // update the n2n ssl to use my certificate
                 this.n2n_agent.set_ssl_context(this.ssl_cert);
-            });
+            })
+            .then(() => this.block_store.init());
     }
 
     _do_heartbeat() {

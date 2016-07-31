@@ -491,6 +491,9 @@ module.exports = {
                     get_parts_count: {
                         type: 'boolean'
                     },
+                    adminfo: {
+                        type: 'boolean',
+                    },
                 }
             },
             reply: {
@@ -830,6 +833,11 @@ module.exports = {
                     format: 'idate'
                 },
                 upload_size: {
+                    type: 'integer',
+                },
+                // This is the physical size (aggregation of all blocks)
+                // It does not pay attention to dedup
+                capacity_size: {
                     type: 'integer',
                 },
                 etag: {

@@ -25,7 +25,7 @@ const MAX_UINT32 = (1 << 16) * (1 << 16);
 
 const SIZE_UNITS = ['', 'K', 'M', 'G', 'T', 'P', 'E', 'Z', 'Y'];
 
-const SOTRAGE_OBJ_KEYS = ['used', 'total', 'free', 'alloc', 'real'];
+const SOTRAGE_OBJ_KEYS = ['used', 'total', 'used_other', 'limit', 'reserved', 'used_reduced', 'unavailable_free', 'free', 'alloc', 'real'];
 
 BigInteger.PETABYTE = new BigInteger(PETABYTE);
 

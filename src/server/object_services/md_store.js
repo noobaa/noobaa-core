@@ -40,6 +40,53 @@ function aggregate_objects(query) {
     });
 }
 
+function aggregate_chunks(query) {
+    return DataChunk.mapReduce({
+        query: query,
+        map: mongo_functions.map_aggregate_chunks,
+        reduce: mongo_functions.reduce_sum,
+    }).then(function(res) {
+        var buckets = {};
+        _.each(res, function(r) {
+            var b = buckets[r._id[0]] = buckets[r._id[0]] || {};
+            b[r._id[1]] = r.value;
+        });
+        return buckets;
+    });
+}
+
+// function aggregate_objects_delta(query, scope_params) {
+//     return ObjectMD.mapReduce({
+//         query: query,
+//         map: mongo_functions.map_aggregate_objects_delta,
+//         reduce: mongo_functions.reduce_sum,
+//         scope: scope_params
+//     }).then(function(res) {
+//         var buckets = {};
+//         _.each(res, function(r) {
+//             var b = buckets[r._id[0]] = buckets[r._id[0]] || {};
+//             b[r._id[1]] = r.value;
+//         });
+//         return buckets;
+//     });
+// }
+
+// function aggregate_chunks_delta(query, scope_params) {
+//     return DataChunk.mapReduce({
+//         query: query,
+//         map: mongo_functions.map_aggregate_chunks_delta,
+//         reduce: mongo_functions.reduce_sum,
+//         scope: scope_params
+//     }).then(function(res) {
+//         var buckets = {};
+//         _.each(res, function(r) {
+//             var b = buckets[r._id[0]] = buckets[r._id[0]] || {};
+//             b[r._id[1]] = r.value;
+//         });
+//         return buckets;
+//     });
+// }
+
 function load_chunks_by_digest(bucket, digest_list) {
     let chunks;
     return P.resolve(DataChunk.collection.find({
@@ -126,6 +173,9 @@ exports.ObjectPart = ObjectPart;
 exports.DataChunk = DataChunk;
 exports.DataBlock = DataBlock;
 exports.aggregate_objects = aggregate_objects;
+exports.aggregate_chunks = aggregate_chunks;
+// exports.aggregate_chunks_delta = aggregate_chunks_delta;
+// exports.aggregate_objects_delta = aggregate_objects_delta;
 exports.load_chunks_by_digest = load_chunks_by_digest;
 exports.load_blocks_for_chunks = load_blocks_for_chunks;
 exports.load_parts_objects_for_chunks = load_parts_objects_for_chunks;

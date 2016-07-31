@@ -1103,27 +1103,37 @@ class NodesMonitor extends EventEmitter {
             free: 0,
             used: 0,
             reserved: 0,
+            unavailable_free: 0,
+            used_other: 0
         };
         _.each(list, item => {
+            let free_considering_reserve = new size_utils.BigInteger(item.node.storage.free || 0).minus(config.NODES_FREE_SPACE_RESERVE);
+            let freeFieldName = 'free';
             count += 1;
             if (item.online) online += 1;
             if (item.has_issues) {
+                freeFieldName = 'unavailable_free';
                 has_issues += 1;
-            } else {
-                // TODO use bigint for nodes storage sum
-                storage.total += item.node.storage.total || 0;
-                storage.free += item.node.storage.free || 0;
-                storage.used += item.node.storage.used || 0;
-                storage.reserved += config.NODES_FREE_SPACE_RESERVE || 0;
             }
+
+            // TODO use bigint for nodes storage sum
+            if (free_considering_reserve.greater(0)) {
+                storage[freeFieldName] = free_considering_reserve.plus(storage[freeFieldName] || 0);
+                storage.reserved = new size_utils.BigInteger(storage.reserved || 0).plus(config.NODES_FREE_SPACE_RESERVE || 0);
+            } else {
+                storage.reserved = new size_utils.BigInteger(storage.reserved || 0).plus(item.node.storage.free || 0);
+            }
+            storage.total = new size_utils.BigInteger(storage.total || 0).plus(item.node.storage.total || 0);
+            storage.used = new size_utils.BigInteger(storage.used || 0).plus(item.node.storage.used || 0);
         });
+        storage.used_other = size_utils.BigInteger.max(new size_utils.BigInteger(storage.total).minus(storage.used).minus(storage.reserved).minus(storage.free).minus(storage.unavailable_free), 0);
         return {
             nodes: {
                 count: count,
                 online: online,
                 has_issues: has_issues,
             },
-            storage: storage
+            storage: size_utils.to_bigint_storage(storage)
         };
     }
 
@@ -1379,13 +1389,25 @@ class NodesMonitor extends EventEmitter {
 
 
 function get_storage_info(storage) {
-    return {
+    let reply = {
         total: storage.total || 0,
         free: storage.free || 0,
         used: storage.used || 0,
         alloc: storage.alloc || 0,
-        limit: storage.limit || 0
+        limit: storage.limit || 0,
+        reserved: config.NODES_FREE_SPACE_RESERVE || 0,
+        used_other: storage.used_other || 0
     };
+    let free_considering_reserve = storage.free - config.NODES_FREE_SPACE_RESERVE;
+    if (free_considering_reserve > 0) {
+        storage.free = free_considering_reserve;
+        storage.reserved = config.NODES_FREE_SPACE_RESERVE;
+    } else {
+        storage.reserved = storage.free;
+        storage.free = 0;
+    }
+    storage.used_other = Math.max(storage.total - storage.used - storage.reserved - storage.free, 0);
+    return reply;
 }
 
 function scale_number_token(num) {

@@ -17,13 +17,29 @@ module.exports = {
             type: 'object',
             // required: [],
             properties: {
+                // Total Capacity
                 total: {
                     $ref: '#/definitions/bigint'
                 },
+                // "Online/Available" free space
                 free: {
                     $ref: '#/definitions/bigint'
                 },
+                // "Offline/Issues" free space
+                unavailable_free: {
+                    $ref: '#/definitions/bigint'
+                },
+                // Used By NooBaa
                 used: {
+                    $ref: '#/definitions/bigint'
+                },
+                // Used By NooBaa
+                used_other: {
+                    $ref: '#/definitions/bigint'
+                },
+                // Physical NooBaa capacity after compression including dedup, disregarding replicas and policies
+                // Example: Sum compressed size of chunks in bucket
+                used_reduced: {
                     $ref: '#/definitions/bigint'
                 },
                 alloc: {

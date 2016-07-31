@@ -7,7 +7,7 @@ const mongodb = require('mongodb');
 const _ = require('lodash');
 const dbg = require('../../util/debug_module')(__filename);
 const system_store = require('../system_services/system_store').get_instance();
-// const size_utils = require('../util/size_utils');
+const size_utils = require('../../util/size_utils');
 // const mongo_functions = require('../../util/mongo_functions');
 
 // TODO: This method is based on a single system
@@ -113,17 +113,20 @@ function background_worker() {
                     last_update: params.till_date.getTime(),
                 };
                 dbg.log0('Bucket storage stats before deltas:', new_storage_stats);
+                let bigint_ex_chunks_agg = new size_utils.BigInteger((existing_chunks_aggregate[bucket._id] && existing_chunks_aggregate[bucket._id].compress_size) || 0);
+                let bigint_de_chunks_agg = new size_utils.BigInteger((deleted_chunks_aggregate[bucket._id] && deleted_chunks_aggregate[bucket._id].compress_size) || 0);
+                let bigint_ex_obj_agg = new size_utils.BigInteger((existing_objects_aggregate[bucket._id] && existing_objects_aggregate[bucket._id].size) || 0);
+                let bigint_de_obj_agg = new size_utils.BigInteger((deleted_objects_aggregate[bucket._id] && deleted_objects_aggregate[bucket._id].size) || 0);
+
                 // TODO: Convert to using bigint
-                let delta_chunk_compress_size = ((existing_chunks_aggregate[bucket._id] && existing_chunks_aggregate[bucket._id].compress_size) || 0) -
-                    ((deleted_chunks_aggregate[bucket._id] && deleted_chunks_aggregate[bucket._id].compress_size) || 0);
-                let delta_object_size = ((existing_objects_aggregate[bucket._id] && existing_objects_aggregate[bucket._id].size) || 0) -
-                    ((deleted_objects_aggregate[bucket._id] && deleted_objects_aggregate[bucket._id].size) || 0);
+                let delta_chunk_compress_size = bigint_ex_chunks_agg.minus(bigint_de_chunks_agg);
+                let delta_object_size = bigint_ex_obj_agg.minus(bigint_de_obj_agg);
                 let delta_object_count = ((existing_objects_aggregate[bucket._id] && existing_objects_aggregate[bucket._id].count) || 0) -
                     ((deleted_objects_aggregate[bucket._id] && deleted_objects_aggregate[bucket._id].count) || 0);
                 // If we won't always update the checkpoint, on no changes
                 // We will reduce all of the chunks from last checkpoint (which can be a lot)
-                new_storage_stats.chunks_capacity += delta_chunk_compress_size;
-                new_storage_stats.objects_size += delta_object_size;
+                new_storage_stats.chunks_capacity = (new size_utils.BigInteger(new_storage_stats.chunks_capacity).plus(delta_chunk_compress_size)).toJSON();
+                new_storage_stats.objects_size = (new size_utils.BigInteger(new_storage_stats.objects_size).plus(delta_object_size)).toJSON();
                 new_storage_stats.objects_count += delta_object_count;
                 dbg.log0('Bucket storage stats after deltas:', new_storage_stats);
                 return {

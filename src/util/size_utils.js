@@ -33,7 +33,7 @@ var MAX_UINT32 = (1 << 16) * (1 << 16);
 
 var SIZE_UNITS = ['', 'K', 'M', 'G', 'T', 'P', 'E', 'Z', 'Y'];
 
-const SOTRAGE_OBJ_KEYS = ['used', 'total', 'free', 'alloc', 'real'];
+const SOTRAGE_OBJ_KEYS = ['used', 'total', 'used_other', 'limit', 'reserved', 'used_reduced', 'unavailable_free', 'free', 'alloc', 'real'];
 
 module.exports = {
     to_bigint: to_bigint,

@@ -18,7 +18,7 @@ const dbg = require('../../util/debug_module')(__filename);
 const diag = require('../utils/server_diagnostics');
 const cutil = require('../utils/clustering_utils');
 const config = require('../../../config');
-const md_store = require('../object_services/md_store');
+// const md_store = require('../object_services/md_store');
 const os_utils = require('../../util/os_utils');
 const upgrade_utils = require('../../util/upgrade_utils');
 const RpcError = require('../../rpc/rpc_error');
@@ -29,7 +29,7 @@ const tier_server = require('./tier_server');
 const auth_server = require('../common_services/auth_server');
 const Dispatcher = require('../notifications/dispatcher');
 const nodes_store = require('../node_services/nodes_store');
-const node_server = require('../node_services/node_server');
+// const node_server = require('../node_services/node_server');
 const nodes_client = require('../node_services/nodes_client');
 const system_store = require('../system_services/system_store').get_instance();
 const promise_utils = require('../../util/promise_utils');
@@ -199,11 +199,11 @@ function read_system(req) {
         // nodes - count, online count, allocated/used storage aggregate by pool
         nodes_client.instance().aggregate_nodes_by_pool(null, system._id, /*skip_cloud_nodes=*/ true),
 
-        // objects - size, count
-        md_store.aggregate_objects({
-            system: system._id,
-            deleted: null,
-        }),
+        // // objects - size, count
+        // md_store.aggregate_objects({
+        //     system: system._id,
+        //     deleted: null,
+        // }),
 
         promise_utils.all_obj(system.buckets_by_name, function(bucket) {
             // TODO this is a hacky "pseudo" rpc request. really should avoid.
@@ -217,11 +217,21 @@ function read_system(req) {
 
     ).spread(function(
         nodes_aggregate_pool,
-        objects_aggregate,
+        // objects_aggregate,
         cloud_sync_by_bucket) {
-
+        let objects_aggregate = {
+            count: 0,
+            size: 0
+        };
+        _.forEach(system_store.data.buckets, bucket => {
+            if (String(bucket.system._id) === String(system._id)) {
+                // TODO: Use bigint in order to sum
+                objects_aggregate.size += (bucket.storage_stats && bucket.storage_stats.objects_size) || 0;
+                objects_aggregate.count += (bucket.storage_stats && bucket.storage_stats.objects_count) || 0;
+            }
+        });
         var nodes_sys = nodes_aggregate_pool[''] || {};
-        var objects_sys = objects_aggregate[''] || {};
+        var objects_sys = objects_aggregate;//[''] || {};
         var ip_address = ip_module.address();
         var n2n_config = system.n2n_config;
         let debug_level = system.debug_level;
@@ -250,7 +260,7 @@ function read_system(req) {
         // }
         let response = {
             name: system.name,
-            objects: objects_sys.count || 0,
+            objects: objects_sys.count, //|| 0,
             roles: _.map(system.roles_by_account, function(roles, account_id) {
                 var account = system_store.data.get_by_id(account_id);
                 return {
@@ -261,7 +271,6 @@ function read_system(req) {
             buckets: _.map(system.buckets_by_name,
                 bucket => bucket_server.get_bucket_info(
                     bucket,
-                    objects_aggregate,
                     nodes_aggregate_pool,
                     cloud_sync_by_bucket[bucket.name])),
             pools: _.map(system.pools_by_name,
@@ -271,6 +280,7 @@ function read_system(req) {
             storage: size_utils.to_bigint_storage({
                 total: nodes_sys.total,
                 free: nodes_sys.free,
+                unavailable_free: nodes_sys.unavailable_free,
                 alloc: nodes_sys.alloc,
                 used: objects_sys.size,
                 real: nodes_sys.used,

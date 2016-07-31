@@ -1,6 +1,7 @@
 import Disposable from 'disposable';
 import ko from 'knockout';
 import numeral from 'numeral';
+import { systemInfo } from 'model';
 import { deepFreeze, isDefined } from 'utils';
 import { deleteBucket } from'actions';
 
@@ -26,11 +27,14 @@ const cloudSyncStatusMapping = deepFreeze({
     UNABLE:         { text: 'unable to sync',  css: 'unable-to-sync' }
 });
 
+const policyTypeMapping = deepFreeze({
+    SPREAD: 'Spread',
+    MIRROR: 'Mirrored'
+});
+
 export default class BucketRowViewModel extends Disposable {
     constructor(bucket, deleteGroup, isLastBucket) {
         super();
-
-        this.bucket = bucket;
 
         this.state = ko.pureComputed(
             () => bucket() ? stateIconMapping[bucket().state || true] : {}
@@ -61,6 +65,40 @@ export default class BucketRowViewModel extends Disposable {
             }
         );
 
+        let tierName = ko.pureComputed(
+            () => bucket() && bucket().tiering.tiers[0].tier
+        );
+
+        let tier = ko.pureComputed(
+            () => systemInfo() && systemInfo().tiers.find(
+                tier => tier.name === tierName()
+            )
+        );
+
+        this.placementPolicy = ko.pureComputed(
+            () => {
+                if (tier()) {
+                    let { data_placement, node_pools } = tier();
+                    let count = node_pools.length;
+
+                    let text = `${
+                        policyTypeMapping[data_placement]
+                    } on ${count} pool${count === 1 ? '' : 's'}`;
+
+                    let tooltip = count === 1 ?
+                        node_pools[0] :
+                        `<ul>${
+                            node_pools.map(
+                                name => `<li>${name}</li>`
+                            ).join('')
+                        }</ul>`;
+
+
+                    return  { text, tooltip };
+                }
+            }
+        );
+
         this.capacity = ko.pureComputed(
             () => bucket() ? bucket().storage : ''
         );
@@ -70,27 +108,37 @@ export default class BucketRowViewModel extends Disposable {
             () => bucket() ? cloudSyncStatusMapping[bucket().cloud_sync_status] : ''
         );
 
-
         let hasObjects = ko.pureComputed(
-            () => !!bucket() && bucket().num_objects > 0
+            () => Boolean(bucket() && bucket().num_objects > 0)
+        );
+
+        let isDemoBucket = ko.pureComputed(
+            () => Boolean(bucket() && bucket().demo_bucket)
         );
 
         this.deleteButton = {
             deleteGroup: deleteGroup,
             undeletable: ko.pureComputed(
-                () => isLastBucket() || hasObjects()
+                () => isDemoBucket() || isLastBucket() || hasObjects()
             ),
             deleteToolTip: ko.pureComputed(
-                () => isLastBucket() ?
-                    'Cannot delete last bucket' :
-                    (hasObjects() ? 'bucket not empty' : 'delete bucket')
+                () => {
+                    if (isDemoBucket()) {
+                        return 'Demo buckets cannot be deleted';
+                    }
+
+                    if (hasObjects()) {
+                        return 'Bucket not empty';
+                    }
+
+                    if (isLastBucket()) {
+                        return 'Last bucket cannot be deleted';
+                    }
+
+                    return 'delete bucket';
+                }
             ),
-            onDelete: () => this.del()
+            onDelete: () => deleteBucket(bucket().name)
         };
-    }
-
-
-    del() {
-        deleteBucket(this.bucket().name);
     }
 }

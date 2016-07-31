@@ -4,11 +4,19 @@
         <span data-bind="text: objectCount"></span>
     </h3>
 
-    <input class="push-next" type="search" placeholder="Search by file name" data-bind="
-        textInput: filter
-    "/>
+    <div class="greedy push-next">
+        <input type="search" placeholder="Search by file name"
+            data-bind="textInput: filter" />
+    </div>
 
-    <button class="upload-btn btn3" data-bind="click: () => showUploadFilesModal()">Upload Files</button>
+    <div data-bind="tooltip: uploadTooltip">
+        <button class="upload-btn btn3" data-bind="
+            disable: uploadDisabled,
+            click: () => showUploadFilesModal()
+        ">
+            Upload Files
+        </button>
+    </div>
 </div>
 
 <div class="data-table greedy push-next">

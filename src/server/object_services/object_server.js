@@ -441,19 +441,34 @@ function read_node_mappings(req) {
  */
 function read_object_md(req) {
     dbg.log0('read_obj(1):', req.rpc_params);
-    var objid;
+    var reply_obj;
+    var object_capacity;
     return find_object_md(req)
         .then(obj => {
-            objid = obj._id;
-            dbg.log0('read_obj:', obj);
-            return get_object_info(obj);
+            reply_obj = obj;
+            var params = _.pick(req.rpc_params, 'adminfo');
+            if (params.adminfo && req.role === 'admin') {
+                params.obj = obj;
+                return map_reader.read_object_mappings(params);
+            }
+        })
+        .then(parts => {
+            object_capacity = _.reduce(parts, (sum_capacity, part) => {
+                let frag = part.chunk.frags[0];
+                return sum_capacity + (frag.size * frag.blocks.length);
+            }, 0);
+            dbg.log0('read_obj:', reply_obj);
+            return get_object_info(reply_obj);
         })
         .then(info => {
+            if (req.rpc_params.adminfo && req.role === 'admin') {
+                info.capacity_size = object_capacity;
+            }
             if (!req.rpc_params.get_parts_count) {
                 return info;
             } else {
                 return P.resolve(md_store.ObjectPart.count({
-                        obj: objid,
+                        obj: reply_obj._id,
                         deleted: null,
                     }))
                     .then(c => {

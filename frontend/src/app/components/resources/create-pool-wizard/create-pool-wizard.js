@@ -22,20 +22,14 @@ class CreatePoolWizardViewModel extends Disposable {
         this.nodes = nodeList;
 
         let poolNames = ko.pureComputed(
-            () => systemInfo() && systemInfo().pools.map(
-                pool => pool.name
-            )
-        );
-
-        let existingPoolNames = ko.pureComputed(
             () => (systemInfo() ? systemInfo().pools : []).map(
-                ({ name }) => name
+                pool => pool.name
             )
         );
 
         this.poolName = ko.observable()
             .extend({
-                validation: nameValidationRules('pool', existingPoolNames)
+                validation: nameValidationRules('pool', poolNames)
             });
 
         this.rows = makeArray(
@@ -49,16 +43,29 @@ class CreatePoolWizardViewModel extends Disposable {
             write: throttle(val => _nameOrIpFilter(val) && this.loadNodes(), inputThrottle)
         });
 
+        let nodeSources = ko.pureComputed(
+            () => (systemInfo() ? systemInfo().pools : [])
+                .filter(
+                    pool => !pool.demo_pool
+                )
+                .map(
+                    pool => pool.name
+                )
+        );
+
         this.poolFilterOptions = ko.pureComputed(
             () => [].concat(
-                { label: 'All pools', value: poolNames() },
-                poolNames().map(
+                {
+                    label: 'All pools',
+                    value: nodeSources()
+                },
+                nodeSources().map(
                     name => ({ label: name, value: [name] })
                 )
             )
         );
 
-        let _poolFilter = ko.observableWithDefault(poolNames);
+        let _poolFilter = ko.observableWithDefault(nodeSources);
         this.poolFilter = ko.pureComputed({
             read: _poolFilter,
             write: val => _poolFilter(val) && this.loadNodes()
@@ -93,7 +100,7 @@ class CreatePoolWizardViewModel extends Disposable {
         let isFiltered = ko.pureComputed(
             () => this.nameOrIpFilter() ||
                 this.onlineFilter() ||
-                this.poolFilter() !== poolNames()
+                this.poolFilter() !== nodeSources()
         );
 
         this.emptyMessage = ko.pureComputed(

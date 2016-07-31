@@ -22,7 +22,7 @@ class AssignNodeModalViewModel extends Disposable {
 
         let relevantPools = ko.pureComputed(
             () => systemInfo() && systemInfo().pools.filter(
-                pool => pool.name !== poolName()
+                pool => !pool.demo_pool && pool.name !== poolName()
             )
         );
 

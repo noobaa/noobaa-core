@@ -75,6 +75,54 @@ module.exports = {
                 }
             }
         },
+        storage_stats: {
+            type: 'object',
+            required: ['chunks_capacity', 'objects_size', 'objects_count', 'last_update'],
+            properties: {
+                chunks_capacity: {
+                    oneOf: [{
+                            type: 'integer'
+                        }, {
+                            type: 'object',
+                            properties: {
+                                n: {
+                                    type: 'integer',
+                                },
+                                // to support bigger integers we can specify a peta field
+                                // which is considered to be based from 2^50
+                                peta: {
+                                    type: 'integer',
+                                }
+                            }
+                        }]
+                        // $ref: 'common_api#/definitions/bigint'
+                },
+                objects_size: {
+                    oneOf: [{
+                            type: 'integer'
+                        }, {
+                            type: 'object',
+                            properties: {
+                                n: {
+                                    type: 'integer',
+                                },
+                                // to support bigger integers we can specify a peta field
+                                // which is considered to be based from 2^50
+                                peta: {
+                                    type: 'integer',
+                                }
+                            }
+                        }]
+                        // $ref: 'common_api#/definitions/bigint'
+                },
+                objects_count: {
+                    type: 'integer'
+                },
+                last_update: {
+                    format: 'idate'
+                }
+            }
+        },
         stats: {
             type: 'object',
             // required: [],

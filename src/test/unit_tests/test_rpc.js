@@ -375,13 +375,13 @@ mocha.describe('RPC', function() {
     });
 
     mocha.it('N2N DEFAULT', n2n_tester());
-    mocha.it('N2N UDP', n2n_tester({
-        udp_port: true,
-        tcp_active: false,
-        tcp_permanent_passive: false,
-        tcp_transient_passive: false,
-        tcp_simultaneous_open: false,
-    }));
+    // mocha.it('N2N UDP', n2n_tester({
+    //     udp_port: true,
+    //     tcp_active: false,
+    //     tcp_permanent_passive: false,
+    //     tcp_transient_passive: false,
+    //     tcp_simultaneous_open: false,
+    // }));
     mocha.it('N2N TCP', n2n_tester({
         tcp_active: true,
         tcp_permanent_passive: {

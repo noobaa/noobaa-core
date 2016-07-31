@@ -1,7 +1,17 @@
-<h3 class="heading3 push-next">
-    Part count for this file:
-    <span data-bind="text: count"></span>
-</h3>
+<div class="row content-middle push-next">
+    <h3 class="heading3 push-next greedy">
+        Part count for this file:
+        <span data-bind="text: count"></span>
+    </h3>
+
+    <a class="btn3 push-next" download data-bind="attr: { href: s3SignedUrl }" >
+        Download File
+    </a>
+
+    <button class="btn3" data-bind="click: () => showPreviewModal()">
+        Preview File
+    </button>
+</div>
 
 <ul class="part-list greedy" data-bind="foreach: rows">
     <li>
@@ -88,3 +98,10 @@
 <paginator class="align-end push-prev" params="
     page: page, itemCount: count, pageSize: pageSize
 "></paginator>
+
+<!-- ko if: isPreviewModalVisible -->
+<object-preview-modal params="
+    onClose: () => hidePreviewModal(),
+    uri: s3SignedUrl
+"></object-preview-modal>
+<!-- /ko -->

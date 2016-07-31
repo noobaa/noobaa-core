@@ -373,7 +373,7 @@ function set_debug_level(req) {
 
             return P.each(target_servers, function(server) {
                 return server_rpc.client.cluster_internal.apply_set_debug_level(debug_params, {
-                    address: 'ws://' + server.owner_address + ':8080',
+                    address: 'ws://' + server.owner_address + ':' + server_rpc.get_base_port(),
                     auth_token: req.auth_token
                 });
             });
@@ -469,7 +469,7 @@ function diagnose_system(req) {
         .then(() => {
             return P.each(target_servers, function(server) {
                 return server_rpc.client.cluster_internal.collect_server_diagnostics(req.rpc_params, {
-                        address: 'ws://' + server.owner_address + ':8080',
+                        address: 'ws://' + server.owner_address + ':' + server_rpc.get_base_port(),
                         auth_token: req.auth_token
                     })
                     .then((res_data) => {

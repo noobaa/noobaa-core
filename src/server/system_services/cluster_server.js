@@ -373,7 +373,7 @@ function set_debug_level(req) {
 
             return P.each(target_servers, function(server) {
                 return server_rpc.client.cluster_internal.apply_set_debug_level(debug_params, {
-                    address: 'ws://' + server.owner_address + ':8080',
+                    address: 'ws://' + server.owner_address + ':' + server_rpc.get_base_port(),
                     auth_token: req.auth_token
                 });
             });
@@ -432,7 +432,8 @@ function _set_debug_level_internal(req, level) {
                 // Only master can update the whole system debug mode level
                 // TODO: If master falls in the process and we already passed him
                 // It means that nobody will update the system in the DB, yet it will be in debug
-                if (!system_store.is_cluster_master) {
+                let current_clustering = system_store.get_local_cluster_info();
+                if ((current_clustering && current_clustering.is_clusterized) && !system_store.is_cluster_master) {
                     return;
                 }
 
@@ -469,7 +470,7 @@ function diagnose_system(req) {
         .then(() => {
             return P.each(target_servers, function(server) {
                 return server_rpc.client.cluster_internal.collect_server_diagnostics(req.rpc_params, {
-                        address: 'ws://' + server.owner_address + ':8080',
+                        address: 'ws://' + server.owner_address + ':' + server_rpc.get_base_port(),
                         auth_token: req.auth_token
                     })
                     .then((res_data) => {

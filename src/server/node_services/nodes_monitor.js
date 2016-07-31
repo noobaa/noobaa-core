@@ -16,22 +16,23 @@ const config = require('../../../config');
 const js_utils = require('../../util/js_utils');
 const RpcError = require('../../rpc/rpc_error');
 const md_store = require('../object_services/md_store');
+const dclassify = require('dclassify');
 const size_utils = require('../../util/size_utils');
+const BigInteger = size_utils.BigInteger;
 const Dispatcher = require('../notifications/dispatcher');
 const MapBuilder = require('../object_services/map_builder').MapBuilder;
 const server_rpc = require('../server_rpc');
 const auth_server = require('../common_services/auth_server');
-const cluster_server = require('../system_services/cluster_server');
 const nodes_store = require('./nodes_store');
 const mongo_utils = require('../../util/mongo_utils');
 const buffer_utils = require('../../util/buffer_utils');
 const system_store = require('../system_services/system_store').get_instance();
 const promise_utils = require('../../util/promise_utils');
 const mongoose_utils = require('../../util/mongoose_utils');
+const cluster_server = require('../system_services/cluster_server');
 const mongo_functions = require('../../util/mongo_functions');
 const system_server_utils = require('../utils/system_server_utils');
 const clustering_utils = require('../utils/clustering_utils');
-const dclassify = require('dclassify');
 
 const RUN_DELAY_MS = 60000;
 const RUN_NODE_CONCUR = 50;
@@ -485,7 +486,6 @@ class NodesMonitor extends EventEmitter {
 
 
     _update_status(item) {
-        // TODO update the node status fields for real
         dbg.log0('_update_status:', item.node.name);
 
         item.online = Boolean(item.connection);
@@ -759,7 +759,7 @@ class NodesMonitor extends EventEmitter {
         let current_clustering = system_store.get_local_cluster_info();
         if ((current_clustering && current_clustering.is_clusterized) && !system_store.is_cluster_master) {
             return P.resolve(cluster_server.redirect_to_cluster_master())
-                .then((addr) => {
+                .then(addr => {
                     dbg.log0('heartbeat: current is not master redirecting to', addr);
                     reply.redirect = addr;
                     return reply;
@@ -1099,34 +1099,48 @@ class NodesMonitor extends EventEmitter {
         let online = 0;
         let has_issues = 0;
         const storage = {
-            total: 0,
-            free: 0,
-            used: 0,
-            reserved: 0,
-            unavailable_free: 0,
-            used_other: 0
+            total: BigInteger.zero,
+            free: BigInteger.zero,
+            used: BigInteger.zero,
+            reserved: BigInteger.zero,
+            unavailable_free: BigInteger.zero,
+            used_other: BigInteger.zero,
         };
         _.each(list, item => {
-            let free_considering_reserve = new size_utils.BigInteger(item.node.storage.free || 0).minus(config.NODES_FREE_SPACE_RESERVE);
-            let freeFieldName = 'free';
             count += 1;
             if (item.online) online += 1;
             if (item.has_issues) {
-                freeFieldName = 'unavailable_free';
                 has_issues += 1;
             }
 
-            // TODO use bigint for nodes storage sum
+            const free_considering_reserve =
+                new BigInteger(item.node.storage.free || 0)
+                .minus(config.NODES_FREE_SPACE_RESERVE);
             if (free_considering_reserve.greater(0)) {
-                storage[freeFieldName] = free_considering_reserve.plus(storage[freeFieldName] || 0);
-                storage.reserved = new size_utils.BigInteger(storage.reserved || 0).plus(config.NODES_FREE_SPACE_RESERVE || 0);
+                if (item.has_issues) {
+                    storage.unavailable_free = storage.unavailable_free
+                        .plus(free_considering_reserve);
+                } else {
+                    storage.free = storage.free
+                        .plus(free_considering_reserve);
+                }
+                storage.reserved = storage.reserved
+                    .plus(config.NODES_FREE_SPACE_RESERVE || 0);
             } else {
-                storage.reserved = new size_utils.BigInteger(storage.reserved || 0).plus(item.node.storage.free || 0);
+                storage.reserved = storage.reserved
+                    .plus(item.node.storage.free || 0);
             }
-            storage.total = new size_utils.BigInteger(storage.total || 0).plus(item.node.storage.total || 0);
-            storage.used = new size_utils.BigInteger(storage.used || 0).plus(item.node.storage.used || 0);
+            storage.total = storage.total
+                .plus(item.node.storage.total || 0);
+            storage.used = storage.used
+                .plus(item.node.storage.used || 0);
         });
-        storage.used_other = size_utils.BigInteger.max(new size_utils.BigInteger(storage.total).minus(storage.used).minus(storage.reserved).minus(storage.free).minus(storage.unavailable_free), 0);
+        storage.used_other = BigInteger.max(0,
+            storage.total
+            .minus(storage.used)
+            .minus(storage.reserved)
+            .minus(storage.free)
+            .minus(storage.unavailable_free));
         return {
             nodes: {
                 count: count,

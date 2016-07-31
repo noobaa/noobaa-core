@@ -64,25 +64,35 @@ class PoolSummaryViewModel extends Disposable {
             () => formatSize(this.free())
         );
 
-        this.gaugeValues = [
-            { value: this.used, color: style['text-color6'], emphasize: true },
-            { value: this.free, color: style['text-color4'], emphasize: false }
+        this.pieValues = [
+            {
+                value: this.used,
+                color: style['text-color6']
+            },
+            {
+                value: this.free,
+                color: style['text-color4']
+            }
         ];
 
+        let onlineCount = ko.pureComputed(
+            () => pool().nodes.online
+        );
+
+        let healthy = ko.pureComputed(
+            () => onlineCount() >= 3
+        );
+
         this.stateText = ko.pureComputed(
-            () => 'Healthy'
+            () => healthy() ? 'Healthy' : 'Not enough online nodes'
         );
 
         this.stateIcon = ko.pureComputed(
-            () => 'pool'
+            () => `pool-${healthy() ? 'healthy' : 'problem'}`
         );
 
         this.nodeCount = ko.pureComputed(
             () => pool().nodes.count
-        );
-
-        let onlineCount = ko.pureComputed(
-            () => pool().nodes.online
         );
 
         this.onlineIcon = ko.pureComputed(

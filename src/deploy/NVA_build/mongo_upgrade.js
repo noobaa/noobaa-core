@@ -51,6 +51,14 @@ function upgrade_systems() {
             };
         }
 
+        if (!system.freemium_cap) {
+            updates.freemium_cap = {
+                phone_home_upgraded: false,
+                phone_home_notified: false,
+                cap_terabytes: 0 //Upgraded systems which didn't have the cap before are customers, don't cap
+            };
+        }
+
         var updated_access_keys = system.access_keys;
         if (updated_access_keys) {
             for (var i = 0; i < updated_access_keys.length; ++i) {

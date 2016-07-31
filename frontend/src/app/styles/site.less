@@ -105,20 +105,23 @@ output {
 
 input[type="text"] {
     .textfield();
-
+    width: 362px;
 }
 
 input[type="number"] {
-    .textfield(6em);
+    .textfield();
+    width: 110px;
     text-align: center;
 }
 
 input[type="password"] {
     .textfield();
+    width: 362px;
 }
 
 input[type="search"] {
     .textfield();
+    width: 362px;
 
     margin: 0;
     line-height: 1;
@@ -463,7 +466,7 @@ input[type="search"] {
     padding: .75em 1em;
 
     &[disabled] {
-        cursor: default;
+        cursor: not-allowed;
     }
 }
 
@@ -563,8 +566,7 @@ input[type="search"] {
 }
 
 .val-msg {
-    height: 1.4em;
-    margin: .25em 0;
+    line-height: 1.7;
 
     .text(
         @font-type2,

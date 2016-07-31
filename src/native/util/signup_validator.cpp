@@ -3,6 +3,11 @@
 #include <sstream>
 #include <string>
 
+#ifdef WIN32
+# define popen _popen
+# define pclose _pclose
+#endif
+
 namespace noobaa {
 
 
@@ -31,7 +36,7 @@ NAN_METHOD(SignupValidator::validate) {
     Nan::Utf8String email_code_json(info[0]);
     FILE *in;
     char buff[512];
-    //TODO: set the url dynamically according to phone home server address 
+    //TODO: set the url dynamically according to phone home server address
     std::string command = "curl -s -X POST -d \'" +
         std::string(*email_code_json) +
         "\' 104.155.41.235:9090/validate_creation --header "

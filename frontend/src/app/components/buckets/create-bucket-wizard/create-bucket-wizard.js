@@ -27,17 +27,25 @@ class CreateBucketWizardViewModel extends Disposable {
                 validation: nameValidationRules('bucket', existingBucketNames)
             });
 
-        this.dataPlacement = ko.observable('SPREAD');
+        this.placementType = ko.observable('SPREAD');
 
         this.pools = ko.pureComputed(
-            () => (systemInfo() ? systemInfo().pools : []).map(
-                ({ name }) => name
+            () => (systemInfo() ? systemInfo().pools : []).filter(
+                pool => Boolean(pool.nodes)
             )
         );
 
         this.selectedPools = ko.observableArray([ defaultPoolName ])
             .extend({
-                required: { message: 'Please select at least one pool for the policy' }
+                required: {
+                    message: 'Please select at least one pool for the policy'
+                },
+                validation: {
+                    validator: selected => {
+                        return this.placementType() !== 'MIRROR' || selected.length !== 1;
+                    },
+                    message: 'Mirror policy requires at least 2 participating pools'
+                }
             });
 
         this.chooseNameErrors = ko.validation.group([
@@ -69,19 +77,8 @@ class CreateBucketWizardViewModel extends Disposable {
         return true;
     }
 
-    selectAllPools() {
-        this.selectedPools(
-            Array.from(this.pools())
-        );
-    }
-
-    clearAllPools() {
-        this.selectedPools
-            .removeAll();
-    }
-
     createBucket() {
-        createBucket(this.bucketName(), this.dataPlacement(), this.selectedPools());
+        createBucket(this.bucketName(), this.placementType(), this.selectedPools());
     }
 }
 

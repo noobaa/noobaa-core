@@ -2,56 +2,95 @@ import template from './buckets-table.html';
 import BucketRowViewModel from './bucket-row';
 import Disposable from 'disposable';
 import ko from 'knockout';
-import { makeArray, compare } from 'utils';
+import { deepFreeze, createCompareFunc } from 'utils';
 import { redirectTo } from 'actions';
 import { systemInfo, routeContext } from 'model';
 
-const maxRows = 100;
+const columns = deepFreeze([
+    {
+        name: 'state',
+        cellTemplate: 'icon',
+        sortable: true
+    },
+    {
+        name: 'name',
+        label: 'bucket name',
+        cellTemplate: 'link',
+        sortable: true
+    },
+    {
+        name: 'fileCount',
+        label: 'files',
+        sortable: true
+    },
+    {
+        name: 'placementPolicy'
+    },
+    {
+        name: 'capacity',
+        label: 'used capacity',
+        cellTemplate: 'capacity',
+        sortable: true
+    },
+    {
+        name: 'cloudSync',
+        sortable: true
+    },
+    {
+        name: 'deleteButton',
+        label: '',
+        css: 'delete-col',
+        cellTemplate: 'delete'
+    }
+]);
 
-const bucketCmpFuncs = Object.freeze({
-    state: (b1, b2) => compare(b1.state, b2.state),
-    name: (b1, b2) => compare(b1.name, b2.name),
-    filecount: (b1, b2) => compare(b1.num_objects, b2.num_objects),
-    usage: (b1, b2) => compare(b1.storage.used, b2.storage.used),
-    cloudsync: (b1, b2) => compare(b1.cloud_sync_status, b2.cloud_sync_status)
+const compareAccessors = deepFreeze({
+    state: bucket => bucket.state,
+    name: bucket => bucket.name,
+    fileCount: bucket => bucket.num_objects,
+    capacity: bucket => bucket.storage.used,
+    cloudSync: bucket => bucket.cloud_sync_status
 });
 
 class BucketsTableViewModel extends Disposable {
     constructor() {
         super();
 
-        let query = ko.pureComputed(
-            () => routeContext().query
+        this.columns = columns;
+
+        this.sorting = ko.pureComputed({
+            read: () => ({
+                sortBy: routeContext().query.sortBy || 'name',
+                order: Number(routeContext().query.order) || 1
+            }),
+            write: value => redirectTo(undefined, undefined, value)
+        });
+
+        this.buckets = ko.pureComputed(
+            () => {
+                let { sortBy, order } = this.sorting();
+                let compareOp = createCompareFunc(compareAccessors[sortBy], order);
+
+                return systemInfo() && systemInfo().buckets
+                    .slice(0)
+                    .sort(compareOp);
+            }
         );
 
-        this.sortedBy = ko.pureComputed(
-            () => query().sortBy || 'name'
-        );
-
-        this.order = ko.pureComputed(
-            () => Number(query().order) || 1
-        );
-
-        let buckets = ko.pureComputed(
-            () => (systemInfo()? systemInfo().buckets.slice(0) : []).sort(
-                (b1, b2) => this.order() * bucketCmpFuncs[this.sortedBy()](b1, b2)
-            )
-        );
-
-        let rows = makeArray(
-            maxRows,
-            i => new BucketRowViewModel(
-                () => buckets()[i],
-                () => buckets().length === 1
-            )
-        );
-
-        this.visibleRows = ko.pureComputed(
-            () => rows.filter(row => row.isVisible())
+        this.hasSingleBucket = ko.pureComputed(
+            () => this.buckets().length === 1
         );
 
         this.deleteGroup = ko.observable();
         this.isCreateBucketWizardVisible = ko.observable(false);
+    }
+
+    newBucketRow(bucket) {
+        return new BucketRowViewModel(
+            bucket,
+            this.deleteGroup,
+            this.hasSingleBucket
+        );
     }
 
     showCreateBucketWizard() {
@@ -60,19 +99,6 @@ class BucketsTableViewModel extends Disposable {
 
     hideCreateBucketWizard() {
         this.isCreateBucketWizardVisible(false);
-    }
-
-    orderBy(colName) {
-        redirectTo(undefined, undefined, {
-            sortBy: colName,
-            order: this.sortedBy() === colName ? 0 - this.order() : 1
-        });
-    }
-
-    orderClassFor(colName) {
-        return `sortable ${
-            this.sortedBy() === colName ? (this.order() === 1 ? 'des' : 'asc') : ''
-        }`;
     }
 }
 

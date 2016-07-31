@@ -1,9 +1,10 @@
 // module targets: nodejs & browserify
 'use strict';
 
-var _ = require('lodash');
-var make_object = require('./js_utils').make_object;
-var mongo_functions = require('./mongo_functions');
+const _ = require('lodash');
+const BigInteger = require('big-integer');
+const make_object = require('./js_utils').make_object;
+const mongo_functions = require('./mongo_functions');
 
 /**
  * functions to handle storage sizes that might not fit into single integer
@@ -13,114 +14,89 @@ var mongo_functions = require('./mongo_functions');
  *  { n: bytes, peta: petabytes }
  */
 
-var KILOBYTE = 1024;
-var MEGABYTE = 1024 * KILOBYTE;
-var GIGABYTE = 1024 * MEGABYTE;
-var TERABYTE = 1024 * GIGABYTE;
-var PETABYTE = 1024 * TERABYTE;
-var EXABYTE = {
-    peta: 1024
-};
-var ZETABYTE = {
-    peta: 1024 * EXABYTE.peta
-};
-var YOTABYTE = {
-    peta: 1024 * ZETABYTE.peta
-};
+const KILOBYTE = 1024;
+const MEGABYTE = 1024 * KILOBYTE;
+const GIGABYTE = 1024 * MEGABYTE;
+const TERABYTE = 1024 * GIGABYTE;
+const PETABYTE = 1024 * TERABYTE;
 
 // cant do 1<<32 because javascript bitwise is limited to 32 bits
-var MAX_UINT32 = (1 << 16) * (1 << 16);
+const MAX_UINT32 = (1 << 16) * (1 << 16);
 
-var SIZE_UNITS = ['', 'K', 'M', 'G', 'T', 'P', 'E', 'Z', 'Y'];
+const SIZE_UNITS = ['', 'K', 'M', 'G', 'T', 'P', 'E', 'Z', 'Y'];
 
 const SOTRAGE_OBJ_KEYS = ['used', 'total', 'used_other', 'limit', 'reserved', 'used_reduced', 'unavailable_free', 'free', 'alloc', 'real'];
 
-module.exports = {
-    to_bigint: to_bigint,
-    to_bigint_storage: to_bigint_storage,
-    reduce_storage: reduce_storage,
-    reduce_minimum: reduce_minimum,
-    reduce_sum: mongo_functions.reduce_sum,
-    human_size: human_size,
-    human_offset: human_offset,
-    KILOBYTE: KILOBYTE,
-    MEGABYTE: MEGABYTE,
-    GIGABYTE: GIGABYTE,
-    TERABYTE: TERABYTE,
-    PETABYTE: PETABYTE,
-    EXABYTE: EXABYTE,
-    ZETABYTE: ZETABYTE,
-    YOTABYTE: YOTABYTE,
-    MAX_UINT32: MAX_UINT32,
+BigInteger.PETABYTE = new BigInteger(PETABYTE);
+
+BigInteger.prototype.toJSON = function() {
+    return bigint_to_json(this);
 };
 
-function to_bigint(x) {
-    var n;
-    var peta;
-    if (typeof(x) === 'object' && x) {
-        n = Math.floor(x.n);
-        peta = Math.floor(x.peta);
+/**
+ * take a BigInteger object and convert to json {peta:.., n: ..} format if needed
+ */
+function bigint_to_json(bi) {
+    const dm = bi.divmod(BigInteger.PETABYTE);
+    const peta = dm.quotient.toJSNumber();
+    const n = dm.remainder.toJSNumber();
+    return peta ? {
+        n: n,
+        peta: peta,
+    } : n;
+}
+
+/**
+ * take a json format {peta:.., n: ..} and convert to BigInteger
+ */
+function json_to_bigint(x) {
+    var n = 0;
+    var peta = 0;
+    if (x && typeof(x) === 'object' && 'n' in x && 'peta' in x) {
+        n = Math.floor(x.n) || 0;
+        peta = Math.floor(x.peta) || 0;
     } else {
         n = Math.floor(Number(x)) || 0;
     }
-    while (n >= PETABYTE) {
-        n -= PETABYTE;
-        peta += 1;
-    }
-    return !peta ? n : {
-        n: n,
-        peta: peta,
-    };
+    return new BigInteger(peta)
+        .multiply(BigInteger.PETABYTE)
+        .add(new BigInteger(n));
 }
 
+/**
+ * For every key in the storage object parse as json number, and return to json
+ *
+ * This is needed specifically to enforce that the format
+ * of the numbers will be always be consistent.
+ */
 function to_bigint_storage(storage) {
-    return _.mapValues(storage, to_bigint);
+    return _.mapValues(storage, x => bigint_to_json(json_to_bigint(x)));
 }
 
 /**
  * mult_factor & div_factor must be positive integers.
  */
-function bigint_factor(bigint, mult_factor, div_factor) {
-    var n = 0;
-    var peta = 0;
-    if (typeof(bigint) === 'object' && bigint) {
-        n = Math.floor(bigint.n);
-        peta = Math.floor(bigint.peta);
-    } else {
-        n = Math.floor(Number(bigint)) || 0;
-    }
-    peta *= mult_factor;
-    var peta_mod = peta % div_factor;
-    peta = (peta - peta_mod) / div_factor;
-    n = Math.floor((peta_mod * PETABYTE + n * mult_factor) / div_factor);
-    while (n >= PETABYTE) {
-        n -= PETABYTE;
-        peta += 1;
-    }
-    return !peta ? n : {
-        n: n,
-        peta: peta,
-    };
-}
-
 function reduce_storage(reducer, storage_items, mult_factor, div_factor) {
-    let accumulator = _.reduce(
-        storage_items, (accumulator, item) => {
+    let accumulator = _.reduce(storage_items,
+        (accumulator, item) => {
             _.each(SOTRAGE_OBJ_KEYS, key => item && item[key] && accumulator[key].push(item[key]));
             return accumulator;
         },
-        make_object(SOTRAGE_OBJ_KEYS, key => [])
-    );
+        make_object(SOTRAGE_OBJ_KEYS, key => []));
 
-    return _.reduce(
-        accumulator, (storage, val, key) => {
-            if (!_.isEmpty(val)) {
-                storage[key] = bigint_factor(reducer(key, val), mult_factor, div_factor);
+    return _.reduce(accumulator,
+        (storage, values, key) => {
+            if (!_.isEmpty(values)) {
+                // reduce the values
+                const reduced_value = reducer(key, values);
+                //  using BigInteger
+                const factored_value = json_to_bigint(reduced_value)
+                    .multiply(mult_factor)
+                    .divide(div_factor);
+                storage[key] = bigint_to_json(factored_value);
             }
-
             return storage;
-        }, {}
-    );
+        }, {});
 }
 
 
@@ -150,10 +126,10 @@ function reduce_minimum(key, values) {
             peta_min = peta;
         }
     });
-    return !peta_min ? n_min : {
+    return peta_min ? {
         n: n_min,
         peta: peta_min,
-    };
+    } : n_min;
 }
 
 
@@ -248,3 +224,20 @@ function human_offset(offset) {
 
     return sign + res || '0';
 }
+
+
+exports.BigInteger = BigInteger;
+exports.bigint_to_json = bigint_to_json;
+exports.json_to_bigint = json_to_bigint;
+exports.to_bigint_storage = to_bigint_storage;
+exports.reduce_storage = reduce_storage;
+exports.reduce_minimum = reduce_minimum;
+exports.reduce_sum = mongo_functions.reduce_sum;
+exports.human_size = human_size;
+exports.human_offset = human_offset;
+exports.KILOBYTE = KILOBYTE;
+exports.MEGABYTE = MEGABYTE;
+exports.GIGABYTE = GIGABYTE;
+exports.TERABYTE = TERABYTE;
+exports.PETABYTE = PETABYTE;
+exports.MAX_UINT32 = MAX_UINT32;

@@ -31,7 +31,7 @@
         Configure policy
     </h2>
 
-    <editor class="push-next" params="
+    <editor params="
         label: 'Sync Bucket Every',
         disabled: !targetBucket(),
         insertValMessages: false
@@ -50,7 +50,7 @@
             </div>
     </editor>
 
-    <editor class="push-next" params="
+    <editor params="
         label: 'Sync Type',
         disabled: !targetBucket(),
         insertValMessages: false
@@ -62,13 +62,13 @@
         "></radio-group>
     </editor>
 
-    <checkbox class="push-next" params="
+    <checkbox  params="
         label: 'Synchronize File Deletions',
         checked: syncDeletions,
         disabled: !targetBucket() || direction() === 3
     "></checkbox>
 
-    <div class="row content-middle align-end">
+    <div class="row content-middle align-end push-prev">
         <button class="link push-next" data-bind="click: cancel">Cancel</button>
         <button class="btn2" data-bind="click: save">Save</button>
     </div>

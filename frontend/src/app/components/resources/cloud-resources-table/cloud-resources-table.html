@@ -7,7 +7,8 @@
     columns: columns,
     rowFactory: rowFactory.bind($component),
     sorting: sorting,
-    data: resources
+    data: resources,
+    emptyMessage: 'System does not contain any cloud resources'
 "></data-table>
 
 <!-- ko if: isAddCloudResourceModalVisible -->

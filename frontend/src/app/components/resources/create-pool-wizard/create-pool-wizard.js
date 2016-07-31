@@ -5,7 +5,8 @@ import Disposable from 'disposable';
 import ko from 'knockout';
 import nameValidationRules from 'name-validation-rules';
 import NodeRowViewModel from './node-row';
-import { makeArray } from 'utils';
+import { makeArray, throttle } from 'utils';
+import { inputThrottle } from 'config';
 import { systemInfo, nodeList } from 'model';
 import { loadNodeList, createPool } from 'actions';
 
@@ -18,21 +19,63 @@ class CreatePoolWizardViewModel extends Disposable {
         this.assignNodesStepTemplate = assignNodesStepTemplate;
         this.onClose = onClose;
 
-        let existingPoolNames = ko.pureComputed(
+        this.nodes = nodeList;
+
+        let poolNames = ko.pureComputed(
             () => (systemInfo() ? systemInfo().pools : []).map(
-                ({ name }) => name
+                pool => pool.name
             )
         );
 
         this.poolName = ko.observable()
             .extend({
-                validation: nameValidationRules('pool', existingPoolNames)
+                validation: nameValidationRules('pool', poolNames)
             });
 
         this.rows = makeArray(
             500,
             i => new NodeRowViewModel(() => nodeList()[i])
         );
+
+        let _nameOrIpFilter = ko.observable();
+        this.nameOrIpFilter = ko.pureComputed({
+            read: _nameOrIpFilter,
+            write: throttle(val => _nameOrIpFilter(val) && this.loadNodes(), inputThrottle)
+        });
+
+        let nodeSources = ko.pureComputed(
+            () => (systemInfo() ? systemInfo().pools : [])
+                .filter(
+                    pool => !pool.demo_pool
+                )
+                .map(
+                    pool => pool.name
+                )
+        );
+
+        this.poolFilterOptions = ko.pureComputed(
+            () => [].concat(
+                {
+                    label: 'All pools',
+                    value: nodeSources()
+                },
+                nodeSources().map(
+                    name => ({ label: name, value: [name] })
+                )
+            )
+        );
+
+        let _poolFilter = ko.observableWithDefault(nodeSources);
+        this.poolFilter = ko.pureComputed({
+            read: _poolFilter,
+            write: val => _poolFilter(val) && this.loadNodes()
+        });
+
+        let _onlineFilter = ko.observable(true);
+        this.onlineFilter = ko.pureComputed({
+            read: _onlineFilter,
+            write: val => _onlineFilter(val) && this.loadNodes()
+        });
 
         this.selectedNodes = ko.observableArray()
             .extend({
@@ -42,6 +85,10 @@ class CreatePoolWizardViewModel extends Disposable {
                 }
             });
 
+        this.nodeCount = ko.pureComputed(
+            () => systemInfo() && systemInfo().nodes.count
+        );
+
         this.chooseNameErrors = ko.validation.group([
             this.poolName
         ]);
@@ -50,7 +97,27 @@ class CreatePoolWizardViewModel extends Disposable {
             this.selectedNodes
         ]);
 
-        loadNodeList();
+        let isFiltered = ko.pureComputed(
+            () => this.nameOrIpFilter() ||
+                this.onlineFilter() ||
+                this.poolFilter() !== nodeSources()
+        );
+
+        this.emptyMessage = ko.pureComputed(
+            () => {
+                if (!systemInfo() || !nodeList() || nodeList().length > 0) {
+                    return;
+
+                } else if (systemInfo().nodes.count === 0) {
+                    return 'The system contain no nodes';
+
+                } else if (isFiltered()) {
+                    return 'The current filter does not match any node';
+                }
+            }
+        );
+
+        this.loadNodes();
     }
 
     validateStep(step) {
@@ -71,6 +138,14 @@ class CreatePoolWizardViewModel extends Disposable {
         }
 
         return true;
+    }
+
+    loadNodes() {
+        loadNodeList(
+            this.nameOrIpFilter(),
+            this.poolFilter(),
+            this.onlineFilter() || undefined
+        );
     }
 
     createPool() {

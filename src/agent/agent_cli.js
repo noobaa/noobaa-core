@@ -85,6 +85,9 @@ AgentCLI.prototype.init = function() {
             var agent_conf = JSON.parse(data);
             dbg.log0('using agent_conf.json', util.inspect(agent_conf));
             _.defaults(self.params, agent_conf);
+            if (!self.params.host_id) {
+                self.params.host_id = uuid();
+            }
         })
         .then(null, function(err) {
             dbg.log0('cannot find configuration file. Using defaults.', err);
@@ -95,7 +98,8 @@ AgentCLI.prototype.init = function() {
                 access_key: '123',
                 secret_key: 'abc',
                 system: 'demo',
-                bucket: 'files'
+                bucket: 'files',
+                host_id: uuid()
             });
             if (self.params.address) {
                 self.client.options.address = self.params.address;
@@ -116,7 +120,7 @@ AgentCLI.prototype.init = function() {
                     return true;
                 }
             });
-            var server_uuid = os.hostname() + '-' + uuid();
+            var server_uuid = self.params.host_id;
             console.log('Server:' + server_uuid + ' with HD:' + JSON.stringify(hds));
 
             var mount_points = [];
@@ -209,7 +213,7 @@ AgentCLI.prototype.load = function() {
                         return self.start(name, node_path);
                     } else {
                         dbg.log0('starting new internal agent. name = ', name);
-                        return self.create_node_helper(self.params.all_storage_paths[0], name);
+                        return self.create_node_helper(self.params.all_storage_paths[0], /*use_host_id=*/ true, name);
                     }
                 }));
             });
@@ -273,7 +277,7 @@ AgentCLI.prototype.load = function() {
             if (nodes_to_add < 0) {
                 dbg.warn('NODES SCALE DOWN IS NOT YET SUPPORTED ...');
             } else {
-                return self.create_some(nodes_to_add);
+                return self.create_some(nodes_to_add, /*use_host_id=*/ true);
             }
         })
         .catch(err => {
@@ -309,12 +313,12 @@ AgentCLI.prototype.load.helper = function() {
     dbg.log0("create token, start nodes ");
 };
 
-AgentCLI.prototype.create_node_helper = function(current_node_path_info, internal_node_name) {
+AgentCLI.prototype.create_node_helper = function(current_node_path_info, use_host_id, internal_node_name) {
     var self = this;
 
     return P.fcall(function() {
         var current_node_path = current_node_path_info.mount;
-        var node_name = internal_node_name || os.hostname() + '-' + uuid().split('-')[0];
+        var node_name = internal_node_name || os.hostname();
         var path_modification = current_node_path.replace('/agent_storage/', '').replace('/', '').replace('.', '');
         //windows
         path_modification = path_modification.replace('\\agent_storage\\', '');
@@ -323,6 +327,15 @@ AgentCLI.prototype.create_node_helper = function(current_node_path_info, interna
             node_name = node_name + '-' + current_node_path_info.drive_id.replace(':', '');
         } else if (!_.isEmpty(path_modification)) {
             node_name = node_name + '-' + path_modification.replace('/', '');
+        }
+
+        if (!internal_node_name) {
+            if (self.params.scale || !use_host_id) {
+                // when running with scale use new uuid for each node
+                node_name = node_name + '-' + uuid().split('-')[0];
+            } else {
+                node_name += '-' + self.params.host_id.split('-')[0];
+            }
         }
 
         var node_path = path.join(current_node_path, node_name);
@@ -365,8 +378,14 @@ AgentCLI.prototype.create_node_helper = function(current_node_path_info, interna
                 return fs.writeFileAsync(token_path, self.create_node_token);
             })
             .then(function() {
+                if (!fs.existsSync('./noobaa_service_uninstall.sh')) return;
                 dbg.log0('Add uninstall command', node_path);
                 return promise_utils.exec('echo \'rm -rf ' + current_node_path + '\' >> ./noobaa_service_uninstall.sh ');
+            })
+            .then(function() {
+                if (!fs.existsSync('./service_uninstaller.bat')) return;
+                dbg.log0('Add uninstall command', node_path);
+                return promise_utils.exec('echo rd /s /q ' + current_node_path + ' >> ./service_uninstaller.bat ');
             })
             .then(function() {
                 if (!self.params.internal_agent) {
@@ -376,6 +395,7 @@ AgentCLI.prototype.create_node_helper = function(current_node_path_info, interna
                             let agent_conf = JSON.parse(data);
                             delete agent_conf.access_key;
                             delete agent_conf.secret_key;
+                            agent_conf.host_id = self.params.host_id;
                             var write_data = JSON.stringify(agent_conf);
                             return fs.writeFileAsync('agent_conf.json', write_data);
                         })
@@ -408,7 +428,7 @@ AgentCLI.prototype.create_node_helper = function(current_node_path_info, interna
  * create new node agent
  *
  */
-AgentCLI.prototype.create = function(number_of_nodes) {
+AgentCLI.prototype.create = function(number_of_nodes, use_host_id) {
     var self = this;
     //create root path last. First, create all other.
     // for internal_agents only use root path
@@ -420,7 +440,7 @@ AgentCLI.prototype.create = function(number_of_nodes) {
                             //if new HD introduced,  skip existing HD.
                             return;
                         } else {
-                            return self.create_node_helper(current_storage_path);
+                            return self.create_node_helper(current_storage_path, use_host_id);
                         }
                     });
             }
@@ -434,13 +454,13 @@ AgentCLI.prototype.create = function(number_of_nodes) {
                             //if new HD introduced,  skip existing HD.
                             return;
                         } else {
-                            return self.create_node_helper(self.params.all_storage_paths[0]);
+                            return self.create_node_helper(self.params.all_storage_paths[0], use_host_id);
                         }
                     });
             } else if (number_of_nodes === 0) {
                 return;
             } else {
-                return self.create_node_helper(self.params.all_storage_paths[0]);
+                return self.create_node_helper(self.params.all_storage_paths[0], use_host_id);
             }
         })
         .then(null, function(err) {
@@ -459,16 +479,16 @@ AgentCLI.prototype.create.helper = function() {
  * create new node agent
  *
  */
-AgentCLI.prototype.create_some = function(n) {
+AgentCLI.prototype.create_some = function(n, use_host_id) {
     var self = this;
     //special case, new HD introduction to the system. adding only these new HD nodes
     if (n === 0) {
-        return self.create(0);
+        return self.create(0, use_host_id);
     } else {
         var sem = new Semaphore(5);
         return P.all(_.times(n, function() {
             return sem.surround(function() {
-                return self.create(n);
+                return self.create(n, use_host_id);
             });
         }));
     }
@@ -495,10 +515,11 @@ AgentCLI.prototype.start = function(node_name, node_path) {
         agent = self.agents[node_name] = new Agent({
             address: self.params.address,
             node_name: node_name,
+            host_id: self.params.host_id,
             storage_path: node_path,
             cloud_info: self.cloud_info,
             storage_limit: self.params.storage_limit,
-            is_internal_agent: self.params.internal_agent
+            is_internal_agent: self.params.internal_agent,
         });
 
         dbg.log0('agent inited', node_name, self.params.addres, self.params.port, self.params.secure_port, node_path);

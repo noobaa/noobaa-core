@@ -1,53 +1,82 @@
-<form class="create-system-form column">
+<section class="column create-system-form">
     <h2 class="heading3 text-center push-next">
-        Create a new system
+        Two quick steps and we are ready to go
     </h2>
 
-    <div class="push-next">
-        <input type="text" placeholder="Owner Email" data-bind="
-            textInput: ownerEmail
-        "/>
-    </div>
+    <stepper params="steps: steps, current: step" class="push-next"></stepper>
 
-    <div class="push-next">
-        <input type="password" placeholder="Owner Password" data-bind="
-            textInput: ownerPassword
-        "/>
-    </div>
+    <div class="box steps column" data-bind="css: `step${step()}`">
+        <div class="row pages">
+            <div class="page column" data-bind="css: { selected: step() === 0 }">
+                <p class="heading3 push-next">Create your owner account</p>
 
-    <div class="push-next">
-        <input type="password" placeholder="Confirm Password" data-bind="
-            textInput: confirmPassword
-        "/>
-    </div>
+                <editor params="
+                    label: 'Activation code'
+                ">
+                    <input type="text" placeholder="your actication code"
+                        data-bind="value: activationCode">
+                </editor>
 
-    <div class="push-both">
-        <input type="text" placeholder="System Name" data-bind="
-            textInput: systemName
-        "/>
-    </div>
+                <editor params="label: 'Email address'">
+                    <input type="text" placeholder="your email address"
+                        data-bind="value: email">
+                </editor>
 
-    <div class="push-next column dns-field">
-        <input type="text" placeholder="Fully Qualified Domain Name" data-bind="
-            validationOptions: { insertMessages: false },
-            textInput: systemDNS
-        "/>
+                <editor params="label: 'Password'">
+                    <input type="password" data-bind="value: password"
+                        placeholder="enter passowrd">
+                </editor>
 
-        <div class="row">
-            <span class="val-msg text-left" data-bind="validationMessage: systemDNS">
-            </span>
+                <editor params="label: 'Confirm password'">
+                    <input type="password" data-bind="value: confirmPassword"
+                     placeholder="repeat password ">
+                </editor>
+            </div>
 
-            <span class="greedy"></span>
+            <div class="page column" data-bind="css: { selected: step() === 1 }">
+                <p class="heading3 push-next">
+                    Hi
+                    <span data-bind="text: name"></span>
+                    , let's cofigure your system
+                </p>
 
-            <span class="remark">* Optional</span>
+                <editor params="label: 'NooBaa System name'">
+                    <input type="text" placeholder="name your system"
+                        data-bind="value: systemName">
+                </editor>
+
+                <editor params="label: 'Server DNS name'">
+                    <input type="text" data-bind="value: serverDNSName">
+                    <p class="hint">optional</p>
+                </editor>
+
+                <editor params="label: 'Primary DNS server IP'">
+                    <input type="text" data-bind="value: primaryDNSServerIP"
+                        placeholder="The IP of your primary DNS server" >
+                    <p class="hint">optional</p>
+                </editor>
+            </div>
+        </div>
+
+        <div class="row content-middle align-end push-prev">
+            <button class="link push-next" data-bind="
+                visible: isPrevVisible,
+                click: prev
+            ">
+                Previous
+            </button>
+
+            <button class="btn2 " data-bind="
+                visible: isNextVisible,
+                click: next
+            ">
+                Next
+            </button>
+
+            <button class="btn2" data-bind="
+                visible: isCreateSystemVisible,
+                click: createSystem
+            ">Create system</button>
         </div>
     </div>
-
-    <button class="btn align-middle push-prev" data-bind="
-        click: createSystem,
-        css: { shake: shake },
-        animation: { end: () => shake(false) }
-    ">
-        Create System
-    </button>
-</form>
+</section>

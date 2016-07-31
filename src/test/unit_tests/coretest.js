@@ -1,7 +1,10 @@
 // make jshint ignore mocha globals
 'use strict';
 
-var CORETEST_MONGODB_URL = 'mongodb://localhost/coretest';
+console.log('loading .env file');
+require('../../util/dotenv').load();
+
+var CORETEST_MONGODB_URL = process.env.CORETEST_MONGODB_URL || 'mongodb://USER@localhost/coretest';
 process.env.MONGODB_URL = CORETEST_MONGODB_URL;
 process.env.JWT_SECRET = 'coretest';
 

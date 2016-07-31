@@ -762,6 +762,7 @@ function get_bucket_info(bucket, nodes_aggregate_pool, cloud_sync_policy) {
     });
 
     info.cloud_sync_status = _.isEmpty(cloud_sync_policy) ? 'NOTSET' : cloud_sync_policy.status;
+    info.demo_bucket = Boolean(bucket.demo_bucket);
     return info;
 }
 

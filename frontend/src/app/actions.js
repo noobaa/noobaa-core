@@ -167,7 +167,7 @@ export function showObject() {
     logAction('showObject');
 
     let ctx = model.routeContext();
-    let { object, bucket, tab = 'details' } = ctx.params;
+    let { object, bucket, tab = 'parts' } = ctx.params;
     let { page = 0 } = ctx.query;
 
     model.uiState({
@@ -679,37 +679,47 @@ export function loadS3BucketList(connection) {
 // -----------------------------------------------------
 // Managment actions.
 // -----------------------------------------------------
-export function createSystemAccount(system, email, password, dnsName) {
-    logAction('createSystemAccount', { system, email, password, dnsName });
+export function createSystem(
+    activationCode,
+    email,
+    password,
+    systemName,
+    dnsName,
+    dnsServers,
+    timeConfig
+) {
+    logAction('createSystem', {
+        activationCode, email, password, systemName, dnsName,
+        dnsServers, timeConfig
+    });
 
-    let accessKeys = system === 'demo' && email === 'demo@noobaa.com' ?
+    let accessKeys = (systemName === 'demo' && email === 'demo@noobaa.com') ?
         { access_key: '123', secret_key: 'abc' } :
         generateAccessKeys();
 
-    api.account.create_account({
-        name: system,
+    api.system.create_system({
+        activation_code: activationCode,
+        name: systemName,
         email: email,
         password: password,
-        access_keys: accessKeys
+        access_keys: accessKeys,
+        dns_name: dnsName,
+        dns_servers: dnsServers,
+        time_config: timeConfig
     })
         .then(
             ({ token }) => {
                 api.options.auth_token = token;
                 localStorage.setItem('sessionToken', token);
-                model.sessionInfo({ user: email, system: system});
+
+                // Update the session info and redirect to system screen.
+                model.sessionInfo({
+                    user: email,
+                    system: systemName,
+                    token: token
+                });
+                redirectTo(routes.system, { system: systemName });
             }
-        )
-        .then(
-            () => {
-                if (dnsName) {
-                    return api.system.update_hostname({
-                        hostname: dnsName
-                    });
-                }
-            }
-        )
-        .then(
-            () => redirectTo(routes.system, { system })
         )
         .done();
 }
@@ -1224,7 +1234,7 @@ export function upgradeSystem(upgradePackage) {
         let xhr = new XMLHttpRequest();
         xhr.open('GET', '/version', true);
         xhr.onload = () => reloadTo(routes.system, undefined, { afterupgrade: true });
-        xhr.onerror = () => setTimeout(ping, 20000);
+        xhr.onerror = () => setTimeout(ping, 3000);
         xhr.send();
     }
 
@@ -1254,7 +1264,7 @@ export function upgradeSystem(upgradePackage) {
                         state: 'IN_PROGRESS'
                     });
 
-                    setTimeout(ping, 5000);
+                    setTimeout(ping, 3000);
                 },
                 20000
             );
@@ -1407,7 +1417,7 @@ export function setNodeDebugLevel(node, level) {
 export function setSystemDebugLevel(level){
     logAction('setSystemDebugLevel', { level });
 
-    api.system.set_debug_level({ level })
+    api.cluster_server.set_debug_level({ level })
         .then(loadSystemInfo)
         .done();
 }

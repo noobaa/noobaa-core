@@ -177,9 +177,9 @@ function windows_volume_to_drive(vol) {
 }
 
 function wmic(topic) {
-    return promise_utils.exec('wmic ' + topic + ' get /value')
+    return promise_utils.exec('wmic ' + topic + ' get /value', /*ignore_rc= */ false, /*return_stdout= */ true)
         .then(function(res) {
-            return wmic_parse_list(res[0]);
+            return wmic_parse_list(res);
         });
 }
 
@@ -252,9 +252,9 @@ function set_ntp(server, timez) {
     if (os.type() === 'Linux') {
         var command = "sed -i 's/.*NooBaa Configured NTP Server.*/server " + server + " iburst #NooBaa Configured NTP Server/' /etc/ntp.conf";
         return _set_time_zone(timez)
+            .then(() => promise_utils.exec(command))
             .then(() => promise_utils.exec('/sbin/chkconfig ntpd on 2345'))
             .then(() => promise_utils.exec('/etc/init.d/ntpd restart'))
-            .then(() => promise_utils.exec(command))
             .then(() => restart_rsyslogd());
     } else if (os.type() === 'Darwin') { //Bypass for dev environment
         return;

@@ -28,18 +28,20 @@ class MaintenanceFormViewModel extends Disposable {
 
         this.timeLeftText = ko.pureComputed(
             () => {
-                if (till()) {
-                    let diff =  moment.duration(till() - now());
-                    return `${
-                            pad(diff.days(), 2)
-                        }:${
-                            pad(diff.hours(), 2)
-                        }:${
-                            pad(diff.minutes(), 2)
-                        }:${
-                            pad(diff.seconds(), 2)
-                        }`;
+                if (!till()) {
+                    return;
                 }
+
+                let diff =  moment.duration(till() - now());
+                return `${
+                        pad(diff.days(), 2)
+                    }:${
+                        pad(diff.hours(), 2)
+                    }:${
+                        pad(diff.minutes(), 2)
+                    }:${
+                        pad(diff.seconds(), 2)
+                    }`;
             }
         );
 
@@ -49,9 +51,12 @@ class MaintenanceFormViewModel extends Disposable {
 
         this.isStartMaintenanceModalVisible = ko.observable(false);
 
-        setInterval(
-            () => now(Date.now()),
-            1000
+        this.addToDisposeList(
+            setInterval(
+                () => now(Date.now()),
+                1000
+            ),
+            clearInterval
         );
     }
 

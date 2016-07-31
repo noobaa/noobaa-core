@@ -303,7 +303,7 @@ function apply_updated_time_config(req) {
     var time_config = req.rpc_params;
     return P.fcall(function() {
             if (time_config.ntp_server) { //set NTP
-                return os_utils.set_ntp(time_config.server, time_config.timezone);
+                return os_utils.set_ntp(time_config.ntp_server, time_config.timezone);
             } else { //manual set
                 return os_utils.set_manual_time(time_config.epoch, time_config.timezone);
             }
@@ -466,23 +466,23 @@ function diagnose_system(req) {
     }
 
     return fs_utils.create_fresh_path(`${TMP_WORK_DIR}`)
-    .then(() => {
-        return P.each(target_servers, function(server) {
-            return server_rpc.client.cluster_internal.collect_server_diagnostics(req.rpc_params, {
-                    address: 'ws://' + server.owner_address + ':8080',
-                    auth_token: req.auth_token
-                })
-                .then((res_data) => {
-                    var server_hostname = 'unknown' || (server.heartbeat && server.heartbeat.health.os_info.hostname);
-                    // Should never exist since above we delete the root folder
-                    return fs_utils.create_fresh_path(`${TMP_WORK_DIR}/${server_hostname}_${server.owner_secret}`)
-                        .then(() => fs.writeFileAsync(`${TMP_WORK_DIR}/${server_hostname}_${server.owner_secret}/diagnostics.tgz`, res_data.data));
-                });
-        });
-    })
-    .then(() => promise_utils.exec(`find ${TMP_WORK_DIR} -maxdepth 1 -type f -delete`))
-    .then(() => diag.pack_diagnostics(WORKING_PATH))
-    .then(() => (OUT_PATH));
+        .then(() => {
+            return P.each(target_servers, function(server) {
+                return server_rpc.client.cluster_internal.collect_server_diagnostics(req.rpc_params, {
+                        address: 'ws://' + server.owner_address + ':8080',
+                        auth_token: req.auth_token
+                    })
+                    .then((res_data) => {
+                        var server_hostname = 'unknown' || (server.heartbeat && server.heartbeat.health.os_info.hostname);
+                        // Should never exist since above we delete the root folder
+                        return fs_utils.create_fresh_path(`${TMP_WORK_DIR}/${server_hostname}_${server.owner_secret}`)
+                            .then(() => fs.writeFileAsync(`${TMP_WORK_DIR}/${server_hostname}_${server.owner_secret}/diagnostics.tgz`, res_data.data));
+                    });
+            });
+        })
+        .then(() => promise_utils.exec(`find ${TMP_WORK_DIR} -maxdepth 1 -type f -delete`))
+        .then(() => diag.pack_diagnostics(WORKING_PATH))
+        .then(() => (OUT_PATH));
 
 }
 
@@ -546,6 +546,26 @@ function update_server_location(req) {
     }).return();
 }
 
+function read_server_config(req) {
+    let reply = {};
+    let srvconf = {};
+    return P.resolve(_attach_server_configuration(srvconf))
+        .then(() => {
+            if (srvconf.ntp) {
+                if (srvconf.ntp.timezone) {
+                    reply.timezone = srvconf.ntp.timezone;
+                }
+                if (srvconf.ntp.server) {
+                    reply.ntp_server = srvconf.ntp.server;
+                }
+            }
+
+            if (srvconf.dns_servers) {
+                reply.dns_servers = srvconf.dns_servers;
+            }
+            return reply;
+        });
+}
 
 //
 //Internals Cluster Control
@@ -767,6 +787,12 @@ function _update_rs_if_needed(IPs, name, is_config) {
 
 
 function _attach_server_configuration(cluster_server) {
+    if (!fs.existsSync('/etc/ntp.conf') || !fs.existsSync('/etc/resolv.conf')) {
+        cluster_server.ntp = {
+            timezone: os_utils.get_time_config().timezone
+        };
+        return cluster_server;
+    }
     return P.join(fs_utils.find_line_in_file('/etc/ntp.conf', '#NooBaa Configured NTP Server'),
             os_utils.get_time_config(),
             fs_utils.find_line_in_file('/etc/resolv.conf', '#NooBaa Configured Primary DNS Server'),
@@ -820,3 +846,4 @@ exports.diagnose_system = diagnose_system;
 exports.collect_server_diagnostics = collect_server_diagnostics;
 exports.read_server_time = read_server_time;
 exports.apply_read_server_time = apply_read_server_time;
+exports.read_server_config = read_server_config;

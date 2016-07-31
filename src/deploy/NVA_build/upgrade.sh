@@ -215,7 +215,7 @@ function do_upgrade {
 }
 
 function verify_supported_upgrade {
-    local current_ver=$(grep version /root/node_modules/noobaa-core/package.json  | cut -f 2 -d':' | cut -f 2 -d'"' | )
+    local current_ver=$(grep version /root/node_modules/noobaa-core/package.json  | cut -f 2 -d':' | cut -f 2 -d'"')
     local second_digit=$(echo ${current_ver} | cut -f 2 -d'.')
 
     if [ ${second_digit} == "0" or ${second_digit} == "3" ]; then

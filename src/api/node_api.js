@@ -391,6 +391,9 @@ module.exports = {
                 is_cloud_node: {
                     type: 'boolean'
                 },
+                demo_node: {
+                    type: 'boolean'
+                },
                 geolocation: {
                     type: 'string'
                 },
@@ -401,6 +404,9 @@ module.exports = {
                     type: 'string'
                 },
                 ip: {
+                    type: 'string'
+                },
+                host_id: {
                     type: 'string'
                 },
                 version: {
@@ -588,6 +594,9 @@ module.exports = {
                 },
                 deleted: {
                     type: 'boolean',
+                },
+                skip_internal: {
+                    type: 'boolean'
                 },
                 accessibility: {
                     $ref: '#/definitions/accessibility_type'

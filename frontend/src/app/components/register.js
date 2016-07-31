@@ -58,7 +58,7 @@ export default function register(ko) {
     ko.components.register('bucket-s3-access-list',                 require('./bucket/bucket-s3-access-list/bucket-s3-access-list'));
     ko.components.register('s3-access-details-modal',               require('./bucket/s3-access-details-modal/s3-access-details-modal'));
     ko.components.register('bucket-s3-access-modal',                require('./bucket/bucket-s3-access-modal/bucket-s3-access-modal'));
-    ko.components.register('bucket-backup-policy-modal', require('./bucket/bucket-backup-policy-modal/bucket-backup-policy-modal'));
+    ko.components.register('bucket-backup-policy-modal',            require('./bucket/bucket-backup-policy-modal/bucket-backup-policy-modal'));
     /** INJECT:bucket **/
 
     // -------------------------------
@@ -66,7 +66,6 @@ export default function register(ko) {
     // -------------------------------
     ko.components.register('object-panel',          require('./object/object-panel/object-panel'));
     ko.components.register('object-summary',        require('./object/object-summary/object-summary'));
-    ko.components.register('object-details-form',   require('./object/object-details-form/object-details-form'));
     ko.components.register('object-parts-list',     require('./object/object-parts-list/object-parts-list'));
     ko.components.register('object-preview-modal',  require('./object/object-preview-modal/object-preview-modal'));
     /** INJECT:object **/
@@ -119,6 +118,8 @@ export default function register(ko) {
     ko.components.register('phone-home-form',           require('./management/phone-home-form/phone-home-form'));
     ko.components.register('remote-syslog-form',        require('./management/remote-syslog-form/remote-syslog-form'));
     ko.components.register('server-ssl-form',           require('./management/server-ssl-form/server-ssl-form'));
+    ko.components.register('server-time-form',          require('./management/server-time-form/server-time-form'));
+    ko.components.register('server-dns-settings-form',  require('./management/server-dns-settings-form/server-dns-settings-form'));
     /** INJECT:management **/
 
     // -------------------------------
@@ -168,6 +169,11 @@ export default function register(ko) {
     ko.components.register('add-s3-connection-modal',   require('./shared/add-s3-connection-modal/add-s3-connection-modal'));
     ko.components.register('toggle-filter',             require('./shared/toggle-filter/toggle-filter'));
     ko.components.register('data-table',                require('./shared/data-table/data-table'));
-
+    ko.components.register('timezone-chooser',          require('./shared/timezone-chooser/timezone-chooser'));
+    ko.components.register('date-time-chooser',         require('./shared/date-time-chooser/date-time-chooser'));
+    ko.components.register('pie-chart',                 require('./shared/pie-chart/pie-chart'));
+    ko.components.register('bar-chart',                 require('./shared/bar-chart/bar-chart'));
+    ko.components.register('pool-selection-table',      require('./shared/pool-selection-table/pool-selection-table'));
+    ko.components.register('node-selection-table',      require('./shared/node-selection-table/node-selection-table'));
     /** INJECT:shared **/
 }

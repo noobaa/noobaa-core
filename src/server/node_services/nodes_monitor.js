@@ -42,6 +42,7 @@ const AGENT_INFO_FIELDS = [
     'name',
     'version',
     'ip',
+    'host_id',
     'base_address',
     'rpc_address',
     'geolocation',
@@ -66,6 +67,7 @@ const NODE_INFO_FIELDS = [
     'name',
     'geolocation',
     'ip',
+    'host_id',
     'is_cloud_node',
     'rpc_address',
     'base_address',
@@ -225,6 +227,8 @@ class NodesMonitor extends EventEmitter {
         };
         if (pool.cloud_pool_info) {
             item.node.is_cloud_node = true;
+        } else if (pool.demo_pool) {
+            item.node.is_internal_node = true;
         }
         dbg.log0('_add_new_node', item.node);
         this._add_node_to_maps(item);
@@ -240,8 +244,8 @@ class NodesMonitor extends EventEmitter {
     }
 
     _set_node_defaults(item) {
-        if (!_.isNumber(item.node.hearbeat)) {
-            item.node.hearbeat = new Date(item.node.hearbeat).getTime() || 0;
+        if (!_.isNumber(item.node.heartbeat)) {
+            item.node.heartbeat = new Date(item.node.heartbeat).getTime() || 0;
         }
         item.node.drives = item.node.drives || [];
         item.node.latency_to_server = item.node.latency_to_server || [];
@@ -264,6 +268,7 @@ class NodesMonitor extends EventEmitter {
     }
 
     _set_connection(item, conn) {
+        if (item.connection === conn) return;
         if (item.connection) {
             dbg.warn('heartbeat: closing old connection', item.connection.connid);
             item.connection.close();
@@ -522,6 +527,7 @@ class NodesMonitor extends EventEmitter {
         item.readable = Boolean(
             item.online &&
             item.trusted &&
+            !item.node.decommissioned &&
             !item.node.deleting &&
             !item.node.deleted);
 
@@ -617,6 +623,7 @@ class NodesMonitor extends EventEmitter {
         if (act.running) return;
         dbg.log0('_rebuild_node: start', item.node.name, act);
         const blocks_query = {
+            system: item.node.system,
             node: item.node._id,
             deleted: null
         };
@@ -887,6 +894,9 @@ class NodesMonitor extends EventEmitter {
         if (query.skip_cloud_nodes) {
             code += `if (item.node.is_cloud_node) return false; `;
         }
+        if (query.skip_internal) {
+            code += `if (item.node.is_internal_node) return false; `;
+        }
         for (const field of QUERY_FIELDS) {
             const value = query[field.query];
             if (_.isUndefined(value)) continue;
@@ -903,9 +913,10 @@ class NodesMonitor extends EventEmitter {
 
         const items = query.nodes ?
             new Set(_.map(query.nodes, node_identity =>
-                this._get_node(node_identity, 'allow_offline'))) :
+                this._get_node(node_identity, 'allow_offline', 'allow_missing'))) :
             this._map_node_id.values();
         for (const item of items) {
+            if (!item) continue;
             // update the status of every node we go over
             this._update_status(item);
             if (!filter_item_func(item)) continue;
@@ -1158,6 +1169,7 @@ class NodesMonitor extends EventEmitter {
         if (node.decommissioned) info.decommissioned = node.decommissioned.getTime();
         if (node.deleting) info.deleting = node.deleting.getTime();
         if (node.deleted) info.deleted = node.deleted.getTime();
+        if (node.is_internal_node) info.demo_node = true;
         const act = item.data_activity;
         if (act && !act.done) {
             info.data_activity = _.pick(act,

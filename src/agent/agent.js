@@ -53,6 +53,8 @@ class Agent {
             address: params.address
         }];
 
+        this.host_id = params.host_id;
+
         assert(params.node_name, 'missing param: node_name');
         this.node_name = params.node_name;
         this.token = params.token;
@@ -255,6 +257,8 @@ class Agent {
         };
         if (this.cloud_info) {
             hb_info.pool_name = this.cloud_info.cloud_pool_name;
+        } else if (this.is_internal_agent) {
+            hb_info.pool_name = config.DEMO_DEFAULTS.NAME;
         }
         return this.client.node.heartbeat(hb_info, {
                 return_rpc_req: true
@@ -437,6 +441,7 @@ class Agent {
             version: pkg.version || '',
             name: this.node_name || '',
             ip: ip,
+            host_id: this.host_id,
             rpc_address: this.rpc_address || '',
             base_address: this.rpc.router.default,
             n2n_config: this.n2n_agent.get_plain_n2n_config(),

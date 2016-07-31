@@ -44,6 +44,9 @@ module.exports = {
                     ip: {
                         type: 'string'
                     },
+                    host_id: {
+                        type: 'string'
+                    },
                     base_address: {
                         type: 'string'
                     },

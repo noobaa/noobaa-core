@@ -6,7 +6,7 @@ import { paginationPageSize } from 'config';
 import { redirectTo } from 'actions';
 
 class ObjectPartsListViewModel extends Disposable {
-    constructor({ parts }) {
+    constructor({ obj, parts }) {
         super();
 
         this.pageSize = paginationPageSize;
@@ -23,6 +23,20 @@ class ObjectPartsListViewModel extends Disposable {
                 return new ObjectPartRowViewModel(part, partNumber, this.count());
             }
         );
+
+        this.s3SignedUrl = ko.pureComputed(
+            () => obj() && obj().s3_signed_url
+        );
+
+        this.isPreviewModalVisible = ko.observable(false);
+    }
+
+    showPreviewModal() {
+        this.isPreviewModalVisible(true);
+    }
+
+    hidePreviewModal() {
+        this.isPreviewModalVisible(false);
     }
 }
 

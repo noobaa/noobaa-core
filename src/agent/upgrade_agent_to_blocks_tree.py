@@ -65,6 +65,8 @@ def upgrade_agent_storage(agent_storage):
 
 
 def main():
+    global wet
+    global verbose
     agent_storage_arg = None
 
     for arg in sys.argv[1:]:

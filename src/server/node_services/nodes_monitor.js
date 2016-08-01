@@ -1126,7 +1126,7 @@ class NodesMonitor extends EventEmitter {
 
             const free_considering_reserve =
                 new BigInteger(item.node.storage.free || 0)
-                .minus(item.node.is_internal_node ? 0 : config.NODES_FREE_SPACE_RESERVE);
+                .minus(config.NODES_FREE_SPACE_RESERVE);
             if (free_considering_reserve.greater(0)) {
                 if (item.has_issues) {
                     storage.unavailable_free = storage.unavailable_free

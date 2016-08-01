@@ -634,10 +634,9 @@ module.exports = {
             type: 'string',
             enum: [
                 'RESTORING',
-                'FREEING_SPACE',
                 'MIGRATING',
                 'DECOMMISSIONING',
-                'DELETING'
+                'DELETING',
             ]
         },
 

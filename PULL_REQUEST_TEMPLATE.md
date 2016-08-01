@@ -16,8 +16,9 @@
 - [ ] Diagnostics info - added: **Logs / Files**
 - [ ] Phone Home info - added: **Stats / Actions**
 - [ ] Code Comments - on non-trivial parts
-- [ ] Code Covered - by automatic tests: **Links to test**
-- [ ] Tests added: **Links to unit-tests / system-tests**
+- [ ] Automatic Tests Coverage:
+ - [ ] **Already covered by ...**
+ - [ ] **Added tests ...**
 - [ ] Tested with `npm test`
 
 ### Issues References

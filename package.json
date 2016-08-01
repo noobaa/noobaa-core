@@ -31,6 +31,7 @@
     "agents": "node src/agent/agent_cli --scale 20",
     "start": "node src/server",
     "------": "---------------------------------------------------------------",
+    "clean:storage": "rm -rf ./agent_storage/* ./metadata_storage/*",
     "clean:install": "rm -rf ./node_modules",
     "clean:build": "rm -rf ./build",
     "clean:test": "rm -rf ./coverage ./logs",

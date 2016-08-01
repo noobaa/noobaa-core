@@ -47,7 +47,8 @@ function collect_server_diagnostics(req) {
             return collect_ntp_diagnostics();
         })
         .then(function() {
-            if (stats_aggregator && system_store.is_cluster_master) {
+            let current_clustering = system_store.get_local_cluster_info();
+            if (stats_aggregator && !((current_clustering && current_clustering.is_clusterized) && !system_store.is_cluster_master)) {
                 return stats_aggregator.get_all_stats(req);
             } else {
                 return;

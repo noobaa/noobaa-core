@@ -55,6 +55,12 @@ mocha.describe('node_server', function() {
                 },
                 level: 0,
             }))
+            .then(() => client.node.decommission_node({
+                name: nodes[0].name
+            }))
+            .then(() => client.node.recommission_node({
+                name: nodes[0].name
+            }))
             .then(() => client.node.collect_agent_diagnostics({
                 name: nodes[0].name,
             }))

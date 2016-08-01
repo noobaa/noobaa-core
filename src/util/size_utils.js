@@ -25,7 +25,18 @@ const MAX_UINT32 = (1 << 16) * (1 << 16);
 
 const SIZE_UNITS = ['', 'K', 'M', 'G', 'T', 'P', 'E', 'Z', 'Y'];
 
-const SOTRAGE_OBJ_KEYS = ['used', 'total', 'used_other', 'limit', 'reserved', 'used_reduced', 'unavailable_free', 'free', 'alloc', 'real'];
+const SOTRAGE_OBJ_KEYS = [
+    'total',
+    'used',
+    'used_other',
+    'used_reduced',
+    'free',
+    'reserved',
+    'unavailable_free',
+    'limit',
+    'alloc',
+    'real',
+];
 
 BigInteger.PETABYTE = new BigInteger(PETABYTE);
 
@@ -87,12 +98,13 @@ function reduce_storage(reducer, storage_items, mult_factor, div_factor) {
     return _.reduce(accumulator,
         (storage, values, key) => {
             if (!_.isEmpty(values)) {
-                // reduce the values
+                // reduce the values using the provided reducer (sum/min)
                 const reduced_value = reducer(key, values);
-                //  using BigInteger
+                // using BigInteger to calculate the factors
                 const factored_value = json_to_bigint(reduced_value)
                     .multiply(mult_factor)
                     .divide(div_factor);
+                // convert back to json for json schemas (rpc/db)
                 storage[key] = bigint_to_json(factored_value);
             }
             return storage;

@@ -31,7 +31,7 @@ P.config({
         // to suppress it for the defer() impl below
         wForgottenReturn: false
     },
-    cancellation: false,
+    cancellation: true,
     monitoring: false
 });
 

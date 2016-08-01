@@ -73,14 +73,7 @@ class ServerTimeFormViewModel extends Disposable{
 
     setManualTime() {
         let epoch = moment.tz(
-            {
-                years: this.year(),
-                months: this.month(),
-                date: this.day(),
-                hours: this.hour(),
-                minutes: this.minute(),
-                seconds: this.second()
-            },
+            this.time(),
             this.timezone()
         )
         .unix();

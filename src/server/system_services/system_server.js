@@ -36,6 +36,7 @@ const promise_utils = require('../../util/promise_utils');
 const bucket_server = require('./bucket_server');
 const system_server_utils = require('../utils/system_server_utils');
 
+
 // called on rpc server init
 function _init() {
     const DEFUALT_DELAY = 5000;
@@ -235,7 +236,7 @@ function create_system(req) {
                 name: req.rpc_params.name,
                 access_keys: req.rpc_params.access_keys,
                 scale: 3,
-                storage_limit: 100 * 1024 * 1024,
+                storage_limit: config.DEMO_NODES_STORAGE_LIMIT,
             }, {
                 auth_token: reply_token
             });
@@ -324,7 +325,7 @@ function read_system(req) {
             }
         });
         var nodes_sys = nodes_aggregate_pool[''] || {};
-        var objects_sys = objects_aggregate;//[''] || {};
+        var objects_sys = objects_aggregate; //[''] || {};
         var ip_address = ip_module.address();
         var n2n_config = system.n2n_config;
         let debug_level = system.debug_level;

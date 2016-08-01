@@ -1107,7 +1107,7 @@ class NodesMonitor extends EventEmitter {
             used_other: 0
         };
         _.each(list, item => {
-            let free_considering_reserve = new size_utils.BigInteger(item.node.storage.free || 0).minus(config.NODES_FREE_SPACE_RESERVE);
+            let free_considering_reserve = new size_utils.BigInteger(item.node.storage.free || 0).minus(item.node.is_internal_node ? 0 : config.NODES_FREE_SPACE_RESERVE);
             let freeFieldName = 'free';
             count += 1;
             if (item.online) online += 1;
@@ -1183,12 +1183,12 @@ class NodesMonitor extends EventEmitter {
                 'remaining_size',
                 'total_size');
         }
-        info.storage = get_storage_info(node.storage);
+        info.storage = get_storage_info(node.storage, /*ignore_reserve=*/ node.is_internal_node);
         info.drives = _.map(node.drives, drive => {
             return {
                 mount: drive.mount,
                 drive_id: drive.drive_id,
-                storage: get_storage_info(drive.storage)
+                storage: get_storage_info(drive.storage, /*ignore_reserve=*/ node.is_internal_node)
             };
         });
         info.os_info = _.defaults({}, node.os_info);
@@ -1388,7 +1388,7 @@ class NodesMonitor extends EventEmitter {
 }
 
 
-function get_storage_info(storage) {
+function get_storage_info(storage, ignore_reserve) {
     let reply = {
         total: storage.total || 0,
         free: storage.free || 0,
@@ -1398,7 +1398,7 @@ function get_storage_info(storage) {
         reserved: config.NODES_FREE_SPACE_RESERVE || 0,
         used_other: storage.used_other || 0
     };
-    let free_considering_reserve = storage.free - config.NODES_FREE_SPACE_RESERVE;
+    let free_considering_reserve = ignore_reserve ? storage.free : storage.free - config.NODES_FREE_SPACE_RESERVE;
     if (free_considering_reserve > 0) {
         storage.free = free_considering_reserve;
         storage.reserved = config.NODES_FREE_SPACE_RESERVE;

@@ -761,6 +761,7 @@ function get_bucket_info(bucket, nodes_aggregate_pool, cloud_sync_policy) {
         real: new size_utils.BigInteger((bucket.storage_stats && bucket.storage_stats.chunks_capacity) || 0).multiply(tier_of_bucket.replicas).multiply(placement_mul)
     });
 
+    info.cloud_sync_policy = cloud_sync_policy;
     info.cloud_sync_status = _.isEmpty(cloud_sync_policy) ? 'NOTSET' : cloud_sync_policy.status;
     info.demo_bucket = Boolean(bucket.demo_bucket);
     return info;

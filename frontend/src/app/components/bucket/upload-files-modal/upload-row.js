@@ -3,30 +3,32 @@ import ko from 'knockout';
 import numeral from 'numeral';
 
 export default class UploadRowViewModel extends Disposable {
-    constructor(upload) {
+    constructor(request) {
         super();
 
-        this.isVisible =  ko.pureComputed(
-            () => !!upload()
-        );
-
-        this.name = ko.pureComputed(
-            () => upload().name 
-        );
-
-
-        this.css = ko.pureComputed(
-            () => upload().state.toLowerCase()
+        this.fileName = ko.pureComputed(
+            () => request() ? request().name : ''
         );
 
         this.progress = ko.pureComputed(
-            () => upload().state === 'UPLOADING' ?
-                numeral(upload().progress).format('0%') :
-                upload().state
-        );
+            () => {
+                if (!request()) {
+                    return '';
+                }
 
-        this.toolTip = ko.pureComputed(
-            () => upload().state === 'FAILED' ? upload().error.message : undefined
+                let { state, progress, error } = request();
+                let text = state === 'UPLOADING' ? numeral(progress).format('0%') : state;
+                let tooltip = state === 'FAILED' ? error.message : '';
+
+                let css = '';
+                if (state === 'COMPLETED') {
+                    css = 'success';
+                } else if (state === 'FAILED') {
+                    css = 'error';
+                }
+
+                return { text, css, tooltip };
+            }
         );
     }
 }

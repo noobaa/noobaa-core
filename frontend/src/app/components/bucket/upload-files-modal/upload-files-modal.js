@@ -2,28 +2,32 @@ import template from './upload-files-modal.html';
 import Disposable from 'disposable';
 import ko from 'knockout';
 import UploadRowViewModel from './upload-row';
-import { paginationPageSize } from 'config';
-import { makeArray } from 'utils';
 import { recentUploads } from 'model';
 import { uploadFiles } from 'actions';
+import { deepFreeze } from 'utils';
+
+const columns = deepFreeze([
+    'fileName',
+    'progress'
+]);
 
 class UploadFilesModalViewModel extends Disposable {
     constructor({ bucketName, onClose }){
         super();
 
+        this.columns = columns;
         this.bucketName = bucketName;
         this.onClose = onClose;
 
-        let recentUploadsToBucket = ko.pureComputed(
+        this.requests = ko.pureComputed(
             () => recentUploads().filter(
                 ({ targetBucket }) => targetBucket === ko.unwrap(bucketName)
             )
         );
+    }
 
-        this.files = makeArray(
-            paginationPageSize,
-            i => new UploadRowViewModel(() => recentUploadsToBucket()[i])
-        );
+    createUploadRow(file) {
+        return new UploadRowViewModel(file);
     }
 
     upload(files) {

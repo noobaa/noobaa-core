@@ -79,7 +79,7 @@
 
     .placeholder(@text-color5);
 
-    &:focus, &.invalid:focus {
+    &:focus, &.invalid:focus, &.valid:focus {
         color: @text-color2;
         border-color: @bg-color11;
     }
@@ -90,8 +90,11 @@
     }
 
     &.invalid {
-        color: @text-color8;
         border-color: @text-color8;
+    }
+
+    &.valid {
+        border-color: darken(@green-dark, 25%);
     }
 }
 

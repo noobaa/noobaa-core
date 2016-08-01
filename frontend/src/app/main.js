@@ -20,7 +20,8 @@ ko.validation.init({
     decorateInputElement: true,
     errorElementClass: 'invalid',
     errorsAsTitle: false,
-    messagesOnModified: true
+    messagesOnModified: true,
+    writeInputAttributes: true
 });
 
 // Register custom extenders, bindings, components and validation rules.

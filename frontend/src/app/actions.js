@@ -1738,3 +1738,15 @@ export function notify(message, severity = 'info') {
 
     model.lastNotification({ message, severity });
 }
+
+export function validateActivationCode(code) {
+    logAction('validateActivationCode', { code });
+
+    api.system.validate_activation({ code })
+        .then(
+            valid => model.activation({
+                code: code,
+                isCodeValid: valid
+            })
+        );
+}

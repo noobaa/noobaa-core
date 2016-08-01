@@ -1,8 +1,10 @@
 import template from './create-system-form.html';
 import Disposable from 'disposable';
 import ko from 'knockout';
-import { createSystem } from 'actions';
+import { validateActivationCode, createSystem } from 'actions';
+import { activation } from 'model';
 import moment from 'moment';
+import { waitFor } from 'utils';
 
 class CreateSystemFormViewModel extends Disposable {
     constructor() {
@@ -11,9 +13,26 @@ class CreateSystemFormViewModel extends Disposable {
         this.steps = ['account details', 'system config'];
         this.step = ko.observable(0);
 
-        this.activationCode = ko.observable()
+        let _activationCode = ko.observable();
+        this.activationCode = ko.pureComputed({
+            read: _activationCode,
+            write: value => _activationCode(value) && validateActivationCode(value)
+        })
             .extend({
-                required: { message: 'Please enter your activation code' }
+                required: {
+                    message: 'Please enter your activation code'
+                },
+                validation: {
+                    async: true,
+                    validator: (_, __, callback) => activation.once(
+                        ({ isCodeValid }) => {
+                            waitFor(500).then(
+                                () => callback(isCodeValid)
+                            );
+                        }
+                    ),
+                    message: 'Invalid activation code'
+                }
             });
 
         this.email = ko.observable()
@@ -91,7 +110,13 @@ class CreateSystemFormViewModel extends Disposable {
 
     validateStep(step) {
         let errors = this.errorsByStep[step];
-        if (errors().length > 0) {
+        let validating = errors
+            .filter(
+                obj => obj.isValidating()
+            )
+            .length;
+
+        if (validating || errors().length > 0) {
             errors.showAllMessages();
             return false;
         } else {

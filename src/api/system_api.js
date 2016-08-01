@@ -562,6 +562,15 @@ module.exports = {
 
         validate_activation: {
             method: 'GET',
+            params: {
+                type: 'object',
+                required: ['code'],
+                properties: {
+                    code: {
+                        type: 'string'
+                    }
+                }
+            },
             reply: {
                 type: 'boolean',
             },

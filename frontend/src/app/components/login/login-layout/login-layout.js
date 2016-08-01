@@ -7,10 +7,12 @@ class LoginLayoutViewModel extends Disposable {
     constructor() {
         super();
 
-        this.form = ko.pureComputed(
-            () => serverInfo() &&
-                (serverInfo().initialized ? 'signin-form' : 'create-system-form')
-        );
+        // this.form = ko.pureComputed(
+        //     () => serverInfo() &&
+        //         (serverInfo().initialized ? 'signin-form' : 'create-system-form')
+        // );
+
+        this.form = 'create-system-form';
     }
 }
 

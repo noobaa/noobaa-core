@@ -349,6 +349,9 @@ module.exports = {
                 cloud_sync_status: {
                     $ref: '#/definitions/api_cloud_sync_status'
                 },
+                cloud_sync_policy: {
+                    $ref: '#/definitions/cloud_sync_info'
+                },
                 tag: {
                     type: 'string'
                 },

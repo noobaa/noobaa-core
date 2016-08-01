@@ -13,13 +13,20 @@
  - [ ] **Does not support XXX - issue #xxxx**
 - [ ] Code Review - with someone besides myself:
  - [ ] **@mention Reviewed** / **Please review XXX**
-- [ ] Diagnostics info - added: **Logs / Files**
-- [ ] Phone Home info - added: **Stats / Actions**
+- [ ] Supportability:
+ - [ ] Diagnostics info - added: **Logs / Files**
+ - [ ] Phone Home info - added: **Stats / Actions**
+ - [ ] ActivityLog new events
+ - [ ] External Syslog events
+- [ ] Upgrade Conciderations:
+ - [ ] Mongo Schema Upgrade if needed
+ - [ ] Platform dependency added
 - [ ] Code Comments - on non-trivial parts
-- [ ] Code Covered - by automatic tests: **Links to test**
-- [ ] Tests added: **Links to unit-tests / system-tests**
-- [ ] Tested with `npm test`
+- [ ] Tests Coverage:
+ - [ ] **Already covered by ...**
+ - [ ] **Added tests ...**
+ - [ ] Tested with `npm test`
 
 ### Issues References
-- Fixes #xxxx
+- Fixes #xxxx (for multiple issues: use Fixes #xxxx, Fixes #yyyy)
 - Opened #yyyy

@@ -430,6 +430,14 @@ class Agent {
         }
     }
 
+    _fix_storage_limit(storage_info) {
+        storage_info.limit = this.storage_limit;
+        let limited_total = this.storage_limit;
+        let limited_free = limited_total - storage_info.used;
+        storage_info.total = Math.min(limited_total, storage_info.total);
+        storage_info.free = Math.min(limited_free, storage_info.free);
+    }
+
     // AGENT API //////////////////////////////////////////////////////////////////
 
 
@@ -461,6 +469,15 @@ class Agent {
             .then(storage_info => {
                 dbg.log0('storage_info:', storage_info);
                 reply.storage = storage_info;
+                if (this.storage_limit) {
+                    this._fix_storage_limit(reply.storage);
+                    // reply.storage.limit = this.storage_limit;
+                    // let limited_total = this.storage_limit;
+                    // let limited_free = limited_total - reply.storage.used;
+                    // reply.storage.total = Math.min(limited_total, reply.storage.total);
+                    // reply.storage.free = Math.min(limited_free, reply.storage.free);
+                }
+
             })
             .then(() => extended_hb && os_utils.read_drives()
                 .catch(err => {
@@ -477,11 +494,12 @@ class Agent {
                     if (this.storage_path_mount === drive.mount || !this.storage_path_mount) {
                         drive.storage.used = used_size;
                         if (this.storage_limit) {
-                            drive.storage.limit = this.storage_limit;
-                            let limited_total = this.storage_limit;
-                            let limited_free = limited_total - used_size;
-                            drive.storage.total = Math.min(limited_total, drive.storage.total);
-                            drive.storage.free = Math.min(limited_free, drive.storage.free);
+                            this._fix_storage_limit(drive.storage);
+                            // drive.storage.limit = this.storage_limit;
+                            // let limited_total = this.storage_limit;
+                            // let limited_free = limited_total - used_size;
+                            // drive.storage.total = Math.min(limited_total, drive.storage.total);
+                            // drive.storage.free = Math.min(limited_free, drive.storage.free);
                         }
                         return true;
                     } else {

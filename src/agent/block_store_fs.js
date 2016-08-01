@@ -8,7 +8,6 @@
 const _ = require('lodash');
 const fs = require('fs');
 const path = require('path');
-const mkdirp = require('mkdirp');
 
 const P = require('../util/promise');
 const dbg = require('../util/debug_module')(__filename);
@@ -23,23 +22,28 @@ class BlockStoreFs extends BlockStoreBase {
     constructor(options) {
         super(options);
         this.root_path = options.root_path;
-        this.blocks_path_root = path.join(this.root_path, 'blocks');
+        this.blocks_path_root = path.join(this.root_path, 'blocks_tree');
+        this.old_blocks_path = path.join(this.root_path, 'blocks');
         this.config_path = path.join(this.root_path, 'config');
-
-        // create internal directories to hold blocks by their last 3 hex digits
-        // this is done to reduce the number of files in one directory which leads
-        // to bad performance
-        let num_digits = 3;
-        for (let i = 0; i < Math.pow(16, num_digits); ++i) {
-            let dir_str = string_utils.left_pad_zeros(i.toString(16), num_digits) + '.blocks';
-            let block_dir = path.join(this.blocks_path_root, dir_str);
-            mkdirp.sync(block_dir, fs_utils.PRIVATE_DIR_PERMISSIONS);
-        }
-
     }
 
     init() {
-        return this.upgrade_dir_structure();
+        // create internal directories to hold blocks by their last 3 hex digits
+        // this is done to reduce the number of files in one directory which leads
+        // to bad performance
+        const num_digits = 3;
+        const num_dirs = Math.pow(16, num_digits);
+        const dir_list = [];
+        for (let i = 0; i < num_dirs; ++i) {
+            let dir_str = string_utils.left_pad_zeros(i.toString(16), num_digits) + '.blocks';
+            dir_list.push(path.join(this.blocks_path_root, dir_str));
+        }
+        dir_list.push(path.join(this.blocks_path_root, 'other.blocks'));
+
+        return P.map(dir_list, dir => fs_utils.create_path(dir), {
+                concurrency: 10
+            })
+            .then(() => this._upgrade_to_blocks_tree());
     }
 
     get_storage_info() {
@@ -180,31 +184,91 @@ class BlockStoreFs extends BlockStoreBase {
         return path.join(this.blocks_path_root, block_dir, block_id + '.meta');
     }
 
-    upgrade_dir_structure() {
-        let concurrency = 10; // the number of promises to use for moving blocks - set arbitrarily for now
-        return fs.readdirAsync(this.blocks_path_root)
-            .then(entries => {
-                // filter out the '.blocks' directories
-                let files = entries.filter(entry => entry.indexOf('.blocks') === -1);
+    _get_block_other_path(file) {
+        let block_dir = this._get_block_internal_dir('other');
+        return path.join(this.blocks_path_root, block_dir, file);
+    }
+
+    _upgrade_to_blocks_tree() {
+        return fs.statAsync(this.old_blocks_path)
+            .catch(err => {
+                // when it doesn't exist it means we don't need to upgrade
+                // on any other error, we ignore as we don't really expect
+                // any error we have anything to do about it
+                if (err.code !== 'ENOENT') {
+                    dbg.log0('_upgrade_to_blocks_tree:',
+                        'Old blocks dir failed to stat, ignoring',
+                        this.old_blocks_path, err);
+                }
+            })
+            .then(stat => {
+                if (!stat) return;
+                if (stat.size > 10 * 1024 * 1024) {
+                    dbg.error('_upgrade_to_blocks_tree:',
+                        'Old blocks dir is huge and might crash the process',
+                        this.old_blocks_path, stat);
+                    throw new Error('Old blocks dir is huge ' +
+                        'and might crash the process ' + stat.size);
+                }
+                if (stat.size > 1 * 1024 * 1024) {
+                    dbg.warn('_upgrade_to_blocks_tree:',
+                        'Old blocks dir is pretty big and might take longer to read',
+                        this.old_blocks_path, stat);
+                }
+                return this._move_to_blocks_tree();
+            });
+    }
+
+    _move_to_blocks_tree() {
+        let num_move_errors = 0;
+        dbg.log0('_upgrade_to_blocks_tree: reading', this.old_blocks_path);
+        return fs.readdirAsync(this.old_blocks_path)
+            .then(files => {
                 dbg.log2('found', files.length, 'files to move. files:', files);
                 return P.map(files, file => {
                     let file_split = file.split('.');
+                    let new_path = this._get_block_other_path(file);
                     if (file_split.length === 2) {
                         let block_id = file_split[0];
                         let suffix = file_split[1];
-                        let new_path = '';
-                        if (suffix === 'data') new_path = this._get_block_data_path(block_id);
-                        else if (suffix === 'meta') new_path = this._get_block_meta_path(block_id);
-                        if (new_path) {
-                            let old_path = path.join(this.blocks_path_root, file);
-                            return fs.renameAsync(old_path, new_path)
-                                .catch(err => dbg.error('upgrade_dir_structure: failed moving from:', old_path, 'to:', new_path));
+                        if (suffix === 'data') {
+                            new_path = this._get_block_data_path(block_id);
+                        } else if (suffix === 'meta') {
+                            new_path = this._get_block_meta_path(block_id);
                         }
                     }
-                    return P.resolve();
+                    let old_path = path.join(this.old_blocks_path, file);
+                    return fs.renameAsync(old_path, new_path)
+                        .catch(err => {
+                            // we log the error here and count, but do not throw
+                            // to try and move all the rest of the files.
+                            num_move_errors += 1;
+                            dbg.error('_upgrade_to_blocks_tree:',
+                                'failed moving', old_path, '->', new_path, err);
+                        });
                 }, {
-                    concurrency: concurrency
+                    // limit the number of promises to use for moving blocks
+                    // - set arbitrarily for now
+                    concurrency: 10
                 });
+            })
+            .then(() => fs.rmdirAsync(this.old_blocks_path))
+            .then(() => {
+                // since we also successfuly deleted the old blocks dir
+                // it must mean there are no leftovers in anycase.
+                // so even if we counted num_move_errors, it might have been
+                // due to parallel operations with another process,
+                // so we ignore it.
+                if (num_move_errors) {
+                    dbg.log0('_upgrade_to_blocks_tree: finished', this.old_blocks_path,
+                        'eventhough we had num_move_errors', num_move_errors);
+                }
+                dbg.log0('_upgrade_to_blocks_tree: done', this.old_blocks_path);
+            })
+            .catch(err => {
+                dbg.error('_upgrade_to_blocks_tree: failed',
+                    this.old_blocks_path, 'num_move_errors', num_move_errors,
+                    err.stack || err);
             });
     }
 

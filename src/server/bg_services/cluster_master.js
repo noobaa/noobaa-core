@@ -13,6 +13,11 @@ var is_cluster_master = false;
 exports.background_worker = background_worker;
 
 function background_worker() {
+    if (!system_store.is_finished_initial_load) {
+        dbg.log0('System did not finish initial load');
+        return;
+    }
+
     let current_clustering = system_store.get_local_cluster_info();
     if (current_clustering && current_clustering.is_clusterized) {
         // TODO: Currently checks the replica set master since we don't have shards
@@ -41,9 +46,15 @@ function background_worker() {
             });
     } else if (!is_cluster_master) {
         dbg.log0('no local cluster info or server is not part of a cluster. therefore will be cluster master');
-        bg_workers_starter.run_master_workers();
-        is_cluster_master = true;
-        return send_master_update(is_cluster_master);
+        return send_master_update(true)
+            .then(() => {
+                bg_workers_starter.run_master_workers();
+                is_cluster_master = true;
+            })
+            .catch(err => {
+                dbg.error('send_master_update had an error:', err.stack || err);
+                return;
+            });
     }
 }
 

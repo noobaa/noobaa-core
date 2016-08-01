@@ -10,11 +10,13 @@
             <div class="page column" data-bind="css: { selected: step() === 0 }">
                 <p class="heading3 push-next">Create your owner account</p>
 
-                <editor params="
-                    label: 'Activation code'
-                ">
+                <editor params="label: 'Activation code'">
                     <input type="text" placeholder="your actication code"
                         data-bind="value: activationCode">
+
+                    <svg-icon class="validating-indicator"
+                        data-bind="visible: activationCode.isValidating()"
+                        params="name: 'in-progress'"></svg-icon>
                 </editor>
 
                 <editor params="label: 'Email address'">

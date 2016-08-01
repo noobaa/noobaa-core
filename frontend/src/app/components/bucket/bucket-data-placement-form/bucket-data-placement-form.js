@@ -2,9 +2,30 @@ import template from './bucket-data-placement-form.html';
 import placementSectionTemplate from './placement-policy-section.html';
 import backupPolicySectionTemplate from './backup-policy-section.html';
 import Disposable from 'disposable';
+import PlacementRowViewModel from './placement-row';
 import ko from 'knockout';
 import { systemInfo } from 'model';
-import { formatSize, deepFreeze } from 'utils';
+import { deepFreeze } from 'utils';
+
+const placementTableColumns = deepFreeze([
+    {
+        name: 'state',
+        cellTemplate: 'icon'
+    },
+    {
+        name: 'poolName',
+        cellTemplate: 'link'
+    },
+    {
+        name: 'onlineNodeCount',
+        label: 'online nodes in pool'
+    },
+    {
+        name: 'freeSpace',
+        label: 'free space in pool'
+    }
+
+]);
 
 const placementTypeMapping = deepFreeze({
     SPREAD: 'Spread',
@@ -32,6 +53,7 @@ class BucketDataPlacementFormViewModel extends Disposable {
 
         this.placementSectionTemplate = placementSectionTemplate;
         this.backupPolicySectionTemplate = backupPolicySectionTemplate;
+        this.placementTableColumns = placementTableColumns;
 
         this.policy = ko.pureComputed(
             () => ko.unwrap(bucket) && ko.unwrap(bucket).tiering
@@ -57,22 +79,10 @@ class BucketDataPlacementFormViewModel extends Disposable {
         );
 
         this.nodePools = ko.pureComputed(
-            () => tier() && tier().node_pools.map(
-                name => {
-                    if (!systemInfo()) {
-                        return;
-                    }
-
-                    let { nodes, storage } = systemInfo().pools.find(
-                        pool => pool.name === name
-                    );
-
-                    return {
-                        name: name,
-                        onlineNodeCount: nodes.online,
-                        freeSpace: formatSize(storage.free)
-                    };
-                }
+            () => systemInfo() && tier() && tier().node_pools.map(
+                name => systemInfo().pools.find(
+                    pool => pool.name === name
+                )
             )
         );
 
@@ -116,6 +126,10 @@ class BucketDataPlacementFormViewModel extends Disposable {
 
         this.isPlacementPolicyModalVisible = ko.observable(false);
         this.isBackupPolicyModalVisible = ko.observable(false);
+    }
+
+    createPlacementRow(pool) {
+        return new PlacementRowViewModel(pool);
     }
 
     showPlacementPolicyModal() {

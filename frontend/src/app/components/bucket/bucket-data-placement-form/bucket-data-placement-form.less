@@ -5,19 +5,24 @@ bucket-data-placement-form  {
         margin: @gutter * 3 0;
     }
 
-    .state-col {
-        width: 5em;
+    data-table {
+        .state-col {
+            width: 5em;
+        }
+
+        .pool-name-col {
+            text-align: left;
+            width: 100%;
+        }
+
+        .online-node-count-col {
+            min-width: 13em;
+        }
+
+        .free-space-col {
+            min-width: 15em;
+        }
     }
 
-    .name-col {
-        width: 100%;
-    }
 
-    .online-col {
-        min-width: 13em;
-    }
-
-    .free-col {
-        min-width: 15em;
-    }
 }

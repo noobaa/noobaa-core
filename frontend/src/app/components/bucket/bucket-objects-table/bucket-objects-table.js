@@ -50,7 +50,7 @@ class BucketObjectsTableViewModel extends Disposable {
 
         this.uploadTooltip = ko.pureComputed(
             () => this.uploadDisabled() &&
-                'Cannot upload, not enough nodes in bucket storage'
+                'Cannot upload, not enough online nodes in bucket storage'
         );
 
         this.objectCount = ko.pureComputed(

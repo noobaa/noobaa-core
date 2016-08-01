@@ -1,4 +1,4 @@
-<modal params="onClose: () => cancel()" class="text-left">
+<modal params="onClose: () => cancel()" class="modal-xsmall text-left">
     <h1 class="heading2">
         Server DNS Settings
     </h1>
@@ -6,12 +6,14 @@
         Setup the server to use the following DNS servers for name resolution
     </p>
 
-    <editor params="label: 'Pirmary DNS'" class="push-prev">
-        <input type="text" data-bind="value: primaryDNS" />
-    </editor>
-    <editor params="label: 'Secondary DNS'" class="push-next">
-        <input type="text" data-bind="value: secondaryDNS" />
-    </editor>
+    <section class="greedy">
+        <editor params="label: 'Pirmary DNS'" class="push-prev">
+            <input type="text" data-bind="value: primaryDNS" />
+        </editor>
+        <editor params="label: 'Secondary DNS'" class="push-next">
+            <input type="text" data-bind="value: secondaryDNS" />
+        </editor>
+    </section>
 
     <div class="row content-middle align-end push-prev">
         <button class="link push-next" data-bind="click: cancel">Cancel</button>

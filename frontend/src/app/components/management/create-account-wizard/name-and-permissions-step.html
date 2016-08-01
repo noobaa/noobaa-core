@@ -1,8 +1,11 @@
 <h2 class="heading3">Enter user email address</h2>
-<input type="text" placeholder="Email Address" data-bind="
-    value: emailAddress,
-    hasFocus: true
-"/>
+
+<div class="push-next">
+    <input type="text" placeholder="Email Address" data-bind="
+        value: emailAddress,
+        hasFocus: true
+    "/>
+</div>
 
 <h2 class="heading3 push-prev">
     Allow S3 access for this user
@@ -34,7 +37,7 @@
     </div>
 </div>
 
-<multiselect params="
+<multiselect class="greedy" params="
     options: buckets,
     selected: selectedBuckets,
     disabled: !enableS3Access()">

@@ -1,4 +1,4 @@
-<modal params="onClose: () => cancel()" class="text-left">
+<modal params="onClose: () => cancel()" class="modal-small text-left">
     <h1 class="heading2 push-next">
         Bucket Backup Policy
     </h1>
@@ -18,8 +18,8 @@
         </div>
     </div>
 
-    <div class="box push-next">
-        <data-table params="
+    <div class="box push-next greedy column">
+        <data-table class="greedy" params="
             columns: columns,
             emptyMessage: 'System does not contain cloud resources',
             data: resources,

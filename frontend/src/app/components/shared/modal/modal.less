@@ -16,22 +16,48 @@ modal {
         transform: translate(-50%, -50%);
         background: @bg-color3;
         box-shadow: 0 0 20px black;
-        max-width: 85%;
         padding: @gutter;
         line-height: normal;
+        transition: all 500ms ease-in-out;
 
         .heading2 {
             text-align: center;
         }
+
     }
 
     .close-btn {
         padding: 0;
     }
 
-    @media screen and (min-width: 1280px) {
-        .modal-content {
-            max-width: .85 * 1280px;
-        }
+    .modal-content {
+        width: 10px;
+        height: 10px;
+    }
+
+
+    &.modal-xsmall > .modal-content {
+        width: 570px;
+        height: 330px;
+    }
+
+    &.modal-small > .modal-content {
+        width: 570px;
+        height: 420px;;
+    }
+
+    &.modal-medium > .modal-content {
+        width: 610px;
+        height: 570px;
+    }
+
+    &.modal-large > .modal-content {
+        width: 100px;
+        height: 100px;
+    }
+
+    &.modal-xlarge > .modal-content {
+        width: 100px;
+        height: 100px;
     }
 }

@@ -6,6 +6,7 @@ import ko from 'knockout';
 import { randomString, copyTextToClipboard, generateAccessKeys } from 'utils';
 import { systemInfo, accountList } from 'model';
 import { createAccount } from 'actions';
+import { deepFreeze } from 'utils';
 
 function makeUserMessage(loginInfo, S3AccessInfo) {
     return `
@@ -36,6 +37,17 @@ Use the following S3 access to connect an S3 compatible application to NooBaa:<b
     `;
 }
 
+const steps = deepFreeze([
+    {
+        name: 'name & permissions',
+        css: 'modal-medium'
+    },
+    {
+        name: 'review details',
+        css: 'modal-small'
+    }
+]);
+
 class CreateAccountWizardViewModel extends Disposable {
     constructor({ onClose }) {
         super();
@@ -43,6 +55,7 @@ class CreateAccountWizardViewModel extends Disposable {
         this.onClose = onClose;
         this.nameAndPermissionsStepTemplate = nameAndPermissionsStepTemplate;
         this.detailsStepTemplate = detailsStepTemplate;
+        this.steps = steps;
 
         this.emailAddress = ko.observable()
             .extend({

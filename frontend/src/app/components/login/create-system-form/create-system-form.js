@@ -2,6 +2,7 @@ import template from './create-system-form.html';
 import Disposable from 'disposable';
 import ko from 'knockout';
 import { createSystem } from 'actions';
+import moment from 'moment';
 
 class CreateSystemFormViewModel extends Disposable {
     constructor() {
@@ -115,7 +116,7 @@ class CreateSystemFormViewModel extends Disposable {
 
         let timeConfig = {
             timezone: Intl.DateTimeFormat().resolved.timeZone,
-            epoch: Date.now()
+            epoch: moment().unix()
         };
 
         if (this.validateStep(this.step())) {

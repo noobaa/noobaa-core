@@ -2,7 +2,7 @@ import template from './create-system-form.html';
 import Disposable from 'disposable';
 import ko from 'knockout';
 import { validateActivationCode, createSystem } from 'actions';
-import { activation } from 'model';
+import { activation, serverInfo } from 'model';
 import moment from 'moment';
 import { waitFor } from 'utils';
 
@@ -73,7 +73,9 @@ class CreateSystemFormViewModel extends Disposable {
                 isDNSName: true
             });
 
-        this.primaryDNSServerIP = ko.observable()
+        this.primaryDNSServerIP = ko.observableWithDefault(
+            () => serverInfo() && (serverInfo().config.dns_servers || [])[0]
+        )
             .extend({
                 isIP: true
             });
@@ -135,13 +137,16 @@ class CreateSystemFormViewModel extends Disposable {
     }
 
     createSystem() {
+        let serverConfig = serverInfo().config;
+
         let dnsServers = this.primaryDNSServerIP() ?
-            [ this.primaryDNSServerIP() ] :
-            undefined;
+            Object.assign([], serverConfig.dns_servers, [this.primaryDNSServerIP()]) :
+            serverConfig.dns_servers;
 
         let timeConfig = {
-            timezone: Intl.DateTimeFormat().resolved.timeZone,
-            epoch: moment().unix()
+            timezone: serverConfig.timezone || Intl.DateTimeFormat().resolved.timeZone,
+            ntp_server: serverConfig.ntp_server,
+            epoch: !serverConfig.ntp_server ? moment().unix() : undefined
         };
 
         if (this.validateStep(this.step())) {

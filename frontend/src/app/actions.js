@@ -354,10 +354,17 @@ export function loadServerInfo() {
 
     api.account.accounts_status()
         .then(
-            reply => model.serverInfo({
-                initialized: reply.has_accounts
-            })
+            reply => reply.has_accounts ?
+                { initialized: true } :
+                api.cluster_server.read_server_config()
+                    .then(
+                        config => ({
+                            initialized: false,
+                            config: config
+                        })
+                    )
         )
+        .then(model.serverInfo)
         .done();
 }
 
@@ -697,31 +704,31 @@ export function createSystem(
         { access_key: '123', secret_key: 'abc' } :
         generateAccessKeys();
 
-    api.system.create_system({
-        activation_code: activationCode,
-        name: systemName,
-        email: email,
-        password: password,
-        access_keys: accessKeys,
-        dns_name: dnsName,
-        dns_servers: dnsServers,
-        time_config: timeConfig
-    })
-        .then(
-            ({ token }) => {
-                api.options.auth_token = token;
-                localStorage.setItem('sessionToken', token);
+    // api.system.create_system({
+    //     activation_code: activationCode,
+    //     name: systemName,
+    //     email: email,
+    //     password: password,
+    //     access_keys: accessKeys,
+    //     dns_name: dnsName,
+    //     dns_servers: dnsServers,
+    //     time_config: timeConfig
+    // })
+    //     .then(
+    //         ({ token }) => {
+    //             api.options.auth_token = token;
+    //             localStorage.setItem('sessionToken', token);
 
-                // Update the session info and redirect to system screen.
-                model.sessionInfo({
-                    user: email,
-                    system: systemName,
-                    token: token
-                });
-                redirectTo(routes.system, { system: systemName });
-            }
-        )
-        .done();
+    //             // Update the session info and redirect to system screen.
+    //             model.sessionInfo({
+    //                 user: email,
+    //                 system: systemName,
+    //                 token: token
+    //             });
+    //             redirectTo(routes.system, { system: systemName });
+    //         }
+    //     )
+    //     .done();
 }
 
 export function createAccount(name, email, password, accessKeys, S3AccessList) {

@@ -25,7 +25,7 @@ class BlockStoreS3 extends BlockStoreBase {
     constructor(options) {
         super(options);
         this.cloud_info = options.cloud_info;
-        this.blocks_path = this.cloud_info.blocks_path || 'noobaa_blocks';
+        this.blocks_path = this.cloud_info.blocks_path || 'noobaa_blocks/' + options.node_name + '/blocks_tree';
 
         // upload copy to s3 cloud storage.
         if (this.cloud_info.endpoint === 'https://s3.amazonaws.com') {

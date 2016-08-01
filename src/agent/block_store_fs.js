@@ -140,7 +140,7 @@ class BlockStoreFs extends BlockStoreBase {
     }
 
     _count_usage() {
-        const sem = new Semaphore(10);
+        const sem = new Semaphore(32);
         return fs_utils.disk_usage(this.blocks_path_root, sem, true)
             .then(usage => {
                 dbg.log0('counted disk usage', usage);
@@ -203,14 +203,14 @@ class BlockStoreFs extends BlockStoreBase {
             })
             .then(stat => {
                 if (!stat) return;
-                if (stat.size > 10 * 1024 * 1024) {
+                if (stat.size > 64 * 1024 * 1024) {
                     dbg.error('_upgrade_to_blocks_tree:',
                         'Old blocks dir is huge and might crash the process',
                         this.old_blocks_path, stat);
                     throw new Error('Old blocks dir is huge ' +
                         'and might crash the process ' + stat.size);
                 }
-                if (stat.size > 1 * 1024 * 1024) {
+                if (stat.size > 8 * 1024 * 1024) {
                     dbg.warn('_upgrade_to_blocks_tree:',
                         'Old blocks dir is pretty big and might take longer to read',
                         this.old_blocks_path, stat);

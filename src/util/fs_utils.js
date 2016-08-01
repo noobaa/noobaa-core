@@ -45,45 +45,58 @@ function file_must_exist(file_path) {
  * disk_usage
  *
  */
-function disk_usage(file_path, semaphore, recurse) {
-    // surround fs io with semaphore
-    return semaphore.surround(function() {
-            return fs.statAsync(file_path);
-        })
-        .then(function(stats) {
-
-            if (stats.isFile()) {
-                return {
-                    size: stats.size,
-                    count: 1,
-                };
-            }
-
-            if (stats.isDirectory() && recurse) {
-                // surround fs io with semaphore
-                return semaphore.surround(function() {
-                        return fs.readdirAsync(file_path);
-                    })
-                    .then(function(entries) {
-                        return P.map(entries, function(entry) {
-                            var entry_path = path.join(file_path, entry);
-                            return disk_usage(entry_path, semaphore, recurse);
+function disk_usage(dir_path, semaphore, recurse) {
+    let size = 0;
+    let count = 0;
+    let sub_dirs = [];
+    // under semaphore we readdir and stat all entries,
+    // but before we recurse we want to free the full list of entries
+    // and release the semaphore.
+    return semaphore.surround(() => {
+            console.log('disk_usage: readdir', dir_path, 'sem', semaphore.value);
+            return fs.readdirAsync(dir_path)
+                .map(entry => {
+                    const entry_path = path.join(dir_path, entry);
+                    return fs.statAsync(entry_path)
+                        .then(stat => {
+                            if (stat.isFile()) {
+                                size += stat.size;
+                                count += 1;
+                            } else if (stat.isDirectory() && recurse) {
+                                if (stat.size > 64 * 1024 * 1024) {
+                                    console.error('disk_usage:',
+                                        'dir is huge and might crash the process',
+                                        entry_path);
+                                    // what to do AAAHH
+                                }
+                                sub_dirs.push(entry_path);
+                            }
                         });
-                    })
-                    .then(function(res) {
-                        var size = 0;
-                        var count = 0;
-                        for (var i = 0; i < res.length; i++) {
-                            if (!res[i]) continue;
-                            size += res[i].size;
-                            count += res[i].count;
-                        }
-                        return {
-                            size: size,
-                            count: count,
-                        };
-                    });
-            }
+                }, {
+                    // setting a separate concurrency for stat per semaphore
+                    // because we can't acquire the semaphore recursively
+                    // so the total stat concurrency is 32 * max-semaphore
+                    concurrency: 32
+                })
+                .return();
+        })
+        .then(() => {
+            console.log('disk_usage: recursing', dir_path,
+                'num sub dirs', sub_dirs.length, 'sem', semaphore.value);
+            return P.map(sub_dirs, sub_dir =>
+                disk_usage(sub_dir, semaphore, recurse)
+                .then(res => {
+                    size += res.size;
+                    count += res.count;
+                }));
+        })
+        .then(() => {
+            console.log('disk_usage: finished', dir_path,
+                'size', size, 'count', count);
+            return {
+                size: size,
+                count: count,
+            };
         });
 }
 

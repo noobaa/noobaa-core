@@ -17,7 +17,6 @@ modal {
         background: @bg-color3;
         box-shadow: 0 0 20px black;
         padding: @gutter;
-        line-height: normal;
         transition: all 250ms ease-in-out;
 
         .heading2 {
@@ -68,5 +67,11 @@ modal {
     &.modal-xlarge > .modal-content {
         width: 900px;
         height: 552px;
+    }
+
+    &.modal-auto-height > .modal-content {
+        width: 900px;
+        height: 80%;
+        min-height: 552px;
     }
 }

@@ -2,23 +2,27 @@
     title: 'Maintenance Mode',
     onClose: () => cancel()
 ">
-    <p>
-        Exit maintenance mode automatically after
-        <input type="number" min="0" data-bind="value: hours"/>
-        hours and
-        <input type="number" min="0" data-bind="value: minutes"/>
-        minutes.
-    </p>
+    <editor params="label: 'Maintenance duration', insertValMessages: false">
+        <div class="row">
+            <input class="push-next" type="number" min="0"
+                data-bind="value: duration"/>
 
-    <div class="box push-both">
-        <svg-icon params="name: 'notif-warning'">
+            <dropdown class="duration-unit" params="
+                options: durationUnitOptions,
+                selected: durationUnit
+            "></dropdown>
+        </div>
+        <span class="val-msg" data-bind="validationMessage: duration"></span>
+    </editor>
+
+
+    <div class="box row greedy push-both content-middle">
+        <svg-icon class="push-next" params="name: 'notif-warning'">
         </svg-icon>
         Preformance and functionality issues may occur while the system is in maintenance mode
     </div>
 
-    <span class="val-msg push-next" data-bind="validationMessage: duration"></span>
-
-    <div class="row content-middle align-end push-prev">
+    <div class="row content-middle align-end">
         <button class="link push-next" data-bind="click: cancel">Cancel</button>
         <button class="btn2" data-bind="click: start">Start maintenance</button>
     </div>

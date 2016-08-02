@@ -12,7 +12,7 @@ import { loadNodeList, createPool } from 'actions';
 
 const steps = deepFreeze([
     { label: 'choose name', size: 'small' },
-    { label: 'assign nodes', size: 'xlarge' }
+    { label: 'assign nodes', size: 'auto-height' }
 ]);
 
 class CreatePoolWizardViewModel extends Disposable {

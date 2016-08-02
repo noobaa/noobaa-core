@@ -288,48 +288,36 @@ function create_system(req) {
  *
  */
 function read_system(req) {
-    var system = req.system;
+    const system = req.system;
     return P.join(
         // nodes - count, online count, allocated/used storage aggregate by pool
         nodes_client.instance().aggregate_nodes_by_pool(null, system._id, /*skip_cloud_nodes=*/ true),
 
-        // // objects - size, count
-        // md_store.aggregate_objects({
-        //     system: system._id,
-        //     deleted: null,
-        // }),
-
-        promise_utils.all_obj(system.buckets_by_name, function(bucket) {
-            // TODO this is a hacky "pseudo" rpc request. really should avoid.
-            let new_req = _.defaults({
-                rpc_params: {
-                    name: bucket.name
-                }
-            }, req);
-            return bucket_server.get_cloud_sync(new_req);
-        })
+        // passing the bucket itself as 2nd arg to bucket_server.get_cloud_sync
+        // which is supported instead of sending the bucket name in an rpc req
+        // just to reuse the rpc function code without calling through rpc.
+        promise_utils.all_obj(system.buckets_by_name,
+            bucket => bucket_server.get_cloud_sync(req, bucket))
 
     ).spread(function(
         nodes_aggregate_pool,
-        // objects_aggregate,
         cloud_sync_by_bucket) {
-        let objects_aggregate = {
-            count: 0,
-            size: 0
+        const objects_sys = {
+            count: size_utils.BigInteger.zero,
+            size: size_utils.BigInteger.zero,
         };
         _.forEach(system_store.data.buckets, bucket => {
-            if (String(bucket.system._id) === String(system._id)) {
-                // TODO: Use bigint in order to sum
-                objects_aggregate.size += (bucket.storage_stats && bucket.storage_stats.objects_size) || 0;
-                objects_aggregate.count += (bucket.storage_stats && bucket.storage_stats.objects_count) || 0;
-            }
+            if (String(bucket.system._id) !== String(system._id)) return;
+            objects_sys.size = objects_sys.size
+                .plus(bucket.storage_stats && bucket.storage_stats.objects_size || 0);
+            objects_sys.count = objects_sys.count
+                .plus(bucket.storage_stats && bucket.storage_stats.objects_count || 0);
         });
-        var nodes_sys = nodes_aggregate_pool[''] || {};
-        var objects_sys = objects_aggregate; //[''] || {};
-        var ip_address = ip_module.address();
-        var n2n_config = system.n2n_config;
-        let debug_level = system.debug_level;
-        var upgrade = {};
+        const nodes_sys = nodes_aggregate_pool[''] || {};
+        const ip_address = ip_module.address();
+        const n2n_config = system.n2n_config;
+        const debug_level = system.debug_level;
+        const upgrade = {};
         if (system.upgrade) {
             upgrade.status = system.upgrade.status;
             upgrade.message = system.upgrade.error;
@@ -351,7 +339,6 @@ function read_system(req) {
             phone_home_config.proxy_address = system.phone_home_proxy_address;
         }
 
-
         // TODO use n2n_config.stun_servers ?
         // var stun_address = 'stun://' + ip_address + ':' + stun.PORT;
         // var stun_address = 'stun://64.233.184.127:19302'; // === 'stun://stun.l.google.com:19302'
@@ -360,9 +347,10 @@ function read_system(req) {
         //     n2n_config.stun_servers.unshift(stun_address);
         //     dbg.log0('read_system: n2n_config.stun_servers', n2n_config.stun_servers);
         // }
-        let response = {
+
+        const response = {
             name: system.name,
-            objects: objects_sys.count, //|| 0,
+            objects: objects_sys.count.toJSNumber(),
             roles: _.map(system.roles_by_account, function(roles, account_id) {
                 var account = system_store.data.get_by_id(account_id);
                 return {

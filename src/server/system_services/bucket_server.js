@@ -133,12 +133,6 @@ function read_bucket(req) {
     ));
     var pool_ids = mongo_utils.uniq_ids(pools, '_id');
     return P.join(
-        // objects - size, count
-        md_store.aggregate_objects({
-            system: req.system._id,
-            bucket: bucket._id,
-            deleted: null,
-        }),
         nodes_client.instance().aggregate_nodes_by_pool(pool_ids),
         get_cloud_sync(req, bucket)
     ).spread(function(nodes_aggregate_pool, cloud_sync_policy) {
@@ -298,15 +292,13 @@ function delete_bucket(req) {
         throw new RpcError('BAD_REQUEST', 'Cannot delete last bucket');
     }
 
-    return P.resolve(md_store.aggregate_objects({
+    return P.resolve(md_store.ObjectMD.collection.findOne({
             system: req.system._id,
             bucket: bucket._id,
             deleted: null,
         }))
-        .then(objects_aggregate => {
-            objects_aggregate = objects_aggregate || {};
-            var objects_aggregate_bucket = objects_aggregate[bucket._id] || {};
-            if (objects_aggregate_bucket.count) {
+        .then(any_object => {
+            if (any_object) {
                 throw new RpcError('BUCKET_NOT_EMPTY', 'Bucket not empty: ' + bucket.name);
             }
             Dispatcher.instance().activity({

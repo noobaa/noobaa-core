@@ -21,7 +21,7 @@ class CreatePoolWizardViewModel extends Disposable {
 
         this.nodes = nodeList;
 
-        let poolNames = ko.pureComputed(
+        let existingPoolNames = ko.pureComputed(
             () => (systemInfo() ? systemInfo().pools : []).map(
                 pool => pool.name
             )
@@ -29,7 +29,7 @@ class CreatePoolWizardViewModel extends Disposable {
 
         this.poolName = ko.observable()
             .extend({
-                validation: nameValidationRules('pool', poolNames)
+                validation: nameValidationRules('pool', existingPoolNames)
             });
 
         this.rows = makeArray(
@@ -46,7 +46,7 @@ class CreatePoolWizardViewModel extends Disposable {
         let nodeSources = ko.pureComputed(
             () => (systemInfo() ? systemInfo().pools : [])
                 .filter(
-                    pool => !pool.demo_pool
+                    pool => !pool.demo_pool && pool.nodes
                 )
                 .map(
                     pool => pool.name

@@ -18,12 +18,21 @@ modal {
         box-shadow: 0 0 20px black;
         padding: @gutter;
         line-height: normal;
-        transition: all 500ms ease-in-out;
+        transition: all 250ms ease-in-out;
 
         .heading2 {
             text-align: center;
         }
 
+    }
+
+    .modal-heading {
+        .heading2();
+        margin: -@gutter;
+        margin-bottom: @gutter;
+        padding: @gutter/2 @gutter;
+        text-align: left;
+        border-bottom: 2px solid #35434E;
     }
 
     .close-btn {
@@ -42,8 +51,8 @@ modal {
     }
 
     &.modal-small > .modal-content {
-        width: 570px;
-        height: 420px;;
+        width: 610px;
+        height: 455px;;
     }
 
     &.modal-medium > .modal-content {
@@ -52,8 +61,8 @@ modal {
     }
 
     &.modal-large > .modal-content {
-        width: 100px;
-        height: 100px;
+        width: 750px;
+        height: 570px;
     }
 
     &.modal-xlarge > .modal-content {

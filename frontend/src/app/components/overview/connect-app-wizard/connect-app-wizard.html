@@ -1,13 +1,13 @@
 <wizard params="
-    heading: 'Connect an Application', 
-    steps: ['select connection', 'select account'],
+    heading: 'Connect an Application',
+    steps: steps,
     onClose: onClose
 ">
-    <section class="column" data-bind="
-        template: { html: selectSlideTemplate }"
+    <section class="column greedy" data-bind="
+        template: { html: selectConnectionSlideTemplate }"
     ></section>
 
-    <section class="column"  data-bind="
-        template: { html: connectSlideTemplate }
+    <section class="column greedy"  data-bind="
+        template: { html: selectAccountSlideTemplate }
     "></section>
 </wizard>

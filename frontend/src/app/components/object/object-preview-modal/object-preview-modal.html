@@ -1,6 +1,6 @@
-<modal params="onClose: () => close()">
+<modal params="onClose: () => close()" class="modal-large">
     <div class="column" data-bind="if: uri">
-        <iframe allowfullscreen class="push-next" data-bind="attr: { src: uri }"></iframe>
+        <iframe allowfullscreen class="push-both" data-bind="attr: { src: uri }"></iframe>
 
         <button class="align-end btn2" data-bind="click: () => close()">
             Close

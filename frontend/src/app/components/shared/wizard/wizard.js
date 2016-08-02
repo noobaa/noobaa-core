@@ -24,14 +24,14 @@ class WizardViewModel extends Disposable {
         this.onComplete = onComplete;
         this.onClose = onClose;
 
-        this.stepsNames = steps.map(
-            step => isObject(step) ? step.name : step
+        this.stepsLabels = steps.map(
+            step => isObject(step) ? step.label : step
         );
 
         this.stepClass = ko.pureComputed(
             () => {
                 let step = steps[this.step()];
-                return isObject(step) ? step.css : '';
+                return isObject(step) ? `modal-${step.size}` : '';
             }
         );
 

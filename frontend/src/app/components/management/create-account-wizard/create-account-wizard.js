@@ -39,12 +39,12 @@ Use the following S3 access to connect an S3 compatible application to NooBaa:<b
 
 const steps = deepFreeze([
     {
-        name: 'name & permissions',
-        css: 'modal-medium'
+        label: 'name & permissions',
+        size: 'medium'
     },
     {
-        name: 'review details',
-        css: 'modal-small'
+        label: 'review details',
+        size: 'small'
     }
 ]);
 

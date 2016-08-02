@@ -3,9 +3,14 @@ import Disposable from 'disposable';
 import { noop } from 'utils';
 
 class ModalViewModel extends Disposable {
-    constructor({ onClose = noop , closeButton = true }) {
+    constructor({
+        title,
+        onClose = noop ,
+        closeButton = true
+    }) {
         super();
 
+        this.title = title;
         this.onClose = onClose;
         this.closeButton = closeButton;
     }

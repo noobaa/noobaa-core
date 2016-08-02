@@ -21,14 +21,16 @@
     <!-- /ko -->
 
     <!-- ko if: commandSelector() === 'LOCAL_WINDOWS' -->
-    <p>
-        Click the button below to download the Windows installation package and copy it to the target machine.
-    </p>
+    <div class="row push-next">
+        <p class="greedy ">
+            Click the button to download the Windows installation package and copy it to the target machine.
+        </p>
 
-    <a class="btn3 download-btn push-next" download
-        data-bind="attr: { href: packageUrl }">
-        Download Windows Package
-    </a>
+        <a class="btn3 download-btn" download
+            data-bind="attr: { href: packageUrl }">
+            Download package
+        </a>
+    </div>
 
     <p>
         Open a CMD window on target machine and run the following command (you must have admin privileges)
@@ -36,13 +38,15 @@
     <!-- /ko -->
 
     <!-- ko if: commandSelector() === 'LOCAL_LINUX' -->
-    <p>
-        Click the button below to download the Linux installation package and copy it to the target machine.
-    </p>
+    <div class="push-next">
+        <p>
+            Click the button to download the Linux installation package and copy it to the target machine.
+        </p>
 
-    <a class="btn3 push-next" download data-bind="attr: { href: packageUrl }">
-        Download Linux Package
-    </a>
+        <a class="btn3" download data-bind="attr: { href: packageUrl }">
+            Download Package
+        </a>
+    </div>
 
     <p>
         Run the following command on target machine shell (you must have root privileges)

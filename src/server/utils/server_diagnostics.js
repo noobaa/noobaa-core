@@ -20,57 +20,29 @@ function collect_server_diagnostics(req) {
             return base_diagnostics.collect_basic_diagnostics(limit_logs_size, local_cluster && local_cluster.is_clusterized);
         })
         .then(function() {
-            return collect_supervisor_logs();
-        })
-        .then(function() {
-            return promise_utils.exec('cp -f /var/log/noobaa_deploy* ' + TMP_WORK_DIR, true);
-        })
-        .then(function() {
-            return promise_utils.exec('cp -f /var/log/noobaa.log* ' + TMP_WORK_DIR, true);
-        })
-        .then(function() {
-            return promise_utils.exec('cp -f ' + process.cwd() + '/.env ' + TMP_WORK_DIR + '/env', true);
-        })
-        .then(function() {
-            return os_utils.top_single(TMP_WORK_DIR + '/top.out');
-        })
-        .then(function() {
-            return promise_utils.exec('cp -f /etc/noobaa* ' + TMP_WORK_DIR, true);
-        })
-        .then(function() {
-            return promise_utils.exec('lsof &> ' + TMP_WORK_DIR + '/lsof.out', true);
-        })
-        .then(function() {
-            return promise_utils.exec('chkconfig &> ' + TMP_WORK_DIR + '/chkconfig.out', true);
-        })
-        .then(function() {
-            return collect_ntp_diagnostics();
-        })
-        .then(function() {
-            let current_clustering = system_store.get_local_cluster_info();
-            if (stats_aggregator && !((current_clustering && current_clustering.is_clusterized) && !system_store.is_cluster_master)) {
-                return stats_aggregator.get_all_stats(req);
-            } else {
-                return;
-            }
-        })
-        .catch(function(err) {
-            console.error('Failed to collect stats', err.stack || err);
-        })
-        .then(function(restats) {
-            if (stats_aggregator) {
-                var stats_data = JSON.stringify(restats);
-                return fs.writeFileAsync(TMP_WORK_DIR + '/phone_home_stats.out', stats_data);
-            } else {
-                return;
-            }
-        })
-        .catch(function(err) {
-            console.error('Failed to collect phone_home_stats', err.stack || err);
-        })
-        .then(null, function(err) {
-            console.error('Error in collecting server diagnostics (should never happen)', err);
-            throw new Error('Error in collecting server diagnostics ' + err);
+
+            // operations for diagnostics that can take place in parallel
+            const operations = [
+                () => collect_supervisor_logs(),
+                () => promise_utils.exec('cp -f /var/log/noobaa_deploy* ' + TMP_WORK_DIR, true),
+                () => promise_utils.exec('cp -f /var/log/noobaa.log* ' + TMP_WORK_DIR, true),
+                () => promise_utils.exec('cp -f ' + process.cwd() + '/.env ' + TMP_WORK_DIR + '/env', true),
+                () => os_utils.top_single(TMP_WORK_DIR + '/top.out'),
+                () => promise_utils.exec('cp -f /etc/noobaa* ' + TMP_WORK_DIR, true),
+                () => promise_utils.exec('lsof &> ' + TMP_WORK_DIR + '/lsof.out', true),
+                () => promise_utils.exec('chkconfig &> ' + TMP_WORK_DIR + '/chkconfig.out', true),
+                () => collect_ntp_diagnostics(),
+                () => collect_statistics.bind(this, req)
+            ];
+
+
+            return P.map(operations, op => op(), {
+                    concurrency: 10
+                })
+                .then(null, function(err) {
+                    console.error('Error in collecting server diagnostics (should never happen)', err);
+                    throw new Error('Error in collecting server diagnostics ' + err);
+                });
         });
 }
 
@@ -111,6 +83,31 @@ function collect_supervisor_logs() {
     } else {
         console.log('Skipping supervisor logs collection on non linux server');
     }
+}
+
+function collect_statistics(req) {
+    return P.resolve().then(function() {
+            let current_clustering = system_store.get_local_cluster_info();
+            if (stats_aggregator && !((current_clustering && current_clustering.is_clusterized) && !system_store.is_cluster_master)) {
+                return stats_aggregator.get_all_stats(req);
+            } else {
+                return;
+            }
+        })
+        .catch(function(err) {
+            console.error('Failed to collect stats', err.stack || err);
+        })
+        .then(function(restats) {
+            if (stats_aggregator) {
+                var stats_data = JSON.stringify(restats);
+                return fs.writeFileAsync(TMP_WORK_DIR + '/phone_home_stats.out', stats_data);
+            } else {
+                return;
+            }
+        })
+        .catch(function(err) {
+            console.error('Failed to collect phone_home_stats', err.stack || err);
+        });
 }
 
 

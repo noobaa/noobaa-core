@@ -434,7 +434,7 @@ AgentCLI.prototype.create = function(number_of_nodes, use_host_id) {
     // for internal_agents only use root path
     return P.all(_.map(_.drop(self.params.all_storage_paths, 1), function(current_storage_path) {
             if (!self.params.internal_agent) {
-                return fs_utils.list_directory(current_storage_path.mount)
+                return fs.readdirAsync(current_storage_path.mount)
                     .then(function(files) {
                         if (files.length > 0 && number_of_nodes === 0) {
                             //if new HD introduced,  skip existing HD.
@@ -448,7 +448,7 @@ AgentCLI.prototype.create = function(number_of_nodes, use_host_id) {
         .then(function() {
             //create root folder
             if (self.params.all_storage_paths.length > 1) {
-                return fs_utils.list_directory(self.params.all_storage_paths[0].mount)
+                return fs.readdirAsync(self.params.all_storage_paths[0].mount)
                     .then(function(files) {
                         if (files.length > 0 && number_of_nodes === 0) {
                             //if new HD introduced,  skip existing HD.

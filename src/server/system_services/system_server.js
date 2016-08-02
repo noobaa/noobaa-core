@@ -18,7 +18,7 @@ const dbg = require('../../util/debug_module')(__filename);
 const diag = require('../utils/server_diagnostics');
 const cutil = require('../utils/clustering_utils');
 const config = require('../../../config');
-// const md_store = require('../object_services/md_store');
+const md_store = require('../object_services/md_store');
 const os_utils = require('../../util/os_utils');
 const upgrade_utils = require('../../util/upgrade_utils');
 const RpcError = require('../../rpc/rpc_error');
@@ -292,7 +292,10 @@ function read_system(req) {
     return P.join(
         // nodes - count, online count, allocated/used storage aggregate by pool
         nodes_client.instance().aggregate_nodes_by_pool(null, system._id, /*skip_cloud_nodes=*/ true),
-
+        md_store.aggregate_objects_count({
+                    system: system._id,
+                    deleted: null
+        }),
         // passing the bucket itself as 2nd arg to bucket_server.get_cloud_sync
         // which is supported instead of sending the bucket name in an rpc req
         // just to reuse the rpc function code without calling through rpc.
@@ -301,6 +304,7 @@ function read_system(req) {
 
     ).spread(function(
         nodes_aggregate_pool,
+        objects_count,
         cloud_sync_by_bucket) {
         const objects_sys = {
             count: size_utils.BigInteger.zero,
@@ -310,9 +314,8 @@ function read_system(req) {
             if (String(bucket.system._id) !== String(system._id)) return;
             objects_sys.size = objects_sys.size
                 .plus(bucket.storage_stats && bucket.storage_stats.objects_size || 0);
-            objects_sys.count = objects_sys.count
-                .plus(bucket.storage_stats && bucket.storage_stats.objects_count || 0);
         });
+        objects_sys.count = objects_sys.count.plus(objects_count[''] || 0);
         const nodes_sys = nodes_aggregate_pool[''] || {};
         const ip_address = ip_module.address();
         const n2n_config = system.n2n_config;
@@ -362,6 +365,7 @@ function read_system(req) {
                 bucket => bucket_server.get_bucket_info(
                     bucket,
                     nodes_aggregate_pool,
+                    objects_count[bucket._id] || 0,
                     cloud_sync_by_bucket[bucket.name])),
             pools: _.map(system.pools_by_name,
                 pool => pool_server.get_pool_info(pool, nodes_aggregate_pool)),

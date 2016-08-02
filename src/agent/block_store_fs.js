@@ -13,7 +13,6 @@ const P = require('../util/promise');
 const dbg = require('../util/debug_module')(__filename);
 const fs_utils = require('../util/fs_utils');
 const os_utils = require('../util/os_utils');
-const Semaphore = require('../util/semaphore');
 const string_utils = require('../util/string_utils');
 const promise_utils = require('../util/promise_utils');
 const BlockStoreBase = require('./block_store_base').BlockStoreBase;
@@ -141,8 +140,7 @@ class BlockStoreFs extends BlockStoreBase {
     }
 
     _count_usage() {
-        const sem = new Semaphore(32);
-        return fs_utils.disk_usage(this.blocks_path_root, sem)
+        return fs_utils.disk_usage(this.blocks_path_root)
             .then(usage => {
                 dbg.log0('counted disk usage', usage);
                 this._usage = usage; // object with properties size and count

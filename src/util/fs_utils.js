@@ -1,14 +1,14 @@
 'use strict';
 
-// const _ = require('lodash');
+const _ = require('lodash');
 const fs = require('fs');
 const ncp = require('ncp').ncp;
 const path = require('path');
 const rimraf = require('rimraf');
 const mkdirp = require('mkdirp');
-const readdirp = require('readdirp');
 
 const P = require('./promise');
+const Semaphore = require('./semaphore');
 const promise_utils = require('./promise_utils');
 
 const is_windows = (process.platform === "win32");
@@ -41,34 +41,48 @@ function file_must_exist(file_path) {
 
 
 /**
- *
- * disk_usage
- *
+ * options.on_entry - function({path, stat})
+ *      returning false from on_entry will stop recursing to entry
  */
-function disk_usage(dir_path, semaphore, max_depth, depth) {
-    let size = 0;
-    let count = 0;
-    let sub_dirs = [];
-    max_depth = max_depth || Infinity;
-    depth = depth || 0;
-    // under semaphore we readdir and stat all entries,
-    // but before we recurse we want to free the full list of entries
-    // and release the semaphore.
-    return semaphore.surround(() => {
-            if (!depth) {
-                console.log('disk_usage: readdir', dir_path, 'sem', semaphore.value);
+function read_dir_recursive(options) {
+    const on_entry = options.on_entry;
+    const root = options.root || '.';
+    const depth = options.depth || Infinity;
+    const level = options.level || 0;
+    const dir_sem = options.dir_semaphore =
+        options.dir_semaphore || new Semaphore(32);
+    const stat_sem = options.stat_semaphore =
+        options.stat_semaphore || new Semaphore(128);
+    const sub_dirs = [];
+
+    return dir_sem.surround(() => {
+            // first step:
+            // readdir and stat all entries in this level.
+            // run this under semaphores to limit I/O
+            // before recurse to sub dirs, we have to free the full list
+            // of entries and keep only sub dirs which is usually much less,
+            // and release the semaphore too to avoid reentry under acquired sem.
+            if (!level) {
+                console.log('read_dir_recursive: readdir', root);
             }
-            return fs.readdirAsync(dir_path)
+            return fs.readdirAsync(root)
                 .map(entry => {
-                    const entry_path = path.join(dir_path, entry);
-                    return fs.statAsync(entry_path)
-                        .then(stat => {
-                            if (stat.isFile()) {
-                                size += stat.size;
-                                count += 1;
-                            } else if (stat.isDirectory() && depth < max_depth) {
+                    const entry_path = path.join(root, entry);
+                    let stat;
+                    return stat_sem.surround(() => fs.statAsync(entry_path))
+                        .then(stat_arg => {
+                            stat = stat_arg;
+                            return on_entry && on_entry({
+                                path: entry_path,
+                                stat: stat
+                            });
+                        })
+                        .then(res => {
+                            // when on_entry returns false, we stop recursing.
+                            if (res === false) return;
+                            if (stat.isDirectory() && level < depth) {
                                 if (stat.size > 64 * 1024 * 1024) {
-                                    console.error('disk_usage:',
+                                    console.error('read_dir_recursive:',
                                         'dir is huge and might crash the process',
                                         entry_path);
                                     // what to do AAAHH
@@ -76,31 +90,46 @@ function disk_usage(dir_path, semaphore, max_depth, depth) {
                                 sub_dirs.push(entry_path);
                             }
                         });
-                }, {
-                    // setting a separate concurrency for stat per semaphore
-                    // because we can't acquire the semaphore recursively
-                    // so the total stat concurrency is 32 * max-semaphore
-                    concurrency: 32
                 })
                 .return();
         })
         .then(() => {
-            if (!depth) {
-                console.log('disk_usage: recursing', dir_path,
-                    'num sub dirs', sub_dirs.length, 'sem', semaphore.value);
+            // second step: recurse to sub dirs
+            if (!level) {
+                console.log('read_dir_recursive: recursing', root,
+                    'with', sub_dirs.length, 'sub dirs');
             }
             return P.map(sub_dirs, sub_dir =>
-                disk_usage(sub_dir, semaphore, max_depth, depth + 1)
-                .then(res => {
-                    size += res.size;
-                    count += res.count;
-                }));
+                read_dir_recursive(_.extend(options, {
+                    root: sub_dir,
+                    level: level + 1,
+                })));
         })
         .then(() => {
-            if (!depth) {
-                console.log('disk_usage: finished', dir_path,
-                    'size', size, 'count', count);
+            if (!level) {
+                console.log('read_dir_recursive: finished', root);
             }
+        });
+}
+
+/**
+ *
+ * disk_usage
+ *
+ */
+function disk_usage(root) {
+    let size = 0;
+    let count = 0;
+    return read_dir_recursive({
+            root: root,
+            on_entry: entry => {
+                if (entry.stat.isFile()) {
+                    size += entry.stat.size;
+                    count += 1;
+                }
+            }
+        })
+        .then(() => {
             return {
                 size: size,
                 count: count,
@@ -108,34 +137,6 @@ function disk_usage(dir_path, semaphore, max_depth, depth) {
         });
 }
 
-//ll -laR equivalent
-function list_directory(file_path) {
-    return new P(function(resolve, reject) {
-        var files = [];
-        readdirp({
-                root: file_path,
-                fileFilter: '*'
-            },
-            function(entry) {
-                var entry_info = entry.fullPath + ' size:' + entry.stat.size + ' mtime:' + entry.stat.mtime;
-                files.push(entry_info);
-            },
-            function(err, res) {
-                if (err) {
-                    return reject(err);
-                }
-
-                resolve(files);
-            });
-    });
-}
-
-function list_directory_to_file(file_path, outfile) {
-    return list_directory(file_path)
-        .then(function(files) {
-            return fs.writeFileAsync(outfile, JSON.stringify(files, null, '\n'));
-        });
-}
 
 // returns the first line in the file that contains the substring
 function find_line_in_file(file_name, line_sub_string) {
@@ -232,8 +233,7 @@ function tar_pack(tar_file_name, source, ignore_file_changes) {
 exports.file_must_not_exist = file_must_not_exist;
 exports.file_must_exist = file_must_exist;
 exports.disk_usage = disk_usage;
-exports.list_directory = list_directory;
-exports.list_directory_to_file = list_directory_to_file;
+exports.read_dir_recursive = read_dir_recursive;
 exports.find_line_in_file = find_line_in_file;
 exports.create_path = create_path;
 exports.create_fresh_path = create_fresh_path;

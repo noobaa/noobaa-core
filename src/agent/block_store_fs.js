@@ -142,7 +142,7 @@ class BlockStoreFs extends BlockStoreBase {
 
     _count_usage() {
         const sem = new Semaphore(32);
-        return fs_utils.disk_usage(this.blocks_path_root, sem, true)
+        return fs_utils.disk_usage(this.blocks_path_root, sem)
             .then(usage => {
                 dbg.log0('counted disk usage', usage);
                 this._usage = usage; // object with properties size and count

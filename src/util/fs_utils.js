@@ -45,15 +45,19 @@ function file_must_exist(file_path) {
  * disk_usage
  *
  */
-function disk_usage(dir_path, semaphore, recurse) {
+function disk_usage(dir_path, semaphore, max_depth, depth) {
     let size = 0;
     let count = 0;
     let sub_dirs = [];
+    max_depth = max_depth || Infinity;
+    depth = depth || 0;
     // under semaphore we readdir and stat all entries,
     // but before we recurse we want to free the full list of entries
     // and release the semaphore.
     return semaphore.surround(() => {
-            console.log('disk_usage: readdir', dir_path, 'sem', semaphore.value);
+            if (!depth) {
+                console.log('disk_usage: readdir', dir_path, 'sem', semaphore.value);
+            }
             return fs.readdirAsync(dir_path)
                 .map(entry => {
                     const entry_path = path.join(dir_path, entry);
@@ -62,7 +66,7 @@ function disk_usage(dir_path, semaphore, recurse) {
                             if (stat.isFile()) {
                                 size += stat.size;
                                 count += 1;
-                            } else if (stat.isDirectory() && recurse) {
+                            } else if (stat.isDirectory() && depth < max_depth) {
                                 if (stat.size > 64 * 1024 * 1024) {
                                     console.error('disk_usage:',
                                         'dir is huge and might crash the process',
@@ -81,18 +85,22 @@ function disk_usage(dir_path, semaphore, recurse) {
                 .return();
         })
         .then(() => {
-            console.log('disk_usage: recursing', dir_path,
-                'num sub dirs', sub_dirs.length, 'sem', semaphore.value);
+            if (!depth) {
+                console.log('disk_usage: recursing', dir_path,
+                    'num sub dirs', sub_dirs.length, 'sem', semaphore.value);
+            }
             return P.map(sub_dirs, sub_dir =>
-                disk_usage(sub_dir, semaphore, recurse)
+                disk_usage(sub_dir, semaphore, max_depth, depth + 1)
                 .then(res => {
                     size += res.size;
                     count += res.count;
                 }));
         })
         .then(() => {
-            console.log('disk_usage: finished', dir_path,
-                'size', size, 'count', count);
+            if (!depth) {
+                console.log('disk_usage: finished', dir_path,
+                    'size', size, 'count', count);
+            }
             return {
                 size: size,
                 count: count,

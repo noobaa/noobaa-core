@@ -13,9 +13,9 @@ const P = require('../util/promise');
 const dbg = require('../util/debug_module')(__filename);
 const fs_utils = require('../util/fs_utils');
 const os_utils = require('../util/os_utils');
-const Semaphore = require('../util/semaphore');
-const BlockStoreBase = require('./block_store_base').BlockStoreBase;
 const string_utils = require('../util/string_utils');
+const promise_utils = require('../util/promise_utils');
+const BlockStoreBase = require('./block_store_base').BlockStoreBase;
 
 class BlockStoreFs extends BlockStoreBase {
 
@@ -140,8 +140,7 @@ class BlockStoreFs extends BlockStoreBase {
     }
 
     _count_usage() {
-        const sem = new Semaphore(10);
-        return fs_utils.disk_usage(this.blocks_path_root, sem, true)
+        return fs_utils.disk_usage(this.blocks_path_root)
             .then(usage => {
                 dbg.log0('counted disk usage', usage);
                 this._usage = usage; // object with properties size and count
@@ -203,14 +202,23 @@ class BlockStoreFs extends BlockStoreBase {
             })
             .then(stat => {
                 if (!stat) return;
-                if (stat.size > 10 * 1024 * 1024) {
-                    dbg.error('_upgrade_to_blocks_tree:',
+                if (stat.size > 64 * 1024 * 1024) {
+                    dbg.warn('_upgrade_to_blocks_tree:',
                         'Old blocks dir is huge and might crash the process',
+                        'spawning upgrade_agent_to_blocks_tree.py to the rescue',
                         this.old_blocks_path, stat);
-                    throw new Error('Old blocks dir is huge ' +
-                        'and might crash the process ' + stat.size);
+                    // spawning the python script to iterativly move
+                    // the large blocks to blocks tree.
+                    // the output of the script will be redirected to our stdout
+                    // though this will not be logged through our debug module,
+                    // but still collected in diagnostics.
+                    return promise_utils.spawn('python', [
+                        'src/agent/upgrade_agent_to_blocks_tree.py',
+                        '--wet',
+                        this.root_path
+                    ]);
                 }
-                if (stat.size > 1 * 1024 * 1024) {
+                if (stat.size > 8 * 1024 * 1024) {
                     dbg.warn('_upgrade_to_blocks_tree:',
                         'Old blocks dir is pretty big and might take longer to read',
                         this.old_blocks_path, stat);

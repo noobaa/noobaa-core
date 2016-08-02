@@ -354,10 +354,17 @@ export function loadServerInfo() {
 
     api.account.accounts_status()
         .then(
-            reply => model.serverInfo({
-                initialized: reply.has_accounts
-            })
+            reply => reply.has_accounts ?
+                { initialized: true } :
+                api.cluster_server.read_server_config()
+                    .then(
+                        config => ({
+                            initialized: false,
+                            config: config
+                        })
+                    )
         )
+        .then(model.serverInfo)
         .done();
 }
 
@@ -1737,4 +1744,16 @@ export function notify(message, severity = 'info') {
     logAction('notify', { message, severity });
 
     model.lastNotification({ message, severity });
+}
+
+export function validateActivationCode(code) {
+    logAction('validateActivationCode', { code });
+
+    api.system.validate_activation({ code })
+        .then(
+            valid => model.activation({
+                code: code,
+                isCodeValid: valid
+            })
+        );
 }

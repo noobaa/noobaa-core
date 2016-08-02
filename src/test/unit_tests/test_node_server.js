@@ -92,7 +92,7 @@ mocha.describe('node_server', function() {
             // name: NODE
             // }))
             .then(() => coretest.clear_test_nodes())
-            .catch((err) => {
+            .catch(err => {
                 console.log('Failure while testing:' + err, err.stack);
             });
     });

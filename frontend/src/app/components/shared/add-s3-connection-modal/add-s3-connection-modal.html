@@ -1,9 +1,8 @@
-<modal params="onClose: () => cancel()">
-    <h1 class="heading2 push-next">
-        Add S3 Connection
-    </h1>
-
-    <section class="column">
+<modal class="modal-small" params="
+    title: 'Add S3 Connection',
+    onClose: () => cancel()
+">
+    <section class="column greedy">
         <editor params="label: 'Connection Name'">
             <input type="text" placeholder="Enter name"
                 data-bind="value: name, hasFocus: true"/>

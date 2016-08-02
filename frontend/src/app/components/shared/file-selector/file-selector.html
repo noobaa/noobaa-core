@@ -1,6 +1,6 @@
 <div class="drop-area text-center" data-bind="
         css: { dragover: !!dragCounter() },
-        event: { 
+        event: {
             dragenter: dragEnter,
             dragleave: dragLeave,
             dragover: () => false,
@@ -8,9 +8,10 @@
         }
     ">
     <p class="drop-message paragraph" data-bind="text: message"></p>
-    
-    <div class="method-seperator">OR</div>
-    
+
+    <span>or</span>
+    <br>
+
     <label class="browse-btn btn3">
         Browse
         <input type="file" data-bind="

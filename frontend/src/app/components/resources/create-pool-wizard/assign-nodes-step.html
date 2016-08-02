@@ -1,5 +1,3 @@
-<h2 class="heading3">Filter the node list</h2>
-
 <div class="row push-next content-middle">
     <input type="search" placeholder="filter by node name or ip" class="push-next"
         data-bind="textInput: nameOrIpFilter"/>
@@ -18,7 +16,7 @@
     "></checkbox>
 </div>
 
-<node-selection-table class="push-prev" params="
+<node-selection-table class="greedy" params="
     caption: 'Select nodes to be moved to the pool',
     nodes: nodes,
     selectedNodes: selectedNodes,

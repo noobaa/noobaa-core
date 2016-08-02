@@ -1,12 +1,12 @@
-<modal params="onClose: () => cancel()">
-    <h1 class="heading2 push-next" data-bind="text: heading"></h1>
-    <stepper class="push-next" params="steps: steps, current: step"></stepper>
+<modal params="onClose: () => cancel(), title: heading" data-bind="css: stepClass">
+    <stepper class="push-next" params="steps: stepsLabels, current: step">
+    </stepper>
 
-    <div class="steps-row push-next" data-bind="
+    <div class="pages greedy push-next" data-bind="
         foreach: $parentContext.$parentContext.$componentTemplateNodes
     ">
-        <div class="step" data-bind="
-            css: { current: $parent.isInStep($index()) },
+        <div class="page column" data-bind="
+            css: { selected: $parent.isInStep($index()) },
             template: { nodes: [$data], data: $parents[3] }
         "></div>
     </div>

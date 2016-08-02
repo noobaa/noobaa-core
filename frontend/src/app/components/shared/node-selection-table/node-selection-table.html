@@ -1,4 +1,4 @@
- <div class="row content-middle push-prev">
+ <div class="row content-middle">
     <h2 class="heading3 greedy" data-bind="text: caption"></h2>
     <div>
         <button class="link" data-bind="click: selectListedNodes">
@@ -11,8 +11,8 @@
     </div>
 </div>
 
-<div class="box">
-    <data-table params="
+<div class="box column greedy">
+    <data-table class="greedy" params="
         columns: columns,
         rowFactory: node => createRow(node),
         data: nodes,
@@ -20,7 +20,7 @@
     "></data-table>
 </div>
 
-<div class="box selection-summary push-next row">
+<div class="box selection-summary row">
     <span class="greedy push-next selection-text" data-bind="
         text: selectedMessage
     "></span>

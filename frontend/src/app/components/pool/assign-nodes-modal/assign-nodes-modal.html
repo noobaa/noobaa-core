@@ -1,13 +1,8 @@
-<modal params="onClose: () => cancel()">
-    <h1 class="heading2">
-        Assign Nodes
-    </h1>
-
-    <p class="text-center">
-        Choose the nodes you wish to pull into this pool and increase your pool potential capacity
-    </p>
-
-    <div class="row push-both content-middle">
+<modal class="modal-xlarge" params="
+    title: 'Assign Nodes',
+    onClose: () => cancel()
+">
+    <div class="row push-next content-middle">
         <input type="search" placeholder="filter by node name or ip" class="push-next"
             data-bind="textInput: nameOrIpFilter"/>
 
@@ -25,8 +20,8 @@
         "></checkbox>
     </div>
 
-    <node-selection-table class="push-prev" params="
-        caption: 'Select nodes to be moved to the pool',
+    <node-selection-table class="greedy" params="
+        caption: 'Select nodes you wish to pull into this pool',
         nodes: nodes,
         selectedNodes: selectedNodes,
         nodeCount: nodeCount,

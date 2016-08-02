@@ -16,7 +16,7 @@ const steps = deepFreeze([
     },
     {
         label: 'install',
-        size: 'small'
+        size: 'medium'
     },
     {
         label: 'review',

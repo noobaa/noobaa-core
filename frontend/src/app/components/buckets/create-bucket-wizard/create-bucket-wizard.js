@@ -7,12 +7,19 @@ import nameValidationRules from 'name-validation-rules';
 import { systemInfo } from 'model';
 import { createBucket } from 'actions';
 import { defaultPoolName } from 'config';
+import { deepFreeze } from 'utils';
+
+const steps = deepFreeze([
+    { label: 'choose name', size: 'small' },
+    { label: 'set policy', size: 'large' }
+]);
 
 class CreateBucketWizardViewModel extends Disposable {
     constructor({ onClose }) {
         super();
 
         this.onClose = onClose;
+        this.steps = steps;
         this.chooseNameStepTemplate = chooseNameStepTemplate;
         this.setPolicyStepTemplate = setPolicyStepTemplate;
 

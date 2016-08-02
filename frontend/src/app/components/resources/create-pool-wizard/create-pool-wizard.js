@@ -5,20 +5,24 @@ import Disposable from 'disposable';
 import ko from 'knockout';
 import nameValidationRules from 'name-validation-rules';
 import NodeRowViewModel from './node-row';
-import { makeArray, throttle } from 'utils';
+import { deepFreeze, makeArray, throttle } from 'utils';
 import { inputThrottle } from 'config';
 import { systemInfo, nodeList } from 'model';
 import { loadNodeList, createPool } from 'actions';
 
+const steps = deepFreeze([
+    { label: 'choose name', size: 'small' },
+    { label: 'assign nodes', size: 'xlarge' }
+]);
 
 class CreatePoolWizardViewModel extends Disposable {
     constructor({ onClose }) {
         super();
 
+        this.onClose = onClose;
+        this.steps = steps;
         this.chooseNameStepTemplate = chooseNameStepTemplate;
         this.assignNodesStepTemplate = assignNodesStepTemplate;
-        this.onClose = onClose;
-
         this.nodes = nodeList;
 
         let existingPoolNames = ko.pureComputed(

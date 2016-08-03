@@ -26,14 +26,11 @@
 <vr></vr>
 
 <section class="c4 row">
-    <h3 class="heading4 push-next c7">
-        Reads in last 7 days:
-    </h3>
-
-    <needle-gauge class="align-middle c5" params="
-        value: reads, threshold: 500, scale: 1.5
-    ">
-    </needle-gauge>
+    <div class="column greedy">
+        <h3 class="heading4">File size</h3>
+        <chart-legend params="items: barsValues"></chart-legend>
+    </div>
+    <bar-chart params="values: barsValues"></bar-chart>
 </section>
 
 <vr></vr>

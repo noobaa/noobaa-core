@@ -62,7 +62,7 @@ export default class PoolRowViewModel extends Disposable {
             subject: 'pool',
             group: deleteGroup,
             undeletable: isUndeletable,
-            deleteToolTip: ko.pureComputed(
+            deleteTooltip: ko.pureComputed(
                 () => {
                     if (isDemoPool()) {
                         return 'Demo pools cannot be deleted';

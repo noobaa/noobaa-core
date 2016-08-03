@@ -1,8 +1,8 @@
 import template from './object-summary.html';
 import Disposable from 'disposable';
 import ko from 'knockout';
-// import { formatSize } from 'utils';
 import moment from 'moment';
+import style from 'style';
 
 const timeFormat = 'DD MMM YYYY hh:mm:ss';
 
@@ -12,10 +12,6 @@ class ObjectSummaryViewModel extends Disposable {
 
         this.dataReady = ko.pureComputed(
             () => !!obj()
-        );
-
-        this.reads = ko.pureComputed(
-            () => obj() && obj().stats.reads
         );
 
         this.bucketName = ko.pureComputed(
@@ -37,6 +33,23 @@ class ObjectSummaryViewModel extends Disposable {
                 obj().stats.last_read ? moment(obj().stats.last_read).format(timeFormat) : 'N/A'
             )
         );
+
+        this.barsValues = [
+            {
+                label: 'Physical size',
+                value: ko.pureComputed(
+                    () => obj().capacity_size
+                ),
+                color: style['text-color5']
+            },
+            {
+                label: 'Size',
+                value: ko.pureComputed(
+                    () => obj().size
+                ),
+                color: style['text-color6']
+            }
+        ];
     }
 }
 

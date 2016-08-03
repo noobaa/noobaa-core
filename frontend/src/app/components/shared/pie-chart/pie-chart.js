@@ -74,6 +74,9 @@ class PieChartViewModel extends Disposable{
     }
 
     draw(ctx) {
+        ctx.fillStyle = 'white';
+        ctx.fillRect(0, 0, this.canvasWidth, this.canvasHeight);
+
         ctx.translate(radius, radius);
         ctx.rotate(Math.PI / 1.3);
         this.drawArc(ctx, 0, 1, silhouetteColor);

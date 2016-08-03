@@ -741,7 +741,6 @@ function get_bucket_info(bucket, nodes_aggregate_pool, num_of_objects, cloud_syn
         info.tiering = tier_server.get_tiering_policy_info(bucket.tiering, nodes_aggregate_pool);
     }
 
-    info.storage_stats = bucket.storage_stats;
     let objects_aggregate = {
         size: (bucket.storage_stats && bucket.storage_stats.objects_size) || 0,
         count: (bucket.storage_stats && bucket.storage_stats.objects_count) || 0
@@ -752,12 +751,15 @@ function get_bucket_info(bucket, nodes_aggregate_pool, num_of_objects, cloud_syn
     info.num_objects = num_of_objects || 0;
     info.storage = size_utils.to_bigint_storage({
         used: objects_aggregate.size,
+        used_other: info.tiering && info.tiering.storage && info.tiering.storage.used_other || 0,
         total: info.tiering && info.tiering.storage && info.tiering.storage.total || 0,
         free: info.tiering && info.tiering.storage && info.tiering.storage.free || 0,
         // This is the physical compressed capacity
         // TODO: Does not include the movie multiplication, and rebuilds
         real: new BigInteger((bucket.storage_stats && bucket.storage_stats.chunks_capacity) || 0).multiply(tier_of_bucket.replicas).multiply(placement_mul)
     });
+
+    dbg.log0('ohadohad', bucket.name, placement_mul, tier_of_bucket.replicas, bucket.storage_stats.chunks_capacity);
 
     info.cloud_sync_policy = cloud_sync_policy;
     info.cloud_sync_status = _.isEmpty(cloud_sync_policy) ? 'NOTSET' : cloud_sync_policy.status;

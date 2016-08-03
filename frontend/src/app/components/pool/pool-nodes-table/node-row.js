@@ -23,7 +23,7 @@ export default class NodeRowViewModel extends Disposable {
             () => !!node()
         );
 
-        this.stateToolTip = ko.pureComputed(
+        this.stateTooltip = ko.pureComputed(
             () => node() && node().online  ? 'online' : 'offline'
         );
 

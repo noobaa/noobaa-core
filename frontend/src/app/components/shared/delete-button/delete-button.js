@@ -12,13 +12,13 @@ class DeleteButtonViewModel extends Disposable {
         subject,
         group = ko.observable(),
         onDelete,
-        toolTip = 'delete',
+        tooltip = 'delete',
         disabled = false
     }) {
         super();
 
         this.onDelete = isFunction(onDelete) ? onDelete : noop;
-        this.toolTip = toolTip;
+        this.tooltip = tooltip;
         this.disabled = disabled;
 
         this.isActive = ko.pureComputed({

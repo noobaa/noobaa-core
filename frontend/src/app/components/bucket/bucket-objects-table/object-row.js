@@ -4,15 +4,15 @@ import ko from 'knockout';
 
 const statusIconMapping = Object.freeze({
     AVALIABLE: {
-        toolTip: 'Avaliable',
+        tooltip: 'Avaliable',
         icon: 'object-available'
     },
     IN_PROCESS: {
-        toolTip: 'In Process',
+        tooltip: 'In Process',
         icon: 'object-in-process'
     },
     UNAVALIABLE: {
-        toolTip: 'Unavaliable',
+        tooltip: 'Unavaliable',
         icon: 'object-unavailable'
     }
 });
@@ -33,8 +33,8 @@ export default class ObjectRowViewModel extends Disposable {
             () => obj() && statusIconMapping[obj().info.state || 'AVALIABLE']
         );
 
-        this.stateToolTip = ko.pureComputed(
-            () => stateMap() && stateMap().toolTip
+        this.stateTooltip = ko.pureComputed(
+            () => stateMap() && stateMap().tooltip
         );
 
         this.stateIcon = ko.pureComputed(

@@ -40,38 +40,46 @@ class PoolSummaryViewModel extends Disposable {
             () => !!pool()
         );
 
-        this.total = ko.pureComputed(
-            () => pool().storage.total
-        );
-
-        this.totalText = ko.pureComputed(
-            () => formatSize(this.total())
-        );
-
-        this.used = ko.pureComputed(
-            () => pool().storage.used
-        );
-
-        this.usedText = ko.pureComputed(
-            () => formatSize(this.used())
-        );
-
-        this.free = ko.pureComputed(
-            () => pool().storage.free
-        );
-
-        this.freeText = ko.pureComputed(
-            () => formatSize(this.free())
+        this.capacityTitle = ko.pureComputed(
+            () => `Pool capacity: ${formatSize(pool().storage.total)}`
         );
 
         this.pieValues = [
             {
-                value: this.used,
-                color: style['text-color6']
+                label: 'Avaliable',
+                color: style['text-color5'],
+                value: ko.pureComputed(
+                    () => pool().storage.free
+                )
             },
             {
-                value: this.free,
-                color: style['text-color4']
+                label: 'Used (NooBaa)',
+                color: style['text-color6'],
+                value: ko.pureComputed(
+                    () => pool().storage.used
+                )
+            },
+            {
+                label: 'Used (Other)',
+                color: style['text-color2'],
+                value: ko.pureComputed(
+                    () => pool().storage.used_other
+                )
+
+            },
+            {
+                label: 'Reserved',
+                color: style['text-color1'],
+                value: ko.pureComputed(
+                    () => pool().storage.reserved
+                )
+            },
+            {
+                label: 'Unavailable',
+                color: style['text-color7'],
+                value: ko.pureComputed(
+                    () => pool().storage.unavailable_free
+                )
             }
         ];
 

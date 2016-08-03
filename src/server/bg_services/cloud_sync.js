@@ -8,6 +8,7 @@ const P = require('../../util/promise');
 const dbg = require('../../util/debug_module')(__filename);
 const md_store = require('../object_services/md_store');
 const system_store = require('../system_services/system_store').get_instance();
+const util = require('util');
 
 const CLOUD_SYNC = {
     //Policy was changed, list of policies should be refreshed
@@ -675,7 +676,7 @@ function sync_to_cloud_single_bucket(bucket_work_lists, policy) {
                         Key: obj.key
                     });
                 });
-                dbg.log2('sync_to_cloud_single_bucket syncing', bucket_work_lists.n2c_deleted.length, 'deletions n2c');
+                dbg.log2('sync_to_cloud_single_bucket syncing', bucket_work_lists.n2c_deleted.length, 'deletions n2c with params', util.inspect(params, {depth: null}));
                 return P.ninvoke(policy.s3cloud, 'deleteObjects', params)
                     .catch(function(err) {
                         // change default region from US to EU due to restricted signature of v4 and end point
@@ -763,7 +764,7 @@ function sync_from_cloud_single_bucket(bucket_work_lists, policy) {
                         Key: obj.key
                     });
                 });
-                dbg.log2('sync_from_cloud_single_bucket syncing', bucket_work_lists.c2n_deleted.length, 'deletions c2n', params);
+                dbg.log2('sync_from_cloud_single_bucket syncing', bucket_work_lists.c2n_deleted.length, 'deletions c2n with params', util.inspect(params, {depth: null}));
                 return P.ninvoke(policy.s3rver, 'deleteObjects', params);
             } else {
                 dbg.log2('sync_to_cloud_single_bucket syncing deletions c2n, nothing to sync');

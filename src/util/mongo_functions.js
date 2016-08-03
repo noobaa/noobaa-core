@@ -18,8 +18,6 @@ module.exports = {
     map_size: map_size,
     map_aggregate_objects: map_aggregate_objects,
     map_aggregate_chunks: map_aggregate_chunks,
-    // map_aggregate_objects_delta: map_aggregate_objects_delta,
-    // map_aggregate_chunks_delta: map_aggregate_chunks_delta,
     map_key_with_prefix_delimiter: map_key_with_prefix_delimiter,
     reduce_sum: reduce_sum,
     reduce_noop: reduce_noop,
@@ -44,42 +42,11 @@ function map_aggregate_objects() {
     emit([this.bucket, 'count'], 1);
 }
 
-// function map_aggregate_objects_delta() {
-//     let result_size = 0;
-//     let result_count = 0;
-//     if (this._id > from_date_object && this._id < till_date_object) {
-//         result_size += this.size;
-//         result_count += 1;
-//     }
-//     if (this.deleted > from_date && this.deleted < till_date) {
-//         result_size -= this.size;
-//         result_count -= 1;
-//     }
-//     /* jshint validthis: true */
-//     emit(['', 'size'], result_size);
-//     emit(['', 'count'], result_count);
-//     emit([this.bucket, 'size'], result_size);
-//     emit([this.bucket, 'count'], result_count);
-// }
-
 function map_aggregate_chunks() {
     /* jshint validthis: true */
     emit(['', 'compress_size'], this.compress_size);
     emit([this.bucket, 'compress_size'], this.compress_size);
 }
-
-// function map_aggregate_chunks_delta() {
-//     let result_size = 0;
-//     if (this._id > from_date_object && this._id < till_date_object) {
-//         result_size += this.compress_size;
-//     }
-//     if (this.deleted > from_date && this.deleted < till_date) {
-//         result_size -= this.compress_size;
-//     }
-//     /* jshint validthis: true */
-//     emit(['', 'compress_size'], result_size);
-//     emit([this.bucket, 'compress_size'], result_size);
-// }
 
 function map_key_with_prefix_delimiter() {
     /* jshint validthis: true */

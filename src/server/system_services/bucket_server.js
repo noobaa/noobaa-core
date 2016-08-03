@@ -17,6 +17,7 @@ const md_store = require('../object_services/md_store');
 const js_utils = require('../../util/js_utils');
 const RpcError = require('../../rpc/rpc_error');
 const size_utils = require('../../util/size_utils');
+const BigInteger = size_utils.BigInteger;
 const server_rpc = require('../server_rpc');
 const tier_server = require('./tier_server');
 const mongo_utils = require('../../util/mongo_utils');
@@ -134,9 +135,14 @@ function read_bucket(req) {
     var pool_ids = mongo_utils.uniq_ids(pools, '_id');
     return P.join(
         nodes_client.instance().aggregate_nodes_by_pool(pool_ids),
+        md_store.ObjectMD.collection.count({
+                system: req.system._id,
+                bucket: bucket._id,
+                deleted: null
+        }),
         get_cloud_sync(req, bucket)
-    ).spread(function(nodes_aggregate_pool, cloud_sync_policy) {
-        return get_bucket_info(bucket, nodes_aggregate_pool, cloud_sync_policy);
+    ).spread(function(nodes_aggregate_pool, num_of_objects, cloud_sync_policy) {
+        return get_bucket_info(bucket, nodes_aggregate_pool, num_of_objects, cloud_sync_policy);
     });
 }
 
@@ -726,7 +732,7 @@ function find_bucket(req) {
     return bucket;
 }
 
-function get_bucket_info(bucket, nodes_aggregate_pool, cloud_sync_policy) {
+function get_bucket_info(bucket, nodes_aggregate_pool, num_of_objects, cloud_sync_policy) {
     var info = _.pick(bucket, 'name');
     var tier_of_bucket;
     if (bucket.tiering) {
@@ -743,14 +749,14 @@ function get_bucket_info(bucket, nodes_aggregate_pool, cloud_sync_policy) {
 
     info.tag = bucket.tag ? bucket.tag : '';
     let placement_mul = (tier_of_bucket.data_placement === 'MIRROR') ? Math.max(tier_of_bucket.pools.length, 1) : 1;
-    info.num_objects = objects_aggregate.count;
+    info.num_objects = num_of_objects || 0;
     info.storage = size_utils.to_bigint_storage({
         used: objects_aggregate.size,
         total: info.tiering && info.tiering.storage && info.tiering.storage.total || 0,
         free: info.tiering && info.tiering.storage && info.tiering.storage.free || 0,
         // This is the physical compressed capacity
         // TODO: Does not include the movie multiplication, and rebuilds
-        real: new size_utils.BigInteger((bucket.storage_stats && bucket.storage_stats.chunks_capacity) || 0).multiply(tier_of_bucket.replicas).multiply(placement_mul)
+        real: new BigInteger((bucket.storage_stats && bucket.storage_stats.chunks_capacity) || 0).multiply(tier_of_bucket.replicas).multiply(placement_mul)
     });
 
     info.cloud_sync_policy = cloud_sync_policy;

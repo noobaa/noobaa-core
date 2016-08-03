@@ -5,7 +5,6 @@ module.exports = {
     pack_diagnostics: pack_diagnostics,
 };
 
-const P = require('../util/promise');
 const fs = require('fs');
 const fs_utils = require('../util/fs_utils');
 const base_diagnostics = require('../util/base_diagnostics');
@@ -14,9 +13,24 @@ const TMP_WORK_DIR = '/tmp/diag';
 
 function collect_agent_diagnostics() {
     //mkdir c:\tmp ?
-    return P.fcall(function() {
-            let limit_logs_size = true;
-            return base_diagnostics.collect_basic_diagnostics(limit_logs_size);
+    return base_diagnostics.prepare_diag_dir()
+        .then(function() {
+            return base_diagnostics.collect_basic_diagnostics();
+        })
+        .then(function() {
+            if (fs.existsSync(process.cwd() + '/logs')) {
+                //will take only noobaa.log and the first 9 zipped logs
+                return fs_utils.full_dir_copy(process.cwd() + '/logs', TMP_WORK_DIR, 'noobaa?[1-9][0-9].log.gz');
+            } else {
+                return;
+            }
+        })
+        .then(function() {
+            if (fs.existsSync('/var/log/noobaa_local_service.log')) {
+                return fs_utils.file_copy('/var/log/noobaa_local_service.log', TMP_WORK_DIR);
+            } else {
+                return;
+            }
         })
         .then(function() {
             const file = fs.createWriteStream(TMP_WORK_DIR + '/ls_agent_storage.out');

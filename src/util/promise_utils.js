@@ -221,11 +221,12 @@ function spawn(command, args, options, ignore_rc) {
     });
 }
 
-function exec(command, ignore_rc, return_stdout) {
+function exec(command, ignore_rc, return_stdout, timeout) {
     return new P((resolve, reject) => {
         dbg.log2('promise exec', command, ignore_rc);
         child_process.exec(command, {
             maxBuffer: 5000 * 1024, //5MB, should be enough
+            timeout: timeout
         }, function(error, stdout, stderr) {
             if (!error || ignore_rc) {
                 if (error) {

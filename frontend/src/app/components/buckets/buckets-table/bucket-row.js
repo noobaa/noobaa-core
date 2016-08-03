@@ -122,7 +122,7 @@ export default class BucketRowViewModel extends Disposable {
             undeletable: ko.pureComputed(
                 () => isDemoBucket() || isLastBucket() || hasObjects()
             ),
-            deleteToolTip: ko.pureComputed(
+            deleteTooltip: ko.pureComputed(
                 () => {
                     if (isDemoBucket()) {
                         return 'Demo buckets cannot be deleted';

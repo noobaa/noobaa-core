@@ -29,25 +29,49 @@ class BucketSummrayViewModel extends Disposable {
             () => bucket() && formatSize(bucket().storage.total)
         );
 
-        this.used = ko.pureComputed(
-            () => bucket() && bucket().storage.used
+        let storage = ko.pureComputed(
+            () => bucket() ? bucket().storage : {}
         );
 
-        this.usedText = ko.pureComputed(
-            () => bucket() && formatSize(this.used())
-        );
+        this.barsValues = [
+            {
+                label: 'Physical size',
+                value: ko.pureComputed(
+                    () => storage().real
+                ),
+                color: style['text-color5']
+            },
+            {
+                label: 'Size',
+                value: ko.pureComputed(
+                    () => storage().used
+                ),
+                color: style['text-color6']
+            }
+        ];
 
-        this.free = ko.pureComputed(
-            () => bucket() && bucket().storage.free
-        );
-
-        this.freeText = ko.pureComputed(
-            () => formatSize(this.free())
-        );
-
-        this.gaugeValues = [
-            { value: this.used, color: style['text-color6'], emphasize: true },
-            { value: this.free, color: style['text-color4'] }
+        this.pieValues = [
+            {
+                label: 'Used (this bucket)',
+                value: ko.pureComputed(
+                    () => storage().used
+                ),
+                color: style['text-color6']
+            },
+            {
+                label: 'Used (other buckets)',
+                value: ko.pureComputed(
+                    () => storage().used_other
+                ),
+                color: style['text-color5']
+            },
+            {
+                label: 'Potential available',
+                value: ko.pureComputed(
+                    () => storage().free
+                ),
+                color: style['text-color4']
+            }
         ];
 
         this.stateText = ko.pureComputed(

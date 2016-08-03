@@ -25,26 +25,24 @@
 
 <vr></vr>
 
-<section class="c4 row">
-    <div class="column greedy">
-        <h3 class="heading4 push-next">
-            Available Capacity:
-            <span data-bind="text: totalText"></span>
-        </h3>
+<section class="c4 row graphs">
+    <div class="row greedy pie">
+        <div class="column greedy">
+            <h3 class="heading4">Available Capacity:</h3>
+            <chart-legend params="items: pieValues"></chart-legend>
+        </div>
 
-        <ul class="c7 column list-no-style legend">
-            <li class="row">
-                <span class="c8 emphasized">Used by bucket:</span>
-                <span class="highlight" data-bind="text: usedText"></span>
-            </li>
-            <li class="row">
-                <span class="c8 emphasized">Potential free:</span>
-                <span data-bind="text: freeText"></span>
-            </li>
-        </ul>
+        <pie-chart params="values: pieValues"></pie-chart>
     </div>
 
-    <quantity-gauge class="c5" params="values: gaugeValues"></quantity-gauge>
+    <!-- <div class="row greedy bars">
+        <div class="column greedy">
+            <h3 class="heading4">Data usage:</h3>
+            <chart-legend params="items: barsValues"></chart-legend>
+        </div>
+
+        <bar-chart params="values: barsValues"></bar-chart>
+    </div> -->
 </section>
 
 <vr></vr>

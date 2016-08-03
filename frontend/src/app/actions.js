@@ -440,7 +440,8 @@ export function loadObjectMetadata(bucketName, objectName) {
     api.object.read_object_md({
         bucket: bucketName,
         key: objectName,
-        get_parts_count: true
+        get_parts_count: true,
+        adminfo: true
     })
         .then(
             objInfo => {

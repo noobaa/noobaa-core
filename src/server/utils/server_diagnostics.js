@@ -9,7 +9,7 @@ const stats_aggregator = require('../system_services/stats_aggregator');
 const system_store = require('../system_services/system_store').get_instance();
 
 const TMP_WORK_DIR = '/tmp/diag';
-const DIAG_ERRORS_FILE = TMP_WORK_DIR + '/diagnostics_collection_errors.log';
+const DIAG_LOG_FILE = TMP_WORK_DIR + '/diagnostics_collection.log';
 const LONG_EXEC_TIMEOUT = 60 * 1000;
 const SHORT_EXEC_TIMEOUT = 5 * 1000;
 
@@ -114,7 +114,9 @@ function collect_supervisor_logs() {
     return P.resolve()
         .then(() => {
             if (process.platform === 'linux') {
-                return promise_utils.exec('cp -f /tmp/supervisor/* ' + TMP_WORK_DIR, false, false, LONG_EXEC_TIMEOUT)
+                // compress supervisor logs to the destination directory with compression level 1 (fastest).
+                // it appears to be faster than copying and then compressing
+                return promise_utils.exec('GZIP=-1 tar -czf ' + TMP_WORK_DIR + '/supervisor_log.tgz /tmp/supervisor/* ', false, false, LONG_EXEC_TIMEOUT)
                     .catch(function(err) {
                         console.error('Error in collecting supervisor logs', err);
                         throw new Error('Error in collecting supervisor logs ' + err);
@@ -152,7 +154,8 @@ function collect_statistics(req) {
 
 
 function diag_log(msg) {
-    return fs.appendFileAsync(DIAG_ERRORS_FILE, msg + '\n\n');
+    console.log('writing to diag log:', msg);
+    return fs.appendFileAsync(DIAG_LOG_FILE, msg + '\n\n');
 }
 
 // EXPORTS

@@ -59,7 +59,8 @@ export default class PoolRowViewModel extends Disposable {
         );
 
         this.deleteButton = {
-            deleteGroup: deleteGroup,
+            subject: 'pool',
+            group: deleteGroup,
             undeletable: isUndeletable,
             deleteToolTip: ko.pureComputed(
                 () => {

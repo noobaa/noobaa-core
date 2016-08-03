@@ -117,7 +117,8 @@ export default class BucketRowViewModel extends Disposable {
         );
 
         this.deleteButton = {
-            deleteGroup: deleteGroup,
+            subject: 'bucket',
+            group: deleteGroup,
             undeletable: ko.pureComputed(
                 () => isDemoBucket() || isLastBucket() || hasObjects()
             ),

@@ -34,6 +34,7 @@ MongoCtrl.prototype.add_replica_set_member = function(name, first_server, server
     return self._remove_single_mongo_program()
         .then(() => self._add_replica_set_member_program(name, first_server))
         .then(() => SupervisorCtl.apply_changes())
+        .delay(5000) // TODO: find better solution
         .then(() => {
             // build new connection url for mongo and write to .env
             return self.update_dotenv(name, cutil.extract_servers_ip(servers));
@@ -44,19 +45,23 @@ MongoCtrl.prototype.add_new_shard_server = function(name, first_shard) {
     let self = this;
     return self._remove_single_mongo_program()
         .then(() => self._add_new_shard_program(name, first_shard))
-        .then(() => SupervisorCtl.apply_changes());
+        .then(() => SupervisorCtl.apply_changes())
+        .delay(5000); // TODO: find better solution;
 };
 
 MongoCtrl.prototype.add_new_mongos = function(cfg_array) {
     let self = this;
     return P.resolve(self._add_new_mongos_program(cfg_array))
-        .then(() => SupervisorCtl.apply_changes());
+        .then(() => SupervisorCtl.apply_changes())
+        .delay(5000); // TODO: find better solution
+
 };
 
 MongoCtrl.prototype.add_new_config = function() {
     let self = this;
     return self._add_new_config_program()
-        .then(() => SupervisorCtl.apply_changes());
+        .then(() => SupervisorCtl.apply_changes())
+        .delay(5000); // TODO: find better solution
 };
 
 MongoCtrl.prototype.initiate_replica_set = function(set, members, is_config_set) {

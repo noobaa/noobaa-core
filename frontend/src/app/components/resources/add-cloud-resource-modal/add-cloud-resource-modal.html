@@ -1,35 +1,36 @@
-<modal params="onClose: () => cancel()">
-    <h1 class="heading2">
-        Add Cloud Resource
-    </h1>
+<modal class="modal-small" params="
+    title: 'Add Cloud Resource',
+    onClose: () => cancel()
+">
+    <p class="push-next">Use a bucket from a public cloud to serve as a NooBaa storage resource</p>
 
-    <p class="push-next text-center">Use a bucket from a public cloud to serve as a NooBaa storage resource</p>
+    <section class="greedy">
+        <editor params="label: 'Target Connection'">
+            <dropdown params="
+                placeholder: 'Choose a connection',
+                options: connectionOptions,
+                selected: connection
+            "></dropdown>
+            <div class="val-msg" data-bind="validationMessage: connection"></div>
+        </editor>
 
-    <editor params="label: 'Target Connection'" class="push-prev">
-        <dropdown params="
-            placeholder: 'Choose a connection',
-            options: connectionOptions,
-            selected: connection
-        "></dropdown>
-        <div class="val-msg" data-bind="validationMessage: connection"></div>
-    </editor>
+        <editor params="label: 'Target Bucket'">
+            <dropdown params="
+                placeholder: 'Choose bucket',
+                disabled: !targetBucketsOptions(),
+                options: targetBucketsOptions,
+                selected: targetBucket
+            "></dropdown>
+            <div class="val-msg" data-bind="validationMessage: targetBucket"></div>
+        </editor>
 
-    <editor params="label: 'Target Bucket'">
-        <dropdown params="
-            placeholder: 'Choose bucket',
-            disabled: !targetBucketsOptions(),
-            options: targetBucketsOptions,
-            selected: targetBucket
-        "></dropdown>
-        <div class="val-msg" data-bind="validationMessage: targetBucket"></div>
-    </editor>
-
-    <editor params="label: 'Resource name'">
-        <input type="text" placeholder="Choose Name" data-bind="
-            enable: targetBucket,
-            textInput: resourceName
-        "/>
-    </editor>
+        <editor params="label: 'Resource name'">
+            <input type="text" placeholder="Choose Name" data-bind="
+                enable: targetBucket,
+                textInput: resourceName
+            "/>
+        </editor>
+    </section>
 
     <div class="row align-end push-prev">
         <button class="link push-next" data-bind="click: cancel">

@@ -6,10 +6,25 @@ import Disposable from 'disposable';
 import ko from 'knockout';
 import { defaultPoolName } from 'config';
 import { systemInfo } from 'model';
-import { copyTextToClipboard, lastSegment, realizeUri, encodeBase64 } from 'utils';
+import { deepFreeze, copyTextToClipboard, lastSegment, realizeUri, encodeBase64 } from 'utils';
 import { asset as assetRoute } from 'routes';
 
-const installCommands = Object.freeze({
+const steps = deepFreeze([
+    {
+        label: 'select',
+        size: 'small'
+    },
+    {
+        label: 'install',
+        size: 'medium'
+    },
+    {
+        label: 'review',
+        size: 'small'
+    }
+]);
+
+const installCommands = deepFreeze({
     NETWORK_WINDOWS(pkg, conf, server) {
         return `Invoke-WebRequest ${server}:8080/public/${pkg} -OutFile C:\\${pkg}; C:\\${pkg} /S /config ${conf}`;
     },
@@ -27,7 +42,7 @@ const installCommands = Object.freeze({
     }
 });
 
-const installationTypeOptions = Object.freeze([
+const installationTypeOptions = deepFreeze([
     {
         value: 'NETWORK',
         label: 'Network Installation (recommended)',
@@ -40,7 +55,7 @@ const installationTypeOptions = Object.freeze([
     }
 ]);
 
-const installationTargetOptions = Object.freeze([
+const installationTargetOptions = deepFreeze([
     {
         value: 'LINUX',
         label: 'Linux'
@@ -55,6 +70,7 @@ class InstallNodeWizardViewModel extends Disposable {
     constructor({ onClose }) {
         super();
 
+        this.steps = steps;
         this.selectStepTemplate = selectStepTemplate;
         this.installStepTemplate = installStepTemplate;
         this.reviewStepTemplate = reviewStepTemplate;

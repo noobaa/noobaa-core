@@ -14,10 +14,10 @@
 - [ ] Code Review - with someone besides myself:
  - [ ] **@mention Reviewed** / **Please review XXX**
 - [ ] Supportability:
- - [ ] Diagnostics info - added: **Logs / Files**
- - [ ] Phone Home info - added: **Stats / Actions**
- - [ ] ActivityLog new events
- - [ ] External Syslog events
+ - [ ] Diagnostics info - added if needed : **Logs / Files**
+ - [ ] Phone Home info - added if needed : **Stats / Actions**
+ - [ ] ActivityLog new events if needed
+ - [ ] External Syslog events if needed
 - [ ] Upgrade Conciderations:
  - [ ] Mongo Schema Upgrade if needed
  - [ ] Platform dependency added

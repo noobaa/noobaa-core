@@ -5,23 +5,27 @@ import Disposable from 'disposable';
 import ko from 'knockout';
 import nameValidationRules from 'name-validation-rules';
 import NodeRowViewModel from './node-row';
-import { makeArray, throttle } from 'utils';
+import { deepFreeze, makeArray, throttle } from 'utils';
 import { inputThrottle } from 'config';
 import { systemInfo, nodeList } from 'model';
 import { loadNodeList, createPool } from 'actions';
 
+const steps = deepFreeze([
+    { label: 'choose name', size: 'small' },
+    { label: 'assign nodes', size: 'auto-height' }
+]);
 
 class CreatePoolWizardViewModel extends Disposable {
     constructor({ onClose }) {
         super();
 
+        this.onClose = onClose;
+        this.steps = steps;
         this.chooseNameStepTemplate = chooseNameStepTemplate;
         this.assignNodesStepTemplate = assignNodesStepTemplate;
-        this.onClose = onClose;
-
         this.nodes = nodeList;
 
-        let poolNames = ko.pureComputed(
+        let existingPoolNames = ko.pureComputed(
             () => (systemInfo() ? systemInfo().pools : []).map(
                 pool => pool.name
             )
@@ -29,7 +33,7 @@ class CreatePoolWizardViewModel extends Disposable {
 
         this.poolName = ko.observable()
             .extend({
-                validation: nameValidationRules('pool', poolNames)
+                validation: nameValidationRules('pool', existingPoolNames)
             });
 
         this.rows = makeArray(
@@ -46,7 +50,7 @@ class CreatePoolWizardViewModel extends Disposable {
         let nodeSources = ko.pureComputed(
             () => (systemInfo() ? systemInfo().pools : [])
                 .filter(
-                    pool => !pool.demo_pool
+                    pool => !pool.demo_pool && pool.nodes
                 )
                 .map(
                     pool => pool.name

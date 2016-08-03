@@ -2,23 +2,38 @@ import template from './start-maintenance-modal.html';
 import Disposable from 'disposable';
 import ko from 'knockout';
 import  { enterMaintenanceMode } from 'actions';
+import { deepFreeze } from 'utils';
+
+const durationUntiOptions = deepFreeze([
+    {
+        label: 'Minuets',
+        value: 1
+    },
+    {
+        label: 'Hours',
+        value: 60
+    }
+]);
 
 class StartMaintenanceModalViewModel extends Disposable {
     constructor({ onClose }) {
         super();
         this.onClose = onClose;
 
-        this.hours = ko.observable(0);
-        this.minutes =  ko.observable(30);
+        this.duration = ko.observable(30)
+            .extend({
+                notEqual: {
+                    params: '0',
+                    message: 'Duration cannot be set to 00:00'
+                }
+            });
 
-        this.duration = ko.pureComputed(
-            () => parseInt(this.hours()) * 60 + parseInt(this.minutes())
-        ).extend({
-            notEqual: {
-                params: 0,
-                message: 'Maintenance mode duration cannot be 00:00'
-            }
-        });
+        this.durationUnit = ko.observable(1);
+        this.durationUnitOptions = durationUntiOptions;
+
+        this.durationInMin = ko.pureComputed(
+            () => parseInt(this.duration()) * parseInt(this.durationUnit())
+        );
 
         this.errors = ko.validation.group(this);
     }
@@ -28,12 +43,11 @@ class StartMaintenanceModalViewModel extends Disposable {
     }
 
     start() {
-        console.warn(this.duration());
         if (this.errors().length > 0) {
             this.errors.showAllMessages();
 
         } else {
-            enterMaintenanceMode(this.duration());
+            enterMaintenanceMode(this.durationInMin());
             this.onClose();
         }
     }

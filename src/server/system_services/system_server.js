@@ -235,7 +235,7 @@ function create_system(req) {
             return server_rpc.client.hosted_agents.create_agent({
                 name: req.rpc_params.name,
                 access_keys: req.rpc_params.access_keys,
-                scale: 3,
+                scale: config.NUM_DEMO_NODES,
                 storage_limit: config.DEMO_NODES_STORAGE_LIMIT,
             }, {
                 auth_token: reply_token

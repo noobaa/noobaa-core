@@ -1,13 +1,15 @@
-<modal params="onClose: () => close()">
-    <h1 class="heading2 push-next">Upload Files</h1>
-
+<modal class="modal-large" params="
+    title: 'Upload Files',
+    onClose: () => close()
+">
     <file-selector class="push-next" params="
         allowMultiSelect: true,
         onFilesReady: files => upload(files)
     "></file-selector>
 
-    <h2 class="heading3 push-prev">Recently Uploaded</h2>
-    <div class="box push-next">
+    <h2 class="heading3">Recently Uploaded</h2>
+
+    <div class="box push-next greedy">
         <data-table params="
             columns: columns,
             data: requests,

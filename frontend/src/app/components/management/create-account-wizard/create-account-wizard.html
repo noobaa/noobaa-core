@@ -1,12 +1,12 @@
 <wizard params="
     heading: 'Create Account',
-    steps: ['name & permissions', 'review details'],
+    steps: steps,
     actionLabel: 'Create',
     validateStep: step => validateStep(step),
     onComplete: () => create(),
     onClose: () => cancel()
 ">
-    <section class="column" data-bind="
+    <section class="column greedy" data-bind="
         template: { html: nameAndPermissionsStepTemplate }
     "></section>
 

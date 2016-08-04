@@ -6,8 +6,6 @@ export default class TestRowViewModel extends Disposable {
     constructor(result) {
         super();
 
-        console.warn(result());
-
         this.test = ko.pureComputed(
             () => result() ? result().testType : ''
         );

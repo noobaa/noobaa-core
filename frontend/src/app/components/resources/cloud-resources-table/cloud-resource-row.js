@@ -70,7 +70,6 @@ export default class CloudResourceRowViewModel extends Disposable {
     }
 
     del() {
-        console.debug('DETELING:', this.name());
         deleteCloudResource(this.name());
     }
 }

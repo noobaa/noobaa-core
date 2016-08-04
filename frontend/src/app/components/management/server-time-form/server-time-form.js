@@ -28,6 +28,14 @@ class ServerTimeFormViewModel extends Disposable{
             () => server() && server().time_epoch * 1000
         );
 
+        this.addToDisposeList(
+            setInterval(
+                () => this.time() && this.time(this.time() + 1000),
+                1000
+            ),
+            clearInterval
+        );
+
         this.formattedTime = ko.pureComputed(
             () => this.time() && moment(this.time()).format('MM/DD/YYYY HH:mm:ss ([GMT]Z)')
         );
@@ -78,9 +86,9 @@ class ServerTimeFormViewModel extends Disposable{
         )
         .unix();
 
-        updateServerClock(
-            this.serverSecret(), this.timezone(), epoch
-        );
+        // updateServerClock(
+        //     this.serverSecret(), this.timezone(), epoch
+        // );
     }
 
     setNTPTime() {

@@ -1,34 +1,57 @@
 import ko from 'knockout';
-import { isObject, isString } from 'utils';
+import { isObject, isString, isDefined } from 'utils';
 
 const delay = 350;
 
-const alignMapping = Object.freeze({
+const alignments = Object.freeze({
     left: 0,
     center: .5,
     right: 1
 });
 
-function normalizeParams(params) {
-    let alignments = Object.keys(alignMapping);
+function toHtmlList(arr) {
+    return `<ul>${
+        arr.map(
+            item => `<li>${item}</li>`
+        ).join('')
+    }</ul>`;
+}
 
+function normalizeParams(params) {
     return ko.computed(
         () => {
             let naked = ko.unwrap(params);
-            if (isObject(naked) && !isString(naked)) {
-                let align = ko.unwrap(naked.align);
-
+            if (isString(naked)) {
                 return {
-                    text: ko.unwrap(naked.text),
-                    align: alignments.indexOf(align) > -1 ? align : 'center'
+                    text: naked,
+                    css: 'center',
+                    align: alignments.center
                 };
 
-            } else {
+            } else if (naked instanceof Array) {
+                return {
+                    text: toHtmlList(naked),
+                    css: 'center',
+                    align: alignments.center
+                };
+
+            } else if (isObject(naked)) {
+                let text = ko.unwrap(naked.text);
+                if (text instanceof Array) {
+                    text = toHtmlList(naked);
+                }
+
+                let pos = ko.unwrap(naked.align);
+                if (!Object.keys(alignments).includes(pos)) {
+                    pos = 'center';
+                }
 
                 return {
-                    text: naked && naked.toString(),
-                    align: 'center'
+                    text: text,
+                    css: pos,
+                    align: alignments[pos]
                 };
+
             }
         }
     );
@@ -37,7 +60,7 @@ function normalizeParams(params) {
 function position(tooltip, target, align) {
     let { left, top } = target.getBoundingClientRect();
     top += target.offsetHeight;
-    left += target.offsetWidth / 2 - tooltip.offsetWidth * alignMapping[align];
+    left += target.offsetWidth / 2 - tooltip.offsetWidth * align;
 
     tooltip.style.top = `${Math.ceil(top)}px`;
     tooltip.style.left = `${Math.ceil(left)}px`;
@@ -58,7 +81,7 @@ export default {
                         handle = -1;
                         if (params().text) {
                             tooltip.innerHTML = params().text;
-                            tooltip.className = `tooltip ${params().align}`;
+                            tooltip.className = `tooltip ${params().css}`;
                             document.body.appendChild(tooltip);
                             position(tooltip, target, params().align);
                         }

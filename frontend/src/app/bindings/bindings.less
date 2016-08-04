@@ -28,7 +28,7 @@
     box-shadow: 1px 1px 1px 1px @bg-color4;
     word-break: break-all;
 
-    &::before, &::after {
+    &::before {
         content: '';
         position: absolute;
         top: -1em;
@@ -39,7 +39,7 @@
     &.left {
         transform: translate(-1em, .75em);
 
-        &::before, &::after {
+        &::before {
             left: .5em;
         }
     }
@@ -47,7 +47,7 @@
     &.center {
         transform: translateY(.75em);
 
-        &::before, &::after {
+        &::before {
             left: 50%;
             transform: translateX(-.5em);
         }
@@ -56,7 +56,7 @@
     &.right {
         transform: translate(1em, .75em);
 
-        &::before, &::after {
+        &::before {
             right: .5em;
         }
     }

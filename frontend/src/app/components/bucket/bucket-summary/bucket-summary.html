@@ -28,11 +28,22 @@
 <section class="c5 row">
     <div class="row greedy">
         <div class="column greedy">
-            <h3 class="heading4">Available Capacity:</h3>
-            <chart-legend params="items: pieValues"></chart-legend>
+            <toggle-filter class="push-next" params="
+                options: graphOptions,
+                selected: selectedGraph
+            "></toggle-filter>
+
+            <chart-legend params="items: legend"></chart-legend>
+
         </div>
 
-        <pie-chart params="values: pieValues"></pie-chart>
+        <!-- ko if: selectedGraph() === 'STORAGE' -->
+        <pie-chart params="values: storageValues"></pie-chart>
+        <!-- /ko -->
+
+        <!-- ko if: selectedGraph() === 'DATA' -->
+        <bar-chart params="values: dataValues"></bar-chart>
+        <!-- /ko -->
     </div>
 
 <!--     <div class="row greedy">
@@ -41,7 +52,6 @@
             <chart-legend params="items: barsValues"></chart-legend>
         </div>
 
-        <bar-chart params="values: barsValues"></bar-chart>
     </div> -->
 </section>
 

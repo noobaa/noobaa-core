@@ -4,46 +4,63 @@ import ko from 'knockout';
 import { formatSize } from 'utils';
 import style from 'style';
 
+const bgColor = style['gray-lv4'];
+
 class CapacityBarViewModel extends Disposable {
-    constructor({ total, usedNoobaa, usedOther }) {
+    constructor({ total, used, color = style['blue-mid'] }) {
         super();
 
-        let used = ko.pureComputed(
-            () => ko.unwrap(usedNoobaa) + ko.unwrap(usedOther)
-        );
+        let summedUsed = ko.pureComputed(
+            () => {
+                let naked = ko.unwrap(used);
+                if (naked instanceof Array) {
+                    return naked.reduce(
+                        (sum, entry) => sum + ko.unwrap(entry.value),
+                        0
+                    );
 
-        let free = ko.pureComputed(
-            () => ko.unwrap(total) - used()
-        );
-
-        this.values = [
-            {
-                value: usedNoobaa,
-                color: style['bg-color11']
-            },
-            {
-                value: usedOther,
-                color: style['bg-color11']
-            },
-            {
-                value: free,
-                color: style['bg-color4']
+                } else {
+                    return naked;
+                }
             }
-        ];
+        );
 
         this.usedText = ko.pureComputed(
-            () => formatSize(used())
+            () => formatSize(summedUsed())
         );
 
         this.totalText = ko.pureComputed(
             ()=> formatSize(ko.unwrap(total))
         );
 
+        this.values = [
+            {
+                value: summedUsed,
+                color: color
+            },
+            {
+                value: ko.pureComputed(
+                    () => ko.unwrap(total) - summedUsed()
+                ),
+                color: bgColor
+            }
+        ];
+
         this.tooltip = ko.pureComputed(
-            () => `
-                Used (Noobaa): ${formatSize(ko.unwrap(usedNoobaa))} <br>
-                Used (Other): ${formatSize(ko.unwrap(usedOther))}
-            `
+            () => {
+                let naked = ko.unwrap(used);
+                if (naked instanceof Array) {
+                    return naked.map(
+                        ({label, value}) => `${
+                            label
+                        }: ${
+                            formatSize(ko.unwrap(value))
+                        }`
+                    );
+                } else {
+                    return '';
+                }
+            }
         );
     }
 }

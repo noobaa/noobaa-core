@@ -46,9 +46,29 @@ export default class PoolRowViewModel extends Disposable {
             () => pool() ? numeral(this.nodeCount() - this.onlineCount()).format('0,0') : ''
         );
 
-        this.capacity = ko.pureComputed(
+        let storage = ko.pureComputed(
             () => pool() ? pool().storage : {}
         );
+
+        this.capacity = {
+            total: ko.pureComputed(
+                () => storage().total
+            ),
+            used: [
+                {
+                    label: 'Used (Noobaa)',
+                    value: ko.pureComputed(
+                        () => storage().used
+                    )
+                },
+                {
+                    label: 'Used (other)',
+                    value: ko.pureComputed(
+                        () => storage().used_other
+                    )
+                }
+            ]
+        };
 
         let isDemoPool = ko.pureComputed(
             () => Boolean(pool() && pool().demo_pool)

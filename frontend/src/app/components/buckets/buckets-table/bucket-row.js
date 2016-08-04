@@ -99,9 +99,18 @@ export default class BucketRowViewModel extends Disposable {
             }
         );
 
-        this.capacity = ko.pureComputed(
-            () => bucket() ? bucket().storage : ''
+        let storage = ko.pureComputed(
+            () => bucket() ? bucket().storage : {}
         );
+
+        this.capacity = {
+            total: ko.pureComputed(
+                () => storage().total
+            ),
+            used: ko.pureComputed(
+                () => storage().used
+            )
+        };
 
 
         this.cloudSync = ko.pureComputed(

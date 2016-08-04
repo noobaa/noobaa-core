@@ -17,7 +17,6 @@ function generateRowTemplate(columns) {
     }</tr> `;
 }
 
-
 class DataTableViewModel extends Disposable {
     constructor(params, customTemplates) {
         super();

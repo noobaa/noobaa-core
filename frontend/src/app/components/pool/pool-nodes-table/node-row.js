@@ -2,6 +2,7 @@ import Disposable from 'disposable';
 import ko from 'knockout';
 import numeral from 'numeral';
 import { deepFreeze } from 'utils';
+import style from 'style';
 
 const activityNameMapping = deepFreeze({
     RESTORING: 'Restoring',
@@ -45,19 +46,29 @@ export default class NodeRowViewModel extends Disposable {
             () => node() ? node().ip : ''
         );
 
-        this.capacity = ko.pureComputed(
-            () => {
-                if (!node()) {
-                    return {};
-                }
-
-                return {
-                    total: node().storage.total,
-                    usedNoobaa: node().storage.used,
-                    usedOther: node().storage.used_other
-                };
-            }
+        let storage = ko.pureComputed(
+            () => node() ? node().storage : {}
         );
+
+        this.capacity = {
+            total: ko.pureComputed(
+                () => storage().total
+            ),
+            used: [
+                {
+                    label: 'Used (Noobaa)',
+                    value: ko.pureComputed(
+                        () => storage().used
+                    )
+                },
+                {
+                    label: 'Used (other)',
+                    value: ko.pureComputed(
+                        () => storage().used_other
+                    )
+                }
+            ]
+        };
 
         this.trustLevel = ko.pureComputed(
             () => node() ?

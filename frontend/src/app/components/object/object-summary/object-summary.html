@@ -1,44 +1,36 @@
 <!-- ko if: dataReady -->
-<section class="column c4">
+<section class="column c6">
     <h3 class="heading4 push-next">File details</h3>
 
     <ul class="list-no-style column">
         <li class="row">
-            <span class="c4">Bucket name:</span>
-            <span class="c8" data-bind="text: bucketName"></span>
+            <span class="details-label push-next">Bucket name:</span>
+            <span class="greedy" data-bind="text: bucketName"></span>
         </li>
         <li class="row">
-            <span class="c4">Content Type:</span>
-            <span class="c8" data-bind="text: contentType"></span>
+            <span class="details-label push-next">Content Type:</span>
+            <span class="greedy" data-bind="text: contentType"></span>
         </li>
 
         <li class="row">
-            <span class="c4">Creation time:</span>
-            <span class="c8" data-bind="text: creationTime"></span>
+            <span class="details-label push-next">Creation time:</span>
+            <span class="greedy" data-bind="text: creationTime"></span>
         </li>
         <li class="row">
-            <span class="c4">Last read time:</span>
-            <span class="c8" data-bind="text: lastRead"></span>
+            <span class="details-label push-next">Last read time:</span>
+            <span class="greedy" data-bind="text: lastRead"></span>
         </li>
     </ul>
 </section>
 
 <vr></vr>
 
-<section class="c4 row">
-    <div class="column greedy">
+<section class="c6 row">
+    <div class="column">
         <h3 class="heading4">File size</h3>
         <chart-legend params="items: barsValues"></chart-legend>
     </div>
-    <bar-chart params="values: barsValues"></bar-chart>
+    <bar-chart class="greedy" params="values: barsValues"></bar-chart>
 </section>
 
-<vr></vr>
-
-<section class="c4 column">
-    <h3 class="heading4 push-next">
-        Activity
-    </h3>
-    <span>No current data activity</span>
-</section>
 <!-- /ko -->

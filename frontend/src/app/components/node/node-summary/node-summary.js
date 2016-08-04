@@ -83,38 +83,42 @@ class NodeSummaryViewModel extends Disposable {
             () => node().data_activity && mapActivity(node().data_activity)
         );
 
-        this.capacityTitle = ko.pureComputed(
-            () => `Node Capacity: ${formatSize(node().storage.total)}`
+        let storage = ko.pureComputed(
+            () => node().storage
+        );
+
+        this.formattedText = ko.pureComputed(
+            () => formatSize(storage().total)
         );
 
         this.pieValues = [
             {
                 label: 'Potential free',
-                color: style['text-color5'],
+                color: style['gray-lv5'],
                 value: ko.pureComputed(
-                    () => node().storage.free
+                    () => storage().free
                 )
             },
             {
                 label: 'Used (NooBaa)',
-                color: style['text-color6'],
+                color: style['magenta-mid'],
                 value: ko.pureComputed(
-                    () => node().storage.used
+                    () => storage().used
                 )
             },
             {
                 label: 'Used (Other)',
-                color: style['text-color2'],
+                color: style['white'],
                 value: ko.pureComputed(
-                    () => node().storage.used_other
+                    () => storage().used_other
                 )
 
             },
             {
                 label: 'Reserved',
-                color: style['text-color1'],
+                color: style['purple-dark'],
                 value: ko.pureComputed(
-                    () => node().storage.reserved
+                    () => storage().reserved
                 )
             }
         ];

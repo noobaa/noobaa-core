@@ -1,6 +1,6 @@
 <!-- ko if: dataReady -->
 
-<section class="c4 column">
+<section class="c3 column">
     <h3 class="heading4 push-next">Status</h3>
     <div class="push-next">
         <svg-icon params="name: stateIcon" data-bind="
@@ -28,13 +28,17 @@
 
 <vr></vr>
 
-<section class="c4 row">
+<section class="c5 row">
     <div class="column greedy">
-        <h3 class="heading4" data-bind="text: capacityTitle"></h3>
+        <h3 class="heading4">Pool capacity</h3>
         <chart-legend params="items: pieValues"></chart-legend>
     </div>
 
-    <pie-chart class="" params="values: pieValues"></pie-chart>
+    <pie-chart params="
+        values: pieValues,
+        primaryText: formattedTotal,
+        secondaryText: 'Total'
+    "></pie-chart>
 </section>
 
 <vr></vr>

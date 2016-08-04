@@ -1,92 +1,86 @@
 import Disposable from 'disposable';
 import ko from 'knockout';
 import numeral from 'numeral';
-import { bitsToNumber } from 'utils';
+import { deepFreeze } from 'utils';
 
-const accessibilityMapping = Object.freeze({
-    0: { text: 'No Access', css: 'error' },
-    1: { text: 'Read Only', css: 'warning' },
-    3: { text: 'Read & Write' }
-});
-
-const activityLabelMapping = Object.freeze({
-    EVACUATING: 'Evacuating',
-    REBUILDING: 'Rebuilding',
-    MIGRATING: 'Migrating'
+const activityNameMapping = deepFreeze({
+    RESTORING: 'Restoring',
+    MIGRATING: 'Migrating',
+    DECOMMISSIONING: 'Decommissioning',
+    DELETING: 'deleting'
 });
 
 export default class NodeRowViewModel extends Disposable {
     constructor(node) {
         super();
 
-        this.isVisible = ko.pureComputed(
-            () => !!node()
-        );
+        this.online = ko.pureComputed(
+            () => {
+                if (!node()) {
+                    return '';
+                }
 
-        this.stateTooltip = ko.pureComputed(
-            () => node() && node().online  ? 'online' : 'offline'
-        );
-
-        this.stateIcon = ko.pureComputed(
-            () => node() && `node-${node().online ? 'online' : 'offline'}`
+                return {
+                    name: node() && `node-${node().online ? 'online' : 'offline'}`,
+                    tooltip: node().online  ? 'online' : 'offline'
+                };
+            }
         );
 
         this.name = ko.pureComputed(
-            () => node() && node().name
+            () => {
+                if (!node()) {
+                    return '';
+                }
+
+                let { name } = node();
+                return {
+                    text: name,
+                    href: { route: 'node', params: { node: name } }
+                };
+            }
         );
 
         this.ip = ko.pureComputed(
-            () => node() && node().ip
-        );
-
-        this.total = ko.pureComputed(
-            () => node() && node().storage.total
+            () => node() ? node().ip : ''
         );
 
         this.used = ko.pureComputed(
-            () => node() && node().storage.used
-        );
+            () => {
+                if (!node()) {
+                    return {};
+                }
 
-        let dataAccess = ko.pureComputed(
-            () => node() && accessibilityMapping[
-                    bitsToNumber(node().readable, node().writable)
-                ]
-        );
-
-        this.dataAccessText = ko.pureComputed(
-            () => dataAccess() && dataAccess().text
-        );
-
-        this.dataAccessClass = ko.pureComputed(
-            () => dataAccess() &&  dataAccess().css
+                return {
+                    total: node().storage.total,
+                    usedNoobaa: node().storage.used,
+                    usedOther: node().storage.used_other
+                };
+            }
         );
 
         this.trustLevel = ko.pureComputed(
-            () => node() && node().trusted ? 'Trusted' : 'Untrusted'
+            () => node() ?
+                (node().trusted ? 'Trusted' : 'Untrusted') :
+                ''
         );
 
-        let dataActivity = ko.pureComputed(
-            () => node() && node().data_activity
-        );
-
-        this.hasActivity = ko.pureComputed(
-            () => !!dataActivity()
-        );
-
-        this.activityLabel = ko.pureComputed(
-            () => this.hasActivity() ?
-                activityLabelMapping[dataActivity().type] :
-                'No Activity'
-        );
-
-        this.activityCompilation = ko.pureComputed(
+        this.dataActivity = ko.pureComputed(
             () => {
-                if (!dataActivity()) {
-                    return;
+                if (!node()) {
+                    return '';
                 }
 
-                let { completed_size, total_size } = dataActivity();
-                return numeral(completed_size / total_size).format('0%');
+                if (!node().data_activity) {
+                    return 'No activity';
+                }
+
+                let { reason, completed_size, total_size } = node().data_activity;
+                return `${
+                    activityNameMapping[reason]
+                } (${
+                    numeral(completed_size / total_size).format('0%')
+                })`;
             }
         );
     }

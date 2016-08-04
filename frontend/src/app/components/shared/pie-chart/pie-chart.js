@@ -1,7 +1,7 @@
 import template from './pie-chart.html';
 import Disposable from 'disposable';
 import ko from 'knockout';
-import { makeArray } from 'utils';
+import {  makeArray, deepFreeze } from 'utils';
 import style from 'style';
 
 const radius = 84;
@@ -9,6 +9,18 @@ const lineWidth = 30;
 const seperator = (2 * Math.PI) / 1000;
 const threshold = 2 * seperator;
 const silhouetteColor = style['bg-color1'];
+
+const primaryTextStyle = deepFreeze({
+    font: 'Roboto',
+    size: style['font-size-medium'],
+    color: style['text-color1']
+});
+
+const secondaryTextStyle = deepFreeze({
+    font: 'Roboto',
+    size: style['font-size-normal'],
+    color: style['text-color4']
+});
 
 function normalizeValues(values) {
     let sum = values.reduce(
@@ -41,14 +53,23 @@ function normalizeValues(values) {
 }
 
 class PieChartViewModel extends Disposable{
-    constructor({ values }) {
+    constructor({ values, primaryText = '', secondaryText = '' }) {
         super();
 
         this.canvasWidth = this.canvasHeight = radius * 2;
+        this.primaryText = primaryText;
+        this.secondaryText = secondaryText;
 
         this.colors = ko.pureComputed(
             () => values.map(
                 entry => entry.color
+            )
+        );
+
+        this.total = ko.pureComputed(
+            () => values.reduce(
+                (sum, entry) => sum + ko.unwrap(entry.value),
+                0
             )
         );
 
@@ -75,6 +96,14 @@ class PieChartViewModel extends Disposable{
 
     draw(ctx) {
         ctx.translate(radius, radius);
+        this.drawGraph(ctx);
+        this.drawText(ctx, this.primaryText, primaryTextStyle);
+        this.drawText(ctx, this.secondaryText, secondaryTextStyle, parseInt(primaryTextStyle.size));
+    }
+
+    drawGraph(ctx) {
+        ctx.save();
+
         ctx.rotate(Math.PI / 1.3);
         this.drawArc(ctx, 0, 1, silhouetteColor);
 
@@ -89,6 +118,8 @@ class PieChartViewModel extends Disposable{
             },
             0
         );
+
+        ctx.restore();
     }
 
     drawArc(ctx, start, end, color) {
@@ -102,6 +133,16 @@ class PieChartViewModel extends Disposable{
         ctx.arc(0, 0, r, sAngle, eAngle);
         ctx.stroke();
         ctx.closePath();
+    }
+
+    drawText(ctx, text, { font, size, color }, offsetY = 0) {
+        ctx.save();
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.font = `${size} ${font}`;
+        ctx.fillStyle = color;
+        ctx.fillText(ko.unwrap(text), 0, offsetY);
+        ctx.restore();
     }
 }
 

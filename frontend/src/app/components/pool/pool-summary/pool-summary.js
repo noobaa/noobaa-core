@@ -40,45 +40,49 @@ class PoolSummaryViewModel extends Disposable {
             () => !!pool()
         );
 
-        this.capacityTitle = ko.pureComputed(
-            () => `Pool capacity: ${formatSize(pool().storage.total)}`
+        let storage = ko.pureComputed(
+            () => pool().storage
+        );
+
+        this.formattedTotal = ko.pureComputed(
+            () => formatSize(storage().total)
         );
 
         this.pieValues = [
             {
                 label: 'Avaliable',
-                color: style['text-color5'],
+                color: style['gray-lv5'],
                 value: ko.pureComputed(
-                    () => pool().storage.free
+                    () => storage().free
                 )
             },
             {
                 label: 'Used (NooBaa)',
-                color: style['text-color6'],
+                color: style['magenta-mid'],
                 value: ko.pureComputed(
-                    () => pool().storage.used
+                    () => storage().used
                 )
             },
             {
                 label: 'Used (Other)',
-                color: style['text-color2'],
+                color: style['white'],
                 value: ko.pureComputed(
-                    () => pool().storage.used_other
+                    () => storage().used_other
                 )
 
             },
             {
                 label: 'Reserved',
-                color: style['text-color1'],
+                color: style['purple-dark'],
                 value: ko.pureComputed(
-                    () => pool().storage.reserved
+                    () => storage().reserved
                 )
             },
             {
                 label: 'Unavailable',
-                color: style['text-color7'],
+                color: style['gray-lv3'],
                 value: ko.pureComputed(
-                    () => pool().storage.unavailable_free
+                    () => storage().unavailable_free
                 )
             }
         ];

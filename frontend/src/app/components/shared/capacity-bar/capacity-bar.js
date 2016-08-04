@@ -1,39 +1,50 @@
 import template from './capacity-bar.html';
 import Disposable from 'disposable';
 import ko from 'knockout';
-import { isDefined, formatSize } from 'utils';
+import { formatSize } from 'utils';
 import style from 'style';
 
-const minUsedRatio = .03;
-
 class CapacityBarViewModel extends Disposable {
-    constructor({ total, used }) {
+    constructor({ total, usedNoobaa, usedOther }) {
         super();
 
-        this.totalText = ko.pureComputed(
-            () => {
-                let val = ko.unwrap(total);
-                return isDefined(val) ? formatSize(val) : 'N/A';
-            }
+        let used = ko.pureComputed(
+            () => ko.unwrap(usedNoobaa) + ko.unwrap(usedOther)
         );
 
-        this.usedText = ko.pureComputed(
-            () => {
-                let val = ko.unwrap(used);
-                return isDefined(val) ? formatSize(val) : 'N/A';
-            }
-        );
-
-        let usedRatio = ko.pureComputed(
-            () => {
-                let ratio = ko.unwrap(total) > 0 ? ko.unwrap(used) / ko.unwrap(total) : 0;
-                return ratio > 0 ? Math.max(ratio, minUsedRatio) : 0;
-            }
+        let free = ko.pureComputed(
+            () => ko.unwrap(total) - used()
         );
 
         this.values = [
-            { value: usedRatio, color: style['bg-color11'] }
+            {
+                value: usedNoobaa,
+                color: style['bg-color11']
+            },
+            {
+                value: usedOther,
+                color: style['bg-color11']
+            },
+            {
+                value: free,
+                color: style['bg-color4']
+            }
         ];
+
+        this.usedText = ko.pureComputed(
+            () => formatSize(used())
+        );
+
+        this.totalText = ko.pureComputed(
+            ()=> formatSize(ko.unwrap(total))
+        );
+
+        this.tooltip = ko.pureComputed(
+            () => `
+                Used (Noobaa): ${formatSize(ko.unwrap(usedNoobaa))} <br>
+                Used (Other): ${formatSize(ko.unwrap(usedOther))}
+            `
+        );
     }
 }
 

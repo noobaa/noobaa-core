@@ -39,38 +39,38 @@ class BucketSummrayViewModel extends Disposable {
                 value: ko.pureComputed(
                     () => storage().real
                 ),
-                color: style['text-color5']
+                color: style['gray-lv5']
             },
             {
                 label: 'Size',
                 value: ko.pureComputed(
                     () => storage().used
                 ),
-                color: style['text-color6']
+                color: style['magenta-mid']
             }
         ];
 
         this.pieValues = [
             {
                 label: 'Used (this bucket)',
+                color: style['magenta-mid'],
                 value: ko.pureComputed(
                     () => storage().used
-                ),
-                color: style['text-color6']
+                )
             },
             {
                 label: 'Used (other buckets)',
+                color: style['white'],
                 value: ko.pureComputed(
                     () => storage().used_other
-                ),
-                color: style['text-color5']
+                )
             },
             {
                 label: 'Potential available',
+                color: style['gray-lv5'],
                 value: ko.pureComputed(
                     () => storage().free
-                ),
-                color: style['text-color4']
+                )
             }
         ];
 

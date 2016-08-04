@@ -1,4 +1,4 @@
-<section class="c4 column">
+<section class="c3 column">
     <h3 class="heading4 push-next">Status</h3>
     <ul class="list-no-style row multiline status">
         <li class="c6">
@@ -23,13 +23,17 @@
 
 <vr></vr>
 
-<section class="c4 row">
+<section class="c5 row">
     <div class="column greedy">
-        <h3 class="heading4" data-bind="text: capacityTitle"></h3>
+        <h3 class="heading4">Node capacity</h3>
         <chart-legend params="items: pieValues"></chart-legend>
     </div>
 
-    <pie-chart params="values: pieValues"></pie-chart>
+    <pie-chart params="
+        values: pieValues,
+        primaryText: formattedText,
+        secondaryText: 'Total'
+    "></pie-chart>
 </section>
 
 <vr></vr>

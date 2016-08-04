@@ -3,7 +3,7 @@
     <div class="align-middle push-next">
         <input type="search" class="filter-pool-nodes"
             placeholder="Filter by Node Name or IP"
-            data-bind=" textInput: filter"/>
+            data-bind=" textInput: nameOrIpFilter"/>
     </div>
 
     <toggle-filter class="push-next" params="
@@ -23,97 +23,13 @@
     </div>
 </div>
 
-<div class="data-table greedy push-both">
-    <table>
-        <thead>
-            <tr>
-                <th class="state-col">
-                    <a href data-bind="
-                        click: () => orderBy('online'),
-                        css: orderClassFor('online')
-                    ">
-                        state
-                    </a>
-                </th>
-
-                <th class="name-col text-left">
-                    <a href data-bind="
-                        click: () => orderBy('name'),
-                        css: orderClassFor('name')
-                    ">
-                        node name
-                    </a>
-                </th>
-
-                <th class="ip-col">
-                    <a href data-bind="
-                        click: () => orderBy('ip'),
-                        css: orderClassFor('ip')
-                    ">
-                        ip
-                    </a>
-                </th>
-
-                <th class="capacity-col">
-                    <a href data-bind="
-                        click: () => orderBy('used'),
-                        css: orderClassFor('used')
-                    ">
-                        used capacity
-                    </a>
-                </th>
-
-                <th class="data-access-col">
-                    data access
-                </th>
-
-                <th class="trust-level-col">
-                    trust level
-                </th>
-
-                <th class="data-activity-col text-left">
-                    data activity
-                </th>
-            </tr>
-        </thead>
-        <tbody data-bind="foreach: rows">
-            <!-- ko if: isVisible -->
-            <tr>
-                <td class="state-col" data-bind="tooltip: stateTooltip">
-                    <svg-icon params="name: stateIcon"></svg-icon>
-                </td>
-                <td class="name-col text-left" >
-                    <a class="link" data-bind="
-                        text: name,
-                        href: { route: 'node', params: { node: name, tab: null } }
-                    "></a>
-                </td>
-
-                <td class="ip-col" data-bind="text: ip"></td>
-
-                <td class="capacity-col">
-                    <capacity-bar params="total: total, used: used"></capacity-bar>
-                </td>
-
-                <td class="data-access-col" data-bind="
-                    text: dataAccessText,
-                    css: dataAccessClass
-                "></td>
-                <td class="trust-level-col" data-bind="text: trustLevel"></td>
-                <td class="data-activity-col text-left">
-                    <span data-bind="text: activityLabel"></span>
-                    <span class="highlight" data-bind="visible: hasActivity">
-                        (<span data-bind="text: activityCompilation"></span>)
-                    </span>
-                </td>
-            </tr>
-            <!-- /ko -->
-        </tbody>
-    </table>
-
-    <div class="empty-message" data-bind="visible: emptyMessage, text: emptyMessage">
-    </div>
-</div>
+<data-table class="greedy push-next" params="
+    columns: columns,
+    data: nodes,
+    rowFactory: createNodeRow,
+    sorting: sorting,
+    emptyMessage: emptyMessage
+"></data-table>
 
 <paginator class="align-end" params="
     itemCount: count,

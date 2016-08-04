@@ -86,9 +86,9 @@ class ServerTimeFormViewModel extends Disposable{
         )
         .unix();
 
-        // updateServerClock(
-        //     this.serverSecret(), this.timezone(), epoch
-        // );
+        updateServerClock(
+            this.serverSecret(), this.timezone(), epoch
+        );
     }
 
     setNTPTime() {

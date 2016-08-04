@@ -103,7 +103,7 @@ class BucketSummrayViewModel extends Disposable {
         );
 
         let cloudSyncStatus = ko.pureComputed(
-            () => bucket() && cloudSyncStatusMapping[bucket().cloud_sync_status]
+            () => bucket() && cloudSyncStatusMapping[bucket().cloud_sync.status]
         );
 
         this.cloudSyncText = ko.pureComputed(

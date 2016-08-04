@@ -58,7 +58,6 @@ class AccountS3AccessModalViewModel extends Disposable {
             })
         );
 
-        console.log('HERE1');
         updateAccountS3ACL(
             ko.unwrap(this.email),
             this.hasS3Access() ? acl : null

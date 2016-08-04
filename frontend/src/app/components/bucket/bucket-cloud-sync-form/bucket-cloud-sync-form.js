@@ -2,8 +2,7 @@ import template from './bucket-cloud-sync-form.html';
 import Disposable from 'disposable';
 import ko from 'knockout';
 import moment from 'moment';
-import { cloudSyncInfo } from 'model';
-import { removeCloudSyncPolicy, loadCloudSyncInfo, toogleCloudSync } from 'actions';
+import { removeCloudSyncPolicy, toogleCloudSync } from 'actions';
 import { bitsToNumber, formatDuration } from 'utils';
 
 const timeFormat = 'MMM, DD [at] hh:mm:ss';
@@ -30,20 +29,20 @@ class BucketCloudSyncFormViewModel extends Disposable {
             () => bucket() && bucket().name
         );
 
-        this.addToDisposeList(
-            this.bucketName.subscribe(
-              name => loadCloudSyncInfo(name)
-            )
+        let cloudSyncInfo = ko.pureComputed(
+            () => bucket() && bucket().cloud_sync
         );
 
-        this.hasCloudSyncPolicy = ko.pureComputed(
-            () => !!bucket() && bucket().cloud_sync_status !== 'NOTSET'
+        this.hasCloudSync = ko.pureComputed(
+            () => Boolean(cloudSyncInfo())
+        );
+
+        this.isPaused = ko.pureComputed(
+            () => this.hasCloudSync() && cloudSyncInfo().status === 'PAUSED'
         );
 
         this.toggleSyncButtonLabel = ko.pureComputed(
-            () => cloudSyncInfo() && cloudSyncInfo().status === 'PAUSED' ?
-                'Resume' :
-                'Pause'
+            () => this.isPaused() ? 'Resume' : 'Pause'
         );
 
         this.state = ko.pureComputed(
@@ -66,8 +65,8 @@ class BucketCloudSyncFormViewModel extends Disposable {
 
         this.nextSync = ko.pureComputed(
             () => {
-                if (!cloudSyncInfo() ||
-                    cloudSyncInfo().status === 'PAUSED' ||
+                if (!this.hasCloudSync() ||
+                    this.isPaused() ||
                     cloudSyncInfo().last_sync == 0
                 ) {
                     return 'N/A';
@@ -107,8 +106,6 @@ class BucketCloudSyncFormViewModel extends Disposable {
 
         this.isSetCloudSyncModalVisible = ko.observable(false);
         this.isEditCloudSyncModalVisible = ko.observable(false);
-
-        this.bucketName() && loadCloudSyncInfo(this.bucketName());
     }
 
     removePolicy() {
@@ -116,12 +113,11 @@ class BucketCloudSyncFormViewModel extends Disposable {
     }
 
     toggleSync() {
-        if (!cloudSyncInfo() || cloudSyncInfo().status === 'NOTSET') {
+        if (this.hasCloudSync()) {
             return;
         }
 
-        let pause = cloudSyncInfo().status !== 'PAUSED';
-        toogleCloudSync(this.bucketName(), pause);
+        toogleCloudSync(this.bucketName(), !this.isPaused());
     }
 
     showSetCloudSyncModal() {

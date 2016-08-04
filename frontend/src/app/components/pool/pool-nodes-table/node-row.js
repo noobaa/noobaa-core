@@ -2,7 +2,6 @@ import Disposable from 'disposable';
 import ko from 'knockout';
 import numeral from 'numeral';
 import { deepFreeze } from 'utils';
-import style from 'style';
 
 const activityNameMapping = deepFreeze({
     RESTORING: 'Restoring',

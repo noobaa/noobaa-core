@@ -2,7 +2,6 @@ import template from './bar.html';
 import Disposable from 'disposable';
 import ko from 'knockout';
 import style from 'style';
-import { formatSize } from 'utils';
 
 const silhouetteColor = style['bg-color1'];
 const minRatio = .03;

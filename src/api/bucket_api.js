@@ -343,10 +343,7 @@ module.exports = {
                 num_objects: {
                     type: 'integer'
                 },
-                cloud_sync_status: {
-                    $ref: '#/definitions/api_cloud_sync_status'
-                },
-                cloud_sync_policy: {
+                cloud_sync: {
                     $ref: '#/definitions/cloud_sync_info'
                 },
                 tag: {

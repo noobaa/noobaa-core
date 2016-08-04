@@ -655,14 +655,6 @@ export function loadAccountInfo(email) {
         .done();
 }
 
-export function loadCloudSyncInfo(bucket) {
-    logAction('loadCloudSyncInfo', { bucket });
-
-    api.bucket.get_cloud_sync({ name: bucket })
-        .then(model.cloudSyncInfo)
-        .done();
-}
-
 export function loadS3Connections() {
     logAction('loadS3Connections');
 
@@ -1448,12 +1440,7 @@ export function setCloudSyncPolicy(bucket, connection, targetBucket, direction, 
             () => notify(`${bucket} cloud sync policy was set successfully`, 'success'),
             () => notify(`Setting ${bucket} cloud sync policy failed`, 'error')
         )
-        .then(
-            () => {
-                loadCloudSyncInfo(bucket);
-                loadSystemInfo();
-            }
-        )
+        .then(loadSystemInfo)
         .done();
 }
 
@@ -1473,12 +1460,7 @@ export function updateCloudSyncPolicy(bucket, direction, frequency, syncDeletion
             () => notify(`${bucket} cloud sync policy updated successfully`, 'success'),
             () => notify(`Updating ${bucket} cloud sync policy failed`, 'error')
         )
-        .then(
-            () => {
-                loadCloudSyncInfo(bucket);
-                loadSystemInfo();
-            }
-        );
+        .then(loadSystemInfo);
 }
 
 export function removeCloudSyncPolicy(bucket) {
@@ -1488,9 +1470,6 @@ export function removeCloudSyncPolicy(bucket) {
         .then(
             () => notify(`${bucket} cloud sync policy removed successfully`, 'success'),
             () => notify(`Removing ${bucket} cloud sync policy failed`, 'error')
-        )
-        .then(
-            () => model.cloudSyncInfo(null)
         )
         .then(loadSystemInfo);
 }
@@ -1506,12 +1485,7 @@ export function toogleCloudSync(bucket, pause) {
             () => notify(`${bucket} cloud sync has been ${pause ? 'paused' : 'resumed'}`, 'success'),
             () => notify(`${pause ? 'Pausing' : 'Resuming'} ${bucket} cloud sync failed`, 'error')
         )
-        .then(
-            () => {
-                loadCloudSyncInfo(bucket);
-                loadSystemInfo();
-            }
-        )
+        .then(loadSystemInfo)
         .done();
 }
 

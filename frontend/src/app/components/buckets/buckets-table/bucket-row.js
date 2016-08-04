@@ -18,7 +18,6 @@ const stateIconMapping = deepFreeze({
 });
 
 const cloudSyncStatusMapping = deepFreeze({
-    [undefined]:    { text: 'N/A',             css: ''               },
     NOTSET:         { text: 'not set',         css: 'no-set'         },
     PENDING:        { text: 'pending',         css: 'pending'       },
     SYNCING:        { text: 'syncing',         css: 'syncing'        },
@@ -112,7 +111,9 @@ export default class BucketRowViewModel extends Disposable {
 
 
         this.cloudSync = ko.pureComputed(
-            () => bucket() ? cloudSyncStatusMapping[bucket().cloud_sync_status] : ''
+            () => bucket() && cloudSyncStatusMapping[
+                bucket().cloud_sync ? bucket().cloud_sync.status : 'NOTSET'
+            ]
         );
 
         let hasObjects = ko.pureComputed(

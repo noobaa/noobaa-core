@@ -4,7 +4,7 @@
             Cloud sync
         </h3>
 
-        <!-- ko if: hasCloudSyncPolicy -->
+        <!-- ko if: hasCloudSync -->
         <button class="btn3 push-next" data-bind="
             click: toggleSync,
             text: toggleSyncButtonLabel
@@ -15,18 +15,18 @@
         </button>
         <!-- /ko -->
 
-        <!-- ko ifnot: hasCloudSyncPolicy -->
+        <!-- ko ifnot: hasCloudSync -->
         <button class="btn3" data-bind="click: showSetCloudSyncModal">
             Set Policy
         </button>
         <!-- /ko -->
     </div>
 
-     <!-- ko ifnot: hasCloudSyncPolicy -->
+     <!-- ko ifnot: hasCloudSync -->
     <p>Cloud sync was not set for this bucket</p>
     <!-- /ko -->
 
-    <!-- ko if: hasCloudSyncPolicy -->
+    <!-- ko if: hasCloudSync -->
     <section class="column">
         <h3 class="heading3">Status details</h3>
         <ul class="list-no-style column">

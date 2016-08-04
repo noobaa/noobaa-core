@@ -2,29 +2,42 @@ import template from './bar.html';
 import Disposable from 'disposable';
 import ko from 'knockout';
 import style from 'style';
+import { formatSize } from 'utils';
+
+const silhouetteColor = style['bg-color1'];
+const minRatio = .03;
 
 class BarViewModel extends Disposable {
-    constructor({ values = [], bgColor = style['bg-color4'] }) {
+    constructor({ values = [] }) {
         super();
 
+        this.total = ko.pureComputed(
+            () => values.reduce(
+                (sum, entry) => sum + ko.unwrap(entry.value),
+                0
+            )
+        );
+
         this.values = values;
-        this.bgColor = bgColor;
+
     }
 
     draw(ctx, { width, height }) {
-        let values = ko.unwrap(this.values);
+        let { total, values } = this;
 
         // Clear the bar.
-        ctx.fillStyle = ko.unwrap(this.bgColor);
+        ctx.fillStyle = ko.unwrap(silhouetteColor);
         ctx.fillRect(0, 0, width, height);
 
-        // Draw the sections.
         values.reduce(
-            (pos, item) => {
-                let w = ko.unwrap(item.value) * width + .5 | 0;
+            (offset, item) => {
+                let value = ko.unwrap(item.value);
+                let ratio = value !== 0 ? Math.max(value / total(), minRatio) : 0;
+
                 ctx.fillStyle = ko.unwrap(item.color);
-                ctx.fillRect(pos, 0, w, height);
-                return pos + w;
+                ctx.fillRect(offset + .5 | 0, 0, ratio * width + .5 | 0, height);
+
+                return offset + ratio * width;
             },
             0
         );

@@ -16,7 +16,7 @@ class NodeDiagnosticsFormViewModel extends Disposable {
             () => Boolean(node() && (!node().online || node().demo_node))
         );
 
-        this.actionsToolTip = ko.pureComputed(
+        this.actionsTooltip = ko.pureComputed(
             () => {
                 if (node()) {
                     let { demo_node, online } = node();

@@ -2,7 +2,7 @@
     <div class="row">
         <h3 class="heading3 greedy push-next">Diagnostics</h3>
 
-        <div class="push-next" data-bind="tooltip: actionsToolTip">
+        <div class="push-next" data-bind="tooltip: actionsTooltip">
             <button class="btn3" data-bind="
                 disable: areActionsDisabled,
                 click: toggleDebugLevel,
@@ -10,7 +10,7 @@
             "></button>
         </div>
 
-        <div data-bind="tooltip: actionsToolTip">
+        <div data-bind="tooltip: actionsTooltip">
             <button class="btn3" data-bind="
                 disable: areActionsDisabled,
                 click: downloadDiagnosticPack
@@ -34,7 +34,7 @@
     <div class="row content-middle">
         <h3 class="heading3 greedy push-next">Node's connectivity</h3>
 
-        <div data-bind="tooltip: actionsToolTip">
+        <div data-bind="tooltip: actionsTooltip">
             <button class="btn3" data-bind="
                 disable: areActionsDisabled,
                 click: showTestNodeModal

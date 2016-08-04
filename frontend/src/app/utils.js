@@ -57,7 +57,7 @@ export function formatSize(num) {
         }
     }
 
-    while (num / 1024 > 1) {
+    while (num / 1024 >= 1) {
         num /= 1024;
         ++i;
     }

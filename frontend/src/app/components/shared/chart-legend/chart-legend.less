@@ -1,0 +1,24 @@
+chart-legend {
+    .column();
+
+    ul {
+        list-style-type: none;
+        padding: 0;
+
+        li {
+            border-left: 4px solid;
+            padding-left: .5em;
+            margin: @gutter/2 0;
+            line-height: 1;
+
+            span {
+                display: inline-block;
+                width: 130px;
+
+                + span {
+                    width: 50px;
+                }
+            }
+        }
+    }
+}

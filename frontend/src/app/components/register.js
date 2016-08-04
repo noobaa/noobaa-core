@@ -175,5 +175,6 @@ export default function register(ko) {
     ko.components.register('bar-chart',                 require('./shared/bar-chart/bar-chart'));
     ko.components.register('pool-selection-table',      require('./shared/pool-selection-table/pool-selection-table'));
     ko.components.register('node-selection-table',      require('./shared/node-selection-table/node-selection-table'));
+    ko.components.register('chart-legend', require('./shared/chart-legend/chart-legend'));
     /** INJECT:shared **/
 }

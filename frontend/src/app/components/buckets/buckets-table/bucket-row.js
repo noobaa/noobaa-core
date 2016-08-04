@@ -82,19 +82,17 @@ export default class BucketRowViewModel extends Disposable {
                     let count = node_pools.length;
 
                     let text = `${
-                        policyTypeMapping[data_placement]
-                    } on ${count} pool${count === 1 ? '' : 's'}`;
+                            policyTypeMapping[data_placement]
+                        } on ${
+                            count
+                        } pool${
+                            count === 1 ? '' : 's'
+                        }`;
 
-                    let tooltip = count === 1 ?
-                        node_pools[0] :
-                        `<ul>${
-                            node_pools.map(
-                                name => `<li>${name}</li>`
-                            ).join('')
-                        }</ul>`;
-
-
-                    return  { text, tooltip };
+                    return {
+                        text: text,
+                        tooltip: node_pools
+                    };
                 }
             }
         );

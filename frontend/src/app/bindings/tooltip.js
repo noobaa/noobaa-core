@@ -1,5 +1,5 @@
 import ko from 'knockout';
-import { isObject, isString, isDefined } from 'utils';
+import { isObject, isString } from 'utils';
 
 const delay = 350;
 
@@ -30,7 +30,7 @@ function normalizeParams(params) {
 
             } else if (naked instanceof Array) {
                 return {
-                    text: toHtmlList(naked),
+                    text: naked.length === 1 ? naked : toHtmlList(naked),
                     css: 'center',
                     align: alignments.center
                 };
@@ -38,7 +38,7 @@ function normalizeParams(params) {
             } else if (isObject(naked)) {
                 let text = ko.unwrap(naked.text);
                 if (text instanceof Array) {
-                    text = toHtmlList(naked);
+                    text = naked.length === 1 ? naked : toHtmlList(naked);
                 }
 
                 let pos = ko.unwrap(naked.align);

@@ -99,18 +99,30 @@ function get_drive_of_path(path) {
 }
 
 
-function read_mac_linux_drives() {
+function remove_linux_readonly_drives(volumes) {
+    // grep command to get read only filesystems from /proc/mount
+    let grep_command = 'grep "\\sro[\\s,]" /proc/mounts';
+    return promise_utils.exec(grep_command, true, true)
+        .then(grep_res => {
+            let ro_drives = grep_res.split('\n').map(drive => drive.split(' ')[0]);
+            // only use volumes that are not one of the ro_drives.
+            let ret_vols = volumes.filter(vol => ro_drives.indexOf(vol.drive_id) === -1);
+            return ret_vols;
+        });
+}
+
+
+
+function read_mac_linux_drives(include_all) {
     return P.fromCallback(callback => node_df({
             // this is a hack to make node_df append the -l flag to the df command
             // in order to get only local file systems.
             file: '-l'
         }, callback))
-        .then(function(volumes) {
-            return _.compact(_.map(volumes, function(vol) {
-                return linux_volume_to_drive(vol);
-            }));
-        });
+        .then(volumes => _.compact(volumes.map(vol => linux_volume_to_drive(vol))));
+
 }
+
 
 function read_windows_drives() {
     var windows_drives = {};
@@ -423,6 +435,7 @@ function reload_syslog_configuration(conf) {
 // EXPORTS
 exports.os_info = os_info;
 exports.read_drives = read_drives;
+exports.remove_linux_readonly_drives = remove_linux_readonly_drives;
 exports.get_main_drive_name = get_main_drive_name;
 exports.get_mount_of_path = get_mount_of_path;
 exports.get_drive_of_path = get_drive_of_path;

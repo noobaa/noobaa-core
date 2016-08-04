@@ -79,7 +79,7 @@ export default {
                 handle = setTimeout(
                     () => {
                         handle = -1;
-                        if (params().text) {
+                        if (params() && params().text) {
                             tooltip.innerHTML = params().text;
                             tooltip.className = `tooltip ${params().css}`;
                             document.body.appendChild(tooltip);

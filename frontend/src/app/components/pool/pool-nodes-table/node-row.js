@@ -14,7 +14,7 @@ export default class NodeRowViewModel extends Disposable {
     constructor(node) {
         super();
 
-        this.online = ko.pureComputed(
+        this.state = ko.pureComputed(
             () => {
                 if (!node()) {
                     return '';
@@ -45,7 +45,7 @@ export default class NodeRowViewModel extends Disposable {
             () => node() ? node().ip : ''
         );
 
-        this.used = ko.pureComputed(
+        this.capacity = ko.pureComputed(
             () => {
                 if (!node()) {
                     return {};

@@ -9,9 +9,8 @@ import { routeContext } from 'model';
 
 let columns = deepFreeze([
     {
-        name: 'online',
-        label: 'state',
-        sortable: true,
+        name: 'state',
+        sortable: 'online',
         cellTemplate: 'icon'
     },
     {
@@ -25,9 +24,9 @@ let columns = deepFreeze([
         sortable: true
     },
     {
-        name: 'used',
+        name: 'capacity',
         label: 'used capacity',
-        sortable: true,
+        sortable: 'used',
         cellTemplate: 'capacity'
     },
     {

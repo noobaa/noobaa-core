@@ -40,6 +40,13 @@ db.getSiblingDB("nbcore").buckets.remove({
         $ne: 'files'
     }
 });
+
+db.getSiblingDB("nbcore").buckets.updateMany({},{
+    $unset: {
+        cloud_sync: true
+    }
+});
+
 // We assign all of the nodes to the default_pool, because we've removed all of the pools
 db.getSiblingDB("nbcore").nodes.update({}, {
     $set: {

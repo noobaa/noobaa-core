@@ -2,8 +2,7 @@ import template from './accounts-table.html';
 import Disposable from 'disposable';
 import ko from 'knockout';
 import AccountRowViewModel from './account-row';
-import { accountList } from 'model';
-import { loadAccountList } from 'actions';
+import { systemInfo } from 'model';
 import { deepFreeze } from 'utils';
 
 const columns = deepFreeze([
@@ -38,13 +37,13 @@ class AccountsTableViewModel extends Disposable {
         this.columns = columns;
         this.deleteGroup = ko.observable();
         this.selectedAccount = ko.observable();
-        this.accounts = accountList;
+        this.accounts = ko.pureComputed(
+            () => systemInfo() && systemInfo().accounts
+        );
 
         this.isCreateAccountModalVisible = ko.observable(false);
         this.resetPasswordTarget = ko.observable(null);
         this.editS3AccessTarget = ko.observable(null);
-
-        loadAccountList();
     }
 
     createAccountRow(account) {

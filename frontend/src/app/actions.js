@@ -635,26 +635,6 @@ export function exportAuditEnteries(categories) {
         .done();
 }
 
-export function loadAccountList() {
-    logAction('loadAccountList');
-
-    api.account.list_accounts()
-        .then(
-            ({ accounts }) => model.accountList(accounts)
-        )
-        .done();
-}
-
-export function loadAccountInfo(email) {
-    logAction('loadAccountInfo', { email });
-
-    api.account.read_account({
-        email: email
-    })
-        .then(model.accountInfo)
-        .done();
-}
-
 export function loadS3Connections() {
     logAction('loadS3Connections');
 
@@ -738,7 +718,7 @@ export function createAccount(name, email, password, accessKeys, S3AccessList) {
             () => notify(`Account ${email} created successfully`, 'success'),
             () => notify(`Account ${email} creation failed`, 'error')
         )
-        .then(loadAccountList)
+        .then(loadSystemInfo)
         .done();
 }
 
@@ -750,7 +730,7 @@ export function deleteAccount(email) {
             () => notify(`Account ${email} deleted successfully`, 'success'),
             () => notify(`Account ${email} deletion failed`, 'error')
         )
-        .then(loadAccountList)
+        .then(loadSystemInfo)
         .done();
 }
 
@@ -1567,7 +1547,7 @@ export function updateAccountS3ACL(email, acl) {
             () => notify(`${email} S3 accces control updated successfully`, 'success'),
             () => notify(`Updating ${email} S3 access control failed`, 'error')
         )
-        .then(loadAccountList)
+        .then(loadSystemInfo)
         .done();
 }
 

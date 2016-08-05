@@ -78,12 +78,6 @@ export const recentUploads = ko.observableArray();
 export const auditLog = ko.observableArray();
 auditLog.loadedCategories = ko.observableArray();
 
-// Hold the current account list
-export const accountList = ko.observableArray();
-
-// Hold current account information.
-export const accountInfo = ko.observable();
-
 export const accountS3ACL = ko.observableArray();
 
 // Hold node test information.

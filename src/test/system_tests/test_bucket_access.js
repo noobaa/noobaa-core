@@ -135,7 +135,10 @@ function run_test() {
         .then(() => test_create_bucket_add_creator_permissions())
         .then(() => test_delete_bucket_deletes_permissions())
         .then(() => test_no_s3_access())
-        .return();
+        .then(() => {
+            console.log('test_cloud_sync PASSED');
+            return;
+        })
 }
 
 

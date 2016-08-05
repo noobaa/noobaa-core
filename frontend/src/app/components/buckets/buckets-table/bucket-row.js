@@ -18,7 +18,6 @@ const stateIconMapping = deepFreeze({
 });
 
 const cloudSyncStatusMapping = deepFreeze({
-    [undefined]:    { text: 'N/A',             css: ''               },
     NOTSET:         { text: 'not set',         css: 'no-set'         },
     PENDING:        { text: 'pending',         css: 'pending'       },
     SYNCING:        { text: 'syncing',         css: 'syncing'        },
@@ -82,30 +81,39 @@ export default class BucketRowViewModel extends Disposable {
                     let count = node_pools.length;
 
                     let text = `${
-                        policyTypeMapping[data_placement]
-                    } on ${count} pool${count === 1 ? '' : 's'}`;
+                            policyTypeMapping[data_placement]
+                        } on ${
+                            count
+                        } pool${
+                            count === 1 ? '' : 's'
+                        }`;
 
-                    let tooltip = count === 1 ?
-                        node_pools[0] :
-                        `<ul>${
-                            node_pools.map(
-                                name => `<li>${name}</li>`
-                            ).join('')
-                        }</ul>`;
-
-
-                    return  { text, tooltip };
+                    return {
+                        text: text,
+                        tooltip: node_pools
+                    };
                 }
             }
         );
 
-        this.capacity = ko.pureComputed(
-            () => bucket() ? bucket().storage : ''
+        let storage = ko.pureComputed(
+            () => bucket() ? bucket().storage : {}
         );
+
+        this.capacity = {
+            total: ko.pureComputed(
+                () => storage().total
+            ),
+            used: ko.pureComputed(
+                () => storage().used
+            )
+        };
 
 
         this.cloudSync = ko.pureComputed(
-            () => bucket() ? cloudSyncStatusMapping[bucket().cloud_sync_status] : ''
+            () => bucket() && cloudSyncStatusMapping[
+                bucket().cloud_sync ? bucket().cloud_sync.status : 'NOTSET'
+            ]
         );
 
         let hasObjects = ko.pureComputed(
@@ -117,11 +125,12 @@ export default class BucketRowViewModel extends Disposable {
         );
 
         this.deleteButton = {
-            deleteGroup: deleteGroup,
+            subject: 'bucket',
+            group: deleteGroup,
             undeletable: ko.pureComputed(
                 () => isDemoBucket() || isLastBucket() || hasObjects()
             ),
-            deleteToolTip: ko.pureComputed(
+            deleteTooltip: ko.pureComputed(
                 () => {
                     if (isDemoBucket()) {
                         return 'Demo buckets cannot be deleted';

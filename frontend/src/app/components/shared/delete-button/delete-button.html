@@ -1,11 +1,21 @@
-<div data-bind="tooltip: { text: toolTip, align: 'center' }">
-    <button class="btn-flat" data-bind="enable: !ko.unwrap(disabled), click: select,">
-        <svg-icon params="name: deleteIcon"></svg-icon>
-    </button>
+<div data-bind="
+    css: { active: isActive },
+    tooltip: { text: tooltip, align: 'right' }
+">
+    <span class="message-wrapper">
+        <span class="row message-text">
+            <span class="push-next" data-bind="text: question"></span>
 
-    <span data-bind="visible: isSelected">
-        <a class="link" href data-bind="click: confirm">yes</a>
-        /
-        <a class="link" href data-bind="click: cancel">no</a>
+            <a class="link" href data-bind="click: confirm">YES</a>
+            /
+            <a class="link" href data-bind="click: cancel">NO</a>
+        </span>
     </span>
+
+    <button class="btn-flat no-outline" data-bind="
+        disable: disabled,
+        click: activate
+    ">
+        <svg-icon params="name: icon"></svg-icon>
+    </button>
 </div>

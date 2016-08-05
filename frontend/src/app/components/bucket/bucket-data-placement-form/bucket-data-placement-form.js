@@ -119,7 +119,7 @@ class BucketDataPlacementFormViewModel extends Disposable {
             () => Boolean(bucket() && bucket().demo_bucket)
         );
 
-        this.editingDisabledToolTip = ko.pureComputed(
+        this.editingDisabledTooltip = ko.pureComputed(
             () => this.editingDisabled() &&
                 'Editing policies is not supported for demo buckets'
         );

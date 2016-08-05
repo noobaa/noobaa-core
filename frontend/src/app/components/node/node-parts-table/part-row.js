@@ -4,15 +4,15 @@ import numeral from 'numeral';
 
 const partStateMapping = Object.freeze({
     available: {
-        toolTip: 'available',
+        tooltip: 'available',
         icon: 'part-available'
     },
     building: {
-        toolTip: 'in process',
+        tooltip: 'in process',
         icon: 'part-in-process'
     },
     unavailable: {
-        toolTip: 'unavailable',
+        tooltip: 'unavailable',
         icon: 'part-unavailable'
     }
 });
@@ -30,8 +30,8 @@ export default class ObjectRowViewModel extends Disposable {
             () => part() && partStateMapping[part().info.chunk.adminfo.health]
         );
 
-        this.stateToolTip = ko.pureComputed(
-            () => stateMapping() && stateMapping().toolTip
+        this.stateTooltip = ko.pureComputed(
+            () => stateMapping() && stateMapping().tooltip
         );
 
         this.stateIcon = ko.pureComputed(

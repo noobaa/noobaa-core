@@ -17,7 +17,6 @@ function generateRowTemplate(columns) {
     }</tr> `;
 }
 
-
 class DataTableViewModel extends Disposable {
     constructor(params, customTemplates) {
         super();
@@ -91,22 +90,22 @@ class DataTableViewModel extends Disposable {
         }
     }
 
-    getSortCss(columnName, sortable) {
-        if (!this.sorting || !sortable) {
+    getSortCss(sortKey) {
+        if (!this.sorting || !sortKey) {
             return '';
         }
 
         let { sortBy, order } = ko.unwrap(this.sorting) || {};
         return `sortable ${
-            sortBy === columnName ? (order === 1 ? 'des' : 'asc') : ''
+            sortBy === sortKey ? (order === 1 ? 'des' : 'asc') : ''
         }`;
     }
 
-    sortBy(newColumn) {
+    sortBy(sortKey) {
         let { sortBy, order } = this.sorting();
         this.sorting({
-            sortBy: newColumn,
-            order: sortBy === newColumn ? 0 - order : 1
+            sortBy:sortKey,
+            order: sortBy === sortKey ? 0 - order : 1
         });
     }
 }

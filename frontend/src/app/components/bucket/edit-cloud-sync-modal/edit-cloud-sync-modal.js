@@ -1,8 +1,8 @@
 import template from './edit-cloud-sync-modal.html';
 import Disposable from 'disposable';
 import ko from 'knockout';
-import { cloudSyncInfo } from 'model';
-import { loadCloudSyncInfo, updateCloudSyncPolicy } from 'actions';
+import { systemInfo } from 'model';
+import { updateCloudSyncPolicy } from 'actions';
 import { deepFreeze, bitsToNumber } from 'utils';
 
 const [ MIN, HOUR, DAY ] = [ 1, 60, 60 * 24 ];
@@ -38,6 +38,14 @@ class EditCloudSyncModalViewModel extends Disposable {
         this.onClose = onClose;
 
         this.sourceBucket = bucketName;
+
+        let cloudSyncInfo = ko.pureComputed(
+            () => systemInfo().buckets
+                .find(
+                    bucket => bucket.name === ko.unwrap(bucketName)
+                )
+                .cloud_sync
+        );
 
         let policy = ko.pureComputed(
             () => cloudSyncInfo() && cloudSyncInfo().policy
@@ -86,8 +94,6 @@ class EditCloudSyncModalViewModel extends Disposable {
             read: () => this.direction() === 3 ? true : _syncDeletions(),
             write: _syncDeletions
         });
-
-        loadCloudSyncInfo(ko.unwrap(bucketName));
     }
 
     cancel() {

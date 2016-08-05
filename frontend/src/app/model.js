@@ -54,8 +54,6 @@ export const nodeInfo = ko.observable();
 
 // Hold the parts that are stored on the curr node.
 export const nodeStoredPartList = ko.observableArray();
-nodeStoredPartList.page = ko.observable(0);
-nodeStoredPartList.count = ko.observable(0);
 
 // Hold the current node info.
 export const objectInfo = ko.observable();

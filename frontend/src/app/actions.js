@@ -5,7 +5,7 @@ import config from 'config';
 import * as routes from 'routes';
 
 import { isDefined, isUndefined, last, makeArray, execInOrder, realizeUri,
-    downloadFile, generateAccessKeys, deepFreeze } from 'utils';
+    downloadFile, generateAccessKeys, deepFreeze, flatMap } from 'utils';
 
 // TODO: resolve browserify issue with export of the aws-sdk module.
 // The current workaround use the AWS that is set on the global window object.
@@ -524,30 +524,23 @@ export function loadNodeStoredPartsList(nodeName, page) {
         adminfo: true
     })
         .then(
-            ({ objects, total_count }) => {
-                let parts = objects
-                    .map(
-                        obj => obj.parts.map(
-                            part => ({
+            ({ objects, total_count }) => ({
+                total_count: total_count,
+                parts: flatMap(
+                    objects,
+                    obj => obj.parts.map(
+                        part => Object.assign(
+                            {
                                 object: obj.key,
-                                bucket: obj.bucket,
-                                info: part
-                            })
+                                bucket: obj.bucket
+                            },
+                            part
                         )
                     )
-                    .reduce(
-                        (list, objParts) => {
-                            list.push(...objParts);
-                            return list;
-                        },
-                        []
-                    );
-
-                model.nodeStoredPartList(parts);
-                model.nodeStoredPartList.page(page);
-                model.nodeStoredPartList.count(total_count);
-            }
+                )
+            })
         )
+        .then(model.nodeStoredPartList)
         .done();
 }
 

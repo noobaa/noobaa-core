@@ -25,7 +25,6 @@
     selected: selectedCategories
 "></multiselect>
 
-
 <div class="row">
     <h3 class="heading3 greedy push-next align-end">Events</h3>
 
@@ -38,36 +37,14 @@
 </div>
 
 <div class="box column greedy push-next">
-    <div class="data-table greedy">
-        <table data-bind="scroll: scroll">
-            <thead>
-                <tr>
-                    <th class="time-col">Time</th>
-                    <th class="user-col">Account</th>
-                    <th class="category-col">Category</th>
-                    <th class="event-col">Event</th>
-                    <th class="entity-col text-left">Entity</th>
-                </tr>
-            </thead>
-            <tbody data-bind="foreach: rows">
-                <tr class="audit-row" data-bind="
-                    css: { selected: $parent.isRowSelected($data) },
-                    click: $parent.selectedRow
-                ">
-                    <td class="time-col text-left" data-bind="text: date"></td>
-                    <td class="user-col">
-                        <div class="no-wrap" data-bind="
-                            text: user || '---',
-                            tooltip: user
-                        "></div>
-                    </td>
-                    <td class="category-col" data-bind="text: category"></td>
-                    <td class="event-col" data-bind="text: event"></td>
-                    <td class="entity-col text-left" data-bind="text: entity"></td>
-                </tr>
-            </tbody>
-        </table>
-    </div>
+    <data-table class="greedy" params="
+        columns: columns,
+        data: entries,
+        rowFactory: entry => createAuditRow(entry),
+        scroll: scroll,
+        selected: description,
+        selectedProp: 'description'
+    "></data-table>
 </div>
 
 <h3 class="heading3">Event Description</h3>

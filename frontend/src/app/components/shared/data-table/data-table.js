@@ -5,8 +5,10 @@ import Disposable from 'disposable';
 import ko from 'knockout';
 import { noop, isFunction } from 'utils';
 
+const scrollThrottle = 750;
+
 function generateRowTemplate(columns) {
-    return `<tr>${
+    return `<tr data-bind="css: $component.getSelectCss($data), click: $component.selectRow">${
         columns.map(
             ({ name, css, cellTemplate }) =>
                 `<td data-bind="css:'${css}',let:{$data:${name},$rawData:${name}}">${
@@ -26,6 +28,9 @@ class DataTableViewModel extends Disposable {
             rowFactory = noop,
             data,
             sorting,
+            selected,
+            selectedProp,
+            scroll = ko.observable(),
             emptyMessage
         } = params;
 
@@ -67,6 +72,21 @@ class DataTableViewModel extends Disposable {
         }
 
         this.sorting = sorting;
+
+        this.scroll = scroll.extend({
+            rateLimit: {
+                method: 'notifyWhenChangesStop',
+                timeout: scrollThrottle
+            }
+        });
+
+        console.warn(ko.isObservableArray)
+
+        this.selected = selected;
+        this.selectedProp = selectedProp;
+        this.allowSelection = selectedProp && ko.isWritableObservable(selected);
+        this.selectRow = this.selectRow.bind(this);
+
         this.emptyMessage = emptyMessage;
     }
 
@@ -90,6 +110,12 @@ class DataTableViewModel extends Disposable {
         }
     }
 
+    getSelectCss(row) {
+        let value = ko.unwrap(row[this.selectedProp]);
+        let isSelected = this.allowSelection && this.selected() === value;
+        return isSelected ? 'selected' : null;
+    }
+
     getSortCss(sortKey) {
         if (!this.sorting || !sortKey) {
             return '';
@@ -107,6 +133,13 @@ class DataTableViewModel extends Disposable {
             sortBy:sortKey,
             order: sortBy === sortKey ? 0 - order : 1
         });
+    }
+
+    selectRow(row) {
+        if (this.allowSelection) {
+            let value = ko.unwrap(row[this.selectedProp]);
+            this.selected(value);
+        }
     }
 }
 

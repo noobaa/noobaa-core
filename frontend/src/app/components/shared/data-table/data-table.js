@@ -80,8 +80,6 @@ class DataTableViewModel extends Disposable {
             }
         });
 
-        console.warn(ko.isObservableArray)
-
         this.selected = selected;
         this.selectedProp = selectedProp;
         this.allowSelection = selectedProp && ko.isWritableObservable(selected);

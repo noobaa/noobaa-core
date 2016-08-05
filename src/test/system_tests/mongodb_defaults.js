@@ -41,7 +41,7 @@ db.getSiblingDB("nbcore").buckets.remove({
     }
 });
 
-db.getSiblingDB("nbcore").buckets.updateMany({},{
+db.getSiblingDB("nbcore").buckets.updateMany({}, {
     $unset: {
         cloud_sync: true
     }
@@ -71,3 +71,10 @@ db.getSiblingDB("nbcore").roles.remove({
         })[0]._id]
     }
 });
+
+//clean cloud sync credential cache
+db.getSiblingDB("nbcore").accounts.updateMany({}, {
+    $unset: {
+        sync_credentials_cache: true
+    }
+})

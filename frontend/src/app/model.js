@@ -33,13 +33,7 @@ export const systemInfo = ko.observable();
 export const agentInstallationInfo = ko.observable();
 
 // Hold the current bucket object list.
-export const bucketObjectList = ko.observableArray();
-bucketObjectList.count = ko.observable(0);
-bucketObjectList.sortedBy = ko.observable('name');
-bucketObjectList.order = ko.observable(1);
-bucketObjectList.filter = ko.observable();
-bucketObjectList.page = ko.observable(0);
-
+export const bucketObjectList = ko.observable();
 // Hold the current bucket S3 access permissions.
 export const bucketS3ACL = ko.observableArray();
 

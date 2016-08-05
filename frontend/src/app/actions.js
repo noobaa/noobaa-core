@@ -392,8 +392,6 @@ export function loadSystemInfo() {
 export function loadBucketObjectList(bucketName, filter, sortBy, order, page) {
     logAction('loadBucketObjectList', { bucketName, filter, sortBy, order, page });
 
-    let bucketObjectList = model.bucketObjectList;
-
     api.object.list_objects({
         bucket: bucketName,
         key_query: filter,
@@ -403,16 +401,7 @@ export function loadBucketObjectList(bucketName, filter, sortBy, order, page) {
         limit: config.paginationPageSize,
         pagination: true
     })
-        .then(
-            reply => {
-                bucketObjectList(reply.objects);
-                bucketObjectList.sortedBy(sortBy);
-                bucketObjectList.filter(filter);
-                bucketObjectList.order(order);
-                bucketObjectList.page(page);
-                bucketObjectList.count(reply.total_count);
-            }
-        )
+        .then(model.bucketObjectList)
         .done();
 }
 

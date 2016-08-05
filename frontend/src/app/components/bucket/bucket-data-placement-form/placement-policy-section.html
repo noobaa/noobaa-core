@@ -35,6 +35,7 @@
 
 <!-- ko if: isPlacementPolicyModalVisible -->
 <bucket-placement-policy-modal params="
-    policy: policy, onClose: () => hidePlacementPolicyModal()
+    bucketName: bucketName,
+    onClose: () => hidePlacementPolicyModal()
 "></bucket-placement-policy-modal>
 <!-- /ko -->

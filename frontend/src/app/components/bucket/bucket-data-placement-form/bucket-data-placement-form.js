@@ -50,17 +50,17 @@ class BucketDataPlacementFormViewModel extends Disposable {
         this.placementTableColumns = placementTableColumns;
         this.backupTableColumns = backupTableColumns;
 
-        let policy = ko.pureComputed(
-            () => ko.unwrap(bucket) && ko.unwrap(bucket).tiering
+        this.bucketName = ko.pureComputed(
+            () => ko.unwrap(bucket) && ko.unwrap(bucket).name
         );
 
         let tier = ko.pureComputed(
             () => {
-                if (!systemInfo() || !policy()) {
+                if (!systemInfo() || !ko.unwrap(bucket)) {
                     return;
                 }
 
-                let tierName = policy().tiers[0].tier;
+                let tierName = ko.unwrap(bucket).tiering.tiers[0].tier;
                 return systemInfo().tiers.find(
                     ({ name }) =>  tierName === name
                 );

@@ -23,6 +23,7 @@
 
 <!-- ko if: isBackupPolicyModalVisible -->
 <bucket-backup-policy-modal params="
-    policy: policy, onClose: () => hideBackupPolicyModal()
+    bucketName: bucketName,
+    onClose: () => hideBackupPolicyModal()
 "></bucket-backup-policy-modal>
 <!-- /ko -->

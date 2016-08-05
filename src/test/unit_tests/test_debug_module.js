@@ -10,7 +10,7 @@ var os = require('os');
 
 // File Content Verifier according to given expected result (positive/negative)
 function file_content_verify(flag, expected) {
-    return P.delay(1000).then(function() {
+    return P.delay(500).then(function() {
 
         var content;
         if (os.type() === 'Darwin') {

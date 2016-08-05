@@ -3,6 +3,7 @@ import placementSectionTemplate from './placement-policy-section.html';
 import backupPolicySectionTemplate from './backup-policy-section.html';
 import Disposable from 'disposable';
 import PlacementRowViewModel from './placement-row';
+import BackupRowViewModel from './backup-row';
 import ko from 'knockout';
 import { systemInfo } from 'model';
 import { deepFreeze } from 'utils';
@@ -27,25 +28,19 @@ const placementTableColumns = deepFreeze([
 
 ]);
 
+const backupTableColumns = deepFreeze([
+    {
+        name: 'resourceType',
+        label: 'type',
+        cellTemplate: 'icon'
+    },
+    'resourceName'
+]);
+
 const placementTypeMapping = deepFreeze({
     SPREAD: 'Spread',
     MIRROR: 'Mirror'
 });
-
-const resourceIcons = deepFreeze([
-    {
-        pattern: 's3.amazonaws.com',
-        icon: 'amazon-resource'
-    },
-    {
-        pattern: 'storage.googleapis.com',
-        icon: 'google-resource'
-    },
-    {
-        pattern: '',
-        icon: 'cloud-resource'
-    }
-]);
 
 class BucketDataPlacementFormViewModel extends Disposable {
     constructor({ bucket }) {
@@ -54,6 +49,7 @@ class BucketDataPlacementFormViewModel extends Disposable {
         this.placementSectionTemplate = placementSectionTemplate;
         this.backupPolicySectionTemplate = backupPolicySectionTemplate;
         this.placementTableColumns = placementTableColumns;
+        this.backupTableColumns = backupTableColumns;
 
         this.policy = ko.pureComputed(
             () => ko.unwrap(bucket) && ko.unwrap(bucket).tiering
@@ -79,7 +75,7 @@ class BucketDataPlacementFormViewModel extends Disposable {
         );
 
         this.nodePools = ko.pureComputed(
-            () => systemInfo() && tier() && tier().node_pools.map(
+            () => tier() && tier().node_pools.map(
                 name => systemInfo().pools.find(
                     pool => pool.name === name
                 )
@@ -92,22 +88,9 @@ class BucketDataPlacementFormViewModel extends Disposable {
 
         this.cloudResources = ko.pureComputed(
             () => tier() && tier().cloud_pools.map(
-                name => {
-                    if (!systemInfo()) {
-                        return;
-                    }
-
-                    let { cloud_info } = systemInfo().pools.find(
-                        pool => pool.name === name
-                    );
-
-                    let endpoint = cloud_info.endpoint.toLowerCase();
-                    let { icon } = resourceIcons.find(
-                        ({ pattern }) => endpoint.indexOf(pattern) > 0
-                    );
-
-                    return { name: name, icon: icon };
-                }
+                name => systemInfo().pools.find(
+                    pool => pool.name === name
+                )
             )
         );
 
@@ -130,6 +113,10 @@ class BucketDataPlacementFormViewModel extends Disposable {
 
     createPlacementRow(pool) {
         return new PlacementRowViewModel(pool);
+    }
+
+    createBackupRow(cloudResource) {
+        return new BackupRowViewModel(cloudResource);
     }
 
     showPlacementPolicyModal() {

@@ -25,7 +25,6 @@ const placementTableColumns = deepFreeze([
         name: 'freeSpace',
         label: 'free space in pool'
     }
-
 ]);
 
 const backupTableColumns = deepFreeze([
@@ -51,17 +50,17 @@ class BucketDataPlacementFormViewModel extends Disposable {
         this.placementTableColumns = placementTableColumns;
         this.backupTableColumns = backupTableColumns;
 
-        this.policy = ko.pureComputed(
+        let policy = ko.pureComputed(
             () => ko.unwrap(bucket) && ko.unwrap(bucket).tiering
         );
 
         let tier = ko.pureComputed(
             () => {
-                if (!systemInfo() || !this.policy()) {
+                if (!systemInfo() || !policy()) {
                     return;
                 }
 
-                let tierName = this.policy().tiers[0].tier;
+                let tierName = policy().tiers[0].tier;
                 return systemInfo().tiers.find(
                     ({ name }) =>  tierName === name
                 );

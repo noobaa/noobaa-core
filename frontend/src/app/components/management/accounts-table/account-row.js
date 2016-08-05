@@ -13,7 +13,7 @@ export default class AccountRowViewModel extends Disposable {
 
 
         this.email = ko.pureComputed(
-            () => account() && account().email
+            () => account() ? account().email : ''
         );
 
         let isSystemOwner = ko.pureComputed(
@@ -52,9 +52,7 @@ export default class AccountRowViewModel extends Disposable {
             group: table.deleteGroup,
             undeletable: isSystemOwner,
             deleteTooltip: ko.pureComputed(
-                () => this.isSystemOwner() ?
-                    'Cannot delete system owner' :
-                    'Delete account'
+                () => isSystemOwner() ? 'Cannot delete system owner' : 'Delete account'
             ),
             onDelete: () => deleteAccount(this.email())
         };

@@ -589,10 +589,25 @@ module.exports = {
                 system: 'admin'
             }
         },
-
+        delete_multiple_objects_by_prefix: {
+            method: 'GET',
+            params: {
+                type: 'object',
+                required: ['bucket', 'prefix'],
+                properties: {
+                    bucket: {
+                        type: 'string',
+                    },
+                    prefix: {
+                        type: 'string',
+                    }
+                }
+            },
+            auth: {
+                system: 'admin'
+            }
+        },
     },
-
-
 
     definitions: {
 

@@ -26,16 +26,17 @@ module.exports = {
     get_all_cloud_sync_policies: get_all_cloud_sync_policies,
     delete_cloud_sync: delete_cloud_sync,
     set_cloud_sync: set_cloud_sync,
-
+    set_bucket_lifecycle_configuration_rules: set_bucket_lifecycle_configuration_rules,
+    get_bucket_lifecycle_configuration_rules: get_bucket_lifecycle_configuration_rules,
     //Temporary - TODO: move to new server
     get_cloud_buckets: get_cloud_buckets
+
 };
 
 var _ = require('lodash');
 var AWS = require('aws-sdk');
 var db = require('./db');
 var net = require('net');
-var crypto = require('crypto');
 var object_server = require('./object_server');
 var tier_server = require('./tier_server');
 var server_rpc = require('./server_rpc');
@@ -245,7 +246,7 @@ function list_bucket_s3_acl(req) {
                 return {
                     account: account.email,
                     is_allowed: _.includes(account.allowed_buckets, bucket)
-                }
+                };
             }
         );
 }
@@ -265,7 +266,7 @@ function update_bucket_s3_acl(req) {
                     allowed_buckets: allowed_buckets.map(
                         bucket => bucket._id
                     )
-                }
+                };
             }
         );
 
@@ -522,6 +523,56 @@ function set_cloud_sync(req) {
             throw err;
         })
         .return();
+}
+
+
+
+/**
+ *
+ * SET_BUCKET_LIFECYCLE_CONFIGURATION_RULES
+ *
+ */
+function set_bucket_lifecycle_configuration_rules(req) {
+    dbg.log0('set bucket lifecycle configuration rules', req.rpc_params);
+
+    var bucket = find_bucket(req);
+
+    var lifecycle_configuration_rules = req.rpc_params.rules;
+
+    return system_store.make_changes({
+            update: {
+                buckets: [{
+                    _id: bucket._id,
+                    lifecycle_configuration_rules: lifecycle_configuration_rules
+                }]
+            }
+        })
+        .then(() => {
+            db.ActivityLog.create({
+                event: 'bucket.set_lifecycle_configuration_rules',
+                level: 'info',
+                system: req.system._id,
+                actor: req.account && req.account._id,
+                bucket: bucket._id,
+            });
+            return;
+        })
+        .catch(function(err) {
+            dbg.error('Error setting lifecycle configuration rules', err, err.stack);
+            throw err;
+        })
+        .return();
+}
+
+/**
+ *
+ * GET_BUCKET_LIFECYCLE_CONFIGURATION_RULES
+ *
+ */
+function get_bucket_lifecycle_configuration_rules(req) {
+    dbg.log0('get bucket lifecycle configuration rules', req.rpc_params);
+    var bucket = find_bucket(req);
+    return bucket.lifecycle_configuration_rules;
 }
 
 /**

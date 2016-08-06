@@ -272,16 +272,16 @@ class S3Controller {
                     bucket: req.params.bucket,
                     keys: keys
                 }).then(reply => {
-                    var response =  {
+                    var response = {
                         DeleteResult: [{},
                             _.map(keys, obj => ({
                                 Deleted: {
                                     Key: obj,
                                 }
-                            }),{})
+                            }), {})
                         ]
                     };
-                return response;
+                    return response;
                 });
             });
     }
@@ -692,6 +692,124 @@ class S3Controller {
                     etag: etag
                 });
             });
+    }
+
+
+    put_bucket_lifecycle(req) {
+        // <Rule>
+        //     <ID>id2</ID>
+        //     <Prefix>logs/</Prefix>
+        //     <Status>Enabled</Status>
+        //    <Expiration>
+        //      <Days>365</Days>
+        //    </Expiration>
+        //  </Rule>
+
+        dbg.log0('ETET put_bucket_lifecycle', req.params, '::::', req.query, '::::', req.body);
+        return P.ninvoke(xml2js, 'parseString', req.body)
+            .then(function(data) {
+                dbg.log0('ETET put_bucket_lifecycle JSON', data.LifecycleConfiguration.Rule);
+                //var lifecycle_rules = data.LifecycleConfiguration.Rule;
+                var lifecycle_rules = [];
+                _.each(data.LifecycleConfiguration.Rule, rule => {
+                        let current_rule = {
+                            id: rule.ID[0],
+                            prefix: rule.Prefix[0],
+                            status: rule.Status[0]
+                        };
+                        if (rule.Expiration) {
+                            current_rule.expiration = {};
+                            if (rule.Expiration[0].Days) {
+                                current_rule.expiration.days = parseInt(rule.Expiration[0].Days[0]);
+                            } else {
+                                current_rule.expiration.date = (new Date(rule.Expiration[0].Date[0])).getTime();
+                            }
+
+                            if (rule.Expiration[0].ExpiredObjectDeleteMarker) {
+                                current_rule.expiration.expired_object_delete_marker = rule.Expiration[0].ExpiredObjectDeleteMarker[0] === 'true';
+                            }
+
+                        }
+                        if (rule.AbortIncompleteMultipartUpload) {
+                            current_rule.abort_incomplete_multipart_upload = {
+                                days_after_initiation: rule.AbortIncompleteMultipartUpload[0].DaysAfterInitiation ? parseInt(rule.AbortIncompleteMultipartUpload[0].DaysAfterInitiation[0]) : null
+                            };
+                        }
+                        if (rule.Transition) {
+                            dbg.log0('ETET lifecycle Transition', rule.Transition);
+                            current_rule.transition = {
+                                date: rule.Transition[0].Date ? (new Date(rule.Transition[0].Date[0])).getTime() : null,
+                                storage_class: rule.Transition[0].StorageClass ? rule.Transition[0].StorageClass[0] : 'STANDARD_IA'
+                            };
+                            dbg.log0('ETET lifecycle Transition(2)', current_rule.transition);
+                        }
+                        if (rule.NoncurrentVersionExpiration) {
+                            current_rule.noncurrent_version_expiration = {
+                                noncurrent_days: rule.NoncurrentVersionExpiration[0].NoncurrentDays ? parseInt(rule.NoncurrentVersionExpiration[0].NoncurrentDays[0]) : null
+                            };
+                        }
+                        if (rule.NoncurrentVersionTransition) {
+                            current_rule.noncurrent_version_transition = {
+                                noncurrent_days: rule.NoncurrentVersionTransition[0].NoncurrentDays ? parseInt(rule.NoncurrentVersionTransition[0].NoncurrentDays[0]) : null,
+                                storage_class: rule.NoncurrentVersionTransition[0].StorageClass ? rule.NoncurrentVersionTransition[0].StorageClass[0] : 'STANDARD_IA'
+                            };
+                        }
+
+                        lifecycle_rules.push(current_rule);
+                    }
+
+                );
+                let params = {
+                    name: req.params.bucket,
+                    rules: lifecycle_rules
+                };
+                dbg.log0('ETET params rules', lifecycle_rules);
+                return req.rpc_client.bucket.set_bucket_lifecycle_configuration_rules(params)
+                    .then(() => {
+                        dbg.log('set_bucket_lifecycle', req.params.rule);
+                    });
+            });
+    }
+    get_bucket_lifecycle(req) {
+        let params = {
+            name: req.params.bucket
+        };
+        return req.rpc_client.bucket.get_bucket_lifecycle_configuration_rules(params)
+            .then((reply) => {
+                    let res = {
+                        LifecycleConfiguration: [
+                            _.map(reply, rule => ({
+                                Rule: {
+                                    ID: rule.id,
+                                    Prefix: rule.prefix,
+                                    Status: rule.status,
+                                    Transition: rule.transition ? {
+                                        Days: rule.transition.days,
+                                        StorageClass: rule.transition.storage_class,
+                                    } : null,
+                                    Expiration: rule.expiration ? (rule.expiration.days ? {
+                                        Days: rule.expiration.days,
+                                        ExpiredObjectDeleteMarker: rule.expiration.expired_object_delete_marker ? rule.expiration.expired_object_delete_marker : null
+                                    } : {
+                                        Date: rule.expiration.date,
+                                        ExpiredObjectDeleteMarker: rule.expiration.expired_object_delete_marker ? rule.expiration.expired_object_delete_marker : null
+                                    }) : null,
+                                    NoncurrentVersionTransition: rule.noncurrent_version_transition ? {
+                                        NoncurrentDays: rule.noncurrent_version_transition.noncurrent_days,
+                                        StorageClass: rule.noncurrent_version_transition.storage_class,
+                                    } : null,
+                                    NoncurrentVersionExpiration: rule.noncurrent_version_expiration ? {
+                                        NoncurrentDays: rule.noncurrent_version_expiration.noncurrent_days,
+                                    } : null,
+                                }
+                            }))
+                        ]
+                    };
+                    return res;
+                }
+
+            );
+
     }
 
 

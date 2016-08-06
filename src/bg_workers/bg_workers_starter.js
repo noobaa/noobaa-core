@@ -24,6 +24,7 @@ var cloud_sync = require('./cloud_sync');
 var system_store = require('../server/stores/system_store');
 var account_server = require('../server/account_server');
 var scrubber = require('./scrubber');
+var lifecycle = require('./lifecycle');
 var server_rpc = require('../server/server_rpc');
 var dbg = require('../util/debug_module')(__filename);
 var db = require('../server/db');
@@ -72,6 +73,11 @@ if (process.env.SCRUBBER_DISABLED !== 'true') {
         time_since_last_build: 60000, // TODO increase?
         building_timeout: 300000, // TODO increase?
     }, scrubber.background_worker);
+}
+if (process.env.LIFECYCLE_DISABLED !== 'true') {
+    register_bg_worker({
+        name: 'lifecycle',
+    }, lifecycle.background_worker);
 }
 
 dbg.log('BG Workers Server started');

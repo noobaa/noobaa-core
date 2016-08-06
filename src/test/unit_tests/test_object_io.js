@@ -38,7 +38,6 @@ mocha.describe('object_io', function() {
         this.timeout(30000);
         return P.resolve()
             .then(() => {
-                console.log('ETET 6');
                 return client.system.create_system({
                     activation_code: '1111',
                     name: SYS,

@@ -12,7 +12,8 @@ var steps = [
             arg: '--coverage',
         }],
         env: {
-            COVDIR: './report/cov/mocha'
+            COVDIR: './report/cov/mocha',
+            PATH: process.env.PATH
         }
     }, {
         //Restore DB to defaults

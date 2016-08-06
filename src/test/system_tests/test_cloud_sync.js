@@ -86,7 +86,7 @@ function set_cloud_sync(params) {
 }
 
 function compare_object_lists(file_names, fail_msg, expected_len) {
-    let timeout_ms = 3 * 60 * 1000; // 3 wait up to 3 minutes for changes to sync
+    let timeout_ms = 5 * 60 * 1000; // 3 wait up to 3 minutes for changes to sync
     let start_ts = Date.now();
     let done = false;
     var source_list;
@@ -118,7 +118,7 @@ function compare_object_lists(file_names, fail_msg, expected_len) {
                             done = (source_list.length === expected_len && target_list.length === expected_len);
                         }
                     })
-                    .delay(10000); // wait 10 seconds between each check
+                    .delay(5000); // wait 10 seconds between each check
             }
         )
         .then(function() {

@@ -9,6 +9,9 @@ var fs_utils = require('../../util/fs_utils');
 
 mocha.describe('fs_utils', function() {
 
+    //Disk usage sometimes takes a bit more than 1sec, and causes inconsistency
+    this.timeout(5000);
+
     mocha.describe('disk_usage', function() {
 
         mocha.it('should work on the src', function() {

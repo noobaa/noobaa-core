@@ -41,9 +41,9 @@
         columns: columns,
         data: entries,
         rowFactory: entry => createAuditRow(entry),
-        scroll: scroll,
         rowCssProp: 'selectedCss',
-        rowClickMethod: 'select'
+        rowClick: selectedRow,
+        scroll: scroll
     "></data-table>
 </div>
 

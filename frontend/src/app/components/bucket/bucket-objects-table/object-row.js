@@ -2,47 +2,35 @@ import { formatSize } from 'utils';
 import Disposable from 'disposable';
 import ko from 'knockout';
 
-const statusIconMapping = Object.freeze({
-    AVALIABLE: {
-        tooltip: 'Avaliable',
-        icon: 'object-available'
-    },
-    IN_PROCESS: {
-        tooltip: 'In Process',
-        icon: 'object-in-process'
-    },
-    UNAVALIABLE: {
-        tooltip: 'Unavaliable',
-        icon: 'object-unavailable'
-    }
-});
-
 export default class ObjectRowViewModel extends Disposable {
     constructor(obj) {
         super();
 
-        this.isVisible = ko.pureComputed(
-            () => !!obj()
-        );
+        // BE dosent send any information about object availablity,
+        // assuming the object is avaliable.
+        this.state = 'object-available';
 
         this.name = ko.pureComputed(
-            () => obj() && obj().key
-        );
+            () => {
+                if(!obj()) {
+                    return '';
+                }
 
-        let stateMap = ko.pureComputed(
-            () => obj() && statusIconMapping[obj().info.state || 'AVALIABLE']
-        );
-
-        this.stateTooltip = ko.pureComputed(
-            () => stateMap() && stateMap().tooltip
-        );
-
-        this.stateIcon = ko.pureComputed(
-            () => stateMap() && stateMap().icon
+                return {
+                    text: obj().key,
+                    href: {
+                        route: 'object',
+                        params: {
+                            object: obj().key,
+                            tab: null
+                        }
+                    }
+                };
+            }
         );
 
         this.size = ko.pureComputed(
-            () => obj() && formatSize(obj().info.size)
+            () => obj() ? formatSize(obj().size) : ''
         );
     }
 }

@@ -5,13 +5,22 @@ import ko from 'knockout';
 import { auditLog } from 'model';
 import { loadAuditEntries, loadMoreAuditEntries, exportAuditEnteries, closeDrawer } from 'actions';
 import categories from './categories';
+import { deepFreeze } from 'utils';
+import { infinitScrollPageSize as pageSize } from 'config';
 
-const pageSize = 25;
-const scrollThrottle = 750;
+const columns = deepFreeze([
+    'time',
+    'account',
+    'category',
+    'event',
+    'entity'
+]);
 
 class AuditPaneViewModel extends Disposable {
     constructor() {
         super();
+
+        this.columns = columns;
 
         this.categories = Object.keys(categories).map(
             key => ({
@@ -23,40 +32,38 @@ class AuditPaneViewModel extends Disposable {
         this.selectedCategories = ko.pureComputed({
             read: auditLog.loadedCategories,
             write: categoryList => {
-                this.selectedRow(null);
+                this.description(null);
                 loadAuditEntries(categoryList, pageSize);
             }
         });
+
+        this.entries = auditLog;
 
         this.rows = auditLog.map(
             entry => new AuditRowViewModel(entry, this.categoreis)
         );
 
-        this.selectedRow = ko.observable();
+        let _scroll = ko.observable(0);
+        this.scroll = ko.pureComputed({
+            read: _scroll,
+            write: pos => {
+                _scroll(pos);
+                if (pos > .9) loadMoreAuditEntries(pageSize);
+            }
+        });
 
-        this.scroll = ko.observable()
-            .extend({
-                rateLimit: {
-                    method: 'notifyWhenChangesStop',
-                    timeout: scrollThrottle
-                }
-            });
+        this.description = ko.observable();
 
-        this.addToDisposeList(
-            this.scroll.subscribe(
-                pos => pos > .9 && loadMoreAuditEntries(pageSize)
-            )
-        );
-
-        this.description = ko.pureComputed(
-            () => this.selectedRow() ? this.selectedRow().description : []
+        this.selection = ko.observableArray();
+        this.selection.subscribe(
+            x => console.warn(x)
         );
 
         this.selectedCategories(Object.keys(categories));
     }
 
-    isRowSelected(row) {
-        return this.selectedRow() === row;
+    createAuditRow(auditEntry) {
+        return new AuditRowViewModel(auditEntry, this.description);
     }
 
     selectAllCategories() {

@@ -1,6 +1,7 @@
 {
     "inputThrottle": 400,
     "paginationPageSize": 25,
+    "infinitScrollPageSize": 25,
     "defaultPoolName": "default_pool",
     "sslCertificateSuffix": ".zip",
     "upgradePackageSuffix": ".gz",

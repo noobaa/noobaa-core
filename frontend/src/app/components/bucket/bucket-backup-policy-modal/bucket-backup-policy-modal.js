@@ -23,14 +23,24 @@ const columns = deepFreeze([
 ]);
 
 class BucketBackupPolicyModalViewModel extends Disposable {
-    constructor({ policy, onClose }) {
+    constructor({ bucketName, onClose }) {
         super();
 
         this.columns = columns;
         this.onClose = onClose;
 
         this.tierName = ko.pureComputed(
-            () => ko.unwrap(policy) && ko.unwrap(policy).tiers[0].tier
+            () => {
+                if(!systemInfo()) {
+                    return '';
+                }
+
+                let bucket = systemInfo().buckets.find(
+                    bucket => bucket.name === ko.unwrap(bucketName)
+                );
+
+                return bucket.tiering.tiers[0].tier;
+            }
         );
 
         this.tier = ko.pureComputed(

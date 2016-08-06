@@ -20,19 +20,29 @@ const columns = deepFreeze([
 ]);
 
 class BacketPlacementPolicyModalViewModel extends Disposable {
-    constructor({ policy, onClose = noop }) {
+    constructor({ bucketName, onClose = noop }) {
         super();
 
         this.onClose = onClose;
         this.columns = columns;
 
         this.tierName = ko.pureComputed(
-            () => ko.unwrap(policy) && ko.unwrap(policy).tiers[0].tier
+            () => {
+                if(!systemInfo()) {
+                    return '';
+                }
+
+                let bucket = systemInfo().buckets.find(
+                    bucket => bucket.name === ko.unwrap(bucketName)
+                );
+
+                return bucket.tiering.tiers[0].tier;
+            }
         );
 
         this.tier = ko.pureComputed(
             () => {
-                if (!systemInfo() || !this.tierName()) {
+                if (!this.tierName()) {
                     return;
                 }
 

@@ -5,7 +5,7 @@ import config from 'config';
 import * as routes from 'routes';
 
 import { isDefined, isUndefined, last, makeArray, execInOrder, realizeUri,
-    downloadFile, generateAccessKeys, deepFreeze } from 'utils';
+    downloadFile, generateAccessKeys, deepFreeze, flatMap } from 'utils';
 
 // TODO: resolve browserify issue with export of the aws-sdk module.
 // The current workaround use the AWS that is set on the global window object.
@@ -392,8 +392,6 @@ export function loadSystemInfo() {
 export function loadBucketObjectList(bucketName, filter, sortBy, order, page) {
     logAction('loadBucketObjectList', { bucketName, filter, sortBy, order, page });
 
-    let bucketObjectList = model.bucketObjectList;
-
     api.object.list_objects({
         bucket: bucketName,
         key_query: filter,
@@ -403,16 +401,7 @@ export function loadBucketObjectList(bucketName, filter, sortBy, order, page) {
         limit: config.paginationPageSize,
         pagination: true
     })
-        .then(
-            reply => {
-                bucketObjectList(reply.objects);
-                bucketObjectList.sortedBy(sortBy);
-                bucketObjectList.filter(filter);
-                bucketObjectList.order(order);
-                bucketObjectList.page(page);
-                bucketObjectList.count(reply.total_count);
-            }
-        )
+        .then(model.bucketObjectList)
         .done();
 }
 
@@ -535,30 +524,23 @@ export function loadNodeStoredPartsList(nodeName, page) {
         adminfo: true
     })
         .then(
-            ({ objects, total_count }) => {
-                let parts = objects
-                    .map(
-                        obj => obj.parts.map(
-                            part => ({
+            ({ objects, total_count }) => ({
+                total_count: total_count,
+                parts: flatMap(
+                    objects,
+                    obj => obj.parts.map(
+                        part => Object.assign(
+                            {
                                 object: obj.key,
-                                bucket: obj.bucket,
-                                info: part
-                            })
+                                bucket: obj.bucket
+                            },
+                            part
                         )
                     )
-                    .reduce(
-                        (list, objParts) => {
-                            list.push(...objParts);
-                            return list;
-                        },
-                        []
-                    );
-
-                model.nodeStoredPartList(parts);
-                model.nodeStoredPartList.page(page);
-                model.nodeStoredPartList.count(total_count);
-            }
+                )
+            })
         )
+        .then(model.nodeStoredPartList)
         .done();
 }
 
@@ -632,26 +614,6 @@ export function exportAuditEnteries(categories) {
             }
         )
         .then(downloadFile)
-        .done();
-}
-
-export function loadAccountList() {
-    logAction('loadAccountList');
-
-    api.account.list_accounts()
-        .then(
-            ({ accounts }) => model.accountList(accounts)
-        )
-        .done();
-}
-
-export function loadAccountInfo(email) {
-    logAction('loadAccountInfo', { email });
-
-    api.account.read_account({
-        email: email
-    })
-        .then(model.accountInfo)
         .done();
 }
 
@@ -738,7 +700,7 @@ export function createAccount(name, email, password, accessKeys, S3AccessList) {
             () => notify(`Account ${email} created successfully`, 'success'),
             () => notify(`Account ${email} creation failed`, 'error')
         )
-        .then(loadAccountList)
+        .then(loadSystemInfo)
         .done();
 }
 
@@ -750,7 +712,7 @@ export function deleteAccount(email) {
             () => notify(`Account ${email} deleted successfully`, 'success'),
             () => notify(`Account ${email} deletion failed`, 'error')
         )
-        .then(loadAccountList)
+        .then(loadSystemInfo)
         .done();
 }
 
@@ -1567,7 +1529,7 @@ export function updateAccountS3ACL(email, acl) {
             () => notify(`${email} S3 accces control updated successfully`, 'success'),
             () => notify(`Updating ${email} S3 access control failed`, 'error')
         )
-        .then(loadAccountList)
+        .then(loadSystemInfo)
         .done();
 }
 

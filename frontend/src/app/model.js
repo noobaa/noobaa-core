@@ -33,13 +33,7 @@ export const systemInfo = ko.observable();
 export const agentInstallationInfo = ko.observable();
 
 // Hold the current bucket object list.
-export const bucketObjectList = ko.observableArray();
-bucketObjectList.count = ko.observable(0);
-bucketObjectList.sortedBy = ko.observable('name');
-bucketObjectList.order = ko.observable(1);
-bucketObjectList.filter = ko.observable();
-bucketObjectList.page = ko.observable(0);
-
+export const bucketObjectList = ko.observable();
 // Hold the current bucket S3 access permissions.
 export const bucketS3ACL = ko.observableArray();
 
@@ -60,8 +54,6 @@ export const nodeInfo = ko.observable();
 
 // Hold the parts that are stored on the curr node.
 export const nodeStoredPartList = ko.observableArray();
-nodeStoredPartList.page = ko.observable(0);
-nodeStoredPartList.count = ko.observable(0);
 
 // Hold the current node info.
 export const objectInfo = ko.observable();
@@ -77,12 +69,6 @@ export const recentUploads = ko.observableArray();
 // Hold the audit log
 export const auditLog = ko.observableArray();
 auditLog.loadedCategories = ko.observableArray();
-
-// Hold the current account list
-export const accountList = ko.observableArray();
-
-// Hold current account information.
-export const accountInfo = ko.observable();
 
 export const accountS3ACL = ko.observableArray();
 

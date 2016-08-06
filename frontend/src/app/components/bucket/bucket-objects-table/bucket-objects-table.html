@@ -19,53 +19,18 @@
     </div>
 </div>
 
-<div class="data-table greedy push-next">
-    <table>
-        <thead>
-            <tr>
-                <th class="state-col" data-bind="css: orderClassFor('state')">
-                    <a href data-bind="click: () => orderBy('state')">State</a>
-                </th>
-                <th class="name-col text-left" data-bind="css: orderClassFor('name')">
-                    <a href data-bind="click: () => orderBy('name')">Name</a>
-                </th>
-                <th class="size-col" data-bind="css: orderClassFor('size')">
-                    <a href data-bind="click: () => orderBy('size')">Size</a>
-                </th>
-            </tr>
-        </thead>
-
-        <tbody data-bind="foreach: rows">
-            <!-- ko if: isVisible -->
-            <tr>
-                <td class="state-col">
-                    <svg-icon params="name: stateIcon" data-bind="
-                        tooltip: stateTooltip
-                    "></svg-icon>
-                </td>
-
-                <td class="name-col text-left">
-                    <a class="link" data-bind="
-                        text: name,
-                        href: { route: 'object', params: { object: name, tab: null } }
-                    "></a>
-                </td>
-
-                <td class="size-col" data-bind="text: size"></td>
-            </tr>
-            <!-- /ko -->
-        </tbody>
-    </table>
-
-    <div class="empty-message" data-bind="visible: !hasObjects()">
-        No files in bucket
-    </div>
-</div>
+<data-table class="greedy push-next" params="
+    columns: columns,
+    data: objects,
+    rowFactory: obj => createObjectRow(obj),
+    sorting: sorting,
+    emptyMessage: 'No files in bucket'
+"></data-table>
 
 <paginator class="align-end" params="
     pageSize: pageSize,
-    itemCount:
-    filteredObjectCount, page: page
+    itemCount: filteredObjectCount,
+    page: page
 "></paginator>
 
 <!-- ko if: isUploadFilesModalVisible -->

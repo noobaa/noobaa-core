@@ -1,13 +1,14 @@
 bucket-data-placement-form  {
-    .column();
+    display: block;
+    padding-right: @gutter / 2;
 
     section + section {
         margin: @gutter * 3 0;
     }
 
-    data-table {
+    .placement-table {
         .state-col {
-            width: 5em;
+            min-width: 60px;
         }
 
         .pool-name-col {
@@ -16,11 +17,22 @@ bucket-data-placement-form  {
         }
 
         .online-node-count-col {
-            min-width: 13em;
+            min-width: 180px;
         }
 
         .free-space-col {
-            min-width: 15em;
+            min-width: 180px;
+        }
+    }
+
+    .backup-table {
+        .resource-type-col {
+            min-width: 60px;
+        }
+
+        .resource-name-col {
+            text-align: left;
+            width: 100%;
         }
     }
 }

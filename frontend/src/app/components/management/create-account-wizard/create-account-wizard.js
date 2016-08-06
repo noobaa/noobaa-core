@@ -4,7 +4,7 @@ import detailsStepTemplate from './details-step.html';
 import Disposable from 'disposable';
 import ko from 'knockout';
 import { randomString, copyTextToClipboard, generateAccessKeys } from 'utils';
-import { systemInfo, accountList } from 'model';
+import { systemInfo } from 'model';
 import { createAccount } from 'actions';
 import { deepFreeze } from 'utils';
 
@@ -57,12 +57,18 @@ class CreateAccountWizardViewModel extends Disposable {
         this.detailsStepTemplate = detailsStepTemplate;
         this.steps = steps;
 
+        let accounts = ko.pureComputed(
+            () => (systemInfo() ? systemInfo().accounts : []).map(
+                account => account.email
+            )
+        );
+
         this.emailAddress = ko.observable()
             .extend({
                 required: { message: 'Please enter an email address' },
                 email: { message: 'Please enter a valid email address' },
                 notIn: {
-                    params: accountList.map( ({ email }) => email ),
+                    params: accounts,
                     message: 'An account with the same email address already exists'
                 }
             });

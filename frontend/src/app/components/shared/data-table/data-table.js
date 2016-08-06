@@ -5,8 +5,13 @@ import Disposable from 'disposable';
 import ko from 'knockout';
 import { noop, isFunction } from 'utils';
 
-function generateRowTemplate(columns) {
-    return `<tr>${
+const scrollThrottle = 750;
+
+function generateRowTemplate(columns, rowCssProp, rowClickMethod) {
+    let rowCss = rowCssProp ? `css: ${rowCssProp}` : '';
+    let rowClick = rowClickMethod ? `,click: ${rowClickMethod}` : '';
+
+    return `<tr class="data-row" data-bind="${rowCss}${rowClick}">${
         columns.map(
             ({ name, css, cellTemplate }) =>
                 `<td data-bind="css:'${css}',let:{$data:${name},$rawData:${name}}">${
@@ -17,7 +22,6 @@ function generateRowTemplate(columns) {
     }</tr> `;
 }
 
-
 class DataTableViewModel extends Disposable {
     constructor(params, customTemplates) {
         super();
@@ -27,30 +31,31 @@ class DataTableViewModel extends Disposable {
             rowFactory = noop,
             data,
             sorting,
+            scroll = ko.observable(),
+            rowCssProp,
+            rowClickMethod,
             emptyMessage
         } = params;
 
+        // Combine default templates with inline templates.
         let cellTemplates = Object.assign(
             {},
             defaultCellTemplates,
             customTemplates
         );
 
+        // Create view model for columns.
         this.columns = ko.pureComputed(
             () => ko.unwrap(columns).map(
                 value => new ColumnViewModel(value, cellTemplates)
             )
         );
 
-        // Generate a row template
-        this.rowTemplate = ko.pureComputed(
-            () => generateRowTemplate(ko.unwrap(this.columns))
-        );
-
         this.rowFactory = rowFactory;
-
         this.rows = ko.observableArray();
 
+        // Empty table message handling.
+        this.emptyMessage = emptyMessage;
         this.isEmpty = ko.pureComputed(
             () => this.rows().length === 0
         );
@@ -67,8 +72,26 @@ class DataTableViewModel extends Disposable {
             );
         }
 
+        // Hold table sorting infromation (sortBy and order).
         this.sorting = sorting;
-        this.emptyMessage = emptyMessage;
+
+        // Hold current position of vertical scroll of the table.
+        this.scroll = scroll.extend({
+            rateLimit: {
+                method: 'notifyWhenChangesStop',
+                timeout: scrollThrottle
+            }
+        });
+
+        // Generate a row template
+        this.rowTemplate = ko.pureComputed(
+            () => generateRowTemplate(
+                ko.unwrap(this.columns),
+                rowCssProp,
+                rowClickMethod
+            )
+        );
+
     }
 
     updateRows(data) {
@@ -91,22 +114,22 @@ class DataTableViewModel extends Disposable {
         }
     }
 
-    getSortCss(columnName, sortable) {
-        if (!this.sorting || !sortable) {
+    getSortCss(sortKey) {
+        if (!this.sorting || !sortKey) {
             return '';
         }
 
         let { sortBy, order } = ko.unwrap(this.sorting) || {};
         return `sortable ${
-            sortBy === columnName ? (order === 1 ? 'des' : 'asc') : ''
+            sortBy === sortKey ? (order === 1 ? 'des' : 'asc') : ''
         }`;
     }
 
-    sortBy(newColumn) {
+    sortBy(sortKey) {
         let { sortBy, order } = this.sorting();
         this.sorting({
-            sortBy: newColumn,
-            order: sortBy === newColumn ? 0 - order : 1
+            sortBy:sortKey,
+            order: sortBy === sortKey ? 0 - order : 1
         });
     }
 }

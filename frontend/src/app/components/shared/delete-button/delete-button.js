@@ -9,46 +9,45 @@ const opendIcon = 'bin-opened';
 
 class DeleteButtonViewModel extends Disposable {
     constructor({
+        subject,
         group = ko.observable(),
         onDelete,
-        toolTip = 'delete',
+        tooltip = 'delete',
         disabled = false
     }) {
         super();
 
         this.onDelete = isFunction(onDelete) ? onDelete : noop;
-        this.toolTip = toolTip;
+        this.tooltip = tooltip;
         this.disabled = disabled;
 
-        this.isSelected = ko.pureComputed({
+        this.isActive = ko.pureComputed({
             read: () => group() === this,
-            write: val => {
-                if (val) {
-                    group(this);
-                } else if (group() === this) {
-                    group(null);
-                }
-            }
+            write: val => group(val ? this : null)
         });
 
-        this.deleteIcon = ko.pureComputed(
-            () => ko.unwrap(this.disabled) ?
-                disabledIcon :
-                (this.isSelected() ? opendIcon : closedIcon)
+        this.icon = ko.pureComputed(
+            () => !ko.unwrap(this.disabled) ?
+                (this.isActive() ? opendIcon : closedIcon) :
+                disabledIcon
+        );
+
+        this.question = ko.pureComputed(
+            () => subject ? `Delete ${subject}?` : 'Delete ?'
         );
     }
 
-    select() {
-        this.isSelected(true);
+    activate() {
+        this.isActive(true);
     }
 
     confirm() {
-        this.isSelected(false);
+        this.isActive(false);
         this.onDelete();
     }
 
     cancel() {
-        this.isSelected(false);
+        this.isActive(false);
     }
 }
 

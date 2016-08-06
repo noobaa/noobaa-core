@@ -46,9 +46,29 @@ export default class PoolRowViewModel extends Disposable {
             () => pool() ? numeral(this.nodeCount() - this.onlineCount()).format('0,0') : ''
         );
 
-        this.capacity = ko.pureComputed(
+        let storage = ko.pureComputed(
             () => pool() ? pool().storage : {}
         );
+
+        this.capacity = {
+            total: ko.pureComputed(
+                () => storage().total
+            ),
+            used: [
+                {
+                    label: 'Used (Noobaa)',
+                    value: ko.pureComputed(
+                        () => storage().used
+                    )
+                },
+                {
+                    label: 'Used (other)',
+                    value: ko.pureComputed(
+                        () => storage().used_other
+                    )
+                }
+            ]
+        };
 
         let isDemoPool = ko.pureComputed(
             () => Boolean(pool() && pool().demo_pool)
@@ -59,9 +79,10 @@ export default class PoolRowViewModel extends Disposable {
         );
 
         this.deleteButton = {
-            deleteGroup: deleteGroup,
+            subject: 'pool',
+            group: deleteGroup,
             undeletable: isUndeletable,
-            deleteToolTip: ko.pureComputed(
+            deleteTooltip: ko.pureComputed(
                 () => {
                     if (isDemoPool()) {
                         return 'Demo pools cannot be deleted';

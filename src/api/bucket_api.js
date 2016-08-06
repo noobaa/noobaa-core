@@ -340,16 +340,10 @@ module.exports = {
                 storage: {
                     $ref: 'common_api#/definitions/storage_info'
                 },
-                storage_stats: {
-                    $ref: '#/definitions/storage_stats'
-                },
                 num_objects: {
                     type: 'integer'
                 },
-                cloud_sync_status: {
-                    $ref: '#/definitions/api_cloud_sync_status'
-                },
-                cloud_sync_policy: {
+                cloud_sync: {
                     $ref: '#/definitions/cloud_sync_info'
                 },
                 tag: {
@@ -436,26 +430,5 @@ module.exports = {
             enum: ['IDLE', 'SYNCING'],
             type: 'string',
         },
-
-        storage_stats: {
-            type: 'object',
-            required: ['chunks_capacity', 'objects_size', 'objects_count', 'last_update'],
-            properties: {
-                chunks_capacity: {
-                    $ref: 'common_api#/definitions/bigint'
-                },
-                objects_size: {
-                    $ref: 'common_api#/definitions/bigint'
-                },
-                objects_count: {
-                    type: 'integer'
-                },
-                last_update: {
-                    format: 'idate'
-                }
-            }
-        },
-
     },
-
 };

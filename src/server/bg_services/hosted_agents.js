@@ -44,8 +44,10 @@ function create_agent(req) {
     }
 
     if (os_utils.is_supervised_env()) {
-        dbg.log0('adding agent to supervior with arguments:', _.join(args, ' '));
-        return supervisor.add_agent(req.params.name, _.join(args, ' '));
+        return supervisor.remove_program('agent_' +req.params.name).then(() => {
+            dbg.log0('adding agent to supervior with arguments:', _.join(args, ' '));
+            return supervisor.add_agent(req.params.name, _.join(args, ' '));
+        });
     } else {
         args.splice(0, 0, 'src/agent/agent_cli.js');
         dbg.log0('executing: node', _.join(args, ' '));

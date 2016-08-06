@@ -4,8 +4,7 @@ import assignNodesStepTemplate from './assign-nodes-step.html';
 import Disposable from 'disposable';
 import ko from 'knockout';
 import nameValidationRules from 'name-validation-rules';
-import NodeRowViewModel from './node-row';
-import { deepFreeze, makeArray, throttle } from 'utils';
+import { deepFreeze, throttle } from 'utils';
 import { inputThrottle } from 'config';
 import { systemInfo, nodeList } from 'model';
 import { loadNodeList, createPool } from 'actions';
@@ -25,21 +24,29 @@ class CreatePoolWizardViewModel extends Disposable {
         this.assignNodesStepTemplate = assignNodesStepTemplate;
         this.nodes = nodeList;
 
-        let existingPoolNames = ko.pureComputed(
-            () => (systemInfo() ? systemInfo().pools : []).map(
+        let pools = ko.pureComputed(
+            () => systemInfo() ? systemInfo().pools : []
+        );
+
+        let nodeSources = ko.pureComputed(
+            () => pools().filter(
+                pool => pool.nodes && !pool.demo_pool
+            )
+        );
+
+        let poolNames = ko.pureComputed(
+            () => nodeSources().map(
                 pool => pool.name
             )
         );
 
         this.poolName = ko.observable()
             .extend({
-                validation: nameValidationRules('pool', existingPoolNames)
+                validation: nameValidationRules(
+                    'pool',
+                    pools().map(pool => pool.name)
+                )
             });
-
-        this.rows = makeArray(
-            500,
-            i => new NodeRowViewModel(() => nodeList()[i])
-        );
 
         let _nameOrIpFilter = ko.observable();
         this.nameOrIpFilter = ko.pureComputed({
@@ -47,29 +54,16 @@ class CreatePoolWizardViewModel extends Disposable {
             write: throttle(val => _nameOrIpFilter(val) && this.loadNodes(), inputThrottle)
         });
 
-        let nodeSources = ko.pureComputed(
-            () => (systemInfo() ? systemInfo().pools : [])
-                .filter(
-                    pool => !pool.demo_pool && pool.nodes
-                )
-                .map(
-                    pool => pool.name
-                )
-        );
-
         this.poolFilterOptions = ko.pureComputed(
             () => [].concat(
-                {
-                    label: 'All pools',
-                    value: nodeSources()
-                },
-                nodeSources().map(
+                { label: 'All pools', value: poolNames() },
+                poolNames().map(
                     name => ({ label: name, value: [name] })
                 )
             )
         );
 
-        let _poolFilter = ko.observableWithDefault(nodeSources);
+        let _poolFilter = ko.observableWithDefault(poolNames);
         this.poolFilter = ko.pureComputed({
             read: _poolFilter,
             write: val => _poolFilter(val) && this.loadNodes()
@@ -90,7 +84,10 @@ class CreatePoolWizardViewModel extends Disposable {
             });
 
         this.nodeCount = ko.pureComputed(
-            () => systemInfo() && systemInfo().nodes.count
+            () => nodeSources().reduce(
+                (sum, pool) => sum + pool.nodes.count,
+                0
+            )
         );
 
         this.chooseNameErrors = ko.validation.group([
@@ -104,7 +101,7 @@ class CreatePoolWizardViewModel extends Disposable {
         let isFiltered = ko.pureComputed(
             () => this.nameOrIpFilter() ||
                 this.onlineFilter() ||
-                this.poolFilter() !== nodeSources()
+                this.poolFilter() !== poolNames()
         );
 
         this.emptyMessage = ko.pureComputed(

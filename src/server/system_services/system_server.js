@@ -297,16 +297,26 @@ function read_system(req) {
             system: system._id,
             deleted: null
         }),
+
         // passing the bucket itself as 2nd arg to bucket_server.get_cloud_sync
         // which is supported instead of sending the bucket name in an rpc req
         // just to reuse the rpc function code without calling through rpc.
-        promise_utils.all_obj(system.buckets_by_name,
-            bucket => bucket_server.get_cloud_sync(req, bucket))
+        promise_utils.all_obj(
+            system.buckets_by_name,
+            bucket => bucket_server.get_cloud_sync(req, bucket)
+        ),
 
+        P.fcall(() => server_rpc.client.account.list_accounts({}, {
+            auth_token: req.auth_token
+        })).then(
+            response => response.accounts
+        )
     ).spread(function(
         nodes_aggregate_pool,
         objects_count,
-        cloud_sync_by_bucket) {
+        cloud_sync_by_bucket,
+        accounts
+    ) {
         const objects_sys = {
             count: size_utils.BigInteger.zero,
             size: size_utils.BigInteger.zero,
@@ -413,6 +423,8 @@ function read_system(req) {
                 response.dns_name = hostname;
             }
         }
+
+        response.accounts = accounts;
 
         return response;
     });

@@ -11,12 +11,12 @@
 <ul class="account-list column" data-bind="foreach: accessList">
     <li class="row">
         <span class="greedy" data-bind="text: $data"></span>
-        
+
         <button class="link" data-bind="
             click: () => $component.openConnectionDetailsFor($data)">
             Connection Details
         </button>
-        
+
     </li>
 </ul>
 
@@ -29,7 +29,7 @@
 
 <!-- ko if: selectedAccount -->
 <s3-access-details-modal params="
-    account: selectedAccount, 
+    email: selectedAccount,
     onClose: () => closeConnectionDetails()
 "></s3-access-details-modal>
 <!-- /ko -->

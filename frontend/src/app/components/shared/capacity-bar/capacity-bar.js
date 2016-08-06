@@ -1,39 +1,67 @@
 import template from './capacity-bar.html';
 import Disposable from 'disposable';
 import ko from 'knockout';
-import { isDefined, formatSize } from 'utils';
+import { formatSize } from 'utils';
 import style from 'style';
 
-const minUsedRatio = .03;
+const bgColor = style['gray-lv4'];
 
 class CapacityBarViewModel extends Disposable {
-    constructor({ total, used }) {
+    constructor({ total, used, color = style['blue-mid'] }) {
         super();
 
-        this.totalText = ko.pureComputed(
+        let summedUsed = ko.pureComputed(
             () => {
-                let val = ko.unwrap(total);
-                return isDefined(val) ? formatSize(val) : 'N/A';
+                let naked = ko.unwrap(used);
+                if (naked instanceof Array) {
+                    return naked.reduce(
+                        (sum, entry) => sum + ko.unwrap(entry.value),
+                        0
+                    );
+
+                } else {
+                    return naked;
+                }
             }
         );
 
         this.usedText = ko.pureComputed(
-            () => {
-                let val = ko.unwrap(used);
-                return isDefined(val) ? formatSize(val) : 'N/A';
-            }
+            () => formatSize(summedUsed())
         );
 
-        let usedRatio = ko.pureComputed(
-            () => {
-                let ratio = ko.unwrap(total) > 0 ? ko.unwrap(used) / ko.unwrap(total) : 0;
-                return ratio > 0 ? Math.max(ratio, minUsedRatio) : 0;
-            }
+        this.totalText = ko.pureComputed(
+            ()=> formatSize(ko.unwrap(total))
         );
 
         this.values = [
-            { value: usedRatio, color: style['bg-color11'] }
+            {
+                value: summedUsed,
+                color: color
+            },
+            {
+                value: ko.pureComputed(
+                    () => ko.unwrap(total) - summedUsed()
+                ),
+                color: bgColor
+            }
         ];
+
+        this.tooltip = ko.pureComputed(
+            () => {
+                let naked = ko.unwrap(used);
+                if (naked instanceof Array) {
+                    return naked.map(
+                        ({label, value}) => `${
+                            label
+                        }: ${
+                            formatSize(ko.unwrap(value))
+                        }`
+                    );
+                } else {
+                    return '';
+                }
+            }
+        );
     }
 }
 

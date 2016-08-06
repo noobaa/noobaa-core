@@ -2,10 +2,26 @@ import template from './bucket-objects-table.html';
 import Disposable from 'disposable';
 import ko from 'knockout';
 import { paginationPageSize, inputThrottle } from 'config';
-import { throttle, makeArray } from 'utils';
+import { deepFreeze, throttle } from 'utils';
 import ObjectRowViewModel from './object-row';
 import { redirectTo } from 'actions';
-import { systemInfo } from 'model';
+import { routeContext, systemInfo } from 'model';
+
+const columns = deepFreeze([
+    {
+        name: 'state',
+        cellTemplate: 'icon'
+    },
+    {
+        name: 'name',
+        cellTemplate: 'link',
+        sortable: true
+    },
+    {
+        name: 'size',
+        sortable: true
+    }
+]);
 
 // TODO: logic should move to server side.
 function hasEnoughBackingNodeForUpload(bucket) {
@@ -37,8 +53,17 @@ function hasEnoughBackingNodeForUpload(bucket) {
 }
 
 class BucketObjectsTableViewModel extends Disposable {
-    constructor({ bucket, objects }) {
+    constructor({ bucket, objectList }) {
         super();
+
+        this.columns = columns;
+        this.pageSize = paginationPageSize;
+
+        this.objects = ko.pureComputed(
+            () => objectList() && objectList().objects.map(
+                pair => pair.info
+            )
+        );
 
         this.bucketName = ko.pureComputed(
             () => bucket() && bucket().name
@@ -57,33 +82,41 @@ class BucketObjectsTableViewModel extends Disposable {
             () => bucket() && bucket().num_objects
         );
 
-        this.pageSize = paginationPageSize;
-        this.filteredObjectCount = objects.count;
-        this.sortedBy = objects.sortedBy;
-        this.order = objects.order;
+        this.filteredObjectCount = ko.pureComputed(
+            () => objectList() && objectList().total_count
+        );
+
+        let query = ko.pureComputed(
+            () => routeContext().query
+        );
+
+        this.sorting = ko.pureComputed({
+            read: () => ({
+                sortBy: query().sortBy,
+                order: Number(query().order)
+            }),
+            write: value => this.orderBy(value)
+        });
 
         this.page = ko.pureComputed({
-            read: objects.page,
+            read: () => Number(query().page) || 0,
             write:  page => this.pageTo(page)
         });
 
         this.filter = ko.pureComputed({
-            read: objects.filter,
+            read: () => query().filter,
             write: throttle(phrase => this.filterObjects(phrase), inputThrottle)
         });
 
         this.hasObjects = ko.pureComputed(
-            () => objects().length > 0
-        );
-
-        this.rows = makeArray(
-            this.pageSize,
-            i => new ObjectRowViewModel(
-                () => objects()[i]
-            )
+            () => this.objects().length > 0
         );
 
         this.isUploadFilesModalVisible = ko.observable(false);
+    }
+
+    createObjectRow(obj) {
+        return new ObjectRowViewModel(obj);
     }
 
     showUploadFilesModal() {
@@ -95,36 +128,39 @@ class BucketObjectsTableViewModel extends Disposable {
     }
 
     pageTo(page) {
-        redirectTo(undefined, undefined, {
-            filter: this.filter(),
-            sortBy: this.sortedBy(),
-            order: this.order(),
-            page: page
-        });
+        let params = Object.assign(
+            {
+                filter: this.filter(),
+                page: page
+            },
+            this.sorting()
+        );
+
+        redirectTo(undefined, undefined, params);
     }
 
     filterObjects(phrase) {
-        redirectTo(undefined, undefined, {
-            filter: phrase || undefined,
-            sortBy: this.sortedBy(),
-            order: this.order(),
-            page: 0
-        });
+        let params = Object.assign(
+            {
+                filter: phrase || undefined,
+                page: 0
+            },
+            this.sorting()
+        );
+
+        redirectTo(undefined, undefined, params);
     }
 
-    orderBy(colName) {
-        redirectTo(undefined, undefined, {
-            filter: this.filter(),
-            sortBy: colName,
-            order: this.sortedBy() === colName ? 0 - this.order() : 1,
-            page: 0
-        });
-    }
+    orderBy(sorting) {
+        let params = Object.assign(
+            {
+                filter: this.filter(),
+                page: 0
+            },
+            sorting
+        );
 
-    orderClassFor(colName) {
-        if (this.sortedBy() === colName) {
-            return this.order() === 1 ? 'des' : 'asc';
-        }
+        redirectTo(undefined, undefined, params);
     }
 }
 

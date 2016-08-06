@@ -1,11 +1,11 @@
-<table>
+<table data-bind="scroll: scroll">
     <thead>
         <tr data-bind="foreach: columns">
             <th data-bind="css: css">
                 <span data-bind="
                     text: label,
-                    css: $component.getSortCss(name, sortable),
-                    click: () => sortable && $component.sortBy(name)
+                    css: $component.getSortCss(sortKey),
+                    click: () => sortKey && $component.sortBy(sortKey)
                 "></span>
             </th>
         </tr>

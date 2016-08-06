@@ -2,9 +2,9 @@ import template from './bucket-summary.html';
 import Disposable from 'disposable';
 import ko from 'knockout';
 import style from 'style';
-import { formatSize } from 'utils';
+import { deepFreeze, formatSize } from 'utils';
 
-const cloudSyncStatusMapping = Object.freeze({
+const cloudSyncStatusMapping = deepFreeze({
     PENDING: { text: 'Sync Pending', icon: 'cloud-pending' } ,
     SYNCING: { text: 'Syncing', icon: 'cloud-syncing' },
     PAUSED: { text: 'Sync Paused', icon: 'cloud-paused' },
@@ -12,6 +12,17 @@ const cloudSyncStatusMapping = Object.freeze({
     SYNCED: { text: 'Sync Completed', icon: 'cloud-synced' },
     NOTSET: { text: 'Cloud sync not set', icon: 'cloud-not-set' }
 });
+
+const graphOptions = deepFreeze([
+    {
+        label: 'Storage',
+        value: 'STORAGE'
+    },
+    {
+        label: 'Data',
+        value: 'DATA'
+    }
+]);
 
 class BucketSummrayViewModel extends Disposable {
     constructor({ bucket }) {
@@ -29,26 +40,59 @@ class BucketSummrayViewModel extends Disposable {
             () => bucket() && formatSize(bucket().storage.total)
         );
 
-        this.used = ko.pureComputed(
-            () => bucket() && bucket().storage.used
+        let storage = ko.pureComputed(
+            () => bucket() ? bucket().storage : {}
         );
 
-        this.usedText = ko.pureComputed(
-            () => bucket() && formatSize(this.used())
-        );
+        this.graphOptions = graphOptions;
+        this.selectedGraph = ko.observable(graphOptions[0].value);
 
-        this.free = ko.pureComputed(
-            () => bucket() && bucket().storage.free
-        );
-
-        this.freeText = ko.pureComputed(
-            () => formatSize(this.free())
-        );
-
-        this.gaugeValues = [
-            { value: this.used, color: style['text-color6'], emphasize: true },
-            { value: this.free, color: style['text-color4'] }
+        this.dataValues = [
+            {
+                label: 'Physical size',
+                value: ko.pureComputed(
+                    () => storage().real
+                ),
+                color: style['gray-lv5']
+            },
+            {
+                label: 'Size',
+                value: ko.pureComputed(
+                    () => storage().used
+                ),
+                color: style['magenta-mid']
+            }
         ];
+
+        this.storageValues = [
+            {
+                label: 'Used (this bucket)',
+                color: style['magenta-mid'],
+                value: ko.pureComputed(
+                    () => storage().used
+                )
+            },
+            {
+                label: 'Used (other buckets)',
+                color: style['white'],
+                value: ko.pureComputed(
+                    () => storage().used_other
+                )
+            },
+            {
+                label: 'Potential available',
+                color: style['gray-lv5'],
+                value: ko.pureComputed(
+                    () => storage().free
+                )
+            }
+        ];
+
+        this.legend = ko.pureComputed(
+            () => this.selectedGraph() === 'STORAGE' ?
+                this.storageValues :
+                this.dataValues
+        );
 
         this.stateText = ko.pureComputed(
             () => 'Healthy'
@@ -59,7 +103,14 @@ class BucketSummrayViewModel extends Disposable {
         );
 
         let cloudSyncStatus = ko.pureComputed(
-            () => bucket() && cloudSyncStatusMapping[bucket().cloud_sync_status]
+            () => {
+                if (!bucket()) {
+                    return;
+                }
+
+                let { cloud_sync } = bucket();
+                return cloudSyncStatusMapping[cloud_sync ? cloud_sync.status : 'NOTSET'];
+            }
         );
 
         this.cloudSyncText = ko.pureComputed(

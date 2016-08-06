@@ -7,9 +7,9 @@ import { noop, isFunction } from 'utils';
 
 const scrollThrottle = 750;
 
-function generateRowTemplate(columns, rowCssProp, rowClickMethod) {
+function generateRowTemplate(columns, rowCssProp, hasRowClickHandler) {
     let rowCss = rowCssProp ? `css: ${rowCssProp}` : '';
-    let rowClick = rowClickMethod ? `,click: ${rowClickMethod}` : '';
+    let rowClick = hasRowClickHandler ? ',click: $component.rowClick' : '';
 
     return `<tr class="data-row" data-bind="${rowCss}${rowClick}">${
         columns.map(
@@ -33,7 +33,7 @@ class DataTableViewModel extends Disposable {
             sorting,
             scroll = ko.observable(),
             rowCssProp,
-            rowClickMethod,
+            rowClick,
             emptyMessage
         } = params;
 
@@ -88,10 +88,11 @@ class DataTableViewModel extends Disposable {
             () => generateRowTemplate(
                 ko.unwrap(this.columns),
                 rowCssProp,
-                rowClickMethod
+                rowClick instanceof Function
             )
         );
 
+        this.rowClick = rowClick;
     }
 
     updateRows(data) {

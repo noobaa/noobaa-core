@@ -4,7 +4,7 @@ import moment from 'moment';
 import categories from './categories';
 
 export default class AuditRowViewModel extends Disposable {
-    constructor(entry) {
+    constructor(entry, selectedDescription) {
         super();
 
         let categoryInfo = ko.pureComputed(
@@ -52,5 +52,13 @@ export default class AuditRowViewModel extends Disposable {
         this.description = ko.pureComputed(
             () => entry() ? entry().desc : []
         );
+
+        this.selectedCss = ko.pureComputed(
+            () => selectedDescription() === this.description() ? 'selected' : ''
+        );
+
+        this.select = () => {
+            selectedDescription(this.description());
+        };
     }
 }

@@ -19,6 +19,25 @@ audit-pane {
     }
 
     data-table {
+        .data-row {
+            cursor: @cursor-pointer;
+            transition: all 300ms;
+
+            &:hover {
+                background-color: fade(@bg-color11, 20%);
+            }
+
+            &.selected {
+                .highlight();
+                cursor: default;
+                background-color: @bg-color1;
+
+                &:hover {
+                    background-color: fade(@bg-color11, 15%);
+                }
+            }
+        }
+
         .time-col {
             min-width: 100px;
             max-width: 100px;

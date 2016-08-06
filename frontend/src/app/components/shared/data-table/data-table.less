@@ -57,22 +57,7 @@ data-table {
         cursor: @cursor-pointer;
     }
 
-    .allow-selection tbody > tr {
-        cursor: @cursor-pointer;
-        transition: all 300ms;
-
-        &:hover {
-            background-color: fade(@bg-color11, 20%);
-        }
-
-        &.selected {
-            .highlight();
-            cursor: default;
-            background-color: @bg-color1;
-        }
-    }
-
-    > .empty-message {
+    .empty-message {
         position: relative;
         text-align: left;
         font-size: @font-size-large;

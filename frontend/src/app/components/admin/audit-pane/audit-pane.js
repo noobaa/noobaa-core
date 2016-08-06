@@ -32,7 +32,7 @@ class AuditPaneViewModel extends Disposable {
         this.selectedCategories = ko.pureComputed({
             read: auditLog.loadedCategories,
             write: categoryList => {
-                this.description([]);
+                this.description(null);
                 loadAuditEntries(categoryList, pageSize);
             }
         });
@@ -54,11 +54,16 @@ class AuditPaneViewModel extends Disposable {
 
         this.description = ko.observable();
 
+        this.selection = ko.observableArray();
+        this.selection.subscribe(
+            x => console.warn(x)
+        );
+
         this.selectedCategories(Object.keys(categories));
     }
 
     createAuditRow(auditEntry) {
-        return new AuditRowViewModel(auditEntry);
+        return new AuditRowViewModel(auditEntry, this.description);
     }
 
     selectAllCategories() {

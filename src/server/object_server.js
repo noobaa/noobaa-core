@@ -37,6 +37,7 @@ exports.read_object_md = read_object_md;
 exports.update_object_md = update_object_md;
 exports.delete_object = delete_object;
 exports.delete_multiple_objects = delete_multiple_objects;
+exports.delete_multiple_objects_by_prefix = delete_multiple_objects_by_prefix;
 exports.list_objects = list_objects;
 // cloud sync related
 exports.set_all_files_for_sync = set_all_files_for_sync;
@@ -464,10 +465,10 @@ function delete_object(req) {
         })
         .then(db.check_not_found(req, 'object'))
         .then(obj => {
-            obj_to_delete=obj;
+            obj_to_delete = obj;
             delete_object_internal(obj);
         })
-        .then(()=>{
+        .then(() => {
             db.ActivityLog.create({
                 system: req.system,
                 level: 'info',
@@ -502,6 +503,39 @@ function delete_multiple_objects(req) {
                 .then(db.check_not_found(req, 'object'))
                 .then(obj => delete_object_internal(obj));
         }))
+        .return();
+}
+
+/**
+ *
+ * DELETE_MULTIPLE_OBJECTS
+ * delete multiple objects
+ *
+ */
+function delete_multiple_objects_by_prefix(req) {
+    dbg.log0('delete_multiple_objects_by_prefix: prefix =', req.params.prefix);
+
+    load_bucket(req);
+    // TODO: change it to perform changes in one transaction. Won't scale.
+    return list_objects(req)
+        .then(items => {
+            dbg.log0('objects by prefix', items.objects);
+            if (items.objects.length > 0) {
+                return P.all(_.map(items.objects, function(single_object) {
+                    dbg.log0('single obj:', single_object.key);
+                    return P.fcall(() => {
+                            var query = {
+                                system: req.system._id,
+                                bucket: req.bucket._id,
+                                key: single_object.key
+                            };
+                            return db.ObjectMD.findOne(query).exec();
+                        })
+                        .then(db.check_not_found(req, 'object'))
+                        .then(obj => delete_object_internal(obj));
+                })).return();
+            }
+        })
         .return();
 }
 

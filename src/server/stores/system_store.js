@@ -205,7 +205,7 @@ class SystemStoreData {
             // update all the accounts.
             if (account.allowed_buckets) {
                 account.allowed_buckets = _.filter(
-                    account.allowed_buckets, 
+                    account.allowed_buckets,
                     bucket => !!bucket._id
                 );
             }
@@ -284,16 +284,16 @@ class SystemStore extends EventEmitter {
 
     load() {
         if (this._load_promise) return this._load_promise;
-        dbg.log0('SystemStore: fetching ...');
+        dbg.log1('SystemStore: fetching ...');
         let new_data = new SystemStoreData();
         let millistamp = time_utils.millistamp();
         this._load_promise =
             P.fcall(() => this._register_for_changes())
             .then(() => this._read_data_from_db(new_data))
             .then(() => {
-                dbg.log0('SystemStore: fetch took', time_utils.millitook(millistamp));
-                dbg.log0('SystemStore: fetch size', size_utils.human_size(JSON.stringify(new_data).length));
-                dbg.log0('SystemStore: fetch data', util.inspect(new_data, {
+                dbg.log1('SystemStore: fetch took', time_utils.millitook(millistamp));
+                dbg.log1('SystemStore: fetch size', size_utils.human_size(JSON.stringify(new_data).length));
+                dbg.log1('SystemStore: fetch data', util.inspect(new_data, {
                     depth: 4
                 }));
                 millistamp = time_utils.millistamp();

@@ -75,6 +75,84 @@ module.exports = {
                 }
             }
         },
+        //lifecycle rules if exist
+        lifecycle_configuration_rules: {
+            type: 'array',
+            items: {
+                type: 'object',
+                required: ['id', 'prefix', 'status', 'expiration'],
+                properties: {
+                    id: {
+                        type: 'string'
+                    },
+                    prefix: {
+                        type: 'string'
+                    },
+                    status: {
+                        type: 'string'
+                    },
+                    expiration: {
+                        type: 'object',
+                        properties: {
+                            days: {
+                                type: 'integer'
+                            },
+                            date: {
+                                format: 'idate'
+                            },
+                            expired_object_delete_marker: {
+                                type: 'boolean'
+                            }
+
+                        }
+                    },
+                    abort_incomplete_multipart_upload: {
+                        type: 'object',
+                        properties: {
+                            days_after_initiation: {
+                                type: 'integer'
+                            },
+                        }
+                    },
+                    transition: {
+                        type: 'object',
+                        properties: {
+                            date: {
+                                format: 'idate'
+                            },
+                            storage_class: {
+                                type: 'string',
+                                enum: ['STANDARD_IA', 'GLACIER'],
+                            }
+                        }
+                    },
+                    noncurrent_version_expiration: {
+                        type: 'object',
+                        properties: {
+                            noncurrent_days: {
+                                type: 'integer'
+                            },
+                        }
+                    },
+                    noncurrent_version_transition: {
+                        type: 'object',
+                        properties: {
+                            noncurrent_days: {
+                                type: 'integer'
+                            },
+                            storage_class: {
+                                type: 'string',
+                                enum: ['STANDARD_IA', 'GLACIER'],
+                            }
+                        }
+                    },
+                    last_sync: {
+                        format: 'idate'
+                    }
+                }
+            }
+        },
+
         stats: {
             type: 'object',
             // required: [],

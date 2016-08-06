@@ -395,7 +395,8 @@ function handle_options(req, res, next) {
 }
 
 function read_post_body(req, res, next) {
-    if (req.method === 'POST' &&
+    if ((req.method === 'POST' ||
+            req.method === 'PUT') &&
         (req.headers['content-type'] === 'application/xml' ||
             req.headers['content-type'] === 'application/octet-stream')) {
         let data = '';

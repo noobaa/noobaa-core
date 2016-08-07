@@ -1,8 +1,8 @@
 import ko from 'knockout';
 import { isObject, isString } from 'utils';
 
+const tooltip = document.createElement('p');
 const delay = 350;
-
 const alignments = Object.freeze({
     left: 0,
     center: .5,
@@ -18,7 +18,7 @@ function toHtmlList(arr) {
 }
 
 function normalizeParams(params) {
-    return ko.computed(
+    return ko.pureComputed(
         () => {
             let naked = ko.unwrap(params);
             if (isString(naked)) {
@@ -51,60 +51,62 @@ function normalizeParams(params) {
                     css: pos,
                     align: alignments[pos]
                 };
-
+            } else {
+                return {};
             }
         }
     );
 }
 
-function position(tooltip, target, align) {
+function showTooltip(target, { text, css, align }) {
+    tooltip.innerHTML = text;
+    tooltip.className = `tooltip ${css}`;
+    document.body.appendChild(tooltip);
+
     let { left, top } = target.getBoundingClientRect();
     top += target.offsetHeight;
     left += target.offsetWidth / 2 - tooltip.offsetWidth * align;
-
     tooltip.style.top = `${Math.ceil(top)}px`;
     tooltip.style.left = `${Math.ceil(left)}px`;
+}
+
+function hideTooltip() {
+    if (tooltip.parentElement) {
+        document.body.removeChild(tooltip);
+        tooltip.innerHTML = '';
+    }
 }
 
 export default {
     init: function(target, valueAccessor) {
         let params = normalizeParams(valueAccessor());
-        let handle = -1;
-        let tooltip = document.createElement('p');
+        let hover = ko.observable(false);
 
-        ko.utils.registerEventHandler(
-            target,
-            'mouseenter',
-            () => {
-                handle = setTimeout(
-                    () => {
-                        handle = -1;
-                        if (params() && params().text) {
-                            tooltip.innerHTML = params().text;
-                            tooltip.className = `tooltip ${params().css}`;
-                            document.body.appendChild(tooltip);
-                            position(tooltip, target, params().align);
-                        }
-                    },
-                    delay
-                );
+        let sub = ko.pureComputed(
+            () => Boolean(hover() && params().text)
+        ).extend({
+            rateLimit: {
+                timeout: delay,
+                method: 'notifyWhenChangesStop'
             }
+        }).subscribe(
+            visible => visible ?
+                showTooltip(target, params()) :
+                hideTooltip()
         );
 
-        ko.utils.registerEventHandler(
-            target,
-            'mouseleave',
-            () => handle > -1 ?
-                clearTimeout(handle) :
-                tooltip.parentElement && document.body.removeChild(tooltip)
-        );
+        // Handle delyed hover state.
+        let handle = -1;
+        ko.utils.registerEventHandler(target, 'mouseenter', () => hover(true));
+        ko.utils.registerEventHandler(target, 'mouseleave', () => hover(false));
 
+        // Cleanup code.
         ko.utils.domNodeDisposal.addDisposeCallback(
             target,
             () => {
                 clearTimeout(handle);
-                tooltip.parentElement && document.body.removeChild(tooltip);
-                params.dispose();
+                hover(false);
+                sub.dispose();
             }
         );
     }

@@ -1,6 +1,7 @@
 import template from './bucket-summary.html';
 import Disposable from 'disposable';
 import ko from 'knockout';
+import moment from 'moment';
 import style from 'style';
 import { deepFreeze, formatSize } from 'utils';
 
@@ -23,6 +24,8 @@ const graphOptions = deepFreeze([
         value: 'DATA'
     }
 ]);
+
+const timeFormat = 'MMM, DD [at] hh:mm:ss';
 
 class BucketSummrayViewModel extends Disposable {
     constructor({ bucket }) {
@@ -125,7 +128,25 @@ class BucketSummrayViewModel extends Disposable {
             () => bucket() && bucket().cloud_sync_status !== 'NOTSET'
         );
 
-        this.dataPlacementIcon = 'policy';
+
+        let stats = ko.pureComputed(
+            () => bucket() ? bucket().stats : {}
+        );
+
+        this.lastRead = ko.pureComputed(
+            () => {
+                let lastRead = stats().last_read;
+                return lastRead ? moment(lastRead).format(timeFormat) : 'N/A';
+            }
+        );
+
+        this.lastWrite = ko.pureComputed(
+            () => {
+                let lastWrite = stats().last_write;
+                return lastWrite ? moment(lastWrite).format(timeFormat) : 'N/A';
+            }
+        );
+
         this.isPolicyModalVisible = ko.observable(false);
         this.isSetCloudSyncModalVisible = ko.observable(false);
         this.isViewCloudSyncModalVisible = ko.observable(false);

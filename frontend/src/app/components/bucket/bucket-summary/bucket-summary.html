@@ -15,7 +15,7 @@
             <span data-bind="text: cloudSyncText"></span>
         </li>
         <li>
-            <svg-icon params="name: dataPlacementIcon" data-bind="
+            <svg-icon params="name: 'policy'" data-bind="
                 tooltip: 'Data placement'
             "></svg-icon>
             Data placement
@@ -45,23 +45,26 @@
         <bar-chart params="values: dataValues"></bar-chart>
         <!-- /ko -->
     </div>
-
-<!--     <div class="row greedy">
-        <div class="column greedy">
-            <h3 class="heading4">Data usage:</h3>
-            <chart-legend params="items: barsValues"></chart-legend>
-        </div>
-
-    </div> -->
 </section>
 
 <vr></vr>
 
 <section class="c4 column">
     <h3 class="heading4 push-next">
-        Activity
+        Read / Write
     </h3>
-    <span>No current data activity</span>
+
+    <ul class="list-no-style column">
+        <li class="row">
+            <span class="c4">Last read:</span>
+            <span class="greedy" data-bind="text: lastRead"></span>
+        </li>
+        <li class="row">
+            <span class="c4">Last write:</span>
+            <span class="greedy" data-bind="text: lastWrite"></span>
+        </li>
+    </ul>
+
 </section>
 <!-- /ko -->
 

@@ -705,10 +705,8 @@ class S3Controller {
         //    </Expiration>
         //  </Rule>
 
-        dbg.log0('ETET put_bucket_lifecycle', req.params, '::::', req.query, '::::', req.body);
         return P.ninvoke(xml2js, 'parseString', req.body)
             .then(function(data) {
-                dbg.log0('ETET put_bucket_lifecycle JSON', data.LifecycleConfiguration.Rule);
                 //var lifecycle_rules = data.LifecycleConfiguration.Rule;
                 var lifecycle_rules = [];
                 _.each(data.LifecycleConfiguration.Rule, rule => {
@@ -736,12 +734,10 @@ class S3Controller {
                             };
                         }
                         if (rule.Transition) {
-                            dbg.log0('ETET lifecycle Transition', rule.Transition);
                             current_rule.transition = {
                                 date: rule.Transition[0].Date ? (new Date(rule.Transition[0].Date[0])).getTime() : null,
                                 storage_class: rule.Transition[0].StorageClass ? rule.Transition[0].StorageClass[0] : 'STANDARD_IA'
                             };
-                            dbg.log0('ETET lifecycle Transition(2)', current_rule.transition);
                         }
                         if (rule.NoncurrentVersionExpiration) {
                             current_rule.noncurrent_version_expiration = {
@@ -763,7 +759,6 @@ class S3Controller {
                     name: req.params.bucket,
                     rules: lifecycle_rules
                 };
-                dbg.log0('ETET params rules', lifecycle_rules);
                 return req.rpc_client.bucket.set_bucket_lifecycle_configuration_rules(params)
                     .then(() => {
                         dbg.log('set_bucket_lifecycle', req.params.rule);

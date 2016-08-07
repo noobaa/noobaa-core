@@ -759,7 +759,7 @@ function get_bucket_info(bucket, nodes_aggregate_pool, num_of_objects, cloud_syn
         real: new BigInteger((bucket.storage_stats && bucket.storage_stats.chunks_capacity) || 0).multiply(tier_of_bucket.replicas).multiply(placement_mul)
     });
 
-    dbg.log0('ohadohad', bucket.name, placement_mul, tier_of_bucket.replicas, bucket.storage_stats.chunks_capacity);
+    info.stats = bucket.stats;
 
     info.cloud_sync = cloud_sync_policy ? (cloud_sync_policy.status ? cloud_sync_policy : undefined) : undefined;
     info.demo_bucket = Boolean(bucket.demo_bucket);

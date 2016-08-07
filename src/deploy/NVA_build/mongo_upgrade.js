@@ -102,14 +102,10 @@ function upgrade_system(system) {
         var stats = {
             reads: 0,
             writes: 0,
-            last_read: 0,
-            last_write: 0,
         };
         if (bucket.stats) {
             stats.reads = bucket.stats.reads ? bucket.stats.reads : 0;
             stats.writes = bucket.stats.writes ? bucket.stats.writes : 0;
-            stats.last_read = bucket.stats.last_read ? bucket.stats.last_read : 0;
-            stats.last_write = bucket.stats.last_write ? bucket.stats.last_write : 0;
         }
         db.buckjets.update({
             _id: bucket._id

@@ -362,10 +362,10 @@ module.exports = {
                             type: 'integer'
                         },
                         last_read: {
-                            type: 'integer'
+                            format: 'idate'
                         },
                         last_write: {
-                            type: 'integer'
+                            format: 'idate'
                         },
                     },
                 }

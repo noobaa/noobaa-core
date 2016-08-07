@@ -95,7 +95,30 @@ function upgrade_systems() {
 function upgrade_system(system) {
     print('\n*** upgrade_system ...', system.name);
 
-    print('\n*** CLOUD SYNC ***');
+    print('\n*** BUCKET STATS***');
+    db.bucket.find({
+        system: system._id,
+    }).forEach(function(bucket) {
+        var stats = {
+            reads: 0,
+            writes: 0,
+            last_read: 0,
+            last_write: 0,
+        };
+        if (bucket.stats) {
+            stats.reads = bucket.stats.reads ? bucket.stats.reads : 0;
+            stats.writes = bucket.stats.writes ? bucket.stats.writes : 0;
+            stats.last_read = bucket.stats.last_read ? bucket.stats.last_read : 0;
+            stats.last_write = bucket.stats.last_write ? bucket.stats.last_write : 0;
+        }
+        db.buckjets.update({
+            _id: bucket._id
+        }, {
+            $set: {
+                stats: stats
+            }
+        });
+    });
 
     db.buckets.find({
         system: system._id,
@@ -103,11 +126,10 @@ function upgrade_system(system) {
             $exists: true
         }
     }).forEach(function(bucket) {
-        print('\n*** update bucket with endpoint and target bucket', bucket.name);
+        print('\n*** CLOUD SYNC update bucket with endpoint and target bucket', bucket.name);
         if (bucket.cloud_sync.target_bucket) {
             print('\n*** nothing to upgrade for ', bucket.name);
         } else {
-
             var target_bucket = bucket.cloud_sync.endpoint;
             db.buckets.update({
                 _id: bucket._id

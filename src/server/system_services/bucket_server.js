@@ -32,6 +32,7 @@ const VALID_BUCKET_NAME_REGEXP =
 
 
 function new_bucket_defaults(name, system_id, tiering_policy_id, tag) {
+    let now = Date.now();
     return {
         _id: system_store.generate_id(),
         name: name,
@@ -42,13 +43,13 @@ function new_bucket_defaults(name, system_id, tiering_policy_id, tag) {
             chunks_capacity: 0,
             objects_size: 0,
             objects_count: 0,
-            last_update: Date.now()
+            last_update: now
         },
         stats: {
             reads: 0,
             writes: 0,
-            last_read: 0,
-            last_write: 0,
+            last_read: now,
+            last_write: now,
         }
     };
 }
@@ -760,6 +761,8 @@ function get_bucket_info(bucket, nodes_aggregate_pool, num_of_objects, cloud_syn
     });
 
     info.stats = bucket.stats;
+    info.stats.last_read = bucket.stats.last_read.getTime();
+    info.stats.last_write = bucket.stats.last_write.getTime();
 
     info.cloud_sync = cloud_sync_policy ? (cloud_sync_policy.status ? cloud_sync_policy : undefined) : undefined;
     info.demo_bucket = Boolean(bucket.demo_bucket);

@@ -761,8 +761,6 @@ function get_bucket_info(bucket, nodes_aggregate_pool, num_of_objects, cloud_syn
     });
 
     info.stats = bucket.stats;
-    info.stats.last_read = bucket.stats.last_read.getTime();
-    info.stats.last_write = bucket.stats.last_write.getTime();
 
     info.cloud_sync = cloud_sync_policy ? (cloud_sync_policy.status ? cloud_sync_policy : undefined) : undefined;
     info.demo_bucket = Boolean(bucket.demo_bucket);

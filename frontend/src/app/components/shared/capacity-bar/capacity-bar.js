@@ -18,7 +18,6 @@ class CapacityBarViewModel extends Disposable {
                         (sum, entry) => sum + ko.unwrap(entry.value),
                         0
                     );
-
                 } else {
                     return naked;
                 }
@@ -26,11 +25,11 @@ class CapacityBarViewModel extends Disposable {
         );
 
         this.usedText = ko.pureComputed(
-            () => formatSize(summedUsed())
+            () => summedUsed() ? formatSize(summedUsed()) : 'N/A'
         );
 
         this.totalText = ko.pureComputed(
-            ()=> formatSize(ko.unwrap(total))
+            () => ko.unwrap(total) ? formatSize(ko.unwrap(total)) : 'N/A'
         );
 
         this.values = [
@@ -54,7 +53,7 @@ class CapacityBarViewModel extends Disposable {
                         ({label, value}) => `${
                             label
                         }: ${
-                            formatSize(ko.unwrap(value))
+                            ko.unwrap(value) ? formatSize(ko.unwrap(value)) : 'N/A'
                         }`
                     );
                 } else {

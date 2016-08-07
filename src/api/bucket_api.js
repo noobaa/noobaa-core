@@ -351,6 +351,23 @@ module.exports = {
                 },
                 demo_bucket: {
                     type: 'boolean'
+                },
+                stats: {
+                    type: 'object',
+                    properties: {
+                        reads: {
+                            type: 'integer'
+                        },
+                        writes: {
+                            type: 'integer'
+                        },
+                        last_read: {
+                            type: 'integer'
+                        },
+                        last_write: {
+                            type: 'integer'
+                        },
+                    },
                 }
             }
         },

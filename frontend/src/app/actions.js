@@ -840,8 +840,8 @@ export function deletePool(name) {
 
     api.pool.delete_pool({ name })
         .then(
-            () => notify(`Bucket ${name} deleted successfully`, 'success'),
-            () => notify(`Bucket ${name} deletion failed`, 'error')
+            () => notify(`Pool ${name} deleted successfully`, 'success'),
+            () => notify(`Pool ${name} deletion failed`, 'error')
         )
         .then(loadSystemInfo)
         .done();

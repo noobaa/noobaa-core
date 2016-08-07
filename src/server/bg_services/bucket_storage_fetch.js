@@ -73,26 +73,16 @@ function background_worker() {
     params.till_date_object = new mongodb.ObjectId(hex_till_date + "0".repeat(24 - hex_till_date.length));
 
     let existing_query = {
-        $and: [{
-            _id: {
-                $gte: params.from_date_object,
-            },
-        }, {
-            _id: {
-                $lt: params.till_date_object,
-            },
-        }]
+        _id: {
+            $gte: params.from_date_object,
+            $lt: params.till_date_object,
+        }
     };
     let deleted_query = {
-        $and: [{
-            deleted: {
-                $gte: params.from_date,
-            }
-        }, {
-            deleted: {
-                $lt: params.till_date,
-            }
-        }]
+        deleted: {
+            $gte: params.from_date,
+            $lt: params.till_date,
+        }
     };
 
     return P.join(

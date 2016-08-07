@@ -1,12 +1,23 @@
 import template from './connect-app-wizard.html';
-import selectSlideTemplate from './select-slide.html';
-import connecSlideTemplate from './connect-slide.html';
+import selectConnectionSlideTemplate from './select-connection.html';
+import selectAccountSlideTemplate from './select-account.html';
 import Disposable from 'disposable';
 import ko from 'knockout';
-import { systemInfo, accountList } from 'model';
-import { loadAccountList } from 'actions';
+import { systemInfo } from 'model';
+import { deepFreeze } from 'utils';
 
-const connectionTypes = Object.freeze([
+const steps = deepFreeze([
+    {
+        label: 'select connection',
+        size: 'small'
+    },
+    {
+        label: 'select account',
+        size: 'medium'
+    }
+]);
+
+const connectionTypes = deepFreeze([
     {
         type: 'NATIVE',
         label: 'Native Access',
@@ -31,18 +42,28 @@ class ConnectApplicationWizardViewModel extends Disposable {
         super();
 
         this.onClose = onClose;
-        this.selectSlideTemplate = selectSlideTemplate;
-        this.connectSlideTemplate = connecSlideTemplate;
+        this.steps = steps;
+        this.selectConnectionSlideTemplate = selectConnectionSlideTemplate;
+        this.selectAccountSlideTemplate = selectAccountSlideTemplate;
 
         this.conTypes = connectionTypes;
         this.selectedConType = ko.observable(this.conTypes[0]);
 
-        this.accountOptions = accountList.map(
-            account => ({ label: account.email, value: account })
+        let accounts = ko.pureComputed(
+            () => systemInfo() ? systemInfo().accounts : []
+        );
+
+        this.accountOptions = ko.pureComputed(
+            () => accounts().map(
+                account => ({
+                    label: account.email,
+                    value: account
+                })
+            )
         );
 
         this.selectedAccount = ko.observableWithDefault(
-            () => systemInfo() && accountList() && accountList().filter(
+            () => systemInfo() && accounts().filter(
                 account => account.email === systemInfo().owner.email
             )[0]
         );
@@ -78,8 +99,6 @@ class ConnectApplicationWizardViewModel extends Disposable {
                 allowCopy: true
             }
         ];
-
-        loadAccountList();
     }
 }
 

@@ -49,8 +49,7 @@ SupervisorCtrl.prototype.apply_changes = function() {
             return self._serialize();
         })
         .then(function() {
-            return promise_utils.exec('supervisorctl update')
-                .delay(5000); //TODO:: Better solution
+            return promise_utils.exec('supervisorctl update');
         });
 };
 

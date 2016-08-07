@@ -1,14 +1,12 @@
 'use strict';
 
 const P = require('../../util/promise');
-// const config = require('../../../config');
 const md_store = require('../object_services/md_store');
 const mongodb = require('mongodb');
 const _ = require('lodash');
 const dbg = require('../../util/debug_module')(__filename);
 const system_store = require('../system_services/system_store').get_instance();
 const size_utils = require('../../util/size_utils');
-// const mongo_functions = require('../../util/mongo_functions');
 
 // TODO: This method is based on a single system
 function background_worker() {
@@ -22,18 +20,11 @@ function background_worker() {
         dbg.log0('There are no buckets to fetch');
         return;
     }
-    // var last_update = first_bucket.storage_stats && new Date(first_bucket.storage_stats.last_update);
-    // var params = {
-    //     from_date: last_update || (new Date(0)),
-    //     till_date: new Date()
-    // };
+
     var last_update = (first_bucket.storage_stats && first_bucket.storage_stats.last_update) || 0;
-    // var current_date = (last_update < 0) ? new Date(Math.abs(last_update)) : new Date();
     var params = {
         from_date: new Date(last_update),
         till_date: new Date()
-        // from_date: new Date(Math.max(last_update, 0)),
-        // till_date: current_date
     };
 
     // TODO: This can only happen if the time was adjusted by NTP or manually

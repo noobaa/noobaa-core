@@ -647,6 +647,12 @@ module.exports = {
                         $ref: 'pool_api#/definitions/pool_extended_info'
                     },
                 },
+                accounts: {
+                    type: 'array',
+                    items: {
+                        $ref: 'account_api#/definitions/account_info'
+                    }
+                },
                 objects: {
                     type: 'integer'
                 },

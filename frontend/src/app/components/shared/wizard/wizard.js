@@ -1,7 +1,7 @@
 import template from './wizard.html';
 import Disposable from 'disposable';
 import ko from 'knockout';
-import { noop } from 'utils';
+import { isObject, noop } from 'utils';
 
 class WizardViewModel extends Disposable {
     constructor({
@@ -17,13 +17,27 @@ class WizardViewModel extends Disposable {
         super();
 
         this.heading = heading;
-        this.steps = steps;
         this.actionLabel = actionLabel;
         this.step = ko.observable(skip);
         this.validateStep = validateStep;
         this.onCancel = onCancel;
         this.onComplete = onComplete;
         this.onClose = onClose;
+
+        this.stepsLabels = steps.map(
+            step => isObject(step) ? step.label : step
+        );
+
+        this.stepClass = ko.pureComputed(
+            () => {
+                let step = steps[this.step()];
+                return isObject(step) ? `modal-${step.size}` : '';
+            }
+        );
+
+        this.isLastStep = ko.pureComputed(
+            () => this.step() == steps.length -1
+        );
 
         this.isCancelVisible = ko.pureComputed(
             () => this.step() === 0
@@ -34,12 +48,10 @@ class WizardViewModel extends Disposable {
         );
 
         this.isNextVisible = ko.pureComputed(
-            () => this.step() < this.steps.length - 1
+            () => this.step() < steps.length - 1
         );
 
-        this.isDoneVisible = ko.pureComputed(
-            () => this.step() === this.steps.length - 1
-        );
+        this.isDoneVisible = this.isLastStep;
     }
 
     isInStep(stepNum) {
@@ -58,8 +70,7 @@ class WizardViewModel extends Disposable {
     }
 
     next() {
-        if (this.step() < this.steps.length - 1 &&
-            this.validateStep(this.step() + 1)) {
+        if (!this.isLastStep() && this.validateStep(this.step() + 1)) {
 
             this.step(this.step() + 1);
         }
@@ -83,7 +94,7 @@ function modelFactory(params, ci) {
     ci.templateNodes.length = 0;
     ci.templateNodes.push(...elms);
 
-    params.steps.length = elms.length;
+    params.steps = params.steps.slice(0, elms.length);
 
     return new WizardViewModel(params);
 }

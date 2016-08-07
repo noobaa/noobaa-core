@@ -12,6 +12,10 @@ export function invokeAsync(f, ...params) {
     );
 }
 
+export function isArray(value){
+    return value instanceof Array;
+}
+
 export function isNumber(value) {
     return typeof value === 'number' || value instanceof Number;
 }
@@ -57,7 +61,7 @@ export function formatSize(num) {
         }
     }
 
-    while (num / 1024 > 1) {
+    while (num / 1024 >= 1) {
         num /= 1024;
         ++i;
     }
@@ -352,4 +356,21 @@ export function areSame(a, b) {
 
 export function capitalize(str) {
     return str[0].toUpperCase() + str.substr(1);
+}
+
+export function flatMap(arr, predicate) {
+    return arr.reduce(
+        (result, item) => {
+            let mappedValue = predicate(item);
+
+            if (isArray(mappedValue)) {
+                result.push(...mappedValue);
+            } else {
+                result.push(mappedValue);
+            }
+
+            return result;
+        },
+        []
+    );
 }

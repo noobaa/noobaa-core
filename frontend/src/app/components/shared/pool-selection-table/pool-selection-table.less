@@ -1,9 +1,8 @@
 pool-selection-table {
-    display: block;
+    .column();
     padding-bottom: @gutter;
 
     data-table {
-        height: 210px;
 
         .select-col {
             min-width: 45px;
@@ -15,11 +14,12 @@ pool-selection-table {
 
         .name-col {
             text-align: left;
+            max-width : 300px;
             width: 100%;
         }
 
         .online-count-col {
-            min-width: 200px;
+            min-width: 130px;
         }
 
         .free-space-col {

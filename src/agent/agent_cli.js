@@ -104,7 +104,8 @@ AgentCLI.prototype.init = function() {
             if (self.params.address) {
                 self.client.options.address = self.params.address;
             }
-            return os_utils.read_drives();
+            return os_utils.read_drives()
+                .then(drives => os_utils.remove_linux_readonly_drives(drives));
         })
         .then(function(drives) {
             dbg.log0('drives:', drives, ' current location ', process.cwd());

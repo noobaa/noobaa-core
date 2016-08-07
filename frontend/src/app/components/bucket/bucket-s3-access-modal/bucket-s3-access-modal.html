@@ -1,12 +1,9 @@
-<modal params="onClose: () => cancel()">
-    <h1 class="heading2 push-next">
-        Bucket S3 Access
-    </h1>
-
+<modal class="modal-small" params="
+    onClose: () => cancel(),
+    title: 'Bucket S3 Access'
+">
     <div class="row content-middle">
-        <h2 class="heading3 greedy">
-            Select accounts to add or remove S3 access permissions
-        </h2>
+        <h2 class="heading3 greedy">Edit accounts S3 access permissions</h2>
         <div>
             <button class="link" data-bind="click: selectAllAccounts">
                 Select all
@@ -18,12 +15,12 @@
         </div>
     </div>
 
-    <multiselect class="push-next" params="
+    <multiselect class="greedy" params="
         options: accounts,
         selected: selectedAccounts
     "></multiselect>
 
-    <p>
+    <p class="push-next">
         <svg-icon class="icon-small" params="name: 'notif-info'"></svg-icon>
         to create a new account go to System Managemnet >
         <a class="link" data-bind="

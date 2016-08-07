@@ -16,22 +16,62 @@ modal {
         transform: translate(-50%, -50%);
         background: @bg-color3;
         box-shadow: 0 0 20px black;
-        max-width: 85%;
         padding: @gutter;
-        line-height: normal;
+        transition: all 250ms ease-in-out;
 
         .heading2 {
             text-align: center;
         }
+
+    }
+
+    .modal-heading {
+        .heading2();
+        margin: -@gutter;
+        margin-bottom: @gutter;
+        padding: @gutter/2 @gutter;
+        text-align: left;
+        border-bottom: 2px solid #35434E;
     }
 
     .close-btn {
         padding: 0;
     }
 
-    @media screen and (min-width: 1280px) {
-        .modal-content {
-            max-width: .85 * 1280px;
-        }
+    .modal-content {
+        width: 10px;
+        height: 10px;
+    }
+
+
+    &.modal-xsmall > .modal-content {
+        width: 570px;
+        height: 330px;
+    }
+
+    &.modal-small > .modal-content {
+        width: 610px;
+        height: 455px;;
+    }
+
+    &.modal-medium > .modal-content {
+        width: 610px;
+        height: 552px;
+    }
+
+    &.modal-large > .modal-content {
+        width: 750px;
+        height: 552px;
+    }
+
+    &.modal-xlarge > .modal-content {
+        width: 900px;
+        height: 552px;
+    }
+
+    &.modal-auto-height > .modal-content {
+        width: 900px;
+        height: 80%;
+        min-height: 552px;
     }
 }

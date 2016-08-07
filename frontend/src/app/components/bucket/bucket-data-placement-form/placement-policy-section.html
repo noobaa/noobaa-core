@@ -5,7 +5,7 @@
     </div>
 
 
-    <div data-bind="tooltip: editingDisabledToolTip">
+    <div data-bind="tooltip: editingDisabledTooltip">
         <button class="btn3" data-bind="
             disable: editingDisabled,
             click: showPlacementPolicyModal
@@ -26,7 +26,7 @@
     </span>
 </div>
 
-<data-table params="
+<data-table class="placement-table" params="
     columns: placementTableColumns,
     data: nodePools,
     rowFactory: pool => createPlacementRow(pool),
@@ -35,6 +35,7 @@
 
 <!-- ko if: isPlacementPolicyModalVisible -->
 <bucket-placement-policy-modal params="
-    policy: policy, onClose: () => hidePlacementPolicyModal()
+    bucketName: bucketName,
+    onClose: () => hidePlacementPolicyModal()
 "></bucket-placement-policy-modal>
 <!-- /ko -->

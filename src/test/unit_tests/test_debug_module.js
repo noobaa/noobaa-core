@@ -7,6 +7,7 @@ var assert = require('assert');
 var fs = require('fs');
 var DebugModule = require('../../util/debug_module');
 var os = require('os');
+var promise_utils = require('../../util/promise_utils');
 
 // File Content Verifier according to given expected result (positive/negative)
 function file_content_verify(flag, expected) {
@@ -83,9 +84,18 @@ mocha.describe('debug_module', function() {
     });
 
     mocha.it('should log when level is appropriate', function() {
-        var dbg = new DebugModule('/web/noise/noobaa-core/src/blabla.asd/lll.asd');
-        dbg.log0("test_debug_module: log0 should appear in the log");
-        return file_content_verify("text", "test_debug_module: log0 should appear in the log");
+        var rotation_command = '';
+        //no special handling on Darwin for now. ls as place holder
+        if (os.type() === 'Darwin') {
+            rotation_command = 'ls';
+        } else {
+            rotation_command = '/usr/sbin/logrotate /etc/logrotate.d/noobaa';
+        }
+        return promise_utils.exec(rotation_command).then(function() {
+            var dbg = new DebugModule('/web/noise/noobaa-core/src/blabla.asd/lll.asd');
+            dbg.log0("test_debug_module: log0 should appear in the log");
+            return file_content_verify("text", "test_debug_module: log0 should appear in the log");
+        })
     });
 
     mocha.it('should NOT log when level is lower', function() {
@@ -129,7 +139,7 @@ mocha.describe('debug_module', function() {
         var s3 = 'expected';
         var d1 = 3;
         var d2 = 2;
-        dbg.log0("%s string substitutions (%d) %s be logged as %s, with two (%d) numbers", s1,d1, s2, s3,d2);
+        dbg.log0("%s string substitutions (%d) %s be logged as %s, with two (%d) numbers", s1, d1, s2, s3, d2);
         return file_content_verify("text", " this string substitutions (3) should be logged as expected, with two (2) numbers");
     });
 
@@ -140,7 +150,7 @@ mocha.describe('debug_module', function() {
                 var dbg = new DebugModule('/web/noise/noobaa-core/src/blabla.asd/lll.asd');
                 _.noop(dbg); // lint unused bypass
                 console[l]("console - %s - should be captured", l);
-                    return file_content_verify("text", "CONSOLE:: console - " + l + " - should be captured");
+                return file_content_verify("text", "CONSOLE:: console - " + l + " - should be captured");
             });
         }, P.resolve());
     });

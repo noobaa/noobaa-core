@@ -33,12 +33,17 @@
                 selected: selectedGraph
             "></toggle-filter>
 
+            <!-- ko if: selectedGraph() === 'STORAGE' -->
             <chart-legend params="items: legend"></chart-legend>
-
+            <!-- /ko -->
         </div>
 
         <!-- ko if: selectedGraph() === 'STORAGE' -->
-        <pie-chart params="values: storageValues"></pie-chart>
+        <pie-chart params="
+            values: storageValues,
+            primaryText: formattedText,
+            secondaryText: 'Total'
+        "></pie-chart>
         <!-- /ko -->
 
         <!-- ko if: selectedGraph() === 'DATA' -->

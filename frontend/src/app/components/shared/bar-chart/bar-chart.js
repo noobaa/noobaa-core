@@ -2,6 +2,7 @@ import template from './bar-chart.html';
 import Disposable from 'disposable';
 import ko from 'knockout';
 import style from 'style';
+import { formatSize } from 'utils';
 
 const height = 168;
 const width = 168;
@@ -10,7 +11,10 @@ const barSpacing = 4;
 const barWidth = 45;
 const maxBarHeight = height - 2 * gutter;
 const minBarHeight = 2;
+
 const underlineColor = style['bg-color6'];
+const labelFont = `${style['font-size-small']} ${style['font-type2']}`;
+const valueColor = style['text-color1'];
 
 class BarChartViewModel extends Disposable{
     constructor({ values }) {
@@ -18,9 +22,7 @@ class BarChartViewModel extends Disposable{
         this.canvasWidth =  width;
         this.canvasHeight = height;
 
-        this.colors = values.map(
-            ({ color }) => color
-        );
+        this.md = values;
 
         let max = ko.pureComputed(
             () => values.reduce(
@@ -57,7 +59,14 @@ class BarChartViewModel extends Disposable{
 
         this.values.reduce(
             (offset, size, i) => {
-                this.drawBar(ctx, offset, size(), this.colors[i]);
+                let { color, label, value } = this.md[i];
+
+                let top = gutter + (1 - size()) * maxBarHeight + .5|0;
+
+                this.drawValue(ctx, offset, top, ko.unwrap(value));
+                this.drawBar(ctx, offset, top, color);
+                this.drawLabel(ctx, offset, label, color);
+
                 return offset += barWidth + barSpacing;
             },
             left
@@ -66,12 +75,42 @@ class BarChartViewModel extends Disposable{
         this.drawUnderline(ctx);
     }
 
-    drawBar(ctx, offset, size, color) {
-        let top = gutter + (1 - size) * maxBarHeight;
-        let height = size * maxBarHeight;
+    drawValue(ctx, left, top, value) {
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'bottom';
+        ctx.fillStyle = valueColor;
+        ctx.font = labelFont;
 
+        ctx.fillText(
+            formatSize(value),
+            left + barWidth / 2 + .5|0,
+            top - 2,
+            barWidth
+        );
+    }
+
+    drawBar(ctx, left, top, color) {
+        let height = gutter + maxBarHeight - top;
         ctx.fillStyle = color;
-        ctx.fillRect(offset, top +.5|0, barWidth, height + .5|0);
+        ctx.fillRect(left, top, barWidth, height);
+    }
+
+    drawLabel(ctx, left, text, color) {
+        if (!text) {
+            return;
+        }
+
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'top';
+        ctx.fillStyle = color;
+        ctx.font = labelFont;
+
+        ctx.fillText(
+            text,
+            left + barWidth / 2 + .5|0,
+            gutter + maxBarHeight + 2,
+            barWidth
+        );
     }
 
     drawUnderline(ctx) {

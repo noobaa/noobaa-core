@@ -35,16 +35,12 @@ class BucketSummrayViewModel extends Disposable {
             () => !!bucket()
         );
 
-        this.total = ko.pureComputed(
-            () => bucket() && bucket().storage.used
-        );
-
-        this.totalText = ko.pureComputed(
-            () => bucket() && formatSize(bucket().storage.total)
-        );
-
         let storage = ko.pureComputed(
             () => bucket() ? bucket().storage : {}
+        );
+
+        this.formattedText = ko.pureComputed(
+            () => formatSize(storage().total)
         );
 
         this.graphOptions = graphOptions;

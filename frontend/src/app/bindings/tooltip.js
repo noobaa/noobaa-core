@@ -84,19 +84,20 @@ export default {
 
         let sub = ko.pureComputed(
             () => Boolean(hover() && params().text)
-        ).extend({
+        )
+        .extend({
             rateLimit: {
                 timeout: delay,
                 method: 'notifyWhenChangesStop'
             }
-        }).subscribe(
+        })
+        .subscribe(
             visible => visible ?
                 showTooltip(target, params()) :
                 hideTooltip()
         );
 
         // Handle delyed hover state.
-        let handle = -1;
         ko.utils.registerEventHandler(target, 'mouseenter', () => hover(true));
         ko.utils.registerEventHandler(target, 'mouseleave', () => hover(false));
 
@@ -104,8 +105,7 @@ export default {
         ko.utils.domNodeDisposal.addDisposeCallback(
             target,
             () => {
-                clearTimeout(handle);
-                hover(false);
+                hideTooltip(tooltip);
                 sub.dispose();
             }
         );

@@ -605,9 +605,9 @@ function background_worker() {
         .then(() => server_rpc.client.stats.get_all_stats({}))
         .then(payload => send_stats_payload(payload))
         .catch(err => {
-            successfuly_sent = 0;
             failed_sent++;
             if (failed_sent > 5) {
+                successfuly_sent = 0;
                 let updates = {
                     _id: system_store.data.systems[0]._id.toString()
                 };

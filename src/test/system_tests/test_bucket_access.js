@@ -94,13 +94,13 @@ function setup() {
         }))
         // add new accounts:
         .then(() => client.account.create_account(full_access_user))
-//        .then(() => client.system.create_system({
-            // activation_code: '1111',
-            // name: full_access_user.name,
-            // email: full_access_user.email,
-            // password: full_access_user.password,
-            // access_keys: full_access_user.access_keys
-//         }))
+        //        .then(() => client.system.create_system({
+        // activation_code: '1111',
+        // name: full_access_user.name,
+        // email: full_access_user.email,
+        // password: full_access_user.password,
+        // access_keys: full_access_user.access_keys
+        //         }))
         .then(() => client.account.create_account(bucket1_user))
         .then(() => client.account.create_account(no_access_user));
 }
@@ -138,7 +138,7 @@ function run_test() {
         .then(() => {
             console.log('test_bucket_access PASSED');
             return;
-        })
+        });
 }
 
 

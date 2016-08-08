@@ -46,7 +46,7 @@ function collect_basic_diagnostics(limit_logs_size) {
         )
         .then(() => {
             return os_utils.netstat_single(TMP_WORK_DIR + '/netstat.out')
-                .catch(err => {
+                .catch(err => { //netstat fails, soft trying ss instead
                     return P.fcall(() => {
                             return os_utils.ss_single(TMP_WORK_DIR + '/ss.out');
                         })

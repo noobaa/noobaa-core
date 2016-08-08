@@ -13,7 +13,7 @@ class BucketPanelViewModel extends Disposable {
             )
         );
 
-        this.objects = bucketObjectList;
+        this.objectList = bucketObjectList;
 
         this.ready = ko.pureComputed(
             () => !!this.bucket()

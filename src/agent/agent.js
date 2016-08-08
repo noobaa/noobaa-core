@@ -63,7 +63,7 @@ class Agent {
             this.storage_limit = params.storage_limit;
         }
 
-        this.is_internal_agent = params.is_internal_agent;
+        this.is_demo_agent = params.is_demo_agent;
 
         const block_store_options = {
             node_name: this.node_name,
@@ -258,7 +258,7 @@ class Agent {
         };
         if (this.cloud_info) {
             hb_info.pool_name = this.cloud_info.cloud_pool_name;
-        } else if (this.is_internal_agent) {
+        } else if (this.is_demo_agent) {
             hb_info.pool_name = config.DEMO_DEFAULTS.NAME;
         }
         return this.client.node.heartbeat(hb_info, {

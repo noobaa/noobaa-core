@@ -2,18 +2,18 @@ import Disposable from 'disposable';
 import ko from 'knockout';
 import numeral from 'numeral';
 
-const partStateMapping = Object.freeze({
+const partHealthMapping = Object.freeze({
     available: {
-        toolTip: 'available',
-        icon: 'part-available'
+        name: 'part-available',
+        tooltip: 'available'
     },
     building: {
-        toolTip: 'in process',
-        icon: 'part-in-process'
+        name: 'part-in-process',
+        tooltip: 'in process'
     },
     unavailable: {
-        toolTip: 'unavailable',
-        icon: 'part-unavailable'
+        name: 'part-unavailable',
+        tooltip: 'unavailable'
     }
 });
 
@@ -22,42 +22,53 @@ export default class ObjectRowViewModel extends Disposable {
 
         super();
 
-        this.isVisible = ko.pureComputed(
-            () => !!part()
-        );
+        this.state = ko.pureComputed(
+            () => {
+                if (!part()) {
+                    return '';
+                }
 
-        let stateMapping = ko.pureComputed(
-            () => part() && partStateMapping[part().info.chunk.adminfo.health]
-        );
-
-        this.stateToolTip = ko.pureComputed(
-            () => stateMapping() && stateMapping().toolTip
-        );
-
-        this.stateIcon = ko.pureComputed(
-            () => stateMapping() && stateMapping().icon
+                let health = part().chunk.adminfo.health;
+                return partHealthMapping[health];
+            }
         );
 
         this.object = ko.pureComputed(
-            () => part() && part().object
+            () => {
+                if (!part()) {
+                    return '';
+                }
+
+                return {
+                    text: part().object,
+                    href: {
+                        route: 'object',
+                        params: {
+                            bucket: part().bucket,
+                            object: part().object,
+                            tab: null
+                        }
+                    }
+                };
+            }
         );
 
         this.bucket = ko.pureComputed(
-            () => part() && part().bucket
+            () => part() ? part().bucket : ''
         );
 
         this.startOffset = ko.pureComputed(
-            () => part() && numeral(part().info.start).format('0.0 b')
+            () => part() ? numeral(part().start).format('0.0 b') : ''
         );
 
         this.endOffset = ko.pureComputed(
-            () => part() && numeral(part().info.end).format('0.0 b')
+            () => part() ? numeral(part().end).format('0.0 b') : ''
         );
 
         this.size = ko.pureComputed(
-            () => part() && numeral(
-                part().info.end - part().info.start).format('0.0 b'
-            )
+            () => part() ?
+                numeral(part().end - part().start).format('0.0 b') :
+                ''
         );
     }
 }

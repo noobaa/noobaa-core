@@ -20,6 +20,9 @@ module.exports = {
                     name: {
                         type: 'string',
                     },
+                    demo: {
+                        type: 'boolean'
+                    },
                     access_keys: {
                         type: 'object',
                         required: ['access_key', 'secret_key'],

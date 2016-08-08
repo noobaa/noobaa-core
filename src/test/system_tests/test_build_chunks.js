@@ -81,8 +81,8 @@ function test_uploaded_object_has_expected_num_blocks(expected_num_blocks) {
                             // go over all nodes and check that the block is in the pool:
                             for (let n = 0; n < nodes_list.nodes.length; n++) {
                                 for (let blk = 0; blk < blk_info.length; blk++) {
-                                    // console.log('checking block node = ', blk_info[blk].block_md.node, 'vs node.id = ', nodes_list.nodes[n].id);
-                                    if (nodes_list.nodes[n].id === blk_info[blk].block_md.node) {
+                                    //console.log('checking block node = ', blk_info[blk].block_md.address, 'vs node.id = ', nodes_list.nodes[n].rpc_address);
+                                    if (nodes_list.nodes[n].rpc_address === blk_info[blk].block_md.address) {
                                         num_blocks++;
                                     }
                                 }
@@ -91,7 +91,7 @@ function test_uploaded_object_has_expected_num_blocks(expected_num_blocks) {
                                 if (first_iteration) {
                                     start_ts = Date.now();
                                     first_iteration = false;
-                                    console.warn('number of blocks for uploaded object is ' + num_blocks + '. expecting ' + expected_num_blocks +
+                                    console.warn('number of blocks for uploaded `object` is ' + num_blocks + '. expecting ' + expected_num_blocks +
                                         ' blocks. retrying for ' + abort_timeout_sec + ' seconds...');
                                 }
 

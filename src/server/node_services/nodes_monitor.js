@@ -1417,15 +1417,10 @@ function get_storage_info(storage, ignore_reserve) {
         reserved: config.NODES_FREE_SPACE_RESERVE || 0,
         used_other: storage.used_other || 0
     };
-    let free_considering_reserve = ignore_reserve ? storage.free : storage.free - config.NODES_FREE_SPACE_RESERVE;
-    if (free_considering_reserve > 0) {
-        storage.free = free_considering_reserve;
-        storage.reserved = config.NODES_FREE_SPACE_RESERVE;
-    } else {
-        storage.reserved = storage.free;
-        storage.free = 0;
-    }
-    storage.used_other = Math.max(storage.total - storage.used - storage.reserved - storage.free, 0);
+
+    reply.reserved = ignore_reserve ? 0 : Math.min(config.NODES_FREE_SPACE_RESERVE, reply.free);
+    reply.free -= reply.reserved;
+    reply.used_other = Math.max(reply.total - reply.used - reply.reserved - reply.free, 0);
     return reply;
 }
 

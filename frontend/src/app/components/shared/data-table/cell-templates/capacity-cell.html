@@ -1,1 +1,5 @@
-<capacity-bar params="total: $data().total, used: $data().used"></capacity-bar>
+<capacity-bar params="
+    total: ko.unwrap($data).total,
+    used: ko.unwrap($data).used,
+    color: ko.unwrap($data).color
+"></capacity-bar>

@@ -32,6 +32,7 @@ const VALID_BUCKET_NAME_REGEXP =
 
 
 function new_bucket_defaults(name, system_id, tiering_policy_id, tag) {
+    let now = Date.now();
     return {
         _id: system_store.generate_id(),
         name: name,
@@ -42,13 +43,13 @@ function new_bucket_defaults(name, system_id, tiering_policy_id, tag) {
             chunks_capacity: 0,
             objects_size: 0,
             objects_count: 0,
-            last_update: Date.now()
+            last_update: now
         },
         stats: {
             reads: 0,
             writes: 0,
-            last_read: 0,
-            last_write: 0,
+            last_read: now,
+            last_write: now,
         }
     };
 }
@@ -741,7 +742,6 @@ function get_bucket_info(bucket, nodes_aggregate_pool, num_of_objects, cloud_syn
         info.tiering = tier_server.get_tiering_policy_info(bucket.tiering, nodes_aggregate_pool);
     }
 
-    info.storage_stats = bucket.storage_stats;
     let objects_aggregate = {
         size: (bucket.storage_stats && bucket.storage_stats.objects_size) || 0,
         count: (bucket.storage_stats && bucket.storage_stats.objects_count) || 0
@@ -752,6 +752,7 @@ function get_bucket_info(bucket, nodes_aggregate_pool, num_of_objects, cloud_syn
     info.num_objects = num_of_objects || 0;
     info.storage = size_utils.to_bigint_storage({
         used: objects_aggregate.size,
+        used_other: info.tiering && info.tiering.storage && info.tiering.storage.used_other || 0,
         total: info.tiering && info.tiering.storage && info.tiering.storage.total || 0,
         free: info.tiering && info.tiering.storage && info.tiering.storage.free || 0,
         // This is the physical compressed capacity
@@ -759,8 +760,22 @@ function get_bucket_info(bucket, nodes_aggregate_pool, num_of_objects, cloud_syn
         real: new BigInteger((bucket.storage_stats && bucket.storage_stats.chunks_capacity) || 0).multiply(tier_of_bucket.replicas).multiply(placement_mul)
     });
 
-    info.cloud_sync_policy = cloud_sync_policy;
-    info.cloud_sync_status = _.isEmpty(cloud_sync_policy) ? 'NOTSET' : cloud_sync_policy.status;
+    let stats = bucket.stats;
+    let last_read = stats.last_read ?
+        new Date(bucket.stats.last_read).getTime() :
+        undefined;
+    let last_write = stats.last_write ?
+        new Date(bucket.stats.last_write).getTime() :
+        undefined;
+
+    info.stats = {
+        reads: stats.reads,
+        writes: stats.writes,
+        last_read: last_read,
+        last_write: last_write
+    };
+
+    info.cloud_sync = cloud_sync_policy ? (cloud_sync_policy.status ? cloud_sync_policy : undefined) : undefined;
     info.demo_bucket = Boolean(bucket.demo_bucket);
     return info;
 }

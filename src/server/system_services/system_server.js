@@ -234,6 +234,7 @@ function create_system(req) {
             }
             return server_rpc.client.hosted_agents.create_agent({
                 name: req.rpc_params.name,
+                demo: true,
                 access_keys: req.rpc_params.access_keys,
                 scale: config.NUM_DEMO_NODES,
                 storage_limit: config.DEMO_NODES_STORAGE_LIMIT,
@@ -293,19 +294,29 @@ function read_system(req) {
         // nodes - count, online count, allocated/used storage aggregate by pool
         nodes_client.instance().aggregate_nodes_by_pool(null, system._id, /*skip_cloud_nodes=*/ true),
         md_store.aggregate_objects_count({
-                    system: system._id,
-                    deleted: null
+            system: system._id,
+            deleted: null
         }),
+
         // passing the bucket itself as 2nd arg to bucket_server.get_cloud_sync
         // which is supported instead of sending the bucket name in an rpc req
         // just to reuse the rpc function code without calling through rpc.
-        promise_utils.all_obj(system.buckets_by_name,
-            bucket => bucket_server.get_cloud_sync(req, bucket))
+        promise_utils.all_obj(
+            system.buckets_by_name,
+            bucket => bucket_server.get_cloud_sync(req, bucket)
+        ),
 
+        P.fcall(() => server_rpc.client.account.list_accounts({}, {
+            auth_token: req.auth_token
+        })).then(
+            response => response.accounts
+        )
     ).spread(function(
         nodes_aggregate_pool,
         objects_count,
-        cloud_sync_by_bucket) {
+        cloud_sync_by_bucket,
+        accounts
+    ) {
         const objects_sys = {
             count: size_utils.BigInteger.zero,
             size: size_utils.BigInteger.zero,
@@ -412,6 +423,8 @@ function read_system(req) {
                 response.dns_name = hostname;
             }
         }
+
+        response.accounts = accounts;
 
         return response;
     });

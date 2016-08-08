@@ -77,4 +77,4 @@ db.getSiblingDB("nbcore").accounts.updateMany({}, {
     $unset: {
         sync_credentials_cache: true
     }
-})
+});

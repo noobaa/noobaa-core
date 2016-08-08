@@ -1,7 +1,6 @@
 'use strict';
 
 var _ = require('lodash');
-var P = require('../../util/promise');
 var mocha = require('mocha');
 var assert = require('assert');
 var WaitQueue = require('../../util/wait_queue');

@@ -44,7 +44,7 @@ function create_agent(req) {
     }
 
     if (os_utils.is_supervised_env()) {
-        return supervisor.remove_program('agent_' +req.params.name).then(() => {
+        return supervisor.remove_program('agent_' + req.params.name).then(() => {
             dbg.log0('adding agent to supervior with arguments:', _.join(args, ' '));
             return supervisor.add_agent(req.params.name, _.join(args, ' '));
         });

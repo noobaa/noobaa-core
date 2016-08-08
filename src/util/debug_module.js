@@ -339,14 +339,12 @@ var LOG_FUNC_PER_LEVEL = {
 function syslog_formatter(self, level, args) {
     let msg = '';
     for (var i = 1; i < args.length; i++) {
-        if (msg.indexOf('%s')>0 && !(msg.indexOf('%d')>0 && msg.indexOf('%d')< msg.indexOf('%s'))){
-            msg = msg.replace('%s',util.format(args[i]));
-        }
-        else if (msg.indexOf('%d')>0){
-            msg = msg.replace('%d',util.format(args[i]));
-        }
-        else{
-            msg += util.format(args[i])+' ';
+        if (msg.indexOf('%s') > 0 && !(msg.indexOf('%d') > 0 && msg.indexOf('%d') < msg.indexOf('%s'))) {
+            msg = msg.replace('%s', util.format(args[i]));
+        } else if (msg.indexOf('%d') > 0) {
+            msg = msg.replace('%d', util.format(args[i]));
+        } else {
+            msg += util.format(args[i]) + ' ';
         }
     }
     let level_str = ((self._levels[level] === 0) ?

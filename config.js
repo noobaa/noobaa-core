@@ -96,10 +96,11 @@ if (!is_windows) {
 config.central_stats = {
     send_stats: 'true',
     central_listener: 'http://104.155.41.235:9090/phdata',
-    send_time_cycle: 30 * 60000,
+    send_time_cycle: 30 * 60000, //min
     previous_diag_packs_dir: process.env.ProgramData + '/prev_diags',
     previous_diag_packs_count: 3 //TODO: We might want to split between agent and server
 };
+config.central_stats.send_time = 10 * (24 / (config.central_stats.send_time_cycle / 60000 / 60)); //10 days
 
 /*
   Clustering Defaults

@@ -703,7 +703,10 @@ module.exports = {
                         },
                         upgraded_cap_notification: {
                             type: 'boolean'
-                        }
+                        },
+                        phone_home_unable_comm: {
+                            type: 'boolean'
+                        },
                     }
                 },
                 remote_syslog_config: {

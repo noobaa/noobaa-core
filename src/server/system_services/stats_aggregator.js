@@ -26,6 +26,9 @@ const SCALE_BYTES_TO_GB = 1024 * 1024 * 1024;
 const SCALE_BYTES_TO_MB = 1024 * 1024;
 const SCALE_SEC_TO_DAYS = 60 * 60 * 24;
 
+var successfuly_sent = 0;
+var failed_sent = 0;
+
 /*
  * Stats Collction API
  */
@@ -601,8 +604,46 @@ function background_worker() {
         })
         .then(() => server_rpc.client.stats.get_all_stats({}))
         .then(payload => send_stats_payload(payload))
-        .then(res => server_rpc.client.stats.object_usage_scrubber({}))
-        .then(() => dbg.log('Phone Home data was send successfuly'))
+        .catch(err => {
+            successfuly_sent = 0;
+            failed_sent++;
+            if (failed_sent > 5) {
+                let updates = {
+                    _id: system_store.data.systems[0]._id.toString()
+                };
+                updates.freemium_cap.phone_home_unable_comm = true;
+                return system_store.make_changes({
+                        update: {
+                            systems: [updates]
+                        }
+                    })
+                    .then(() => {
+                        throw err;
+                    });
+            }
+            throw err;
+        })
+        .then(() => {
+            successfuly_sent++;
+            failed_sent = 0;
+            if (successfuly_sent > config.central_stats.send_time &&
+                !system_store.data.systems[0].freemium_cap.phone_home_upgraded) {
+                let updates = {
+                    _id: system_store.data.systems[0]._id,
+                    freemium_cap: system_store.data.systems[0].freemium_cap,
+                };
+                updates.freemium_cap.phone_home_upgraded = true;
+                updates.freemium_cap.cap_terabytes =
+                    system_store.data.systems[0].freemium_cap.cap_terabytes + 10;
+                return system_store.make_changes({
+                    update: {
+                        systems: [updates]
+                    }
+                });
+            }
+        })
+        .then(() => server_rpc.client.stats.object_usage_scrubber({}))
+        .then(() => dbg.log('Phone Home data was sent successfuly'))
         .catch(err => {
             dbg.warn('Phone Home data send failed', err.stack || err);
             return;

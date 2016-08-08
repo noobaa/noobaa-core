@@ -351,6 +351,9 @@ function read_system(req) {
         if (system.phone_home_proxy_address) {
             phone_home_config.proxy_address = system.phone_home_proxy_address;
         }
+        if (system.freemium_cap.phone_home_unable_comm) {
+            phone_home_config.phone_home_unable_comm = true;
+        }
 
         // TODO use n2n_config.stun_servers ?
         // var stun_address = 'stun://' + ip_address + ':' + stun.PORT;

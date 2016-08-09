@@ -2,7 +2,7 @@
 
 let _ = require('lodash');
 let child_process = require('child_process');
-// let argv = require('minimist')(process.argv);
+let argv = require('minimist')(process.argv);
 
 /**
  *
@@ -10,16 +10,21 @@ let child_process = require('child_process');
  *
  */
 const SERVICES = [{
+    name: 'bg',
     fork: './src/bg_workers/bg_workers_starter.js'
 }, {
+    name: 'web',
     fork: './src/server/web_server.js'
 }, {
+    name: 's3',
     fork: './src/s3/s3rver.js'
 }, {
+    name: 'agents',
     fork: './src/agent/agent_cli.js',
     args: ['--scale', '20'],
     boot_delay: 5000
 }, {
+    name: 'mongo',
     spawn: 'mongod',
     args: ['-f', 'mongod.conf']
 }];
@@ -29,7 +34,11 @@ if (require.main === module) {
 }
 
 function main() {
-    _.each(SERVICES, run_service);
+    let excludes = argv.exclude ? argv.exclude.split(',') : [];
+    console.log('Excluding services:', excludes.join(' '));
+    _.each(SERVICES, service => {
+        if (excludes.indexOf(service.name) === -1) run_service(service);
+    });
 }
 
 function run_service(srv) {

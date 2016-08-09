@@ -30,7 +30,7 @@ function main() {
     let len = (argv.len * 1024 * 1024) || Infinity;
     let input = new RandStream(len, {
         highWaterMark: 1024 * 1024,
-        heavy_crypto: argv.heavy_crypto
+        random_mode: argv.random_mode,
     });
     input.on('data', data => speedometer.update(data.length));
     if (argv.gzip) {

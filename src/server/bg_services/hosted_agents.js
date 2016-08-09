@@ -13,6 +13,10 @@ function create_agent(req) {
     let port = process.env.SSL_PORT || 5443;
     let args = ['--address', 'wss://127.0.0.1:' + port, '--node_name', req.params.name];
 
+    if (req.params.demo) {
+        args.push('--demo');
+    }
+
     if (req.params.scale) {
         // regular agents
         args = args.concat(['--scale', req.params.scale.toString()]);
@@ -40,7 +44,7 @@ function create_agent(req) {
     }
 
     if (os_utils.is_supervised_env()) {
-        return supervisor.remove_program('agent_' +req.params.name).then(() => {
+        return supervisor.remove_program('agent_' + req.params.name).then(() => {
             dbg.log0('adding agent to supervior with arguments:', _.join(args, ' '));
             return supervisor.add_agent(req.params.name, _.join(args, ' '));
         });
@@ -67,7 +71,9 @@ function remove_agent(req) {
         if (child) {
             dbg.log0('killing agent', req.params.name, 'PID=', child.pid, ')');
             child.kill('SIGKILL');
+            delete spawned_hosted_agents[req.params.name];
         }
+
     }
 }
 // EXPORTS

@@ -16,9 +16,10 @@
     "build": "npm run build:native && npm run build:fe",
     "----": "-----------------------------------------------------------------",
     "lint": "eslint src",
-    "mocha": "istanbul test --include-all-sources --es-modules --no-default-excludes -x '**/bower_components/**' -x '**/node_modules/**' -x '**/frontend/**' -x 'src/util/mongo_functions.js' --dir $COVDIR -- ./node_modules/.bin/_mocha src/test/unit_tests",
+    "mocha": "istanbul test --include-all-sources --es-modules --no-default-excludes -x '**/bower_components/**' -x '**/node_modules/**' -x '**/frontend/**' -x 'src/util/mongo_functions.js' --dir $COVDIR -- ./node_modules/.bin/_mocha src/test/unit_tests/index.js",
     "test:lint": "npm run lint",
     "test:mocha": "npm run mocha --coverage",
+    "test:web": "mocha src/test/web/index.js",
     "test": "npm run test:lint && npm run test:mocha",
     "-----": "----------------------------------------------------------------",
     "db": "mongod -f mongod.conf",
@@ -123,5 +124,11 @@
     "winston": "1.1.2",
     "ws": "1.1.0",
     "xml2js": "0.4.16"
+  },
+  "devDependencies": {
+    "chromedriver": "2.22.2",
+    "phantomjs-prebuilt": "2.1.10",
+    "selenium-standalone": "5.5.0",
+    "selenium-webdriver": "3.0.0-beta-1"
   }
 }

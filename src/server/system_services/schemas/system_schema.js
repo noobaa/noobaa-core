@@ -70,6 +70,9 @@ module.exports = {
                 phone_home_notified: {
                     type: 'boolean'
                 },
+                phone_home_unable_comm: {
+                    type: 'boolean'
+                },
                 cap_terabytes: {
                     type: 'number'
                 }

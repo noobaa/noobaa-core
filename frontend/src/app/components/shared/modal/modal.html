@@ -1,6 +1,7 @@
-<div class="modal-backdrop" data-bind="click: onClose"></div>
+<div class="modal-backdrop" data-bind="click: backdropClick"></div>
 <div class="modal-content column text-left pop-centered">
-    <h1 class="row modal-heading content-middle" data-bind="visible: title">
+    <!-- ko if: title -->
+    <h1 class="row modal-heading content-middle">
         <span class="greedy push-next" data-bind="text: title"></span>
 
         <button class="close-btn btn-flat no-outline" data-bind="
@@ -9,6 +10,7 @@
             <svg-icon class="icon-small" params="name: 'x'"></svg-icon>
         </button>
     </h1>
+    <!-- /ko -->
 
     <!-- ko template: { nodes: $componentTemplateNodes, data: $parent } -->
     <!-- /ko -->

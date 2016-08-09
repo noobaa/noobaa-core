@@ -43,7 +43,7 @@ export default class TestRowViewModel extends Disposable {
                 let { state, progress } = result();
                 return {
                     css: state.toLowerCase(),
-                    text: state === 'RUNNING' ?numeral(progress).format('0%') : state.toLowerCase()
+                    text: state === 'RUNNING' ? numeral(progress).format('0%') : state.toLowerCase()
                 };
             }
         );

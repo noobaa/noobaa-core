@@ -1,7 +1,9 @@
 import template from './main-layout.html';
 import Disposable from 'disposable';
 import ko from 'knockout';
-import { uiState, systemInfo } from 'model';
+import { redirectTo } from 'actions';
+import { system as systemRoute } from 'routes';
+import { uiState, systemInfo, routeContext } from 'model';
 
 class MainLayoutViewModel extends Disposable {
     constructor() {
@@ -14,6 +16,22 @@ class MainLayoutViewModel extends Disposable {
         this.showDebugOutline = ko.pureComputed(
             () => !!systemInfo() && systemInfo().debug_level > 0
         );
+
+        this.isAfterUpgradeModalVisible = ko.pureComputed(
+            () => !!routeContext().query.afterupgrade
+        );
+
+        this.isWelcomeModalVisible = ko.pureComputed(
+            () => !!routeContext().query.welcome
+        );
+    }
+
+    hideWelcomeModal() {
+        redirectTo(systemRoute);
+    }
+
+    hideAfterUpgradeModal() {
+        redirectTo(systemRoute);
     }
 }
 

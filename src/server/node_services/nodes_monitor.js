@@ -1123,6 +1123,7 @@ class NodesMonitor extends EventEmitter {
                 has_issues += 1;
             }
 
+            // for internal agents set reserve to 0
             let reserve = item.node.is_internal_node ? 0 : config.NODES_FREE_SPACE_RESERVE;
 
             const free_considering_reserve =

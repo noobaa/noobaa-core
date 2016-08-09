@@ -259,7 +259,7 @@ class Agent {
         if (this.cloud_info) {
             hb_info.pool_name = this.cloud_info.cloud_pool_name;
         } else if (this.is_demo_agent) {
-            hb_info.pool_name = config.DEMO_DEFAULTS.NAME;
+            hb_info.pool_name = config.DEMO_DEFAULTS.POOL_NAME;
         }
         return this.client.node.heartbeat(hb_info, {
                 return_rpc_req: true

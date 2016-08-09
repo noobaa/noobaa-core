@@ -298,7 +298,7 @@ function get_pool_info(pool, nodes_aggregate_pool) {
 function check_pool_deletion(pool, nodes_aggregate_pool) {
 
     // Check if the default pool
-    if (pool.name === 'default_pool' || pool.name === config.DEMO_DEFAULTS.NAME) {
+    if (pool.name === 'default_pool' || pool.name === config.DEMO_DEFAULTS.POOL_NAME) {
         return 'SYSTEM_ENTITY';
     }
 

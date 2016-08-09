@@ -147,8 +147,8 @@ function new_system_changes(name, owner_account) {
 
 
         if (process.env.LOCAL_AGENTS_ENABLED === 'true') {
-            const demo_pool_name = config.DEMO_DEFAULTS.NAME;
-            const demo_bucket_name = config.DEMO_DEFAULTS.NAME;
+            const demo_pool_name = config.DEMO_DEFAULTS.POOL_NAME;
+            const demo_bucket_name = config.DEMO_DEFAULTS.BUCKET_NAME;
             const demo_bucket_with_suffix = demo_bucket_name + '#' + Date.now().toString(36);
             let demo_pool = pool_server.new_pool_defaults(demo_pool_name, system._id);
             var demo_tier = tier_server.new_tier_defaults(demo_bucket_with_suffix, system._id, [demo_pool._id]);

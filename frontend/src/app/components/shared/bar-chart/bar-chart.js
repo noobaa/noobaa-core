@@ -17,12 +17,14 @@ const labelFont = `${style['font-size-small']} ${style['font-type2']}`;
 const valueColor = style['text-color1'];
 
 class BarChartViewModel extends Disposable{
-    constructor({ values }) {
+    constructor({ values, drawValues = false, drawLabels = false }) {
         super();
         this.canvasWidth =  width;
         this.canvasHeight = height;
 
-        this.md = values;
+        this.values = values;
+        this.drawValues = drawValues;
+        this.drawLabels = drawLabels;
 
         let max = ko.pureComputed(
             () => values.reduce(
@@ -31,7 +33,7 @@ class BarChartViewModel extends Disposable{
             )
         );
 
-        this.values = values.map(
+        this.normalized = values.map(
             ({ value }) => ko.pureComputed(
                 () => {
                     if (ko.unwrap(value) === 0) {
@@ -57,15 +59,20 @@ class BarChartViewModel extends Disposable{
         let contentWidth = (barWidth + barSpacing) * this.values.length - barSpacing;
         let left = (this.canvasWidth - contentWidth) / 2;
 
-        this.values.reduce(
+        this.normalized.reduce(
             (offset, size, i) => {
-                let { color, label, value } = this.md[i];
-
+                let { color, label, value } = this.values[i];
                 let top = gutter + (1 - size()) * maxBarHeight + .5|0;
 
-                this.drawValue(ctx, offset, top, ko.unwrap(value));
+                if (this.drawValues) {
+                    this.drawValue(ctx, offset, top, ko.unwrap(value));
+                }
+
                 this.drawBar(ctx, offset, top, color);
-                this.drawLabel(ctx, offset, label, color);
+
+                if (this.drawLabels && label) {
+                    this.drawLabel(ctx, offset, label, color);
+                }
 
                 return offset += barWidth + barSpacing;
             },
@@ -96,10 +103,6 @@ class BarChartViewModel extends Disposable{
     }
 
     drawLabel(ctx, left, text, color) {
-        if (!text) {
-            return;
-        }
-
         ctx.textAlign = 'center';
         ctx.textBaseline = 'top';
         ctx.fillStyle = color;

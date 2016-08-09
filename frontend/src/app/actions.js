@@ -1699,3 +1699,10 @@ export function validateActivationCode(code) {
             })
         );
 }
+
+export function dismissUpgradedCapacityNotification() {
+    logAction('dismissUpgradedCapacityNotification');
+
+    api.system.phone_home_capacity_notified()
+        .then(loadSystemInfo);
+}

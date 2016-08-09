@@ -1,45 +1,36 @@
 <!-- ko if: dataReady -->
-<section class="c3 column">
-    <h3 class="heading4 push-next">
-        Reads in last 7 days:
-    </h3>
+<section class="column c6">
+    <h3 class="heading4 push-next">File details</h3>
 
-    <needle-gauge class="align-middle" params="
-        value: reads, threshold: 500, scale: 1.5
-    ">
-    </needle-gauge>
+    <ul class="list-no-style column">
+        <li class="row">
+            <span class="details-label push-next">Bucket name:</span>
+            <span class="greedy" data-bind="text: bucketName"></span>
+        </li>
+        <li class="row">
+            <span class="details-label push-next">Content Type:</span>
+            <span class="greedy" data-bind="text: contentType"></span>
+        </li>
+
+        <li class="row">
+            <span class="details-label push-next">Creation time:</span>
+            <span class="greedy" data-bind="text: creationTime"></span>
+        </li>
+        <li class="row">
+            <span class="details-label push-next">Last read time:</span>
+            <span class="greedy" data-bind="text: lastRead"></span>
+        </li>
+    </ul>
 </section>
 
 <vr></vr>
 
-<section class="c4 column">
-    <h3 class="heading4 push-next">
-        Status
-    </h3>
-    <div class="push-next">
-        <svg-icon params="name: stateIcon" data-bind="
-            tooltip: 'File state'
-        "></svg-icon>
-        <span data-bind="text: stateLabel"></span>
+<section class="c6 row">
+    <div class="column">
+        <h3 class="heading4">File size</h3>
+        <chart-legend params="items: barsValues"></chart-legend>
     </div>
-
-    <h3 class="heading4 push-next">
-        File Size
-    </h3>
-    <div>
-        <svg-icon params="name: sizeIcon" data-bind="
-            tooltip: 'File size'
-        "></svg-icon>
-        <span data-bind="text: sizeLabel"></span>
-    </div>
+    <bar-chart class="greedy" params="values: barsValues"></bar-chart>
 </section>
 
-<vr></vr>
-
-<section class="c5 column">
-    <h3 class="heading4 push-next">
-        Activity
-    </h3>
-    <span>No current data activity</span>
-</section>
 <!-- /ko -->

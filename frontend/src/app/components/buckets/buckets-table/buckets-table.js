@@ -24,6 +24,9 @@ const columns = deepFreeze([
         sortable: true
     },
     {
+        name: 'placementPolicy'
+    },
+    {
         name: 'capacity',
         label: 'used capacity',
         cellTemplate: 'capacity',
@@ -60,7 +63,10 @@ class BucketsTableViewModel extends Disposable {
                 sortBy: routeContext().query.sortBy || 'name',
                 order: Number(routeContext().query.order) || 1
             }),
-            write: value => redirectTo(undefined, undefined, value)
+            write: value => {
+                this.deleteGroup(null);
+                redirectTo(undefined, undefined, value);
+            }
         });
 
         this.buckets = ko.pureComputed(

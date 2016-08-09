@@ -17,9 +17,8 @@ function join(obj, property, func) {
     if (promise) {
         return promise;
     }
-    promise =
-        P.fcall(func)
-        .finally(function() {
+    promise = P.try(func)
+        .finally(() => {
             delete obj[property];
         });
     obj[property] = promise;
@@ -59,10 +58,10 @@ function iterate(array, func) {
         }
 
         // call func as function(item, index, array)
-        return P.fcall(func, array[i], i, array).then(next);
+        return P.try(() => func(array[i], i, array)).then(next);
     }
 
-    return P.fcall(next).return(results);
+    return P.try(next).return(results);
 }
 
 
@@ -76,10 +75,8 @@ function iterate(array, func) {
 function loop(times, func, current_index) {
     current_index = current_index || 0;
     if (current_index < times) {
-        return P.fcall(func, current_index)
-            .then(function() {
-                return loop(times, func, current_index + 1);
-            });
+        return P.try(() => func(current_index))
+            .then(() => loop(times, func, current_index + 1));
     }
 }
 
@@ -93,7 +90,7 @@ function pwhile(condition, body) {
     // done promise
     function loop2() {
         if (condition()) {
-            return P.fcall(body).then(loop2);
+            return P.try(body).then(loop2);
         }
     }
 }
@@ -111,8 +108,8 @@ function retry(attempts, delay, func, error_logger) {
 
     // call func and catch errors,
     // passing remaining attempts just fyi
-    return P.fcall(func, attempts)
-        .then(null, function(err) {
+    return P.try(() => func(attempts))
+        .catch(err => {
 
             // check attempts
             attempts -= 1;
@@ -125,26 +122,49 @@ function retry(attempts, delay, func, error_logger) {
             }
 
             // delay and retry next attempt
-            return P.delay(delay).then(function() {
-                return retry(attempts, delay, func, error_logger);
-            });
-
+            return P.delay(delay)
+                .then(() => retry(attempts, delay, func, error_logger));
         });
 }
 
 
 /**
- * create a timeout promise that does not block the event loop from exiting
+ * promise version of setImmediate, or P.delay
+ * using unref() so that the promise will not block the event loop from exiting
  * in case there are no other events waiting.
  * see http://nodejs.org/api/timers.html#timers_unref
  */
 function delay_unblocking(delay) {
-    var defer = P.defer();
-    var timer = setTimeout(defer.resolve, delay);
-    timer.unref();
-    return defer.promise;
+    return new P((resolve, reject, on_cancel) => {
+        const timer = setTimeout(resolve, delay).unref();
+        if (on_cancel) {
+            on_cancel(() => clearTimeout(timer));
+        }
+    });
 }
 
+/**
+ * promise version of setImmediate
+ * which will be resolved on the next event loop
+ */
+function set_immediate() {
+    return new P((resolve, reject, on_cancel) => {
+        const timer = setImmediate(resolve);
+        if (on_cancel) {
+            on_cancel(() => clearImmediate(timer));
+        }
+    });
+}
+
+/**
+ * promise version of process.nextTick
+ * which will be resolved before handling I/O completions
+ */
+function next_tick() {
+    return new P((resolve, reject) => {
+        process.nextTick(resolve);
+    });
+}
 
 
 // for the sake of tests to be able to exit we schedule the worker with unblocking delay
@@ -153,12 +173,10 @@ function run_background_worker(worker) {
     var DEFUALT_DELAY = 10000;
 
     function run() {
-        P.fcall(function() {
-                return worker.run_batch();
-            })
-            .then(function(delay) {
+        P.try(() => worker.run_batch())
+            .then(delay => {
                 return delay_unblocking(delay || worker.delay || DEFUALT_DELAY);
-            }, function(err) {
+            }, err => {
                 dbg.log('run_background_worker', worker.name, 'UNCAUGHT ERROR', err, err.stack);
                 return delay_unblocking(worker.delay || DEFUALT_DELAY);
             })
@@ -167,18 +185,6 @@ function run_background_worker(worker) {
     dbg.log('run_background_worker:', 'INIT', worker.name);
     delay_unblocking(worker.boot_delay || worker.delay || DEFUALT_DELAY).then(run);
     return worker;
-}
-
-function next_tick() {
-    var defer = P.defer();
-    process.nextTick(defer.resolve);
-    return defer.promise;
-}
-
-function set_immediate() {
-    var defer = P.defer();
-    setImmediate(defer.resolve);
-    return defer.promise;
 }
 
 /*
@@ -190,7 +196,7 @@ function spawn(command, args, options, ignore_rc) {
         dbg.log0('spawn:', command, args.join(' '), options, ignore_rc);
         options.stdio = options.stdio || 'inherit';
         var proc = child_process.spawn(command, args, options);
-        proc.on('exit', function(code) {
+        proc.on('exit', code => {
             if (code === 0 || ignore_rc) {
                 resolve();
             } else {
@@ -199,7 +205,7 @@ function spawn(command, args, options, ignore_rc) {
                     '" exit with error code ' + code));
             }
         });
-        proc.on('error', function(error) {
+        proc.on('error', error => {
             if (ignore_rc) {
                 dbg.warn('spawn ' +
                     command + ' ' + args.join(' ') +
@@ -215,11 +221,12 @@ function spawn(command, args, options, ignore_rc) {
     });
 }
 
-function exec(command, ignore_rc, return_stdout) {
+function exec(command, ignore_rc, return_stdout, timeout) {
     return new P((resolve, reject) => {
         dbg.log2('promise exec', command, ignore_rc);
         child_process.exec(command, {
             maxBuffer: 5000 * 1024, //5MB, should be enough
+            timeout: timeout
         }, function(error, stdout, stderr) {
             if (!error || ignore_rc) {
                 if (error) {
@@ -238,7 +245,7 @@ function exec(command, ignore_rc, return_stdout) {
 }
 
 function wait_for_event(emitter, event, timeout) {
-    return new P(function(resolve, reject) {
+    return new P((resolve, reject) => {
         // the first event to fire wins.
         // since we use emitter.once and the promise will not change after settling
         // then we can be lazy and leave dangling listeners
@@ -307,7 +314,7 @@ function all_obj(obj, func) {
     var new_obj = {};
     func = func || ((val, key) => val);
     return P.all(_.map(obj, (val, key) => {
-            return P.fcall(func, val, key)
+            return P.try(() => func(val, key))
                 .then(res => {
                     new_obj[key] = res;
                 });

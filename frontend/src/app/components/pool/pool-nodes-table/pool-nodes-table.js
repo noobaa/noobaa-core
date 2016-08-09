@@ -3,86 +3,63 @@ import NodeRowViewModel from './node-row';
 import Disposable from 'disposable';
 import ko from 'knockout';
 import { paginationPageSize, inputThrottle } from 'config';
-import { makeArray, throttle} from 'utils';
+import { deepFreeze, throttle} from 'utils';
 import { redirectTo } from 'actions';
 import { routeContext } from 'model';
+
+let columns = deepFreeze([
+    {
+        name: 'state',
+        sortable: 'online',
+        cellTemplate: 'icon'
+    },
+    {
+        name: 'name',
+        label: 'node name',
+        sortable: true,
+        cellTemplate: 'link'
+    },
+    {
+        name: 'ip',
+        sortable: true
+    },
+    {
+        name: 'capacity',
+        label: 'used capacity',
+        sortable: 'used',
+        cellTemplate: 'capacity'
+    },
+    'trustLevel',
+    'dataActivity'
+]);
 
 class PoolNodesTableViewModel extends Disposable {
     constructor({ pool, nodeList }) {
         super();
 
-        this.poolName = ko.pureComputed(
-            () => pool() && pool().name
-        );
-
-        this.pageSize = paginationPageSize;
-
-        this.count = ko.pureComputed(
-            () => nodeList() && nodeList().total_count
-        );
-
-        this.filter_counts = ko.pureComputed(
-            () => nodeList() && nodeList().filter_counts
-        );
-
         let query = ko.pureComputed(
             () => routeContext().query
         );
 
-        this.sortedBy = ko.pureComputed(
-            () => query().sortBy || 'name'
+        this.poolName = ko.pureComputed(
+            () => pool() && pool().name
         );
 
-        this.order = ko.pureComputed(
-            () => Number(query().order) || 1
+        this.columns = columns;
+
+        this.nodes = ko.pureComputed(
+            () => nodeList() && nodeList().nodes
         );
 
-        this.issuesOnly = ko.pureComputed({
-            read: () => Boolean(query().hasIssues),
-            write: value => this.toggleIssues(value)
+        this.sorting = ko.pureComputed({
+            read: () => ({
+                sortBy: query().sortBy,
+                order: Number(query().order)
+            }),
+            write: value => this.orderBy(value)
         });
 
-        this.issuesFilterOptions = [
-            {
-                label: ko.pureComputed(
-                    () => `All Nodes (${ this.filter_counts() ?
-                        this.filter_counts().count : 'N/A'})`
-                ),
-                value: false
-            },
-            {
-                label: ko.pureComputed(
-                    () => `Issues (${ this.filter_counts() ?
-                        this.filter_counts().has_issues : 'N/A'})`
-                ),
-                value: true
-            }
-        ];
-
-        this.page = ko.pureComputed({
-            read: () => Number(query().page) || 0,
-            write:  page => this.pageTo(page)
-        });
-
-        this.filter = ko.pureComputed({
-            read: () => query().filter,
-            write: throttle(phrase => this.filterObjects(phrase), inputThrottle)
-        });
-
-        this.rows = makeArray(
-            this.pageSize,
-            i => new NodeRowViewModel(() => nodeList() && nodeList().nodes[i])
-        );
-
-        this.hasNodes = ko.pureComputed(
-            () => nodeList() && nodeList().nodes.length > 0
-        );
-
-        this.dataAccessOptions = [
-            { value: 'FULL_ACCESS', label: 'Read & Write' },
-            { value: 'READ_ONLY', label: 'Read Only' },
-            { value: 'NO_ACCESS', label: 'No Access' }
-        ];
+        this.pageSize = paginationPageSize;
 
         this.emptyMessage = ko.pureComputed(
             () => {
@@ -96,7 +73,116 @@ class PoolNodesTableViewModel extends Disposable {
             }
         );
 
+        this.count = ko.pureComputed(
+            () => nodeList() && nodeList().total_count
+        );
+
+        this.issuesOnly = ko.pureComputed({
+            read: () => Boolean(query().hasIssues),
+            write: value => this.toggleIssues(value)
+        });
+
+        this.issuesFilterOptions = [
+            {
+                label: ko.pureComputed(
+                    () => `All Nodes (${
+                        nodeList() ? nodeList().filter_counts.count : 'N/A'
+                    })`
+                ),
+                value: false
+            },
+            {
+                label: ko.pureComputed(
+                    () => `Issues (${
+                        nodeList() ? nodeList().filter_counts.has_issues : 'N/A'
+                    })`
+                ),
+                value: true
+            }
+        ];
+
+        this.page = ko.pureComputed({
+            read: () => Number(query().page) || 0,
+            write:  page => this.pageTo(page)
+        });
+
+        this.nameOrIpFilter = ko.pureComputed({
+            read: () => query().filter,
+            write: throttle(phrase => this.filterObjects(phrase), inputThrottle)
+        });
+
+        this.dataAccessOptions = [
+            { value: 'FULL_ACCESS', label: 'Read & Write' },
+            { value: 'READ_ONLY', label: 'Read Only' },
+            { value: 'NO_ACCESS', label: 'No Access' }
+        ];
+
+        this.isAssignNodesDisabled = ko.pureComputed(
+            () => Boolean(pool() && pool().demo_pool)
+        );
+
+        this.assignNodeTooltip = ko.pureComputed(
+            () => this.isAssignNodesDisabled() &&
+                'Node assigment in not supported for demo pool'
+        );
+
         this.isAssignNodeModalVisible = ko.observable(false);
+    }
+
+    createNodeRow(node) {
+        return new NodeRowViewModel(node);
+    }
+
+    pageTo(page) {
+        let params = Object.assign(
+            {
+                filter: this.nameOrIpFilter(),
+                hasIssues: this.issuesOnly() || undefined,
+                page: page
+            },
+            this.sorting()
+        );
+
+        redirectTo(undefined, undefined, params);
+    }
+
+    filterObjects(phrase) {
+        let params = Object.assign(
+            {
+                filter: phrase || undefined,
+                hasIssues: this.issuesOnly() || undefined,
+                page: 0
+            },
+            this.sorting()
+        );
+
+        redirectTo(undefined, undefined, params);
+    }
+
+    orderBy(sorting) {
+        let params = Object.assign(
+            {
+                filter: this.nameOrIpFilter(),
+                hasIssues: this.issuesOnly() || undefined,
+                page: 0
+            },
+            sorting
+        );
+
+        redirectTo(undefined, undefined, params);
+    }
+
+    toggleIssues(value) {
+        let params = Object.assign(
+            {
+                filter: this.nameOrIpFilter(),
+                hasIssues: value || undefined,
+                page: 0
+            },
+            this.sorting()
+        );
+
+        redirectTo(undefined, undefined, params);
     }
 
     showAssignNodesModal() {
@@ -105,52 +191,6 @@ class PoolNodesTableViewModel extends Disposable {
 
     hideAssignNodesModal() {
         this.isAssignNodeModalVisible(false);
-    }
-
-    pageTo(page) {
-        redirectTo(undefined, undefined, {
-            filter: this.filter(),
-            hasIssues: this.issuesOnly() || undefined,
-            sortBy: this.sortedBy(),
-            order: this.order(),
-            page: page
-        });
-    }
-
-    filterObjects(phrase) {
-        redirectTo(undefined, undefined, {
-            filter: phrase || undefined,
-            hasIssues: this.issuesOnly() || undefined,
-            sortBy: this.sortedBy(),
-            order: this.order(),
-            page: 0
-        });
-    }
-
-    orderBy(colName) {
-        redirectTo(undefined, undefined, {
-            filter: this.filter(),
-            hasIssues: this.issuesOnly() || undefined,
-            sortBy: colName,
-            order: this.sortedBy() === colName ? 0 - this.order() : 1,
-            page: 0
-        });
-    }
-
-    toggleIssues(value) {
-        redirectTo(undefined, undefined, {
-            filter: this.filter(),
-            hasIssues: value || undefined,
-            sortBy: this.sortedBy(),
-            order: this.order(),
-            page: 0
-        });
-    }
-
-    orderClassFor(colName) {
-        return `sortable ${
-            this.sortedBy() === colName ? (this.order() === 1 ? 'des' : 'asc') : ''
-        }`;
     }
 }
 

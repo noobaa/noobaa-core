@@ -23,7 +23,8 @@ mocha.describe('node_server', function() {
         this.timeout(20000);
         let nodes;
         return P.resolve()
-            .then(() => client.account.create_account({
+            .then(() => client.system.create_system({
+                activation_code: '1111',
                 name: SYS,
                 email: EMAIL,
                 password: PASSWORD,
@@ -53,6 +54,12 @@ mocha.describe('node_server', function() {
                     name: nodes[0].name
                 },
                 level: 0,
+            }))
+            .then(() => client.node.decommission_node({
+                name: nodes[0].name
+            }))
+            .then(() => client.node.recommission_node({
+                name: nodes[0].name
             }))
             .then(() => client.node.collect_agent_diagnostics({
                 name: nodes[0].name,
@@ -85,7 +92,7 @@ mocha.describe('node_server', function() {
             // name: NODE
             // }))
             .then(() => coretest.clear_test_nodes())
-            .catch((err) => {
+            .catch(err => {
                 console.log('Failure while testing:' + err, err.stack);
             });
     });

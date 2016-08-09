@@ -1,44 +1,26 @@
-<h2 class="heading3">Select nodes to be moved to the pool</h2>
+<div class="row push-next content-middle">
+    <input type="search" placeholder="filter by node name or ip" class="push-next"
+        data-bind="textInput: nameOrIpFilter"/>
 
-<div class="row box nodes-box">
-    <div class="data-table greedy">
-        <table>
-            <thead>
-                <tr>
-                    <th class="name-col text-left">name</th>
-                    <th class="ip-col">ip</th>
-                    <th class="capacity-col">capacity</th>
-                    <th class="pool-col">pool</th>
-                </tr>
-            </thead>
-            <tbody data-bind="
-                foreach: rows, 
-                validationOptions: { insertMessages: false }
-            ">
-                <!-- ko if: isVisible -->
-                <tr>
-                    <td class="name-col text-left">
-                        <checkbox params="
-                            value: name, 
-                            checked: $parent.selectedNodes
-                        "></checkbox>
-                    </td>
+    <span class="push-next">in</span>
 
-                    <td class="ip-col" data-bind="text: ip"></td>
-                    
-                    <td class="capacity-col" data-bind="text: capacity"></td>
+    <dropdown class="push-next" params="
+        placeholder: 'All Pools',
+        options: poolFilterOptions,
+        selected: poolFilter
+    "></dropdown>
 
-                    <td class="pool-col">
-                        <div class="no-wrap" data-bind="
-                            text: currPool, 
-                            tooltip: currPool
-                        "></div>
-                    </td>
-                </tr>
-                <!-- /ko -->
-            </tbody>
-        </table>
-    </div>
+    <checkbox params="
+        checked: onlineFilter,
+        label: 'Show online nodes only'
+    "></checkbox>
 </div>
 
-<div class="val-msg push-prev" data-bind="validationMessage: selectedNodes"></div>
+<node-selection-table class="greedy" params="
+    caption: 'Select nodes to be moved to the pool',
+    nodes: nodes,
+    selectedNodes: selectedNodes,
+    nodeCount: nodeCount,
+    emptyMessage: emptyMessage
+"></node-selection-table>
+

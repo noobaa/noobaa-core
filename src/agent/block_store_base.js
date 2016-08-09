@@ -40,6 +40,8 @@ class BlockStoreBase {
         ]);
     }
 
+    init() {}
+
     read_block(req) {
         const block_md = req.rpc_params.block_md;
         dbg.log1('read_block', block_md.id, 'node', this.node_name);
@@ -120,6 +122,14 @@ class BlockStoreBase {
                 throw new RpcError('TAMPERING', 'Block digest mismatch ' + block_md.id);
             }
         }
+    }
+
+    _get_block_internal_dir(block_id) {
+        let hex_str_regex = /^[0-9a-fA-f]+$/;
+        let internal_dir = hex_str_regex.test(block_id) ?
+            block_id.substring(block_id.length - 3) + '.blocks' :
+            'other.blocks';
+        return internal_dir;
     }
 
 

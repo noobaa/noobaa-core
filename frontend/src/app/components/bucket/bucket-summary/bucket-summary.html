@@ -1,28 +1,4 @@
 <!-- ko if: dataReady -->
-<section class="c4 column">
-    <h3 class="heading4 push-next">
-        Available Capacity:
-        <span data-bind="text: totalText"></span>
-    </h3>
-
-    <div class="row">
-        <ul class="c7 column list-no-style legend">
-            <li class="row">
-                <span class="c8 emphasized">Used by bucket:</span>
-                <span class="highlight" data-bind="text: usedText"></span>
-            </li>
-            <li class="row">
-                <span class="c8 emphasized">Potential free:</span>
-                <span data-bind="text: freeText"></span>
-            </li>
-        </ul>
-
-        <quantity-gauge class="c5" params="values: gaugeValues"></quantity-gauge>
-    </div>
-</section>
-
-<vr></vr>
-
 <section class="c3 column">
     <h3 class="heading4 push-next">Status</h3>
     <ul class="list-no-style column">
@@ -39,7 +15,7 @@
             <span data-bind="text: cloudSyncText"></span>
         </li>
         <li>
-            <svg-icon params="name: dataPlacementIcon" data-bind="
+            <svg-icon params="name: 'policy'" data-bind="
                 tooltip: 'Data placement'
             "></svg-icon>
             Data placement
@@ -49,11 +25,46 @@
 
 <vr></vr>
 
-<section class="c5 column">
+<section class="c5 row">
+    <div class="row greedy">
+        <div class="column greedy">
+            <toggle-filter class="push-next" params="
+                options: graphOptions,
+                selected: selectedGraph
+            "></toggle-filter>
+
+            <chart-legend params="items: legend"></chart-legend>
+
+        </div>
+
+        <!-- ko if: selectedGraph() === 'STORAGE' -->
+        <pie-chart params="values: storageValues"></pie-chart>
+        <!-- /ko -->
+
+        <!-- ko if: selectedGraph() === 'DATA' -->
+        <bar-chart params="values: dataValues"></bar-chart>
+        <!-- /ko -->
+    </div>
+</section>
+
+<vr></vr>
+
+<section class="c4 column">
     <h3 class="heading4 push-next">
-        Activity
+        Read / Write
     </h3>
-    <span>No current data activity</span>
+
+    <ul class="list-no-style column">
+        <li class="row">
+            <span class="c4">Last read:</span>
+            <span class="greedy" data-bind="text: lastRead"></span>
+        </li>
+        <li class="row">
+            <span class="c4">Last write:</span>
+            <span class="greedy" data-bind="text: lastWrite"></span>
+        </li>
+    </ul>
+
 </section>
 <!-- /ko -->
 

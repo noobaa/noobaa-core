@@ -13,6 +13,7 @@ const NODE_FIELDS_FOR_MAP = [
     'name',
     'pool',
     'ip',
+    'host_id',
     'heartbeat',
     'rpc_address',
     'is_cloud_node',
@@ -40,11 +41,6 @@ class NodesClient {
                 pools: new Set([pool_id])
             }))
             .tap(res => mongo_utils.fix_id_type(res.nodes));
-    }
-
-    delete_node_by_name(system_id, node_name) {
-        // TODO GUYM delete_node_by_name
-        throw new Error('TODO delete_node_by_name');
     }
 
     aggregate_nodes_by_pool(pool_ids, system_id, skip_cloud_nodes) {
@@ -85,6 +81,21 @@ class NodesClient {
                 })
             })
             .tap(node => mongo_utils.fix_id_type(node));
+    }
+
+    delete_node_by_name(system_id, node_name) {
+        if (!system_id) {
+            dbg.error('read_node_by_name: expected system_id. node_name', node_name);
+            throw new Error('read_node_by_name: expected system_id');
+        }
+        return server_rpc.client.node.delete_node({
+            name: node_name
+        }, {
+            auth_token: auth_server.make_auth_token({
+                system_id: system_id,
+                role: 'admin'
+            })
+        });
     }
 
     allocate_nodes(system_id, pool_id) {

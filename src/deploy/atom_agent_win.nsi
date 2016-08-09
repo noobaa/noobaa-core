@@ -236,6 +236,12 @@ Section "Noobaa Local Service"
 		File /r  "build"
 		RMDir /r "$INSTDIR\build\Release-32"
 		Rename $INSTDIR\build\Release-64 $INSTDIR\build\Release
+		WriteRegStr HKLM "Software\Wow6432Node\Microsoft\Windows\CurrentVersion\Uninstall\NooBaa" \
+			 "DisplayName" "NooBaa Local Service"
+		WriteRegStr HKLM "Software\Wow6432Node\Microsoft\Windows\CurrentVersion\Uninstall\NooBaa" \
+            "QuietUninstallString" "$\"$INSTDIR\uninstall-noobaa.exe$\" /S"
+		WriteRegStr HKLM "Software\Wow6432Node\Microsoft\Windows\CurrentVersion\Uninstall\NooBaa" \
+	        "UninstallString" "$\"$INSTDIR\uninstall-noobaa.exe$\""
 
 	${Else}
     # 32 bit code
@@ -247,6 +253,12 @@ Section "Noobaa Local Service"
 		File /r  "build"
 		RMDir /r "$INSTDIR\build\Release-64"
 		Rename $INSTDIR\build\Release-32 $INSTDIR\build\Release
+		WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\NooBaa" \
+			 "DisplayName" "NooBaa Local Service"
+		WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\NooBaa" \
+            "QuietUninstallString" "$\"$INSTDIR\uninstall-noobaa.exe$\" /S"
+		WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\NooBaa" \
+			"UninstallString" "$\"$INSTDIR\uninstall-noobaa.exe$\""
 
 	${EndIf}
 
@@ -299,6 +311,11 @@ Section "uninstall"
 	;nsExec::ExecToStack 'NooBaa_Agent_wd remove "Noobaa Local Service" confirm >> "$INSTDIR\uninstall.log"'
 	;sleep 2000
 	nsExec::ExecToStack '$\"$INSTDIR\service_uninstaller.bat$\""'
+	${If} ${RunningX64}
+		DeleteRegKey HKLM "Software\Wow6432Node\Microsoft\Windows\CurrentVersion\Uninstall\NooBaa"
+	${Else}
+		DeleteRegKey HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\NooBaa"
+	${EndIf}
 	Delete "$INSTDIR\NooBaa_Agent_wd.exe"
 	Delete "$INSTDIR\config.js"
 	Delete "$INSTDIR\7za.exe"

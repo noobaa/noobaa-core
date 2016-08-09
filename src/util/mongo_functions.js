@@ -17,6 +17,7 @@
 module.exports = {
     map_size: map_size,
     map_aggregate_objects: map_aggregate_objects,
+    map_aggregate_chunks: map_aggregate_chunks,
     map_key_with_prefix_delimiter: map_key_with_prefix_delimiter,
     reduce_sum: reduce_sum,
     reduce_noop: reduce_noop,
@@ -41,6 +42,11 @@ function map_aggregate_objects() {
     emit([this.bucket, 'count'], 1);
 }
 
+function map_aggregate_chunks() {
+    /* jshint validthis: true */
+    emit(['', 'compress_size'], this.compress_size);
+    emit([this.bucket, 'compress_size'], this.compress_size);
+}
 
 function map_key_with_prefix_delimiter() {
     /* jshint validthis: true */

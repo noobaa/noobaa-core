@@ -343,14 +343,31 @@ module.exports = {
                 num_objects: {
                     type: 'integer'
                 },
-                cloud_sync_status: {
-                    $ref: '#/definitions/api_cloud_sync_status'
+                cloud_sync: {
+                    $ref: '#/definitions/cloud_sync_info'
                 },
                 tag: {
                     type: 'string'
                 },
                 demo_bucket: {
                     type: 'boolean'
+                },
+                stats: {
+                    type: 'object',
+                    properties: {
+                        reads: {
+                            type: 'integer'
+                        },
+                        writes: {
+                            type: 'integer'
+                        },
+                        last_read: {
+                            format: 'idate'
+                        },
+                        last_write: {
+                            format: 'idate'
+                        },
+                    },
                 }
             }
         },
@@ -430,7 +447,5 @@ module.exports = {
             enum: ['IDLE', 'SYNCING'],
             type: 'string',
         },
-
     },
-
 };

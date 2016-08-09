@@ -16,25 +16,26 @@ const config = require('../../../config');
 const js_utils = require('../../util/js_utils');
 const RpcError = require('../../rpc/rpc_error');
 const md_store = require('../object_services/md_store');
+const dclassify = require('dclassify');
 const size_utils = require('../../util/size_utils');
+const BigInteger = size_utils.BigInteger;
 const Dispatcher = require('../notifications/dispatcher');
 const MapBuilder = require('../object_services/map_builder').MapBuilder;
 const server_rpc = require('../server_rpc');
 const auth_server = require('../common_services/auth_server');
-const cluster_server = require('../system_services/cluster_server');
 const nodes_store = require('./nodes_store');
 const mongo_utils = require('../../util/mongo_utils');
 const buffer_utils = require('../../util/buffer_utils');
 const system_store = require('../system_services/system_store').get_instance();
 const promise_utils = require('../../util/promise_utils');
 const mongoose_utils = require('../../util/mongoose_utils');
+const cluster_server = require('../system_services/cluster_server');
 const mongo_functions = require('../../util/mongo_functions');
 const system_server_utils = require('../utils/system_server_utils');
 const clustering_utils = require('../utils/clustering_utils');
-const dclassify = require('dclassify');
 
 const RUN_DELAY_MS = 60000;
-const RUN_NODE_CONCUR = 50;
+const RUN_NODE_CONCUR = 10;
 const MAX_NUM_LATENCIES = 20;
 const UPDATE_STORE_MIN_ITEMS = 100;
 
@@ -42,6 +43,7 @@ const AGENT_INFO_FIELDS = [
     'name',
     'version',
     'ip',
+    'host_id',
     'base_address',
     'rpc_address',
     'geolocation',
@@ -49,7 +51,7 @@ const AGENT_INFO_FIELDS = [
     'drives',
     'os_info',
     'debug_level',
-    'is_internal_agent'
+    'is_internal_agent',
 ];
 const MONITOR_INFO_FIELDS = [
     'has_issues',
@@ -66,6 +68,7 @@ const NODE_INFO_FIELDS = [
     'name',
     'geolocation',
     'ip',
+    'host_id',
     'is_cloud_node',
     'rpc_address',
     'base_address',
@@ -74,6 +77,12 @@ const NODE_INFO_FIELDS = [
     'latency_of_disk_read',
     'latency_of_disk_write',
     'debug_level',
+    'heartbeat',
+    'migrating_to_pool',
+    'decommissioning',
+    'decommissioned',
+    'deleting',
+    'deleted',
 ];
 const NODE_INFO_DEFAULTS = {
     ip: '0.0.0.0',
@@ -144,6 +153,147 @@ class NodesMonitor extends EventEmitter {
         this._started = false;
     }
 
+    /**
+     * sync_to_store is used for testing to get the info from all nodes
+     */
+    sync_to_store() {
+        return P.resolve(this._run()).return();
+    }
+
+
+    /**
+     * heartbeat request from node agent
+     */
+    heartbeat(req) {
+        const extra = req.auth.extra || {};
+        const node_id = String(extra.node_id || '');
+        const node_version = req.rpc_params.version;
+        const reply = {
+            version: pkg.version || '0',
+            delay_ms: 0 // delay_ms was required in 0.3.X
+        };
+
+        // since the heartbeat api is dynamic through new versions
+        // if we detect that this is a new version we return immediately
+        // with the new version so that the agent will update the code first
+        // and only after the upgrade we will run the heartbeat functionality
+        if (node_version !== pkg.version) {
+            dbg.log0('heartbeat: reply new version',
+                'node_id', node_id,
+                'node_version', node_version,
+                'pkg.version', pkg.version);
+            return reply;
+        }
+
+        //If this server is not the master, redirect the agent to the master
+        let current_clustering = system_store.get_local_cluster_info();
+        if ((current_clustering && current_clustering.is_clusterized) && !system_store.is_cluster_master) {
+            return P.resolve(cluster_server.redirect_to_cluster_master())
+                .then(addr => {
+                    dbg.log0('heartbeat: current is not master redirecting to', addr);
+                    reply.redirect = addr;
+                    return reply;
+                });
+        }
+
+
+        this._throw_if_not_started_and_loaded();
+
+        // existing node heartbeat
+        if (node_id && (req.role === 'agent' || req.role === 'admin')) {
+            this._connect_node(req.connection, node_id);
+            return reply;
+        }
+
+        // new node heartbeat
+        // create the node and then update the heartbeat
+        if (!node_id && (req.role === 'create_node' || req.role === 'admin')) {
+            this._add_new_node(req.connection, req.system._id, extra.pool_id, req.rpc_params.pool_name);
+            return reply;
+        }
+
+        dbg.error('heartbeat: BAD REQUEST', 'role', req.role, 'auth', req.auth);
+        throw new RpcError('FORBIDDEN', 'Bad heartbeat request');
+    }
+
+    /**
+     * read_node returns information about one node
+     */
+    read_node(node_identity) {
+        this._throw_if_not_started_and_loaded();
+        const item = this._get_node(node_identity, 'allow_offline');
+        this._update_status(item);
+        return this._get_node_info(item);
+    }
+
+    migrate_nodes_to_pool(nodes_identities, pool_id) {
+        this._throw_if_not_started_and_loaded();
+        const items = _.map(nodes_identities, node_identity => {
+            let item = this._get_node(node_identity, 'allow_offline');
+            // validate that the node doesn't belong to a cloud pool
+            if (item.node.is_cloud_node) {
+                throw new RpcError('migrating a cloud node is not allowed');
+            }
+            return item;
+        });
+        _.each(items, item => {
+            dbg.log0('migrate_nodes_to_pool:', item.node.name,
+                'pool_id', pool_id, 'from pool', item.node.pool);
+            if (String(item.node.pool) !== String(pool_id)) {
+                item.node.migrating_to_pool = Date.now();
+                item.node.pool = pool_id;
+                item.suggested_pool = ''; // reset previous suggestion
+            }
+            this._set_need_update.add(item);
+            this._update_status(item);
+        });
+        this._schedule_next_run(1);
+        // let desc_string = [];
+        // desc_string.push(`${assign_nodes && assign_nodes.length} Nodes were assigned to ${pool.name} successfully by ${req.account && req.account.email}`);
+        // _.forEach(nodes_before_change, node => {
+        //     desc_string.push(`${node.name} was assigned from ${node.pool.name} to ${pool.name}`);
+        // });
+        // Dispatcher.instance().activity({
+        //     event: 'pool.assign_nodes',
+        //     level: 'info',
+        //     system: req.system._id,
+        //     actor: req.account && req.account._id,
+        //     pool: pool._id,
+        //     desc: desc_string.join('\n'),
+        // });
+    }
+
+    decommission_node(node_identity) {
+        this._throw_if_not_started_and_loaded();
+        const item = this._get_node(node_identity, 'allow_offline');
+        if (!item.node.decommissioning) {
+            item.node.decommissioning = Date.now();
+        }
+        this._set_need_update.add(item);
+        this._update_status(item);
+    }
+
+    recommission_node(node_identity) {
+        this._throw_if_not_started_and_loaded();
+        const item = this._get_node(node_identity, 'allow_offline');
+        delete item.node.decommissioning;
+        delete item.node.decommissioned;
+        this._set_need_update.add(item);
+        this._update_status(item);
+    }
+
+    delete_node(node_identity) {
+        this._throw_if_not_started_and_loaded();
+        const item = this._get_node(node_identity, 'allow_offline');
+        if (!item.node.deleting) {
+            item.node.deleting = Date.now();
+        }
+        this._set_need_update.add(item);
+        this._update_status(item);
+
+        // TODO GUYM implement delete_node
+        throw new RpcError('TODO', 'delete_node');
+    }
 
 
 
@@ -483,7 +633,6 @@ class NodesMonitor extends EventEmitter {
 
 
     _update_status(item) {
-        // TODO update the node status fields for real
         dbg.log0('_update_status:', item.node.name);
 
         item.online = Boolean(item.connection);
@@ -525,10 +674,12 @@ class NodesMonitor extends EventEmitter {
         item.readable = Boolean(
             item.online &&
             item.trusted &&
+            !item.node.decommissioned && // but readable when decommissioning !
             !item.node.deleting &&
             !item.node.deleted);
 
-        item.writable = Boolean(!item.storage_full &&
+        item.writable = Boolean(
+            !item.storage_full &&
             item.online &&
             item.trusted &&
             !item.node.decommissioning &&
@@ -542,11 +693,10 @@ class NodesMonitor extends EventEmitter {
             'NO_ACCESS';
 
         item.data_activity_reason =
-            (item.node.deleting && 'DELETING') ||
-            (item.node.decommissioning && 'DECOMMISSIONING') ||
+            (item.node.deleting && !item.node.deleted && 'DELETING') ||
+            (item.node.decommissioning && !item.node.decommissioned && 'DECOMMISSIONING') ||
             (item.node.migrating_to_pool && 'MIGRATING') ||
-            (!item.online && 'RESTORING') ||
-            (item.storage_full && 'FREEING_SPACE');
+            (!item.online && 'RESTORING');
 
         if (item.data_activity && !item.data_activity_reason) {
             dbg.warn('_update_status: unset node data_activity for', item.node.name);
@@ -620,6 +770,7 @@ class NodesMonitor extends EventEmitter {
         if (act.running) return;
         dbg.log0('_rebuild_node: start', item.node.name, act);
         const blocks_query = {
+            system: item.node.system,
             node: item.node._id,
             deleted: null
         };
@@ -700,10 +851,10 @@ class NodesMonitor extends EventEmitter {
                         delete item.node.migrating_to_pool;
                     }
                     if (item.node.decommissioning) {
-                        item.node.decommissioned = new Date();
+                        item.node.decommissioned = Date.now();
                     }
                     if (item.node.deleting) {
-                        item.node.deleted = new Date();
+                        item.node.deleted = Date.now();
                     }
                     this._set_need_update.add(item);
                     dbg.log0('_rebuild_node: DONE', item.node.name, act);
@@ -719,142 +870,6 @@ class NodesMonitor extends EventEmitter {
             });
     }
 
-
-    /**
-     * sync_to_store is used for testing to get the info from all nodes
-     */
-    sync_to_store() {
-        return P.resolve(this._run()).return();
-    }
-
-    /**
-     * heartbeat request from node agent
-     */
-    heartbeat(req) {
-        const extra = req.auth.extra || {};
-        const node_id = String(extra.node_id || '');
-        const node_version = req.rpc_params.version;
-        const reply = {
-            version: pkg.version || '0',
-            delay_ms: 0 // delay_ms was required in 0.3.X
-        };
-
-        // since the heartbeat api is dynamic through new versions
-        // if we detect that this is a new version we return immediately
-        // with the new version so that the agent will update the code first
-        // and only after the upgrade we will run the heartbeat functionality
-        if (node_version !== pkg.version) {
-            dbg.log0('heartbeat: reply new version',
-                'node_id', node_id,
-                'node_version', node_version,
-                'pkg.version', pkg.version);
-            return reply;
-        }
-
-        //If this server is not the master, redirect the agent to the master
-        let current_clustering = system_store.get_local_cluster_info();
-        if ((current_clustering && current_clustering.is_clusterized) && !system_store.is_cluster_master) {
-            return P.resolve(cluster_server.redirect_to_cluster_master())
-                .then((addr) => {
-                    dbg.log0('heartbeat: current is not master redirecting to', addr);
-                    reply.redirect = addr;
-                    return reply;
-                });
-        }
-
-
-        this._throw_if_not_started_and_loaded();
-
-        // existing node heartbeat
-        if (node_id && (req.role === 'agent' || req.role === 'admin')) {
-            this._connect_node(req.connection, node_id);
-            return reply;
-        }
-
-        // new node heartbeat
-        // create the node and then update the heartbeat
-        if (!node_id && (req.role === 'create_node' || req.role === 'admin')) {
-            this._add_new_node(req.connection, req.system._id, extra.pool_id, req.rpc_params.pool_name);
-            return reply;
-        }
-
-        dbg.error('heartbeat: BAD REQUEST', 'role', req.role, 'auth', req.auth);
-        throw new RpcError('FORBIDDEN', 'Bad heartbeat request');
-    }
-
-    /**
-     * read_node returns information about one node
-     */
-    read_node(node_identity) {
-        this._throw_if_not_started_and_loaded();
-        const item = this._get_node(node_identity, 'allow_offline');
-        this._update_status(item);
-        return this._get_node_info(item);
-    }
-
-    migrate_nodes_to_pool(nodes_identities, pool_id) {
-        this._throw_if_not_started_and_loaded();
-        const items = _.map(nodes_identities, node_identity => {
-            let item = this._get_node(node_identity, 'allow_offline');
-            // validate that the node doesn't belong to a cloud pool
-            if (item.node.is_cloud_node) {
-                throw new RpcError('migrating a cloud node is not allowed');
-            }
-            return item;
-        });
-        _.each(items, item => {
-            dbg.log0('migrate_nodes_to_pool:', item.node.name,
-                'pool_id', pool_id, 'from pool', item.node.pool);
-            if (String(item.node.pool) !== String(pool_id)) {
-                item.node.migrating_to_pool = new Date();
-                item.node.pool = pool_id;
-                item.suggested_pool = ''; // reset previous suggestion
-            }
-            this._update_status(item);
-            this._set_need_update.add(item);
-        });
-        this._schedule_next_run(1);
-        // let desc_string = [];
-        // desc_string.push(`${assign_nodes && assign_nodes.length} Nodes were assigned to ${pool.name} successfully by ${req.account && req.account.email}`);
-        // _.forEach(nodes_before_change, node => {
-        //     desc_string.push(`${node.name} was assigned from ${node.pool.name} to ${pool.name}`);
-        // });
-        // Dispatcher.instance().activity({
-        //     event: 'pool.assign_nodes',
-        //     level: 'info',
-        //     system: req.system._id,
-        //     actor: req.account && req.account._id,
-        //     pool: pool._id,
-        //     desc: desc_string.join('\n'),
-        // });
-    }
-
-    decommission_node(node_identity) {
-        this._throw_if_not_started_and_loaded();
-        const item = this._get_node(node_identity, 'allow_offline');
-        this._update_status(item);
-
-        // TODO GUYM implement decommission_node
-        throw new RpcError('TODO', 'decommission_node');
-    }
-
-    recommission_node(node_identity) {
-        this._throw_if_not_started_and_loaded();
-        const item = this._get_node(node_identity, 'allow_offline');
-        this._update_status(item);
-
-        // TODO GUYM implement recommission_node
-        throw new RpcError('TODO', 'recommission_node');
-    }
-
-    delete_node(node_identity) {
-        this._throw_if_not_started_and_loaded();
-        const item = this._get_node(node_identity, 'allow_offline');
-        this._update_status(item);
-
-        // TODO GUYM implement delete_node
-        throw new RpcError('TODO', 'delete_node');
-    }
 
     _filter_nodes(query) {
         const list = [];
@@ -1095,31 +1110,55 @@ class NodesMonitor extends EventEmitter {
         let online = 0;
         let has_issues = 0;
         const storage = {
-            total: 0,
-            free: 0,
-            used: 0,
-            reserved: 0,
+            total: BigInteger.zero,
+            free: BigInteger.zero,
+            used: BigInteger.zero,
+            reserved: BigInteger.zero,
+            unavailable_free: BigInteger.zero,
+            used_other: BigInteger.zero,
         };
         _.each(list, item => {
             count += 1;
             if (item.online) online += 1;
             if (item.has_issues) {
                 has_issues += 1;
-            } else {
-                // TODO use bigint for nodes storage sum
-                storage.total += item.node.storage.total || 0;
-                storage.free += item.node.storage.free || 0;
-                storage.used += item.node.storage.used || 0;
-                storage.reserved += config.NODES_FREE_SPACE_RESERVE || 0;
             }
+
+            const free_considering_reserve =
+                new BigInteger(item.node.storage.free || 0)
+                .minus(config.NODES_FREE_SPACE_RESERVE);
+            if (free_considering_reserve.greater(0)) {
+                if (item.has_issues) {
+                    storage.unavailable_free = storage.unavailable_free
+                        .plus(free_considering_reserve);
+                } else {
+                    storage.free = storage.free
+                        .plus(free_considering_reserve);
+                }
+                storage.reserved = storage.reserved
+                    .plus(config.NODES_FREE_SPACE_RESERVE || 0);
+            } else {
+                storage.reserved = storage.reserved
+                    .plus(item.node.storage.free || 0);
+            }
+            storage.total = storage.total
+                .plus(item.node.storage.total || 0);
+            storage.used = storage.used
+                .plus(item.node.storage.used || 0);
         });
+        storage.used_other = BigInteger.max(0,
+            storage.total
+            .minus(storage.used)
+            .minus(storage.reserved)
+            .minus(storage.free)
+            .minus(storage.unavailable_free));
         return {
             nodes: {
                 count: count,
                 online: online,
                 has_issues: has_issues,
             },
-            storage: storage
+            storage: size_utils.to_bigint_storage(storage)
         };
     }
 
@@ -1149,12 +1188,7 @@ class NodesMonitor extends EventEmitter {
         info._id = String(node._id);
         info.peer_id = String(node.peer_id);
         info.pool = system_store.data.get_by_id(node.pool).name;
-        info.heartbeat = node.heartbeat;
-        if (node.migrating_to_pool) info.migrating_to_pool = node.migrating_to_pool.getTime();
-        if (node.decommissioning) info.decommissioning = node.decommissioning.getTime();
-        if (node.decommissioned) info.decommissioned = node.decommissioned.getTime();
-        if (node.deleting) info.deleting = node.deleting.getTime();
-        if (node.deleted) info.deleted = node.deleted.getTime();
+        if (node.is_internal_node) info.demo_node = true;
         const act = item.data_activity;
         if (act && !act.done) {
             info.data_activity = _.pick(act,
@@ -1168,12 +1202,12 @@ class NodesMonitor extends EventEmitter {
                 'remaining_size',
                 'total_size');
         }
-        info.storage = get_storage_info(node.storage);
+        info.storage = get_storage_info(node.storage, /*ignore_reserve=*/ node.is_internal_node);
         info.drives = _.map(node.drives, drive => {
             return {
                 mount: drive.mount,
                 drive_id: drive.drive_id,
-                storage: get_storage_info(drive.storage)
+                storage: get_storage_info(drive.storage, /*ignore_reserve=*/ node.is_internal_node)
             };
         });
         info.os_info = _.defaults({}, node.os_info);
@@ -1373,14 +1407,21 @@ class NodesMonitor extends EventEmitter {
 }
 
 
-function get_storage_info(storage) {
-    return {
+function get_storage_info(storage, ignore_reserve) {
+    let reply = {
         total: storage.total || 0,
         free: storage.free || 0,
         used: storage.used || 0,
         alloc: storage.alloc || 0,
-        limit: storage.limit || 0
+        limit: storage.limit || 0,
+        reserved: config.NODES_FREE_SPACE_RESERVE || 0,
+        used_other: storage.used_other || 0
     };
+
+    reply.reserved = ignore_reserve ? 0 : Math.min(config.NODES_FREE_SPACE_RESERVE, reply.free);
+    reply.free -= reply.reserved;
+    reply.used_other = Math.max(reply.total - reply.used - reply.reserved - reply.free, 0);
+    return reply;
 }
 
 function scale_number_token(num) {

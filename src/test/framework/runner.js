@@ -77,10 +77,13 @@ TestRunner.prototype.restore_db_defaults = function() {
             throw new Error('Failed pn mongodb reset');
         })
         .then(function() {
-            return promise_utils.exec('supervisorctl restart webserver');
+            return promise_utils.exec('supervisorctl restart webserver bg_workers s3rver ');
         })
         .then(function() {
             return self.wait_for_server_to_start(30, 8080);
+        })
+        .then(function() {
+            return self.wait_for_server_to_start(30, 80);
         })
         .delay(5000) //Workaround for agents sending HBs and re-registering to the server
         .catch(function(err) {

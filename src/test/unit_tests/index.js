@@ -24,4 +24,5 @@ require('./test_prefetch');
 require('./test_promise_utils');
 require('./test_rpc');
 require('./test_semaphore');
-require('./test_wait_queue');
+require('./test_fs_utils');
+//require('./test_wait_queue');

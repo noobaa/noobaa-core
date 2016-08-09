@@ -40,6 +40,45 @@ function aggregate_objects(query) {
     });
 }
 
+function aggregate_objects_count(query) {
+    return ObjectMD.collection.aggregate([{
+            $match: query
+        }, {
+            $group: {
+                _id: "$bucket",
+                count: {
+                    $sum: 1
+                }
+            }
+        }
+    ]).toArray()
+    .then(function(res) {
+        var buckets = {};
+        var total_count = 0;
+        _.each(res, function(r) {
+            total_count += buckets[r._id] = r.count;
+        });
+        buckets[''] = total_count;
+        return buckets;
+    });
+}
+
+function aggregate_chunks(query) {
+    return DataChunk.mapReduce({
+        query: query,
+        map: mongo_functions.map_aggregate_chunks,
+        reduce: mongo_functions.reduce_sum,
+    }).then(function(res) {
+        var buckets = {};
+        _.each(res, function(r) {
+            var b = buckets[r._id[0]] = buckets[r._id[0]] || {};
+            b[r._id[1]] = r.value;
+        });
+        return buckets;
+    });
+}
+
+
 function load_chunks_by_digest(bucket, digest_list) {
     let chunks;
     return P.resolve(DataChunk.collection.find({
@@ -126,7 +165,9 @@ exports.ObjectPart = ObjectPart;
 exports.DataChunk = DataChunk;
 exports.DataBlock = DataBlock;
 exports.aggregate_objects = aggregate_objects;
+exports.aggregate_chunks = aggregate_chunks;
 exports.load_chunks_by_digest = load_chunks_by_digest;
 exports.load_blocks_for_chunks = load_blocks_for_chunks;
 exports.load_parts_objects_for_chunks = load_parts_objects_for_chunks;
+exports.aggregate_objects_count = aggregate_objects_count;
 exports.make_md_id = make_md_id;

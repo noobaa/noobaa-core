@@ -28,6 +28,14 @@ class ServerTimeFormViewModel extends Disposable{
             () => server() && server().time_epoch * 1000
         );
 
+        this.addToDisposeList(
+            setInterval(
+                () => this.time() && this.time(this.time() + 1000),
+                1000
+            ),
+            clearInterval
+        );
+
         this.formattedTime = ko.pureComputed(
             () => this.time() && moment(this.time()).format('MM/DD/YYYY HH:mm:ss ([GMT]Z)')
         );
@@ -73,14 +81,7 @@ class ServerTimeFormViewModel extends Disposable{
 
     setManualTime() {
         let epoch = moment.tz(
-            {
-                years: this.year(),
-                months: this.month(),
-                date: this.day(),
-                hours: this.hour(),
-                minutes: this.minute(),
-                seconds: this.second()
-            },
+            this.time(),
             this.timezone()
         )
         .unix();

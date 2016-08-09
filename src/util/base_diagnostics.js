@@ -17,7 +17,8 @@ const is_windows = (process.platform === "win32");
 
 const TMP_WORK_DIR = is_windows ? process.env.ProgramData + '/diag' : '/tmp/diag';
 
-function collect_basic_diagnostics(limit_logs_size, is_clusterized) {
+
+function prepare_diag_dir(is_clusterized) {
     return P.fcall(function() {
             if (!is_clusterized) {
                 return fs_utils.folder_delete(TMP_WORK_DIR);
@@ -33,36 +34,29 @@ function collect_basic_diagnostics(limit_logs_size, is_clusterized) {
                 return fs_utils.create_path(TMP_WORK_DIR);
             }
             return;
+        });
+}
+
+function collect_basic_diagnostics(limit_logs_size) {
+    return P.fcall(
+            () => fs_utils.file_copy(
+                process.cwd() + '/package.json',
+                TMP_WORK_DIR
+            )
+        )
+        .then(() => {
+            return os_utils.netstat_single(TMP_WORK_DIR + '/netstat.out')
+                .catch(err => { //netstat fails, soft trying ss instead
+                    return P.fcall(() => {
+                            return os_utils.ss_single(TMP_WORK_DIR + '/ss.out');
+                        })
+                        .catch(err2 => {
+                            throw err;
+                        });
+                });
         })
-        .then(function() {
-            if (fs.existsSync(process.cwd() + '/logs')) {
-                if (limit_logs_size) {
-                    //will take only noobaa.log and the first 9 zipped logs
-                    return fs_utils.full_dir_copy(process.cwd() + '/logs', TMP_WORK_DIR, 'noobaa?[1-9][0-9].log.gz');
-                } else {
-                    return fs_utils.full_dir_copy(process.cwd() + '/logs', TMP_WORK_DIR);
-                }
-            } else {
-                return;
-            }
-        })
-        .then(function() {
-            if (fs.existsSync('/var/log/noobaa_local_service.log')) {
-                return fs_utils.file_copy('/var/log/noobaa_local_service.log', TMP_WORK_DIR);
-            } else {
-                return;
-            }
-        })
-        .then(function() {
-            return fs_utils.file_copy(process.cwd() + '/package.json', TMP_WORK_DIR);
-        })
-        .then(function() {
-            return os_utils.netstat_single(TMP_WORK_DIR + '/netstat.out');
-        })
-        .then(function() {
-            return 'ok';
-        })
-        .then(null, function(err) {
+        .then(() => 'ok')
+        .catch(err => {
             console.error('Error in collecting basic diagnostics', err);
             throw new Error('Error in collecting basic diagnostics ' + err);
         });
@@ -139,6 +133,7 @@ function archive_diagnostics_pack(dst) {
 
 
 // EXPORTS
+exports.prepare_diag_dir = prepare_diag_dir;
 exports.collect_basic_diagnostics = collect_basic_diagnostics;
 exports.write_agent_diag_file = write_agent_diag_file;
 exports.pack_diagnostics = pack_diagnostics;

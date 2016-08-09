@@ -66,7 +66,6 @@ export default function register(ko) {
     // -------------------------------
     ko.components.register('object-panel',          require('./object/object-panel/object-panel'));
     ko.components.register('object-summary',        require('./object/object-summary/object-summary'));
-    ko.components.register('object-details-form',   require('./object/object-details-form/object-details-form'));
     ko.components.register('object-parts-list',     require('./object/object-parts-list/object-parts-list'));
     ko.components.register('object-preview-modal',  require('./object/object-preview-modal/object-preview-modal'));
     /** INJECT:object **/
@@ -174,5 +173,8 @@ export default function register(ko) {
     ko.components.register('date-time-chooser',         require('./shared/date-time-chooser/date-time-chooser'));
     ko.components.register('pie-chart',                 require('./shared/pie-chart/pie-chart'));
     ko.components.register('bar-chart',                 require('./shared/bar-chart/bar-chart'));
+    ko.components.register('pool-selection-table',      require('./shared/pool-selection-table/pool-selection-table'));
+    ko.components.register('node-selection-table',      require('./shared/node-selection-table/node-selection-table'));
+    ko.components.register('chart-legend', require('./shared/chart-legend/chart-legend'));
     /** INJECT:shared **/
 }

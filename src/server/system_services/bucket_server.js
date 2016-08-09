@@ -17,6 +17,7 @@ const md_store = require('../object_services/md_store');
 const js_utils = require('../../util/js_utils');
 const RpcError = require('../../rpc/rpc_error');
 const size_utils = require('../../util/size_utils');
+const BigInteger = size_utils.BigInteger;
 const server_rpc = require('../server_rpc');
 const tier_server = require('./tier_server');
 const mongo_utils = require('../../util/mongo_utils');
@@ -31,17 +32,24 @@ const VALID_BUCKET_NAME_REGEXP =
 
 
 function new_bucket_defaults(name, system_id, tiering_policy_id, tag) {
+    let now = Date.now();
     return {
         _id: system_store.generate_id(),
         name: name,
         tag: js_utils.default_value(tag, ''),
         system: system_id,
         tiering: tiering_policy_id,
+        storage_stats: {
+            chunks_capacity: 0,
+            objects_size: 0,
+            objects_count: 0,
+            last_update: now
+        },
         stats: {
             reads: 0,
             writes: 0,
-            last_read: 0,
-            last_write: 0,
+            last_read: now,
+            last_write: now,
         }
     };
 }
@@ -127,16 +135,15 @@ function read_bucket(req) {
     ));
     var pool_ids = mongo_utils.uniq_ids(pools, '_id');
     return P.join(
-        // objects - size, count
-        md_store.aggregate_objects({
-            system: req.system._id,
-            bucket: bucket._id,
-            deleted: null,
-        }),
         nodes_client.instance().aggregate_nodes_by_pool(pool_ids),
+        md_store.ObjectMD.collection.count({
+                system: req.system._id,
+                bucket: bucket._id,
+                deleted: null
+        }),
         get_cloud_sync(req, bucket)
-    ).spread(function(objects_aggregate, nodes_aggregate_pool, cloud_sync_policy) {
-        return get_bucket_info(bucket, objects_aggregate, nodes_aggregate_pool, cloud_sync_policy);
+    ).spread(function(nodes_aggregate_pool, num_of_objects, cloud_sync_policy) {
+        return get_bucket_info(bucket, nodes_aggregate_pool, num_of_objects, cloud_sync_policy);
     });
 }
 
@@ -292,15 +299,13 @@ function delete_bucket(req) {
         throw new RpcError('BAD_REQUEST', 'Cannot delete last bucket');
     }
 
-    return P.resolve(md_store.aggregate_objects({
+    return P.resolve(md_store.ObjectMD.collection.findOne({
             system: req.system._id,
             bucket: bucket._id,
             deleted: null,
         }))
-        .then(objects_aggregate => {
-            objects_aggregate = objects_aggregate || {};
-            var objects_aggregate_bucket = objects_aggregate[bucket._id] || {};
-            if (objects_aggregate_bucket.count) {
+        .then(any_object => {
+            if (any_object) {
                 throw new RpcError('BUCKET_NOT_EMPTY', 'Bucket not empty: ' + bucket.name);
             }
             Dispatcher.instance().activity({
@@ -728,22 +733,49 @@ function find_bucket(req) {
     return bucket;
 }
 
-function get_bucket_info(bucket, objects_aggregate, nodes_aggregate_pool, cloud_sync_policy) {
+function get_bucket_info(bucket, nodes_aggregate_pool, num_of_objects, cloud_sync_policy) {
     var info = _.pick(bucket, 'name');
-    objects_aggregate = objects_aggregate || {};
-    var objects_aggregate_bucket = objects_aggregate[bucket._id] || {};
+    var tier_of_bucket;
     if (bucket.tiering) {
+        // We always have tiering so this if is irrelevant
+        tier_of_bucket = bucket.tiering.tiers[0].tier;
         info.tiering = tier_server.get_tiering_policy_info(bucket.tiering, nodes_aggregate_pool);
     }
 
+    let objects_aggregate = {
+        size: (bucket.storage_stats && bucket.storage_stats.objects_size) || 0,
+        count: (bucket.storage_stats && bucket.storage_stats.objects_count) || 0
+    };
+
     info.tag = bucket.tag ? bucket.tag : '';
-    info.num_objects = objects_aggregate_bucket.count || 0;
+    let placement_mul = (tier_of_bucket.data_placement === 'MIRROR') ? Math.max(tier_of_bucket.pools.length, 1) : 1;
+    info.num_objects = num_of_objects || 0;
     info.storage = size_utils.to_bigint_storage({
-        used: objects_aggregate_bucket.size || 0,
+        used: objects_aggregate.size,
+        used_other: info.tiering && info.tiering.storage && info.tiering.storage.used_other || 0,
         total: info.tiering && info.tiering.storage && info.tiering.storage.total || 0,
         free: info.tiering && info.tiering.storage && info.tiering.storage.free || 0,
+        // This is the physical compressed capacity
+        // TODO: Does not include the movie multiplication, and rebuilds
+        real: new BigInteger((bucket.storage_stats && bucket.storage_stats.chunks_capacity) || 0).multiply(tier_of_bucket.replicas).multiply(placement_mul)
     });
-    info.cloud_sync_status = _.isEmpty(cloud_sync_policy) ? 'NOTSET' : cloud_sync_policy.status;
+
+    let stats = bucket.stats;
+    let last_read = stats.last_read ?
+        new Date(bucket.stats.last_read).getTime() :
+        undefined;
+    let last_write = stats.last_write ?
+        new Date(bucket.stats.last_write).getTime() :
+        undefined;
+
+    info.stats = {
+        reads: stats.reads,
+        writes: stats.writes,
+        last_read: last_read,
+        last_write: last_write
+    };
+
+    info.cloud_sync = cloud_sync_policy ? (cloud_sync_policy.status ? cloud_sync_policy : undefined) : undefined;
     info.demo_bucket = Boolean(bucket.demo_bucket);
     return info;
 }

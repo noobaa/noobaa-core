@@ -40,55 +40,71 @@ class PoolSummaryViewModel extends Disposable {
             () => !!pool()
         );
 
-        this.total = ko.pureComputed(
-            () => pool().storage.total
+        let storage = ko.pureComputed(
+            () => pool().storage
         );
 
-        this.totalText = ko.pureComputed(
-            () => formatSize(this.total())
-        );
-
-        this.used = ko.pureComputed(
-            () => pool().storage.used
-        );
-
-        this.usedText = ko.pureComputed(
-            () => formatSize(this.used())
-        );
-
-        this.free = ko.pureComputed(
-            () => pool().storage.free
-        );
-
-        this.freeText = ko.pureComputed(
-            () => formatSize(this.free())
+        this.formattedTotal = ko.pureComputed(
+            () => formatSize(storage().total)
         );
 
         this.pieValues = [
             {
-                value: this.used,
-                color: style['text-color6']
+                label: 'Avaliable',
+                color: style['gray-lv5'],
+                value: ko.pureComputed(
+                    () => storage().free
+                )
             },
             {
-                value: this.free,
-                color: style['text-color4']
+                label: 'Used (NooBaa)',
+                color: style['magenta-mid'],
+                value: ko.pureComputed(
+                    () => storage().used
+                )
+            },
+            {
+                label: 'Used (Other)',
+                color: style['white'],
+                value: ko.pureComputed(
+                    () => storage().used_other
+                )
+
+            },
+            {
+                label: 'Reserved',
+                color: style['purple-dark'],
+                value: ko.pureComputed(
+                    () => storage().reserved
+                )
+            },
+            {
+                label: 'Unavailable',
+                color: style['gray-lv3'],
+                value: ko.pureComputed(
+                    () => storage().unavailable_free
+                )
             }
         ];
 
+        let onlineCount = ko.pureComputed(
+            () => pool().nodes.online
+        );
+
+        let healthy = ko.pureComputed(
+            () => onlineCount() >= 3
+        );
+
         this.stateText = ko.pureComputed(
-            () => 'Healthy'
+            () => healthy() ? 'Healthy' : 'Not enough online nodes'
         );
 
         this.stateIcon = ko.pureComputed(
-            () => 'pool'
+            () => `pool-${healthy() ? 'healthy' : 'problem'}`
         );
 
         this.nodeCount = ko.pureComputed(
             () => pool().nodes.count
-        );
-
-        let onlineCount = ko.pureComputed(
-            () => pool().nodes.online
         );
 
         this.onlineIcon = ko.pureComputed(

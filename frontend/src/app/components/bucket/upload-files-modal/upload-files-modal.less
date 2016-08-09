@@ -1,28 +1,15 @@
 upload-files-modal {
-    table {
-        height: 200px;
-        width: 700px;
-    }
+    data-table {
+        height: 100%;
 
-    .state-col {
-        min-width: 4em;
-    }
-
-    .progress-col {
-        min-width: 6em;
-    }
-
-    .name-col {
-        width: 100%;
-    }
-
-    .file {
-        &.completed > .progress-col {
-            color: @text-color7;
+        .file-name-col {
+            text-align: left;
+            width: 100%;
         }
 
-        &.failed > .progress-col {
-            color: @text-color8;
+        .progress-col {
+            min-width: 6em;
         }
     }
+
 }

@@ -1,31 +1,3 @@
-<section class="c4 column">
-    <h3 class="heading4 push-next">
-        Node Capacity:
-        <span data-bind="text: totalText"></span>
-    </h3>
-
-    <div class="row">
-        <ul class="c7 column list-no-style legend">
-            <li class="row">
-                <span class="c6 emphasized">Noobaa:</span>
-                <span class="highlight" data-bind="text: usedText"></span>
-            </li>
-            <li class="row">
-                <span class="c6 emphasized">Other:</span>
-                <span class="emphasized" data-bind="text: otherText"></span>
-            </li>
-            <li class="row">
-                <span class="c6 emphasized">Free:</span>
-                <span data-bind="text: freeText"></span>
-            </li>
-        </ul>
-
-        <quantity-gauge class="c5" params="values: gaugeValues"></quantity-gauge>
-    </div>
-</section>
-
-<vr></vr>
-
 <section class="c3 column">
     <h3 class="heading4 push-next">Status</h3>
     <ul class="list-no-style row multiline status">
@@ -51,7 +23,22 @@
 
 <vr></vr>
 
-<section class="column c5">
+<section class="c5 row">
+    <div class="column greedy">
+        <h3 class="heading4">Node capacity</h3>
+        <chart-legend params="items: pieValues"></chart-legend>
+    </div>
+
+    <pie-chart params="
+        values: pieValues,
+        primaryText: formattedText,
+        secondaryText: 'Total'
+    "></pie-chart>
+</section>
+
+<vr></vr>
+
+<section class="column c4">
     <h3 class="heading4 push-next">Activity</h3>
     <!-- ko if: dataActivity -->
     <p class="paragraph" data-bind="with: dataActivity">

@@ -88,13 +88,15 @@ class MapAllocator {
             if (part.chunk_dedup) return; // already found dup
             let status = map_utils.get_chunk_status(part.chunk, this.bucket.tiering, /*async_mirror=*/ true);
             var avoid_nodes = [];
+            let allocated_hosts = [];
+
             _.each(status.allocations, alloc => {
                 let f = alloc.fragment;
                 let block = _.pick(f,
                     'digest_type',
                     'digest_b64');
                 block._id = md_store.make_md_id();
-                let node = node_allocator.allocate_node(alloc.pools, avoid_nodes);
+                let node = node_allocator.allocate_node(alloc.pools, avoid_nodes, allocated_hosts);
                 if (!node) {
                     throw new Error('MapAllocator: no nodes for allocation');
                 }
@@ -102,6 +104,7 @@ class MapAllocator {
                 f.blocks = f.blocks || [];
                 f.blocks.push(map_utils.get_block_info(block));
                 avoid_nodes.push(String(node._id));
+                allocated_hosts.push(node.host_id);
             });
         });
     }

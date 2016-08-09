@@ -16,7 +16,9 @@ mocha.describe('job_queue', function() {
 
 
     mocha.it('should process an item', function(done) {
-        var q = new JobQueue();
+        var q = new JobQueue({
+            concurrency: 1,
+        });
         assert.strictEqual(q.length, 0);
         var job = {
             run: function() {
@@ -30,32 +32,14 @@ mocha.describe('job_queue', function() {
     });
 
 
-    mocha.it('should handle explicit method param', function(done) {
+    mocha.it('should handle explicit job_method param', function(done) {
         var q = new JobQueue({
-            method: 'foo'
+            concurrency: 1,
+            job_method: 'foo',
         });
         assert.strictEqual(q.length, 0);
         var job = {
             foo: function() {
-                assert_callback_equal(q.length, 0, done);
-                done();
-            }
-        };
-        q.add(job);
-        // item is dispatched immediately
-        assert_callback_equal(q.length, 0, done);
-    });
-
-
-    mocha.it('should handle explicit timeout param', function(done) {
-        var q = new JobQueue({
-            timeout: function(fn, delay) {
-                return setTimeout(fn, delay);
-            }
-        });
-        assert.strictEqual(q.length, 0);
-        var job = {
-            run: function() {
                 assert_callback_equal(q.length, 0, done);
                 done();
             }
@@ -91,9 +75,7 @@ mocha.describe('job_queue', function() {
 
 
     mocha.it('should remove queued item', function(done) {
-        var q = new JobQueue({
-            concurrency: 0
-        });
+        var q = new JobQueue(); // default should be concurrency 0
         assert.strictEqual(q.length, 0);
         var job = {
             run: /* istanbul ignore next */ function() {
@@ -133,11 +115,11 @@ mocha.describe('job_queue', function() {
                             throw new Error('*** this is an expected exception thrown by the test ***');
                         }
                     }
-                    if (job_id % 2 !== 0) {
+                    if (job_id % 2 === 0) {
+                        return P.delay(1).then(run_inner);
+                    } else {
                         run_inner();
                         return {};
-                    } else {
-                        return P.delay(1).then(run_inner);
                     }
                 }
             };

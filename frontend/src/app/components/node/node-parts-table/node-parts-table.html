@@ -4,52 +4,12 @@
     <span data-bind="text: count"></span>
 </h3>
 
-<div class="data-table greedy push-next">
-    <table>
-        <thead>
-            <tr>
-                <th class="state-col">State</th>
-                <th class="name-col text-left">File Name</th>
-                <th class="bucket-col">Bucket</th>
-                <th class="start-col">Start Offset</th>
-                <th class="end-col">End Offset</th>
-                <th class="size-col">Part Size</th>
-            </tr>
-        </thead>
-
-        <tbody  data-bind="foreach: rows">
-            <!-- ko if: isVisible -->
-            <tr>
-                <td class="state-col" data-bind="tooltip: stateToolTip">
-                    <svg-icon params="name: stateIcon"></svg-icon>
-                </td>
-
-                <td class="name-col text-left">
-                    <a class="link" data-bind="
-                        href: {
-                            route: 'object',
-                            params: { bucket: bucket,  object: object, tab: null }
-                        },
-                        text: object
-                    "></a>
-                </td>
-
-                <td class="bucket-col no-wrap" data-bind="
-                    text: bucket,
-                    tooltip: bucket
-                "></td>
-
-                <td class="start-col" data-bind="text: startOffset"></td>
-                <td class="end-col" data-bind="text: endOffset"></td>
-                <td class="size-col" data-bind="text: size"></td>
-            </tr>
-            <!-- /ko -->
-        </tbody>
-    </table>
-    <div class="empty-message" data-bind="visible: !hasParts()">
-        No file parts are stored on the node
-    </div>
-</div>
+<data-table class="greedy push-next" params="
+    columns: columns,
+    data: parts,
+    rowFactory: part => makePartRow(part),
+    emptyMessage: 'No file parts are stored on the node'
+"></data-table>
 
 <paginator class="align-end" params="
     pageSize: pageSize, itemCount: count, page: page

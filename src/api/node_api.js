@@ -391,6 +391,9 @@ module.exports = {
                 is_cloud_node: {
                     type: 'boolean'
                 },
+                demo_node: {
+                    type: 'boolean'
+                },
                 geolocation: {
                     type: 'string'
                 },
@@ -401,6 +404,9 @@ module.exports = {
                     type: 'string'
                 },
                 ip: {
+                    type: 'string'
+                },
+                host_id: {
                     type: 'string'
                 },
                 version: {
@@ -628,10 +634,9 @@ module.exports = {
             type: 'string',
             enum: [
                 'RESTORING',
-                'FREEING_SPACE',
                 'MIGRATING',
                 'DECOMMISSIONING',
-                'DELETING'
+                'DELETING',
             ]
         },
 

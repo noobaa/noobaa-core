@@ -63,7 +63,7 @@ class Agent {
             this.storage_limit = params.storage_limit;
         }
 
-        this.is_internal_agent = params.is_internal_agent;
+        this.is_demo_agent = params.is_demo_agent;
 
         const block_store_options = {
             node_name: this.node_name,
@@ -241,7 +241,8 @@ class Agent {
                 };
                 // update the n2n ssl to use my certificate
                 this.n2n_agent.set_ssl_context(this.ssl_cert);
-            });
+            })
+            .then(() => this.block_store.init());
     }
 
     _do_heartbeat() {
@@ -257,7 +258,7 @@ class Agent {
         };
         if (this.cloud_info) {
             hb_info.pool_name = this.cloud_info.cloud_pool_name;
-        } else if (this.is_internal_agent) {
+        } else if (this.is_demo_agent) {
             hb_info.pool_name = config.DEMO_DEFAULTS.NAME;
         }
         return this.client.node.heartbeat(hb_info, {
@@ -429,6 +430,14 @@ class Agent {
         }
     }
 
+    _fix_storage_limit(storage_info) {
+        storage_info.limit = this.storage_limit;
+        let limited_total = this.storage_limit;
+        let limited_free = limited_total - storage_info.used;
+        storage_info.total = Math.min(limited_total, storage_info.total);
+        storage_info.free = Math.min(limited_free, storage_info.free);
+    }
+
     // AGENT API //////////////////////////////////////////////////////////////////
 
 
@@ -441,6 +450,7 @@ class Agent {
             version: pkg.version || '',
             name: this.node_name || '',
             ip: ip,
+            host_id: this.host_id,
             rpc_address: this.rpc_address || '',
             base_address: this.rpc.router.default,
             n2n_config: this.n2n_agent.get_plain_n2n_config(),
@@ -459,6 +469,15 @@ class Agent {
             .then(storage_info => {
                 dbg.log0('storage_info:', storage_info);
                 reply.storage = storage_info;
+                if (this.storage_limit) {
+                    this._fix_storage_limit(reply.storage);
+                    // reply.storage.limit = this.storage_limit;
+                    // let limited_total = this.storage_limit;
+                    // let limited_free = limited_total - reply.storage.used;
+                    // reply.storage.total = Math.min(limited_total, reply.storage.total);
+                    // reply.storage.free = Math.min(limited_free, reply.storage.free);
+                }
+
             })
             .then(() => extended_hb && os_utils.read_drives()
                 .catch(err => {
@@ -475,11 +494,12 @@ class Agent {
                     if (this.storage_path_mount === drive.mount || !this.storage_path_mount) {
                         drive.storage.used = used_size;
                         if (this.storage_limit) {
-                            drive.storage.limit = this.storage_limit;
-                            let limited_total = this.storage_limit;
-                            let limited_free = limited_total - used_size;
-                            drive.storage.total = Math.min(limited_total, drive.storage.total);
-                            drive.storage.free = Math.min(limited_free, drive.storage.free);
+                            this._fix_storage_limit(drive.storage);
+                            // drive.storage.limit = this.storage_limit;
+                            // let limited_total = this.storage_limit;
+                            // let limited_free = limited_total - used_size;
+                            // drive.storage.total = Math.min(limited_total, drive.storage.total);
+                            // drive.storage.free = Math.min(limited_free, drive.storage.free);
                         }
                         return true;
                     } else {

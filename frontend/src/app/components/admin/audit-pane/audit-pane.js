@@ -5,9 +5,16 @@ import ko from 'knockout';
 import { auditLog } from 'model';
 import { loadAuditEntries, loadMoreAuditEntries, exportAuditEnteries, closeDrawer } from 'actions';
 import categories from './categories';
+import { deepFreeze } from 'utils';
+import { infinitScrollPageSize as pageSize } from 'config';
 
-const pageSize = 25;
-const scrollThrottle = 750;
+const columns = deepFreeze([
+    'time',
+    'account',
+    'category',
+    'event',
+    'entity'
+]);
 
 class AuditPaneViewModel extends Disposable {
     constructor() {
@@ -28,35 +35,29 @@ class AuditPaneViewModel extends Disposable {
             }
         });
 
-        this.rows = auditLog.map(
-            entry => new AuditRowViewModel(entry, this.categoreis)
-        );
+        this.columns = columns;
+        this.entries = auditLog;
+
+        let _scroll = ko.observable(0);
+        this.scroll = ko.pureComputed({
+            read: _scroll,
+            write: pos => {
+                _scroll(pos);
+                if (pos > .9) loadMoreAuditEntries(pageSize);
+            }
+        });
 
         this.selectedRow = ko.observable();
 
-        this.scroll = ko.observable()
-            .extend({
-                rateLimit: {
-                    method: 'notifyWhenChangesStop',
-                    timeout: scrollThrottle
-                }
-            });
-
-        this.addToDisposeList(
-            this.scroll.subscribe(
-                pos => pos > .9 && loadMoreAuditEntries(pageSize)
-            )
-        );
-
         this.description = ko.pureComputed(
-            () => this.selectedRow() ? this.selectedRow().description : []
+            () => this.selectedRow() && this.selectedRow().description()
         );
 
         this.selectedCategories(Object.keys(categories));
     }
 
-    isRowSelected(row) {
-        return this.selectedRow() === row;
+    createAuditRow(auditEntry) {
+        return new AuditRowViewModel(auditEntry, this.selectedRow);
     }
 
     selectAllCategories() {

@@ -37,15 +37,24 @@ mocha.describe('object_io', function() {
     mocha.before(function() {
         this.timeout(30000);
         return P.resolve()
-            .then(() => client.account.create_account({
-                name: SYS,
-                email: EMAIL,
-                password: PASSWORD,
-                access_keys: ACCESS_KEYS
-            }))
+            .then(() => {
+                return client.system.create_system({
+                    activation_code: '1111',
+                    name: SYS,
+                    email: EMAIL,
+                    password: PASSWORD,
+                    access_keys: ACCESS_KEYS
+                });
+            })
             .then(res => {
                 client.options.auth_token = res.token;
             })
+            .then(() => client.create_auth_token({
+                email: EMAIL,
+                password: PASSWORD,
+                system: SYS,
+            }))
+            .delay(2000)
             .then(() => coretest.init_test_nodes(client, SYS, 5));
     });
 
@@ -222,25 +231,25 @@ mocha.describe('object_io', function() {
                     return promise_utils.loop(10, function() {
                         i++;
                         return object_io.upload_stream_parts({
-                            client: client,
-                            bucket: BKT,
-                            key: key,
-                            upload_id: upload_id,
-                            upload_part_number: i,
-                            size: part_size,
-                            source_stream: new SliceReader(data, {
-                                start: i * part_size,
-                                end: (i + 1) * part_size
-                            }),
-                            calculate_md5: true,
-                        })
-                        .then((md5_digest) => client.object.complete_part_upload({
-                            bucket: BKT,
-                            key: key,
-                            upload_id: upload_id,
-                            upload_part_number: i,
-                            etag: md5_digest.md5.toString('hex')
-                        }));
+                                client: client,
+                                bucket: BKT,
+                                key: key,
+                                upload_id: upload_id,
+                                upload_part_number: i,
+                                size: part_size,
+                                source_stream: new SliceReader(data, {
+                                    start: i * part_size,
+                                    end: (i + 1) * part_size
+                                }),
+                                calculate_md5: true,
+                            })
+                            .then((md5_digest) => client.object.complete_part_upload({
+                                bucket: BKT,
+                                key: key,
+                                upload_id: upload_id,
+                                upload_part_number: i,
+                                etag: md5_digest.md5.toString('hex')
+                            }));
                     });
                 })
                 .then(function() {

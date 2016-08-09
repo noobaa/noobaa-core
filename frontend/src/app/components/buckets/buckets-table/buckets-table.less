@@ -1,32 +1,38 @@
 buckets-table {
     .column();
 
-    .state-col {
-        min-width: 6em;
-    }
+    data-table {
+        .state-col {
+            min-width: 6em;
+        }
 
-    .name-col{
-        text-align: left;
-        width: 100%;
-    }
+        .name-col{
+            text-align: left;
+            width: 100%;
+        }
 
-    .file-count-col {
-        min-width: 6em;
-    }
+        .file-count-col {
+            min-width: 6em;
+        }
 
-    .capacity-col {
-        min-width: 11em;
-    }
+        .placement-policy-col {
+            min-width: 12em;
+        }
 
-    .cloud-sync-col {
-        min-width: 9em;
-    }
+        .capacity-col {
+            min-width: 11em;
+        }
 
-    .delete-col {
-        min-width: 8em;
-    }
+        .cloud-sync-col {
+            min-width: 9em;
+        }
 
-    .unable-to-sync {
-        color: @text-color8;
+        .delete-col {
+            min-width: 50px;
+        }
+
+        .unable-to-sync {
+            color: @text-color8;
+        }
     }
 }

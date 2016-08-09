@@ -6,30 +6,42 @@ var mocha = require('mocha');
 var assert = require('assert');
 var fs = require('fs');
 var DebugModule = require('../../util/debug_module');
+var os = require('os');
+var promise_utils = require('../../util/promise_utils');
 
 // File Content Verifier according to given expected result (positive/negative)
 function file_content_verify(flag, expected) {
-    return P.delay(1).then(function() {
-            var content = fs.readFileSync("/var/log/noobaa.log", "utf8");
+    return P.delay(1000).then(function() {
 
-            if (flag === "text") { // Verify Log requests content
-                assert(content.indexOf(expected) !== -1);
-            } else if (flag === "no_text") { // Verify Log request DOES NOT appear
-                assert(content.indexOf(expected) === -1);
-            }
-        });
+        var content;
+        if (os.type() === 'Darwin') {
+            content = fs.readFileSync("./logs/noobaa.log", "utf8");
+        } else {
+            content = fs.readFileSync("/var/log/noobaa.log", "utf8");
+        }
+        if (flag === "text") { // Verify Log requests content
+            assert(content.indexOf(expected) !== -1);
+        } else if (flag === "no_text") { // Verify Log request DOES NOT appear
+            assert(content.indexOf(expected) === -1);
+        }
+        return;
+    });
 }
 
 
 mocha.describe('debug_module', function() {
 
+    //when log is 100MB, reading the log file for
+    //verification can take about 1 sec.
+    //various logs test creates inconsistency as it may reach timeout.
+    this.timeout(10000);
     // This test case fails becauuse __filename is full path !
     // shouldn't the module trim the base path ??
     mocha.it('should parse __filename', function() {
         //CI integration workaround
         var filename = __filename.indexOf('noobaa-util') >= 0 ?
-                      __filename :
-                      '/Users/someuser/github/noobaa-core/src/util/test_debug_module.js';
+            __filename :
+            '/Users/someuser/github/noobaa-core/src/util/test_debug_module.js';
 
         var dbg = new DebugModule(filename);
         assert.strictEqual(dbg._name, 'core.util.test_debug_module');
@@ -66,15 +78,24 @@ mocha.describe('debug_module', function() {
     });
 
     mocha.it('should set level for windows style module and propogate', function() {
-      var dbg = new DebugModule('C:\\Program Files\\NooBaa\\src\\agent\\agent_cli.js');
-      dbg.set_level(3, 'C:\\Program Files\\NooBaa\\src\\agent');
-      assert.strictEqual(dbg._cur_level.__level,3);
+        var dbg = new DebugModule('C:\\Program Files\\NooBaa\\src\\agent\\agent_cli.js');
+        dbg.set_level(3, 'C:\\Program Files\\NooBaa\\src\\agent');
+        assert.strictEqual(dbg._cur_level.__level, 3);
     });
 
     mocha.it('should log when level is appropriate', function() {
-        var dbg = new DebugModule('/web/noise/noobaa-core/src/blabla.asd/lll.asd');
-        dbg.log0("test_debug_module: log0 should appear in the log");
-        return file_content_verify("text", "test_debug_module: log0 should appear in the log");
+        var rotation_command = '';
+        //no special handling on Darwin for now. ls as place holder
+        if (os.type() === 'Darwin') {
+            rotation_command = 'ls';
+        } else {
+            rotation_command = '/usr/sbin/logrotate /etc/logrotate.d/noobaa';
+        }
+        return promise_utils.exec(rotation_command).then(function() {
+            var dbg = new DebugModule('/web/noise/noobaa-core/src/blabla.asd/lll.asd');
+            dbg.log0("test_debug_module: log0 should appear in the log");
+            return file_content_verify("text", "test_debug_module: log0 should appear in the log");
+        });
     });
 
     mocha.it('should NOT log when level is lower', function() {
@@ -116,20 +137,22 @@ mocha.describe('debug_module', function() {
         var s1 = 'this';
         var s2 = 'should';
         var s3 = 'expected';
-        dbg.log0("%s string substitutions %s be logged as %s", s1, s2, s3);
-        return file_content_verify("text", "this string substitutions should be logged as expected");
+        var d1 = 3;
+        var d2 = 2;
+        dbg.log0("%s string substitutions (%d) %s be logged as %s, with two (%d) numbers", s1, d1, s2, s3, d2);
+        return file_content_verify("text", " this string substitutions (3) should be logged as expected, with two (2) numbers");
     });
 
     mocha.it('console various logs should be logged as well', function() {
         var syslog_levels = ["trace", "log", "info", "error"];
         return _.reduce(syslog_levels, function(promise, l) {
-                return promise.then(function() {
-                    var dbg = new DebugModule('/web/noise/noobaa-core/src/blabla.asd/lll.asd');
-                    _.noop(dbg); // lint unused bypass
-                    console[l]("console - %s - should be captured", l);
-                    return file_content_verify("text", "CONSOLE:: console - " + l + " - should be captured");
-                });
-            }, P.resolve());
+            return promise.then(function() {
+                var dbg = new DebugModule('/web/noise/noobaa-core/src/blabla.asd/lll.asd');
+                _.noop(dbg); // lint unused bypass
+                console[l]("console - %s - should be captured", l);
+                return file_content_verify("text", "CONSOLE:: console - " + l + " - should be captured");
+            });
+        }, P.resolve());
     });
 
     mocha.it('fake browser verify logging and console wrapping', function() {

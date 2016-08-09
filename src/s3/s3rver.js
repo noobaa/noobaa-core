@@ -36,6 +36,8 @@ if (cluster.isMaster && process.env.S3_CLUSTER_DISABLED !== 'true') {
     }
     cluster.on('exit', function(worker, code, signal) {
         console.log('worker ' + worker.process.pid + ' died');
+        // fork again on exit
+        cluster.fork();
     });
 } else {
     run_server();

@@ -98,12 +98,14 @@ AgentCLI.prototype.init = function() {
                 access_key: '123',
                 secret_key: 'abc',
                 system: 'demo',
-                bucket: 'files'
+                bucket: 'files',
+                host_id: uuid()
             });
             if (self.params.address) {
                 self.client.options.address = self.params.address;
             }
-            return os_utils.read_drives();
+            return os_utils.read_drives()
+                .then(drives => os_utils.remove_linux_readonly_drives(drives));
         })
         .then(function(drives) {
             dbg.log0('drives:', drives, ' current location ', process.cwd());
@@ -212,7 +214,7 @@ AgentCLI.prototype.load = function() {
                         return self.start(name, node_path);
                     } else {
                         dbg.log0('starting new internal agent. name = ', name);
-                        return self.create_node_helper(self.params.all_storage_paths[0], name);
+                        return self.create_node_helper(self.params.all_storage_paths[0], /*use_host_id=*/ true, name);
                     }
                 }));
             });
@@ -276,7 +278,7 @@ AgentCLI.prototype.load = function() {
             if (nodes_to_add < 0) {
                 dbg.warn('NODES SCALE DOWN IS NOT YET SUPPORTED ...');
             } else {
-                return self.create_some(nodes_to_add);
+                return self.create_some(nodes_to_add, /*use_host_id=*/ true);
             }
         })
         .catch(err => {
@@ -312,7 +314,7 @@ AgentCLI.prototype.load.helper = function() {
     dbg.log0("create token, start nodes ");
 };
 
-AgentCLI.prototype.create_node_helper = function(current_node_path_info, internal_node_name, assign_new_uuid) {
+AgentCLI.prototype.create_node_helper = function(current_node_path_info, use_host_id, internal_node_name) {
     var self = this;
 
     return P.fcall(function() {
@@ -329,7 +331,7 @@ AgentCLI.prototype.create_node_helper = function(current_node_path_info, interna
         }
 
         if (!internal_node_name) {
-            if (self.params.scale || assign_new_uuid) {
+            if (self.params.scale || !use_host_id) {
                 // when running with scale use new uuid for each node
                 node_name = node_name + '-' + uuid().split('-')[0];
             } else {
@@ -382,6 +384,11 @@ AgentCLI.prototype.create_node_helper = function(current_node_path_info, interna
                 return promise_utils.exec('echo \'rm -rf ' + current_node_path + '\' >> ./noobaa_service_uninstall.sh ');
             })
             .then(function() {
+                if (!fs.existsSync('./service_uninstaller.bat')) return;
+                dbg.log0('Add uninstall command', node_path);
+                return promise_utils.exec('echo rd /s /q ' + current_node_path + ' >> ./service_uninstaller.bat ');
+            })
+            .then(function() {
                 if (!self.params.internal_agent) {
                     // remove access_key and secret_key from agent_conf after a token was acquired
                     return fs.readFileAsync('agent_conf.json')
@@ -422,19 +429,19 @@ AgentCLI.prototype.create_node_helper = function(current_node_path_info, interna
  * create new node agent
  *
  */
-AgentCLI.prototype.create = function(number_of_nodes) {
+AgentCLI.prototype.create = function(number_of_nodes, use_host_id) {
     var self = this;
     //create root path last. First, create all other.
     // for internal_agents only use root path
     return P.all(_.map(_.drop(self.params.all_storage_paths, 1), function(current_storage_path) {
             if (!self.params.internal_agent) {
-                return fs_utils.list_directory(current_storage_path.mount)
+                return fs.readdirAsync(current_storage_path.mount)
                     .then(function(files) {
                         if (files.length > 0 && number_of_nodes === 0) {
                             //if new HD introduced,  skip existing HD.
                             return;
                         } else {
-                            return self.create_node_helper(current_storage_path, false, true);
+                            return self.create_node_helper(current_storage_path, use_host_id);
                         }
                     });
             }
@@ -442,19 +449,19 @@ AgentCLI.prototype.create = function(number_of_nodes) {
         .then(function() {
             //create root folder
             if (self.params.all_storage_paths.length > 1) {
-                return fs_utils.list_directory(self.params.all_storage_paths[0].mount)
+                return fs.readdirAsync(self.params.all_storage_paths[0].mount)
                     .then(function(files) {
                         if (files.length > 0 && number_of_nodes === 0) {
                             //if new HD introduced,  skip existing HD.
                             return;
                         } else {
-                            return self.create_node_helper(self.params.all_storage_paths[0], false, true);
+                            return self.create_node_helper(self.params.all_storage_paths[0], use_host_id);
                         }
                     });
             } else if (number_of_nodes === 0) {
                 return;
             } else {
-                return self.create_node_helper(self.params.all_storage_paths[0]);
+                return self.create_node_helper(self.params.all_storage_paths[0], use_host_id);
             }
         })
         .then(null, function(err) {
@@ -473,16 +480,16 @@ AgentCLI.prototype.create.helper = function() {
  * create new node agent
  *
  */
-AgentCLI.prototype.create_some = function(n) {
+AgentCLI.prototype.create_some = function(n, use_host_id) {
     var self = this;
     //special case, new HD introduction to the system. adding only these new HD nodes
     if (n === 0) {
-        return self.create(0);
+        return self.create(0, use_host_id);
     } else {
         var sem = new Semaphore(5);
         return P.all(_.times(n, function() {
             return sem.surround(function() {
-                return self.create(n);
+                return self.create(n, use_host_id);
             });
         }));
     }
@@ -513,7 +520,7 @@ AgentCLI.prototype.start = function(node_name, node_path) {
             storage_path: node_path,
             cloud_info: self.cloud_info,
             storage_limit: self.params.storage_limit,
-            is_internal_agent: self.params.internal_agent,
+            is_demo_agent: self.params.demo,
         });
 
         dbg.log0('agent inited', node_name, self.params.addres, self.params.port, self.params.secure_port, node_path);

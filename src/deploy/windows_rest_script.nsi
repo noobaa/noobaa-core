@@ -213,6 +213,14 @@ Section "NooBaa S3 REST Service"
 			RMDir /r "$INSTDIR\build\Release-32"
 			Rename $INSTDIR\build\Release-64 $INSTDIR\build\Release
 
+			WriteRegStr HKLM "Software\Wow6432Node\Microsoft\Windows\CurrentVersion\Uninstall\NooBaa-S3REST" \
+				 "DisplayName" "NooBaa S3REST Local Service"
+			WriteRegStr HKLM "Software\Wow6432Node\Microsoft\Windows\CurrentVersion\Uninstall\NooBaa-S3REST" \
+				"QuietUninstallString" "$\"$INSTDIR\uninstall-noobaa-S3REST.exe$\" /S"
+			WriteRegStr HKLM "Software\Wow6432Node\Microsoft\Windows\CurrentVersion\Uninstall\NooBaa-S3REST" \
+				"UninstallString" "$\"$INSTDIR\uninstall-noobaa-S3REST.exe$\""
+
+
 		${Else}
 	    # 32 bit code
 			File ".\32\openssl.exe"
@@ -223,6 +231,13 @@ Section "NooBaa S3 REST Service"
 			File /r  "build"
 			RMDir /r "$INSTDIR\build\Release-64"
 			Rename $INSTDIR\build\Release-32 $INSTDIR\build\Release
+
+			WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\NooBaa-S3REST" \
+				 "DisplayName" "NooBaa S3REST Local Service"
+			WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\NooBaa-S3REST" \
+				"QuietUninstallString" "$\"$INSTDIR\uninstall-noobaa-S3REST.exe$\" /S"
+			WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\NooBaa-S3REST" \
+				"UninstallString" "$\"$INSTDIR\uninstall-noobaa-S3REST.exe$\""
 
 		${EndIf}
 
@@ -263,6 +278,11 @@ Section "NooBaa S3 REST Service"
 SectionEnd
 
 Section "uninstall"
+	${If} ${RunningX64}
+		DeleteRegKey HKLM "Software\Wow6432Node\Microsoft\Windows\CurrentVersion\Uninstall\NooBaa-S3REST"
+	${Else}
+		DeleteRegKey HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\NooBaa-S3REST"
+	${EndIf}
 	nsExec::ExecToStack '$\"$INSTDIR\NooBaa_Agent_wd stop "Noobaa S3REST Service" >> "$INSTDIR\uninstall.log"'
 	nsExec::ExecToStack '$\"$INSTDIR\NooBaa_Agent_wd remove "Noobaa S3REST Service" confirm >> "$INSTDIR\uninstall.log"'
 	Delete "$INSTDIR\NooBaa_Agent_wd.exe"

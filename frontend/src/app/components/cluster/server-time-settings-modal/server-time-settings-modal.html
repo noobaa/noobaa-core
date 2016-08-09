@@ -1,14 +1,15 @@
-<modal params="onClose: () => cancel()" class="text-left">
-    <h1 class="heading2 push-next">
-        Server Time Settings
-    </h1>
+<modal class="modal-small" params="
+    title: 'Server Time Settings',
+    onClose: () => cancel()
+">
+    <editor params="label: 'Config type'">
+        <radio-group params="
+            options: configTypes,
+            selected: selectedConfigType
+        "></radio-group>
+    </editor>
 
-    <radio-group class="push-next" params="
-        options: configTypes,
-        selected: selectedConfigType
-    "></radio-group>
-
-    <editor params="label: 'Time Zone'">
+    <editor params="label: 'Timezone'">
         <dropdown params="
             options: timezoneOptions,
             selected: timezone,
@@ -16,7 +17,7 @@
         "></dropdown>
     </editor>
 
-    <div class="forms row push-next">
+    <div class="forms row push-next greedy">
         <div class="manual-form" data-bind="visibility: usingManualTime">
              <editor params="label: 'Date'">
                 <div class="row editor-row">

@@ -1,5 +1,4 @@
 import template from './bucket-placement-policy-modal.html';
-import PoolRow from './pool-row';
 import Disposable from 'disposable';
 import ko from 'knockout';
 import { noop, deepFreeze } from 'utils';
@@ -21,19 +20,29 @@ const columns = deepFreeze([
 ]);
 
 class BacketPlacementPolicyModalViewModel extends Disposable {
-    constructor({ policy, onClose = noop }) {
+    constructor({ bucketName, onClose = noop }) {
         super();
 
         this.onClose = onClose;
         this.columns = columns;
 
         this.tierName = ko.pureComputed(
-            () => ko.unwrap(policy) && ko.unwrap(policy).tiers[0].tier
+            () => {
+                if(!systemInfo()) {
+                    return '';
+                }
+
+                let bucket = systemInfo().buckets.find(
+                    bucket => bucket.name === ko.unwrap(bucketName)
+                );
+
+                return bucket.tiering.tiers[0].tier;
+            }
         );
 
         this.tier = ko.pureComputed(
             () => {
-                if (!systemInfo() || !this.tierName()) {
+                if (!this.tierName()) {
                     return;
                 }
 
@@ -65,22 +74,6 @@ class BacketPlacementPolicyModalViewModel extends Disposable {
         });
 
         this.errors = ko.validation.group(this);
-    }
-
-    newPoolRow(pool) {
-        return new PoolRow(pool, this.selectedPools);
-    }
-
-    selectAllPools() {
-        this.selectedPools(
-            this.pools().map(
-                pool => pool.name
-            )
-        );
-    }
-
-    clearAllPools() {
-        this.selectedPools([]);
     }
 
     save() {

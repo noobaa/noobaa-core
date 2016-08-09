@@ -1,2 +1,10 @@
 <h2 class="heading3">Send the following message to your new user</h2>
-<div class="box greedy" data-bind="html: userMessage"></div>
+<div class="box row greedy content-start">
+    <div class="greedy" data-bind="html: userMessage"></div>
+    <button class="btn-flat" data-bind="
+        click: copyEmailTextToClipboard,
+        tooltip: 'Copy to Clipboard'
+    ">
+        <svg-icon class="icon-small" params="name: 'copy-to-clipboard'"></svg-icon>
+    </button>
+</div>

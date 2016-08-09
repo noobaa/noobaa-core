@@ -8,7 +8,7 @@ class FileSelectorViewModel extends Disposable {
         onFilesReady = noop,
         allowMultiSelect = false,
         filter = '',
-        message = 'Drag Here'
+        message = `Drag your file${allowMultiSelect ? 's' : ''} here`
     }) {
         super();
 

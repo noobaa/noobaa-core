@@ -3,9 +3,9 @@ import ko from 'knockout';
 import { shortString, formatSize } from 'utils';
 
 const partStateMapping = Object.freeze({
-    available: { toolTip: 'available', icon: 'part-available' },
-    building:  { toolTip: 'in process', icon: 'part-in-process' },
-    unavailable: { toolTip: 'unavailable', icon: 'part-unavailable' }
+    available: { tooltip: 'available', icon: 'part-available' },
+    building:  { tooltip: 'in process', icon: 'part-in-process' },
+    unavailable: { tooltip: 'unavailable', icon: 'part-unavailable' }
 });
 
 class BlockRowViewModel extends Disposable {
@@ -15,7 +15,7 @@ class BlockRowViewModel extends Disposable {
         let { online, node_ip, node_name, pool_name } = adminfo;
 
         this.label = `Replica ${index + 1} of ${count}`;
-        this.nodeStateToolTip = online ? 'online' : 'offline';
+        this.nodeStateTooltip = online ? 'online' : 'offline';
         this.nodeStateIcon = `node-${online ? 'online' : 'offline'}`;
         this.nodeIp = node_ip;
         this.poolName = pool_name;
@@ -33,7 +33,7 @@ export default class ObjectPartRowViewModel extends Disposable {
         let blocks = part.chunk.frags[0].blocks;
         let stateMapping = partStateMapping[state];
 
-        this.stateToolTip = stateMapping.toolTip;
+        this.stateTooltip = stateMapping.tooltip;
         this.stateIcon = stateMapping.icon;
         this.name = `Part ${partNumber + 1} of ${partsCount}`;
         this.size = size;

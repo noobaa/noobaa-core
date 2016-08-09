@@ -40,6 +40,13 @@ db.getSiblingDB("nbcore").buckets.remove({
         $ne: 'files'
     }
 });
+
+db.getSiblingDB("nbcore").buckets.updateMany({}, {
+    $unset: {
+        cloud_sync: true
+    }
+});
+
 // We assign all of the nodes to the default_pool, because we've removed all of the pools
 db.getSiblingDB("nbcore").nodes.update({}, {
     $set: {
@@ -62,5 +69,12 @@ db.getSiblingDB("nbcore").roles.remove({
         $nin: [db.getSiblingDB("nbcore").accounts.find({
             email: 'demo@noobaa.com'
         })[0]._id]
+    }
+});
+
+//clean cloud sync credential cache
+db.getSiblingDB("nbcore").accounts.updateMany({}, {
+    $unset: {
+        sync_credentials_cache: true
     }
 });

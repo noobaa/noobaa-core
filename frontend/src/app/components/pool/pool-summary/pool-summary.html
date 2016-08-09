@@ -1,27 +1,4 @@
 <!-- ko if: dataReady -->
-<section class="c4 row">
-    <div class="column greedy">
-        <h3 class="heading4 push-next">
-            Storage Capacity:
-            <span data-bind="text: totalText"></span>
-        </h3>
-
-        <ul class="c7 column list-no-style legend">
-            <li class="row">
-                <span class="c6 emphasized">Used:</span>
-                <span class="highlight" data-bind="text: usedText"></span>
-            </li>
-            <li class="row">
-                <span class="c6 emphasized">Free:</span>
-                <span data-bind="text: freeText"></span>
-            </li>
-        </ul>
-    </div>
-
-    <pie-chart class="" params="values: pieValues"></pie-chart>
-</section>
-
-<vr></vr>
 
 <section class="c3 column">
     <h3 class="heading4 push-next">Status</h3>
@@ -32,10 +9,7 @@
         <span data-bind="text: stateText"></span>
     </div>
 
-    <h3 class="heading4 push-next">
-        Nodes in Pool:
-        <span data-bind="text: nodeCount"></span>
-    </h3>
+    <h3 class="heading4 push-next"></h3>
     <div class="row">
         <div class="c6 push-next">
             <svg-icon params="name: onlineIcon" data-bind="
@@ -45,7 +19,7 @@
         </div>
         <div class="c6">
             <svg-icon params="name: offlineIcon" data-bind="
-                tooltip: 'Online Nodes'
+                tooltip: 'Offline Nodes'
             "></svg-icon>
             <span data-bind="text: offlineText"></span>
         </div>
@@ -54,7 +28,22 @@
 
 <vr></vr>
 
-<section class="column c5">
+<section class="c5 row">
+    <div class="column greedy">
+        <h3 class="heading4">Pool capacity</h3>
+        <chart-legend params="items: pieValues"></chart-legend>
+    </div>
+
+    <pie-chart params="
+        values: pieValues,
+        primaryText: formattedTotal,
+        secondaryText: 'Total'
+    "></pie-chart>
+</section>
+
+<vr></vr>
+
+<section class="column c4">
     <h3 class="heading4 push-next">Activity</h3>
     <!-- ko foreach: dataActivities -->
     <p class="paragraph">

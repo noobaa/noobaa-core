@@ -562,6 +562,15 @@ module.exports = {
 
         validate_activation: {
             method: 'GET',
+            params: {
+                type: 'object',
+                required: ['code'],
+                properties: {
+                    code: {
+                        type: 'string'
+                    }
+                }
+            },
             reply: {
                 type: 'boolean',
             },
@@ -638,6 +647,12 @@ module.exports = {
                         $ref: 'pool_api#/definitions/pool_extended_info'
                     },
                 },
+                accounts: {
+                    type: 'array',
+                    items: {
+                        $ref: 'account_api#/definitions/account_info'
+                    }
+                },
                 objects: {
                     type: 'integer'
                 },
@@ -688,7 +703,10 @@ module.exports = {
                         },
                         upgraded_cap_notification: {
                             type: 'boolean'
-                        }
+                        },
+                        phone_home_unable_comm: {
+                            type: 'boolean'
+                        },
                     }
                 },
                 remote_syslog_config: {

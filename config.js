@@ -18,6 +18,8 @@ config.LONG_GONE_THRESHOLD = 3600000;
 config.SHORT_GONE_THRESHOLD = 300000;
 config.LONG_BUILD_THRESHOLD = 300000;
 config.MAX_OBJECT_PART_SIZE = 64 * 1024 * 1024;
+config.DEMO_NODES_STORAGE_LIMIT = 500 * 1024 * 1024;
+config.NUM_DEMO_NODES = 3;
 
 ////////////////
 // RPC CONFIG //
@@ -94,10 +96,11 @@ if (!is_windows) {
 config.central_stats = {
     send_stats: 'true',
     central_listener: 'http://104.155.41.235:9090/phdata',
-    send_time_cycle: 30 * 60000,
+    send_time_cycle: 30 * 60000, //min
     previous_diag_packs_dir: process.env.ProgramData + '/prev_diags',
     previous_diag_packs_count: 3 //TODO: We might want to split between agent and server
 };
+config.central_stats.send_time = 10 * (24 / (config.central_stats.send_time_cycle / 60000 / 60)); //10 days
 
 /*
   Clustering Defaults
@@ -122,6 +125,7 @@ config.CLUSTERING_PATHS = {
 
 config.CLUSTER_HB_INTERVAL = 1 * 60000;
 config.CLUSTER_MASTER_INTERVAL = 30000;
+config.BUCKET_FETCH_INTERVAL = 30000;
 config.CLUSTER_NODE_MISSING_TIME = 3 * 60000;
 config.SUPERVISOR_PROGRAM_SEPERATOR = '#endprogram';
 

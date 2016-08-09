@@ -71,7 +71,7 @@ vr {
     width: 1px;
     min-width: 1px;
     background-color: @bg-color6;
-    margin: 0 2 * @gutter;
+    margin: 0 @gutter;
 }
 
 output {
@@ -466,7 +466,7 @@ input[type="search"] {
     padding: .75em 1em;
 
     &[disabled] {
-        cursor: default;
+        cursor: not-allowed;
     }
 }
 
@@ -566,6 +566,7 @@ input[type="search"] {
 }
 
 .val-msg {
+    display: block;
     line-height: 1.7;
 
     .text(

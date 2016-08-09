@@ -36,6 +36,7 @@ const promise_utils = require('../../util/promise_utils');
 const bucket_server = require('./bucket_server');
 const system_server_utils = require('../utils/system_server_utils');
 
+
 // called on rpc server init
 function _init() {
     const DEFUALT_DELAY = 5000;
@@ -233,9 +234,10 @@ function create_system(req) {
             }
             return server_rpc.client.hosted_agents.create_agent({
                 name: req.rpc_params.name,
+                demo: true,
                 access_keys: req.rpc_params.access_keys,
-                scale: 3,
-                storage_limit: 100 * 1024 * 1024,
+                scale: config.NUM_DEMO_NODES,
+                storage_limit: config.DEMO_NODES_STORAGE_LIMIT,
             }, {
                 auth_token: reply_token
             });
@@ -287,38 +289,49 @@ function create_system(req) {
  *
  */
 function read_system(req) {
-    var system = req.system;
+    const system = req.system;
     return P.join(
         // nodes - count, online count, allocated/used storage aggregate by pool
         nodes_client.instance().aggregate_nodes_by_pool(null, system._id, /*skip_cloud_nodes=*/ true),
-
-        // objects - size, count
-        md_store.aggregate_objects({
+        md_store.aggregate_objects_count({
             system: system._id,
-            deleted: null,
+            deleted: null
         }),
 
-        promise_utils.all_obj(system.buckets_by_name, function(bucket) {
-            // TODO this is a hacky "pseudo" rpc request. really should avoid.
-            let new_req = _.defaults({
-                rpc_params: {
-                    name: bucket.name
-                }
-            }, req);
-            return bucket_server.get_cloud_sync(new_req);
-        })
+        // passing the bucket itself as 2nd arg to bucket_server.get_cloud_sync
+        // which is supported instead of sending the bucket name in an rpc req
+        // just to reuse the rpc function code without calling through rpc.
+        promise_utils.all_obj(
+            system.buckets_by_name,
+            bucket => bucket_server.get_cloud_sync(req, bucket)
+        ),
 
+        P.fcall(() => server_rpc.client.account.list_accounts({}, {
+            auth_token: req.auth_token
+        })).then(
+            response => response.accounts
+        )
     ).spread(function(
         nodes_aggregate_pool,
-        objects_aggregate,
-        cloud_sync_by_bucket) {
-
-        var nodes_sys = nodes_aggregate_pool[''] || {};
-        var objects_sys = objects_aggregate[''] || {};
-        var ip_address = ip_module.address();
-        var n2n_config = system.n2n_config;
-        let debug_level = system.debug_level;
-        var upgrade = {};
+        objects_count,
+        cloud_sync_by_bucket,
+        accounts
+    ) {
+        const objects_sys = {
+            count: size_utils.BigInteger.zero,
+            size: size_utils.BigInteger.zero,
+        };
+        _.forEach(system_store.data.buckets, bucket => {
+            if (String(bucket.system._id) !== String(system._id)) return;
+            objects_sys.size = objects_sys.size
+                .plus(bucket.storage_stats && bucket.storage_stats.objects_size || 0);
+        });
+        objects_sys.count = objects_sys.count.plus(objects_count[''] || 0);
+        const nodes_sys = nodes_aggregate_pool[''] || {};
+        const ip_address = ip_module.address();
+        const n2n_config = system.n2n_config;
+        const debug_level = system.debug_level;
+        const upgrade = {};
         if (system.upgrade) {
             upgrade.status = system.upgrade.status;
             upgrade.message = system.upgrade.error;
@@ -339,7 +352,9 @@ function read_system(req) {
         if (system.phone_home_proxy_address) {
             phone_home_config.proxy_address = system.phone_home_proxy_address;
         }
-
+        if (system.freemium_cap.phone_home_unable_comm) {
+            phone_home_config.phone_home_unable_comm = true;
+        }
 
         // TODO use n2n_config.stun_servers ?
         // var stun_address = 'stun://' + ip_address + ':' + stun.PORT;
@@ -349,9 +364,10 @@ function read_system(req) {
         //     n2n_config.stun_servers.unshift(stun_address);
         //     dbg.log0('read_system: n2n_config.stun_servers', n2n_config.stun_servers);
         // }
-        let response = {
+
+        const response = {
             name: system.name,
-            objects: objects_sys.count || 0,
+            objects: objects_sys.count.toJSNumber(),
             roles: _.map(system.roles_by_account, function(roles, account_id) {
                 var account = system_store.data.get_by_id(account_id);
                 return {
@@ -362,8 +378,8 @@ function read_system(req) {
             buckets: _.map(system.buckets_by_name,
                 bucket => bucket_server.get_bucket_info(
                     bucket,
-                    objects_aggregate,
                     nodes_aggregate_pool,
+                    objects_count[bucket._id] || 0,
                     cloud_sync_by_bucket[bucket.name])),
             pools: _.map(system.pools_by_name,
                 pool => pool_server.get_pool_info(pool, nodes_aggregate_pool)),
@@ -372,6 +388,7 @@ function read_system(req) {
             storage: size_utils.to_bigint_storage({
                 total: nodes_sys.total,
                 free: nodes_sys.free,
+                unavailable_free: nodes_sys.unavailable_free,
                 alloc: nodes_sys.alloc,
                 used: objects_sys.size,
                 real: nodes_sys.used,
@@ -409,6 +426,8 @@ function read_system(req) {
                 response.dns_name = hostname;
             }
         }
+
+        response.accounts = accounts;
 
         return response;
     });

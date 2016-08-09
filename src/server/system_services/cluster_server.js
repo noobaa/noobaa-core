@@ -373,7 +373,7 @@ function set_debug_level(req) {
 
             return P.each(target_servers, function(server) {
                 return server_rpc.client.cluster_internal.apply_set_debug_level(debug_params, {
-                    address: 'ws://' + server.owner_address + ':8080',
+                    address: 'ws://' + server.owner_address + ':' + server_rpc.get_base_port(),
                     auth_token: req.auth_token
                 });
             });
@@ -432,7 +432,8 @@ function _set_debug_level_internal(req, level) {
                 // Only master can update the whole system debug mode level
                 // TODO: If master falls in the process and we already passed him
                 // It means that nobody will update the system in the DB, yet it will be in debug
-                if (!system_store.is_cluster_master) {
+                let current_clustering = system_store.get_local_cluster_info();
+                if ((current_clustering && current_clustering.is_clusterized) && !system_store.is_cluster_master) {
                     return;
                 }
 
@@ -469,7 +470,7 @@ function diagnose_system(req) {
         .then(() => {
             return P.each(target_servers, function(server) {
                 return server_rpc.client.cluster_internal.collect_server_diagnostics(req.rpc_params, {
-                        address: 'ws://' + server.owner_address + ':8080',
+                        address: 'ws://' + server.owner_address + ':' + server_rpc.get_base_port(),
                         auth_token: req.auth_token
                     })
                     .then((res_data) => {
@@ -550,21 +551,21 @@ function read_server_config(req) {
     let reply = {};
     let srvconf = {};
     return P.resolve(_attach_server_configuration(srvconf))
-    .then(() => {
-        if (srvconf.ntp) {
-            if (srvconf.ntp.timezone) {
-                reply.timezone = srvconf.ntp.timezone;
+        .then(() => {
+            if (srvconf.ntp) {
+                if (srvconf.ntp.timezone) {
+                    reply.timezone = srvconf.ntp.timezone;
+                }
+                if (srvconf.ntp.server) {
+                    reply.ntp_server = srvconf.ntp.server;
+                }
             }
-            if (srvconf.ntp.server) {
-                reply.ntp_server = srvconf.ntp.server;
-            }
-        }
 
-        if (srvconf.dns_servers) {
-            reply.dns_servers = srvconf.dns_servers;
-        }
-        return reply;
-    });
+            if (srvconf.dns_servers) {
+                reply.dns_servers = srvconf.dns_servers;
+            }
+            return reply;
+        });
 }
 
 //
@@ -787,6 +788,12 @@ function _update_rs_if_needed(IPs, name, is_config) {
 
 
 function _attach_server_configuration(cluster_server) {
+    if (!fs.existsSync('/etc/ntp.conf') || !fs.existsSync('/etc/resolv.conf')) {
+        cluster_server.ntp = {
+            timezone: os_utils.get_time_config().timezone
+        };
+        return cluster_server;
+    }
     return P.join(fs_utils.find_line_in_file('/etc/ntp.conf', '#NooBaa Configured NTP Server'),
             os_utils.get_time_config(),
             fs_utils.find_line_in_file('/etc/resolv.conf', '#NooBaa Configured Primary DNS Server'),

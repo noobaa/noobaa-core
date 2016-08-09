@@ -24,9 +24,9 @@ let TEST_CTX = {
 let rpc = api.new_rpc(); //'ws://' + argv.ip + ':8080');
 let client = rpc.new_client({});
 
-// module.exports = {
-//     run_test: run_test
-// };
+module.exports = {
+    run_test: run_test
+};
 
 /////// Aux Functions ////////
 
@@ -56,8 +56,9 @@ function create_system() {
 
 }
 
-function create_agents(num_agents) {
-    const names = _.times(num_agents, i => TEST_CTX.nodes_name + (i + 1));
+function create_agents() {
+    console.log('creating agents');
+    const names = _.times(TEST_CTX.num_of_agents, i => TEST_CTX.nodes_name + (i + 1));
     return P.map(names, name => client.hosted_agents.create_agent({
             name: name,
             access_keys: {
@@ -70,8 +71,9 @@ function create_agents(num_agents) {
         .then(() => names);
 }
 
-function remove_agents(num_agents) {
-    const names = _.times(num_agents, i => TEST_CTX.nodes_name + (i + 1));
+function remove_agents() {
+    console.log('removing agents');
+    const names = _.times(TEST_CTX.num_of_agents, i => TEST_CTX.nodes_name + (i + 1));
     return P.map(names, name => client.hosted_agents.remove_agent({
             name: name,
         }), {
@@ -84,7 +86,6 @@ function create_test_pool() {
     let query = {
         filter: TEST_CTX.nodes_name
     };
-    console.log('list node with query =', query);
     return client.node.list_nodes({
             query: query
         })
@@ -92,7 +93,6 @@ function create_test_pool() {
             let nodes = reply.nodes.map(node => ({
                 name: node.name
             }));
-            console.log('got nodes:', nodes);
             TEST_CTX.nodes = nodes;
             return client.pool.create_nodes_pool({
                 name: TEST_CTX.pool,
@@ -122,7 +122,7 @@ function create_test_bucket() {
 }
 
 function setup() {
-    return create_agents(TEST_CTX.num_of_agents)
+    return create_agents()
         .then(() => {
             console.log('created %s agents. waiting for %s seconds to init', TEST_CTX.num_of_agents, TEST_CTX.init_delay);
         })
@@ -193,23 +193,32 @@ function test_node_fail_replicate() {
         }));
 }
 
-function main() {
-    // return create_system()
+function run_test() {
     return P.resolve()
         .then(authenticate)
         .then(setup)
         .then(upload_file)
         .then(read_mappings)
         .then(test_node_fail_replicate)
-        // .then(() => {
-        //     console.log('TEST_CTX.parts =', TEST_CTX.parts);
-        //     console.log('TEST_CTX.parts_by_nodes =', TEST_CTX.parts_by_nodes);
-        // })
         .then(remove_agents)
-        .then(() => process.exit(0))
+        .then(() => {
+            console.log('test_node_failure PASSED');
+            process.exit(0);
+        })
         .catch(err => {
             remove_agents();
-            console.log('got err:', err);
+            console.log('test_cloud_sync failed. err =', err);
+            throw err;
+        });
+}
+
+
+function main() {
+    return run_test()
+        .then(function() {
+            process.exit(0);
+        })
+        .catch(function(err) {
             process.exit(1);
         });
 }

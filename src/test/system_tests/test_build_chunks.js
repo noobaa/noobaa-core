@@ -34,7 +34,7 @@ function authenticate() {
         system: 'demo'
     };
     return P.fcall(function() {
-        client.create_auth_token(auth_params);
+        return client.create_auth_token(auth_params);
     });
 }
 

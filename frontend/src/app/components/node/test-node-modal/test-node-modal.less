@@ -5,24 +5,26 @@ test-node-modal {
     }
 
     .test-col {
-        min-width: 6em;
+        min-width: 84px;
     }
 
-    .target-col {
+    .source-node-col, .target-node-col {
+        .no-wrap();
         text-align: left;
-        width: 100%;
+        width: 50%;
+        max-width: 136px;
     }
 
     .time-col {
-        min-width: 7em;
+        min-width: 100px;
     }
 
     .speed-col {
-        min-width: 7em;
+        min-width: 100px;
     }
 
     .progress-col {
-        min-width: 8em;
+        min-width: 112px;
         text-transform: capitalize;
 
         .completed  {

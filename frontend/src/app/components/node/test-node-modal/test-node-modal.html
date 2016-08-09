@@ -24,7 +24,7 @@
     <section class="box column greedy">
         <data-table params="
             columns: columns,
-            rowFactory: createTestRow,
+            rowFactory: test => createTestRow(test),
             data: results,
             emptyMessage: 'Click on the run button to start the test'
         "></data-table>

@@ -14,6 +14,7 @@ export default function register(ko) {
     ko.components.register('commands-bar',      require('./layout/commands-bar/commands-bar'));
     ko.components.register('breadcrumbs',       require('./layout/breadcrumbs/breadcrumbs'));
     ko.components.register('notification-box',  require('./layout/notification-box/notification-box'));
+    ko.components.register('welcome-modal', require('./layout/welcome-modal/welcome-modal'));
     /** INJECT:layout **/
 
     // -------------------------------

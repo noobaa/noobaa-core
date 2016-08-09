@@ -680,7 +680,12 @@ export function createSystem(
                     system: systemName,
                     token: token
                 });
-                redirectTo(routes.system, { system: systemName });
+
+                redirectTo(
+                    routes.system,
+                    { system: systemName },
+                    { welcome: true }
+                );
             }
         )
         .done();

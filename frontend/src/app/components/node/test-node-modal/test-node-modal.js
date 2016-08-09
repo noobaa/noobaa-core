@@ -24,14 +24,15 @@ const testTypes = Object.freeze([
 
 const columns = deepFreeze([
     'test',
-    'target',
+    'sourceNode',
+    'targetNode',
     'time',
     'speed',
     'progress'
 ]);
 
 class TestNodeModalViewModel extends Disposable {
-    constructor({ sourceRpcAddress, onClose }) {
+    constructor({ nodeName, sourceRpcAddress, onClose }) {
         super();
 
         this.onClose = onClose;
@@ -43,8 +44,8 @@ class TestNodeModalViewModel extends Disposable {
             }
         );
 
+        this.nodeName = nodeName;
         this.sourceRpcAddress = sourceRpcAddress;
-
         this.selectedTests = ko.observable(testTypes[0].tests);
 
         this.results = ko.pureComputed(
@@ -92,8 +93,8 @@ class TestNodeModalViewModel extends Disposable {
         );
     }
 
-    createTestRow(result) {
-        return new TestRowViewModel(result);
+    createTestRow(test) {
+        return new TestRowViewModel(this.nodeName, test);
     }
 
     runTest() {

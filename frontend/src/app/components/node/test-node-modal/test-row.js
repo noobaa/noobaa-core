@@ -3,15 +3,29 @@ import ko from 'knockout';
 import numeral from 'numeral';
 
 export default class TestRowViewModel extends Disposable {
-    constructor(result) {
+    constructor(nodeName, result) {
         super();
 
         this.test = ko.pureComputed(
             () => result() ? result().testType : ''
         );
 
-        this.target = ko.pureComputed(
-            () => result() ? result().targetName : ''
+        this.sourceNode = ko.pureComputed(
+            () => {
+                let sourceName = ko.unwrap(nodeName);
+                return sourceName ? { text: sourceName, tooltip: sourceName } : '';
+            }
+        );
+
+        this.targetNode = ko.pureComputed(
+            () => {
+                if (!result) {
+                    return;
+                }
+
+                let { targetName } = result();
+                return { text: targetName, tooltip: targetName };
+            }
         );
 
         this.time = ko.pureComputed(

@@ -38,16 +38,25 @@ function prepare_diag_dir(is_clusterized) {
 }
 
 function collect_basic_diagnostics(limit_logs_size) {
-    return P.fcall(function() {
-            return fs_utils.file_copy(process.cwd() + '/package.json', TMP_WORK_DIR);
+    return P.fcall(
+            () => fs_utils.file_copy(
+                process.cwd() + '/package.json',
+                TMP_WORK_DIR
+            )
+        )
+        .then(() => {
+            return os_utils.netstat_single(TMP_WORK_DIR + '/netstat.out')
+                .catch(err => { //netstat fails, soft trying ss instead
+                    return P.fcall(() => {
+                            return os_utils.ss_single(TMP_WORK_DIR + '/ss.out');
+                        })
+                        .catch(err2 => {
+                            throw err;
+                        });
+                });
         })
-        .then(function() {
-            return os_utils.netstat_single(TMP_WORK_DIR + '/netstat.out');
-        })
-        .then(function() {
-            return 'ok';
-        })
-        .then(null, function(err) {
+        .then(() => 'ok')
+        .catch(err => {
             console.error('Error in collecting basic diagnostics', err);
             throw new Error('Error in collecting basic diagnostics ' + err);
         });

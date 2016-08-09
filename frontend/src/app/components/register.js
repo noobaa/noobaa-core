@@ -15,6 +15,7 @@ export default function register(ko) {
     ko.components.register('breadcrumbs',       require('./layout/breadcrumbs/breadcrumbs'));
     ko.components.register('notification-box',  require('./layout/notification-box/notification-box'));
     ko.components.register('welcome-modal', require('./layout/welcome-modal/welcome-modal'));
+    ko.components.register('upgraded-capacity-notification-modal', require('./layout/upgraded-capacity-notification-modal/upgraded-capacity-notification-modal'));
     /** INJECT:layout **/
 
     // -------------------------------

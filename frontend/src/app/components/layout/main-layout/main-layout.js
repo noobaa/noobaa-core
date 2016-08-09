@@ -24,6 +24,10 @@ class MainLayoutViewModel extends Disposable {
         this.isWelcomeModalVisible = ko.pureComputed(
             () => !!routeContext().query.welcome
         );
+
+        this.isUpgradedCapacityNofiticationModalVisible = ko.pureComputed(
+            () => systemInfo() && systemInfo().phone_home_config.upgraded_cap_notification
+        );
     }
 
     hideWelcomeModal() {
@@ -32,6 +36,10 @@ class MainLayoutViewModel extends Disposable {
 
     hideAfterUpgradeModal() {
         redirectTo(systemRoute);
+    }
+
+    hideUpgradedCapacityNofiticationModal() {
+        console.warn('CLOSED');
     }
 }
 

@@ -24,8 +24,9 @@ if [[ $? -eq 0 ]]; then
       ./noobaa-setup &>>/var/log/setup.out
    fi
 elif [[ $? -eq 1 ]]; then
-   #exited due to possible cloned agent. rename agent_storage and create new one
-   mv /usr/local/noobaa/agent_storage  /usr/local/noobaa/duplicated_agent_storage_$(date +%F_%R)
+   #exited due to possible cloned agent.
+   #run agent_cli with --duplicate. it will then rename agent_storage and restart.
+   ./node src/agent/agent_cli.js --duplicate
 else
    echo "Agent exited with error" $?
 fi

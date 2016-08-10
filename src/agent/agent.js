@@ -286,7 +286,7 @@ class Agent {
             })
             .catch(err => {
                 dbg.error('heartbeat failed', err);
-                if (err.code === 'DUPLICATE') {
+                if (err.rpc_code === 'DUPLICATE') {
                     dbg.error('This agent appears to be duplicated. exiting and starting new agent', err);
                     process.exit(1);
                 }

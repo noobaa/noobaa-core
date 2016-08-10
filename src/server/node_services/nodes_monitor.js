@@ -420,8 +420,8 @@ class NodesMonitor extends EventEmitter {
         if (item.connection) {
             // make sure it is not a cloned agent. if the old connection is still connected
             // the assumption is that this is a duplicated agent. in that case throw an error
-            if (item.connection._state === 'connected') {
-                throw new RpcError('DUPLICATE', 'agent appears to be duplicated - abort');
+            if (item.connection._state === 'connected' && conn.url.hostname !== item.connection.url.hostname) {
+                throw new RpcError('DUPLICATE', 'agent appears to be duplicated - abort', false);
             }
             dbg.warn('heartbeat: closing old connection', item.connection.connid);
             item.connection.close();

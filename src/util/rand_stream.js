@@ -4,24 +4,18 @@ let stream = require('stream');
 let crypto = require('crypto');
 let chance = require('chance')();
 
-const BYTE_CHANCE = {
-    min: 0,
-    max: 255
-};
-const SECTION_CHANCE = {
-    min: 0,
-    max: 16 * 1024
-};
-
 /**
  *
  * RandStream
  *
- * A readable stream that generates pseudo random buffers.
+ * A readable stream that generates pseudo random bytes.
  *
- * the focus here is on high stream performance rather than randomness/security,
- * so the fastest way to achieve this is to preallocate a truly random buffer
- * and then just slice buffers from it starting from random offsets.
+ * WTF:
+ *
+ * since crypto.randomBytes() is too slow (~50 MB/sec)
+ * we need to be creative to get faster rates of random bytes.
+ * the focus is on high stream performance rather than randomness/security,
+ * but still resist dedup.
  *
  */
 class RandStream extends stream.Readable {
@@ -29,65 +23,117 @@ class RandStream extends stream.Readable {
     constructor(max_length, options) {
         super(options);
         this.max_length = max_length;
+        this.chunk_size = options && options.highWaterMark || 1024 * 1024;
+        this.random_bytes = this[options.random_mode || 'cipher_random'];
         this.pos = 0;
-        this.heavy_crypto = options.heavy_crypto;
-        if (!this.heavy_crypto) {
-            // WTF:
-            //
-            // since crypto.randBytes() is soooo slow (~50 MB/sec)
-            // we need to be creative here to get faster rates of random bytes.
-            //
-            // we randomize a big buffer, and for most calls we only randomize
-            // an offset inside it and slice bytes from that offset.
-            // once in a while we randomize the entire buffer.
-            //
-            // depending on the max number of usages this gives very high speeds
-            // while providing quite random data - random enough against dedup.
-            // the best proof for it's randomness is to try a compress it.
-            // see in tools/rand_speed.js
-            this.randbuf_chunk_size = options && options.highWaterMark || 1024 * 1024;
-            this.randbuf_use_count = 0;
-            this.randbuf_max_usage = options.randbuf_max_usage || 10000;
-            this.randbuf = crypto.randomBytes(4 * this.randbuf_chunk_size);
-            this.randbuf_offset_chance = {
-                min: 0,
-                max: 3 * this.randbuf_chunk_size
-            };
+        this.ticks = 0;
+    }
+
+
+    /**
+     * crypto.randomBytes() is slow ~50 MB/sec
+     * use at your own time.
+     */
+    real_random(size) {
+        return crypto.randomBytes(size);
+    }
+
+    /**
+     *
+     * cipher_random mode:
+     *
+     * we create a fast block cipher (aes-128-gcm is the fastest
+     * HW accelerated cipher currently) and seed it using a random key & IV,
+     * and then keep feeding zeros to it, which is guaranteed to return
+     * quite unexpected bytes, aka random.
+     *
+     * From https://en.wikipedia.org/wiki/Galois/Counter_Mode:
+     * "For any given key and initialization vector combination,
+     * GCM is limited to encrypting (2^39−256) bits of plain text (64 GiB)"
+     * This is why we need to recreate the cipher after some bytes.
+     *
+     * The speed of this mode is ~1000 MB/sec.
+     *
+     */
+    cipher_random(size) {
+        if (!this.cipher || this.cipher_bytes > this.cipher_limit) {
+            this.cipher_bytes = 0;
+            this.cipher_limit = 1024 * 1024 * 1024;
+            // aes-128-gcm requires 96 bits IV (12 bytes) and 128 bits key (16 bytes)
+            this.cipher = crypto.createCipheriv('aes-128-gcm',
+                crypto.randomBytes(16), crypto.randomBytes(12));
+            if (!this.zero_buffer) {
+                this.zero_buffer = new Buffer(this.chunk_size);
+                this.zero_buffer.fill(0);
+            }
         }
+        const zero_bytes = size >= this.zero_buffer.length ?
+            this.zero_buffer :
+            this.zero_buffer.slice(0, size);
+        this.cipher_bytes += zero_bytes.length;
+        return this.cipher.update(zero_bytes);
+    }
+
+    /**
+     *
+     * fake_random mode:
+     *
+     * we randomize one big buffer and use it multiple times
+     * by picking random offsets inside it and slice bytes from that offset.
+     *
+     * fake_factor limits the bytes a random buffer yields
+     * before being regenerated.
+     * The larger it gets the less resistent it is against dedup.
+     * The overall expected speed can be calculated by:
+     * speed(fake_random) = fake_factor * speed(crypto.randomBytes)
+     *
+     * The speed of this mode is ~3000 MB/sec (with fake_factor=64)
+     *
+     */
+    fake_random(size) {
+        if (!this.fake_buf || this.fake_bytes > this.fake_limit) {
+            // The length of the slices returned are fixed and quite small.
+            // Setting to small KB to avoid dedup in the scale of 256 KB.
+            // The smaller it gets the more impact it imposes on
+            // the stream consumer which will need to handle more buffers.
+            this.fake_factor = 64;
+            this.fake_slice = 16 * 1024;
+            this.fake_buf_size = this.fake_factor * this.fake_slice;
+            this.fake_offset_range = {
+                min: 0,
+                max: this.fake_buf_size - this.fake_slice
+            };
+            this.fake_bytes = 0;
+            this.fake_limit = this.fake_factor * this.fake_buf_size;
+            this.fake_buf = crypto.randomBytes(this.fake_buf_size);
+        }
+        const offset = chance.integer(this.fake_offset_range);
+        const buf = this.fake_buf.slice(offset, offset + this.fake_slice);
+        this.fake_bytes += buf.length;
+        return buf;
     }
 
     /**
      * implement the stream's Readable._read() function.
      */
     _read(requested_size) {
-        let size = Math.min(requested_size, this.max_length - this.pos);
+        const size = Math.min(requested_size, this.max_length - this.pos);
         if (size <= 0) {
             this.push(null);
             return;
         }
-        let buf;
-        if (this.heavy_crypto) {
-            buf = crypto.randomBytes(size);
-        } else {
-            this.randbuf_use_count += 1;
-            if (this.randbuf_use_count > this.randbuf_max_usage) {
-                this.randbuf_use_count = 0;
-                this.randbuf = crypto.randomBytes(4 * this.randbuf_chunk_size);
-            }
-            let offset = chance.integer(this.randbuf_offset_chance);
-            buf = this.randbuf.slice(offset, offset + size);
-            // add random changes in every small section of the buffer.
-            // TODO: maybe we should copy the buffer instead of changing randbuf inplace
-            // this might backfire because we are changing a buffer that
-            // we already returned to previous caller,
-            // but copying adds significant overhead...
-            for (let i = 0; i < buf.length; i += SECTION_CHANCE.max) {
-                let pos = chance.integer(SECTION_CHANCE);
-                buf[i + pos] = chance.integer(BYTE_CHANCE);
-            }
-        }
+        const buf = this.random_bytes(size);
         this.pos += buf.length;
-        setImmediate(() => this.push(buf));
+        // nextTick is efficient, but need to limit the amount of
+        // nextTick we use or otherwise if the stream consumer is also
+        // a sync function it won't release the cpu.
+        this.ticks += 1;
+        if (this.ticks < 50) {
+            process.nextTick(() => this.push(buf));
+        } else {
+            setImmediate(() => this.push(buf));
+            this.ticks = 0;
+        }
     }
 
 }

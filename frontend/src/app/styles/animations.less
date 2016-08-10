@@ -80,6 +80,11 @@
     }
 }
 
+@keyframes spin {
+    0 { transform: rotateZ(0deg) }
+    100% { transform: rotateZ(360deg) }
+}
+
 .shake {
     animation: shake 750ms ease-in-out;
 }
@@ -96,7 +101,6 @@
     animation: pop-centered 300ms;
 }
 
-@keyframes spin {
-    0 { transform: rotateZ(0deg) }
-    100% { transform: rotateZ(360deg) }
+.spin {
+    animation: spin 2000ms linear infinite;
 }

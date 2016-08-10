@@ -6,6 +6,7 @@
     "sslCertificateSuffix": ".zip",
     "upgradePackageSuffix": ".gz",
     "defaultIconFile": "icons.svg",
+    "freemiumMaxCapacity": 32985348833280,
     "nodeTest": {
         "targetCount": 20,
         "testSettings": {

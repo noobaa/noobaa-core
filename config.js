@@ -136,5 +136,6 @@ config.SUPERVISOR_DEFAULTS = {
 
 
 config.DEMO_DEFAULTS = {
-    NAME: 'demo'
+    POOL_NAME: 'demo-pool',
+    BUCKET_NAME: 'demo-bucket'
 };

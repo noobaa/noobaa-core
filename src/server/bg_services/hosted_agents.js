@@ -62,8 +62,8 @@ function create_agent(req) {
 
 function remove_agent(req) {
     if (os_utils.is_supervised_env()) {
-        dbg.log0('removing agent from supervisor configuration', req.params.name);
-        return supervisor.remove_program(req.params.name)
+        dbg.log0('removing agent from supervisor configuration', 'agent_' + req.params.name);
+        return supervisor.remove_program('agent_' + req.params.name)
             .then(() => supervisor.apply_changes());
     } else {
         dbg.log0('looking for child process of', req.params.name);

@@ -11,13 +11,13 @@ const threshold = 2 * seperator;
 const silhouetteColor = style['bg-color1'];
 
 const primaryTextStyle = deepFreeze({
-    font: 'Roboto',
+    font: style['font-type2'],
     size: style['font-size-medium'],
     color: style['text-color1']
 });
 
 const secondaryTextStyle = deepFreeze({
-    font: 'Roboto',
+    font: style['font-type2'],
     size: style['font-size-normal'],
     color: style['text-color4']
 });

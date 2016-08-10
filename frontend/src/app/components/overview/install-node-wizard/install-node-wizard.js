@@ -10,18 +10,9 @@ import { deepFreeze, copyTextToClipboard, lastSegment, realizeUri, encodeBase64 
 import { asset as assetRoute } from 'routes';
 
 const steps = deepFreeze([
-    {
-        label: 'select',
-        size: 'small'
-    },
-    {
-        label: 'install',
-        size: 'medium'
-    },
-    {
-        label: 'review',
-        size: 'small'
-    }
+    'select',
+    'install',
+    'review'
 ]);
 
 const installCommands = deepFreeze({

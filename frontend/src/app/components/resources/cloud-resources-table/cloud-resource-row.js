@@ -4,7 +4,7 @@ import { deepFreeze, formatSize } from 'utils';
 import { deleteCloudResource } from 'actions';
 
 const undeletableReasons = Object.freeze({
-    IN_USE: 'Cannot delete a resource which is used in a bucket backup policy'
+    IN_USE: 'Cannot delete a resource which is used in a bucket cloud storage policy'
 });
 
 const icons = deepFreeze([

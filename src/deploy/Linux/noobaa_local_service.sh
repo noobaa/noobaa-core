@@ -23,6 +23,10 @@ if [[ $? -eq 0 ]]; then
       chmod 777 noobaa-setup
       ./noobaa-setup &>>/var/log/setup.out
    fi
+elif [[ $? -eq 1 ]]; then
+   #exited due to possible cloned agent.
+   #run agent_cli with --duplicate. it will then rename agent_storage and restart.
+   ./node src/agent/agent_cli.js --duplicate
 else
    echo "Agent exited with error" $?
 fi

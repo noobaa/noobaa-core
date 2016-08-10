@@ -151,6 +151,7 @@ function complete_object_upload(req) {
             }, {
                 $set: {
                     size: object_size || obj.size,
+                    upload_completed: new Date(),
                     etag: obj_etag
                 },
                 $unset: {
@@ -317,6 +318,9 @@ function copy_object(req) {
             return md_store.ObjectMD.collection.updateOne({
                 _id: create_info._id
             }, {
+                $set: {
+                    upload_completed: new Date()
+                },
                 $unset: {
                     upload_size: 1
                 }
@@ -634,6 +638,7 @@ function list_objects(req) {
                 info.key = new RegExp('^' + string_utils.escapeRegExp(req.rpc_params.key_prefix));
             }
 
+            // TODO: Should look at the upload_size or upload_completed?
             // allow filtering of uploading/non-uploading objects
             if (typeof(req.rpc_params.upload_mode) === 'boolean') {
                 info.upload_size = {
@@ -895,6 +900,7 @@ function check_object_upload_mode(req, obj) {
         throw new RpcError('NO_SUCH_UPLOAD',
             'No such upload id: ' + req.rpc_params.upload_id);
     }
+    // TODO: Should look at the upload_size or upload_completed?
     if (!_.isNumber(obj.upload_size)) {
         throw new RpcError('NO_SUCH_UPLOAD',
             'Object not in upload mode: ' + obj.key +

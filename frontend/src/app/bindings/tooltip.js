@@ -17,50 +17,48 @@ function toHtmlList(arr) {
     }</ul>`;
 }
 
-function normalizeParams(params) {
-    return ko.pureComputed(
-        () => {
-            let naked = ko.unwrap(params);
-            if (isString(naked)) {
-                return {
-                    text: naked,
-                    css: 'center',
-                    align: alignments.center
-                };
+function normalizeValue(value) {
+    if (isString(value)) {
+        return {
+            text: value,
+            css: 'center',
+            align: alignments.center,
+            breakWords: false
+        };
 
-            } else if (naked instanceof Array) {
-                return {
-                    text: naked.length === 1 ? naked : toHtmlList(naked),
-                    css: 'center',
-                    align: alignments.center
-                };
+    } else if (value instanceof Array) {
+        return {
+            text: value.length === 1 ? value : toHtmlList(value),
+            css: 'center',
+            align: alignments.center,
+            breakWords: false
+        };
 
-            } else if (isObject(naked)) {
-                let text = ko.unwrap(naked.text);
-                if (text instanceof Array) {
-                    text = naked.length === 1 ? naked : toHtmlList(naked);
-                }
-
-                let pos = ko.unwrap(naked.align);
-                if (!Object.keys(alignments).includes(pos)) {
-                    pos = 'center';
-                }
-
-                return {
-                    text: text,
-                    css: pos,
-                    align: alignments[pos]
-                };
-            } else {
-                return {};
-            }
+    } else if (isObject(value)) {
+        let text = ko.unwrap(value.text);
+        if (text instanceof Array) {
+            text = value.length === 1 ? value : toHtmlList(value);
         }
-    );
+
+        let pos = ko.unwrap(value.align);
+        if (!Object.keys(alignments).includes(pos)) {
+            pos = 'center';
+        }
+
+        return {
+            text: text,
+            css: pos,
+            align: alignments[pos],
+            breakWords: Boolean(ko.unwrap(value.breakWords))
+        };
+    } else {
+        return {};
+    }
 }
 
-function showTooltip(target, { text, css, align }) {
+function showTooltip(target, { text, css, align, breakWords }) {
     tooltip.innerHTML = text;
-    tooltip.className = `tooltip ${css}`;
+    tooltip.className = `tooltip ${css} ${breakWords ? 'break-words' : ''}`;
     document.body.appendChild(tooltip);
 
     let { left, top } = target.getBoundingClientRect();
@@ -79,7 +77,10 @@ function hideTooltip() {
 
 export default {
     init: function(target, valueAccessor) {
-        let params = normalizeParams(valueAccessor());
+        let params = ko.pureComputed(
+            () => normalizeValue(ko.unwrap(valueAccessor()))
+        );
+
         let hover = ko.observable(false);
 
         let sub = ko.pureComputed(

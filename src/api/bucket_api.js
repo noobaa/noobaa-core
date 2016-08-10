@@ -329,7 +329,7 @@ module.exports = {
 
         bucket_info: {
             type: 'object',
-            required: ['name', 'tiering', 'storage', 'num_objects'],
+            required: ['name', 'tiering', 'storage', 'data', 'num_objects'],
             properties: {
                 name: {
                     type: 'string',
@@ -339,6 +339,26 @@ module.exports = {
                 },
                 storage: {
                     $ref: 'common_api#/definitions/storage_info'
+                },
+                data: {
+                    type: 'object',
+                    properties: {
+                        // This is the sum of all compressed chunks that are related to the bucket.
+                        // Which means that it includes dedup and compression, but not replicas.
+                        used_reduced: {
+                            $ref: 'common_api#/definitions/bigint'
+                        },
+                        // This is logical size aggregation of objects that are related to the bucket.
+                        size: {
+                            $ref: 'common_api#/definitions/bigint'
+                        },
+                        // This is the actual free space of the bucket considering data placement policy.
+                        // On mirror it is the minimum free space of the pools, on spread it is the sum.
+                        // Also we divide by replicas in order to get the actual size that can be written.
+                        actual_free: {
+                            $ref: 'common_api#/definitions/bigint'
+                        },
+                    }
                 },
                 num_objects: {
                     type: 'integer'

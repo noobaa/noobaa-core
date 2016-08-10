@@ -1,8 +1,8 @@
 <ul class="list-no-style box column" data-bind="foreach: properties">
     <li class="row content-middle">
-        <div class="c3 emphasized" data-bind="text: label + ':'"></div>
+        <div class="prop-name emphasized" data-bind="text: label + ':'"></div>
 
-        <div class="greedy" data-bind="text: value"></div>
+        <div class="prop-value no-wrap greedy" data-bind="text: value"></div>
 
         <button class="btn-flat" data-bind="
             visible: $data.allowCopy,

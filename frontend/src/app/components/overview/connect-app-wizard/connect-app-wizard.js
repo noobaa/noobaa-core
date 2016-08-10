@@ -7,14 +7,8 @@ import { systemInfo } from 'model';
 import { deepFreeze } from 'utils';
 
 const steps = deepFreeze([
-    {
-        label: 'select connection',
-        size: 'small'
-    },
-    {
-        label: 'select account',
-        size: 'medium'
-    }
+    'select connection',
+    'select account'
 ]);
 
 const connectionTypes = deepFreeze([

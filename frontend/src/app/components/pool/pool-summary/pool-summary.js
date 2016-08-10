@@ -80,7 +80,7 @@ class PoolSummaryViewModel extends Disposable {
             },
             {
                 label: 'Unavailable',
-                color: style['gray-lv3'],
+                color: style['red-mid'],
                 value: ko.pureComputed(
                     () => storage().unavailable_free
                 )

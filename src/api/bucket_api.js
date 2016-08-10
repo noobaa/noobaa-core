@@ -345,7 +345,7 @@ module.exports = {
                     properties: {
                         // This is the sum of all compressed chunks that are related to the bucket.
                         // Which means that it includes dedup and compression, but not replicas.
-                        used_reduced: {
+                        size_reduced: {
                             $ref: 'common_api#/definitions/bigint'
                         },
                         // This is logical size aggregation of objects that are related to the bucket.

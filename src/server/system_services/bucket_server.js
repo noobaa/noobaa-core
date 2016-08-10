@@ -764,7 +764,7 @@ function get_bucket_info(bucket, nodes_aggregate_pool, num_of_objects, cloud_syn
 
     info.data = size_utils.to_bigint_storage({
         size: objects_aggregate.size,
-        used_reduced: (bucket.storage_stats && bucket.storage_stats.chunks_capacity) || 0,
+        size_reduced: (bucket.storage_stats && bucket.storage_stats.chunks_capacity) || 0,
         actual_free: (info.tiering && info.tiering.storage && info.tiering.storage.real) || 0
     });
 

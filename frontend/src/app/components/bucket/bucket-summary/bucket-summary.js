@@ -42,11 +42,11 @@ class BucketSummrayViewModel extends Disposable {
             () => bucket() ? bucket().data : {}
         );
 
-        this.formattedText = ko.pureComputed(
+        this.totalStorage = ko.pureComputed(
             () => formatSize(storage().total)
         );
 
-        this.formattedTextData = ko.pureComputed(
+        this.avaliableForWrite = ko.pureComputed(
             () => formatSize(data().actual_free)
         );
 
@@ -57,7 +57,7 @@ class BucketSummrayViewModel extends Disposable {
             {
                 label: 'Reduced',
                 value: ko.pureComputed(
-                    () => data().used_reduced
+                    () => data().size_reduced
                 ),
                 color: style['gray-lv5']
             },

@@ -819,8 +819,8 @@ export function updateBucketBackupPolicy(tierName, cloudResources) {
         cloud_pools: cloudResources
     })
         .then(
-            () => notify(`${bucket.name} backup policy updated successfully`, 'success'),
-            () => notify(`Updating ${bucket.name} backup policy failed`, 'error')
+            () => notify(`${bucket.name} cloud storage policy updated successfully`, 'success'),
+            () => notify(`Updating ${bucket.name} cloud storage policy failed`, 'error')
         )
         .then(loadSystemInfo)
         .done();
@@ -1698,4 +1698,11 @@ export function validateActivationCode(code) {
                 isCodeValid: valid
             })
         );
+}
+
+export function dismissUpgradedCapacityNotification() {
+    logAction('dismissUpgradedCapacityNotification');
+
+    api.system.phone_home_capacity_notified()
+        .then(loadSystemInfo);
 }

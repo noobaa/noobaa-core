@@ -70,7 +70,7 @@ export function formatSize(num) {
         num = num.toFixed(num < 10 ? 1 : 0);
     }
 
-    return `${num} ${sizeUnits[i]}`;
+    return `${num}${sizeUnits[i]}`;
 }
 
 export function formatDuration(minutes) {

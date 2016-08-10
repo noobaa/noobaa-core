@@ -819,8 +819,8 @@ export function updateBucketBackupPolicy(tierName, cloudResources) {
         cloud_pools: cloudResources
     })
         .then(
-            () => notify(`${bucket.name} backup policy updated successfully`, 'success'),
-            () => notify(`Updating ${bucket.name} backup policy failed`, 'error')
+            () => notify(`${bucket.name} cloud storage policy updated successfully`, 'success'),
+            () => notify(`Updating ${bucket.name} cloud storage policy failed`, 'error')
         )
         .then(loadSystemInfo)
         .done();

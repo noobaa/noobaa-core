@@ -23,6 +23,9 @@ if [[ $? -eq 0 ]]; then
       chmod 777 noobaa-setup
       ./noobaa-setup &>>/var/log/setup.out
    fi
+elif [[ $? -eq 1 ]]; then
+   #exited due to possible cloned agent. rename agent_storage and create new one
+   mv /usr/local/noobaa/agent_storage  /usr/local/noobaa/duplicated_agent_storage_$(date +%F_%R)
 else
    echo "Agent exited with error" $?
 fi

@@ -852,6 +852,7 @@ function phone_home_capacity_notified(req) {
     let update = {
         _id: req.system._id,
         freemium_cap: Object.assign(
+            {},
             req.system.freemium_cap,
             {
                 phone_home_notified: true

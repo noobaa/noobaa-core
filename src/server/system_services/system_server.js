@@ -848,12 +848,16 @@ function update_phone_home_config(req) {
 
 function phone_home_capacity_notified(req) {
     dbg.log0('phone_home_capacity_notified');
-    let update = {
-        _id: req.system._id
-    };
 
-    update.freemium_cap = {
-        phone_home_notified: true
+    let update = {
+        _id: req.system._id,
+        freemium_cap: Object.assign(
+            {},
+            req.system.freemium_cap,
+            {
+                phone_home_notified: true
+            }
+        )
     };
 
     return system_store.make_changes({

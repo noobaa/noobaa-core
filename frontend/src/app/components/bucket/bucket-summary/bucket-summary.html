@@ -33,16 +33,32 @@
                 selected: selectedGraph
             "></toggle-filter>
 
+            <!-- ko if: selectedGraph() === 'STORAGE' -->
             <chart-legend params="items: legend"></chart-legend>
+            <!-- /ko -->
 
+            <!-- ko if: selectedGraph() === 'DATA' -->
+            <div class="column greedy push-prev">
+                <span class="available-value" data-bind="text: formattedText"></span>
+                <span class="available-label">Available</span>
+            </div>
+            <!-- /ko -->
         </div>
 
         <!-- ko if: selectedGraph() === 'STORAGE' -->
-        <pie-chart params="values: storageValues"></pie-chart>
+        <pie-chart params="
+            values: storageValues,
+            primaryText: formattedText,
+            secondaryText: 'Total'
+        "></pie-chart>
         <!-- /ko -->
 
         <!-- ko if: selectedGraph() === 'DATA' -->
-        <bar-chart params="values: dataValues"></bar-chart>
+        <bar-chart params="
+            values: dataValues,
+            drawValues: true,
+            drawLabels: true
+        "></bar-chart>
         <!-- /ko -->
     </div>
 </section>

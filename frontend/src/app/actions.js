@@ -680,7 +680,12 @@ export function createSystem(
                     system: systemName,
                     token: token
                 });
-                redirectTo(routes.system, { system: systemName });
+
+                redirectTo(
+                    routes.system,
+                    { system: systemName },
+                    { welcome: true }
+                );
             }
         )
         .done();
@@ -814,8 +819,8 @@ export function updateBucketBackupPolicy(tierName, cloudResources) {
         cloud_pools: cloudResources
     })
         .then(
-            () => notify(`${bucket.name} backup policy updated successfully`, 'success'),
-            () => notify(`Updating ${bucket.name} backup policy failed`, 'error')
+            () => notify(`${bucket.name} cloud storage policy updated successfully`, 'success'),
+            () => notify(`Updating ${bucket.name} cloud storage policy failed`, 'error')
         )
         .then(loadSystemInfo)
         .done();
@@ -840,8 +845,8 @@ export function deletePool(name) {
 
     api.pool.delete_pool({ name })
         .then(
-            () => notify(`Bucket ${name} deleted successfully`, 'success'),
-            () => notify(`Bucket ${name} deletion failed`, 'error')
+            () => notify(`Pool ${name} deleted successfully`, 'success'),
+            () => notify(`Pool ${name} deletion failed`, 'error')
         )
         .then(loadSystemInfo)
         .done();
@@ -1693,4 +1698,11 @@ export function validateActivationCode(code) {
                 isCodeValid: valid
             })
         );
+}
+
+export function dismissUpgradedCapacityNotification() {
+    logAction('dismissUpgradedCapacityNotification');
+
+    api.system.phone_home_capacity_notified()
+        .then(loadSystemInfo);
 }

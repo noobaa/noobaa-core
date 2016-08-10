@@ -221,6 +221,18 @@ class ModalGenerator extends ComponentGenerator {
             .then(
                 questions => questions.concat([
                     {
+                        type: 'list',
+                        name: 'size',
+                        message: 'Select a size for the modal:',
+                        choices: [
+                            'xsmall',
+                            'small',
+                            'medium',
+                            'large',
+                            { value: 'auto-height', name: 'Auto height' }
+                        ]
+                    },
+                    {
                         type: 'input',
                         name: 'title',
                         message: `What is the title of the ${this.displayName}:`
@@ -256,6 +268,7 @@ class ModalGenerator extends ComponentGenerator {
             super.preprocess(answers),
             {
                 name: answers.name,
+                size: answers.size,
                 title: answers.title,
                 action: actionMethodName,
                 actionLabel: answers.action,

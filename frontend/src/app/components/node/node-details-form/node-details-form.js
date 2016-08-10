@@ -36,7 +36,7 @@ class NodeInfoViewModel extends Disposable {
 
         this.RTT = ko.pureComputed(
             () => node() && `${
-                node().latency_to_server.reduce(avgOp).toFixed(1)
+                node().latency_to_server.reduce(avgOp, 0).toFixed(1)
             } ms`
         );
 

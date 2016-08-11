@@ -5,6 +5,7 @@
         <span class="greedy push-next" data-bind="text: title"></span>
 
         <button class="close-btn btn-flat no-outline" data-bind="
+            visible: addCloseButton,
             click: onClose
         ">
             <svg-icon class="icon-small" params="name: 'x'"></svg-icon>

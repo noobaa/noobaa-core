@@ -4,7 +4,7 @@
     .steps {
         margin-top: @gutter / 2;
         position: relative;
-        padding: 3 * @gutter;
+        padding: 2 * @gutter;
 
         &::before {
             content: '';
@@ -48,6 +48,7 @@
 
     .hint {
         .remark();
+        color: @text-color5;
         line-height: 1.7;
         position: relative;
         margin-top: -1.7em;
@@ -62,5 +63,10 @@
         position: absolute;
         top: 6px;
         right: 6px;
+    }
+
+    .info-icon {
+        vertical-align: middle;
+        fill: @text-color4!important;
     }
 }

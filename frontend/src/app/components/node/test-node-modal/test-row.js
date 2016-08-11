@@ -25,6 +25,14 @@ export default class TestRowViewModel extends Disposable {
             () => result() ? result().protocol.toUpperCase() : ''
         );
 
+        this.ip = ko.pureComputed(
+            () => result() ? result().targetIp : ''
+        );
+
+        this.port = ko.pureComputed(
+            () => result() ? result().targetPort : ''
+        );
+
         this.time = ko.pureComputed(
             () => result() ? `${(result().time / 1000).toFixed(2)} seconds` : ''
         );

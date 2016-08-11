@@ -26,6 +26,8 @@ const columns = deepFreeze([
     'test',
     'targetNode',
     'protocol',
+    'ip',
+    'port',
     'time',
     'speed',
     'progress'

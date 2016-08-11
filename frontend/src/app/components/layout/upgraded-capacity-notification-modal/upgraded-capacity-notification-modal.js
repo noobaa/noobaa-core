@@ -18,3 +18,4 @@ export default {
     viewModel: UpgradedCapacityNotificationModalViewModel,
     template: template
 };
+

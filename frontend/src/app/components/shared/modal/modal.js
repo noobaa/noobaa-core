@@ -7,13 +7,15 @@ class ModalViewModel extends Disposable {
     constructor({
         title,
         onClose = noop,
-        allowBackdropClose = true
+        allowBackdropClose = true,
+        addCloseButton = true
     }) {
         super();
 
         this.title = title;
         this.onClose = onClose;
         this.allowBackdropClose = allowBackdropClose;
+        this.addCloseButton = addCloseButton;
     }
 
     backdropClick() {

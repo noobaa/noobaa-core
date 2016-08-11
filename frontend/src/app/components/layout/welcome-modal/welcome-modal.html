@@ -2,7 +2,9 @@
 
     <div class="text-center" data-bind="visible: loading">
         <p class="heading2 push-next">Creating your system...</p>
-        <svg-icon class="loading-icon icon-big" params="name: 'in-progress'"></svg-icon>
+
+        <svg-icon class="loading-icon icon-big spin"
+            params="name: 'in-progress'"></svg-icon>
     </div>
 
     <div class="column" data-bind="visible: !loading()">

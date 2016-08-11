@@ -1029,6 +1029,7 @@ export function uploadFiles(bucketName, files) {
 export function testNode(source, testSet) {
     logAction('testNode', { source, testSet });
 
+    const regexp = /=>(\w{3}):\/\/([0-9.]+):(\d+)/;
     let { nodeTestInfo } = model;
 
     nodeTestInfo({
@@ -1054,12 +1055,14 @@ export function testNode(source, testSet) {
                                 testType: testType,
                                 targetName: name,
                                 targetAddress: rpc_address,
+                                targetIp: '',
+                                targetPort: '',
+                                protocol: '',
                                 state: 'WAITING',
                                 time: 0,
                                 position: 0,
                                 speed: 0,
                                 progress: 0,
-                                session: ''
                             };
                             nodeTestInfo().results.push(result);
 
@@ -1117,7 +1120,10 @@ export function testNode(source, testSet) {
                             return api.node.test_node_network(stepRequest)
                                 .then(
                                     ({ session }) => {
-                                        result.session = session;
+                                        let [,protocol, ip, port] = session.match(regexp);
+                                        result.protocol = protocol;
+                                        result.targetIp = ip;
+                                        result.targetPort = port;
                                         result.time = Date.now() - start;
                                         result.position = result.position + stepSize;
                                         result.speed = result.position / result.time;
@@ -1146,9 +1152,15 @@ export function testNode(source, testSet) {
             )
         )
         .then(
-            () => nodeTestInfo.assign({
-                state: nodeTestInfo().state === 'ABORTING' ? 'ABORTED' : 'COMPLETED'
-            })
+            () => {
+                if (nodeTestInfo().state === 'ABORTING') {
+                    nodeTestInfo(null);
+                } else {
+                    nodeTestInfo.assign({
+                        state: 'COMPLETED'
+                    });
+                }
+            }
         )
         .done();
 }

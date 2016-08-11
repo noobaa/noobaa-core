@@ -1059,7 +1059,8 @@ export function testNode(source, testSet) {
                                 position: 0,
                                 speed: 0,
                                 progress: 0,
-                                session: ''
+                                session: '',
+                                protocol: ''
                             };
                             nodeTestInfo().results.push(result);
 
@@ -1117,7 +1118,7 @@ export function testNode(source, testSet) {
                             return api.node.test_node_network(stepRequest)
                                 .then(
                                     ({ session }) => {
-                                        result.session = session;
+                                        result.protocol = session.substr(0, 3);
                                         result.time = Date.now() - start;
                                         result.position = result.position + stepSize;
                                         result.speed = result.position / result.time;
@@ -1146,9 +1147,15 @@ export function testNode(source, testSet) {
             )
         )
         .then(
-            () => nodeTestInfo.assign({
-                state: nodeTestInfo().state === 'ABORTING' ? 'ABORTED' : 'COMPLETED'
-            })
+            () => {
+                if (nodeTestInfo().state === 'ABORTING') {
+                    nodeTestInfo(null);
+                } else {
+                    nodeTestInfo.assign({
+                        state: 'COMPLETED'
+                    });
+                }
+            }
         )
         .done();
 }

@@ -3,18 +3,11 @@ import ko from 'knockout';
 import numeral from 'numeral';
 
 export default class TestRowViewModel extends Disposable {
-    constructor(nodeName, result) {
+    constructor(result) {
         super();
 
         this.test = ko.pureComputed(
             () => result() ? result().testType : ''
-        );
-
-        this.sourceNode = ko.pureComputed(
-            () => {
-                let sourceName = ko.unwrap(nodeName);
-                return sourceName ? { text: sourceName, tooltip: sourceName } : '';
-            }
         );
 
         this.targetNode = ko.pureComputed(
@@ -26,6 +19,10 @@ export default class TestRowViewModel extends Disposable {
                 let { targetName } = result();
                 return { text: targetName, tooltip: targetName };
             }
+        );
+
+        this.protocol = ko.pureComputed(
+            () => result() ? result().protocol.toUpperCase() : ''
         );
 
         this.time = ko.pureComputed(

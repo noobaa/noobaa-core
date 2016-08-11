@@ -1,23 +1,19 @@
 <modal class="modal-large" params="
     title: 'Node\'s connectivity test',
-    onClose: () => close()
+    onClose: () => close(),
+    allowBackdropClose: false,
+    addCloseButton: false
 " >
     <div class="config box row content-middle push-next">
-        <radio-group class="c8" params="
+        <radio-group class="greedy push-next" params="
             selected: selectedTests,
             options: testTypeOptions
         "></radio-group>
-        <button class="btn3 c2 push-next" data-bind="
+        <button class="btn3 run-btn" data-bind="
             click: runTest,
             disable: testing
         ">
             Run
-        </button>
-        <button class="btn3 c2" data-bind="
-            click: abortTest,
-            enable: testing
-        ">
-            Stop
         </button>
     </div>
 
@@ -49,7 +45,8 @@
         <span class="summary-counter push-both" data-bind="
             visible: summary().inProcess
         ">
-            <svg-icon params="name: 'in-progress'" class="icon-small"></svg-icon>
+            <svg-icon class="spin icon-small" params="name: 'in-progress'"">
+            </svg-icon>
             <span>In Process</span>
             <span class="emphasized" data-bind="text: summary().inProcess"></span>
         </span>

@@ -1,10 +1,13 @@
 checkbox {
     @size: 21px;
     position: relative;
-
     display: inline-block;
 
     label {
+        display: block;
+        white-space: nowrap;
+        line-height: @size;
+        height: @size;
         cursor: default;
     }
 
@@ -41,15 +44,15 @@ checkbox {
     }
 
     .checkbox-box {
-        display: inline-block;
-        width: @size;
-        height: @size;
+        display: block;
+        float: left;
+        min-width: @size;
+        min-height: @size;
         margin-right: .5em;
         background-image: url('@{assets}/checkbox.png');
     }
 
     .checkbox-box, .checkbox-label {
-        vertical-align: middle;
         cursor: @cursor-pointer;
      }
 }

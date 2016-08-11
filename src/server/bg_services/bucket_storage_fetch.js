@@ -63,24 +63,39 @@ function background_worker() {
     params.from_date_object = new mongodb.ObjectId(hex_from_date + "0".repeat(24 - hex_from_date.length));
     params.till_date_object = new mongodb.ObjectId(hex_till_date + "0".repeat(24 - hex_till_date.length));
 
-    let existing_query = {
+    let chunk_existing_query = {
         _id: {
             $gte: params.from_date_object,
             $lt: params.till_date_object,
         }
     };
-    let deleted_query = {
+    let chunk_deleted_query = {
         deleted: {
             $gte: params.from_date,
             $lt: params.till_date,
         }
     };
+    let obj_existing_query = {
+        upload_completed: {
+            $gte: params.from_date,
+            $lt: params.till_date,
+        }
+    };
+    let obj_deleted_query = {
+        deleted: {
+            $gte: params.from_date,
+            $lt: params.till_date,
+        },
+        upload_completed: {
+            $exists: true
+        }
+    };
 
     return P.join(
-            md_store.aggregate_chunks(existing_query),
-            md_store.aggregate_chunks(deleted_query),
-            md_store.aggregate_objects(existing_query),
-            md_store.aggregate_objects(deleted_query)
+            md_store.aggregate_chunks(chunk_existing_query),
+            md_store.aggregate_chunks(chunk_deleted_query),
+            md_store.aggregate_objects(obj_existing_query),
+            md_store.aggregate_objects(obj_deleted_query)
         ).spread(function(
             existing_chunks_aggregate,
             deleted_chunks_aggregate,

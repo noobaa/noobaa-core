@@ -418,6 +418,11 @@ class NodesMonitor extends EventEmitter {
     _set_connection(item, conn) {
         if (item.connection === conn) return;
         if (item.connection) {
+            // make sure it is not a cloned agent. if the old connection is still connected
+            // the assumption is that this is a duplicated agent. in that case throw an error
+            if (item.connection._state === 'connected' && conn.url.hostname !== item.connection.url.hostname) {
+                throw new RpcError('DUPLICATE', 'agent appears to be duplicated - abort', false);
+            }
             dbg.warn('heartbeat: closing old connection', item.connection.connid);
             item.connection.close();
         }
@@ -678,8 +683,7 @@ class NodesMonitor extends EventEmitter {
             !item.node.deleting &&
             !item.node.deleted);
 
-        item.writable = Boolean(
-            !item.storage_full &&
+        item.writable = Boolean(!item.storage_full &&
             item.online &&
             item.trusted &&
             !item.node.decommissioning &&
@@ -1124,9 +1128,12 @@ class NodesMonitor extends EventEmitter {
                 has_issues += 1;
             }
 
+            // for internal agents set reserve to 0
+            let reserve = item.node.is_internal_node ? 0 : config.NODES_FREE_SPACE_RESERVE;
+
             const free_considering_reserve =
                 new BigInteger(item.node.storage.free || 0)
-                .minus(config.NODES_FREE_SPACE_RESERVE);
+                .minus(reserve);
             if (free_considering_reserve.greater(0)) {
                 if (item.has_issues) {
                     storage.unavailable_free = storage.unavailable_free
@@ -1136,7 +1143,7 @@ class NodesMonitor extends EventEmitter {
                         .plus(free_considering_reserve);
                 }
                 storage.reserved = storage.reserved
-                    .plus(config.NODES_FREE_SPACE_RESERVE || 0);
+                    .plus(reserve || 0);
             } else {
                 storage.reserved = storage.reserved
                     .plus(item.node.storage.free || 0);

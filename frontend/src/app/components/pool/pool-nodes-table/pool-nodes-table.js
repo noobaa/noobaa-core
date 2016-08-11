@@ -53,8 +53,8 @@ class PoolNodesTableViewModel extends Disposable {
 
         this.sorting = ko.pureComputed({
             read: () => ({
-                sortBy: query().sortBy,
-                order: Number(query().order)
+                sortBy: query().sortBy || 'name',
+                order: Number(query().order) || 1
             }),
             write: value => this.orderBy(value)
         });

@@ -1,11 +1,11 @@
-<label>
+<label class="row">
     <input type="checkbox" data-bind="
         checked: $data.checked,
         checkedValue: $data.value,
         disable: $data.disabled || false,
     "/>
     <span class="checkbox-box"></span>
-    <span class="checkbox-label" data-bind="
+    <span class="checkbox-label no-wrap" data-bind="
         text: $data.label || $data.value,
         tooltip: $data.tooltip
     "></span>

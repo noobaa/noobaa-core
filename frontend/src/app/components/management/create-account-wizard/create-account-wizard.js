@@ -38,14 +38,8 @@ Use the following S3 access to connect an S3 compatible application to NooBaa:<b
 }
 
 const steps = deepFreeze([
-    {
-        label: 'name & permissions',
-        size: 'medium'
-    },
-    {
-        label: 'review details',
-        size: 'small'
-    }
+    'name & permissions',
+    'review details'
 ]);
 
 class CreateAccountWizardViewModel extends Disposable {

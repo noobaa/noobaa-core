@@ -1062,7 +1062,7 @@ export function testNode(source, testSet) {
                                 time: 0,
                                 position: 0,
                                 speed: 0,
-                                progress: 0,
+                                progress: 0
                             };
                             nodeTestInfo().results.push(result);
 

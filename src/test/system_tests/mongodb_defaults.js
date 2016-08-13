@@ -1,4 +1,6 @@
 /* global db */
+'use strict';
+
 /*
  * mongodb script to restore the initial state of the database
  *
@@ -77,4 +79,4 @@ db.getSiblingDB("nbcore").accounts.updateMany({}, {
     $unset: {
         sync_credentials_cache: true
     }
-})
+});

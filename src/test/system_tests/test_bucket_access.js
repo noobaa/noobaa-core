@@ -138,7 +138,7 @@ function run_test() {
         .then(() => {
             console.log('test_bucket_access PASSED');
             return;
-        })
+        });
 }
 
 

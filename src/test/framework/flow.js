@@ -1,3 +1,5 @@
+'use strict';
+
 var steps = [
     //Upgrade moved externally to be run from the jenkins prior to the framework run
     {

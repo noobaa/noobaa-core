@@ -216,6 +216,21 @@ class NodesMonitor extends EventEmitter {
         throw new RpcError('FORBIDDEN', 'Bad heartbeat request');
     }
 
+
+    test_node_id(req) {
+        const extra = req.auth.extra || {};
+        const node_id = String(extra.node_id || '');
+        if (node_id) {
+            // test the passed node id, to verify that it's a valid node
+            const item = this._map_node_id.get(String(node_id));
+            dbg.log0('agent sent node_id', node_id, item ? 'found valid node' : 'did not find a valid node!!!');
+            return Boolean(item);
+        }
+        dbg.log0('agent did not send a node_id. sending valid=true');
+        return true;
+    }
+
+
     /**
      * read_node returns information about one node
      */

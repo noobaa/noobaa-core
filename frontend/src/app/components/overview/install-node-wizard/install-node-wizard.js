@@ -129,12 +129,6 @@ class InstallNodeWizardViewModel extends Disposable {
             { asset: 'nodesList_illustration.png' }
         );
     }
-
-    copyInstallCommand() {
-        copyTextToClipboard(
-            this.selectedInstallCommand()
-        );
-    }
 }
 
 export default {

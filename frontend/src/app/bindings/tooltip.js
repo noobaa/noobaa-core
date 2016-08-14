@@ -83,20 +83,24 @@ export default {
 
         let hover = ko.observable(false);
 
-        let sub = ko.pureComputed(
-            () => Boolean(hover() && params().text)
-        )
-        .extend({
-            rateLimit: {
-                timeout: delay,
-                method: 'notifyWhenChangesStop'
-            }
-        })
-        .subscribe(
-            visible => visible ?
-                showTooltip(target, params()) :
-                hideTooltip()
+        let paramsSub = params.subscribe(
+            () => hover() && showTooltip(target, params())
         );
+
+        let hoverSub = hover
+            .extend({
+                rateLimit: {
+                    timeout: delay,
+                    method: 'notifyWhenChangesStop'
+                }
+            })
+            .subscribe(
+                hoverd => {
+                    return (hoverd && params().text) ?
+                        showTooltip(target, params()) :
+                        hideTooltip();
+                }
+            );
 
         // Handle delyed hover state.
         ko.utils.registerEventHandler(target, 'mouseenter', () => hover(true));
@@ -107,7 +111,8 @@ export default {
             target,
             () => {
                 hideTooltip(tooltip);
-                sub.dispose();
+                paramsSub.dispose();
+                hoverSub.dispose();
             }
         );
     }

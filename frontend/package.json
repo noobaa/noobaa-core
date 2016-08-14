@@ -9,7 +9,7 @@
     "babel-runtime": "^5.8.25",
     "babelify": "^6.3.0",
     "bower": "^1.7.2",
-    "browserify": "^11.2.0",
+    "browserify": "13.1.0",
     "del": "^2.0.2",
     "eslint": "^2.11.1",
     "gulp": "^3.9.0",

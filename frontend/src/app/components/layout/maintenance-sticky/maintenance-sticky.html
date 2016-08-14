@@ -1,0 +1,14 @@
+<div class="sticky row content-middle">
+    <span>
+        <svg-icon params="name: 'notif-info'" class="icon-small"></svg-icon>
+        System is in maintanance mode and will not perform data rebuilds
+    </span>
+    <vr></vr>
+    <span class="greedy">
+        Time left
+        <span data-bind="text: timeLeftText"></span>
+    </span>
+    <button class="link" data-bind="click: exitMaintenance">
+        Turn maintenance off
+    </button>
+</div>

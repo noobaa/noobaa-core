@@ -38,9 +38,16 @@ class BucketSummrayViewModel extends Disposable {
         let storage = ko.pureComputed(
             () => bucket() ? bucket().storage : {}
         );
+        let data = ko.pureComputed(
+            () => bucket() ? bucket().data : {}
+        );
 
-        this.formattedText = ko.pureComputed(
+        this.totalStorage = ko.pureComputed(
             () => formatSize(storage().total)
+        );
+
+        this.avaliableForWrite = ko.pureComputed(
+            () => formatSize(data().actual_free)
         );
 
         this.graphOptions = graphOptions;
@@ -48,16 +55,16 @@ class BucketSummrayViewModel extends Disposable {
 
         this.dataValues = [
             {
-                label: 'Physical size',
+                label: 'Reduced',
                 value: ko.pureComputed(
-                    () => storage().real
+                    () => data().size_reduced
                 ),
                 color: style['gray-lv5']
             },
             {
                 label: 'Size',
                 value: ko.pureComputed(
-                    () => storage().used
+                    () => data().size
                 ),
                 color: style['magenta-mid']
             }

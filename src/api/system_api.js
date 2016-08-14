@@ -739,6 +739,9 @@ module.exports = {
                 debug_level: {
                     type: 'integer'
                 },
+                system_cap: {
+                    type: 'integer'
+                },
                 upgrade: {
                     type: 'object',
                     properties: {

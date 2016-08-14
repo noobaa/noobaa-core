@@ -6,22 +6,13 @@ import Disposable from 'disposable';
 import ko from 'knockout';
 import { defaultPoolName } from 'config';
 import { systemInfo } from 'model';
-import { deepFreeze, copyTextToClipboard, lastSegment, realizeUri, encodeBase64 } from 'utils';
+import { deepFreeze, lastSegment, realizeUri, encodeBase64 } from 'utils';
 import { asset as assetRoute } from 'routes';
 
 const steps = deepFreeze([
-    {
-        label: 'select',
-        size: 'small'
-    },
-    {
-        label: 'install',
-        size: 'medium'
-    },
-    {
-        label: 'review',
-        size: 'small'
-    }
+    'select',
+    'install',
+    'review'
 ]);
 
 const installCommands = deepFreeze({
@@ -136,12 +127,6 @@ class InstallNodeWizardViewModel extends Disposable {
         this.nodeListImageUrl = realizeUri(
             assetRoute,
             { asset: 'nodesList_illustration.png' }
-        );
-    }
-
-    copyInstallCommand() {
-        copyTextToClipboard(
-            this.selectedInstallCommand()
         );
     }
 }

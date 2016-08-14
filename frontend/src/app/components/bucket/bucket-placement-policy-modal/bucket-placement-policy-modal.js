@@ -58,7 +58,7 @@ class BacketPlacementPolicyModalViewModel extends Disposable {
 
         this.pools = ko.pureComputed(
             () => (systemInfo() ? systemInfo().pools : []).filter(
-               ({ nodes }) => nodes
+                pool => pool.nodes && !pool.demo_pool
             )
         );
 

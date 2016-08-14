@@ -39,7 +39,7 @@
 
             <!-- ko if: selectedGraph() === 'DATA' -->
             <div class="column greedy push-prev">
-                <span class="available-value" data-bind="text: formattedText"></span>
+                <span class="available-value" data-bind="text: avaliableForWrite"></span>
                 <span class="available-label">Available</span>
             </div>
             <!-- /ko -->
@@ -48,7 +48,7 @@
         <!-- ko if: selectedGraph() === 'STORAGE' -->
         <pie-chart params="
             values: storageValues,
-            primaryText: formattedText,
+            primaryText: totalStorage,
             secondaryText: 'Total'
         "></pie-chart>
         <!-- /ko -->
@@ -83,10 +83,3 @@
 
 </section>
 <!-- /ko -->
-
-
-
-
-
-
-

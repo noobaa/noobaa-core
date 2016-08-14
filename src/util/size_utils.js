@@ -29,7 +29,7 @@ const SOTRAGE_OBJ_KEYS = [
     'total',
     'used',
     'used_other',
-    'used_reduced',
+    // 'used_reduced',
     'free',
     'reserved',
     'unavailable_free',

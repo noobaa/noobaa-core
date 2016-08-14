@@ -65,16 +65,23 @@ function list_objects() {
         Bucket: argv.bucket,
         Prefix: argv.prefix,
         Delimiter: argv.delimiter,
+        MaxKeys: argv.maxkeys,
+        Marker: argv.marker,
     }, function(err, data) {
         if (err) {
             console.error('LIST ERROR:', err.stack);
             return;
         }
         let contents = data.Contents;
+        let prefixes = data.CommonPrefixes;
         delete data.Contents;
+        delete data.CommonPrefixes;
         if (argv.long) {
             console.log('List:', JSON.stringify(data));
         }
+        _.each(prefixes, prefix => {
+            console.log('Prefix:', prefix.Prefix);
+        });
         _.each(contents, obj => {
             let key = obj.Key;
             let size = size_utils.human_size(obj.Size);

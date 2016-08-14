@@ -334,7 +334,7 @@ export function pad(num, size, char = '0') {
 }
 
 export function deepFreeze(val) {
-    if (isObject(val)) {
+    if (isObject(val) && !Object.isFrozen(val)) {
         Object.keys(val).forEach(
             key => { val[key] = deepFreeze(val[key]); }
         );

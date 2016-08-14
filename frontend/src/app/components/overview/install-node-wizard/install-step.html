@@ -51,10 +51,6 @@
     <output class="text-tech greedy" data-bind="text: selectedInstallCommand">
     </output>
 
-    <button class="btn-flat align-start" data-bind="
-        tooltip: 'Copy to Clipboard',
-        click: () => copyInstallCommand()
-    ">
-        <svg-icon class="icon-small" params="name: 'copy-to-clipboard'"></svg-icon>
-    </button>
+    <copy-to-clipboard-button params="value: selectedInstallCommand">
+    </copy-to-clipboard-button>
 </div>

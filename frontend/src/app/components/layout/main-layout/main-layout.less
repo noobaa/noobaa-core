@@ -1,23 +1,35 @@
+@keyframes expand-down {
+    from {
+        max-height: 0;
+    }
+
+    to {
+        max-height: 100%;
+    }
+}
+
 .main-layout  {
     position: relative;
     height: 100%;
 
-    &.debug-outline {
-        outline: 3px solid @yellow-mid;
-        outline-offset: -3px;
+    .sticky-wrapper {
+        animation: expand-down 2500ms;
+    }
 
+    .sticky {
+        line-height: 25px;
+        padding: @gutter / 2 @gutter;
+        background: @red-dark;
+        color: @text-color1;
 
-        &::before {
-            content: 'System is in debug mode and might exhibit temporary performance degradation';
-            display: inline-block;
-            position: absolute;
-            top: 0;
-            left: 50%;
-            transform: translateX(-50%);
-            background-color: @yellow-mid;
-            padding: @gutter/2 @gutter;
-            color: @text-color5;
-            font-size: @font-size-small;
+        svg-icon {
+            margin-right: .25em;
+        }
+
+        vr {
+            align-self: stretch;
+            background-color: @text-color1;
+            margin: 0 @gutter;
         }
     }
 }

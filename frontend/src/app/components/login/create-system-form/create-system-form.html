@@ -1,8 +1,4 @@
 <section class="column create-system-form">
-    <h2 class="heading3 text-center push-next">
-        Two quick steps and we are ready to go
-    </h2>
-
     <stepper params="steps: steps, current: step" class="push-next"></stepper>
 
     <div class="box steps column" data-bind="css: `step${step()}`">
@@ -14,7 +10,7 @@
                     <input type="text" placeholder="your actication code"
                         data-bind="value: activationCode">
 
-                    <svg-icon class="validating-indicator"
+                    <svg-icon class="validating-indicator spin"
                         data-bind="visible: activationCode.isValidating()"
                         params="name: 'in-progress'"></svg-icon>
                 </editor>
@@ -52,11 +48,16 @@
                     <p class="hint">optional</p>
                 </editor>
 
-                <editor params="label: 'Primary DNS server IP'">
+                <editor class="push-next" params="label: 'Primary DNS server IP'">
                     <input type="text" data-bind="value: primaryDNSServerIP"
                         placeholder="The IP of your primary DNS server" >
                     <p class="hint">optional</p>
                 </editor>
+
+                <p class="remark push-prev">
+                    By clicking the Create system button, I accept NooBaa's
+                    <a class="link" target="_blank" href="/public/eula">Terms &amp; Conditions</a>
+                </p>
             </div>
         </div>
 

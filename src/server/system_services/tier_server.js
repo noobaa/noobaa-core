@@ -314,12 +314,22 @@ function get_tier_info(tier, nodes_aggregate_pool) {
     }
     nodes_aggregate_pool = nodes_aggregate_pool || {};
     var pools_storage = _.map(tier.pools, pool => nodes_aggregate_pool[pool._id]);
-    info.storage = size_utils.reduce_storage(reducer, pools_storage, 1, tier.replicas);
+    info.storage = size_utils.reduce_storage(size_utils.reduce_sum, pools_storage, 1, 1);
     _.defaults(info.storage, {
         used: 0,
         total: 0,
         free: 0,
+        unavailable_free: 0,
+        used_other: 0,
+        reserved: 0
     });
+
+    let temp_storage = size_utils.reduce_storage(reducer, pools_storage, 1, tier.replicas);
+    _.defaults(info.storage, {
+        free: 0,
+    });
+    info.storage.real = temp_storage.free;
+
     return info;
 }
 

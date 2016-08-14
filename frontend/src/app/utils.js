@@ -374,3 +374,14 @@ export function flatMap(arr, predicate) {
         []
     );
 }
+
+export function recognizeBrowser() {
+    const userAgentTokens = [
+        'chrome', 'chromium', 'firefox', 'edge', 'msie', 'safari', 'opr'
+    ];
+
+    let userAgent = navigator.userAgent.toLowerCase();
+    return  userAgentTokens.find(
+        token => userAgent.includes(token)
+    );
+}

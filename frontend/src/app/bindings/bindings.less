@@ -4,9 +4,13 @@
     opacity: .5;
     transition: all 350ms ease-in-out;
 
-    &.expanded {
+    &.expanding {
         opacity: 1;
         max-height: 1000px;
+    }
+
+    &.expanded {
+        overflow: visible;
     }
 }
 
@@ -23,7 +27,7 @@
     color: @text-color1;
     pointer-events: none;
     text-align: left;
-    animation: fade-in 500ms;
+    animation: fade-in 400ms;
     max-width: 20em;
     box-shadow: 1px 1px 1px 1px @bg-color4;
     word-wrap: break-word;

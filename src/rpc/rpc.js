@@ -357,7 +357,7 @@ RPC.prototype.handle_request = function(conn, msg) {
             return conn.send(req.export_response_buffer(), 'res', req);
 
         })
-        .then(null, function(err) {
+        .catch(err => {
 
             console.error('RPC handle_request: ERROR',
                 'srv', req.srv,

@@ -137,9 +137,9 @@ function read_bucket(req) {
     return P.join(
         nodes_client.instance().aggregate_nodes_by_pool(pool_ids),
         md_store.ObjectMD.collection.count({
-                system: req.system._id,
-                bucket: bucket._id,
-                deleted: null
+            system: req.system._id,
+            bucket: bucket._id,
+            deleted: null
         }),
         get_cloud_sync(req, bucket)
     ).spread(function(nodes_aggregate_pool, num_of_objects, cloud_sync_policy) {
@@ -769,16 +769,18 @@ function get_bucket_info(bucket, nodes_aggregate_pool, num_of_objects, cloud_syn
     });
 
     let stats = bucket.stats;
-    let last_read = stats.last_read ?
+    let last_read = (stats && stats.last_read) ?
         new Date(bucket.stats.last_read).getTime() :
         undefined;
-    let last_write = stats.last_write ?
+    let last_write = (stats && stats.last_write) ?
         new Date(bucket.stats.last_write).getTime() :
         undefined;
+    let reads = (stats && stats.reads) ? stats.reads : undefined;
+    let writes = (stats && stats.writes) ? stats.writes : undefined;
 
     info.stats = {
-        reads: stats.reads,
-        writes: stats.writes,
+        reads: reads,
+        writes: writes,
         last_read: last_read,
         last_write: last_write
     };

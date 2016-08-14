@@ -29,6 +29,10 @@
     "notificaitons": {
         "minTimeOnScreen": 3200,
         "charTimeContribution": 50
-    }
-
+    },
+    "supportedBrowsers": [
+        "chrome",
+        "chromium",
+        "firefox"
+    ]
 }

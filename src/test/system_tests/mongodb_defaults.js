@@ -1,4 +1,4 @@
-/* global db */
+/* eslint-env mongo */
 'use strict';
 
 /*

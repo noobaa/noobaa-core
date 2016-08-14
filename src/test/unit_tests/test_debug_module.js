@@ -29,11 +29,13 @@ function file_content_verify(flag, expected) {
 
 
 mocha.describe('debug_module', function() {
+    const self = this; // eslint-disable-line no-invalid-this
 
     //when log is 100MB, reading the log file for
     //verification can take about 1 sec.
     //various logs test creates inconsistency as it may reach timeout.
-    this.timeout(10000);
+    self.timeout(10000);
+
     // This test case fails becauuse __filename is full path !
     // shouldn't the module trim the base path ??
     mocha.it('should parse __filename', function() {
@@ -129,7 +131,7 @@ mocha.describe('debug_module', function() {
         var s3 = 'expected';
         var d1 = 3;
         var d2 = 2;
-        dbg.log0("%s string substitutions (%d) %s be logged as %s, with two (%d) numbers", s1,d1, s2, s3,d2);
+        dbg.log0("%s string substitutions (%d) %s be logged as %s, with two (%d) numbers", s1, d1, s2, s3, d2);
         return file_content_verify("text", " this string substitutions (3) should be logged as expected, with two (2) numbers");
     });
 
@@ -140,7 +142,7 @@ mocha.describe('debug_module', function() {
                 var dbg = new DebugModule('/web/noise/noobaa-core/src/blabla.asd/lll.asd');
                 _.noop(dbg); // lint unused bypass
                 console[l]("console - %s - should be captured", l);
-                    return file_content_verify("text", "CONSOLE:: console - " + l + " - should be captured");
+                return file_content_verify("text", "CONSOLE:: console - " + l + " - should be captured");
             });
         }, P.resolve());
     });

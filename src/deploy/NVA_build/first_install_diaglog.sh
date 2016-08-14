@@ -1,5 +1,5 @@
-#!/bin/sh
 # First Installation Wizard
+#!/bin/sh
 
 trap "" 2 20
 
@@ -99,17 +99,23 @@ function configure_networking_dialog {
         fi
 
       elif [ "${dynamic}" -eq "2" ]; then #Dynamic IP
+        dialog --colors --backtitle "NooBaa First Install" --title "IP Configuration" --infobox "Requesting IP from DHCP server. \nDepending on network connectivity and DHCP server availability, this might take a while." 6 60
         clean_ifcfg
         sudo bash -c "echo 'BOOTPROTO=dhcp' >> /etc/sysconfig/network-scripts/ifcfg-eth0"
       fi
-      sudo service network restart
-      dialog --colors --nocancel --backtitle "NooBaa First Install" --title "Hostname Configuration" --form "\nPlease supply a hostname for this \Z5\ZbNooBaa\Zn installation." 12 65 4 "Hostname:" 1 1 "" 1 25 25 30 2> answer_host
+      sudo dmesg -n 1
+      sudo service network restart &> /dev/null
+      sudo dmesg -n 3
+      ifcfg=$(ifconfig | grep inet | grep -v inet6 | grep -v 127.0.0.1) # ipv4
+      if [[ "${dynamic}" -eq "2" && ${ifcfg} == "" ]]; then
+        dialog --colors --nocancel --backtitle "NooBaa First Install" --title "\Zb\Z1ERROR" --msgbox "\Zb\Z1Was unable to get dynamically allocated IP via DHCP" 5 55
+      else
+        dialog --colors --nocancel --backtitle "NooBaa First Install" --title "Hostname Configuration" --form "\nPlease supply a hostname for this \Z5\ZbNooBaa\Zn installation." 12 65 4 "Hostname:" 1 1 "" 1 25 25 30 2> answer_host
 
-      local host=$(cat answer_host)
-      rc=$(sudo sysctl kernel.hostname=${host})
-      #sudo echo "First Install configure hostname ${host}, sysctl rc ${rc}" >> /var/log/noobaa_deploy.log
-
-
+        local host=$(t answer_host)
+        rc=$(sudo sysctl kernel.hostname=${host})
+        #sudo echo "First Install configure hostname ${host}, sysctl rc ${rc}" >> /var/log/noobaa_deploy.log
+      fi
 }
 
 
@@ -205,6 +211,8 @@ function verify_wizard_run {
         run_wizard
         ;;
      1)
+        trap 2 20
+        exit 0
         ;;
   esac
 }

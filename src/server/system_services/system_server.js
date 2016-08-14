@@ -356,6 +356,8 @@ function read_system(req) {
             phone_home_config.phone_home_unable_comm = true;
         }
 
+        let system_cap = system.freemium_cap.cap_terabytes ? system.freemium_cap.cap_terabytes : Number.MAX_SAFE_INTEGER;
+
         // TODO use n2n_config.stun_servers ?
         // var stun_address = 'stun://' + ip_address + ':' + stun.PORT;
         // var stun_address = 'stun://64.233.184.127:19302'; // === 'stun://stun.l.google.com:19302'
@@ -412,6 +414,7 @@ function read_system(req) {
             version: pkg.version,
             debug_level: debug_level,
             upgrade: upgrade,
+            system_cap: system_cap,
         };
 
         // fill cluster information if we have a cluster.

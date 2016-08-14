@@ -3,7 +3,7 @@ import userMessageTemplate from './user-message-template.html';
 import Disposable from 'disposable';
 import ko from 'knockout';
 import { resetAccountPassword } from 'actions';
-import { randomString, copyTextToClipboard } from 'utils';
+import { randomString } from 'utils';
 
 const userMessage = new Function(
     'emailAddress',
@@ -26,10 +26,6 @@ class RestPasswordModalViewModel extends Disposable {
              )
         );
 
-    }
-
-    copyEmailTextToClipboard() {
-        copyTextToClipboard(this.userMessage());
     }
 
     reset() {

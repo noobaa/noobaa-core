@@ -651,13 +651,9 @@ function list_objects(req) {
             }
 
             if (req.rpc_params.key_marker) {
-                if (_.isUndefined(info.key)) {
-                    info.key = {
-                        $gt: req.rpc_params.key_marker
-                    };
-                } else {
-                    info.key.$gt = req.rpc_params.key_marker;
-                }
+                info.key = _.assign(info.key, {
+                    $gt: req.rpc_params.key_marker
+                });
             }
 
             // TODO: Should look at the upload_size or upload_completed?

@@ -125,7 +125,7 @@ class S3Controller {
      */
     get_bucket(req) {
         this.usage_report.s3_usage_info.get_bucket++;
-        if (('list-type' in req.query) && (req.query['list-type'] === '2')) {
+        if (req.query['list-type'] === '2') {
             throw s3_errors.NotImplemented;
         }
         // TODO GGG MUST implement Marker & MaxKeys & IsTruncated
@@ -187,9 +187,6 @@ class S3Controller {
      */
     get_bucket_versions(req) {
         this.usage_report.s3_usage_info.get_bucket_versions++;
-        if (('list-type' in req.query) && (req.query['list-type'] === '2')) {
-            throw s3_errors.NotImplemented;
-        }
         // TODO GGG MUST implement KeyMarker & VersionIdMarker & MaxKeys & IsTruncated
         let params = {
             bucket: req.params.bucket,
@@ -252,9 +249,6 @@ class S3Controller {
      */
     get_bucket_uploads(req) {
         this.usage_report.s3_usage_info.get_bucket_uploads++;
-        if (('list-type' in req.query) && (req.query['list-type'] === '2')) {
-            throw s3_errors.NotImplemented;
-        }
         // TODO GGG MUST implement Marker & MaxKeys & IsTruncated
         let params = {
             bucket: req.params.bucket,

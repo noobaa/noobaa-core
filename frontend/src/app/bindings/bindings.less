@@ -4,9 +4,13 @@
     opacity: .5;
     transition: all 350ms ease-in-out;
 
-    &.expanded {
+    &.expanding {
         opacity: 1;
         max-height: 1000px;
+    }
+
+    &.expanded {
+        overflow: visible;
     }
 }
 
@@ -23,12 +27,13 @@
     color: @text-color1;
     pointer-events: none;
     text-align: left;
-    animation: fade-in 250ms;
+    animation: fade-in 400ms;
     max-width: 20em;
     box-shadow: 1px 1px 1px 1px @bg-color4;
     word-wrap: break-word;
 
     .break-words {
+        word-wrap: break-word;
         word-break: break-all;
     }
 
@@ -69,6 +74,7 @@
         margin: 0;
         padding: 0;
         padding-left: @gutter;
+        word-wrap: break-word;
         word-break: break-all;
     }
 }

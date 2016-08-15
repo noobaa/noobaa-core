@@ -29,6 +29,15 @@
     "notificaitons": {
         "minTimeOnScreen": 3200,
         "charTimeContribution": 50
-    }
-
+    },
+    // Uncommect browser codes after enabling support and QA
+    "supportedBrowsers": [
+        "chrome",
+        "firefox",
+        // "chromium",
+        // "edge",
+        // "msie",
+        // "safari",
+        // "opr"
+    ]
 }

@@ -120,6 +120,7 @@ exports._init = _init;
 exports.get_local_monitor = get_local_monitor;
 exports.stop_monitor = stop_monitor;
 exports.start_monitor = start_monitor;
+exports.test_node_id = req => monitor.test_node_id(req);
 exports.heartbeat = req => monitor.heartbeat(req);
 exports.read_node = req => monitor.read_node(req.rpc_params);
 exports.decommission_node = req => monitor.decommission_node(req.rpc_params);

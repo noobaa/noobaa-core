@@ -112,7 +112,7 @@ class RpcRequest {
         if (this.error) {
             // copy the error to a plain object because otherwise
             // the message is not encoded by
-            header.error = _.pick(this.error, 'rpc_code', 'message');
+            header.error = _.pick(this.error, 'rpc_code', 'message', 'retryable');
         } else {
             header.reply = this.reply;
             if (this.method_api.reply_export_buffers) {

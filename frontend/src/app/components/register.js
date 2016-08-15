@@ -27,6 +27,7 @@ export default function register(ko) {
     ko.components.register('login-layout',          require('./login/login-layout/login-layout'));
     ko.components.register('signin-form',           require('./login/signin-form/signin-form'));
     ko.components.register('create-system-form',    require('./login/create-system-form/create-system-form'));
+    ko.components.register('unsupported-form',      require('./login/unsupported-form/unsupported-form'));
     /** INJECT:login **/
 
     // -------------------------------
@@ -181,5 +182,6 @@ export default function register(ko) {
     ko.components.register('pool-selection-table',      require('./shared/pool-selection-table/pool-selection-table'));
     ko.components.register('node-selection-table',      require('./shared/node-selection-table/node-selection-table'));
     ko.components.register('chart-legend', require('./shared/chart-legend/chart-legend'));
+    ko.components.register('copy-to-clipboard-button', require('./shared/copy-to-clipboard-button/copy-to-clipboard-button'));
     /** INJECT:shared **/
 }

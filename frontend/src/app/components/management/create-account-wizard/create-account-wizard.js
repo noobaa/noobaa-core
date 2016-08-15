@@ -3,7 +3,7 @@ import nameAndPermissionsStepTemplate from './name-and-permissions-step.html';
 import detailsStepTemplate from './details-step.html';
 import Disposable from 'disposable';
 import ko from 'knockout';
-import { randomString, copyTextToClipboard, generateAccessKeys } from 'utils';
+import { randomString, generateAccessKeys } from 'utils';
 import { systemInfo } from 'model';
 import { createAccount } from 'actions';
 import { deepFreeze } from 'utils';
@@ -126,10 +126,6 @@ class CreateAccountWizardViewModel extends Disposable {
 
     clearAllBuckets() {
         this.selectedBuckets([]);
-    }
-
-    copyEmailTextToClipboard() {
-        copyTextToClipboard(this.userMessage());
     }
 
     create() {

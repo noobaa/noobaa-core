@@ -753,7 +753,7 @@ function get_bucket_info(bucket, nodes_aggregate_pool, num_of_objects, cloud_syn
     let placement_mul = (tier_of_bucket.data_placement === 'MIRROR') ? Math.max(tier_of_bucket.pools.length, 1) : 1;
     let bucket_used = new BigInteger((bucket.storage_stats && bucket.storage_stats.chunks_capacity) || 0).multiply(tier_of_bucket.replicas).multiply(placement_mul);
     let bucket_free = new BigInteger((info.tiering && info.tiering.storage && info.tiering.storage.free) || 0);
-    let bucket_used_other = new BigInteger((info.tiering && info.tiering.storage && info.tiering.storage.used_other) || 0).minus(bucket_used);
+    let bucket_used_other = new BigInteger((info.tiering && info.tiering.storage && info.tiering.storage.used_other) || 0);
 
     info.storage = size_utils.to_bigint_storage({
         used: bucket_used,

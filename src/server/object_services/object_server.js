@@ -590,6 +590,7 @@ function list_objects(req) {
     var prefix = req.rpc_params.prefix || '';
     let escaped_prefix = string_utils.escapeRegExp(prefix);
     var delimiter = req.rpc_params.delimiter || '';
+
     load_bucket(req);
     return P.fcall(() => {
             var info = _.omit(object_md_query(req), 'key');
@@ -600,7 +601,9 @@ function list_objects(req) {
                 let one_level = delimiter !== '/' ?
                     one_level_delimiter(delimiter) :
                     ONE_LEVEL_SLASH_DELIMITER;
-                info.key = new RegExp('^' + escaped_prefix + one_level);
+                info.key = {
+                    $regex: new RegExp('^' + escaped_prefix + one_level)
+                };
 
                 // we need another query to find common prefixes
                 // we go over objects with key that starts with prefix
@@ -615,8 +618,11 @@ function list_objects(req) {
                         query: {
                             system: req.system._id,
                             bucket: req.bucket._id,
-                            key: new RegExp('^' + escaped_prefix),
-                            deleted: null
+                            key: {
+                                $regex: new RegExp('^' + escaped_prefix),
+                                $gt: req.rpc_params.key_marker || ''
+                            },
+                            deleted: null,
                         },
                         scope: {
                             prefix: prefix,
@@ -627,15 +633,31 @@ function list_objects(req) {
                         }
                     });
             } else if (prefix) {
-                info.key = new RegExp('^' + escaped_prefix);
+                info.key = {
+                    $regex: new RegExp('^' + escaped_prefix)
+                };
             } else if (req.rpc_params.key_query) {
-                info.key = new RegExp(string_utils.escapeRegExp(req.rpc_params.key_query), 'i');
+                info.key = {
+                    $regex: new RegExp(string_utils.escapeRegExp(req.rpc_params.key_query), 'i')
+                };
             } else if (req.rpc_params.key_regexp) {
-                info.key = new RegExp(req.rpc_params.key_regexp);
+                info.key = {
+                    $regex: new RegExp(req.rpc_params.key_regexp)
+                };
             } else if (req.rpc_params.key_glob) {
-                info.key = glob_to_regexp(req.rpc_params.key_glob);
-            } else if (req.rpc_params.key_prefix) {
-                info.key = new RegExp('^' + string_utils.escapeRegExp(req.rpc_params.key_prefix));
+                info.key = {
+                    $regex: glob_to_regexp(req.rpc_params.key_glob)
+                };
+            }
+
+            if (req.rpc_params.key_marker) {
+                if (_.isUndefined(info.key)) {
+                    info.key = {
+                        $gt: req.rpc_params.key_marker
+                    };
+                } else {
+                    info.key.$gt = req.rpc_params.key_marker;
+                }
             }
 
             // TODO: Should look at the upload_size or upload_completed?
@@ -693,12 +715,24 @@ function list_objects(req) {
                     info: get_object_info(obj),
                 };
             });
+
             if (should_compact_objects) {
                 res.objects = _.compact(res.objects);
             }
             if (req.rpc_params.pagination) {
                 res.total_count = total_count;
             }
+
+            let last_obj = _.last(res.objects);
+            let last_common_prefix = _.last(res.common_prefixes);
+            res.next_marker = _.gt((last_obj && last_obj.key || ''), last_common_prefix || '') ? (last_obj && last_obj.key || '') : last_common_prefix || '';
+
+            if ((res.objects ? res.objects.length : 0) + (res.common_prefixes ? res.common_prefixes.length : 0) === req.rpc_params.limit) {
+                res.is_truncated = true;
+            } else {
+                res.is_truncated = false;
+            }
+
             return res;
         });
 }

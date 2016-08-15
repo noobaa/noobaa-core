@@ -385,7 +385,7 @@ function register_histogram(opname, master_label, structure) {
         return;
     }
 
-    if (!ops_aggregation.hasOwnProperty(opname)) {
+    if (!ops_aggregation[opname]) {
         ops_aggregation[opname] = new Histogram(master_label, structure);
     }
 
@@ -398,7 +398,7 @@ function add_sample_point(opname, duration) {
         return;
     }
 
-    if (!ops_aggregation.hasOwnProperty(opname)) {
+    if (!ops_aggregation[opname]) {
         dbg.log0('add_sample_point called without histogram registered (', opname, '), skipping');
         return;
     }

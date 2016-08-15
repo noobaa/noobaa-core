@@ -354,7 +354,8 @@ TestRunner.prototype._write_coverage = function() {
             //Generate the report
             reporter.add('lcov');
             return P.fcall(function() {
-                    return reporter.write(collector, true /*sync*/ , function() {
+                    const REPORTER_SYNC = true;
+                    return reporter.write(collector, REPORTER_SYNC, function() {
                         console.warn('done reporter.write');
                     });
                 })

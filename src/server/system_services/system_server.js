@@ -293,8 +293,8 @@ function read_system(req) {
         // nodes - count, online count, allocated/used storage aggregate by pool
         nodes_client.instance().aggregate_nodes_by_pool(null, system._id, /*skip_cloud_nodes=*/ true),
         md_store.aggregate_objects_count({
-                    system: system._id,
-                    deleted: null
+            system: system._id,
+            deleted: null
         }),
 
         // passing the bucket itself as 2nd arg to bucket_server.get_cloud_sync

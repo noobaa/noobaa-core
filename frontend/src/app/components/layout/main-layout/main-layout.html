@@ -1,19 +1,28 @@
-<div class="main-layout column" data-bind="css: { 'debug-outline': showDebugOutline }">
-    <main-header class="push-next"></main-header>
+<div class="main-layout column">
+    <section class="sticky-wrapper">
+        <maintenance-sticky></maintenance-sticky>
+        <debug-mode-sticky></debug-mode-sticky>
+        <phone-home-connectivity-sticky></phone-home-connectivity-sticky>
+        <license-sticky></license-sticky>
+    </section>
 
-    <!-- ko if: panel -->
-    <main class="column greedy bounded push-next" data-bind="
-        component: panel,
-        css: panel
-    "></main>
-    <!-- /ko -->
+    <div class="content-wrapper column greedy">
+        <main-header class="push-next"></main-header>
 
-    <notification-box></notification-box>
+        <!-- ko if: panel -->
+        <main class="column greedy bounded push-next" data-bind="
+            component: panel,
+            css: panel
+        "></main>
+        <!-- /ko -->
+
+        <notification-box></notification-box>
+
+        <drawer>
+            <audit-pane></audit-pane>
+        </drawer>
+    </div>
 </div>
-
-<drawer>
-    <audit-pane></audit-pane>
-</drawer>
 
 <!-- ko if: isWelcomeModalVisible -->
 <welcome-modal params="onClose: () => hideWelcomeModal()"></welcome-modal>

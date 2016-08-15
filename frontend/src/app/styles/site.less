@@ -648,6 +648,23 @@ input[type="search"] {
     }
 }
 
+.sticky {
+    line-height: 25px;
+    padding: @gutter / 2 @gutter;
+    background: @red-dark;
+    color: @text-color1;
+
+    svg-icon {
+        margin-right: .25em;
+    }
+
+    vr {
+        align-self: stretch;
+        background-color: @text-color1;
+        margin: 0 @gutter;
+    }
+}
+
 .column, .row {
     .wireframe & > *, {
         outline: 1px solid red;

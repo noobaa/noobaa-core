@@ -4,6 +4,7 @@ import ko from 'knockout';
 import { redirectTo } from 'actions';
 import { system as systemRoute } from 'routes';
 import { uiState, systemInfo, routeContext } from 'model';
+import { deepFreeze } from 'utils';
 
 class MainLayoutViewModel extends Disposable {
     constructor() {
@@ -11,10 +12,6 @@ class MainLayoutViewModel extends Disposable {
 
         this.panel = ko.pureComputed(
             () => `${uiState().panel}-panel`
-        );
-
-        this.showDebugOutline = ko.pureComputed(
-            () => !!systemInfo() && systemInfo().debug_level > 0
         );
 
         this.isAfterUpgradeModalVisible = ko.pureComputed(

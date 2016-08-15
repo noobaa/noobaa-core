@@ -121,7 +121,7 @@ export function showOverview() {
         layout: 'main-layout',
         title: 'OVERVIEW',
         breadcrumbs: [
-            { route: 'system' }
+            { route: 'system', label: 'OVERVIEW' }
         ],
         panel: 'overview'
     });
@@ -134,7 +134,7 @@ export function showBuckets() {
         layout: 'main-layout',
         title: 'BUCKETS',
         breadcrumbs: [
-            { route: 'system' },
+            { route: 'system', label: 'OVERVIEW' },
             { route: 'buckets', label: 'BUCKETS' }
         ],
         panel: 'buckets'
@@ -152,7 +152,7 @@ export function showBucket() {
         layout: 'main-layout',
         title: bucket,
         breadcrumbs: [
-            { route: 'system' },
+            { route: 'system', label: 'OVERVIEW' },
             { route: 'buckets', label: 'BUCKETS' },
             { route: 'bucket', label: bucket }
         ],
@@ -174,7 +174,7 @@ export function showObject() {
         layout: 'main-layout',
         title: object,
         breadcrumbs: [
-            { route: 'system' },
+            { route: 'system', label: 'OVERVIEW' },
             { route: 'buckets', label: 'BUCKETS' },
             { route: 'bucket', label: bucket },
             { route: 'object', label: object }
@@ -196,7 +196,7 @@ export function showResources() {
         layout: 'main-layout',
         title: 'RESOURCES',
         breadcrumbs: [
-            { route: 'system' },
+            { route: 'system', label: 'OVERVIEW' },
             { route: 'pools', label: 'RESOURCES' }
         ],
         panel: 'resources',
@@ -214,7 +214,7 @@ export function showPool() {
         layout: 'main-layout',
         title: pool,
         breadcrumbs: [
-            { route: 'system' },
+            { route: 'system', label: 'OVERVIEW' },
             { route: 'pools', label: 'RESOURCES'},
             { route: 'pool', label: pool }
         ],
@@ -237,7 +237,7 @@ export function showNode() {
         layout: 'main-layout',
         title: node,
         breadcrumbs: [
-            { route: 'system' },
+            { route: 'system', label: 'OVERVIEW' },
             { route: 'pools', label: 'RESOURCES'},
             { route: 'pool', label: pool },
             { route: 'node', label: node }
@@ -259,7 +259,7 @@ export function showManagement() {
         layout: 'main-layout',
         title: 'SYSTEM MANAGEMENT',
         breadcrumbs: [
-            { route: 'system' },
+            { route: 'system', label: 'OVERVIEW' },
             { route: 'management', label: 'SYSTEM MANAGEMENT' }
         ],
         panel: 'management',
@@ -275,7 +275,7 @@ export function showCluster() {
         layout: 'main-layout',
         title: 'CLUSTER',
         breadcrumbs: [
-            { route: 'system' },
+            { route: 'system', label: 'OVERVIEW' },
             { route: 'cluster', label: 'CLUSTER' }
         ],
         panel: 'cluster'

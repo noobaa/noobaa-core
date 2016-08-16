@@ -140,6 +140,8 @@ SupervisorCtrl.prototype.add_agent = function(agent_name, args_str) {
     prog.stopsignal = config.SUPERVISOR_DEFAULTS.STOPSIGNAL;
     prog.command = '/usr/local/bin/node src/agent/agent_cli.js ' + args_str;
     prog.name = 'agent_' + agent_name;
+    prog.autostart = 'true';
+    prog.priority = '1100';
     return P.resolve(self.init())
         .then(() => {
             if (!self._supervised) {

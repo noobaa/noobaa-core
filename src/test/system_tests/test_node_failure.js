@@ -42,43 +42,38 @@ function authenticate() {
 }
 
 
-function create_system() {
-    return P.resolve(client.system.create_system({
-        activation_code: 'bla',
-        email: 'demo@noobaa.com',
-        password: 'DeMo',
-        name: 'demo',
-        access_keys: {
-            access_key: '123',
-            secret_key: 'abc'
-        }
-    }));
-
-}
+// function create_system() {
+//     return P.resolve(client.system.create_system({
+//         activation_code: 'bla',
+//         email: 'demo@noobaa.com',
+//         password: 'DeMo',
+//         name: 'demo',
+//         access_keys: {
+//             access_key: '123',
+//             secret_key: 'abc'
+//         }
+//     }));
+// }
 
 function create_agents() {
     console.log('creating agents');
     const names = _.times(TEST_CTX.num_of_agents, i => TEST_CTX.nodes_name + (i + 1));
-    return P.map(names, name => client.hosted_agents.create_agent({
+    return P.each(names, name => client.hosted_agents.create_agent({
             name: name,
             access_keys: {
                 access_key: '123',
                 secret_key: 'abc'
             }
-        }), {
-            concurrency: 10
-        })
+        }))
         .then(() => names);
 }
 
 function remove_agents() {
     console.log('removing agents');
     const names = _.times(TEST_CTX.num_of_agents, i => TEST_CTX.nodes_name + (i + 1));
-    return P.map(names, name => client.hosted_agents.remove_agent({
+    return P.each(names, name => client.hosted_agents.remove_agent({
             name: name,
-        }), {
-            concurrency: 10
-        })
+        }))
         .then(() => names);
 }
 
@@ -207,7 +202,7 @@ function run_test() {
         })
         .catch(err => {
             remove_agents();
-            console.log('test_cloud_sync failed. err =', err);
+            console.log('test_node_failure failed. err =', err);
             throw err;
         });
 }

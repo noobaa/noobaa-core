@@ -1,5 +1,9 @@
 <section class="column create-system-form">
-    <h2 class="heading3 text-center push-next">
+   <h1 class="heading1 text-center">
+        Welcome to NooBaa
+    </h1>
+
+        <h2 class="heading3 text-center push-next">
         Two quick steps and we are ready to go
     </h2>
 
@@ -14,7 +18,7 @@
                     <input type="text" placeholder="your actication code"
                         data-bind="value: activationCode">
 
-                    <svg-icon class="validating-indicator"
+                    <svg-icon class="validating-indicator spin"
                         data-bind="visible: activationCode.isValidating()"
                         params="name: 'in-progress'"></svg-icon>
                 </editor>
@@ -25,13 +29,11 @@
                 </editor>
 
                 <editor params="label: 'Password'">
-                    <input type="password" data-bind="value: password"
-                        placeholder="enter passowrd">
+                    <input type="password" autocomplete="off" data-bind="value: password" placeholder="enter passowrd">
                 </editor>
 
                 <editor params="label: 'Confirm password'">
-                    <input type="password" data-bind="value: confirmPassword"
-                     placeholder="repeat password ">
+                    <input type="password" autocomplete="off" data-bind="value: confirmPassword" placeholder="repeat password ">
                 </editor>
             </div>
 
@@ -52,11 +54,16 @@
                     <p class="hint">optional</p>
                 </editor>
 
-                <editor params="label: 'Primary DNS server IP'">
+                <editor class="push-next" params="label: 'Primary DNS server IP'">
                     <input type="text" data-bind="value: primaryDNSServerIP"
                         placeholder="The IP of your primary DNS server" >
                     <p class="hint">optional</p>
                 </editor>
+
+                <p class="remark push-prev">
+                    By clicking the Create system button, I accept NooBaa's
+                    <a class="link" target="_blank" href="/public/eula">Terms &amp; Conditions</a>
+                </p>
             </div>
         </div>
 

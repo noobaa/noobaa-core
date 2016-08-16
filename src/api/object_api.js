@@ -832,6 +832,9 @@ module.exports = {
                 create_time: {
                     format: 'idate'
                 },
+                upload_completed: {
+                    format: 'idate'
+                },
                 upload_size: {
                     type: 'integer',
                 },

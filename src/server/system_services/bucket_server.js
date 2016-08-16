@@ -137,9 +137,9 @@ function read_bucket(req) {
     return P.join(
         nodes_client.instance().aggregate_nodes_by_pool(pool_ids),
         md_store.ObjectMD.collection.count({
-                system: req.system._id,
-                bucket: bucket._id,
-                deleted: null
+            system: req.system._id,
+            bucket: bucket._id,
+            deleted: null
         }),
         get_cloud_sync(req, bucket)
     ).spread(function(nodes_aggregate_pool, num_of_objects, cloud_sync_policy) {
@@ -748,29 +748,39 @@ function get_bucket_info(bucket, nodes_aggregate_pool, num_of_objects, cloud_syn
     };
 
     info.tag = bucket.tag ? bucket.tag : '';
-    let placement_mul = (tier_of_bucket.data_placement === 'MIRROR') ? Math.max(tier_of_bucket.pools.length, 1) : 1;
+
     info.num_objects = num_of_objects || 0;
+    let placement_mul = (tier_of_bucket.data_placement === 'MIRROR') ? Math.max(tier_of_bucket.pools.length, 1) : 1;
+    let bucket_used = new BigInteger((bucket.storage_stats && bucket.storage_stats.chunks_capacity) || 0).multiply(tier_of_bucket.replicas).multiply(placement_mul);
+    let bucket_free = new BigInteger((info.tiering && info.tiering.storage && info.tiering.storage.free) || 0);
+    let bucket_used_other = new BigInteger((info.tiering && info.tiering.storage && info.tiering.storage.used_other) || 0);
+
     info.storage = size_utils.to_bigint_storage({
-        used: objects_aggregate.size,
-        used_other: info.tiering && info.tiering.storage && info.tiering.storage.used_other || 0,
-        total: info.tiering && info.tiering.storage && info.tiering.storage.total || 0,
-        free: info.tiering && info.tiering.storage && info.tiering.storage.free || 0,
-        // This is the physical compressed capacity
-        // TODO: Does not include the movie multiplication, and rebuilds
-        real: new BigInteger((bucket.storage_stats && bucket.storage_stats.chunks_capacity) || 0).multiply(tier_of_bucket.replicas).multiply(placement_mul)
+        used: bucket_used,
+        used_other: bucket_used_other,
+        total: bucket_free.plus(bucket_used).plus(bucket_used_other),
+        free: bucket_free,
+    });
+
+    info.data = size_utils.to_bigint_storage({
+        size: objects_aggregate.size,
+        size_reduced: (bucket.storage_stats && bucket.storage_stats.chunks_capacity) || 0,
+        actual_free: (info.tiering && info.tiering.storage && info.tiering.storage.real) || 0
     });
 
     let stats = bucket.stats;
-    let last_read = stats.last_read ?
+    let last_read = (stats && stats.last_read) ?
         new Date(bucket.stats.last_read).getTime() :
         undefined;
-    let last_write = stats.last_write ?
+    let last_write = (stats && stats.last_write) ?
         new Date(bucket.stats.last_write).getTime() :
         undefined;
+    let reads = (stats && stats.reads) ? stats.reads : undefined;
+    let writes = (stats && stats.writes) ? stats.writes : undefined;
 
     info.stats = {
-        reads: stats.reads,
-        writes: stats.writes,
+        reads: reads,
+        writes: writes,
         last_read: last_read,
         last_write: last_write
     };

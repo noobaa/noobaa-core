@@ -1,6 +1,6 @@
 @keyframes shake {
     0%, 100% {
-        transform: translateX(0);               
+        transform: translateX(0);
     }
 
     16.66%, 83.33% {
@@ -10,7 +10,7 @@
     46.66% {
         transform: translateX(1em);
     }
-}   
+}
 
 @keyframes slide-left {
     from {
@@ -39,9 +39,9 @@
     }
 
     to {
-        transform:  translate(-50%, -50%) scale(1); 
+        transform:  translate(-50%, -50%) scale(1);
         opacity: 1;
-    }   
+    }
 }
 
 @keyframes roll-in {
@@ -80,6 +80,11 @@
     }
 }
 
+@keyframes spin {
+    0 { transform: rotateZ(0deg) }
+    100% { transform: rotateZ(360deg) }
+}
+
 .shake {
     animation: shake 750ms ease-in-out;
 }
@@ -94,4 +99,8 @@
 
 .pop-centered {
     animation: pop-centered 300ms;
+}
+
+.spin {
+    animation: spin 2000ms linear infinite;
 }

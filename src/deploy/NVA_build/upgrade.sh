@@ -187,6 +187,11 @@ function do_upgrade {
   deploy_log "Extracting new version"
   tar -xzvf ./${PACKAGE_FILE_NAME} >& /dev/null
 
+  # move existing internal agnets_storage to new dir
+  if [ -d /backup/agent_storage/ ]; then 
+    mv /backup/agent_storage/ ${CORE_DIR}
+  fi 
+
   # Re-setup Repos
   setup_repos
 

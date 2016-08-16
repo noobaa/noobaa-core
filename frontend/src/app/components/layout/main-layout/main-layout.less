@@ -1,23 +1,31 @@
 .main-layout  {
-    position: relative;
+    @sticky-height: 41px;
     height: 100%;
 
-    &.debug-outline {
-        outline: 3px solid @yellow-mid;
-        outline-offset: -3px;
+    .content-wrapper {
+        position: relative;
+    }
 
+    .sticky-wrapper {
+        max-height: @sticky-height;
+        overflow-y: hidden;
+    }
 
-        &::before {
-            content: 'System is in debug mode and might exhibit temporary performance degradation';
-            display: inline-block;
-            position: absolute;
-            top: 0;
-            left: 50%;
-            transform: translateX(-50%);
-            background-color: @yellow-mid;
-            padding: @gutter/2 @gutter;
-            color: @text-color5;
-            font-size: @font-size-small;
+    .sticky {
+        .no-wrap();
+        position: relative;
+        margin-top: -@sticky-height;
+        opacity: 1;
+        transition: margin-top 1000ms linear;
+
+        &.active {
+            margin-top: 0;
+            opacity: 1;
+
+            ~ .sticky {
+                margin-top: 0;
+            }
         }
     }
+
 }

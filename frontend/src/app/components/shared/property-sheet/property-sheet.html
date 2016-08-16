@@ -1,15 +1,10 @@
 <ul class="list-no-style box column" data-bind="foreach: properties">
     <li class="row content-middle">
-        <div class="c3 emphasized" data-bind="text: label + ':'"></div>
+        <div class="prop-name emphasized" data-bind="text: label + ':'"></div>
 
-        <div class="greedy" data-bind="text: value"></div>
+        <div class="prop-value no-wrap greedy" data-bind="text: value"></div>
 
-        <button class="btn-flat" data-bind="
-            visible: $data.allowCopy,
-            click: () => $component.copyToClipboard(value),
-            tooltip: 'Copy to Clipboard'
-        ">
-            <svg-icon class="icon-small" params="name: 'copy-to-clipboard'"></svg-icon>
-        </button>
+        <copy-to-clipboard-button params="value: value"
+            data-bind="visible: $data.allowCopy"></copy-to-clipboard-button>
     </li>
 </ul>

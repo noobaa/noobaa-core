@@ -1,5 +1,5 @@
 <modal class="modal-large" params="
-    title: 'Bucket Backup Policy',
+    title: 'Bucket Cloud Storage Policy',
     onClose: () => cancel()
 ">
     <p class="push-next">By adding a cloud resource you instruct NooBaa to create an extra copy (mirror) of your file parts that resides on the cloud bucket defined by the cloud resource.</p>
@@ -28,7 +28,7 @@
 
     <p class="push-next">
         <svg-icon params="name: 'notif-info'" class="icon-small"></svg-icon>
-        To create a new cloud resource got to
+        To create a new cloud resource go to
         Resources >
         <a class="link" data-bind="
             href: { route: 'pools', params: { tab: 'cloud' } }

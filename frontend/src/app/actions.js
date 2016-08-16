@@ -680,7 +680,12 @@ export function createSystem(
                     system: systemName,
                     token: token
                 });
-                redirectTo(routes.system, { system: systemName });
+
+                redirectTo(
+                    routes.system,
+                    { system: systemName },
+                    { welcome: true }
+                );
             }
         )
         .done();
@@ -814,8 +819,8 @@ export function updateBucketBackupPolicy(tierName, cloudResources) {
         cloud_pools: cloudResources
     })
         .then(
-            () => notify(`${bucket.name} backup policy updated successfully`, 'success'),
-            () => notify(`Updating ${bucket.name} backup policy failed`, 'error')
+            () => notify(`${bucket.name} cloud storage policy updated successfully`, 'success'),
+            () => notify(`Updating ${bucket.name} cloud storage policy failed`, 'error')
         )
         .then(loadSystemInfo)
         .done();
@@ -840,8 +845,8 @@ export function deletePool(name) {
 
     api.pool.delete_pool({ name })
         .then(
-            () => notify(`Bucket ${name} deleted successfully`, 'success'),
-            () => notify(`Bucket ${name} deletion failed`, 'error')
+            () => notify(`Pool ${name} deleted successfully`, 'success'),
+            () => notify(`Pool ${name} deletion failed`, 'error')
         )
         .then(loadSystemInfo)
         .done();
@@ -1024,6 +1029,7 @@ export function uploadFiles(bucketName, files) {
 export function testNode(source, testSet) {
     logAction('testNode', { source, testSet });
 
+    const regexp = /=>(\w{3}):\/\/([0-9.]+):(\d+)/;
     let { nodeTestInfo } = model;
 
     nodeTestInfo({
@@ -1049,12 +1055,14 @@ export function testNode(source, testSet) {
                                 testType: testType,
                                 targetName: name,
                                 targetAddress: rpc_address,
+                                targetIp: '',
+                                targetPort: '',
+                                protocol: '',
                                 state: 'WAITING',
                                 time: 0,
                                 position: 0,
                                 speed: 0,
-                                progress: 0,
-                                session: ''
+                                progress: 0
                             };
                             nodeTestInfo().results.push(result);
 
@@ -1112,7 +1120,10 @@ export function testNode(source, testSet) {
                             return api.node.test_node_network(stepRequest)
                                 .then(
                                     ({ session }) => {
-                                        result.session = session;
+                                        let [,protocol, ip, port] = session.match(regexp);
+                                        result.protocol = protocol;
+                                        result.targetIp = ip;
+                                        result.targetPort = port;
                                         result.time = Date.now() - start;
                                         result.position = result.position + stepSize;
                                         result.speed = result.position / result.time;
@@ -1141,9 +1152,15 @@ export function testNode(source, testSet) {
             )
         )
         .then(
-            () => nodeTestInfo.assign({
-                state: nodeTestInfo().state === 'ABORTING' ? 'ABORTED' : 'COMPLETED'
-            })
+            () => {
+                if (nodeTestInfo().state === 'ABORTING') {
+                    nodeTestInfo(null);
+                } else {
+                    nodeTestInfo.assign({
+                        state: 'COMPLETED'
+                    });
+                }
+            }
         )
         .done();
 }
@@ -1693,4 +1710,11 @@ export function validateActivationCode(code) {
                 isCodeValid: valid
             })
         );
+}
+
+export function dismissUpgradedCapacityNotification() {
+    logAction('dismissUpgradedCapacityNotification');
+
+    api.system.phone_home_capacity_notified()
+        .then(loadSystemInfo);
 }

@@ -1,4 +1,9 @@
-<form class="sign-in-from column">
+<form class="sign-in-from column box">
+    <h1 class="heading1 column content-middle">
+        <svg-icon class="icon-big" params="name: 'logo'"></svg-icon>
+        Welcome to NooBaa
+    </h1>
+
     <h2 class="heading3 text-center push-next">
         Please Sign In
     </h2>
@@ -8,7 +13,7 @@
     </div>
 
     <div class="column push-both">
-        <input type="password" placeholder="Password" data-bind="textInput: password"/>
+        <input type="password" placeholder="Password" autocomplete="off" data-bind="textInput: password"/>
     </div>
 
     <span class="error" data-bind="css: { visible: showInvalidMessage() }">

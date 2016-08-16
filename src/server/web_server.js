@@ -424,6 +424,7 @@ app.use('/public/', cache_control(dev_mode ? 0 : 10 * 60)); // 10 minutes
 app.use('/public/', express.static(path.join(rootdir, 'build', 'public')));
 app.use('/public/images/', cache_control(dev_mode ? 3600 : 24 * 3600)); // 24 hours
 app.use('/public/images/', express.static(path.join(rootdir, 'images')));
+app.use('/public/eula', express.static(path.join(rootdir, 'EULA.pdf')));
 
 // Serve the new frontend (management console)
 app.use('/fe/assets', express.static(path.join(rootdir, 'frontend', 'dist', 'assets')));

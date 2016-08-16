@@ -8,55 +8,49 @@
 "></radio-group>
 
 <!-- ko if: commandSelector() === 'NETWORK_WINDOWS' -->
-<p class="push-prev">
+<p>
     Open an elevated Powershell (run as administrator) to a target machine and run the following command
 </p>
 <!-- /ko -->
 
 <!-- ko if: commandSelector() === 'NETWORK_LINUX' -->
-<p class="push-prev">
+<p>
     Open a linux shell to a target  machine and run the following command
 </p>
 <!-- /ko -->
 
 <!-- ko if: commandSelector() === 'LOCAL_WINDOWS' -->
-<p class="push-prev">
-    Click the button to download the Windows installation package and copy it to the target machine.
-</p>
-
-<a class="btn3 download-btn push-next" download
-    data-bind="attr: { href: packageUrl }">
-    Download package
-</a>
-
-<p class="push-prev">
-    Open a CMD window on target machine and run the following command (you must have admin privileges)
-</p>
+<ol class="instructions">
+    <li>
+        <a class="link" data-bind="attr: { href: packageUrl }">
+            Click here to download
+        </a>
+        the agent installation package
+    </li>
+    <li>Copy the installation package to target machine</li>
+    <li>Open an elevated Powershell (run as administrator) on target machine</li>
+    <li>Run the following command</li>
+</ol>
 <!-- /ko -->
 
 <!-- ko if: commandSelector() === 'LOCAL_LINUX' -->
-<p>
-    Click the button to download the Linux installation package and copy it to the target machine.
-</p>
-
-<a class="btn3 download-btn push-next" download
-    data-bind="attr: { href: packageUrl }">
-    Download Package
-</a>
-
-<p class="push-prev">
-    Run the following command on target machine shell (you must have root privileges)
-</p>
+<ol class="instructions">
+    <li>
+        <a class="link" data-bind="attr: { href: packageUrl }">
+            Click here to download
+        </a>
+        the agent installation package
+    </li>
+    <li>Copy the installation package to target machine</li>
+    <li>Open a root shell (or shell with sudo) on target machine</li>
+    <li>Run the following command</li>
+</ol>
 <!-- /ko -->
 
 <div class="box config-box row">
     <output class="text-tech greedy" data-bind="text: selectedInstallCommand">
     </output>
 
-    <button class="btn-flat align-start" data-bind="
-        tooltip: 'Copy to Clipboard',
-        click: () => copyInstallCommand()
-    ">
-        <svg-icon class="icon-small" params="name: 'copy-to-clipboard'"></svg-icon>
-    </button>
+    <copy-to-clipboard-button params="value: selectedInstallCommand">
+    </copy-to-clipboard-button>
 </div>

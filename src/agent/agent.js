@@ -229,11 +229,26 @@ class Agent {
             .then(token => {
                 // use the token as authorization (either 'create_node' or 'agent' role)
                 this.client.options.auth_token = token.toString();
-                return P.fromCallback(callback => pem.createCertificate({
-                    days: 365 * 100,
-                    selfSigned: true
-                }, callback));
+
+                // test the existing token against the server. if not valid throw error, and let the
+                // agent_cli create new node.
+                if (this.cloud_info || this.is_demo_agent) {
+                    return P.resolve(true);
+                } else {
+                    return this.client.node.test_node_id({})
+                        .then(valid_node => {
+                            if (!valid_node) {
+                                let err = new Error('INVALID_NODE');
+                                err.DO_NOT_RETRY = true;
+                                throw err;
+                            }
+                        });
+                }
             })
+            .then(() => P.fromCallback(callback => pem.createCertificate({
+                days: 365 * 100,
+                selfSigned: true
+            }, callback)))
             .then(pem_cert => {
                 this.ssl_cert = {
                     key: pem_cert.serviceKey,
@@ -259,7 +274,7 @@ class Agent {
         if (this.cloud_info) {
             hb_info.pool_name = this.cloud_info.cloud_pool_name;
         } else if (this.is_demo_agent) {
-            hb_info.pool_name = config.DEMO_DEFAULTS.NAME;
+            hb_info.pool_name = config.DEMO_DEFAULTS.POOL_NAME;
         }
         return this.client.node.heartbeat(hb_info, {
                 return_rpc_req: true
@@ -286,6 +301,10 @@ class Agent {
             })
             .catch(err => {
                 dbg.error('heartbeat failed', err);
+                if (err.rpc_code === 'DUPLICATE') {
+                    dbg.error('This agent appears to be duplicated. exiting and starting new agent', err);
+                    process.exit(1);
+                }
                 return P.delay(3000).then(() => {
                     this.connect_attempts++;
                     this._do_heartbeat();

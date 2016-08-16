@@ -147,8 +147,8 @@ function new_system_changes(name, owner_account) {
 
 
         if (process.env.LOCAL_AGENTS_ENABLED === 'true') {
-            const demo_pool_name = config.DEMO_DEFAULTS.NAME;
-            const demo_bucket_name = config.DEMO_DEFAULTS.NAME;
+            const demo_pool_name = config.DEMO_DEFAULTS.POOL_NAME;
+            const demo_bucket_name = config.DEMO_DEFAULTS.BUCKET_NAME;
             const demo_bucket_with_suffix = demo_bucket_name + '#' + Date.now().toString(36);
             let demo_pool = pool_server.new_pool_defaults(demo_pool_name, system._id);
             var demo_tier = tier_server.new_tier_defaults(demo_bucket_with_suffix, system._id, [demo_pool._id]);
@@ -356,6 +356,8 @@ function read_system(req) {
             phone_home_config.phone_home_unable_comm = true;
         }
 
+        let system_cap = system.freemium_cap.cap_terabytes ? system.freemium_cap.cap_terabytes : Number.MAX_SAFE_INTEGER;
+
         // TODO use n2n_config.stun_servers ?
         // var stun_address = 'stun://' + ip_address + ':' + stun.PORT;
         // var stun_address = 'stun://64.233.184.127:19302'; // === 'stun://stun.l.google.com:19302'
@@ -412,6 +414,7 @@ function read_system(req) {
             version: pkg.version,
             debug_level: debug_level,
             upgrade: upgrade,
+            system_cap: system_cap,
         };
 
         // fill cluster information if we have a cluster.
@@ -848,12 +851,16 @@ function update_phone_home_config(req) {
 
 function phone_home_capacity_notified(req) {
     dbg.log0('phone_home_capacity_notified');
-    let update = {
-        _id: req.system._id
-    };
 
-    update.freemium_cap = {
-        phone_home_notified: true
+    let update = {
+        _id: req.system._id,
+        freemium_cap: Object.assign(
+            {},
+            req.system.freemium_cap,
+            {
+                phone_home_notified: true
+            }
+        )
     };
 
     return system_store.make_changes({

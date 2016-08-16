@@ -7,14 +7,8 @@ import { systemInfo } from 'model';
 import { deepFreeze } from 'utils';
 
 const steps = deepFreeze([
-    {
-        label: 'select connection',
-        size: 'small'
-    },
-    {
-        label: 'select account',
-        size: 'medium'
-    }
+    'select connection',
+    'select account'
 ]);
 
 const connectionTypes = deepFreeze([
@@ -24,15 +18,9 @@ const connectionTypes = deepFreeze([
         description: 'A REST based protocal commonly used by S3 compatible clients (e.g. S3 Browser)'
     },
     {
-        type: 'FS',
-        label: 'Linux File Access (Using Fuse)',
-        description: 'Coming Soon...',
-        disabled: true
-    },
-    {
-        type: 'HDFS',
-        label: 'Big Data Access (HDFS)',
-        description: 'Coming Soon...',
+        type: 'SPLUNK',
+        label: 'Splunk',
+        description: 'Contact support@noobaa.com for more information',
         disabled: true
     }
 ]);

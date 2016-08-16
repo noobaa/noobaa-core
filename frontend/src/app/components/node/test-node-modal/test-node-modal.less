@@ -4,37 +4,57 @@ test-node-modal {
         height: 50em;
     }
 
-    .test-col {
-        min-width: 6em;
+    .run-btn {
+        width: 115px;
     }
 
-    .target-col {
-        text-align: left;
-        width: 100%;
-    }
-
-    .time-col {
-        min-width: 7em;
-    }
-
-    .speed-col {
-        min-width: 7em;
-    }
-
-    .progress-col {
-        min-width: 8em;
-        text-transform: capitalize;
-
-        > .completed  {
-            .success;
+    data-table {
+        .test-col {
+            min-width: 90px;
         }
 
-        > .failed {
-            .error;
+        .source-node-col, .target-node-col {
+            .no-wrap();
+            text-align: left;
+            width: 50%;
+            max-width: 136px;
         }
 
-        > .aborted {
-            .warning;
+        .protocol-col {
+            min-width: 90px;
+        }
+
+        .ip-col {
+            min-width: 110px;
+        }
+
+        .port-col {
+            min-width: 60px;
+        }
+
+        .time-col {
+            min-width: 100px;
+        }
+
+        .speed-col {
+            min-width: 100px;
+        }
+
+        .progress-col {
+            min-width: 112px;
+            text-transform: capitalize;
+
+            .completed  {
+                .success;
+            }
+
+            .failed {
+                .error;
+            }
+
+            .aborted {
+                .warning;
+            }
         }
     }
 

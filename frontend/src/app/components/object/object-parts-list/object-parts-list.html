@@ -4,18 +4,18 @@
         <span data-bind="text: count"></span>
     </h3>
 
-    <a class="btn3 push-next" download data-bind="attr: { href: s3SignedUrl }" >
+    <a class="btn push-next" download data-bind="attr: { href: s3SignedUrl }" >
         Download File
     </a>
 
-    <button class="btn3" data-bind="click: () => showPreviewModal()">
+    <button class="btn" data-bind="click: () => showPreviewModal()">
         Preview File
     </button>
 </div>
 
 <ul class="part-list greedy" data-bind="foreach: rows">
     <li>
-        <div class="row content-middle pointer" data-bind="click: toggleExpend">
+        <div class="row content-middle" data-bind="click: toggleExpend">
             <svg-icon class="push-next" params="name: stateIcon" data-bind="
                 tooltip: stateTooltip
             "></svg-icon>

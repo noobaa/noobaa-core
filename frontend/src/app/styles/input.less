@@ -1,0 +1,160 @@
+.placeholder(@color) {
+    &::-webkit-input-placeholder {
+       color: @color;
+    }
+
+    &:-moz-placeholder { /* Firefox 18- */
+       color: @color;
+    }
+
+    ::-moz-placeholder {  /* Firefox 19+ */
+       color: @color;
+    }
+
+    :-ms-input-placeholder {
+       color: @color;
+    }
+
+    &::placholder {
+        color: @color;
+    }
+
+    &.placeholder {
+        color: @color;
+    }
+}
+
+.input() {
+    @width: 274px;
+    .placeholder(@color7);
+
+    max-width: @width;
+    padding: 0;
+    line-height: 44px;
+    border: 1px solid @color7;
+    background: none;
+    font-size: @font-size3;
+    font-weight: lighter;
+    padding: 0 @gutter;
+    color: @color6;
+
+    &:disabled, &.disabled {
+        .placeholder(@color15);
+        border-color: @color15;
+        color: @color15;
+    }
+
+    &:focus {
+        outline: none;
+        border-color: @color14;
+    }
+
+    &.invalid {
+        border-color: @color10;
+    }
+}
+
+input {
+    .input();
+
+    &[type="number"] {
+        text-align: center;
+        width: 110px;
+    }
+
+    &[type="search"] {
+        @bg-pad: 40px;
+        @bg-pos: @width - @bg-pad;
+
+        padding-right: @bg-pad + 7px;
+        background: url('@{assets}/search.png') @bg-pos no-repeat;
+
+        &::-webkit-search-decoration,
+        &::-webkit-search-cancel-button,
+        &::-webkit-search-results-button,
+        &::-webkit-search-results-decoration {
+            display: none;
+        }
+    }
+}
+
+.btn-flat {
+    border-radius: none;
+
+    display: inline-block;
+    border: none;
+    background: none;
+    cursor: @cursor-pointer;
+    padding: .75em 1em;
+
+    &[disabled] {
+        cursor: not-allowed;
+    }
+
+    .text(
+        @font-type2,
+        @font-weight-light,
+        @font-size-small,
+        @text-color4,
+    );
+}
+
+.btn {
+    min-width: 200px;
+    padding: 15px 18px;
+    line-height: 1;
+    font-size: @font-size3;
+    color: @color8;
+    text-align: center;
+    text-transform: uppercase;
+    border: 1px solid @color8;
+    cursor: @cursor-pointer;
+    background-color: fadeout(@color8, 95%);
+    transition: all 250ms;
+
+    &:hover {
+        color: @color6;
+        background-color: @color8;
+    }
+
+    &:disabled {
+        color: @color15;
+        border-color: @color15;
+        background: none;
+        cursor: @cursor-not-allowed;
+    }
+
+    &.btn-small {
+        min-width: 91px;
+    }
+}
+
+.link {
+    font-size: @font-size3;
+    color: @color9;
+    border: none;
+    background: none;
+    text-decoration: none;
+    display: inline;
+    padding: 0;
+
+    a&[href], button& {
+        cursor: @cursor-pointer;
+
+        &:hover {
+            text-decoration: underline;
+        }
+    }
+
+    &:disabled {
+        color: @text-color5;
+    }
+}
+
+.val-msg {
+    display: block;
+    margin-top: 4px;
+    line-height: 1;
+    font-size: @font-size1;
+    color: @color10;
+}

@@ -49,6 +49,14 @@ class DropdownViewModel extends Disposable {
         this.lastInput = 0;
     }
 
+    handleClick() {
+        if (!ko.unwrap(this.disabled)) {
+            this.active.toggle();
+        }
+
+        return true;
+    }
+
     handleKeyPress({ which }) {
         let optionsCount = ko.unwrap(this.options).length;
 

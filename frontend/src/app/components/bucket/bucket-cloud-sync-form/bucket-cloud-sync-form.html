@@ -5,18 +5,18 @@
         </h3>
 
         <!-- ko if: hasCloudSync -->
-        <button class="btn3 push-next" data-bind="
+        <button class="btn push-next" data-bind="
             click: toggleSync,
             text: toggleSyncButtonLabel
         "></button>
 
-        <button class="btn3" data-bind="click: removePolicy">
+        <button class="btn" data-bind="click: removePolicy">
             Remove
         </button>
         <!-- /ko -->
 
         <!-- ko ifnot: hasCloudSync -->
-        <button class="btn3" data-bind="click: showSetCloudSyncModal">
+        <button class="btn" data-bind="click: showSetCloudSyncModal">
             Set Policy
         </button>
         <!-- /ko -->
@@ -70,7 +70,7 @@
     <section class="column">
         <div class="row">
             <h3 class="heading3 greedy">Sync Policy</h3>
-            <button class="btn3" data-bind="click: showEditCloudSyncModal">
+            <button class="btn" data-bind="click: showEditCloudSyncModal">
                 Edit
             </button>
         </div>

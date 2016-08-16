@@ -1,42 +1,53 @@
 .tabs {
-    .box();
     .column();
+    background-color: @color5;
+    padding: @gutter;
 
     > nav {
         .row();
         .push-next();
+        overflow-x: hidden;
 
-        background-color: @bg-color1;
+        background-color: @color3;
+        color: @color6;
         margin: -@gutter;
         margin-bottom: @gutter;
         padding: 0 4px;
 
         > a {
+            .no-wrap();
             .no-outline();
             position: relative;
             padding: 0 @gutter;
             line-height: 44px;
-            min-width: 100px;
+            min-width: 150px;
             text-align: center;
             cursor: @cursor-pointer;
 
-            &::after {
+
+            &:before, &:after {
                 content: '';
                 position: absolute;
-                height: 4px;
+                height: 1px;
+                left: 2px;
+                right: 2px;
+                bottom: 4px;
+                background-color: @color6;
+            }
+
+            &::after {
                 left: 51%;
                 right: 51%;
-                bottom: 0;
-                background-color: @bg-color11;
+                background-color: @color13;
                 transition: 300ms;
             }
 
             &.selected {
-                color: @text-color6;
+                color: @color13;
 
                 &::after {
-                    left: 0;
-                    right: 0;
+                    left: 2px;
+                    right: 2px;
                 }
             }
         }

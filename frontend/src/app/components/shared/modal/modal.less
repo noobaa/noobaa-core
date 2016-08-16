@@ -1,4 +1,6 @@
 modal {
+    @padding: 2 * @gutter;
+
     .fixed();
     display: block;
     z-index: 999;
@@ -14,28 +16,31 @@ modal {
         left: 50%;
         top: 50%;
         transform: translate(-50%, -50%);
-        background: @bg-color3;
+        background: @color1;
         box-shadow: 0 0 20px black;
-        padding: @gutter;
-        transition: all 250ms ease-in-out;
-
-        .heading2 {
-            text-align: center;
-        }
-
+        padding: @padding;
+        transition: all 250ms ease-in-out
     }
 
     .modal-heading {
-        .heading2();
-        margin: -@gutter;
-        margin-bottom: @gutter;
-        padding: @gutter/2 @gutter;
+        font-size: @font-size6;
+        font-weight: normal;
+        color: @color8;
+        margin: -@padding;
+        margin-bottom: @padding;
+        padding: 0 @padding;
+        line-height: 2 * @padding;
         text-align: left;
-        border-bottom: 2px solid #35434E;
+        border-bottom: 2px solid @color8;
     }
 
     .close-btn {
         padding: 0;
+
+        > svg-icon {
+            width :12px;
+            height: 12px;
+        }
     }
 
     .modal-content {

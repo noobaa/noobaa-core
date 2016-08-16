@@ -9,31 +9,26 @@ data-table {
         display: block;
         border-collapse: collapse;
         overflow-y: auto;
-    }
-
-    .text(
-        @font-type2,
-        @font-weight-light,
-        @font-size-normal,
-        @text-color4
-    );
-
-    table {
-        margin-top: 34px;
+        margin-top: 42px;
     }
 
     thead {
         position: absolute;
         width: 100%;
+        line-height: 40px;
         top: 0;
-
-        > tr {
-            border-bottom: 1px solid @bg-color4;
-        }
+        text-transform: capitalize;
+        color: @color6;
+        font-size: @font-size1;
+        background-color: @color4;
     }
 
     tbody > tr {
-        border-bottom: 1px solid @bg-color3;
+        //background-color: ;
+        padding: 0;
+        line-height: 3 * @gutter;
+        border-bottom: 1px solid @color15;
+        font-size: @font-size2;
 
         &:last-child {
             border: none;
@@ -41,20 +36,42 @@ data-table {
     }
 
     th {
-        text-transform: uppercase;
-        font-weight:  @font-weight-light;
-
-        a {
-            display: inline-block;
-        }
-    }
-
-    th, td {
-        padding: @gutter/2;
+        font-weight: lighter;
     }
 
     .sortable {
+        position: relative;
+        padding-right: @gutter + 6px;
         cursor: @cursor-pointer;
+
+        &::before, &::after {
+            content: '';
+            position: absolute;
+            display: inline-block;
+            vertical-align: middle;
+            right: 0;
+            border: solid transparent;
+            border-width: 4px 3px;
+        }
+
+        &:before {
+            top: -2px;
+            border-bottom-color: fadeout(@color6, 50%);
+        }
+
+
+        &::after {
+            bottom: -2px;
+            border-top-color: fadeout(@color6, 50%);
+        }
+
+        &.des::before {
+            border-bottom-color: @color6;
+        }
+
+        &.asc::after {
+            border-top-color: @color6;
+        }
     }
 
     .empty-message {

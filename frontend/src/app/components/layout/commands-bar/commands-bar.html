@@ -1,38 +1,31 @@
-<button class="btn-flat action"  data-bind="
-    click: refresh,
-    tooltip: 'Refresh'
-">
-    <svg-icon params="name: 'refresh'"></svg-icon>
-</button>
+<section class="row push-next">
+    <button class="btn-flat action"  data-bind="
+        click: refresh,
+        tooltip: 'Refresh'
+    ">
+        <svg-icon class="alt-icon icon-big" params="name: 'refresh'"></svg-icon>
+    </button>
 
-<!-- <vr></vr> -->
+    <a class="btn-flat action" data-bind="
+        href: { route: 'management', params: { tab: null } },
+        tooltip: 'Management'
+    ">
+        <svg-icon class="alt-icon icon-big" params="name: 'manage'"></svg-icon>
+    </a>
+</section>
 
-<a class="btn-flat action" data-bind="
-    href: { route: 'management', params: { tab: null } },
-    tooltip: 'Management'
-">
-    <svg-icon params="name: 'manage'"></svg-icon>
-</a>
+<section class="row push-next">
+    <button class="btn-flat action" data-bind="
+        click: showAuditLog,
+        tooltip: 'Audit'
+    ">
+        <svg-icon params="name: 'audit'"></svg-icon>
+    </button>
 
-<!-- <a class="btn-flat action" data-bind="
-    href: { route: 'cluster', params: { tab: null } },
-    tooltip: 'Cluster'
-">
-    <svg-icon params="name: 'cluster'"></svg-icon>
-</a>
-
-<vr></vr> -->
-
-<button class="btn-flat action" data-bind="
-    click: showAuditLog,
-    tooltip: 'Audit'
-">
-    <svg-icon params="name: 'audit'"></svg-icon>
-</button>
-
-<button class="btn-flat action" data-bind="
-    click: signOut,
-    tooltip: { text: 'Sign Out', align: 'right' }
-">
-    <svg-icon params="name: 'signout'"></svg-icon>
-</button>
+    <button class="btn-flat action" data-bind="
+        click: signOut,
+        tooltip: { text: 'Sign Out', align: 'right' }
+    ">
+        <svg-icon params="name: 'signout'"></svg-icon>
+    </button>
+</section>

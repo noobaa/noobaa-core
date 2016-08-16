@@ -37,11 +37,6 @@ module.exports = {
                 used_other: {
                     $ref: '#/definitions/bigint'
                 },
-                // Physical NooBaa capacity after compression including dedup, disregarding replicas and policies
-                // Example: Sum compressed size of chunks in bucket
-                used_reduced: {
-                    $ref: '#/definitions/bigint'
-                },
                 alloc: {
                     $ref: '#/definitions/bigint'
                 },

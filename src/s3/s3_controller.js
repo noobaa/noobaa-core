@@ -125,16 +125,27 @@ class S3Controller {
      */
     get_bucket(req) {
         this.usage_report.s3_usage_info.get_bucket++;
+        if (req.query['list-type'] === '2') {
+            throw s3_errors.NotImplemented;
+        }
         // TODO GGG MUST implement Marker & MaxKeys & IsTruncated
         let params = {
             bucket: req.params.bucket,
             upload_mode: false,
+            limit: 1000,
+            sort: 'key',
         };
         if ('prefix' in req.query) {
             params.prefix = req.query.prefix;
         }
         if ('delimiter' in req.query) {
             params.delimiter = req.query.delimiter;
+        }
+        if ('marker' in req.query) {
+            params.key_marker = req.query.marker;
+        }
+        if ('max-keys' in req.query) {
+            params.limit = parseInt(req.query['max-keys'], 10) || 1000;
         }
         return req.rpc_client.object.list_objects(params)
             .then(reply => {
@@ -145,7 +156,8 @@ class S3Controller {
                             'Delimiter': req.query.delimiter,
                             'MaxKeys': req.query['max-keys'],
                             'Marker': req.query.marker,
-                            'IsTruncated': false,
+                            'NextMarker': reply.next_marker,
+                            'IsTruncated': reply.is_truncated,
                             'Encoding-Type': req.query['encoding-type'],
                         },
                         _.map(reply.objects, obj => ({
@@ -179,12 +191,20 @@ class S3Controller {
         let params = {
             bucket: req.params.bucket,
             upload_mode: false,
+            limit: 1000,
+            sort: 'key',
         };
         if ('prefix' in req.query) {
             params.prefix = req.query.prefix;
         }
         if ('delimiter' in req.query) {
             params.delimiter = req.query.delimiter;
+        }
+        if ('key-marker' in req.query) {
+            params.key_marker = req.query['key-marker'];
+        }
+        if ('max-keys' in req.query) {
+            params.limit = parseInt(req.query['max-keys'], 10) || 1000;
         }
         return req.rpc_client.object.list_objects(params)
             .then(reply => {
@@ -195,9 +215,9 @@ class S3Controller {
                             'Delimiter': req.query.delimiter,
                             'MaxKeys': req.query['max-keys'],
                             'KeyMarker': req.query['key-marker'],
+                            'IsTruncated': reply.is_truncated,
                             'VersionIdMarker': req.query['version-id-marker'],
-                            'IsTruncated': false,
-                            // 'NextKeyMarker': ...
+                            'NextKeyMarker': reply.next_marker,
                             // 'NextVersionIdMarker': ...
                             'Encoding-Type': req.query['encoding-type'],
                         },
@@ -233,12 +253,20 @@ class S3Controller {
         let params = {
             bucket: req.params.bucket,
             upload_mode: true,
+            limit: 1000,
+            sort: 'key',
         };
         if ('prefix' in req.query) {
             params.prefix = req.query.prefix;
         }
         if ('delimiter' in req.query) {
             params.delimiter = req.query.delimiter;
+        }
+        if ('key-marker' in req.query) {
+            params.key_marker = req.query['key-marker'];
+        }
+        if ('max-uploads' in req.query) {
+            params.limit = parseInt(req.query['max-uploads'], 10) || 1000;
         }
         return req.rpc_client.object.list_objects(params)
             .then(reply => {
@@ -250,7 +278,8 @@ class S3Controller {
                             'MaxUploads': req.query['max-uploads'],
                             'KeyMarker': req.query['key-marker'],
                             'UploadIdMarker': req.query['upload-id-marker'],
-                            'IsTruncated': false,
+                            'NextKeyMarker': reply.next_marker,
+                            'IsTruncated': reply.is_truncated,
                             'Encoding-Type': req.query['encoding-type'],
                         },
                         _.map(reply.objects, obj => ({

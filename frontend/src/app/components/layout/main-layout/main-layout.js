@@ -4,7 +4,7 @@ import ko from 'knockout';
 import { redirectTo } from 'actions';
 import { system as systemRoute } from 'routes';
 import { uiState, systemInfo, routeContext } from 'model';
-import { deepFreeze } from 'utils';
+//import { deepFreeze } from 'utils';
 
 class MainLayoutViewModel extends Disposable {
     constructor() {

@@ -114,10 +114,8 @@ class BucketCloudSyncFormViewModel extends Disposable {
 
     toggleSync() {
         if (this.hasCloudSync()) {
-            return;
+            toogleCloudSync(this.bucketName(), !this.isPaused());
         }
-
-        toogleCloudSync(this.bucketName(), !this.isPaused());
     }
 
     showSetCloudSyncModal() {

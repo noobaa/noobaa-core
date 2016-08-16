@@ -10,6 +10,10 @@ class MaintenanceModeStickyViewModel extends Disposable{
     constructor() {
         super();
 
+        this.isActive = ko.pureComputed(
+            () => !!systemInfo() && systemInfo().maintenance_mode.state
+        );
+
         let now = ko.observable(Date.now());
         this.addToDisposeList(
             setInterval(

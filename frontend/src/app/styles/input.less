@@ -29,12 +29,11 @@
     .placeholder(@color7);
 
     max-width: @width;
-    padding: 0;
     line-height: 44px;
     border: 1px solid @color7;
     background: none;
     font-size: @font-size3;
-    font-weight: lighter;
+    font-weight: @font-light;
     padding: 0 @gutter;
     color: @color6;
 
@@ -78,25 +77,21 @@ input {
     }
 }
 
-.btn-flat {
-    border-radius: none;
+.focused(@offset: -1px) {
+    outline: @outline;
+    outline-offset: @offset;
+}
 
+.btn-flat {
     display: inline-block;
     border: none;
     background: none;
     cursor: @cursor-pointer;
-    padding: .75em 1em;
+    padding: @gutter;
 
     &[disabled] {
         cursor: not-allowed;
     }
-
-    .text(
-        @font-type2,
-        @font-weight-light,
-        @font-size-small,
-        @text-color4,
-    );
 }
 
 .btn {

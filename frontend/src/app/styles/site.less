@@ -10,13 +10,10 @@ html, body {
 
 html, body {
     background-color: @color2;
-
-    .text(
-        @font-type2,
-        @font-weight-light,
-        @font-size-normal,
-        @text-color4
-    );
+    font-family: @font-family1;
+    font-weight: @font-regular;
+    font-size: @font-size3;
+    color: @color6;
 }
 
 a {
@@ -324,7 +321,7 @@ output {
         margin-bottom: @gutter;
         padding: 0 @gutter;
         font-size: @font-size3;
-        font-weight: normal;
+        font-weight: @font-regular;
         line-height: 46px;
         background-color: @color3;
         color: @color6;
@@ -346,4 +343,10 @@ output {
         background-color: @text-color1;
         margin: 0 @gutter;
     }
+}
+
+.hide {
+    position: fixed;
+    top: -9999px;
+    z-index: -1;
 }

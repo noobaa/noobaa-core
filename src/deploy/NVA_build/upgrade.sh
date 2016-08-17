@@ -76,6 +76,7 @@ function mongo_upgrade {
   # add bind_ip flag to restrict access to local host only.
   local has_bindip=$(grep bind_ip /etc/noobaa_supervisor.conf | wc -l)
   if [ $has_bindip == '0' ]; then
+    deploy_log "adding --bind_ip to noobaa_supervisor.conf" 
     sed -i "s:--dbpath:--bind_ip 127.0.0.1 --dbpath:" /etc/noobaa_supervisor.conf
   fi
 

@@ -5,7 +5,7 @@
   InternalDebugLogger is a "singleton" used by all DebugLogger objects,
   performing the actuall logic and calls to winston.
 */
-
+/* eslint-disable global-require */
 "use strict";
 
 /*
@@ -336,17 +336,16 @@ var LOG_FUNC_PER_LEVEL = {
     ERROR: 'error',
 };
 
-function syslog_formatter(self, level, args) {
+InternalDebugLogger.prototype.syslog_formatter = function(level, args) {
+    var self = this;
     let msg = '';
     for (var i = 1; i < args.length; i++) {
-        if (msg.indexOf('%s')>0 && !(msg.indexOf('%d')>0 && msg.indexOf('%d')< msg.indexOf('%s'))){
-            msg = msg.replace('%s',util.format(args[i]));
-        }
-        else if (msg.indexOf('%d')>0){
-            msg = msg.replace('%d',util.format(args[i]));
-        }
-        else{
-            msg += util.format(args[i])+' ';
+        if (msg.indexOf('%s') > 0 && !(msg.indexOf('%d') > 0 && msg.indexOf('%d') < msg.indexOf('%s'))) {
+            msg = msg.replace('%s', util.format(args[i]));
+        } else if (msg.indexOf('%d') > 0) {
+            msg = msg.replace('%d', util.format(args[i]));
+        } else {
+            msg += util.format(args[i]) + ' ';
         }
     }
     let level_str = ((self._levels[level] === 0) ?
@@ -362,7 +361,7 @@ function syslog_formatter(self, level, args) {
         console_prefix: prefix,
         message: level_str + msg.replace(/(\r\n|\n|\r)/gm, "")
     };
-}
+};
 
 InternalDebugLogger.prototype.log_internal = function(level) {
     var self = this;
@@ -414,7 +413,7 @@ InternalDebugLogger.prototype.log_internal = function(level) {
         winston_log[level].apply(winston_log, args);
     } else if (!_.isUndefined(syslog)) {
         // syslog path
-        let msg = syslog_formatter(self, level, arguments);
+        let msg = self.syslog_formatter(level, arguments);
         syslog.log(this._levels_to_syslog[level], msg.message);
         // when not redirecting to file console.log is async:
         // https://nodejs.org/api/console.html#console_asynchronous_vs_synchronous_consoles
@@ -479,6 +478,10 @@ var fnName = "log";
 var i;
 
 function log_builder(idx) {
+
+    /**
+     * @this instance of DebugLogger
+     */
     return function() {
         if (this.should_log(idx)) {
             var args = Array.prototype.slice.call(arguments);
@@ -497,6 +500,10 @@ for (i = 0; i < 5; ++i) {
 }
 
 function log_bt_builder(idx) {
+
+    /**
+     * @this instance of DebugLogger
+     */
     return function() {
         if (this.should_log(idx)) {
             var err = new Error();
@@ -521,6 +528,10 @@ for (i = 0; i < 5; ++i) {
  * Populate syslog levels logging functions. i.e warn/info/error ...
  */
 function log_syslog_builder(syslevel) {
+
+    /**
+     * @this instance of DebugLogger
+     */
     return function() {
         var args = Array.prototype.slice.call(arguments);
         if (typeof(args[0]) === 'string') { //Keep string formatting if exists

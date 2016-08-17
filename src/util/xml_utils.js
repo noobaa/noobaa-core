@@ -22,11 +22,10 @@ exports.encode_xml_str = encode_xml_str;
  *
  */
 function encode_xml(object) {
-    var output = '<?xml version="1.0" encoding="UTF-8"?>';
-    var append = function(s) {
+    let output = '<?xml version="1.0" encoding="UTF-8"?>';
+    append_object(s => {
         output += s;
-    };
-    append_object(append, object);
+    }, object);
     return output;
 }
 
@@ -40,10 +39,9 @@ function append_object(append, object) {
             append_object(append, object[i]);
         }
     } else {
-        for (let key in object) {
-
-            // skip any keys from the prototype
-            if (!object.hasOwnProperty(key)) continue;
+        // skip any keys from the prototype
+        const object_own_keys = Object.keys(object);
+        for (const key of object_own_keys) {
 
             // undefined values skip encoding the key tag altogether
             let val = object[key];
@@ -63,8 +61,8 @@ function append_object(append, object) {
             if (val_type === 'object') {
                 if (val && val._attr) {
                     append('<' + key);
-                    for (let a in val._attr) {
-                        if (!val._attr.hasOwnProperty(a)) continue;
+                    const attr_keys = Object.keys(val._attr);
+                    for (const a of attr_keys) {
                         append(' ' + a + '="' + encode_xml_str(val._attr[a]) + '"');
                     }
                     append('>');

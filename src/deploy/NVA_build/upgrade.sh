@@ -74,7 +74,10 @@ function mongo_upgrade {
   # remove auth flag from mongo if present
   sed -i "s:mongod --auth:mongod:" /etc/noobaa_supervisor.conf
   # add bind_ip flag to restrict access to local host only.
-  sed -i "s:--dbpath:--bind_ip 127.0.0.1 --dbpath:" /etc/noobaa_supervisor.conf
+  local has_bindip=$(grep bind_ip /etc/noobaa_supervisor.conf | wc -l)
+  if [ $has_bindip == '0' ]; then
+    sed -i "s:--dbpath:--bind_ip 127.0.0.1 --dbpath:" /etc/noobaa_supervisor.conf
+  fi
 
   enable_autostart
 

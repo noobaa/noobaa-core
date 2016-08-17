@@ -11,7 +11,7 @@ html, body {
 html, body {
     background-color: @color2;
     font-family: @font-family1;
-    font-weight: @font-regular;
+    font-weight: @font-light;
     font-size: @font-size3;
     color: @color6;
 }
@@ -69,23 +69,22 @@ output {
 }
 
 ::-webkit-scrollbar  {
-    width: 10px;
-    height: 10px;
+    width: 6px;
+    height: 6px;
 }
 
 ::-webkit-scrollbar-track {
-    background-color: @bg-color3;
+    margin: 4px;
 }
 
 ::-webkit-scrollbar-thumb  {
-    background-color: @bg-color6;
+    background-color: @color7;
+    transition: all 250ms;
 }
 
 ::-webkit-scrollbar-corner {
     border-color: transparent;
 }
-
-
 
 .text-center {
     text-align: center;
@@ -199,12 +198,16 @@ output {
 
 .heading3 {
     line-height: 1.7;
-    .text(
+    font-size: @font-size4;
+    color: @color14;
+    font-weight: @font-regular;
+
+/*    .text(
         @font-type2,
         @font-weight-thin,
         @font-size-medium,
         @text-color2
-    );
+    );*/
 }
 
 .heading4 {
@@ -249,25 +252,15 @@ output {
 }
 
 .success {
-    color: @text-color7;
+    color: @color12;
 }
 
 .warning {
-    .text(
-        @font-type2,
-        @font-weight-thin,
-        @font-size-normal,
-        @text-color10
-    );
+    color: @color11;
 }
 
 .error {
-    .text(
-        @font-type2,
-        @font-weight-thin,
-        @font-size-normal,
-        @text-color8
-    );
+    color: @color10;
 }
 
 .disabled {

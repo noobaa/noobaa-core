@@ -21,40 +21,4 @@
     }
 }
 
-.bg-color(@normal, @hover, @active, @disabled) {
-    background-color: @normal;
 
-    &:hover {
-        background-color:@hover;
-    }
-
-    &:active {
-        background-color:@active;
-    }
-
-    &[disabled] {
-        &, &:hover, &:active {
-            background-color: @disabled;
-        }
-    }
-}
-
-.hide() {
-    position: fixed;
-    top: -9999px;
-    z-index: -1;
-}
-
-.anim-delay(@count; @delay) when (@count > 0) {
-
-    &:nth-child(@{count}) {
-        animation-delay: unit(@count * @delay, ms);
-    }
-
-    .anim-delay(@count - 1, @delay);
-}
-
-.focused(@offset: -1px) {
-    outline: @outline;
-    outline-offset: @offset;
-}

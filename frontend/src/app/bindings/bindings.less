@@ -15,6 +15,8 @@
 }
 
 .tooltip {
+    @bg-color: @color7;
+
     position: fixed;
     top: 0;
     left: 0;
@@ -22,14 +24,14 @@
     padding: @gutter/2;
     margin: 0;
     font-size: @font-size-small;
-    background-color: @bg-color7;
+    background-color: @bg-color;
     border-radius: @gutter/4;
-    color: @text-color1;
+    color: @color6;
     pointer-events: none;
     text-align: left;
     animation: fade-in 400ms;
     max-width: 20em;
-    box-shadow: 1px 1px 1px 1px @bg-color4;
+    box-shadow: 1px 1px 1px 1px @bg-color;
     word-wrap: break-word;
 
     .break-words {
@@ -40,9 +42,9 @@
     &::before {
         content: '';
         position: absolute;
-        top: -1em;
-        border: .5em solid transparent;
-        border-bottom-color:  @bg-color7;
+        top: -14px;
+        border: 7px solid transparent;
+        border-bottom-color:  @bg-color;
     }
 
     &.left {

@@ -1,9 +1,8 @@
 stepper {
     display: block;
     text-align: center;
-    line-height: 2 * @gutter;
-    font-size: @font-size5;
-    padding: @gutter;
+    line-height: 3 * @gutter;
+    font-size: @font-size4;
 
     > ol {
         .list-no-style();
@@ -20,21 +19,26 @@ stepper {
         display: inline-block;
         text-transform: capitalize;
         color: @color7;
+        line-height: inherit;
 
-        .bullet {
+        .step-bullet, .step-label {
+            vertical-align: middle;
+        }
+
+        .step-bullet {
             position: relative;
             display: inline-block;
-            width: 34px;
-            height: 34px;
-            margin-right: @gutter;
-            vertical-align: middle;
+            width: 24px;
+            height: 24px;
+            line-height: 24px;
+            margin-right: 4px;
 
             &::before, &::after {
                 position: absolute;
                 top: 0;
                 left: 0;
-                width: 100%;
-                height: 100%;
+                width: 22px;
+                height: 22px;
                 border: 1px solid;
                 border-radius: 1em;
                 transition: transform 500ms linear, background-color 500ms;
@@ -47,6 +51,7 @@ stepper {
             }
 
             &::after {
+                border-color: @color7;
                 content: '';
                 background: url('@{assets}/step-done.png') center center no-repeat;
                 background-color: @color7;
@@ -56,11 +61,7 @@ stepper {
         &.selected {
             color: @color6;
 
-            ~ .stepper-step {
-                color: @color15;
-            }
-
-            .bullet, ~ .stepper-step .bullet {
+            .step-bullet, ~ .stepper-step .step-bullet {
                 &::before {
                     transform: rotateY(0deg);
                 }

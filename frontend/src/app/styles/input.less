@@ -28,8 +28,8 @@
     @width: 274px;
     .placeholder(@color7);
 
-    max-width: @width;
-    line-height: 44px;
+    width: @width;
+    line-height: 40px;
     border: 1px solid @color7;
     background: none;
     font-size: @font-size3;
@@ -38,9 +38,8 @@
     color: @color6;
 
     &:disabled, &.disabled {
-        .placeholder(@color15);
-        border-color: @color15;
-        color: @color15;
+        color: @color7;
+        opacity: .3;
     }
 
     &:focus {
@@ -62,18 +61,8 @@ input {
     }
 
     &[type="search"] {
-        @bg-pad: 40px;
-        @bg-pos: @width - @bg-pad;
-
-        padding-right: @bg-pad + 7px;
-        background: url('@{assets}/search.png') @bg-pos no-repeat;
-
-        &::-webkit-search-decoration,
-        &::-webkit-search-cancel-button,
-        &::-webkit-search-results-button,
-        &::-webkit-search-results-decoration {
-            display: none;
-        }
+        padding-left: @gutter/2 + 24px;
+        background: url('@{assets}/search.png') @gutter/2 no-repeat;
     }
 }
 
@@ -95,10 +84,11 @@ input {
 }
 
 .btn {
-    min-width: 200px;
-    padding: 15px 18px;
+    min-width: 90px;
+    padding: 13px 18px;
     line-height: 1;
     font-size: @font-size3;
+    font-weight: @font-light;
     color: @color8;
     text-align: center;
     text-transform: uppercase;
@@ -117,10 +107,6 @@ input {
         border-color: @color15;
         background: none;
         cursor: @cursor-not-allowed;
-    }
-
-    &.btn-small {
-        min-width: 91px;
     }
 }
 
@@ -147,9 +133,8 @@ input {
 }
 
 .val-msg {
+    .error();
     display: block;
-    margin-top: 4px;
-    line-height: 1;
     font-size: @font-size1;
-    color: @color10;
+    line-height: 1;
 }

@@ -1,8 +1,9 @@
 radio-btn {
-    @size: 21px;
+    @size: 18px;
     display: block;
     vertical-align: bottom;
     white-space: nowrap;
+    line-height: 40px;
 
     label {
         display: inline-block;
@@ -25,7 +26,7 @@ radio-btn {
             background-position: -@size 0;
         }
 
-        &[disabled] {
+        &:disabled {
             ~ .radio-knob {
                 background-position: -2 * @size 0;
             }
@@ -35,7 +36,8 @@ radio-btn {
             }
 
             ~ .radio-label {
-                color: @gray-lv5;
+                color: @color7;
+                opacity: .3;
             }
 
             ~ .radio-knob, ~ .radio-label {
@@ -51,7 +53,6 @@ radio-btn {
         height: @size;
         cursor: @cursor-pointer;
         text-align: center;
-        line-height: .9;
         vertical-align: middle;
         background: url('@{assets}/radiobtn.png') no-repeat;
         overflow: hidden;
@@ -59,8 +60,9 @@ radio-btn {
 
     .radio-label {
         display: inline-block;
-        font-weight: @font-weight-medium;
-        margin-left: .25em;
+        color: @color6;
+        font-weight: @font-light;
+        margin-left: 4px;
         transition: color 500ms;
         cursor: @cursor-pointer;
     }

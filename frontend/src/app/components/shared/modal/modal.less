@@ -1,5 +1,5 @@
 modal {
-    @padding: 2 * @gutter;
+    @padding: @gutter;
 
     .fixed();
     display: block;
@@ -11,17 +11,6 @@ modal {
         background-color: @shadow-color;
     }
 
-    .modal-content {
-        position: absolute;
-        left: 50%;
-        top: 50%;
-        transform: translate(-50%, -50%);
-        background: @color1;
-        box-shadow: 0 0 20px black;
-        padding: @padding;
-        transition: all 250ms ease-in-out
-    }
-
     .modal-heading {
         font-size: @font-size6;
         font-weight: @font-regular;
@@ -29,9 +18,20 @@ modal {
         margin: -@padding;
         margin-bottom: @padding;
         padding: 0 @padding;
-        line-height: 2 * @padding;
+        line-height: 3 * @padding;
         text-align: left;
-        border-bottom: 2px solid @color8;
+        border-bottom: 1px solid @color8;
+    }
+
+    .modal-content {
+        position: absolute;
+        left: 50%;
+        top: 50%;
+        transform: translate(-50%, -50%);
+        background: @color3;
+        box-shadow: 0 0 20px black;
+        padding: @padding;
+        transition: all 250ms ease-in-out
     }
 
     .close-btn {

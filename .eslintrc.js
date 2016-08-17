@@ -9,6 +9,11 @@ module.exports = {
         es6: true,
     },
 
+    plugins: [
+        // eslint-plugin-header validates copyright header
+        'header'
+    ],
+
     // RULES METHODOLOGY:
     // -----------------
     // we turn ON all of eslint rules by extending eslint:all
@@ -17,6 +22,12 @@ module.exports = {
     extends: 'eslint:all',
 
     rules: {
+
+        // verify every file contains our copyright header
+        // TODO eslint-plugin-header copyright should be error
+        'header/header': ['warn', 'block', [
+            ' Copyright (C) 2016 NooBaa '
+        ]],
 
         // arrow function styling is not a real error but should be consistent
         'arrow-parens': ['warn', 'as-needed'],
@@ -57,7 +68,9 @@ module.exports = {
 
         // prefer to use function decleration (function foo() {})
         // instead of expression (foo = function() {})
-        'func-style': ['warn', 'declaration'],
+        'func-style': ['warn', 'declaration', {
+            allowArrowFunctions: true
+        }],
 
         // prefer that requires are on module scope and not in a function
         'global-require': 'warn',

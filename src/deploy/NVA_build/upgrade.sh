@@ -63,8 +63,6 @@ function mongo_upgrade {
   ${SUPERCTL} start mongodb
   wait_for_mongo
 
-  # setup users for authentication
-  setup_users
   #MongoDB nbcore upgrade
   deploy_log "starting mongo data upgrade"
   local sec=$(cat /etc/noobaa_sec)
@@ -73,8 +71,14 @@ function mongo_upgrade {
   /usr/bin/mongo nbcore --eval "var param_secret='${sec}', params_cluster_id='${id}', param_ip='${ip}'" ${CORE_DIR}/src/deploy/NVA_build/mongo_upgrade.js
   deploy_log "finished mongo data upgrade"
 
-  # add auth flag to mongo
-  sed -i "s:mongod --dbpath:mongod --auth --dbpath:" /etc/noobaa_supervisor.conf
+  # remove auth flag from mongo if present
+  sed -i "s:mongod --auth:mongod:" /etc/noobaa_supervisor.conf
+  # add bind_ip flag to restrict access to local host only.
+  local has_bindip=$(grep bind_ip /etc/noobaa_supervisor.conf | wc -l)
+  if [ $has_bindip == '0' ]; then
+    deploy_log "adding --bind_ip to noobaa_supervisor.conf" 
+    sed -i "s:--dbpath:--bind_ip 127.0.0.1 --dbpath:" /etc/noobaa_supervisor.conf
+  fi
 
   enable_autostart
 
@@ -213,8 +217,8 @@ function do_upgrade {
 
   #Update Mongo Upgrade status
   deploy_log "Updating system.upgrade on success"
-  local id=$(/usr/bin/mongo admin -u nbadmin -p roonoobaa --eval "db.getSiblingDB('nbcore').systems.find({},{'_id':'1'})" | grep _id | sed 's:.*ObjectId("\(.*\)").*:\1:')
-  /usr/bin/mongo admin -u nbadmin -p roonoobaa --eval "db.getSiblingDB('nbcore').systems.update({'_id':ObjectId('${id}')},{\$set:{'upgrade':{'path':'','status':'UNAVAILABLE','error':''}}});"
+  local id=$(/usr/bin/mongo nbcore --eval "db.systems.find({},{'_id':'1'})" | grep _id | sed 's:.*ObjectId("\(.*\)").*:\1:')
+  /usr/bin/mongo nbcore --eval "db.systems.update({'_id':ObjectId('${id}')},{\$set:{'upgrade':{'path':'','status':'UNAVAILABLE','error':''}}});"
 
   deploy_log "Upgrade finished successfully!"
 }

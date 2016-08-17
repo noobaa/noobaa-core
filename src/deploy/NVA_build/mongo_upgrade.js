@@ -6,22 +6,11 @@ upgrade();
 
 /* Upade mongo structures and values with new things since the latest version*/
 function upgrade() {
-    authenticate();
     upgrade_systems();
     upgrade_cluster();
     upgrade_system_access_keys();
     upgrade_object_mds();
     print('\nUPGRADE DONE.');
-}
-
-function authenticate() {
-    var adminDb = db.getSiblingDB('admin');
-    var pwd = 'roonoobaa'; // eslint-disable-line no-undef
-    // try to authenticate with nbadmin. if succesful nothing to do
-    var res = adminDb.auth('nbadmin', pwd);
-    if (res !== 1) {
-        print('\nERROR - mongo authentication failed');
-    }
 }
 
 function upgrade_systems() {

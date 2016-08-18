@@ -71,14 +71,6 @@ function mongo_upgrade {
   /usr/bin/mongo nbcore --eval "var param_secret='${sec}', params_cluster_id='${id}', param_ip='${ip}'" ${CORE_DIR}/src/deploy/NVA_build/mongo_upgrade.js
   deploy_log "finished mongo data upgrade"
 
-  # remove auth flag from mongo if present
-  sed -i "s:mongod --auth:mongod:" /etc/noobaa_supervisor.conf
-  # add bind_ip flag to restrict access to local host only.
-  local has_bindip=$(grep bind_ip /etc/noobaa_supervisor.conf | wc -l)
-  if [ $has_bindip == '0' ]; then
-    deploy_log "adding --bind_ip to noobaa_supervisor.conf" 
-    sed -i "s:--dbpath:--bind_ip 127.0.0.1 --dbpath:" /etc/noobaa_supervisor.conf
-  fi
 
   enable_autostart
 
@@ -175,6 +167,16 @@ function extract_package {
 
 function do_upgrade {
   disable_supervisord
+  
+  # remove auth flag from mongo if present
+  sed -i "s:mongod --auth:mongod:" /etc/noobaa_supervisor.conf
+  # add bind_ip flag to restrict access to local host only.
+  local has_bindip=$(grep bind_ip /etc/noobaa_supervisor.conf | wc -l)
+  if [ $has_bindip == '0' ]; then
+    deploy_log "adding --bind_ip to noobaa_supervisor.conf" 
+    sed -i "s:--dbpath:--bind_ip 127.0.0.1 --dbpath:" /etc/noobaa_supervisor.conf
+  fi
+
 
   unalias cp
   deploy_log "Tar extracted successfully, Running pre upgrade"

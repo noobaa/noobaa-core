@@ -38,8 +38,8 @@ notification-box {
             position: relative;
             overflow: hidden;
             width: 400px;
-            line-height: 30px;
-            height: 30px;
+            height: 44px;
+            line-height: 44px;
         }
 
         &.visible {
@@ -54,6 +54,12 @@ notification-box {
 
         &:only-child {
             animation: none;
+        }
+
+        svg-icon {
+/*            width: 36px;
+            height: 36px;*/
+            margin-right: @gutter/2;
         }
 
         &.notif-info {
@@ -86,10 +92,6 @@ notification-box {
             svg-icon {
                 fill: @color10;
             }
-        }
-
-        svg-icon {
-            margin-right: @gutter/2;
         }
 
         + .notif {

@@ -1,19 +1,21 @@
-<button class="btn-flat" data-bind="
-    click: pageBackward,
-    attr: { disabled: isFirstPage}
-">
-    <svg-icon class="icon-small rotate deg90" params="name: 'chevron'"></svg-icon>
-</button>
+<div class="paginator-wrapper">
+    <button class="btn-flat no-outline" data-bind="
+        click: pageBackward,
+        attr: { disabled: isFirstPage}
+    ">
+        <svg-icon class="icon-small rotate deg90" params="name: 'chevron'"></svg-icon>
+    </button>
 
-<span data-bind="text: pageStart"></span>
--
-<span data-bind="text: pageEnd"></span>
-of
-<span data-bind="text: count"></span>
+    <span data-bind="text: pageStart"></span>
+    -
+    <span data-bind="text: pageEnd"></span>
+    of
+    <span data-bind="text: count"></span>
 
-<button class="btn-flat" data-bind="
-    click: pageForward,
-    attr: { disabled: isLastPage }
-">
-    <svg-icon class="rotate deg-90" params="name: 'chevron'"></svg-icon>
-</button>
+    <button class="btn-flat no-outline" data-bind="
+        click: pageForward,
+        attr: { disabled: isLastPage }
+    ">
+        <svg-icon class="rotate deg-90" params="name: 'chevron'"></svg-icon>
+    </button>
+</div>

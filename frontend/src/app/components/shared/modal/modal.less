@@ -9,7 +9,6 @@
 }
 
 modal {
-    @padding: @gutter;
 
     .fixed();
     display: block;
@@ -21,21 +20,18 @@ modal {
     }
 
     .modal-heading {
-        font-size: @font-size6;
-        font-weight: @font-light;
-        color: @color8;
-        margin: -@padding;
-        margin-bottom: @padding;
-        padding: 0 @padding;
-        line-height: 3 * @padding;
+        margin: -@gutter;
+        margin-bottom: @gutter;
+        padding: 0 @gutter;
+        line-height: 3 * @gutter;
         text-align: left;
         border-bottom: 1px solid @color8;
     }
 
     .modal-content {
-        background: @color3;
-        box-shadow: 0 0 20px black;
-        padding: @padding;
+        background: @color2;
+        box-shadow: 0 0 20px @black;
+        padding: @gutter;
         transition: all 250ms ease-in-out;
     }
 
@@ -72,12 +68,12 @@ modal {
 
     &.modal-xlarge > .modal-content {
         width: 900px;
-        height: 552px;
+        height: 540px;
     }
 
     &.modal-auto-height > .modal-content {
         width: 900px;
         height: 80%;
-        min-height: 552px;
+        min-height: 540px;
     }
 }

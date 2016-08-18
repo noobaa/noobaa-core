@@ -4,7 +4,7 @@
     </h2>
 
     <button class="btn-flat expand-btn no-outline">
-        <svg-icon class="rotate" params="name: 'chevron'"
+        <svg-icon class="rotate icon-small" params="name: 'chevron'"
             data-bind="css: { 'deg-90': !expanded() }">
         </svg-icon>
     </button>
@@ -12,12 +12,12 @@
 
 <p data-bind="visible: !expanded()">
     Server time:
-    <output class="emphasized text-tech" data-bind="value: formattedTime"></output>
+    <output class="text-tech" data-bind="value: formattedTime"></output>
 </p>
 
 
 <section class="column" data-bind="expand: expanded">
-    <radio-group class="push-next" params="
+    <radio-group params="
         options: configTypes,
         selected: selectedConfigType
     "></radio-group>
@@ -36,7 +36,9 @@
         </editor>
     </div>
 
-    <button class="btn push-next" data-bind="click: applyChanges">
-        Apply Changes
-    </button>
+    <div class="row">
+        <button class="btn" data-bind="click: applyChanges">
+            Apply Changes
+        </button>
+    </div>
 </section>

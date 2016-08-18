@@ -1,16 +1,24 @@
 paginator {
+    .alt-bg();
     display: block;
-    line-height: 1;
-    font-size: @font-size1;
-    color: @color7;
-    vertical-align: middle;
-    margin: 0 -4px;
+    padding: @gutter/2 @gutter;
+    text-align: right;
+
+    .paginator-wrapper {
+        display: inline-block;
+        line-height: 1;
+        font-size: @font-size1;
+        color: @color7;
+        vertical-align: middle;
+        margin: 0 auto;
+        margin-right: -4px;
+    }
 
     span {
         vertical-align: inherit;
     }
 
-    > .btn-flat {
+    .btn-flat {
         padding: 0 4px;
         disabled: inline;
 

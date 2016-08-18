@@ -24,7 +24,6 @@ a {
 p {
     line-height: 1.3;
     margin: 0;
-    margin-bottom: @gutter/2;
 }
 
 h1, h2, h3, h4, h5 {
@@ -46,7 +45,7 @@ label {
 hr {
     border: none;
     border-top: 1px solid @color15;
-    margin: @gutter 0;
+    margin: @gutter/2 0;
 }
 
 vr {
@@ -169,12 +168,9 @@ output {
 
 .heading2 {
     line-height: 1.7;
-    .text(
-        @font-type2,
-        @font-weight-light,
-        @font-size-large,
-        @text-color3
-    );
+    font-size: @font-size6;
+    color: @color8;
+    font-weight: @font-light;
 }
 
 .heading3 {
@@ -182,13 +178,6 @@ output {
     font-size: @font-size4;
     color: @color14;
     font-weight: @font-regular;
-
-/*    .text(
-        @font-type2,
-        @font-weight-thin,
-        @font-size-medium,
-        @text-color2
-    );*/
 }
 
 .heading4 {
@@ -283,13 +272,13 @@ output {
 
 .text-tech {
     line-height: 1.5;
-    font-family: @font-type3;
-    font-size: @font-size-small;
-    background-color: @bg-color2;
+    font-family: @font-family2;
+    font-size: @font-size2;
+    font-weight: @font-thin;
     padding: .25em .5em;
 }
 
-.box {
+/*.box {
     background-color: @color4;
     padding: @gutter;
 
@@ -303,7 +292,7 @@ output {
         background-color: @color3;
         color: @color6;
     }
-}
+}*/
 
 .sticky {
     line-height: 25px;

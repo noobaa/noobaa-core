@@ -4,10 +4,11 @@ data-table {
     text-align: center;
     overflow-y: hidden;
     width: 100%;
+    background-color: @color3;
 
     table {
         display: block;
-        height: 100%;
+/*        height: 100%;*/
         border-collapse: collapse;
         overflow-y: auto;
         margin-top: 40px;
@@ -25,8 +26,16 @@ data-table {
     }
 
     th, td {
-        padding: 0 @gutter;
+        padding: 0 @gutter/2;
         box-sizing: content-box;
+
+        &:first-child {
+            padding-left: @gutter;
+        }
+
+        &:last-child {
+            padding-right: @gutter;
+        }
     }
 
     th {
@@ -35,6 +44,7 @@ data-table {
 
     tbody > tr {
         line-height: 44px;
+        height: 44px;
         border-bottom: 1px solid @color15;
         font-size: @font-size2;
 
@@ -79,15 +89,17 @@ data-table {
     }
 
     .empty-message {
+        margin: @gutter;
         position: relative;
         text-align: left;
-        font-size: @font-size-large;
-        color: @text-color5;
+        font-size: @font-size5;
+        color: @color7;
     }
 
     .text-cell {
         width: 100%;
         text-overflow: ellipsis;
         overflow-x: hidden;
+        line-height: 1.5;
     }
 }

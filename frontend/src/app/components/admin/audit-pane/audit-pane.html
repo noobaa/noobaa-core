@@ -1,20 +1,20 @@
-<div class="row content-middle push-next audit-header">
-    <h1 class="heading2 greedy push-next">Audit Log</h1>
+<h1 class="row content-middle heading2 audit-header push-next">
+    <span class="greedy push-next">Audit Log</span>
 
-    <button class="btn-flat no-outline" data-bind="click: closeDrawer">
-        <svg-icon params="name: 'x'"></svg-icon>
+    <button class="icon-btn no-outline" data-bind="click: closeDrawer">
+        <svg-icon class="close-icon" params="name: 'x'"></svg-icon>
     </button>
-</div>
+</h1>
 
 <div class="row content-middle">
     <h2 class="heading3 greedy">Choose Categories</h2>
 
     <div>
-        <button class="link" data-bind="click: selectAllCategories">
+        <button class="link alt-colors" data-bind="click: selectAllCategories">
             Select all
         </button>
         |
-        <button class="link" data-bind="click: clearAllCategories">
+        <button class="link alt-colors" data-bind="click: clearAllCategories">
             Clear
         </button>
     </div>
@@ -28,30 +28,29 @@
 <div class="row">
     <h3 class="heading3 greedy push-next align-end">Events</h3>
 
-    <button class="btn-flat export-btn" data-bind="
+    <button class="icon-btn export-btn" data-bind="
         click: exportToCSV,
         tooltip: { text: 'Export as CSV', align: 'right'}
     ">
-        <svg-icon params="name: 'export'" ></svg-icon>
+        <svg-icon class="icon-small" params="name: 'export'" ></svg-icon>
     </button>
 </div>
 
-<div class="box column greedy push-next">
-    <data-table class="greedy" params="
-        columns: columns,
-        data: entries,
-        rowFactory: entry => createAuditRow(entry),
-        rowCssProp: 'selectedCss',
-        rowClick: selectedRow,
-        scroll: scroll
-    "></data-table>
-</div>
+<data-table class="greedy push-next" params="
+    columns: columns,
+    data: entries,
+    rowFactory: entry => createAuditRow(entry),
+    rowCssProp: 'selectedCss',
+    rowClick: selectedRow,
+    scroll: scroll,
+    emptyMessage: 'Filter does not match any event'
+"></data-table>
 
 <h3 class="heading3">Event Description</h3>
-<section class="desc-box box column">
-    <div class="scrollable greedy" data-bind="foreach: description">
+<section class=" alt-bg pad" >
+    <div class="desc-box" data-bind="foreach: description">
         <div data-bind="text: $data"></div>
     </div>
 </section>
-
+`
 

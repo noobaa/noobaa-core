@@ -2,28 +2,33 @@
     title: 'Maintenance Mode',
     onClose: () => cancel()
 ">
-    <editor params="label: 'Maintenance duration', insertValMessages: false">
-        <div class="row">
-            <input class="push-next" type="number" min="0"
-                data-bind="value: duration"/>
-
-            <dropdown class="duration-unit" params="
-                options: durationUnitOptions,
-                selected: durationUnit
-            "></dropdown>
-        </div>
-        <span class="val-msg" data-bind="validationMessage: duration"></span>
-    </editor>
-
-
-    <div class="box row greedy push-both content-middle">
-        <svg-icon class="push-next" params="name: 'notif-warning'">
+    <div class="warning-msg warning row pad alt-bg content-middle">
+        <svg-icon class="push-next warning" params="name: 'notif-warning'">
         </svg-icon>
         Preformance and functionality issues may occur while the system is in maintenance mode
     </div>
 
+    <div class="greedy push-both">
+        <editor params="label: 'Maintenance duration', insertValMessages: false">
+            <div class="row">
+                <input class="push-next" type="number" min="0"
+                    data-bind="value: duration"/>
+
+                <dropdown class="duration-unit" params="
+                    options: durationUnitOptions,
+                    selected: durationUnit
+                "></dropdown>
+            </div>
+            <span class="val-msg" data-bind="validationMessage: duration"></span>
+        </editor>
+    </div>
+
     <div class="row content-middle align-end">
-        <button class="link push-next" data-bind="click: cancel">Cancel</button>
-        <button class="btn" data-bind="click: start">Start maintenance</button>
+        <button class="link alt-colors push-next" data-bind="click: cancel">
+            Cancel
+        </button>
+        <button class="btn" data-bind="click: start">
+            Start maintenance
+        </button>
     </div>
 </modal>

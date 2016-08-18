@@ -19,7 +19,7 @@
     </div>
 </div>
 
-<data-table class="greedy push-next" params="
+<data-table class="greedy" params="
     columns: columns,
     data: objects,
     rowFactory: obj => createObjectRow(obj),
@@ -27,7 +27,7 @@
     emptyMessage: 'No files in bucket'
 "></data-table>
 
-<paginator class="align-end" params="
+<paginator params="
     pageSize: pageSize,
     itemCount: filteredObjectCount,
     page: page

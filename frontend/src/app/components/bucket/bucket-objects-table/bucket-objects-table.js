@@ -9,10 +9,6 @@ import { routeContext, systemInfo } from 'model';
 
 const columns = deepFreeze([
     {
-        name: 'state',
-        cellTemplate: 'icon'
-    },
-    {
         name: 'name',
         cellTemplate: 'link',
         sortable: true

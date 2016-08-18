@@ -53,7 +53,7 @@
     }
 }
 
-input {
+input:not([type=checkbox]):not([type=radio]) {
     .input();
 
     &[type="number"] {
@@ -167,18 +167,18 @@ input {
     a&[href], button& {
         cursor: @cursor-pointer;
 
-        &:hover {
+        &:not(:disabled):hover {
             text-decoration: underline;
         }
     }
 
-    &:disabled {
-        color: @text-color5;
-    }
-
     &.alt-colors {
         color: @color6;
+    }
 
+    &:disabled {
+        cursor: default;
+        color: @color15;
     }
 }
 

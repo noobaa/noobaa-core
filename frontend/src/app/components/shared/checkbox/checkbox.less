@@ -14,9 +14,7 @@ checkbox {
     }
 
     input {
-        position: absolute;
-        z-index: -1;
-        opacity: 0;
+        .hide();
 
         &:checked  ~ .checkbox-box {
             background-position: -@size 0;
@@ -57,7 +55,7 @@ checkbox {
     .checkbox-box {
         display: block;
         float: left;
-        width: @size;
+        min-width: @size;
         height: @size;
         background-image: url('@{assets}/checkbox.png');
     }

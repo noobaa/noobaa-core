@@ -157,7 +157,7 @@ output {
 }
 
 .heading1 {
-    line-height: 1.7;
+    line-height: 2;
     .text(
         @font-type1,
         @font-weight-thin,
@@ -167,14 +167,14 @@ output {
 }
 
 .heading2 {
-    line-height: 1.7;
+    line-height: 2;
     font-size: @font-size6;
     color: @color8;
     font-weight: @font-light;
 }
 
 .heading3 {
-    line-height: 1.7;
+    line-height: 2;
     font-size: @font-size4;
     color: @color14;
     font-weight: @font-regular;
@@ -237,7 +237,7 @@ output {
 }
 
 .disabled {
-    color: @text-color5;
+    color: @color15;
 }
 
 .alert {
@@ -278,22 +278,6 @@ output {
     padding: .25em .5em;
 }
 
-/*.box {
-    background-color: @color4;
-    padding: @gutter;
-
-    > .box-header {
-        margin: -@gutter;
-        margin-bottom: @gutter;
-        padding: 0 @gutter;
-        font-size: @font-size3;
-        font-weight: @font-regular;
-        line-height: 46px;
-        background-color: @color3;
-        color: @color6;
-    }
-}*/
-
 .sticky {
     line-height: 25px;
     padding: @gutter / 2 @gutter;
@@ -312,9 +296,10 @@ output {
 }
 
 .hide {
-    position: fixed;
-    top: -9999px;
+    position: absolute;
     z-index: -1;
+    pointer-events: none;
+    opacity: 0;
 }
 
 .pad {

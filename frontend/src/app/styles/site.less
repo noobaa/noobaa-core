@@ -12,8 +12,8 @@ html, body {
     background-color: @color2;
     font-family: @font-family1;
     font-weight: @font-light;
-    font-size: @font-size3;
-    color: @color6;
+    font-size: @font-size2;
+    color: @color7;
 }
 
 a {
@@ -45,14 +45,14 @@ label {
 
 hr {
     border: none;
-    border-top: 1px solid @bg-color4;
+    border-top: 1px solid @color15;
     margin: @gutter 0;
 }
 
 vr {
     width: 1px;
     min-width: 1px;
-    background-color: @bg-color6;
+    background-color: @color15;
     margin: 0 @gutter;
 }
 
@@ -69,17 +69,18 @@ output {
 }
 
 ::-webkit-scrollbar  {
-    width: 6px;
-    height: 6px;
+    width: 8px;
+    height: 8px;
 }
 
 ::-webkit-scrollbar-track {
-    margin: 4px;
+    margin: 2px;
 }
 
 ::-webkit-scrollbar-thumb  {
     background-color: @color7;
     transition: all 250ms;
+    border: 2px solid @color3;
 }
 
 ::-webkit-scrollbar-corner {
@@ -100,26 +101,6 @@ output {
 
 .text-justify {
     text-align: justify;
-}
-
-.fixed {
-    position: fixed;
-    height: auto;
-    width: auto;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-}
-
-.fill {
-    position: absolute;
-    height: auto;
-    width: auto;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
 }
 
 .list-no-style {
@@ -253,14 +234,17 @@ output {
 
 .success {
     color: @color12;
+    fill: @color12;
 }
 
 .warning {
     color: @color11;
+    fill: @color11;
 }
 
 .error {
     color: @color10;
+    fill: @color10;
 }
 
 .disabled {
@@ -306,7 +290,7 @@ output {
 }
 
 .box {
-    background-color: @color5;
+    background-color: @color4;
     padding: @gutter;
 
     > .box-header {
@@ -342,4 +326,12 @@ output {
     position: fixed;
     top: -9999px;
     z-index: -1;
+}
+
+.pad {
+    padding: @gutter;
+}
+
+.alt-bg {
+    background-color: @color5;
 }

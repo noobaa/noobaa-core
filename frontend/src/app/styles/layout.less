@@ -1,3 +1,23 @@
+.fixed {
+    position: fixed;
+    height: auto;
+    width: auto;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+}
+
+.fill {
+    position: absolute;
+    height: auto;
+    width: auto;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+}
+
 .row {
     display: flex;
     flex-direction: row;
@@ -74,6 +94,14 @@
     flex-basis: 0;
     flex-grow: 999;
 }
+
+/*.greedy {
+
+}
+.row > .greedy {
+    flex-basis: 0;
+    flex-grow: 999;
+}*/
 
 .bounded {
     width: 100%;

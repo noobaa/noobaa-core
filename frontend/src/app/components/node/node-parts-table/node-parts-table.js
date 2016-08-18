@@ -22,7 +22,7 @@ const columns = deepFreeze([
     'endOffset',
     {
         name: 'size',
-        label: 'partSize'
+        label: 'Part Size'
     }
 ]);
 

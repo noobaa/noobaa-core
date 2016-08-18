@@ -10,7 +10,7 @@ data-table {
         height: 100%;
         border-collapse: collapse;
         overflow-y: auto;
-        margin-top: 42px;
+        margin-top: 40px;
     }
 
     thead {
@@ -24,10 +24,17 @@ data-table {
         background-color: @color4;
     }
 
+    th, td {
+        padding: 0 @gutter;
+        box-sizing: content-box;
+    }
+
+    th {
+        font-weight: @font-light;
+    }
+
     tbody > tr {
-        //background-color: ;
-        padding: 0;
-        line-height: 3 * @gutter;
+        line-height: 44px;
         border-bottom: 1px solid @color15;
         font-size: @font-size2;
 
@@ -36,13 +43,9 @@ data-table {
         };
     }
 
-    th {
-        font-weight: @font-light;
-    }
-
     .sortable {
         position: relative;
-        padding-right: @gutter + 6px;
+        padding-right: @gutter/2 + 6px;
         cursor: @cursor-pointer;
 
         &::before, &::after {
@@ -57,13 +60,13 @@ data-table {
 
         &:before {
             top: -2px;
-            border-bottom-color: fadeout(@color6, 50%);
+            border-bottom-color: @color7;
         }
 
 
         &::after {
             bottom: -2px;
-            border-top-color: fadeout(@color6, 50%);
+            border-top-color: @color7;
         }
 
         &.des::before {

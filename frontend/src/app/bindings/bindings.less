@@ -15,7 +15,7 @@
 }
 
 .tooltip {
-    @bg-color: @color7;
+    @bg-color: @color4;
 
     position: fixed;
     top: 0;
@@ -23,8 +23,10 @@
     z-index: 999;
     padding: @gutter/2;
     margin: 0;
+    margin-top: 2px;
     font-size: @font-size-small;
     background-color: @bg-color;
+    border: 1px solid @color7;
     border-radius: @gutter/4;
     color: @color6;
     pointer-events: none;
@@ -39,7 +41,7 @@
         word-break: break-all;
     }
 
-    &::before {
+    &::before, &::after {
         content: '';
         position: absolute;
         top: -14px;
@@ -47,10 +49,15 @@
         border-bottom-color:  @bg-color;
     }
 
+    &::before {
+        top: -15px;
+        border-bottom-color: @color7;
+    }
+
     &.left {
         transform: translate(-1em, .75em);
 
-        &::before {
+        &::before, &::after {
             left: .5em;
         }
     }
@@ -58,7 +65,7 @@
     &.center {
         transform: translateY(.75em);
 
-        &::before {
+        &::before, &::after {
             left: 50%;
             transform: translateX(-.5em);
         }
@@ -67,7 +74,7 @@
     &.right {
         transform: translate(1em, .75em);
 
-        &::before {
+        &::before, &::after {
             right: .5em;
         }
     }

@@ -7,14 +7,14 @@
             drop: (_, evt) => drop(evt.dataTransfer.files)
         }
     ">
-    <p class="drop-message paragraph" data-bind="text: message"></p>
+    <p class="drop-message paragraph">
+        <span data-bind="text: message"></span>
+        or
+    </p>
 
-    <span>or</span>
-    <br>
-
-    <label class="browse-btn btn">
+    <label class="browse-btn btn btn-alt">
         Browse
-        <input type="file" data-bind="
+        <input class="hide" type="file" data-bind="
             attr: { multiple: allowMultiSelect, accept: filter },
             event: { change: (_, evt) => select(evt.target.files) }
         "/>

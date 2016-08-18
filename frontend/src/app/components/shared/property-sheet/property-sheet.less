@@ -1,11 +1,18 @@
 property-sheet {
-    margin-bottom : .5em;
+    margin-bottom : @gutter/2;
+    line-height: 2;
+
+    ul {
+        line-height: inherit;
+    }
 
     .box {
         height: 100%;
     }
 
     .prop-name {
-        width: 125px;
+        color: @color6;
+        font-weight: @font-thin;
+        width: 152px;
     }
 }

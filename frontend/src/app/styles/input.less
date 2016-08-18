@@ -76,7 +76,6 @@ input {
     border: none;
     background: none;
     cursor: @cursor-pointer;
-    padding: @gutter;
 
     &[disabled] {
         cursor: not-allowed;
@@ -84,17 +83,18 @@ input {
 }
 
 .btn {
+    display: inline-block;
     min-width: 90px;
-    padding: 13px 18px;
-    line-height: 1;
+    padding: 0 @gutter;
+    line-height: 40px;
     font-size: @font-size3;
     font-weight: @font-light;
     color: @color8;
     text-align: center;
-    text-transform: uppercase;
+    text-transform: capitalize;
     border: 1px solid @color8;
     cursor: @cursor-pointer;
-    background-color: fadeout(@color8, 95%);
+    background-color: fadeout(@color8, 90%);
     transition: all 250ms;
 
     &:hover {
@@ -108,10 +108,22 @@ input {
         background: none;
         cursor: @cursor-not-allowed;
     }
+
+    &.btn-alt {
+        color: @color6;
+        border-color: @color6;
+        background-color: fadeout(@color6, 90%);
+
+        &:hover {
+            color: @color15;
+            background-color: @color6;
+        }
+    }
 }
 
 .link {
-    font-size: @font-size3;
+    font-size: @font-size2;
+    font-weight: @font-thin;
     color: @color9;
     border: none;
     background: none;

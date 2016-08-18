@@ -1,18 +1,23 @@
 paginator {
-    .row();
-    .content-middle;
+    display: block;
+    line-height: 1;
     font-size: @font-size1;
     color: @color7;
+    vertical-align: middle;
+    margin: 0 -4px;
 
-    > .page-indicator {
-        margin: 0 @gutter/2;
+    span {
+        vertical-align: inherit;
     }
 
     > .btn-flat {
-        padding: 0;
+        padding: 0 4px;
+        disabled: inline;
 
         svg-icon {
             fill: @color7;
+            width: @font-size1;
+            height: @font-size1;
         }
 
         &[disabled] > svg-icon {

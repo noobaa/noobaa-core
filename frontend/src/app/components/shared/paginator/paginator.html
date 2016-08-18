@@ -5,17 +5,15 @@
     <svg-icon class="icon-small rotate deg90" params="name: 'chevron'"></svg-icon>
 </button>
 
-<div class="page-indicator" data-bind="ifnot: noResults">
-    <span data-bind="text: pageStart"></span>
-    -
-    <span data-bind="text: pageEnd"></span>
-    of
-    <span data-bind="text: count"></span>
-</div>
+<span data-bind="text: pageStart"></span>
+-
+<span data-bind="text: pageEnd"></span>
+of
+<span data-bind="text: count"></span>
 
 <button class="btn-flat" data-bind="
     click: pageForward,
     attr: { disabled: isLastPage }
 ">
-    <svg-icon class="icon-small rotate deg-90" params="name: 'chevron'"></svg-icon>
+    <svg-icon class="rotate deg-90" params="name: 'chevron'"></svg-icon>
 </button>

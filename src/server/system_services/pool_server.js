@@ -6,7 +6,6 @@
 'use strict';
 
 const _ = require('lodash');
-const os = require('os');
 const P = require('../../util/promise');
 const dbg = require('../../util/debug_module')(__filename);
 const config = require('../../../config');

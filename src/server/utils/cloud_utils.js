@@ -5,7 +5,6 @@ var _ = require('lodash');
 const dbg = require('../../util/debug_module')(__filename);
 const RpcError = require('../../rpc/rpc_error');
 const AWS = require('aws-sdk');
-const os_utils = require('../../util/os_utils');
 
 
 /**

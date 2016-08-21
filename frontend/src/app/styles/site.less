@@ -182,12 +182,9 @@ output {
 
 .heading4 {
     line-height: 1.7;
-    .text(
-        @font-type2,
-        @font-weight-thin,
-        @font-size-normal,
-        @text-color2
-    );
+    font-size: @font-size4;
+    color: @color6;
+    font-weight: @font-light;
 }
 
 .remark {
@@ -213,12 +210,8 @@ output {
 }
 
 .highlight {
-    .text(
-        @font-type2,
-        @font-weight-light,
-        @font-size-normal,
-        @text-color6
-    );
+    color: @color6;
+    font-weight: @font-thin;
 }
 
 .success {
@@ -238,25 +231,6 @@ output {
 
 .disabled {
     color: @color15;
-}
-
-.alert {
-    .text(
-        @font-type2,
-        @font-weight-light,
-        @font-size-normal,
-        text-color4,
-    );
-}
-
-.alert-sucess {
-    .alert();
-    color: @text-color7;
-}
-
-.alert-error {
-    .alert();
-    color: @text-color8;
 }
 
 .bullet-list {
@@ -308,4 +282,8 @@ output {
 
 .alt-bg {
     background-color: @color5;
+}
+
+.borders {
+    border: 1px solid @color15;
 }

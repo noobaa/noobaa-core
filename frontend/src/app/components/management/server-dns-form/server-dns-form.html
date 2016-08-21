@@ -20,13 +20,15 @@
     </p>
 
     <div class="column push-next">
-        <radio-group class="push-next" params="selected: addressType, options: addressOptions"></radio-group>
-
-        <editor params="label: 'IP Address', visible: usingIP">
-            <output type="text" data-bind="value: ipAddress"></output>
+        <editor params="label: 'Server Address'">
+            <radio-group params="selected: addressType, options: addressOptions"></radio-group>
         </editor>
 
-        <editor params="label: 'DNS Name', visible: usingDNS">
+        <editor params="label: 'IP Address'" data-bind="visible: usingIP">
+            <input disabeld type="text" data-bind="value: ipAddress" />
+        </editor>
+
+        <editor params="label: 'DNS Name'" data-bind="visible: usingDNS">
             <input type="text" data-bind="textInput: dnsName" />
         </editor>
     </div>
@@ -68,7 +70,7 @@
         </p>
     </div>
 
-    <button class="btn push-next" data-bind="click: applyChanges">
+    <button class="btn align-start push-next" data-bind="click: applyChanges">
         Apply Changes
     </button>
 </div>

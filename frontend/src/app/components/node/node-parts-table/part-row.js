@@ -10,7 +10,7 @@ const partHealthMapping = Object.freeze({
     },
     building: {
         name: 'working',
-        css: 'spin warning',
+        css: 'warning',
         tooltip: 'In process'
     },
     unavailable: {

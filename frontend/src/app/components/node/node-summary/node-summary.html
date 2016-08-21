@@ -1,54 +1,57 @@
-<section class="c3 column">
-    <h3 class="heading4 push-next">Status</h3>
-    <ul class="list-no-style row multiline status">
-        <li class="c6">
-            <svg-icon params="name: stateIcon" data-bind="tooltip: 'State'">
+<section class="c3 column borders pad highlight">
+        <div class="greedy row content-middle" data-bind="with: state">
+            <svg-icon class="push-next" params="name: icon" data-bind="css: css">
             </svg-icon>
-            <span data-bind="text: stateText"></span>
-        </li>
-        <li class="c6">
-            <svg-icon params="name: trustIcon" data-bind="tooltip: 'Trust'">
+            <span data-bind="text: text"></span>
+        </div>
+        <hr />
+        <div class="greedy row content-middle" data-bind="with: trust">
+            <svg-icon class="push-next" params="name: icon" data-bind="css: css">
             </svg-icon>
-            <span data-bind="text: trustText"></span>
-        </li>
-
-        <li class="c12">
-            <svg-icon params="name: accessibilityIcon" data-bind="
-                tooltip: 'Accessibility'
-            "></svg-icon>
-            <span data-bind="text: accessibilityText"></span>
-        </li>
-    </ul>
+            <span data-bind="text: text"></span>
+        </div>
+        <hr />
+        <div class="greedy row content-middle" data-bind="with: accessibility">
+            <svg-icon class="push-next" params="name: icon" data-bind="css: css">
+            </svg-icon>
+            <span data-bind="text: text"></span>
+        </div>
 </section>
 
-<vr></vr>
+<section class="column c6 push-both">
+    <div class="row align-middle">
+        <chart-legend class="pad push-next" params="
+            caption: 'Node Capacity',
+            items: pieValues
+        "></chart-legend>
 
-<section class="c5 row">
-    <div class="column greedy">
-        <h3 class="heading4">Node capacity</h3>
-        <chart-legend params="items: pieValues"></chart-legend>
+        <pie-chart class="push-prev" params="
+            values: pieValues,
+            primaryText: formattedText,
+            secondaryText: 'Total'
+        "></pie-chart>
     </div>
-
-    <pie-chart params="
-        values: pieValues,
-        primaryText: formattedText,
-        secondaryText: 'Total'
-    "></pie-chart>
 </section>
 
-<vr></vr>
-
-<section class="column c4">
-    <h3 class="heading4 push-next">Activity</h3>
-    <!-- ko if: dataActivity -->
-    <p class="paragraph" data-bind="with: dataActivity">
-        <span data-bind="text: row1"></span>
-        <br>
-        <span class="highlight" data-bind="text: row2"></span>
+<section class="column c3 borders pad">
+<!--     <p class="heading4">
+        No Activity
     </p>
-    <!-- /ko -->
-
-    <!-- ko ifnot: dataActivity -->
-    <p>No activity</p>
-    <!-- /ko -->
+    <hr>
+    <p>
+        Node in optimal condition
+    </p> -->
+    <p class="heading4">
+        Restoring Node
+    </p>
+    <hr>
+    <p>Rebuilding 12.4GB of 45.76GB</p>
+    <div class="column progress-bar">
+        <bar params="values:[
+            { value: .23, color: '#f20092' },
+            { value: .77, color: '#2c2f32' }
+        ]"></bar>
+        <div class="text-right">ETA: 10 min</div>
+    </div>
 </section>
+

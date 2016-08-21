@@ -1,13 +1,11 @@
 'use strict';
 
-module.exports = {
-    resolve_cloud_sync_info: resolve_cloud_sync_info,
-    find_cloud_connection: find_cloud_connection
-};
 
 var _ = require('lodash');
 const dbg = require('../../util/debug_module')(__filename);
 const RpcError = require('../../rpc/rpc_error');
+const AWS = require('aws-sdk');
+const os_utils = require('../../util/os_utils');
 
 
 /**
@@ -47,3 +45,30 @@ function find_cloud_connection(account, conn_name) {
 
     return conn;
 }
+
+
+function get_signed_url(params) {
+    let s3 = new AWS.S3({
+        endpoint: params.endpoint,
+        credentials: {
+            accessKeyId: params.access_key,
+            secretAccessKey: params.secret_key
+        },
+        s3ForcePathStyle: true,
+        sslEnabled: false,
+        signatureVersion: 'v4',
+        region: 'eu-central-1'
+    });
+    return s3.getSignedUrl(
+        'getObject', {
+            Bucket: params.bucket,
+            Key: params.key,
+            Expires: 604800
+        }
+    );
+}
+
+
+exports.resolve_cloud_sync_info = resolve_cloud_sync_info;
+exports.find_cloud_connection = find_cloud_connection;
+exports.get_signed_url = get_signed_url;

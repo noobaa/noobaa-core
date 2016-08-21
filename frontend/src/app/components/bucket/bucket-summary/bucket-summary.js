@@ -3,15 +3,29 @@ import Disposable from 'disposable';
 import ko from 'knockout';
 import moment from 'moment';
 import style from 'style';
+import { systemInfo } from 'model';
 import { deepFreeze, formatSize } from 'utils';
 
+const stateMapping = deepFreeze({
+    true: {
+        text: 'Healthy',
+        css: 'success',
+        icon: 'healthy'
+    },
+    false: {
+        text: 'Offline',
+        css: 'error',
+        icon: 'problem'
+    }
+});
+
 const cloudSyncStatusMapping = deepFreeze({
-    PENDING: { text: 'Sync Pending', icon: 'cloud-pending' } ,
-    SYNCING: { text: 'Syncing', icon: 'cloud-syncing' },
-    PAUSED: { text: 'Sync Paused', icon: 'cloud-paused' },
-    UNABLE: { text: 'Unable to sync', icon: 'cloud-error' },
-    SYNCED: { text: 'Sync Completed', icon: 'cloud-synced' },
-    NOTSET: { text: 'Cloud sync not set', icon: 'cloud-not-set' }
+    PENDING: 'Pending',
+    SYNCING: 'Syncing',
+    PAUSED: 'Paused',
+    UNABLE: 'Unable to Sync',
+    SYNCED: 'Completed',
+    NOTSET: 'not set'
 });
 
 const graphOptions = deepFreeze([
@@ -35,9 +49,52 @@ class BucketSummrayViewModel extends Disposable {
             () => !!bucket()
         );
 
+        this.state = ko.pureComputed(
+            () => stateMapping[true]
+        );
+
+        this.dataPlacement = ko.pureComputed(
+            () => {
+                if (!bucket() || !systemInfo()) {
+                    return;
+                }
+
+                let tierName = bucket().tiering.tiers[0].tier;
+                let { data_placement , node_pools } = systemInfo().tiers.find(
+                    tier => tier.name === tierName
+                );
+
+                return `${
+                    data_placement === 'SPREAD' ? 'Spread' : 'Mirrored'
+                } on ${
+                    node_pools.length
+                } pool${
+                    node_pools.length !== 1 ? 's' : ''
+                }`;
+            }
+        );
+
+        this.cloudSyncStatus = ko.pureComputed(
+            () => {
+                if (!bucket()) {
+                    return;
+                }
+
+                let { cloud_sync } = bucket();
+                return cloudSyncStatusMapping[
+                    cloud_sync ? cloud_sync.status : 'NOTSET'
+                ];
+            }
+        );
+
+        this.graphOptions = graphOptions;
+
+        this.selectedGraph = ko.observable(graphOptions[0].value);
+
         let storage = ko.pureComputed(
             () => bucket() ? bucket().storage : {}
         );
+
         let data = ko.pureComputed(
             () => bucket() ? bucket().data : {}
         );
@@ -46,12 +103,29 @@ class BucketSummrayViewModel extends Disposable {
             () => formatSize(storage().total)
         );
 
-        this.avaliableForWrite = ko.pureComputed(
-            () => formatSize(data().actual_free)
-        );
-
-        this.graphOptions = graphOptions;
-        this.selectedGraph = ko.observable(graphOptions[0].value);
+        this.storageValues = [
+            {
+                label: 'Used (this bucket)',
+                color: style['color13'],
+                value: ko.pureComputed(
+                    () => storage().used
+                )
+            },
+            {
+                label: 'Used (other buckets)',
+                color: style['color14'],
+                value: ko.pureComputed(
+                    () => storage().used_other
+                )
+            },
+            {
+                label: 'Potential available',
+                color: style['color5'],
+                value: ko.pureComputed(
+                    () => storage().free
+                )
+            }
+        ];
 
         this.dataValues = [
             {
@@ -59,40 +133,17 @@ class BucketSummrayViewModel extends Disposable {
                 value: ko.pureComputed(
                     () => data().size_reduced
                 ),
-                color: style['gray-lv5']
+                color: style['color13']
             },
             {
                 label: 'Size',
                 value: ko.pureComputed(
                     () => data().size
                 ),
-                color: style['magenta-mid']
+                color: style['color7']
             }
         ];
 
-        this.storageValues = [
-            {
-                label: 'Used (this bucket)',
-                color: style['magenta-mid'],
-                value: ko.pureComputed(
-                    () => storage().used
-                )
-            },
-            {
-                label: 'Used (other buckets)',
-                color: style['white'],
-                value: ko.pureComputed(
-                    () => storage().used_other
-                )
-            },
-            {
-                label: 'Potential available',
-                color: style['gray-lv5'],
-                value: ko.pureComputed(
-                    () => storage().free
-                )
-            }
-        ];
 
         this.legend = ko.pureComputed(
             () => this.selectedGraph() === 'STORAGE' ?
@@ -100,35 +151,8 @@ class BucketSummrayViewModel extends Disposable {
                 this.dataValues
         );
 
-        this.stateText = ko.pureComputed(
-            () => 'Healthy'
-        );
-
-        this.stateIcon = ko.pureComputed(
-            () => 'bucket-healthy'
-        );
-
-        let cloudSyncStatus = ko.pureComputed(
-            () => {
-                if (!bucket()) {
-                    return;
-                }
-
-                let { cloud_sync } = bucket();
-                return cloudSyncStatusMapping[cloud_sync ? cloud_sync.status : 'NOTSET'];
-            }
-        );
-
-        this.cloudSyncText = ko.pureComputed(
-            () => cloudSyncStatus() && cloudSyncStatus().text
-        );
-
-        this.cloudSyncIcon = ko.pureComputed(
-            () => cloudSyncStatus() && cloudSyncStatus().icon
-        );
-
-        this.hasCloudSyncPolicy = ko.pureComputed(
-            () => bucket() && bucket().cloud_sync_status !== 'NOTSET'
+        this.avaliableForWrite = ko.pureComputed(
+            () => formatSize(data().actual_free)
         );
 
 

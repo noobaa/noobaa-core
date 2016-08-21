@@ -1,4 +1,5 @@
-<section class="c3 column borders pad highlight">
+<div class="row">
+    <section class="c3 column borders pad highlight">
         <div class="greedy row content-middle" data-bind="with: state">
             <svg-icon class="push-next" params="name: icon" data-bind="css: css">
             </svg-icon>
@@ -16,42 +17,43 @@
             </svg-icon>
             <span data-bind="text: text"></span>
         </div>
-</section>
+    </section>
 
-<section class="column c6 push-both">
-    <div class="row align-middle">
-        <chart-legend class="pad push-next" params="
-            caption: 'Node Capacity',
-            items: pieValues
-        "></chart-legend>
+    <section class="column c6 push-both">
+        <div class="row align-middle">
+            <chart-legend class="pad push-next" params="
+                caption: 'Node Capacity',
+                items: pieValues
+            "></chart-legend>
 
-        <pie-chart class="push-prev" params="
-            values: pieValues,
-            primaryText: formattedText,
-            secondaryText: 'Total'
-        "></pie-chart>
-    </div>
-</section>
+            <pie-chart class="push-prev" params="
+                values: pieValues,
+                primaryText: formattedText,
+                secondaryText: 'Total'
+            "></pie-chart>
+        </div>
+    </section>
 
-<section class="column c3 borders pad">
-<!--     <p class="heading4">
-        No Activity
-    </p>
-    <hr>
-    <p>
-        Node in optimal condition
-    </p> -->
-    <p class="heading4">
-        Restoring Node
-    </p>
-    <hr>
-    <p>Rebuilding 12.4GB of 45.76GB</p>
-    <div class="column progress-bar">
-        <bar params="values:[
-            { value: .23, color: '#f20092' },
-            { value: .77, color: '#2c2f32' }
-        ]"></bar>
-        <div class="text-right">ETA: 10 min</div>
-    </div>
-</section>
+    <section class="column c3 borders pad">
+    <!--     <p class="heading4">
+            No Activity
+        </p>
+        <hr>
+        <p>
+            Node in optimal condition
+        </p> -->
+        <p class="heading4">
+            Restoring Node
+        </p>
+        <hr>
+        <p>Rebuilding 12.4GB of 45.76GB</p>
+        <div class="column progress-bar">
+            <bar params="values:[
+                { value: .23, color: '#f20092' },
+                { value: .77, color: '#2c2f32' }
+            ]"></bar>
+            <div class="text-right">ETA: 10 min</div>
+        </div>
+    </section>
+</div>
 

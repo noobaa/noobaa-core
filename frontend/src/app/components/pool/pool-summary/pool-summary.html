@@ -1,52 +1,52 @@
-<!-- ko if: dataReady -->
-<section class="c3 column borders pad">
-    <div class="c4 row heading4 content-middle" data-bind="with: state">
-        <svg-icon class="push-next" params="name: icon" data-bind="css: css">
-        </svg-icon>
-        <span data-bind="text: text"></span>
-    </div>
-    <hr />
-    <div class="row greedy text-center">
-        <div class="greedy align-middle">
-            <p class="node-counter" data-bind="text: nodeCount"></p>
-            <p> Nodes</p>
+<div class="row" data-bind="if: dataReady">
+    <section class="c3 column borders pad">
+        <div class="c4 row heading4 content-middle" data-bind="with: state">
+            <svg-icon class="push-next" params="name: icon" data-bind="css: css">
+            </svg-icon>
+            <span data-bind="text: text"></span>
         </div>
+        <hr />
+        <div class="row greedy text-center">
+            <div class="greedy align-middle">
+                <p class="node-counter" data-bind="text: nodeCount"></p>
+                <p> Nodes</p>
+            </div>
 
-        <vr></vr>
+            <vr></vr>
 
-        <div class="greedy align-middle">
-            <p class="node-counter" data-bind="text: onlineCount"></p>
-            <p>Online</p>
+            <div class="greedy align-middle">
+                <p class="node-counter" data-bind="text: onlineCount"></p>
+                <p>Online</p>
+            </div>
+
+            <vr></vr>
+
+            <div class="greedy column align-middle">
+                <p class="node-counter" data-bind="text: offlineCount"></p>
+                <p>Offline</p>
+            </div>
         </div>
+    </section>
 
-        <vr></vr>
+    <section class="c6 column push-both">
+        <div class="row align-middle">
+            <chart-legend class="pad" params="
+                items: pieValues,
+                caption: 'Pool Capacity'
+            "></chart-legend>
 
-        <div class="greedy column align-middle">
-            <p class="node-counter" data-bind="text: offlineCount"></p>
-            <p>Offline</p>
+            <pie-chart class="push-prev" params="
+                values: pieValues,
+                primaryText: formattedTotal,
+                secondaryText: 'Total'
+            "></pie-chart>
         </div>
-    </div>
-</section>
-
-<section class="c6 column push-both">
-    <div class="row align-middle">
-        <chart-legend class="pad" params="
-            items: pieValues,
-            caption: 'Pool Capacity'
-        "></chart-legend>
-
-        <pie-chart class="push-prev" params="
-            values: pieValues,
-            primaryText: formattedTotal,
-            secondaryText: 'Total'
-        "></pie-chart>
-    </div>
-</section>
+    </section>
 
 
-<section class="column c3 borders pad">
-    <h3 class="heading4">No Activity</h3>
-    <hr>
-    <p>Pool in optimal condition</p>
-</section>
-<!-- /ko -->
+    <section class="column c3 borders pad">
+        <h3 class="heading4">No Activity</h3>
+        <hr>
+        <p>Pool in optimal condition</p>
+    </section>
+</div>

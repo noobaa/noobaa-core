@@ -17,14 +17,12 @@
         </div>
     </div>
 
-    <div class="box push-next greedy column">
-        <data-table class="greedy" params="
-            columns: columns,
-            emptyMessage: 'System does not contain cloud resources',
-            data: resources,
-            rowFactory: resource => newResourceRow(resource)
-        "></data-table>
-    </div>
+    <data-table class="push-next greedy" params="
+        columns: columns,
+        emptyMessage: 'System does not contain cloud resources',
+        data: resources,
+        rowFactory: resource => newResourceRow(resource)
+    "></data-table>
 
     <p class="push-next">
         <svg-icon params="name: 'notif-info'" class="icon-small"></svg-icon>

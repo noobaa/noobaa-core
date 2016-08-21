@@ -73,15 +73,13 @@
 .define-c(@i) when (@i > 0) {
     @val: 100% / 12 * @i;
 
-    .c@{i} {
-        flex-basis: @val;
-    }
-
     .row > .c@{i} {
+        flex-basis: @val;
         width: @val;
     }
 
     .column > .c@{i} {
+        flex-basis: @val;
         height: @val;
     }
 

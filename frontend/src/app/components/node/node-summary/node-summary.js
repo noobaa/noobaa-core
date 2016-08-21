@@ -33,17 +33,17 @@ const trustMapping = deepFreeze({
 });
 
 const accessibilityMapping = deepFreeze({
-    0: {
+    1: {
         text: 'No Access',
         css: 'error',
         icon: 'problem'
     },
-    1: {
+    2: {
         text: 'Read Only',
         css: 'warning',
         icon: 'problem'
     },
-    2: {
+    3: {
         text: 'Readable & Writeable',
         css: 'success',
         icon: 'healthy'

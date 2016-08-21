@@ -10,7 +10,7 @@ const partStateIcons = Object.freeze({
     },
     building:  {
         name: 'working',
-        css: 'spin warning',
+        css: 'warning',
         tooltip: 'in process'
     },
     unavailable: {

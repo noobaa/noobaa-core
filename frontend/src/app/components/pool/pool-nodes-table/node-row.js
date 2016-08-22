@@ -37,7 +37,7 @@ export default class NodeRowViewModel extends Disposable {
                 let { name } = node();
                 return {
                     text: name,
-                    href: { route: 'node', params: { node: name } }
+                    href: { route: 'node', params: { node: name, tab: null } }
                 };
             }
         );

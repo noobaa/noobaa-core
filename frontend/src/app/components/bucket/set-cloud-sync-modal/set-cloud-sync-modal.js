@@ -61,8 +61,6 @@ class CloudSyncModalViewModel extends Disposable {
         );
 
         let _connection = ko.observable();
-        //     () => S3Connections() && S3Connections()[0]
-        // );
         this.connection = ko.pureComputed({
             read: _connection,
             write: value => {

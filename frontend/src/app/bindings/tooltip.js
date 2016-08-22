@@ -84,7 +84,9 @@ export default {
         let hover = ko.observable(false);
 
         let paramsSub = params.subscribe(
-            () => hover() && showTooltip(target, params())
+            params => (hover() && params.text) ?
+                    showTooltip(target, params) :
+                    hideTooltip()
         );
 
         let hoverSub = hover
@@ -95,11 +97,9 @@ export default {
                 }
             })
             .subscribe(
-                hoverd => {
-                    return (hoverd && params().text) ?
-                        showTooltip(target, params()) :
-                        hideTooltip();
-                }
+                hoverd => (hoverd && params().text) ?
+                    showTooltip(target, params()) :
+                    hideTooltip()
             );
 
         // Handle delyed hover state.

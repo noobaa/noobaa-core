@@ -4,7 +4,8 @@
  *
  */
 'use strict';
-
+require('../../util/dotenv').load();
+const DEV_MODE = (process.env.DEV_MODE === 'true');
 const _ = require('lodash');
 const fs = require('fs');
 const url = require('url');
@@ -1019,6 +1020,9 @@ function find_account_by_email(req) {
 }
 
 function _communicate_license_server(params) {
+    if (DEV_MODE) {
+        return true;
+    }
     var deferred = P.defer();
     var data_to_send = {
         code: (params && params.code) || '',

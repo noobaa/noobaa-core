@@ -18,20 +18,24 @@ class ObjectSummaryViewModel extends Disposable {
             () => obj() && obj().bucket
         );
 
+        this.contentType = ko.pureComputed(
+            () => obj() && obj().content_type
+        );
+
         this.creationTime = ko.pureComputed(
             () => obj() && (
                 obj().create_time ? moment(obj().create_time).format(timeFormat) : 'N/A'
             )
         );
 
-        this.contentType = ko.pureComputed(
-            () => obj() && obj().content_type
-        );
-
         this.lastRead = ko.pureComputed(
             () => obj() && (
                 obj().stats.last_read ? moment(obj().stats.last_read).format(timeFormat) : 'N/A'
             )
+        );
+
+        this.readCount = ko.pureComputed(
+            () => obj() ? obj().stats.reads : 0
         );
 
         this.barsValues = [

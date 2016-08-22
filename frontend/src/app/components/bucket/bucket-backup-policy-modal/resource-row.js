@@ -5,15 +5,18 @@ import { deepFreeze } from 'utils';
 const icons = deepFreeze([
     {
         pattern: 's3.amazonaws.com',
-        icon: 'amazon-resource'
+        name: 'amazon-resource',
+        tooltip: 'Amazon Bucket'
     },
     {
         pattern: 'storage.googleapis.com',
-        icon: 'google-resource'
+        name: 'google-resource',
+        tooltip: 'GCloud Bucket'
     },
     {
         pattern: '',
-        icon: 'cloud-resource'
+        name: 'cloud-resource',
+        tooltip: 'Cloud Bucket'
     }
 ]);
 
@@ -29,9 +32,10 @@ export default class ResourceRowViewModel extends Disposable {
         });
 
         this.type = ko.pureComputed(
-            () => pool() && icons.find(
-                ({ pattern }) => pool().cloud_info.endpoint.indexOf(pattern) > -1
-            )
+            () => pool() && icons
+                .find(
+                    ({ pattern }) => pool().cloud_info.endpoint.includes(pattern)
+                )
         );
 
         this.name = ko.pureComputed(

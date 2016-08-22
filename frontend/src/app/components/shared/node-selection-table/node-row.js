@@ -4,11 +4,13 @@ import { formatSize, deepFreeze } from 'utils';
 
 const stateIconMapping = deepFreeze({
     true: {
-        name: 'node-online',
+        css: 'success',
+        name: 'healthy',
         tooltip: 'online'
     },
     false: {
-        name: 'node-offline',
+        css: 'error',
+        name: 'problem',
         tooltip: 'offline'
     }
 });
@@ -25,26 +27,23 @@ export default class NodeRowViewModel extends Disposable {
         });
 
         this.state = ko.pureComputed(
-            () => node() && stateIconMapping[node().online]
+            () => node() ? stateIconMapping[node().online] : { tooltip: 'OHAD' }
         );
 
         this.name = ko.pureComputed(
-            () => node() && node().name
+            () => node() ? node().name : ''
         );
 
         this.ip = ko.pureComputed(
-            () => node() && node().ip
+            () => node() ? node().ip : ''
         );
 
         this.capacity = ko.pureComputed(
-            () => node() && (node().storage ? formatSize(node().storage.total) : 'N/A')
+            () => (node() && node().storage) ? formatSize(node().storage.total) : 'N/A'
         );
 
         this.pool = ko.pureComputed(
-            () => node() && {
-                text:  node().pool,
-                tooltip : node().pool
-            }
+            () =>  node() ? { text:  node().pool, tooltip : node().pool } : ''
         );
 
         this.recommended = '---';

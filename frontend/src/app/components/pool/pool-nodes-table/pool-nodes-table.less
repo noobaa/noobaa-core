@@ -1,13 +1,18 @@
 pool-nodes-table {
     .column();
 
-    paginator {
-        margin-left: auto;
+    .filter-by-editor {
+        padding: 0;
+
+        .editor-label {
+            font-size: @font-size4;
+            width: auto;
+        }
     }
 
     > data-table {
         .state-col {
-            min-width: 5em;
+            min-width: 70px;
         }
 
         .name-col {
@@ -17,24 +22,19 @@ pool-nodes-table {
         }
 
         .ip-col {
-            min-width: 9em;
+            min-width: 120px;
         }
 
         .capacity-col {
-            min-width: 10em;
-
-            capacity-bar {
-                width: 90%;
-                margin: 0 auto;
-            }
+            min-width: 120px;
         }
 
         .trust-level-col {
-            min-width: 10em;
+            min-width: 130px;
         }
 
         .data-activity-col {
-            min-width: 10em;
+            min-width: 130px;
         }
     }
 }

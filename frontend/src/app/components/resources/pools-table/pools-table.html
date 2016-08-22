@@ -1,9 +1,12 @@
-<button class="btn2 align-end push-next"
-    data-bind="click: () => showCreatePoolWizard()">
-    Create Pool
-</button>
+<div class="column alt-bg pad">
+    <button class="btn align-end"
+        data-bind="click: () => showCreatePoolWizard()">
+        Create Pool
+    </button>
+</div>
 
-<data-table params="
+
+<data-table class="greedy" params="
     columns: columns,
     data: pools,
     rowFactory: pool => newPoolRow(pool),

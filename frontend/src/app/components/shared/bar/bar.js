@@ -3,7 +3,7 @@ import Disposable from 'disposable';
 import ko from 'knockout';
 import style from 'style';
 
-const silhouetteColor = style['bg-color1'];
+const silhouetteColor = style['color1'];
 const minRatio = .03;
 
 class BarViewModel extends Disposable {

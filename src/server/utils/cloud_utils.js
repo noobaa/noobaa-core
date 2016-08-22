@@ -26,6 +26,7 @@ function resolve_cloud_sync_info(sync_policy) {
     } else if (sync_policy.last_sync.getTime() === 0) {
         stat = 'PENDING';
     } else {
+        // if we have a time for the last sync, and the status isn't syncing (then it's idle) it means we're synced.
         stat = 'SYNCED';
     }
     return stat;

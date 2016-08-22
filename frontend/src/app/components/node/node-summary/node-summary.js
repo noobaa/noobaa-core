@@ -33,7 +33,7 @@ const trustMapping = deepFreeze({
 });
 
 const accessibilityMapping = deepFreeze({
-    1: {
+    0: {
         text: 'No Access',
         css: 'error',
         icon: 'problem'
@@ -98,6 +98,7 @@ class NodeSummaryViewModel extends Disposable {
         this.accessibility = ko.pureComputed(
             () => {
                 let index = bitsToNumber(node().readable, node().writable);
+                console.log(index);
                 return accessibilityMapping[index];
             }
         );

@@ -1,4 +1,4 @@
-<div class="row content-middle alt-bg pad push-next">
+<div class="row content-middle alt-bg pad">
     <h2 class="heading3 greedy">
         Accounts with S3 access for this bucket
     </h2>
@@ -7,6 +7,12 @@
         Edit S3 Access
     </button>
 </div>
+
+<!-- ko if: isListEmpty -->
+<span class="no-accounts-message pad">
+    No accounts were granted access for this bucket
+</span>
+<!-- /ko -->
 
 <ul class="account-list column" data-bind="foreach: accessList">
     <li class="row">

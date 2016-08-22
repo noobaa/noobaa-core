@@ -4,16 +4,19 @@ import numeral from 'numeral';
 
 const partHealthMapping = Object.freeze({
     available: {
-        name: 'part-available',
-        tooltip: 'available'
+        name: 'healthy',
+        css: 'success',
+        tooltip: 'Available'
     },
     building: {
-        name: 'part-in-process',
-        tooltip: 'in process'
+        name: 'working',
+        css: 'warning',
+        tooltip: 'In process'
     },
     unavailable: {
-        name: 'part-unavailable',
-        tooltip: 'unavailable'
+        name: 'problem',
+        css: 'error',
+        tooltip: 'Unavailable'
     }
 });
 

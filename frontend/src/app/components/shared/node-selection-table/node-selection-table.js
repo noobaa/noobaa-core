@@ -15,7 +15,10 @@ const columns = deepFreeze([
         cellTemplate: 'icon'
     },
     'name',
-    'ip',
+    {
+        name: 'ip',
+        label: 'IP'
+    },
     'capacity',
     'pool',
     'recommended'

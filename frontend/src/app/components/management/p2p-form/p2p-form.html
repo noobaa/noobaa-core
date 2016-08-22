@@ -2,7 +2,7 @@
     <span class="greedy align-middle">Peer to Peer</span>
 
     <button class="btn-flat expand-btn">
-        <svg-icon class="rotate no-outline"
+        <svg-icon class="icon-small rotate no-outline"
             params="name: 'chevron'"
             data-bind="css: { 'deg-90': !expanded() }">
         </svg-icon>
@@ -11,7 +11,7 @@
 
 <div data-bind="visible: !expanded()">
     TCP ports:
-    <output class="text-tech emphasized" data-bind="text: ports"></output>
+    <output class="text-tech" data-bind="text: ports"></output>
 </div>
 
 <div class="column" data-bind="expand: expanded">
@@ -42,39 +42,39 @@
     </div>
 -->
 
-    <p class="paragraph emphasized">
-        Before you apply changes, add the following exception to your Firewall/NAT:
+    <p class="push-next">
+        In order the guarantee node to node communication add the following exception to your Firewall/NAT:
     </p>
 
-    <div class="box config push-next">
+    <div class="alt-bg pad config push-next">
         <span>
-            Source:
-            <output class="text-tech emphasized">any</output>
+            <span class="highlight">Source:</span>
+            <output class="text-tech">any</output>
         </span>
 
         <span>
-            Destination:
-            <output class="text-tech emphasized">any</output>
+            <span class="highlight">Destination:</span>
+            <output class="text-tech">any</output>
         </span>
 
         <span>
-            Protocol:
-            <output class="text-tech emphasized">tcp</output>
+            <span class="highlight">Protocol:</span>
+            <output class="text-tech">TCP</output>
         </span>
 
         <span>
-            Ports:
-            <output class="text-tech emphasized" data-bind="value: ports"></output>
+            <span class="highlight">Ports:</span>
+            <output class="text-tech" data-bind="value: ports"></output>
         </span>
 
         <span>
-            Description:
-            <output class="text-tech emphasized">NooBaa</output>
+            <span class="highlight">Description:</span>
+            <output class="text-tech">NooBaa</output>
         </span>
     </div>
 
 
-    <div>
+    <div class="push-next">
         Notes:
         <ul class="remark bullet-list">
             <li>TCP ports should br manually opened in firewalls/NATs in order to be reachable</li>
@@ -86,7 +86,7 @@
     <!--
         REMOVED UNTILS SERVER FIX P2P setting that does not breck the whole system
     <<div class="container text-right">
-        <button class="btn2" data-bind="click: applyChanges">
+        <button class="btn" data-bind="click: applyChanges">
             Apply Changes
         </button>
     </div>

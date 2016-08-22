@@ -762,7 +762,7 @@ function add_s3_usage_report(req) {
 
 function remove_s3_usage_reports(req) {
     var q = ObjectStats.remove();
-    if (req.rpc_params.till_time) {
+    if (!_.isUndefined(req.rpc_params.till_time)) {
         // query backwards from given time
         req.rpc_params.till_time = new Date(req.rpc_params.till_time);
         q.where('time').lte(req.rpc_params.till_time);

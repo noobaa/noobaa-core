@@ -1,15 +1,6 @@
 import ko from 'knockout';
 import { isObject } from 'utils';
 
-function isEqual(a, b) {
-    return a === b;
-}
-
-// Overwrite the defgault equalityComparer to treat object values who are
-// the same object equal.
-// ko.observable.fn.equalityComparer = isEqual;
-// ko.computed.fn.equalityComparer = isEqual;
-
 ko.subscribable.fn.is = function(value) {
     return ko.pureComputed(
         () => ko.unwrap(this()) === value

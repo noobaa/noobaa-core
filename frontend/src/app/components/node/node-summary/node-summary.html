@@ -1,21 +1,24 @@
 <div class="row">
     <section class="c3 column borders pad highlight">
-        <div class="greedy row content-middle" data-bind="with: state">
-            <svg-icon class="push-next" params="name: icon" data-bind="css: css">
+        <div class="greedy row content-middle">
+            <svg-icon class="push-next" params="name: state().icon"
+                data-bind="css: state().css">
             </svg-icon>
-            <span data-bind="text: text"></span>
+            <span data-bind="text: state().text"></span>
         </div>
         <hr />
-        <div class="greedy row content-middle" data-bind="with: trust">
-            <svg-icon class="push-next" params="name: icon" data-bind="css: css">
+        <div class="greedy row content-middle">
+            <svg-icon class="push-next" params="name: trust().icon"
+                data-bind="css: trust().css">
             </svg-icon>
-            <span data-bind="text: text"></span>
+            <span data-bind="text: trust().text"></span>
         </div>
         <hr />
-        <div class="greedy row content-middle" data-bind="with: accessibility">
-            <svg-icon class="push-next" params="name: icon" data-bind="css: css">
+        <div class="greedy row content-middle">
+            <svg-icon class="push-next" params="name: accessibility().icon"
+                data-bind="css: accessibility().css">
             </svg-icon>
-            <span data-bind="text: text"></span>
+            <span data-bind="text: accessibility().text"></span>
         </div>
     </section>
 

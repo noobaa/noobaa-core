@@ -5,6 +5,7 @@ breadcrumbs {
     line-height: 1;
 
     .crumb {
+        vertical-align: middle;
         .no-outline();
         .row();
 
@@ -17,6 +18,17 @@ breadcrumbs {
 
         &:last-child {
             color: @color8;
+
+            &::after {
+                display: none;
+            }
+        }
+
+        &::after {
+            content: '';
+            margin-left: @gutter;
+            border: @gutter/2 solid transparent;
+            border-left-color: @color8;
         }
     }
 

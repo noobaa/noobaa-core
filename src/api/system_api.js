@@ -568,6 +568,9 @@ module.exports = {
                 properties: {
                     code: {
                         type: 'string'
+                    },
+                    email: {
+                        type: 'string'
                     }
                 }
             },

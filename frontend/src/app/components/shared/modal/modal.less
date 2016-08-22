@@ -1,46 +1,47 @@
+@keyframes dropdown {
+    from {
+        top: -50%;
+    }
+
+    to {
+        top: 50%;
+    }
+}
+
 modal {
+
     .fixed();
     display: block;
     z-index: 999;
 
     .modal-backdrop {
         .fill();
-        .fade-in;
         background-color: @shadow-color;
     }
 
-    .modal-content {
-        position: absolute;
-        left: 50%;
-        top: 50%;
-        transform: translate(-50%, -50%);
-        background: @bg-color3;
-        box-shadow: 0 0 20px black;
-        padding: @gutter;
-        transition: all 250ms ease-in-out;
-
-        .heading2 {
-            text-align: center;
-        }
-
-    }
-
     .modal-heading {
-        .heading2();
         margin: -@gutter;
         margin-bottom: @gutter;
-        padding: @gutter/2 @gutter;
+        padding: 0 @gutter;
+        line-height: 3 * @gutter;
         text-align: left;
-        border-bottom: 2px solid #35434E;
+        border-bottom: 1px solid @color8;
+    }
+
+    .modal-content {
+        background: @color2;
+        box-shadow: 0 0 20px @black;
+        padding: @gutter;
+        transition: all 250ms ease-in-out;
     }
 
     .close-btn {
         padding: 0;
-    }
 
-    .modal-content {
-        width: 10px;
-        height: 10px;
+        > svg-icon {
+            width :12px;
+            height: 12px;
+        }
     }
 
 
@@ -49,6 +50,7 @@ modal {
         height: 330px;
     }
 
+    .modal-content,
     &.modal-small > .modal-content {
         width: 610px;
         height: 455px;;
@@ -56,22 +58,22 @@ modal {
 
     &.modal-medium > .modal-content {
         width: 610px;
-        height: 552px;
+        height: 540px;
     }
 
     &.modal-large > .modal-content {
         width: 750px;
-        height: 552px;
+        height: 540px;
     }
 
     &.modal-xlarge > .modal-content {
         width: 900px;
-        height: 552px;
+        height: 540px;
     }
 
     &.modal-auto-height > .modal-content {
         width: 900px;
         height: 80%;
-        min-height: 552px;
+        min-height: 540px;
     }
 }

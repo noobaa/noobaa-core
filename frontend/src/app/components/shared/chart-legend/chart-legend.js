@@ -3,9 +3,10 @@ import Disposable from 'disposable';
 import { formatSize } from 'utils';
 
 class ChartLegendViewModel extends Disposable{
-    constructor({ items }) {
+    constructor({ caption = '', items }) {
         super();
 
+        this.caption = caption;
         this.items = items;
         this.formatSize = formatSize;
     }

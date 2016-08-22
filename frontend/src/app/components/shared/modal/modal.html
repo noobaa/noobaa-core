@@ -1,14 +1,14 @@
-<div class="modal-backdrop" data-bind="click: backdropClick"></div>
+<div class="modal-backdrop fade-in" data-bind="click: backdropClick"></div>
 <div class="modal-content column text-left pop-centered">
     <!-- ko if: title -->
-    <h1 class="row modal-heading content-middle">
+    <h1 class="row heading2 modal-heading content-middle">
         <span class="greedy push-next" data-bind="text: title"></span>
 
-        <button class="close-btn btn-flat no-outline" data-bind="
+        <button class="close-btn icon-btn no-outline" data-bind="
             visible: addCloseButton,
             click: onClose
         ">
-            <svg-icon class="icon-small" params="name: 'x'"></svg-icon>
+            <svg-icon params="name: 'x'"></svg-icon>
         </button>
     </h1>
     <!-- /ko -->

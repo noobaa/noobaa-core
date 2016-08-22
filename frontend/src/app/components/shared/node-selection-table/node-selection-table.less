@@ -4,11 +4,11 @@ node-selection-table {
 
     data-table {
         .selected-col {
-            min-width: 44px;
+            min-width: 25px;
         }
 
         .state-col {
-            min-width: 65px;
+            min-width: 44px;
         }
 
         .name-col {
@@ -22,7 +22,7 @@ node-selection-table {
         }
 
         .capacity-col {
-            min-width: 100px;
+            min-width: 80px;
         }
 
         .pool-col {
@@ -37,11 +37,12 @@ node-selection-table {
     }
 
     .selection-summary {
-        margin-top: 6px;
+        padding: @gutter/2 @gutter;
+        background-color: @color4;
     }
 
     .selection-text {
-        font-size: @font-size-medium;
+        font-size: @font-size4;
     }
 
     .val-msg {

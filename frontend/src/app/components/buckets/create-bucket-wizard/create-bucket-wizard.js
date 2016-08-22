@@ -10,7 +10,7 @@ import { defaultPoolName } from 'config';
 import { deepFreeze } from 'utils';
 
 const steps = deepFreeze([
-    { label: 'choose name', size: 'small' },
+    { label: 'choose name', size: 'medium' },
     { label: 'set policy', size: 'large' }
 ]);
 

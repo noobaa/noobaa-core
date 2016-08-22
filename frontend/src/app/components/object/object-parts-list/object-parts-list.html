@@ -1,28 +1,29 @@
-<div class="row content-middle push-next">
+<div class="row content-middle alt-bg pad push-next">
     <h3 class="heading3 push-next greedy">
         Part count for this file:
         <span data-bind="text: count"></span>
     </h3>
 
-    <a class="btn3 push-next" download data-bind="attr: { href: s3SignedUrl }" >
+    <a class="btn push-next" download data-bind="attr: { href: s3SignedUrl }" >
         Download File
     </a>
 
-    <button class="btn3" data-bind="click: () => showPreviewModal()">
+    <button class="btn" data-bind="click: () => showPreviewModal()">
         Preview File
     </button>
 </div>
 
-<ul class="part-list greedy" data-bind="foreach: rows">
+<ul class="part-list list-no-style column greedy" data-bind="foreach: rows">
     <li>
-        <div class="row content-middle pointer" data-bind="click: toggleExpend">
-            <svg-icon class="push-next" params="name: stateIcon" data-bind="
-                tooltip: stateTooltip
+        <div class="row content-middle" data-bind="click: toggleExpend">
+            <svg-icon class="push-next" params="name: stateIcon.name" data-bind="
+                css: stateIcon.css,
+                tooltip: stateIcon.tooltip
             "></svg-icon>
 
             <div class="greedy">
                 <span data-bind="text: name"></span>
-                (<span class="emphasized" data-bind="text: size"></span>)
+                (<span data-bind="text: size"></span>)
             </div>
 
             <button class="expand-btn btn-flat rotate no-outline" data-bind="
@@ -34,14 +35,14 @@
             </button>
         </div>
 
-        <table data-bind="expand: isExpended">
+        <table class="blocks-table" data-bind="expand: isExpended">
             <tbody data-bind="foreach: blocks">
                 <tr content-middle">
                     <td class="status-col">
-                        <svg-icon class="icon-small"
-                            params="name: nodeStateIcon"
-                            data-bind="tooltip: nodeStateTooltip">
-                        </svg-icon>
+                        <svg-icon params="name: stateIcon.name" data-bind="
+                            css: stateIcon.css,
+                            tooltip: stateIcon.tooltip
+                        "></svg-icon>
                     </td>
 
                     <td class="replica-col text-left" data-bind="text: label">
@@ -95,9 +96,7 @@
     </li>
 </ul>
 
-<paginator class="align-end push-prev" params="
-    page: page, itemCount: count, pageSize: pageSize
-"></paginator>
+<paginator params="page: page, itemCount: count, pageSize: pageSize"></paginator>
 
 <!-- ko if: isPreviewModalVisible -->
 <object-preview-modal params="

@@ -1,19 +1,20 @@
 <h2 class="heading3">Enter user email address</h2>
 
-<div class="push-next">
-    <input type="text" placeholder="Email Address" data-bind="
+<editor params="label: 'User Email'">
+    <input type="text" placeholder="Type here" data-bind="
         value: emailAddress,
         hasFocus: true
     "/>
-</div>
+</editor>
+
 
 <h2 class="heading3">
     Allow S3 access for this user
 </h2>
 
-<toggle-switch params="value: enableS3Access"></toggle-switch>
+<toggle-switch class="push-next" params="value: enableS3Access"></toggle-switch>
 
-<div class="row push-prev content-middle">
+<div class="row content-middle">
     <h2 class="heading3 greedy push-next" data-bind="
         css: { disabled: !enableS3Access() }
     ">
@@ -21,14 +22,14 @@
     </h2>
 
     <div>
-        <button class="link" data-bind="
+        <button class="link alt-colors" data-bind="
             click: selectAllBuckets,
             enable: enableS3Access
         ">
             Select all
         </button>
-        |
-        <button class="link" data-bind="
+        <span class="disabled">|</span>
+        <button class="link alt-colors" data-bind="
             click: clearAllBuckets,
             enable: enableS3Access
         ">

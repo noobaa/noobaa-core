@@ -6,25 +6,23 @@ export default class ObjectRowViewModel extends Disposable {
     constructor(obj) {
         super();
 
-        // BE dosent send any information about object availablity,
-        // assuming the object is avaliable.
-        this.state = 'object-available';
-
         this.name = ko.pureComputed(
             () => {
                 if(!obj()) {
                     return '';
                 }
 
+                let href = {
+                    route: 'object',
+                    params: {
+                        object: obj().key,
+                        tab: null
+                    }
+                };
+
                 return {
                     text: obj().key,
-                    href: {
-                        route: 'object',
-                        params: {
-                            object: obj().key,
-                            tab: null
-                        }
-                    }
+                    href: href
                 };
             }
         );

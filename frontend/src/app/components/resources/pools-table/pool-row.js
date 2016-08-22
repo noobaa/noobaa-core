@@ -15,7 +15,8 @@ export default class PoolRowViewModel extends Disposable {
 
                 let healthy = pool().nodes.online >= 3;
                 return {
-                    name: `pool-${healthy ? 'healthy' : 'problem'}`,
+                    css: healthy ? 'success' : 'error',
+                    name: healthy ? 'healthy' : 'problem',
                     tooltip: healthy ? 'Healthy' : 'not enough online nodes'
                 };
             }

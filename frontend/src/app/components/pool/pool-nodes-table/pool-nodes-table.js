@@ -21,6 +21,7 @@ let columns = deepFreeze([
     },
     {
         name: 'ip',
+        label: 'IP',
         sortable: true
     },
     {

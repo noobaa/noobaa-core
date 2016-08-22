@@ -1,8 +1,8 @@
-<ul class="list-no-style box column" data-bind="foreach: properties">
+<ul class="list-no-style column" data-bind="foreach: properties">
     <li class="row content-middle">
-        <div class="prop-name emphasized" data-bind="text: label + ':'"></div>
+        <div class="prop-name push-next" data-bind="text: label + ':'"></div>
 
-        <div class="prop-value no-wrap greedy" data-bind="text: value"></div>
+        <div class="prop-value no-wrap greedy" data-bind="html: value"></div>
 
         <copy-to-clipboard-button params="value: value"
             data-bind="visible: $data.allowCopy"></copy-to-clipboard-button>

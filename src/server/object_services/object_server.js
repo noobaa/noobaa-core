@@ -27,6 +27,8 @@ const string_utils = require('../../util/string_utils');
 const map_allocator = require('./map_allocator');
 const mongo_functions = require('../../util/mongo_functions');
 const system_server_utils = require('../utils/system_server_utils');
+const cloud_utils = require('../utils/cloud_utils');
+const os_utils = require('../../util/os_utils');
 
 /**
  *
@@ -467,6 +469,14 @@ function read_object_md(req) {
         .then(info => {
             if (req.rpc_params.adminfo && req.role === 'admin') {
                 info.capacity_size = object_capacity;
+                let sys_access_keys = system_store.data.accounts[1].access_keys[0];
+                info.s3_signed_url = cloud_utils.get_signed_url({
+                    endpoint: os_utils.get_local_ipv4_ips()[0],
+                    access_key: sys_access_keys.access_key,
+                    secret_key: sys_access_keys.secret_key,
+                    bucket: req.rpc_params.bucket,
+                    key: req.rpc_params.key
+                });
             }
             if (!req.rpc_params.get_parts_count) {
                 return info;

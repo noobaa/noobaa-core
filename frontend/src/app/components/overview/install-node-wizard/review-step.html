@@ -1,16 +1,21 @@
-<p>
-    All nodes will be automaticly added to the
-    <a class="link" data-bind="href: { route: 'pool', params: { pool: defaultPool } }">
-        default pool
-    </a>
-</p>
+<div class="column greedy align-middle content-middle">
+    <p class="">
+        All nodes will be automaticly added to the Resrouces >
+        <a class="link" data-bind="href: {
+            route: 'pool',
+            params: { pool: defaultPool }
+        }">
+            default pool
+        </a>
+    </p>
 
-<img data-bind="attr: { src: nodeListImageUrl }"/>
+    <img class="push-both" data-bind="attr: { src: nodeListImageUrl }"/>
 
-<span class="remark">
-    * New Nodes will show up in a list once they are connected
-</span>
+    <span class="remark">
+        * New Nodes will show up in a list once they are connected
+    </span>
 
-<span class="remark">
-    * You can reassign node to diffrent pools at later times
-</span>
+    <span class="remark">
+        * You can reassign node to diffrent pools at later times
+    </span>
+</div>

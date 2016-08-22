@@ -9,13 +9,11 @@
 
     <h2 class="heading3">Recently Uploaded</h2>
 
-    <div class="box row push-next greedy">
-        <data-table params="
-            columns: columns,
-            data: requests,
-            rowFactory: request => createUploadRow(request)
-        "></data-table>
-    </div>
+    <data-table class="push-next greedy" params="
+        columns: columns,
+        data: requests,
+        rowFactory: request => createUploadRow(request)
+    "></data-table>
 
-    <button class="btn2 align-end" data-bind="click: close">Close</button>
+    <button class="btn align-end" data-bind="click: close">Close</button>
 </modal>

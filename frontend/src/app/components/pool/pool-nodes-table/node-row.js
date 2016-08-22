@@ -21,7 +21,7 @@ export default class NodeRowViewModel extends Disposable {
                 }
 
                 return {
-                    css: node() && node().online ? 'success' : 'problem',
+                    css: node() && node().online ? 'success' : 'error',
                     name: node() && node().online ? 'healthy' : 'problem',
                     tooltip: node().online  ? 'online' : 'offline'
                 };

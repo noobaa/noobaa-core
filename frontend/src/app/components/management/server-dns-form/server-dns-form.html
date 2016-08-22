@@ -25,7 +25,7 @@
         </editor>
 
         <editor params="label: 'IP Address'" data-bind="visible: usingIP">
-            <input disabeld type="text" data-bind="value: ipAddress" />
+            <input type="text" disabled data-bind="value: ipAddress" />
         </editor>
 
         <editor params="label: 'DNS Name'" data-bind="visible: usingDNS">
@@ -37,27 +37,27 @@
         visible: usingDNS,
         validationOptions: { insertMessages: false }
     ">
-        <p class="emphasized">
+        <p class="push-next">
             Before you apply changes, add the following entry to your DNS:
         </p>
 
         <div class="alt-bg pad config">
             <span>
-                IP:
-                <output class="text-tech emphasized" data-bind="value: ipAddress"></output>
+                <span class="highlight">IP:</span>
+                <output class="text-tech" data-bind="value: ipAddress"></output>
             </span>
 
             <span>
-                Name:
-                <output class="text-tech emphasized" data-bind="value: dnsName"></output>
+                <span class="highlight">Name:</span>
+                <output class="text-tech" data-bind="value: dnsName"></output>
             </span>
         </div>
     </div>
 
-    <div class="push-next">
+    <div class="column push-next">
         Changing DNS name procedure:
 
-        <ol class="remark bullet-list">
+        <ol class="remark bullet-list push-next">
             <li>Add the new name in your DNS to have both old and new names avaliable</li>
             <li>Apply the changes in the forms above</li>
             <li>Once all nodes are updated with the new name, the old name can be removed from the DNS</li>
@@ -70,7 +70,7 @@
         </p>
     </div>
 
-    <button class="btn align-start push-next" data-bind="click: applyChanges">
+    <button class="btn align-start push-both" data-bind="click: applyChanges">
         Apply Changes
     </button>
 </div>

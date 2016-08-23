@@ -25,6 +25,7 @@ class BlockStoreFs extends BlockStoreBase {
         this.blocks_path_root = path.join(this.root_path, 'blocks_tree');
         this.old_blocks_path = path.join(this.root_path, 'blocks');
         this.config_path = path.join(this.root_path, 'config');
+        this.usage_path = path.join(this.root_path, 'usage');
     }
 
     init() {
@@ -43,7 +44,20 @@ class BlockStoreFs extends BlockStoreBase {
         return P.map(dir_list, dir => fs_utils.create_path(dir), {
                 concurrency: 10
             })
-            .then(() => this._upgrade_to_blocks_tree());
+            .then(() => this._upgrade_to_blocks_tree())
+            .then(() => fs.statAsync(this.usage_path)).catch(ignore_not_found)
+            .then(stat => {
+                if (stat) {
+                    return fs.readFileAsync(this.usage_path)
+                        .then(data => {
+                            this._usage = JSON.parse(data);
+                            dbg.log0('found usage file. recovered usage =', this._usage);
+                        });
+                }
+            });
+
+
+
     }
 
     get_storage_info() {
@@ -90,16 +104,27 @@ class BlockStoreFs extends BlockStoreBase {
                     fs.writeFileAsync(meta_path, block_md_data));
             })
             .then(() => {
-                if (this._usage) {
-                    this._usage.size += data.length + block_md_data.length;
-                    this._usage.count += 1;
-                    if (overwrite_stat) {
-                        this._usage.size -= overwrite_stat.size;
-                        this._usage.count -= 1;
-                    }
+                let overwrite_size = 0;
+                let overwrite_count = 0;
+                if (overwrite_stat) {
+                    overwrite_size = overwrite_stat.size;
+                    overwrite_count = 1;
                 }
+                let usage = {
+                    size: data.length + block_md_data.length - overwrite_size,
+                    count: 1 - overwrite_count
+                };
+                return this._update_usage(usage);
             });
+    }
 
+    _update_usage(usage) {
+        if (this._usage) {
+            this._usage.size += usage.size;
+            this._usage.count += usage.count;
+            let usage_data = JSON.stringify(this._usage);
+            return fs.writeFileAsync(this.usage_path, usage_data);
+        }
     }
 
     _delete_blocks(block_ids) {
@@ -129,8 +154,11 @@ class BlockStoreFs extends BlockStoreBase {
             })
             .then(() => {
                 if (this._usage && del_stat) {
-                    this._usage.size -= del_stat.size;
-                    this._usage.count -= 1;
+                    let usage = {
+                        size: -del_stat.size,
+                        count: -1
+                    };
+                    return this._update_usage(usage);
                 }
             });
     }
@@ -144,7 +172,9 @@ class BlockStoreFs extends BlockStoreBase {
             .then(usage => {
                 dbg.log0('counted disk usage', usage);
                 this._usage = usage; // object with properties size and count
-                return usage;
+                // update usage file
+                let usage_data = JSON.stringify(this._usage);
+                return fs.writeFileAsync(this.usage_path, usage_data).then(() => usage);
             });
     }
 

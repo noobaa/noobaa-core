@@ -603,7 +603,7 @@ module.exports = {
                     },
                     sort: {
                         type: 'string',
-                        enum: ['key' ,'state', 'name', 'size']
+                        enum: ['key', 'state', 'name', 'size']
                     },
                     order: {
                         type: 'integer',

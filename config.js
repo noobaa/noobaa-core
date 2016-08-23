@@ -62,8 +62,8 @@ config.REBUILD_BATCH_ERROR_DELAY = 3000;
 config.REBUILD_LAST_BUILD_BACKOFF = 1 * 60000; // TODO increase?
 config.REBUILD_BUILDING_MODE_BACKOFF = 5 * 60000; // TODO increase?
 
-config.REBUILD_NODE_CONCURRENCY = 10;
-config.REBUILD_NODE_OFFLINE_CLIFF = 3 * 60000;
+config.REBUILD_NODE_CONCURRENCY = 5;
+config.REBUILD_NODE_OFFLINE_GRACE = 5 * 60000;
 
 config.SCRUBBER_RESTART_DELAY = 30000;
 
@@ -95,7 +95,7 @@ if (!is_windows) {
 }
 config.central_stats = {
     send_stats: 'true',
-    central_listener: 'http://104.155.41.235:9090/phdata',
+    central_listener: 'https://104.155.41.235:443/phdata',
     send_time_cycle: 30 * 60000, //min
     previous_diag_packs_dir: process.env.ProgramData + '/prev_diags',
     previous_diag_packs_count: 3 //TODO: We might want to split between agent and server

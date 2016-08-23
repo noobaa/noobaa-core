@@ -34,7 +34,9 @@ mocha.describe('system_servers', function() {
     const client = coretest.new_test_client();
 
     mocha.it('works', function() {
-        this.timeout(60000);
+        const self = this; // eslint-disable-line no-invalid-this
+        self.timeout(60000);
+
         let nodes_list;
         return P.resolve()
             ///////////////

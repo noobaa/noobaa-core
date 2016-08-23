@@ -30,11 +30,13 @@ function file_content_verify(flag, expected) {
 
 
 mocha.describe('debug_module', function() {
+    const self = this; // eslint-disable-line no-invalid-this
 
     //when log is 100MB, reading the log file for
     //verification can take about 1 sec.
     //various logs test creates inconsistency as it may reach timeout.
-    this.timeout(10000);
+    self.timeout(10000);
+
     // This test case fails becauuse __filename is full path !
     // shouldn't the module trim the base path ??
     mocha.it('should parse __filename', function() {

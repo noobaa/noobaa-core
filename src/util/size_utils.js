@@ -20,8 +20,7 @@ const GIGABYTE = 1024 * MEGABYTE;
 const TERABYTE = 1024 * GIGABYTE;
 const PETABYTE = 1024 * TERABYTE;
 
-// cant do 1<<32 because javascript bitwise is limited to 32 bits
-const MAX_UINT32 = (1 << 16) * (1 << 16);
+const MAX_UINT32 = 256 * 256 * 256 * 256; // 4 times 8-bit
 
 const SIZE_UNITS = ['', 'K', 'M', 'G', 'T', 'P', 'E', 'Z', 'Y'];
 

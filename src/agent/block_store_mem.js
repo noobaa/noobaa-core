@@ -9,6 +9,7 @@
 
 const _ = require('lodash');
 
+const dbg = require('../util/debug_module')(__filename);
 const BlockStoreBase = require('./block_store_base').BlockStoreBase;
 
 
@@ -19,6 +20,10 @@ class BlockStoreMem extends BlockStoreBase {
         this._used = 0;
         this._count = 0;
         this._blocks = {};
+    }
+
+    init() {
+        dbg.log0('BlockStoreMem.init: nothing to do for memory store');
     }
 
     get_storage_info() {

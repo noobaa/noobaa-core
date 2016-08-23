@@ -8,9 +8,10 @@ var P = require('../../util/promise');
 var fs_utils = require('../../util/fs_utils');
 
 mocha.describe('fs_utils', function() {
+    const self = this; // eslint-disable-line no-invalid-this
 
     //Disk usage sometimes takes a bit more than 1sec, and causes inconsistency
-    this.timeout(5000);
+    self.timeout(10000);
 
     mocha.describe('disk_usage', function() {
 

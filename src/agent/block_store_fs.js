@@ -51,7 +51,7 @@ class BlockStoreFs extends BlockStoreBase {
                     return fs.readFileAsync(this.usage_path)
                         .then(data => {
                             this._usage = JSON.parse(data);
-                            dbg.log0('DZDZ:', 'found usage file. recovered usage =', this._usage);
+                            dbg.log0('found usage file. recovered usage =', this._usage);
                         });
                 }
             });
@@ -169,7 +169,9 @@ class BlockStoreFs extends BlockStoreBase {
             .then(usage => {
                 dbg.log0('counted disk usage', usage);
                 this._usage = usage; // object with properties size and count
-                return usage;
+                // update usage file
+                let usage_data = JSON.stringify(this._usage);
+                return fs.writeFileAsync(this.usage_path, usage_data).then(() => usage);
             });
     }
 

@@ -61,10 +61,9 @@ class BlockStoreS3 extends BlockStoreBase {
         return P.ninvoke(this.s3cloud, 'headObject', params)
             .then(head => {
                 let usage_data = head.Metadata[this.usage_md_key];
-                dbg.log0('DZDZ:', 'found usage data in', this.usage_path);
                 if (usage_data) {
                     this._usage = JSON.parse(this._decode_block_md(usage_data));
-                    dbg.log0('DZDZ:', 'usage_data = ', this._usage);
+                    dbg.log0('found usage data in', this.usage_path, 'usage_data = ', this._usage);
                 }
             }, err => {});
     }
@@ -84,7 +83,8 @@ class BlockStoreS3 extends BlockStoreBase {
     }
 
     _count_usage() {
-        return 0;
+        // TODO: count usage from cloud
+        return this._usage || 0;
     }
 
 
@@ -126,7 +126,7 @@ class BlockStoreS3 extends BlockStoreBase {
                 overwrite_count = 1;
             }, err => {})
             .then(() => {
-                dbg.log0('DZDZ:', 'writing block id to cloud: ', params.Key);
+                dbg.log3('writing block id to cloud: ', params.Key);
                 //  write block + md to cloud
                 encoded_md = this._encode_block_md(block_md);
                 params.Metadata = {
@@ -141,7 +141,6 @@ class BlockStoreS3 extends BlockStoreBase {
                     size: data.length + encoded_md.length - overwrite_size,
                     count: 1 - overwrite_count
                 };
-                dbg.log0('DZDZ:', 'updating usage: ', usage);
                 return this._update_usage(usage);
             });
     }
@@ -149,7 +148,7 @@ class BlockStoreS3 extends BlockStoreBase {
 
     _update_usage(usage) {
         if (this._usage) {
-            dbg.log0('DZDZ:', 'updating usage by ', usage, this.usage_path);
+            dbg.log3('updating usage from', this.usage_path, 'by', usage);
             this._usage.size += usage.size;
             this._usage.count += usage.count;
             let usage_data = this._encode_block_md(this._usage);

@@ -9,7 +9,7 @@
 
     <stepper params="steps: steps, current: step" class="push-next"></stepper>
 
-    <div class="box steps column" data-bind="css: `step${step()}`">
+    <div class="pad alt-bg steps column" data-bind="css: `step${step()}`">
         <div class="row pages">
             <div class="page column" data-bind="css: { selected: step() === 0 }">
                 <p class="heading3 push-next">Create your owner account</p>
@@ -75,14 +75,14 @@
                 Previous
             </button>
 
-            <button class="btn2 " data-bind="
+            <button class="btn " data-bind="
                 visible: isNextVisible,
                 click: next
             ">
                 Next
             </button>
 
-            <button class="btn2" data-bind="
+            <button class="btn" data-bind="
                 visible: isCreateSystemVisible,
                 click: createSystem
             ">Create system</button>

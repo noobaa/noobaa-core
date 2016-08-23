@@ -6,7 +6,6 @@
 'use strict';
 
 const _ = require('lodash');
-const os = require('os');
 const P = require('../../util/promise');
 const dbg = require('../../util/debug_module')(__filename);
 const config = require('../../../config');
@@ -190,8 +189,6 @@ function _delete_nodes_pool(system, pool, account) {
 function _delete_cloud_pool(system, pool, account) {
     dbg.log0('Deleting cloud pool', pool.name);
 
-    // construct the cloud node name according to convention
-    let cloud_node_name = 'noobaa-cloud-agent-' + os.hostname() + '-' + pool.name;
     return P.resolve()
         .then(function() {
             var reason = check_cloud_pool_deletion(pool);
@@ -207,8 +204,7 @@ function _delete_cloud_pool(system, pool, account) {
         .then(() => server_rpc.client.hosted_agents.remove_agent({
             name: pool.name
         }))
-        .then(() => nodes_client.instance().delete_node_by_name(system._id, cloud_node_name))
-        .then(res => {
+        .then(() => {
             Dispatcher.instance().activity({
                 event: 'pool.delete',
                 level: 'info',

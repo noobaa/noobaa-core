@@ -206,8 +206,8 @@ class MapBuilder {
             'chunks', this.chunks.length,
             'success_chunk_ids', success_chunk_ids.length,
             'failed_chunk_ids', failed_chunk_ids.length,
-            'new_blocks', this.new_blocks && this.new_blocks.length || 0,
-            'delete_blocks', this.delete_blocks && this.delete_blocks.length || 0);
+            'new_blocks', _.get(this, 'new_blocks.length', 0),
+            'delete_blocks', _.get(this, 'delete_blocks.length', 0));
 
         return P.join(
             this.new_blocks && this.new_blocks.length &&

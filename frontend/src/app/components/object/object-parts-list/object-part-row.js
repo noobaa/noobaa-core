@@ -2,10 +2,22 @@ import Disposable from 'disposable';
 import ko from 'knockout';
 import { shortString, formatSize } from 'utils';
 
-const partStateMapping = Object.freeze({
-    available: { tooltip: 'available', icon: 'part-available' },
-    building:  { tooltip: 'in process', icon: 'part-in-process' },
-    unavailable: { tooltip: 'unavailable', icon: 'part-unavailable' }
+const partStateIcons = Object.freeze({
+    available: {
+        name: 'healthy',
+        css: 'success',
+        tooltip: 'available'
+    },
+    building:  {
+        name: 'working',
+        css: 'warning',
+        tooltip: 'in process'
+    },
+    unavailable: {
+        name: 'problem',
+        css: 'error',
+        tooltip: 'unavailable'
+    }
 });
 
 class BlockRowViewModel extends Disposable {
@@ -14,9 +26,13 @@ class BlockRowViewModel extends Disposable {
 
         let { online, node_ip, node_name, pool_name } = adminfo;
 
+        this.stateIcon = {
+            name: online ? 'healthy' : 'problem',
+            tooltip: online ? 'online' : 'offline',
+            css: online ? 'success' : 'error'
+        };
+
         this.label = `Replica ${index + 1} of ${count}`;
-        this.nodeStateTooltip = online ? 'online' : 'offline';
-        this.nodeStateIcon = `node-${online ? 'online' : 'offline'}`;
         this.nodeIp = node_ip;
         this.poolName = pool_name;
         this.nodeName = node_name;
@@ -31,10 +47,8 @@ export default class ObjectPartRowViewModel extends Disposable {
         let size = formatSize(part.chunk.size);
         let state = part.chunk.adminfo.health;
         let blocks = part.chunk.frags[0].blocks;
-        let stateMapping = partStateMapping[state];
 
-        this.stateTooltip = stateMapping.tooltip;
-        this.stateIcon = stateMapping.icon;
+        this.stateIcon = partStateIcons[state];
         this.name = `Part ${partNumber + 1} of ${partsCount}`;
         this.size = size;
         this.blocks = blocks;

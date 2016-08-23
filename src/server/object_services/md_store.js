@@ -50,17 +50,16 @@ function aggregate_objects_count(query) {
                     $sum: 1
                 }
             }
-        }
-    ]).toArray()
-    .then(function(res) {
-        var buckets = {};
-        var total_count = 0;
-        _.each(res, function(r) {
-            total_count += buckets[r._id] = r.count;
+        }]).toArray()
+        .then(function(res) {
+            var buckets = {};
+            var total_count = 0;
+            _.each(res, function(r) {
+                total_count += buckets[r._id] = r.count;
+            });
+            buckets[''] = total_count;
+            return buckets;
         });
-        buckets[''] = total_count;
-        return buckets;
-    });
 }
 
 function aggregate_chunks(query) {
@@ -155,6 +154,46 @@ function load_parts_objects_for_chunks(chunks) {
         });
 }
 
+
+function iterate_node_chunks(system_id, node_id, marker, limit) {
+    let blocks;
+    const blocks_query = {
+        system: system_id,
+        node: node_id,
+        deleted: null
+    };
+    if (marker) {
+        blocks_query._id = {
+            $lt: marker
+        };
+    }
+    return P.resolve()
+        .then(() => DataBlock.collection.find(blocks_query, {
+            sort: {
+                _id: -1 // start with latest blocks and go back
+            },
+            fields: {
+                _id: 1,
+                chunk: 1,
+                size: 1
+            },
+            limit: limit
+        }).toArray())
+        .then(blocks_res => {
+            blocks = blocks_res;
+        })
+        .then(() => DataChunk.collection.find({
+            _id: {
+                $in: mongo_utils.uniq_ids(blocks, 'chunk')
+            }
+        }).toArray())
+        .then(chunks => ({
+            chunks: chunks,
+            marker: blocks.length ? blocks[blocks.length - 1]._id : null,
+            blocks_size: _.sumBy(blocks, 'size'),
+        }));
+}
+
 function make_md_id(id_str) {
     return new mongodb.ObjectId(id_str);
 }
@@ -165,9 +204,10 @@ exports.ObjectPart = ObjectPart;
 exports.DataChunk = DataChunk;
 exports.DataBlock = DataBlock;
 exports.aggregate_objects = aggregate_objects;
+exports.aggregate_objects_count = aggregate_objects_count;
 exports.aggregate_chunks = aggregate_chunks;
 exports.load_chunks_by_digest = load_chunks_by_digest;
 exports.load_blocks_for_chunks = load_blocks_for_chunks;
 exports.load_parts_objects_for_chunks = load_parts_objects_for_chunks;
-exports.aggregate_objects_count = aggregate_objects_count;
+exports.iterate_node_chunks = iterate_node_chunks;
 exports.make_md_id = make_md_id;

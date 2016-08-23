@@ -1,60 +1,53 @@
-<!-- ko if: dataReady -->
-
-<section class="c3 column">
-    <h3 class="heading4 push-next">Status</h3>
-    <div class="push-next">
-        <svg-icon params="name: stateIcon" data-bind="
-            tooltip: 'State'
-        "></svg-icon>
-        <span data-bind="text: stateText"></span>
-    </div>
-
-    <h3 class="heading4 push-next"></h3>
-    <div class="row">
-        <div class="c6 push-next">
-            <svg-icon params="name: onlineIcon" data-bind="
-                tooltip: 'Online Nodes'
-            "></svg-icon>
-            <span data-bind="text: onlineText"></span>
+<div class="row" data-bind="if: dataReady">
+    <section class="c3 column borders pad">
+        <div class="c4 row heading4 content-middle">
+            <svg-icon class="push-next" params="name: state().icon"
+                data-bind="css: state().css">
+            </svg-icon>
+            <span data-bind="text: state().text"></span>
         </div>
-        <div class="c6">
-            <svg-icon params="name: offlineIcon" data-bind="
-                tooltip: 'Offline Nodes'
-            "></svg-icon>
-            <span data-bind="text: offlineText"></span>
+        <hr />
+        <div class="row greedy text-center">
+            <div class="greedy align-middle">
+                <p class="node-counter" data-bind="text: nodeCount"></p>
+                <p> Nodes</p>
+            </div>
+
+            <vr></vr>
+
+            <div class="greedy align-middle">
+                <p class="node-counter" data-bind="text: onlineCount"></p>
+                <p>Online</p>
+            </div>
+
+            <vr></vr>
+
+            <div class="greedy column align-middle">
+                <p class="node-counter" data-bind="text: offlineCount"></p>
+                <p>Offline</p>
+            </div>
         </div>
-    </div>
-</section>
+    </section>
 
-<vr></vr>
+    <section class="c6 column push-both">
+        <div class="row align-middle">
+            <chart-legend class="pad" params="
+                items: pieValues,
+                caption: 'Pool Capacity'
+            "></chart-legend>
 
-<section class="c5 row">
-    <div class="column greedy">
-        <h3 class="heading4">Pool capacity</h3>
-        <chart-legend params="items: pieValues"></chart-legend>
-    </div>
+            <pie-chart class="push-prev" params="
+                values: pieValues,
+                primaryText: formattedTotal,
+                secondaryText: 'Total'
+            "></pie-chart>
+        </div>
+    </section>
 
-    <pie-chart params="
-        values: pieValues,
-        primaryText: formattedTotal,
-        secondaryText: 'Total'
-    "></pie-chart>
-</section>
 
-<vr></vr>
-
-<section class="column c4">
-    <h3 class="heading4 push-next">Activity</h3>
-    <!-- ko foreach: dataActivities -->
-    <p class="paragraph">
-        <span data-bind="text: row1"></span>
-        <br>
-        <span class="highlight" data-bind="text: row2"></span>
-    </p>
-    <!-- /ko -->
-
-    <!-- ko ifnot: dataActivities -->
-    <p>No activity</p>
-    <!-- /ko -->
-</section>
-<!-- /ko -->
+    <section class="column c3 borders pad">
+        <h3 class="heading4">No Activity</h3>
+        <hr>
+        <p>Pool in optimal condition</p>
+    </section>
+</div>

@@ -1,23 +1,27 @@
 <div class="dropdown-wrapper no-outline" data-bind="
     event: {
         blur: () => active(false),
-        click: () => active.toggle() && true,
+        click: () => handleClick(),
         keydown: (_, evt) => handleKeyPress(evt)
     },
     attr: { tabindex: !ko.unwrap(disabled) && '0' },
-    css: { disabled: disabled, active: active },
+    css: {
+        disabled: disabled,
+        active: active,
+        invalid: isInvalid(),
+        placeholder: selected() == null
+    },
     validationOptions: { insertMessages: false },
     let: { $wrapper: $element }
 ">
+    <div class="value no-wrap" data-bind="
+        value: selected,
+        text: selectedLabel
+    "></div>
+
     <svg-icon class="icon-small" params="name: 'chevron'" data-bind="
         event: { mousedown: () => $wrapper.focus() }
     "></svg-icon>
-
-    <div class="value no-wrap" data-bind="
-        value: selected,
-        text: selectedLabel,
-        css: { placeholder: selected() == null }
-    "></div>
 
     <div class="options" data-bind="
         visible: active(),

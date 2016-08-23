@@ -1,6 +1,8 @@
 checkbox {
-    @size: 21px;
+    @size: 18px;
+    line-height: 40px;
     position: relative;
+    vertical-align: middle;
     display: inline-block;
 
     label {
@@ -12,15 +14,15 @@ checkbox {
     }
 
     input {
-        position: absolute;
-        z-index: -1;
-        opacity: 0;
+        .hide();
 
         &:checked  ~ .checkbox-box {
             background-position: -@size 0;
         }
 
-        &[disabled] {
+        &:disabled {
+            opacity: 0;
+
             ~ .checkbox-box {
                 background-position: -2 * @size 0;
             }
@@ -30,7 +32,8 @@ checkbox {
             }
 
             ~ .checkbox-label {
-                color: @gray-lv5;
+                opacity: .3;
+                color: @color7;
             }
 
             ~ .checkbox-box, ~ .checkbox-label {
@@ -43,12 +46,17 @@ checkbox {
         }
     }
 
+    .checkbox-label {
+        color: @color6;
+        font-weight: @font-light;
+        margin-left: 8px;
+    }
+
     .checkbox-box {
         display: block;
         float: left;
         min-width: @size;
-        min-height: @size;
-        margin-right: .5em;
+        height: @size;
         background-image: url('@{assets}/checkbox.png');
     }
 

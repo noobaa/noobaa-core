@@ -6,6 +6,7 @@ const wd = require('selenium-webdriver');
 function init_mocha() {
 
     mocha.before(function() {
+        const self = this; // eslint-disable-line no-invalid-this
         const prefs = new wd.logging.Preferences();
         prefs.setLevel(wd.logging.Type.BROWSER, wd.logging.Level.ALL);
         prefs.setLevel(wd.logging.Type.CLIENT, wd.logging.Level.ALL);
@@ -13,14 +14,15 @@ function init_mocha() {
         prefs.setLevel(wd.logging.Type.PERFORMANCE, wd.logging.Level.ALL);
         prefs.setLevel(wd.logging.Type.SERVER, wd.logging.Level.ALL);
         wd.logging.installConsoleHandler();
-        this.driver = new wd.Builder()
+        self.driver = new wd.Builder()
             .forBrowser('chrome')
             .setLoggingPrefs(prefs)
             .build();
     });
 
     mocha.after(function() {
-        return this.driver.quit();
+        const self = this; // eslint-disable-line no-invalid-this
+        return self.driver.quit();
     });
 
 }

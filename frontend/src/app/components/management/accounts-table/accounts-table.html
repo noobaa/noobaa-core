@@ -1,8 +1,10 @@
-<button class="btn2 align-end push-next" data-bind="
-    click: () => openCreateAccountModal()
-">
-    Create Account
-</button>
+<div class="column alt-bg pad">
+    <button class="btn align-end" data-bind="
+        click: () => openCreateAccountModal()
+    ">
+        Create Account
+    </button>
+</div>
 
 <data-table params="
     columns: columns,
@@ -12,13 +14,13 @@
     <template name="s3-access">
         <span data-bind="text: $data().text"></span>
         |
-        <button class="link" data-bind="click: $data().edit">
+        <button class="link alt-colors" data-bind="click: $data().edit">
             edit
         </button>
     </template>
 
     <template name="password">
-        <button class="link" data-bind="click: $data">
+        <button class="link alt-colors" data-bind="click: $data">
             reset
         </button>
     </template>

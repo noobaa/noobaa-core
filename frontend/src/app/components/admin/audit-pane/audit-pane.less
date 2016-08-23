@@ -1,46 +1,42 @@
 audit-pane {
     .column();
     .greedy();
-    padding: @gutter;
+    padding: 0 @gutter;
 
     .audit-header {
-        background-color: @bg-color2;
-        padding: @gutter/2 @gutter;
-        margin: -@gutter;
+        margin: 0 -@gutter;
         margin-bottom: @gutter;
-
-        > .btn-flat {
-            padding: 0;
-        }
+        padding: 0 @gutter;
+        line-height: 3 * @gutter;
+        border-bottom: 1px solid @color8;
     }
 
-    .export-btn {
-        padding: 0;
+    .close-icon {
+        width: 12px;
+        height: 12px;
     }
 
     data-table {
         .data-row {
+            height: 54px;
+
             cursor: @cursor-pointer;
             transition: all 300ms;
 
             &:hover {
-                background-color: fade(@bg-color11, 20%);
+                background-color: fadeout(@color15, 50%);
             }
 
             &.selected {
-                .highlight();
                 cursor: default;
-                background-color: @bg-color1;
-
-                &:hover {
-                    background-color: fade(@bg-color11, 15%);
-                }
+                background-color: @color5;
+                color: @color6;
             }
         }
 
         .time-col {
-            min-width: 100px;
-            max-width: 100px;
+            min-width: 80px;
+            max-width: 80px;
         }
 
         tbody .time-col {
@@ -48,18 +44,18 @@ audit-pane {
         }
 
         .account-col {
-            min-width: 100px;
-            max-width: 100px;
+            min-width: 90px;
+            max-width: 90px;
             word-wrap: break-word;
             word-break: break-all;
         }
 
         .category-col {
-            min-width: 100px;
+            min-width: 78px;
         }
 
         .event-col {
-            min-width: 120px;
+            min-width: 90px;
         }
 
         .entity-col {
@@ -72,7 +68,7 @@ audit-pane {
     }
 
     .desc-box {
-        height: 10em;
+        height: 80px;
         overflow-y: auto;
-    }
+   }
 }

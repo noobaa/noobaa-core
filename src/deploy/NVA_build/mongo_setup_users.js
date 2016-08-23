@@ -1,10 +1,10 @@
-/* global db, print, */
-/* jshint -W089 */ // ignore for-in loops without hasOwnProperty checks
+/* eslint-env mongo */
 'use strict';
 
 print('\nChecking mongodb users ...');
 var nbcoreDb = db.getSiblingDB('nbcore');
-var pwd = 'roonoobaa'; // eslint-disable-line no-undef
+var pwd = 'roonoobaa';
+
 // try to authenticate with nbadmin. if succesful nothing to do
 var res = db.auth('nbadmin', pwd);
 if (res !== 1) {

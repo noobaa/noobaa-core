@@ -7,13 +7,15 @@ import { deleteBucket } from'actions';
 
 const stateIconMapping = deepFreeze({
     true: {
-        tooltip: 'Healthy',
-        name: 'bucket-healthy'
+        name: 'healthy',
+        css: 'success',
+        tooltip: 'Healthy'
     },
 
     false: {
-        tooltip: 'Problem',
-        name: 'bucket-problem'
+        name: 'problem',
+        css: 'error',
+        tooltip: 'Problem'
     }
 });
 

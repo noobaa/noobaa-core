@@ -1,10 +1,12 @@
-<button class="btn2 align-end push-next" data-bind="
-    click: () => showCreateBucketWizard()
-">
-    Create Bucket
-</button>
+<div class="column pad alt-bg">
+    <button class="btn align-end" data-bind="
+        click: () => showCreateBucketWizard()
+    ">
+        Create Bucket
+    </button>
+</div>
 
-<data-table params="
+<data-table class="greedy" params="
     columns: columns,
     sorting: sorting,
     data: buckets,

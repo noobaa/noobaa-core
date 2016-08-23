@@ -1,20 +1,16 @@
-<div class="row push-next">
+<div class="row pad alt-bg">
+    <input type="search" class="push-next" placeholder="Filter by Node Name or IP"
+        data-bind=" textInput: nameOrIpFilter"/>
 
-    <div class="align-middle push-next">
-        <input type="search" class="filter-pool-nodes"
-            placeholder="Filter by Node Name or IP"
-            data-bind=" textInput: nameOrIpFilter"/>
-    </div>
-
-    <toggle-filter class="push-next" params="
-        options: issuesFilterOptions,
-        selected: issuesOnly
-    "></toggle-filter>
-
-    <div class="greedy"></div>
+    <editor class="filter-by-editor greedy push-both" params="label: 'Filter By'">
+        <radio-group params="
+            options: issuesFilterOptions,
+            selected: issuesOnly
+        "></radio-group>
+    </editor>
 
     <div data-bind="tooltip: assignNodeTooltip">
-        <button class="btn3 " data-bind="
+        <button class="btn " data-bind="
             disable: isAssignNodesDisabled,
             click: () => showAssignNodesModal()
         ">
@@ -23,7 +19,7 @@
     </div>
 </div>
 
-<data-table class="greedy push-next" params="
+<data-table class="greedy" params="
     columns: columns,
     data: nodes,
     rowFactory: createNodeRow,
@@ -31,7 +27,7 @@
     emptyMessage: emptyMessage
 "></data-table>
 
-<paginator class="align-end" params="
+<paginator params="
     itemCount: count,
     pageSize: pageSize,
     page: page

@@ -1,27 +1,21 @@
-/* global db, print, printjson, setVerboseShell */
-/* jshint -W089 */ // ignore for-in loops without hasOwnProperty checks
+/* eslint-env mongo */
+/* global setVerboseShell */
 'use strict';
+// the following params are set from outside the script
+// using mongo --eval 'var param_ip="..."' and we only declare them here for completeness
+var param_ip;
+var param_secret;
+var params_cluster_id;
 setVerboseShell(true);
 upgrade();
 
 /* Upade mongo structures and values with new things since the latest version*/
 function upgrade() {
-    authenticate();
     upgrade_systems();
     upgrade_cluster();
     upgrade_system_access_keys();
     upgrade_object_mds();
     print('\nUPGRADE DONE.');
-}
-
-function authenticate() {
-    var adminDb = db.getSiblingDB('admin');
-    var pwd = 'roonoobaa'; // eslint-disable-line no-undef
-    // try to authenticate with nbadmin. if succesful nothing to do
-    var res = adminDb.auth('nbadmin', pwd);
-    if (res !== 1) {
-        print('\nERROR - mongo authentication failed');
-    }
 }
 
 function upgrade_systems() {
@@ -271,15 +265,15 @@ function upgrade_cluster() {
 
     var cluster = {
         is_clusterized: false,
-        owner_secret: param_secret, // eslint-disable-line no-undef
-        owner_address: param_ip, // eslint-disable-line no-undef
+        owner_secret: param_secret,
+        owner_address: param_ip,
         owner_shardname: 'shard1',
         location: 'Earth',
-        cluster_id: params_cluster_id, // eslint-disable-line no-undef
+        cluster_id: params_cluster_id,
         shards: [{
             shardname: 'shard1',
             servers: [{
-                address: param_ip // eslint-disable-line no-undef
+                address: param_ip
             }]
         }],
         config_servers: [],

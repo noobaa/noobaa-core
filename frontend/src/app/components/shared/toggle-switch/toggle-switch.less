@@ -1,19 +1,12 @@
 toggle-switch {
-    @radius: .55em;
-    @margin: .2em;
+    @radius: 8px;
+    @margin: 3px;
     @size: (@radius + @margin) * 2;
     position: relative;
 
     display: inline-block;
     vertical-align: middle;
     line-height: @size;
-
-    input {
-        position: absolute;
-        z-index: -1;
-        pointer-events: none;
-        opacity: 0;
-    }
 
     .toggle-box {
         position: relative;
@@ -22,9 +15,9 @@ toggle-switch {
         height: @size;
         border-radius: @size;
         line-height: 0;
-        background-color: @bg-color5;
+        background-color: @color15;
         vertical-align: middle;
-        margin-right: .25em;
+        margin-right: 4px;
 
         &::before {
             position: absolute;
@@ -34,7 +27,7 @@ toggle-switch {
             height: @radius * 2;
             border-radius: @radius * 2;
             top: @margin;
-            background-color: @bg-color4;
+            background-color: @color7;
             left: @margin;
             transition:
                 left 250ms ease-in-out,
@@ -46,16 +39,17 @@ toggle-switch {
         display: inline-block;
         vertical-align: middle;
         text-transform: uppercase;
+
     }
 
     :checked {
         + .toggle-box::before {
-            background-color: @bg-color11;
-            left: 3em - (1.1em + .3em);
+            background-color: @color14;
+            left: @size + @margin;
         }
 
         ~ .toggle-label {
-            color: @bg-color11;
+            color: @color6;
         }
     }
 

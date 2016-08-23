@@ -1,75 +1,29 @@
 dropdown {
-    position: relative;
     display: inline-block;
-    cursor: @cursor-pointer;
-    vertical-align: middle;
-    width: 362px;;
 
     .dropdown-wrapper {
-        vertical-align: middle;
-        fill: @text-color4;
-        width: inherit;
-
-        &:focus {
-            fill: @text-color2;
-
-            svg-icon {
-                background-color: @bg-color11;
-                border-color: @bg-color11;
-            }
-
-            .value {
-                border-color: @text-color6;
-            }
-        }
-
-        &.active svg-icon {
-            background-color: @bg-color11;
-            border-color: @bg-color11;
-            box-shadow: 1px 0 0 @bg-color2;
-        }
-
-        &.disabled {
-            fill: @text-color5;
-
-            .value {
-                color: @text-color5;
-                border-color: @text-color5;
-            }
-        }
+        .input();
+        max-width: calc(100% - 2px);
+        position: relative;
     }
 
     .value {
-        .textfield();
         width: 100%;
-        padding-right: 16px + @gutter;
-
-        &.placeholder {
-            color: @text-color5;
-        }
-    }
-
-    .option-label {
-        display: block;
-        margin: 0;
-        vertical-align: middle;
+        padding-right: 32px;
     }
 
     svg-icon {
-        float: right;
-        box-sizing: content-box;
+        fill: @color7;
         position: absolute;
-        padding: @gutter/2 + 2px;
-        line-height: 1;
-        border-left: 1px solid @bg-color7;
-        top: 0;
-        right: 0;
+        top: 12px;
+        right: 12px;
     }
 
     .options {
         position: absolute;
-        width: inherit;
-        background-color: @bg-color11;
+        left: -1px;
+        right: -1px;
+        background-color: @color6;
         margin-top: 2px;
         padding: 2px;
         z-index: 1;
@@ -84,7 +38,7 @@ dropdown {
     .seperator {
         border: none;
         margin: 2px 0;
-        border-top: 1px solid @text-color1;
+        border-top: 1px solid @color7;
     }
 
     .option {
@@ -96,17 +50,23 @@ dropdown {
         }
 
         .option-label {
-            color: @text-color1;
+            display: block;
+            margin: 0;
+            color: @color1;
+            font-weight: @font-regular;
             padding: @gutter/2;
+
+            &:hover {
+                background-color: @color7;
+            }
         }
 
         :checked + .option-label {
-            color: @text-color6;
-            background-color: @bg-color3;
+            color: @color8;
         }
+    }
 
-        .option-label:hover {
-            background-color: @blue-dark;
-        }
+    ::-webkit-scrollbar-thumb  {
+        border-color: @color6;
     }
 }

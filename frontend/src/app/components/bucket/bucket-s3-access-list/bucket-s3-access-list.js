@@ -16,6 +16,10 @@ class BucketS3AccessListViewModel extends Disposable {
                 ({ account }) => account
             );
 
+        this.isListEmpty = ko.pureComputed(
+            () => this.accessList().length === 0
+        );
+
         this.selectedAccount = ko.observable();
 
         this.bucketName = bucketName;

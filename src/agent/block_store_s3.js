@@ -176,23 +176,59 @@ class BlockStoreS3 extends BlockStoreBase {
     }
 
     _delete_blocks(block_ids) {
-        return P.ninvoke(this.s3cloud, 'deleteObjects', {
-                Bucket: this.cloud_info.target_bucket,
-                Delete: {
-                    Objects: _.map(block_ids, block_id => ({
-                        Key: this._block_key(block_id)
-                    }))
-                }
+        let deleted_storage = {
+            size: 0,
+            count: 0
+        };
+        // Todo: Assuming that all requested blocks were deleted, which a bit naive
+        return this._get_blocks_usage(block_ids)
+            .then(ret_usage => {
+                deleted_storage.size -= ret_usage.size;
+                deleted_storage.count -= ret_usage.count;
+                return P.ninvoke(this.s3cloud, 'deleteObjects', {
+                        Bucket: this.cloud_info.target_bucket,
+                        Delete: {
+                            Objects: _.map(block_ids, block_id => ({
+                                Key: this._block_key(block_id)
+                            }))
+                        }
+                    })
+                    .catch(err => {
+                        if (this._try_change_region(err)) {
+                            return this._delete_blocks(block_ids);
+                        }
+                        dbg.error('_delete_blocks failed:', err, this.cloud_info);
+                        throw err;
+                    });
             })
-            .catch(err => {
-                if (this._try_change_region(err)) {
-                    return this._delete_blocks(block_ids);
-                }
-                dbg.error('_delete_blocks failed:', err, this.cloud_info);
-                throw err;
-            });
+            .then(() => this._update_usage(deleted_storage));
     }
 
+
+    _get_blocks_usage(block_ids) {
+        let usage = {
+            size: 0,
+            count: 0
+        };
+        return P.map(block_ids, block_id => {
+                let params = {
+                    Bucket: this.cloud_info.target_bucket,
+                    Key: this._block_key(block_id),
+                };
+                return P.ninvoke(this.s3cloud, 'headObject', params)
+                    .then(head => {
+                        let deleted_size = Number(head.ContentLength);
+                        let md_size = head.Metadata.noobaa_block_md ? head.Metadata.noobaa_block_md.length : 0;
+                        deleted_size += md_size;
+                        usage.size += deleted_size;
+                        usage.count += 1;
+                    }, err => {});
+            }, {
+                // limit concurrency to 10
+                concurrency: 10
+            })
+            .then(() => usage);
+    }
 
     _block_key(block_id) {
         let block_dir = this._get_block_internal_dir(block_id);

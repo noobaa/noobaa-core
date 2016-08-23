@@ -154,8 +154,11 @@ class BlockStoreFs extends BlockStoreBase {
             })
             .then(() => {
                 if (this._usage && del_stat) {
-                    this._usage.size -= del_stat.size;
-                    this._usage.count -= 1;
+                    let usage = {
+                        size: -del_stat.size,
+                        count: -1
+                    };
+                    return this._update_usage(usage);
                 }
             });
     }

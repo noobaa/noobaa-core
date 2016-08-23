@@ -17,7 +17,6 @@ const md_store = require('../object_services/md_store');
 const js_utils = require('../../util/js_utils');
 const RpcError = require('../../rpc/rpc_error');
 const size_utils = require('../../util/size_utils');
-const BigInteger = size_utils.BigInteger;
 const server_rpc = require('../server_rpc');
 const tier_server = require('./tier_server');
 const mongo_utils = require('../../util/mongo_utils');
@@ -751,13 +750,13 @@ function get_bucket_info(bucket, nodes_aggregate_pool, num_of_objects, cloud_syn
 
     info.num_objects = num_of_objects || 0;
     let placement_mul = (tier_of_bucket.data_placement === 'MIRROR') ? Math.max(tier_of_bucket.pools.length, 1) : 1;
-    let bucket_chunks_capacity = _.get(bucket, 'storage_stats.chunks_capacity', 0);
-    let bucket_used = new BigInteger(bucket_chunks_capacity)
+    let bucket_chunks_capacity = size_utils.json_to_bigint(_.get(bucket, 'storage_stats.chunks_capacity', 0));
+    let bucket_used = bucket_chunks_capacity
         .multiply(tier_of_bucket.replicas)
         .multiply(placement_mul);
-    let bucket_free = new BigInteger(_.get(info, 'tiering.storage.free', 0));
-    let bucket_used_other = BigInteger.max(
-        new BigInteger(_.get(info, 'tiering.storage.used', 0)).minus(bucket_used),
+    let bucket_free = size_utils.json_to_bigint(_.get(info, 'tiering.storage.free', 0));
+    let bucket_used_other = size_utils.BigInteger.max(
+        size_utils.json_to_bigint(_.get(info, 'tiering.storage.used', 0)).minus(bucket_used),
         0);
 
     info.storage = size_utils.to_bigint_storage({

@@ -56,13 +56,13 @@ class BlockStoreS3 extends BlockStoreBase {
     init() {
         let params = {
             Bucket: this.cloud_info.target_bucket,
-            Key: this._block_key(this.usage_path)
+            Key: this.usage_path
         };
         return P.ninvoke(this.s3cloud, 'headObject', params)
             .then(head => {
                 let usage_data = head.Metadata[this.usage_md_key];
                 if (usage_data) {
-                    this._usage = JSON.parse(this._decode_block_md(usage_data));
+                    this._usage = this._decode_block_md(usage_data);
                     dbg.log0('found usage data in', this.usage_path, 'usage_data = ', this._usage);
                 }
             }, err => {});

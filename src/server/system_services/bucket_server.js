@@ -751,9 +751,14 @@ function get_bucket_info(bucket, nodes_aggregate_pool, num_of_objects, cloud_syn
 
     info.num_objects = num_of_objects || 0;
     let placement_mul = (tier_of_bucket.data_placement === 'MIRROR') ? Math.max(tier_of_bucket.pools.length, 1) : 1;
-    let bucket_used = new BigInteger((bucket.storage_stats && bucket.storage_stats.chunks_capacity) || 0).multiply(tier_of_bucket.replicas).multiply(placement_mul);
-    let bucket_free = new BigInteger((info.tiering && info.tiering.storage && info.tiering.storage.free) || 0);
-    let bucket_used_other = new BigInteger((info.tiering && info.tiering.storage && info.tiering.storage.used_other) || 0);
+    let bucket_chunks_capacity = _.get(bucket, 'storage_stats.chunks_capacity', 0);
+    let bucket_used = new BigInteger(bucket_chunks_capacity)
+        .multiply(tier_of_bucket.replicas)
+        .multiply(placement_mul);
+    let bucket_free = new BigInteger(_.get(info, 'tiering.storage.free', 0));
+    let bucket_used_other = BigInteger.max(
+        new BigInteger(_.get(info, 'tiering.storage.used', 0)).minus(bucket_used),
+        0);
 
     info.storage = size_utils.to_bigint_storage({
         used: bucket_used,
@@ -764,8 +769,8 @@ function get_bucket_info(bucket, nodes_aggregate_pool, num_of_objects, cloud_syn
 
     info.data = size_utils.to_bigint_storage({
         size: objects_aggregate.size,
-        size_reduced: (bucket.storage_stats && bucket.storage_stats.chunks_capacity) || 0,
-        actual_free: (info.tiering && info.tiering.storage && info.tiering.storage.real) || 0
+        size_reduced: bucket_chunks_capacity,
+        actual_free: _.get(info, 'tiering.storage.real', 0)
     });
 
     let stats = bucket.stats;

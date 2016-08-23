@@ -1,25 +1,27 @@
 'use strict';
 
-var _ = require('lodash');
-var mocha = require('mocha');
-var assert = require('assert');
-var WaitQueue = require('../../util/wait_queue');
+const _ = require('lodash');
+const mocha = require('mocha');
+const assert = require('assert');
+
+const P = require('../../util/promise');
+const WaitQueue = require('../../util/wait_queue');
 
 mocha.describe('wait_queue', function() {
 
     mocha.it('should create ok', function() {
-        var wq = new WaitQueue('a long name just for spite');
+        const wq = new WaitQueue('a long name just for spite');
         _.noop(wq); // lint unused bypass
     });
 
     mocha.it('should return null when no items', function() {
-        var wq = new WaitQueue();
+        const wq = new WaitQueue();
         assert(!wq.wakeup());
     });
 
     mocha.it('should handle single item', function() {
-        var wq;
-        var woke = 0;
+        let wq;
+        let woke = 0;
 
         function do_wake() {
             woke += 1;

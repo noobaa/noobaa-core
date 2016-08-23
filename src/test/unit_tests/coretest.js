@@ -56,7 +56,8 @@ function new_test_client() {
 }
 
 mocha.before('coretest-before', function() {
-    this.timeout(10000);
+    const self = this; // eslint-disable-line no-invalid-this
+    self.timeout(10000);
     _.each(server_rpc.rpc._services, (service, srv) => api_coverage.add(srv));
     return P.resolve()
         .then(() => console.log('running mongoose_utils.mongoose_connect()'))

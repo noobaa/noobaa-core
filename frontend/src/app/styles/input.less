@@ -1,26 +1,32 @@
 .placeholder(@color) {
     &::-webkit-input-placeholder {
        color: @color;
+       text-transform: capitalize;
     }
 
     &:-moz-placeholder { /* Firefox 18- */
        color: @color;
+       text-transform: capitalize;
     }
 
     ::-moz-placeholder {  /* Firefox 19+ */
        color: @color;
+       text-transform: capitalize;
     }
 
     :-ms-input-placeholder {
        color: @color;
+       text-transform: capitalize;
     }
 
     &::placholder {
         color: @color;
+        text-transform: capitalize;
     }
 
     &.placeholder {
         color: @color;
+        text-transform: capitalize;
     }
 }
 

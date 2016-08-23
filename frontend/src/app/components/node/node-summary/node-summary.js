@@ -44,7 +44,7 @@ const accessibilityMapping = deepFreeze({
         icon: 'problem'
     },
     3: {
-        text: 'Readable & Writeable',
+        text: 'Readable & Writable',
         css: 'success',
         icon: 'healthy'
     }

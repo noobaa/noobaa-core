@@ -98,7 +98,7 @@ class ObjectIO {
 
     lazy_init_natives() {
         if (!this.native_core) {
-            this.native_core = require('../util/native_core')();
+            this.native_core = require('../util/native_core')(); // eslint-disable-line global-require
         }
         let nc = this.native_core;
         // these threadpools are global OS threads used to offload heavy CPU work
@@ -763,7 +763,7 @@ class ObjectIO {
         this._object_range_cache = new LRUCache({
             name: 'RangesCache',
             max_usage: 256 * 1024 * 1024, // 128 MB
-            item_usage: (data, params) => data && data.buffer && data.buffer.length || 1024,
+            item_usage: (data, params) => (data && data.buffer && data.buffer.length) || 1024,
             expiry_ms: 600000, // 10 minutes
             make_key: params => {
                 let start = range_utils.align_down(
@@ -1041,8 +1041,8 @@ class ObjectIO {
         }
 
         let read_stream;
-        let read_closer = reason => {
-            return () => {
+        let read_closer = reason => (
+            () => {
                 dbg.log0('+++ serve_http_stream:', reason);
                 if (read_stream) {
                     read_stream.pause();
@@ -1053,8 +1053,8 @@ class ObjectIO {
                     dbg.log('res end after req ended');
                     res.status(200).end();
                 }
-            };
-        };
+            }
+        );
 
         // on disconnects close the read stream
         req.on('close', read_closer('request closed'));

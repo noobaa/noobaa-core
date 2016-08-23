@@ -48,6 +48,11 @@ class BlockStoreS3 extends BlockStoreBase {
         }
     }
 
+    init() {
+        dbg.warn('BlockStoreS3.init: TODO should count usage ...');
+        // TODO should count usage ...
+    }
+
     get_storage_info() {
         const PETABYTE = 1024 * 1024 * 1024 * 1024 * 1024;
         return {

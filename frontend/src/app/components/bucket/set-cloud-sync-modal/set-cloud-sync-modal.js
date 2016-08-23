@@ -22,16 +22,16 @@ const frequencyUnitOptions = Object.freeze([
 
 const directionOptions = Object.freeze([
     {
+        value: 3,
+        label: 'Bi-Direcitonal'
+    },
+    {
         value: 1,
         label: 'Source to Target'
     },
     {
         value: 2,
         label: 'Target to Source'
-    },
-    {
-        value: 3,
-        label: 'Bi-Direcitonal'
     }
 ]);
 
@@ -61,8 +61,6 @@ class CloudSyncModalViewModel extends Disposable {
         );
 
         let _connection = ko.observable();
-        //     () => S3Connections() && S3Connections()[0]
-        // );
         this.connection = ko.pureComputed({
             read: _connection,
             write: value => {

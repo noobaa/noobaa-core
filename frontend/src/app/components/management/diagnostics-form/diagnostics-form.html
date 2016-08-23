@@ -1,34 +1,24 @@
-<section class="column">
+<section class="column pad">
     <h2 class="heading3">Contact Support</h2>
-    <ul class="list-no-style">
-        <li class="row">
-            <span class="c2" >By email:</span>
-            <a class="link" href="mailto:support@noobaa.com">support@noobaa.com</a>
-        </li>
-        <li class="row">
-            <span class="c2">Support center:</span>
-            <a class="link" href="https://noobaa.desk.com" target="_blank">
-                https://noobaa.desk.com
-            </a>
-        </li>
-    </ul>
+    <property-sheet params="properties: contactSupport"></property-sheet>
 </section>
 <hr>
 
-<section class="column">
-    <div class="row content-middle">
+<section class="row pad">
+    <div class="column greedy">
         <h2 class="heading3 greedy">Diagnostics</h2>
-        <button class="btn3 align-start push-next" data-bind="
-            click: toogleDebugLevel,
-            text: toogleDebugLevelButtonText
-        "></button>
-        <button class="btn3 align-start" data-bind="click: downloadDiagnosticPack">
-            Download Diagnostics
-        </button>
+        <p class="row">
+            <span class="push-next">Debug level:</span>
+            <span data-bind="text: debugLevelText"></span>
+        </p>
     </div>
-    <p class="row push-next">
-        <span class="c2">Debug level:</span>
-        <span class="emphasized c10" data-bind="text: debugLevelText"></span>
-    </p>
+
+    <button class="btn align-start push-next" data-bind="
+        click: toogleDebugLevel,
+        text: toogleDebugLevelButtonText
+    "></button>
+    <button class="btn align-start" data-bind="click: downloadDiagnosticPack">
+        Download Diagnostics
+    </button>
 </section>
 

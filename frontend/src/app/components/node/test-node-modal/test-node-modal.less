@@ -1,16 +1,7 @@
 test-node-modal {
-    .modal-content {
-        width: 60em;
-        height: 50em;
-    }
-
-    .run-btn {
-        width: 115px;
-    }
-
     data-table {
         .test-col {
-            min-width: 90px;
+            min-width: 75px;
         }
 
         .source-node-col, .target-node-col {
@@ -21,15 +12,15 @@ test-node-modal {
         }
 
         .protocol-col {
-            min-width: 90px;
+            min-width: 50px;
         }
 
         .ip-col {
-            min-width: 110px;
+            min-width: 100px;
         }
 
         .port-col {
-            min-width: 60px;
+            min-width: 55px;
         }
 
         .time-col {
@@ -41,7 +32,7 @@ test-node-modal {
         }
 
         .progress-col {
-            min-width: 112px;
+            min-width: 75px;
             text-transform: capitalize;
 
             .completed  {
@@ -59,16 +50,12 @@ test-node-modal {
     }
 
     .summary {
-        margin-top: 6px;
+        padding: 0 @gutter;
+        line-height: 24px;
+        height: 24px;
 
-        .summary-counter {
-            svg-icon, span {
-                vertical-align: middle;
-            }
-        }
-
-        .emphasized {
-            font-size: @font-size-medium;
+        svg-icon {
+            margin-right: @gutter/2;
         }
     }
 }

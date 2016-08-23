@@ -12,9 +12,10 @@ const map_builder = require('../object_services/map_builder');
  *
  * background worker that scans chunks and builds them according to their blocks status
  *
+ * @this worker instance
+ *
  */
 function background_worker() {
-    /* jshint validthis: true */
     var self = this;
     return P.fcall(function() {
             var now = Date.now();

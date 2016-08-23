@@ -1,8 +1,8 @@
-<h2 class="row heading3" data-bind="click: () => expanded.toggle()">
+<h2 class="row heading3 cursor-pointer" data-bind="click: () => expanded.toggle()">
     <span class="greedy align-middle">NooBaa DNS Name / Address</span>
 
     <button class="btn-flat expand-btn no-outline" >
-        <svg-icon class="rotate"
+        <svg-icon class="icon-small rotate"
             params="name: 'chevron'"
             data-bind="css: { 'deg-90': !expanded() }">
         </svg-icon>
@@ -11,7 +11,7 @@
 
 <p class="summary" data-bind="visible: !expanded()">
     Server Address:
-    <output class="text-tech emphasized" data-bind="text: baseAddress"></output>
+    <output class="text-tech" data-bind="text: baseAddress"></output>
 </p>
 
 <div class="column" data-bind="expand: expanded">
@@ -20,13 +20,15 @@
     </p>
 
     <div class="column push-next">
-        <radio-group class="push-next" params="selected: addressType, options: addressOptions"></radio-group>
-
-        <editor params="label: 'IP Address', visible: usingIP">
-            <output type="text" data-bind="value: ipAddress"></output>
+        <editor params="label: 'Server Address'">
+            <radio-group params="selected: addressType, options: addressOptions"></radio-group>
         </editor>
 
-        <editor params="label: 'DNS Name', visible: usingDNS">
+        <editor params="label: 'IP Address'" data-bind="visible: usingIP">
+            <input type="text" disabled data-bind="value: ipAddress" />
+        </editor>
+
+        <editor params="label: 'DNS Name'" data-bind="visible: usingDNS">
             <input type="text" data-bind="textInput: dnsName" />
         </editor>
     </div>
@@ -35,27 +37,27 @@
         visible: usingDNS,
         validationOptions: { insertMessages: false }
     ">
-        <p class="emphasized">
+        <p class="push-next">
             Before you apply changes, add the following entry to your DNS:
         </p>
 
-        <div class="box config">
+        <div class="alt-bg pad config">
             <span>
-                IP:
-                <output class="text-tech emphasized" data-bind="value: ipAddress"></output>
+                <span class="highlight">IP:</span>
+                <output class="text-tech" data-bind="value: ipAddress"></output>
             </span>
 
             <span>
-                Name:
-                <output class="text-tech emphasized" data-bind="value: dnsName"></output>
+                <span class="highlight">Name:</span>
+                <output class="text-tech" data-bind="value: dnsName"></output>
             </span>
         </div>
     </div>
 
-    <div class="push-next">
+    <div class="column push-next">
         Changing DNS name procedure:
 
-        <ol class="remark bullet-list">
+        <ol class="remark bullet-list push-next">
             <li>Add the new name in your DNS to have both old and new names avaliable</li>
             <li>Apply the changes in the forms above</li>
             <li>Once all nodes are updated with the new name, the old name can be removed from the DNS</li>
@@ -68,7 +70,7 @@
         </p>
     </div>
 
-    <button class="btn2 push-next" data-bind="click: applyChanges">
+    <button class="btn align-start push-both" data-bind="click: applyChanges">
         Apply Changes
     </button>
 </div>

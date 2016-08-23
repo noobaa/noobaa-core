@@ -4,7 +4,7 @@
 console.log('loading .env file');
 require('../../util/dotenv').load();
 
-var CORETEST_MONGODB_URL = process.env.CORETEST_MONGODB_URL || 'mongodb://USER@localhost/coretest';
+var CORETEST_MONGODB_URL = process.env.CORETEST_MONGODB_URL || 'mongodb://localhost/coretest';
 process.env.MONGODB_URL = CORETEST_MONGODB_URL;
 process.env.JWT_SECRET = 'coretest';
 
@@ -56,7 +56,8 @@ function new_test_client() {
 }
 
 mocha.before('coretest-before', function() {
-    this.timeout(10000);
+    const self = this; // eslint-disable-line no-invalid-this
+    self.timeout(10000);
     _.each(server_rpc.rpc._services, (service, srv) => api_coverage.add(srv));
     return P.resolve()
         .then(() => console.log('running mongoose_utils.mongoose_connect()'))
@@ -166,17 +167,11 @@ function clear_test_nodes() {
         });
 }
 
-module.exports = {
-    client: new_test_client(),
-    new_test_client: new_test_client,
-    init_test_nodes: init_test_nodes,
-    clear_test_nodes: clear_test_nodes,
-    set_incomplete_rpc_coverage: set_incomplete_rpc_coverage,
-};
+exports.client = new_test_client();
+exports.new_test_client = new_test_client;
+exports.init_test_nodes = init_test_nodes;
+exports.clear_test_nodes = clear_test_nodes;
+exports.set_incomplete_rpc_coverage = set_incomplete_rpc_coverage;
 
 //Expose Agent Control API via coretest
-_.each(core_agent_control, prop => {
-    if (core_agent_control.hasOwnProperty(prop)) {
-        module.exports[prop] = core_agent_control[prop];
-    }
-});
+_.assign(exports, core_agent_control);

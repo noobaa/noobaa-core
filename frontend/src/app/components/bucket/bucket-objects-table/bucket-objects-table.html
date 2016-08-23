@@ -1,4 +1,4 @@
-<div class="row content-middle  push-next">
+<div class="row content-middle pad alt-bg">
     <h3 class="heading3 push-next">
         Files in this bucket:
         <span data-bind="text: objectCount"></span>
@@ -10,7 +10,7 @@
     </div>
 
     <div data-bind="tooltip: uploadTooltip">
-        <button class="upload-btn btn3" data-bind="
+        <button class="upload-btn btn" data-bind="
             disable: uploadDisabled,
             click: () => showUploadFilesModal()
         ">
@@ -19,7 +19,7 @@
     </div>
 </div>
 
-<data-table class="greedy push-next" params="
+<data-table class="greedy" params="
     columns: columns,
     data: objects,
     rowFactory: obj => createObjectRow(obj),
@@ -27,7 +27,7 @@
     emptyMessage: 'No files in bucket'
 "></data-table>
 
-<paginator class="align-end" params="
+<paginator params="
     pageSize: pageSize,
     itemCount: filteredObjectCount,
     page: page

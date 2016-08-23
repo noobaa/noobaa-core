@@ -2,11 +2,9 @@
 
 const _ = require('lodash');
 const mongoose = require('mongoose');
-const mongodb_uri = require('mongodb-uri');
 
 const P = require('./promise');
 const dbg = require('./debug_module')(__filename);
-const config = require('../../config');
 const mongoose_logger = require('./mongoose_logger');
 
 var debug_mode = (process.env.DEBUG_MODE === 'true');
@@ -60,15 +58,9 @@ function mongoose_connect() {
     clearTimeout(mongoose_timeout);
     mongoose_timeout = null;
     mongoose_disconnected = false;
-    const url_obj = mongodb_uri.parse(MONGODB_URL);
-    if (url_obj.username) {
-        url_obj.username = config.MONGO_DEFAULTS.DEFAULT_USER;
-        url_obj.password = config.MONGO_DEFAULTS.DEFAULT_MONGO_PWD;
-    }
-    const new_url = mongodb_uri.format(url_obj);
     if (!mongoose_connected) {
-        dbg.log0('connecting mongoose to', new_url);
-        mongoose.connect(new_url);
+        dbg.log0('connecting mongoose to', MONGODB_URL);
+        mongoose.connect(MONGODB_URL);
     }
 }
 

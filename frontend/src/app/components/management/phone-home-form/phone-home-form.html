@@ -1,10 +1,12 @@
-<div class="row content-middle" data-bind="click: () => expanded.toggle()">
+<div class="row content-middle cursor-pointer" data-bind="
+    click: () => expanded.toggle()
+">
     <h2 class="heading3 greedy">
         Phone Home Proxy
     </h2>
 
     <button class="btn-flat expand-btn no-outline">
-        <svg-icon class="rotate"
+        <svg-icon class="icon-small rotate"
             params="name: 'chevron'"
             data-bind="css: { 'deg-90': !expanded() }">
         </svg-icon>
@@ -13,7 +15,7 @@
 
 <p data-bind="visible: !expanded()">
     Proxy Address:
-    <output class="emphasized" data-bind="
+    <output data-bind="
         value: proxyAddressText,
         css: { 'text-tech': !!proxyAddress() }
     "></output>
@@ -41,7 +43,7 @@
         "/>
    </editor>
 
-    <button class="btn2 push-prev" data-bind="click: applyChanges">
+    <button class="btn align-start push-prev" data-bind="click: applyChanges">
         Apply Changes
     </button>
 </section>

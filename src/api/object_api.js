@@ -872,6 +872,9 @@ module.exports = {
                 total_parts_count: {
                     type: 'integer',
                 },
+                s3_signed_url: {
+                    type: 'string'
+                }
             }
         },
 

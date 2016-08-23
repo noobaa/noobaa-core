@@ -1,55 +1,43 @@
 breadcrumbs {
     .row();
-    line-height: 3 * @gutter;
+    color: @color6;
+    font-size: @font-size4;
+    line-height: 1;
 
-    svg-icon {
-        width: @font-size-xlarge;
-        height: @font-size-xlarge;
-        margin-right: .5em;
-    }
-
-    a {
-        .link();
+    .crumb {
+        vertical-align: middle;
         .no-outline();
         .row();
-        margin-left: -@gutter;
-        margin-right: 4px;
 
         > span {
-            display: block;
-            vertical-align: middle;
-            background-color: @bg-color4;
-            max-width: 20em;
-            padding: 0 @gutter/2;
             .no-wrap();
-        }
-
-        &::before, &::after {
-            content: '';
             display: block;
-            border: solid transparent;
-            border-width: 3/2 * @gutter 0 3/2 * @gutter @gutter;
             vertical-align: middle;
-        }
-
-        &::before {
-            border-color: @bg-color4;
-            border-left-color: transparent;
-        }
-
-        &::after {;
-            border-left-color: @bg-color4;
+            max-width: 20em;
         }
 
         &:last-child {
-            > span {
-                background: none;
-                font-size: @font-size-medium;
-            }
+            color: @color8;
 
-            &::before, &::after {
-                border-color: transparent;
+            &::after {
+                display: none;
             }
+        }
+
+        &::after {
+            content: '';
+            margin-left: @gutter;
+            border: @gutter/2 solid transparent;
+            border-left-color: @color8;
+        }
+    }
+
+    .seperator {
+        fill: @color8;
+        margin: 0 @gutter/2;
+
+        &:first-child {
+            display: none;
         }
     }
 }

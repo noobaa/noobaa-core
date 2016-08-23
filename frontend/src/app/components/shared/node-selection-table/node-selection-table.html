@@ -1,31 +1,29 @@
  <div class="row content-middle">
     <h2 class="heading3 greedy" data-bind="text: caption"></h2>
     <div>
-        <button class="link" data-bind="click: selectListedNodes">
+        <button class="link alt-colors" data-bind="click: selectListedNodes">
             Select nodes
         </button>
         |
-        <button class="link" data-bind="click: clearListedNodes">
+        <button class="link alt-colors" data-bind="click: clearListedNodes">
             Clear nodes
         </button>
     </div>
 </div>
 
-<div class="box column greedy">
-    <data-table class="greedy" params="
-        columns: columns,
-        rowFactory: node => createRow(node),
-        data: nodes,
-        emptyMessage: emptyMessage
-    "></data-table>
-</div>
+<data-table class="greedy" params="
+    columns: columns,
+    rowFactory: node => createRow(node),
+    data: nodes,
+    emptyMessage: emptyMessage
+"></data-table>
 
-<div class="box selection-summary row">
+<div class="selection-summary row">
     <span class="greedy push-next selection-text" data-bind="
         text: selectedMessage
     "></span>
 
-    <button class="link" data-bind="click: clearAllNodes">
+    <button class="link alt-colors" data-bind="click: clearAllNodes">
         Clear All Selections
     </button>
 </div>

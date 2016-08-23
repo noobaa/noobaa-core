@@ -11,10 +11,11 @@ const selenium = require('./selenium');
 selenium.init_mocha();
 
 mocha.describe('create_system', function() {
-    this.timeout(300000);
+    const self = this; // eslint-disable-line no-invalid-this
+    self.timeout(300000);
+    const d = self.driver;
 
     mocha.it('should fill signup form and create system', function() {
-        const d = this.driver;
         const URL = 'http://127.0.0.1:5001';
         console.log('Loading URL:', URL);
         return d.get(URL)

@@ -71,7 +71,7 @@ TestRunner.prototype.restore_db_defaults = function() {
     var self = this;
 
     return promise_utils.exec(
-            'mongo admin -u nbadmin -p roonoobaa /root/node_modules/noobaa-core/src/test/system_tests/mongodb_defaults.js')
+            'mongo nbcore /root/node_modules/noobaa-core/src/test/system_tests/mongodb_defaults.js')
         .catch(function(err) {
             console.warn('failed on mongodb_defaults', err);
             throw new Error('Failed pn mongodb reset');
@@ -354,7 +354,8 @@ TestRunner.prototype._write_coverage = function() {
             //Generate the report
             reporter.add('lcov');
             return P.fcall(function() {
-                    return reporter.write(collector, true /*sync*/ , function() {
+                    const REPORTER_SYNC = true;
+                    return reporter.write(collector, REPORTER_SYNC, function() {
                         console.warn('done reporter.write');
                     });
                 })

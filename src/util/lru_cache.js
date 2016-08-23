@@ -50,10 +50,12 @@ class LRUCache {
                     (cache_miss !== 'cache_miss') &&
                     (this.use_negative_cache || item.d)) {
                     return P.resolve(this.validate(item.d, params))
-                        .then(validated => validated ? item : this._load_item(item, params));
-                } else {
-                    return this._load_item(item, params);
+                        .then(validated => {
+                            if (validated) return item;
+                            return this._load_item(item, params);
+                        });
                 }
+                return this._load_item(item, params);
             })
             .then(item => this.make_val(item.d, params));
     }

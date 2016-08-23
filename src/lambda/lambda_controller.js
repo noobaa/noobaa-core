@@ -1,3 +1,5 @@
+'use strict';
+
 const _ = require('lodash');
 const vm = require('vm');
 const unzip = require('unzip');

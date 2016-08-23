@@ -1,29 +1,28 @@
-<div class="row content-middle push">
+<div class="row content-middle pad alt-bg">
     <div class="cloumn greedy">
         <h3 class="heading3">Node pools</h3>
-        <p>Defines the potential storage for this bucket</p>
+        <div class="row">
+            <span>
+                <span>Pool count:</span>
+                <span data-bind="text: nodePoolCount"></span>
+            </span>
+            <span class="push-both">|</span>
+            <span>
+                <span>Policy type:</span>
+                <span data-bind="text: placementType"></span>
+            </span>
+        </div>
     </div>
 
 
     <div data-bind="tooltip: editingDisabledTooltip">
-        <button class="btn3" data-bind="
+        <button class="btn" data-bind="
             disable: editingDisabled,
             click: showPlacementPolicyModal
         ">
             Edit placement policy
         </button>
     </div>
-</div>
-
-<div class="row push-next">
-    <span class="push-next">
-        <span>Pool count:</span>
-        <span class="emphasized" data-bind="text: nodePoolCount"></span>
-    </span>
-    <span>
-        <span>Policy type:</span>
-        <span class="emphasized" data-bind="text: placementType"></span>
-    </span>
 </div>
 
 <data-table class="placement-table" params="

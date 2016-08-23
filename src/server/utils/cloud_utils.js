@@ -1,13 +1,10 @@
 'use strict';
 
-module.exports = {
-    resolve_cloud_sync_info: resolve_cloud_sync_info,
-    find_cloud_connection: find_cloud_connection
-};
 
 var _ = require('lodash');
 const dbg = require('../../util/debug_module')(__filename);
 const RpcError = require('../../rpc/rpc_error');
+const AWS = require('aws-sdk');
 
 
 /**
@@ -17,21 +14,20 @@ const RpcError = require('../../rpc/rpc_error');
  */
 function resolve_cloud_sync_info(sync_policy) {
     var stat;
-    if (!_.isEmpty(sync_policy)) {
-        //If sync time is epoch (never synced) change to never synced
-        if (sync_policy.paused) {
-            stat = 'PAUSED';
-        } else if (!sync_policy.health) {
-            stat = 'UNABLE';
-        } else if (sync_policy.last_sync.getTime() === 0) {
-            stat = 'PENDING';
-        } else if (sync_policy.status === 'IDLE') {
-            stat = 'SYNCED';
-        } else {
-            stat = 'SYNCING';
-        }
-    } else {
+    if (_.isEmpty(sync_policy)) {
         stat = 'NOTSET';
+        //If sync time is epoch (never synced) change to never synced
+    } else if (sync_policy.paused) {
+        stat = 'PAUSED';
+    } else if (!sync_policy.health) {
+        stat = 'UNABLE';
+    } else if (sync_policy.status === 'SYNCING') {
+        stat = 'SYNCING';
+    } else if (sync_policy.last_sync.getTime() === 0) {
+        stat = 'PENDING';
+    } else {
+        // if we have a time for the last sync, and the status isn't syncing (then it's idle) it means we're synced.
+        stat = 'SYNCED';
     }
     return stat;
 }
@@ -47,3 +43,30 @@ function find_cloud_connection(account, conn_name) {
 
     return conn;
 }
+
+
+function get_signed_url(params) {
+    let s3 = new AWS.S3({
+        endpoint: params.endpoint,
+        credentials: {
+            accessKeyId: params.access_key,
+            secretAccessKey: params.secret_key
+        },
+        s3ForcePathStyle: true,
+        sslEnabled: false,
+        signatureVersion: 'v4',
+        region: 'eu-central-1'
+    });
+    return s3.getSignedUrl(
+        'getObject', {
+            Bucket: params.bucket,
+            Key: params.key,
+            Expires: 604800
+        }
+    );
+}
+
+
+exports.resolve_cloud_sync_info = resolve_cloud_sync_info;
+exports.find_cloud_connection = find_cloud_connection;
+exports.get_signed_url = get_signed_url;

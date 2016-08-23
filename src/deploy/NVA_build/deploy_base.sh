@@ -277,7 +277,7 @@ function fix_etc_issue {
 		rootpwd=$(cat ${NOOBAA_ROOTPWD})
 	else
 		uuidgen | cut -f 1 -d'-' > ${NOOBAA_ROOTPWD}
-		rootpwd=$(cat ${NOOBAASEC})
+		rootpwd=$(cat ${NOOBAA_ROOTPWD})
 		echo ${rootpwd} | passwd root --stdin
 	fi
 

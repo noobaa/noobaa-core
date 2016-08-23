@@ -26,7 +26,12 @@ class BlockStoreS3 extends BlockStoreBase {
         super(options);
         this.cloud_info = options.cloud_info;
         this.blocks_path = this.cloud_info.blocks_path || 'noobaa_blocks/' + options.node_name + '/blocks_tree';
-
+        this.usage_path = 'noobaa_blocks/' + options.node_name + '/usage';
+        this.usage_md_key = 'noobaa_usage';
+        this._usage = {
+            size: 0,
+            count: 0
+        };
         // upload copy to s3 cloud storage.
         if (this.cloud_info.endpoint === 'https://s3.amazonaws.com') {
             this.s3cloud = new AWS.S3({
@@ -48,14 +53,40 @@ class BlockStoreS3 extends BlockStoreBase {
         }
     }
 
-    get_storage_info() {
-        const PETABYTE = 1024 * 1024 * 1024 * 1024 * 1024;
-        return {
-            total: PETABYTE,
-            free: PETABYTE,
-            used: 0, // TODO need to count while serving and count by listing on load
+    init() {
+        let params = {
+            Bucket: this.cloud_info.target_bucket,
+            Key: this._block_key(this.usage_path)
         };
+        return P.ninvoke(this.s3cloud, 'headObject', params)
+            .then(head => {
+                let usage_data = head.Metadata[this.usage_md_key];
+                dbg.log0('DZDZ:', 'found usage data in', this.usage_path);
+                if (usage_data) {
+                    this._usage = JSON.parse(this._decode_block_md(usage_data));
+                    dbg.log0('DZDZ:', 'usage_data = ', this._usage);
+                }
+            }, err => {});
     }
+
+    get_storage_info() {
+        const TERA = 1024 * 1024 * 1024 * 1024 * 1024;
+        return P.resolve(this._get_usage())
+            .then(usage => ({
+                total: TERA + usage.size,
+                free: TERA,
+                used: usage.size
+            }));
+    }
+
+    _get_usage() {
+        return this._usage || this._count_usage();
+    }
+
+    _count_usage() {
+        return 0;
+    }
+
 
     _read_block(block_md) {
         return P.ninvoke(this.s3cloud, 'getObject', {
@@ -78,17 +109,67 @@ class BlockStoreS3 extends BlockStoreBase {
     }
 
     _write_block(block_md, data) {
-        return P.ninvoke(this.s3cloud, 'putObject', {
-                Bucket: this.cloud_info.target_bucket,
-                Key: this._block_key(block_md.id),
-                Metadata: {
-                    noobaa_block_md: this._encode_block_md(block_md)
-                },
-                Body: data
+        let overwrite_size = 0;
+        let overwrite_count = 0;
+        let encoded_md;
+        let params = {
+            Bucket: this.cloud_info.target_bucket,
+            Key: this._block_key(block_md.id),
+        };
+        // check to see if the object already exists
+        return P.ninvoke(this.s3cloud, 'headObject', params)
+            .then(head => {
+                overwrite_size = Number(head.ContentLength);
+                let md_size = head.Metadata.noobaa_block_md ? head.Metadata.noobaa_block_md.length : 0;
+                overwrite_size += md_size;
+                console.warn('block already found in cloud, will overwrite. id =', block_md.id);
+                overwrite_count = 1;
+            }, err => {})
+            .then(() => {
+                dbg.log0('DZDZ:', 'writing block id to cloud: ', params.Key);
+                //  write block + md to cloud
+                encoded_md = this._encode_block_md(block_md);
+                params.Metadata = {
+                    noobaa_block_md: encoded_md
+                };
+                params.Body = data;
+                return this._put_object(params);
             })
+            .then(() => {
+                // return usage count for the object
+                let usage = {
+                    size: data.length + encoded_md.length - overwrite_size,
+                    count: 1 - overwrite_count
+                };
+                dbg.log0('DZDZ:', 'updating usage: ', usage);
+                return this._update_usage(usage);
+            });
+    }
+
+
+    _update_usage(usage) {
+        if (this._usage) {
+            dbg.log0('DZDZ:', 'updating usage by ', usage, this.usage_path);
+            this._usage.size += usage.size;
+            this._usage.count += usage.count;
+            let usage_data = this._encode_block_md(this._usage);
+            let params = {
+                Bucket: this.cloud_info.target_bucket,
+                Key: this.usage_path,
+                Metadata: {}
+            };
+            params.Metadata[this.usage_md_key] = usage_data;
+            return this._put_object(params);
+
+        }
+    }
+
+
+    _put_object(params) {
+        return P.ninvoke(this.s3cloud, 'putObject', params)
             .catch(err => {
                 if (this._try_change_region(err)) {
-                    return this._write_block(block_md, data);
+                    return this._put_object(params);
                 }
                 dbg.error('_write_block failed:', err, this.cloud_info);
                 throw err;

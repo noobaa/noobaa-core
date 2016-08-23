@@ -35,7 +35,9 @@ mocha.describe('object_io', function() {
     // const NODE = 'test-node';
 
     mocha.before(function() {
-        this.timeout(30000);
+        const self = this; // eslint-disable-line no-invalid-this
+        self.timeout(30000);
+
         return P.resolve()
             .then(() => {
                 return client.system.create_system({
@@ -59,13 +61,17 @@ mocha.describe('object_io', function() {
     });
 
     mocha.after(function() {
-        this.timeout(30000);
+        const self = this; // eslint-disable-line no-invalid-this
+        self.timeout(30000);
+
         // return coretest.clear_test_nodes();
     });
 
 
     mocha.it('works', function() {
-        this.timeout(30000);
+        const self = this; // eslint-disable-line no-invalid-this
+        self.timeout(30000);
+
         let key = KEY + Date.now();
         return P.fcall(function() {
             return client.object.create_object_upload({
@@ -125,7 +131,9 @@ mocha.describe('object_io', function() {
 
 
         mocha.it('should write and read object data', function() {
-            this.timeout(30000);
+            const self = this; // eslint-disable-line no-invalid-this
+            self.timeout(30000);
+
             let key = KEY + Date.now();
             let size;
             let data;
@@ -198,7 +206,9 @@ mocha.describe('object_io', function() {
     mocha.describe('multipart upload', function() {
 
         mocha.it('should list_multipart_parts', function() {
-            this.timeout(30000);
+            const self = this; // eslint-disable-line no-invalid-this
+            self.timeout(30000);
+
             let upload_id;
             let key = KEY + Date.now();
             let part_size = 1024;

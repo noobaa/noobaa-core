@@ -19,7 +19,9 @@ mocha.describe('agent', function() {
     };
 
     mocha.it('should run agents', function() {
-        this.timeout(20000);
+        const self = this; // eslint-disable-line no-invalid-this
+        self.timeout(20000);
+
         return P.resolve()
             .then(() => client.system.create_system({
                 activation_code: '1111',

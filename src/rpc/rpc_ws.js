@@ -67,7 +67,7 @@ class RpcWsConnection extends RpcBaseConnection {
                 let buffer = buffer_utils.to_buffer(msg.data);
                 this.emit('message', buffer);
             } catch (err) {
-                dbg.error('WS MESSAGE ERROR', this.connid, err.stack || err);
+                dbg.error('WS MESSAGE ERROR', this.connid, err.stack || err, msg);
                 this.emit('error', err);
             }
         };

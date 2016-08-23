@@ -462,6 +462,7 @@ function get_object(ip, path) {
  * scale_agent_instances
  *
  */
+// eslint-disable-next-line max-params
 function scale_agent_instances(count, allow_terminate, is_docker_host, number_of_dockers, is_win, filter_region, agent_conf) {
     return describe_instances({
         Filters: [{
@@ -691,6 +692,7 @@ function ec2_wait_for(region_name, state_name, params) {
  * @param instances - array of existing instances
  *
  */
+// eslint-disable-next-line max-params
 function scale_region(region_name, count, instances, allow_terminate, is_docker_host, number_of_dockers, is_win, agent_conf) {
     // always make sure the region has the security group and key pair
     return P.fcall(function() {

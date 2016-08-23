@@ -40,8 +40,6 @@ class BlockStoreBase {
         ]);
     }
 
-    init() {}
-
     read_block(req) {
         const block_md = req.rpc_params.block_md;
         dbg.log1('read_block', block_md.id, 'node', this.node_name);

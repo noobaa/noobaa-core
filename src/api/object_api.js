@@ -832,6 +832,9 @@ module.exports = {
                 create_time: {
                     format: 'idate'
                 },
+                upload_completed: {
+                    format: 'idate'
+                },
                 upload_size: {
                     type: 'integer',
                 },
@@ -863,6 +866,9 @@ module.exports = {
                 total_parts_count: {
                     type: 'integer',
                 },
+                s3_signed_url: {
+                    type: 'string'
+                }
             }
         },
 

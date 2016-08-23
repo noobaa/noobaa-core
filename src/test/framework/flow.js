@@ -47,6 +47,14 @@ var steps = [
         common: 'restore_db_defaults',
     }, {
         //Test cloud sync functionality
+        name: 'Node Failure Test',
+        lib_test: '/src/test/system_tests/test_node_failure.js',
+    }, {
+        //Restore DB to defaults
+        name: 'Restore DB Defaults',
+        common: 'restore_db_defaults',
+    }, {
+        //Test cloud sync functionality
         name: 'Bucket Access Test',
         lib_test: '/src/test/system_tests/test_bucket_access.js',
     }, {

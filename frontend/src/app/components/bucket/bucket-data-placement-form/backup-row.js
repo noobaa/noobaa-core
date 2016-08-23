@@ -4,15 +4,18 @@ import { deepFreeze } from 'utils';
 const iconMapping = deepFreeze([
     {
         pattern: 's3.amazonaws.com',
-        icon: 'amazon-resource'
+        icon: 'amazon-resource',
+        description: 'Amazon Bucket'
     },
     {
         pattern: 'storage.googleapis.com',
-        icon: 'google-resource'
+        icon: 'google-resource',
+        description: 'GCloud Bucket'
     },
     {
         pattern: '',
-        icon: 'cloud-resource'
+        icon: 'cloud-resource',
+        description: 'AWS Compatible Cloud Bukcet'
     }
 ]);
 
@@ -25,11 +28,14 @@ export default class BackupRowViewModel {
                 }
 
                 let endpoint = resource().cloud_info.endpoint;
-                return iconMapping
-                    .find(
-                        ({ pattern }) => endpoint.indexOf(pattern) !== -1
-                    )
-                    .icon;
+                let { icon, description } = iconMapping.find(
+                    ({ pattern }) => endpoint.indexOf(pattern) !== -1
+                );
+
+                return {
+                    name: icon,
+                    tooltip: description
+                };
             }
         );
 

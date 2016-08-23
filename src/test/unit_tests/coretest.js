@@ -4,7 +4,7 @@
 console.log('loading .env file');
 require('../../util/dotenv').load();
 
-var CORETEST_MONGODB_URL = process.env.CORETEST_MONGODB_URL || 'mongodb://USER@localhost/coretest';
+var CORETEST_MONGODB_URL = process.env.CORETEST_MONGODB_URL || 'mongodb://localhost/coretest';
 process.env.MONGODB_URL = CORETEST_MONGODB_URL;
 process.env.JWT_SECRET = 'coretest';
 
@@ -56,13 +56,20 @@ function new_test_client() {
 }
 
 mocha.before('coretest-before', function() {
+    this.timeout(10000);
     _.each(server_rpc.rpc._services, (service, srv) => api_coverage.add(srv));
     return P.resolve()
+        .then(() => console.log('running mongoose_utils.mongoose_connect()'))
         .then(() => mongoose_utils.mongoose_connect())
+        .then(() => console.log('running mongoose_utils.mongoose_wait_connected()'))
         .then(() => mongoose_utils.mongoose_wait_connected())
+        .then(() => console.log('running mongoose.connection.db.dropDatabase()'))
         .then(() => mongoose.connection.db.dropDatabase()) // returns promise
+        .then(() => console.log('running mongoose_utils.mongoose_ensure_indexes()'))
         .then(() => mongoose_utils.mongoose_ensure_indexes())
+        .then(() => console.log('running mongo_client.instance().connect()'))
         .then(() => mongo_client.instance().connect())
+        .then(() => console.log('running server_rpc.rpc.start_http_server'))
         .then(() => server_rpc.rpc.start_http_server({
             port: http_port,
             secure: false,

@@ -4,21 +4,24 @@ import { deepFreeze, formatSize } from 'utils';
 import { deleteCloudResource } from 'actions';
 
 const undeletableReasons = Object.freeze({
-    IN_USE: 'Cannot delete a resource which is used in a bucket backup policy'
+    IN_USE: 'Cannot delete a resource which is used in a bucket cloud storage policy'
 });
 
 const icons = deepFreeze([
     {
         pattern: 's3.amazonaws.com',
-        icon: 'amazon-resource'
+        icon: 'amazon-resource',
+        description: 'Amazon Bucket'
     },
     {
         pattern: 'storage.googleapis.com',
-        icon: 'google-resource'
+        icon: 'google-resource',
+        description: 'GCloud Bucket'
     },
     {
         pattern: '',
-        icon: 'cloud-resource'
+        icon: 'cloud-resource',
+        description: 'AWS Compatible Cloud Bukcet'
     }
 ]);
 
@@ -33,11 +36,14 @@ export default class CloudResourceRowViewModel extends Disposable {
                 }
 
                 let endpoint = resource().cloud_info.endpoint.toLowerCase();
-                let { icon } = icons.find(
+                let { icon, description } = icons.find(
                     ({ pattern }) => endpoint.indexOf(pattern) > -1
                 );
 
-                return icon;
+                return {
+                    name: icon,
+                    tooltip: description
+                };
             }
         );
 

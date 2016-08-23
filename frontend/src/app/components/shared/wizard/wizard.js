@@ -6,6 +6,7 @@ import { isObject, noop } from 'utils';
 class WizardViewModel extends Disposable {
     constructor({
         heading = '[wizard-heading]',
+        size = 'small',
         steps = [],
         skip = 0,
         actionLabel = 'Done',
@@ -31,7 +32,7 @@ class WizardViewModel extends Disposable {
         this.stepClass = ko.pureComputed(
             () => {
                 let step = steps[this.step()];
-                return isObject(step) ? `modal-${step.size}` : '';
+                return `modal-${(isObject(step) && step.size) || size}` ;
             }
         );
 

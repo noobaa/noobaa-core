@@ -45,7 +45,7 @@ class BucketCloudSyncFormViewModel extends Disposable {
             () => this.isPaused() ? 'Resume' : 'Pause'
         );
 
-        this.state = ko.pureComputed(
+        let state = ko.pureComputed(
             () => cloudSyncInfo() && syncStateMapping[cloudSyncInfo().status]
         );
 
@@ -53,7 +53,7 @@ class BucketCloudSyncFormViewModel extends Disposable {
             () => cloudSyncInfo() && cloudSyncInfo().policy
         );
 
-        this.lastSync = ko.pureComputed(
+        let lastSync = ko.pureComputed(
             () => {
                 if (!cloudSyncInfo() || cloudSyncInfo().last_sync == 0) {
                     return 'N/A';
@@ -63,7 +63,7 @@ class BucketCloudSyncFormViewModel extends Disposable {
             }
         );
 
-        this.nextSync = ko.pureComputed(
+        let nextSync = ko.pureComputed(
             () => {
                 if (!this.hasCloudSync() ||
                     this.isPaused() ||
@@ -78,31 +78,49 @@ class BucketCloudSyncFormViewModel extends Disposable {
             }
         );
 
-        this.targetBucket = ko.pureComputed(
-            () => cloudSyncInfo() && cloudSyncInfo().target_bucket
-        );
+        this.statusDetails = [
+            { label: 'Sync Status', value: state },
+            { label: 'Last sync', value: lastSync },
+            { label: 'Next Sync', value: nextSync }
+        ];
 
-        this.accessKey = ko.pureComputed(
-            () => cloudSyncInfo() && cloudSyncInfo().access_key
-        );
-
-        this.endpoint = ko.pureComputed(
+        let endpoint = ko.pureComputed(
             () => cloudSyncInfo() && cloudSyncInfo().endpoint
         );
 
-        this.frequancy = ko.pureComputed(
+        let accessKey = ko.pureComputed(
+            () => cloudSyncInfo() && cloudSyncInfo().access_key
+        );
+
+        let targetBucket = ko.pureComputed(
+            () => cloudSyncInfo() && cloudSyncInfo().target_bucket
+        );
+
+        this.connectionDetails = [
+            { label: 'Endpoint', value: endpoint },
+            { label: 'Access key', value: accessKey },
+            { label: 'Target bucket', value: targetBucket }
+        ];
+
+        let frequancy = ko.pureComputed(
             () => policy() && `Every ${formatDuration(policy().schedule_min)}`
         );
 
-        this.syncDirection = ko.pureComputed(
+        let syncDirection = ko.pureComputed(
             () => policy() && directionMapping[
                 bitsToNumber(policy().c2n_enabled, policy().n2c_enabled)
             ]
         );
 
-        this.syncDeletions = ko.pureComputed(
+        let syncDeletions = ko.pureComputed(
             () => policy() && policy().additions_only ? 'No' : 'Yes'
         );
+
+        this.syncPolicy = [
+            { label: 'Frequency', value: frequancy },
+            { label: 'Direction', value: syncDirection },
+            { label: 'Sync Deletions', value: syncDeletions }
+        ];
 
         this.isSetCloudSyncModalVisible = ko.observable(false);
         this.isEditCloudSyncModalVisible = ko.observable(false);
@@ -114,10 +132,8 @@ class BucketCloudSyncFormViewModel extends Disposable {
 
     toggleSync() {
         if (this.hasCloudSync()) {
-            return;
+            toogleCloudSync(this.bucketName(), !this.isPaused());
         }
-
-        toogleCloudSync(this.bucketName(), !this.isPaused());
     }
 
     showSetCloudSyncModal() {

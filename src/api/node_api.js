@@ -35,6 +35,16 @@ module.exports = {
             }
         },
 
+        test_node_id: {
+            method: 'PUT',
+            reply: {
+                type: 'boolean'
+            },
+            auth: {
+                system: false
+            }
+        },
+
         read_node: {
             method: 'GET',
             params: {

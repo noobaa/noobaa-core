@@ -246,6 +246,11 @@ function netstat_single(dst) {
     }
 }
 
+function ss_single(dst) {
+    var file_redirect = dst ? ' &> ' + dst : '';
+    return promise_utils.exec('ss -nap' + file_redirect);
+}
+
 function set_manual_time(time_epoch, timez) {
     if (os.type() === 'Linux') {
         return _set_time_zone(timez)
@@ -441,6 +446,7 @@ exports.get_mount_of_path = get_mount_of_path;
 exports.get_drive_of_path = get_drive_of_path;
 exports.top_single = top_single;
 exports.netstat_single = netstat_single;
+exports.ss_single = ss_single;
 exports.set_manual_time = set_manual_time;
 exports.set_ntp = set_ntp;
 exports.get_time_config = get_time_config;

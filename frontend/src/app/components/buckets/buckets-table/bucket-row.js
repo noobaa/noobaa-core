@@ -7,13 +7,15 @@ import { deleteBucket } from'actions';
 
 const stateIconMapping = deepFreeze({
     true: {
-        tooltip: 'Healthy',
-        name: 'bucket-healthy'
+        name: 'healthy',
+        css: 'success',
+        tooltip: 'Healthy'
     },
 
     false: {
-        tooltip: 'Problem',
-        name: 'bucket-problem'
+        name: 'problem',
+        css: 'error',
+        tooltip: 'Problem'
     }
 });
 
@@ -130,7 +132,7 @@ export default class BucketRowViewModel extends Disposable {
             undeletable: ko.pureComputed(
                 () => isDemoBucket() || isLastBucket() || hasObjects()
             ),
-            deleteTooltip: ko.pureComputed(
+            tooltip: ko.pureComputed(
                 () => {
                     if (isDemoBucket()) {
                         return 'Demo buckets cannot be deleted';

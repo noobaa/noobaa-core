@@ -1,9 +1,7 @@
 import template from './overview-panel.html';
 import Disposable from 'disposable';
 import ko from 'knockout';
-import { systemInfo, routeContext } from 'model';
-import { redirectTo } from 'actions';
-import { system as systemRoute } from 'routes';
+import { systemInfo } from 'model';
 
 class OverviewPanelViewModel extends Disposable {
     constructor() {
@@ -66,10 +64,6 @@ class OverviewPanelViewModel extends Disposable {
 
         this.isInstallNodeWizardlVisible = ko.observable(false);
         this.isConnectApplicationWizardVisible = ko.observable(false);
-
-        this.isAfterUpgradeModalVisible = ko.pureComputed(
-            () => !!routeContext().query.afterupgrade
-        );
     }
 
     showInstallNodeWizard() {
@@ -86,10 +80,6 @@ class OverviewPanelViewModel extends Disposable {
 
     hideConnectApplicationWizard() {
         this.isConnectApplicationWizardVisible(false);
-    }
-
-    hideAfterUpgradeModal() {
-        redirectTo(systemRoute);
     }
 }
 

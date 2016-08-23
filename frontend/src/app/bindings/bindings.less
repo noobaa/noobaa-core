@@ -4,42 +4,60 @@
     opacity: .5;
     transition: all 350ms ease-in-out;
 
-    &.expanded {
-        opacity: 1;
+    &.expanding, &.expanded {
         max-height: 1000px;
+        opacity: 1;
+    }
+
+    &.expanded {
+        overflow: visible;
     }
 }
 
 .tooltip {
+    @bg-color: @color4;
+
     position: fixed;
     top: 0;
     left: 0;
     z-index: 999;
     padding: @gutter/2;
     margin: 0;
+    margin-top: 6px;
     font-size: @font-size-small;
-    background-color: @bg-color7;
+    background-color: @bg-color;
+    border: 1px solid @color7;
     border-radius: @gutter/4;
-    color: @text-color1;
+    color: @color6;
     pointer-events: none;
     text-align: left;
-    animation: fade-in 250ms;
+    animation: fade-in 400ms;
     max-width: 20em;
-    box-shadow: 1px 1px 1px 1px @bg-color4;
-    word-break: break-all;
+    box-shadow: 1px 1px 1px 1px @bg-color;
+    word-wrap: break-word;
 
-    &::before {
+    .break-words {
+        word-wrap: break-word;
+        word-break: break-all;
+    }
+
+    &::before, &::after {
         content: '';
         position: absolute;
-        top: -1em;
-        border: .5em solid transparent;
-        border-bottom-color:  @bg-color7;
+        top: -14px;
+        border: 7px solid transparent;
+        border-bottom-color:  @bg-color;
+    }
+
+    &::before {
+        top: -15px;
+        border-bottom-color: @color7;
     }
 
     &.left {
         transform: translate(-1em, .75em);
 
-        &::before {
+        &::before, &::after {
             left: .5em;
         }
     }
@@ -47,7 +65,7 @@
     &.center {
         transform: translateY(.75em);
 
-        &::before {
+        &::before, &::after {
             left: 50%;
             transform: translateX(-.5em);
         }
@@ -56,7 +74,7 @@
     &.right {
         transform: translate(1em, .75em);
 
-        &::before {
+        &::before, &::after {
             right: .5em;
         }
     }
@@ -65,6 +83,7 @@
         margin: 0;
         padding: 0;
         padding-left: @gutter;
+        word-wrap: break-word;
         word-break: break-all;
     }
 }

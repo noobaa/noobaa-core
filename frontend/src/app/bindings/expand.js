@@ -1,17 +1,36 @@
 import ko from 'knockout';
 
 export default {
-    update: function(element, valueAccessor, allBindings, viewModel, bindingContext) {
+    init(element, valueAccessor, allBindings, viewModel, bindingContext) {
+        let classList = element.classList;
+        let expanded = ko.pureComputed(
+            () => ko.unwrap(valueAccessor())
+        );
 
-        return ko.bindingHandlers.css.update(
+        classList.add('expandable');
+        if (expanded()) {
+            classList.add('expanded');
+        }
+
+        let sub = expanded.subscribe(
+            expand => expand ?
+                classList.add('expanding') :
+                classList.remove('expanding', 'expanded')
+        );
+
+        ko.bindingHandlers.event.init(
             element,
             () => ({
-                expandable: true,
-                expanded: valueAccessor()
+                transitionend: () => expanded() && classList.add('expanded')
             }),
             allBindings,
             viewModel,
             bindingContext
+        );
+
+        ko.utils.domNodeDisposal.addDisposeCallback(
+            element,
+            () => sub.dispose()
         );
     }
 };

@@ -6,10 +6,48 @@ import numeral from 'numeral';
 import { deepFreeze, formatSize, bitsToNumber } from 'utils';
 import style from 'style';
 
+const stateMapping = deepFreeze({
+    true: {
+        text: 'Online',
+        css: 'success',
+        icon: 'healthy'
+    },
+    false: {
+        text: 'Offline',
+        css: 'error',
+        icon: 'problem'
+    }
+});
+
+const trustMapping = deepFreeze({
+    true: {
+        text: 'Trusted',
+        css: 'success',
+        icon: 'healthy'
+    },
+    false: {
+        text: 'Untrusted',
+        css: 'error',
+        icon: 'problem'
+    }
+});
+
 const accessibilityMapping = deepFreeze({
-    0: { text: 'No Access', icon: 'node-no-access' },
-    1: { text: 'Read Only', icon: 'node-read-only-access' },
-    3: { text: 'Read & Write', icon: 'node-full-access' }
+    0: {
+        text: 'No Access',
+        css: 'error',
+        icon: 'problem'
+    },
+    2: {
+        text: 'Read Only',
+        css: 'warning',
+        icon: 'problem'
+    },
+    3: {
+        text: 'Readable & Writable',
+        css: 'success',
+        icon: 'healthy'
+    }
 });
 
 const activityLabelMapping = deepFreeze({
@@ -49,34 +87,20 @@ class NodeSummaryViewModel extends Disposable {
             () => node().name
         );
 
-        this.stateText = ko.pureComputed(
-            () => node().online ? 'Online' : 'Offline'
+        this.state = ko.pureComputed(
+            () => stateMapping[node().online]
         );
 
-        this.stateIcon = ko.pureComputed(
-            () => `node-${node().online ? 'online' : 'offline'}`
-        );
-
-        this.trustText = ko.pureComputed(
-            () => node().trusted ? 'Trusted' : 'Untrusted'
-        );
-
-        this.trustIcon = ko.pureComputed(
-            () => node().trusted ? 'trusted' : 'untrusted'
+        this.trust = ko.pureComputed(
+            () => trustMapping[node().trusted]
         );
 
         this.accessibility = ko.pureComputed(
-            () => node() && accessibilityMapping[
-                    bitsToNumber(node().readable, node().writable)
-                ]
-        );
-
-        this.accessibilityText = ko.pureComputed(
-            () => this.accessibility() && this.accessibility().text
-        );
-
-        this.accessibilityIcon = ko.pureComputed(
-            () => this.accessibility() && this.accessibility().icon
+            () => {
+                let index = bitsToNumber(node().readable, node().writable);
+                console.log(index);
+                return accessibilityMapping[index];
+            }
         );
 
         this.dataActivity = ko.pureComputed(
@@ -94,21 +118,21 @@ class NodeSummaryViewModel extends Disposable {
         this.pieValues = [
             {
                 label: 'Potential free',
-                color: style['gray-lv5'],
+                color: style['color5'],
                 value: ko.pureComputed(
                     () => storage().free
                 )
             },
             {
                 label: 'Used (NooBaa)',
-                color: style['magenta-mid'],
+                color: style['color13'],
                 value: ko.pureComputed(
                     () => storage().used
                 )
             },
             {
                 label: 'Used (Other)',
-                color: style['white'],
+                color: style['color14'],
                 value: ko.pureComputed(
                     () => storage().used_other
                 )
@@ -116,7 +140,7 @@ class NodeSummaryViewModel extends Disposable {
             },
             {
                 label: 'Reserved',
-                color: style['purple-dark'],
+                color: style['color7'],
                 value: ko.pureComputed(
                     () => storage().reserved
                 )

@@ -10,8 +10,27 @@ export default class TestRowViewModel extends Disposable {
             () => result() ? result().testType : ''
         );
 
-        this.target = ko.pureComputed(
-            () => result() ? result().targetName : ''
+        this.targetNode = ko.pureComputed(
+            () => {
+                if (!result) {
+                    return;
+                }
+
+                let { targetName } = result();
+                return { text: targetName, tooltip: targetName };
+            }
+        );
+
+        this.protocol = ko.pureComputed(
+            () => result() ? result().protocol.toUpperCase() : ''
+        );
+
+        this.ip = ko.pureComputed(
+            () => result() ? result().targetIp : ''
+        );
+
+        this.port = ko.pureComputed(
+            () => result() ? result().targetPort : ''
         );
 
         this.time = ko.pureComputed(
@@ -43,7 +62,7 @@ export default class TestRowViewModel extends Disposable {
                 let { state, progress } = result();
                 return {
                     css: state.toLowerCase(),
-                    text: state === 'RUNNING' ?numeral(progress).format('0%') : state.toLowerCase()
+                    text: state === 'RUNNING' ? numeral(progress).format('0%') : state.toLowerCase()
                 };
             }
         );

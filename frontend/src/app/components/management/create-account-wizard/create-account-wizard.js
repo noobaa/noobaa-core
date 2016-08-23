@@ -3,7 +3,7 @@ import nameAndPermissionsStepTemplate from './name-and-permissions-step.html';
 import detailsStepTemplate from './details-step.html';
 import Disposable from 'disposable';
 import ko from 'knockout';
-import { randomString, copyTextToClipboard, generateAccessKeys } from 'utils';
+import { randomString, generateAccessKeys } from 'utils';
 import { systemInfo } from 'model';
 import { createAccount } from 'actions';
 import { deepFreeze } from 'utils';
@@ -20,9 +20,9 @@ function makeLoginMessage({ serverAddress, username, password }) {
     return `
 <p>
 Use the following credentials to connect to the NooBaa console:<br>
-<span class="emphasized">Console Url:</span> ${serverAddress}<br>
-<span class="emphasized">Username:</span> ${username}<br>
-<span class="emphasized">Password:</span> ${password}
+<span>Console Url:</span> ${serverAddress}<br>
+<span>Username:</span> ${username}<br>
+<span>Password:</span> ${password}
 </p>
     `;
 }
@@ -31,21 +31,15 @@ function makeS3AccessMessage({ access_key, secret_key }) {
     return `
 <p class="paragraph">
 Use the following S3 access to connect an S3 compatible application to NooBaa:<br>
-<span class="emphasized">Access Key:</span> ${access_key}<br>
-<span class="emphasized">Secret Key:</span> ${secret_key}
+<span>Access Key:</span> ${access_key}<br>
+<span>Secret Key:</span> ${secret_key}
 </p>
     `;
 }
 
 const steps = deepFreeze([
-    {
-        label: 'name & permissions',
-        size: 'medium'
-    },
-    {
-        label: 'review details',
-        size: 'small'
-    }
+    'name & permissions',
+    'review details'
 ]);
 
 class CreateAccountWizardViewModel extends Disposable {
@@ -132,10 +126,6 @@ class CreateAccountWizardViewModel extends Disposable {
 
     clearAllBuckets() {
         this.selectedBuckets([]);
-    }
-
-    copyEmailTextToClipboard() {
-        copyTextToClipboard(this.userMessage());
     }
 
     create() {

@@ -15,7 +15,8 @@ export default class PoolRowViewModel extends Disposable {
 
                 let healthy = pool().nodes.online >= 3;
                 return {
-                    name: `pool-${healthy ? 'healthy' : 'problem'}`,
+                    css: healthy ? 'success' : 'error',
+                    name: healthy ? 'healthy' : 'problem',
                     tooltip: healthy ? 'Healthy' : 'not enough online nodes'
                 };
             }
@@ -82,7 +83,7 @@ export default class PoolRowViewModel extends Disposable {
             subject: 'pool',
             group: deleteGroup,
             undeletable: isUndeletable,
-            deleteTooltip: ko.pureComputed(
+            tooltip: ko.pureComputed(
                 () => {
                     if (isDemoPool()) {
                         return 'Demo pools cannot be deleted';
@@ -100,7 +101,6 @@ export default class PoolRowViewModel extends Disposable {
                     if (undeletable === 'IN_USE') {
                         return 'Cannot delete a pool that is assigned to a bucket policy';
                     }
-
                 }
             ),
             onDelete: () => deletePool(pool().name)

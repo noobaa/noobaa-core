@@ -11,22 +11,11 @@ upgrade();
 
 /* Upade mongo structures and values with new things since the latest version*/
 function upgrade() {
-    authenticate();
     upgrade_systems();
     upgrade_cluster();
     upgrade_system_access_keys();
+    upgrade_object_mds();
     print('\nUPGRADE DONE.');
-}
-
-function authenticate() {
-    var adminDb = db.getSiblingDB('admin');
-    var pwd = 'roonoobaa';
-
-    // try to authenticate with nbadmin. if succesful nothing to do
-    var res = adminDb.auth('nbadmin', pwd);
-    if (res !== 1) {
-        print('\nERROR - mongo authentication failed');
-    }
 }
 
 function upgrade_systems() {
@@ -304,4 +293,25 @@ function upgrade_cluster() {
 
     //global param_secret:true, params_cluster_id:true, param_ip:true
     db.clusters.insert(cluster);
+}
+
+// TODO: JEN AIN'T PROUD OF IT BUT NOBODY PERFECT!, should do the update with 1 db reach
+function upgrade_object_mds() {
+    print('\n*** upgrade_object_mds ...');
+    db.objectmds.find({
+        upload_completed: {
+            $exists: false
+        },
+        upload_size: {
+            $exists: false
+        }
+    }).forEach(function(obj) {
+        db.objectmds.update({
+            _id: obj._id
+        }, {
+            $set: {
+                upload_completed: obj.create_time
+            }
+        });
+    });
 }

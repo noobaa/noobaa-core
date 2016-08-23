@@ -338,15 +338,9 @@ var LOG_FUNC_PER_LEVEL = {
 
 InternalDebugLogger.prototype.syslog_formatter = function(level, args) {
     var self = this;
-    let msg = '';
-    for (var i = 1; i < args.length; i++) {
-        if (msg.indexOf('%s') > 0 && !(msg.indexOf('%d') > 0 && msg.indexOf('%d') < msg.indexOf('%s'))) {
-            msg = msg.replace('%s', util.format(args[i]));
-        } else if (msg.indexOf('%d') > 0) {
-            msg = msg.replace('%d', util.format(args[i]));
-        } else {
-            msg += util.format(args[i]) + ' ';
-        }
+    let msg = args[1] || '';
+    if (args.length > 2) {
+        msg = util.format.apply(msg, Array.prototype.slice.call(args, 1));
     }
     let level_str = ((self._levels[level] === 0) ?
             ' \x1B[31m[' :

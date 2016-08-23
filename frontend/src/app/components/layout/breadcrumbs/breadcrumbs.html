@@ -1,12 +1,14 @@
-<a data-bind="href: { route: 'system' }">
-    <span>
-        <svg-icon params="name: 'logo'"></svg-icon>
-        OVERVIEW
-    </span>
-</a>
-
  <!-- ko foreach: crumbs -->
- <a data-bind="href: { route: route, params: { tab: null } }, tooltip: label">
+<!-- <svg-icon class="seperator rotate deg-90 icon-small" params="name: 'chevron'">
+</svg-icon> -->
+
+ <a class="crumb" data-bind="
+    href: {
+        route: route,
+        params: { tab: null }
+    },
+    tooltip: label
+">
      <span data-bind="text: label"></span>
  </a>
  <!-- /ko -->

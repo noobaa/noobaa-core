@@ -6,8 +6,7 @@
 'use strict';
 
 const _ = require('lodash');
-const http = require('http');
-const url = require('url');
+const request = require('request');
 const P = require('../../util/promise');
 const dbg = require('../../util/debug_module')(__filename);
 const config = require('../../../config.js');
@@ -18,13 +17,15 @@ const system_server = require('../system_services/system_server');
 const object_server = require('../object_services/object_server');
 const bucket_server = require('../system_services/bucket_server');
 const zlib = require('zlib');
-//const promise_utils = require('../../util/promise_utils');
 const server_rpc = require('../server_rpc');
 
 const ops_aggregation = {};
 const SCALE_BYTES_TO_GB = 1024 * 1024 * 1024;
 const SCALE_BYTES_TO_MB = 1024 * 1024;
 const SCALE_SEC_TO_DAYS = 60 * 60 * 24;
+
+var successfuly_sent = 0;
+var failed_sent = 0;
 
 /*
  * Stats Collction API
@@ -414,18 +415,12 @@ function object_usage_scrubber(req) {
             new_req.rpc_params.last_stats_report = Date.now();
             return system_server.set_last_stats_report_time(new_req);
         })
-        .catch(err => {
-            dbg.warn('Error in object usage scrubber,',
-                'skipping current deleting point', err.stack || err);
-            return;
-        })
         .return();
 }
 
 //_.noop(send_stats_payload); // lint unused bypass
 
 function send_stats_payload(payload) {
-    var deferred = P.defer();
     var system = system_store.data.systems[0];
     var data_to_send = {};
     data_to_send.time_stamp = new Date();
@@ -433,11 +428,9 @@ function send_stats_payload(payload) {
     data_to_send.payload = payload;
     return P.ninvoke(zlib, 'gzip', new Buffer(JSON.stringify(data_to_send), 'utf-8'))
         .then(gzip_payload => {
-            let central_listener = url.parse(config.central_stats.central_listener);
             var options = {
-                hostname: central_listener.hostname,
-                port: Number(central_listener.port),
-                path: central_listener.path,
+                url: config.central_stats.central_listener,
+                strictSSL: false,
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/gzip',
@@ -446,44 +439,21 @@ function send_stats_payload(payload) {
                 }
             };
 
+            // TODO: Support Self Signed HTTPS Proxy
+            // The problem is that we don't support self signed proxies, because somehow
+            // The strictSSL value is only valid for the target and not for the Proxy
+            // Check that once again sine it is a guess (did not investigate much)
             if (system.phone_home_proxy_address) {
-                let proxy_listener = url.parse(system.phone_home_proxy_address);
-                options.hostname = proxy_listener.hostname;
-                options.port = Number(proxy_listener.port);
-                options.path = central_listener.href;
-                options.headers.host = central_listener.host;
+                options.proxy = system.phone_home_proxy_address;
             }
 
             dbg.log0('Phone Home Sending Post Request To Server:', options);
-            var req = http.request(options, function(response) {
-                dbg.log0('Phone Home Received Response From Server');
-                //set the response encoding to parse json string
-                response.setEncoding('utf8');
-                var responseData = '';
-                //append data to responseData variable on the 'data' event emission
-                response.on('data', function(data) {
-                    responseData += data;
+            return P.fromCallback(function(callback) {
+                    return request(options, callback).end(gzip_payload);
+                }, {multiArgs: true}).spread(function(response, body) {
+                    dbg.log0('Phone Home Received Response From Server', body);
+                    return body;
                 });
-                //listen to the 'end' event
-                response.on('end', function() {
-                    dbg.log0('Phone Home Received End Response From Server', responseData);
-                    //resolve the deferred object with the response
-                    deferred.resolve(responseData);
-                });
-            });
-
-            //listen to the 'error' event
-            req.on('error', function(err) {
-                dbg.log0('Phone Home Received Error Response From Server', err);
-                //if an error occurs reject the deferred
-                deferred.reject(err);
-            });
-            req.end(gzip_payload);
-            //we are returning a promise object
-            //if we returned the deferred object
-            //deferred object reject and resolve could potentially be modified
-            //violating the expected behavior of this function
-            return deferred.promise;
         });
 }
 
@@ -601,8 +571,46 @@ function background_worker() {
         })
         .then(() => server_rpc.client.stats.get_all_stats({}))
         .then(payload => send_stats_payload(payload))
-        .then(res => server_rpc.client.stats.object_usage_scrubber({}))
-        .then(() => dbg.log('Phone Home data was send successfuly'))
+        .catch(err => {
+            failed_sent++;
+            if (failed_sent > 5) {
+                successfuly_sent = 0;
+                let updates = {
+                    _id: system_store.data.systems[0]._id.toString()
+                };
+                updates.freemium_cap.phone_home_unable_comm = true;
+                return system_store.make_changes({
+                        update: {
+                            systems: [updates]
+                        }
+                    })
+                    .then(() => {
+                        throw err;
+                    });
+            }
+            throw err;
+        })
+        .then(() => {
+            successfuly_sent++;
+            failed_sent = 0;
+            if (successfuly_sent > config.central_stats.send_time &&
+                !system_store.data.systems[0].freemium_cap.phone_home_upgraded) {
+                let updates = {
+                    _id: system_store.data.systems[0]._id,
+                    freemium_cap: system_store.data.systems[0].freemium_cap,
+                };
+                updates.freemium_cap.phone_home_upgraded = true;
+                updates.freemium_cap.cap_terabytes =
+                    system_store.data.systems[0].freemium_cap.cap_terabytes + 10;
+                return system_store.make_changes({
+                    update: {
+                        systems: [updates]
+                    }
+                });
+            }
+        })
+        .then(() => server_rpc.client.stats.object_usage_scrubber({}))
+        .then(() => dbg.log('Phone Home data was sent successfuly'))
         .catch(err => {
             dbg.warn('Phone Home data send failed', err.stack || err);
             return;

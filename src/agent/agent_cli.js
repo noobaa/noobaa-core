@@ -160,6 +160,35 @@ AgentCLI.prototype.init = function() {
                     var path_modification = storage_path.replace('/agent_storage/', '').replace('/', '').replace('.', '');
                     return fs_utils.folder_delete(path_modification);
                 }));
+            } else if (self.params.duplicate) {
+                let target_agent_storage = 'duplicate_agent_storage_' + Date.now();
+                dbg.log0('got duplicate flag - renaming agent_storage to', target_agent_storage);
+                return P.all(_.map(self.params.all_storage_paths, storage_path_info => {
+                        // move agent_storage in all drives to an alternate location
+                        let storage_path = storage_path_info.mount;
+                        let target_path = storage_path.replace('agent_storage', target_agent_storage);
+                        dbg.log0('moving', storage_path, 'to', target_path);
+                        return fs.renameAsync(storage_path, target_path);
+                    }))
+                    .then(() => {
+                        // remove host_id from agent_conf
+                        dbg.log0('removing host_id from agnet_conf');
+                        return fs.readFileAsync('agent_conf.json')
+                            .then(function(data) {
+                                let agent_conf = JSON.parse(data);
+                                if (agent_conf.host_id) delete agent_conf.host_id;
+                                var write_data = JSON.stringify(agent_conf);
+                                return fs.writeFileAsync('agent_conf.json', write_data);
+                            });
+                    })
+                    .then(() => {
+                        dbg.log0('exit agent_cli. will restart with new agnet_storage');
+                        process.exit(0);
+                    })
+                    .catch(err => {
+                        dbg.error('got error while handling duplication!!');
+                        process.exit(1);
+                    });
             } else {
                 return self.load()
                     .then(function() {
@@ -243,7 +272,15 @@ AgentCLI.prototype.load = function() {
                     return P.map(regular_node_names, node_name => {
                         dbg.log0('node_name', node_name, 'storage_path', storage_path);
                         var node_path = path.join(storage_path, node_name);
-                        return self.start(node_name, node_path);
+                        return self.start(node_name, node_path)
+                            .catch(err => {
+                                if (err.message === 'INVALID_NODE') {
+                                    return fs_utils.folder_delete(node_path)
+                                        .then(() => 'INVALID_NODE');
+                                } else {
+                                    throw err;
+                                }
+                            });
                     });
                 });
         }))
@@ -252,9 +289,11 @@ AgentCLI.prototype.load = function() {
             var number_of_new_paths = 0;
             var existing_nodes_count = 0;
             _.each(storage_path_nodes, function(nodes) {
+                // filter out invalid nodes, so new one will be created instead
+                let valid_nodes = nodes.filter(node => (node !== 'INVALID_NODE'));
                 // assumes same amount of nodes per each HD. we will take the last one.
-                if (nodes.length) {
-                    existing_nodes_count = nodes.length;
+                if (valid_nodes.length) {
+                    existing_nodes_count = valid_nodes.length;
                 } else {
                     number_of_new_paths += 1;
                 }
@@ -520,7 +559,7 @@ AgentCLI.prototype.start = function(node_name, node_path) {
             storage_path: node_path,
             cloud_info: self.cloud_info,
             storage_limit: self.params.storage_limit,
-            is_internal_agent: self.params.internal_agent,
+            is_demo_agent: self.params.demo,
         });
 
         dbg.log0('agent inited', node_name, self.params.addres, self.params.port, self.params.secure_port, node_path);

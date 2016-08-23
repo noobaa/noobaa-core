@@ -568,6 +568,9 @@ module.exports = {
                 properties: {
                     code: {
                         type: 'string'
+                    },
+                    email: {
+                        type: 'string'
                     }
                 }
             },
@@ -703,7 +706,10 @@ module.exports = {
                         },
                         upgraded_cap_notification: {
                             type: 'boolean'
-                        }
+                        },
+                        phone_home_unable_comm: {
+                            type: 'boolean'
+                        },
                     }
                 },
                 remote_syslog_config: {
@@ -734,6 +740,9 @@ module.exports = {
                     type: 'string'
                 },
                 debug_level: {
+                    type: 'integer'
+                },
+                system_cap: {
                     type: 'integer'
                 },
                 upgrade: {

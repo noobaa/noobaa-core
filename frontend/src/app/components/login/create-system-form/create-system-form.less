@@ -1,15 +1,10 @@
-@keyframes spin {
-    0 { transform: rotateZ(0deg) }
-    100% { transform: rotateZ(360deg) }
-}
-
 .create-system-form {
-    width: 626px;
+    width: 560px;
 
     .steps {
         margin-top: @gutter / 2;
         position: relative;
-        padding: 3 * @gutter;
+        padding: 2 * @gutter;
 
         &::before {
             content: '';
@@ -18,7 +13,7 @@
             top: 2 * -@gutter;
             left: 0;
             border: @gutter solid transparent;
-            border-bottom-color: @bg-color2;
+            border-bottom-color: @color5;
             transition: left 500ms ease-in-out;
         }
     }
@@ -44,15 +39,16 @@
     }
 
     .step0::before {
-        left: 230px;
+        left: 180px;
     }
 
     .step1::before {
-        left: 400px;
+        left: 350px;
     }
 
     .hint {
         .remark();
+        color: @color7;
         line-height: 1.7;
         position: relative;
         margin-top: -1.7em;
@@ -65,8 +61,7 @@
 
     .validating-indicator {
         position: absolute;
-        top: 6px;
-        right: 6px;
-        animation: spin 2000ms linear infinite;
+        top: @gutter/2;
+        right: @gutter/2;
     }
 }

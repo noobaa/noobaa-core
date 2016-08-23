@@ -14,6 +14,12 @@ export default function register(ko) {
     ko.components.register('commands-bar',      require('./layout/commands-bar/commands-bar'));
     ko.components.register('breadcrumbs',       require('./layout/breadcrumbs/breadcrumbs'));
     ko.components.register('notification-box',  require('./layout/notification-box/notification-box'));
+    ko.components.register('welcome-modal',     require('./layout/welcome-modal/welcome-modal'));
+    ko.components.register('upgraded-capacity-notification-modal', require('./layout/upgraded-capacity-notification-modal/upgraded-capacity-notification-modal'));
+    // ko.components.register('debug-mode-sticky',     require('./layout/debug-mode-sticky/debug-mode-sticky'));
+    // ko.components.register('maintenance-sticky',    require('./layout/maintenance-sticky/maintenance-sticky'));
+    // ko.components.register('license-sticky',        require('./layout/license-sticky/license-sticky'));
+    // ko.components.register('phone-home-connectivity-sticky', require('./layout/phone-home-connectivity-sticky/phone-home-connectivity-sticky'));
     /** INJECT:layout **/
 
     // -------------------------------
@@ -22,6 +28,7 @@ export default function register(ko) {
     ko.components.register('login-layout',          require('./login/login-layout/login-layout'));
     ko.components.register('signin-form',           require('./login/signin-form/signin-form'));
     ko.components.register('create-system-form',    require('./login/create-system-form/create-system-form'));
+    ko.components.register('unsupported-form',      require('./login/unsupported-form/unsupported-form'));
     /** INJECT:login **/
 
     // -------------------------------
@@ -176,5 +183,6 @@ export default function register(ko) {
     ko.components.register('pool-selection-table',      require('./shared/pool-selection-table/pool-selection-table'));
     ko.components.register('node-selection-table',      require('./shared/node-selection-table/node-selection-table'));
     ko.components.register('chart-legend', require('./shared/chart-legend/chart-legend'));
+    ko.components.register('copy-to-clipboard-button', require('./shared/copy-to-clipboard-button/copy-to-clipboard-button'));
     /** INJECT:shared **/
 }

@@ -16,7 +16,8 @@ export default class PlacementRowViewModel {
                 };
 
                 return {
-                    name: `pool-${isHealthy ? 'healthy' : 'problem'}`,
+                    css: isHealthy ? 'success' : 'error',
+                    name: isHealthy ? 'healthy' : 'problem',
                     tooltip: tooltip
                 };
             }

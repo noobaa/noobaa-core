@@ -70,7 +70,7 @@ export function formatSize(num) {
         num = num.toFixed(num < 10 ? 1 : 0);
     }
 
-    return `${num} ${sizeUnits[i]}`;
+    return `${num}${sizeUnits[i]}`;
 }
 
 export function formatDuration(minutes) {
@@ -334,7 +334,7 @@ export function pad(num, size, char = '0') {
 }
 
 export function deepFreeze(val) {
-    if (isObject(val)) {
+    if (isObject(val) && !Object.isFrozen(val)) {
         Object.keys(val).forEach(
             key => { val[key] = deepFreeze(val[key]); }
         );
@@ -372,5 +372,16 @@ export function flatMap(arr, predicate) {
             return result;
         },
         []
+    );
+}
+
+export function recognizeBrowser() {
+    const userAgentTokens = [
+        'chrome', 'chromium', 'firefox', 'edge', 'msie', 'safari', 'opr'
+    ];
+
+    let userAgent = navigator.userAgent.toLowerCase();
+    return  userAgentTokens.find(
+        token => userAgent.includes(token)
     );
 }

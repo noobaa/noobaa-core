@@ -27,6 +27,8 @@ const string_utils = require('../../util/string_utils');
 const map_allocator = require('./map_allocator');
 const mongo_functions = require('../../util/mongo_functions');
 const system_server_utils = require('../utils/system_server_utils');
+const cloud_utils = require('../utils/cloud_utils');
+const os_utils = require('../../util/os_utils');
 
 /**
  *
@@ -151,6 +153,7 @@ function complete_object_upload(req) {
             }, {
                 $set: {
                     size: object_size || obj.size,
+                    upload_completed: new Date(),
                     etag: obj_etag
                 },
                 $unset: {
@@ -317,6 +320,9 @@ function copy_object(req) {
             return md_store.ObjectMD.collection.updateOne({
                 _id: create_info._id
             }, {
+                $set: {
+                    upload_completed: new Date()
+                },
                 $unset: {
                     upload_size: 1
                 }
@@ -463,6 +469,14 @@ function read_object_md(req) {
         .then(info => {
             if (req.rpc_params.adminfo && req.role === 'admin') {
                 info.capacity_size = object_capacity;
+                let sys_access_keys = system_store.data.accounts[1].access_keys[0];
+                info.s3_signed_url = cloud_utils.get_signed_url({
+                    endpoint: os_utils.get_local_ipv4_ips()[0],
+                    access_key: sys_access_keys.access_key,
+                    secret_key: sys_access_keys.secret_key,
+                    bucket: req.rpc_params.bucket,
+                    key: req.rpc_params.key
+                });
             }
             if (!req.rpc_params.get_parts_count) {
                 return info;
@@ -634,6 +648,7 @@ function list_objects(req) {
                 info.key = new RegExp('^' + string_utils.escapeRegExp(req.rpc_params.key_prefix));
             }
 
+            // TODO: Should look at the upload_size or upload_completed?
             // allow filtering of uploading/non-uploading objects
             if (typeof(req.rpc_params.upload_mode) === 'boolean') {
                 info.upload_size = {
@@ -757,7 +772,7 @@ function add_s3_usage_report(req) {
 
 function remove_s3_usage_reports(req) {
     var q = ObjectStats.remove();
-    if (req.rpc_params.till_time) {
+    if (!_.isUndefined(req.rpc_params.till_time)) {
         // query backwards from given time
         req.rpc_params.till_time = new Date(req.rpc_params.till_time);
         q.where('time').lte(req.rpc_params.till_time);
@@ -895,6 +910,7 @@ function check_object_upload_mode(req, obj) {
         throw new RpcError('NO_SUCH_UPLOAD',
             'No such upload id: ' + req.rpc_params.upload_id);
     }
+    // TODO: Should look at the upload_size or upload_completed?
     if (!_.isNumber(obj.upload_size)) {
         throw new RpcError('NO_SUCH_UPLOAD',
             'Object not in upload mode: ' + obj.key +

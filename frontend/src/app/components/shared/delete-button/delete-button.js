@@ -18,13 +18,16 @@ class DeleteButtonViewModel extends Disposable {
         super();
 
         this.onDelete = isFunction(onDelete) ? onDelete : noop;
-        this.tooltip = tooltip;
         this.disabled = disabled;
 
         this.isActive = ko.pureComputed({
             read: () => group() === this,
             write: val => group(val ? this : null)
         });
+
+        this.tooltip = ko.pureComputed(
+            () => this.isActive() ? undefined : { text: tooltip, align: 'right' }
+        );
 
         this.icon = ko.pureComputed(
             () => !ko.unwrap(this.disabled) ?

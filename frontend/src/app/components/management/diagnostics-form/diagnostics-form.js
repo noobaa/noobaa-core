@@ -9,6 +9,18 @@ class DiagnosticsFormViewModel extends Disposable {
     constructor() {
         super();
 
+        this.contactSupport = [
+            {
+                label: 'By email',
+                value: '<a class="link" href="mailto:support@noobaa.com">support@noobaa.com</a>'
+            },
+            {
+                label: 'Support center',
+                value: '<a class="link" href="https://noobaa.desk.com" target="_blank">https://noobaa.desk.com</a>'
+            }
+        ];
+
+
         this.debugLevel = ko.pureComputed(
             () => systemInfo() && systemInfo().debug_level
         );

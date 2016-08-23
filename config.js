@@ -95,11 +95,12 @@ if (!is_windows) {
 }
 config.central_stats = {
     send_stats: 'true',
-    central_listener: 'http://104.155.41.235:9090/phdata',
-    send_time_cycle: 30 * 60000,
+    central_listener: 'https://104.155.41.235:443/phdata',
+    send_time_cycle: 30 * 60000, //min
     previous_diag_packs_dir: process.env.ProgramData + '/prev_diags',
     previous_diag_packs_count: 3 //TODO: We might want to split between agent and server
 };
+config.central_stats.send_time = 10 * (24 / (config.central_stats.send_time_cycle / 60000 / 60)); //10 days
 
 /*
   Clustering Defaults
@@ -110,10 +111,6 @@ config.MONGO_DEFAULTS = {
     CFG_RSET_NAME: 'config0',
     SHARD_SRV_PORT: '27000',
     COMMON_PATH: '/var/lib/mongo/cluster',
-    USER_PLACE_HOLDER: 'USER',
-    DEFAULT_USER: 'nbsrv',
-    DEFAULT_ADMIN_USER: 'nbadmin',
-    DEFAULT_MONGO_PWD: 'roonoobaa'
 };
 
 config.CLUSTERING_PATHS = {
@@ -135,5 +132,6 @@ config.SUPERVISOR_DEFAULTS = {
 
 
 config.DEMO_DEFAULTS = {
-    NAME: 'demo'
+    POOL_NAME: 'demo-pool',
+    BUCKET_NAME: 'demo-bucket'
 };

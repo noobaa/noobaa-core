@@ -422,38 +422,34 @@ function object_usage_scrubber(req) {
 
 function send_stats_payload(payload) {
     var system = system_store.data.systems[0];
-    var data_to_send = {};
-    data_to_send.time_stamp = new Date();
-    data_to_send.system = system._id;
-    data_to_send.payload = payload;
-    return P.ninvoke(zlib, 'gzip', new Buffer(JSON.stringify(data_to_send), 'utf-8'))
-        .then(gzip_payload => {
-            var options = {
-                url: config.central_stats.central_listener,
-                strictSSL: false,
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/gzip',
-                    'Content-Encoding': 'gzip',
-                    'Content-Length': Buffer.byteLength(gzip_payload)
-                }
-            };
+    var options = {
+        url: config.PHONE_HOME_BASE_URL + '/phdata',
+        method: 'POST',
+        body: {
+            time_stamp: new Date(),
+            system: String(system._id),
+            payload: payload
+        },
+        strictSSL: false, // means rejectUnauthorized: false
+        json: true,
+        gzip: true,
+    };
 
-            // TODO: Support Self Signed HTTPS Proxy
-            // The problem is that we don't support self signed proxies, because somehow
-            // The strictSSL value is only valid for the target and not for the Proxy
-            // Check that once again sine it is a guess (did not investigate much)
-            if (system.phone_home_proxy_address) {
-                options.proxy = system.phone_home_proxy_address;
-            }
+    // TODO: Support Self Signed HTTPS Proxy
+    // The problem is that we don't support self signed proxies, because somehow
+    // The strictSSL value is only valid for the target and not for the Proxy
+    // Check that once again sine it is a guess (did not investigate much)
+    if (system.phone_home_proxy_address) {
+        options.proxy = system.phone_home_proxy_address;
+    }
 
-            dbg.log0('Phone Home Sending Post Request To Server:', options);
-            return P.fromCallback(function(callback) {
-                    return request(options, callback).end(gzip_payload);
-                }, {multiArgs: true}).spread(function(response, body) {
-                    dbg.log0('Phone Home Received Response From Server', body);
-                    return body;
-                });
+    dbg.log0('Phone Home Sending Post Request To Server:', options);
+    return P.fromCallback(callback => request(options, callback), {
+            multiArgs: true
+        })
+        .spread(function(response, body) {
+            dbg.log0('Phone Home Received Response From Server', body);
+            return body;
         });
 }
 

@@ -26,6 +26,10 @@
                 <editor params="label: 'Email address'">
                     <input type="text" placeholder="your email address"
                         data-bind="value: email">
+
+                    <svg-icon class="validating-indicator spin"
+                        data-bind="visible: email.isValidating()"
+                        params="name: 'in-progress'"></svg-icon>
                 </editor>
 
                 <editor params="label: 'Password'">

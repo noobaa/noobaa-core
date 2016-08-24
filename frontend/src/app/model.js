@@ -91,4 +91,5 @@ export const sslCertificateUploadStatus = ko.observable();
 export const serverTime = ko.observable();
 
 // Hold system activation information.
-export const activation = ko.observable();
+export const activationCodeValid = ko.observable();
+export const activationEmailValid = ko.observable();

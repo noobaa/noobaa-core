@@ -1705,9 +1705,25 @@ export function validateActivationCode(code) {
 
     api.system.validate_activation({ code })
         .then(
-            valid => model.activation({
+            ({ valid, reason }) => model.activationCodeValid({
                 code: code,
-                isCodeValid: valid
+                isValid: valid,
+                reason: reason
+            })
+        )
+        .done();
+}
+
+export function validateActivationEmail(code, email) {
+    logAction('validateActivationEmail', { code, email });
+
+    api.system.validate_activation({ code, email })
+        .then(
+            ({ valid, reason }) => model.activationEmailValid({
+                code: code,
+                email: email,
+                isValid: valid,
+                reason: reason
             })
         )
         .done();

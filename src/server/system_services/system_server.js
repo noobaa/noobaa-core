@@ -10,7 +10,7 @@ const _ = require('lodash');
 const fs = require('fs');
 const url = require('url');
 const net = require('net');
-const https = require('https');
+const request = require('request');
 // const uuid = require('node-uuid');
 const ip_module = require('ip');
 
@@ -803,46 +803,19 @@ function update_base_address(req) {
             }
         })
         .then(() => cutil.update_host_address(req.rpc_params.base_address))
-        .then(function() {
-            return nodes_store.instance().find_nodes({
-                system: req.system._id,
-                deleted: null
-            }, {
-                // select just what we need
-                fields: {
-                    name: 1,
-                    rpc_address: 1
-                }
-            });
-        })
-        .then(function(nodes) {
-            var reply = {
-                nodes_count: nodes.length,
-                nodes_updated: 0
-            };
-            return P.map(nodes, function(node) {
-                    return server_rpc.client.agent.update_base_address(req.rpc_params, {
-                        address: node.rpc_address
-                    }).then(function() {
-                        reply.nodes_updated += 1;
-                    }, function(err) {
-                        dbg.error('update_base_address: FAILED TO UPDATE AGENT', node.name, node.rpc_address);
-                    });
-                }, {
-                    concurrency: 5
-                })
-                .return(reply);
-        })
-        .then(res => {
-            Dispatcher.instance().activity({
-                event: 'conf.dns_address',
-                level: 'info',
-                system: req.system,
-                actor: req.account && req.account._id,
-                desc: `DNS Address was changed from ${prior_base_address} to ${req.rpc_params.base_address}`,
-            });
-            return res;
+        .then(() => server_rpc.client.node.sync_monitor_to_store({}, {
+            auth_token: req.auth_token
+        }))
+
+    .then(() => {
+        Dispatcher.instance().activity({
+            event: 'conf.dns_address',
+            level: 'info',
+            system: req.system,
+            actor: req.account && req.account._id,
+            desc: `DNS Address was changed from ${prior_base_address} to ${req.rpc_params.base_address}`,
         });
+    });
 }
 
 // phone_home_proxy_address must be a full address like: http://(ip or hostname):(port)
@@ -996,8 +969,13 @@ function validate_activation(req) {
             // Method is used both for license code validation with and without business email
             return _communicate_license_server(params);
         })
-        .then(response => true)
-        .catch(err => false);
+        .return({
+            valid: true
+        })
+        .catch(err => ({
+            valid: false,
+            reason: err.message
+        }));
 }
 
 
@@ -1021,76 +999,35 @@ function find_account_by_email(req) {
 }
 
 function _communicate_license_server(params) {
-    if (DEV_MODE) {
-        return true;
-    }
-    var deferred = P.defer();
-    var data_to_send = {
-        code: (params && params.code) || '',
+    if (DEV_MODE) return 'ok';
+    const body = {
+        code: params.code,
     };
-
-    if (params && params.email) {
-        data_to_send['Business Email'] = params.email;
+    if (params.email) {
+        body['Business Email'] = params.email;
     }
-
     if (params.command === 'perform_activation') {
-        data_to_send.system_info = (params && params.system_info) || {};
+        body.system_info = params.system_info || {};
     }
-
-    data_to_send = JSON.stringify(data_to_send);
-
-    return P.fcall(function() {
-        let central_listener = url.parse(config.central_stats.central_listener);
-        var options = {
-            hostname: central_listener.hostname,
-            port: Number(central_listener.port),
-            path: '/' + params.command,
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                // 'Content-Encoding': 'json',
-                'Content-Length': Buffer.byteLength(data_to_send)
-            },
-            rejectUnauthorized: false
-        };
-
-        dbg.log0('Sending Post Request To Activation Server:', options);
-        var req = https.request(options, function(response) {
-            dbg.log0('Received Response From Activation Server');
-            //set the response encoding to parse json string
-            response.setEncoding('utf8');
-            var responseData = '';
-            //append data to responseData variable on the 'data' event emission
-            response.on('data', function(data) {
-                responseData += data;
-            });
-            //listen to the 'end' event
-            response.on('end', function() {
-                dbg.log0('Received End Response From Activation Server', responseData);
-                // TODO: Use specific codes for response
-                if (responseData === 'ok') {
-                    //resolve the deferred object with the response
-                    deferred.resolve(responseData);
-                } else {
-                    //reject the deferred object with the response
-                    deferred.reject(responseData);
-                }
-            });
+    const options = {
+        url: config.PHONE_HOME_BASE_URL + '/' + params.command,
+        method: 'POST',
+        body: body,
+        strictSSL: false, // means rejectUnauthorized: false
+        json: true,
+        gzip: true,
+    };
+    dbg.log0('Sending Post Request To Activation Server:', options);
+    return P.fromCallback(callback => request(options, callback), {
+            multiArgs: true
+        })
+        .spread(function(response, reply) {
+            dbg.log0('Received Response From Activation Server', response.statusCode, reply);
+            if (response.statusCode !== 200) {
+                throw new Error(String(reply));
+            }
+            return String(reply);
         });
-
-        //listen to the 'error' event
-        req.on('error', function(err) {
-            dbg.log0('Received Error Response From Activation Server', err);
-            //if an error occurs reject the deferred
-            deferred.reject(err);
-        });
-        req.end(data_to_send);
-        //we are returning a promise object
-        //if we returned the deferred object
-        //deferred object reject and resolve could potentially be modified
-        //violating the expected behavior of this function
-        return deferred.promise;
-    });
 }
 
 // EXPORTS

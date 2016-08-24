@@ -16,10 +16,10 @@ export default function register(ko) {
     ko.components.register('notification-box',  require('./layout/notification-box/notification-box'));
     ko.components.register('welcome-modal',     require('./layout/welcome-modal/welcome-modal'));
     ko.components.register('upgraded-capacity-notification-modal', require('./layout/upgraded-capacity-notification-modal/upgraded-capacity-notification-modal'));
-    // ko.components.register('debug-mode-sticky',     require('./layout/debug-mode-sticky/debug-mode-sticky'));
-    // ko.components.register('maintenance-sticky',    require('./layout/maintenance-sticky/maintenance-sticky'));
-    // ko.components.register('license-sticky',        require('./layout/license-sticky/license-sticky'));
-    // ko.components.register('phone-home-connectivity-sticky', require('./layout/phone-home-connectivity-sticky/phone-home-connectivity-sticky'));
+    ko.components.register('debug-mode-sticky',     require('./layout/debug-mode-sticky/debug-mode-sticky'));
+    ko.components.register('maintenance-sticky',    require('./layout/maintenance-sticky/maintenance-sticky'));
+    ko.components.register('license-sticky',        require('./layout/license-sticky/license-sticky'));
+    ko.components.register('phone-home-connectivity-sticky', require('./layout/phone-home-connectivity-sticky/phone-home-connectivity-sticky'));
     /** INJECT:layout **/
 
     // -------------------------------
@@ -85,6 +85,7 @@ export default function register(ko) {
     ko.components.register('create-pool-wizard',        require('./resources/create-pool-wizard/create-pool-wizard'));
     ko.components.register('cloud-resources-table',     require('./resources/cloud-resources-table/cloud-resources-table'));
     ko.components.register('add-cloud-resource-modal',  require('./resources/add-cloud-resource-modal/add-cloud-resource-modal'));
+    ko.components.register('cloud-resource-deleted-alert-modal', require('./resources/cloud-resource-deleted-alert-modal/cloud-resource-deleted-alert-modal'));
     /** INJECT:resources **/
 
     // -------------------------------

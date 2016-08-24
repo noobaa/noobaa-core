@@ -75,10 +75,15 @@ class CloudResourcesTableViewModel extends Disposable {
 
         this.deleteGroup = ko.observable();
         this.isAddCloudResourceModalVisible = ko.observable(false);
+        this.isAfterDeleteAlertModalVisible = ko.observable(false);
     }
 
     rowFactory(resource) {
-        return new CloudResourceRowViewModel(resource, this.deleteGroup);
+        return new CloudResourceRowViewModel(
+            resource,
+            this.deleteGroup,
+            () => this.showAfterDeleteAlertModal()
+        );
     }
 
     showAddCloudResourceModal() {
@@ -87,6 +92,14 @@ class CloudResourcesTableViewModel extends Disposable {
 
     hideCloudReousrceModal() {
         this.isAddCloudResourceModalVisible(false);
+    }
+
+    showAfterDeleteAlertModal() {
+        this.isAfterDeleteAlertModalVisible(true);
+    }
+
+    hideAfterDeleteAlertModal() {
+        this.isAfterDeleteAlertModalVisible(false);
     }
 }
 

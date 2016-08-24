@@ -1,13 +1,6 @@
 delete-button {
-    @base-width: 25px;
-
     display: block;
     position: relative;
-    margin: -8px;
-
-    .btn-flat {
-        padding: 0;
-    }
 
     .message-wrapper {
         direction: rtl;
@@ -25,14 +18,23 @@ delete-button {
     .message-text {
         white-space: nowrap;
         display: block;
-        padding: @gutter/2 @gutter;
-        padding-right: @base-width + 2 * @gutter;
-        line-height: @base-width;
+        padding-right: 24px + 2 * @gutter;
+        padding-left: @gutter;
+        line-height: 44px;
     }
 
-    svg-icon {
+    button {
         position: relative;
-        transform: scaleX(-1);
+        background: red;
+
+        > svg-icon {
+            fill: @color7;
+
+        }
+
+        &:disabled > svg-icon {
+            fill: @color15;
+        }
     }
 
     .active {

@@ -27,8 +27,18 @@ class NodeInfoViewModel extends Disposable {
             () => node().decommissioning || node().decommissioned
         );
 
+        this.isDemoNode = ko.pureComputed(
+            () => node().demo_node
+        );
+
         this.toggleButtonLabel = ko.pureComputed(
             () => this.isDecommissioned() ? 'Activate Node' : 'Deactivate Node'
+        );
+
+        this.toggleButtonTooltip = ko.pureComputed(
+            () => this.isDemoNode() ?
+                'Deactivating a node is not supported for demo nodes' :
+                ''
         );
 
         let version = ko.pureComputed(

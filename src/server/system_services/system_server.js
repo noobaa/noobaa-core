@@ -803,46 +803,19 @@ function update_base_address(req) {
             }
         })
         .then(() => cutil.update_host_address(req.rpc_params.base_address))
-        .then(function() {
-            return nodes_store.instance().find_nodes({
-                system: req.system._id,
-                deleted: null
-            }, {
-                // select just what we need
-                fields: {
-                    name: 1,
-                    rpc_address: 1
-                }
-            });
-        })
-        .then(function(nodes) {
-            var reply = {
-                nodes_count: nodes.length,
-                nodes_updated: 0
-            };
-            return P.map(nodes, function(node) {
-                    return server_rpc.client.agent.update_base_address(req.rpc_params, {
-                        address: node.rpc_address
-                    }).then(function() {
-                        reply.nodes_updated += 1;
-                    }, function(err) {
-                        dbg.error('update_base_address: FAILED TO UPDATE AGENT', node.name, node.rpc_address);
-                    });
-                }, {
-                    concurrency: 5
-                })
-                .return(reply);
-        })
-        .then(res => {
-            Dispatcher.instance().activity({
-                event: 'conf.dns_address',
-                level: 'info',
-                system: req.system,
-                actor: req.account && req.account._id,
-                desc: `DNS Address was changed from ${prior_base_address} to ${req.rpc_params.base_address}`,
-            });
-            return res;
+        .then(() => server_rpc.client.node.sync_monitor_to_store({}, {
+            auth_token: req.auth_token
+        }))
+
+    .then(() => {
+        Dispatcher.instance().activity({
+            event: 'conf.dns_address',
+            level: 'info',
+            system: req.system,
+            actor: req.account && req.account._id,
+            desc: `DNS Address was changed from ${prior_base_address} to ${req.rpc_params.base_address}`,
         });
+    });
 }
 
 // phone_home_proxy_address must be a full address like: http://(ip or hostname):(port)

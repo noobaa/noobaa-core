@@ -229,7 +229,14 @@ function fix_security_issues {
 	  /bin/cp -fd /tmp/localtime /etc
 	fi
 
-	randomize_root_pwd
+	#create random root password
+	if [ -f ${NOOBAA_ROOTPWD} ]; then
+		#workaround for test servers - specify password in /etc/nbpwd file
+		rootpwd=$(cat ${NOOBAA_ROOTPWD})
+	else
+		rootpwd=`uuidgen`
+	fi
+	echo ${rootpwd} | passwd root --stdin
 
 	# set noobaaroot password
 	secret=$(cat ${NOOBAASEC})
@@ -298,12 +305,6 @@ function setup_syslog {
 }
 
 
-function randomize_root_pwd {
-	#create random  
-	rootpwd=`uuidgen`
-	echo ${rootpwd} | passwd root --stdin
-
-}
 
 function fix_etc_issue {
 	local current_ip=$(ifconfig eth0  |grep 'inet addr' | cut -f 2 -d':' | cut -f 1 -d' ')

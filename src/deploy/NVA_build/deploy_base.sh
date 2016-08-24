@@ -31,6 +31,20 @@ function add_sudoers {
 	fi
 	useradd noobaa
 	echo Passw0rd | passwd noobaa --stdin
+
+	#add noobaaroot user
+	t=$(eval 'sudo grep -q noobaaroot /etc/sudoers; echo $? ')
+	if [ $t -ne 0 ]; then
+		deploy_log "adding noobaaroot to sudoers"
+		sudo echo "noobaaroot ALL=(ALL)	NOPASSWD:ALL" >> /etc/sudoers
+		tt=$(eval 'sudo grep –q noobaaroot /etc/sudoers; echo $? ')
+		if [ $tt -ne 0 ]; then
+			deploy_log "failed to add noobaaroot to sudoers"
+		fi
+	fi
+	# add noobaaroot with temp password
+	useradd noobaaroot
+	echo Passw0rd | passwd noobaaroot --stdin
 }
 
 function build_node {
@@ -214,6 +228,26 @@ function fix_security_issues {
 		fi
 	  /bin/cp -fd /tmp/localtime /etc
 	fi
+
+	randomize_root_pwd
+
+	# set noobaaroot password
+	secret=$(cat ${NOOBAASEC})
+	echo ${secret} | passwd noobaaroot --stdin
+	# disable root login from ssh
+	local root_disabled=$(grep 'PermitRootLogin no' "/etc/ssh/sshd_config" | wc -l)
+	if [ "${root_disabled}" == "0" ]; then
+		echo 'PermitRootLogin no' >> /etc/ssh/sshd_config
+	fi
+	
+	# disable "noobaa" user login from ssh
+	local noobaa_disabled=$(grep 'Match User noobaa' "/etc/ssh/sshd_config" | wc -l)
+	if [ "${noobaa_disabled}" == "0" ]; then
+		echo 'Match User noobaa'  >> /etc/ssh/sshd_config
+		echo '	PasswordAuthentication no'  >> /etc/ssh/sshd_config
+	fi
+	
+
 }
 function setup_supervisors {
 	mkdir -p /tmp/supervisor
@@ -263,6 +297,14 @@ function setup_syslog {
 	echo "*/15 * * * * /usr/sbin/logrotate /etc/logrotate.d/noobaa >/dev/null 2>&1" > /var/spool/cron/root
 }
 
+
+function randomize_root_pwd {
+	#create random  
+	rootpwd=`uuidgen`
+	echo ${rootpwd} | passwd root --stdin
+
+}
+
 function fix_etc_issue {
 	local current_ip=$(ifconfig eth0  |grep 'inet addr' | cut -f 2 -d':' | cut -f 1 -d' ')
 	local secret
@@ -271,14 +313,6 @@ function fix_etc_issue {
 	else
 		uuidgen | cut -f 1 -d'-' > ${NOOBAASEC}
 		secret=$(cat ${NOOBAASEC})
-	fi
-
-	if [ -f ${NOOBAA_ROOTPWD} ]; then
-		rootpwd=$(cat ${NOOBAA_ROOTPWD})
-	else
-		uuidgen | cut -f 1 -d'-' > ${NOOBAA_ROOTPWD}
-		rootpwd=$(cat ${NOOBAA_ROOTPWD})
-		echo ${rootpwd} | passwd root --stdin
 	fi
 
 	#Fix login message

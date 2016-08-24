@@ -450,9 +450,6 @@ module.exports = {
                     }
                 }
             },
-            reply: {
-                $ref: '#/definitions/system_nodes_update_reply'
-            },
             auth: {
                 system: 'admin',
             }
@@ -528,9 +525,6 @@ module.exports = {
                         type: 'string'
                     }
                 }
-            },
-            reply: {
-                $ref: '#/definitions/system_nodes_update_reply'
             },
             auth: {
                 system: 'admin',

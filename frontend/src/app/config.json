@@ -38,5 +38,10 @@
         // "msie",
         // "safari",
         // "opr"
-    ]
+    ],
+    "support":  {
+        "email": "support@noobaa.com",
+        "helpDesk": "https://noobaa.desk.com",
+        "upgradeToEnterpriseMailSubject": "Luram ipsam"
+    }
 }

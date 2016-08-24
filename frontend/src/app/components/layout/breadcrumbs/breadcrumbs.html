@@ -1,14 +1,11 @@
- <!-- ko foreach: crumbs -->
-<!-- <svg-icon class="seperator rotate deg-90 icon-small" params="name: 'chevron'">
-</svg-icon> -->
-
- <a class="crumb" data-bind="
-    href: {
-        route: route,
-        params: { tab: null }
-    },
-    tooltip: label
-">
-     <span data-bind="text: label"></span>
- </a>
- <!-- /ko -->
+ <nav class="row content-middle" data-bind="foreach: crumbs">
+     <a class="crumb" data-bind="
+        href: {
+            route: route,
+            params: { tab: null }
+        },
+        tooltip: label
+    ">
+        <span class="no-wrap" data-bind="text: label"></span>
+    </a>
+</nav>

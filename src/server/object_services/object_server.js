@@ -839,6 +839,9 @@ function get_object_info(md) {
         if (md.stats.last_read !== undefined) {
             info.stats.last_read = md.stats.last_read.getTime();
         }
+        if (_.isUndefined(md.stats.reads)) {
+            info.stats.reads = 0;
+        }
     }
     return info;
 }

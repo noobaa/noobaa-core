@@ -28,7 +28,7 @@ class NodeInfoViewModel extends Disposable {
         );
 
         this.toggleButtonLabel = ko.pureComputed(
-            () => this.isDecommissioned() ? 'Enable Node' : 'Disable Node'
+            () => this.isDecommissioned() ? 'Activate Node' : 'Deactivate Node'
         );
 
         let version = ko.pureComputed(

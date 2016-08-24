@@ -85,36 +85,43 @@ function setup_linux_users {
         fi
     fi
 
-	local current_ip=$(ifconfig eth0  |grep 'inet addr' | cut -f 2 -d':' | cut -f 1 -d' ')
-    local secret
-    if [ -f ${NOOBAASEC} ]; then
-        secret=$(cat ${NOOBAASEC})
-    else
-        uuidgen | cut -f 1 -d'-' > ${NOOBAASEC}
-        secret=$(cat ${NOOBAASEC})
+	# create noobaaroot user
+    if ! id -u noobaaroot; then
+		deploy_log "adding user noobaaroot"
+		useradd noobaaroot
+		echo Passw0rd | passwd noobaaroot --stdin
+	fi
+    if ! grep -q noobaaroot /etc/sudoers; then
+        deploy_log "adding user noobaaroot to sudoers"
+        echo "noobaaroot ALL=(ALL)    NOPASSWD:ALL" >> /etc/sudoers
+		if ! grep -q noobaaroot /etc/sudoers; then
+            deploy_log "failed to add noobaaroot to sudoers"
+			exit 1
+        fi
     fi
 
-    if [ -f ${NOOBAA_ROOTPWD} ]; then
-        rootpwd=$(cat ${NOOBAA_ROOTPWD})
-    else
-        uuidgen | cut -f 1 -d'-' > ${NOOBAA_ROOTPWD}
-        rootpwd=$(cat ${NOOBAA_ROOTPWD})
-        echo ${rootpwd} | passwd root --stdin
+	local current_ip=$(ifconfig eth0 | grep 'inet addr' | cut -f 2 -d':' | cut -f 1 -d' ')
+
+    if [ ! -f ${NOOBAASEC} ]; then
+        uuidgen | cut -f 1 -d'-' > ${NOOBAASEC}
     fi
+	local secret=$(cat ${NOOBAASEC})
 
     #Fix login message
     echo -e "\x1b[0;35;40m" > /etc/issue
-    echo  "  _   _            ______                                      " >> /etc/issue
-    echo  " | \\\\ | |           | ___ \\\\                               " >> /etc/issue
-    echo  " |  \\\\| | ___   ___ | |_/ / __ _  __ _                       " >> /etc/issue
-    echo  " | . \` |/ _ \\\\ / _ \\\\| ___ \\\\/ _\` |/ _\` |             " >> /etc/issue
-    echo  " | |\\\\  | (_) | (_) | |_/ / (_| | (_| |                      " >> /etc/issue
-    echo  " \\\\\_| \\\\_/\\\\___/ \\\\___/\\\\____/ \\\\__,_|\\\\__,_|   " >> /etc/issue
+    echo  '  _    _            ______              ' >> /etc/issue
+    echo  ' | \\ | |           | ___ \             ' >> /etc/issue
+    echo  ' |  \\| | ___   ___ | |_/ / __ _  __ _  ' >> /etc/issue
+    echo  ' | . `  |/ _ \ / _ \| ___ \/ _` |/ _` | ' >> /etc/issue
+    echo  ' | |\\  | (_) | (_) | |_/ / (_| | (_| | ' >> /etc/issue
+    echo  ' \_| \\_/\___/ \___/\____/ \__,_|\__,_| ' >> /etc/issue
     echo -e "\x1b[0m" >> /etc/issue
 
     echo -e "\n\nWelcome to your \x1b[0;35;40mNooBaa\x1b[0m server.\n" >> /etc/issue
 
-    echo -e "\nConfigured IP on this NooBaa Server \x1b[0;32;40m${current_ip}\x1b[0m.\nThis server's secret is \x1b[0;32;40m${secret}\x1b[0m\nThis server's root password is \x1b[0;32;40m${rootpwd}\x1b[0m" >> /etc/issue
+    echo -e "\nConfigured IP on this NooBaa Server \x1b[0;32;40m${current_ip}\x1b[0m." >> /etc/issue
+
+	echo -e "\nThis server's secret is \x1b[0;32;40m${secret}\x1b[0m" >> /etc/issue
 
     echo -e "\nYou can set up a cluster member, configure IP, DNS, GW and Hostname by logging in using \x1b[0;32;40mnoobaa/Passw0rd\x1b[0m" >> /etc/issue
 
@@ -254,6 +261,30 @@ function fix_security_issues {
 		fi
       	cp -fd /tmp/localtime /etc
     fi
+
+	# set random root password
+	if [ -f ${NOOBAA_ROOTPWD} ]; then
+		# workaround for test servers - specify password in /etc/nbpwd file
+		rootpwd=$(cat ${NOOBAA_ROOTPWD})
+	else
+		rootpwd=$(uuidgen)
+	fi
+	echo ${rootpwd} | passwd root --stdin
+
+	# set noobaaroot password
+	secret=$(cat ${NOOBAASEC})
+	echo ${secret} | passwd noobaaroot --stdin
+
+	# disable root login from ssh
+	if ! grep -q 'PermitRootLogin no' /etc/ssh/sshd_config; then
+		echo 'PermitRootLogin no' >> /etc/ssh/sshd_config
+	fi
+
+	# disable "noobaa" user login from ssh
+	if ! grep -q 'Match User noobaa' /etc/ssh/sshd_config; then
+		echo 'Match User noobaa'  >> /etc/ssh/sshd_config
+		echo '	PasswordAuthentication no'  >> /etc/ssh/sshd_config
+	fi
 }
 
 function setup_supervisors {

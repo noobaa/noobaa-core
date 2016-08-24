@@ -67,7 +67,7 @@ export default class CloudResourceRowViewModel extends Disposable {
             subject: 'resrouces',
             group: deleteGroup,
             undeletable: undeletable,
-            deleteTooltip: ko.pureComputed(
+            tooltip: ko.pureComputed(
                 () => undeletable() ? undeletableReasons[undeletable()] : 'delete resources'
             ),
             onDelete: () => this.del()

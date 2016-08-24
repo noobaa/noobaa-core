@@ -26,13 +26,13 @@ const icons = deepFreeze([
 ]);
 
 export default class CloudResourceRowViewModel extends Disposable {
-    constructor(resource, deleteGroup) {
+    constructor(resource, deleteGroup, showAfterDeleteAlertModal) {
         super();
 
         this.type = ko.pureComputed(
             () => {
                 if (!resource()) {
-                    return;
+                    return '';
                 }
 
                 let endpoint = resource().cloud_info.endpoint.toLowerCase();
@@ -48,19 +48,19 @@ export default class CloudResourceRowViewModel extends Disposable {
         );
 
         this.name = ko.pureComputed(
-            () => resource() && resource().name
+            () => resource() ? resource().name : ''
         );
 
         this.usage = ko.pureComputed(
-            () => resource() && formatSize(resource().storage.used)
+            () => resource() ? formatSize(resource().storage.used) : ''
         );
 
         this.cloudBucket = ko.pureComputed(
-            () => resource() && resource().cloud_info.target_bucket
+            () => resource() ? resource().cloud_info.target_bucket : ''
         );
 
         let undeletable = ko.pureComputed(
-            () => resource() && resource().undeletable
+            () => resource() ? resource().undeletable : ''
         );
 
         this.deleteBtn = {
@@ -70,12 +70,10 @@ export default class CloudResourceRowViewModel extends Disposable {
             tooltip: ko.pureComputed(
                 () => undeletable() ? undeletableReasons[undeletable()] : 'delete resources'
             ),
-            onDelete: () => this.del()
+            onDelete: () => {
+                deleteCloudResource(this.name());
+                showAfterDeleteAlertModal();
+            }
         };
-
-    }
-
-    del() {
-        deleteCloudResource(this.name());
     }
 }

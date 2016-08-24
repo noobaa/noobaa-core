@@ -19,7 +19,7 @@ class CreateSystemFormViewModel extends Disposable {
                     message: 'Please enter your activation code'
                 },
                 validation: {
-                    message: 'Invalid activation code',
+                    message: 'Invalid code - register at www.noobaa.com',
                     async: true,
                     validator: (value, __, callback) => {
                         activationCodeValid.once(

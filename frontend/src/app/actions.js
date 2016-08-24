@@ -1709,12 +1709,38 @@ export function validateActivationCode(code) {
                 code: code,
                 isCodeValid: valid
             })
-        );
+        )
+        .done();
 }
 
 export function dismissUpgradedCapacityNotification() {
     logAction('dismissUpgradedCapacityNotification');
 
     api.system.phone_home_capacity_notified()
-        .then(loadSystemInfo);
+        .then(loadSystemInfo)
+        .done();
+}
+
+export function decommissionNode(name) {
+    logAction('decommissionNode', { name });
+
+    api.node.decommission_node({ name })
+        .then(
+            () => notify(`Node ${name} disabled successfully`, 'success'),
+            () => notify(`Disabling node ${name} failed`, 'error')
+        )
+        .then(refresh)
+        .done();
+}
+
+export function recommissionNode(name) {
+    logAction('recommissionNode', { name });
+
+    api.node.recommission_node({ name })
+        .then(
+            () => notify(`Node ${name} enabled successfully`, 'success'),
+            () => notify(`Enabling node ${name} failed`, 'error')
+        )
+        .then(refresh)
+        .done();
 }

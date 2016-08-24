@@ -38,24 +38,16 @@
     </section>
 
     <section class="column c3 borders pad">
-    <!--     <p class="heading4">
-            No Activity
-        </p>
+        <p class="heading4" data-bind="text: activityTitle"></p>
         <hr>
-        <p>
-            Node in optimal condition
-        </p> -->
-        <p class="heading4">
-            Restoring Node
-        </p>
-        <hr>
-        <p>Rebuilding 12.4GB of 45.76GB</p>
-        <div class="column progress-bar">
-            <bar params="values:[
-                { value: .23, color: '#f20092' },
-                { value: .77, color: '#2c2f32' }
-            ]"></bar>
-            <div class="text-right">ETA: 10 min</div>
+        <p data-bind="text: activityStageMessage"></p>
+
+        <div class="column progress-bar" data-bind="if: hasActivity">
+            <bar params="values: activityProgressBarValues"></bar>
+            <div class="text-right">
+                ETA:
+                <span data-bind="text: activityETA"></span>
+            </div>
         </div>
     </section>
 </div>

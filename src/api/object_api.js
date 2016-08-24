@@ -580,7 +580,7 @@ module.exports = {
                     prefix: {
                         type: 'string',
                     },
-                    key_prefix: {
+                    key_marker: {
                         type: 'string',
                     },
                     key_regexp: {
@@ -603,7 +603,7 @@ module.exports = {
                     },
                     sort: {
                         type: 'string',
-                        enum: ['state', 'name', 'size']
+                        enum: ['key', 'state', 'name', 'size']
                     },
                     order: {
                         type: 'integer',
@@ -619,6 +619,12 @@ module.exports = {
                 properties: {
                     total_count: {
                         type: 'integer'
+                    },
+                    is_truncated: {
+                        type: 'boolean'
+                    },
+                    next_marker: {
+                        type: 'string'
                     },
                     objects: {
                         type: 'array',

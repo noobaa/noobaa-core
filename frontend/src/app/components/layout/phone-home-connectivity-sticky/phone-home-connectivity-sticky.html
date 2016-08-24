@@ -1,15 +1,18 @@
-<section class="sticky row content-middle" data-bind="css: { active: isActive }">
-    <span class="greedy">
+<section class="sticky" data-bind="css: { active: isActive }">
+    <div class="sticky-content row content-middle">
         <svg-icon params="name: 'notif-info'" class="icon-small"></svg-icon>
-        Phone home option is not available. By enabling conectivity for two weeks you will get an extera 10TB of capacity.
-    </span>
 
-    <a class="link" data-bind="
-        href: {
-            route: 'management',
-            params: { tab: 'settings' }
-        }
-    ">
-        Check phone home conectivity settings
-    </a>
+        <span class="greedy">
+            Phone home option is not available. By enabling conectivity for two weeks you will get an extera 10TB of capacity.
+        </span>
+
+        <a class="link alt-colors" data-bind="
+            href: {
+                route: 'management',
+                params: { tab: 'settings' }
+            }
+        ">
+            Check phone home conectivity settings
+        </a>
+    </div>
 </section>

@@ -6,8 +6,6 @@ html, body {
     height: 100%;
     margin: 0;
     padding: 0;
-    font-smooth: never;
-    /*-webkit-font-smoothing: antialiased;*/
 }
 
 html, body {
@@ -247,20 +245,32 @@ output {
 }
 
 .sticky {
-    line-height: 25px;
-    padding: @gutter / 2 @gutter;
-    background: @red-dark;
-    color: @text-color1;
+    max-height: 0;
+    overflow-y: hidden;
+    transition: max-height 500ms ease-out;
+
+    .sticky-content {
+        padding: @gutter/2 @gutter;
+        background: @color7;
+        color: @color1;
+        font-weight: @font-medium;
+    }
 
     svg-icon {
-        margin-right: .25em;
+        margin-right: @gutter/2;
+        fill: @color1;
     }
 
     vr {
         align-self: stretch;
-        background-color: @text-color1;
+        background-color: @color1;
         margin: 0 @gutter;
     }
+
+    &.active {
+        max-height: 34px;
+    }
+
 }
 
 .hide {

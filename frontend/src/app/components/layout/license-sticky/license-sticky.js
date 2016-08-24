@@ -2,6 +2,7 @@ import template from './license-sticky.html';
 import Disposable from 'disposable';
 import { systemInfo } from 'model';
 import ko from 'knockout';
+import { support } from 'config';
 
 const teraByte = Math.pow(2, 40);
 
@@ -24,6 +25,9 @@ class LicenseStickyViewModel extends Disposable{
             () => systemInfo() && `${systemInfo().system_cap}TB`
         );
 
+        this.upgradeEmailHref = ko.pureComputed(
+            () => `mailto:${support.email}?subject=${support.upgradeToEnterpriseMailSubject}`
+        );
     }
 }
 

@@ -16,10 +16,10 @@ export default function register(ko) {
     ko.components.register('notification-box',  require('./layout/notification-box/notification-box'));
     ko.components.register('welcome-modal',     require('./layout/welcome-modal/welcome-modal'));
     ko.components.register('upgraded-capacity-notification-modal', require('./layout/upgraded-capacity-notification-modal/upgraded-capacity-notification-modal'));
-    // ko.components.register('debug-mode-sticky',     require('./layout/debug-mode-sticky/debug-mode-sticky'));
-    // ko.components.register('maintenance-sticky',    require('./layout/maintenance-sticky/maintenance-sticky'));
-    // ko.components.register('license-sticky',        require('./layout/license-sticky/license-sticky'));
-    // ko.components.register('phone-home-connectivity-sticky', require('./layout/phone-home-connectivity-sticky/phone-home-connectivity-sticky'));
+    ko.components.register('debug-mode-sticky',     require('./layout/debug-mode-sticky/debug-mode-sticky'));
+    ko.components.register('maintenance-sticky',    require('./layout/maintenance-sticky/maintenance-sticky'));
+    ko.components.register('license-sticky',        require('./layout/license-sticky/license-sticky'));
+    ko.components.register('phone-home-connectivity-sticky', require('./layout/phone-home-connectivity-sticky/phone-home-connectivity-sticky'));
     /** INJECT:layout **/
 
     // -------------------------------

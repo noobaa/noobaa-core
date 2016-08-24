@@ -8,7 +8,7 @@ LOG_FILE="/var/log/noobaa_deploy.log"
 SUPERD="/usr/bin/supervisord"
 SUPERCTL="/usr/bin/supervisorctl"
 NOOBAASEC="/etc/noobaa_sec"
-NOOBAA_ROOTPWD="/etc/noobaa_pwd"
+NOOBAA_ROOTPWD="/etc/nbpwd"
 
 function deploy_log {
 	if [ "$1" != "" ]; then

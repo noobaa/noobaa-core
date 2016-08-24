@@ -207,11 +207,11 @@ function pre_upgrade {
 		echo "noobaaroot user exists"
 	else
   #add noobaaroot user
-    t=$(eval 'sudo grep -q noobaaroot /etc/sudoers; echo $? ')
+    t=$(eval 'grep -q noobaaroot /etc/sudoers; echo $? ')
     if [ $t -ne 0 ]; then
       deploy_log "adding noobaaroot to sudoers"
-      sudo echo "noobaaroot ALL=(ALL)	NOPASSWD:ALL" >> /etc/sudoers
-      tt=$(eval 'sudo grep –q noobaaroot /etc/sudoers; echo $? ')
+      echo "noobaaroot ALL=(ALL)	NOPASSWD:ALL" >> /etc/sudoers
+      tt=$(eval 'grep –q noobaaroot /etc/sudoers; echo $? ')
       if [ $tt -ne 0 ]; then
         deploy_log "failed to add noobaaroot to sudoers"
       fi

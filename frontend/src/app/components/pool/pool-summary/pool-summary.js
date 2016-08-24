@@ -1,7 +1,6 @@
 import template from './pool-summary.html';
 import Disposable from 'disposable';
 import ko from 'knockout';
-import moment from 'moment';
 import numeral from 'numeral';
 import style from 'style';
 import { deepFreeze, formatSize } from 'utils';
@@ -18,32 +17,6 @@ const stateMapping = deepFreeze({
         icon: 'problem'
     }
 });
-
-const activityLabelMapping = Object.freeze({
-    EVACUATING: 'Evacuating',
-    REBUILDING: 'Rebuilding',
-    MIGRATING: 'Migrating'
-});
-
-function mapActivity({ reason, node_count, completed_size, total_size, eta }) {
-    return {
-        row1: `${
-            activityLabelMapping[reason]
-        } ${
-            node_count
-        } nodes | Completed ${
-            formatSize(completed_size)
-        } of ${
-            formatSize(total_size)
-        }`,
-
-        row2: `(${
-            numeral(completed_size / total_size).format('0%')
-        } completed, ETA: ${
-            moment().to(eta)
-        })`
-    };
-}
 
 class PoolSummaryViewModel extends Disposable {
     constructor({ pool }) {
@@ -62,7 +35,7 @@ class PoolSummaryViewModel extends Disposable {
         );
 
         this.onlineCount = ko.pureComputed(
-            () => numeral().format('0,0')
+            () => numeral(pool().nodes.online).format('0,0')
         );
 
         this.offlineCount = ko.pureComputed(
@@ -116,10 +89,6 @@ class PoolSummaryViewModel extends Disposable {
                 )
             }
         ];
-
-        this.dataActivities = ko.pureComputed(
-            () => pool().data_activities && pool().data_activities.map(mapActivity)
-        );
     }
 }
 

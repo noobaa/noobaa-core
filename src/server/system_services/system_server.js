@@ -1034,7 +1034,6 @@ function _communicate_license_server(params) {
     }
 
     if (params.command === 'perform_activation') {
-        // TODO: JEN FILL UP WITH GOOD SYSTEM INFO
         data_to_send.system_info = (params && params.system_info) || {};
     }
 

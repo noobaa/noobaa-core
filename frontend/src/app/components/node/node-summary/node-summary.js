@@ -2,7 +2,6 @@ import template from './node-summary.html';
 import Disposable from 'disposable';
 import ko from 'knockout';
 import moment from 'moment';
-import numeral from 'numeral';
 import { deepFreeze, formatSize, bitsToNumber } from 'utils';
 import style from 'style';
 
@@ -50,29 +49,12 @@ const accessibilityMapping = deepFreeze({
     }
 });
 
-const activityLabelMapping = deepFreeze({
-    EVACUATING: 'Evacuating',
-    REBUILDING: 'Rebuilding',
-    MIGRATING: 'Migrating'
+const activityNameMapping = deepFreeze({
+    RESTORING: 'Restoring Node',
+    MIGRATING: 'Migrating Node',
+    DECOMMISSIONING: 'Deactivating Node',
+    DELETING: 'Deleting Node'
 });
-
-function mapActivity({ reason, completed_size, total_size, eta }) {
-    return {
-        row1: `${
-            activityLabelMapping[reason]
-        } node | Completed ${
-            formatSize(completed_size)
-        } of ${
-            formatSize(total_size)
-        }`,
-
-        row2: `(${
-            numeral(completed_size / total_size).format('0%')
-        } completed, ETA: ${
-            moment().to(eta)
-        })`
-    };
-}
 
 class NodeSummaryViewModel extends Disposable {
     constructor({ node }) {
@@ -98,13 +80,8 @@ class NodeSummaryViewModel extends Disposable {
         this.accessibility = ko.pureComputed(
             () => {
                 let index = bitsToNumber(node().readable, node().writable);
-                console.log(index);
                 return accessibilityMapping[index];
             }
-        );
-
-        this.dataActivity = ko.pureComputed(
-            () => node().data_activity && mapActivity(node().data_activity)
         );
 
         let storage = ko.pureComputed(
@@ -147,8 +124,77 @@ class NodeSummaryViewModel extends Disposable {
             }
         ];
 
-        this.rpcAddress = ko.pureComputed(
-            () => !!node() && node().rpc_address
+        let dataActivity = ko.pureComputed(
+            () => node().data_activity
+        );
+
+        this.hasActivity = ko.pureComputed(
+            () => Boolean(dataActivity())
+        );
+
+        this.activityTitle = ko.pureComputed(
+            () => {
+                if (!dataActivity()) {
+                    return 'No Activity';
+                }
+
+                return activityNameMapping[dataActivity().reason];
+            }
+        );
+
+        this.activityStageMessage = ko.pureComputed(
+            () => {
+                if (!dataActivity()) {
+                    return 'Node in optimal condition';
+                }
+
+                let { stage } = dataActivity();
+                switch (stage.name) {
+                    case 'OFFLINE_GRACE':
+                        return `Waiting for heartbeat, ${
+                            moment(stage.time.end).fromNow()
+                        } until restore`;
+
+                    case 'REBUILDING':
+                        return `Rebuilding ${
+                            formatSize(stage.size.completed)
+                        } of ${
+                            formatSize(stage.size.total)
+                        }`;
+
+                    case 'WIPING':
+                        return `Wiping ${
+                            formatSize(stage.size.completed)
+                        } of ${
+                            formatSize(stage.size.total)
+                        }`;
+                }
+            }
+        );
+
+        this.activityProgressBarValues = [
+            {
+                value: ko.pureComputed(
+                    () => dataActivity() ? dataActivity().progress : 0
+                ),
+                color: '#f20092'
+            },
+            {
+                value: ko.pureComputed(
+                    () => dataActivity() ? 1 - dataActivity().progress : 1
+                ),
+                color: '#2c2f32'
+            }
+        ];
+
+        this.activityETA = ko.pureComputed(
+            () => {
+                if (!dataActivity() || !dataActivity().time.end) {
+                    return 'Unknown';
+                }
+
+                return moment(dataActivity().time.end).fromNow();
+            }
         );
 
         this.isTestModalVisible = ko.observable(false);

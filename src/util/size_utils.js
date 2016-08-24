@@ -89,7 +89,11 @@ function to_bigint_storage(storage) {
 function reduce_storage(reducer, storage_items, mult_factor, div_factor) {
     let accumulator = _.reduce(storage_items,
         (accumulator, item) => {
-            _.each(SOTRAGE_OBJ_KEYS, key => item && item[key] && accumulator[key].push(item[key]));
+            _.each(SOTRAGE_OBJ_KEYS, key => {
+                if (item && !_.isUndefined(item[key])) {
+                    accumulator[key].push(item[key]);
+                }
+            });
             return accumulator;
         },
         make_object(SOTRAGE_OBJ_KEYS, key => []));

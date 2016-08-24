@@ -1,6 +1,14 @@
 <!-- ko if: dataReady -->
 <section class="column pad">
-    <h3 class="heading3">Agent Information</h3>
+    <div class="row content-middle">
+        <h3 class="heading3 greedy push-next">Agent Information</h3>
+
+        <button class="btn" data-bind="
+            text: toggleButtonLabel,
+            click: toggleNode
+        "></button>
+    </div>
+
     <property-sheet params="properties: agentInfo"></property-sheet>
 </section>
 

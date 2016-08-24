@@ -810,8 +810,7 @@ module.exports = {
                 'bucket',
                 'key',
                 'size',
-                'content_type',
-                'create_time'
+                'content_type'
             ],
             properties: {
                 bucket: {
@@ -832,7 +831,7 @@ module.exports = {
                 create_time: {
                     format: 'idate'
                 },
-                upload_completed: {
+                upload_started: {
                     format: 'idate'
                 },
                 upload_size: {

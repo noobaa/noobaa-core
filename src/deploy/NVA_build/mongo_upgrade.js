@@ -299,18 +299,18 @@ function upgrade_cluster() {
 function upgrade_object_mds() {
     print('\n*** upgrade_object_mds ...');
     db.objectmds.find({
-        upload_completed: {
-            $exists: false
-        },
         upload_size: {
-            $exists: false
+            $exists: true
         }
     }).forEach(function(obj) {
         db.objectmds.update({
             _id: obj._id
         }, {
             $set: {
-                upload_completed: obj.create_time
+                upload_started: obj.create_time
+            },
+            $unset: {
+                create_time: 1
             }
         });
     });

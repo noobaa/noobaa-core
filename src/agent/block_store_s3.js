@@ -69,11 +69,11 @@ class BlockStoreS3 extends BlockStoreBase {
     }
 
     get_storage_info() {
-        const TERA = 1024 * 1024 * 1024 * 1024 * 1024;
+        const PETABYTE = 1024 * 1024 * 1024 * 1024 * 1024;
         return P.resolve(this._get_usage())
             .then(usage => ({
-                total: TERA + usage.size,
-                free: TERA,
+                total: PETABYTE + usage.size,
+                free: PETABYTE,
                 used: usage.size
             }));
     }
@@ -84,7 +84,10 @@ class BlockStoreS3 extends BlockStoreBase {
 
     _count_usage() {
         // TODO: count usage from cloud
-        return this._usage || 0;
+        return this._usage || {
+            size: 0,
+            count: 0
+        };
     }
 
 

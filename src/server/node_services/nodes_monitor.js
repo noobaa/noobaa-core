@@ -1215,6 +1215,7 @@ class NodesMonitor extends EventEmitter {
                 has_issues += 1;
             }
 
+            item.node.storage.free = Math.max(item.node.storage.free, 0);
             // for internal agents set reserve to 0
             let reserve = item.node.is_internal_node ? 0 : config.NODES_FREE_SPACE_RESERVE;
 
@@ -1501,7 +1502,7 @@ class NodesMonitor extends EventEmitter {
 function get_storage_info(storage, ignore_reserve) {
     let reply = {
         total: storage.total || 0,
-        free: storage.free || 0,
+        free: Math.max(storage.free || 0, 0),
         used: storage.used || 0,
         alloc: storage.alloc || 0,
         limit: storage.limit || 0,

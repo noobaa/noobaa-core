@@ -3,6 +3,7 @@ import Disposable from 'disposable';
 import ko from 'knockout';
 import moment from 'moment';
 import { formatSize, avgOp } from 'utils';
+import { decommissionNode, recommissionNode } from 'actions';
 
 const conactivityTypeMapping = Object.freeze({
     UNKNOWN: 'Unknown',
@@ -16,6 +17,18 @@ class NodeInfoViewModel extends Disposable {
 
         this.dataReady = ko.pureComputed(
             () => !!node()
+        );
+
+        this.name = ko.pureComputed(
+            () => node().name
+        );
+
+        this.isDecommissioned = ko.pureComputed(
+            () => node().decommissioning || node().decommissioned
+        );
+
+        this.toggleButtonLabel = ko.pureComputed(
+            () => this.isDecommissioned() ? 'Activate Node' : 'Deactivate Node'
         );
 
         let version = ko.pureComputed(
@@ -110,6 +123,12 @@ class NodeInfoViewModel extends Disposable {
             { label: 'Read Latency', value: diskRead },
             { label: 'Write Latency', value: diskWrite }
         ];
+    }
+
+    toggleNode() {
+        this.isDecommissioned() ?
+            recommissionNode(this.name()) :
+            decommissionNode(this.name());
     }
 
     _mapCpus({ os_info }) {

@@ -6,8 +6,14 @@ import { deepFreeze } from 'utils';
 const activityNameMapping = deepFreeze({
     RESTORING: 'Restoring',
     MIGRATING: 'Migrating',
-    DECOMMISSIONING: 'Decommissioning',
-    DELETING: 'deleting'
+    DECOMMISSIONING: 'Deactivating',
+    DELETING: 'Deleting'
+});
+
+const activityStageMapping = deepFreeze({
+    OFFLINE_GRACE: 'Waiting',
+    REBUILDING: 'Rebuilding',
+    WIPING: 'Wiping Data'
 });
 
 export default class NodeRowViewModel extends Disposable {
@@ -78,20 +84,18 @@ export default class NodeRowViewModel extends Disposable {
 
         this.dataActivity = ko.pureComputed(
             () => {
-                if (!node()) {
-                    return '';
-                }
-
-                if (!node().data_activity) {
+                if (!node() || !node().data_activity) {
                     return 'No activity';
                 }
 
-                let { reason, completed_size, total_size } = node().data_activity;
+                let { reason, stage, progress } = node().data_activity;
                 return `${
                     activityNameMapping[reason]
-                } (${
-                    numeral(completed_size / total_size).format('0%')
-                })`;
+                } ${
+                    numeral(progress).format('0%')
+                } | ${
+                    activityStageMapping[stage.name]
+                }`;
             }
         );
     }

@@ -575,7 +575,16 @@ module.exports = {
                 }
             },
             reply: {
-                type: 'boolean',
+                type: 'object',
+                required: ['valid'],
+                properties: {
+                    valid: {
+                        type: 'boolean',
+                    },
+                    reason: {
+                        type: 'string'
+                    }
+                }
             },
             auth: {
                 account: false,

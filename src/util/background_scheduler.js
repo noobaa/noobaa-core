@@ -30,11 +30,11 @@ class Background_Scheduler {
     // for the sake of tests to be able to exit we schedule the worker with unblocking delay
     // so that it won't prevent the process from existing if it's the only timer left
     run_background_worker(worker) {
-        var DEFUALT_DELAY = 10000;
+        const self = this;
+        const DEFUALT_DELAY = 10000;
         this.workers_by_name_cache[worker.name] = worker;
 
         function run() {
-            let self = Background_Scheduler.get_instance();
             if (self.workers_by_name_cache[worker.name]) {
                 P.fcall(function() {
                         return worker.run_batch();

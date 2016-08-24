@@ -79,14 +79,14 @@ function create_branch(next_version) {
 }
 
 function build_package() {
-	var out;
-	var orig = 'C:\\Users\\Administrator\\Documents\\GitHub\\noobaa-core\\src\\deploy\\NVA_build\\env.orig';
-	var dest = 'C:\\Users\\Administrator\\Documents\\GitHub\\noobaa-core\\.env';
-	out = child_proc.execSync('copy ' + orig + ' ' + dest);
-	process.stdout.write(out);
+    var out;
+    var orig = 'C:\\Users\\Administrator\\Documents\\GitHub\\noobaa-core\\src\\deploy\\NVA_build\\env.orig';
+    var dest = 'C:\\Users\\Administrator\\Documents\\GitHub\\noobaa-core\\.env';
+    out = child_proc.execSync('copy ' + orig + ' ' + dest);
+    process.stdout.write(out);
 
-	out = child_proc.execSync(cd_command + ' && gulp package_build');
-	process.stdout.write(out);
+    out = child_proc.execSync(cd_command + ' && gulp package_build');
+    process.stdout.write(out);
 }
 
 

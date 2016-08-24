@@ -103,7 +103,8 @@ class Dispatcher {
 
     send_syslog(item) {
         dbg.log0('Sending external syslog', item);
-        this._ext_syslog.log(5 /*INFO*/ , item.description);
+        const INFO_LEVEL = 5;
+        this._ext_syslog.log(INFO_LEVEL, item.description);
     }
 
     //Internals

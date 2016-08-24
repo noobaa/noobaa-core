@@ -61,20 +61,32 @@ if (argv.help) {
 }
 
 function list_objects() {
-    s3.listObjects({
+    const params = {
         Bucket: argv.bucket,
         Prefix: argv.prefix,
         Delimiter: argv.delimiter,
-    }, function(err, data) {
+        MaxKeys: argv.maxkeys,
+        Marker: argv.marker,
+    };
+    if (argv.signed_url) {
+        console.log(s3.getSignedUrl('listObjects', params));
+        return;
+    }
+    s3.listObjects(params, function(err, data) {
         if (err) {
             console.error('LIST ERROR:', err.stack);
             return;
         }
         let contents = data.Contents;
+        let prefixes = data.CommonPrefixes;
         delete data.Contents;
+        delete data.CommonPrefixes;
         if (argv.long) {
             console.log('List:', JSON.stringify(data));
         }
+        _.each(prefixes, prefix => {
+            console.log('Prefix:', prefix.Prefix);
+        });
         _.each(contents, obj => {
             let key = obj.Key;
             let size = size_utils.human_size(obj.Size);
@@ -95,6 +107,10 @@ function list_objects() {
 }
 
 function list_buckets() {
+    if (argv.signed_url) {
+        console.log(s3.getSignedUrl('listBuckets'));
+        return;
+    }
     s3.listBuckets(function(err, data) {
         if (err) {
             console.error('LIST BUCKETS ERROR:', err);
@@ -107,9 +123,14 @@ function list_buckets() {
 }
 
 function create_bucket() {
-    s3.createBucket({
+    const params = {
         Bucket: argv.mb
-    }, (err, data) => {
+    };
+    if (argv.signed_url) {
+        console.log(s3.getSignedUrl('createBucket', params));
+        return;
+    }
+    s3.createBucket(params, (err, data) => {
         if (err) {
             console.error('CREATE BUCKET ERROR:', err);
             return;
@@ -119,9 +140,14 @@ function create_bucket() {
 }
 
 function delete_bucket() {
-    s3.deleteBucket({
+    const params = {
         Bucket: argv.rb
-    }, (err, data) => {
+    };
+    if (argv.signed_url) {
+        console.log(s3.getSignedUrl('deleteBucket', params));
+        return;
+    }
+    s3.deleteBucket(params, (err, data) => {
         if (err) {
             console.error('DELETE BUCKET ERROR:', err);
             return;
@@ -131,9 +157,14 @@ function delete_bucket() {
 }
 
 function head_bucket() {
-    s3.headBucket({
+    const params = {
         Bucket: argv.bucket
-    }, (err, data) => {
+    };
+    if (argv.signed_url) {
+        console.log(s3.getSignedUrl('headBucket', params));
+        return;
+    }
+    s3.headBucket(params, (err, data) => {
         if (err) {
             console.error('HEAD BUCKET ERROR:', err);
             return;
@@ -143,10 +174,15 @@ function head_bucket() {
 }
 
 function head_file() {
-    s3.headObject({
+    const params = {
         Bucket: argv.bucket,
         Key: argv.head
-    }, (err, data) => {
+    };
+    if (argv.signed_url) {
+        console.log(s3.getSignedUrl('headObject', params));
+        return;
+    }
+    s3.headObject(params, (err, data) => {
         if (err) {
             console.error('HEAD OBJECT ERROR:', err);
             return;
@@ -157,7 +193,7 @@ function head_file() {
 
 function delete_objects() {
     var arr = argv.keys.split(",");
-    var objs = {
+    var params = {
         Bucket: argv.bucket,
         Delete: {
             Objects: _.map(arr, obj => ({
@@ -165,7 +201,11 @@ function delete_objects() {
             }))
         }
     };
-    s3.deleteObjects(objs, function(err, data) {
+    if (argv.signed_url) {
+        console.log(s3.getSignedUrl('deleteObjects', params));
+        return;
+    }
+    s3.deleteObjects(params, function(err, data) {
         if (err) {
             console.error('Delete ERROR:', err.stack);
             return;
@@ -242,22 +282,53 @@ function upload_file() {
     }
 
     if (argv.copy) {
-        s3.copyObject({
+        const params = {
             Bucket: bucket,
             Key: upload_key,
             CopySource: bucket + '/' + argv.copy,
             ContentType: mime.lookup(upload_key) || '',
-        }, on_finish);
-    } else if (argv.put) {
-        s3.putObject({
+        };
+        if (argv.signed_url) {
+            console.log(s3.getSignedUrl('copyObject', params));
+        } else {
+            s3.copyObject(params, on_finish);
+        }
+        return;
+    }
+
+    if (argv.put) {
+        const params = {
+            Key: upload_key,
+            Bucket: bucket,
+            Body: data_source,
+            ContentType: mime.lookup(file_path) || '',
+            ContentLength: data_size
+        };
+        if (argv.signed_url) {
+            console.log(s3.getSignedUrl('putObject', params));
+        } else {
+            s3.putObject(params, on_finish)
+                .on('httpUploadProgress', on_progress);
+        }
+        return;
+    }
+
+    if (!argv.perf) {
+        s3.upload({
                 Key: upload_key,
                 Bucket: bucket,
                 Body: data_source,
-                ContentType: mime.lookup(file_path) || '',
+                ContentType: mime.lookup(file_path),
                 ContentLength: data_size
+            }, {
+                partSize: part_size,
+                queueSize: argv.concur
             }, on_finish)
             .on('httpUploadProgress', on_progress);
-    } else if (argv.perf) {
+        return;
+    }
+
+    if (argv.perf) {
         let progress = {
             loaded: 0
         };
@@ -339,29 +410,20 @@ function upload_file() {
                 }
             });
         });
-    } else {
-        s3.upload({
-                Key: upload_key,
-                Bucket: bucket,
-                Body: data_source,
-                ContentType: mime.lookup(file_path),
-                ContentLength: data_size
-            }, {
-                partSize: part_size,
-                queueSize: argv.concur
-            }, on_finish)
-            .on('httpUploadProgress', on_progress);
+        return;
     }
 }
 
 function get_file() {
-    let start_time = Date.now();
-    let progress_time = Date.now();
-
-    s3.headObject({
+    const params = {
         Bucket: argv.bucket,
-        Key: argv.get || '',
-    }, function(err, data) {
+        Key: argv.get,
+    };
+    if (argv.signed_url) {
+        console.log(s3.getSignedUrl('getObject', params));
+        return;
+    }
+    s3.headObject(params, function(err, data) {
         if (err) {
             console.error('HEAD ERROR:', err);
             return;
@@ -372,6 +434,8 @@ function get_file() {
         };
 
         console.log('object size', size_utils.human_size(data_size));
+        let start_time = Date.now();
+        let progress_time = Date.now();
 
         function on_progress(progress) {
             let now = Date.now();
@@ -395,10 +459,7 @@ function get_file() {
             console.log('get done.', speed_str, 'MB/sec');
         }
 
-        s3.getObject({
-                Bucket: argv.bucket,
-                Key: argv.get,
-            })
+        s3.getObject(params)
             .createReadStream()
             .pipe(new stream.Writable({
                 highWaterMark: 64 * 1024 * 1024,

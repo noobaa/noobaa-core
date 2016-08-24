@@ -140,7 +140,7 @@ function s3_rest(controller) {
                 // test for non printable characters
                 // 403 is required for unreadable headers
                 // eslint-disable-next-line no-control-regex
-                if (/[\x00-\x1F]/.test(val) || /[\x00-\x1F]/.test(key)) {
+                if ((/[\x00-\x1F]/).test(val) || (/[\x00-\x1F]/).test(key)) {
                     if (key.startsWith('x-amz-meta-')) {
                         throw s3_errors.InvalidArgument;
                     }

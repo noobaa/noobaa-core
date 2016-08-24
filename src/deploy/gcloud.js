@@ -86,6 +86,7 @@ function import_key_pair_to_region() {
 
 }
 
+// eslint-disable-next-line max-params
 function scale_instances(count, allow_terminate, is_docker_host, number_of_dockers, is_win, filter_region, agent_conf) {
 
     return describe_instances({
@@ -223,6 +224,7 @@ function foreach_zone(func) {
 }
 
 
+// eslint-disable-next-line max-params
 function scale_region(region_name, count, instances, allow_terminate, is_docker_host, number_of_dockers, is_win, agent_conf) {
     //console.log('scale region from ' + instances.length + ' to count ' + count);
     // need to create
@@ -366,16 +368,17 @@ function describe_instances(params, filter) {
             instancesListParams.filter = params.filter;
         }
 
-        return P.nfcall(compute.instances.list, instancesListParams).then(
-            function(instances_list_results) {
-                if (instances_list_results.hasOwnProperty('items')) {
+        return P.nfcall(compute.instances.list, instancesListParams)
+            .then(function(instances_list_results) {
+                if (instances_list_results.items) {
                     // var number_of_instances_in_zone = instances_list_results[0].items.length;
                     created_instance_data = created_instance_data.concat(instances_list_results.items);
                 }
 
-            }).catch(function(error) {
-            console.log('ERROR1:' + JSON.stringify(error) + ':' + error.stack);
-        });
+            })
+            .catch(function(error) {
+                console.log('ERROR1:' + JSON.stringify(error) + ':' + error.stack);
+            });
     }).then(function(err, data) {
         var instances = _.flatten(created_instance_data);
         // also put the regions list as a "secret" property of the array
@@ -466,6 +469,7 @@ function getInstanceDataPerInstanceId(instanceId) {
  * add_region_instances
  *
  */
+// eslint-disable-next-line max-params
 function add_region_instances(region_name, count, is_docker_host, number_of_dockers, is_win, agent_conf, progress_func) {
     var deferred = P.defer();
     var instancesDetails = [];
@@ -483,7 +487,7 @@ function add_region_instances(region_name, count, is_docker_host, number_of_dock
                     var noobaa_env_name = app_name;
                     var machine_type = 'https://www.googleapis.com/compute/v1/projects/' + NooBaaProject + '/zones/' + region_name + '/machineTypes/n1-standard-1';
                     var startup_script = 'http://noobaa-download.s3.amazonaws.com/init_agent.sh';
-                    var source_image = 'https://www.googleapis.com/compute/v1/projects/ubuntu-os-cloud/global/images/centos-6-v20160803';
+                    var source_image = 'https://www.googleapis.com/compute/v1/projects/centos-cloud/global/images/centos-6-v20160803';
                     var disk_size = 2048;
 
                     if (is_docker_host) {
@@ -688,9 +692,7 @@ function terminate_instances(region_name, instance_ids) {
 
 
 function init(callback) {
-    if (authClient.hasOwnProperty('gapi')) {
-        return;
-    }
+    if (authClient.gapi) return;
     console.log('waiting for auth');
     setTimeout(function() {
         authClient.authorize(function(err, token) {

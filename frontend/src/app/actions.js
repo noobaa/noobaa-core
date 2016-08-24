@@ -1726,8 +1726,8 @@ export function decommissionNode(name) {
 
     api.node.decommission_node({ name })
         .then(
-            () => notify(`Node ${name} disabled successfully`, 'success'),
-            () => notify(`Disabling node ${name} failed`, 'error')
+            () => notify(`Node ${name} deactivated successfully`, 'success'),
+            () => notify(`Deactivating node ${name} failed`, 'error')
         )
         .then(refresh)
         .done();
@@ -1738,8 +1738,8 @@ export function recommissionNode(name) {
 
     api.node.recommission_node({ name })
         .then(
-            () => notify(`Node ${name} enabled successfully`, 'success'),
-            () => notify(`Enabling node ${name} failed`, 'error')
+            () => notify(`Node ${name} activated successfully`, 'success'),
+            () => notify(`Activating node ${name} failed`, 'error')
         )
         .then(refresh)
         .done();

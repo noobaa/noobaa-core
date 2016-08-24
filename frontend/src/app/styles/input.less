@@ -85,7 +85,13 @@ input:not([type=checkbox]):not([type=radio]) {
     padding: 0;
     cursor: @cursor-pointer;
     font-family: @font-family1;
+
+    /*
+    Transition removed because of webkit bug, see the following stackoverflow:
+    http://stackoverflow.com/questions/12502234/how-to-prevent-webkit-text-rendering-change-during-css-transition
+
     transition: all 250ms ease-out;
+    */
 
     > svg-icon {
         fill: @color6;

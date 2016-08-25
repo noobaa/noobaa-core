@@ -12,7 +12,7 @@ const stateMapping = deepFreeze({
         icon: 'healthy'
     },
     false: {
-        text: 'Not enough online nodes',
+        text: 'Not enough healthy nodes',
         css: 'error',
         icon: 'problem'
     }

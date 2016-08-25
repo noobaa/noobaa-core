@@ -1,3 +1,9 @@
+/* Remove firefox default styling */
+:-moz-ui-invalid,
+:-moz-ui-invalid:-moz-focusring {
+    box-shadow: none;
+}
+
 .placeholder(@color) {
     &::-webkit-input-placeholder {
        color: @color;

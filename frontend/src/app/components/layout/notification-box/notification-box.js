@@ -65,7 +65,7 @@ class NotificationBarViewModel extends Disposable {
 
     onTransition() {
         if (this.count() > 1 || !this.visible()) {
-            //this.notifications.pop();
+            this.notifications.pop();
         }
     }
 }

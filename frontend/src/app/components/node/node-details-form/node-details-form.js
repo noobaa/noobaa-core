@@ -67,7 +67,7 @@ class NodeInfoViewModel extends Disposable {
             { label: 'Installed Version', value: version},
             { label: 'Heartbeat', value: lastHeartbeat},
             { label: 'Communication IP', value: ip},
-            { label: 'Peer to Peer Connectivity', value: p2pConectivityType },
+            { label: 'Peer to Peer Connectivity', value: p2pConectivityType }
         ];
 
         let hostname = ko.pureComputed(

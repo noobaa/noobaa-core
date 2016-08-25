@@ -27,7 +27,10 @@ class PoolSummaryViewModel extends Disposable {
         );
 
         this.state = ko.pureComputed(
-            () => stateMapping[pool().nodes.online >= 3]
+            () => {
+                let { count, has_issues } = pool().nodes;
+                return stateMapping[count - has_issues >= 3];
+            }
         );
 
         this.nodeCount = ko.pureComputed(

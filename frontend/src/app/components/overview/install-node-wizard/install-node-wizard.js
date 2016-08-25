@@ -118,7 +118,7 @@ class InstallNodeWizardViewModel extends Disposable {
             () => installCommands[this.commandSelector()](
                 lastSegment(this.packageUrl(), '/'),
                 agentConf(),
-                systemInfo().ip_address
+                systemInfo().dns_name ? systemInfo().dns_name : systemInfo().ip_address
             )
         );
 

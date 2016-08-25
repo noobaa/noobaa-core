@@ -128,7 +128,6 @@ module.exports = {
                     order: {
                         type: 'integer',
                     }
-
                 }
             },
             reply: {
@@ -178,6 +177,9 @@ module.exports = {
                     storage: {
                         $ref: 'common_api#/definitions/storage_info'
                     },
+                    data_activities: {
+                        $ref: '#/definitions/data_activities'
+                    },
                     groups: {
                         type: 'array',
                         items: {
@@ -191,6 +193,9 @@ module.exports = {
                                 },
                                 storage: {
                                     $ref: 'common_api#/definitions/storage_info'
+                                },
+                                data_activities: {
+                                    $ref: '#/definitions/data_activities'
                                 },
                             }
                         }
@@ -652,6 +657,31 @@ module.exports = {
                 },
             }
         },
+
+        data_activities: {
+            type: 'array',
+            items: {
+                type: 'object',
+                required: ['reason', 'count'],
+                properties: {
+                    reason: {
+                        $ref: '#/definitions/data_activity_type'
+                    },
+                    count: {
+                        type: 'integer'
+                    },
+                    progress: {
+                        type: 'number',
+                        minimum: 0,
+                        maximum: 1,
+                    },
+                    time: {
+                        $ref: '#/definitions/time_progress'
+                    },
+                }
+            }
+        },
+
 
         data_activity_type: {
             type: 'string',

@@ -38,6 +38,18 @@ const promise_utils = require('../../util/promise_utils');
 const bucket_server = require('./bucket_server');
 const system_server_utils = require('../utils/system_server_utils');
 
+const SYS_STORAGE_DEFAULTS = Object.freeze({
+    total: 0,
+    free: 0,
+    unavailable_free: 0,
+    alloc: 0,
+    real: 0,
+});
+const SYS_NODES_INFO_DEFAULTS = Object.freeze({
+    count: 0,
+    online: 0,
+    has_issues: 0,
+});
 
 // called on rpc server init
 function _init() {
@@ -347,7 +359,6 @@ function read_system(req) {
                 .plus(bucket.storage_stats && bucket.storage_stats.objects_size || 0);
         });
         objects_sys.count = objects_sys.count.plus(objects_count[''] || 0);
-        const nodes_sys = nodes_aggregate_pool_no_cloud[''] || {};
         const ip_address = ip_module.address();
         const n2n_config = system.n2n_config;
         const debug_level = system.debug_level;
@@ -407,19 +418,10 @@ function read_system(req) {
                 pool => pool_server.get_pool_info(pool, nodes_aggregate_pool_with_cloud)),
             tiers: _.map(system.tiers_by_name,
                 tier => tier_server.get_tier_info(tier, nodes_aggregate_pool_no_cloud)),
-            storage: size_utils.to_bigint_storage({
-                total: nodes_sys.total,
-                free: nodes_sys.free,
-                unavailable_free: nodes_sys.unavailable_free,
-                alloc: nodes_sys.alloc,
+            storage: size_utils.to_bigint_storage(_.defaults({
                 used: objects_sys.size,
-                real: nodes_sys.used,
-            }),
-            nodes: {
-                count: nodes_sys.count || 0,
-                online: nodes_sys.online || 0,
-                has_issues: nodes_sys.has_issues || 0,
-            },
+            }, nodes_aggregate_pool_no_cloud.storage, SYS_STORAGE_DEFAULTS)),
+            nodes: _.defaults({}, nodes_aggregate_pool_no_cloud.nodes, SYS_NODES_INFO_DEFAULTS),
             owner: account_server.get_account_info(system_store.data.get_by_id(system._id).owner),
             last_stats_report: system.last_stats_report || 0,
             maintenance_mode: maintenance_mode,

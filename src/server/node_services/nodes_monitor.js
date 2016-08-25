@@ -942,25 +942,32 @@ class NodesMonitor extends EventEmitter {
         if (act.running) return;
         act.running = true;
         dbg.log0('_rebuild_node: start', item.node.name, act);
+        const start_marker = act.stage.marker;
+        let blocks_size;
         return P.resolve()
             .then(() => md_store.iterate_node_chunks(
                 item.node.system,
                 item.node._id,
-                act.stage.marker,
+                start_marker,
                 config.REBUILD_BATCH_SIZE))
             .then(res => {
+                // we update the stage marker even if failed to advance the scan
                 act.stage.marker = res.marker;
-                act.stage.size.completed += res.blocks_size;
+                blocks_size = res.blocks_size;
                 const builder = new MapBuilder(res.chunks);
                 return builder.run();
             })
             .then(() => {
                 act.running = false;
+                // increase the completed size only if succeeded
+                act.stage.size.completed += blocks_size;
                 if (!act.stage.marker) {
-                    if (act.stage.rebuild_had_errors) {
+                    if (act.stage.error_marker) {
                         dbg.log0('_rebuild_node: HAD ERRORS. RESTART', item.node.name, act);
-                        act.stage.rebuild_had_errors = false;
-                        act.stage.size.completed = 0;
+                        act.stage.marker = act.stage.error_marker;
+                        act.stage.size.completed = act.stage.error_marker_completed || 0;
+                        act.stage.error_marker = null;
+                        act.stage.error_marker_completed = 0;
                     } else {
                         act.stage.done = true;
                         dbg.log0('_rebuild_node: DONE', item.node.name, act);
@@ -971,7 +978,10 @@ class NodesMonitor extends EventEmitter {
             .catch(err => {
                 act.running = false;
                 dbg.warn('_rebuild_node: ERROR', item.node.name, err.stack || err);
-                act.stage.rebuild_had_errors = true;
+                if (!act.stage.error_marker) {
+                    act.stage.error_marker = start_marker;
+                    act.stage.error_marker_completed = act.stage.size.completed || 0;
+                }
                 this._update_data_activity(item);
             });
     }

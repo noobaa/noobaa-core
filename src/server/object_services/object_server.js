@@ -47,7 +47,7 @@ function create_object_upload(req) {
         content_type: req.rpc_params.content_type ||
             mime.lookup(req.rpc_params.key) ||
             'application/octet-stream',
-        create_time: new Date(),
+        upload_started: new Date(),
         upload_size: 0,
         cloud_synced: false,
     };
@@ -153,11 +153,12 @@ function complete_object_upload(req) {
             }, {
                 $set: {
                     size: object_size || obj.size,
-                    upload_completed: new Date(),
+                    create_time: new Date(),
                     etag: obj_etag
                 },
                 $unset: {
-                    upload_size: 1
+                    upload_size: 1,
+                    upload_started: 1,
                 }
             });
         })
@@ -281,7 +282,7 @@ function copy_object(req) {
                 key: req.rpc_params.key,
                 size: source_obj.size,
                 etag: source_obj.etag,
-                create_time: new Date(),
+                upload_started: new Date(),
                 content_type: req.rpc_params.content_type ||
                     source_obj.content_type ||
                     mime.lookup(req.rpc_params.key) ||
@@ -321,10 +322,11 @@ function copy_object(req) {
                 _id: create_info._id
             }, {
                 $set: {
-                    upload_completed: new Date()
+                    create_time: new Date()
                 },
                 $unset: {
-                    upload_size: 1
+                    upload_size: 1,
+                    upload_started: 1,
                 }
             });
         })
@@ -648,7 +650,7 @@ function list_objects(req) {
                 info.key = new RegExp('^' + string_utils.escapeRegExp(req.rpc_params.key_prefix));
             }
 
-            // TODO: Should look at the upload_size or upload_completed?
+            // TODO: Should look at the upload_size or create_time?
             // allow filtering of uploading/non-uploading objects
             if (typeof(req.rpc_params.upload_mode) === 'boolean') {
                 info.upload_size = {
@@ -830,7 +832,8 @@ function get_object_info(md) {
     info.size = info.size || 0;
     info.content_type = info.content_type || 'application/octet-stream';
     info.etag = info.etag || '';
-    info.create_time = md.create_time.getTime();
+    info.upload_started = md.upload_started && md.upload_started.getTime();
+    info.create_time = md.create_time && md.create_time.getTime();
     if (_.isNumber(md.upload_size)) {
         info.upload_size = md.upload_size;
     }
@@ -913,7 +916,7 @@ function check_object_upload_mode(req, obj) {
         throw new RpcError('NO_SUCH_UPLOAD',
             'No such upload id: ' + req.rpc_params.upload_id);
     }
-    // TODO: Should look at the upload_size or upload_completed?
+    // TODO: Should look at the upload_size or create_time?
     if (!_.isNumber(obj.upload_size)) {
         throw new RpcError('NO_SUCH_UPLOAD',
             'Object not in upload mode: ' + obj.key +

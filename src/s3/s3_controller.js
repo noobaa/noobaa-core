@@ -257,7 +257,7 @@ class S3Controller {
                             Upload: {
                                 Key: obj.key,
                                 UploadId: obj.info.version_id,
-                                Initiated: to_s3_date(obj.info.create_time),
+                                Initiated: to_s3_date(obj.info.upload_started),
                                 Initiator: DEFAULT_S3_USER,
                                 Owner: DEFAULT_S3_USER,
                                 StorageClass: STORAGE_CLASS_STANDARD,

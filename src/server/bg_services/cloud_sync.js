@@ -208,7 +208,10 @@ function list_all_objects(sysid, bucket) {
     return P.resolve(md_store.ObjectMD.find({
                 system: sysid,
                 bucket: bucket,
-                deleted: null
+                deleted: null,
+                create_time: {
+                    $exists: true
+                }
             })
             .sort('key')
             .exec())
@@ -227,7 +230,10 @@ function list_need_sync(sysid, bucket) {
     return P.resolve(md_store.ObjectMD.find({
                 system: sysid,
                 bucket: bucket,
-                cloud_synced: false
+                cloud_synced: false,
+                create_time: {
+                    $exists: true
+                }
             })
             .exec())
         .then(function(need_to_sync) {

@@ -49,14 +49,16 @@ const objmd_schema = new Schema({
         type: Number,
     },
 
-    upload_completed: {
+    upload_started: {
         type: Date,
+        default: Date.now,
+        // required: true,
     },
 
     create_time: {
         type: Date,
-        default: Date.now,
-        required: true,
+        // default: Date.now,
+        // required: true,
     },
 
     etag: {

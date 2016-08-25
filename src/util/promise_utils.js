@@ -193,6 +193,7 @@ function run_background_worker(worker) {
 function spawn(command, args, options, ignore_rc) {
     return new P((resolve, reject) => {
         options = options || {};
+        args = args || [];
         dbg.log0('spawn:', command, args.join(' '), options, ignore_rc);
         options.stdio = options.stdio || 'inherit';
         var proc = child_process.spawn(command, args, options);
@@ -214,6 +215,43 @@ function spawn(command, args, options, ignore_rc) {
                 resolve();
             } else {
                 reject(new Error('spawn ' +
+                    command + ' ' + args.join(' ') +
+                    ' exited with error ' + error));
+            }
+        });
+    });
+}
+
+/*
+ * Run a node child process spawn wrapped by a promise
+ */
+function fork(command, input_args, opts, ignore_rc) {
+    return new P((resolve, reject) => {
+        let options = opts || {};
+        let args = input_args || [];
+        dbg.log0('fork:', command, args.join(' '), options, ignore_rc);
+        options.stdio = options.stdio || 'inherit';
+        var proc = child_process.fork(command, args, options);
+        proc.on('exit', code => {
+            if (code === 0 || ignore_rc) {
+                resolve();
+            } else {
+                const err = new Error('fork "' +
+                    command + ' ' + args.join(' ') +
+                    '" exit with error code ' + code);
+                err.code = code;
+                reject(err);
+            }
+        });
+        proc.on('error', error => {
+            if (ignore_rc) {
+                dbg.warn('fork ' +
+                    command + ' ' + args.join(' ') +
+                    ' exited with error ' + error +
+                    ' and ignored');
+                resolve();
+            } else {
+                reject(new Error('fork ' +
                     command + ' ' + args.join(' ') +
                     ' exited with error ' + error));
             }
@@ -338,3 +376,4 @@ exports.wait_for_event = wait_for_event;
 exports.pwhile = pwhile;
 exports.auto = auto;
 exports.all_obj = all_obj;
+exports.fork = fork;

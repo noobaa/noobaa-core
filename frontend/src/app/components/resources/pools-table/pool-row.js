@@ -13,7 +13,8 @@ export default class PoolRowViewModel extends Disposable {
                     return {};
                 }
 
-                let healthy = pool().nodes.online >= 3;
+                let { count, has_issues } = pool().nodes;
+                let healthy = count - has_issues >= 3;
                 return {
                     css: healthy ? 'success' : 'error',
                     name: healthy ? 'healthy' : 'problem',

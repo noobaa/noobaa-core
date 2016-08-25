@@ -1,18 +1,17 @@
 <modal class="modal-xsmall" params="onClose: () => close()">
-    <div class="message column text-center">
-        <h1 class="heading2 push-next">
-            Welcome Back! We have upgraded NooBaa
+    <div class="double-pad column text-center push-next">
+        <h1 class="heading2">
+            Upgrade was successful
         </h1>
 
-        <p class="heading3 message">
-            You are now using the latest NooBaa version
-            (<span data-bind="text: version"></span>)
-            <br>
+        <p class="heading3">
+            Welcome Back, you are now using the latest NooBaa version
+            (<span data-bind="text: version"></span>),
             Enjoy!
         </p>
     </div>
 
-    <button data-bind="click: () => close()" class="btn align-end">
-        Close
+    <button class="btn align-middle push-prev" data-bind="click: close">
+        Ok, Got I it
     </button>
 </modal>

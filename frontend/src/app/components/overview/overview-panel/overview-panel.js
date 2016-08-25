@@ -11,16 +11,32 @@ class OverviewPanelViewModel extends Disposable {
             () => !!systemInfo()
         );
 
-        this.systemCapacity = ko.pureComputed(
-            () => systemInfo() && systemInfo().storage.total
+        this.nodePoolsCount = ko.pureComputed(
+            () => (systemInfo() ? systemInfo().pools : [])
+                .filter(
+                    pool => Boolean(pool.nodes)
+                )
+                .length
         )
         .extend({
             tween: { useDiscreteValues: true, resetValue: 0 },
-            formatSize: true
+            formatNumber: true
+        });
+
+        this.cloudResourcesCount = ko.pureComputed(
+            () => (systemInfo() ? systemInfo().pools : [])
+                .filter(
+                    pool => Boolean(pool.cloud_info)
+                )
+                .length
+        )
+        .extend({
+            tween: { useDiscreteValues: true, resetValue: 0 },
+            formatNumber: true
         });
 
         this.onlineNodeCount = ko.pureComputed(
-            () => systemInfo() && systemInfo().nodes.online
+            () => systemInfo() ? systemInfo().nodes.online : 0
         )
         .extend({
             tween: { useDiscreteValues: true, resetValue: 0 },
@@ -30,7 +46,7 @@ class OverviewPanelViewModel extends Disposable {
         this.offlineNodeCount = ko.pureComputed(
             () => {
                 if (!systemInfo()) {
-                    return;
+                    return 0;
                 }
 
                 let { count, online } = systemInfo().nodes;
@@ -42,25 +58,52 @@ class OverviewPanelViewModel extends Disposable {
             formatNumber: true
         });
 
-        this.poolCount = ko.pureComputed(
-            () => systemInfo() && systemInfo().pools.length
-        )
-        .extend({ formatNumber: true });
-
-        this.nodeCount = ko.pureComputed(
-            () => systemInfo() && systemInfo().nodes.count
-        )
-        .extend({ formatNumber: true });
-
         this.bucketCount = ko.pureComputed(
-            () => systemInfo() && systemInfo().buckets.length
+            () => (systemInfo() ? systemInfo().buckets : []).length
         )
-        .extend({ formatNumber: true });
+        .extend({
+            tween: { useDiscreteValues: true, resetValue: 0 },
+            formatNumber: true
+        });
 
         this.objectCount = ko.pureComputed(
-            () => systemInfo() && systemInfo().objects
+            () => systemInfo() ? systemInfo().objects : 0
         )
-        .extend({ formatNumber: true });
+        .extend({
+            tween: { useDiscreteValues: true, resetValue: 0 },
+            formatNumber: true
+        });
+
+        this.cloudSyncCount = ko.pureComputed(
+            () => (systemInfo() ? systemInfo().buckets : [])
+                .filter(
+                    bucket => Boolean(bucket.cloud_sync)
+                )
+                .length
+        )
+        .extend({
+            tween: { useDiscreteValues: true, resetValue: 0 },
+            formatNumber: true
+        });
+
+        this.systemCapacity = ko.pureComputed(
+            () => systemInfo() && systemInfo().storage.total
+        )
+        .extend({
+            tween: { useDiscreteValues: true, resetValue: 0 },
+            formatSize: true
+        });
+
+
+        this.systemFreeSpace = ko.pureComputed(
+            () => systemInfo() && systemInfo().storage.free
+        )
+        .extend({
+            tween: { useDiscreteValues: true, resetValue: 0 },
+            formatSize: true
+        });
+
+
 
         this.isInstallNodeWizardlVisible = ko.observable(false);
         this.isConnectApplicationWizardVisible = ko.observable(false);

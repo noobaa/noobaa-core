@@ -206,7 +206,7 @@ function pre_upgrade {
 	if getent passwd noobaaroot > /dev/null 2>&1; then
 		echo "noobaaroot user exists"
 	else
-  #add noobaaroot user
+    #add noobaaroot user
     t=$(eval 'grep -q noobaaroot /etc/sudoers; echo $? ')
     if [ $t -ne 0 ]; then
       deploy_log "adding noobaaroot to sudoers"
@@ -218,8 +218,8 @@ function pre_upgrade {
     fi
 
     # add noobaaroot with temp password - will be changed in fix_etc_issue
-		useradd noobaaroot
-		echo Passw0rd | passwd noobaaroot --stdin
+	useradd noobaaroot
+	echo Passw0rd | passwd noobaaroot --stdin
 	fi
 
   fix_iptables
@@ -321,9 +321,6 @@ function post_upgrade {
   if [ ${FOUND} -eq 0 ]; then
     cp -f ${CORE_DIR}/src/deploy/NVA_build/noobaa_supervisor.conf /etc/noobaa_supervisor.conf
   fi
-
-  #Fix login message
-  fix_etc_issue
 
   #fix and upgrade security
   fix_security_issues

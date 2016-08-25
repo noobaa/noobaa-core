@@ -413,37 +413,13 @@ export function loadObjectMetadata(bucketName, objectName) {
         model.objectInfo(null);
     }
 
-    let { access_key ,secret_key } = model.systemInfo().owner.access_keys[0];
-    let s3 = new AWS.S3({
-        endpoint: endpoint,
-        credentials: {
-            accessKeyId:  access_key,
-            secretAccessKey:  secret_key
-        },
-        s3ForcePathStyle: true,
-        sslEnabled: false,
-        signatureVersion: 'v4',
-        region: 'eu-central-1'
-    });
-
     api.object.read_object_md({
         bucket: bucketName,
         key: objectName,
         get_parts_count: true,
         adminfo: true
     })
-        .then(
-            objInfo => {
-                let s3_signed_url = s3.getSignedUrl(
-                    'getObject',
-                    { Bucket: bucketName, Key: objectName, Expires: 604800 }
-                );
-
-                model.objectInfo(
-                    Object.assign(objInfo, { s3_signed_url })
-                );
-            }
-        )
+        .then(model.objectInfo)
         .done();
 }
 

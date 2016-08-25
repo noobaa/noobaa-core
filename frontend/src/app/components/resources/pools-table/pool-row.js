@@ -18,7 +18,7 @@ export default class PoolRowViewModel extends Disposable {
                 return {
                     css: healthy ? 'success' : 'error',
                     name: healthy ? 'healthy' : 'problem',
-                    tooltip: healthy ? 'Healthy' : 'not enough online nodes'
+                    tooltip: healthy ? 'Healthy' : 'not enough healthy nodes'
                 };
             }
         );

@@ -9,7 +9,7 @@ class PoolsOverviewViewModel extends Disposable {
 
         this.poolCountText = ko.pureComputed(() => {
             let count = ko.unwrap(poolCount);
-            return `${numeral(count).format('0,0')} Resources`;
+            return `${numeral(count).format('0,0')} Capacity Resources`;
         });
 
         this.nodeCountText = ko.pureComputed(() => {

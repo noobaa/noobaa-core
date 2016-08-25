@@ -92,7 +92,7 @@ function configure_networking_dialog {
           dns2=$(tail -1 answer_dns)
         done
 
-        sudo badh -c "echo 'search localhost.localdomain' > /etc/resolv.conf"
+        sudo bash -c "echo 'search localhost.localdomain' > /etc/resolv.conf"
         sudo bash -c "echo 'nameserver ${dns1} #NooBaa Configured Primary DNS Server' >> /etc/resolv.conf"
         if [ "${dns2}" != "" ]; then
           sudo bash -c "echo 'nameserver ${dns2} #NooBaa Configured Secondary DNS Server' >> /etc/resolv.conf"

@@ -28,7 +28,7 @@ class BlockRowViewModel extends Disposable {
 
         this.stateIcon = {
             name: online ? 'healthy' : 'problem',
-            tooltip: online ? 'online' : 'offline',
+            tooltip: online ? 'healthy' : 'problem',
             css: online ? 'success' : 'error'
         };
 

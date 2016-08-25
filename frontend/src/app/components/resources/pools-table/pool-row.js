@@ -44,7 +44,14 @@ export default class PoolRowViewModel extends Disposable {
         );
 
         this.offlineCount = ko.pureComputed(
-            () => pool() ? numeral(this.nodeCount() - this.onlineCount()).format('0,0') : ''
+            () => {
+                if (!pool()) {
+                    return '';
+                }
+
+                let { count, online } = pool().nodes;
+                return numeral(count - online).format('0,0');
+            }
         );
 
         let storage = ko.pureComputed(

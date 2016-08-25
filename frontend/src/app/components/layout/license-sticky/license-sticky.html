@@ -1,10 +1,14 @@
-<section class="sticky row content-middle" data-bind="css: { active: isActive }">
-    <span class="greedy">
+<section class="sticky" data-bind="css: { active: isActive }">
+    <div class="sticky-content row content-middle">
         <svg-icon params="name: 'notif-info'" class="icon-small"></svg-icon>
-        You reached freemium capacity limitation of
-        <span data-bind="text: capacityLimit"></span>
-        Upgrade to enteprise lincense for unlimited capacity and support
-    </span>
+        <span class="greedy">
+            You reached freemium capacity limitation of
+            <span data-bind="text: capacityLimit"></span>
+            Upgrade to enteprise lincense for unlimited capacity and support
+        </span>
 
-    <a class="link" href="#">Upgrade to enterprise license</a>
+        <a class="link alt-colors" data-bind="attr: { href: upgradeEmailHref }">
+            Upgrade to enterprise license
+        </a>
+    </div>
 </section>

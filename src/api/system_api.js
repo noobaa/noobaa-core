@@ -450,9 +450,6 @@ module.exports = {
                     }
                 }
             },
-            reply: {
-                $ref: '#/definitions/system_nodes_update_reply'
-            },
             auth: {
                 system: 'admin',
             }
@@ -529,9 +526,6 @@ module.exports = {
                     }
                 }
             },
-            reply: {
-                $ref: '#/definitions/system_nodes_update_reply'
-            },
             auth: {
                 system: 'admin',
             }
@@ -575,7 +569,16 @@ module.exports = {
                 }
             },
             reply: {
-                type: 'boolean',
+                type: 'object',
+                required: ['valid'],
+                properties: {
+                    valid: {
+                        type: 'boolean',
+                    },
+                    reason: {
+                        type: 'string'
+                    }
+                }
             },
             auth: {
                 account: false,

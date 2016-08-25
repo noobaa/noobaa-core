@@ -1,18 +1,19 @@
-<section class="column create-system-form">
-   <h1 class="heading1 text-center">
-        Welcome to NooBaa
-    </h1>
+<section class="row create-system-form">
+    <div class="row double-pad alt-bg push-next">
+        <div class="column align-middle">
+            <svg-icon class="logo align-middle" params="name: 'logo'"></svg-icon>
 
-        <h2 class="heading3 text-center push-next">
-        Two quick steps and we are ready to go
-    </h2>
+           <h1 class="heading1">Welcome to NooBaa</h1>
+            <p>Two quick steps and we are ready to go</p>
+        </div>
+    </div>
 
-    <stepper params="steps: steps, current: step" class="push-next"></stepper>
+    <div class="steps double-pad alt-bg column" data-bind="css: `step${step()}`">
+        <stepper class="push-next" params="steps: steps, current: step" ></stepper>
 
-    <div class="pad alt-bg steps column" data-bind="css: `step${step()}`">
         <div class="row pages">
             <div class="page column" data-bind="css: { selected: step() === 0 }">
-                <p class="heading3 push-next">Create your owner account</p>
+                <p class="heading3">Create your owner account</p>
 
                 <editor params="label: 'Activation code'">
                     <input type="text" placeholder="your actication code"
@@ -26,6 +27,10 @@
                 <editor params="label: 'Email address'">
                     <input type="text" placeholder="your email address"
                         data-bind="value: email">
+
+                    <svg-icon class="validating-indicator spin"
+                        data-bind="visible: email.isValidating()"
+                        params="name: 'in-progress'"></svg-icon>
                 </editor>
 
                 <editor params="label: 'Password'">
@@ -38,7 +43,7 @@
             </div>
 
             <div class="page column" data-bind="css: { selected: step() === 1 }">
-                <p class="heading3 push-next">
+                <p class="heading3">
                     Hi
                     <span data-bind="text: name"></span>
                     , let's cofigure your system
@@ -68,7 +73,7 @@
         </div>
 
         <div class="row content-middle align-end push-prev">
-            <button class="link push-next" data-bind="
+            <button class="link alt-colors push-next" data-bind="
                 visible: isPrevVisible,
                 click: prev
             ">

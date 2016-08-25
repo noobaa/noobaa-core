@@ -14,21 +14,20 @@ const AWS = require('aws-sdk');
  */
 function resolve_cloud_sync_info(sync_policy) {
     var stat;
-    if (!_.isEmpty(sync_policy)) {
-        //If sync time is epoch (never synced) change to never synced
-        if (sync_policy.paused) {
-            stat = 'PAUSED';
-        } else if (!sync_policy.health) {
-            stat = 'UNABLE';
-        } else if (sync_policy.last_sync.getTime() === 0) {
-            stat = 'PENDING';
-        } else if (sync_policy.status === 'IDLE') {
-            stat = 'SYNCED';
-        } else {
-            stat = 'SYNCING';
-        }
-    } else {
+    if (_.isEmpty(sync_policy)) {
         stat = 'NOTSET';
+        //If sync time is epoch (never synced) change to never synced
+    } else if (sync_policy.paused) {
+        stat = 'PAUSED';
+    } else if (!sync_policy.health) {
+        stat = 'UNABLE';
+    } else if (sync_policy.status === 'SYNCING') {
+        stat = 'SYNCING';
+    } else if (sync_policy.last_sync.getTime() === 0) {
+        stat = 'PENDING';
+    } else {
+        // if we have a time for the last sync, and the status isn't syncing (then it's idle) it means we're synced.
+        stat = 'SYNCED';
     }
     return stat;
 }

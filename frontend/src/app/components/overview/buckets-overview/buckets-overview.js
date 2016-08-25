@@ -10,7 +10,7 @@ class BucketsOverviewViewModel extends Disposable {
 
         this.bucketCountText = ko.pureComputed(() => {
             let count = ko.unwrap(bucketCount);
-            return `${numeral(count).format('0,0')} Buckets`;
+            return `${numeral(count).format('0,0')} Data Buckets`;
         });
 
         this.objectCountText = ko.pureComputed(() => {

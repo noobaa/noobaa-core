@@ -101,6 +101,8 @@ function allocate_node(pools, avoid_nodes, allocated_hosts, content_tiering_para
             throw new Error('allocate_node: cloud_pool allocations should have only one node (cloud node)');
         }
     } else if (num_nodes < config.NODES_MIN_COUNT) {
+        dbg.warn('allocate_node: not enough online nodes in pool set',
+            pools, avoid_nodes, allocated_hosts, content_tiering_params);
         throw new Error('allocate_node: not enough online nodes in pool set ' +
             pool_set + ' num_nodes ' + num_nodes);
     }

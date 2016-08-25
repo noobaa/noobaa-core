@@ -39,7 +39,6 @@ notification-box {
             overflow: hidden;
             width: 400px;
             height: 44px;
-            line-height: 44px;
         }
 
         &.visible {
@@ -51,14 +50,13 @@ notification-box {
         position: absolute;
         animation: notif-in 500ms linear both;
         font-size: @font-size3;
+        height: inherit;
 
         &:only-child {
             animation: none;
         }
 
-        svg-icon {
-/*            width: 36px;
-            height: 36px;*/
+        .notif-icon {
             margin-right: @gutter/2;
         }
 

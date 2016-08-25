@@ -12,7 +12,7 @@ html, body {
     background-color: @color2;
     font-family: @font-family1;
     font-weight: @font-light;
-    font-size: @font-size2;
+    font-size: @font-size3;
     color: @color7;
 }
 
@@ -152,30 +152,20 @@ output {
 }
 
 .heading1 {
-    line-height: 2;
-    .text(
-        @font-type1,
-        @font-weight-thin,
-        @font-size-xlarge,
-        @text-color4
-    );
+    line-height: 1.7;
+    font-size: @font-size6;
+    color: @color6;
+    font-weight: @font-light;
 }
 
 .heading2 {
-    line-height: 2;
+    line-height: 1.7;
     font-size: @font-size6;
     color: @color8;
     font-weight: @font-light;
 }
 
 .heading3 {
-    line-height: 2;
-    font-size: @font-size4;
-    color: @color14;
-    font-weight: @font-regular;
-}
-
-.heading4 {
     line-height: 1.7;
     font-size: @font-size4;
     color: @color6;
@@ -245,20 +235,32 @@ output {
 }
 
 .sticky {
-    line-height: 25px;
-    padding: @gutter / 2 @gutter;
-    background: @red-dark;
-    color: @text-color1;
+    max-height: 0;
+    overflow-y: hidden;
+    transition: max-height 500ms ease-out;
+
+    .sticky-content {
+        padding: @gutter/2 @gutter;
+        background: @color7;
+        color: @color1;
+        font-weight: @font-medium;
+    }
 
     svg-icon {
-        margin-right: .25em;
+        margin-right: @gutter/2;
+        fill: @color1;
     }
 
     vr {
         align-self: stretch;
-        background-color: @text-color1;
+        background-color: @color1;
         margin: 0 @gutter;
     }
+
+    &.active {
+        max-height: 34px;
+    }
+
 }
 
 .hide {
@@ -270,6 +272,10 @@ output {
 
 .pad {
     padding: @gutter;
+}
+
+.double-pad {
+    padding: @gutter * 2;
 }
 
 .alt-bg {

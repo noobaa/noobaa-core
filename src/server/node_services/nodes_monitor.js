@@ -796,6 +796,7 @@ class NodesMonitor extends EventEmitter {
             dbg.log0('_update_data_activity_stage: DONE REBUILDING',
                 item.node.name, act);
             if (act.reason === ACT_RESTORING) {
+                // restore is done after rebuild, not doing wiping
                 act.done = true;
             } else {
                 act.stage = {
@@ -864,6 +865,10 @@ class NodesMonitor extends EventEmitter {
             return;
         }
 
+        // keep the activity in 'done' state
+        // to know that we don't need to run it again.
+        // this is needed only for restoring,
+        // which should probably have a persistent state instead
         if (act.done) {
             this._set_need_rebuild.delete(item);
             this._set_need_update.add(item);

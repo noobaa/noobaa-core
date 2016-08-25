@@ -203,6 +203,25 @@ function pre_upgrade {
 		echo Passw0rd | passwd noobaa --stdin
 	fi
 
+	if getent passwd noobaaroot > /dev/null 2>&1; then
+		echo "noobaaroot user exists"
+	else
+  #add noobaaroot user
+    t=$(eval 'grep -q noobaaroot /etc/sudoers; echo $? ')
+    if [ $t -ne 0 ]; then
+      deploy_log "adding noobaaroot to sudoers"
+      echo "noobaaroot ALL=(ALL)	NOPASSWD:ALL" >> /etc/sudoers
+      tt=$(eval 'grep –q noobaaroot /etc/sudoers; echo $? ')
+      if [ $tt -ne 0 ]; then
+        deploy_log "failed to add noobaaroot to sudoers"
+      fi
+    fi
+
+    # add noobaaroot with temp password - will be changed in fix_etc_issue
+		useradd noobaaroot
+		echo Passw0rd | passwd noobaaroot --stdin
+	fi
+
   fix_iptables
 
   fix_bashrc

@@ -79,7 +79,7 @@ function create_cloud_pool(req) {
             }
         })
         .then(res => {
-            let sys_access_keys = system_store.data.accounts[1].access_keys[0];
+            let sys_access_keys = req.system.owner.access_keys[0];
             return server_rpc.client.hosted_agents.create_agent({
                 name: req.rpc_params.name,
                 access_keys: sys_access_keys,

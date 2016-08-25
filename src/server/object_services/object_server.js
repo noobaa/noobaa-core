@@ -471,7 +471,7 @@ function read_object_md(req) {
         .then(info => {
             if (req.rpc_params.adminfo && req.role === 'admin') {
                 info.capacity_size = object_capacity;
-                let sys_access_keys = system_store.data.accounts[1].access_keys[0];
+                let sys_access_keys = req.account.access_keys[0];
                 info.s3_signed_url = cloud_utils.get_signed_url({
                     endpoint: os_utils.get_local_ipv4_ips()[0],
                     access_key: sys_access_keys.access_key,

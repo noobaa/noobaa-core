@@ -730,6 +730,7 @@ class NodesMonitor extends EventEmitter {
             this._set_need_rebuild.delete(item);
             return;
         }
+        dbg.log0('_update_data_activity: reason', reason, item.node.name);
         const now = Date.now();
         const act = item.data_activity = item.data_activity || {};
         act.reason = reason;
@@ -753,7 +754,7 @@ class NodesMonitor extends EventEmitter {
 
         if (now < item.node.heartbeat + config.REBUILD_NODE_OFFLINE_GRACE) {
             if (act.reason === ACT_RESTORING) {
-                dbg.log0('_update_data_activity_stage: WAIT OFFLINE THRESHOLD',
+                dbg.log0('_update_data_activity_stage: WAIT OFFLINE GRACE',
                     item.node.name, act);
                 act.stage = {
                     name: STAGE_OFFLINE_GRACE,
@@ -766,7 +767,7 @@ class NodesMonitor extends EventEmitter {
                 return;
             }
         } else if (act.stage && act.stage.name === STAGE_OFFLINE_GRACE) {
-            dbg.log0('_update_data_activity_stage: PASSED OFFLINE THRESHOLD',
+            dbg.log0('_update_data_activity_stage: PASSED OFFLINE GRACE',
                 item.node.name, act);
             // nullify to reuse the code that init right next
             act.stage = null;
@@ -794,7 +795,10 @@ class NodesMonitor extends EventEmitter {
         if (act.stage.name === STAGE_REBUILDING) {
             dbg.log0('_update_data_activity_stage: DONE REBUILDING',
                 item.node.name, act);
-            if (act.reason !== ACT_RESTORING) {
+            if (act.reason === ACT_RESTORING) {
+                // restore is done after rebuild, not doing wiping
+                act.done = true;
+            } else {
                 act.stage = {
                     name: STAGE_WIPING,
                     time: {
@@ -854,8 +858,18 @@ class NodesMonitor extends EventEmitter {
     _update_data_activity_schedule(item) {
         const act = item.data_activity;
 
-        if (!act || act.done) {
+        if (!act) {
             item.data_activity = null;
+            this._set_need_rebuild.delete(item);
+            this._set_need_update.add(item);
+            return;
+        }
+
+        // keep the activity in 'done' state
+        // to know that we don't need to run it again.
+        // this is needed only for restoring,
+        // which should probably have a persistent state instead
+        if (act.done) {
             this._set_need_rebuild.delete(item);
             this._set_need_update.add(item);
             return;

@@ -3,10 +3,6 @@ import Disposable from 'disposable';
 import ko from 'knockout';
 import { isFunction, noop } from 'utils';
 
-const disabledIcon = 'bin-disabled';
-const closedIcon = 'bin-closed';
-const opendIcon = 'bin-opened';
-
 class DeleteButtonViewModel extends Disposable {
     constructor({
         subject,
@@ -30,9 +26,9 @@ class DeleteButtonViewModel extends Disposable {
         );
 
         this.icon = ko.pureComputed(
-            () => !ko.unwrap(this.disabled) ?
-                (this.isActive() ? opendIcon : closedIcon) :
-                disabledIcon
+            () => (ko.unwrap(this.disabled) || !this.isActive()) ?
+                'bin-closed' :
+                'bin-opened'
         );
 
         this.question = ko.pureComputed(

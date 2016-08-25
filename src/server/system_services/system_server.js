@@ -10,7 +10,7 @@ const _ = require('lodash');
 const fs = require('fs');
 const url = require('url');
 const net = require('net');
-const https = require('https');
+const request = require('request');
 // const uuid = require('node-uuid');
 const ip_module = require('ip');
 
@@ -200,103 +200,103 @@ function create_system(req) {
     let owner_secret = system_store.get_server_secret();
     //Create system
     return P.fcall(function() {
-        var params = {
-            code: req.rpc_params.activation_code || '',
-            email: req.rpc_params.email,
-            system_info: _.omit(req.rpc_params, ['access_keys', 'password']),
-            command: 'perform_activation'
-        };
-        return _communicate_license_server(params);
-    })
-    .then(() => {
-        return P.join(new_system_changes(account.name, account),
-                cluster_server.new_cluster_info())
-            .spread(function(changes, cluster_info) {
-                allowed_buckets = [changes.insert.buckets[0]._id.toString()];
-                if (process.env.LOCAL_AGENTS_ENABLED === 'true') {
-                    allowed_buckets.push(changes.insert.buckets[1]._id.toString());
-                }
+            var params = {
+                code: req.rpc_params.activation_code || '',
+                email: req.rpc_params.email,
+                system_info: _.omit(req.rpc_params, ['access_keys', 'password']),
+                command: 'perform_activation'
+            };
+            return _communicate_license_server(params);
+        })
+        .then(() => {
+            return P.join(new_system_changes(account.name, account),
+                    cluster_server.new_cluster_info())
+                .spread(function(changes, cluster_info) {
+                    allowed_buckets = [changes.insert.buckets[0]._id.toString()];
+                    if (process.env.LOCAL_AGENTS_ENABLED === 'true') {
+                        allowed_buckets.push(changes.insert.buckets[1]._id.toString());
+                    }
 
-                if (cluster_info) {
-                    changes.insert.clusters = [cluster_info];
-                }
-                return changes;
-            })
-            .then(changes => {
-                return system_store.make_changes(changes);
-            })
-            .then(() => {
-                //Create the owner account
-                return server_rpc.client.account.create_account({
-                    name: req.rpc_params.name,
-                    email: req.rpc_params.email,
-                    password: req.rpc_params.password,
-                    access_keys: req.rpc_params.access_keys,
-                    new_system_parameters: {
-                        account_id: account._id.toString(),
-                        allowed_buckets: allowed_buckets,
-                        new_system_id: system_store.data.systems[0]._id.toString(),
-                    },
-                });
-            })
-            .then(response => {
-                reply_token = response.token;
-                //If internal agents enabled, create them
-                if (process.env.LOCAL_AGENTS_ENABLED !== 'true') {
-                    return;
-                }
-                return server_rpc.client.hosted_agents.create_agent({
-                    name: req.rpc_params.name,
-                    demo: true,
-                    access_keys: req.rpc_params.access_keys,
-                    scale: config.NUM_DEMO_NODES,
-                    storage_limit: config.DEMO_NODES_STORAGE_LIMIT,
-                }, {
-                    auth_token: reply_token
-                });
-            })
-            .then(() => {
-                //Time config, if supplied
-                if (!req.rpc_params.time_config) {
-                    return;
-                }
-                let time_config = req.rpc_params.time_config;
-                time_config.target_secret = owner_secret;
-                return server_rpc.client.cluster_server.update_time_config(time_config, {
-                    auth_token: reply_token
-                });
-            })
-            .then(() => {
-                //DNS servers, if supplied
-                if (!req.rpc_params.dns_servers) {
-                    return;
-                }
+                    if (cluster_info) {
+                        changes.insert.clusters = [cluster_info];
+                    }
+                    return changes;
+                })
+                .then(changes => {
+                    return system_store.make_changes(changes);
+                })
+                .then(() => {
+                    //Create the owner account
+                    return server_rpc.client.account.create_account({
+                        name: req.rpc_params.name,
+                        email: req.rpc_params.email,
+                        password: req.rpc_params.password,
+                        access_keys: req.rpc_params.access_keys,
+                        new_system_parameters: {
+                            account_id: account._id.toString(),
+                            allowed_buckets: allowed_buckets,
+                            new_system_id: system_store.data.systems[0]._id.toString(),
+                        },
+                    });
+                })
+                .then(response => {
+                    reply_token = response.token;
+                    //If internal agents enabled, create them
+                    if (process.env.LOCAL_AGENTS_ENABLED !== 'true') {
+                        return;
+                    }
+                    return server_rpc.client.hosted_agents.create_agent({
+                        name: req.rpc_params.name,
+                        demo: true,
+                        access_keys: req.rpc_params.access_keys,
+                        scale: config.NUM_DEMO_NODES,
+                        storage_limit: config.DEMO_NODES_STORAGE_LIMIT,
+                    }, {
+                        auth_token: reply_token
+                    });
+                })
+                .then(() => {
+                    //Time config, if supplied
+                    if (!req.rpc_params.time_config) {
+                        return;
+                    }
+                    let time_config = req.rpc_params.time_config;
+                    time_config.target_secret = owner_secret;
+                    return server_rpc.client.cluster_server.update_time_config(time_config, {
+                        auth_token: reply_token
+                    });
+                })
+                .then(() => {
+                    //DNS servers, if supplied
+                    if (!req.rpc_params.dns_servers) {
+                        return;
+                    }
 
-                return server_rpc.client.cluster_server.update_dns_servers({
-                    target_secret: owner_secret,
-                    dns_servers: req.rpc_params.dns_servers
-                }, {
-                    auth_token: reply_token
-                });
-            })
-            .then(() => {
-                //DNS name, if supplied
-                if (!req.rpc_params.dns_name) {
-                    return;
-                }
-                return server_rpc.client.system.update_hostname({
-                    hostname: req.rpc_params.dns_name
-                }, {
-                    auth_token: reply_token
-                });
-            })
-            .then(() => ({
-                token: reply_token
-            }));
-    })
-    .catch(err => {
-        throw err;
-    });
+                    return server_rpc.client.cluster_server.update_dns_servers({
+                        target_secret: owner_secret,
+                        dns_servers: req.rpc_params.dns_servers
+                    }, {
+                        auth_token: reply_token
+                    });
+                })
+                .then(() => {
+                    //DNS name, if supplied
+                    if (!req.rpc_params.dns_name) {
+                        return;
+                    }
+                    return server_rpc.client.system.update_hostname({
+                        hostname: req.rpc_params.dns_name
+                    }, {
+                        auth_token: reply_token
+                    });
+                })
+                .then(() => ({
+                    token: reply_token
+                }));
+        })
+        .catch(err => {
+            throw err;
+        });
 }
 
 
@@ -310,6 +310,8 @@ function read_system(req) {
     return P.join(
         // nodes - count, online count, allocated/used storage aggregate by pool
         nodes_client.instance().aggregate_nodes_by_pool(null, system._id, /*skip_cloud_nodes=*/ true),
+        // TODO: find a better solution than aggregating nodes twice
+        nodes_client.instance().aggregate_nodes_by_pool(null, system._id, /*skip_cloud_nodes=*/ false),
         md_store.aggregate_objects_count({
             system: system._id,
             deleted: null
@@ -329,7 +331,8 @@ function read_system(req) {
             response => response.accounts
         )
     ).spread(function(
-        nodes_aggregate_pool,
+        nodes_aggregate_pool_no_cloud,
+        nodes_aggregate_pool_with_cloud,
         objects_count,
         cloud_sync_by_bucket,
         accounts
@@ -344,7 +347,7 @@ function read_system(req) {
                 .plus(bucket.storage_stats && bucket.storage_stats.objects_size || 0);
         });
         objects_sys.count = objects_sys.count.plus(objects_count[''] || 0);
-        const nodes_sys = nodes_aggregate_pool[''] || {};
+        const nodes_sys = nodes_aggregate_pool_no_cloud[''] || {};
         const ip_address = ip_module.address();
         const n2n_config = system.n2n_config;
         const debug_level = system.debug_level;
@@ -397,13 +400,13 @@ function read_system(req) {
             buckets: _.map(system.buckets_by_name,
                 bucket => bucket_server.get_bucket_info(
                     bucket,
-                    nodes_aggregate_pool,
+                    nodes_aggregate_pool_no_cloud,
                     objects_count[bucket._id] || 0,
                     cloud_sync_by_bucket[bucket.name])),
             pools: _.map(system.pools_by_name,
-                pool => pool_server.get_pool_info(pool, nodes_aggregate_pool)),
+                pool => pool_server.get_pool_info(pool, nodes_aggregate_pool_with_cloud)),
             tiers: _.map(system.tiers_by_name,
-                tier => tier_server.get_tier_info(tier, nodes_aggregate_pool)),
+                tier => tier_server.get_tier_info(tier, nodes_aggregate_pool_no_cloud)),
             storage: size_utils.to_bigint_storage({
                 total: nodes_sys.total,
                 free: nodes_sys.free,
@@ -800,46 +803,19 @@ function update_base_address(req) {
             }
         })
         .then(() => cutil.update_host_address(req.rpc_params.base_address))
-        .then(function() {
-            return nodes_store.instance().find_nodes({
-                system: req.system._id,
-                deleted: null
-            }, {
-                // select just what we need
-                fields: {
-                    name: 1,
-                    rpc_address: 1
-                }
-            });
-        })
-        .then(function(nodes) {
-            var reply = {
-                nodes_count: nodes.length,
-                nodes_updated: 0
-            };
-            return P.map(nodes, function(node) {
-                    return server_rpc.client.agent.update_base_address(req.rpc_params, {
-                        address: node.rpc_address
-                    }).then(function() {
-                        reply.nodes_updated += 1;
-                    }, function(err) {
-                        dbg.error('update_base_address: FAILED TO UPDATE AGENT', node.name, node.rpc_address);
-                    });
-                }, {
-                    concurrency: 5
-                })
-                .return(reply);
-        })
-        .then(res => {
-            Dispatcher.instance().activity({
-                event: 'conf.dns_address',
-                level: 'info',
-                system: req.system,
-                actor: req.account && req.account._id,
-                desc: `DNS Address was changed from ${prior_base_address} to ${req.rpc_params.base_address}`,
-            });
-            return res;
+        .then(() => server_rpc.client.node.sync_monitor_to_store({}, {
+            auth_token: req.auth_token
+        }))
+
+    .then(() => {
+        Dispatcher.instance().activity({
+            event: 'conf.dns_address',
+            level: 'info',
+            system: req.system,
+            actor: req.account && req.account._id,
+            desc: `DNS Address was changed from ${prior_base_address} to ${req.rpc_params.base_address}`,
         });
+    });
 }
 
 // phone_home_proxy_address must be a full address like: http://(ip or hostname):(port)
@@ -871,10 +847,8 @@ function phone_home_capacity_notified(req) {
 
     let update = {
         _id: req.system._id,
-        freemium_cap: Object.assign(
-            {},
-            req.system.freemium_cap,
-            {
+        freemium_cap: Object.assign({},
+            req.system.freemium_cap, {
                 phone_home_notified: true
             }
         )
@@ -989,14 +963,19 @@ function do_upgrade(req) {
 
 function validate_activation(req) {
     return P.fcall(function() {
-        var params = _.defaults(req.rpc_params, {
-            command: 'validate_creation'
-        });
-        // Method is used both for license code validation with and without business email
-        return _communicate_license_server(params);
-    })
-    .then(response => true)
-    .catch(err => false);
+            var params = _.defaults(req.rpc_params, {
+                command: 'validate_creation'
+            });
+            // Method is used both for license code validation with and without business email
+            return _communicate_license_server(params);
+        })
+        .return({
+            valid: true
+        })
+        .catch(err => ({
+            valid: false,
+            reason: err.message
+        }));
 }
 
 
@@ -1020,76 +999,34 @@ function find_account_by_email(req) {
 }
 
 function _communicate_license_server(params) {
-    if (DEV_MODE) {
-        return true;
-    }
-    var deferred = P.defer();
-    var data_to_send = {
-        code: (params && params.code) || '',
+    if (DEV_MODE) return 'ok';
+    const body = {
+        code: params.code,
     };
-
-    if (params && params.email) {
-        data_to_send['Business Email'] = params.email;
+    if (params.email) {
+        body['Business Email'] = params.email;
     }
-
     if (params.command === 'perform_activation') {
-        // TODO: JEN FILL UP WITH GOOD SYSTEM INFO
-        data_to_send.system_info = (params && params.system_info) || {};
+        body.system_info = params.system_info || {};
     }
-
-    data_to_send = JSON.stringify(data_to_send);
-
-    return P.fcall(function() {
-            let central_listener = url.parse(config.central_stats.central_listener);
-            var options = {
-                hostname: central_listener.hostname,
-                port: Number(central_listener.port),
-                path: '/' + params.command,
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    // 'Content-Encoding': 'json',
-                    'Content-Length': Buffer.byteLength(data_to_send)
-                },
-                rejectUnauthorized: false
-            };
-
-            dbg.log0('Sending Post Request To Activation Server:', options);
-            var req = https.request(options, function(response) {
-                dbg.log0('Received Response From Activation Server');
-                //set the response encoding to parse json string
-                response.setEncoding('utf8');
-                var responseData = '';
-                //append data to responseData variable on the 'data' event emission
-                response.on('data', function(data) {
-                    responseData += data;
-                });
-                //listen to the 'end' event
-                response.on('end', function() {
-                    dbg.log0('Received End Response From Activation Server', responseData);
-                    // TODO: Use specific codes for response
-                    if (responseData === 'ok') {
-                        //resolve the deferred object with the response
-                        deferred.resolve(responseData);
-                    } else {
-                        //reject the deferred object with the response
-                        deferred.reject(responseData);
-                    }
-                });
-            });
-
-            //listen to the 'error' event
-            req.on('error', function(err) {
-                dbg.log0('Received Error Response From Activation Server', err);
-                //if an error occurs reject the deferred
-                deferred.reject(err);
-            });
-            req.end(data_to_send);
-            //we are returning a promise object
-            //if we returned the deferred object
-            //deferred object reject and resolve could potentially be modified
-            //violating the expected behavior of this function
-            return deferred.promise;
+    const options = {
+        url: config.PHONE_HOME_BASE_URL + '/' + params.command,
+        method: 'POST',
+        body: body,
+        strictSSL: false, // means rejectUnauthorized: false
+        json: true,
+        gzip: true,
+    };
+    dbg.log0('Sending Post Request To Activation Server:', options);
+    return P.fromCallback(callback => request(options, callback), {
+            multiArgs: true
+        })
+        .spread(function(response, reply) {
+            dbg.log0('Received Response From Activation Server', response.statusCode, reply);
+            if (response.statusCode !== 200) {
+                throw new Error(String(reply));
+            }
+            return String(reply);
         });
 }
 

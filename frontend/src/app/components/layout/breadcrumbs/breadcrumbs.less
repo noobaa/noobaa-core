@@ -1,33 +1,49 @@
 breadcrumbs {
-    .row();
     color: @color6;
     font-size: @font-size4;
-    line-height: 1;
+
+    nav {
+        line-height: @gutter;
+    }
 
     .crumb {
-        vertical-align: middle;
         .no-outline();
-        .row();
+        position: relative;
+        display: block;
+        margin-right: 2 * @gutter;
 
-        > span {
-            .no-wrap();
-            display: block;
+        span {
+            display: inline-block;
+            max-width: 320px;
             vertical-align: middle;
-            max-width: 20em;
         }
 
         &:last-child {
             color: @color8;
+            margin-right: 0;
 
-            &::after {
+            &::after, &::before {
                 display: none;
             }
         }
 
-        &::after {
+        &::after, &::before {
             content: '';
-            margin-left: @gutter;
+            position: absolute;
+            right: -5/4 * @gutter;
+            top: 0;
             border: @gutter/2 solid transparent;
+            border-right-width: 0;
+        }
+
+        &::after {
+            top: 4px;
+            right: -5/4 * @gutter - 1px;
+            border-width: @gutter/2 - 4px;
+            border-left-color: @color1;
+        }
+
+        &::before {
             border-left-color: @color8;
         }
     }

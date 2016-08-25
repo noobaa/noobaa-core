@@ -4,6 +4,7 @@ import ko from 'knockout';
 import { systemInfo } from 'model';
 import { downloadSystemDiagnosticPack, setSystemDebugLevel } from 'actions';
 import { isUndefined } from 'utils';
+import { support } from 'config';
 
 class DiagnosticsFormViewModel extends Disposable {
     constructor() {
@@ -12,11 +13,11 @@ class DiagnosticsFormViewModel extends Disposable {
         this.contactSupport = [
             {
                 label: 'By email',
-                value: '<a class="link" href="mailto:support@noobaa.com">support@noobaa.com</a>'
+                value: `<a class="link" href="mailto:${support.email}">${support.email}</a>`
             },
             {
                 label: 'Support center',
-                value: '<a class="link" href="https://noobaa.desk.com" target="_blank">https://noobaa.desk.com</a>'
+                value: `<a class="link" href="${support.helpDesk}" target="_blank">${support.helpDesk}</a>`
             }
         ];
 

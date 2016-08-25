@@ -1705,16 +1705,58 @@ export function validateActivationCode(code) {
 
     api.system.validate_activation({ code })
         .then(
-            valid => model.activation({
+            ({ valid, reason }) => model.activationCodeValid({
                 code: code,
-                isCodeValid: valid
+                isValid: valid,
+                reason: reason
             })
-        );
+        )
+        .done();
+}
+
+export function validateActivationEmail(code, email) {
+    logAction('validateActivationEmail', { code, email });
+
+    api.system.validate_activation({ code, email })
+        .then(
+            ({ valid, reason }) => model.activationEmailValid({
+                code: code,
+                email: email,
+                isValid: valid,
+                reason: reason
+            })
+        )
+        .done();
 }
 
 export function dismissUpgradedCapacityNotification() {
     logAction('dismissUpgradedCapacityNotification');
 
     api.system.phone_home_capacity_notified()
-        .then(loadSystemInfo);
+        .then(loadSystemInfo)
+        .done();
+}
+
+export function decommissionNode(name) {
+    logAction('decommissionNode', { name });
+
+    api.node.decommission_node({ name })
+        .then(
+            () => notify(`Node ${name} deactivated successfully`, 'success'),
+            () => notify(`Deactivating node ${name} failed`, 'error')
+        )
+        .then(refresh)
+        .done();
+}
+
+export function recommissionNode(name) {
+    logAction('recommissionNode', { name });
+
+    api.node.recommission_node({ name })
+        .then(
+            () => notify(`Node ${name} activated successfully`, 'success'),
+            () => notify(`Activating node ${name} failed`, 'error')
+        )
+        .then(refresh)
+        .done();
 }

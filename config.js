@@ -93,9 +93,9 @@ var is_windows = (process.platform === "win32");
 if (!is_windows) {
     process.env.ProgramData = '/tmp';
 }
+config.PHONE_HOME_BASE_URL = 'https://phonehome.noobaa.com';
 config.central_stats = {
     send_stats: 'true',
-    central_listener: 'https://104.155.41.235:443/phdata',
     send_time_cycle: 30 * 60000, //min
     previous_diag_packs_dir: process.env.ProgramData + '/prev_diags',
     previous_diag_packs_count: 3 //TODO: We might want to split between agent and server

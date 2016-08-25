@@ -76,7 +76,7 @@ function background_worker() {
         }
     };
     let obj_existing_query = {
-        upload_completed: {
+        create_time: {
             $gte: params.from_date,
             $lt: params.till_date,
         }
@@ -86,7 +86,7 @@ function background_worker() {
             $gte: params.from_date,
             $lt: params.till_date,
         },
-        upload_completed: {
+        create_time: {
             $exists: true
         }
     };

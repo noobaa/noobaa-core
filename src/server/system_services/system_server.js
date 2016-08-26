@@ -31,7 +31,6 @@ const tier_server = require('./tier_server');
 const account_server = require('./account_server');
 const cluster_server = require('./cluster_server');
 const Dispatcher = require('../notifications/dispatcher');
-const nodes_store = require('../node_services/nodes_store');
 const nodes_client = require('../node_services/nodes_client');
 const system_store = require('../system_services/system_store').get_instance();
 const promise_utils = require('../../util/promise_utils');
@@ -761,36 +760,10 @@ function update_n2n_config(req) {
                 }]
             }
         })
-        .then(function() {
-            return nodes_store.instance().find_nodes({
-                system: req.system._id,
-                deleted: null
-            }, {
-                // select just what we need
-                fields: {
-                    name: 1,
-                    rpc_address: 1
-                }
-            });
-        })
-        .then(function(nodes) {
-            var reply = {
-                nodes_count: nodes.length,
-                nodes_updated: 0
-            };
-            return P.map(nodes, function(node) {
-                    return server_rpc.client.agent.update_n2n_config(n2n_config, {
-                        address: node.rpc_address
-                    }).then(function() {
-                        reply.nodes_updated += 1;
-                    }, function(err) {
-                        dbg.error('update_n2n_config: FAILED TO UPDATE AGENT', node.name, node.rpc_address);
-                    });
-                }, {
-                    concurrency: 5
-                })
-                .return(reply);
-        });
+        .then(() => server_rpc.client.node.sync_monitor_to_store(undefined, {
+            auth_token: req.auth_token
+        }))
+        .return();
 }
 
 function update_base_address(req) {
@@ -805,19 +778,18 @@ function update_base_address(req) {
             }
         })
         .then(() => cutil.update_host_address(req.rpc_params.base_address))
-        .then(() => server_rpc.client.node.sync_monitor_to_store({}, {
+        .then(() => server_rpc.client.node.sync_monitor_to_store(undefined, {
             auth_token: req.auth_token
         }))
-
-    .then(() => {
-        Dispatcher.instance().activity({
-            event: 'conf.dns_address',
-            level: 'info',
-            system: req.system,
-            actor: req.account && req.account._id,
-            desc: `DNS Address was changed from ${prior_base_address} to ${req.rpc_params.base_address}`,
+        .then(() => {
+            Dispatcher.instance().activity({
+                event: 'conf.dns_address',
+                level: 'info',
+                system: req.system,
+                actor: req.account && req.account._id,
+                desc: `DNS Address was changed from ${prior_base_address} to ${req.rpc_params.base_address}`,
+            });
         });
-    });
 }
 
 // phone_home_proxy_address must be a full address like: http://(ip or hostname):(port)

@@ -694,6 +694,7 @@ class NodesMonitor extends EventEmitter {
         item.has_issues = !(
             item.online &&
             item.trusted &&
+            !item.node.migrating_to_pool &&
             !item.node.decommissioning &&
             !item.node.decommissioned &&
             !item.node.deleting &&
@@ -710,6 +711,7 @@ class NodesMonitor extends EventEmitter {
             item.online &&
             item.trusted &&
             !item.storage_full &&
+            !item.node.migrating_to_pool &&
             !item.node.decommissioning &&
             !item.node.decommissioned &&
             !item.node.deleting &&

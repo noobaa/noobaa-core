@@ -694,6 +694,7 @@ class NodesMonitor extends EventEmitter {
         item.has_issues = !(
             item.online &&
             item.trusted &&
+            !item.node.migrating_to_pool &&
             !item.node.decommissioning &&
             !item.node.decommissioned &&
             !item.node.deleting &&
@@ -710,6 +711,7 @@ class NodesMonitor extends EventEmitter {
             item.online &&
             item.trusted &&
             !item.storage_full &&
+            !item.node.migrating_to_pool &&
             !item.node.decommissioning &&
             !item.node.decommissioned &&
             !item.node.deleting &&
@@ -834,7 +836,7 @@ class NodesMonitor extends EventEmitter {
 
         if (act.stage && act.stage.size) {
             act.stage.size.remaining = Math.max(0,
-                act.stage.size.total - act.stage.size.completed);
+                act.stage.size.total - act.stage.size.completed) || 0;
             const completed_time = now - act.stage.time.start;
             const remaining_time = act.stage.size.remaining *
                 completed_time / act.stage.size.completed;
@@ -845,14 +847,7 @@ class NodesMonitor extends EventEmitter {
         act.time.start = act.time.start || now;
         // TODO estimate all stages
         act.time.end = act.stage.time.end;
-
-        if (act.time.end) {
-            act.progress = Math.min(1, Math.max(0,
-                (now - act.time.start) / (act.time.end - act.time.start)
-            ));
-        } else {
-            act.progress = 0;
-        }
+        act.progress = progress_by_time(act.time, now);
     }
 
     _update_data_activity_schedule(item) {
@@ -1232,11 +1227,29 @@ class NodesMonitor extends EventEmitter {
             unavailable_free: BigInteger.zero,
             used_other: BigInteger.zero,
         };
+        const data_activities = {};
         _.each(list, item => {
             count += 1;
             if (item.online) online += 1;
             if (item.has_issues) {
                 has_issues += 1;
+            }
+            if (item.data_activity) {
+                const act = item.data_activity;
+                const a =
+                    data_activities[act.reason] =
+                    data_activities[act.reason] || {
+                        reason: act.reason,
+                        count: 0,
+                        progress: 0,
+                        time: {
+                            start: act.time.start,
+                            end: act.time.end,
+                        }
+                    };
+                a.count += 1;
+                a.time.start = Math.min(a.time.start, act.time.start);
+                a.time.end = Math.max(a.time.end, act.time.end || Infinity);
             }
 
             item.node.storage.free = Math.max(item.node.storage.free, 0);
@@ -1271,13 +1284,19 @@ class NodesMonitor extends EventEmitter {
             .minus(storage.reserved)
             .minus(storage.free)
             .minus(storage.unavailable_free));
+        const now = Date.now();
         return {
             nodes: {
                 count: count,
                 online: online,
                 has_issues: has_issues,
             },
-            storage: size_utils.to_bigint_storage(storage)
+            storage: size_utils.to_bigint_storage(storage),
+            data_activities: _.map(data_activities, a => {
+                if (!_.isFinite(a.time.end)) delete a.time.end;
+                a.progress = progress_by_time(a.time, now);
+                return a;
+            })
         };
     }
 
@@ -1547,6 +1566,13 @@ function scale_number_token(num) {
 function scale_size_token(size) {
     const scaled = Math.max(scale_number_token(size), size_utils.GIGABYTE);
     return size_utils.human_size(scaled);
+}
+
+function progress_by_time(time, now) {
+    if (!time.end) return 0;
+    return Math.min(1, Math.max(0,
+        (now - time.start) / (time.end - time.start)
+    ));
 }
 
 // EXPORTS

@@ -588,7 +588,7 @@ function add_agent_region_instances(region_name, count, is_docker_host, number_o
                 .then(function(res) { //Tag Instances
                     return P.all(_.map(res.Instances, function(instance) {
                         return P.fcall(function() {
-                            return add_instance_name(instance.InstanceId, 'AgentInstance_For_' + app_name, region_name);
+                            return add_instance_name(instance.InstanceId, 'Agent_For_' + app_name, region_name);
                         });
                     }));
                 })

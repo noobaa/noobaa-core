@@ -762,7 +762,8 @@ function update_n2n_config(req) {
         })
         .then(() => server_rpc.client.node.sync_monitor_to_store(undefined, {
             auth_token: req.auth_token
-        }));
+        }))
+        .return();
 }
 
 function update_base_address(req) {

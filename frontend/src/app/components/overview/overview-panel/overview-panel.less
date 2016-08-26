@@ -13,11 +13,22 @@
     }
 
     h1 {
+        position: relative;
         border-bottom: 1px solid;
         transition: color 300ms ease-in-out;
 
         &:hover {
             color: @color8;
+        }
+
+        &::after {
+            content: '';
+            display: inline-block;
+            position: absolute;
+            right: 0;
+            top: 15px;
+            border: 8px solid transparent;
+            border-left-color: initial;
         }
     }
 

@@ -16,7 +16,7 @@ const stateIconMapping = deepFreeze({
 });
 
 export default class NodeRowViewModel extends Disposable {
-    constructor(node, selectedNodes) {
+    constructor(node, selectedNodes , poolName) {
         super();
 
         this.selected = ko.pureComputed({
@@ -27,7 +27,7 @@ export default class NodeRowViewModel extends Disposable {
         });
 
         this.state = ko.pureComputed(
-            () => node() ? stateIconMapping[node().online] : { tooltip: 'OHAD' }
+            () => node() ? stateIconMapping[node().online] : ''
         );
 
         this.name = ko.pureComputed(
@@ -46,12 +46,10 @@ export default class NodeRowViewModel extends Disposable {
             () =>  node() ? { text:  node().pool, tooltip : node().pool } : ''
         );
 
-        this.recommended = '---';
-
-        // this.recommended = ko.pureComputed(
-        //     () => node() && (
-        //         node().suggested_pool === ko.unwrap(currPoolName) ? 'yes' : '---'
-        //     )
-        // );
+        this.recommended = ko.pureComputed(
+            () => (node() && node().suggested_pool === ko.unwrap(poolName)) ?
+                'yes' :
+                '---'
+        );
     }
 }

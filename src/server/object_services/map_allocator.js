@@ -61,7 +61,7 @@ class MapAllocator {
     }
 
     find_dups() {
-        if (process.env.DEDUP_DISABLED === 'true') return;
+        if (!config.DEDUP_ENABLED) return;
         let digest_list = _.uniq(_.map(this.parts, part => part.chunk.digest_b64));
         dbg.log3('MapAllocator.find_dups', digest_list.length);
         return md_store.load_chunks_by_digest(this.bucket, digest_list)

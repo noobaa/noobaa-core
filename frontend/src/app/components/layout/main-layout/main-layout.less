@@ -1,11 +1,32 @@
 .main-layout  {
     height: 100%;
 
-    .content-wrapper {
-        position: relative;
-    }
-
     .sticky-wrapper {
         max-height: 34px;
+    }
+
+    .content-wrapper {
+        position: relative;
+
+        &.background-image::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background-size: cover;
+            opacity: .3;
+
+            /*
+            https://unsplash.com/license
+            https://unsplash.com/collections/136301/space?photo=NORa8-4ohA0
+            */
+            background-image: url('@{assets}/stars.jpg');
+        }
+    }
+
+    main-header, main {
+        z-index: 1;
     }
 }

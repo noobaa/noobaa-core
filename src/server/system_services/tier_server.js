@@ -312,9 +312,8 @@ function get_tier_info(tier, nodes_aggregate_pool) {
         dbg.error('BAD TIER DATA PLACEMENT (assuming spread)', tier);
         reducer = size_utils.reduce_sum;
     }
-    nodes_aggregate_pool = nodes_aggregate_pool || {};
     var pools_storage = _.map(tier.pools, pool =>
-        _.defaults(nodes_aggregate_pool[pool._id], {
+        _.defaults(_.get(nodes_aggregate_pool, ['groups', String(pool._id), 'storage']), {
             free: 0,
         })
     );

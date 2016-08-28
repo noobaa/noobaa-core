@@ -16,7 +16,9 @@
         Upgrade System
     </h2>
 
-    <p class="push-next">The upgrading process may take a few minutes to complete.</p>
+    <p class="push-next">
+        The upgrading process may take a few minutes to complete.
+    </p>
 
     <file-selector params="
         message: 'Drag an upgrade package here',
@@ -26,5 +28,6 @@
 </section>
 
 <!-- ko if: isUpgradingModalVisible -->
-<upgrade-modal params="onClose: () => isUpgradingModalVisible(false)"></upgrade-modal>
+<upgrade-modal params="onClose: () => isUpgradingModalVisible(false)">
+</upgrade-modal>
 <!-- /ko -->

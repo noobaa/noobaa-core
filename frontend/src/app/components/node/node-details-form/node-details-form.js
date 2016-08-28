@@ -67,8 +67,7 @@ class NodeInfoViewModel extends Disposable {
             { label: 'Installed Version', value: version},
             { label: 'Heartbeat', value: lastHeartbeat},
             { label: 'Communication IP', value: ip},
-            { label: 'Peer to Peer Connectivity', value: p2pConectivityType },
-            { label: 'Round Trip Time', value: RTT }
+            { label: 'Peer to Peer Connectivity', value: p2pConectivityType }
         ];
 
         let hostname = ko.pureComputed(
@@ -96,7 +95,8 @@ class NodeInfoViewModel extends Disposable {
             { label: 'Up Time', value: upTime},
             { label: 'OS Type', value: osType },
             { label: 'CPUs', value: cpus },
-            { label: 'Memory', value: memory }
+            { label: 'Memory', value: memory },
+            { label: 'Round Trip Time', value: RTT }
         ];
 
         let mountName = ko.pureComputed(

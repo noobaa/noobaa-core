@@ -3,6 +3,24 @@ import ko from 'knockout';
 import numeral from 'numeral';
 import { deepFreeze } from 'utils';
 
+const nodeStateMapping = deepFreeze({
+    offline: {
+        css: 'error',
+        name: 'problem',
+        tooltip: 'offline'
+    },
+    deactivated: {
+        css: 'warning',
+        name: 'problem',
+        tooltip: 'deactivated'
+    },
+    online: {
+        css: 'success',
+        name: 'healthy',
+        tooltip: 'online'
+    }
+});
+
 const activityNameMapping = deepFreeze({
     RESTORING: 'Restoring',
     MIGRATING: 'Migrating',
@@ -26,11 +44,15 @@ export default class NodeRowViewModel extends Disposable {
                     return '';
                 }
 
-                return {
-                    css: node() && node().online ? 'success' : 'error',
-                    name: node() && node().online ? 'healthy' : 'problem',
-                    tooltip: node().online  ? 'online' : 'offline'
-                };
+                if (!node().online) {
+                    return nodeStateMapping.offline;
+
+                } else if (node().decommissioning || node().decommissioned) {
+                    return nodeStateMapping.deactivated;
+
+                } else {
+                    return nodeStateMapping.online;
+                }
             }
         );
 

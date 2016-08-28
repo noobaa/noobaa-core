@@ -17,6 +17,7 @@ argv.bucket = argv.bucket || 'files';
 let s3_config = {
     accessKeyId: argv.access_key || process.env.AWS_ACCESS_KEY_ID || '123',
     secretAccessKey: argv.secret_key || process.env.AWS_SECRET_ACCESS_KEY || 'abc',
+    signatureVersion: argv.sigver || 'v4', // use s3/v4, v2 seems irrelevant
     sslEnabled: argv.ssl || false,
     computeChecksums: argv.checksum || false,
     region: argv.region || 'us-east-1',
@@ -27,11 +28,9 @@ let s3_config = {
     }
 };
 if (argv.aws) {
-    s3_config.signatureVersion = argv.sigver || 'v4';
     // s3_config.s3ForcePathStyle = false;
 } else {
     s3_config.endpoint = argv.endpoint || 'http://127.0.0.1';
-    s3_config.signatureVersion = argv.sigver || 's3'; // use s3/v4, v2 seems irrelevant
     s3_config.s3ForcePathStyle = true;
 }
 let s3 = new AWS.S3(s3_config);

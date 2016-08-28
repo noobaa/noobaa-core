@@ -23,12 +23,13 @@ const P = require('../util/promise');
 const dbg = require('../util/debug_module')(__filename);
 const pem = require('../util/pem');
 const api = require('../api');
+const config = require('../../config');
 const s3_rest = require('./s3_rest');
 const S3Controller = require('./s3_controller');
 
 dbg.set_process_name('S3rver');
 
-if (cluster.isMaster && process.env.S3_CLUSTER_DISABLED !== 'true') {
+if (cluster.isMaster && config.S3_FORKS_ENABLED) {
     // Fork workers
     for (let i = 0; i < numCPUs; i++) {
         console.warn('Spawning S3 Server', i + 1);

@@ -364,9 +364,6 @@ function get_all_stats(req) {
         })
         .then(ops_stats => {
             stats_payload.ops_stats = ops_stats;
-            dbg.log2('SYSTEM_SERVER_STATS_AGGREGATOR:', 'SENDING (STUB)'); //TODO
-        })
-        .then(() => {
             dbg.log2('SYSTEM_SERVER_STATS_AGGREGATOR:', 'END');
             return stats_payload;
         })

@@ -5,6 +5,7 @@ import { formatSize, isDefined } from 'utils';
 import style from 'style';
 
 const bgColor = style['color7'];
+const emptyColor = style['color7'];
 
 class CapacityBarViewModel extends Disposable {
     constructor({ total, used, color = style['color8'] }) {
@@ -44,6 +45,8 @@ class CapacityBarViewModel extends Disposable {
                 color: bgColor
             }
         ];
+
+        this.emptyColor = emptyColor;
 
         this.tooltip = ko.pureComputed(
             () => {

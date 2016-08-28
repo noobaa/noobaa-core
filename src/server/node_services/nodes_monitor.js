@@ -553,7 +553,9 @@ class NodesMonitor extends EventEmitter {
         // only update if the system defined a base address
         // otherwise the agent is using the ip directly, so no update is needed
         // don't update local agents which are using local host
-        if (system.base_address && system.base_address !== item.agent_info.base_address &&
+        if (system.base_address &&
+            system.base_address !== item.agent_info.base_address &&
+            !item.node.is_internal_node &&
             !is_localhost(item.agent_info.base_address)) {
             rpc_config.base_address = system.base_address;
         }

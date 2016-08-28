@@ -1325,7 +1325,16 @@ class NodesMonitor extends EventEmitter {
             NODE_INFO_DEFAULTS);
         info._id = String(node._id);
         info.peer_id = String(node.peer_id);
-        info.pool = system_store.data.get_by_id(node.pool).name;
+
+        /*
+        This is a quick fix to prevent throwing exception when
+        getting pool infromation for an internal cloud node that refers to
+        a deleted cloud pool.
+        This happens when quering the activity log.
+        */
+        const pool = system_store.data.get_by_id(node.pool);
+        info.pool = pool ? pool.name : '';
+
         if (node.is_internal_node) info.demo_node = true;
         const act = item.data_activity;
         if (act && !act.done) {

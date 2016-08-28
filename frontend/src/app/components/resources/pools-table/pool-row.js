@@ -13,11 +13,12 @@ export default class PoolRowViewModel extends Disposable {
                     return {};
                 }
 
-                let healthy = pool().nodes.online >= 3;
+                let { count, has_issues } = pool().nodes;
+                let healthy = count - has_issues >= 3;
                 return {
                     css: healthy ? 'success' : 'error',
                     name: healthy ? 'healthy' : 'problem',
-                    tooltip: healthy ? 'Healthy' : 'not enough online nodes'
+                    tooltip: healthy ? 'Healthy' : 'not enough healthy nodes'
                 };
             }
         );
@@ -44,7 +45,14 @@ export default class PoolRowViewModel extends Disposable {
         );
 
         this.offlineCount = ko.pureComputed(
-            () => pool() ? numeral(this.nodeCount() - this.onlineCount()).format('0,0') : ''
+            () => {
+                if (!pool()) {
+                    return '';
+                }
+
+                let { count, online } = pool().nodes;
+                return numeral(count - online).format('0,0');
+            }
         );
 
         let storage = ko.pureComputed(

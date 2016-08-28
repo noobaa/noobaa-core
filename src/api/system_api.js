@@ -431,9 +431,6 @@ module.exports = {
             params: {
                 $ref: 'common_api#/definitions/n2n_config'
             },
-            reply: {
-                $ref: '#/definitions/system_nodes_update_reply'
-            },
             auth: {
                 system: 'admin',
             }
@@ -806,19 +803,6 @@ module.exports = {
                 },
                 secret_key: {
                     type: 'string',
-                }
-            }
-        },
-
-        system_nodes_update_reply: {
-            type: 'object',
-            required: ['nodes_count', 'nodes_updated'],
-            properties: {
-                nodes_count: {
-                    type: 'integer'
-                },
-                nodes_updated: {
-                    type: 'integer'
                 }
             }
         },

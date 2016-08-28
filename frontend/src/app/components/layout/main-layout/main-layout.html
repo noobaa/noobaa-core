@@ -6,7 +6,9 @@
         <license-sticky></license-sticky>
     </section>
 
-    <div class="content-wrapper column greedy">
+    <div class="content-wrapper column greedy" data-bind="
+        css: { 'background-image': useBackground }
+    ">
         <main-header class="push-next"></main-header>
 
         <!-- ko if: panel -->

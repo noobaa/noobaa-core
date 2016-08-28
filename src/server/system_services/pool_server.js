@@ -17,6 +17,19 @@ const nodes_client = require('../node_services/nodes_client');
 const system_store = require('../system_services/system_store').get_instance();
 const cloud_utils = require('../utils/cloud_utils');
 
+const POOL_STORAGE_DEFAULTS = Object.freeze({
+    total: 0,
+    free: 0,
+    used_other: 0,
+    unavailable_free: 0,
+    used: 0,
+    reserved: 0,
+});
+const POOL_NODES_INFO_DEFAULTS = Object.freeze({
+    count: 0,
+    online: 0,
+    has_issues: 0,
+});
 
 function new_pool_defaults(name, system_id) {
     return {
@@ -142,9 +155,7 @@ function read_pool(req) {
     var pool = find_pool_by_name(req);
     return P.resolve()
         .then(() => nodes_client.instance().aggregate_nodes_by_pool([pool._id]))
-        .then(function(nodes_aggregate_pool) {
-            return get_pool_info(pool, nodes_aggregate_pool);
-        });
+        .then(nodes_aggregate_pool => get_pool_info(pool, nodes_aggregate_pool));
 }
 
 function delete_pool(req) {
@@ -161,7 +172,7 @@ function _delete_nodes_pool(system, pool, account) {
     dbg.log0('Deleting pool', pool.name);
     return P.resolve()
         .then(() => nodes_client.instance().aggregate_nodes_by_pool([pool._id]))
-        .then(function(nodes_aggregate_pool) {
+        .then(nodes_aggregate_pool => {
             var reason = check_pool_deletion(pool, nodes_aggregate_pool);
             if (reason) {
                 throw new RpcError(reason, 'Cannot delete pool');
@@ -257,20 +268,16 @@ function find_pool_by_name(req) {
 }
 
 function get_pool_info(pool, nodes_aggregate_pool) {
-    var n = nodes_aggregate_pool[pool._id] || {};
+    var p = _.get(nodes_aggregate_pool, ['groups', String(pool._id)], {});
     var info = {
         name: pool.name,
         // notice that the pool storage is raw,
         // and does not consider number of replicas like in tier
-        storage: size_utils.to_bigint_storage({
-            total: n.total,
-            free: n.free,
-            used_other: n.used_other,
-            unavailable_free: n.unavailable_free,
-            used: n.used,
-            reserved: n.reserved,
-        })
+        storage: _.defaults(size_utils.to_bigint_storage(p.storage), POOL_STORAGE_DEFAULTS)
     };
+    if (p.data_activities) {
+        info.data_activities = p.data_activities;
+    }
     if (_is_cloud_pool(pool)) {
         info.cloud_info = {
             endpoint: pool.cloud_pool_info.endpoint,
@@ -278,16 +285,10 @@ function get_pool_info(pool, nodes_aggregate_pool) {
         };
         info.undeletable = check_cloud_pool_deletion(pool, nodes_aggregate_pool);
     } else {
-        info.nodes = {
-            count: n.count || 0,
-            online: n.online || 0,
-            has_issues: n.has_issues || 0,
-        };
-
+        info.nodes = _.defaults({}, p.nodes, POOL_NODES_INFO_DEFAULTS);
         info.undeletable = check_pool_deletion(pool, nodes_aggregate_pool);
         info.demo_pool = Boolean(pool.demo_pool);
     }
-
     return info;
 }
 
@@ -299,8 +300,10 @@ function check_pool_deletion(pool, nodes_aggregate_pool) {
     }
 
     // Check if there are nodes till associated to this pool
-    var n = nodes_aggregate_pool[pool._id] || {};
-    if (n.count) {
+    const nodes_count = _.get(nodes_aggregate_pool, [
+        'groups', String(pool._id), 'nodes', 'count'
+    ], 0);
+    if (nodes_count) {
         return 'NOT_EMPTY';
     }
 

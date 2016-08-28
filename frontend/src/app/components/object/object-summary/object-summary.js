@@ -44,14 +44,14 @@ class ObjectSummaryViewModel extends Disposable {
                 value: ko.pureComputed(
                     () => obj().capacity_size
                 ),
-                color: style['gray-lv5']
+                color: style['color13']
             },
             {
                 label: 'Size',
                 value: ko.pureComputed(
                     () => obj().size
                 ),
-                color: style['magenta-mid']
+                color: style['color7']
             }
         ];
     }

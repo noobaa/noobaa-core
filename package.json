@@ -56,7 +56,8 @@
     "compression": false,
     "bindings": false,
     "ws": false,
-    "native_core": false
+    "native_core": false,
+    "./config-local": false
   },
   "dependencies": {
     "ajv": "4.5.0",

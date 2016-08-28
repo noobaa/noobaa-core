@@ -24,19 +24,44 @@ class BlockRowViewModel extends Disposable {
     constructor({ adminfo }, index, count) {
         super();
 
-        let { online, node_ip, node_name, pool_name } = adminfo;
+        let { online, is_cloud_pool, node_ip, node_name, pool_name } = adminfo;
 
         this.stateIcon = {
             name: online ? 'healthy' : 'problem',
-            tooltip: online ? 'online' : 'offline',
+            tooltip: online ? 'healthy' : 'problem',
             css: online ? 'success' : 'error'
         };
-
-        this.label = `Replica ${index + 1} of ${count}`;
-        this.nodeIp = node_ip;
+        this.label = `Replica ${index + 1} of ${count} ${is_cloud_pool ? '(cloud replica)' : ''}`;
         this.poolName = pool_name;
-        this.nodeName = node_name;
-        this.shortenNodeName = shortString(node_name);
+
+        if (!is_cloud_pool) {
+            this.nodeName = node_name;
+            this.shortenNodeName = shortString(node_name);
+            this.nodeIp = node_ip;
+
+            this.poolHref = {
+                route: 'pool',
+                params: {
+                    pool: pool_name,
+                    tab: null
+                }
+            };
+
+            this.nodeHref = {
+                route: 'node',
+                params: {
+                    pool: pool_name,
+                    node: node_name,
+                    tab: null
+                }
+            };
+        } else {
+            this.nodeName = null;
+            this.shortenNodeName = '---';
+            this.nodeIp = '---';
+            this.poolHref = null;
+            this.nodeHref = null;
+        }
     }
 }
 

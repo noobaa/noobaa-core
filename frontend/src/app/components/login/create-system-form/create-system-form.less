@@ -1,26 +1,24 @@
 .create-system-form {
-    width: 560px;
+    z-index: 1;
+
+    .logo {
+        width: 64px;
+        height: 64px;
+        margin-top: -64px;
+    }
+
+    stepper {
+        background-color: @color4;
+        margin: -2 * @gutter;
+    }
 
     .steps {
-        margin-top: @gutter / 2;
+        width: 516px;
         position: relative;
-        padding: 2 * @gutter;
-
-        &::before {
-            content: '';
-            position: absolute;
-            display: block;
-            top: 2 * -@gutter;
-            left: 0;
-            border: @gutter solid transparent;
-            border-bottom-color: @color5;
-            transition: left 500ms ease-in-out;
-        }
     }
 
     .pages {
         overflow: hidden;
-
 
         > .page {
             min-width: 100%;
@@ -36,14 +34,6 @@
                 z-index: 1;
             }
         }
-    }
-
-    .step0::before {
-        left: 180px;
-    }
-
-    .step1::before {
-        left: 350px;
     }
 
     .hint {

@@ -8,7 +8,7 @@ const radius = 84;
 const lineWidth = 30;
 const seperator = (2 * Math.PI) / 1000;
 const threshold = 2 * seperator;
-const silhouetteColor = style['bg-color1'];
+const silhouetteColor = style['color1'];
 
 const primaryTextStyle = deepFreeze({
     font: `${style['font-family1']}` ,

@@ -6,12 +6,17 @@ import { deepFreeze, formatSize, bitsToNumber } from 'utils';
 import style from 'style';
 
 const stateMapping = deepFreeze({
-    true: {
+    online: {
         text: 'Online',
         css: 'success',
         icon: 'healthy'
     },
-    false: {
+    deactivated: {
+        text: 'Deactivated',
+        css: 'warning',
+        icon: 'problem'
+    },
+    offline: {
         text: 'Offline',
         css: 'error',
         icon: 'problem'
@@ -70,7 +75,17 @@ class NodeSummaryViewModel extends Disposable {
         );
 
         this.state = ko.pureComputed(
-            () => stateMapping[node().online]
+            () => {
+                if (!node().online) {
+                    return stateMapping.offline;
+
+                } else if (node().decommissioning || node().decommissioned) {
+                    return stateMapping.deactivated;
+
+                } else {
+                    return stateMapping.online;
+                }
+            }
         );
 
         this.trust = ko.pureComputed(

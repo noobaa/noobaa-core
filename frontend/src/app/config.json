@@ -42,6 +42,6 @@
     "support":  {
         "email": "support@noobaa.com",
         "helpDesk": "https://noobaa.desk.com",
-        "upgradeToEnterpriseMailSubject": "Luram ipsam"
+        "upgradeToEnterpriseMailSubject": "Application for upgrade from Community Edition to Enterprise Edition license"
     }
 }

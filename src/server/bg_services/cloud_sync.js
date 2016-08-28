@@ -138,8 +138,11 @@ function refresh_policy(req) {
     });
     if (!policy && !req.rpc_params.skip_load) {
         dbg.log0('policy not found, loading it');
-        return system_store.load().then(function() {
+        return system_store.load()
+        .then(function() {
             load_single_policy(system_store.data.get_by_id(req.rpc_params.bucketid));
+        }).then(function(){
+            CLOUD_SYNC.refresh_list = true;
         });
     }
 

@@ -31,6 +31,7 @@ const mongoose_utils = require('../../util/mongoose_utils');
 const cluster_server = require('../system_services/cluster_server');
 const system_server_utils = require('../utils/system_server_utils');
 const clustering_utils = require('../utils/clustering_utils');
+const url = require('url');
 
 const RUN_DELAY_MS = 60000;
 const RUN_NODE_CONCUR = 5;
@@ -551,7 +552,9 @@ class NodesMonitor extends EventEmitter {
         }
         // only update if the system defined a base address
         // otherwise the agent is using the ip directly, so no update is needed
-        if (system.base_address && system.base_address !== item.agent_info.base_address) {
+        // don't update local agents which are using local host
+        if (system.base_address && system.base_address !== item.agent_info.base_address &&
+            !is_localhost(item.agent_info.base_address)) {
             rpc_config.base_address = system.base_address;
         }
         // make sure we don't modify the system's n2n_config
@@ -1327,7 +1330,16 @@ class NodesMonitor extends EventEmitter {
             NODE_INFO_DEFAULTS);
         info._id = String(node._id);
         info.peer_id = String(node.peer_id);
-        info.pool = system_store.data.get_by_id(node.pool).name;
+
+        /*
+        This is a quick fix to prevent throwing exception when
+        getting pool infromation for an internal cloud node that refers to
+        a deleted cloud pool.
+        This happens when quering the activity log.
+        */
+        const pool = system_store.data.get_by_id(node.pool);
+        info.pool = pool ? pool.name : '';
+
         if (node.is_internal_node) info.demo_node = true;
         const act = item.data_activity;
         if (act && !act.done) {
@@ -1575,6 +1587,11 @@ function progress_by_time(time, now) {
     return Math.min(1, Math.max(0,
         (now - time.start) / (time.end - time.start)
     ));
+}
+
+function is_localhost(address) {
+    let addr_url = url.parse(address);
+    return addr_url.hostname === '127.0.0.1' || addr_url.hostname === 'localhost';
 }
 
 // EXPORTS

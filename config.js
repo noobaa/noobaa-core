@@ -28,6 +28,17 @@ config.NUM_DEMO_NODES = 3;
 config.RPC_CONNECT_TIMEOUT = 5000;
 config.RPC_SEND_TIMEOUT = 5000;
 
+///////////////
+// S3 CONFIG //
+///////////////
+
+config.S3_FORKS_ENABLED = true;
+
+///////////////
+// MD CONFIG //
+///////////////
+
+config.DEDUP_ENABLED = true;
 
 ///////////////
 // IO CONFIG //
@@ -65,6 +76,7 @@ config.REBUILD_BUILDING_MODE_BACKOFF = 5 * 60000; // TODO increase?
 config.REBUILD_NODE_CONCURRENCY = 5;
 config.REBUILD_NODE_OFFLINE_GRACE = 5 * 60000;
 
+config.SCRUBBER_ENABLED = true;
 config.SCRUBBER_RESTART_DELAY = 30000;
 
 //////////////////
@@ -135,3 +147,13 @@ config.DEMO_DEFAULTS = {
     POOL_NAME: 'demo-pool',
     BUCKET_NAME: 'demo-bucket'
 };
+
+
+// load a local config file that overwrites some of the config
+try {
+    // eslint-disable-next-line global-require
+    require('./config-local');
+} catch (err) {
+    if (err.code !== 'MODULE_NOT_FOUND') throw err;
+    console.log('NO LOCAL CONFIG');
+}

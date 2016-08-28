@@ -508,7 +508,7 @@ function add_region_instances(region_name, count, is_docker_host, number_of_dock
                         instance_name = 'router-for-' + app_name.replace(/\./g, "-");
                         disk_size = 50;
                     } else {
-                        instance_name = 'agent-instance-for-' + app_name.replace(/\./g, "-");
+                        instance_name = 'agent-for-' + app_name.replace(/\./g, "-");
                     }
                     console.log('env:', noobaa_env_name, NooBaaProject);
                     console.log('script:', startup_script);
@@ -525,7 +525,7 @@ function add_region_instances(region_name, count, is_docker_host, number_of_dock
                         name: instance_name,
                         resource: {
                             zone: region_name,
-                            name: instance_name + (new Date().getTime()),
+                            name: instance_name + '-' + Date.now().toString(36),
                             machineType: machine_type,
                             disks: [{
                                 initializeParams: {
@@ -569,7 +569,7 @@ function add_region_instances(region_name, count, is_docker_host, number_of_dock
                                     value: router_address
                                 }, {
                                     key: 'Name',
-                                    value: 'AgentInstance_For_' + app_name
+                                    value: 'Agent_For_' + app_name
                                 }]
                             },
                             networkInterfaces: [{

@@ -20,12 +20,30 @@ const stateIconMapping = deepFreeze({
 });
 
 const cloudSyncStatusMapping = deepFreeze({
-    NOTSET:         { text: 'not set',         css: 'no-set'         },
-    PENDING:        { text: 'pending',         css: 'pending'       },
-    SYNCING:        { text: 'syncing',         css: 'syncing'        },
-    PAUSED:         { text: 'paused',          css: 'paused'         },
-    SYNCED:         { text: 'synced',          css: 'synced'         },
-    UNABLE:         { text: 'unable to sync',  css: 'unable-to-sync' }
+    NOTSET: {
+        text: 'not set',
+        css: ''
+    },
+    PENDING: {
+        text: 'pending',
+        css: ''
+    },
+    SYNCING: {
+        text: 'syncing',
+        css: ''
+    },
+    PAUSED: {
+        text: 'paused',
+        css: ''
+    },
+    SYNCED: {
+        text: 'synced',
+        css: ''
+    },
+    UNABLE: {
+        text: 'unable to sync',
+        css: 'error'
+    }
 });
 
 const policyTypeMapping = deepFreeze({

@@ -16,7 +16,6 @@ const system_store = require('../system_services/system_store').get_instance();
 const system_server = require('../system_services/system_server');
 const object_server = require('../object_services/object_server');
 const bucket_server = require('../system_services/bucket_server');
-const zlib = require('zlib');
 const server_rpc = require('../server_rpc');
 
 const ops_aggregation = {};
@@ -198,12 +197,10 @@ function get_bucket_sizes_stats(req) {
 function get_pool_stats(req) {
     return P.resolve()
         .then(() => nodes_client.instance().aggregate_nodes_by_pool())
-        .then(nodes_aggregate_pool => {
-            return _.map(system_store.data.pools, pool => {
-                var a = nodes_aggregate_pool[pool._id] || {};
-                return a.count || 0;
-            });
-        });
+        .then(nodes_aggregate_pool => _.map(system_store.data.pools,
+            pool => _.get(nodes_aggregate_pool, [
+                'groups', String(pool._id), 'nodes', 'count'
+            ], 0)));
 }
 
 function get_cloud_sync_stats(req) {

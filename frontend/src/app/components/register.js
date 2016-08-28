@@ -35,8 +35,6 @@ export default function register(ko) {
     // Overview
     // -------------------------------
     ko.components.register('overview-panel',        require('./overview/overview-panel/overview-panel'));
-    ko.components.register('pools-overview',        require('./overview/pools-overview/pools-overview'));
-    ko.components.register('buckets-overview',      require('./overview/buckets-overview/buckets-overview'));
     ko.components.register('install-node-wizard',   require('./overview/install-node-wizard/install-node-wizard'));
     ko.components.register('connect-app-wizard',    require('./overview/connect-app-wizard/connect-app-wizard'));
     ko.components.register('after-upgrade-modal',   require('./overview/after-upgrade-modal/after-upgrade-modal'));
@@ -156,8 +154,6 @@ export default function register(ko) {
     ko.components.register('radio-btn',                 require('./shared/radio-btn/radio-btn'));
     ko.components.register('radio-group',               require('./shared/radio-group/radio-group'));
     ko.components.register('checkbox',                  require('./shared/checkbox/checkbox'));
-    ko.components.register('quantity-gauge',            require('./shared/quantity-gauge/quantity-gauge'));
-    ko.components.register('needle-gauge',              require('./shared/needle-gauge/needle-gauge'));
     ko.components.register('bar',                       require('./shared/bar/bar'));
     ko.components.register('progress-bar',              require('./shared/progress-bar/progress-bar'));
     ko.components.register('range-indicator',           require('./shared/range-indicator/range-indicator'));

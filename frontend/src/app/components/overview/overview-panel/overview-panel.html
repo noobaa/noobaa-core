@@ -1,4 +1,4 @@
-<div class="row bounded">
+<div class="row bounded push-both">
     <section class="column left-col greedy">
         <a class="push-next cursor-pointer" data-bind="
             href: { route: 'pools', params: { tab: null } }
@@ -11,35 +11,31 @@
         <div class="push-both">
             <div class="row text-center">
                 <div class="column greedy pad borders no-left-border content-middle">
-                    <span>Node Pools</span>
+                    <a class="link" data-bind="href: {
+                        route: 'pools', params: { tab: 'pools' }
+                    }">
+                        Node Pools
+                    </a>
                     <hr class="seperator">
                     <span class="heading1" data-bind="text: nodePoolsCount"></span>
                 </div>
 
                 <div class="column greedy pad borders no-right-border content-middle">
-                    <span>Cloud Storage</span>
+                    <a class="link" data-bind="href: {
+                        route: 'pools', params: { tab: 'cloud' }
+                    }">
+                        Cloud Storage
+                    </a>
                     <hr class="seperator">
                     <span class="heading1" data-bind="text: cloudResourcesCount">
                     </span>
                 </div>
             </div>
-
-            <div class="row text-center">
-                <div class="column greedy pad borders no-left-border content-middle">
-                    <span>Online Nodes</span>
-                    <hr class="seperator">
-                    <span class="heading1" data-bind="text: onlineNodeCount"></span>
-                </div>
-
-                <div class="column pad greedy borders no-right-border content-middle">
-                    <span>Offline Nodes</span>
-                    <hr class="seperator">
-                    <span class="heading1" data-bind="text: offlineNodeCount"></span>
-                </div>
-            </div>
         </div>
 
-        <button class="push-prev btn" data-bind="click: () => showInstallNodeWizard()">
+        <button class="push-prev btn" data-bind="
+            click: () => showInstallNodeWizard()
+        ">
             install node
         </button>
     </section>
@@ -56,24 +52,20 @@
         <div class="push-both">
             <div class="row text-center">
                 <div class="column greedy pad borders no-left-border  content-middle">
-                    <span>Buckets</span>
+                    <a class="link" data-bind="href: { route: 'buckets' }">
+                        Buckets
+                    </a>
                     <hr class="seperator">
                     <span class="heading1" data-bind="text: bucketCount"></span>
                 </div>
 
                 <div class="column greedy pad borders no-right-border  content-middle">
-                    <span>Files</span>
+                    <a class="link" data-bind="href: { route: 'buckets' }">
+                        Files
+                    </a>
                     <hr class="seperator">
                     <span class="heading1" data-bind="text: objectCount">
                     </span>
-                </div>
-            </div>
-
-            <div class="row text-center">
-                <div class="column greedy pad borders no-left-border no-right-border content-middle">
-                    <span>Cloud Sync</span>
-                    <hr class="seperator">
-                    <span class="heading1" data-bind="text: cloudSyncCount"></span>
                 </div>
             </div>
         </div>
@@ -84,7 +76,7 @@
     </section>
 </div>
 
-<section class="row counters">
+<section class="row counters push-prev">
     <div class="counter double-pad text-center">
         <div class="heading1" data-bind="text: systemCapacity"></div>
         Total Capacity

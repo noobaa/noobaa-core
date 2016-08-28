@@ -123,7 +123,8 @@ export function showOverview() {
         breadcrumbs: [
             { route: 'system', label: 'Overview' }
         ],
-        panel: 'overview'
+        panel: 'overview',
+        useBackground: true
     });
 }
 

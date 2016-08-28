@@ -14,6 +14,10 @@ class MainLayoutViewModel extends Disposable {
             () => `${uiState().panel}-panel`
         );
 
+        this.useBackground = ko.pureComputed(
+            () => Boolean(uiState().useBackground)
+        );
+
         this.isAfterUpgradeModalVisible = ko.pureComputed(
             () => !!routeContext().query.afterupgrade
         );

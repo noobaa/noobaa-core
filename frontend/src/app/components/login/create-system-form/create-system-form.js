@@ -93,7 +93,13 @@ class CreateSystemFormViewModel extends Disposable {
             });
 
         this.primaryDNSServerIP = ko.observableWithDefault(
-            () => serverInfo() && (serverInfo().config.dns_servers || [])[0]
+            () => {
+                if (!serverInfo() || !serverInfo().config) {
+                    return;
+                }
+
+                return (serverInfo().config.dns_servers || [])[0];
+            }
         )
             .extend({
                 isIP: true

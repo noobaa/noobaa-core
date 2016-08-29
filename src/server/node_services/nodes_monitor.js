@@ -443,7 +443,9 @@ class NodesMonitor extends EventEmitter {
         if (item.connection) {
             // make sure it is not a cloned agent. if the old connection is still connected
             // the assumption is that this is a duplicated agent. in that case throw an error
-            if (item.connection._state === 'connected' && conn.url.hostname !== item.connection.url.hostname) {
+            if (conn &&
+                item.connection._state === 'connected' &&
+                conn.url.hostname !== item.connection.url.hostname) {
                 throw new RpcError('DUPLICATE', 'agent appears to be duplicated - abort', false);
             }
             dbg.warn('heartbeat: closing old connection', item.connection.connid);
@@ -551,7 +553,9 @@ class NodesMonitor extends EventEmitter {
         // only update if the system defined a base address
         // otherwise the agent is using the ip directly, so no update is needed
         // don't update local agents which are using local host
-        if (system.base_address && system.base_address !== item.agent_info.base_address &&
+        if (system.base_address &&
+            system.base_address !== item.agent_info.base_address &&
+            !item.node.is_internal_node &&
             !is_localhost(item.agent_info.base_address)) {
             rpc_config.base_address = system.base_address;
         }

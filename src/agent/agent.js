@@ -232,18 +232,14 @@ class Agent {
 
                 // test the existing token against the server. if not valid throw error, and let the
                 // agent_cli create new node.
-                if (this.cloud_info || this.is_demo_agent) {
-                    return P.resolve(true);
-                } else {
-                    return this.client.node.test_node_id({})
-                        .then(valid_node => {
-                            if (!valid_node) {
-                                let err = new Error('INVALID_NODE');
-                                err.DO_NOT_RETRY = true;
-                                throw err;
-                            }
-                        });
-                }
+                return this.client.node.test_node_id({})
+                    .then(valid_node => {
+                        if (!valid_node) {
+                            let err = new Error('INVALID_NODE');
+                            err.DO_NOT_RETRY = true;
+                            throw err;
+                        }
+                    });
             })
             .then(() => P.fromCallback(callback => pem.createCertificate({
                 days: 365 * 100,

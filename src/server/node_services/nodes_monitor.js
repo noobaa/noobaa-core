@@ -525,9 +525,9 @@ class NodesMonitor extends EventEmitter {
         return this.client.agent.get_agent_info_and_update_masters({
                 addresses: potential_masters
             }, {
-                connection: item.connection,
-                timeout: AGENT_RESPONSE_TIMEOUT
+                connection: item.connection
             })
+            .timeout(AGENT_RESPONSE_TIMEOUT)
             .then(info => {
                 item.agent_info = info;
                 if (info.name !== item.node.name) {
@@ -540,9 +540,6 @@ class NodesMonitor extends EventEmitter {
                 updates.heartbeat = Date.now();
                 _.extend(item.node, updates);
                 this._set_need_update.add(item);
-            })
-            .catch(P.TimeoutError, err => {
-                dbg.error('request for get_agent_info_and_update_masters timed out. TIMEOUT =', AGENT_RESPONSE_TIMEOUT / 1000, 'seconds.', err);
             })
             .catch(err => {
                 dbg.error('got error in _get_agent_info:', err);
@@ -583,6 +580,7 @@ class NodesMonitor extends EventEmitter {
         return this.client.agent.update_rpc_config(rpc_config, {
                 connection: item.connection
             })
+            .timeout(3 * 60000)
             .then(() => {
                 _.extend(item.node, rpc_config);
                 this._set_need_update.add(item);
@@ -598,6 +596,7 @@ class NodesMonitor extends EventEmitter {
             }, {
                 connection: item.connection
             })
+            .timeout(3 * 60000)
             .then(res => {
                 this._set_need_update.add(item);
                 item.node.latency_of_disk_read = js_utils.array_push_keep_latest(
@@ -652,6 +651,7 @@ class NodesMonitor extends EventEmitter {
                     }, {
                         connection: item.connection
                     })
+                    .timeout(3 * 60000)
                     .catch(err => {
                         dbg.warn('update_auth_token ERROR node', item.node._id, err);
                         // TODO handle error of update_auth_token - disconnect? deleted from store?
@@ -1475,8 +1475,9 @@ class NodesMonitor extends EventEmitter {
             rpc_address: self_test_params.source
         });
         return this.client.agent.test_network_perf_to_peer(self_test_params, {
-            connection: item.connection,
-        });
+                connection: item.connection
+            })
+            .timeout(3 * 60000);
     }
 
     collect_agent_diagnostics(node_identity) {

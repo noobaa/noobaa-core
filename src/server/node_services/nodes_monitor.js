@@ -540,7 +540,7 @@ class NodesMonitor extends EventEmitter {
                 _.extend(item.node, updates);
                 this._set_need_update.add(item);
             })
-            .catch(Promise.TimeoutError, err => {
+            .catch(P.TimeoutError, err => {
                 dbg.error('request for get_agent_info_and_update_masters timed out. TIMEOUT =', AGENT_RESPONSE_TIMEOUT / 1000, 'seconds');
             });
     }

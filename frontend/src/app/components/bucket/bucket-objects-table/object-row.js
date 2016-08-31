@@ -1,6 +1,9 @@
 import { formatSize } from 'utils';
 import Disposable from 'disposable';
 import ko from 'knockout';
+import moment from 'moment';
+
+const timeFormat = 'DD MMM YYYY hh:mm:ss';
 
 export default class ObjectRowViewModel extends Disposable {
     constructor(obj) {
@@ -25,6 +28,10 @@ export default class ObjectRowViewModel extends Disposable {
                     href: href
                 };
             }
+        );
+
+        this.creationTime = ko.pureComputed(
+            () => obj() ? moment(obj().create_time).format(timeFormat) : ''
         );
 
         this.size = ko.pureComputed(

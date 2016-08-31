@@ -458,6 +458,7 @@ class NodesMonitor extends EventEmitter {
         if (conn) {
             item.node.heartbeat = Date.now();
             conn.on('close', () => {
+                dbg.warn('got close on connection:', conn);
                 // if connection already replaced ignore the close event
                 if (item.connection !== conn) return;
                 item.connection = null;
@@ -541,7 +542,11 @@ class NodesMonitor extends EventEmitter {
                 this._set_need_update.add(item);
             })
             .catch(P.TimeoutError, err => {
-                dbg.error('request for get_agent_info_and_update_masters timed out. TIMEOUT =', AGENT_RESPONSE_TIMEOUT / 1000, 'seconds');
+                dbg.error('request for get_agent_info_and_update_masters timed out. TIMEOUT =', AGENT_RESPONSE_TIMEOUT / 1000, 'seconds.', err);
+            })
+            .catch(err => {
+                dbg.error('got error in _get_agent_info:', err);
+                throw err;
             });
     }
 
@@ -678,6 +683,7 @@ class NodesMonitor extends EventEmitter {
         let now = Date.now();
         item.online = Boolean(item.connection) && now < item.node.heartbeat + AGENT_HEARTBEAT_GRACE_TIME;
         if (!item.online && item.connection) {
+            dbg.warn('node HB not received in the last', AGENT_HEARTBEAT_GRACE_TIME / 60000, 'minutes. closing connection');
             //if we still have a connection, but considered offline, close the connection
             item.connection.close();
             item.connection = null;

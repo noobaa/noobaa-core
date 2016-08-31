@@ -524,9 +524,9 @@ class NodesMonitor extends EventEmitter {
         return this.client.agent.get_agent_info_and_update_masters({
                 addresses: potential_masters
             }, {
-                connection: item.connection
+                connection: item.connection,
+                timeout: AGENT_RESPONSE_TIMEOUT
             })
-            .timeout(AGENT_RESPONSE_TIMEOUT)
             .then(info => {
                 item.agent_info = info;
                 if (info.name !== item.node.name) {

@@ -37,6 +37,7 @@ const RUN_DELAY_MS = 60000;
 const RUN_NODE_CONCUR = 5;
 const MAX_NUM_LATENCIES = 20;
 const UPDATE_STORE_MIN_ITEMS = 100;
+const AGENT_HEARTBEAT_GRACE_TIME = 10 * 60 * 1000; // 10 minutes grace period before an agent is consideref offline
 
 const AGENT_INFO_FIELDS = [
     'name',
@@ -515,6 +516,7 @@ class NodesMonitor extends EventEmitter {
     }
 
     _get_agent_info(item) {
+        const AGENT_RESPONSE_TIMEOUT = 1 * 60 * 1000;
         if (!item.connection) return;
         dbg.log0('_get_agent_info:', item.node.name);
         let potential_masters = clustering_utils.get_potential_masters();
@@ -524,6 +526,7 @@ class NodesMonitor extends EventEmitter {
             }, {
                 connection: item.connection
             })
+            .timeout(AGENT_RESPONSE_TIMEOUT)
             .then(info => {
                 item.agent_info = info;
                 if (info.name !== item.node.name) {
@@ -536,6 +539,9 @@ class NodesMonitor extends EventEmitter {
                 updates.heartbeat = Date.now();
                 _.extend(item.node, updates);
                 this._set_need_update.add(item);
+            })
+            .catch(Promise.TimeoutError, err => {
+                dbg.error('request for get_agent_info_and_update_masters timed out. TIMEOUT =', AGENT_RESPONSE_TIMEOUT / 1000, 'seconds');
             });
     }
 
@@ -669,8 +675,13 @@ class NodesMonitor extends EventEmitter {
 
     _update_status(item) {
         dbg.log0('_update_status:', item.node.name);
-
-        item.online = Boolean(item.connection);
+        let now = Date.now();
+        item.online = Boolean(item.connection) && now < item.node.heartbeat + AGENT_HEARTBEAT_GRACE_TIME;
+        if (!item.online && item.connection) {
+            //if we still have a connection, but considered offline, close the connection
+            item.connection.close();
+            item.connection = null;
+        }
 
         // to decide the node trusted status we check the reported issues
         item.trusted = true;

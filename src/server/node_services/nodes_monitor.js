@@ -37,6 +37,7 @@ const RUN_DELAY_MS = 60000;
 const RUN_NODE_CONCUR = 5;
 const MAX_NUM_LATENCIES = 20;
 const UPDATE_STORE_MIN_ITEMS = 100;
+const AGENT_HEARTBEAT_GRACE_TIME = 10 * 60 * 1000; // 10 minutes grace period before an agent is consideref offline
 
 const AGENT_INFO_FIELDS = [
     'name',
@@ -443,7 +444,9 @@ class NodesMonitor extends EventEmitter {
         if (item.connection) {
             // make sure it is not a cloned agent. if the old connection is still connected
             // the assumption is that this is a duplicated agent. in that case throw an error
-            if (item.connection._state === 'connected' && conn.url.hostname !== item.connection.url.hostname) {
+            if (conn &&
+                item.connection._state === 'connected' &&
+                conn.url.hostname !== item.connection.url.hostname) {
                 throw new RpcError('DUPLICATE', 'agent appears to be duplicated - abort', false);
             }
             dbg.warn('heartbeat: closing old connection', item.connection.connid);
@@ -455,6 +458,7 @@ class NodesMonitor extends EventEmitter {
         if (conn) {
             item.node.heartbeat = Date.now();
             conn.on('close', () => {
+                dbg.warn('got close on connection:', conn);
                 // if connection already replaced ignore the close event
                 if (item.connection !== conn) return;
                 item.connection = null;
@@ -513,6 +517,7 @@ class NodesMonitor extends EventEmitter {
     }
 
     _get_agent_info(item) {
+        const AGENT_RESPONSE_TIMEOUT = 1 * 60 * 1000;
         if (!item.connection) return;
         dbg.log0('_get_agent_info:', item.node.name);
         let potential_masters = clustering_utils.get_potential_masters();
@@ -522,6 +527,7 @@ class NodesMonitor extends EventEmitter {
             }, {
                 connection: item.connection
             })
+            .timeout(AGENT_RESPONSE_TIMEOUT)
             .then(info => {
                 item.agent_info = info;
                 if (info.name !== item.node.name) {
@@ -534,6 +540,10 @@ class NodesMonitor extends EventEmitter {
                 updates.heartbeat = Date.now();
                 _.extend(item.node, updates);
                 this._set_need_update.add(item);
+            })
+            .catch(err => {
+                dbg.error('got error in _get_agent_info:', err);
+                throw err;
             });
     }
 
@@ -551,7 +561,9 @@ class NodesMonitor extends EventEmitter {
         // only update if the system defined a base address
         // otherwise the agent is using the ip directly, so no update is needed
         // don't update local agents which are using local host
-        if (system.base_address && system.base_address !== item.agent_info.base_address &&
+        if (system.base_address &&
+            system.base_address !== item.agent_info.base_address &&
+            !item.node.is_internal_node &&
             !is_localhost(item.agent_info.base_address)) {
             rpc_config.base_address = system.base_address;
         }
@@ -568,6 +580,7 @@ class NodesMonitor extends EventEmitter {
         return this.client.agent.update_rpc_config(rpc_config, {
                 connection: item.connection
             })
+            .timeout(3 * 60000)
             .then(() => {
                 _.extend(item.node, rpc_config);
                 this._set_need_update.add(item);
@@ -583,6 +596,7 @@ class NodesMonitor extends EventEmitter {
             }, {
                 connection: item.connection
             })
+            .timeout(3 * 60000)
             .then(res => {
                 this._set_need_update.add(item);
                 item.node.latency_of_disk_read = js_utils.array_push_keep_latest(
@@ -637,6 +651,7 @@ class NodesMonitor extends EventEmitter {
                     }, {
                         connection: item.connection
                     })
+                    .timeout(3 * 60000)
                     .catch(err => {
                         dbg.warn('update_auth_token ERROR node', item.node._id, err);
                         // TODO handle error of update_auth_token - disconnect? deleted from store?
@@ -665,8 +680,14 @@ class NodesMonitor extends EventEmitter {
 
     _update_status(item) {
         dbg.log0('_update_status:', item.node.name);
-
-        item.online = Boolean(item.connection);
+        let now = Date.now();
+        item.online = Boolean(item.connection) && now < item.node.heartbeat + AGENT_HEARTBEAT_GRACE_TIME;
+        if (!item.online && item.connection) {
+            dbg.warn('node HB not received in the last', AGENT_HEARTBEAT_GRACE_TIME / 60000, 'minutes. closing connection');
+            //if we still have a connection, but considered offline, close the connection
+            item.connection.close();
+            item.connection = null;
+        }
 
         // to decide the node trusted status we check the reported issues
         item.trusted = true;
@@ -1454,8 +1475,9 @@ class NodesMonitor extends EventEmitter {
             rpc_address: self_test_params.source
         });
         return this.client.agent.test_network_perf_to_peer(self_test_params, {
-            connection: item.connection,
-        });
+                connection: item.connection
+            })
+            .timeout(3 * 60000);
     }
 
     collect_agent_diagnostics(node_identity) {

@@ -14,6 +14,9 @@ const columns = deepFreeze([
         sortable: true
     },
     {
+        name: 'creationTime'
+    },
+    {
         name: 'size',
         sortable: true
     }

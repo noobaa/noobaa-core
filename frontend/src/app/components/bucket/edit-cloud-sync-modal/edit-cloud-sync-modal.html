@@ -3,39 +3,29 @@
     title: 'Edit Cloud Sync Policy'
 ">
     <section class="column greedy">
-        <div class="box text-center push-next">
-            <span>
-                Source:
-                <span class="emphasized" data-bind="text: sourceBucket"></span>
-            </span>
-            <span class="highlight dir-symbol" data-bind="text: directionSymbol"></span>
-            <span>
-                Target:
-                <span class="emphasized" data-bind="text: targetBucket"></span>
-            </span>
+        <div class="status-line text-center push-next">
+            Source:
+            <span data-bind="text: sourceBucket"></span>
+            <span class="dir-symbol" data-bind="text: directionSymbol"></span>
+            Target:
+            <span data-bind="text: targetBucket"></span>
         </div>
 
 
-        <editor params="
-            label: 'Sync Bucket Every',
-            insertValMessages: false
-        ">
-                <div class="row">
-                    <input class="push-next" type="Number"  min="1" data-bind="
-                        value: frequency
-                    "/>
+        <editor params="label: 'Sync Bucket Every', insertValMessages: false">
+            <div class="row">
+                <input class="push-next" type="Number"  min="1" data-bind="
+                    value: frequency
+                "/>
 
-                    <dropdown class="freq-unit" params="
-                        selected: frequencyUnit,
-                        options: frequencyUnitOptions
-                    "></dropdown>
-                </div>
+                <dropdown class="freq-unit" params="
+                    selected: frequencyUnit,
+                    options: frequencyUnitOptions
+                "></dropdown>
+            </div>
         </editor>
 
-        <editor params="
-            label: 'Sync Type',
-            insertValMessages: false
-        ">
+        <editor params="label: 'Sync Type', insertValMessages: false">
             <radio-group params="
                 selected: direction,
                 options: directionOptions,
@@ -50,7 +40,7 @@
     </section>
 
     <div class="row content-middle align-end push-prev">
-        <button class="link push-next" data-bind="click: cancel">Cancel</button>
-        <button class="btn2" data-bind="click: save">Save</button>
+        <button class="link alt-colors push-next" data-bind="click: cancel">Cancel</button>
+        <button class="btn" data-bind="click: save">Save</button>
     </div>
 </modal>

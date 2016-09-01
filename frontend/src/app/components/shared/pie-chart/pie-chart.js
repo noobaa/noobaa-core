@@ -8,18 +8,20 @@ const radius = 84;
 const lineWidth = 30;
 const seperator = (2 * Math.PI) / 1000;
 const threshold = 2 * seperator;
-const silhouetteColor = style['bg-color1'];
+const silhouetteColor = style['color1'];
 
 const primaryTextStyle = deepFreeze({
-    font: style['font-type2'],
-    size: style['font-size-medium'],
-    color: style['text-color1']
+    font: `${style['font-family1']}` ,
+    size: style['font-size5'],
+    weight: style['font-thin'],
+    color: style['color6']
 });
 
 const secondaryTextStyle = deepFreeze({
-    font: style['font-type2'],
-    size: style['font-size-normal'],
-    color: style['text-color4']
+    font: style['font-family1'],
+    size: style['font-size3'],
+    weight: style['font-regular'],
+    color: style['color7']
 });
 
 function normalizeValues(values) {
@@ -135,11 +137,11 @@ class PieChartViewModel extends Disposable{
         ctx.closePath();
     }
 
-    drawText(ctx, text, { font, size, color }, offsetY = 0) {
+    drawText(ctx, text, { font, size, weight, color }, offsetY = 0) {
         ctx.save();
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        ctx.font = `${size} ${font}`;
+        ctx.font = `${weight} ${size} ${font}`;
         ctx.fillStyle = color;
         ctx.fillText(ko.unwrap(text), 0, offsetY);
         ctx.restore();

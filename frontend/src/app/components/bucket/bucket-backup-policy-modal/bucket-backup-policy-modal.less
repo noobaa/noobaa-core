@@ -1,16 +1,23 @@
 bucket-backup-policy-modal {
     display: block;
 
-    .select-col {
-        min-width: 3em;
+    data-table {
+        .select-col {
+            min-width: 30px;
+        }
+
+        .type-col {
+            min-width: 30px;
+        }
+
+        .name-col {
+            text-align: left;
+            width: 100%;
+        }
     }
 
-    .type-col {
-        min-width: 5em;
-    }
-
-    .name-col {
-        text-align: left;
-        width: 100%;
+    .info-message > svg-icon {
+        vertical-align: bottom;
+        fill: @color7;
     }
 }

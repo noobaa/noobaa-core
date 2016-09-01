@@ -21,11 +21,23 @@ const frequencyUnitOptions = deepFreeze([
     }
 ]);
 
-const directionMapping = deepFreeze({
-    1: { label: 'Source to target', symbol: '--->' },
-    2: { label: 'Target to source', symbol: '<---' },
-    3: { label: 'Bi directional', symbol: '<-->' }
-});
+const directions = deepFreeze([
+    {
+        value: 3,
+        label: 'Bi directional',
+        symbol: '<-->'
+    },
+    {
+        value: 1,
+        label: 'Source to target',
+        symbol: '--->'
+    },
+    {
+        value: 2,
+        label: 'Target to source',
+        symbol: '<---'
+    }
+]);
 
 function minutesToUnit(minutes) {
     return minutes % DAY === 0 ? DAY : (minutes % HOUR === 0 ? HOUR : MIN);
@@ -76,15 +88,14 @@ class EditCloudSyncModalViewModel extends Disposable {
         );
 
         this.directionSymbol = ko.pureComputed(
-            () => this.direction() && directionMapping[this.direction()].symbol
+            () => this.direction() && directions
+                .find(
+                    dir => dir.value === this.direction()
+                )
+                .symbol
         );
 
-        this.directionOptions = Object.keys(directionMapping).map(
-            key => ({
-                value: Number(key),
-                label: directionMapping[key].label
-            })
-        );
+        this.directionOptions = directions;
 
         let _syncDeletions = ko.observableWithDefault(
             () => policy() && !policy().additions_only

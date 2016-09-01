@@ -1,14 +1,14 @@
-<div class="sticky row content-middle">
-    <span>
+<section class="sticky" data-bind="css: { active: isActive }">
+    <div class="sticky-content row content-middle">
         <svg-icon params="name: 'notif-info'" class="icon-small"></svg-icon>
         System is in maintanance mode and will not perform data rebuilds
-    </span>
-    <vr></vr>
-    <span class="greedy">
-        Time left
-        <span data-bind="text: timeLeftText"></span>
-    </span>
-    <button class="link" data-bind="click: exitMaintenance">
-        Turn maintenance off
-    </button>
-</div>
+        <vr></vr>
+        <span class="greedy">
+            Time left
+            <span data-bind="text: timeLeftText"></span>
+        </span>
+        <button class="link alt-colors" data-bind="click: exitMaintenance">
+            Turn maintenance off
+        </button>
+    </div>
+</section>

@@ -102,7 +102,7 @@ class InstallNodeWizardViewModel extends Disposable {
                     return;
                 }
 
-                let { access_key, secret_key } = systemInfo().owner.access_keys;
+                let { access_key, secret_key } = systemInfo().owner.access_keys[0];
                 return encodeBase64({
                     address: systemInfo().base_address,
                     system: systemInfo().name,
@@ -118,7 +118,7 @@ class InstallNodeWizardViewModel extends Disposable {
             () => installCommands[this.commandSelector()](
                 lastSegment(this.packageUrl(), '/'),
                 agentConf(),
-                systemInfo().ip_address
+                systemInfo().dns_name ? systemInfo().dns_name : systemInfo().ip_address
             )
         );
 

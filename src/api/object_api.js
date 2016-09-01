@@ -488,11 +488,13 @@ module.exports = {
                     key: {
                         type: 'string',
                     },
-                    get_parts_count: {
-                        type: 'boolean'
-                    },
                     adminfo: {
-                        type: 'boolean',
+                        type: 'object',
+                        properties: {
+                            signed_url_endpoint: {
+                                type: 'string'
+                            },
+                        }
                     },
                 }
             },
@@ -810,8 +812,7 @@ module.exports = {
                 'bucket',
                 'key',
                 'size',
-                'content_type',
-                'create_time'
+                'content_type'
             ],
             properties: {
                 bucket: {
@@ -832,15 +833,10 @@ module.exports = {
                 create_time: {
                     format: 'idate'
                 },
-                upload_completed: {
+                upload_started: {
                     format: 'idate'
                 },
                 upload_size: {
-                    type: 'integer',
-                },
-                // This is the physical size (aggregation of all blocks)
-                // It does not pay attention to dedup
-                capacity_size: {
                     type: 'integer',
                 },
                 etag: {
@@ -866,6 +862,14 @@ module.exports = {
                 total_parts_count: {
                     type: 'integer',
                 },
+                // This is the physical size (aggregation of all blocks)
+                // It does not pay attention to dedup
+                capacity_size: {
+                    type: 'integer',
+                },
+                s3_signed_url: {
+                    type: 'string'
+                }
             }
         },
 

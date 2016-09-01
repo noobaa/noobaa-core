@@ -119,11 +119,12 @@ export function showOverview() {
 
     model.uiState({
         layout: 'main-layout',
-        title: 'OVERVIEW',
+        title: 'Overview',
         breadcrumbs: [
-            { route: 'system' }
+            { route: 'system', label: 'Overview' }
         ],
-        panel: 'overview'
+        panel: 'overview',
+        useBackground: true
     });
 }
 
@@ -132,10 +133,10 @@ export function showBuckets() {
 
     model.uiState({
         layout: 'main-layout',
-        title: 'BUCKETS',
+        title: 'Buckets',
         breadcrumbs: [
-            { route: 'system' },
-            { route: 'buckets', label: 'BUCKETS' }
+            { route: 'system', label: 'Overview' },
+            { route: 'buckets', label: 'Buckets' }
         ],
         panel: 'buckets'
     });
@@ -152,8 +153,8 @@ export function showBucket() {
         layout: 'main-layout',
         title: bucket,
         breadcrumbs: [
-            { route: 'system' },
-            { route: 'buckets', label: 'BUCKETS' },
+            { route: 'system', label: 'Overview' },
+            { route: 'buckets', label: 'Buckets' },
             { route: 'bucket', label: bucket }
         ],
         panel: 'bucket',
@@ -174,8 +175,8 @@ export function showObject() {
         layout: 'main-layout',
         title: object,
         breadcrumbs: [
-            { route: 'system' },
-            { route: 'buckets', label: 'BUCKETS' },
+            { route: 'system', label: 'Overview' },
+            { route: 'buckets', label: 'Buckets' },
             { route: 'bucket', label: bucket },
             { route: 'object', label: object }
         ],
@@ -194,10 +195,10 @@ export function showResources() {
     let { tab = 'pools' } = ctx.params;
     model.uiState({
         layout: 'main-layout',
-        title: 'RESOURCES',
+        title: 'Resources',
         breadcrumbs: [
-            { route: 'system' },
-            { route: 'pools', label: 'RESOURCES' }
+            { route: 'system', label: 'Overview' },
+            { route: 'pools', label: 'Resources' }
         ],
         panel: 'resources',
         tab: tab
@@ -214,8 +215,8 @@ export function showPool() {
         layout: 'main-layout',
         title: pool,
         breadcrumbs: [
-            { route: 'system' },
-            { route: 'pools', label: 'RESOURCES'},
+            { route: 'system', label: 'Overview' },
+            { route: 'pools', label: 'Resources'},
             { route: 'pool', label: pool }
         ],
         panel: 'pool',
@@ -237,8 +238,8 @@ export function showNode() {
         layout: 'main-layout',
         title: node,
         breadcrumbs: [
-            { route: 'system' },
-            { route: 'pools', label: 'RESOURCES'},
+            { route: 'system', label: 'Overview' },
+            { route: 'pools', label: 'Resources'},
             { route: 'pool', label: pool },
             { route: 'node', label: node }
         ],
@@ -257,10 +258,10 @@ export function showManagement() {
 
     model.uiState({
         layout: 'main-layout',
-        title: 'SYSTEM MANAGEMENT',
+        title: 'System Management',
         breadcrumbs: [
-            { route: 'system' },
-            { route: 'management', label: 'SYSTEM MANAGEMENT' }
+            { route: 'system', label: 'Overview' },
+            { route: 'management', label: 'System Management' }
         ],
         panel: 'management',
         tab: tab,
@@ -273,10 +274,10 @@ export function showCluster() {
 
     model.uiState({
         layout: 'main-layout',
-        title: 'CLUSTER',
+        title: 'Cluster',
         breadcrumbs: [
-            { route: 'system' },
-            { route: 'cluster', label: 'CLUSTER' }
+            { route: 'system', label: 'Overview' },
+            { route: 'cluster', label: 'Cluster' }
         ],
         panel: 'cluster'
     });
@@ -413,37 +414,14 @@ export function loadObjectMetadata(bucketName, objectName) {
         model.objectInfo(null);
     }
 
-    let { access_key ,secret_key } = model.systemInfo().owner.access_keys[0];
-    let s3 = new AWS.S3({
-        endpoint: endpoint,
-        credentials: {
-            accessKeyId:  access_key,
-            secretAccessKey:  secret_key
-        },
-        s3ForcePathStyle: true,
-        sslEnabled: false,
-        signatureVersion: 'v4',
-        region: 'eu-central-1'
-    });
-
     api.object.read_object_md({
         bucket: bucketName,
         key: objectName,
-        get_parts_count: true,
-        adminfo: true
+        adminfo: {
+            signed_url_endpoint: endpoint
+        }
     })
-        .then(
-            objInfo => {
-                let s3_signed_url = s3.getSignedUrl(
-                    'getObject',
-                    { Bucket: bucketName, Key: objectName, Expires: 604800 }
-                );
-
-                model.objectInfo(
-                    Object.assign(objInfo, { s3_signed_url })
-                );
-            }
-        )
+        .then(model.objectInfo)
         .done();
 }
 
@@ -1705,16 +1683,58 @@ export function validateActivationCode(code) {
 
     api.system.validate_activation({ code })
         .then(
-            valid => model.activation({
+            ({ valid, reason }) => model.activationCodeValid({
                 code: code,
-                isCodeValid: valid
+                isValid: valid,
+                reason: reason
             })
-        );
+        )
+        .done();
+}
+
+export function validateActivationEmail(code, email) {
+    logAction('validateActivationEmail', { code, email });
+
+    api.system.validate_activation({ code, email })
+        .then(
+            ({ valid, reason }) => model.activationEmailValid({
+                code: code,
+                email: email,
+                isValid: valid,
+                reason: reason
+            })
+        )
+        .done();
 }
 
 export function dismissUpgradedCapacityNotification() {
     logAction('dismissUpgradedCapacityNotification');
 
     api.system.phone_home_capacity_notified()
-        .then(loadSystemInfo);
+        .then(loadSystemInfo)
+        .done();
+}
+
+export function decommissionNode(name) {
+    logAction('decommissionNode', { name });
+
+    api.node.decommission_node({ name })
+        .then(
+            () => notify(`Node ${name} deactivated successfully`, 'success'),
+            () => notify(`Deactivating node ${name} failed`, 'error')
+        )
+        .then(refresh)
+        .done();
+}
+
+export function recommissionNode(name) {
+    logAction('recommissionNode', { name });
+
+    api.node.recommission_node({ name })
+        .then(
+            () => notify(`Node ${name} activated successfully`, 'success'),
+            () => notify(`Activating node ${name} failed`, 'error')
+        )
+        .then(refresh)
+        .done();
 }

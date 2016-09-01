@@ -1,55 +1,59 @@
 breadcrumbs {
-    .row();
-    line-height: 3 * @gutter;
+    color: @color6;
+    font-size: @font-size4;
 
-    svg-icon {
-        width: @font-size-xlarge;
-        height: @font-size-xlarge;
-        margin-right: .5em;
+    nav {
+        line-height: @gutter;
     }
 
-    a {
-        .link();
+    .crumb {
         .no-outline();
-        .row();
-        margin-left: -@gutter;
-        margin-right: 4px;
+        position: relative;
+        display: block;
+        margin-right: 2 * @gutter;
 
-        > span {
-            display: block;
+        span {
+            display: inline-block;
+            max-width: 320px;
             vertical-align: middle;
-            background-color: @bg-color4;
-            max-width: 20em;
-            padding: 0 @gutter/2;
-            .no-wrap();
-        }
-
-        &::before, &::after {
-            content: '';
-            display: block;
-            border: solid transparent;
-            border-width: 3/2 * @gutter 0 3/2 * @gutter @gutter;
-            vertical-align: middle;
-        }
-
-        &::before {
-            border-color: @bg-color4;
-            border-left-color: transparent;
-        }
-
-        &::after {;
-            border-left-color: @bg-color4;
         }
 
         &:last-child {
-            > span {
-                background: none;
-                font-size: @font-size-medium;
-            }
+            color: @color8;
+            margin-right: 0;
 
-            &::before, &::after {
-                border-color: transparent;
+            &::after, &::before {
+                display: none;
             }
+        }
+
+        &::after, &::before {
+            content: '';
+            position: absolute;
+            right: -5/4 * @gutter;
+            top: 0;
+            border: @gutter/2 solid transparent;
+            border-right-width: 0;
+        }
+
+        &::after {
+            top: 4px;
+            right: -5/4 * @gutter - 1px;
+            border-width: @gutter/2 - 4px;
+            border-left-color: @color1;
+        }
+
+        &::before {
+            border-left-color: @color8;
+        }
+    }
+
+    .seperator {
+        fill: @color8;
+        margin: 0 @gutter/2;
+
+        &:first-child {
+            display: none;
         }
     }
 }

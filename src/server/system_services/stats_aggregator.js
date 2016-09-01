@@ -6,8 +6,7 @@
 'use strict';
 
 const _ = require('lodash');
-const http = require('http');
-const url = require('url');
+const request = require('request');
 const P = require('../../util/promise');
 const dbg = require('../../util/debug_module')(__filename);
 const config = require('../../../config.js');
@@ -17,8 +16,6 @@ const system_store = require('../system_services/system_store').get_instance();
 const system_server = require('../system_services/system_server');
 const object_server = require('../object_services/object_server');
 const bucket_server = require('../system_services/bucket_server');
-const zlib = require('zlib');
-//const promise_utils = require('../../util/promise_utils');
 const server_rpc = require('../server_rpc');
 
 const ops_aggregation = {};
@@ -49,6 +46,7 @@ const SINGLE_SYS_DEFAULTS = {
     allocated_space: 0,
     used_space: 0,
     total_space: 0,
+    owner: '',
     associated_nodes: {
         on: 0,
         off: 0,
@@ -81,7 +79,8 @@ function get_systems_stats(req) {
                     associated_nodes: {
                         on: res.nodes.online,
                         off: res.nodes.count - res.nodes.online,
-                    }
+                    },
+                    owner: res.owner.email,
                 }, SINGLE_SYS_DEFAULTS));
         }))
         .then(systems => {
@@ -198,12 +197,10 @@ function get_bucket_sizes_stats(req) {
 function get_pool_stats(req) {
     return P.resolve()
         .then(() => nodes_client.instance().aggregate_nodes_by_pool())
-        .then(nodes_aggregate_pool => {
-            return _.map(system_store.data.pools, pool => {
-                var a = nodes_aggregate_pool[pool._id] || {};
-                return a.count || 0;
-            });
-        });
+        .then(nodes_aggregate_pool => _.map(system_store.data.pools,
+            pool => _.get(nodes_aggregate_pool, [
+                'groups', String(pool._id), 'nodes', 'count'
+            ], 0)));
 }
 
 function get_cloud_sync_stats(req) {
@@ -367,9 +364,6 @@ function get_all_stats(req) {
         })
         .then(ops_stats => {
             stats_payload.ops_stats = ops_stats;
-            dbg.log2('SYSTEM_SERVER_STATS_AGGREGATOR:', 'SENDING (STUB)'); //TODO
-        })
-        .then(() => {
             dbg.log2('SYSTEM_SERVER_STATS_AGGREGATOR:', 'END');
             return stats_payload;
         })
@@ -388,7 +382,7 @@ function register_histogram(opname, master_label, structure) {
         return;
     }
 
-    if (!ops_aggregation.hasOwnProperty(opname)) {
+    if (!ops_aggregation[opname]) {
         ops_aggregation[opname] = new Histogram(master_label, structure);
     }
 
@@ -401,7 +395,7 @@ function add_sample_point(opname, duration) {
         return;
     }
 
-    if (!ops_aggregation.hasOwnProperty(opname)) {
+    if (!ops_aggregation[opname]) {
         dbg.log0('add_sample_point called without histogram registered (', opname, '), skipping');
         return;
     }
@@ -417,76 +411,41 @@ function object_usage_scrubber(req) {
             new_req.rpc_params.last_stats_report = Date.now();
             return system_server.set_last_stats_report_time(new_req);
         })
-        .catch(err => {
-            dbg.warn('Error in object usage scrubber,',
-                'skipping current deleting point', err.stack || err);
-            return;
-        })
         .return();
 }
 
 //_.noop(send_stats_payload); // lint unused bypass
 
 function send_stats_payload(payload) {
-    var deferred = P.defer();
     var system = system_store.data.systems[0];
-    var data_to_send = {};
-    data_to_send.time_stamp = new Date();
-    data_to_send.system = system._id;
-    data_to_send.payload = payload;
-    return P.ninvoke(zlib, 'gzip', new Buffer(JSON.stringify(data_to_send), 'utf-8'))
-        .then(gzip_payload => {
-            let central_listener = url.parse(config.central_stats.central_listener);
-            var options = {
-                hostname: central_listener.hostname,
-                port: Number(central_listener.port),
-                path: central_listener.path,
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/gzip',
-                    'Content-Encoding': 'gzip',
-                    'Content-Length': Buffer.byteLength(gzip_payload)
-                }
-            };
+    var options = {
+        url: config.PHONE_HOME_BASE_URL + '/phdata',
+        method: 'POST',
+        body: {
+            time_stamp: new Date(),
+            system: String(system._id),
+            payload: payload
+        },
+        strictSSL: false, // means rejectUnauthorized: false
+        json: true,
+        gzip: true,
+    };
 
-            if (system.phone_home_proxy_address) {
-                let proxy_listener = url.parse(system.phone_home_proxy_address);
-                options.hostname = proxy_listener.hostname;
-                options.port = Number(proxy_listener.port);
-                options.path = central_listener.href;
-                options.headers.host = central_listener.host;
-            }
+    // TODO: Support Self Signed HTTPS Proxy
+    // The problem is that we don't support self signed proxies, because somehow
+    // The strictSSL value is only valid for the target and not for the Proxy
+    // Check that once again sine it is a guess (did not investigate much)
+    if (system.phone_home_proxy_address) {
+        options.proxy = system.phone_home_proxy_address;
+    }
 
-            dbg.log0('Phone Home Sending Post Request To Server:', options);
-            var req = http.request(options, function(response) {
-                dbg.log0('Phone Home Received Response From Server');
-                //set the response encoding to parse json string
-                response.setEncoding('utf8');
-                var responseData = '';
-                //append data to responseData variable on the 'data' event emission
-                response.on('data', function(data) {
-                    responseData += data;
-                });
-                //listen to the 'end' event
-                response.on('end', function() {
-                    dbg.log0('Phone Home Received End Response From Server', responseData);
-                    //resolve the deferred object with the response
-                    deferred.resolve(responseData);
-                });
-            });
-
-            //listen to the 'error' event
-            req.on('error', function(err) {
-                dbg.log0('Phone Home Received Error Response From Server', err);
-                //if an error occurs reject the deferred
-                deferred.reject(err);
-            });
-            req.end(gzip_payload);
-            //we are returning a promise object
-            //if we returned the deferred object
-            //deferred object reject and resolve could potentially be modified
-            //violating the expected behavior of this function
-            return deferred.promise;
+    dbg.log0('Phone Home Sending Post Request To Server:', options);
+    return P.fromCallback(callback => request(options, callback), {
+            multiArgs: true
+        })
+        .spread(function(response, body) {
+            dbg.log0('Phone Home Received Response From Server', body);
+            return body;
         });
 }
 

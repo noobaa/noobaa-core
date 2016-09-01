@@ -1,13 +1,14 @@
 import template from './capacity-bar.html';
 import Disposable from 'disposable';
 import ko from 'knockout';
-import { formatSize } from 'utils';
+import { formatSize, isDefined } from 'utils';
 import style from 'style';
 
-const bgColor = style['gray-lv4'];
+const bgColor = style['color7'];
+const emptyColor = style['color7'];
 
 class CapacityBarViewModel extends Disposable {
-    constructor({ total, used, color = style['blue-mid'] }) {
+    constructor({ total, used, color = style['color8'] }) {
         super();
 
         let summedUsed = ko.pureComputed(
@@ -25,11 +26,11 @@ class CapacityBarViewModel extends Disposable {
         );
 
         this.usedText = ko.pureComputed(
-            () => summedUsed() ? formatSize(summedUsed()) : 'N/A'
+            () => isDefined(summedUsed()) ? formatSize(summedUsed()) : 'N/A'
         );
 
         this.totalText = ko.pureComputed(
-            () => ko.unwrap(total) ? formatSize(ko.unwrap(total)) : 'N/A'
+            () => isDefined(ko.unwrap(total)) ? formatSize(ko.unwrap(total)) : 'N/A'
         );
 
         this.values = [
@@ -44,6 +45,8 @@ class CapacityBarViewModel extends Disposable {
                 color: bgColor
             }
         ];
+
+        this.emptyColor = emptyColor;
 
         this.tooltip = ko.pureComputed(
             () => {

@@ -76,8 +76,7 @@ function remove_master_workers() {
 }
 
 function run_master_workers() {
-    if ((config.central_stats.send_stats === 'true') &&
-        (config.central_stats.central_listener)) {
+    if (config.central_stats.send_stats === 'true' && config.PHONE_HOME_BASE_URL) {
         register_bg_worker({
             name: 'system_server_stats_aggregator',
             delay: config.central_stats.send_time_cycle,
@@ -93,10 +92,12 @@ function run_master_workers() {
         delay: config.BUCKET_FETCH_INTERVAL
     }, bucket_storage_fetch.background_worker);
 
-    if (process.env.SCRUBBER_DISABLED !== 'true') {
+    if (config.SCRUBBER_ENABLED) {
         register_bg_worker({
             name: 'scrubber',
         }, scrubber.background_worker);
+    } else {
+        dbg.warn('SCRUBBER NOT ENABLED');
     }
 }
 

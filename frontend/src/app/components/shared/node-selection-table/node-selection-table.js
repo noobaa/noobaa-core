@@ -15,7 +15,10 @@ const columns = deepFreeze([
         cellTemplate: 'icon'
     },
     'name',
-    'ip',
+    {
+        name: 'ip',
+        label: 'IP'
+    },
     'capacity',
     'pool',
     'recommended'
@@ -27,6 +30,7 @@ class NodeSelectionTableViewModel extends Disposable{
         nodes = [],
         selectedNodes = ko.observableArray(),
         nodeCount = ko.pureComputed(() => ko.unwrap(nodes).length),
+        poolName,
         emptyMessage = ''
     }) {
         super();
@@ -35,6 +39,7 @@ class NodeSelectionTableViewModel extends Disposable{
         this.caption = caption;
         this.nodes = nodes;
         this.selectedNodes = selectedNodes;
+        this.poolName = poolName;
         this.emptyMessage = emptyMessage;
 
         this.nodeNames = ko.pureComputed(
@@ -52,7 +57,7 @@ class NodeSelectionTableViewModel extends Disposable{
     }
 
     createRow(node) {
-        return new NodeRowViewModel(node, this.selectedNodes);
+        return new NodeRowViewModel(node, this.selectedNodes, this.poolName);
     }
 
     selectListedNodes() {

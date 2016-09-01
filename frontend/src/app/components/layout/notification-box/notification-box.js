@@ -30,6 +30,7 @@ class NotificationBarViewModel extends Disposable {
             .then(
                 () => {
                     this.notifications.unshift({
+                        css: `notif-${severity}`,
                         icon: `notif-${severity}`,
                         text: message
                     });

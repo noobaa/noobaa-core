@@ -18,14 +18,14 @@ class ObjectSummaryViewModel extends Disposable {
             () => obj() && obj().bucket
         );
 
+        this.contentType = ko.pureComputed(
+            () => obj() && obj().content_type
+        );
+
         this.creationTime = ko.pureComputed(
             () => obj() && (
                 obj().create_time ? moment(obj().create_time).format(timeFormat) : 'N/A'
             )
-        );
-
-        this.contentType = ko.pureComputed(
-            () => obj() && obj().content_type
         );
 
         this.lastRead = ko.pureComputed(
@@ -34,20 +34,24 @@ class ObjectSummaryViewModel extends Disposable {
             )
         );
 
+        this.readCount = ko.pureComputed(
+            () => obj() ? obj().stats.reads : 0
+        );
+
         this.barsValues = [
             {
                 label: 'Physical size',
                 value: ko.pureComputed(
                     () => obj().capacity_size
                 ),
-                color: style['gray-lv5']
+                color: style['color13']
             },
             {
                 label: 'Size',
                 value: ko.pureComputed(
                     () => obj().size
                 ),
-                color: style['magenta-mid']
+                color: style['color7']
             }
         ];
     }

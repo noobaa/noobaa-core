@@ -1,35 +1,32 @@
-@keyframes expand-down {
-    from {
-        max-height: 0;
-    }
-
-    to {
-        max-height: 100%;
-    }
-}
-
 .main-layout  {
-    position: relative;
     height: 100%;
 
     .sticky-wrapper {
-        animation: expand-down 2500ms;
+        max-height: 34px;
     }
 
-    .sticky {
-        line-height: 25px;
-        padding: @gutter / 2 @gutter;
-        background: @red-dark;
-        color: @text-color1;
+    .content-wrapper {
+        position: relative;
 
-        svg-icon {
-            margin-right: .25em;
-        }
+        &.background-image::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background-size: cover;
+            opacity: .3;
 
-        vr {
-            align-self: stretch;
-            background-color: @text-color1;
-            margin: 0 @gutter;
+            /*
+            https://unsplash.com/license
+            https://unsplash.com/collections/136301/space?photo=NORa8-4ohA0
+            */
+            background-image: url('@{assets}/stars.jpg');
         }
+    }
+
+    main-header, main {
+        z-index: 1;
     }
 }

@@ -431,9 +431,6 @@ module.exports = {
             params: {
                 $ref: 'common_api#/definitions/n2n_config'
             },
-            reply: {
-                $ref: '#/definitions/system_nodes_update_reply'
-            },
             auth: {
                 system: 'admin',
             }
@@ -449,9 +446,6 @@ module.exports = {
                         type: 'string'
                     }
                 }
-            },
-            reply: {
-                $ref: '#/definitions/system_nodes_update_reply'
             },
             auth: {
                 system: 'admin',
@@ -529,9 +523,6 @@ module.exports = {
                     }
                 }
             },
-            reply: {
-                $ref: '#/definitions/system_nodes_update_reply'
-            },
             auth: {
                 system: 'admin',
             }
@@ -568,11 +559,23 @@ module.exports = {
                 properties: {
                     code: {
                         type: 'string'
+                    },
+                    email: {
+                        type: 'string'
                     }
                 }
             },
             reply: {
-                type: 'boolean',
+                type: 'object',
+                required: ['valid'],
+                properties: {
+                    valid: {
+                        type: 'boolean',
+                    },
+                    reason: {
+                        type: 'string'
+                    }
+                }
             },
             auth: {
                 account: false,
@@ -800,19 +803,6 @@ module.exports = {
                 },
                 secret_key: {
                     type: 'string',
-                }
-            }
-        },
-
-        system_nodes_update_reply: {
-            type: 'object',
-            required: ['nodes_count', 'nodes_updated'],
-            properties: {
-                nodes_count: {
-                    type: 'integer'
-                },
-                nodes_updated: {
-                    type: 'integer'
                 }
             }
         },

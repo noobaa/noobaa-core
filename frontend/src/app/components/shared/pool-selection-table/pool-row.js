@@ -19,10 +19,12 @@ export default class PoolRowViewModel extends Disposable {
                     return;
                 }
 
-                let state = this.onlineCount() >= 3;
+                let { count, has_issues } = pool().nodes;
+                let state = count - has_issues >= 3;
                 return {
-                    name: `pool-${state ? 'healthy' : 'problem'}`,
-                    tooltip: state ? 'healthy' : 'not enough online nodes'
+                    css: state ? 'success' : 'error',
+                    name: state ? 'healthy' : 'problem',
+                    tooltip: state ? 'healthy' : 'not enough healthy nodes'
                 };
             }
         );

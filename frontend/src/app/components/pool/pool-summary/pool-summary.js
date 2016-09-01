@@ -1,36 +1,22 @@
 import template from './pool-summary.html';
 import Disposable from 'disposable';
 import ko from 'knockout';
-import moment from 'moment';
 import numeral from 'numeral';
 import style from 'style';
-import { formatSize } from 'utils';
+import { deepFreeze, formatSize } from 'utils';
 
-const activityLabelMapping = Object.freeze({
-    EVACUATING: 'Evacuating',
-    REBUILDING: 'Rebuilding',
-    MIGRATING: 'Migrating'
+const stateMapping = deepFreeze({
+    true: {
+        text: 'Healthy',
+        css: 'success',
+        icon: 'healthy'
+    },
+    false: {
+        text: 'Not enough healthy nodes',
+        css: 'error',
+        icon: 'problem'
+    }
 });
-
-function mapActivity({ reason, node_count, completed_size, total_size, eta }) {
-    return {
-        row1: `${
-            activityLabelMapping[reason]
-        } ${
-            node_count
-        } nodes | Completed ${
-            formatSize(completed_size)
-        } of ${
-            formatSize(total_size)
-        }`,
-
-        row2: `(${
-            numeral(completed_size / total_size).format('0%')
-        } completed, ETA: ${
-            moment().to(eta)
-        })`
-    };
-}
 
 class PoolSummaryViewModel extends Disposable {
     constructor({ pool }) {
@@ -39,6 +25,26 @@ class PoolSummaryViewModel extends Disposable {
         this.dataReady = ko.pureComputed(
             () => !!pool()
         );
+
+        this.state = ko.pureComputed(
+            () => {
+                let { count, has_issues } = pool().nodes;
+                return stateMapping[count - has_issues >= 3];
+            }
+        );
+
+        this.nodeCount = ko.pureComputed(
+            () => numeral(pool().nodes.count).format('0,0')
+        );
+
+        this.onlineCount = ko.pureComputed(
+            () => numeral(pool().nodes.online).format('0,0')
+        );
+
+        this.offlineCount = ko.pureComputed(
+            () => numeral(pool().nodes.count - pool().nodes.online).format('0,0')
+        );
+
 
         let storage = ko.pureComputed(
             () => pool().storage
@@ -51,21 +57,21 @@ class PoolSummaryViewModel extends Disposable {
         this.pieValues = [
             {
                 label: 'Avaliable',
-                color: style['gray-lv5'],
+                color: style['color5'],
                 value: ko.pureComputed(
                     () => storage().free
                 )
             },
             {
                 label: 'Used (NooBaa)',
-                color: style['magenta-mid'],
+                color: style['color13'],
                 value: ko.pureComputed(
                     () => storage().used
                 )
             },
             {
                 label: 'Used (Other)',
-                color: style['white'],
+                color: style['color14'],
                 value: ko.pureComputed(
                     () => storage().used_other
                 )
@@ -73,74 +79,19 @@ class PoolSummaryViewModel extends Disposable {
             },
             {
                 label: 'Reserved',
-                color: style['purple-dark'],
+                color: style['color7'],
                 value: ko.pureComputed(
                     () => storage().reserved
                 )
             },
             {
                 label: 'Unavailable',
-                color: style['red-mid'],
+                color: style['color15'],
                 value: ko.pureComputed(
                     () => storage().unavailable_free
                 )
             }
         ];
-
-        let onlineCount = ko.pureComputed(
-            () => pool().nodes.online
-        );
-
-        let healthy = ko.pureComputed(
-            () => onlineCount() >= 3
-        );
-
-        this.stateText = ko.pureComputed(
-            () => healthy() ? 'Healthy' : 'Not enough online nodes'
-        );
-
-        this.stateIcon = ko.pureComputed(
-            () => `pool-${healthy() ? 'healthy' : 'problem'}`
-        );
-
-        this.nodeCount = ko.pureComputed(
-            () => pool().nodes.count
-        );
-
-        this.onlineIcon = ko.pureComputed(
-            () => `node-${onlineCount() > 0 ? 'online' : 'online'}`
-        );
-
-        this.onlineText = ko.pureComputed(
-            () => `${
-                onlineCount() > 0 ?  numeral(onlineCount()).format('0,0') : 'No'
-            } Online`
-        );
-
-        let offlineCount = ko.pureComputed(
-            () => pool().nodes.count - pool().nodes.online
-        );
-
-        this.offlineIcon = ko.pureComputed(
-            () => `node-${onlineCount() > 0 ? 'offline' : 'offline'}`
-        );
-
-        this.offlineText = ko.pureComputed(
-            () => `${
-                offlineCount() > 0 ?  numeral(offlineCount()).format('0,0') : 'No'
-            } Offline`
-        );
-
-        this.offlineText = ko.pureComputed(
-            () => {
-                let count = pool().nodes.count - pool().nodes.online;
-                return `${count > 0 ? numeral(count).format('0,0') : 'No'} Offline`;
-            }
-        );
-
-        this.dataActivities = ko.pureComputed(
-            () => pool().data_activities && pool().data_activities.map(mapActivity)
-        );
     }
 }
 

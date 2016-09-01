@@ -1,8 +1,8 @@
 import template from './create-system-form.html';
 import Disposable from 'disposable';
 import ko from 'knockout';
-import { validateActivationCode, createSystem } from 'actions';
-import { activation, serverInfo } from 'model';
+import { validateActivationCode, validateActivationEmail, createSystem } from 'actions';
+import { activationCodeValid, activationEmailValid, serverInfo } from 'model';
 import moment from 'moment';
 import { waitFor } from 'utils';
 
@@ -13,32 +13,51 @@ class CreateSystemFormViewModel extends Disposable {
         this.steps = ['account details', 'system config'];
         this.step = ko.observable(0);
 
-        let _activationCode = ko.observable();
-        this.activationCode = ko.pureComputed({
-            read: _activationCode,
-            write: value => _activationCode(value) && validateActivationCode(value)
-        })
+        this.activationCode = ko.observable()
             .extend({
                 required: {
                     message: 'Please enter your activation code'
                 },
                 validation: {
+                    message: 'Invalid code - register at www.noobaa.com',
                     async: true,
-                    validator: (_, __, callback) => activation.once(
-                        ({ isCodeValid }) => {
-                            waitFor(500).then(
-                                () => callback(isCodeValid)
-                            );
-                        }
-                    ),
-                    message: 'Invalid activation code'
+                    validator: (value, __, callback) => {
+                        activationCodeValid.once(
+                            ({ isValid }) => {
+                                waitFor(500).then(
+                                    () => callback(isValid)
+                                );
+                            }
+                        );
+                        validateActivationCode(value);
+                    }
                 }
             });
+
+        // the email validation depends on activationCode,
+        // se we re-trigger the email validation when the code changes
+        this.activationCode.subscribe(
+            () => ko.validation.validateObservable(this.email)
+        );
 
         this.email = ko.observable()
             .extend({
                 required: { message: 'Please enter an email address' },
-                email: true
+                email: true,
+                validation: {
+                    message: 'Email does not match the activation code',
+                    async: true,
+                    validator: (value, __, callback) => {
+                        activationEmailValid.once(
+                            ({ isValid }) => {
+                                waitFor(500).then(
+                                    () => callback(isValid)
+                                );
+                            }
+                        );
+                        validateActivationEmail(this.activationCode(), value);
+                    }
+                }
             });
 
         this.password = ko.observable()
@@ -74,7 +93,13 @@ class CreateSystemFormViewModel extends Disposable {
             });
 
         this.primaryDNSServerIP = ko.observableWithDefault(
-            () => serverInfo() && (serverInfo().config.dns_servers || [])[0]
+            () => {
+                if (!serverInfo() || !serverInfo().config) {
+                    return;
+                }
+
+                return (serverInfo().config.dns_servers || [])[0];
+            }
         )
             .extend({
                 isIP: true

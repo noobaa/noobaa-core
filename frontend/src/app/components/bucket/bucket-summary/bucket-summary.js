@@ -41,6 +41,8 @@ const graphOptions = deepFreeze([
 
 const timeFormat = 'MMM, DD [at] hh:mm:ss';
 
+const avaliableForWriteTooltip = 'This number is calculated according to the bucket\'s available capacity and the number of replicas defined in its placement policy';
+
 class BucketSummrayViewModel extends Disposable {
     constructor({ bucket }) {
         super();
@@ -155,6 +157,7 @@ class BucketSummrayViewModel extends Disposable {
             () => formatSize(data().actual_free)
         );
 
+        this.avaliableForWriteTooltip = avaliableForWriteTooltip;
 
         let stats = ko.pureComputed(
             () => bucket() ? bucket().stats : {}

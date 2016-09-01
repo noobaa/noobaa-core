@@ -1,4 +1,4 @@
-<h2 class="heading3">
+    <h2 class="heading3">
     Start your installation process
 </h2>
 
@@ -22,7 +22,7 @@
 <!-- ko if: commandSelector() === 'LOCAL_WINDOWS' -->
 <ol class="instructions">
     <li>
-        <a class="link" data-bind="attr: { href: packageUrl }">
+        <a class="link" download data-bind="attr: { href: packageUrl }">
             Click here to download
         </a>
         the daemon installation package
@@ -36,7 +36,7 @@
 <!-- ko if: commandSelector() === 'LOCAL_LINUX' -->
 <ol class="instructions">
     <li>
-        <a class="link" data-bind="attr: { href: packageUrl }">
+        <a class="link" download data-bind="attr: { href: packageUrl }">
             Click here to download
         </a>
         the daemon installation package

@@ -6,7 +6,7 @@ import { deepFreeze } from 'utils';
 
 const durationUntiOptions = deepFreeze([
     {
-        label: 'Minuets',
+        label: 'Minutes',
         value: 1
     },
     {

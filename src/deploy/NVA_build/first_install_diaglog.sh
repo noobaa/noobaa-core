@@ -6,6 +6,7 @@ trap "" 2 20
 . /root/node_modules/noobaa-core/src/deploy/NVA_build/deploy_base.sh
 
 FIRST_INSTALL_MARK="/etc/first_install.mrk"
+NOOBAASEC="/etc/noobaa_sec"
 
 function clean_ifcfg() {
   sudo sed -i 's:.*IPADDR=.*::' /etc/sysconfig/network-scripts/ifcfg-eth0
@@ -170,10 +171,6 @@ function configure_ntp_dialog {
 }
 
 function run_wizard {
-  if [ ! -f ${NOOBAASEC} ]; then
-    local sec=$(cat /dev/urandom | tr -dc 'a-zA-Z0-9' | fold -w 32 | head -1)
-    echo ${sec} > ${NOOBAASEC}
-  fi
 
   dialog --colors --backtitle "NooBaa First Install" --title 'Welcome to \Z5\ZbNooBaa\Zn' --msgbox 'Welcome to your \Z5\ZbNooBaa\Zn experience.\n\nThis
 is a short first install wizard to help configure \Z5\ZbNooBaa\Zn to best suit your needs' 8 50
@@ -198,6 +195,13 @@ function end_wizard {
   dialog --colors --nocancel --backtitle "NooBaa First Install" --title '\Z5\ZbNooBaa\Zn is Ready' --msgbox "\n\Z5\ZbNooBaa\Zn was configured and is ready to use. You can access \Z5\Zbhttp://${current_ip}:8080\Zn to start using your system." 7 65
   date | sudo tee -a ${FIRST_INSTALL_MARK}
   clear
+  if [ ! -f ${NOOBAASEC} ]; then
+    local sec=$(uuidgen | sudo cut -f 1 -d'-')
+    echo ${sec} |sudo tee -a ${NOOBAASEC}
+    #dev/null to avoid output with user name
+    echo ${sec} |sudo passwd noobaaroot --stdin >/dev/null
+    sudo sed -i "s:No Server Secret.*:This server's secret is \x1b[0;32;40m${sec}\x1b[0m:" /etc/issue
+  fi
 
   sudo sed -i "s:Configured IP on this NooBaa Server.*:Configured IP on this NooBaa Server \x1b[0;32;40m${current_ip}\x1b[0m:" /etc/issue
 

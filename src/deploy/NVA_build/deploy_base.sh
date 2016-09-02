@@ -102,11 +102,6 @@ function setup_linux_users {
 
 	#local current_ip=$(ifconfig eth0 | grep 'inet addr' | cut -f 2 -d':' | cut -f 1 -d' ')
 
-    if [ ! -f ${NOOBAASEC} ]; then
-        uuidgen | cut -f 1 -d'-' > ${NOOBAASEC}
-    fi
-	local secret=$(cat ${NOOBAASEC})
-
     #Fix login message
     echo -e "\x1b[0;35;40m" > /etc/issue
     echo  '  _    _            ______              ' >> /etc/issue
@@ -121,7 +116,7 @@ function setup_linux_users {
 
     echo -e "\nConfigured IP on this NooBaa Server \x1b[0;32;40mNONE\x1b[0m." >> /etc/issue
 
-	echo -e "\nThis server's secret is \x1b[0;32;40m${secret}\x1b[0m" >> /etc/issue
+	echo -e "\nNo Server Secret" >> /etc/issue
 
     echo -e "\nYou can set up a cluster member, configure IP, DNS, GW and Hostname by logging in using \x1b[0;32;40mnoobaa/Passw0rd\x1b[0m" >> /etc/issue
 

@@ -648,14 +648,18 @@ class NodesMonitor extends EventEmitter {
         return P.resolve()
             .then(() => nodes_store.instance().bulk_update(bulk_items))
             .then(() => P.map(new_nodes, item => {
-                Dispatcher.instance().activity({
-                    level: 'info',
-                    event: 'node.create',
-                    system: item.node.system,
-                    node: item.node._id,
-                    actor: item.account && item.account._id,
-                    desc: `${item.node.name} was added by ${item.account && item.account.email}`,
-                });
+                if (!item.is_internal_node) {
+                    Dispatcher.instance().activity({
+                        level: 'info',
+                        event: 'node.create',
+                        system: item.node.system,
+                        node: item.node._id,
+                        actor: item.account && item.account._id,
+                        desc: `${item.node.name} was added by ${item.account && item.account.email}`,
+                    });
+                } else {
+                    return;
+                }
                 return this.client.agent.update_auth_token({
                         auth_token: auth_server.make_auth_token({
                             system_id: String(item.node.system),

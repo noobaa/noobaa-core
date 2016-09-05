@@ -287,7 +287,7 @@ class NodesMonitor extends EventEmitter {
         // });
     }
 
-    decommission_node(req, bla) {
+    decommission_node(req) {
         this._throw_if_not_started_and_loaded();
         const item = this._get_node(req.rpc_params, 'allow_offline');
         if (!item.node.decommissioning) {

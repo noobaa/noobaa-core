@@ -287,7 +287,7 @@ class NodesMonitor extends EventEmitter {
         // });
     }
 
-    decommission_node(req, bla) {
+    decommission_node(req) {
         this._throw_if_not_started_and_loaded();
         const item = this._get_node(req.rpc_params, 'allow_offline');
         if (!item.node.decommissioning) {
@@ -657,8 +657,6 @@ class NodesMonitor extends EventEmitter {
                         actor: item.account && item.account._id,
                         desc: `${item.node.name} was added by ${item.account && item.account.email}`,
                     });
-                } else {
-                    return;
                 }
                 return this.client.agent.update_auth_token({
                         auth_token: auth_server.make_auth_token({

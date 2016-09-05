@@ -107,6 +107,7 @@ function update_tier(req) {
     let cloud_pools_part = pools_partitions[1];
     let node_pools_update = [];
     let cloud_pools_update = [];
+    let old_cloud_pools = [];
 
     // if node_pools are defined use it for the update otherwise use the existing
     if (req.rpc_params.node_pools) {
@@ -130,7 +131,7 @@ function update_tier(req) {
                 throw new RpcError('ILLEGAL NODE POOLS LIST', 'received a cloud pool in node_pools');
             }
         });
-
+        old_cloud_pools = cloud_pools_part.map(cloud_pool => cloud_pool.name);
         cloud_pools_update = req.rpc_params.cloud_pools.map(pool_name => req.system.pools_by_name[pool_name]._id);
     } else {
         cloud_pools_update = cloud_pools_part.map(cloud_pool => cloud_pool._id);
@@ -146,18 +147,29 @@ function update_tier(req) {
         .then(res => {
             var bucket = find_bucket_by_tier(req);
             let desc_string = [];
-            let policy_type_change = String(tier.data_placement) === String(req.rpc_params.data_placement) ? 'No changes' :
-                `Changed to ${req.rpc_params.data_placement} from ${tier.data_placement}`;
-            let tier_pools = _.map(tier.pools, pool => pool.name);
-            let added_pools = [] || _.difference(req.rpc_params.node_pools.concat(req.rpc_params.cloud_pools), tier_pools);
-            let removed_pools = [] || _.difference(tier_pools, req.rpc_params.node_pools.concat(req.rpc_params.cloud_pools));
-            desc_string.push(`Bucket policy was changed by: ${req.account && req.account.email}`);
-            desc_string.push(`Policy type: ${policy_type_change}`);
-            if (added_pools.length) {
-                desc_string.push(`Added pools: ${added_pools}`);
-            }
-            if (removed_pools.length) {
-                desc_string.push(`Removed pools: ${removed_pools}`);
+            if (req.rpc_params.data_placement) { //Placement policy changes
+                let policy_type_change = String(tier.data_placement) === String(req.rpc_params.data_placement) ? 'No changes' :
+                    `Changed to ${req.rpc_params.data_placement} from ${tier.data_placement}`;
+                let tier_pools = _.map(tier.pools, pool => pool.name);
+                let added_pools = [] || _.difference(req.rpc_params.node_pools.concat(req.rpc_params.cloud_pools), tier_pools);
+                let removed_pools = [] || _.difference(tier_pools, req.rpc_params.node_pools.concat(req.rpc_params.cloud_pools));
+                desc_string.push(`Bucket policy was changed by: ${req.account && req.account.email}`);
+                desc_string.push(`Policy type: ${policy_type_change}`);
+                if (added_pools.length) {
+                    desc_string.push(`Added pools: ${added_pools}`);
+                }
+                if (removed_pools.length) {
+                    desc_string.push(`Removed pools: ${removed_pools}`);
+                }
+            } else if (req.rpc_params.cloud_pools) { //Update to cloud pools
+                if (!old_cloud_pools.length) {
+                    old_cloud_pools = 'no cloud resources';
+                }
+                let new_pools = req.rpc_params.cloud_pools.length ?
+                    req.rpc_params.cloud_pools :
+                    'no cloud resources';
+                desc_string.push(`Bucket cloud policy changes from using ${old_cloud_pools} to
+                    using ${new_pools}`);
             }
 
             if (bucket) {

@@ -25,7 +25,10 @@ const system_store = require('../system_services/system_store').get_instance();
 function read_object_mappings(params) {
     var rng = map_utils.sanitize_object_range(params.obj, params.start, params.end);
     if (!rng) { // empty range
-        return [];
+        dbg.log0('ETET empty range');
+        return P.fcall(function(){
+            return [];
+        });        
     }
     var start = rng.start;
     var end = rng.end;

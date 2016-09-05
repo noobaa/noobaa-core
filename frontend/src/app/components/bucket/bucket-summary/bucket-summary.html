@@ -45,7 +45,9 @@
 
     <section class="c3 column">
         <p class="borders pad highlight row content-middle push-next">
-            <svg-icon class="push-next" params="name: 'notif-info'"></svg-icon>
+            <svg-icon class="push-next" params="name: 'notif-info'" data-bind="
+                tooltip: avaliableForWriteTooltip
+            "></svg-icon>
             <span>
                 <span data-bind="text: avaliableForWrite"></span>
                 of data can be uploaded

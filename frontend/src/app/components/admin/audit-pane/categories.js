@@ -10,6 +10,16 @@ export default {
             test_node: {
                 message: 'Node Tested',
                 entityId: ({ node }) => node && node.name
+            },
+
+            decommission: {
+                message: 'Node Decommisioned',
+                entityId: ({ node }) => node && node.name
+            },
+
+            recommission: {
+                message: 'Node Recommissioned',
+                entityId: ({ node }) => node && node.name
             }
         }
     },

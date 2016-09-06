@@ -469,10 +469,13 @@ export function loadPoolNodeList(poolName, filter, hasIssues, sortBy, order, pag
 }
 
 export function loadNodeList(filter, pools, online) {
-    logAction('loadNodeList', { filter, pools, online });
+    logAction('loadNodeList', { filter, pools, online, decommissioned, decommissioning});
+
+    let decommissioned = (online == undefined ? undefined : !online);
+    let decommissioning = decommissioned;
 
     api.node.list_nodes({
-        query: { filter, pools, online }
+        query: { filter, pools, online, decommissioned, decommissioning }
     })
         .then(
             ({ nodes }) => model.nodeList(nodes)

@@ -287,23 +287,39 @@ class NodesMonitor extends EventEmitter {
         // });
     }
 
-    decommission_node(node_identity) {
+    decommission_node(req) {
         this._throw_if_not_started_and_loaded();
-        const item = this._get_node(node_identity, 'allow_offline');
+        const item = this._get_node(req.rpc_params, 'allow_offline');
         if (!item.node.decommissioning) {
             item.node.decommissioning = Date.now();
         }
         this._set_need_update.add(item);
         this._update_status(item);
+        Dispatcher.instance().activity({
+            level: 'info',
+            event: 'node.decommission',
+            system: item.node.system,
+            node: item.node._id,
+            actor: req.account && req.account._id,
+            desc: `${item.node.name} was decommissioned by ${req.account && req.account.email}`,
+        });
     }
 
-    recommission_node(node_identity) {
+    recommission_node(req) {
         this._throw_if_not_started_and_loaded();
-        const item = this._get_node(node_identity, 'allow_offline');
+        const item = this._get_node(req.rpc_params, 'allow_offline');
         delete item.node.decommissioning;
         delete item.node.decommissioned;
         this._set_need_update.add(item);
         this._update_status(item);
+        Dispatcher.instance().activity({
+            level: 'info',
+            event: 'node.recommission',
+            system: item.node.system,
+            node: item.node._id,
+            actor: req.account && req.account._id,
+            desc: `${item.node.name} was recommissioned by ${req.account && req.account.email}`,
+        });
     }
 
     delete_node(node_identity) {
@@ -632,14 +648,16 @@ class NodesMonitor extends EventEmitter {
         return P.resolve()
             .then(() => nodes_store.instance().bulk_update(bulk_items))
             .then(() => P.map(new_nodes, item => {
-                Dispatcher.instance().activity({
-                    level: 'info',
-                    event: 'node.create',
-                    system: item.node.system,
-                    node: item.node._id,
-                    actor: item.account && item.account._id,
-                    desc: `${item.node.name} was added by ${item.account && item.account.email}`,
-                });
+                if (!item.is_internal_node) {
+                    Dispatcher.instance().activity({
+                        level: 'info',
+                        event: 'node.create',
+                        system: item.node.system,
+                        node: item.node._id,
+                        actor: item.account && item.account._id,
+                        desc: `${item.node.name} was added by ${item.account && item.account.email}`,
+                    });
+                }
                 return this.client.agent.update_auth_token({
                         auth_token: auth_server.make_auth_token({
                             system_id: String(item.node.system),

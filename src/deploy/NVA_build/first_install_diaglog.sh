@@ -116,7 +116,7 @@ function configure_networking_dialog {
       else
         dialog --colors --nocancel --backtitle "NooBaa First Install" --title "Hostname Configuration" --form "\nPlease supply a hostname for this \Z5\ZbNooBaa\Zn installation." 12 65 4 "Hostname:" 1 1 "" 1 25 25 30 2> answer_host
 
-        local host=$(t answer_host)
+        local host=$(tail -1 answer_host)
         rc=$(sudo sysctl kernel.hostname=${host})
         #sudo echo "First Install configure hostname ${host}, sysctl rc ${rc}" >> /var/log/noobaa_deploy.log
       fi

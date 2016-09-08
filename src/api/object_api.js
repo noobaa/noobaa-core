@@ -761,6 +761,27 @@ module.exports = {
             }
         },
 
+        delete_multiple_objects_by_prefix: {
+            method: 'GET',
+            params: {
+                type: 'object',
+                required: ['bucket', 'prefix'],
+                properties: {
+                    bucket: {
+                        type: 'string',
+                    },
+                    prefix: {
+                        type: 'string',
+                    },
+                    create_time: {
+                        format: 'idate',
+                    }
+                }
+            },
+            auth: {
+                system: 'admin'
+            }
+        },
     },
 
 

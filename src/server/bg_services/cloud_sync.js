@@ -3,8 +3,8 @@
 const _ = require('lodash');
 const AWS = require('aws-sdk');
 const https = require('https');
-
 const P = require('../../util/promise');
+const promise_utils = require('../../util/promise_utils');
 const dbg = require('../../util/debug_module')(__filename);
 const md_store = require('../object_services/md_store');
 const system_store = require('../system_services/system_store').get_instance();
@@ -507,36 +507,56 @@ function update_c2n_worklist(policy) {
     //Compare the two for diffs of additions/deletions
     var cloud_object_list;
     var bucket_object_list;
-    return P.ninvoke(policy.s3cloud, 'listObjects', params)
-        .catch(function(error) {
-            dbg.error('ERROR statusCode', error.statusCode,
-                error.statusCode === 400, error.statusCode === 301);
-            if (error.statusCode === 400 ||
-                error.statusCode === 301) {
-                dbg.log0('Resetting (list objects) signature type and region',
-                    'to eu-central-1 and v4', params);
-                // change default region from US to EU due to restricted signature of v4 and end point
-                //TODO: maybe we should add support here for cloud sync from noobaa to noobaa after supporting v4.
-                policy.s3cloud = new AWS.S3({
-                    accessKeyId: policy.access_keys.access_key,
-                    secretAccessKey: policy.access_keys.secret_key,
-                    signatureVersion: 'v4',
-                    region: 'eu-central-1'
-                });
+
+    // Initialization of IsTruncated in order to perform the first while cycle
+    var listObjectsResponse = {
+        IsTruncated: true,
+        Contents: []
+    };
+
+    return promise_utils.pwhile(
+            function() {
+                return listObjectsResponse.IsTruncated;
+            },
+            function() {
+                listObjectsResponse.IsTruncated = false;
                 return P.ninvoke(policy.s3cloud, 'listObjects', params)
-                    .catch(function(err) {
-                        dbg.error('update_c2n_worklist failed to list files from cloud: sys',
-                            policy.system._id, 'bucket', policy.bucket.id, error, error.stack);
-                        throw new Error('update_c2n_worklist failed to list files from cloud');
+                    .catch(function(error) {
+                        dbg.error('ERROR statusCode', error.statusCode,
+                            error.statusCode === 400, error.statusCode === 301);
+                        if (error.statusCode === 400 ||
+                            error.statusCode === 301) {
+                            dbg.log0('Resetting (list objects) signature type to v4', params);
+                            // change default region from US to EU due to restricted signature of v4 and end point
+                            //TODO: maybe we should add support here for cloud sync from noobaa to noobaa after supporting v4.
+                            policy.s3cloud = new AWS.S3({
+                                accessKeyId: policy.access_keys.access_key,
+                                secretAccessKey: policy.access_keys.secret_key,
+                                signatureVersion: 'v4',
+                            });
+                            return P.ninvoke(policy.s3cloud, 'listObjects', params)
+                                .catch(function(err) {
+                                    dbg.error('update_c2n_worklist failed to list files from cloud: sys',
+                                        policy.system._id, 'bucket', policy.bucket.id, error, error.stack);
+                                    throw new Error('update_c2n_worklist failed to list files from cloud');
+                                });
+                        } else {
+                            dbg.error('update_c2n_worklist failed to list files from cloud: sys',
+                                policy.system._id, 'bucket', policy.bucket.id, error, error.stack);
+                            throw new Error('update_c2n_worklist failed to list files from cloud');
+                        }
+                    })
+                    .then(function(res) {
+                        listObjectsResponse.IsTruncated = res.IsTruncated;
+                        let list = res.Contents;
+                        if (list.length) {
+                            listObjectsResponse.Contents = _.concat(listObjectsResponse.Contents, list);
+                            params.Marker = list[list.length - 1].Key;
+                        }
                     });
-            } else {
-                dbg.error('update_c2n_worklist failed to list files from cloud: sys',
-                    policy.system._id, 'bucket', policy.bucket.id, error, error.stack);
-                throw new Error('update_c2n_worklist failed to list files from cloud');
-            }
-        })
-        .then(function(cloud_obj) {
-            cloud_object_list = _.map(cloud_obj.Contents, function(obj) {
+            })
+        .then(function() {
+            cloud_object_list = _.map(listObjectsResponse.Contents, function(obj) {
                 return {
                     create_time: obj.LastModified,
                     key: obj.Key,

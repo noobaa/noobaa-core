@@ -37,6 +37,7 @@ const time_utils = require('../util/time_utils');
 const BlockStoreFs = require('./block_store_fs').BlockStoreFs;
 const BlockStoreS3 = require('./block_store_s3').BlockStoreS3;
 const BlockStoreMem = require('./block_store_mem').BlockStoreMem;
+const BlockStoreAzure = require('./block_store_azure').BlockStoreAzure;
 const promise_utils = require('../util/promise_utils');
 
 
@@ -76,7 +77,11 @@ class Agent {
             if (params.cloud_info) {
                 this.cloud_info = params.cloud_info;
                 block_store_options.cloud_info = params.cloud_info;
-                this.block_store = new BlockStoreS3(block_store_options);
+                if (params.cloud_info.azure) {
+                    this.block_store = new BlockStoreAzure(block_store_options);
+                } else {
+                    this.block_store = new BlockStoreS3(block_store_options);
+                }
             } else {
                 block_store_options.root_path = this.storage_path;
                 this.block_store = new BlockStoreFs(block_store_options);

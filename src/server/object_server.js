@@ -15,6 +15,7 @@ var glob_to_regexp = require('glob-to-regexp');
 var dbg = require('../util/debug_module')(__filename);
 var string_utils = require('../util/string_utils');
 var mongo_functions = require('../util/mongo_functions');
+var moment = require('moment');
 
 /**
  *
@@ -539,7 +540,6 @@ function delete_multiple_objects_by_prefix(req) {
         .return();
 }
 
-
 /**
  * return a regexp pattern to be appended to a prefix
  * to make it match "prefix/file" or "prefix/dir/"
@@ -586,15 +586,17 @@ function list_objects(req) {
                 // the emitted key will be just tumtum.
                 // this is used by s3 protocol to return folder structure
                 // even if there is no explicit empty object with the folder name.
+
+                let inner_query = {
+                    system: req.system._id,
+                    bucket: req.bucket._id,
+                    key: new RegExp('^' + escaped_prefix),
+                    deleted: null
+                };
                 common_prefixes_query = db.ObjectMD.collection.mapReduce(
                     mongo_functions.map_key_with_prefix_delimiter,
                     mongo_functions.reduce_noop, {
-                        query: {
-                            system: req.system._id,
-                            bucket: req.bucket._id,
-                            key: new RegExp('^' + escaped_prefix),
-                            deleted: null
-                        },
+                        query: inner_query,
                         scope: {
                             prefix: prefix,
                             delimiter: delimiter,
@@ -605,6 +607,10 @@ function list_objects(req) {
                     });
             } else if (prefix) {
                 info.key = new RegExp('^' + escaped_prefix);
+                if (req.rpc_params.create_time){
+                    let creation_date =  moment.unix(req.rpc_params.create_time).toISOString();
+                    info.create_time =  { $lt :  new Date(creation_date)};
+                }
             } else if (req.rpc_params.key_query) {
                 info.key = new RegExp(string_utils.escapeRegExp(req.rpc_params.key_query), 'i');
             } else if (req.rpc_params.key_regexp) {

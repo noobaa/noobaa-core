@@ -600,6 +600,9 @@ module.exports = {
                     },
                     prefix: {
                         type: 'string',
+                    },
+                    create_time: {
+                        format: 'idate',
                     }
                 }
             },

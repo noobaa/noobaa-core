@@ -92,6 +92,22 @@ module.exports = {
             }
         },
 
+        delete_bucket_lifecycle: {
+            method: 'DELETE',
+            params: {
+                type: 'object',
+                required: ['name'],
+                properties: {
+                    name: {
+                        type: 'string',
+                    },
+                }
+            },
+            auth: {
+                system: 'admin'
+            }
+        },
+
         list_buckets: {
             method: 'GET',
             reply: {

@@ -16,6 +16,7 @@ module.exports = {
     read_bucket: read_bucket,
     update_bucket: update_bucket,
     delete_bucket: delete_bucket,
+    delete_bucket_lifecycle: delete_bucket_lifecycle,
     list_buckets: list_buckets,
     //generate_bucket_access: generate_bucket_access,
     list_bucket_s3_acl: list_bucket_s3_acl,
@@ -332,6 +333,39 @@ function delete_bucket(req) {
         .return();
 }
 
+/**
+ *
+ * DELETE_BUCKET_LIFECYCLE
+ *
+ */
+function delete_bucket_lifecycle(req) {
+    var bucket = find_bucket(req);
+    return system_store.make_changes({
+            update: {
+                buckets: [{
+                    _id: bucket._id,
+                    $unset:{
+                        lifecycle_configuration_rules: 1
+                    }
+                }]
+            }
+        })
+        .then(() => {
+            db.ActivityLog.create({
+                event: 'bucket.delete_lifecycle_configuration_rules',
+                level: 'info',
+                system: req.system._id,
+                actor: req.account && req.account._id,
+                bucket: bucket._id,
+            });
+            return;
+        })
+        .catch(function(err) {
+            dbg.error('Error deleting lifecycle configuration rules', err, err.stack);
+            throw err;
+        })
+        .return();
+}
 
 
 /**
@@ -572,7 +606,7 @@ function set_bucket_lifecycle_configuration_rules(req) {
 function get_bucket_lifecycle_configuration_rules(req) {
     dbg.log0('get bucket lifecycle configuration rules', req.rpc_params);
     var bucket = find_bucket(req);
-    return bucket.lifecycle_configuration_rules;
+    return bucket.lifecycle_configuration_rules||[];
 }
 
 /**

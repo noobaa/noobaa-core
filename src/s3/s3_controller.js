@@ -8,6 +8,8 @@ let ObjectIO = require('../api/object_io');
 let s3_errors = require('./s3_errors');
 let xml2js = require('xml2js');
 let P = require('../util/promise');
+var uuid = require('node-uuid');
+
 
 dbg.set_level(5);
 
@@ -248,6 +250,15 @@ class S3Controller {
 
 
     /**
+     * http://docs.aws.amazon.com/AmazonS3/latest/API/RESTBucketDELETElifecycle.html
+     */
+    delete_bucket_lifecycle(req, res) {
+        return req.rpc_client.bucket.delete_bucket_lifecycle({
+            name: req.params.bucket
+        }).return();
+    }
+
+    /**
      * http://docs.aws.amazon.com/AmazonS3/latest/API/RESTBucketDELETE.html
      */
     delete_bucket(req, res) {
@@ -255,7 +266,6 @@ class S3Controller {
             name: req.params.bucket
         }).return();
     }
-
 
     /**
      * http://docs.aws.amazon.com/AmazonS3/latest/API/multiobjectdeleteapi.html
@@ -705,15 +715,17 @@ class S3Controller {
         //    </Expiration>
         //  </Rule>
 
-        dbg.log0('ETET put_bucket_lifecycle', req.params, '::::', req.query, '::::', req.body);
         return P.ninvoke(xml2js, 'parseString', req.body)
             .then(function(data) {
-                dbg.log0('ETET put_bucket_lifecycle JSON', data.LifecycleConfiguration.Rule);
                 //var lifecycle_rules = data.LifecycleConfiguration.Rule;
                 var lifecycle_rules = [];
                 _.each(data.LifecycleConfiguration.Rule, rule => {
+                        var rule_id = uuid().split('-')[0];
+                        if (rule.ID){
+                            rule_id = rule.ID[0];
+                        }
                         let current_rule = {
-                            id: rule.ID[0],
+                            id: rule_id,
                             prefix: rule.Prefix[0],
                             status: rule.Status[0]
                         };
@@ -721,6 +733,9 @@ class S3Controller {
                             current_rule.expiration = {};
                             if (rule.Expiration[0].Days) {
                                 current_rule.expiration.days = parseInt(rule.Expiration[0].Days[0]);
+                                if (rule.Expiration[0].Days<1){
+                                    throw s3_errors.InvalidArgument;
+                                }
                             } else {
                                 current_rule.expiration.date = (new Date(rule.Expiration[0].Date[0])).getTime();
                             }
@@ -736,12 +751,10 @@ class S3Controller {
                             };
                         }
                         if (rule.Transition) {
-                            dbg.log0('ETET lifecycle Transition', rule.Transition);
                             current_rule.transition = {
                                 date: rule.Transition[0].Date ? (new Date(rule.Transition[0].Date[0])).getTime() : null,
                                 storage_class: rule.Transition[0].StorageClass ? rule.Transition[0].StorageClass[0] : 'STANDARD_IA'
                             };
-                            dbg.log0('ETET lifecycle Transition(2)', current_rule.transition);
                         }
                         if (rule.NoncurrentVersionExpiration) {
                             current_rule.noncurrent_version_expiration = {
@@ -763,7 +776,6 @@ class S3Controller {
                     name: req.params.bucket,
                     rules: lifecycle_rules
                 };
-                dbg.log0('ETET params rules', lifecycle_rules);
                 return req.rpc_client.bucket.set_bucket_lifecycle_configuration_rules(params)
                     .then(() => {
                         dbg.log('set_bucket_lifecycle', req.params.rule);

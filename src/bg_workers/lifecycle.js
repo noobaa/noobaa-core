@@ -9,6 +9,7 @@ var P = require('../util/promise');
 var system_store = require('../server/stores/system_store');
 var api = require('../api');
 var dbg = require('../util/debug_module')(__filename);
+var moment = require('moment');
 
 
 var rpc = api.new_rpc();
@@ -69,13 +70,19 @@ function background_worker() {
                             if ((lifecycle_rule.status === 'Enabled') &&
                                 ((now - lifecycle_rule.last_sync) / 1000 / 60 > LIFECYCLE.schedule_min)) {
                                 dbg.log0('LIFECYCLE PROCESSING bucket:', bucket.name, 'rule id(', i, ')', lifecycle_rule.id);
-                                if ((lifecycle_rule.expiration.days === 0) ||
+                                if ((lifecycle_rule.expiration.days) ||
                                     (lifecycle_rule.expiration.date < (new Date()).getTime())) {
                                     dbg.log0('LIFECYCLE DELETING bucket:', bucket.name, 'rule id(', i, ')', lifecycle_rule.id);
-                                    return P.when(rpc_client.object.delete_multiple_objects_by_prefix({
+                                    let deletion_params = {
                                         bucket: bucket.name,
                                         prefix: lifecycle_rule.prefix,
-                                    }).then(function() {
+                                    };
+                                    // Delete objects with create time older than exipration days
+                                    if (lifecycle_rule.expiration.days) {
+                                        deletion_params.create_time = moment().subtract(lifecycle_rule.expiration.days, 'days').unix();
+                                        dbg.log0('LIFECYCLE DELETING bucket:', bucket.name, 'rule id(', i, ')', lifecycle_rule.id, ' Days:',lifecycle_rule.expiration.days,'==',deletion_params.create_time,'(',moment().subtract(lifecycle_rule.expiration.days, 'min'),')');
+                                    }
+                                    return P.when(rpc_client.object.delete_multiple_objects_by_prefix(deletion_params).then(function() {
                                         bucket.lifecycle_configuration_rules[i].last_sync = Date.now();
                                         dbg.log0('LIFECYCLE Done bucket:', bucket.name, ' done deletion of objects per prefix ', lifecycle_rule.prefix, ' time:', bucket.lifecycle_configuration_rules[i].last_sync);
                                     }));

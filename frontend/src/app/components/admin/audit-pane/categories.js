@@ -74,6 +74,16 @@ export default {
             s3_access_updated: {
                 message: 'Bucket S3 Access Updated',
                 entityId: ({ bucket }) => bucket && bucket.name
+            },
+
+            set_lifecycle_configuration_rules: {
+                message: 'Set Lifecycle Configuration',
+                entityId: ({ bucket }) => bucket && bucket.name
+            },
+
+            delete_lifecycle_configuration_rules: {
+                message: 'Delete Lifecycle Configuration',
+                entityId: ({ bucket }) => bucket && bucket.name
             }
         }
     },

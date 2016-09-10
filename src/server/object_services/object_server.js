@@ -30,7 +30,7 @@ const map_allocator = require('./map_allocator');
 const mongo_functions = require('../../util/mongo_functions');
 const system_server_utils = require('../utils/system_server_utils');
 const cloud_utils = require('../utils/cloud_utils');
-//const moment = require('moment');
+const moment = require('moment');
 
 /**
  *
@@ -574,19 +574,16 @@ function delete_multiple_objects(req) {
  *
  */
 function delete_multiple_objects_by_prefix(req) {
-    dbg.log0('delete_multiple_objects_by_prefix: prefix =', req.params.prefix);
+    dbg.log0('delete_multiple_objects_by_prefix (lifecycle): prefix =', req.params.prefix);
 
     load_bucket(req);
-    dbg.log0('ETET1');
     // TODO: change it to perform changes in one transaction. Won't scale.
     return list_objects(req)
         .then(items => {
-            dbg.log0('ETET2');
             dbg.log0('objects by prefix', items.objects);
             if (items.objects.length > 0) {
-                dbg.log0('ETET3');
                 return P.all(_.map(items.objects, function(single_object) {
-                    dbg.log0('single obj:', single_object.key);
+                    dbg.log0('single obj deleted:', single_object.key);
                     return P.fcall(() => {
                             var query = {
                                 system: req.system._id,

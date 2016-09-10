@@ -63,7 +63,7 @@ function s3_rest(controller) {
     app.get('/:bucket', s3_handler('get_bucket', GET_BUCKET_QUERIES));
     app.put('/:bucket', s3_handler('put_bucket', BUCKET_QUERIES));
     app.post('/:bucket', s3_handler('post_bucket', ['delete']));
-    app.delete('/:bucket', s3_handler('delete_bucket'));
+    app.delete('/:bucket', s3_handler('delete_bucket', BUCKET_QUERIES));
     app.head('/:bucket/:key(*)', s3_handler('head_object'));
     app.get('/:bucket/:key(*)', s3_handler('get_object', ['uploadId', 'acl']));
     app.put('/:bucket/:key(*)', s3_handler('put_object', ['uploadId', 'acl']));
@@ -396,7 +396,8 @@ function handle_options(req, res, next) {
 }
 
 function read_post_body(req, res, next) {
-    if (req.method === 'POST' &&
+    if ((req.method === 'POST' ||
+            req.method === 'PUT') &&
         (req.headers['content-type'] === 'application/xml' ||
             req.headers['content-type'] === 'application/octet-stream')) {
         let data = '';

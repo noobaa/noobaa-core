@@ -98,6 +98,22 @@ module.exports = {
             }
         },
 
+        delete_bucket_lifecycle: {
+            method: 'DELETE',
+            params: {
+                type: 'object',
+                required: ['name'],
+                properties: {
+                    name: {
+                        type: 'string',
+                    },
+                }
+            },
+            auth: {
+                system: 'admin'
+            }
+        },
+
         list_buckets: {
             method: 'GET',
             reply: {
@@ -321,6 +337,179 @@ module.exports = {
             auth: {
                 system: 'admin'
             }
+        },
+        set_bucket_lifecycle_configuration_rules: {
+            method: 'PUT',
+            params: {
+                type: 'object',
+                properties: {
+                    name: {
+                        type: 'string'
+                    },
+                    rules: {
+                        type: 'array',
+                        items: {
+                            type: 'object',
+                            required: ['id', 'prefix', 'status', 'expiration'],
+                            properties: {
+                                id: {
+                                    type: 'string'
+                                },
+                                prefix: {
+                                    type: 'string'
+                                },
+                                status: {
+                                    type: 'string'
+                                },
+                                expiration: {
+                                    type: 'object',
+                                    properties: {
+                                        days: {
+                                            type: 'integer'
+                                        },
+                                        date: {
+                                            format: 'idate'
+                                        },
+                                        expired_object_delete_marker: {
+                                            type: 'boolean'
+                                        }
+
+                                    }
+                                },
+                                abort_incomplete_multipart_upload: {
+                                    type: 'object',
+                                    properties: {
+                                        days_after_initiation: {
+                                            type: 'integer'
+                                        },
+                                    }
+                                },
+                                transition: {
+                                    type: 'object',
+                                    properties: {
+                                        date: {
+                                            format: 'idate'
+                                        },
+                                        storage_class: {
+                                            $ref: '#/definitions/storage_class_enum'
+                                        }
+                                    }
+                                },
+                                noncurrent_version_expiration: {
+                                    type: 'object',
+                                    properties: {
+                                        noncurrent_days: {
+                                            type: 'integer'
+                                        },
+                                    }
+                                },
+                                noncurrent_version_transition: {
+                                    type: 'object',
+                                    properties: {
+                                        noncurrent_days: {
+                                            type: 'integer'
+                                        },
+                                        storage_class: {
+                                            $ref: '#/definitions/storage_class_enum'
+                                        }
+                                    }
+                                },
+                            }
+                        },
+                    }
+                }
+            },
+            auth: {
+                system: 'admin'
+            },
+        },
+        get_bucket_lifecycle_configuration_rules: {
+            method: 'GET',
+            params: {
+                type: 'object',
+                properties: {
+                    name: {
+                        type: 'string'
+                    }
+                }
+            },
+            reply: {
+                type: 'array',
+                items: {
+                    type: 'object',
+                    required: ['id', 'prefix', 'status', 'expiration'],
+                    properties: {
+                        id: {
+                            type: 'string'
+                        },
+                        prefix: {
+                            type: 'string'
+                        },
+                        status: {
+                            type: 'string'
+                        },
+                        last_sync: {
+                            format: 'idate'
+                        },
+                        expiration: {
+                            type: 'object',
+                            properties: {
+                                days: {
+                                    type: 'integer'
+                                },
+                                date: {
+                                    format: 'idate'
+                                },
+                                expired_object_delete_marker: {
+                                    type: 'boolean'
+                                }
+
+                            }
+                        },
+                        abort_incomplete_multipart_upload: {
+                            type: 'object',
+                            properties: {
+                                days_after_initiation: {
+                                    type: 'integer'
+                                },
+                            }
+                        },
+                        transition: {
+                            type: 'object',
+                            properties: {
+                                date: {
+                                    format: 'idate'
+                                },
+                                storage_class: {
+                                    $ref: '#/definitions/storage_class_enum'
+                                }
+                            }
+                        },
+                        noncurrent_version_expiration: {
+                            type: 'object',
+                            properties: {
+                                noncurrent_days: {
+                                    type: 'integer'
+                                },
+                            }
+                        },
+                        noncurrent_version_transition: {
+                            type: 'object',
+                            properties: {
+                                noncurrent_days: {
+                                    type: 'integer'
+                                },
+                                storage_class: {
+                                    $ref: '#/definitions/storage_class_enum'
+                                }
+                            }
+                        },
+                    },
+                }
+            },
+            auth: {
+                system: 'admin'
+            }
         }
 
     },
@@ -467,5 +656,9 @@ module.exports = {
             enum: ['IDLE', 'SYNCING'],
             type: 'string',
         },
+        storage_class_enum: {
+            enum: ['STANDARD_IA', 'GLACIER'],
+            type: 'string'
+        }
     },
 };

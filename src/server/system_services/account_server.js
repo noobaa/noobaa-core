@@ -536,7 +536,7 @@ function ensure_support_account() {
                 _id: system_store.generate_id(),
                 name: 'Support',
                 email: 'support@noobaa.com',
-                password: process.env.SUPPORT_DEFAULT_PASSWORD || 'help',
+                password: system_store.get_server_secret(),
                 is_support: true
             };
             return bcrypt_password(support_account)

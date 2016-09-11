@@ -405,7 +405,7 @@ function read_post_body(req, res, next) {
             (req.method === 'PUT' && 'lifecycle' in req.query)) &&
         (req.headers['content-type'] === 'application/xml' ||
             req.headers['content-type'] === 'application/octet-stream')) {
-        dbg.log0('ETET reading body');
+
         let data = '';
         req.setEncoding('utf8');
         req.on('data', function(chunk) {

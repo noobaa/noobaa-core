@@ -39,8 +39,10 @@ export default class NodeRowViewModel extends Disposable {
         );
 
         this.capacity = ko.pureComputed(
-            () => (node() && node().storage) ? formatSize(node().storage.total) : 'N/A'
-        );
+            () => node() && node().storage && node().storage.total
+        ).extend({
+            formatSize: true
+        });
 
         this.pool = ko.pureComputed(
             () =>  node() ? { text:  node().pool, tooltip : node().pool } : ''

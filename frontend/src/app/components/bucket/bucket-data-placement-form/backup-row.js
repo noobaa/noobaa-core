@@ -42,5 +42,11 @@ export default class BackupRowViewModel {
         this.resourceName = ko.pureComputed(
             () => resource() ? resource().name : ''
         );
+
+        this.usage = ko.pureComputed(
+            () => resource() && resource().storage.used
+        ).extend({
+            formatSize: true
+        });
     }
 }

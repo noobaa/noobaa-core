@@ -51,5 +51,11 @@ export default class ResourceRowViewModel extends Disposable {
         this.name = ko.pureComputed(
             () => pool() && pool().name
         );
+
+        this.usage = ko.pureComputed(
+            () => pool() && pool().storage.used
+        ).extend({
+            formatSize: true
+        });
     }
 }

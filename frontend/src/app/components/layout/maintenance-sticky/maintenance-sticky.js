@@ -26,29 +26,23 @@ class MaintenanceModeStickyViewModel extends Disposable{
             () => systemInfo() && systemInfo().maintenance_mode.till
         );
 
-        let stop = exitMaintenanceMode;
-
         this.timeLeftText = ko.pureComputed(
             () => {
                 if (!till()) {
                     return;
                 }
 
-                let diff =  moment.duration(till() - now());
-                if(diff.asMilliseconds() <= 0) {
-                    stop();
-                    return '- Finishing Maintenance...';
-                }
-                else
-                    return `${
-                            pad(diff.days(), 2)
-                        }:${
-                            pad(diff.hours(), 2)
-                        }:${
-                            pad(diff.minutes(), 2)
-                        }:${
-                            pad(diff.seconds(), 2)
-                        }`;
+                let diff =  moment.duration(Math.max(till() - now(),0));
+                
+                return `${
+                        pad(diff.days(), 2)
+                    }:${
+                        pad(diff.hours(), 2)
+                    }:${
+                        pad(diff.minutes(), 2)
+                    }:${
+                        pad(diff.seconds(), 2)
+                    }`;
 
             }
         );

@@ -32,7 +32,19 @@ export default class NodeRowViewModel extends Disposable {
         });
 
         this.state = ko.pureComputed(
-            () => node() ? stateIconMapping[(node().online ? (node().decommissioned || node().decommissioning ? 'deactivated' : 'online') : 'offline')] : ''
+            () => {
+                if (node()) {
+                    if (!node().online) {
+                        return stateIconMapping.offline;
+
+                    } else if (node().decommissioning || node().decommissioned) {
+                        return stateIconMapping.deactivated;
+
+                    } else {
+                        return stateIconMapping.online;
+                    }
+                }
+            } 
         );
 
         this.name = ko.pureComputed(

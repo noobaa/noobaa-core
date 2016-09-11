@@ -975,10 +975,10 @@ function find_account_by_email(req) {
 function _communicate_license_server(params) {
     if (DEV_MODE) return 'ok';
     const body = {
-        code: params.code,
+        code: params.code.trim(),
     };
     if (params.email) {
-        body['Business Email'] = params.email;
+        body['Business Email'] = params.email.trim();
     }
     if (params.command === 'perform_activation') {
         body.system_info = params.system_info || {};

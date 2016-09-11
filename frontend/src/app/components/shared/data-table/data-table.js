@@ -113,12 +113,6 @@ class DataTableViewModel extends Disposable {
                 isFunction(row.dispose) && row.dispose();
             }
         }
-
-        let table = document.querySelector('table[data-bind]');
-        if (table.scrollHeight < table.clientHeight)
-            table.tHead.className='shrinked';
-        else
-            table.tHead.className='';
     }
 
     getSortCss(sortKey) {

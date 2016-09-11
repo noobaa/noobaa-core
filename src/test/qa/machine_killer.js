@@ -1,3 +1,5 @@
+'use strict';
+
 const promise_utils = require('../../util/promise_utils');
 var dotenv = require('dotenv');
 const gcops = require('../qa/gcops');

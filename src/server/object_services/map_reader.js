@@ -25,7 +25,7 @@ const system_store = require('../system_services/system_store').get_instance();
 function read_object_mappings(params) {
     var rng = map_utils.sanitize_object_range(params.obj, params.start, params.end);
     if (!rng) { // empty range
-        return P.fcall(function(){
+        return P.fcall(function() {
             return [];
         });
     }

@@ -205,6 +205,9 @@ module.exports = {
                 undeletable: {
                     $ref: 'common_api#/definitions/undeletable_enum'
                 },
+                data_activities: {
+                    $ref: 'node_api#/definitions/data_activities'
+                },
                 demo_pool: {
                     type: 'boolean'
                 },

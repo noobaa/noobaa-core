@@ -8,6 +8,9 @@ export default {
         );
 
         classList.add('expandable');
+        if (expanded()) {
+            classList.add('expanded');
+        }
 
         let sub = expanded.subscribe(
             expand => expand ?

@@ -1,10 +1,12 @@
-<div class="row content-middle" data-bind="click: () => expanded.toggle()">
+<div class="row content-middle cursor-pointer" data-bind="
+    click: () => expanded.toggle()
+">
     <h2 class="heading3 greedy">
         SSL Certificate
     </h2>
 
     <button class="btn-flat expand-btn no-outline">
-        <svg-icon class="rotate" params="name: 'chevron'"
+        <svg-icon class="icon-small rotate" params="name: 'chevron'"
             data-bind="css: { 'deg-90': !expanded() }">
         </svg-icon>
     </button>
@@ -12,7 +14,7 @@
 
 <p data-bind="visible: !expanded()">
     SSL Configured:
-    <output class="emphasized" data-bind="value: sslConfigured"></output>
+    <output data-bind="value: sslConfigured"></output>
 </p>
 
 
@@ -27,8 +29,8 @@
         onFilesReady: files => uploadCertificate(files)
     "></file-selector>
 
-    <p class="emphasized" data-bind="if: uploading">
-        <svg-icon class="icon-small" params="name: uploadIcon"></svg-icon>
+    <p data-bind="if: uploading">
+        <svg-icon class="icon-small spin" params="name: uploadIcon"></svg-icon>
         <span data-bind="text: uploadText"></span>
     </p>
 </section>

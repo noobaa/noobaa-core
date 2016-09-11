@@ -4,10 +4,23 @@ import ko from 'knockout';
 import { systemInfo } from 'model';
 import { downloadSystemDiagnosticPack, setSystemDebugLevel } from 'actions';
 import { isUndefined } from 'utils';
+import { support } from 'config';
 
 class DiagnosticsFormViewModel extends Disposable {
     constructor() {
         super();
+
+        this.contactSupport = [
+            {
+                label: 'By email',
+                value: `<a class="link" href="mailto:${support.email}">${support.email}</a>`
+            },
+            {
+                label: 'Support center',
+                value: `<a class="link" href="${support.helpDesk}" target="_blank">${support.helpDesk}</a>`
+            }
+        ];
+
 
         this.debugLevel = ko.pureComputed(
             () => systemInfo() && systemInfo().debug_level

@@ -12,9 +12,9 @@ const barWidth = 45;
 const maxBarHeight = height - 2 * gutter;
 const minBarHeight = 2;
 
-const underlineColor = style['bg-color6'];
-const labelFont = `${style['font-size-small']} ${style['font-type2']}`;
-const valueColor = style['text-color1'];
+const underlineColor = style['color7'];
+const labelFont = `${style['font-size1']} ${style['font-family1']}`;
+const valueColor = style['color'];
 
 class BarChartViewModel extends Disposable{
     constructor({ values, drawValues = false, drawLabels = false }) {

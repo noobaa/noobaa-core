@@ -3,10 +3,6 @@ import Disposable from 'disposable';
 import ko from 'knockout';
 import { isFunction, noop } from 'utils';
 
-const disabledIcon = 'bin-disabled';
-const closedIcon = 'bin-closed';
-const opendIcon = 'bin-opened';
-
 class DeleteButtonViewModel extends Disposable {
     constructor({
         subject,
@@ -18,7 +14,6 @@ class DeleteButtonViewModel extends Disposable {
         super();
 
         this.onDelete = isFunction(onDelete) ? onDelete : noop;
-        this.tooltip = tooltip;
         this.disabled = disabled;
 
         this.isActive = ko.pureComputed({
@@ -26,10 +21,14 @@ class DeleteButtonViewModel extends Disposable {
             write: val => group(val ? this : null)
         });
 
+        this.tooltip = ko.pureComputed(
+            () => this.isActive() ? undefined : { text: tooltip, align: 'right' }
+        );
+
         this.icon = ko.pureComputed(
-            () => !ko.unwrap(this.disabled) ?
-                (this.isActive() ? opendIcon : closedIcon) :
-                disabledIcon
+            () => (ko.unwrap(this.disabled) || !this.isActive()) ?
+                'bin-closed' :
+                'bin-opened'
         );
 
         this.question = ko.pureComputed(

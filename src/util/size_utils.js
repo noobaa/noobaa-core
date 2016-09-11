@@ -20,8 +20,7 @@ const GIGABYTE = 1024 * MEGABYTE;
 const TERABYTE = 1024 * GIGABYTE;
 const PETABYTE = 1024 * TERABYTE;
 
-// cant do 1<<32 because javascript bitwise is limited to 32 bits
-const MAX_UINT32 = (1 << 16) * (1 << 16);
+const MAX_UINT32 = 256 * 256 * 256 * 256; // 4 times 8-bit
 
 const SIZE_UNITS = ['', 'K', 'M', 'G', 'T', 'P', 'E', 'Z', 'Y'];
 
@@ -90,7 +89,11 @@ function to_bigint_storage(storage) {
 function reduce_storage(reducer, storage_items, mult_factor, div_factor) {
     let accumulator = _.reduce(storage_items,
         (accumulator, item) => {
-            _.each(SOTRAGE_OBJ_KEYS, key => item && item[key] && accumulator[key].push(item[key]));
+            _.each(SOTRAGE_OBJ_KEYS, key => {
+                if (item && !_.isUndefined(item[key])) {
+                    accumulator[key].push(item[key]);
+                }
+            });
             return accumulator;
         },
         make_object(SOTRAGE_OBJ_KEYS, key => []));

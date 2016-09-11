@@ -31,6 +31,9 @@ let emit;
 let prefix;
 let delimiter;
 
+/**
+ * @this mongodb doc being mapped
+ */
 // The function maps the common prefixes.
 // In case of common prefix it will emit it's key with value 1.
 // In case of an object it will emit the object key with the object itself.
@@ -56,27 +59,35 @@ function reduce_common_prefixes_occurrence_and_objects(key, values) {
     return values[0];
 }
 
+/**
+ * @this mongodb doc being mapped
+ */
 function map_size() {
-    /* jshint validthis: true */
     emit('size', this.size);
 }
 
+/**
+ * @this mongodb doc being mapped
+ */
 function map_aggregate_objects() {
-    /* jshint validthis: true */
     emit(['', 'size'], this.size);
     emit(['', 'count'], 1);
     emit([this.bucket, 'size'], this.size);
     emit([this.bucket, 'count'], 1);
 }
 
+/**
+ * @this mongodb doc being mapped
+ */
 function map_aggregate_chunks() {
-    /* jshint validthis: true */
     emit(['', 'compress_size'], this.compress_size);
     emit([this.bucket, 'compress_size'], this.compress_size);
 }
 
+/**
+ * @this mongodb doc being mapped
+ */
 function map_key_with_prefix_delimiter() {
-    /* jshint validthis: true */
     var suffix = this.key.slice(prefix.length);
     var pos = suffix.indexOf(delimiter);
     if (pos >= 0) {

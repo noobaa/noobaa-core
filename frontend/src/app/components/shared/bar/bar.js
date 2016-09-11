@@ -3,11 +3,11 @@ import Disposable from 'disposable';
 import ko from 'knockout';
 import style from 'style';
 
-const silhouetteColor = style['bg-color1'];
+const defaultEmptyColor = style['color15'];
 const minRatio = .03;
 
 class BarViewModel extends Disposable {
-    constructor({ values = [] }) {
+    constructor({ values = [], emptyColor = defaultEmptyColor }) {
         super();
 
         this.total = ko.pureComputed(
@@ -17,6 +17,7 @@ class BarViewModel extends Disposable {
             )
         );
 
+        this.emptyColor = emptyColor;
         this.values = values;
 
     }
@@ -25,7 +26,7 @@ class BarViewModel extends Disposable {
         let { total, values } = this;
 
         // Clear the bar.
-        ctx.fillStyle = ko.unwrap(silhouetteColor);
+        ctx.fillStyle = ko.unwrap(this.emptyColor);
         ctx.fillRect(0, 0, width, height);
 
         values.reduce(

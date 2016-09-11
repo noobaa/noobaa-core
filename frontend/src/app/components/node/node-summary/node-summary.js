@@ -2,39 +2,64 @@ import template from './node-summary.html';
 import Disposable from 'disposable';
 import ko from 'knockout';
 import moment from 'moment';
-import numeral from 'numeral';
 import { deepFreeze, formatSize, bitsToNumber } from 'utils';
 import style from 'style';
 
+const stateMapping = deepFreeze({
+    online: {
+        text: 'Online',
+        css: 'success',
+        icon: 'healthy'
+    },
+    deactivated: {
+        text: 'Deactivated',
+        css: 'warning',
+        icon: 'problem'
+    },
+    offline: {
+        text: 'Offline',
+        css: 'error',
+        icon: 'problem'
+    }
+});
+
+const trustMapping = deepFreeze({
+    true: {
+        text: 'Trusted',
+        css: 'success',
+        icon: 'healthy'
+    },
+    false: {
+        text: 'Untrusted',
+        css: 'error',
+        icon: 'problem'
+    }
+});
+
 const accessibilityMapping = deepFreeze({
-    0: { text: 'No Access', icon: 'node-no-access' },
-    1: { text: 'Read Only', icon: 'node-read-only-access' },
-    3: { text: 'Read & Write', icon: 'node-full-access' }
+    0: {
+        text: 'No Access',
+        css: 'error',
+        icon: 'problem'
+    },
+    2: {
+        text: 'Read Only',
+        css: 'warning',
+        icon: 'problem'
+    },
+    3: {
+        text: 'Readable & Writable',
+        css: 'success',
+        icon: 'healthy'
+    }
 });
 
-const activityLabelMapping = deepFreeze({
-    EVACUATING: 'Evacuating',
-    REBUILDING: 'Rebuilding',
-    MIGRATING: 'Migrating'
+const activityNameMapping = deepFreeze({
+    RESTORING: 'Restoring Node',
+    MIGRATING: 'Migrating Node',
+    DECOMMISSIONING: 'Deactivating Node',
+    DELETING: 'Deleting Node'
 });
-
-function mapActivity({ reason, completed_size, total_size, eta }) {
-    return {
-        row1: `${
-            activityLabelMapping[reason]
-        } node | Completed ${
-            formatSize(completed_size)
-        } of ${
-            formatSize(total_size)
-        }`,
-
-        row2: `(${
-            numeral(completed_size / total_size).format('0%')
-        } completed, ETA: ${
-            moment().to(eta)
-        })`
-    };
-}
 
 class NodeSummaryViewModel extends Disposable {
     constructor({ node }) {
@@ -49,38 +74,29 @@ class NodeSummaryViewModel extends Disposable {
             () => node().name
         );
 
-        this.stateText = ko.pureComputed(
-            () => node().online ? 'Online' : 'Offline'
+        this.state = ko.pureComputed(
+            () => {
+                if (!node().online) {
+                    return stateMapping.offline;
+
+                } else if (node().decommissioning || node().decommissioned) {
+                    return stateMapping.deactivated;
+
+                } else {
+                    return stateMapping.online;
+                }
+            }
         );
 
-        this.stateIcon = ko.pureComputed(
-            () => `node-${node().online ? 'online' : 'offline'}`
-        );
-
-        this.trustText = ko.pureComputed(
-            () => node().trusted ? 'Trusted' : 'Untrusted'
-        );
-
-        this.trustIcon = ko.pureComputed(
-            () => node().trusted ? 'trusted' : 'untrusted'
+        this.trust = ko.pureComputed(
+            () => trustMapping[node().trusted]
         );
 
         this.accessibility = ko.pureComputed(
-            () => node() && accessibilityMapping[
-                    bitsToNumber(node().readable, node().writable)
-                ]
-        );
-
-        this.accessibilityText = ko.pureComputed(
-            () => this.accessibility() && this.accessibility().text
-        );
-
-        this.accessibilityIcon = ko.pureComputed(
-            () => this.accessibility() && this.accessibility().icon
-        );
-
-        this.dataActivity = ko.pureComputed(
-            () => node().data_activity && mapActivity(node().data_activity)
+            () => {
+                let index = bitsToNumber(node().readable, node().writable);
+                return accessibilityMapping[index];
+            }
         );
 
         let storage = ko.pureComputed(
@@ -94,21 +110,21 @@ class NodeSummaryViewModel extends Disposable {
         this.pieValues = [
             {
                 label: 'Potential free',
-                color: style['gray-lv5'],
+                color: style['color5'],
                 value: ko.pureComputed(
                     () => storage().free
                 )
             },
             {
                 label: 'Used (NooBaa)',
-                color: style['magenta-mid'],
+                color: style['color13'],
                 value: ko.pureComputed(
                     () => storage().used
                 )
             },
             {
                 label: 'Used (Other)',
-                color: style['white'],
+                color: style['color14'],
                 value: ko.pureComputed(
                     () => storage().used_other
                 )
@@ -116,15 +132,84 @@ class NodeSummaryViewModel extends Disposable {
             },
             {
                 label: 'Reserved',
-                color: style['purple-dark'],
+                color: style['color7'],
                 value: ko.pureComputed(
                     () => storage().reserved
                 )
             }
         ];
 
-        this.rpcAddress = ko.pureComputed(
-            () => !!node() && node().rpc_address
+        let dataActivity = ko.pureComputed(
+            () => node().data_activity
+        );
+
+        this.hasActivity = ko.pureComputed(
+            () => Boolean(dataActivity())
+        );
+
+        this.activityTitle = ko.pureComputed(
+            () => {
+                if (!dataActivity()) {
+                    return 'No Activity';
+                }
+
+                return activityNameMapping[dataActivity().reason];
+            }
+        );
+
+        this.activityStageMessage = ko.pureComputed(
+            () => {
+                if (!dataActivity()) {
+                    return 'Node in optimal condition';
+                }
+
+                let { stage } = dataActivity();
+                switch (stage.name) {
+                    case 'OFFLINE_GRACE':
+                        return `Waiting for heartbeat, ${
+                            moment(stage.time.end).fromNow()
+                        } until restore`;
+
+                    case 'REBUILDING':
+                        return `Rebuilding ${
+                            formatSize(stage.size.completed)
+                        } of ${
+                            formatSize(stage.size.total)
+                        }`;
+
+                    case 'WIPING':
+                        return `Wiping ${
+                            formatSize(stage.size.completed)
+                        } of ${
+                            formatSize(stage.size.total)
+                        }`;
+                }
+            }
+        );
+
+        this.activityProgressBarValues = [
+            {
+                value: ko.pureComputed(
+                    () => dataActivity() ? dataActivity().progress : 0
+                ),
+                color: '#f20092'
+            },
+            {
+                value: ko.pureComputed(
+                    () => dataActivity() ? 1 - dataActivity().progress : 1
+                ),
+                color: '#2c2f32'
+            }
+        ];
+
+        this.activityETA = ko.pureComputed(
+            () => {
+                if (!dataActivity() || !dataActivity().time.end) {
+                    return 'Unknown';
+                }
+
+                return moment(dataActivity().time.end).fromNow();
+            }
         );
 
         this.isTestModalVisible = ko.observable(false);

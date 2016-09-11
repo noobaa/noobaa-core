@@ -37,6 +37,7 @@ const time_utils = require('../util/time_utils');
 const BlockStoreFs = require('./block_store_fs').BlockStoreFs;
 const BlockStoreS3 = require('./block_store_s3').BlockStoreS3;
 const BlockStoreMem = require('./block_store_mem').BlockStoreMem;
+const BlockStoreAzure = require('./block_store_azure').BlockStoreAzure;
 const promise_utils = require('../util/promise_utils');
 
 
@@ -76,7 +77,11 @@ class Agent {
             if (params.cloud_info) {
                 this.cloud_info = params.cloud_info;
                 block_store_options.cloud_info = params.cloud_info;
-                this.block_store = new BlockStoreS3(block_store_options);
+                if (params.cloud_info.azure) {
+                    this.block_store = new BlockStoreAzure(block_store_options);
+                } else {
+                    this.block_store = new BlockStoreS3(block_store_options);
+                }
             } else {
                 block_store_options.root_path = this.storage_path;
                 this.block_store = new BlockStoreFs(block_store_options);
@@ -232,18 +237,14 @@ class Agent {
 
                 // test the existing token against the server. if not valid throw error, and let the
                 // agent_cli create new node.
-                if (this.cloud_info || this.is_demo_agent) {
-                    return P.resolve(true);
-                } else {
-                    return this.client.node.test_node_id({})
-                        .then(valid_node => {
-                            if (!valid_node) {
-                                let err = new Error('INVALID_NODE');
-                                err.DO_NOT_RETRY = true;
-                                throw err;
-                            }
-                        });
-                }
+                return this.client.node.test_node_id({})
+                    .then(valid_node => {
+                        if (!valid_node) {
+                            let err = new Error('INVALID_NODE');
+                            err.DO_NOT_RETRY = true;
+                            throw err;
+                        }
+                    });
             })
             .then(() => P.fromCallback(callback => pem.createCertificate({
                 days: 365 * 100,
@@ -303,7 +304,7 @@ class Agent {
                 dbg.error('heartbeat failed', err);
                 if (err.rpc_code === 'DUPLICATE') {
                     dbg.error('This agent appears to be duplicated. exiting and starting new agent', err);
-                    process.exit(1);
+                    process.exit(68); // 68 is 'D' in ascii
                 }
                 return P.delay(3000).then(() => {
                     this.connect_attempts++;

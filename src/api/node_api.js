@@ -128,7 +128,6 @@ module.exports = {
                     order: {
                         type: 'integer',
                     }
-
                 }
             },
             reply: {
@@ -178,6 +177,9 @@ module.exports = {
                     storage: {
                         $ref: 'common_api#/definitions/storage_info'
                     },
+                    data_activities: {
+                        $ref: '#/definitions/data_activities'
+                    },
                     groups: {
                         type: 'array',
                         items: {
@@ -191,6 +193,9 @@ module.exports = {
                                 },
                                 storage: {
                                     $ref: 'common_api#/definitions/storage_info'
+                                },
+                                data_activities: {
+                                    $ref: '#/definitions/data_activities'
                                 },
                             }
                         }
@@ -468,38 +473,7 @@ module.exports = {
                     $ref: '#/definitions/connectivity_type'
                 },
                 data_activity: {
-                    type: 'object',
-                    required: ['reason'],
-                    properties: {
-                        reason: {
-                            $ref: '#/definitions/data_activity_type'
-                        },
-                        // stage: {
-                        //     type: 'string',
-                        //     enum: ['REBUILDING', 'WIPING']
-                        // },
-                        // pending: {
-                        //     type: 'boolean'
-                        // },
-                        completed_size: {
-                            type: 'number',
-                        },
-                        remaining_size: {
-                            type: 'number',
-                        },
-                        total_size: {
-                            type: 'number',
-                        },
-                        start_time: {
-                            format: 'idate'
-                        },
-                        remaining_time: {
-                            format: 'idate'
-                        },
-                        total_time: {
-                            format: 'idate'
-                        },
-                    }
+                    $ref: '#/definitions/data_activity'
                 },
                 storage: {
                     $ref: 'common_api#/definitions/storage_info'
@@ -640,14 +614,110 @@ module.exports = {
             }
         },
 
+        data_activity: {
+            type: 'object',
+            required: ['reason'],
+            properties: {
+                reason: {
+                    $ref: '#/definitions/data_activity_type'
+                },
+                progress: {
+                    type: 'number',
+                    minimum: 0,
+                    maximum: 1,
+                },
+                time: {
+                    $ref: '#/definitions/time_progress'
+                },
+                stage: {
+                    type: 'object',
+                    properties: {
+                        name: {
+                            type: 'string',
+                            enum: [
+                                'OFFLINE_GRACE',
+                                'REBUILDING',
+                                'WIPING',
+                            ]
+                        },
+                        wait_reason: {
+                            type: 'string',
+                            enum: [
+                                'NODE_OFFLINE',
+                                'SYSTEM_MAINTENANCE'
+                            ]
+                        },
+                        time: {
+                            $ref: '#/definitions/time_progress'
+                        },
+                        size: {
+                            $ref: '#/definitions/size_progress'
+                        },
+                    }
+                },
+            }
+        },
+
+        data_activities: {
+            type: 'array',
+            items: {
+                type: 'object',
+                required: ['reason', 'count'],
+                properties: {
+                    reason: {
+                        $ref: '#/definitions/data_activity_type'
+                    },
+                    count: {
+                        type: 'integer'
+                    },
+                    progress: {
+                        type: 'number',
+                        minimum: 0,
+                        maximum: 1,
+                    },
+                    time: {
+                        $ref: '#/definitions/time_progress'
+                    },
+                }
+            }
+        },
+
+
         data_activity_type: {
             type: 'string',
             enum: [
-                'RESTORING',
-                'MIGRATING',
-                'DECOMMISSIONING',
-                'DELETING',
+                'RESTORING', // offline
+                'MIGRATING', // assign_nodes
+                'DECOMMISSIONING', // decommission_node
+                'DELETING', // delete_node
             ]
+        },
+
+        time_progress: {
+            type: 'object',
+            properties: {
+                start: {
+                    format: 'idate',
+                },
+                end: {
+                    format: 'idate',
+                },
+            }
+        },
+
+        size_progress: {
+            type: 'object',
+            properties: {
+                total: {
+                    type: 'number',
+                },
+                remaining: {
+                    type: 'number',
+                },
+                completed: {
+                    type: 'number',
+                },
+            }
         },
 
         accessibility_type: {

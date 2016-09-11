@@ -6,7 +6,9 @@
 'use strict';
 
 const _ = require('lodash');
+const url = require('url');
 const mime = require('mime');
+const ip_module = require('ip');
 const glob_to_regexp = require('glob-to-regexp');
 
 const P = require('../../util/promise');
@@ -27,6 +29,8 @@ const string_utils = require('../../util/string_utils');
 const map_allocator = require('./map_allocator');
 const mongo_functions = require('../../util/mongo_functions');
 const system_server_utils = require('../utils/system_server_utils');
+const cloud_utils = require('../utils/cloud_utils');
+const moment = require('moment');
 const promise_utils = require('../../util/promise_utils');
 
 /**
@@ -46,7 +50,7 @@ function create_object_upload(req) {
         content_type: req.rpc_params.content_type ||
             mime.lookup(req.rpc_params.key) ||
             'application/octet-stream',
-        create_time: new Date(),
+        upload_started: new Date(),
         upload_size: 0,
         cloud_synced: false,
     };
@@ -152,11 +156,12 @@ function complete_object_upload(req) {
             }, {
                 $set: {
                     size: object_size || obj.size,
-                    upload_completed: new Date(),
+                    create_time: new Date(),
                     etag: obj_etag
                 },
                 $unset: {
-                    upload_size: 1
+                    upload_size: 1,
+                    upload_started: 1,
                 }
             });
         })
@@ -280,7 +285,7 @@ function copy_object(req) {
                 key: req.rpc_params.key,
                 size: source_obj.size,
                 etag: source_obj.etag,
-                create_time: new Date(),
+                upload_started: new Date(),
                 content_type: req.rpc_params.content_type ||
                     source_obj.content_type ||
                     mime.lookup(req.rpc_params.key) ||
@@ -320,10 +325,11 @@ function copy_object(req) {
                 _id: create_info._id
             }, {
                 $set: {
-                    upload_completed: new Date()
+                    create_time: new Date()
                 },
                 $unset: {
-                    upload_size: 1
+                    upload_size: 1,
+                    upload_started: 1,
                 }
             });
         })
@@ -446,42 +452,41 @@ function read_node_mappings(req) {
  */
 function read_object_md(req) {
     dbg.log0('read_obj(1):', req.rpc_params);
-    var reply_obj;
-    var object_capacity;
+    const adminfo = req.rpc_params.adminfo;
+    let info;
     return find_object_md(req)
         .then(obj => {
-            reply_obj = obj;
-            var params = _.pick(req.rpc_params, 'adminfo');
-            if (params.adminfo && req.role === 'admin') {
-                params.obj = obj;
-                return map_reader.read_object_mappings(params);
-            }
+            info = get_object_info(obj);
+            if (!adminfo || req.role !== 'admin') return;
+
+            // using the internal IP doesn't work when there is a different external ip
+            // or when the intention is to use dns name.
+            const endpoint =
+                adminfo.signed_url_endpoint ||
+                url.parse(req.system.base_address || '').hostname ||
+                ip_module.address();
+            const account_keys = req.account.access_keys[0];
+            info.s3_signed_url = cloud_utils.get_signed_url({
+                endpoint: endpoint,
+                access_key: account_keys.access_key,
+                secret_key: account_keys.secret_key,
+                bucket: req.rpc_params.bucket,
+                key: req.rpc_params.key
+            });
+
+            return map_reader.read_object_mappings({
+                    obj: obj,
+                    adminfo: true
+                })
+                .then(parts => {
+                    info.total_parts_count = parts.length;
+                    info.capacity_size = _.reduce(parts, (sum_capacity, part) => {
+                        let frag = part.chunk.frags[0];
+                        return sum_capacity + (frag.size * frag.blocks.length);
+                    }, 0);
+                });
         })
-        .then(parts => {
-            object_capacity = _.reduce(parts, (sum_capacity, part) => {
-                let frag = part.chunk.frags[0];
-                return sum_capacity + (frag.size * frag.blocks.length);
-            }, 0);
-            dbg.log0('read_obj:', reply_obj);
-            return get_object_info(reply_obj);
-        })
-        .then(info => {
-            if (req.rpc_params.adminfo && req.role === 'admin') {
-                info.capacity_size = object_capacity;
-            }
-            if (!req.rpc_params.get_parts_count) {
-                return info;
-            } else {
-                return P.resolve(md_store.ObjectPart.count({
-                        obj: reply_obj._id,
-                        deleted: null,
-                    }))
-                    .then(c => {
-                        info.total_parts_count = c;
-                        return info;
-                    });
-            }
-        });
+        .then(() => info);
 }
 
 
@@ -563,6 +568,39 @@ function delete_multiple_objects(req) {
         .return();
 }
 
+/**
+ *
+ * DELETE_MULTIPLE_OBJECTS
+ * delete multiple objects
+ *
+ */
+function delete_multiple_objects_by_prefix(req) {
+    dbg.log0('delete_multiple_objects_by_prefix (lifecycle): prefix =', req.params.prefix);
+
+    load_bucket(req);
+    // TODO: change it to perform changes in one transaction. Won't scale.
+    return list_objects(req)
+        .then(items => {
+            dbg.log0('objects by prefix', items.objects);
+            if (items.objects.length > 0) {
+                return P.all(_.map(items.objects, function(single_object) {
+                    dbg.log0('single obj deleted:', single_object.key);
+                    return P.fcall(() => {
+                            var query = {
+                                system: req.system._id,
+                                bucket: req.bucket._id,
+                                key: single_object.key
+                            };
+                            return md_store.ObjectMD.findOne(query).exec();
+                        })
+                        .then(obj => mongo_utils.check_entity_not_found(obj, 'object'))
+                        .then(obj => delete_object_internal(obj));
+                })).return();
+            }
+        })
+        .return();
+}
+
 
 // /**
 //  * return a regexp pattern to be appended to a prefix
@@ -609,7 +647,6 @@ function list_objects_s3(req) {
                         return _list_next_objects(req, delimiter, prefix, marker, limit);
                     })
                     .then(res => {
-                        console.warn('JEN WHAT HAPPEND2', res, results, _.get(res, 'length', 0), results.length, limit);
                         results = _.concat(results, res);
                         if (_.get(res, 'length', 0) === 0) {
                             // If there were no object/common prefixes to match than no next marker
@@ -622,8 +659,6 @@ function list_objects_s3(req) {
                             reply.next_marker = results[results.length - 1].key;
                             done = true;
                         } else {
-                            limit -= results.length;
-                            // marker += res[res.length - 1].key;
                             marker = prefix + res[res.length - 1].key;
                         }
                     });
@@ -674,7 +709,6 @@ function _list_next_objects(req, delimiter, prefix, marker, limit) {
             }
         };
 
-        console.warn('JEN WHAT HAPPEND', query);
         if (delimiter) {
             return md_store.ObjectMD.collection.mapReduce(
                     mongo_functions.map_common_prefixes_and_objects,
@@ -724,10 +758,20 @@ function _list_next_objects(req, delimiter, prefix, marker, limit) {
 
 function list_objects(req) {
     dbg.log0('list_objects', req.rpc_params);
+    var prefix = req.rpc_params.prefix || '';
+    let escaped_prefix = string_utils.escapeRegExp(prefix);
     load_bucket(req);
     return P.fcall(() => {
             var info = _.omit(object_md_query(req), 'key');
-            if (req.rpc_params.key_query) {
+            if (prefix) {
+                info.key = new RegExp('^' + escaped_prefix);
+                if (req.rpc_params.create_time) {
+                    let creation_date = moment.unix(req.rpc_params.create_time).toISOString();
+                    info.create_time = {
+                        $lt: new Date(creation_date)
+                    };
+                }
+            } else if (req.rpc_params.key_query) {
                 info.key = new RegExp(string_utils.escapeRegExp(req.rpc_params.key_query), 'i');
             } else if (req.rpc_params.key_regexp) {
                 info.key = new RegExp(req.rpc_params.key_regexp);
@@ -839,7 +883,7 @@ function add_s3_usage_report(req) {
 
 function remove_s3_usage_reports(req) {
     var q = ObjectStats.remove();
-    if (req.rpc_params.till_time) {
+    if (!_.isUndefined(req.rpc_params.till_time)) {
         // query backwards from given time
         req.rpc_params.till_time = new Date(req.rpc_params.till_time);
         q.where('time').lte(req.rpc_params.till_time);
@@ -897,7 +941,8 @@ function get_object_info(md) {
     info.size = info.size || 0;
     info.content_type = info.content_type || 'application/octet-stream';
     info.etag = info.etag || '';
-    info.create_time = md.create_time.getTime();
+    info.upload_started = md.upload_started && md.upload_started.getTime();
+    info.create_time = md.create_time && md.create_time.getTime();
     if (_.isNumber(md.upload_size)) {
         info.upload_size = md.upload_size;
     }
@@ -905,6 +950,9 @@ function get_object_info(md) {
         info.stats = _.pick(md.stats, 'reads');
         if (md.stats.last_read !== undefined) {
             info.stats.last_read = md.stats.last_read.getTime();
+        }
+        if (_.isUndefined(md.stats.reads)) {
+            info.stats.reads = 0;
         }
     }
     return info;
@@ -977,7 +1025,7 @@ function check_object_upload_mode(req, obj) {
         throw new RpcError('NO_SUCH_UPLOAD',
             'No such upload id: ' + req.rpc_params.upload_id);
     }
-    // TODO: Should look at the upload_size or upload_completed?
+    // TODO: Should look at the upload_size or create_time?
     if (!_.isNumber(obj.upload_size)) {
         throw new RpcError('NO_SUCH_UPLOAD',
             'Object not in upload mode: ' + obj.key +
@@ -1058,7 +1106,8 @@ exports.read_object_md = read_object_md;
 exports.update_object_md = update_object_md;
 exports.delete_object = delete_object;
 exports.delete_multiple_objects = delete_multiple_objects;
-exports.list_objects_s3 = list_objects_s3;
+exports.delete_multiple_objects_by_prefix = delete_multiple_objects_by_prefix;
 exports.list_objects = list_objects;
+exports.list_objects_s3 = list_objects_s3;
 // cloud sync related
 exports.set_all_files_for_sync = set_all_files_for_sync;

@@ -356,8 +356,9 @@ function list_accounts(req) {
         if (!_.includes(req.account.roles_by_system[req.system._id], 'admin')) {
             throw new RpcError('UNAUTHORIZED', 'Must be system admin');
         }
-        let account_ids = _.map(req.system.roles_by_account, (roles, account_id) =>
-            roles && roles.length ? account_id : null);
+        let account_ids = _.map(req.system.roles_by_account, (roles, account_id) => {
+            return roles && roles.length ? account_id : null;
+        });
 
         accounts = _.compact(
             _.map(
@@ -535,7 +536,7 @@ function ensure_support_account() {
                 _id: system_store.generate_id(),
                 name: 'Support',
                 email: 'support@noobaa.com',
-                password: process.env.SUPPORT_DEFAULT_PASSWORD || 'help',
+                password: system_store.get_server_secret(),
                 is_support: true
             };
             return bcrypt_password(support_account)

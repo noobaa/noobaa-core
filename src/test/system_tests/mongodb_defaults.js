@@ -1,4 +1,6 @@
-/* global db */
+/* eslint-env mongo */
+'use strict';
+
 /*
  * mongodb script to restore the initial state of the database
  *

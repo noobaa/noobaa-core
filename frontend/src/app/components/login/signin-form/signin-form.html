@@ -1,31 +1,41 @@
-<form class="sign-in-from column box">
-    <h1 class="heading1 column content-middle">
-        <svg-icon class="icon-big" params="name: 'logo'"></svg-icon>
-        Welcome to NooBaa
-    </h1>
+<form class="sign-in-from row">
+    <section class="row alt-bg double-pad push-next">
+        <h1 class="heading1 column align-middle content-middle">
+            <svg-icon class="logo" params="name: 'logo'"></svg-icon>
+            Welcome to NooBaa
+        </h1>
+    </section>
 
-    <h2 class="heading3 text-center push-next">
-        Please Sign In
-    </h2>
+    <section class="column alt-bg double-pad">
+        <h3 class="heading3 push-next">
+            Hello, please use your NooBaa account to sign in
+        </h3>
 
-    <div class="column push-next">
-        <input type="text" placeholder="Email Address" data-bind="textInput: email"/>
-    </div>
+        <editor params="label: 'Email Address'">
+            <input type="text" data-bind="textInput: email"/>
+        </editor>
 
-    <div class="column push-both">
-        <input type="password" placeholder="Password" autocomplete="off" data-bind="textInput: password"/>
-    </div>
+        <editor params="label: 'Password'">
+            <input type="password" autocomplete="off" data-bind="textInput: password"/>
+        </editor>
 
-    <span class="error" data-bind="css: { visible: showInvalidMessage() }">
-        Invalid email address or password
-    </span>
+            <p class="error push-next" data-bind="css: { visible: showInvalidMessage() }">
+                Invalid email address or password
+            </p>
 
-    <button class="btn main-action push-prev" data-bind="
-        click: signIn,
-        css: { shake: shake },
-        animation: { end: () => shake(false) }
-    ">
-        Sign In
-    </button>
+        <div class="row content-middle">
+            <p class="remark greedy push-next">
+                Forgot your password? <br> Ask your system owner for a password reset
+            </p>
+            <button class="btn" data-bind="
+                click: signIn,
+                css: { shake: shake },
+                animation: { end: () => shake(false) }
+            ">
+                Sign In
+            </button>
+        </div>
+
+    </section>
 
 </form>

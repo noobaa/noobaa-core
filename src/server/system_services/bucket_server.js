@@ -17,7 +17,6 @@ const md_store = require('../object_services/md_store');
 const js_utils = require('../../util/js_utils');
 const RpcError = require('../../rpc/rpc_error');
 const size_utils = require('../../util/size_utils');
-const BigInteger = size_utils.BigInteger;
 const server_rpc = require('../server_rpc');
 const tier_server = require('./tier_server');
 const mongo_utils = require('../../util/mongo_utils');
@@ -339,7 +338,43 @@ function delete_bucket(req) {
         .return();
 }
 
+/**
+ *
+ * DELETE_BUCKET_LIFECYCLE
+ *
+ */
+function delete_bucket_lifecycle(req) {
+    var bucket = find_bucket(req);
+    return system_store.make_changes({
+            update: {
+                buckets: [{
+                    _id: bucket._id,
+                    $unset: {
+                        lifecycle_configuration_rules: 1
+                    }
+                }]
+            }
+        })
+        .then(() => {
+            let desc_string = [];
+            desc_string.push(`lifecycle configuration rules were removed for bucket ${bucket.name} by ${req.account && req.account.email}`);
 
+            Dispatcher.instance().activity({
+                event: 'bucket.delete_lifecycle_configuration_rules',
+                level: 'info',
+                system: req.system._id,
+                actor: req.account && req.account._id,
+                bucket: bucket._id,
+                desc: desc_string.join('\n'),
+            });
+            return;
+        })
+        .catch(function(err) {
+            dbg.error('Error deleting lifecycle configuration rules', err, err.stack);
+            throw err;
+        })
+        .return();
+}
 
 /**
  *
@@ -684,6 +719,57 @@ function toggle_cloud_sync(req) {
 
 /**
  *
+ * SET_BUCKET_LIFECYCLE_CONFIGURATION_RULES
+ *
+ */
+function set_bucket_lifecycle_configuration_rules(req) {
+    dbg.log0('set bucket lifecycle configuration rules', req.rpc_params);
+
+    var bucket = find_bucket(req);
+
+    var lifecycle_configuration_rules = req.rpc_params.rules;
+
+    return system_store.make_changes({
+            update: {
+                buckets: [{
+                    _id: bucket._id,
+                    lifecycle_configuration_rules: lifecycle_configuration_rules
+                }]
+            }
+        })
+        .then(() => {
+            let desc_string = [];
+            desc_string.push(`${bucket.name} was updated with lifecycle configuration rules by ${req.account && req.account.email}`);
+
+            Dispatcher.instance().activity({
+                event: 'bucket.set_lifecycle_configuration_rules',
+                level: 'info',
+                system: req.system._id,
+                actor: req.account && req.account._id,
+                bucket: bucket._id,
+                desc: desc_string.join('\n'),
+            });
+            return;
+        })
+        .catch(function(err) {
+            dbg.error('Error setting lifecycle configuration rules', err, err.stack);
+            throw err;
+        })
+        .return();
+}
+
+/**
+ *
+ * GET_BUCKET_LIFECYCLE_CONFIGURATION_RULES
+ *
+ */
+function get_bucket_lifecycle_configuration_rules(req) {
+    dbg.log0('get bucket lifecycle configuration rules', req.rpc_params);
+    var bucket = find_bucket(req);
+    return bucket.lifecycle_configuration_rules || [];
+}
+/**
+ *
  * GET_CLOUD_BUCKETS
  *
  */
@@ -751,9 +837,14 @@ function get_bucket_info(bucket, nodes_aggregate_pool, num_of_objects, cloud_syn
 
     info.num_objects = num_of_objects || 0;
     let placement_mul = (tier_of_bucket.data_placement === 'MIRROR') ? Math.max(tier_of_bucket.pools.length, 1) : 1;
-    let bucket_used = new BigInteger((bucket.storage_stats && bucket.storage_stats.chunks_capacity) || 0).multiply(tier_of_bucket.replicas).multiply(placement_mul);
-    let bucket_free = new BigInteger((info.tiering && info.tiering.storage && info.tiering.storage.free) || 0);
-    let bucket_used_other = new BigInteger((info.tiering && info.tiering.storage && info.tiering.storage.used_other) || 0);
+    let bucket_chunks_capacity = size_utils.json_to_bigint(_.get(bucket, 'storage_stats.chunks_capacity', 0));
+    let bucket_used = bucket_chunks_capacity
+        .multiply(tier_of_bucket.replicas)
+        .multiply(placement_mul);
+    let bucket_free = size_utils.json_to_bigint(_.get(info, 'tiering.storage.free', 0));
+    let bucket_used_other = size_utils.BigInteger.max(
+        size_utils.json_to_bigint(_.get(info, 'tiering.storage.used', 0)).minus(bucket_used),
+        0);
 
     info.storage = size_utils.to_bigint_storage({
         used: bucket_used,
@@ -764,8 +855,8 @@ function get_bucket_info(bucket, nodes_aggregate_pool, num_of_objects, cloud_syn
 
     info.data = size_utils.to_bigint_storage({
         size: objects_aggregate.size,
-        size_reduced: (bucket.storage_stats && bucket.storage_stats.chunks_capacity) || 0,
-        actual_free: (info.tiering && info.tiering.storage && info.tiering.storage.real) || 0
+        size_reduced: bucket_chunks_capacity,
+        actual_free: _.get(info, 'tiering.storage.real', 0)
     });
 
     let stats = bucket.stats;
@@ -851,6 +942,9 @@ exports.create_bucket = create_bucket;
 exports.read_bucket = read_bucket;
 exports.update_bucket = update_bucket;
 exports.delete_bucket = delete_bucket;
+exports.delete_bucket_lifecycle = delete_bucket_lifecycle;
+exports.set_bucket_lifecycle_configuration_rules = set_bucket_lifecycle_configuration_rules;
+exports.get_bucket_lifecycle_configuration_rules = get_bucket_lifecycle_configuration_rules;
 exports.list_buckets = list_buckets;
 //exports.generate_bucket_access = generate_bucket_access;
 exports.list_bucket_s3_acl = list_bucket_s3_acl;

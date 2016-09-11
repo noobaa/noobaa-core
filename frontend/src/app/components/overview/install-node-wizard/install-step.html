@@ -1,4 +1,4 @@
-<h2 class="heading3">
+    <h2 class="heading3">
     Start your installation process
 </h2>
 
@@ -22,10 +22,10 @@
 <!-- ko if: commandSelector() === 'LOCAL_WINDOWS' -->
 <ol class="instructions">
     <li>
-        <a class="link" data-bind="attr: { href: packageUrl }">
+        <a class="link" download data-bind="attr: { href: packageUrl }">
             Click here to download
         </a>
-        the agent installation package
+        the daemon installation package
     </li>
     <li>Copy the installation package to target machine</li>
     <li>Open an elevated Powershell (run as administrator) on target machine</li>
@@ -36,10 +36,10 @@
 <!-- ko if: commandSelector() === 'LOCAL_LINUX' -->
 <ol class="instructions">
     <li>
-        <a class="link" data-bind="attr: { href: packageUrl }">
+        <a class="link" download data-bind="attr: { href: packageUrl }">
             Click here to download
         </a>
-        the agent installation package
+        the daemon installation package
     </li>
     <li>Copy the installation package to target machine</li>
     <li>Open a root shell (or shell with sudo) on target machine</li>
@@ -47,7 +47,7 @@
 </ol>
 <!-- /ko -->
 
-<div class="box config-box row">
+<div class="pad alt-bg config-box row push-prev">
     <output class="text-tech greedy" data-bind="text: selectedInstallCommand">
     </output>
 

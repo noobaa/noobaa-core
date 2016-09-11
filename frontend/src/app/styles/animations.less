@@ -34,11 +34,15 @@
 
 @keyframes pop-centered {
     from {
-        transform: translate(-50%, -50%) scale(.95) ;
+        left: 50%;
+        top: 50%;
+        transform: translate(-50%, -50%) scale(.85) ;
         opacity: 0;
     }
 
     to {
+        left: 50%;
+        top: 50%;
         transform:  translate(-50%, -50%) scale(1);
         opacity: 1;
     }
@@ -98,7 +102,9 @@
 }
 
 .pop-centered {
-    animation: pop-centered 300ms;
+    position: absolute;
+    animation: pop-centered 350ms ease-out;
+    animation-fill-mode: forwards;
 }
 
 .spin {

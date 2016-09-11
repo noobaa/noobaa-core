@@ -3,7 +3,6 @@
 const _ = require('lodash');
 const util = require('util');
 const mongodb = require('mongodb');
-const mongodb_uri = require('mongodb-uri');
 const EventEmitter = require('events').EventEmitter;
 const P = require('./promise');
 const dbg = require('./debug_module')(__filename);
@@ -74,22 +73,7 @@ class MongoClient extends EventEmitter {
         dbg.log0('connect called, current url', this.url);
         this._disconnected_state = false;
         if (this.promise) return this.promise;
-        const url_obj = mongodb_uri.parse(this.url);
-        if (url_obj.username) {
-            url_obj.username = config.MONGO_DEFAULTS.DEFAULT_USER;
-            url_obj.password = config.MONGO_DEFAULTS.DEFAULT_MONGO_PWD;
-        }
-        let url = mongodb_uri.format(url_obj);
-        if (url_obj.username) {
-            url_obj.username = config.MONGO_DEFAULTS.DEFAULT_ADMIN_USER;
-            url_obj.password = config.MONGO_DEFAULTS.DEFAULT_MONGO_PWD;
-        }
-        url_obj.database = 'admin';
-        let admin_url = mongodb_uri.format(url_obj);
-        this.promise = this._connect('db', url, this.config)
-            .then(db => {
-                return this._connect('admin_db', admin_url, this.config).then(() => db);
-            });
+        this.promise = this._connect('db', this.url, this.config);
         return this.promise;
     }
 

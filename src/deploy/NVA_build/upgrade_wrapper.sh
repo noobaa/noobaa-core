@@ -203,6 +203,25 @@ function pre_upgrade {
 		echo Passw0rd | passwd noobaa --stdin
 	fi
 
+	if getent passwd noobaaroot > /dev/null 2>&1; then
+		echo "noobaaroot user exists"
+	else
+    #add noobaaroot user
+    t=$(eval 'grep -q noobaaroot /etc/sudoers; echo $? ')
+    if [ $t -ne 0 ]; then
+      deploy_log "adding noobaaroot to sudoers"
+      echo "noobaaroot ALL=(ALL)	NOPASSWD:ALL" >> /etc/sudoers
+      tt=$(eval 'grep –q noobaaroot /etc/sudoers; echo $? ')
+      if [ $tt -ne 0 ]; then
+        deploy_log "failed to add noobaaroot to sudoers"
+      fi
+    fi
+
+    # add noobaaroot with temp password - will be changed in fix_etc_issue
+	useradd noobaaroot
+	echo Passw0rd | passwd noobaaroot --stdin
+	fi
+
   fix_iptables
 
   fix_bashrc
@@ -281,6 +300,11 @@ function post_upgrade {
   # same as setup_repos in upgrade.sh. do we really need to perform it again?
   rm -f ${CORE_DIR}/.env
   cp -f ${CORE_DIR}/src/deploy/NVA_build/env.orig ${CORE_DIR}/.env
+  #fix JWT_SECRET from previous .env
+  if ! grep -q JWT_SECRET /backup/.env; then
+      local jwt=$(grep JWT_SECRET /backup/.env)
+      echo "${jwt}" > ${CORE_DIR}/.env
+  fi
 
   local AGENT_VERSION_VAR=$(grep AGENT_VERSION /backup/.env)
   if [ "${curmd}" != "${prevmd}" ]; then
@@ -302,9 +326,6 @@ function post_upgrade {
   if [ ${FOUND} -eq 0 ]; then
     cp -f ${CORE_DIR}/src/deploy/NVA_build/noobaa_supervisor.conf /etc/noobaa_supervisor.conf
   fi
-
-  #Fix login message
-  fix_etc_issue
 
   #fix and upgrade security
   fix_security_issues

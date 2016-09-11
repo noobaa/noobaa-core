@@ -3,11 +3,12 @@ import Disposable from 'disposable';
 import ko from 'knockout';
 import moment from 'moment';
 import { formatSize, avgOp } from 'utils';
+import { decommissionNode, recommissionNode } from 'actions';
 
 const conactivityTypeMapping = Object.freeze({
     UNKNOWN: 'Unknown',
     TCP: 'TCP',
-    UDP: 'UDP'
+    UDP: 'UDP <span class="warning">(Not optimized for performance)</span>'
 });
 
 class NodeInfoViewModel extends Disposable {
@@ -18,61 +19,95 @@ class NodeInfoViewModel extends Disposable {
             () => !!node()
         );
 
-        this.version = ko.pureComputed(
+        this.name = ko.pureComputed(
+            () => node().name
+        );
+
+        this.isDecommissioned = ko.pureComputed(
+            () => node().decommissioning || node().decommissioned
+        );
+
+        this.isDemoNode = ko.pureComputed(
+            () => node().demo_node
+        );
+
+        this.toggleButtonLabel = ko.pureComputed(
+            () => this.isDecommissioned() ? 'Activate Node' : 'Deactivate Node'
+        );
+
+        this.toggleButtonTooltip = ko.pureComputed(
+            () => this.isDemoNode() ?
+                'Deactivating a node is not supported for demo nodes' :
+                ''
+        );
+
+        let version = ko.pureComputed(
             () => node().version
         );
 
-        this.lastHeartbeat = ko.pureComputed(
+        let lastHeartbeat = ko.pureComputed(
             () => moment(node().heartbeat).fromNow()
         );
 
-        this.ip = ko.pureComputed(
+        let ip = ko.pureComputed(
             () => node().ip
         );
 
-        this.p2pConactivityType = ko.pureComputed(
+        let p2pConectivityType = ko.pureComputed(
             () => conactivityTypeMapping[node().connectivity]
         );
 
-        this.RTT = ko.pureComputed(
+        let RTT = ko.pureComputed(
             () => node() && `${
                 node().latency_to_server.reduce(avgOp, 0).toFixed(1)
             } ms`
         );
 
-        this.isUDPWarningVisible = ko.pureComputed(
-            () => node().connectivity === 'UDP'
-        );
+        this.agentInfo = [
+            { label: 'Installed Version', value: version},
+            { label: 'Heartbeat', value: lastHeartbeat},
+            { label: 'Communication IP', value: ip},
+            { label: 'Peer to Peer Connectivity', value: p2pConectivityType }
+        ];
 
-        this.hostname = ko.pureComputed(
+        let hostname = ko.pureComputed(
             () => node().os_info.hostname
         );
 
-        this.upTime = ko.pureComputed(
+        let upTime = ko.pureComputed(
             () => moment(node().os_info.uptime).fromNow(true)
         );
 
-        this.osType = ko.pureComputed(
+        let osType = ko.pureComputed(
             () => node().os_info.ostype
         );
 
-        this.cpus = ko.pureComputed(
+        let cpus = ko.pureComputed(
             () => this._mapCpus(node())
         );
 
-        this.memory = ko.pureComputed(
+        let memory = ko.pureComputed(
             () => formatSize(node().os_info.totalmem)
         );
 
-        this.mountName = ko.pureComputed(
+        this.systemInfo = [
+            { label: 'Host Name', value: hostname},
+            { label: 'Up Time', value: upTime},
+            { label: 'OS Type', value: osType },
+            { label: 'CPUs', value: cpus },
+            { label: 'Memory', value: memory },
+            { label: 'Round Trip Time', value: RTT }
+        ];
+
+        let mountName = ko.pureComputed(
             () => node().drives[0].mount
         );
 
-        this.blockDevice = ko.pureComputed(
+        let blockDevice = ko.pureComputed(
             () => node().drives[0].drive_id
         );
 
-        this.diskRead = ko.pureComputed(
+        let diskRead = ko.pureComputed(
             () => {
                 let avg = node() && node().latency_of_disk_read
                     .reduce(avgOp, 0)
@@ -82,7 +117,7 @@ class NodeInfoViewModel extends Disposable {
             }
         );
 
-        this.diskWrite = ko.pureComputed(
+        let diskWrite = ko.pureComputed(
             () => {
                 let avg = node() && node().latency_of_disk_write
                     .reduce(avgOp, 0)
@@ -91,6 +126,19 @@ class NodeInfoViewModel extends Disposable {
                 return avg === 0 ? 'N/A' : `${avg} ms`;
             }
         );
+
+        this.driveInfo = [
+            { label: 'Mount', value: mountName },
+            { label: 'Block Device', value: blockDevice },
+            { label: 'Read Latency', value: diskRead },
+            { label: 'Write Latency', value: diskWrite }
+        ];
+    }
+
+    toggleNode() {
+        this.isDecommissioned() ?
+            recommissionNode(this.name()) :
+            decommissionNode(this.name());
     }
 
     _mapCpus({ os_info }) {

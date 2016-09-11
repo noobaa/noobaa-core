@@ -462,6 +462,7 @@ function get_object(ip, path) {
  * scale_agent_instances
  *
  */
+// eslint-disable-next-line max-params
 function scale_agent_instances(count, allow_terminate, is_docker_host, number_of_dockers, is_win, filter_region, agent_conf) {
     return describe_instances({
         Filters: [{
@@ -587,7 +588,7 @@ function add_agent_region_instances(region_name, count, is_docker_host, number_o
                 .then(function(res) { //Tag Instances
                     return P.all(_.map(res.Instances, function(instance) {
                         return P.fcall(function() {
-                            return add_instance_name(instance.InstanceId, 'AgentInstance_For_' + app_name, region_name);
+                            return add_instance_name(instance.InstanceId, 'Agent_For_' + app_name, region_name);
                         });
                     }));
                 })
@@ -691,6 +692,7 @@ function ec2_wait_for(region_name, state_name, params) {
  * @param instances - array of existing instances
  *
  */
+// eslint-disable-next-line max-params
 function scale_region(region_name, count, instances, allow_terminate, is_docker_host, number_of_dockers, is_win, agent_conf) {
     // always make sure the region has the security group and key pair
     return P.fcall(function() {

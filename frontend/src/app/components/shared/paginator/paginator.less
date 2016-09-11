@@ -1,20 +1,32 @@
 paginator {
-    .row();
-    .content-middle;
+    .alt-bg();
+    display: block;
+    padding: @gutter/2 @gutter;
+    text-align: right;
 
-    > .page-indicator {
-        margin-right: @gutter/2;
+    .paginator-wrapper {
+        display: inline-block;
+        line-height: 1;
+        font-size: @font-size1;
+        color: @color7;
+        vertical-align: middle;
+        margin: 0 auto;
+        margin-right: -4px;
     }
 
-    > .btn3 {
-        padding: @gutter/4;
-        margin: 2px;
-        min-width: unset;
-        width: auto;
-        fill: @white;
+    .btn-flat {
+        padding: 0 4px;
+        disabled: inline;
 
-        &[disabled] {
-            fill: @gray-lv2;
+        svg-icon {
+            fill: @color7;
+            width: @font-size1;
+            height: @font-size1;
+        }
+
+        &[disabled] > svg-icon {
+            cursor: default;
+            fill: @color15;
         }
     }
 }

@@ -1,14 +1,13 @@
 import { formatSize } from 'utils';
 import Disposable from 'disposable';
 import ko from 'knockout';
+import moment from 'moment';
+
+const timeFormat = 'DD MMM YYYY hh:mm:ss';
 
 export default class ObjectRowViewModel extends Disposable {
     constructor(obj) {
         super();
-
-        // BE dosent send any information about object availablity,
-        // assuming the object is avaliable.
-        this.state = 'object-available';
 
         this.name = ko.pureComputed(
             () => {
@@ -16,17 +15,23 @@ export default class ObjectRowViewModel extends Disposable {
                     return '';
                 }
 
-                return {
-                    text: obj().key,
-                    href: {
-                        route: 'object',
-                        params: {
-                            object: obj().key,
-                            tab: null
-                        }
+                let href = {
+                    route: 'object',
+                    params: {
+                        object: obj().key,
+                        tab: null
                     }
                 };
+
+                return {
+                    text: obj().key,
+                    href: href
+                };
             }
+        );
+
+        this.creationTime = ko.pureComputed(
+            () => obj() ? moment(obj().create_time).format(timeFormat) : ''
         );
 
         this.size = ko.pureComputed(

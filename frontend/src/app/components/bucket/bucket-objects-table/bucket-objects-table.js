@@ -9,13 +9,12 @@ import { routeContext, systemInfo } from 'model';
 
 const columns = deepFreeze([
     {
-        name: 'state',
-        cellTemplate: 'icon'
-    },
-    {
         name: 'name',
         cellTemplate: 'link',
         sortable: true
+    },
+    {
+        name: 'creationTime'
     },
     {
         name: 'size',
@@ -39,7 +38,10 @@ function hasEnoughBackingNodeForUpload(bucket) {
 
     if (tier.data_placement === 'SPREAD') {
         let nodeCount = pools.reduce(
-            (count, pool) => count + pool.nodes.online,
+            (total, pool) => {
+                let { count, has_issues } = pool.nodes;
+                return total + (count - has_issues);
+            },
             0
         );
 
@@ -75,7 +77,7 @@ class BucketObjectsTableViewModel extends Disposable {
 
         this.uploadTooltip = ko.pureComputed(
             () => this.uploadDisabled() &&
-                'Cannot upload, not enough online nodes in bucket storage'
+                'Cannot upload, not enough healthy nodes in bucket storage'
         );
 
         this.objectCount = ko.pureComputed(

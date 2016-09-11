@@ -72,7 +72,7 @@ module.exports = {
             method: 'POST',
             params: {
                 type: 'object',
-                required: ['access_key','string_to_sign','signature'],
+                required: ['access_key', 'string_to_sign', 'signature'],
                 properties: {
                     access_key: {
                         type: 'string',

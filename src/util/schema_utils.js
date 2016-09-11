@@ -53,7 +53,7 @@ function strictify(schema, options, base) {
     } else if (schema.type === 'integer') {
         check_schema_extra_keywords(schema, base, ['type', 'format']);
     } else if (schema.type === 'number') {
-        check_schema_extra_keywords(schema, base, ['type', 'format']);
+        check_schema_extra_keywords(schema, base, ['type', 'format', 'minimum', 'maximum']);
     } else if (schema.buffer) {
         check_schema_extra_keywords(schema, base, 'buffer');
     } else if (schema.format === 'idate') {

@@ -16,10 +16,10 @@ export default function register(ko) {
     ko.components.register('notification-box',  require('./layout/notification-box/notification-box'));
     ko.components.register('welcome-modal',     require('./layout/welcome-modal/welcome-modal'));
     ko.components.register('upgraded-capacity-notification-modal', require('./layout/upgraded-capacity-notification-modal/upgraded-capacity-notification-modal'));
-    // ko.components.register('debug-mode-sticky',     require('./layout/debug-mode-sticky/debug-mode-sticky'));
-    // ko.components.register('maintenance-sticky',    require('./layout/maintenance-sticky/maintenance-sticky'));
-    // ko.components.register('license-sticky',        require('./layout/license-sticky/license-sticky'));
-    // ko.components.register('phone-home-connectivity-sticky', require('./layout/phone-home-connectivity-sticky/phone-home-connectivity-sticky'));
+    ko.components.register('debug-mode-sticky',     require('./layout/debug-mode-sticky/debug-mode-sticky'));
+    ko.components.register('maintenance-sticky',    require('./layout/maintenance-sticky/maintenance-sticky'));
+    ko.components.register('license-sticky',        require('./layout/license-sticky/license-sticky'));
+    ko.components.register('phone-home-connectivity-sticky', require('./layout/phone-home-connectivity-sticky/phone-home-connectivity-sticky'));
     /** INJECT:layout **/
 
     // -------------------------------
@@ -35,8 +35,6 @@ export default function register(ko) {
     // Overview
     // -------------------------------
     ko.components.register('overview-panel',        require('./overview/overview-panel/overview-panel'));
-    ko.components.register('pools-overview',        require('./overview/pools-overview/pools-overview'));
-    ko.components.register('buckets-overview',      require('./overview/buckets-overview/buckets-overview'));
     ko.components.register('install-node-wizard',   require('./overview/install-node-wizard/install-node-wizard'));
     ko.components.register('connect-app-wizard',    require('./overview/connect-app-wizard/connect-app-wizard'));
     ko.components.register('after-upgrade-modal',   require('./overview/after-upgrade-modal/after-upgrade-modal'));
@@ -85,6 +83,7 @@ export default function register(ko) {
     ko.components.register('create-pool-wizard',        require('./resources/create-pool-wizard/create-pool-wizard'));
     ko.components.register('cloud-resources-table',     require('./resources/cloud-resources-table/cloud-resources-table'));
     ko.components.register('add-cloud-resource-modal',  require('./resources/add-cloud-resource-modal/add-cloud-resource-modal'));
+    ko.components.register('cloud-resource-deleted-alert-modal', require('./resources/cloud-resource-deleted-alert-modal/cloud-resource-deleted-alert-modal'));
     /** INJECT:resources **/
 
     // -------------------------------
@@ -155,8 +154,6 @@ export default function register(ko) {
     ko.components.register('radio-btn',                 require('./shared/radio-btn/radio-btn'));
     ko.components.register('radio-group',               require('./shared/radio-group/radio-group'));
     ko.components.register('checkbox',                  require('./shared/checkbox/checkbox'));
-    ko.components.register('quantity-gauge',            require('./shared/quantity-gauge/quantity-gauge'));
-    ko.components.register('needle-gauge',              require('./shared/needle-gauge/needle-gauge'));
     ko.components.register('bar',                       require('./shared/bar/bar'));
     ko.components.register('progress-bar',              require('./shared/progress-bar/progress-bar'));
     ko.components.register('range-indicator',           require('./shared/range-indicator/range-indicator'));

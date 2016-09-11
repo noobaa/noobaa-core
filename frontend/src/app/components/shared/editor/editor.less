@@ -4,18 +4,26 @@ editor {
 
     .val-msg {
         position: relative;
-        margin-top: -20px;
-        top : 20px;
+        margin-top: -1em;
+        top: 1.4em;
+        line-height: 1;
     }
 
     > .editor-label {
+        font-size: @font-size3;
+        font-weight: @font-light;
+        line-height: 42px;
+        color: @color7;
         width: 152px;
-        padding: @gutter/2 0;
+
+        &.disabled {
+            color: @color7;
+            opacity: .3;
+        }
     }
 
     > .editor-content {
         position: relative;
-        width: 362px;
         justify-content: center;
     }
 }

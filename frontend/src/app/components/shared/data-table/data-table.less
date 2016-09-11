@@ -4,69 +4,101 @@ data-table {
     text-align: center;
     overflow-y: hidden;
     width: 100%;
+    background-color: @color3;
 
     table {
         display: block;
         border-collapse: collapse;
         overflow-y: auto;
-    }
-
-    .text(
-        @font-type2,
-        @font-weight-light,
-        @font-size-normal,
-        @text-color4
-    );
-
-    table {
-        margin-top: 34px;
+        margin-top: 40px;
     }
 
     thead {
         position: absolute;
         width: 100%;
+        line-height: 40px;
         top: 0;
+        text-transform: capitalize;
+        color: @color6;
+        font-size: @font-size1;
+        background-color: @color4;
+    }
 
-        > tr {
-            border-bottom: 1px solid @bg-color4;
+    th, td {
+        padding: 0 @gutter/2;
+        box-sizing: content-box;
+
+        &:first-child {
+            padding-left: @gutter;
+        }
+
+        &:last-child {
+            padding-right: @gutter;
         }
     }
 
+    th {
+        font-weight: @font-light;
+    }
+
     tbody > tr {
-        border-bottom: 1px solid @bg-color3;
+        line-height: 44px;
+        height: 44px;
+        border-bottom: 1px solid @color15;
+        font-size: @font-size2;
 
         &:last-child {
             border: none;
         };
     }
 
-    th {
-        text-transform: uppercase;
-        font-weight:  @font-weight-light;
+    .sortable {
+        position: relative;
+        padding-right: @gutter/2 + 6px;
+        cursor: @cursor-pointer;
 
-        a {
+        &::before, &::after {
+            content: '';
+            position: absolute;
             display: inline-block;
+            vertical-align: middle;
+            right: 0;
+            border: solid transparent;
+            border-width: 4px 3px;
+        }
+
+        &:before {
+            top: -2px;
+            border-bottom-color: @color7;
+        }
+
+
+        &::after {
+            bottom: -2px;
+            border-top-color: @color7;
+        }
+
+        &.des::before {
+            border-bottom-color: @color6;
+        }
+
+        &.asc::after {
+            border-top-color: @color6;
         }
     }
 
-    th, td {
-        padding: @gutter/2;
-    }
-
-    .sortable {
-        cursor: @cursor-pointer;
-    }
-
     .empty-message {
+        margin: @gutter;
         position: relative;
         text-align: left;
-        font-size: @font-size-large;
-        color: @text-color5;
+        font-size: @font-size5;
+        color: @color7;
     }
 
-    .text-cell {
+    .text-cell, .link-cell {
         width: 100%;
         text-overflow: ellipsis;
         overflow-x: hidden;
+        line-height: 1.5;
     }
 }

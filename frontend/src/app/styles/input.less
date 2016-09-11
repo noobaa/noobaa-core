@@ -1,0 +1,208 @@
+/* Remove firefox default styling */
+:-moz-ui-invalid,
+:-moz-ui-invalid:-moz-focusring {
+    box-shadow: none;
+}
+
+.placeholder(@color) {
+    &::-webkit-input-placeholder {
+       color: @color;
+       text-transform: capitalize;
+    }
+
+    &:-moz-placeholder { /* Firefox 18- */
+       color: @color;
+       text-transform: capitalize;
+    }
+
+    ::-moz-placeholder {  /* Firefox 19+ */
+       color: @color;
+       text-transform: capitalize;
+    }
+
+    :-ms-input-placeholder {
+       color: @color;
+       text-transform: capitalize;
+    }
+
+    &::placholder {
+        color: @color;
+        text-transform: capitalize;
+    }
+
+    &.placeholder {
+        color: @color;
+        text-transform: capitalize;
+    }
+}
+
+.input() {
+    @width: 274px;
+    .placeholder(@color7);
+
+    width: @width;
+    line-height: 40px;
+    border: 1px solid @color7;
+    background: none;
+    font-family: @font-family1;
+    font-size: @font-size3;
+    font-weight: @font-light;
+    padding: 0 @gutter;
+    color: @color6;
+
+    &:disabled, &.disabled {
+        color: @color7;
+        opacity: .3;
+    }
+
+    &:focus {
+        outline: none;
+        border-color: @color14;
+    }
+
+    &.invalid {
+        border-color: @color10;
+    }
+}
+
+input:not([type=checkbox]):not([type=radio]) {
+    .input();
+
+    &[type="number"] {
+        text-align: center;
+        width: 110px;
+    }
+
+    &[type="search"] {
+        padding-left: @gutter/2 + 24px;
+        background: url('@{assets}/search.png') @gutter/2 no-repeat;
+    }
+}
+
+.focused(@offset: -1px) {
+    outline: @outline;
+    outline-offset: @offset;
+}
+
+.icon-btn {
+    display: inline-block;
+    border: none;
+    background: none;
+    padding: 0;
+    cursor: @cursor-pointer;
+    font-family: @font-family1;
+
+    /*
+    Transition removed because of webkit bug, see the following stackoverflow:
+    http://stackoverflow.com/questions/12502234/how-to-prevent-webkit-text-rendering-change-during-css-transition
+
+    transition: all 250ms ease-out;
+    */
+
+    > svg-icon {
+        fill: @color6;
+    }
+
+    &:hover:not(:disabled) {
+        transform: scale(1.3, 1.3);
+
+        > svg-icon {
+            fill: @color8;
+        }
+    }
+
+    &:disabled {
+        cursor: not-allowed;
+
+        > svg-icon {
+            fill: @color7;
+        }
+    }
+}
+
+.btn-flat {
+    display: inline-block;
+    border: none;
+    background: none;
+    cursor: @cursor-pointer;
+
+    &:disabled {
+        cursor: not-allowed;
+    }
+}
+
+.btn {
+    font-family: @font-family1;
+    display: inline-block;
+    min-width: 90px;
+    padding: 0 @gutter;
+    line-height: 40px;
+    font-size: @font-size3;
+    font-weight: @font-light;
+    color: @color8;
+    text-align: center;
+    text-transform: capitalize;
+    border: 1px solid @color8;
+    cursor: @cursor-pointer;
+    background-color: fadeout(@color8, 85%);
+    transition: all 350ms ease-out;
+
+    &:hover {
+        color: @color6;
+        background-color: @color8;
+    }
+
+    &:disabled {
+        color: @color15;
+        border-color: @color15;
+        background: none;
+        cursor: @cursor-not-allowed;
+    }
+
+    &.alt-colors {
+        color: @color6;
+        border-color: @color6;
+        background-color: fadeout(@color6, 90%);
+
+        &:hover {
+            color: @color15;
+            background-color: @color6;
+        }
+    }
+}
+
+.link {
+    font-family: @font-family1;
+    font-size: @font-size2;
+    font-weight: @font-light;
+    color: @color9;
+    border: none;
+    background: none;
+    text-decoration: none;
+    display: inline;
+    padding: 0;
+
+    a&[href], button& {
+        cursor: @cursor-pointer;
+
+        &:not(:disabled):hover {
+            text-decoration: underline;
+        }
+    }
+
+    &.alt-colors {
+        color: @color6;
+    }
+
+    &:disabled {
+        cursor: default;
+        color: @color15;
+    }
+}
+
+.val-msg {
+    .error();
+    display: block;
+    font-size: @font-size1;
+    line-height: 1;
+}

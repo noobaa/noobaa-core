@@ -37,10 +37,11 @@ NAN_METHOD(SignupValidator::validate) {
     FILE *in;
     char buff[512];
     //TODO: set the url dynamically according to phone home server address
-    std::string command = "curl -s -X POST -d \'" +
-        std::string(*email_code_json) +
-        "\' 104.155.41.235:9090/validate_creation --header "
-        "\"Content-Type:application/json\"";
+    std::string command =
+        "curl -s -X POST"
+        " -d \'" + std::string(*email_code_json) + "\'"
+        " --header \"Content-Type:application/json\""
+        " https://phonehome.noobaa.com/validate_creation";
     if (!(in = popen(command.c_str(), "r"))) {
         return;
     }

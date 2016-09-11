@@ -3,11 +3,35 @@ import ko from 'knockout';
 import numeral from 'numeral';
 import { deepFreeze } from 'utils';
 
+const nodeStateMapping = deepFreeze({
+    offline: {
+        css: 'error',
+        name: 'problem',
+        tooltip: 'offline'
+    },
+    deactivated: {
+        css: 'warning',
+        name: 'problem',
+        tooltip: 'deactivated'
+    },
+    online: {
+        css: 'success',
+        name: 'healthy',
+        tooltip: 'online'
+    }
+});
+
 const activityNameMapping = deepFreeze({
     RESTORING: 'Restoring',
     MIGRATING: 'Migrating',
-    DECOMMISSIONING: 'Decommissioning',
-    DELETING: 'deleting'
+    DECOMMISSIONING: 'Deactivating',
+    DELETING: 'Deleting'
+});
+
+const activityStageMapping = deepFreeze({
+    OFFLINE_GRACE: 'Waiting',
+    REBUILDING: 'Rebuilding',
+    WIPING: 'Wiping Data'
 });
 
 export default class NodeRowViewModel extends Disposable {
@@ -20,10 +44,15 @@ export default class NodeRowViewModel extends Disposable {
                     return '';
                 }
 
-                return {
-                    name: node() && `node-${node().online ? 'online' : 'offline'}`,
-                    tooltip: node().online  ? 'online' : 'offline'
-                };
+                if (!node().online) {
+                    return nodeStateMapping.offline;
+
+                } else if (node().decommissioning || node().decommissioned) {
+                    return nodeStateMapping.deactivated;
+
+                } else {
+                    return nodeStateMapping.online;
+                }
             }
         );
 
@@ -36,7 +65,7 @@ export default class NodeRowViewModel extends Disposable {
                 let { name } = node();
                 return {
                     text: name,
-                    href: { route: 'node', params: { node: name } }
+                    href: { route: 'node', params: { node: name, tab: null } }
                 };
             }
         );
@@ -77,20 +106,18 @@ export default class NodeRowViewModel extends Disposable {
 
         this.dataActivity = ko.pureComputed(
             () => {
-                if (!node()) {
-                    return '';
-                }
-
-                if (!node().data_activity) {
+                if (!node() || !node().data_activity) {
                     return 'No activity';
                 }
 
-                let { reason, completed_size, total_size } = node().data_activity;
+                let { reason, stage, progress } = node().data_activity;
                 return `${
                     activityNameMapping[reason]
-                } (${
-                    numeral(completed_size / total_size).format('0%')
-                })`;
+                } ${
+                    numeral(progress).format('0%')
+                } | ${
+                    activityStageMapping[stage.name]
+                }`;
             }
         );
     }

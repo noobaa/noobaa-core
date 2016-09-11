@@ -351,9 +351,9 @@ class SystemStore extends EventEmitter {
             .then(() => os_utils.read_server_secret())
             .then(secret => {
                 this._server_secret = secret;
-                dbg.log0('SystemStore: fetch took', time_utils.millitook(millistamp));
-                dbg.log0('SystemStore: fetch size', size_utils.human_size(JSON.stringify(new_data).length));
-                dbg.log0('SystemStore: fetch data', util.inspect(new_data, {
+                dbg.log1('SystemStore: fetch took', time_utils.millitook(millistamp));
+                dbg.log1('SystemStore: fetch size', size_utils.human_size(JSON.stringify(new_data).length));
+                dbg.log1('SystemStore: fetch data', util.inspect(new_data, {
                     depth: 4
                 }));
                 millistamp = time_utils.millistamp();

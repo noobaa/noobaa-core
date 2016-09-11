@@ -64,7 +64,7 @@ function send_master_update(is_master) {
                 let system = system_store.data.systems[0];
                 let auth_params = {
                     email: 'support@noobaa.com',
-                    password: 'help',
+                    password: system_store.get_server_secret(),
                     system: system.name,
                 };
                 return server_rpc.client.create_auth_token(auth_params);

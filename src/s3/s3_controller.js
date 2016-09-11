@@ -788,7 +788,7 @@ class S3Controller {
                         if (rule.Expiration) {
                             current_rule.expiration = {};
                             if (rule.Expiration[0].Days) {
-                                current_rule.expiration.days = parseInt(rule.Expiration[0].Days[0]);
+                                current_rule.expiration.days = parseInt(rule.Expiration[0].Days[0], 10);
                                 if (rule.Expiration[0].Days < 1) {
                                     throw s3_errors.InvalidArgument;
                                 }
@@ -803,7 +803,8 @@ class S3Controller {
                         }
                         if (rule.AbortIncompleteMultipartUpload) {
                             current_rule.abort_incomplete_multipart_upload = {
-                                days_after_initiation: rule.AbortIncompleteMultipartUpload[0].DaysAfterInitiation ? parseInt(rule.AbortIncompleteMultipartUpload[0].DaysAfterInitiation[0]) : null
+                                days_after_initiation: rule.AbortIncompleteMultipartUpload[0].DaysAfterInitiation ?
+                                parseInt(rule.AbortIncompleteMultipartUpload[0].DaysAfterInitiation[0], 10) : null
                             };
                         }
                         if (rule.Transition) {
@@ -814,13 +815,16 @@ class S3Controller {
                         }
                         if (rule.NoncurrentVersionExpiration) {
                             current_rule.noncurrent_version_expiration = {
-                                noncurrent_days: rule.NoncurrentVersionExpiration[0].NoncurrentDays ? parseInt(rule.NoncurrentVersionExpiration[0].NoncurrentDays[0]) : null
+                                noncurrent_days: rule.NoncurrentVersionExpiration[0].NoncurrentDays ?
+                                    parseInt(rule.NoncurrentVersionExpiration[0].NoncurrentDays[0], 10) : null
                             };
                         }
                         if (rule.NoncurrentVersionTransition) {
                             current_rule.noncurrent_version_transition = {
-                                noncurrent_days: rule.NoncurrentVersionTransition[0].NoncurrentDays ? parseInt(rule.NoncurrentVersionTransition[0].NoncurrentDays[0]) : null,
-                                storage_class: rule.NoncurrentVersionTransition[0].StorageClass ? rule.NoncurrentVersionTransition[0].StorageClass[0] : 'STANDARD_IA'
+                                noncurrent_days: rule.NoncurrentVersionTransition[0].NoncurrentDays ?
+                                    parseInt(rule.NoncurrentVersionTransition[0].NoncurrentDays[0], 10) : null,
+                                storage_class: rule.NoncurrentVersionTransition[0].StorageClass ?
+                                    rule.NoncurrentVersionTransition[0].StorageClass[0] : 'STANDARD_IA'
                             };
                         }
 
@@ -857,10 +861,12 @@ class S3Controller {
                                     } : null,
                                     Expiration: rule.expiration ? (rule.expiration.days ? {
                                         Days: rule.expiration.days,
-                                        ExpiredObjectDeleteMarker: rule.expiration.expired_object_delete_marker ? rule.expiration.expired_object_delete_marker : null
+                                        ExpiredObjectDeleteMarker: rule.expiration.expired_object_delete_marker ?
+                                            rule.expiration.expired_object_delete_marker : null
                                     } : {
                                         Date: rule.expiration.date,
-                                        ExpiredObjectDeleteMarker: rule.expiration.expired_object_delete_marker ? rule.expiration.expired_object_delete_marker : null
+                                        ExpiredObjectDeleteMarker: rule.expiration.expired_object_delete_marker ?
+                                            rule.expiration.expired_object_delete_marker : null
                                     }) : null,
                                     NoncurrentVersionTransition: rule.noncurrent_version_transition ? {
                                         NoncurrentDays: rule.noncurrent_version_transition.noncurrent_days,

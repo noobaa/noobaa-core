@@ -27,6 +27,7 @@ const string_utils = require('../../util/string_utils');
 const map_allocator = require('./map_allocator');
 const mongo_functions = require('../../util/mongo_functions');
 const system_server_utils = require('../utils/system_server_utils');
+const promise_utils = require('../../util/promise_utils');
 
 /**
  *
@@ -563,61 +564,126 @@ function delete_multiple_objects(req) {
 }
 
 
-/**
- * return a regexp pattern to be appended to a prefix
- * to make it match "prefix/file" or "prefix/dir/"
- * but with a custom delimiter instead of /
- * @param delimiter - a single character.
- */
-function one_level_delimiter(delimiter) {
-    var d = string_utils.escapeRegExp(delimiter[0]);
-    return '[^' + d + ']*' + d + '?$';
+// /**
+//  * return a regexp pattern to be appended to a prefix
+//  * to make it match "prefix/file" or "prefix/dir/"
+//  * but with a custom delimiter instead of /
+//  * @param delimiter - a single character.
+//  */
+// function one_level_delimiter(delimiter) {
+//     var d = string_utils.escapeRegExp(delimiter[0]);
+//     return '[^' + d + ']*' + d + '?$';
+// }
+//
+// /**
+//  * common case is / as delimiter
+//  */
+// var ONE_LEVEL_SLASH_DELIMITER = one_level_delimiter('/');
+//
+
+function list_objects_s3(req) {
+    dbg.log0('list_objects_s3', req.rpc_params);
+    var prefix = req.rpc_params.prefix || '';
+    var delimiter = req.rpc_params.delimiter || '';
+    var marker = prefix + (req.rpc_params.key_marker || '');
+    var limit = req.rpc_params.limit || 1000;
+    // ********* Important!!! *********
+    // Notice that we add 1 to the limit.
+    // This addition will be used in order to know if the response if truncated or not
+    // Which means that we will always query 1 additional object/prefix and then cut it in response
+    limit += 1;
+    var results = [];
+    var reply = {
+        is_truncated: false,
+        objects: [],
+        common_prefixes: []
+    };
+    load_bucket(req);
+    var done = false;
+    return promise_utils.pwhile(
+            function() {
+                return !done;
+            },
+            function() {
+                return P.fcall(() => {
+                        return _list_next_objects(req, delimiter, prefix, marker, limit);
+                    })
+                    .then(res => {
+                        console.warn('JEN WHAT HAPPEND2', res, results, _.get(res, 'length', 0), results.length, limit);
+                        results = _.concat(results, res);
+                        if (_.get(res, 'length', 0) === 0) {
+                            // If there were no object/common prefixes to match than no next marker
+                            // reply.next_marker = marker;
+                            reply.next_marker = marker.slice(prefix.length);
+                            done = true;
+                        } else if (results.length === limit) {
+                            results.pop();
+                            reply.is_truncated = true;
+                            reply.next_marker = results[results.length - 1].key;
+                            done = true;
+                        } else {
+                            limit -= results.length;
+                            // marker += res[res.length - 1].key;
+                            marker = prefix + res[res.length - 1].key;
+                        }
+                    });
+            })
+        .then(() => {
+            // Fetching common prefixes and returning them in appropriate property
+            reply.common_prefixes = _.compact(_.map(results, common_prefixes => {
+                if (_.isUndefined(common_prefixes.info)) {
+                    return common_prefixes.key;
+                }
+            }));
+
+            // Removing the common prefixes from objects
+            _.remove(reply.objects = results, obj =>
+                _.find(reply.common_prefixes, common_pref =>
+                    String(common_pref) === String(obj.key)
+                )
+            );
+            return reply;
+        });
 }
 
-/**
- * common case is / as delimiter
- */
-var ONE_LEVEL_SLASH_DELIMITER = one_level_delimiter('/');
+function _list_next_objects(req, delimiter, prefix, marker, limit) {
+    // filter keys starting with prefix, *not* followed by marker
+    var regexp_text = '^' + prefix;
+    if (marker) {
+        if (!marker.startsWith(prefix)) {
+            throw new Error('BAD MARKER ' + marker + ' FOR PREFIX ' + prefix);
+        }
+        var marker_suffix = marker.slice(prefix.length);
+        if (marker_suffix) {
+            regexp_text += '(?!' + marker_suffix + ')';
+        }
+    }
+    var regexp = new RegExp(regexp_text);
 
-
-/**
- *
- * LIST_OBJECTS
- *
- */
-function list_objects(req) {
-    dbg.log0('list_objects', req.rpc_params);
-    var prefix = req.rpc_params.prefix || '';
-    let escaped_prefix = string_utils.escapeRegExp(prefix);
-    var delimiter = req.rpc_params.delimiter || '';
-    load_bucket(req);
     return P.fcall(() => {
-            var info = _.omit(object_md_query(req), 'key');
-            var common_prefixes_query;
+        let query = {
+            system: req.system._id,
+            bucket: req.bucket._id,
+            key: {
+                $regex: regexp,
+                $gt: marker
+            },
+            deleted: null,
+            upload_size: {
+                $exists: req.rpc_params.upload_mode || false
+            }
+        };
 
-            if (delimiter) {
-                // find objects that match "prefix***" or "prefix***/"
-                let one_level = delimiter !== '/' ?
-                    one_level_delimiter(delimiter) :
-                    ONE_LEVEL_SLASH_DELIMITER;
-                info.key = new RegExp('^' + escaped_prefix + one_level);
-
-                // we need another query to find common prefixes
-                // we go over objects with key that starts with prefix
-                // and only emit the next level delimited part of the key
-                // for example with prefix /Users/ and key /Users/tumtum/shlumper
-                // the emitted key will be just tumtum.
-                // this is used by s3 protocol to return folder structure
-                // even if there is no explicit empty object with the folder name.
-                common_prefixes_query = md_store.ObjectMD.collection.mapReduce(
-                    mongo_functions.map_key_with_prefix_delimiter,
-                    mongo_functions.reduce_noop, {
-                        query: {
-                            system: req.system._id,
-                            bucket: req.bucket._id,
-                            key: new RegExp('^' + escaped_prefix),
-                            deleted: null
+        console.warn('JEN WHAT HAPPEND', query);
+        if (delimiter) {
+            return md_store.ObjectMD.collection.mapReduce(
+                    mongo_functions.map_common_prefixes_and_objects,
+                    mongo_functions.reduce_common_prefixes_occurrence_and_objects, {
+                        query: query,
+                        sort: {
+                            key: 1
                         },
+                        limit: limit,
                         scope: {
                             prefix: prefix,
                             delimiter: delimiter,
@@ -625,17 +691,48 @@ function list_objects(req) {
                         out: {
                             inline: 1
                         }
+                    })
+                .then(res => {
+                    return _.map(res, obj => {
+                        let mapped_object = {
+                            key: obj._id,
+                        };
+                        if (_.isObject(obj.value)) {
+                            mapped_object.info = get_object_info(obj.value);
+                        }
+                        return mapped_object;
                     });
-            } else if (prefix) {
-                info.key = new RegExp('^' + escaped_prefix);
-            } else if (req.rpc_params.key_query) {
+                });
+        } else {
+            var find = md_store.ObjectMD.find(query);
+            if (limit) {
+                find.limit(limit);
+            }
+            find.sort({
+                key: 1
+            });
+            return find.lean().exec()
+                .then(res => {
+                    return _.map(res, obj => ({
+                        key: obj.key,
+                        info: get_object_info(obj)
+                    }));
+                });
+        }
+    });
+}
+
+function list_objects(req) {
+    dbg.log0('list_objects', req.rpc_params);
+    load_bucket(req);
+    return P.fcall(() => {
+            var info = _.omit(object_md_query(req), 'key');
+            if (req.rpc_params.key_query) {
                 info.key = new RegExp(string_utils.escapeRegExp(req.rpc_params.key_query), 'i');
             } else if (req.rpc_params.key_regexp) {
                 info.key = new RegExp(req.rpc_params.key_regexp);
             } else if (req.rpc_params.key_glob) {
                 info.key = glob_to_regexp(req.rpc_params.key_glob);
-            } else if (req.rpc_params.key_prefix) {
-                info.key = new RegExp('^' + string_utils.escapeRegExp(req.rpc_params.key_prefix));
             }
 
             // TODO: Should look at the upload_size or upload_completed?
@@ -666,36 +763,16 @@ function list_objects(req) {
 
             return P.join(
                 find.exec(),
-                req.rpc_params.pagination && md_store.ObjectMD.count(info),
-                common_prefixes_query
+                req.rpc_params.pagination && md_store.ObjectMD.count(info)
             );
         })
-        .spread(function(objects, total_count, common_prefixes_res) {
+        .spread(function(objects, total_count) {
             let res = {};
-            let prefix_map;
-            let should_compact_objects = false;
-            if (common_prefixes_res) {
-                prefix_map = _.keyBy(common_prefixes_res, r => prefix + r._id + delimiter);
-                res.common_prefixes = _.keys(prefix_map);
-            } else {
-                prefix_map = {};
-            }
-            res.objects = _.map(objects, obj => {
-                if (obj.key in prefix_map) {
-                    // we filter out objects that are folder placeholders
-                    // which means that have size 0 and already included as prefixes
-                    // this is to avoid showing them as duplicates
-                    should_compact_objects = true;
-                    return;
-                }
-                return {
-                    key: obj.key,
-                    info: get_object_info(obj),
-                };
-            });
-            if (should_compact_objects) {
-                res.objects = _.compact(res.objects);
-            }
+            res.objects = _.map(objects, obj => ({
+                key: obj.key,
+                info: get_object_info(obj),
+            }));
+
             if (req.rpc_params.pagination) {
                 res.total_count = total_count;
             }
@@ -981,6 +1058,7 @@ exports.read_object_md = read_object_md;
 exports.update_object_md = update_object_md;
 exports.delete_object = delete_object;
 exports.delete_multiple_objects = delete_multiple_objects;
+exports.list_objects_s3 = list_objects_s3;
 exports.list_objects = list_objects;
 // cloud sync related
 exports.set_all_files_for_sync = set_all_files_for_sync;

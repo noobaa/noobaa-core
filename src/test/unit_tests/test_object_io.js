@@ -94,7 +94,7 @@ mocha.describe('object_io', function() {
         }).then(function() {
             return client.object.list_objects({
                 bucket: BKT,
-                prefix: key,
+                key_query: key,
             });
         }).then(function() {
             return client.object.delete_object({

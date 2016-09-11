@@ -21,6 +21,8 @@ module.exports = {
     map_key_with_prefix_delimiter: map_key_with_prefix_delimiter,
     reduce_sum: reduce_sum,
     reduce_noop: reduce_noop,
+    map_common_prefixes_and_objects: map_common_prefixes_and_objects,
+    reduce_common_prefixes_occurrence_and_objects: reduce_common_prefixes_occurrence_and_objects
 };
 
 // declare names that these functions expect to have in scope
@@ -28,6 +30,31 @@ module.exports = {
 let emit;
 let prefix;
 let delimiter;
+
+// The function maps the common prefixes.
+// In case of common prefix it will emit it's key with value 1.
+// In case of an object it will emit the object key with the object itself.
+function map_common_prefixes_and_objects() {
+    var suffix = this.key.slice(prefix.length);
+    var pos = suffix.indexOf(delimiter);
+    if (pos >= 0) {
+        emit(suffix.slice(0, pos + 1), 1);
+    } else {
+        emit(suffix, this);
+    }
+}
+
+// Reduce function of the common prefixes map.
+// In case of common prefix it will return the key and the number of occurrences.
+// In case of an object it will return the object's details.
+function reduce_common_prefixes_occurrence_and_objects(key, values) {
+    if (values.length > 1) {
+        return values.reduce(function(total, curr) {
+            return total + curr;
+        }, 0);
+    }
+    return values[0];
+}
 
 function map_size() {
     /* jshint validthis: true */

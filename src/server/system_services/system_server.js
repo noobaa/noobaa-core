@@ -978,7 +978,7 @@ function _communicate_license_server(params) {
         code: params.code.trim(),
     };
     if (params.email) {
-        body['Business Email'] = params.email;
+        body['Business Email'] = params.email.trim();
     }
     if (params.command === 'perform_activation') {
         body.system_info = params.system_info || {};

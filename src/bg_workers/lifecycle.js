@@ -95,7 +95,7 @@ function background_worker() {
                     });
                 });
         })
-		.catch(err => {
+        .catch(err => {
             dbg.error('LIFECYCLE FAILED processing', err, err.stack);
         })
         .then(function() {

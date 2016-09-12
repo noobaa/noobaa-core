@@ -1,6 +1,5 @@
 import Disposable from 'disposable';
 import ko from 'knockout';
-import { formatSize } from 'utils';
 
 export default class PoolRowViewModel extends Disposable {
     constructor(pool, selectedPools) {
@@ -35,11 +34,15 @@ export default class PoolRowViewModel extends Disposable {
         );
 
         this.onlineCount = ko.pureComputed(
-            () => pool() ? pool().nodes.online : ''
-        );
+            () => pool() && pool().nodes.online
+        ).extend({
+            formatNumber: true
+        });
 
         this.freeSpace = ko.pureComputed(
-            () => pool() ? formatSize(pool().storage.free) : ''
-        );
+            () => pool() && pool().storage.free
+        ).extend({
+            formatSize: true
+        });
     }
 }

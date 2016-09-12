@@ -5,7 +5,7 @@ const iconMapping = deepFreeze([
     {
         pattern: 's3.amazonaws.com',
         icon: 'amazon-resource',
-        description: 'Amazon Bucket'
+        description: 'AWS S3 Bucket'
     },
     {
         pattern: 'storage.googleapis.com',
@@ -42,5 +42,11 @@ export default class BackupRowViewModel {
         this.resourceName = ko.pureComputed(
             () => resource() ? resource().name : ''
         );
+
+        this.usage = ko.pureComputed(
+            () => resource() && resource().storage.used
+        ).extend({
+            formatSize: true
+        });
     }
 }

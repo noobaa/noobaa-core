@@ -397,7 +397,7 @@ function read_server_secret() {
                 if (err.code === 'ENOENT') {
                     var id = uuid().substring(0, 8);
                     return fs.writeFileAsync(config.CLUSTERING_PATHS.DARWIN_SECRET_FILE,
-                            JSON.stringify(id))
+                            id)
                         .then(() => id);
                 } else {
                     throw new Error('Failed reading secret with ' + err);

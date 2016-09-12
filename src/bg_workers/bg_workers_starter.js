@@ -30,7 +30,7 @@ var server_rpc = require('../server/server_rpc');
 var mongo_client = require('../util/mongo_client');
 var mongoose_utils = require('../util/mongoose_utils');
 var background_scheduler = require('../util/background_scheduler').get_instance();
-var config = require('../../config.js'); 
+var config = require('../../config.js');
 var lifecycle = require('./lifecycle');
 
 const MASTER_BG_WORKERS = [

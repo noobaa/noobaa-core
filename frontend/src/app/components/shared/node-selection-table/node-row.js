@@ -3,15 +3,20 @@ import ko from 'knockout';
 import { formatSize, deepFreeze } from 'utils';
 
 const stateIconMapping = deepFreeze({
-    true: {
+    online: {
+        tooltip: 'Online',
         css: 'success',
-        name: 'healthy',
-        tooltip: 'online'
+        name: 'healthy'
     },
-    false: {
+    deactivated: {
+        tooltip: 'Deactivated',
+        css: 'warning',
+        name: 'problem'
+    },
+    offline: {
+        tooltip: 'Offline',
         css: 'error',
-        name: 'problem',
-        tooltip: 'offline'
+        name: 'problem'
     }
 });
 
@@ -27,7 +32,19 @@ export default class NodeRowViewModel extends Disposable {
         });
 
         this.state = ko.pureComputed(
-            () => node() ? stateIconMapping[node().online] : ''
+            () => {
+                if (node()) {
+                    if (!node().online) {
+                        return stateIconMapping.offline;
+
+                    } else if (node().decommissioning || node().decommissioned) {
+                        return stateIconMapping.deactivated;
+
+                    } else {
+                        return stateIconMapping.online;
+                    }
+                }
+            } 
         );
 
         this.name = ko.pureComputed(

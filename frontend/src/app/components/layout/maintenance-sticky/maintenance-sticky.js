@@ -32,7 +32,8 @@ class MaintenanceModeStickyViewModel extends Disposable{
                     return;
                 }
 
-                let diff =  moment.duration(till() - now());
+                let diff =  moment.duration(Math.max(till() - now(),0));
+                
                 return `${
                         pad(diff.days(), 2)
                     }:${
@@ -42,6 +43,7 @@ class MaintenanceModeStickyViewModel extends Disposable{
                     }:${
                         pad(diff.seconds(), 2)
                     }`;
+
             }
         );
     }

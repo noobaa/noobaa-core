@@ -396,10 +396,16 @@ function handle_options(req, res, next) {
 }
 
 function read_post_body(req, res, next) {
+
+    //temporary fix for put_bucket_lifecycle
+    //We need this body in this case, and want to avoid reading the body for
+    //other requests, like put_object
+
     if ((req.method === 'POST' ||
-            req.method === 'PUT') &&
+            (req.method === 'PUT' && 'lifecycle' in req.query)) &&
         (req.headers['content-type'] === 'application/xml' ||
             req.headers['content-type'] === 'application/octet-stream')) {
+
         let data = '';
         req.setEncoding('utf8');
         req.on('data', function(chunk) {

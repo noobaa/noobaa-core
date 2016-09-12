@@ -6,7 +6,9 @@
 'use strict';
 
 const _ = require('lodash');
+const url = require('url');
 const mime = require('mime');
+const ip_module = require('ip');
 const glob_to_regexp = require('glob-to-regexp');
 
 const P = require('../../util/promise');
@@ -28,7 +30,7 @@ const map_allocator = require('./map_allocator');
 const mongo_functions = require('../../util/mongo_functions');
 const system_server_utils = require('../utils/system_server_utils');
 const cloud_utils = require('../utils/cloud_utils');
-const os_utils = require('../../util/os_utils');
+const moment = require('moment');
 
 /**
  *
@@ -449,50 +451,41 @@ function read_node_mappings(req) {
  */
 function read_object_md(req) {
     dbg.log0('read_obj(1):', req.rpc_params);
-    var reply_obj;
-    var object_capacity;
+    const adminfo = req.rpc_params.adminfo;
+    let info;
     return find_object_md(req)
         .then(obj => {
-            reply_obj = obj;
-            var params = _.pick(req.rpc_params, 'adminfo');
-            if (params.adminfo && req.role === 'admin') {
-                params.obj = obj;
-                return map_reader.read_object_mappings(params);
-            }
-        })
-        .then(parts => {
-            object_capacity = _.reduce(parts, (sum_capacity, part) => {
-                let frag = part.chunk.frags[0];
-                return sum_capacity + (frag.size * frag.blocks.length);
-            }, 0);
-            dbg.log0('read_obj:', reply_obj);
-            return get_object_info(reply_obj);
-        })
-        .then(info => {
-            if (req.rpc_params.adminfo && req.role === 'admin') {
-                info.capacity_size = object_capacity;
-                let sys_access_keys = req.account.access_keys[0];
-                info.s3_signed_url = cloud_utils.get_signed_url({
-                    endpoint: os_utils.get_local_ipv4_ips()[0],
-                    access_key: sys_access_keys.access_key,
-                    secret_key: sys_access_keys.secret_key,
-                    bucket: req.rpc_params.bucket,
-                    key: req.rpc_params.key
+            info = get_object_info(obj);
+            if (!adminfo || req.role !== 'admin') return;
+
+            // using the internal IP doesn't work when there is a different external ip
+            // or when the intention is to use dns name.
+            const endpoint =
+                adminfo.signed_url_endpoint ||
+                url.parse(req.system.base_address || '').hostname ||
+                ip_module.address();
+            const account_keys = req.account.access_keys[0];
+            info.s3_signed_url = cloud_utils.get_signed_url({
+                endpoint: endpoint,
+                access_key: account_keys.access_key,
+                secret_key: account_keys.secret_key,
+                bucket: req.rpc_params.bucket,
+                key: req.rpc_params.key
+            });
+
+            return map_reader.read_object_mappings({
+                    obj: obj,
+                    adminfo: true
+                })
+                .then(parts => {
+                    info.total_parts_count = parts.length;
+                    info.capacity_size = _.reduce(parts, (sum_capacity, part) => {
+                        let frag = part.chunk.frags[0];
+                        return sum_capacity + (frag.size * frag.blocks.length);
+                    }, 0);
                 });
-            }
-            if (!req.rpc_params.get_parts_count) {
-                return info;
-            } else {
-                return P.resolve(md_store.ObjectPart.count({
-                        obj: reply_obj._id,
-                        deleted: null,
-                    }))
-                    .then(c => {
-                        info.total_parts_count = c;
-                        return info;
-                    });
-            }
-        });
+        })
+        .then(() => info);
 }
 
 
@@ -574,7 +567,38 @@ function delete_multiple_objects(req) {
         .return();
 }
 
+/**
+ *
+ * DELETE_MULTIPLE_OBJECTS
+ * delete multiple objects
+ *
+ */
+function delete_multiple_objects_by_prefix(req) {
+    dbg.log0('delete_multiple_objects_by_prefix (lifecycle): prefix =', req.params.prefix);
 
+    load_bucket(req);
+    // TODO: change it to perform changes in one transaction. Won't scale.
+    return list_objects(req)
+        .then(items => {
+            dbg.log0('objects by prefix', items.objects);
+            if (items.objects.length > 0) {
+                return P.all(_.map(items.objects, function(single_object) {
+                    dbg.log0('single obj deleted:', single_object.key);
+                    return P.fcall(() => {
+                            var query = {
+                                system: req.system._id,
+                                bucket: req.bucket._id,
+                                key: single_object.key
+                            };
+                            return md_store.ObjectMD.findOne(query).exec();
+                        })
+                        .then(obj => mongo_utils.check_entity_not_found(obj, 'object'))
+                        .then(obj => delete_object_internal(obj));
+                })).return();
+            }
+        })
+        .return();
+}
 /**
  * return a regexp pattern to be appended to a prefix
  * to make it match "prefix/file" or "prefix/dir/"
@@ -640,6 +664,12 @@ function list_objects(req) {
                     });
             } else if (prefix) {
                 info.key = new RegExp('^' + escaped_prefix);
+                if (req.rpc_params.create_time) {
+                    let creation_date = moment.unix(req.rpc_params.create_time).toISOString();
+                    info.create_time = {
+                        $lt: new Date(creation_date)
+                    };
+                }
             } else if (req.rpc_params.key_query) {
                 info.key = new RegExp(string_utils.escapeRegExp(req.rpc_params.key_query), 'i');
             } else if (req.rpc_params.key_regexp) {
@@ -997,6 +1027,7 @@ exports.read_object_md = read_object_md;
 exports.update_object_md = update_object_md;
 exports.delete_object = delete_object;
 exports.delete_multiple_objects = delete_multiple_objects;
+exports.delete_multiple_objects_by_prefix = delete_multiple_objects_by_prefix;
 exports.list_objects = list_objects;
 // cloud sync related
 exports.set_all_files_for_sync = set_all_files_for_sync;

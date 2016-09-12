@@ -17,6 +17,8 @@
 }
 
 notification-box {
+    z-index: 1;
+
     section {
         position: fixed;
         bottom: @gutter/2;
@@ -25,7 +27,7 @@ notification-box {
         border: 1px solid fadeout(@color7, 50%);
         background-color: fadeout(@color1, 50%);
         color: white;
-        font-size: @font-size-normal;
+        font-size: @font-size3;
         transform: translateY(120%);
         transition: all 500ms ease-out;
 

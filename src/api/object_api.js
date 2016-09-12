@@ -488,11 +488,13 @@ module.exports = {
                     key: {
                         type: 'string',
                     },
-                    get_parts_count: {
-                        type: 'boolean'
-                    },
                     adminfo: {
-                        type: 'boolean',
+                        type: 'object',
+                        properties: {
+                            signed_url_endpoint: {
+                                type: 'string'
+                            },
+                        }
                     },
                 }
             },
@@ -759,6 +761,27 @@ module.exports = {
             }
         },
 
+        delete_multiple_objects_by_prefix: {
+            method: 'GET',
+            params: {
+                type: 'object',
+                required: ['bucket', 'prefix'],
+                properties: {
+                    bucket: {
+                        type: 'string',
+                    },
+                    prefix: {
+                        type: 'string',
+                    },
+                    create_time: {
+                        format: 'idate',
+                    }
+                }
+            },
+            auth: {
+                system: 'admin'
+            }
+        },
     },
 
 
@@ -837,11 +860,6 @@ module.exports = {
                 upload_size: {
                     type: 'integer',
                 },
-                // This is the physical size (aggregation of all blocks)
-                // It does not pay attention to dedup
-                capacity_size: {
-                    type: 'integer',
-                },
                 etag: {
                     type: 'string',
                 },
@@ -863,6 +881,11 @@ module.exports = {
                     }
                 },
                 total_parts_count: {
+                    type: 'integer',
+                },
+                // This is the physical size (aggregation of all blocks)
+                // It does not pay attention to dedup
+                capacity_size: {
                     type: 'integer',
                 },
                 s3_signed_url: {

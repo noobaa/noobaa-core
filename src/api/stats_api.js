@@ -159,6 +159,9 @@ module.exports = {
                             roles: {
                                 type: 'integer'
                             },
+                            owner: {
+                                type: 'string'
+                            },
                             allocated_space: {
                                 type: 'integer'
                             },

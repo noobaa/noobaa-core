@@ -179,7 +179,9 @@ class RpcN2NAgent extends EventEmitter {
         const n2n_config =
             _.pick(this.n2n_config, N2N_CONFIG_FIELDS_PICK);
         n2n_config.tcp_permanent_passive =
-            _.pick(n2n_config.tcp_permanent_passive, N2N_CONFIG_PORT_PICK);
+            n2n_config.tcp_permanent_passive ?
+            _.pick(n2n_config.tcp_permanent_passive, N2N_CONFIG_PORT_PICK) :
+            n2n_config.tcp_permanent_passive;
         return n2n_config;
     }
 

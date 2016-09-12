@@ -16,7 +16,6 @@ const system_store = require('../system_services/system_store').get_instance();
 const system_server = require('../system_services/system_server');
 const object_server = require('../object_services/object_server');
 const bucket_server = require('../system_services/bucket_server');
-const zlib = require('zlib');
 const server_rpc = require('../server_rpc');
 
 const ops_aggregation = {};
@@ -47,6 +46,7 @@ const SINGLE_SYS_DEFAULTS = {
     allocated_space: 0,
     used_space: 0,
     total_space: 0,
+    owner: '',
     associated_nodes: {
         on: 0,
         off: 0,
@@ -79,7 +79,8 @@ function get_systems_stats(req) {
                     associated_nodes: {
                         on: res.nodes.online,
                         off: res.nodes.count - res.nodes.online,
-                    }
+                    },
+                    owner: res.owner.email,
                 }, SINGLE_SYS_DEFAULTS));
         }))
         .then(systems => {
@@ -196,12 +197,10 @@ function get_bucket_sizes_stats(req) {
 function get_pool_stats(req) {
     return P.resolve()
         .then(() => nodes_client.instance().aggregate_nodes_by_pool())
-        .then(nodes_aggregate_pool => {
-            return _.map(system_store.data.pools, pool => {
-                var a = nodes_aggregate_pool[pool._id] || {};
-                return a.count || 0;
-            });
-        });
+        .then(nodes_aggregate_pool => _.map(system_store.data.pools,
+            pool => _.get(nodes_aggregate_pool, [
+                'groups', String(pool._id), 'nodes', 'count'
+            ], 0)));
 }
 
 function get_cloud_sync_stats(req) {
@@ -365,9 +364,6 @@ function get_all_stats(req) {
         })
         .then(ops_stats => {
             stats_payload.ops_stats = ops_stats;
-            dbg.log2('SYSTEM_SERVER_STATS_AGGREGATOR:', 'SENDING (STUB)'); //TODO
-        })
-        .then(() => {
             dbg.log2('SYSTEM_SERVER_STATS_AGGREGATOR:', 'END');
             return stats_payload;
         })
@@ -558,7 +554,7 @@ function background_worker() {
                 let system = system_store.data.systems[0];
                 let auth_params = {
                     email: 'support@noobaa.com',
-                    password: 'help',
+                    password: system_store.get_server_secret(),
                     system: system.name,
                 };
                 return server_rpc.client.create_auth_token(auth_params);

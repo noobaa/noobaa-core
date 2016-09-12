@@ -1,24 +1,26 @@
 node_modules/
 bower_components/
-build/
-!src/native/third_party/webrtc/webrtc/build
+/build/
 .env
 *.pem
+/config-local.js
 
 ## IDE
 *.sublime*
 .idea/
 tags
 *.iml
+# visual studio code intellisense configuration
 .vscode/
+jsconfig.json
 
 ## istanbul coverage
-coverage/
+/coverage/
 
 ## testing agent storage
-metadata_storage*
-agent_storage*
-agent_conf.json*
+/metadata_storage*
+/agent_storage*
+/agent_conf.json*
 
 ## heapdump files
 heapdump-*
@@ -31,5 +33,3 @@ npm-debug.log*
 ## local stash - use it by adding .STASH suffix to hide a file from git
 *.STASH
 .DS_Store
-
-jsconfig.json

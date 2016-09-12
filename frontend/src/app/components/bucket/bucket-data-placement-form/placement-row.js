@@ -9,9 +9,10 @@ export default class PlacementRowViewModel {
                     return;
                 }
 
-                let isHealthy = pool().nodes.online >= 3;
+                let { count, has_issues } = pool().nodes;
+                let isHealthy = count - has_issues >= 3;
                 let tooltip = {
-                    text: isHealthy ? 'Healthy' : 'Not enough online nodes',
+                    text: isHealthy ? 'Healthy' : 'Not enough healthy nodes',
                     align: 'left'
                 };
 

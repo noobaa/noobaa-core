@@ -49,45 +49,28 @@
                     </td>
 
                     <td class="node-name-col" >
-                        <a class="link" data-bind="
+                        <a data-bind="
                             text: shortenNodeName,
                             tooltip: nodeName,
-                            href: {
-                                route: 'node',
-                                params: {
-                                    pool: poolName,
-                                    node: nodeName,
-                                    tab: null
-                                }
-                            }
+                            href: nodeHref,
+                            css: { link: nodeHref }
                         "></a>
                     </td>
 
                     <td class="node-ip-col">
-                        <a class="link" data-bind="
+                        <a data-bind="
                             text: nodeIp,
-                            href: {
-                                route: 'node',
-                                params: {
-                                    pool: poolName,
-                                    node: nodeName,
-                                    tab: null
-                                }
-                            }
+                            href: nodeHref,
+                            css: { link: nodeHref }
                         "></a>
                     </td>
 
                     <td class="pool-col no-wrap">
-                        <a class="link" data-bind="
+                        <a data-bind="
                             text: poolName,
                             tooltip: poolName,
-                            href: {
-                                route: 'pool',
-                                params: {
-                                    pool: poolName,
-                                    tab: null
-                                }
-                            }
+                            href: poolHref,
+                            css: { link: poolHref }
                         "></a>
                     </td>
                 </tr>

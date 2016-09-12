@@ -31,13 +31,24 @@ const tier_server = require('./tier_server');
 const account_server = require('./account_server');
 const cluster_server = require('./cluster_server');
 const Dispatcher = require('../notifications/dispatcher');
-const nodes_store = require('../node_services/nodes_store');
 const nodes_client = require('../node_services/nodes_client');
 const system_store = require('../system_services/system_store').get_instance();
 const promise_utils = require('../../util/promise_utils');
 const bucket_server = require('./bucket_server');
 const system_server_utils = require('../utils/system_server_utils');
 
+const SYS_STORAGE_DEFAULTS = Object.freeze({
+    total: 0,
+    free: 0,
+    unavailable_free: 0,
+    alloc: 0,
+    real: 0,
+});
+const SYS_NODES_INFO_DEFAULTS = Object.freeze({
+    count: 0,
+    online: 0,
+    has_issues: 0,
+});
 
 // called on rpc server init
 function _init() {
@@ -347,7 +358,6 @@ function read_system(req) {
                 .plus(bucket.storage_stats && bucket.storage_stats.objects_size || 0);
         });
         objects_sys.count = objects_sys.count.plus(objects_count[''] || 0);
-        const nodes_sys = nodes_aggregate_pool_no_cloud[''] || {};
         const ip_address = ip_module.address();
         const n2n_config = system.n2n_config;
         const debug_level = system.debug_level;
@@ -407,19 +417,10 @@ function read_system(req) {
                 pool => pool_server.get_pool_info(pool, nodes_aggregate_pool_with_cloud)),
             tiers: _.map(system.tiers_by_name,
                 tier => tier_server.get_tier_info(tier, nodes_aggregate_pool_no_cloud)),
-            storage: size_utils.to_bigint_storage({
-                total: nodes_sys.total,
-                free: nodes_sys.free,
-                unavailable_free: nodes_sys.unavailable_free,
-                alloc: nodes_sys.alloc,
+            storage: size_utils.to_bigint_storage(_.defaults({
                 used: objects_sys.size,
-                real: nodes_sys.used,
-            }),
-            nodes: {
-                count: nodes_sys.count || 0,
-                online: nodes_sys.online || 0,
-                has_issues: nodes_sys.has_issues || 0,
-            },
+            }, nodes_aggregate_pool_no_cloud.storage, SYS_STORAGE_DEFAULTS)),
+            nodes: _.defaults({}, nodes_aggregate_pool_no_cloud.nodes, SYS_NODES_INFO_DEFAULTS),
             owner: account_server.get_account_info(system_store.data.get_by_id(system._id).owner),
             last_stats_report: system.last_stats_report || 0,
             maintenance_mode: maintenance_mode,
@@ -759,36 +760,10 @@ function update_n2n_config(req) {
                 }]
             }
         })
-        .then(function() {
-            return nodes_store.instance().find_nodes({
-                system: req.system._id,
-                deleted: null
-            }, {
-                // select just what we need
-                fields: {
-                    name: 1,
-                    rpc_address: 1
-                }
-            });
-        })
-        .then(function(nodes) {
-            var reply = {
-                nodes_count: nodes.length,
-                nodes_updated: 0
-            };
-            return P.map(nodes, function(node) {
-                    return server_rpc.client.agent.update_n2n_config(n2n_config, {
-                        address: node.rpc_address
-                    }).then(function() {
-                        reply.nodes_updated += 1;
-                    }, function(err) {
-                        dbg.error('update_n2n_config: FAILED TO UPDATE AGENT', node.name, node.rpc_address);
-                    });
-                }, {
-                    concurrency: 5
-                })
-                .return(reply);
-        });
+        .then(() => server_rpc.client.node.sync_monitor_to_store(undefined, {
+            auth_token: req.auth_token
+        }))
+        .return();
 }
 
 function update_base_address(req) {
@@ -803,19 +778,18 @@ function update_base_address(req) {
             }
         })
         .then(() => cutil.update_host_address(req.rpc_params.base_address))
-        .then(() => server_rpc.client.node.sync_monitor_to_store({}, {
+        .then(() => server_rpc.client.node.sync_monitor_to_store(undefined, {
             auth_token: req.auth_token
         }))
-
-    .then(() => {
-        Dispatcher.instance().activity({
-            event: 'conf.dns_address',
-            level: 'info',
-            system: req.system,
-            actor: req.account && req.account._id,
-            desc: `DNS Address was changed from ${prior_base_address} to ${req.rpc_params.base_address}`,
+        .then(() => {
+            Dispatcher.instance().activity({
+                event: 'conf.dns_address',
+                level: 'info',
+                system: req.system,
+                actor: req.account && req.account._id,
+                desc: `DNS Address was changed from ${prior_base_address} to ${req.rpc_params.base_address}`,
+            });
         });
-    });
 }
 
 // phone_home_proxy_address must be a full address like: http://(ip or hostname):(port)
@@ -1001,10 +975,10 @@ function find_account_by_email(req) {
 function _communicate_license_server(params) {
     if (DEV_MODE) return 'ok';
     const body = {
-        code: params.code,
+        code: params.code.trim(),
     };
     if (params.email) {
-        body['Business Email'] = params.email;
+        body['Business Email'] = params.email.trim();
     }
     if (params.command === 'perform_activation') {
         body.system_info = params.system_info || {};

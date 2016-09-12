@@ -1,3 +1,9 @@
+/* Remove firefox default styling */
+:-moz-ui-invalid,
+:-moz-ui-invalid:-moz-focusring {
+    box-shadow: none;
+}
+
 .placeholder(@color) {
     &::-webkit-input-placeholder {
        color: @color;
@@ -138,7 +144,7 @@ input:not([type=checkbox]):not([type=radio]) {
     text-transform: capitalize;
     border: 1px solid @color8;
     cursor: @cursor-pointer;
-    background-color: fadeout(@color8, 90%);
+    background-color: fadeout(@color8, 85%);
     transition: all 350ms ease-out;
 
     &:hover {

@@ -4,8 +4,12 @@ function setHeadPadding(table) {
     const head = table.querySelector('thead');
     const body = table.querySelector('tbody');
 
-    let diff = head.clientWidth - body.clientWidth;
-    head.style.paddingRight = `${diff}px`;
+    if (body.clientWidth > 0) {
+        let diff = head.clientWidth - body.clientWidth;
+        head.style.paddingRight = `${diff}px`;
+    } else {
+        head.style.paddingRight = 'auto';
+    }
 }
 
 ko.bindingHandlers.dataTable = {

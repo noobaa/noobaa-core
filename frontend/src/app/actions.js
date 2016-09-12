@@ -1539,6 +1539,12 @@ export function enterMaintenanceMode(duration) {
 
     api.system.set_maintenance_mode({ duration })
         .then(loadSystemInfo)
+        .then(
+            () => setTimeout(
+                loadSystemInfo, 
+                duration * 60000 + 1000
+            )
+        )
         .done();
 }
 

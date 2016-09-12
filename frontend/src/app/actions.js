@@ -1542,7 +1542,7 @@ export function enterMaintenanceMode(duration) {
         .then(
             () => setTimeout(
                 loadSystemInfo, 
-                duration * 60000 + 1000
+                (duration * 60 + 1) * 1000
             )
         )
         .done();

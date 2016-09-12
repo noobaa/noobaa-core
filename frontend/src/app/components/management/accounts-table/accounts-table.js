@@ -7,7 +7,7 @@ import { deepFreeze } from 'utils';
 
 const columns = deepFreeze([
     {
-        name: 'email',
+        name: 'name',
         label: 'account name'
     },
     {

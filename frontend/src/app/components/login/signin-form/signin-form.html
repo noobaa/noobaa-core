@@ -12,11 +12,11 @@
         </h3>
 
         <editor params="label: 'Email Address'">
-            <input type="text" data-bind="textInput: email"/>
+            <input type="text" data-bind="value: email"/>
         </editor>
 
         <editor params="label: 'Password'">
-            <input type="password" autocomplete="off" data-bind="textInput: password"/>
+            <input type="password" autocomplete="off" data-bind="value: password"/>
         </editor>
 
             <p class="error push-next" data-bind="css: { visible: showInvalidMessage() }">

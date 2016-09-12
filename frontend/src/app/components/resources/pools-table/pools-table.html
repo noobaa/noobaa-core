@@ -1,8 +1,12 @@
 <div class="column alt-bg pad">
-    <button class="btn align-end"
-        data-bind="click: () => showCreatePoolWizard()">
-        Create Pool
-    </button>
+    <div class="align-end" data-bind="tooltip: createPoolTooltip">
+        <button class="btn" data-bind="
+            click: () => showCreatePoolWizard(),
+            disable: isCreatePoolDisabled,
+        ">
+            Create Pool
+        </button>
+    </div>
 </div>
 
 

@@ -61,6 +61,16 @@ class PoolsTableViewModel extends Disposable {
     constructor() {
         super();
 
+        this.isCreatePoolDisabled = ko.pureComputed(
+            () => Boolean(systemInfo()) && systemInfo().nodes.count < 3
+        );
+
+        this.createPoolTooltip = ko.pureComputed(
+            () => this.isCreatePoolDisabled() ?
+                'In order to create a pool you must install at least 3 node' :
+                ''
+        );
+
         this.columns = columns;
 
         this.sorting = ko.pureComputed({

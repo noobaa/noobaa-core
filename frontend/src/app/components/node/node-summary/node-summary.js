@@ -104,8 +104,10 @@ class NodeSummaryViewModel extends Disposable {
         );
 
         this.formattedText = ko.pureComputed(
-            () => formatSize(storage().total)
-        );
+            () => storage().total
+        ).extend({
+            formatSize: true
+        });
 
         this.pieValues = [
             {

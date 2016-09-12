@@ -468,11 +468,17 @@ export function loadPoolNodeList(poolName, filter, hasIssues, sortBy, order, pag
         .done();
 }
 
-export function loadNodeList(filter, pools, online) {
-    logAction('loadNodeList', { filter, pools, online });
+export function loadNodeList(filter, pools, online, decommissioned) {
+    logAction('loadNodeList', { filter, pools, online, decommissioned});
 
     api.node.list_nodes({
-        query: { filter, pools, online }
+        query: { 
+            filter: filter, 
+            pools: pools,
+            online: online,
+            decommissioned: decommissioned,
+            decommissioning: decommissioned 
+        }
     })
         .then(
             ({ nodes }) => model.nodeList(nodes)
@@ -1533,6 +1539,12 @@ export function enterMaintenanceMode(duration) {
 
     api.system.set_maintenance_mode({ duration })
         .then(loadSystemInfo)
+        .then(
+            () => setTimeout(
+                loadSystemInfo, 
+                (duration * 60 + 1) * 1000
+            )
+        )
         .done();
 }
 

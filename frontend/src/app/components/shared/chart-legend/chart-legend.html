@@ -2,6 +2,6 @@
 <ul data-bind="foreach: items">
     <li data-bind="style: { 'border-color': color }">
         <span class="highlight" data-bind="text: label"></span>
-        <span data-bind="text: $component.formatSize(ko.unwrap(value))"></span>
+        <span data-bind="text: $component.getFormattedValue(value)"></span>
     </li>
 </ul>

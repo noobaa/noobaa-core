@@ -1,3 +1,4 @@
+import './data-table-binding';
 import template from './data-table.html';
 import ColumnViewModel from './column';
 import * as defaultCellTemplates from './cell-templates';

@@ -1,7 +1,7 @@
 import template from './capacity-bar.html';
 import Disposable from 'disposable';
 import ko from 'knockout';
-import { formatSize, isDefined } from 'utils';
+import { formatSize } from 'utils';
 import style from 'style';
 
 const bgColor = style['color7'];
@@ -25,13 +25,15 @@ class CapacityBarViewModel extends Disposable {
             }
         );
 
-        this.usedText = ko.pureComputed(
-            () => isDefined(summedUsed()) ? formatSize(summedUsed()) : 'N/A'
-        );
+        this.usedText = summedUsed.extend({
+            formatSize: true
+        });
 
         this.totalText = ko.pureComputed(
-            () => isDefined(ko.unwrap(total)) ? formatSize(ko.unwrap(total)) : 'N/A'
-        );
+            () => ko.unwrap(total)
+        ).extend({
+            formatSize: true
+        });
 
         this.values = [
             {

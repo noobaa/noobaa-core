@@ -33,7 +33,11 @@ const backupTableColumns = deepFreeze([
         label: 'type',
         cellTemplate: 'icon'
     },
-    'resourceName'
+    'resourceName',
+    {
+        name: 'usage',
+        label: 'Used by noobaa'
+    }
 ]);
 
 const placementTypeMapping = deepFreeze({

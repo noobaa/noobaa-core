@@ -1,6 +1,6 @@
 import Disposable from 'disposable';
 import ko from 'knockout';
-import { deepFreeze, formatSize } from 'utils';
+import { deepFreeze } from 'utils';
 import { deleteCloudResource } from 'actions';
 
 const undeletableReasons = Object.freeze({
@@ -11,7 +11,7 @@ const icons = deepFreeze([
     {
         pattern: 's3.amazonaws.com',
         icon: 'amazon-resource',
-        description: 'Amazon Bucket'
+        description: 'AWS S3 Bucket'
     },
     {
         pattern: 'storage.googleapis.com',
@@ -52,8 +52,10 @@ export default class CloudResourceRowViewModel extends Disposable {
         );
 
         this.usage = ko.pureComputed(
-            () => resource() ? formatSize(resource().storage.used) : ''
-        );
+            () => resource() && resource().storage.used
+        ).extend({
+            formatSize: true
+        });
 
         this.cloudBucket = ko.pureComputed(
             () => resource() ? resource().cloud_info.target_bucket : ''

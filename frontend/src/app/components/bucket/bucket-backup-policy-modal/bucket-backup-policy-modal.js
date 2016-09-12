@@ -19,6 +19,10 @@ const columns = deepFreeze([
     {
         name: 'name',
         label: 'Resource Name'
+    },
+    {
+        name: 'usage',
+        label: 'Used by noobaa'
     }
 ]);
 

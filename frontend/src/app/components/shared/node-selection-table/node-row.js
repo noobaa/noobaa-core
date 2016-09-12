@@ -1,6 +1,6 @@
 import Disposable from 'disposable';
 import ko from 'knockout';
-import { formatSize, deepFreeze } from 'utils';
+import { deepFreeze } from 'utils';
 
 const stateIconMapping = deepFreeze({
     online: {
@@ -44,7 +44,7 @@ export default class NodeRowViewModel extends Disposable {
                         return stateIconMapping.online;
                     }
                 }
-            } 
+            }
         );
 
         this.name = ko.pureComputed(

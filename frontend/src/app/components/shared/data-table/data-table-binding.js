@@ -10,7 +10,7 @@ function setHeadPadding(table) {
     } else {
         head.style.paddingRight = 'auto';
     }
-
+}
 
 ko.bindingHandlers.dataTable = {
     init(element, valueAccessor, allBindings, viewModel, bindingContext) {

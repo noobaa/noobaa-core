@@ -18,8 +18,8 @@ export default class AccountRowViewModel extends Disposable {
         this.name = ko.pureComputed(
             () => {
                 let email = this.email();
-                console.warn(email, sessionInfo().user);
-                return `${email} ${email === sessionInfo().user ? '(Current user)' : ''}`;
+                let curr = sessionInfo() && sessionInfo().user;
+                return `${email} ${email === curr ? '(Current user)' : ''}`;
             }
         );
 

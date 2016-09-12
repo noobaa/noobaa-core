@@ -472,12 +472,12 @@ export function loadNodeList(filter, pools, online, decommissioned) {
     logAction('loadNodeList', { filter, pools, online, decommissioned});
 
     api.node.list_nodes({
-        query: { 
-            filter: filter, 
+        query: {
+            filter: filter,
             pools: pools,
             online: online,
             decommissioned: decommissioned,
-            decommissioning: decommissioned 
+            decommissioning: decommissioned
         }
     })
         .then(
@@ -698,10 +698,19 @@ export function deleteAccount(email) {
 
     api.account.delete_account({ email })
         .then(
+            () => {
+                let user = model.sessionInfo() && model.sessionInfo().user;
+                if (email === user) {
+                    signOut();
+                } else {
+                    loadSystemInfo();
+                }
+            }
+        )
+        .then(
             () => notify(`Account ${email} deleted successfully`, 'success'),
             () => notify(`Account ${email} deletion failed`, 'error')
         )
-        .then(loadSystemInfo)
         .done();
 }
 
@@ -1541,7 +1550,7 @@ export function enterMaintenanceMode(duration) {
         .then(loadSystemInfo)
         .then(
             () => setTimeout(
-                loadSystemInfo, 
+                loadSystemInfo,
                 (duration * 60 + 1) * 1000
             )
         )

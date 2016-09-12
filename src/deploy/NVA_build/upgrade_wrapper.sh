@@ -303,7 +303,7 @@ function post_upgrade {
   #fix JWT_SECRET from previous .env
   if ! grep -q JWT_SECRET /backup/.env; then
       local jwt=$(grep JWT_SECRET /backup/.env)
-      echo "${jwt}" > ${CORE_DIR}/.env
+      echo "${jwt}" >> ${CORE_DIR}/.env
   fi
 
   local AGENT_VERSION_VAR=$(grep AGENT_VERSION /backup/.env)

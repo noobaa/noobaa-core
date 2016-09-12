@@ -6,7 +6,7 @@ const icons = deepFreeze([
     {
         pattern: 's3.amazonaws.com',
         icon: 'amazon-resource',
-        description: 'Amazon Bucket'
+        description: 'AWS S3 Bucket'
     },
     {
         pattern: 'storage.googleapis.com',
@@ -51,5 +51,11 @@ export default class ResourceRowViewModel extends Disposable {
         this.name = ko.pureComputed(
             () => pool() && pool().name
         );
+
+        this.usage = ko.pureComputed(
+            () => pool() && pool().storage.used
+        ).extend({
+            formatSize: true
+        });
     }
 }

@@ -1,5 +1,4 @@
 import ko from 'knockout';
-import { formatSize } from 'utils';
 
 export default class PlacementRowViewModel {
     constructor(pool) {
@@ -44,11 +43,15 @@ export default class PlacementRowViewModel {
         );
 
         this.onlineNodeCount = ko.pureComputed(
-            () => pool() ? pool().nodes.online : 'N/A'
-        );
+            () => pool() && pool().nodes.online
+        ).extend({
+            formatNumber: true
+        });
 
         this.freeSpace = ko.pureComputed(
-            () => pool() ? formatSize(pool().storage.free) : 'N/A'
-        );
+            () => pool() && pool().storage.free
+        ).extend({
+            formatSize: true
+        });
     }
 }

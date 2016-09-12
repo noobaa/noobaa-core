@@ -1,6 +1,6 @@
 import Disposable from 'disposable';
 import ko from 'knockout';
-import { formatSize, deepFreeze } from 'utils';
+import { deepFreeze } from 'utils';
 
 const stateIconMapping = deepFreeze({
     online: {
@@ -44,7 +44,7 @@ export default class NodeRowViewModel extends Disposable {
                         return stateIconMapping.online;
                     }
                 }
-            } 
+            }
         );
 
         this.name = ko.pureComputed(
@@ -56,8 +56,10 @@ export default class NodeRowViewModel extends Disposable {
         );
 
         this.capacity = ko.pureComputed(
-            () => (node() && node().storage) ? formatSize(node().storage.total) : 'N/A'
-        );
+            () => node() && node().storage && node().storage.total
+        ).extend({
+            formatSize: true
+        });
 
         this.pool = ko.pureComputed(
             () =>  node() ? { text:  node().pool, tooltip : node().pool } : ''

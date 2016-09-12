@@ -2,7 +2,7 @@ import template from './node-details-form.html';
 import Disposable from 'disposable';
 import ko from 'knockout';
 import moment from 'moment';
-import { formatSize, avgOp } from 'utils';
+import { avgOp } from 'utils';
 import { decommissionNode, recommissionNode } from 'actions';
 
 const conactivityTypeMapping = Object.freeze({
@@ -87,8 +87,10 @@ class NodeInfoViewModel extends Disposable {
         );
 
         let memory = ko.pureComputed(
-            () => formatSize(node().os_info.totalmem)
-        );
+            () => node().os_info.totalmem
+        ).extend({
+            formatSize: true
+        });
 
         this.systemInfo = [
             { label: 'Host Name', value: hostname},

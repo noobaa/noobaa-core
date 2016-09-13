@@ -1,4 +1,4 @@
-<table data-bind="scroll: scroll">
+<table data-bind="scroll: scroll, dataTable: rows">
     <thead>
         <tr data-bind="foreach: columns">
             <th data-bind="css: css">
@@ -16,5 +16,3 @@
 
 <div class="empty-message" data-bind="visible: isEmpty, text: emptyMessage">
 </div>
-
-

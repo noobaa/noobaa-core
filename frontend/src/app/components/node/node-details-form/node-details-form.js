@@ -60,6 +60,10 @@ class NodeInfoViewModel extends Disposable {
             () => node().ip
         );
 
+        let serverEndpoint = ko.pureComputed(
+            () => node().base_address
+        );
+
         let p2pConectivityType = ko.pureComputed(
             () => conactivityTypeMapping[node().connectivity]
         );
@@ -71,9 +75,10 @@ class NodeInfoViewModel extends Disposable {
         );
 
         this.agentInfo = [
-            { label: 'Installed Version', value: version},
-            { label: 'Heartbeat', value: lastHeartbeat},
-            { label: 'Communication IP', value: ip},
+            { label: 'Installed Version', value: version },
+            { label: 'Heartbeat', value: lastHeartbeat },
+            { label: 'Communication IP', value: ip },
+            { label: 'Server Address', value: serverEndpoint },
             { label: 'Peer to Peer Connectivity', value: p2pConectivityType }
         ];
 

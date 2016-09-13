@@ -474,7 +474,9 @@ class NodesMonitor extends EventEmitter {
         if (conn) {
             item.node.heartbeat = Date.now();
             conn.on('close', () => {
-                dbg.warn('got close on connection:', conn);
+                dbg.warn('got close on node connection for', item.node.name,
+                    'conn', conn.connid,
+                    'active conn', item.connection && item.connection.connid);
                 // if connection already replaced ignore the close event
                 if (item.connection !== conn) return;
                 item.connection = null;

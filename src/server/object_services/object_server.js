@@ -142,7 +142,7 @@ function complete_object_upload(req) {
         })
         .then(object_size => {
             Dispatcher.instance().activity({
-                system: req.system,
+                system: req.system._id,
                 level: 'info',
                 event: 'obj.uploaded',
                 obj: obj,
@@ -312,7 +312,7 @@ function copy_object(req) {
         })
         .then(() => {
             Dispatcher.instance().activity({
-                system: req.system,
+                system: req.system._id,
                 level: 'info',
                 event: 'obj.uploaded',
                 obj: create_info._id,
@@ -529,7 +529,7 @@ function delete_object(req) {
         })
         .then(() => {
             Dispatcher.instance().activity({
-                system: req.system,
+                system: req.system._id,
                 level: 'info',
                 event: 'obj.deleted',
                 obj: obj_to_delete,

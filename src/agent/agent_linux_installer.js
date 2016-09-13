@@ -1,6 +1,5 @@
 "use strict";
 
-const argv = require('minimist')(process.argv);
 const Service = require('node-linux').Service;
 
 var srv = new Service({
@@ -10,6 +9,7 @@ var srv = new Service({
 });
 
 srv.on('install', () => {
+    console.log('Installing Noobaa local service');
     srv.start();
 });
 
@@ -18,18 +18,8 @@ srv.on('alreadyinstalled', () => {
     srv.start();
 });
 
-srv.on('uninstall', () => {
-    srv.stop();
-});
-
 srv.on('start', () => {
     console.log('Starting Noobaa local service');
 });
 
-if (argv.uninstall) {
-    console.log('Uninstalling Noobaa local service');
-    srv.uninstall();
-} else {
-    console.log('Installing Noobaa local service');
-    srv.install();
-}
+srv.install();

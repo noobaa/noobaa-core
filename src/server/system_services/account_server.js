@@ -406,7 +406,8 @@ function get_account_sync_credentials_cache(req) {
             return {
                 name: credentials.name || credentials.access_key,
                 endpoint: credentials.endpoint || 'https://s3.amazonaws.com',
-                access_key: credentials.access_key
+                identity: credentials.access_key,
+                endpoint_type: credentials.endpoint_type
             };
         }
     );
@@ -419,7 +420,9 @@ function get_account_sync_credentials_cache(req) {
  */
 
 function add_account_sync_credentials_cache(req) {
-    var info = _.pick(req.rpc_params, 'name', 'endpoint', 'access_key', 'secret_key');
+    var info = _.pick(req.rpc_params, 'name', 'endpoint', 'endpoint_type');
+    info.access_key = req.rpc_params.identity;
+    info.secret_key = req.rpc_params.secret;
     var updates = {
         _id: req.account._id,
         sync_credentials_cache: req.account.sync_credentials_cache || []
@@ -433,13 +436,13 @@ function add_account_sync_credentials_cache(req) {
 }
 
 function check_account_sync_credentials(req) {
-    var params = _.pick(req.rpc_params, 'endpoint', 'access_key', 'secret_key');
+    var params = _.pick(req.rpc_params, 'endpoint', 'identity', 'secret', 'endpoint_type');
 
     return P.fcall(function() {
         var s3 = new AWS.S3({
             endpoint: params.endpoint,
-            accessKeyId: params.access_key,
-            secretAccessKey: params.secret_key,
+            accessKeyId: params.identity,
+            secretAccessKey: params.secret,
             httpOptions: {
                 agent: new https.Agent({
                     rejectUnauthorized: false,

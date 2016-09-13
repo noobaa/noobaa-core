@@ -96,6 +96,8 @@ if [ "$CLEAN" = true ] ; then
     echo "npm install node-gyp"
     npm install -g node-gyp
     npm install nan
+    echo "npm install node-linux@0.1.8"
+    npm install node-linux@0.1.8
     echo "rebuild"
     node-gyp rebuild
     echo "npm install"

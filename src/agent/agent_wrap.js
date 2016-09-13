@@ -22,36 +22,29 @@ fs.readFileAsync('./agent_conf.json')
     }) //TODO: handle agent_conf not being where expected by inserting default value into address
     .catch(err => {
         if (err.code && err.code === 1) {
-            dbg.log0('Upgrading Noobaa agent');
+            dbg.log0('Duplicate token');
             return promise_utils.fork('./src/agent/agent_cli', '--duplicate');
         }
         throw err;
     })
-    .then(() =>
-        new P((resolve, reject) => {
+    .then(() => {
+        const output = fs.createWriteStream(SETUP_FILENAME);
+        return new P((resolve, reject) => {
             dbg.log0('Downloading Noobaa agent upgrade package');
-            const input = request({
-                url: `https://${address}/public/noobaa-setup`,
-                strictSSL: false,
-                timeout: 2000
-            });
-            const output = fs.createWriteStream(SETUP_FILENAME);
-            input.pipe(output);
-            input.on('error', err => {
-                reject(err);
-            });
-            output.on('error', err => {
-                reject(err);
-            });
-            output.on('end', () => {
-                resolve();
-            });
-        }))
+            request.get({
+                    url: `https://${address}/public/noobaa-setup`,
+                    strictSSL: false,
+                    timeout: 2000
+                })
+                .on('error', err => reject(err))
+                .pipe(output)
+                .on('error', err => reject(err))
+                .on('finish', resolve);
+        });
+    })
     .then(() => fs.chmodAsync(SETUP_FILENAME, EXECUTABLE_MOD_VAL))
     .then(() => {
         dbg.log0('Upgrading Noobaa agent');
         return promise_utils.spawn(SETUP_FILENAME);
     })
-    .catch(err => {
-        dbg.error(err);
-    });
+    .catch(err => dbg.error(err));

@@ -3,6 +3,7 @@ import Disposable from 'disposable';
 import ko from 'knockout';
 import moment from 'moment';
 import { avgOp } from 'utils';
+import { systemInfo } from 'model';
 import { decommissionNode, recommissionNode } from 'actions';
 
 const conactivityTypeMapping = Object.freeze({
@@ -42,7 +43,13 @@ class NodeInfoViewModel extends Disposable {
         );
 
         let version = ko.pureComputed(
-            () => node().version
+            () => `${
+                node().version
+            } ${
+                node().version === systemInfo().version ?
+                    '(Up to date)' :
+                    '<span class="error">(Not up to date, waiting for next heartbeat)</span>'
+            }</span>`
         );
 
         let lastHeartbeat = ko.pureComputed(

@@ -601,24 +601,24 @@ export function exportAuditEnteries(categories) {
         .done();
 }
 
-export function loadS3Connections() {
-    logAction('loadS3Connections');
+export function loadCloudConnections() {
+    logAction('loadCloudConnections');
 
     api.account.get_account_sync_credentials_cache()
         .then(conns => conns.map(conn => Object.assign(conn, {access_key: conn.identity})))
-        .then(model.S3Connections)
+        .then(model.CloudConnections)
         .done();
 }
 
-export function loadS3BucketList(connection) {
-    logAction('loadS3BucketList', { connection });
+export function loadCloudBucketList(connection) {
+    logAction('loadCloudBucketList', { connection });
 
     api.bucket.get_cloud_buckets({
         connection: connection
     })
         .then(
-            model.S3BucketList,
-            () => model.S3BucketList(null)
+            model.CloudBucketList,
+            () => model.CloudBucketList(null)
         )
         .done();
 }
@@ -1463,32 +1463,34 @@ export function toogleCloudSync(bucket, pause) {
 }
 
 
-export function checkS3Connection(endpoint, accessKey, secretKey) {
-    logAction('checkS3Connection', { endpoint, accessKey, secretKey });
+export function checkCloudConnection(endpointType, endpoint, identity, secret) {
+    logAction('checkCloudConnection', { endpointType, endpoint, identity, secret });
 
     let credentials = {
+        endpoint_type: endpointType,
         endpoint: endpoint,
-        identity: accessKey,
-        secret: secretKey
+        identity: identity,
+        secret: secret
     };
 
     api.account.check_account_sync_credentials(credentials)
-        .then(model.isS3ConnectionValid)
+        .then(model.isCloudConnectionValid)
         .done();
 }
 
-export function addS3Connection(name, endpoint, accessKey, secretKey) {
-    logAction('addS3Connection', { name, endpoint, accessKey, secretKey });
+export function addCloudConnection(name, endpointType, endpoint, identity, secret) {
+    logAction('addCloudConnection', { name, endpointType, endpoint, identity, secret });
 
     let credentials = {
         name: name,
+        endpoint_type: endpointType,
         endpoint: endpoint,
-        identity: accessKey,
-        secret: secretKey
+        identity: identity,
+        secret: secret
     };
 
     api.account.add_account_sync_credentials_cache(credentials)
-        .then(loadS3Connections)
+        .then(loadCloudConnections)
         .done();
 }
 

@@ -8,6 +8,11 @@ import { redirectTo } from 'actions';
 
 const columns = deepFreeze([
     {
+        name: 'state',
+        cellTemplate: 'icon',
+        sortable: true
+    },
+    {
         name: 'type',
         cellTemplate: 'icon',
         sortable: true
@@ -18,13 +23,17 @@ const columns = deepFreeze([
         sortable: true
     },
     {
-        name: 'usage',
-        label: 'used capacity by noobaa',
-        sortable: true
+        name: 'buckets',
+        label: 'bucket using resource'
     },
     {
         name: 'cloudBucket',
-        label: 'cloud bucket',
+        label: 'cloud target bucket',
+        sortable: true
+    },
+    {
+        name: 'usage',
+        label: 'used capacity by noobaa',
         sortable: true
     },
     {
@@ -36,8 +45,10 @@ const columns = deepFreeze([
 ]);
 
 const compareAccessors = Object.freeze({
+    state: () => true,
     type: resource => resource.endpoint,
     name: resource => resource.name,
+    buckets: () => true,
     usage: resource => resource.storage.used,
     cloudBucket: resource => resource.cloud_info.target_bucket
 });
@@ -73,6 +84,30 @@ class CloudResourcesTableViewModel extends Disposable {
             }
         );
 
+        this.poolsToBuckets = ko.pureComputed(
+            () => {
+                if (!systemInfo()) {
+                    return {};
+                }
+
+                return systemInfo().buckets.reduce(
+                    (mapping, bucket) => systemInfo().tiers
+                        .find(
+                            tier => tier.name === bucket.tiering.tiers[0].tier
+                        )
+                        .cloud_pools.reduce(
+                            (mapping, pool) => {
+                                mapping[pool] = mapping[pool] || [];
+                                mapping[pool].push(bucket.name);
+                                return mapping;
+                            },
+                            mapping
+                        ),
+                    {}
+                );
+            }
+        );
+
         this.deleteGroup = ko.observable();
         this.isAddCloudResourceModalVisible = ko.observable(false);
         this.isAfterDeleteAlertModalVisible = ko.observable(false);
@@ -81,6 +116,7 @@ class CloudResourcesTableViewModel extends Disposable {
     rowFactory(resource) {
         return new CloudResourceRowViewModel(
             resource,
+            this.poolsToBuckets,
             this.deleteGroup,
             () => this.showAfterDeleteAlertModal()
         );

@@ -42,7 +42,8 @@
     </div>
 </modal>
 
-<!-- ko if: isAddS3ConnectionModalVisible -->
-<add-s3-connection-modal params="onClose: canceled => hideAddS3ConnectionModal()">
-</add-s3-connection-modal>
+<!-- ko if: isAddCloudConnectionModalVisible -->
+<add-cloud-connection-modal params="
+    onClose: canceled => hideAddCloudConnectionModal()
+"></add-cloud-connection-modal>
 <!-- /ko -->

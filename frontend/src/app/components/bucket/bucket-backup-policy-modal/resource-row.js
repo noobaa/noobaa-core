@@ -5,12 +5,12 @@ import { deepFreeze } from 'utils';
 const icons = deepFreeze([
     {
         pattern: 's3.amazonaws.com',
-        icon: 'amazon-resource',
+        icon: 'aws-s3-resource',
         description: 'AWS S3 Bucket'
     },
     {
         pattern: 'storage.googleapis.com',
-        icon: 'google-resource',
+        icon: 'gcloud-resource',
         description: 'GCloud Bucket'
     },
     {

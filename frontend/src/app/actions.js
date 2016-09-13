@@ -605,6 +605,7 @@ export function loadS3Connections() {
     logAction('loadS3Connections');
 
     api.account.get_account_sync_credentials_cache()
+        .then(conns => conns.map(conn => Object.assign(conn, {access_key: conn.identity})))
         .then(model.S3Connections)
         .done();
 }
@@ -1467,8 +1468,8 @@ export function checkS3Connection(endpoint, accessKey, secretKey) {
 
     let credentials = {
         endpoint: endpoint,
-        access_key: accessKey,
-        secret_key: secretKey
+        identity: accessKey,
+        secret: secretKey
     };
 
     api.account.check_account_sync_credentials(credentials)
@@ -1482,8 +1483,8 @@ export function addS3Connection(name, endpoint, accessKey, secretKey) {
     let credentials = {
         name: name,
         endpoint: endpoint,
-        access_key: accessKey,
-        secret_key: secretKey
+        identity: accessKey,
+        secret: secretKey
     };
 
     api.account.add_account_sync_credentials_cache(credentials)
@@ -1759,3 +1760,4 @@ export function recommissionNode(name) {
         .then(refresh)
         .done();
 }
+

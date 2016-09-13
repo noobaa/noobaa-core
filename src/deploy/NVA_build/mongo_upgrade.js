@@ -5,7 +5,6 @@
 // using mongo --eval 'var param_ip="..."' and we only declare them here for completeness
 var param_ip;
 var param_secret;
-var params_cluster_id;
 setVerboseShell(true);
 upgrade();
 
@@ -255,7 +254,8 @@ function upgrade_cluster() {
         if (!clusters[0].owner_shardname) {
             db.clusters.update({}, {
                 $set: {
-                    owner_shardname: 'shard1'
+                    owner_shardname: 'shard1',
+                    cluster_id: param_secret
                 }
             });
         }
@@ -269,7 +269,7 @@ function upgrade_cluster() {
         owner_address: param_ip,
         owner_shardname: 'shard1',
         location: 'Earth',
-        cluster_id: params_cluster_id,
+        cluster_id: param_secret,
         shards: [{
             shardname: 'shard1',
             servers: [{

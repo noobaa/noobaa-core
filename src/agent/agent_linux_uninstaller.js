@@ -12,8 +12,8 @@ srv.on('uninstall', () => {
     console.log('Noobaa local service has been uninstalled');
 });
 
-srv.on('stop', () => {
-    srv.uninstall();
+srv.on('doesnotexist', () => {
+    console.log('Noobaa local service was not previously installed');
 });
 
 srv.uninstall();

@@ -5,7 +5,7 @@ if [[ $(ps -elf|grep 'systemd+\{0,1\}[ ]\{1,\}[0-9]\{1,\}[ ]\{1,\}1 ') ]]; then
   sleep 5
 else
   # TODO: equivilant for UpStart
-  echo upstart disable service
+  echo "upstart disable service"
 fi
 
 PATH=/usr/local/noobaa:$PATH;

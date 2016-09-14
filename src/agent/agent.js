@@ -291,7 +291,7 @@ class Agent {
                     dbg.warn('exit on version change:',
                         'res.version', res.version,
                         'pkg.version', pkg.version);
-                    //    process.exit(0);
+                    process.exit(0);
                 }
                 conn.on('close', () => {
                     if (this._server_connection === conn) {

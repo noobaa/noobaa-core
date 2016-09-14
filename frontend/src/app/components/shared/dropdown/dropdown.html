@@ -5,6 +5,7 @@
         keydown: (_, evt) => handleKeyPress(evt)
     },
     attr: { tabindex: !ko.unwrap(disabled) && '0' },
+    hasFocus: hasFocus,
     css: {
         disabled: disabled,
         active: active,

@@ -1,5 +1,7 @@
 "use strict";
 
+process.chdir('/usr/local/noobaa');
+
 const fs = require('fs');
 const P = require('../util/promise');
 const promise_utils = require('../util/promise_utils');
@@ -12,7 +14,6 @@ const EXECUTABLE_MOD_VAL = 511;
 
 var address = "";
 
-process.chdir('/usr/local/noobaa');
 
 fs.readFileAsync('./agent_conf.json')
     .then(agent_conf_file => {

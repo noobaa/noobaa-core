@@ -18,7 +18,7 @@ const auth_server = require('../common_services/auth_server');
 const Dispatcher = require('../notifications/dispatcher');
 const mongo_utils = require('../../util/mongo_utils');
 const system_store = require('../system_services/system_store').get_instance();
-const cloud_utils = require('../utils/cloud_utils');
+const cloud_utils = require('../../util/cloud_utils');
 const azure = require('azure-storage');
 
 system_store.on('load', ensure_support_account);
@@ -443,12 +443,13 @@ function check_account_sync_credentials(req) {
 
     return P.fcall(function() {
         if (params.endpoint_type === 'AZURE') {
-            let blob_svc = azure.createBlobService(cloud_utils.get_azure_connection_string({
+            let conn_str = cloud_utils.get_azure_connection_string({
                 endpoint: params.endpoint,
                 access_key: params.identity,
                 secret_key: params.secret
-            }));
-            return P.ninvoke(blob_svc, 'listContainersSegmented');
+            });
+            let blob_svc = azure.createBlobService(conn_str);
+            return P.ninvoke(blob_svc, 'listContainersSegmented', null, {});
         } else {
             var s3 = new AWS.S3({
                 endpoint: params.endpoint,

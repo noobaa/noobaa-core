@@ -15,7 +15,7 @@ const server_rpc = require('../server_rpc');
 const Dispatcher = require('../notifications/dispatcher');
 const nodes_client = require('../node_services/nodes_client');
 const system_store = require('../system_services/system_store').get_instance();
-const cloud_utils = require('../utils/cloud_utils');
+const cloud_utils = require('../../util/cloud_utils');
 
 const POOL_STORAGE_DEFAULTS = Object.freeze({
     total: 0,

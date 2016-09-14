@@ -39,6 +39,7 @@ const BlockStoreS3 = require('./block_store_s3').BlockStoreS3;
 const BlockStoreMem = require('./block_store_mem').BlockStoreMem;
 const BlockStoreAzure = require('./block_store_azure').BlockStoreAzure;
 const promise_utils = require('../util/promise_utils');
+const cloud_utils = require('../util/cloud_utils');
 
 
 
@@ -80,19 +81,14 @@ class Agent {
                 if (params.cloud_info.endpoint_type === 'AWS' || params.cloud_info.endpoint_type === 'S3_COMPATIBLE') {
                     this.block_store = new BlockStoreS3(block_store_options);
                 } else if (params.cloud_info.endpoint_type === 'AZURE') {
-                    let endpoint_url = url_utils.quick_parse(params.cloud_info.endpoint);
-                    let connection_string = 'DefaultEndpointsProtocol=' + (endpoint_url.protocol ? endpoint_url.protocol : 'http') + ';';
-                    connection_string += 'AccountName=' + params.cloud_info.access_key + ';';
-                    connection_string += 'AccountKey=' + params.cloud_info.secret_key + ';';
-
-                    const AZURE_BLOB_ENDPOINT = 'blob.core.windows.net';
-                    if (endpoint_url.host !== AZURE_BLOB_ENDPOINT) {
-                        connection_string += 'BlobEndpoint=' + params.cloud_info.endpoint + ';';
-                    }
-                    let container = params.cloud_info.target_bucket;
+                    let connection_string = cloud_utils.get_azure_connection_string({
+                        endpoint: params.cloud_info.endpoint,
+                        access_key: params.cloud_info.access_keys.access_key,
+                        secret_key: params.cloud_info.access_keys.secret_key
+                    });
                     block_store_options.cloud_info.azure = {
                         connection_string: connection_string,
-                        container: container
+                        container: params.cloud_info.target_bucket
                     };
                     this.block_store = new BlockStoreAzure(block_store_options);
                 }

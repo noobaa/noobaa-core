@@ -231,14 +231,14 @@ app.post('/upgrade',
             },
             filename: function(req, file, cb) {
                 dbg.log0('UPGRADE upload', file);
-                cb(null, 'nb_upgrade_' + Date.now() + '_' + file.originalname);
+                cb(null, 'nb_upgrade_' + Date.now() + '_' + file.originalname.replace(/ /g, ''));
             }
         })
     })
     .single('upgrade_file'),
     function(req, res) {
         var upgrade_file = req.file;
-        dbg.log0('UPGRADE file', upgrade_file, 'upgrade.sh path:', process.cwd() + '/src/deploy/NVA_build');
+        dbg.log0('UPGRADE file uploaded', upgrade_file, 'upgrade.sh path:', process.cwd() + '/src/deploy/NVA_build');
         var fsuffix = time_utils.time_suffix();
         var fname = '/var/log/noobaa_deploy_out_' + fsuffix + '.log';
         var stdout = fs.openSync(fname, 'a');

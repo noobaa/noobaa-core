@@ -28,3 +28,4 @@ else
 fi
 
 ./noobaa-installer --keep --target /usr/local/noobaa
+echo "Finished running installation"

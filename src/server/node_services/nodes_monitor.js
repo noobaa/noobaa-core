@@ -332,7 +332,7 @@ class NodesMonitor extends EventEmitter {
         this._update_status(item);
 
         // TODO GUYM implement delete_node
-        throw new RpcError('TODO', 'delete_node');
+        // throw new RpcError('TODO', 'delete_node');
     }
 
 
@@ -429,6 +429,12 @@ class NodesMonitor extends EventEmitter {
         this._map_node_id.set(String(item.node._id), item);
         this._map_peer_id.set(String(item.node.peer_id), item);
         this._map_node_name.set(String(item.node.name), item);
+    }
+
+    _remove_node_from_maps(item) {
+        this._map_node_id.delete(String(item.node._id));
+        this._map_peer_id.delete(String(item.node.peer_id));
+        this._map_node_name.delete(String(item.node.name));
     }
 
     _set_node_defaults(item) {
@@ -639,15 +645,36 @@ class NodesMonitor extends EventEmitter {
         if (!force && this._set_need_update.size < UPDATE_STORE_MIN_ITEMS) return;
 
         const new_nodes = [];
+        const deleted_nodes = [];
         const bulk_items = this._set_need_update;
         this._set_need_update = new Set();
         for (const item of bulk_items) {
             if (!item.node_from_store) {
                 new_nodes.push(item);
             }
+            if (item.ready_to_be_deleted) {
+                deleted_nodes.push(item);
+            }
         }
 
         return P.resolve()
+            .then(() => P.map(deleted_nodes, item => {
+                if (item.node.is_cloud_node) {
+                    return server_rpc.client.hosted_agents.remove_agent({
+                            // Remove agent expects to receive the cloud pool name, so we cut it out
+                            name: String(item.node.name).replace('noobaa-internal-agent-', '')
+                        })
+                        .then(() => {
+                            item.node.deleted = Date.now();
+                        })
+                        .catch(err => {
+                            // We will just wait another cycle and attempt to delete it fully again
+                            dbg.warn('delete_cloud_pool_node ERROR node', item.node, err);
+                        });
+                } else {
+                    item.node.deleted = Date.now();
+                }
+            }))
             .then(() => nodes_store.instance().bulk_update(bulk_items))
             .then(() => P.map(new_nodes, item => {
                 if (!item.is_internal_node) {
@@ -685,6 +712,9 @@ class NodesMonitor extends EventEmitter {
                 for (const item of bulk_items) {
                     if (!this._set_need_update.has(item)) {
                         item.node_from_store = _.cloneDeep(item.node);
+                    }
+                    if (item.node.deleted) {
+                        this._remove_node_from_maps(item);
                     }
                 }
             })
@@ -869,7 +899,9 @@ class NodesMonitor extends EventEmitter {
                 item.node.decommissioned = Date.now();
             }
             if (item.node.deleting) {
-                item.node.deleted = Date.now();
+                // We mark it in order to remove the agent fully (process and tokens etc)
+                // Only after successfully completing the removal we assign the deleted date
+                item.ready_to_be_deleted = true;
             }
             act.done = true;
         }

@@ -6,10 +6,7 @@ sleep 5
 /usr/local/noobaa/node /usr/local/noobaa/src/agent/agent_linux_installer
 
 if [[ $(ps -elf|grep 'systemd+\{0,1\}[ ]\{1,\}[0-9]\{1,\}[ ]\{1,\}1 ') ]]; then
-  sleep 10
   systemctl enable noobaalocalservice
-  echo "restarting noobaalocalservice"
-  systemctl restart noobaalocalservice
 else
   # TODO: equivilant for UpStart
   echo "upstart enable service"

@@ -28,4 +28,6 @@ else
 fi
 
 ./noobaa-installer --keep --target /usr/local/noobaa
-echo "Finished running installation"
+sleep 20
+echo "restarting noobaalocalservice"
+systemctl restart noobaalocalservice

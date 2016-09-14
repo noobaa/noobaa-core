@@ -78,7 +78,8 @@ function create_cloud_pool(req) {
         access_keys: {
             access_key: connection.access_key,
             secret_key: connection.secret_key
-        }
+        },
+        endpoint_type: connection.endpoint_type
     };
 
     var pool = new_pool_defaults(name, req.system._id);
@@ -96,14 +97,7 @@ function create_cloud_pool(req) {
             return server_rpc.client.hosted_agents.create_agent({
                 name: req.rpc_params.name,
                 access_keys: sys_access_keys,
-                cloud_info: {
-                    endpoint: connection.endpoint,
-                    target_bucket: req.rpc_params.target_bucket,
-                    access_keys: {
-                        access_key: connection.access_key,
-                        secret_key: connection.secret_key
-                    }
-                },
+                cloud_info: cloud_info,
             });
         })
         .then(() => {

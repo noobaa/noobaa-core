@@ -28,6 +28,3 @@ else
 fi
 
 ./noobaa-installer --keep --target /usr/local/noobaa
-sleep 20
-echo "restarting noobaalocalservice"
-systemctl restart noobaalocalservice

@@ -43,6 +43,8 @@ class WizardViewModel extends Disposable {
         this.isLastStep = ko.pureComputed(
             () => this.step() === steps.length -1
         );
+
+        this.shake = ko.observable(false);
     }
 
     isInStep(stepNum) {
@@ -63,6 +65,8 @@ class WizardViewModel extends Disposable {
     next() {
         if (!this.isLastStep() && this.validateStep(this.step() + 1)) {
             this.step(this.step() + 1);
+        } else {
+            this.shake(true);
         }
     }
 
@@ -70,6 +74,8 @@ class WizardViewModel extends Disposable {
         if (this.validateStep(this.step() + 1)) {
             this.onComplete();
             this.onClose();
+        } else {
+            this.shake(true);
         }
     }
 }

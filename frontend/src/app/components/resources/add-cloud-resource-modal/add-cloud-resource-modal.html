@@ -42,7 +42,11 @@
         <button class="link push-next" data-bind="click: cancel">
             Cancel
         </button>
-        <button class="btn" data-bind="click: add">
+        <button class="btn" data-bind="
+            click: add,
+            css: { shake: shake },
+            animation: { end: () => shake(false) }
+        ">
             Add
         </button>
     </div>

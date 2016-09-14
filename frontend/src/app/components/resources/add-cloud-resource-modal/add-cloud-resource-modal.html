@@ -14,7 +14,10 @@
             <div class="val-msg" data-bind="validationMessage: connection"></div>
         </editor>
 
-        <editor params="label: 'Target Bucket'">
+        <editor params="
+            label: 'Target Bucket',
+            disabled: !targetBucketsOptions()
+        ">
             <dropdown params="
                 placeholder: 'Choose bucket',
                 disabled: !targetBucketsOptions(),
@@ -24,7 +27,10 @@
             <div class="val-msg" data-bind="validationMessage: targetBucket"></div>
         </editor>
 
-        <editor params="label: 'Resource name'">
+        <editor params="
+            label: 'Resource name',
+            disabled: !targetBucket()
+        ">
             <input type="text" placeholder="Choose Name" data-bind="
                 enable: targetBucket,
                 textInput: resourceName

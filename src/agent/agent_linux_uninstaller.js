@@ -8,7 +8,7 @@ var srv = new Service({
     script: '/usr/local/noobaa/src/agent/agent_wrap.js',
     wait: 10,
     logpath: '/var/log/noobaaServiceWrapper.log', //TODO: DIS??
-    cwd: '/usr/local/noobaa'
+    cwd: '/usr/local/noobaa/'
 });
 
 srv.on('uninstall', () => {

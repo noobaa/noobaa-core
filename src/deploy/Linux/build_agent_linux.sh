@@ -82,6 +82,11 @@ if [ "$CLEAN" = true ] ; then
     sed -i '/rebuild/d' package.json
     sed -i '/nodetime/d' package.json
     sed -i '/newrelic/d' package.json
+    sed -i '/chromedriver/d' package.json
+    sed -i '/selenium-webdriver/d' package.json
+    sed -i '/selenium-standalone/d' package.json
+    sed -i '/phantomjs-prebuilt/d' package.json
+    sed -i '/vsphere/d' package.json
     echo "npm install node-gyp"
     npm install -g node-gyp
     npm install nan

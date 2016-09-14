@@ -85,6 +85,11 @@ else
         sed -i '/rebuild/d' package.json
         sed -i '/nodetime/d' package.json
         sed -i '/newrelic/d' package.json
+        sed -i '/chromedriver/d' package.json
+        sed -i '/selenium-webdriver/d' package.json
+        sed -i '/selenium-standalone/d' package.json
+        sed -i '/phantomjs-prebuilt/d' package.json
+        sed -i '/vsphere/d' package.json
         npm install -dd
 
         cd ..

@@ -3,6 +3,7 @@
 var request = require('request');
 var fs = require('fs');
 var P = require('../../util/promise');
+var promise_utils = require('../../util/promise_utils');
 
 function findVMbyName(vmName, service) {
     var propertyCollector = service.serviceContent.propertyCollector;
@@ -56,6 +57,10 @@ function findVMbyName(vmName, service) {
 function findVMrootSnapshotList(service, vmObj) {
     return getProperty(service, vmObj, 'snapshot')
         .then(value => value.rootSnapshotList);
+}
+
+function findVMipAddress(service, vmObj) {
+    return getProperty(service, vmObj, 'guest');
 }
 
 function downloadOVF(service, vmObj, nfcLease) {
@@ -151,7 +156,7 @@ function getSnapshotFromList(snapTree, findName, print) {
             console.log('Snapshot Name : ' + node.name);
         }
         if (node.name === findName) {
-            console.log('Found ME!!!!');
+            console.log('found snapshot ' + findName);
             snapmor = node.snapshot;
         } else {
             var childTree = node.childSnapshotList;
@@ -161,7 +166,52 @@ function getSnapshotFromList(snapTree, findName, print) {
     return snapmor;
 }
 
+function completeTask(service, task) {
+    var propertyCollector = service.serviceContent.propertyCollector;
+    var vim = service.vim;
+    var vimPort = service.vimPort;
+    var waiting = true;
+    var version = "";
+
+    return promise_utils.pwhile(
+        function() {
+            return waiting;
+        },
+        function() {
+            return vimPort.createFilter(propertyCollector,
+                    new vim.PropertyFilterSpec({
+                        objectSet: new vim.ObjectSpec({
+                            obj: task,
+                            skip: false
+                        }),
+                        propSet: new vim.PropertySpec({
+                            type: task.type,
+                            pathSet: ["info.state", "info.error"]
+                        })
+                    }), true)
+                .then(function() {
+                    return vimPort.waitForUpdatesEx(propertyCollector, version)
+                        .then(updateSet => {
+                            version = updateSet.version;
+                            var cs = updateSet.filterSet[0].objectSet[0].changeSet;
+                            return cs.forEach(change => {
+                                process.stdout.write('.');
+                                if (change.name === "info.error" && change.val !== undefined) {
+                                    throw Error(change.val.localizedMessage);
+                                }
+                                if (change.name === "info.state" && change.val === vim.TaskInfoState.success) {
+                                    waiting = false;
+                                    process.stdout.write('\r\n');
+                                }
+                            });
+                        });
+                });
+        });
+}
+
 exports.findVMbyName = findVMbyName;
+exports.completeTask = completeTask;
 exports.downloadOVF = downloadOVF;
+exports.findVMipAddress = findVMipAddress;
 exports.findVMrootSnapshotList = findVMrootSnapshotList;
 exports.getSnapshotFromList = getSnapshotFromList;

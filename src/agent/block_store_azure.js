@@ -10,6 +10,7 @@
 // const _ = require('lodash');
 const azure = require('azure-storage');
 const path = require('path');
+const stream = require('stream');
 
 const P = require('../util/promise');
 const dbg = require('../util/debug_module')(__filename);
@@ -44,17 +45,25 @@ class BlockStoreAzure extends BlockStoreBase {
 
     _read_block(block_md) {
         const block_key = this._block_key(block_md.id);
-        return P.fromCallback(callback => this.blob.getBlobToText(
+        let buffers = [];
+        let datalen = 0;
+        let ws = new stream.Writable({
+            write(chunk, encoding, callback) {
+                buffers.push(chunk);
+                datalen += chunk.length;
+                callback();
+            }
+        });
+        return P.fromCallback(callback => this.blob.getBlobToStream(
                 this.container_name,
-                block_key, {
+                block_key,
+                ws, {
                     disableContentMD5Validation: true
                 },
                 callback
-            ), {
-                multiArgs: true
-            })
-            .spread((data, info) => ({
-                data: new Buffer(data),
+            ))
+            .then(info => ({
+                data: Buffer.concat(buffers, datalen),
                 block_md: this._decode_block_md(info.metadata.noobaa_block_md)
             }))
             .catch(err => {

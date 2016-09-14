@@ -29,6 +29,7 @@ function create_agent(req) {
         // cloud agents
         args = args.concat([
             '--cloud_endpoint', req.params.cloud_info.endpoint,
+            '--endpoint_type', req.params.cloud_info.endpoint_type,
             '--cloud_bucket', req.params.cloud_info.target_bucket,
             '--cloud_access_key', req.params.cloud_info.access_keys.access_key,
             '--cloud_secret_key', req.params.cloud_info.access_keys.secret_key

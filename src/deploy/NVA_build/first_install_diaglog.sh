@@ -103,6 +103,7 @@ function configure_networking_dialog {
         dialog --colors --backtitle "NooBaa First Install" --title "IP Configuration" --infobox "Requesting IP from DHCP server. \nDepending on network connectivity and DHCP server availability, this might take a while." 6 60
         clean_ifcfg
         sudo bash -c "echo 'BOOTPROTO=dhcp' >> /etc/sysconfig/network-scripts/ifcfg-eth0"
+        dialog --colors --nocancel --backtitle "NooBaa First Install" --title "Using DHCP" --msgbox "Using DHCP is not recommended without adding a DNS name to the server. Please assign a DNS name and configure it in the configuration section in \Z5\ZbNooBaa\Zn GUI." 7 66
       fi
       # Surpressing messages to the console for the cases where DHCP is unreachable.
       # In these cases the network service cries to the log like a little bi#@h
@@ -116,7 +117,7 @@ function configure_networking_dialog {
       else
         dialog --colors --nocancel --backtitle "NooBaa First Install" --title "Hostname Configuration" --form "\nPlease supply a hostname for this \Z5\ZbNooBaa\Zn installation." 12 65 4 "Hostname:" 1 1 "" 1 25 25 30 2> answer_host
 
-        local host=$(t answer_host)
+        local host=$(tail -1 answer_host)
         rc=$(sudo sysctl kernel.hostname=${host})
         #sudo echo "First Install configure hostname ${host}, sysctl rc ${rc}" >> /var/log/noobaa_deploy.log
       fi
@@ -201,6 +202,13 @@ function end_wizard {
     #dev/null to avoid output with user name
     echo ${sec} |sudo passwd noobaaroot --stdin >/dev/null
     sudo sed -i "s:No Server Secret.*:This server's secret is \x1b[0;32;40m${sec}\x1b[0m:" /etc/issue
+  fi
+
+  #verify JWT_SECRET exists in .env, if not create it
+
+  if ! sudo -s grep -q JWT_SECRET /root/node_modules/noobaa-core/.env; then
+      local jwt=$(cat /etc/noobaa_sec | openssl sha512 -hmac | cut -c10-44)
+      echo "JWT_SECRET=${jwt}" | sudo tee -a /root/node_modules/noobaa-core/.env
   fi
 
   sudo sed -i "s:Configured IP on this NooBaa Server.*:Configured IP on this NooBaa Server \x1b[0;32;40m${current_ip}\x1b[0m:" /etc/issue

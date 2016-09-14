@@ -65,6 +65,12 @@
     }
 }
 
+input[type=password] {
+    &::-ms-reveal, &::-ms-clear {
+        display: none;
+    }
+}
+
 input:not([type=checkbox]):not([type=radio]) {
     .input();
 
@@ -150,13 +156,14 @@ input:not([type=checkbox]):not([type=radio]) {
     &:hover {
         color: @color6;
         background-color: @color8;
-    }
+}
 
     &:disabled {
         color: @color15;
         border-color: @color15;
         background: none;
         cursor: @cursor-not-allowed;
+        transition: unset;
     }
 
     &.alt-colors {

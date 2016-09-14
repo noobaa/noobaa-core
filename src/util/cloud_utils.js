@@ -2,9 +2,10 @@
 
 
 var _ = require('lodash');
-const dbg = require('../../util/debug_module')(__filename);
-const RpcError = require('../../rpc/rpc_error');
+const dbg = require('./debug_module')(__filename);
+const RpcError = require('../rpc/rpc_error');
 const AWS = require('aws-sdk');
+const url = require('url');
 
 
 /**
@@ -66,7 +67,23 @@ function get_signed_url(params) {
     );
 }
 
+function get_azure_connection_string(params) {
+    let endpoint_url = url.parse(params.endpoint);
+    let protocol = (endpoint_url.protocol ? endpoint_url.protocol : 'http');
+    protocol = protocol.slice(0, protocol.length - 1);
+    let connection_string = 'DefaultEndpointsProtocol=' + protocol + ';';
+    connection_string += 'AccountName=' + params.access_key + ';';
+    connection_string += 'AccountKey=' + params.secret_key + ';';
+
+    const AZURE_BLOB_ENDPOINT = 'blob.core.windows.net';
+    if (endpoint_url.host !== AZURE_BLOB_ENDPOINT) {
+        connection_string += 'BlobEndpoint=' + params.endpoint + ';';
+    }
+    return connection_string;
+}
+
 
 exports.resolve_cloud_sync_info = resolve_cloud_sync_info;
 exports.find_cloud_connection = find_cloud_connection;
+exports.get_azure_connection_string = get_azure_connection_string;
 exports.get_signed_url = get_signed_url;

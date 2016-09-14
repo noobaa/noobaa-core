@@ -62,6 +62,9 @@ function collect_server_diagnostics(req) {
                 .then(() => diag_log('collected ntp diagnostics successfully'))
                 .catch(err => diag_log('collect_ntp_diagnostics failed with error: ' + err)),
 
+                () => promise_utils.exec('df -h &> ' + TMP_WORK_DIR + '/df.out', false, false, LONG_EXEC_TIMEOUT)
+                .then(() => diag_log('collected df.out successfully'))
+                .catch(err => diag_log('collecting df.out failed with error: ' + err)),
 
                 () => collect_statistics(req)
                 .then(() => diag_log('collected statistics successfully'))

@@ -69,7 +69,11 @@ function pack(dest, name) {
             'node_modules/**/*',
             '!node_modules/babel*/**/*',
             '!node_modules/gulp*/**/*',
-            '!node_modules/node-inspector/**/*'
+            '!node_modules/node-inspector/**/*',
+            '!node_modules/chromedriver/**/*',
+            '!node_modules/selenium-webdriver/**/*',
+            '!node_modules/selenium-standalone/**/*',
+            '!node_modules/phantomjs-prebuilt/**/*'
         ], {
             base: 'node_modules'
         })

@@ -16,7 +16,7 @@
                 <p class="heading3">Create your owner account</p>
 
                 <editor params="label: 'Activation code'">
-                    <input type="text" placeholder="your actication code"
+                    <input type="text" placeholder="your activation code"
                         data-bind="value: activationCode">
 
                     <svg-icon class="validating-indicator spin"
@@ -34,11 +34,7 @@
                 </editor>
 
                 <editor params="label: 'Password'">
-                    <input type="password" autocomplete="off" data-bind="value: password" placeholder="enter passowrd">
-                </editor>
-
-                <editor params="label: 'Confirm password'">
-                    <input type="password" autocomplete="off" data-bind="value: confirmPassword" placeholder="repeat password ">
+                    <password-field params="value: password, placeholder: 'enter password'"></password-field>
                 </editor>
             </div>
 

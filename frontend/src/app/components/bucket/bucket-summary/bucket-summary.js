@@ -4,7 +4,7 @@ import ko from 'knockout';
 import moment from 'moment';
 import style from 'style';
 import { systemInfo } from 'model';
-import { deepFreeze, formatSize } from 'utils';
+import { deepFreeze } from 'utils';
 
 const stateMapping = deepFreeze({
     true: {
@@ -102,8 +102,10 @@ class BucketSummrayViewModel extends Disposable {
         );
 
         this.totalStorage = ko.pureComputed(
-            () => formatSize(storage().total)
-        );
+            () => storage().total
+        ).extend({
+            formatSize: true
+        });
 
         this.storageValues = [
             {
@@ -154,8 +156,10 @@ class BucketSummrayViewModel extends Disposable {
         );
 
         this.avaliableForWrite = ko.pureComputed(
-            () => formatSize(data().actual_free)
-        );
+            () => data().actual_free
+        ).extend({
+            formatSize: true
+        });
 
         this.avaliableForWriteTooltip = avaliableForWriteTooltip;
 

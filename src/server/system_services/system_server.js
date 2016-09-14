@@ -785,7 +785,7 @@ function update_base_address(req) {
             Dispatcher.instance().activity({
                 event: 'conf.dns_address',
                 level: 'info',
-                system: req.system,
+                system: req.system._id,
                 actor: req.account && req.account._id,
                 desc: `DNS Address was changed from ${prior_base_address} to ${req.rpc_params.base_address}`,
             });
@@ -975,10 +975,10 @@ function find_account_by_email(req) {
 function _communicate_license_server(params) {
     if (DEV_MODE) return 'ok';
     const body = {
-        code: params.code,
+        code: params.code.trim(),
     };
     if (params.email) {
-        body['Business Email'] = params.email;
+        body['Business Email'] = params.email.trim();
     }
     if (params.command === 'perform_activation') {
         body.system_info = params.system_info || {};

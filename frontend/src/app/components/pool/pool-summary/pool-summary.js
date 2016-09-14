@@ -3,7 +3,7 @@ import Disposable from 'disposable';
 import ko from 'knockout';
 import numeral from 'numeral';
 import style from 'style';
-import { deepFreeze, formatSize } from 'utils';
+import { deepFreeze } from 'utils';
 
 const stateMapping = deepFreeze({
     true: {
@@ -51,8 +51,10 @@ class PoolSummaryViewModel extends Disposable {
         );
 
         this.formattedTotal = ko.pureComputed(
-            () => formatSize(storage().total)
-        );
+            () => storage().total
+        ).extend({
+            formatSize: true
+        });
 
         this.pieValues = [
             {

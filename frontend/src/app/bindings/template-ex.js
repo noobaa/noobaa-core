@@ -12,6 +12,10 @@ export default {
             );
         }
 
+        if (value.hasOwnProperty('let')) {
+            bindingContext = bindingContext.extend(value['let']);
+        }
+
         return original.init(element, () => value, allBindings, viewModel, bindingContext);
     },
 
@@ -21,6 +25,10 @@ export default {
             value.nodes = domFromHtml(
                 ko.unwrap(value.html)
             );
+        }
+
+        if (value.hasOwnProperty('let')) {
+            bindingContext = bindingContext.extend(value['let']);
         }
 
         return original.update(element, () => value, allBindings, viewModel, bindingContext);

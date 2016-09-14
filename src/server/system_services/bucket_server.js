@@ -24,7 +24,8 @@ const Dispatcher = require('../notifications/dispatcher');
 const nodes_client = require('../node_services/nodes_client');
 const system_store = require('../system_services/system_store').get_instance();
 const object_server = require('../object_services/object_server');
-const cloud_utils = require('../utils/cloud_utils');
+const cloud_utils = require('../../util/cloud_utils');
+const azure = require('azure-storage');
 
 const VALID_BUCKET_NAME_REGEXP =
     /^(([a-z0-9]|[a-z0-9][a-z0-9\-]*[a-z0-9])\.)*([a-z0-9]|[a-z0-9][a-z0-9\-]*[a-z0-9])$/;
@@ -338,7 +339,43 @@ function delete_bucket(req) {
         .return();
 }
 
+/**
+ *
+ * DELETE_BUCKET_LIFECYCLE
+ *
+ */
+function delete_bucket_lifecycle(req) {
+    var bucket = find_bucket(req);
+    return system_store.make_changes({
+            update: {
+                buckets: [{
+                    _id: bucket._id,
+                    $unset: {
+                        lifecycle_configuration_rules: 1
+                    }
+                }]
+            }
+        })
+        .then(() => {
+            let desc_string = [];
+            desc_string.push(`lifecycle configuration rules were removed for bucket ${bucket.name} by ${req.account && req.account.email}`);
 
+            Dispatcher.instance().activity({
+                event: 'bucket.delete_lifecycle_configuration_rules',
+                level: 'info',
+                system: req.system._id,
+                actor: req.account && req.account._id,
+                bucket: bucket._id,
+                desc: desc_string.join('\n'),
+            });
+            return;
+        })
+        .catch(function(err) {
+            dbg.error('Error deleting lifecycle configuration rules', err, err.stack);
+            throw err;
+        })
+        .return();
+}
 
 /**
  *
@@ -683,6 +720,57 @@ function toggle_cloud_sync(req) {
 
 /**
  *
+ * SET_BUCKET_LIFECYCLE_CONFIGURATION_RULES
+ *
+ */
+function set_bucket_lifecycle_configuration_rules(req) {
+    dbg.log0('set bucket lifecycle configuration rules', req.rpc_params);
+
+    var bucket = find_bucket(req);
+
+    var lifecycle_configuration_rules = req.rpc_params.rules;
+
+    return system_store.make_changes({
+            update: {
+                buckets: [{
+                    _id: bucket._id,
+                    lifecycle_configuration_rules: lifecycle_configuration_rules
+                }]
+            }
+        })
+        .then(() => {
+            let desc_string = [];
+            desc_string.push(`${bucket.name} was updated with lifecycle configuration rules by ${req.account && req.account.email}`);
+
+            Dispatcher.instance().activity({
+                event: 'bucket.set_lifecycle_configuration_rules',
+                level: 'info',
+                system: req.system._id,
+                actor: req.account && req.account._id,
+                bucket: bucket._id,
+                desc: desc_string.join('\n'),
+            });
+            return;
+        })
+        .catch(function(err) {
+            dbg.error('Error setting lifecycle configuration rules', err, err.stack);
+            throw err;
+        })
+        .return();
+}
+
+/**
+ *
+ * GET_BUCKET_LIFECYCLE_CONFIGURATION_RULES
+ *
+ */
+function get_bucket_lifecycle_configuration_rules(req) {
+    dbg.log0('get bucket lifecycle configuration rules', req.rpc_params);
+    var bucket = find_bucket(req);
+    return bucket.lifecycle_configuration_rules || [];
+}
+/**
+ *
  * GET_CLOUD_BUCKETS
  *
  */
@@ -695,22 +783,31 @@ function get_cloud_buckets(req) {
             req.account,
             req.rpc_params.connection
         );
-        var s3 = new AWS.S3({
-            endpoint: connection.endpoint,
-            accessKeyId: connection.access_key,
-            secretAccessKey: connection.secret_key,
-            httpOptions: {
-                agent: new https.Agent({
-                    rejectUnauthorized: false,
-                })
-            }
-        });
-        return P.ninvoke(s3, "listBuckets");
-    }).then(function(data) {
-        _.each(data.Buckets, function(bucket) {
-            buckets.push(bucket.Name);
-        });
-        return buckets;
+        if (connection.endpoint_type === 'AZURE') {
+            let blob_svc = azure.createBlobService(cloud_utils.get_azure_connection_string(connection));
+            return P.ninvoke(blob_svc, 'listContainersSegmented', null, {})
+                .then(function(data) {
+                    return data.entries.map(entry => entry.name);
+                });
+        } else {
+            var s3 = new AWS.S3({
+                endpoint: connection.endpoint,
+                accessKeyId: connection.access_key,
+                secretAccessKey: connection.secret_key,
+                httpOptions: {
+                    agent: new https.Agent({
+                        rejectUnauthorized: false,
+                    })
+                }
+            });
+            return P.ninvoke(s3, "listBuckets")
+                .then(function(data) {
+                    _.each(data.Buckets, function(bucket) {
+                        buckets.push(bucket.Name);
+                    });
+                    return buckets;
+                });
+        }
     }).catch(function(err) {
         dbg.error("get_cloud_buckets ERROR", err.stack || err);
         throw err;
@@ -855,6 +952,9 @@ exports.create_bucket = create_bucket;
 exports.read_bucket = read_bucket;
 exports.update_bucket = update_bucket;
 exports.delete_bucket = delete_bucket;
+exports.delete_bucket_lifecycle = delete_bucket_lifecycle;
+exports.set_bucket_lifecycle_configuration_rules = set_bucket_lifecycle_configuration_rules;
+exports.get_bucket_lifecycle_configuration_rules = get_bucket_lifecycle_configuration_rules;
 exports.list_buckets = list_buckets;
 //exports.generate_bucket_access = generate_bucket_access;
 exports.list_bucket_s3_acl = list_bucket_s3_acl;

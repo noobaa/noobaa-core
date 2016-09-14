@@ -145,7 +145,8 @@ class CreatePoolWizardViewModel extends Disposable {
         loadNodeList(
             this.nameOrIpFilter(),
             this.poolFilter(),
-            this.onlineFilter() || undefined
+            this.onlineFilter() || undefined,
+            (this.onlineFilter() ? false : undefined)
         );
     }
 

@@ -51,8 +51,8 @@ function main() {
         .then(() => client.account.add_account_sync_credentials_cache({
             name: 'aws',
             endpoint: 'https://s3.amazonaws.com',
-            access_key: 'AKIAIGLTF7IWOW4M3ZHQ',
-            secret_key: '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'
+            identity: 'AKIAIGLTF7IWOW4M3ZHQ',
+            secret: '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'
         }))
         .then(() => client.pool.create_cloud_pool({
             name: 'cloud-pool-aws',

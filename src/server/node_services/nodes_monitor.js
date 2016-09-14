@@ -301,7 +301,7 @@ class NodesMonitor extends EventEmitter {
             system: item.node.system,
             node: item.node._id,
             actor: req.account && req.account._id,
-            desc: `${item.node.name} was decommissioned by ${req.account && req.account.email}`,
+            desc: `${item.node.name} was deactivated by ${req.account && req.account.email}`,
         });
     }
 
@@ -318,7 +318,7 @@ class NodesMonitor extends EventEmitter {
             system: item.node.system,
             node: item.node._id,
             actor: req.account && req.account._id,
-            desc: `${item.node.name} was recommissioned by ${req.account && req.account.email}`,
+            desc: `${item.node.name} was reactivated by ${req.account && req.account.email}`,
         });
     }
 
@@ -474,7 +474,9 @@ class NodesMonitor extends EventEmitter {
         if (conn) {
             item.node.heartbeat = Date.now();
             conn.on('close', () => {
-                dbg.warn('got close on connection:', conn);
+                dbg.warn('got close on node connection for', item.node.name,
+                    'conn', conn.connid,
+                    'active conn', item.connection && item.connection.connid);
                 // if connection already replaced ignore the close event
                 if (item.connection !== conn) return;
                 item.connection = null;

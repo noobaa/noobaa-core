@@ -65,14 +65,6 @@ class CreateSystemFormViewModel extends Disposable {
                 required: { message: 'Please enter a password' }
             });
 
-        this.confirmPassword = ko.observable()
-            .extend({
-                equal: {
-                    params: this.password,
-                    message: 'Passwords must match'
-                }
-            });
-
         this.name = ko.pureComputed(
             () => this.email() && this.email().split('@')[0]
         );

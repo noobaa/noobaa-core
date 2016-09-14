@@ -29,7 +29,8 @@ const string_utils = require('../../util/string_utils');
 const map_allocator = require('./map_allocator');
 const mongo_functions = require('../../util/mongo_functions');
 const system_server_utils = require('../utils/system_server_utils');
-const cloud_utils = require('../utils/cloud_utils');
+const cloud_utils = require('../../util/cloud_utils');
+const moment = require('moment');
 
 /**
  *
@@ -141,7 +142,7 @@ function complete_object_upload(req) {
         })
         .then(object_size => {
             Dispatcher.instance().activity({
-                system: req.system,
+                system: req.system._id,
                 level: 'info',
                 event: 'obj.uploaded',
                 obj: obj,
@@ -311,7 +312,7 @@ function copy_object(req) {
         })
         .then(() => {
             Dispatcher.instance().activity({
-                system: req.system,
+                system: req.system._id,
                 level: 'info',
                 event: 'obj.uploaded',
                 obj: create_info._id,
@@ -528,7 +529,7 @@ function delete_object(req) {
         })
         .then(() => {
             Dispatcher.instance().activity({
-                system: req.system,
+                system: req.system._id,
                 level: 'info',
                 event: 'obj.deleted',
                 obj: obj_to_delete,
@@ -566,7 +567,38 @@ function delete_multiple_objects(req) {
         .return();
 }
 
+/**
+ *
+ * DELETE_MULTIPLE_OBJECTS
+ * delete multiple objects
+ *
+ */
+function delete_multiple_objects_by_prefix(req) {
+    dbg.log0('delete_multiple_objects_by_prefix (lifecycle): prefix =', req.params.prefix);
 
+    load_bucket(req);
+    // TODO: change it to perform changes in one transaction. Won't scale.
+    return list_objects(req)
+        .then(items => {
+            dbg.log0('objects by prefix', items.objects);
+            if (items.objects.length > 0) {
+                return P.all(_.map(items.objects, function(single_object) {
+                    dbg.log0('single obj deleted:', single_object.key);
+                    return P.fcall(() => {
+                            var query = {
+                                system: req.system._id,
+                                bucket: req.bucket._id,
+                                key: single_object.key
+                            };
+                            return md_store.ObjectMD.findOne(query).exec();
+                        })
+                        .then(obj => mongo_utils.check_entity_not_found(obj, 'object'))
+                        .then(obj => delete_object_internal(obj));
+                })).return();
+            }
+        })
+        .return();
+}
 /**
  * return a regexp pattern to be appended to a prefix
  * to make it match "prefix/file" or "prefix/dir/"
@@ -632,6 +664,12 @@ function list_objects(req) {
                     });
             } else if (prefix) {
                 info.key = new RegExp('^' + escaped_prefix);
+                if (req.rpc_params.create_time) {
+                    let creation_date = moment.unix(req.rpc_params.create_time).toISOString();
+                    info.create_time = {
+                        $lt: new Date(creation_date)
+                    };
+                }
             } else if (req.rpc_params.key_query) {
                 info.key = new RegExp(string_utils.escapeRegExp(req.rpc_params.key_query), 'i');
             } else if (req.rpc_params.key_regexp) {
@@ -989,6 +1027,7 @@ exports.read_object_md = read_object_md;
 exports.update_object_md = update_object_md;
 exports.delete_object = delete_object;
 exports.delete_multiple_objects = delete_multiple_objects;
+exports.delete_multiple_objects_by_prefix = delete_multiple_objects_by_prefix;
 exports.list_objects = list_objects;
 // cloud sync related
 exports.set_all_files_for_sync = set_all_files_for_sync;

@@ -12,12 +12,10 @@ var srv = new Service({
 
 srv.on('install', () => {
     console.log('Installing Noobaa local service');
-    srv.start();
 });
 
 srv.on('alreadyinstalled', () => {
     console.log('Noobaa local service is already installed');
-    srv.start();
 });
 
 srv.on('start', () => {

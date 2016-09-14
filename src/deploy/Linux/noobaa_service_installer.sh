@@ -8,6 +8,7 @@ sleep 5
 if [[ $(ps -elf|grep 'systemd+\{0,1\}[ ]\{1,\}[0-9]\{1,\}[ ]\{1,\}1 ') ]]; then
   sleep 2
   systemctl enable noobaalocalservice
+  systemctl start noobaalocalservice
 else
   # TODO: equivilant for UpStart
   echo "upstart enable service"

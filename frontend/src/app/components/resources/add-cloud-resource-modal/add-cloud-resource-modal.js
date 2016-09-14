@@ -105,6 +105,8 @@ class AddCloudResourceModalViewModel extends Disposable {
             this.resourceName
         ]);
 
+        this.shake = ko.observable(false);
+
         loadCloudConnections();
     }
 
@@ -123,6 +125,8 @@ class AddCloudResourceModalViewModel extends Disposable {
     add() {
         if (this.errors().length > 0) {
             this.errors.showAllMessages();
+            this.shake(true);
+
         } else {
             createCloudResource(this.resourceName(), this.connection().name, this.targetBucket());
             this.onClose();

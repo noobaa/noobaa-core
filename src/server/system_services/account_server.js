@@ -18,6 +18,8 @@ const auth_server = require('../common_services/auth_server');
 const Dispatcher = require('../notifications/dispatcher');
 const mongo_utils = require('../../util/mongo_utils');
 const system_store = require('../system_services/system_store').get_instance();
+const cloud_utils = require('../../util/cloud_utils');
+const azure = require('azure-storage');
 
 system_store.on('load', ensure_support_account);
 
@@ -421,6 +423,7 @@ function get_account_sync_credentials_cache(req) {
 
 function add_account_sync_credentials_cache(req) {
     var info = _.pick(req.rpc_params, 'name', 'endpoint', 'endpoint_type');
+    if (!info.endpoint_type) info.endpoint_type = 'AWS';
     info.access_key = req.rpc_params.identity;
     info.secret_key = req.rpc_params.secret;
     var updates = {
@@ -439,18 +442,28 @@ function check_account_sync_credentials(req) {
     var params = _.pick(req.rpc_params, 'endpoint', 'identity', 'secret', 'endpoint_type');
 
     return P.fcall(function() {
-        var s3 = new AWS.S3({
-            endpoint: params.endpoint,
-            accessKeyId: params.identity,
-            secretAccessKey: params.secret,
-            httpOptions: {
-                agent: new https.Agent({
-                    rejectUnauthorized: false,
-                })
-            }
-        });
+        if (params.endpoint_type === 'AZURE') {
+            let conn_str = cloud_utils.get_azure_connection_string({
+                endpoint: params.endpoint,
+                access_key: params.identity,
+                secret_key: params.secret
+            });
+            let blob_svc = azure.createBlobService(conn_str);
+            return P.ninvoke(blob_svc, 'listContainersSegmented', null, {});
+        } else {
+            var s3 = new AWS.S3({
+                endpoint: params.endpoint,
+                accessKeyId: params.identity,
+                secretAccessKey: params.secret,
+                httpOptions: {
+                    agent: new https.Agent({
+                        rejectUnauthorized: false,
+                    })
+                }
+            });
 
-        return P.ninvoke(s3, "listBuckets");
+            return P.ninvoke(s3, "listBuckets");
+        }
     }).then(
         () => true,
         () => false

@@ -24,7 +24,8 @@ const Dispatcher = require('../notifications/dispatcher');
 const nodes_client = require('../node_services/nodes_client');
 const system_store = require('../system_services/system_store').get_instance();
 const object_server = require('../object_services/object_server');
-const cloud_utils = require('../utils/cloud_utils');
+const cloud_utils = require('../../util/cloud_utils');
+const azure = require('azure-storage');
 
 const VALID_BUCKET_NAME_REGEXP =
     /^(([a-z0-9]|[a-z0-9][a-z0-9\-]*[a-z0-9])\.)*([a-z0-9]|[a-z0-9][a-z0-9\-]*[a-z0-9])$/;
@@ -782,22 +783,31 @@ function get_cloud_buckets(req) {
             req.account,
             req.rpc_params.connection
         );
-        var s3 = new AWS.S3({
-            endpoint: connection.endpoint,
-            accessKeyId: connection.access_key,
-            secretAccessKey: connection.secret_key,
-            httpOptions: {
-                agent: new https.Agent({
-                    rejectUnauthorized: false,
-                })
-            }
-        });
-        return P.ninvoke(s3, "listBuckets");
-    }).then(function(data) {
-        _.each(data.Buckets, function(bucket) {
-            buckets.push(bucket.Name);
-        });
-        return buckets;
+        if (connection.endpoint_type === 'AZURE') {
+            let blob_svc = azure.createBlobService(cloud_utils.get_azure_connection_string(connection));
+            return P.ninvoke(blob_svc, 'listContainersSegmented', null, {})
+                .then(function(data) {
+                    return data.entries.map(entry => entry.name);
+                });
+        } else {
+            var s3 = new AWS.S3({
+                endpoint: connection.endpoint,
+                accessKeyId: connection.access_key,
+                secretAccessKey: connection.secret_key,
+                httpOptions: {
+                    agent: new https.Agent({
+                        rejectUnauthorized: false,
+                    })
+                }
+            });
+            return P.ninvoke(s3, "listBuckets")
+                .then(function(data) {
+                    _.each(data.Buckets, function(bucket) {
+                        buckets.push(bucket.Name);
+                    });
+                    return buckets;
+                });
+        }
     }).catch(function(err) {
         dbg.error("get_cloud_buckets ERROR", err.stack || err);
         throw err;

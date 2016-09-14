@@ -16,7 +16,8 @@ class DropdownViewModel extends Disposable {
         options = [],
         placeholder = 'Choose...',
         disabled = false,
-        matchOperator = matchByPrefix
+        matchOperator = matchByPrefix,
+        hasFocus = false
     }) {
         super();
 
@@ -43,6 +44,7 @@ class DropdownViewModel extends Disposable {
         );
 
         this.disabled = disabled;
+        this.hasFocus = hasFocus;
         this.active = ko.observable(false);
         this.matchOperator = matchOperator;
         this.searchInput = '';

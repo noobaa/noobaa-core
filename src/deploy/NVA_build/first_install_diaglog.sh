@@ -103,6 +103,7 @@ function configure_networking_dialog {
         dialog --colors --backtitle "NooBaa First Install" --title "IP Configuration" --infobox "Requesting IP from DHCP server. \nDepending on network connectivity and DHCP server availability, this might take a while." 6 60
         clean_ifcfg
         sudo bash -c "echo 'BOOTPROTO=dhcp' >> /etc/sysconfig/network-scripts/ifcfg-eth0"
+        dialog --colors --nocancel --backtitle "NooBaa First Install" --title "Using DHCP" --msgbox "Using DHCP is not recommended without adding a DNS name to the server. Please assign a DNS name and configure it in the configuration section in \Z5\ZbNooBaa\Zn GUI." 7 66
       fi
       # Surpressing messages to the console for the cases where DHCP is unreachable.
       # In these cases the network service cries to the log like a little bi#@h

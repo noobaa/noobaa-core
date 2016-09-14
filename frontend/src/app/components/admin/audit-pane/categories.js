@@ -13,12 +13,12 @@ export default {
             },
 
             decommission: {
-                message: 'Node Decommisioned',
+                message: 'Node Deactivated',
                 entityId: ({ node }) => node && node.name
             },
 
             recommission: {
-                message: 'Node Recommissioned',
+                message: 'Node Reactivated',
                 entityId: ({ node }) => node && node.name
             }
         }

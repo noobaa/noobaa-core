@@ -61,6 +61,7 @@ AgentCLI.prototype.init = function() {
     if (self.params.cloud_endpoint) {
         self.cloud_info = {
             endpoint: self.params.cloud_endpoint,
+            endpoint_type: self.params.endpoint_type,
             target_bucket: self.params.cloud_bucket,
             access_keys: {
                 access_key: self.params.cloud_access_key,

@@ -46,8 +46,6 @@ function upload_and_upgrade(ip, upgrade_pack) {
         }
     };
 
-    var version_match = filename.match(/noobaa-NVA-(.*)\.tar\.gz/);
-
     return P.ninvoke(request, 'post', {
             url: 'http://' + ip + ':8080/upgrade',
             formData: formData,

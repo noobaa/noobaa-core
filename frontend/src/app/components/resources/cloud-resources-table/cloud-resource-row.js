@@ -7,23 +7,22 @@ const undeletableReasons = Object.freeze({
     IN_USE: 'Cannot delete a resource which is used in a bucket cloud storage policy'
 });
 
-const icons = deepFreeze([
-    {
-        pattern: 's3.amazonaws.com',
-        icon: 'aws-s3-resource',
-        description: 'AWS S3 Bucket'
+const serviceIconMapping = deepFreeze({
+    AWS: {
+        name: 'aws-s3-resource',
+        tooltip: 'AWS S3 Bucket'
     },
-    {
-        pattern: 'storage.googleapis.com',
-        icon: 'gcloud-resource',
-        description: 'GCloud Bucket'
+
+    AZURE: {
+        name: 'azure-resource',
+        tooltip: 'Azure Container'
     },
-    {
-        pattern: '',
-        icon: 'cloud-resource',
-        description: 'AWS Compatible Cloud Bukcet'
+
+    S3_COMPATIBLE: {
+        name: 'cloud-resource',
+        tooltip: 'S3 Compatible Cloud Bukcet'
     }
-]);
+});
 
 export default class CloudResourceRowViewModel extends Disposable {
     constructor(resource, poolsToBuckets, deleteGroup, showAfterDeleteAlertModal) {
@@ -36,21 +35,7 @@ export default class CloudResourceRowViewModel extends Disposable {
         };
 
         this.type = ko.pureComputed(
-            () => {
-                if (!resource()) {
-                    return '';
-                }
-
-                let endpoint = resource().cloud_info.endpoint.toLowerCase();
-                let { icon, description } = icons.find(
-                    ({ pattern }) => endpoint.indexOf(pattern) > -1
-                );
-
-                return {
-                    name: icon,
-                    tooltip: description
-                };
-            }
+            () => resource() ? serviceIconMapping[resource().cloud_info.endpoint_type] : ''
         );
 
         this.name = ko.pureComputed(

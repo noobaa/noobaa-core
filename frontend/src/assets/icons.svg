@@ -197,7 +197,9 @@
     </symbol>
 
     <symbol id="cloud-resource" viewBox="0 0 24 24">
-        <path d="M0,0v24h24V0H0z M10,19.2l-5.8-2.2L3.9,7.6L10,9.7V19.2z M6,6.6l6-1.8l5.9,1.8l-5.9,2L6,6.6z M19,16.9l-6.3,2.3l0-9.5 L19,7.6V16.9z"/>
+        <g stroke="none" stroke-width="1" fill-rule="evenodd" fill="#88898A" transform="translate(0.000000, 4.000000)">
+            <path d="M19.3,6.5 C18.9,2.9 15.8,0 12,0 C8.2,0 5.1,2.8 4.7,6.5 C2.1,6.5 0,8.6 0,11.2 C0,13.8 2.1,16 4.7,16 L19.3,16 C21.9,16 24,13.9 24,11.3 C24,8.6 21.9,6.5 19.3,6.5 L19.3,6.5 L19.3,6.5 Z"></path>
+        </g>
     </symbol>
 
     <symbol id="eye" viewBox="0 0 24 24">

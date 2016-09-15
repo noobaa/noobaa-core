@@ -25,7 +25,7 @@ const serviceIconMapping = deepFreeze({
 });
 
 export default class CloudResourceRowViewModel extends Disposable {
-    constructor(resource, poolsToBuckets, deleteGroup, showAfterDeleteAlertModal) {
+    constructor(resource, resourcesToBuckets, deleteGroup, showAfterDeleteAlertModal) {
         super();
 
         this.state = {
@@ -44,7 +44,7 @@ export default class CloudResourceRowViewModel extends Disposable {
 
         this.buckets = ko.pureComputed(
             () => {
-                let buckets = poolsToBuckets()[this.name()] || [];
+                let buckets = resourcesToBuckets()[this.name()] || [];
                 let count = buckets.length;
 
                 return {

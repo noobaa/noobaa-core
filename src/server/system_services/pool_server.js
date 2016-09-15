@@ -275,6 +275,7 @@ function get_pool_info(pool, nodes_aggregate_pool) {
     if (_is_cloud_pool(pool)) {
         info.cloud_info = {
             endpoint: pool.cloud_pool_info.endpoint,
+            endpoint_type: pool.cloud_pool_info.endpoint_type,
             target_bucket: pool.cloud_pool_info.target_bucket
         };
         info.undeletable = check_cloud_pool_deletion(pool, nodes_aggregate_pool);

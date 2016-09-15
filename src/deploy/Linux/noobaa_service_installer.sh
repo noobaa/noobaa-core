@@ -8,7 +8,7 @@ if [[ $(ps -elf|grep 'systemd+\{0,1\}[ ]\{1,\}[0-9]\{1,\}[ ]\{1,\}1 ') ]]; then
   systemctl enable noobaalocalservice
 else
   echo "No systemd detected. Installing upstart script"
-  cp /usr/local/noobaa/src/deploy/Linux/noobaalocalservice.conf /etc/init/noobaalocalservice.conf
+  cp /usr/local/noobaa/src/agent/noobaalocalservice.conf /etc/init/noobaalocalservice.conf
 fi
 
 echo "NooBaa installation complete"

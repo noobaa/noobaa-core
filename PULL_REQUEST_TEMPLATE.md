@@ -8,11 +8,8 @@
 
 - Code:
  - [ ] User Experience: **Taken a moment to think the effects on our user**
- - [ ] Comments on non trivial sections, Failure handling: 
+ - [ ] Failure handling and Comments on non trivial sections: 
  - [ ] Cross Platform: **Supporting Win 7/8/10 Server 12, Linux, Mac**
- - [ ] Code Review: **@mention Please review and mark when done**
- - [ ] Technical Debt: **Created issues for TODO's**
-  - **Issue Title - issue #xxxx**
 - Testing:
  - [ ] Unit/System Tests: **Added tests ... / Already covered by existing tests ...**
  - [ ] Tested with: `npm test`
@@ -20,9 +17,11 @@
  - [ ] Diagnostics info, Phone Home info, ActivityLog events, External Syslog: 
 - Upgrade:
  - [ ] Mongo Schema Upgrade:
- - [ ] Server Platform changes, New packages added to package.json:
- - [ ] Agents changes:
+ - [ ] Agents changes, Server Platform changes and New packages added to package.json:
 
-### Issues References
+### Technical Debt Created
+  - Opened #xxxx
+
+### Fixed Issues References
 - Fixes #xxxx
 - Fixes #yyyy

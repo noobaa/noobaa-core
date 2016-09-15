@@ -2,10 +2,6 @@
 - Besides making the world a better place it also ...
 
 ### Checklist 
-*Notice 1: you can create the PR and keep pushing commits until all relevant items are marked*  
-*Notice 2: Mark N/A for irrelevant items below*  
-*Notice 3: Feel free to delete these notices in the PR*
-
 - Code:
  - [ ] User Experience: **Taken a moment to think the effects on our user**
  - [ ] Failure handling and Comments on non trivial sections: 

@@ -83,7 +83,6 @@
     "express": "4.13.4",
     "forever": "0.15.2",
     "forever-service": "0.5.7",
-    "node-linux": "0.1.8",
     "form-data": "0.2.0",
     "glob-to-regexp": "0.1.0",
     "googleapis": "12.2.0",

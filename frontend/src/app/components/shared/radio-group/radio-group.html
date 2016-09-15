@@ -2,11 +2,12 @@
     foreach: options,
     css: $component.layoutClass
 ">
-    <radio-btn  class="push-next" params="
-        group: $component.Name,
+    <radio-btn class="push-next" params="
+        group: $component.name,
         selected: $component.selected,
         label: label,
         value: value,
-        disabled: $component.disabled
+        disabled: $component.disabled,
+        hasFocus: $component.hasFocus && $index() === 0
     "></radio-btn>
 </div>

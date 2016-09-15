@@ -36,23 +36,15 @@ class WizardViewModel extends Disposable {
             }
         );
 
-        this.isLastStep = ko.pureComputed(
-            () => this.step() == steps.length -1
-        );
-
-        this.isCancelVisible = ko.pureComputed(
+        this.isFirstStep = ko.pureComputed(
             () => this.step() === 0
         );
 
-        this.isPrevVisible = ko.pureComputed(
-            () => this.step() > 0
+        this.isLastStep = ko.pureComputed(
+            () => this.step() === steps.length -1
         );
 
-        this.isNextVisible = ko.pureComputed(
-            () => this.step() < steps.length - 1
-        );
-
-        this.isDoneVisible = this.isLastStep;
+        this.shake = ko.observable(false);
     }
 
     isInStep(stepNum) {
@@ -72,8 +64,9 @@ class WizardViewModel extends Disposable {
 
     next() {
         if (!this.isLastStep() && this.validateStep(this.step() + 1)) {
-
             this.step(this.step() + 1);
+        } else {
+            this.shake(true);
         }
     }
 
@@ -81,6 +74,8 @@ class WizardViewModel extends Disposable {
         if (this.validateStep(this.step() + 1)) {
             this.onComplete();
             this.onClose();
+        } else {
+            this.shake(true);
         }
     }
 }

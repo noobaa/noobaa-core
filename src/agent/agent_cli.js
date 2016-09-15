@@ -361,7 +361,7 @@ AgentCLI.prototype.create_node_helper = function(current_node_path_info, use_hos
         dbg.log0('create_node_helper called with self.params', self.params);
         var current_node_path = current_node_path_info.mount;
         var node_name = internal_node_name || os.hostname();
-        var path_modification = current_node_path.replace('/agent_storage/', '').replace('/g', '').replace('.', '');
+        var path_modification = current_node_path.replace('/agent_storage/', '').replace(/\//g, '').replace('.', '');
         //windows
         path_modification = path_modification.replace('\\agent_storage\\', '');
         dbg.log0('create_node_helper with path_modification', path_modification, 'node:', node_name, 'current_node_path', current_node_path, 'exists');

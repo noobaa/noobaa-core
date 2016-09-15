@@ -40,7 +40,11 @@
         <button class="link push-next" data-bind="click: cancel">
             Cancel
         </button>
-        <button class="btn" data-bind="click: tryConnection">
+        <button class="btn" data-bind="
+            click: tryConnection,
+            css: { shake: shake },
+            animation: { end: () => shake(false) }
+        ">
             Save
         </button>
     </div>

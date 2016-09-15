@@ -27,6 +27,7 @@ var LIFECYCLE = {
  *************** Cloud Sync Background Worker & Other Eports
  */
 function background_worker() {
+    if (!system_store.data.systems[0]) return P.resolve();
     return P.fcall(function() {
             dbg.log0('LIFECYCLE READ BUCKETS configuration:', 'BEGIN');
             return system_store.refresh()

@@ -32,7 +32,10 @@ function logAction(action, payload) {
 export function start() {
     logAction('start');
 
-    api.options.auth_token = localStorage.getItem('sessionToken');
+    api.options.auth_token =
+        sessionStorage.getItem('sessionToken') ||
+        localStorage.getItem('sessionToken');
+
     return api.auth.read_auth()
         // Try to restore the last session
         .then(({account, system}) => {
@@ -302,8 +305,8 @@ export function closeDrawer() {
 // -----------------------------------------------------
 // Sign In/Out actions.
 // -----------------------------------------------------
-export function signIn(email, password, redirectUrl) {
-    logAction('signIn', { email, password, redirectUrl });
+export function signIn(email, password, keepSessionAlive = false, redirectUrl) {
+    logAction('signIn', { email, password, keepSessionAlive, redirectUrl });
 
     api.create_auth_token({ email, password })
         .then(() => api.system.list_systems())
@@ -313,7 +316,8 @@ export function signIn(email, password, redirectUrl) {
 
                 return api.create_auth_token({ system, email, password })
                     .then(({ token }) => {
-                        localStorage.setItem('sessionToken', token);
+                        let storage = keepSessionAlive ? localStorage : sessionStorage;
+                        storage.setItem('sessionToken', token);
 
                         model.sessionInfo({ user: email, system: system });
                         model.loginInfo({ retryCount: 0 });
@@ -342,6 +346,7 @@ export function signIn(email, password, redirectUrl) {
 }
 
 export function signOut() {
+    sessionStorage.removeItem('sessionToken');
     localStorage.removeItem('sessionToken');
     model.sessionInfo(null);
     refresh();
@@ -657,7 +662,7 @@ export function createSystem(
         .then(
             ({ token }) => {
                 api.options.auth_token = token;
-                localStorage.setItem('sessionToken', token);
+                sessionStorage.setItem('sessionToken', token);
 
                 // Update the session info and redirect to system screen.
                 model.sessionInfo({

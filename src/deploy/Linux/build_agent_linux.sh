@@ -93,6 +93,7 @@ if [ "$CLEAN" = true ] ; then
     sed -i '/googleapis/d' package.json
     sed -i '/chromedriver/d' package.json
     sed -i '/phantomjs-prebuilt/d' package.json
+    sed -i '/vsphere/d' package.json
     echo "npm install node-gyp"
     npm install -g node-gyp
     npm install nan

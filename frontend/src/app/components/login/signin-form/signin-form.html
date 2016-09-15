@@ -19,9 +19,12 @@
             <password-field params="value: password"></password-field>
         </editor>
 
-            <p class="error push-next" data-bind="css: { visible: showInvalidMessage() }">
-                Invalid email address or password
-            </p>
+        <checkbox params="label: 'Keep me signed in', checked: keepSessionAlive">
+        </checkbox>
+
+        <p class="error push-next" data-bind="css: { visible: showInvalidMessage() }">
+            Invalid email address or password
+        </p>
 
         <div class="row content-middle">
             <p class="remark greedy push-next">

@@ -69,12 +69,20 @@
     </section>
 
     <div class="row content-middle align-end">
-        <button class="link alt-colors push-next" data-bind="click: cancel">Cancel</button>
-        <button class="btn" data-bind="click: save">Save</button>
+        <button class="link alt-colors push-next" data-bind="click: cancel">
+            Cancel
+        </button>
+        <button class="btn" data-bind="
+            click: save,
+            css: { shake: shake },
+            animation: { end: () => shake(false) }
+        ">
+            Save
+        </button>
     </div>
 </modal>
 
-<!-- ko if: isAddS3ConnectionModalVisible -->
-<add-s3-connection-modal params="onClose: () => hideAddS3ConnectionModal()">
-</add-s3-connection-modal>
+<!-- ko if: isAddCloudConnectionModalVisible -->
+<add-cloud-connection-modal params="onClose: () => hideAddCloudConnectionModal()">
+</add-cloud-connection-modal>
 <!-- /ko -->

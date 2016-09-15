@@ -1,8 +1,8 @@
 import template from './set-cloud-sync-modal.html';
 import Disposable from 'disposable';
 import ko from 'knockout';
-import { S3Connections, S3BucketList } from 'model';
-import { loadS3Connections, loadS3BucketList, setCloudSyncPolicy } from 'actions';
+import { CloudConnections, CloudBucketList } from 'model';
+import { loadCloudConnections, loadCloudBucketList, setCloudSyncPolicy } from 'actions';
 
 const [ MIN, HOUR, DAY ] = [ 1, 60, 60 * 24 ];
 const frequencyUnitOptions = Object.freeze([
@@ -51,7 +51,7 @@ class CloudSyncModalViewModel extends Disposable {
             () => [
                 addConnectionOption,
                 null,
-                ...S3Connections().map(
+                ...CloudConnections().map(
                     connection => ({
                         label: connection.name || connection.access_key,
                         value: connection
@@ -68,7 +68,7 @@ class CloudSyncModalViewModel extends Disposable {
                     _connection(value);
                 } else {
                     _connection(_connection() || null);
-                    this.isAddS3ConnectionModalVisible(true);
+                    this.isAddCloudConnectionModalVisible(true);
                 }
             }
         })
@@ -87,11 +87,11 @@ class CloudSyncModalViewModel extends Disposable {
 
         this.targetBucketsOptions = ko.pureComputed(
             () => {
-                if (!this.connection() || !S3BucketList()) {
+                if (!this.connection() || !CloudBucketList()) {
                     return;
                 }
 
-                return S3BucketList().map(
+                return CloudBucketList().map(
                     bucketName => ({ value: bucketName })
                 );
             }
@@ -118,27 +118,29 @@ class CloudSyncModalViewModel extends Disposable {
             write: _syncDeletions
         });
 
-        this.isAddS3ConnectionModalVisible = ko.observable(false);
+        this.isAddCloudConnectionModalVisible = ko.observable(false);
 
         this.errors = ko.validation.group([
             this.connection,
             this.targetBucket
         ]);
 
-        loadS3Connections();
+        this.shake = ko.observable(false);
+
+        loadCloudConnections();
     }
 
     loadBucketsList() {
-        loadS3BucketList(this.connection().name);
+        loadCloudBucketList(this.connection().name);
     }
 
-    showAddS3ConnectionModal() {
+    showAddCloudConnectionModal() {
         this.connection.isModified(false);
-        this.isAddS3ConnectionModalVisible(true);
+        this.isAddCloudConnectionModalVisible(true);
     }
 
-    hideAddS3ConnectionModal() {
-        this.isAddS3ConnectionModalVisible(false);
+    hideAddCloudConnectionModal() {
+        this.isAddCloudConnectionModalVisible(false);
     }
 
     cancel() {
@@ -148,6 +150,8 @@ class CloudSyncModalViewModel extends Disposable {
     save() {
         if (this.errors().length > 0) {
             this.errors.showAllMessages();
+            this.shake(true);
+
         } else {
             setCloudSyncPolicy(
                 ko.unwrap(this.bucketName),

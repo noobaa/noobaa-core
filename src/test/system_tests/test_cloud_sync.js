@@ -60,8 +60,8 @@ function set_cloud_sync(params) {
             () => client.account.add_account_sync_credentials_cache({
                 name: TEST_CTX.connection_name,
                 endpoint: TEST_CTX.target_ip,
-                access_key: '123',
-                secret_key: 'abc'
+                identity: '123',
+                secret: 'abc'
             })
         )
         .then(

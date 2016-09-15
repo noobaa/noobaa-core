@@ -59,9 +59,10 @@ function background_worker() {
 }
 
 function send_master_update(is_master) {
+    let system = system_store.data.systems[0];
+    if (!system) return P.resolve();
     return P.fcall(() => {
             if (!server_rpc.client.options.auth_token) {
-                let system = system_store.data.systems[0];
                 let auth_params = {
                     email: 'support@noobaa.com',
                     password: system_store.get_server_secret(),

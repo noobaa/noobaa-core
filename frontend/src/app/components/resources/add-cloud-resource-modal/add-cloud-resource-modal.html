@@ -14,7 +14,10 @@
             <div class="val-msg" data-bind="validationMessage: connection"></div>
         </editor>
 
-        <editor params="label: 'Target Bucket'">
+        <editor params="
+            label: 'Target Bucket',
+            disabled: !targetBucketsOptions()
+        ">
             <dropdown params="
                 placeholder: 'Choose bucket',
                 disabled: !targetBucketsOptions(),
@@ -24,7 +27,10 @@
             <div class="val-msg" data-bind="validationMessage: targetBucket"></div>
         </editor>
 
-        <editor params="label: 'Resource name'">
+        <editor params="
+            label: 'Resource name',
+            disabled: !targetBucket()
+        ">
             <input type="text" placeholder="Choose Name" data-bind="
                 enable: targetBucket,
                 textInput: resourceName
@@ -36,13 +42,18 @@
         <button class="link push-next" data-bind="click: cancel">
             Cancel
         </button>
-        <button class="btn" data-bind="click: add">
+        <button class="btn" data-bind="
+            click: add,
+            css: { shake: shake },
+            animation: { end: () => shake(false) }
+        ">
             Add
         </button>
     </div>
 </modal>
 
-<!-- ko if: isAddS3ConnectionModalVisible -->
-<add-s3-connection-modal params="onClose: canceled => hideAddS3ConnectionModal()">
-</add-s3-connection-modal>
+<!-- ko if: isAddCloudConnectionModalVisible -->
+<add-cloud-connection-modal params="
+    onClose: canceled => hideAddCloudConnectionModal()
+"></add-cloud-connection-modal>
 <!-- /ko -->

@@ -29,7 +29,7 @@ const string_utils = require('../../util/string_utils');
 const map_allocator = require('./map_allocator');
 const mongo_functions = require('../../util/mongo_functions');
 const system_server_utils = require('../utils/system_server_utils');
-const cloud_utils = require('../utils/cloud_utils');
+const cloud_utils = require('../../util/cloud_utils');
 const moment = require('moment');
 
 /**

@@ -69,7 +69,9 @@ function downloadOVF(service, vmObj, nfcLease) {
     var ovfManager = service.serviceContent.ovfManager;
     return getProperty(service, nfcLease, 'info')
         .then(function(info) {
-            var vmdk_url = info.deviceUrl[0].url;
+            info.leaseTimeout = 300 * 1000 * 1000;
+            console.log(info);
+            var vmdk_url = info.deviceUrl[0].url.replace('*', '192.168.1.127');
             var diskFileName = vmdk_url.substring(vmdk_url.lastIndexOf("/") + 1);
             var ovfFileName = diskFileName.split(".")[0] + ".ovf";
             var ovf_file = new vim.OvfFile();

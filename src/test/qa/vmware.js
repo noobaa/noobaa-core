@@ -64,28 +64,27 @@ vsphere.vimService(host_ip)
     .then(() => vimPort.powerOnVMTask(vm_obj, null))
     .then(task => vm_helper.completeTask(service, task))
     .then(() => console.log('machine is ON'))
-    .then(() => ops.wait_for_server(vm_ip))
-    .then(() => ops.upload_and_upgrade(vm_ip, upgrade_file))
-    .then(() => ops.wait_for_server(vm_ip))
-    .then(() => ssh_connect(ssh_client, {
-        host: vm_ip,
-        username: vm_user,
-        password: vm_password
-    }))
-    .then(() => ssh_exec(
-        ssh_client,
-        'sudo bash /root/node_modules/noobaa-core/src/deploy/NVA_build/clean_ova.sh', {
-            pty: true
-        }))
-    .then(() => ssh_client.end())
-    .then(() => console.log('cleaned the OVA'))
+    // .then(() => ops.wait_for_server(vm_ip))
+    // .then(() => ops.upload_and_upgrade(vm_ip, upgrade_file))
+    // .then(() => ops.wait_for_server(vm_ip))
+    // .then(() => ssh_connect(ssh_client, {
+    //     host: vm_ip,
+    //     username: vm_user,
+    //     password: vm_password
+    // }))
+    // .then(() => ssh_exec(
+    //     ssh_client,
+    //     'sudo bash /root/node_modules/noobaa-core/src/deploy/NVA_build/clean_ova.sh', {
+    //         pty: true
+    //     }))
+    // .then(() => ssh_client.end())
+    // .then(() => console.log('cleaned the OVA'))
     .then(() => console.log('powering machine OFF'))
     .then(() => vimPort.powerOffVMTask(vm_obj, null))
-    // .then(() => vimPort.exportVm(vm_obj))
-    // .then(nfcLease => vm_helper.downloadOVF(service, vm_obj, nfcLease))
-    // .then(console.log)
     .then(task => vm_helper.completeTask(service, task))
     .then(() => console.log('machine is OFF'))
+    .then(() => vimPort.exportVm(vm_obj))
+    .then(nfcLease => vm_helper.downloadOVF(service, vm_obj, nfcLease))
     .then(() => vimPort.logout(sessionManager))
     .then(() => console.log('All done.'))
     .catch(function(err) {

@@ -358,9 +358,10 @@ AgentCLI.prototype.create_node_helper = function(current_node_path_info, use_hos
     var self = this;
 
     return P.fcall(function() {
+        dbg.log0('create_node_helper called with self.params', self.params);
         var current_node_path = current_node_path_info.mount;
         var node_name = internal_node_name || os.hostname();
-        var path_modification = current_node_path.replace('/agent_storage/', '').replace('/', '').replace('.', '');
+        var path_modification = current_node_path.replace('/agent_storage/', '').replace('/g', '').replace('.', '');
         //windows
         path_modification = path_modification.replace('\\agent_storage\\', '');
         dbg.log0('create_node_helper with path_modification', path_modification, 'node:', node_name, 'current_node_path', current_node_path, 'exists');
@@ -382,7 +383,6 @@ AgentCLI.prototype.create_node_helper = function(current_node_path_info, use_hos
         var node_path = path.join(current_node_path, node_name);
         var token_path = path.join(node_path, 'token');
         dbg.log0('create new node for node name', node_name, ' path:', node_path, ' token path:', token_path);
-
 
         return fs_utils.file_must_not_exist(token_path)
             .then(function() {

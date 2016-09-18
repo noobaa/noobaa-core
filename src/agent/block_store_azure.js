@@ -178,7 +178,12 @@ class BlockStoreAzure extends BlockStoreBase {
         dbg.log3('updating usage from', this.usage_path, 'by', usage);
         this._usage.size += usage.size;
         this._usage.count += usage.count;
-        return this._write_usage();
+        if (this.update_usage_work_item) return;
+        const UPDATE_INTERVAL = 3000;
+        this.update_usage_work_item = setTimeout(() => {
+            this.update_usage_work_item = null;
+            return this._write_usage();
+        }, UPDATE_INTERVAL);
     }
 
     _read_usage() {

@@ -418,6 +418,7 @@ function get_cloud_sync(req, bucket) {
             return {
                 name: bucket.name,
                 endpoint: bucket.cloud_sync.endpoint,
+                endpoint_type: bucket.cloud_sync.endpoint_type || 'AWS',
                 access_key: bucket.cloud_sync.access_keys.access_key,
                 health: res.health,
                 status: cloud_utils.resolve_cloud_sync_info(bucket.cloud_sync),
@@ -507,6 +508,7 @@ function set_cloud_sync(req) {
     }
     var cloud_sync = {
         endpoint: connection.endpoint,
+        endpoint_type: connection.endpoint_type || 'AWS',
         target_bucket: req.rpc_params.target_bucket,
         access_keys: {
             access_key: connection.access_key,

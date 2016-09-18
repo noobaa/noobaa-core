@@ -34,6 +34,10 @@ module.exports = {
                 endpoint: {
                     type: 'string'
                 },
+                endpoint_type: {
+                    type: 'string',
+                    enum: ['AWS', 'AZURE', 'S3_COMPATIBLE']
+                },
                 target_bucket: {
                     type: 'string'
                 },

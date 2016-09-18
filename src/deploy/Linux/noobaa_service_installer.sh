@@ -2,6 +2,7 @@
 echo "installing NooBaa"
 PATH=/usr/local/noobaa:$PATH;
 /usr/local/noobaa/node /usr/local/noobaa/src/agent/agent_linux_installer
+mkdir /usr/local/noobaa/logs
 
 if [[ $(ps -elf|grep 'systemd+\{0,1\}[ ]\{1,\}[0-9]\{1,\}[ ]\{1,\}1 ') ]]; then
   echo "systemd detected. Registering service"

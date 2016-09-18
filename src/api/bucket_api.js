@@ -590,6 +590,10 @@ module.exports = {
                 endpoint: {
                     type: 'string'
                 },
+                endpoint_type: {
+                    type: 'string',
+                    enum: ['AWS', 'AZURE', 'S3_COMPATIBLE']
+                },
                 access_key: {
                     type: 'string'
                 },

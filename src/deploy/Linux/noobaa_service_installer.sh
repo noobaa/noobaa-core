@@ -10,7 +10,8 @@ if [[ $(ps -elf|grep 'systemd+\{0,1\}[ ]\{1,\}[0-9]\{1,\}[ ]\{1,\}1 ') ]]; then
 elif [[ -d /etc/init.d ]]; then
   echo "upstart detected. Creating startup script"
   cp /usr/local/noobaa/src/agent/noobaalocalservice.conf /etc/init/noobaalocalservice.conf
-fi
+  service noobaalocalservice start
+else
   echo "No systemd or upstart detected. Using System V"
 fi
 

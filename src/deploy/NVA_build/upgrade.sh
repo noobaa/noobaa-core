@@ -66,7 +66,7 @@ function mongo_upgrade {
   #MongoDB nbcore upgrade
   deploy_log "starting mongo data upgrade"
   local sec=$(cat /etc/noobaa_sec)
-  local bcrypt_sec=$(node ${CORE_DIR}/src/util/crypto_utils.js --bcrypt_password ${sec})
+  local bcrypt_sec=$(/usr/local/bin/node ${CORE_DIR}/src/util/crypto_utils.js --bcrypt_password ${sec})
   local id=$(uuidgen | cut -f 1 -d'-')
   local ip=$(/sbin/ifconfig eth0 | grep 'inet addr:' | cut -d: -f2 | cut -f 1 -d' ')
   /usr/bin/mongo nbcore --eval "var param_secret='${sec}', param_bcrypt_secret='${bcrypt_sec}', params_cluster_id='${id}', param_ip='${ip}'" ${CORE_DIR}/src/deploy/NVA_build/mongo_upgrade.js
@@ -98,7 +98,7 @@ function restart_webserver {
     #MongoDB nbcore upgrade
     deploy_log "starting mongo data upgrade"
     local sec=$(cat /etc/noobaa_sec)
-    local bcrypt_sec=$(node ${CORE_DIR}/src/util/crypto_utils.js --bcrypt_password ${sec})
+    local bcrypt_sec=$(/usr/local/bin/node ${CORE_DIR}/src/util/crypto_utils.js --bcrypt_password ${sec})
     local id=$(uuidgen | cut -f 1 -d'-')
     local ip=$(/sbin/ifconfig eth0 | grep 'inet addr:' | cut -d: -f2 | cut -f 1 -d' ')
     /usr/bin/mongo nbcore --eval "var param_secret='${sec}', param_bcrypt_secret='${bcrypt_sec}', params_cluster_id='${id}', param_ip='${ip}'" ${CORE_DIR}/src/deploy/NVA_build/mongo_upgrade.js

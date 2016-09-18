@@ -7,6 +7,7 @@ const dbg = require('../../util/debug_module')(__filename);
 const MongoCtrl = require('../utils/mongo_ctrl');
 const bg_workers_starter = require('../../bg_workers/bg_workers_starter');
 const server_rpc = require('../server_rpc');
+const auth_server = require('../common_services/auth_server');
 const P = require('../../util/promise');
 var is_cluster_master = false;
 
@@ -61,20 +62,14 @@ function background_worker() {
 function send_master_update(is_master) {
     let system = system_store.data.systems[0];
     if (!system) return P.resolve();
-    return P.fcall(() => {
-            if (!server_rpc.client.options.auth_token) {
-                let auth_params = {
-                    email: 'support@noobaa.com',
-                    password: system_store.get_server_secret(),
-                    system: system.name,
-                };
-                return server_rpc.client.create_auth_token(auth_params);
-            }
-            return;
-        })
-        .then(() => {
+    return P.fcall(function() {
             return server_rpc.client.system.set_webserver_master_state({
                 is_master: is_master
+            }, {
+                auth_token: auth_server.make_auth_token({
+                    system_id: system._id,
+                    role: 'admin'
+                })
             });
         })
         .return();

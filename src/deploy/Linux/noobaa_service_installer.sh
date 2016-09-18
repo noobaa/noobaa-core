@@ -6,9 +6,11 @@ PATH=/usr/local/noobaa:$PATH;
 if [[ $(ps -elf|grep 'systemd+\{0,1\}[ ]\{1,\}[0-9]\{1,\}[ ]\{1,\}1 ') ]]; then
   echo "systemd detected. Registering service"
   systemctl enable noobaalocalservice
-else
-  echo "No systemd detected. Installing upstart script"
+else if [[ -d /etc/init.d ]]; then
+  echo "upstart detected. Creating startup script"
   cp /usr/local/noobaa/src/agent/noobaalocalservice.conf /etc/init/noobaalocalservice.conf
+fi
+  echo "No systemd or upstart detected. Using System V"
 fi
 
 echo "NooBaa installation complete"

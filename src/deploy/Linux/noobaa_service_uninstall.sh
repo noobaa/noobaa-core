@@ -1,11 +1,14 @@
 #!/bin/bash
 echo "Uninstalling NooBaa"
 if [[ $(ps -elf|grep 'systemd+\{0,1\}[ ]\{1,\}[0-9]\{1,\}[ ]\{1,\}1 ') ]]; then
-  echo "No systemd detected. Disabling service"
+  echo "systemd detected. Disabling service"
   systemctl disable noobaalocalservice
-else
-  echo "No systemd detected. Removing upstart script"
+else if [[ -d /etc/init.d ]]; then
+  echo "Removing upstart script"
   rm /etc/init/noobaalocalservice.conf
+else
+  echo "System V in use"
+
 fi
 
 PATH=/usr/local/noobaa:$PATH;

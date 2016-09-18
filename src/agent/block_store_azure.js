@@ -173,19 +173,6 @@ class BlockStoreAzure extends BlockStoreBase {
         return this._usage;
     }
 
-    _update_usage(usage) {
-        if (!this._usage) return;
-        dbg.log3('updating usage from', this.usage_path, 'by', usage);
-        this._usage.size += usage.size;
-        this._usage.count += usage.count;
-        if (this.update_usage_work_item) return;
-        const UPDATE_INTERVAL = 3000;
-        this.update_usage_work_item = setTimeout(() => {
-            this.update_usage_work_item = null;
-            return this._write_usage();
-        }, UPDATE_INTERVAL);
-    }
-
     _read_usage() {
         return P.fromCallback(callback =>
                 this.blob.getBlobProperties(
@@ -206,7 +193,7 @@ class BlockStoreAzure extends BlockStoreBase {
             });
     }
 
-    _write_usage() {
+    _write_usage_internal() {
         const metadata = {};
         metadata[this.usage_md_key] = this._encode_block_md(this._usage);
 

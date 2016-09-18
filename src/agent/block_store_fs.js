@@ -123,26 +123,13 @@ class BlockStoreFs extends BlockStoreBase {
             });
     }
 
-    _update_usage(usage) {
-        if (this._usage) {
-            this._usage.size += usage.size;
-            this._usage.count += usage.count;
-
-            if (this.update_usage_work_item) return;
-            const UPDATE_INTERVAL = 3000;
-            // perform updates at most once every UPDATE_INTERVAL ms
-            this.update_usage_work_item = setTimeout(() => {
-                let usage_data = JSON.stringify(this._usage);
-                let tmp_usage_path = this.usage_path + uuid();
-                //write to a temp file and then move to usage file to make it
-                fs.writeFileAsync(tmp_usage_path, usage_data)
-                    .then(() => {
-                        this.update_usage_work_item = null;
-                        return fs.renameAsync(tmp_usage_path, this.usage_path);
-                    });
-            }, UPDATE_INTERVAL);
-        }
+    _write_usage_internal() {
+        let usage_data = JSON.stringify(this._usage);
+        let tmp_usage_path = this.usage_path + uuid();
+        return fs.writeFileAsync(tmp_usage_path, usage_data)
+            .then(() => fs.renameAsync(tmp_usage_path, this.usage_path));
     }
+
 
     _delete_blocks(block_ids) {
         return P.map(block_ids,

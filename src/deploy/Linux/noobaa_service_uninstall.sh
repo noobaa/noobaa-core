@@ -5,8 +5,8 @@ if [[ $(ps -elf|grep 'systemd+\{0,1\}[ ]\{1,\}[0-9]\{1,\}[ ]\{1,\}1 ') ]]; then
   systemctl disable noobaalocalservice
 elif [[ -d /etc/init.d ]]; then
   echo "Removing upstart script"
-  rm /etc/init/noobaalocalservice.conf
   service noobaalocalservice stop
+  rm /etc/init/noobaalocalservice.conf
 else
   echo "System V in use"
 fi

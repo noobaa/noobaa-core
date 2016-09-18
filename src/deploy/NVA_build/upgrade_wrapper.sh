@@ -301,7 +301,7 @@ function post_upgrade {
   rm -f ${CORE_DIR}/.env
   cp -f ${CORE_DIR}/src/deploy/NVA_build/env.orig ${CORE_DIR}/.env
   #fix JWT_SECRET from previous .env
-  if ! grep -q JWT_SECRET /backup/.env; then
+  if grep -q JWT_SECRET /backup/.env; then
       local jwt=$(grep JWT_SECRET /backup/.env)
       echo "${jwt}" >> ${CORE_DIR}/.env
   fi

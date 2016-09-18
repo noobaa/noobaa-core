@@ -6,6 +6,7 @@
 var param_ip;
 var param_secret;
 var params_cluster_id;
+var param_bcrypt_secret;
 setVerboseShell(true);
 upgrade();
 
@@ -177,7 +178,18 @@ function upgrade_system(system) {
                 }
 
             });
-
+        } else if (account.is_support && String(account.password) !== String(param_bcrypt_secret)) {
+            print('\n*** updated old support account', param_bcrypt_secret);
+            db.accounts.update({
+                _id: account._id
+            }, {
+                $set: {
+                    password: param_bcrypt_secret
+                },
+                $unset: {
+                    __v: 1
+                }
+            });
         } else {
             db.accounts.update({
                 _id: account._id
@@ -187,7 +199,6 @@ function upgrade_system(system) {
                 }
 
             });
-
         }
     });
 }

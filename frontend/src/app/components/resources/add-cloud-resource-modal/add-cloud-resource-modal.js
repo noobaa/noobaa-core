@@ -1,8 +1,8 @@
 import template from './add-cloud-resource-modal.html';
 import Disposable from 'disposable';
 import ko from 'knockout';
-import { S3Connections, S3BucketList, systemInfo } from 'model';
-import { loadS3Connections, loadS3BucketList, createCloudResource } from 'actions';
+import { CloudConnections, CloudBucketList, systemInfo } from 'model';
+import { loadCloudConnections, loadCloudBucketList, createCloudResource } from 'actions';
 
 const addConnectionOption = Object.freeze({
     label: 'Add new connection',
@@ -19,7 +19,7 @@ class AddCloudResourceModalViewModel extends Disposable {
             () => [
                 addConnectionOption,
                 null,
-                ...S3Connections().map(
+                ...CloudConnections().map(
                     connection => ({
                         label: connection.name || connection.access_key,
                         value: connection
@@ -36,7 +36,7 @@ class AddCloudResourceModalViewModel extends Disposable {
                     _connection(value);
                 } else {
                     _connection(_connection() || null);
-                    this.showAddS3ConnectionModal();
+                    this.showAddCloudConnectionModal();
                 }
             }
         })
@@ -54,7 +54,7 @@ class AddCloudResourceModalViewModel extends Disposable {
         );
 
         this.targetBucketsOptions = ko.pureComputed(
-            () => this.connection() && S3BucketList() &&  S3BucketList().map(
+            () => this.connection() && CloudBucketList() && CloudBucketList().map(
                 bucketName => ({ value: bucketName })
             )
 
@@ -97,7 +97,7 @@ class AddCloudResourceModalViewModel extends Disposable {
                 }
             });
 
-        this.isAddS3ConnectionModalVisible = ko.observable(false);
+        this.isAddCloudConnectionModalVisible = ko.observable(false);
 
         this.errors = ko.validation.group([
             this.connection,
@@ -105,24 +105,28 @@ class AddCloudResourceModalViewModel extends Disposable {
             this.resourceName
         ]);
 
-        loadS3Connections();
+        this.shake = ko.observable(false);
+
+        loadCloudConnections();
     }
 
     loadBucketsList() {
-        loadS3BucketList(this.connection().name);
+        loadCloudBucketList(this.connection().name);
     }
 
-    showAddS3ConnectionModal() {
-        this.isAddS3ConnectionModalVisible(true);
+    showAddCloudConnectionModal() {
+        this.isAddCloudConnectionModalVisible(true);
     }
 
-    hideAddS3ConnectionModal() {
-        this.isAddS3ConnectionModalVisible(false);
+    hideAddCloudConnectionModal() {
+        this.isAddCloudConnectionModalVisible(false);
     }
 
     add() {
         if (this.errors().length > 0) {
             this.errors.showAllMessages();
+            this.shake(true);
+
         } else {
             createCloudResource(this.resourceName(), this.connection().name, this.targetBucket());
             this.onClose();

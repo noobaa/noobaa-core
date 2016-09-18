@@ -53,8 +53,12 @@ module.exports = {
                             },
                             access_keys: {
                                 $ref: 'system_api#/definitions/access_keys',
+                            },
+                            endpoint_type: {
+                                type: 'string',
+                                enum: ['AWS', 'AZURE', 'S3_COMPATIBLE']
                             }
-                        }
+                        },
                     }
                 }
             },

@@ -1,0 +1,51 @@
+<modal class="modal-medium" params="
+    title: 'Add Cloud Connection',
+    onClose: () => cancel()
+">
+    <section class="column greedy">
+        <editor params="label: 'Connection Name'">
+            <input type="text" placeholder="Enter name"
+                data-bind="value: name, hasFocus: true"/>
+        </editor>
+
+        <editor params="label: 'Type'">
+            <dropdown params="
+                options: endpointTypeOptions,
+                selected: endpointType
+            "></dropdown>
+        </editor>
+
+        <editor params="label: 'Endpoint'">
+            <input type="text" placeholder="enter endpoint" data-bind="value: endpoint" />
+        </editor>
+
+        <editor params="label: identityLabel">
+            <input type="text" placeholder="enter key"
+                data-bind="textInput: identity"/>
+        </editor>
+
+        <editor params="label: secretLabel">
+            <input type="password" autocomplete="off" placeholder="enter secret"
+                data-bind="textInput: secret"/>
+        </editor>
+    </section>
+
+    <div class="row content-middle">
+        <div class="greedy">
+            <span class="val-msg" data-bind="
+                validationMessage: isValidConenction
+            "></span>
+        </div>
+
+        <button class="link push-next" data-bind="click: cancel">
+            Cancel
+        </button>
+        <button class="btn" data-bind="
+            click: tryConnection,
+            css: { shake: shake },
+            animation: { end: () => shake(false) }
+        ">
+            Save
+        </button>
+    </div>
+</modal>

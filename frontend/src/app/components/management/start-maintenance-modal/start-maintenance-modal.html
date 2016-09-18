@@ -27,7 +27,11 @@
         <button class="link alt-colors push-next" data-bind="click: cancel">
             Cancel
         </button>
-        <button class="btn" data-bind="click: start">
+        <button class="btn" data-bind="
+            click: start,
+            css: { shake: shake },
+            animation: { end: () => shake(false) }
+        ">
             Start maintenance
         </button>
     </div>

@@ -248,7 +248,7 @@ module.exports = {
             method: 'PUT',
             params: {
                 type: 'object',
-                required: ['name', 'access_key', 'secret_key', 'endpoint'],
+                required: ['name', 'identity', 'secret', 'endpoint'],
                 properties: {
                     name: {
                         type: 'string'
@@ -256,12 +256,18 @@ module.exports = {
                     endpoint: {
                         type: 'string'
                     },
-                    access_key: {
+                    identity: {
                         type: 'string'
                     },
-                    secret_key: {
+                    secret: {
                         type: 'string'
+                    },
+
+                    endpoint_type: {
+                        type: 'string',
+                        enum: ['AWS', 'AZURE', 'S3_COMPATIBLE']
                     }
+
                 }
             },
             auth: {
@@ -282,8 +288,12 @@ module.exports = {
                         endpoint: {
                             type: 'string'
                         },
-                        access_key: {
+                        identity: {
                             type: 'string'
+                        },
+                        endpoint_type: {
+                            type: 'string',
+                            enum: ['AWS', 'AZURE', 'S3_COMPATIBLE']
                         }
                     }
                 }
@@ -297,17 +307,22 @@ module.exports = {
             method: 'GET',
             params: {
                 type: 'object',
-                required: ['access_key', 'secret_key', 'endpoint'],
+                required: ['identity', 'secret', 'endpoint'],
                 properties: {
                     endpoint: {
                         type: 'string'
                     },
-                    access_key: {
+                    identity: {
                         type: 'string'
                     },
 
-                    secret_key: {
+                    secret: {
                         type: 'string'
+                    },
+
+                    endpoint_type: {
+                        type: 'string',
+                        enum: ['AWS', 'AZURE', 'S3_COMPATIBLE']
                     }
                 }
             },

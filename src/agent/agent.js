@@ -39,6 +39,7 @@ const BlockStoreS3 = require('./block_store_s3').BlockStoreS3;
 const BlockStoreMem = require('./block_store_mem').BlockStoreMem;
 const BlockStoreAzure = require('./block_store_azure').BlockStoreAzure;
 const promise_utils = require('../util/promise_utils');
+const cloud_utils = require('../util/cloud_utils');
 
 
 
@@ -77,10 +78,19 @@ class Agent {
             if (params.cloud_info) {
                 this.cloud_info = params.cloud_info;
                 block_store_options.cloud_info = params.cloud_info;
-                if (params.cloud_info.azure) {
-                    this.block_store = new BlockStoreAzure(block_store_options);
-                } else {
+                if (params.cloud_info.endpoint_type === 'AWS' || params.cloud_info.endpoint_type === 'S3_COMPATIBLE') {
                     this.block_store = new BlockStoreS3(block_store_options);
+                } else if (params.cloud_info.endpoint_type === 'AZURE') {
+                    let connection_string = cloud_utils.get_azure_connection_string({
+                        endpoint: params.cloud_info.endpoint,
+                        access_key: params.cloud_info.access_keys.access_key,
+                        secret_key: params.cloud_info.access_keys.secret_key
+                    });
+                    block_store_options.cloud_info.azure = {
+                        connection_string: connection_string,
+                        container: params.cloud_info.target_bucket
+                    };
+                    this.block_store = new BlockStoreAzure(block_store_options);
                 }
             } else {
                 block_store_options.root_path = this.storage_path;

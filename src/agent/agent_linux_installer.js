@@ -6,10 +6,10 @@ const argv = require('minimist')(process.argv);
 var srv = new Service({
     name: 'NooBaa Local Service',
     description: 'The NooBaa node service.',
-    script: '/usr/local/NooBaa/src/agent/agent_wrap.js',
+    script: '/usr/local/noobaa/src/agent/agent_wrap.js',
     wait: 10,
-    logpath: '/usr/local/NooBaa/logs',
-    cwd: '/usr/local/NooBaa'
+    logpath: '/usr/local/noobaa/logs',
+    cwd: '/usr/local/noobaa'
 });
 
 srv.on('doesnotexist', () => {

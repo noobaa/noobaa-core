@@ -416,8 +416,9 @@ function _prepare_auth_request(req) {
         }
 
         // when the account field in method_api.auth is missing
-        // we consider as if account is not mandatory for the method.
+        // we consider as if account is implicitly not mandatory for the method.
         // this is because in many internal paths we do not have an account.
+        // TODO reconsider if ignore_missing_account should be explicit instead
         const ignore_missing_account = !options.account;
         // for system in order to make it optional we require to pass explicit false.
         const ignore_missing_system = (options.system === false);

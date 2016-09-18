@@ -79,7 +79,7 @@ function create_cloud_pool(req) {
             access_key: connection.access_key,
             secret_key: connection.secret_key
         },
-        endpoint_type: connection.endpoint_type
+        endpoint_type: connection.endpoint_type || 'AWS'
     };
 
     var pool = new_pool_defaults(name, req.system._id);

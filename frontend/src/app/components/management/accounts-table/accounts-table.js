@@ -7,7 +7,7 @@ import { deepFreeze } from 'utils';
 
 const columns = deepFreeze([
     {
-        name: 'email',
+        name: 'name',
         label: 'account name'
     },
     {
@@ -38,7 +38,9 @@ class AccountsTableViewModel extends Disposable {
         this.deleteGroup = ko.observable();
         this.selectedAccount = ko.observable();
         this.accounts = ko.pureComputed(
-            () => systemInfo() && systemInfo().accounts
+            () => systemInfo() && (systemInfo().accounts || []).filter(
+                account => !account.is_support
+            )
         );
 
         this.isCreateAccountModalVisible = ko.observable(false);

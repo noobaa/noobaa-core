@@ -1,6 +1,6 @@
 import Disposable from 'disposable';
 import ko from 'knockout';
-import { deepFreeze, formatSize } from 'utils';
+import { deepFreeze } from 'utils';
 import { deleteCloudResource } from 'actions';
 
 const undeletableReasons = Object.freeze({
@@ -10,12 +10,12 @@ const undeletableReasons = Object.freeze({
 const icons = deepFreeze([
     {
         pattern: 's3.amazonaws.com',
-        icon: 'amazon-resource',
-        description: 'Amazon Bucket'
+        icon: 'aws-s3-resource',
+        description: 'AWS S3 Bucket'
     },
     {
         pattern: 'storage.googleapis.com',
-        icon: 'google-resource',
+        icon: 'gcloud-resource',
         description: 'GCloud Bucket'
     },
     {
@@ -26,8 +26,14 @@ const icons = deepFreeze([
 ]);
 
 export default class CloudResourceRowViewModel extends Disposable {
-    constructor(resource, deleteGroup, showAfterDeleteAlertModal) {
+    constructor(resource, poolsToBuckets, deleteGroup, showAfterDeleteAlertModal) {
         super();
+
+        this.state = {
+            name: 'healthy',
+            css: 'success',
+            tooltip: 'Healthy'
+        };
 
         this.type = ko.pureComputed(
             () => {
@@ -51,9 +57,23 @@ export default class CloudResourceRowViewModel extends Disposable {
             () => resource() ? resource().name : ''
         );
 
-        this.usage = ko.pureComputed(
-            () => resource() ? formatSize(resource().storage.used) : ''
+        this.buckets = ko.pureComputed(
+            () => {
+                let buckets = poolsToBuckets()[this.name()] || [];
+                let count = buckets.length;
+
+                return {
+                    text: `${count} bucket${count != 1 ? 's' : ''}`,
+                    tooltip: count ? buckets : null
+                };
+            }
         );
+
+        this.usage = ko.pureComputed(
+            () => resource() && resource().storage.used
+        ).extend({
+            formatSize: true
+        });
 
         this.cloudBucket = ko.pureComputed(
             () => resource() ? resource().cloud_info.target_bucket : ''

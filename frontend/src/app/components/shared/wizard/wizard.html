@@ -7,36 +7,25 @@
     ">
         <div class="page column" data-bind="
             css: { selected: $parent.isInStep($index()) },
-            template: { nodes: [$data], data: $parents[3] }
+            template: {
+                nodes: [$data],
+                data: $parents[3],
+                let: { $inActiveStep: $parent.isInStep($index()) }
+            }
         "></div>
     </div>
 
     <div class="row buttons align-end content-middle">
         <button class="link alt-colors push-next" data-bind="
-            click: cancel,
-            visible: isCancelVisible
-        ">
-            Cancel
-        </button>
-
-        <button class="link alt-colors push-next" data-bind="
-            click: prev,
-            visible: isPrevVisible
-        ">
-            Previous
-        </button>
+            click: isFirstStep() ? cancel : prev,
+            text: isFirstStep() ? 'Cancel' : 'Previous'
+        "></button>
 
         <button class="btn" data-bind="
-            click: next,
-            visible: isNextVisible
-        ">
-            Next
-        </button>
-
-        <button class="btn" data-bind="
-            click: done,
-            visible: isDoneVisible,
-            text: actionLabel
+            click: isLastStep() ? done : next,
+            text: isLastStep() ? actionLabel : 'Next',
+            css: { shake: shake },
+            animation: { end: () => shake(false) }
         "></button>
     </div>
 </modal>

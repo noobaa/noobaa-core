@@ -49,7 +49,12 @@ module.exports = {
                             type: 'string'
                         }
                     }
+                },
+                endpoint_type: {
+                    type: 'string',
+                    enum: ['AWS', 'AZURE', 'S3_COMPATIBLE']
                 }
+
             }
         }
 

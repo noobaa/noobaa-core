@@ -66,9 +66,10 @@ function mongo_upgrade {
   #MongoDB nbcore upgrade
   deploy_log "starting mongo data upgrade"
   local sec=$(cat /etc/noobaa_sec)
+  local bcrypt_sec=$(/usr/local/bin/node ${CORE_DIR}/src/util/crypto_utils.js --bcrypt_password ${sec})
   local id=$(uuidgen | cut -f 1 -d'-')
   local ip=$(/sbin/ifconfig eth0 | grep 'inet addr:' | cut -d: -f2 | cut -f 1 -d' ')
-  /usr/bin/mongo nbcore --eval "var param_secret='${sec}', param_ip='${ip}'" ${CORE_DIR}/src/deploy/NVA_build/mongo_upgrade.js
+  /usr/bin/mongo nbcore --eval "var param_secret='${sec}', param_bcrypt_secret='${bcrypt_sec}', param_ip='${ip}'" ${CORE_DIR}/src/deploy/NVA_build/mongo_upgrade.js
   deploy_log "finished mongo data upgrade"
 
 
@@ -97,9 +98,10 @@ function restart_webserver {
     #MongoDB nbcore upgrade
     deploy_log "starting mongo data upgrade"
     local sec=$(cat /etc/noobaa_sec)
+    local bcrypt_sec=$(/usr/local/bin/node ${CORE_DIR}/src/util/crypto_utils.js --bcrypt_password ${sec})
     local id=$(uuidgen | cut -f 1 -d'-')
     local ip=$(/sbin/ifconfig eth0 | grep 'inet addr:' | cut -d: -f2 | cut -f 1 -d' ')
-    /usr/bin/mongo nbcore --eval "var param_secret='${sec}', params_cluster_id='${id}', param_ip='${ip}'" ${CORE_DIR}/src/deploy/NVA_build/mongo_upgrade.js
+    /usr/bin/mongo nbcore --eval "var param_secret='${sec}', param_bcrypt_secret='${bcrypt_sec}', params_cluster_id='${id}', param_ip='${ip}'" ${CORE_DIR}/src/deploy/NVA_build/mongo_upgrade.js
     deploy_log "finished mongo data upgrade"
 
     ${SUPERCTL} start webserver
@@ -167,13 +169,13 @@ function extract_package {
 
 function do_upgrade {
   disable_supervisord
-  
+
   # remove auth flag from mongo if present
   sed -i "s:mongod --auth:mongod:" /etc/noobaa_supervisor.conf
   # add bind_ip flag to restrict access to local host only.
   local has_bindip=$(grep bind_ip /etc/noobaa_supervisor.conf | wc -l)
   if [ $has_bindip == '0' ]; then
-    deploy_log "adding --bind_ip to noobaa_supervisor.conf" 
+    deploy_log "adding --bind_ip to noobaa_supervisor.conf"
     sed -i "s:--dbpath:--bind_ip 127.0.0.1 --dbpath:" /etc/noobaa_supervisor.conf
   fi
 
@@ -194,9 +196,9 @@ function do_upgrade {
   tar -xzvf ./${PACKAGE_FILE_NAME} >& /dev/null
 
   # move existing internal agnets_storage to new dir
-  if [ -d /backup/agent_storage/ ]; then 
+  if [ -d /backup/agent_storage/ ]; then
     mv /backup/agent_storage/ ${CORE_DIR}
-  fi 
+  fi
 
   # Re-setup Repos
   setup_repos

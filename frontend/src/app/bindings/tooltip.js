@@ -10,7 +10,7 @@ const alignments = Object.freeze({
 });
 
 function toHtmlList(arr) {
-    return `<ul>${
+    return `<ul class="bullet-list">${
         arr.map(
             item => `<li>${item}</li>`
         ).join('')
@@ -38,6 +38,10 @@ function normalizeValue(value) {
         let text = ko.unwrap(value.text);
         if (text instanceof Array) {
             text = value.length === 1 ? value : toHtmlList(value);
+        } else if (isObject(text)) {
+            let { title  = '', list = [] } = text;
+            //text = `<p>${title}:</p>${list[0]}`;
+            text = `<p>${title}:</p>${toHtmlList(list)}`;
         }
 
         let pos = ko.unwrap(value.align);

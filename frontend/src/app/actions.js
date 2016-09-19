@@ -610,7 +610,6 @@ export function loadCloudConnections() {
     logAction('loadCloudConnections');
 
     api.account.get_account_sync_credentials_cache()
-        .then(conns => conns.map(conn => Object.assign(conn, {access_key: conn.identity})))
         .then(model.CloudConnections)
         .done();
 }

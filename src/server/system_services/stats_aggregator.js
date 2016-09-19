@@ -16,6 +16,7 @@ const system_store = require('../system_services/system_store').get_instance();
 const system_server = require('../system_services/system_server');
 const object_server = require('../object_services/object_server');
 const bucket_server = require('../system_services/bucket_server');
+const auth_server = require('../common_services/auth_server');
 const server_rpc = require('../server_rpc');
 
 const ops_aggregation = {};
@@ -550,18 +551,16 @@ function background_worker() {
     dbg.log('Central Statistics gathering enabled');
     //Run the system statistics gatheting
     return P.fcall(() => {
-            if (!server_rpc.client.options.auth_token) {
-                let system = system_store.data.systems[0];
-                let auth_params = {
-                    email: 'support@noobaa.com',
-                    password: system_store.get_server_secret(),
-                    system: system.name,
-                };
-                return server_rpc.client.create_auth_token(auth_params);
-            }
-            return;
+            let system = system_store.data.systems[0];
+            let support_account = _.find(system_store.data.accounts, account => account.is_support);
+            return server_rpc.client.stats.get_all_stats({}, {
+                auth_token: auth_server.make_auth_token({
+                    system_id: system._id,
+                    role: 'admin',
+                    account_id: support_account._id
+                })
+            });
         })
-        .then(() => server_rpc.client.stats.get_all_stats({}))
         .then(payload => send_stats_payload(payload))
         .catch(err => {
             failed_sent++;

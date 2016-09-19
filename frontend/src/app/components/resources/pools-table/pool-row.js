@@ -4,7 +4,7 @@ import numeral from 'numeral';
 import { deletePool } from 'actions';
 
 export default class PoolRowViewModel extends Disposable {
-    constructor(pool, deleteGroup) {
+    constructor(pool, deleteGroup, poolsToBuckets) {
         super();
 
         this.state = ko.pureComputed(
@@ -32,6 +32,22 @@ export default class PoolRowViewModel extends Disposable {
                 return {
                     text: pool().name,
                     href: { route: 'pool', params: { pool: pool().name } }
+                };
+            }
+        );
+
+        this.buckets = ko.pureComputed(
+            () => {
+                if (!pool()) {
+                    return '';
+                }
+
+                let buckets = poolsToBuckets()[pool().name] || [];
+                let count = buckets.length;
+
+                return {
+                    text: `${count} bucket${count != 1 ? 's' : ''}`,
+                    tooltip: count ? buckets : null
                 };
             }
         );

@@ -23,6 +23,7 @@ function update_mongo_connection_string(req) {
     dotenv.load();
     dbg.log0('Recieved update mongo string. will update mongo url from', old_url, ' to ', process.env.MONGO_RS_URL);
     return P.resolve(mongo_ctrl.update_connection_string())
+        .then(() => load_system_store())
         .return();
 }
 

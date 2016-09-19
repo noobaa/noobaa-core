@@ -90,6 +90,21 @@ module.exports = {
         debug_level: {
             type: 'integer'
         },
+        //Upgrade proccess
+        upgrade: {
+            type: 'object',
+            properties: {
+                path: {
+                    type: 'string'
+                },
+                status: {
+                    type: 'string'
+                },
+                error: {
+                    type: 'string'
+                },
+            },
+        },
 
         heartbeat: {
             type: 'object',

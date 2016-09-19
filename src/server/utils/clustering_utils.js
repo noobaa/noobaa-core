@@ -222,6 +222,10 @@ function get_potential_masters() {
     return masters;
 }
 
+function get_member_upgrade_status(ip) {
+    return system_store.data.clusters.find(server => server.owner_address === ip).upgrade.status;
+}
+
 
 //Exports
 exports.get_topology = get_topology;
@@ -235,4 +239,5 @@ exports.pretty_topology = pretty_topology;
 exports.rs_array_changes = rs_array_changes;
 exports.find_shard_index = find_shard_index;
 exports.get_cluster_info = get_cluster_info;
+exports.get_member_upgrade_status = get_member_upgrade_status;
 exports.get_potential_masters = get_potential_masters;

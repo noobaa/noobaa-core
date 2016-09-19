@@ -18,6 +18,9 @@ const config = require('../../../config.js');
 const promise_utils = require('../../util/promise_utils');
 const diag = require('../utils/server_diagnostics');
 const moment = require('moment');
+const url = require('url');
+const upgrade_utils = require('../../util/upgrade_utils');
+const request = require('request');
 
 
 function _init() {
@@ -546,6 +549,182 @@ function update_server_location(req) {
     }).return();
 }
 
+// UPGRADE ////////////////////////////////////////////////////////
+function upload_upgrade_package(req) {
+    dbg.log0('received upgrade package:, ', req.rpc_params.filepath, req.rpc_params.mongo_upgrade ? 'this server should preform mongo_upgrade' : 'this server should not preform mongo_upgrade');
+    let server = system_store.get_local_cluster_info(); //Update path in DB
+    dbg.log0('update upgrade for server: ', cutil.get_cluster_info().owner_address);
+    let upgrade = {
+        path: req.rpc_params.filepath,
+        mongo_upgrade: req.rpc_params.mongo_upgrade,
+        status: 'PENDING',
+        error: ''
+    };
+
+    return system_store.make_changes({
+            update: {
+                clusters: [{
+                    _id: server._id,
+                    upgrade: upgrade
+                }]
+            }
+        })
+        .then(() => upgrade_utils.pre_upgrade())
+        .then(res => {
+            //Update result of pre_upgrade and message in DB
+            if (res.result) {
+                upgrade.status = 'CAN_UPGRADE';
+            } else {
+                upgrade.status = 'FAILED';
+                upgrade.error = res.message;
+            }
+            return system_store.make_changes({
+                update: {
+                    clusters: [{
+                        _id: server._id,
+                        upgrade: upgrade
+                    }]
+                }
+            });
+        })
+        .return();
+}
+
+function do_upgrade(req) {
+    let server = system_store.get_local_cluster_info();
+    if (server.upgrade.status !== 'CAN_UPGRADE') {
+        throw new Error('Not in upgrade state:', server.upgrade.error ? server.upgrade.error : '');
+    }
+    if (server.upgrade.path === '') {
+        throw new Error('No package path supplied');
+    }
+    let filepath = server.upgrade.path;
+    //Async as the server will soon be restarted anyway
+    upgrade_utils.do_upgrade(filepath, server.is_clusterized);
+    return;
+}
+
+
+function upgrade_cluster(req) {
+    dbg.log0('got request to upgrade the cluster:', cutil.pretty_topology(cutil.get_topology()));
+    // get all cluster members other than the master
+    let secondary_members = cutil.get_all_cluster_members().filter(ip => ip !== os_utils.get_local_ipv4_ips()[0]);
+    // upgrade can only be called from master. throw error otherwise
+    return P.fcall(() => {
+            let cinfo = system_store.get_local_cluster_info();
+            if (cinfo.is_clusterized) {
+                return MongoCtrl.is_master();
+            }
+            return true;
+
+        })
+        .then(is_master => {
+            if (!is_master) {
+                throw new Error('upgrade must be done on master node');
+            }
+
+            // upload package to cluster members
+            return P.all(secondary_members.map(member => _upload_package(req.rpc_params.filepath, member)));
+        }).then(() => server_rpc.client.cluster_internal.upload_upgrade_package({
+            filepath: req.rpc_params.filepath,
+            mongo_upgrade: true
+        }))
+        .delay(5 * 1000) //TODO: est CAN_UPGRADE state of all servers instead of constant delay
+        .then(() => {
+            // let num_finished = system_store.data.clusters
+            //     .map(server => server.upgrade.status === 'CAN_UPGRADE' ? 1 : 0)
+            //     .reduce((a, b) => a + b, 0);
+            // if (num_finished !== system_store.data.clusters.length) {
+            //     dbg.error('not all cluster servers reached CAN_UPGRADE state. aborting..');
+            //     throw new Error('not all cluster servers reached CAN_UPGRADE state. aborting..');
+            // }
+            // // after all servers reached CAN_UPGRADE - send do_upgrade one by one
+
+            let upgrade_retry_delay = 5 * 1000; // the delay between testing upgrade status
+
+            // TODO: on multiple shards we can upgrade one at the time in each shard
+            return P.each(secondary_members, ip => {
+                    // for each server, wait for it to reach CAN_UPGRADE, then call do_upgrade
+                    // wait for UPGRADED status before continuing to next one
+                    let status = cutil.get_member_upgrade_status(ip);
+                    return promise_utils.pwhile(
+                            () => status !== 'CAN_UPGRADE',
+                            () => {
+                                return system_store.refresh()
+                                    .then(() => {
+                                        status = cutil.get_member_upgrade_status(ip);
+                                    }).delay(upgrade_retry_delay);
+                            }
+                        )
+                        .then(() => _upgrade_member(ip))
+                        .then(() => promise_utils.pwhile(
+                            () => status !== 'UPGRADED',
+                            () => {
+                                return system_store.refresh()
+                                    .then(() => {
+                                        status = cutil.get_member_upgrade_status(ip);
+                                    }).delay(upgrade_retry_delay);
+                            }
+                        ));
+                })
+                // after all secondaries are upgraded it is safe to upgrade the primary.
+                // secondaries should wait (in upgrade.sh) for primary to complete upgrade and perform mongo_upgrade
+                .then(() => server_rpc.client.cluster_internal.do_upgrade({
+                    filepath: req.rpc_params.filepath
+                }));
+        });
+}
+
+
+//
+//Internals Cluster Control
+//
+
+function _upload_package(pkg_path, ip) {
+    var formData = {
+        upgrade_file: {
+            value: fs.createReadStream(pkg_path),
+            options: {
+                filename: 'noobaa.tar.gz',
+                contentType: 'application/x-gzip'
+            }
+        }
+    };
+    let target = url.format({
+        protocol: 'http',
+        slashes: true,
+        hostname: ip,
+        port: process.env.PORT,
+        pathname: 'upload_package'
+    });
+    return P.ninvoke(request, 'post', {
+            url: target,
+            formData: formData,
+            rejectUnauthorized: false,
+        })
+        .then((httpResponse, body) => {
+            console.log('Upload package successful:', body);
+        });
+}
+
+
+function _upgrade_member(ip) {
+    let target = url.format({
+        protocol: 'http',
+        slashes: true,
+        hostname: ip,
+        port: process.env.PORT,
+        pathname: 'do_upgrade'
+    });
+    return P.ninvoke(request, 'post', {
+            url: target,
+            rejectUnauthorized: false,
+        })
+        .then((httpResponse, body) => {
+            console.log('sent do_upgrade: to ', ip);
+        });
+}
+
 function read_server_config(req) {
     let reply = {};
     let srvconf = {};
@@ -847,3 +1026,6 @@ exports.collect_server_diagnostics = collect_server_diagnostics;
 exports.read_server_time = read_server_time;
 exports.apply_read_server_time = apply_read_server_time;
 exports.read_server_config = read_server_config;
+exports.upload_upgrade_package = upload_upgrade_package;
+exports.do_upgrade = do_upgrade;
+exports.upgrade_cluster = upgrade_cluster;

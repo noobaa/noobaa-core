@@ -130,6 +130,39 @@ class BlockStoreBase {
         return internal_dir;
     }
 
+    _update_usage(usage) {
+        if (!this._usage) return;
+        this._usage.size += usage.size;
+        this._usage.count += usage.count;
+
+        // mark that writing the usage is needed, so that even if we are in the middle of writing
+        // we will not forget this last update
+        this.update_usage_needed = true;
+        if (!this.update_usage_work_item) {
+            this.update_usage_work_item = setTimeout(() => this._write_usage(), 3000);
+        }
+    }
+
+    _write_usage() {
+        // reset the needed value at the time we took the usage value
+        // which will allow to know if new updates are added while we write
+        this.update_usage_needed = false;
+
+        return this._write_usage_internal()
+            .catch(err => {
+                console.error('write_usage ERROR', err);
+                this.update_usage_needed = true;
+            })
+            .finally(() => {
+                if (this.update_usage_needed) {
+                    // trigger a new update
+                    this.update_usage_work_item = setTimeout(() => this._write_usage(), 3000);
+                } else {
+                    // write is successful, allow new writes
+                    this.update_usage_work_item = null;
+                }
+            });
+    }
 
 
 }

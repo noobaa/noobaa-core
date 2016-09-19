@@ -148,24 +148,16 @@ class BlockStoreS3 extends BlockStoreBase {
             });
     }
 
-
-    _update_usage(usage) {
-        if (this._usage) {
-            dbg.log3('updating usage from', this.usage_path, 'by', usage);
-            this._usage.size += usage.size;
-            this._usage.count += usage.count;
-            let usage_data = this._encode_block_md(this._usage);
-            let params = {
-                Bucket: this.cloud_info.target_bucket,
-                Key: this.usage_path,
-                Metadata: {}
-            };
-            params.Metadata[this.usage_md_key] = usage_data;
-            return this._put_object(params);
-
-        }
+    _write_usage_internal() {
+        let usage_data = this._encode_block_md(this._usage);
+        let params = {
+            Bucket: this.cloud_info.target_bucket,
+            Key: this.usage_path,
+            Metadata: {}
+        };
+        params.Metadata[this.usage_md_key] = usage_data;
+        return this._put_object(params);
     }
-
 
     _put_object(params) {
         return P.ninvoke(this.s3cloud, 'putObject', params)

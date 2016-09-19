@@ -4,7 +4,6 @@
 'use strict';
 
 const _ = require('lodash');
-const uuid = require('node-uuid');
 const RpcError = require('../../rpc/rpc_error');
 const system_store = require('./system_store').get_instance();
 const server_rpc = require('../server_rpc');
@@ -40,7 +39,7 @@ function new_cluster_info() {
             var cluster = {
                 is_clusterized: false,
                 owner_secret: system_store.get_server_secret(),
-                cluster_id: uuid().substring(0, 8),
+                cluster_id: system_store.get_server_secret(),
                 owner_address: address,
                 owner_shardname: 'shard1',
                 location: 'Earth',

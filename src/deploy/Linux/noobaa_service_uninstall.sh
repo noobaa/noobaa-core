@@ -14,7 +14,7 @@ elif [[ -d /etc/init.d ]]; then
   echo "System V detected. Uninstalling service"
   /usr/local/noobaa/node /usr/local/noobaa/src/agent/agent_linux_installer --uninstall
 else
-  echo "Cannot detect init mechanism. Attempting service uninstall"
+  echo "ERROR: Cannot detect init mechanism! Attempting to force service uninstallation"
   service noobaalocalservice stop
   rm /etc/init/noobaalocalservice.conf
   systemctl disable noobaalocalservice

@@ -406,7 +406,7 @@ function _prepare_auth_request(req) {
      *      - <Array> roles: acceptable roles
      */
     req.load_auth = function() {
-        var options = this.method_api.auth || {};
+        const options = this.method_api.auth || {};
 
         dbg.log1('load_auth:', options, req.auth);
         if (req.auth) {
@@ -414,24 +414,35 @@ function _prepare_auth_request(req) {
             req.system = system_store.data.get_by_id(req.auth.system_id);
             req.role = req.auth.role;
         }
-        var ignore_missing_account = !options.account;
-        var ignore_missing_system = (options.system === false);
-        if (!ignore_missing_account) {
-            // check that auth has account
+
+        // when the account field in method_api.auth is missing
+        // we consider as if account is implicitly not mandatory for the method.
+        // this is because in many internal paths we do not have an account.
+        // TODO reconsider if ignore_missing_account should be explicit instead
+        const ignore_missing_account = !options.account;
+        // for system in order to make it optional we require to pass explicit false.
+        const ignore_missing_system = (options.system === false);
+
+        // check that auth has account
+        if (!ignore_missing_account || (req.auth && req.auth.account_id)) {
             if (!req.account) {
-                throw new RpcError('UNAUTHORIZED', 'auth account not found ' + (req.auth && req.auth.account_id));
+                throw new RpcError('UNAUTHORIZED', 'account not found ' + (req.auth && req.auth.account_id));
             }
         }
-        if (!ignore_missing_system) {
-            // check that auth contains system
-            if (!req.system) {
-                throw new RpcError('UNAUTHORIZED', 'auth system not found ' + (req.auth && req.auth.system_id));
-            }
 
-            // check that auth contains valid system role or the account is support
+        // check that auth contains system
+        if (!ignore_missing_system || (req.auth && req.auth.system_id)) {
+            if (!req.system) {
+                throw new RpcError('UNAUTHORIZED', 'system not found ' + (req.auth && req.auth.system_id));
+            }
+        }
+
+        // check that auth contains valid system role or the account is support
+        if (!ignore_missing_system) {
             if (!(req.account && req.account.is_support) &&
                 !_.includes(options.system, req.auth.role)) {
-                throw new RpcError('UNAUTHORIZED', 'auth role not allowed in system');
+                dbg.warn('role not allowed in system', options, req.auth, req.account, req.system);
+                throw new RpcError('UNAUTHORIZED', 'role not allowed in system');
             }
         }
         dbg.log3('load auth system:', req.system);

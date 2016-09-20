@@ -25,10 +25,11 @@ export default function register(ko) {
     // -------------------------------
     // Login
     // -------------------------------
-    ko.components.register('login-layout',          require('./login/login-layout/login-layout'));
-    ko.components.register('signin-form',           require('./login/signin-form/signin-form'));
-    ko.components.register('create-system-form',    require('./login/create-system-form/create-system-form'));
-    ko.components.register('unsupported-form',      require('./login/unsupported-form/unsupported-form'));
+    ko.components.register('login-layout',              require('./login/login-layout/login-layout'));
+    ko.components.register('signin-form',               require('./login/signin-form/signin-form'));
+    ko.components.register('create-system-form',        require('./login/create-system-form/create-system-form'));
+    ko.components.register('unsupported-form',          require('./login/unsupported-form/unsupported-form'));
+    ko.components.register('unable-to-activate-modal',  require('./login/unable-to-activate-modal/unable-to-activate-modal'));
     /** INJECT:login **/
 
     // -------------------------------

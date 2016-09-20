@@ -21,6 +21,12 @@ elif [[ -d /etc/init.d ]]; then
   echo "System V detected. Installing service"
   /usr/local/noobaa/node /usr/local/noobaa/src/agent/agent_linux_installer --uninstall
   /usr/local/noobaa/node /usr/local/noobaa/src/agent/agent_linux_installer
+  type chkconfig &> /dev/null
+  if [ $? -eq 0 ]; then
+    chkconfig noobaalocalservice on
+  else
+    update-rc.d noobaalocalservice enable
+  fi
 else
   echo "ERROR: Cannot detect init mechanism! Attempting to force service installation"
   if [ -f /etc/init/noobaalocalservice.conf ]; then

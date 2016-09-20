@@ -194,13 +194,13 @@ class NodeSummaryViewModel extends Disposable {
                 value: ko.pureComputed(
                     () => dataActivity() ? dataActivity().progress : 0
                 ),
-                color: '#f20092'
+                color: style['color8']
             },
             {
                 value: ko.pureComputed(
                     () => dataActivity() ? 1 - dataActivity().progress : 1
                 ),
-                color: '#2c2f32'
+                color: style['color15']
             }
         ];
 

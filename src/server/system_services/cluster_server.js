@@ -560,11 +560,11 @@ function read_server_config(req) {
                 reply.using_dhcp = false;
                 return;
             }
-            return fs_utils.find_line_in_file('/etc/sysconfig/network-scripts/ifcfg-eth0', 'BOOTPROTO=dhcp')
+            return fs_utils.find_line_in_file('/etc/sysconfig/network-scripts/ifcfg-eth0', 'BOOTPROTO="dhcp"')
                 .then(function(using_dhcp) {
                     reply.using_dhcp = false;
                     // This is used in order to check that it's not commented
-                    if (using_dhcp && using_dhcp.split('#')[0].trim() === 'BOOTPROTO=dhcp') {
+                    if (using_dhcp && using_dhcp.split('#')[0].trim() === 'BOOTPROTO="dhcp"') {
                         reply.using_dhcp = true;
                         dbg.log0('found configured DHCP');
                     }

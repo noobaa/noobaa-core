@@ -8,7 +8,7 @@ var srv = new Service({
     description: 'The NooBaa node service.',
     script: '/usr/local/noobaa/src/agent/agent_wrap.js',
     wait: 10,
-    logpath: '/usr/local/noobaa/logs',
+    logpath: '/var/log',
     cwd: '/usr/local/noobaa'
 });
 

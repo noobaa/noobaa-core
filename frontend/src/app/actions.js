@@ -46,6 +46,16 @@ export function start() {
                 });
             }
         })
+        .catch(err => {
+            if (err.rpc_code === 'UNAUTHORIZED') {
+                if (api.options.auth_token) {
+                    console.info('Signing out on unauthorized session.');
+                    signOut(false);
+                }
+            } else {
+                console.error(err);
+            }
+        })
         // Start the router.
         .then(
             () => page.start()
@@ -345,11 +355,14 @@ export function signIn(email, password, keepSessionAlive = false, redirectUrl) {
         .done();
 }
 
-export function signOut() {
+export function signOut(shouldRefresh = true) {
     sessionStorage.removeItem('sessionToken');
     localStorage.removeItem('sessionToken');
     model.sessionInfo(null);
-    refresh();
+    api.options.auth_token = undefined;
+    if (shouldRefresh) {
+        refresh();
+    }
 }
 
 // -----------------------------------------------------
@@ -368,6 +381,22 @@ export function loadServerInfo() {
                             initialized: false,
                             config: config
                         })
+                    )
+                    // TODO: Remove this when actaul data is provided.
+                    .then(
+                        info => {
+                            Object.assign(info.config, {
+                                //using_dhcp: true,
+                                // phone_home_connectivity_status: 'CANNOT_REACH_DNS_SERVER',
+                                //phone_home_connectivity_status: 'CANNOT_RESOLVE_PHONEHOME_NAME',
+                                // phone_home_connectivity_status: 'CANNOT_CONNECT_INTERNET',
+                                // phone_home_connectivity_status: 'CANNOT_CONNECT_PHONEHOME_SERVER',
+                                // phone_home_connectivity_status: 'MALFORMED_RESPONSE',
+                                phone_home_connectivity_status: 'CONNECTED'
+                            });
+
+                            return info;
+                        }
                     )
         )
         .then(model.serverInfo)
@@ -610,7 +639,6 @@ export function loadCloudConnections() {
     logAction('loadCloudConnections');
 
     api.account.get_account_sync_credentials_cache()
-        .then(conns => conns.map(conn => Object.assign(conn, {access_key: conn.identity})))
         .then(model.CloudConnections)
         .done();
 }
@@ -1767,4 +1795,3 @@ export function recommissionNode(name) {
         .then(refresh)
         .done();
 }
-

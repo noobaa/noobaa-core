@@ -8,7 +8,7 @@
 
 <data-table params="
     columns: columns,
-    rowFactory: rowFactory.bind($component),
+    rowFactory: resource => newResourceRow(resource),
     sorting: sorting,
     data: resources,
     emptyMessage: 'System does not contain any cloud resources'

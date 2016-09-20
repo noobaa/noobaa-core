@@ -46,6 +46,16 @@ export function start() {
                 });
             }
         })
+        .catch(err => {
+            if (err.rpc_code === 'UNAUTHORIZED') {
+                if (api.options.auth_token) {
+                    console.info('Signing out on unauthorized session.');
+                    signOut(false);
+                }
+            } else {
+                console.error(err);
+            }
+        })
         // Start the router.
         .then(
             () => page.start()
@@ -345,11 +355,14 @@ export function signIn(email, password, keepSessionAlive = false, redirectUrl) {
         .done();
 }
 
-export function signOut() {
+export function signOut(shouldRefresh = true) {
     sessionStorage.removeItem('sessionToken');
     localStorage.removeItem('sessionToken');
     model.sessionInfo(null);
-    refresh();
+    api.options.auth_token = undefined;
+    if (shouldRefresh) {
+        refresh();
+    }
 }
 
 // -----------------------------------------------------
@@ -1766,4 +1779,3 @@ export function recommissionNode(name) {
         .then(refresh)
         .done();
 }
-

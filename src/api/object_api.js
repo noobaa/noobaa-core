@@ -605,7 +605,7 @@ module.exports = {
                     },
                     sort: {
                         type: 'string',
-                        enum: ['state', 'name', 'size']
+                        enum: ['state', 'name', 'size', 'create_time']
                     },
                     order: {
                         type: 'integer',

@@ -10,8 +10,21 @@ class CreateSystemFormViewModel extends Disposable {
     constructor() {
         super();
 
+        // Wizard configuration:
+        // ---------------------
         this.steps = ['account details', 'system config'];
         this.step = ko.observable(0);
+
+        let serverConfig = ko.pureComputed(
+            () => serverInfo() ? serverInfo().config : {}
+        );
+
+        this.isUnableToActivateModalVisible = ko.pureComputed(
+            () => serverConfig().phone_home_connectivity_status !== 'CONNECTED'
+        );
+
+        // First step fields:
+        // -------------------
 
         this.activationCode = ko.observable()
             .extend({
@@ -69,6 +82,9 @@ class CreateSystemFormViewModel extends Disposable {
             () => this.email() && this.email().split('@')[0]
         );
 
+        // Second step fields:
+        // -------------------
+
         this.systemName = ko.observable()
             .extend({
                 required: { message: 'Please enter a system name' },
@@ -85,17 +101,14 @@ class CreateSystemFormViewModel extends Disposable {
             });
 
         this.primaryDNSServerIP = ko.observableWithDefault(
-            () => {
-                if (!serverInfo() || !serverInfo().config) {
-                    return;
-                }
-
-                return (serverInfo().config.dns_servers || [])[0];
-            }
+            () => (serverConfig().dns_servers || [])[0]
         )
             .extend({
                 isIP: true
             });
+
+        // Wizard controls:
+        // ----------------
 
         this.isPrevVisible = ko.pureComputed(
             () => this.step() > 0
@@ -108,6 +121,9 @@ class CreateSystemFormViewModel extends Disposable {
         this.isCreateSystemVisible = ko.pureComputed(
             () => this.step() === this.steps.length - 1
         );
+
+        // Error groups:
+        // -------------
 
         this.errorsByStep = [
             // Account details validations

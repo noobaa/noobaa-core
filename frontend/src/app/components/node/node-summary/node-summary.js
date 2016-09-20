@@ -162,7 +162,7 @@ class NodeSummaryViewModel extends Disposable {
         this.activityStageMessage = ko.pureComputed(
             () => {
                 if (!dataActivity()) {
-                    return 'Node in optimal condition';
+                    return 'Node is in optimal condition';
                 }
 
                 let { stage } = dataActivity();
@@ -194,20 +194,20 @@ class NodeSummaryViewModel extends Disposable {
                 value: ko.pureComputed(
                     () => dataActivity() ? dataActivity().progress : 0
                 ),
-                color: '#f20092'
+                color: style['color8']
             },
             {
                 value: ko.pureComputed(
                     () => dataActivity() ? 1 - dataActivity().progress : 1
                 ),
-                color: '#2c2f32'
+                color: style['color15']
             }
         ];
 
         this.activityETA = ko.pureComputed(
             () => {
                 if (!dataActivity() || !dataActivity().time.end) {
-                    return 'Unknown';
+                    return 'calculating...';
                 }
 
                 return moment(dataActivity().time.end).fromNow();

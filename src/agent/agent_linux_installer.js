@@ -1,5 +1,4 @@
 "use strict";
-
 const Service = require('node-linux').Service;
 const argv = require('minimist')(process.argv);
 
@@ -13,9 +12,7 @@ var srv = new Service({
 });
 
 srv.on('doesnotexist', () => {
-    console.log('NooBaa local service was not previously installed');
-    srv.suspendEvent('doesnotexist');
-    srv.install();
+    console.log('NooBaa service is not yet installed')
 });
 
 srv.on('install', () => {
@@ -28,9 +25,7 @@ srv.on('alreadyinstalled', () => {
 });
 
 srv.on('uninstall', () => {
-    // Will only get here if the script was run with --repair cli arg
-    console.log('Done uninstalling NooBaa local service. Now reinstalling.');
-    srv.install();
+    console.log('Done uninstalling NooBaa local service. ');
 });
 
 srv.on('start', () => {
@@ -38,20 +33,10 @@ srv.on('start', () => {
 });
 
 if (argv.uninstall) {
-    // Only using uninstall event for reinstalls. else suspending it.
-    if (!srv.isSuspended('uninstall')) srv.suspendEvent('uninstall');
-    if (!srv.isSuspended('doesnotexist')) srv.suspendEvent('doesnotexist');
-    console.log('Uninstalling NooBaa local service');
+    console.log('Attempting to uninstall NooBaa local service');
+    srv.stop();
     srv.uninstall();
 } else {
-    if (srv.isSuspended('uninstall')) srv.resumeEvent('uninstall');
-    if (argv.repair) {
-        if (srv.isSuspended('doesnotexist')) srv.resumeEvent('doesnotexist');
-        // because we have both 'uninstall' and 'doesnotexist' events up,
-        // we end up installing by calling uninstall
-        srv.uninstall();
-    } else {
-        // this just attempts to install. if already installed, it is ignored.
-        srv.install();
-    }
+    console.log('Installing NooBaa local service');
+    srv.install();
 }

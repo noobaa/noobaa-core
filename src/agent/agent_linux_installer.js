@@ -14,6 +14,7 @@ var srv = new Service({
 
 srv.on('doesnotexist', () => {
     console.log('NooBaa local service was not previously installed');
+    srv.suspendEvent('doesnotexist');
     srv.install();
 });
 

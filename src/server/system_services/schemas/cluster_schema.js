@@ -97,8 +97,12 @@ module.exports = {
                 path: {
                     type: 'string'
                 },
+                mongo_upgrade: {
+                    type: 'boolean'
+                },
                 status: {
-                    type: 'string'
+                    type: 'string',
+                    enum: ['PENDING', 'FAILED', 'CAN_UPGRADE']
                 },
                 error: {
                     type: 'string'

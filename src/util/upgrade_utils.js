@@ -5,6 +5,7 @@ var dbg = require('./debug_module')(__filename);
 var time_utils = require('./time_utils');
 
 function pre_upgrade(upgrade_file) {
+    dbg.log0('DZDZ:', 'pre_upgrade called with upgrade_file =', upgrade_file);
     var result = true;
     var message = '';
 

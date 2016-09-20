@@ -550,8 +550,10 @@ function update_server_location(req) {
 }
 
 // UPGRADE ////////////////////////////////////////////////////////
-function upload_upgrade_package(req) {
-    dbg.log0('received upgrade package:, ', req.rpc_params.filepath, req.rpc_params.mongo_upgrade ? 'this server should preform mongo_upgrade' : 'this server should not preform mongo_upgrade');
+function member_pre_upgrade(req) {
+    dbg.log0('DZDZ received upgrade package:, ', req.rpc_params.filepath, req.rpc_params.mongo_upgrade ?
+        'this server should preform mongo_upgrade' :
+        'this server should not preform mongo_upgrade');
     let server = system_store.get_local_cluster_info(); //Update path in DB
     dbg.log0('update upgrade for server: ', cutil.get_cluster_info().owner_address);
     let upgrade = {
@@ -560,6 +562,8 @@ function upload_upgrade_package(req) {
         status: 'PENDING',
         error: ''
     };
+
+    dbg.log0('DZDZ:', 'updating cluster for server._id', server._id, 'with upgrade =', upgrade);
 
     return system_store.make_changes({
             update: {
@@ -573,11 +577,16 @@ function upload_upgrade_package(req) {
         .then(res => {
             //Update result of pre_upgrade and message in DB
             if (res.result) {
+                dbg.log0('DZDZ:', 'get res.result =', res.result, ' setting status to CAN_UPGRADE');
                 upgrade.status = 'CAN_UPGRADE';
             } else {
+                dbg.log0('DZDZ:', 'get res.result =', res.result, ' setting status to FAILED');
                 upgrade.status = 'FAILED';
                 upgrade.error = res.message;
             }
+
+            dbg.log0('DZDZ:', 'updating cluster again for server._id', server._id, 'with upgrade =', upgrade);
+
             return system_store.make_changes({
                 update: {
                     clusters: [{
@@ -606,7 +615,7 @@ function do_upgrade(req) {
 
 
 function upgrade_cluster(req) {
-    dbg.log0('got request to upgrade the cluster:', cutil.pretty_topology(cutil.get_topology()));
+    dbg.log0('DZDZ got request to upgrade the cluster:', cutil.pretty_topology(cutil.get_topology()));
     // get all cluster members other than the master
     let secondary_members = cutil.get_all_cluster_members().filter(ip => ip !== os_utils.get_local_ipv4_ips()[0]);
     // upgrade can only be called from master. throw error otherwise
@@ -620,16 +629,21 @@ function upgrade_cluster(req) {
         })
         .then(is_master => {
             if (!is_master) {
-                throw new Error('upgrade must be done on master node');
+                throw new Error('DZDZ upgrade must be done on master node');
             }
 
+            dbg.log0('DZDZ:', 'uploading package to all cluster members');
             // upload package to cluster members
             return P.all(secondary_members.map(member => _upload_package(req.rpc_params.filepath, member)));
-        }).then(() => server_rpc.client.cluster_internal.upload_upgrade_package({
-            filepath: req.rpc_params.filepath,
-            mongo_upgrade: true
-        }))
-        .delay(5 * 1000) //TODO: est CAN_UPGRADE state of all servers instead of constant delay
+        })
+        .then(() => {
+            dbg.log0('DZDZ:', 'calling member_pre_upgrade');
+            server_rpc.client.cluster_internal.member_pre_upgrade({
+                filepath: req.rpc_params.filepath,
+                mongo_upgrade: true
+            });
+        })
+        .delay(5 * 1000) //TODO: test CAN_UPGRADE state of all servers instead of constant delay
         .then(() => {
             // let num_finished = system_store.data.clusters
             //     .map(server => server.upgrade.status === 'CAN_UPGRADE' ? 1 : 0)
@@ -642,6 +656,7 @@ function upgrade_cluster(req) {
 
             let upgrade_retry_delay = 5 * 1000; // the delay between testing upgrade status
 
+            dbg.log0('DZDZ:', 'waiting for secondaries to reach CAN_UPGRADE');
             // TODO: on multiple shards we can upgrade one at the time in each shard
             return P.each(secondary_members, ip => {
                     // for each server, wait for it to reach CAN_UPGRADE, then call do_upgrade
@@ -669,9 +684,12 @@ function upgrade_cluster(req) {
                 })
                 // after all secondaries are upgraded it is safe to upgrade the primary.
                 // secondaries should wait (in upgrade.sh) for primary to complete upgrade and perform mongo_upgrade
-                .then(() => server_rpc.client.cluster_internal.do_upgrade({
-                    filepath: req.rpc_params.filepath
-                }));
+                .then(() => {
+                    dbg.log0('DZDZ:', 'calling do_upgrade on master');
+                    server_rpc.client.cluster_internal.do_upgrade({
+                        filepath: req.rpc_params.filepath
+                    });
+                });
         });
 }
 
@@ -1026,6 +1044,6 @@ exports.collect_server_diagnostics = collect_server_diagnostics;
 exports.read_server_time = read_server_time;
 exports.apply_read_server_time = apply_read_server_time;
 exports.read_server_config = read_server_config;
-exports.upload_upgrade_package = upload_upgrade_package;
+exports.member_pre_upgrade = member_pre_upgrade;
 exports.do_upgrade = do_upgrade;
 exports.upgrade_cluster = upgrade_cluster;

@@ -308,7 +308,7 @@ app.post('/upload_package',
     .single('upgrade_file'),
     function(req, res) {
         var upgrade_file = req.file;
-        server_rpc.client.cluster_internal.upload_upgrade_package({
+        server_rpc.client.cluster_internal.member_pre_upgrade({
             filepath: upgrade_file.path,
             mongo_upgrade: false
         }); //Async

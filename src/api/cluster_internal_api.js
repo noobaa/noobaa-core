@@ -212,7 +212,7 @@ module.exports = {
             }
         },
 
-        upload_upgrade_package: {
+        member_pre_upgrade: {
             method: 'POST',
             params: {
                 type: 'object',

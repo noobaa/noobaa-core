@@ -21,7 +21,7 @@ elif [[ -d /etc/init.d ]]; then
   /usr/local/noobaa/node /usr/local/noobaa/src/agent/agent_linux_installer --repair
 else
   echo "ERROR: Cannot detect init mechanism! Attempting to force service installation"
-  if [ -f /etc/init/noobaalocalservice.conf ]
+  if [ -f /etc/init/noobaalocalservice.conf ]; then
     service noobaalocalservice stop
     rm /etc/init/noobaalocalservice.conf
   fi

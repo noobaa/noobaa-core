@@ -8,7 +8,7 @@ var srv = new Service({
     description: 'The NooBaa node service.',
     script: '/usr/local/noobaa/src/agent/agent_wrap.js',
     wait: 10,
-    logpath: '/usr/local/noobaa/logs',
+    logpath: '/var/log',
     cwd: '/usr/local/noobaa'
 });
 
@@ -46,8 +46,11 @@ if (argv.uninstall) {
     if (srv.isSuspended('uninstall')) srv.resumeEvent('uninstall');
     if (argv.repair) {
         if (srv.isSuspended('doesnotexist')) srv.resumeEvent('doesnotexist');
+        // because we have both 'uninstall' and 'doesnotexist' events up,
+        // we end up installing by calling uninstall
         srv.uninstall();
     } else {
+        // this just attempts to install. if already installed, it is ignored.
         srv.install();
     }
 }

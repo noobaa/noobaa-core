@@ -3,7 +3,7 @@ echo "installing NooBaa"
 PATH=/usr/local/noobaa:$PATH;
 mkdir /usr/local/noobaa/logs
 
-if [[ -d /usr/lib/systemd ]]; then
+if [ -f /usr/bin/systemctl ] || [ -f /bin/systemctl ]; then
   echo "Systemd detected. Installing service"
   /usr/local/noobaa/node /usr/local/noobaa/src/agent/agent_linux_installer --repair
   systemctl enable noobaalocalservice

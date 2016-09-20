@@ -2,7 +2,7 @@
 PATH=/usr/local/noobaa:$PATH;
 
 echo "Uninstalling NooBaa"
-if [[ -d /usr/lib/systemd ]]; then
+if [ -f /usr/bin/systemctl ] || [ -f /bin/systemctl ]; then
   echo "Systemd detected. Uninstalling service"
   systemctl disable noobaalocalservice
   /usr/local/noobaa/node /usr/local/noobaa/src/agent/agent_linux_installer --uninstall

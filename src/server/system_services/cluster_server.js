@@ -2,7 +2,8 @@
  * Cluster Server
  */
 'use strict';
-
+require('../../util/dotenv').load();
+const DEV_MODE = (process.env.DEV_MODE === 'true');
 const _ = require('lodash');
 const RpcError = require('../../rpc/rpc_error');
 const system_store = require('./system_store').get_instance();
@@ -552,8 +553,13 @@ function update_server_location(req) {
 function read_server_config(req) {
     let reply = {};
     let srvconf = {};
+
     return P.resolve(_attach_server_configuration(srvconf))
         .then(function() {
+            if (DEV_MODE) {
+                reply.using_dhcp = false;
+                return;
+            }
             return fs_utils.find_line_in_file('/etc/sysconfig/network-scripts/ifcfg-eth0', 'BOOTPROTO=dhcp')
                 .then(function(using_dhcp) {
                     reply.using_dhcp = false;
@@ -591,6 +597,9 @@ function read_server_config(req) {
 
 
 function _verify_connection_to_phonehome() {
+    if (DEV_MODE) {
+        return 'CONNECTED';
+    }
     return P.all([
         P.fcall(function() {
             let parsed_url = url.parse(config.PHONE_HOME_BASE_URL);

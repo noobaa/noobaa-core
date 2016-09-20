@@ -9,7 +9,7 @@ if [[ -d /usr/lib/systemd ]]; then
   systemctl enable noobaalocalservice
 elif [[ -d /usr/share/upstart ]]; then
   echo "Upstart detected. Creating startup script"
-  if [ -f /etc/init/noobaalocalservice.conf ]
+  if [ -f /etc/init/noobaalocalservice.conf ]; then
     echo "Service already installed. Removing old service"
     service noobaalocalservice stop
     rm /etc/init/noobaalocalservice.conf

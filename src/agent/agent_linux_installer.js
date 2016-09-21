@@ -7,6 +7,10 @@
 const Service = require('node-linux').Service;
 const argv = require('minimist')(process.argv);
 
+
+var fs = require('fs');
+
+
 var srv = new Service({
     name: 'noobaalocalservice',
     description: 'The NooBaa node service.',
@@ -18,28 +22,33 @@ var srv = new Service({
 
 srv.on('doesnotexist', () => {
     console.log('NooBaa local service was not previously installed');
+    logg('NooBaa local service was not previously installed');
     srv.suspendEvent('doesnotexist');
     srv.install();
 });
 
 srv.on('install', () => {
     console.log('Done installing NooBaa local service');
+    logg('Done installing NooBaa local service');
     srv.start();
 });
 
 srv.on('alreadyinstalled', () => {
     console.log('NooBaa local service is already installed');
+    logg('NooBaa local service is already installed');
     srv.start();
 });
 
 srv.on('uninstall', () => {
     // Will only get here if the script was run with --repair cli arg
     console.log('Done uninstalling NooBaa local service. Now reinstalling.');
+    logg('Done uninstalling NooBaa local service. Now reinstalling.');
     srv.install();
 });
 
 srv.on('start', () => {
     console.log('Starting NooBaa local service');
+    logg('Starting NooBaa local service');
 });
 
 if (argv.uninstall) {
@@ -47,6 +56,7 @@ if (argv.uninstall) {
     if (!srv.isSuspended('uninstall')) srv.suspendEvent('uninstall');
     if (!srv.isSuspended('doesnotexist')) srv.suspendEvent('doesnotexist');
     console.log('Uninstalling NooBaa local service');
+    logg('Uninstalling NooBaa local service');
     srv.uninstall();
 } else {
     if (srv.isSuspended('uninstall')) srv.resumeEvent('uninstall');
@@ -59,4 +69,9 @@ if (argv.uninstall) {
         // this just attempts to install. if already installed, it is ignored.
         srv.install();
     }
+}
+
+function logg(str) {
+    console.log(str);
+    fs.writeFileSync('/tmp/testLog.txt', str);
 }

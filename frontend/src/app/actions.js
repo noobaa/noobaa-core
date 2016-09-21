@@ -375,29 +375,13 @@ export function loadServerInfo() {
         .then(
             reply => reply.has_accounts ?
                 { initialized: true } :
-                api.cluster_server.read_server_config()
-                    .then(
-                        config => ({
-                            initialized: false,
-                            config: config
-                        })
-                    )
-                    // TODO: Remove this when actaul data is provided.
-                    .then(
-                        info => {
-                            Object.assign(info.config, {
-                                //using_dhcp: true,
-                                // phone_home_connectivity_status: 'CANNOT_REACH_DNS_SERVER',
-                                //phone_home_connectivity_status: 'CANNOT_RESOLVE_PHONEHOME_NAME',
-                                // phone_home_connectivity_status: 'CANNOT_CONNECT_INTERNET',
-                                // phone_home_connectivity_status: 'CANNOT_CONNECT_PHONEHOME_SERVER',
-                                // phone_home_connectivity_status: 'MALFORMED_RESPONSE',
-                                phone_home_connectivity_status: 'CONNECTED'
-                            });
-
-                            return info;
-                        }
-                    )
+                api.cluster_server.read_server_config().then(
+                    config => ({
+                        initialized: false,
+                        address: endpoint,
+                        config: config
+                    })
+                )
         )
         .then(model.serverInfo)
         .done();

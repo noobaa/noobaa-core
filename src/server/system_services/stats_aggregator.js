@@ -44,7 +44,7 @@ const SINGLE_SYS_DEFAULTS = {
     tiers: 0,
     buckets: 0,
     chunks: 0,
-    chunks_rebuilt_since_last: 0,
+    // chunks_rebuilt_since_last: 0,
     objects: 0,
     roles: 0,
     allocated_space: 0,

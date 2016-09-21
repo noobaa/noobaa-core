@@ -153,9 +153,9 @@ module.exports = {
                             chunks: {
                                 type: 'integer'
                             },
-                            chunks_rebuilt_since_last: {
-                                type: 'integer'
-                            },
+                            // chunks_rebuilt_since_last: {
+                            //     type: 'integer'
+                            // },
                             objects: {
                                 type: 'integer'
                             },

@@ -18,6 +18,7 @@ const EXECUTABLE_MOD_VAL = 511;
 
 var address = "";
 
+let fd = fs.openSync('/tmp/setupLog.txt', 'a');
 
 fs.readFileAsync('./agent_conf.json')
     .then(agent_conf_file => {
@@ -35,6 +36,12 @@ fs.readFileAsync('./agent_conf.json')
     .then(() => fs.chmodAsync(SETUP_FILENAME, EXECUTABLE_MOD_VAL))
     .then(() => {
         dbg.log0('Upgrading Noobaa agent');
-        return promise_utils.spawn(SETUP_FILENAME, ['&>>/var/log/setup.out']);
+        promise_utils.spawn(SETUP_FILENAME, [], {
+            stdio: [process.stdin, fd, fd],
+            detached: true
+        });
+        setTimeout(() => {
+            dbg.log0('Upgrading...');
+        }, 10000);
     })
     .catch(err => dbg.error(err));

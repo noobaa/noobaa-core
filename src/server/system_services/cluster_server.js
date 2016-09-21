@@ -952,9 +952,9 @@ function _attach_server_configuration(cluster_server, dhcp_dns_servers) {
             }
 
             // We are interested in DNS servers of DHCP that's why we override
-            if (dhcp_dns_servers) {
+            if (dhcp_dns_servers && dhcp_dns) {
                 // We only support up to 2 DNS servers so we slice the first two
-                cluster_server.dns_servers = (dhcp_dns && dhcp_dns.slice(0, 2)) || [];
+                cluster_server.dns_servers = dhcp_dns.slice(0, 2);
             }
 
             return cluster_server;

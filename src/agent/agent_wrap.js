@@ -18,7 +18,8 @@ const EXECUTABLE_MOD_VAL = 511;
 
 var address = "";
 
-let fd = fs.openSync('/tmp/setupLog.txt', 'a');
+const out1 = fs.openSync('/tmp/setupLog.txt', 'a');
+const err1 = fs.openSync('/tmp/setupLog.txt', 'a');
 
 fs.readFileAsync('./agent_conf.json')
     .then(agent_conf_file => {
@@ -37,16 +38,16 @@ fs.readFileAsync('./agent_conf.json')
     .then(() => {
         dbg.log0('Upgrading Noobaa agent');
         let done = false;
-        let install_child = promise_utils.spawn(SETUP_FILENAME, [], {
-            stdio: ['ignore', fd, fd],
+        promise_utils.spawn(SETUP_FILENAME, [], {
+            stdio: ['ignore', out1, err1],
             detached: true
         });
-        install_child.on('exit', () => {
+        /*install_child.on('exit', () => {
             done = true;
-        });
+        });*/
         dbg.log0('Upgrading...');
         (function loop() {
-            if (!done) setTimeout(loop, 10000);
+            setTimeout(loop, 10000);
         }());
         dbg.log0('Done upgrading');
     })

@@ -323,7 +323,6 @@ function upgrade_cluster() {
     db.clusters.insert(cluster);
 }
 
-// TODO: JEN AIN'T PROUD OF IT BUT NOBODY PERFECT!, should do the update with 1 db reach
 function upgrade_object_mds() {
     print('\n*** upgrade_object_mds ...');
     db.objectmds.find({

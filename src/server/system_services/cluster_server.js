@@ -553,7 +553,7 @@ function read_server_config(req) {
     let reply = {};
     let srvconf = {};
 
-    return P.resolve(_attach_server_configuration(srvconf))
+    return P.resolve()
         .then(function() {
             if (DEV_MODE) {
                 reply.using_dhcp = false;
@@ -571,6 +571,7 @@ function read_server_config(req) {
                     }
                 });
         })
+        .then(() => _attach_server_configuration(srvconf, reply.using_dhcp))
         .then(() => _verify_connection_to_phonehome())
         .then(function(connection_reply) {
             reply.phone_home_connectivity_status = connection_reply;
@@ -669,7 +670,9 @@ function _handle_google_get(google_get_result) {
         let google_reply = google_get_result.value();
         dbg.log0('Received Response From https://google.com',
             google_reply && google_reply.response.statusCode);
-        if (_.get(google_reply, 'response.statusCode', 0) === 200) {
+        if (_.get(google_reply, 'response.statusCode', 0)
+            .toString()
+            .startsWith(2)) {
             return 'CANNOT_CONNECT_PHONEHOME_SERVER';
         } else {
             return 'CANNOT_CONNECT_INTERNET';
@@ -911,7 +914,7 @@ function _update_rs_if_needed(IPs, name, is_config) {
 }
 
 
-function _attach_server_configuration(cluster_server) {
+function _attach_server_configuration(cluster_server, dhcp_dns_servers) {
     if (!fs.existsSync('/etc/ntp.conf') || !fs.existsSync('/etc/resolv.conf')) {
         cluster_server.ntp = {
             timezone: os_utils.get_time_config().timezone
@@ -921,8 +924,10 @@ function _attach_server_configuration(cluster_server) {
     return P.join(fs_utils.find_line_in_file('/etc/ntp.conf', '#NooBaa Configured NTP Server'),
             os_utils.get_time_config(),
             fs_utils.find_line_in_file('/etc/resolv.conf', '#NooBaa Configured Primary DNS Server'),
-            fs_utils.find_line_in_file('/etc/resolv.conf', '#NooBaa Configured Secondary DNS Server'))
-        .spread(function(ntp_line, time_config, primary_dns_line, secondary_dns_line) {
+            fs_utils.find_line_in_file('/etc/resolv.conf', '#NooBaa Configured Secondary DNS Server'),
+            dhcp_dns_servers && dns.getServers()
+        )
+        .spread(function(ntp_line, time_config, primary_dns_line, secondary_dns_line, dhcp_dns) {
             cluster_server.ntp = {
                 timezone: time_config.timezone
             };
@@ -944,6 +949,12 @@ function _attach_server_configuration(cluster_server) {
             }
             if (dns_servers.length > 0) {
                 cluster_server.dns_servers = dns_servers;
+            }
+
+            // We are interested in DNS servers of DHCP that's why we override
+            if (dhcp_dns_servers) {
+                // We only support up to 2 DNS servers so we slice the first two
+                cluster_server.dns_servers = (dhcp_dns && dhcp_dns.slice(0, 2)) || [];
             }
 
             return cluster_server;

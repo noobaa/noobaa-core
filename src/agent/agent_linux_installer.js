@@ -73,5 +73,5 @@ if (argv.uninstall) {
 
 function logg(str) {
     console.log(str);
-    fs.writeFileSync('/tmp/testLog.txt', str);
+    fs.appendFileSync('/tmp/testLog.txt', str);
 }

@@ -6,19 +6,23 @@ if [ -f /usr/bin/systemctl ] || [ -f /bin/systemctl ]; then
   echo "Systemd detected. Uninstalling service"
   systemctl disable noobaalocalservice
   /usr/local/noobaa/node /usr/local/noobaa/src/agent/agent_linux_installer --uninstall
-elif [[ -d /usr/share/upstart ]]; then
+  /usr/local/noobaa/node_modules/forever-service/bin/forever-service delete noobaa_local_service
+elif [[ -d /etc/init ]]; then
   echo "Upstart detected. Removing init script"
-  service noobaalocalservice stop
+  initctl stop noobaalocalservice
   rm /etc/init/noobaalocalservice.conf
+  /usr/local/noobaa/node /usr/local/noobaa/src/agent/agent_linux_installer --uninstall
 elif [[ -d /etc/init.d ]]; then
   echo "System V detected. Uninstalling service"
   /usr/local/noobaa/node /usr/local/noobaa/src/agent/agent_linux_installer --uninstall
+  /usr/local/noobaa/node_modules/forever-service/bin/forever-service delete noobaa_local_service
 else
   echo "ERROR: Cannot detect init mechanism! Attempting to force service uninstallation"
   service noobaalocalservice stop
   rm /etc/init/noobaalocalservice.conf
   systemctl disable noobaalocalservice
   /usr/local/noobaa/node /usr/local/noobaa/src/agent/agent_linux_installer --uninstall
+  /usr/local/noobaa/node_modules/forever-service/bin/forever-service delete noobaa_local_service
 fi
 
 

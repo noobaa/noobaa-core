@@ -1,4 +1,6 @@
 #!/bin/bash
+#this script installs the service on linux systems.
+#first we find the newest init mechanism, then we install
 echo "installing NooBaa"
 PATH=/usr/local/noobaa:$PATH;
 mkdir /usr/local/noobaa/logs

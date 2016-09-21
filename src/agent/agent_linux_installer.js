@@ -1,4 +1,9 @@
 "use strict";
+
+/*
+ * This script installs the agent service using node-linux. It should work
+ * on very new linux os (using systemd) or very old linux os (using system v)
+ */
 const Service = require('node-linux').Service;
 const argv = require('minimist')(process.argv);
 

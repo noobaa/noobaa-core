@@ -1,5 +1,9 @@
 "use strict";
 
+/*
+ * This script wrapps agent_cli
+ * it makes sure that when it exists, it either upgrades, or reopens as necessary
+ */
 process.chdir('/usr/local/noobaa');
 
 const fs = require('fs');

@@ -29,8 +29,8 @@ class UnableToActivateModalViewModel extends Disposable {
             () => config().using_dhcp ? 'Dynamic (DHCP)' : 'Static'
         );
 
-        let serverIP = ko.pureComputed(
-            () => config().server_ip
+        let serverAddress = ko.pureComputed(
+            () => serverInfo().address
         );
 
         let dnsServers = ko.pureComputed(
@@ -51,8 +51,8 @@ class UnableToActivateModalViewModel extends Disposable {
                 value: ipAssigment
             },
             {
-                label: 'IP Address',
-                value: serverIP
+                label: 'Server Address',
+                value: serverAddress
             },
             {
                 label: 'Primary DNS Server',

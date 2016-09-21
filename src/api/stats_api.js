@@ -153,6 +153,9 @@ module.exports = {
                             chunks: {
                                 type: 'integer'
                             },
+                            chunks_rebuilt_since_last: {
+                                type: 'integer'
+                            },
                             objects: {
                                 type: 'integer'
                             },
@@ -357,6 +360,11 @@ module.exports = {
                     },
                     s3_usage_info: {
                         $ref: 'object_api#/definitions/s3_usage_info',
+                    },
+                    s3_errors_info: {
+                        type: 'object',
+                        additionalProperties: true,
+                        properties: {}
                     }
                 },
             }

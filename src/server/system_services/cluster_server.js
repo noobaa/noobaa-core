@@ -670,7 +670,9 @@ function _handle_google_get(google_get_result) {
         let google_reply = google_get_result.value();
         dbg.log0('Received Response From https://google.com',
             google_reply && google_reply.response.statusCode);
-        if (_.get(google_reply, 'response.statusCode', 0) === 200) {
+        if (_.get(google_reply, 'response.statusCode', 0)
+            .toString()
+            .startsWith(2)) {
             return 'CANNOT_CONNECT_PHONEHOME_SERVER';
         } else {
             return 'CANNOT_CONNECT_INTERNET';

@@ -17,7 +17,7 @@ var srv = new Service({
 });
 
 srv.on('doesnotexist', () => {
-    console.log('NooBaa service is not yet installed')
+    console.log('NooBaa service is not yet installed');
 });
 
 srv.on('install', () => {

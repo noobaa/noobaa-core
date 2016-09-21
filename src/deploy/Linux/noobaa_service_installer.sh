@@ -9,6 +9,7 @@ if [ -f /usr/bin/systemctl ] || [ -f /bin/systemctl ]; then
   echo "Systemd detected. Installing service"
   /usr/local/noobaa/node /usr/local/noobaa/src/agent/agent_linux_installer --uninstall
   /usr/local/noobaa/node_modules/forever-service/bin/forever-service delete noobaa_local_service
+  sleep 5
   /usr/local/noobaa/node /usr/local/noobaa/src/agent/agent_linux_installer
   systemctl enable noobaalocalservice
 elif [[ -d /etc/init ]]; then
@@ -25,6 +26,7 @@ elif [[ -d /etc/init.d ]]; then
   echo "System V detected. Installing service"
   /usr/local/noobaa/node /usr/local/noobaa/src/agent/agent_linux_installer --uninstall
   /usr/local/noobaa/node_modules/forever-service/bin/forever-service delete noobaa_local_service
+  sleep 5
   /usr/local/noobaa/node /usr/local/noobaa/src/agent/agent_linux_installer
   type chkconfig &> /dev/null
   if [ $? -eq 0 ]; then

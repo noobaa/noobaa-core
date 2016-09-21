@@ -8,7 +8,7 @@ const Service = require('node-linux').Service;
 const argv = require('minimist')(process.argv);
 
 var srv = new Service({
-    name: 'NooBaa Local Service',
+    name: 'noobaalocalservice',
     description: 'The NooBaa node service.',
     script: '/usr/local/noobaa/src/agent/agent_wrap.js',
     wait: 10,
@@ -29,6 +29,7 @@ srv.on('install', () => {
 
 srv.on('alreadyinstalled', () => {
     console.log('NooBaa local service is already installed');
+    srv.start();
 });
 
 srv.on('uninstall', () => {

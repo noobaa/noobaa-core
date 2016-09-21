@@ -26,7 +26,7 @@ fs.readFileAsync('./agent_conf.json')
         return promise_utils.fork('./src/agent/agent_cli');
     }) //TODO: handle agent_conf not being where expected by inserting default value into address
     .catch(err => {
-        if (err.code && err.code === 1) {
+        if (err.code && err.code === 1) { // TODO: is this still 1?
             dbg.log0('Duplicate token');
             return promise_utils.fork('./src/agent/agent_cli', '--duplicate');
         }

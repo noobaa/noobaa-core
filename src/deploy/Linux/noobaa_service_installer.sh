@@ -5,9 +5,11 @@ echo "installing NooBaa"
 PATH=/usr/local/noobaa:$PATH;
 mkdir /usr/local/noobaa/logs
 
+/usr/local/noobaa/node_modules/forever-service/bin/forever-service delete noobaa_local_service
+
 if [ -f /usr/bin/systemctl ] || [ -f /bin/systemctl ]; then
+  systemctl disable noobaalocalservice
   echo "Systemd detected. Installing service"
-  /usr/local/noobaa/node_modules/forever-service/bin/forever-service delete noobaa_local_service
   /usr/local/noobaa/node /usr/local/noobaa/src/agent/agent_linux_installer --repair
   systemctl enable noobaalocalservice
 elif [[ -d /etc/init ]]; then
@@ -17,13 +19,11 @@ elif [[ -d /etc/init ]]; then
     initctl stop noobaalocalservice
     rm /etc/init/noobaalocalservice.conf
   fi
-  /usr/local/noobaa/node_modules/forever-service/bin/forever-service delete noobaa_local_service
   cp /usr/local/noobaa/src/agent/noobaalocalservice.conf /etc/init/noobaalocalservice.conf
   sleep 3
   initctl start noobaalocalservice
 elif [[ -d /etc/init.d ]]; then
   echo "System V detected. Installing service"
-  /usr/local/noobaa/node_modules/forever-service/bin/forever-service delete noobaa_local_service
   /usr/local/noobaa/node /usr/local/noobaa/src/agent/agent_linux_installer --repair
   type chkconfig &> /dev/null
   if [ $? -eq 0 ]; then
@@ -37,7 +37,6 @@ else
     service noobaalocalservice stop
     rm /etc/init/noobaalocalservice.conf
   fi
-  /usr/local/noobaa/node_modules/forever-service/bin/forever-service delete noobaa_local_service
   /usr/local/noobaa/node /usr/local/noobaa/src/agent/agent_linux_installer --repair
   systemctl enable noobaalocalservice
   cp /usr/local/noobaa/src/agent/noobaalocalservice.conf /etc/init/noobaalocalservice.conf

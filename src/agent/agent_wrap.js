@@ -36,12 +36,18 @@ fs.readFileAsync('./agent_conf.json')
     .then(() => fs.chmodAsync(SETUP_FILENAME, EXECUTABLE_MOD_VAL))
     .then(() => {
         dbg.log0('Upgrading Noobaa agent');
-        promise_utils.spawn(SETUP_FILENAME, [], {
-            stdio: 'ignore',
+        let done = false;
+        let install_child = promise_utils.spawn(SETUP_FILENAME, [], {
+            stdio: ['ignore', fd, fd],
             detached: true
         });
-        setTimeout(() => {
-            dbg.log0('Upgrading...');
-        }, 10000);
+        install_child.on('exit', () => {
+            done = true;
+        });
+        dbg.log0('Upgrading...');
+        (function loop() {
+            if (!done) setTimeout(loop, 10000);
+        }());
+        dbg.log0('Done upgrading');
     })
     .catch(err => dbg.error(err));

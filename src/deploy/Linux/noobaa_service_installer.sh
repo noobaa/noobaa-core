@@ -11,6 +11,7 @@ if [ -f /usr/bin/systemctl ] || [ -f /bin/systemctl ]; then
   /usr/local/noobaa/node_modules/forever-service/bin/forever-service delete noobaa_local_service
   /usr/local/noobaa/node /usr/local/noobaa/src/agent/agent_linux_installer
   systemctl enable noobaalocalservice
+  systemctl start noobaalocalservice
 elif [[ -d /etc/init ]]; then
   echo "Upstart detected. Creating startup script"
   if [ -f /etc/init/noobaalocalservice.conf ]; then
@@ -31,6 +32,7 @@ elif [[ -d /etc/init.d ]]; then
   else
     update-rc.d noobaalocalservice enable
   fi
+  service noobaalocalservice start
 else
   echo "ERROR: Cannot detect init mechanism! Attempting to force service installation"
   if [ -f /etc/init/noobaalocalservice.conf ]; then

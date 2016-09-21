@@ -32,21 +32,6 @@ fs.readFileAsync('./agent_conf.json')
         }
         throw err;
     })
-    .then(() => {
-        const output = fs.createWriteStream(SETUP_FILENAME);
-        return new P((resolve, reject) => {
-            dbg.log0('Downloading Noobaa agent upgrade package');
-            request.get({
-                    url: `https://${address}/public/noobaa-setup`,
-                    strictSSL: false,
-                    timeout: 20000
-                })
-                .on('error', err => reject(err))
-                .pipe(output)
-                .on('error', err => reject(err))
-                .on('finish', resolve);
-        });
-    })
     .then(() => fs.chmodAsync(SETUP_FILENAME, EXECUTABLE_MOD_VAL))
     .then(() => {
         dbg.log0('Upgrading Noobaa agent');

@@ -256,16 +256,17 @@ MongoCtrl.prototype.update_dotenv = function(name, IPs) {
         value: url
     });
     // update all processes in the current server of the change in connection string
-    return this._publish_rs_name_current_server(name);
+    return this._publish_rs_name_current_server({
+        rs_name: name,
+        skip_load_system_store: true
+    });
 };
 
-MongoCtrl.prototype._publish_rs_name_current_server = function(name) {
+MongoCtrl.prototype._publish_rs_name_current_server = function(params) {
     return server_rpc.client.redirector.publish_to_cluster({
         method_api: 'server_inter_process_api',
         method_name: 'update_mongo_connection_string',
         target: '', // required but irrelevant
-        request_params: {
-            rs_name: name
-        }
+        request_params: params
     });
 };

@@ -5,7 +5,6 @@
  */
 'use strict';
 
-require('../../util/dotenv').load();
 const DEV_MODE = (process.env.DEV_MODE === 'true');
 const _ = require('lodash');
 const request = require('request');
@@ -21,7 +20,6 @@ const md_store = require('../object_services/md_store');
 const bucket_server = require('../system_services/bucket_server');
 const auth_server = require('../common_services/auth_server');
 const server_rpc = require('../server_rpc');
-const pkg = require('../../../package.json');
 
 const ops_aggregation = {};
 const SCALE_BYTES_TO_GB = 1024 * 1024 * 1024;
@@ -62,7 +60,6 @@ const SINGLE_SYS_DEFAULTS = {
 //Collect systems related stats and usage
 function get_systems_stats(req) {
     var sys_stats = _.cloneDeep(SYSTEM_STATS_DEFAULTS);
-    sys_stats.version = pkg.version || process.env.CURRENT_VERSION;
     sys_stats.agent_version = process.env.AGENT_VERSION || 'Unknown';
     sys_stats.count = system_store.data.systems.length;
     var cluster = system_store.data.clusters[0];
@@ -75,45 +72,50 @@ function get_systems_stats(req) {
                 system: system
             }, req);
             return system_server.read_system(new_req)
-                .then(res => _.defaults({
-                    roles: res.roles.length,
-                    tiers: res.tiers.length,
-                    buckets: res.buckets.length,
-                    objects: res.objects,
-                    allocated_space: res.storage.alloc,
-                    used_space: res.storage.used,
-                    total_space: res.storage.total,
-                    associated_nodes: {
-                        on: res.nodes.online,
-                        off: res.nodes.count - res.nodes.online,
-                    },
-                    owner: res.owner.email,
-                }, SINGLE_SYS_DEFAULTS))
-                .then(function(res) {
-                    let last_stats_report = system.last_stats_report || 0;
-                    var query = {
-                        system: system._id,
-                        // Notice that we only count the chunks that finished their rebuild
-                        last_build: {
-                            $gt: new Date(last_stats_report)
+                .then(res => {
+                    // Means that if we do not have any systems, the version number won't be sent
+                    sys_stats.version = res.version || process.env.CURRENT_VERSION;
+                    return _.defaults({
+                        roles: res.roles.length,
+                        tiers: res.tiers.length,
+                        buckets: res.buckets.length,
+                        objects: res.objects,
+                        allocated_space: res.storage.alloc,
+                        used_space: res.storage.used,
+                        total_space: res.storage.total,
+                        associated_nodes: {
+                            on: res.nodes.online,
+                            off: res.nodes.count - res.nodes.online,
                         },
-                        // Ignore old chunks without buckets
-                        bucket: {
-                            $exists: true
-                        },
-                        deleted: null
-                    };
-
-                    return md_store.DataChunk.collection.count(query)
-                        .then(count => {
-                            res.chunks_rebuilt_since_last = count;
-                            return res;
-                        })
-                        .catch(err => {
-                            dbg.log0('Could not fetch chunks_rebuilt_since_last', err);
-                            return res;
-                        });
+                        owner: res.owner.email,
+                    }, SINGLE_SYS_DEFAULTS);
                 });
+                // TODO: Need to handle it differently
+                // .then(function(res) {
+                //     let last_stats_report = system.last_stats_report || 0;
+                //     var query = {
+                //         system: system._id,
+                //         // Notice that we only count the chunks that finished their rebuild
+                //         last_build: {
+                //             $gt: new Date(last_stats_report)
+                //         },
+                //         // Ignore old chunks without buckets
+                //         bucket: {
+                //             $exists: true
+                //         },
+                //         deleted: null
+                //     };
+                //
+                //     return md_store.DataChunk.collection.count(query)
+                //         .then(count => {
+                //             res.chunks_rebuilt_since_last = count;
+                //             return res;
+                //         })
+                //         .catch(err => {
+                //             dbg.log0('Could not fetch chunks_rebuilt_since_last', err);
+                //             return res;
+                //         });
+                // });
         }))
         .then(systems => {
             sys_stats.systems = systems;
@@ -134,6 +136,7 @@ var NODES_STATS_DEFAULTS = {
         linux: 0,
         other: 0,
     },
+    nodes_with_issue: 0
 };
 
 const SYNC_STATS_DEFAULTS = {
@@ -171,6 +174,9 @@ function get_nodes_stats(req) {
         .then(results => {
             for (const system_nodes of results) {
                 for (const node of system_nodes.nodes) {
+                    if (node.has_issues) {
+                        nodes_stats.nodes_with_issue++;
+                    }
                     nodes_stats.count++;
                     nodes_histo.histo_allocation.add_value(
                         node.storage.alloc / SCALE_BYTES_TO_GB);

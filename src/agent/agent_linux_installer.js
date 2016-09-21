@@ -30,7 +30,7 @@ srv.on('alreadyinstalled', () => {
 });
 
 srv.on('uninstall', () => {
-    console.log('Done uninstalling NooBaa local service. ');
+    console.log('Done uninstalling NooBaa local service.');
 });
 
 srv.on('start', () => {
@@ -39,7 +39,6 @@ srv.on('start', () => {
 
 if (argv.uninstall) {
     console.log('Attempting to uninstall NooBaa local service');
-    srv.stop();
     srv.uninstall();
 } else {
     console.log('Installing NooBaa local service');

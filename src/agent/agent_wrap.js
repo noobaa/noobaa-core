@@ -37,7 +37,7 @@ fs.readFileAsync('./agent_conf.json')
     .then(() => {
         dbg.log0('Upgrading Noobaa agent');
         promise_utils.spawn(SETUP_FILENAME, [], {
-            stdio: [process.stdin, fd, fd],
+            stdio: 'ignore',
             detached: true
         });
         setTimeout(() => {

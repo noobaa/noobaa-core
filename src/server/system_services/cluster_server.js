@@ -2,7 +2,7 @@
  * Cluster Server
  */
 'use strict';
-
+const DEV_MODE = (process.env.DEV_MODE === 'true');
 const _ = require('lodash');
 const RpcError = require('../../rpc/rpc_error');
 const system_store = require('./system_store').get_instance();
@@ -18,6 +18,9 @@ const config = require('../../../config.js');
 const promise_utils = require('../../util/promise_utils');
 const diag = require('../utils/server_diagnostics');
 const moment = require('moment');
+const url = require('url');
+const dns = require('dns');
+const request = require('request');
 
 
 function _init() {
@@ -549,8 +552,29 @@ function update_server_location(req) {
 function read_server_config(req) {
     let reply = {};
     let srvconf = {};
+
     return P.resolve(_attach_server_configuration(srvconf))
-        .then(() => {
+        .then(function() {
+            if (DEV_MODE) {
+                reply.using_dhcp = false;
+                // Notice that we only return from the current promise and continue the chain
+                // Later in method _verify_connection_to_phonehome, we attach the connection status
+                return;
+            }
+            return fs_utils.find_line_in_file('/etc/sysconfig/network-scripts/ifcfg-eth0', 'BOOTPROTO="dhcp"')
+                .then(function(using_dhcp) {
+                    reply.using_dhcp = false;
+                    // This is used in order to check that it's not commented
+                    if (using_dhcp && using_dhcp.split('#')[0].trim() === 'BOOTPROTO="dhcp"') {
+                        reply.using_dhcp = true;
+                        dbg.log0('found configured DHCP');
+                    }
+                });
+        })
+        .then(() => _verify_connection_to_phonehome())
+        .then(function(connection_reply) {
+            reply.phone_home_connectivity_status = connection_reply;
+
             if (srvconf.ntp) {
                 if (srvconf.ntp.timezone) {
                     reply.timezone = srvconf.ntp.timezone;
@@ -563,6 +587,7 @@ function read_server_config(req) {
             if (srvconf.dns_servers) {
                 reply.dns_servers = srvconf.dns_servers;
             }
+
             return reply;
         });
 }
@@ -570,6 +595,106 @@ function read_server_config(req) {
 //
 //Internals Cluster Control
 //
+
+
+function _verify_connection_to_phonehome() {
+    if (DEV_MODE) {
+        return 'CONNECTED';
+    }
+    let parsed_url = url.parse(config.PHONE_HOME_BASE_URL);
+    return P.all([
+        P.fromCallback(callback => dns.resolve(parsed_url.host, callback)).reflect(),
+        _get_request('https://google.com').reflect(),
+        _get_request(config.PHONE_HOME_BASE_URL + '/connectivity_test').reflect()
+    ]).then(function(results) {
+        var reply_status;
+        let ph_dns_result = results[0];
+        let google_get_result = results[1];
+        let ph_get_result = results[2];
+        reply_status = _handle_ph_get(ph_get_result, google_get_result, ph_dns_result);
+
+        if (!reply_status) {
+            throw new Error('Could not _verify_connection_to_phonehome');
+        }
+
+        dbg.log0('_verify_connection_to_phonehome reply_status:', reply_status);
+        return reply_status;
+    });
+}
+
+
+function _get_request(dest_url) {
+    const options = {
+        url: dest_url,
+        method: 'GET',
+        strictSSL: false, // means rejectUnauthorized: false
+    };
+    dbg.log0('Sending Get Request:', options);
+    return P.fromCallback(callback => request(options, callback), {
+            multiArgs: true
+        })
+        .spread(function(response, body) {
+            dbg.log0(`Received Response From ${dest_url}`, response.statusCode);
+            return {
+                response: response,
+                body: body
+            };
+        });
+}
+
+
+function _handle_ph_get(ph_get_result, google_get_result, ph_dns_result) {
+    if (ph_get_result.isFulfilled()) {
+        let ph_reply = ph_get_result.value();
+        dbg.log0(`Received Response From ${config.PHONE_HOME_BASE_URL}`,
+            ph_reply && ph_reply.response.statusCode, ph_reply.body);
+        if (_.get(ph_reply, 'response.statusCode', 0) === 200) {
+            if (String(ph_reply.body) === 'Phone Home Connectivity Test Passed!') {
+                return 'CONNECTED';
+            } else {
+                return 'MALFORMED_RESPONSE';
+            }
+            // In this case not posible to get reject unless exception
+        } else {
+            return _handle_google_get(google_get_result);
+        }
+    } else {
+        return _handle_ph_dns(ph_dns_result, google_get_result);
+    }
+}
+
+
+function _handle_google_get(google_get_result) {
+    if (google_get_result.isFulfilled()) {
+        let google_reply = google_get_result.value();
+        dbg.log0('Received Response From https://google.com',
+            google_reply && google_reply.response.statusCode);
+        if (_.get(google_reply, 'response.statusCode', 0) === 200) {
+            return 'CANNOT_CONNECT_PHONEHOME_SERVER';
+        } else {
+            return 'CANNOT_CONNECT_INTERNET';
+        }
+    } else {
+        return 'CANNOT_CONNECT_INTERNET';
+    }
+}
+
+
+function _handle_ph_dns(ph_dns_result, google_get_result) {
+    if (ph_dns_result.isRejected()) {
+        let dns_reply = ph_dns_result.reason();
+        dbg.log0('Received Response From DNS Servers', dns_reply);
+
+        if (dns_reply && String(dns_reply.code) === 'ENOTFOUND') {
+            return 'CANNOT_RESOLVE_PHONEHOME_NAME';
+        } else {
+            return 'CANNOT_REACH_DNS_SERVER';
+        }
+    } else {
+        return _handle_google_get(google_get_result);
+    }
+}
+
 
 function _verify_join_preconditons(req) {
     //Verify secrets match

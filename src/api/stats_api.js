@@ -153,6 +153,9 @@ module.exports = {
                             chunks: {
                                 type: 'integer'
                             },
+                            // chunks_rebuilt_since_last: {
+                            //     type: 'integer'
+                            // },
                             objects: {
                                 type: 'integer'
                             },
@@ -190,8 +193,11 @@ module.exports = {
 
         nodes_stats: {
             type: 'object',
-            required: ['count', 'os'],
+            required: ['count', 'os', 'nodes_with_issue'],
             properties: {
+                nodes_with_issue: {
+                    type: 'integer'
+                },
                 count: {
                     type: 'integer'
                 },
@@ -357,6 +363,11 @@ module.exports = {
                     },
                     s3_usage_info: {
                         $ref: 'object_api#/definitions/s3_usage_info',
+                    },
+                    s3_errors_info: {
+                        type: 'object',
+                        additionalProperties: true,
+                        properties: {}
                     }
                 },
             }
@@ -366,7 +377,8 @@ module.exports = {
             type: 'object',
             required: ['systems_stats', 'cloud_sync_stats', 'nodes_stats',
                 'ops_stats', 'pools_stats', 'tier_stats', 'cloud_pool_stats',
-                'bucket_sizes_stats', 'object_usage_stats'],
+                'bucket_sizes_stats', 'object_usage_stats'
+            ],
             properties: {
                 systems_stats: {
                     $ref: '#/definitions/systems_stats'

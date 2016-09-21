@@ -46,9 +46,6 @@ function upload_and_upgrade(ip, upgrade_pack) {
         }
     };
 
-    var version_match = filename.match(/noobaa-NVA-(.*)\.tar\.gz/);
-    var wait_for_version = version_match && version_match[1];
-
     return P.ninvoke(request, 'post', {
             url: 'http://' + ip + ':8080/upgrade',
             formData: formData,
@@ -56,7 +53,7 @@ function upload_and_upgrade(ip, upgrade_pack) {
         })
         .then(res => console.log('Upload package successful', res.statusCode))
         .then(() => P.delay(10000))
-        .then(() => wait_for_server(ip, wait_for_version))
+        .then(() => wait_for_server(ip))
         .then(() => P.delay(10000))
         .then(() => {
             var isNotListening = true;

@@ -32,7 +32,10 @@ function logAction(action, payload) {
 export function start() {
     logAction('start');
 
-    api.options.auth_token = localStorage.getItem('sessionToken');
+    api.options.auth_token =
+        sessionStorage.getItem('sessionToken') ||
+        localStorage.getItem('sessionToken');
+
     return api.auth.read_auth()
         // Try to restore the last session
         .then(({account, system}) => {
@@ -41,6 +44,16 @@ export function start() {
                     user: account.email,
                     system: system.name
                 });
+            }
+        })
+        .catch(err => {
+            if (err.rpc_code === 'UNAUTHORIZED') {
+                if (api.options.auth_token) {
+                    console.info('Signing out on unauthorized session.');
+                    signOut(false);
+                }
+            } else {
+                console.error(err);
             }
         })
         // Start the router.
@@ -302,8 +315,8 @@ export function closeDrawer() {
 // -----------------------------------------------------
 // Sign In/Out actions.
 // -----------------------------------------------------
-export function signIn(email, password, redirectUrl) {
-    logAction('signIn', { email, password, redirectUrl });
+export function signIn(email, password, keepSessionAlive = false, redirectUrl) {
+    logAction('signIn', { email, password, keepSessionAlive, redirectUrl });
 
     api.create_auth_token({ email, password })
         .then(() => api.system.list_systems())
@@ -313,7 +326,8 @@ export function signIn(email, password, redirectUrl) {
 
                 return api.create_auth_token({ system, email, password })
                     .then(({ token }) => {
-                        localStorage.setItem('sessionToken', token);
+                        let storage = keepSessionAlive ? localStorage : sessionStorage;
+                        storage.setItem('sessionToken', token);
 
                         model.sessionInfo({ user: email, system: system });
                         model.loginInfo({ retryCount: 0 });
@@ -341,10 +355,14 @@ export function signIn(email, password, redirectUrl) {
         .done();
 }
 
-export function signOut() {
+export function signOut(shouldRefresh = true) {
+    sessionStorage.removeItem('sessionToken');
     localStorage.removeItem('sessionToken');
     model.sessionInfo(null);
-    refresh();
+    api.options.auth_token = undefined;
+    if (shouldRefresh) {
+        refresh();
+    }
 }
 
 // -----------------------------------------------------
@@ -357,13 +375,13 @@ export function loadServerInfo() {
         .then(
             reply => reply.has_accounts ?
                 { initialized: true } :
-                api.cluster_server.read_server_config()
-                    .then(
-                        config => ({
-                            initialized: false,
-                            config: config
-                        })
-                    )
+                api.cluster_server.read_server_config().then(
+                    config => ({
+                        initialized: false,
+                        address: endpoint,
+                        config: config
+                    })
+                )
         )
         .then(model.serverInfo)
         .done();
@@ -605,7 +623,6 @@ export function loadCloudConnections() {
     logAction('loadCloudConnections');
 
     api.account.get_account_sync_credentials_cache()
-        .then(conns => conns.map(conn => Object.assign(conn, {access_key: conn.identity})))
         .then(model.CloudConnections)
         .done();
 }
@@ -657,7 +674,7 @@ export function createSystem(
         .then(
             ({ token }) => {
                 api.options.auth_token = token;
-                localStorage.setItem('sessionToken', token);
+                sessionStorage.setItem('sessionToken', token);
 
                 // Update the session info and redirect to system screen.
                 model.sessionInfo({
@@ -1762,4 +1779,3 @@ export function recommissionNode(name) {
         .then(refresh)
         .done();
 }
-

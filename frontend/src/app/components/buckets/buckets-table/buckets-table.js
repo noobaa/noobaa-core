@@ -27,13 +27,17 @@ const columns = deepFreeze([
         name: 'placementPolicy'
     },
     {
-        name: 'capacity',
-        label: 'used capacity',
-        cellTemplate: 'capacity',
-        sortable: true
+        name: 'cloudStorage',
+        cellTemplate: 'cloud-storage'
     },
     {
         name: 'cloudSync',
+        sortable: true
+    },
+    {
+        name: 'capacity',
+        label: 'used capacity',
+        cellTemplate: 'capacity',
         sortable: true
     },
     {

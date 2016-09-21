@@ -79,7 +79,7 @@ function create_cloud_pool(req) {
             access_key: connection.access_key,
             secret_key: connection.secret_key
         },
-        endpoint_type: connection.endpoint_type
+        endpoint_type: connection.endpoint_type || 'AWS'
     };
 
     var pool = new_pool_defaults(name, req.system._id);
@@ -275,6 +275,7 @@ function get_pool_info(pool, nodes_aggregate_pool) {
     if (_is_cloud_pool(pool)) {
         info.cloud_info = {
             endpoint: pool.cloud_pool_info.endpoint,
+            endpoint_type: pool.cloud_pool_info.endpoint_type || 'AWS',
             target_bucket: pool.cloud_pool_info.target_bucket
         };
         info.undeletable = check_cloud_pool_deletion(pool, nodes_aggregate_pool);

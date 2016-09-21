@@ -8,10 +8,10 @@
                 data-bind="value: name, hasFocus: true"/>
         </editor>
 
-        <editor params="label: 'Type'">
+        <editor params="label: 'Service'">
             <dropdown params="
-                options: endpointTypeOptions,
-                selected: endpointType
+                options: serviceOptions,
+                selected: service
             "></dropdown>
         </editor>
 
@@ -20,21 +20,23 @@
         </editor>
 
         <editor params="label: identityLabel">
-            <input type="text" placeholder="enter key"
-                data-bind="textInput: identity"/>
+            <input type="text" data-bind="
+                textInput: identity,
+                attr: { placeholder: identityPlaceholder }
+            "/>
         </editor>
 
         <editor params="label: secretLabel">
-            <input type="password" autocomplete="off" placeholder="enter secret"
-                data-bind="textInput: secret"/>
+            <input type="password" autocomplete="off" data-bind="
+                textInput: secret,
+                attr: { placeholder: secretPlaceholder }
+            "/>
         </editor>
     </section>
 
     <div class="row content-middle">
         <div class="greedy">
-            <span class="val-msg" data-bind="
-                validationMessage: isValidConenction
-            "></span>
+            <span class="val-msg" data-bind="validationMessage: isValidConnection"></span>
         </div>
 
         <button class="link push-next" data-bind="click: cancel">

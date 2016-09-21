@@ -59,6 +59,7 @@ class AddCloudResourceModalViewModel extends Disposable {
             )
 
         );
+
         this.targetBucket = ko.observable()
             .extend({
                 required: {

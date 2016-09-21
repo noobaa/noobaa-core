@@ -178,7 +178,7 @@ function reset_password {
     local err_pass_msg=""
     while [ ${err_pass} -eq 1 ]; do
 
-        local number_of_account=$(/usr/bin/mongo nbcore --eval 'db.accounts.count()' --quiet)
+        local number_of_account=$(/usr/bin/mongo nbcore --eval 'db.accounts.count({_id: {$exists: true}})' --quiet)
         if [ ${number_of_account} -lt 2 ]; then
           echo "Could not find any account. Please setup a system from the web management first"
           return 0
@@ -186,8 +186,8 @@ function reset_password {
 
         local user_name=$(/usr/bin/mongo nbcore --eval 'db.accounts.find({email:{$ne:"support@noobaa.com"}},{email:1,_id:0}).sort({_id:-1}).limit(1).map(function(u){return u.email})[0]' --quiet)
 
-        local answer_reset_password=$(dialog --colors --backtitle "NooBaa First Install" --title "Password Reset for ${user_name}"  --passwordbox "Password enter a new password:\n${err_pass_msg}"  10 50 --stdout)
-        
+        local answer_reset_password=$(dialog --colors --backtitle "NooBaa First Install" --title "Password Reset for ${user_name}"  --passwordbox "Password enter a new password (your input is hidden):\n${err_pass_msg}"  10 50 --stdout)
+
         case $answer_reset_password in
             ''|*[!0-9]*) err_pass=0 ;;
             *) err_pass_msg="error: password cannot be a number"  ;;

@@ -8,7 +8,7 @@ if [ -f /usr/bin/systemctl ] || [ -f /bin/systemctl ]; then
   /usr/local/noobaa/node /usr/local/noobaa/src/agent/agent_linux_installer --uninstall
   /usr/local/noobaa/node /usr/local/noobaa/src/agent/agent_linux_installer
   systemctl enable noobaalocalservice
-elif [[ -d /usr/share/upstart ]]; then
+elif [[ -d /etc/init ]]; then
   echo "Upstart detected. Creating startup script"
   if [ -f /etc/init/noobaalocalservice.conf ]; then
     echo "Service already installed. Removing old service"

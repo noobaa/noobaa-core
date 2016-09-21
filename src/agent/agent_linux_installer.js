@@ -17,7 +17,9 @@ var srv = new Service({
 });
 
 srv.on('doesnotexist', () => {
-    console.log('NooBaa service is not yet installed');
+    console.log('NooBaa local service was not previously installed');
+    srv.suspendEvent('doesnotexist');
+    srv.install();
 });
 
 srv.on('install', () => {
@@ -30,7 +32,9 @@ srv.on('alreadyinstalled', () => {
 });
 
 srv.on('uninstall', () => {
-    console.log('Done uninstalling NooBaa local service.');
+    // Will only get here if the script was run with --repair cli arg
+    console.log('Done uninstalling NooBaa local service. Now reinstalling.');
+    srv.install();
 });
 
 srv.on('start', () => {
@@ -38,9 +42,20 @@ srv.on('start', () => {
 });
 
 if (argv.uninstall) {
-    console.log('Attempting to uninstall NooBaa local service');
+    // Only using uninstall event for reinstalls. else suspending it.
+    if (!srv.isSuspended('uninstall')) srv.suspendEvent('uninstall');
+    if (!srv.isSuspended('doesnotexist')) srv.suspendEvent('doesnotexist');
+    console.log('Uninstalling NooBaa local service');
     srv.uninstall();
 } else {
-    console.log('Installing NooBaa local service');
-    srv.install();
+    if (srv.isSuspended('uninstall')) srv.resumeEvent('uninstall');
+    if (argv.repair) {
+        if (srv.isSuspended('doesnotexist')) srv.resumeEvent('doesnotexist');
+        // because we have both 'uninstall' and 'doesnotexist' events up,
+        // we end up installing by calling uninstall
+        srv.uninstall();
+    } else {
+        // this just attempts to install. if already installed, it is ignored.
+        srv.install();
+    }
 }

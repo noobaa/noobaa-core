@@ -43,6 +43,7 @@ fs.readFileAsync('./agent_conf.json')
             detached: true
         });
         promise_utils.exec('ps -elf | grep node', null, true).then((stdout) => dbg.log0(stdout));
+        process.exit();
         /*install_child.on('exit', () => {
             done = true;
         });*/

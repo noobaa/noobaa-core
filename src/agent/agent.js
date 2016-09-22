@@ -297,11 +297,11 @@ class Agent {
                 if (res.redirect) {
                     return this._handle_server_change(res.redirect);
                 }
-                process.exit(0);
                 if (res.version !== pkg.version) {
                     dbg.warn('exit on version change:',
                         'res.version', res.version,
                         'pkg.version', pkg.version);
+                    process.exit(0);
                 }
                 conn.on('close', () => {
                     if (this._server_connection === conn) {

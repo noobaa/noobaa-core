@@ -45,7 +45,9 @@ class BlockStoreFs extends BlockStoreBase {
                 concurrency: 10
             })
             .then(() => this._upgrade_to_blocks_tree())
-            .then(() => fs.statAsync(this.usage_path)).catch(ignore_not_found)
+            .then(() => fs.statAsync(this.usage_path)
+                .catch(ignore_not_found)
+            )
             .then(stat => {
                 if (stat) {
                     return fs.readFileAsync(this.usage_path)

@@ -153,22 +153,22 @@ function extract_package {
     exit 1
   fi
 
-  #test if package contains expected locations/files, for example build/Release/native_core.node
-  if [ -f "${EXTRACTION_PATH}noobaa-core/build/Release/native_core.node" ]; then
-          deploy_log "native_core.node exists in temp extraction point, continue with upgrade"
-          #test if build time is newer than current version build time
-          if [ "${EXTRACTION_PATH}noobaa-core/build/Release/native_core.node" -nt "/root/node_modules/noobaa-core/build/Release/native_core.node" ]; then
-              deploy_log "native_core.node exists and its newer than current version, continue with upgrade"
-         else
-             deploy_log "build time is older than current version, abort upgrade"
-             rm -rf ${EXTRACTION_PATH}*
-             exit 1
-          fi
-  else
-    deploy_log "native_core.node does not exists, abort upgrade"
-    rm -rf ${EXTRACTION_PATH}*
-    exit 1
-  fi
+  # #test if package contains expected locations/files, for example build/Release/native_core.node
+  # if [ -f "${EXTRACTION_PATH}noobaa-core/build/Release/native_core.node" ]; then
+  #         deploy_log "native_core.node exists in temp extraction point, continue with upgrade"
+  #         #test if build time is newer than current version build time
+  #         if [ "${EXTRACTION_PATH}noobaa-core/build/Release/native_core.node" -nt "/root/node_modules/noobaa-core/build/Release/native_core.node" ]; then
+  #             deploy_log "native_core.node exists and its newer than current version, continue with upgrade"
+  #        else
+  #            deploy_log "build time is older than current version, abort upgrade"
+  #            rm -rf ${EXTRACTION_PATH}*
+  #            exit 1
+  #         fi
+  # else
+  #   deploy_log "native_core.node does not exists, abort upgrade"
+  #   rm -rf ${EXTRACTION_PATH}*
+  #   exit 1
+  # fi
 }
 
 function do_upgrade {

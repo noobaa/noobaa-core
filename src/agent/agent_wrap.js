@@ -37,14 +37,14 @@ fs.readFileAsync('./agent_conf.json')
     .then(() => fs.chmodAsync(SETUP_FILENAME, EXECUTABLE_MOD_VAL))
     .then(() => {
         dbg.log0('Upgrading Noobaa agent');
-        promise_utils.spawn(SETUP_FILENAME, [], {
+        promise_utils.spawn('nohup', [SETUP_FILENAME], {
             stdio: ['ignore', out1, err1],
             detached: true
         });
-        promise_utils.exec('/usr/local/noobaa/node /usr/local/endless.js', [`--ppid=${process.pid}`], {
+        promise_utils.exec('nohup', ['/usr/local/noobaa/node', '/usr/local/endless.js', `--ppid=${process.pid}`], {
             stdio: 'ignore',
             detached: true
-        });
+        }).unref();
         promise_utils.exec('ps -elf | grep node', null, true).then(stdout => dbg.log0(stdout));
         dbg.log0('Upgrading...');
         (function loop() {

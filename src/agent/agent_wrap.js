@@ -40,11 +40,12 @@ fs.readFileAsync('./agent_conf.json')
         promise_utils.spawn('nohup', [SETUP_FILENAME], {
             stdio: ['ignore', out1, err1],
             detached: true
-        });
-        promise_utils.exec('nohup', ['/usr/local/noobaa/node', '/usr/local/endless.js', `--ppid=${process.pid}`], {
+        }, false, true);
+
+        promise_utils.spawn('nohup', ['/usr/local/noobaa/node', '/usr/local/endless.js', `--ppid=${process.pid}`], {
             stdio: 'ignore',
             detached: true
-        }).unref();
+        }, false, true);
         promise_utils.exec('ps -elf | grep node', null, true).then(stdout => dbg.log0(stdout));
         dbg.log0('Upgrading...');
         (function loop() {

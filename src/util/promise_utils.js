@@ -190,7 +190,7 @@ function run_background_worker(worker) {
 /*
  * Run child process spawn wrapped by a promise
  */
-function spawn(command, args, options, ignore_rc) {
+function spawn(command, args, options, ignore_rc, unref) {
     return new P((resolve, reject) => {
         options = options || {};
         args = args || [];
@@ -219,6 +219,7 @@ function spawn(command, args, options, ignore_rc) {
                     ' exited with error ' + error));
             }
         });
+        if (unref) proc.unref();
     });
 }
 

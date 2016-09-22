@@ -46,6 +46,11 @@ srv.on('start', () => {
     logg('Starting NooBaa local service');
 });
 
+srv.on('stop', () => {
+    console.log('Stopping NooBaa local service');
+    logg('Stopping NooBaa local service');
+});
+
 if (argv.uninstall) {
     console.log('Attempting to uninstall NooBaa local service');
     srv.uninstall();

@@ -371,6 +371,7 @@ export function signOut(shouldRefresh = true) {
 export function loadServerInfo() {
     logAction('loadServerInfo');
 
+    model.serverInfo(null);
     api.account.accounts_status()
         .then(
             reply => reply.has_accounts ?

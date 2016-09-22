@@ -15,10 +15,19 @@ class LoginLayoutViewModel extends Disposable {
                     return 'unsupported-form';
                 }
 
-                if (serverInfo()) {
-                    return serverInfo().initialized ? 'signin-form' : 'create-system-form';
-                } else {
+                if (!serverInfo()) {
                     return 'loading-server-information-from';
+                }
+
+                let { initialized, config } = serverInfo();
+                if (initialized) {
+                    return 'signin-form';
+                }
+
+                if (config.phone_home_connectivity_status !== 'CONNECTED') {
+                    return 'loading-server-information-from';
+                } else {
+                    return 'create-system-form';
                 }
             }
         );

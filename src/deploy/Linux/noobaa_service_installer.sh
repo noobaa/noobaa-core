@@ -9,7 +9,7 @@ mkdir /usr/local/noobaa/logs
 
 if [ -f /usr/bin/systemctl ] || [ -f /bin/systemctl ]; then
   echo "Systemd detected. Installing service"
-  if [ -f /etc/systemd/system/multi-user.target.wants/noobaalocalservice.service]; then
+  if [ -f /etc/systemd/system/multi-user.target.wants/noobaalocalservice.service ]; then
     rm /etc/systemd/system/multi-user.target.wants/noobaalocalservice.service
   fi
   cp /usr/local/noobaa/src/agent/system_d.conf /etc/systemd/system/multi-user.target.wants/noobaalocalservice.service
@@ -22,7 +22,7 @@ elif [[ -d /etc/init ]]; then
     rm /etc/init/noobaalocalservice.conf
   fi
   cp /usr/local/noobaa/src/agent/upstart.conf /etc/init/noobaalocalservice.conf
-  initctl start noobaalocalservice
+  initctl restart noobaalocalservice
 elif [[ -d /etc/init.d ]]; then
   echo "System V detected. Installing service"
   /usr/local/noobaa/node /usr/local/noobaa/src/agent/agent_linux_installer
@@ -32,7 +32,7 @@ elif [[ -d /etc/init.d ]]; then
   else
     update-rc.d noobaalocalservice enable
   fi
-  service noobaalocalservice start
+  service noobaalocalservice restart
 else
   echo "ERROR: Cannot detect init mechanism! Attempting to force service installation"
   /usr/local/noobaa/node /usr/local/noobaa/src/agent/agent_linux_installer

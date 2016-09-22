@@ -198,7 +198,6 @@ function spawn(command, args, options, ignore_rc, unref) {
         options.stdio = options.stdio || 'inherit';
         var proc = child_process.spawn(command, args, options);
         proc.on('exit', code => {
-            dbg.log0('WOOP WOOP command: ', command, 'got: ', code);
             if (code === 0 || ignore_rc) {
                 resolve();
             } else {

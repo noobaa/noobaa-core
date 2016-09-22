@@ -81,6 +81,7 @@ function mongo_upgrade {
 
 
   ${SUPERCTL} update
+  ${SUPERCTL} start all
   sleep 3
 }
 

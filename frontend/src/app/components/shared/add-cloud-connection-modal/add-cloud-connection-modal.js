@@ -53,7 +53,10 @@ const serviceMapping = deepFreeze({
 });
 
 class AddCloudConnectionModalViewModel extends Disposable {
-    constructor({ onClose }) {
+    constructor({
+        onClose,
+        allowedServices =  Object.keys(serviceMapping)
+    }) {
         super();
 
         isCloudConnectionValid(true);
@@ -88,7 +91,7 @@ class AddCloudConnectionModalViewModel extends Disposable {
             }
         });
 
-        this.serviceOptions = Object.keys(serviceMapping).map(
+        this.serviceOptions = allowedServices.map(
             type => ({
                 label: serviceMapping[type].optionLabel,
                 value: type

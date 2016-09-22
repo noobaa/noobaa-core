@@ -371,17 +371,18 @@ export function signOut(shouldRefresh = true) {
 export function loadServerInfo() {
     logAction('loadServerInfo');
 
+    model.serverInfo(null);
     api.account.accounts_status()
         .then(
             reply => reply.has_accounts ?
                 { initialized: true } :
-                api.cluster_server.read_server_config()
-                    .then(
-                        config => ({
-                            initialized: false,
-                            config: config
-                        })
-                    )
+                api.cluster_server.read_server_config().then(
+                    config => ({
+                        initialized: false,
+                        address: endpoint,
+                        config: config
+                    })
+                )
         )
         .then(model.serverInfo)
         .done();

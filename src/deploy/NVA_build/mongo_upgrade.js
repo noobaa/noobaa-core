@@ -200,6 +200,23 @@ function upgrade_system(system) {
             });
         }
     });
+
+    print('\n*** OBJECT STATS ***');
+    db.objectstats.update({
+        s3_errors_info: {
+            $exists: false
+        }
+    }, {
+        $set: {
+            // Notice that I've left an empty object, this is done on purpose
+            // In order to distinguish what from old records and new records
+            // The new records will have a minimum of total_errors property
+            // Even if we did not encounter any s3 related errors
+            s3_errors_info: {}
+        }
+    }, {
+        multi: true
+    });
 }
 
 function upgrade_system_access_keys() {
@@ -306,7 +323,6 @@ function upgrade_cluster() {
     db.clusters.insert(cluster);
 }
 
-// TODO: JEN AIN'T PROUD OF IT BUT NOBODY PERFECT!, should do the update with 1 db reach
 function upgrade_object_mds() {
     print('\n*** upgrade_object_mds ...');
     db.objectmds.find({

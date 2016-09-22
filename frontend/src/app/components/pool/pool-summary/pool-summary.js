@@ -2,8 +2,9 @@ import template from './pool-summary.html';
 import Disposable from 'disposable';
 import ko from 'knockout';
 import numeral from 'numeral';
+import moment from 'moment';
 import style from 'style';
-import { deepFreeze } from 'utils';
+import { deepFreeze, isNumber } from 'utils';
 
 const stateMapping = deepFreeze({
     true: {
@@ -17,6 +18,26 @@ const stateMapping = deepFreeze({
         icon: 'problem'
     }
 });
+
+const activityNameMapping = deepFreeze({
+    RESTORING: 'Restoring',
+    MIGRATING: 'Migrating',
+    DECOMMISSIONING: 'Deactivating',
+    DELETING: 'Deleting'
+});
+
+function activityLabel(reason, count) {
+    let activityName = activityNameMapping[reason];
+    return  `${activityName} ${count} Node${count !== 1 ? 's' : ''}`;
+}
+
+function activityETA(time) {
+    if (!isNumber(time && time.end)){
+        return 'calculating...';
+    }
+
+    return moment(time.end).fromNow();
+}
 
 class PoolSummaryViewModel extends Disposable {
     constructor({ pool }) {
@@ -94,6 +115,82 @@ class PoolSummaryViewModel extends Disposable {
                 )
             }
         ];
+
+        let dataActivities = ko.pureComputed(
+            () => pool().data_activities || []
+        );
+
+        let firstActivity = ko.pureComputed(
+            () => dataActivities()[0]
+        );
+
+        let additionalActivities = ko.pureComputed(
+            () => dataActivities().filter(
+                (_, i) => i >= 1
+            )
+        );
+
+        this.hasActivities = ko.pureComputed(
+            () => dataActivities().length > 0
+        );
+
+        this.activityTitle = ko.pureComputed(
+            () => {
+                if (!this.hasActivities()) {
+                    return 'No Activities';
+                }
+
+                let { reason, count } = firstActivity();
+                return activityLabel(reason, count);
+            }
+        );
+
+        this.activityProgressBarValues = [
+            {
+                value: ko.pureComputed(
+                    () => firstActivity() ? firstActivity().progress : 0
+                ),
+                color: style['color8']
+            },
+            {
+                value: ko.pureComputed(
+                    () => firstActivity() ? 1 - firstActivity().progress : 1
+                ),
+                color: style['color15']
+            }
+        ];
+
+        this.activityETA = ko.pureComputed(
+            () => activityETA(firstActivity() && firstActivity().time)
+        );
+
+        this.hasAdditionalActivities = ko.pureComputed(
+            () => additionalActivities().length > 0
+        );
+
+        this.additionalActivitiesMessage = ko.pureComputed(
+            () => {
+                let count = additionalActivities().length;
+                if (count > 0) {
+                    return `${count} more ${count === 1 ? 'activity' : 'activities'} running`;
+                }
+            }
+        );
+
+        this.additionalActivitiesTooltip = ko.pureComputed(
+            () => additionalActivities().map(
+                activity => {
+                    let { reason, count, progress, time } = activity;
+                    return `${
+                        activityLabel(reason, count)
+                    } (${
+                        numeral(progress).format('0%')
+                    })<div class="remark">ETA: ${
+                        activityETA(time)
+                    }</div>`;
+                }
+            )
+        );
     }
 }
 

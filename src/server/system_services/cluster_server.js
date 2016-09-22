@@ -644,7 +644,7 @@ function upgrade_cluster(req) {
         })
         .then(() => {
             dbg.log0('DZDZ:', 'calling member_pre_upgrade');
-            server_rpc.client.cluster_internal.member_pre_upgrade({
+            return server_rpc.client.cluster_internal.member_pre_upgrade({
                     filepath: req.rpc_params.filepath,
                     mongo_upgrade: true
                 })
@@ -684,7 +684,7 @@ function upgrade_cluster(req) {
         // secondaries should wait (in upgrade.sh) for primary to complete upgrade and perform mongo_upgrade
         .then(() => {
             dbg.log0('DZDZ:', 'calling do_upgrade on master');
-            server_rpc.client.cluster_internal.do_upgrade({
+            return server_rpc.client.cluster_internal.do_upgrade({
                 filepath: req.rpc_params.filepath
             });
         });

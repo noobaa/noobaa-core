@@ -344,9 +344,12 @@ export function deepFreeze(val) {
     }
 }
 
-export function waitFor(miliseconds) {
+export function waitFor(miliseconds, value) {
     return new Promise(
-        resolve => setTimeout(resolve, miliseconds)
+        resolve => setTimeout(
+            () => resolve(value),
+            miliseconds
+        )
     );
 }
 

@@ -80,14 +80,7 @@ function extract_servers_ip(arr) {
 
 //Return all servers in the cluster, regardless of role
 function get_all_cluster_members() {
-    var top = get_topology();
-    var servers = [];
-    _.each(top.shards, function(sh) {
-        _.each(sh.servers, function(srv) {
-            servers.push(srv.address);
-        });
-    });
-
+    let servers = system_store.data.clusters.map(top => top.owner_address);
     return servers;
 }
 
@@ -223,7 +216,11 @@ function get_potential_masters() {
 }
 
 function get_member_upgrade_status(ip) {
-    return system_store.data.clusters.find(server => server.owner_address === ip).upgrade.status;
+    dbg.log0('DZDZ:', 'get upgrade status for ip', ip);
+    let server_entry = system_store.data.clusters.find(server => server.owner_address === ip);
+    dbg.log0('DZDZ:', 'found server:', server_entry);
+    if (!server_entry || !server_entry.upgrade) return 'NOT_READY';
+    return server_entry.upgrade.status;
 }
 
 

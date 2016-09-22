@@ -11,11 +11,60 @@ upgrade();
 
 /* Upade mongo structures and values with new things since the latest version*/
 function upgrade() {
+    sync_cluster_upgrade();
     upgrade_systems();
     upgrade_cluster();
     upgrade_system_access_keys();
     upgrade_object_mds();
+    mark_completed();
     print('\nUPGRADE DONE.');
+}
+
+function sync_cluster_upgrade() {
+    // find if this server should perform mongo upgrade
+    var is_mongo_upgrade = db.clusters.find({
+        owner_secret: param_secret
+    }).toArray()[0].upgrade.mongo_upgrade;
+
+    // if this server shouldn't run mongo_upgrade, set status to DB_READY,
+    // to indicate that this server is upgraded and with mongo running.
+    // then wait for master to complete upgrade
+    if (!is_mongo_upgrade) {
+        db.clusters.update({
+            owner_secret: param_secret
+        }, {
+            $set: {
+                "upgrade.status": "DB_READY"
+            }
+        });
+        var max_iterations = 100;
+        var i = 0;
+        while (i < max_iterations) {
+            i += 1;
+            var master_status = db.clusters.find({
+                "upgrade.mongo_upgrade": true
+            }).toArray()[0].upgrade.status;
+            if (master_status === 'COMPLETED') {
+                print('\nmaster completed mongo_upgrade - finishing upgrade of this server');
+                mark_completed();
+                quit();
+            }
+            sleep(10000);
+        }
+        print('\nERROR: master did not finish mongo_upgrade in time!!! finishing upgrade of this server');
+        quit();
+    }
+}
+
+function mark_completed() {
+    // mark upgrade status of this server as completed
+    db.clusters.update({
+        owner_secret: param_secret
+    }, {
+        $set: {
+            "upgrade.status": "COMPLETED"
+        }
+    });
 }
 
 function upgrade_systems() {

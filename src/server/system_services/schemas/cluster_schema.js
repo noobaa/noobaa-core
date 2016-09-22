@@ -102,7 +102,7 @@ module.exports = {
                 },
                 status: {
                     type: 'string',
-                    enum: ['PENDING', 'FAILED', 'CAN_UPGRADE']
+                    enum: ['PENDING', 'FAILED', 'CAN_UPGRADE', 'DB_READY', 'COMPLETED']
                 },
                 error: {
                     type: 'string'

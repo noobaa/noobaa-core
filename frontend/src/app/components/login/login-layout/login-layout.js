@@ -17,9 +17,9 @@ class LoginLayoutViewModel extends Disposable {
 
                 if (serverInfo()) {
                     return serverInfo().initialized ? 'signin-form' : 'create-system-form';
+                } else {
+                    return 'loading-server-information-from';
                 }
-
-                return;
             }
         );
     }

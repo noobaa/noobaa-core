@@ -19,6 +19,11 @@ const columns = deepFreeze([
         sortable: true
     },
     {
+        name: 'buckets',
+        label: 'bucket using pool',
+        sortable: true
+    },
+    {
         name: 'nodeCount',
         label: 'nodes',
         sortable: true
@@ -45,12 +50,36 @@ const columns = deepFreeze([
         css: 'delete-col',
         cellTemplate: 'delete'
     }
-
 ]);
+
+const poolsToBuckets = ko.pureComputed(
+    () => {
+        if (!systemInfo()) {
+            return {};
+        }
+
+        return systemInfo().buckets.reduce(
+            (mapping, bucket) => systemInfo().tiers
+                .find(
+                    tier => tier.name === bucket.tiering.tiers[0].tier
+                )
+                .node_pools.reduce(
+                    (mapping, pool) => {
+                        mapping[pool] = mapping[pool] || [];
+                        mapping[pool].push(bucket.name);
+                        return mapping;
+                    },
+                    mapping
+                ),
+            {}
+        );
+    }
+);
 
 const compareAccessors = deepFreeze({
     state: pool => pool.nodes.online >= 3,
     name: pool => pool.name,
+    buckets: pool => (poolsToBuckets()[pool.name] || []).length,
     nodeCount: pool => pool.nodes.count,
     onlineCount: pool => pool.nodes.online,
     offlineCount: pool => pool.nodes.count - pool.nodes.online,
@@ -74,10 +103,15 @@ class PoolsTableViewModel extends Disposable {
         this.columns = columns;
 
         this.sorting = ko.pureComputed({
-            read: () => ({
-                sortBy: routeContext().query.sortBy || 'name',
-                order: Number(routeContext().query.order) || 1
-            }),
+            read: () => {
+                let { params, query } = routeContext();
+                let isOnScreen = params.tab === 'pools';
+
+                return {
+                    sortBy: (isOnScreen && query.sortBy) || 'name',
+                    order: (isOnScreen && Number(routeContext().query.order)) || 1
+                };
+            },
             write: value => {
                 this.deleteGroup(null);
                 redirectTo(undefined, undefined, value);
@@ -103,7 +137,7 @@ class PoolsTableViewModel extends Disposable {
     }
 
     newPoolRow(pool) {
-        return new PoolRowViewModel(pool, this.deleteGroup);
+        return new PoolRowViewModel(pool, this.deleteGroup, poolsToBuckets);
     }
 
     showCreatePoolWizard() {

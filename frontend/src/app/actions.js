@@ -375,13 +375,13 @@ export function loadServerInfo() {
         .then(
             reply => reply.has_accounts ?
                 { initialized: true } :
-                api.cluster_server.read_server_config()
-                    .then(
-                        config => ({
-                            initialized: false,
-                            config: config
-                        })
-                    )
+                api.cluster_server.read_server_config().then(
+                    config => ({
+                        initialized: false,
+                        address: endpoint,
+                        config: config
+                    })
+                )
         )
         .then(model.serverInfo)
         .done();
@@ -623,7 +623,6 @@ export function loadCloudConnections() {
     logAction('loadCloudConnections');
 
     api.account.get_account_sync_credentials_cache()
-        .then(conns => conns.map(conn => Object.assign(conn, {access_key: conn.identity})))
         .then(model.CloudConnections)
         .done();
 }

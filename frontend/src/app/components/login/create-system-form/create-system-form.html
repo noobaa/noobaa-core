@@ -55,12 +55,6 @@
                     <p class="hint">optional</p>
                 </editor>
 
-                <editor class="push-next" params="label: 'Primary DNS server IP'">
-                    <input type="text" data-bind="value: primaryDNSServerIP"
-                        placeholder="The IP of your primary DNS server" >
-                    <p class="hint">optional</p>
-                </editor>
-
                 <p class="remark push-prev">
                     By clicking the Create system button, I accept NooBaa's
                     <a class="link" target="_blank" href="/public/eula">Terms &amp; Conditions</a>
@@ -90,3 +84,8 @@
         </div>
     </div>
 </section>
+
+<!-- ko if: isUnableToActivateModalVisible -->
+<unable-to-activate-modal></unable-to-activate-modal>
+<!-- /ko -->
+

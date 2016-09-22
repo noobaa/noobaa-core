@@ -8,6 +8,7 @@
 const _ = require('lodash');
 const fs = require('fs');
 const path = require('path');
+const uuid = require('node-uuid');
 
 const P = require('../util/promise');
 const dbg = require('../util/debug_module')(__filename);
@@ -54,6 +55,10 @@ class BlockStoreFs extends BlockStoreBase {
                         .then(data => {
                             this._usage = JSON.parse(data);
                             dbg.log0('found usage file. recovered usage =', this._usage);
+                        })
+                        .catch(err => {
+                            console.error('error while reading usage file:', err);
+                            this._usage = null;
                         });
                 }
             });
@@ -120,14 +125,13 @@ class BlockStoreFs extends BlockStoreBase {
             });
     }
 
-    _update_usage(usage) {
-        if (this._usage) {
-            this._usage.size += usage.size;
-            this._usage.count += usage.count;
-            let usage_data = JSON.stringify(this._usage);
-            return fs.writeFileAsync(this.usage_path, usage_data);
-        }
+    _write_usage_internal() {
+        let usage_data = JSON.stringify(this._usage);
+        let tmp_usage_path = this.usage_path + uuid();
+        return fs.writeFileAsync(tmp_usage_path, usage_data)
+            .then(() => fs.renameAsync(tmp_usage_path, this.usage_path));
     }
+
 
     _delete_blocks(block_ids) {
         return P.map(block_ids,

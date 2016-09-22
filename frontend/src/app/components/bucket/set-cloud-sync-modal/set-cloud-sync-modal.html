@@ -83,6 +83,8 @@
 </modal>
 
 <!-- ko if: isAddCloudConnectionModalVisible -->
-<add-cloud-connection-modal params="onClose: () => hideAddCloudConnectionModal()">
-</add-cloud-connection-modal>
+<add-cloud-connection-modal params="
+    allowedServices: allowedServices,
+    onClose: () => hideAddCloudConnectionModal(),
+"></add-cloud-connection-modal>
 <!-- /ko -->

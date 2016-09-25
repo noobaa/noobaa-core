@@ -33,9 +33,22 @@
                         params="name: 'in-progress'"></svg-icon>
                 </editor>
 
-                <editor params="label: 'Password'">
-                    <password-field params="value: password, placeholder: 'enter password'"></password-field>
+                <editor params="
+                    label: 'Password', insertValMessages: false">
+                    <password-field params="
+                        value: password,
+                        placeholder: 'enter password'
+                    "></password-field>
                 </editor>
+                
+                <ul class="bullet-list remark" data-bind="
+                    foreach: passwordValidations
+                ">
+                    <li data-bind="
+                        text: message,
+                        css: { success: isValid }
+                    "></li>
+                </ul>
             </div>
 
             <div class="page column" data-bind="css: { selected: step() === 1 }">

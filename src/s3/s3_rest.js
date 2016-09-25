@@ -213,6 +213,8 @@ function s3_rest(controller) {
         dbg.error('S3 ERROR', reply,
             JSON.stringify(req.headers),
             err.stack || err);
+        // This doesn't need to affect response if we fail to register
+        controller.register_s3_error(req, s3err);
         res.status(s3err.http_code).send(reply);
     }
 

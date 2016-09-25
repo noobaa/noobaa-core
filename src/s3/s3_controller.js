@@ -50,6 +50,9 @@ class S3Controller {
     constructor(rpc) {
         this.usage_report = {
             s3_usage_info: _.cloneDeep(S3_USAGE_INFO_DEFAULTS),
+            s3_errors_info: {
+                total_errors: 0
+            },
             last_updated: new Date(),
         };
         this.rpc = rpc;
@@ -61,6 +64,35 @@ class S3Controller {
 
     prepare_request(req) {
         this.usage_report.s3_usage_info.prepare_request++;
+        req.rpc_client = this.rpc.new_client();
+        req.rpc_client.options.auth_token = {
+            access_key: req.access_key,
+            string_to_sign: req.string_to_sign,
+            signature: req.signature,
+            extra: req.noobaa_v4
+        };
+        return this._update_usage_report(req);
+    }
+
+    register_s3_error(req, s3_error) {
+        // We check access_key in order to be sure that we've passed authenticate_s3_request
+        // Access_key was chosen because it is the identifier and required
+        // All errors that are prior to authenticate_s3_request won't be registered
+        // This is because we need to create an auth_token in order to register the errors
+        // The only way to create the token is using the s3 authentication path
+        // TODO TODO TODO (Pink Panther Theme)
+        // *** NOTICE IMPORTANT ***
+        // Authentication failure attemps might not be included in the report
+        // Because the access_key we won't be able to create a token and update the MD Server
+        if (!s3_error || !_.isObject(s3_error) || !req.access_key) {
+            dbg.log0('Could not register error:', s3_error,
+                'Request Headers:', req.headers,
+                'Request Method:', req.method,
+                'Request Url:', req.url);
+            return;
+        }
+        this.usage_report.s3_errors_info.total_errors++;
+        this.usage_report.s3_errors_info[s3_error.code] = (this.usage_report.s3_errors_info[s3_error.code] || 0) + 1;
         req.rpc_client = this.rpc.new_client();
         req.rpc_client.options.auth_token = {
             access_key: req.access_key,
@@ -828,7 +860,7 @@ class S3Controller {
                         if (rule.AbortIncompleteMultipartUpload) {
                             current_rule.abort_incomplete_multipart_upload = {
                                 days_after_initiation: rule.AbortIncompleteMultipartUpload[0].DaysAfterInitiation ?
-                                parseInt(rule.AbortIncompleteMultipartUpload[0].DaysAfterInitiation[0], 10) : null
+                                    parseInt(rule.AbortIncompleteMultipartUpload[0].DaysAfterInitiation[0], 10) : null
                             };
                         }
                         if (rule.Transition) {
@@ -977,22 +1009,28 @@ class S3Controller {
     }
 
     _update_usage_report(req) {
-        if (this.usage_report.s3_usage_info.prepare_request > 10 &&
+        // TODO: Maybe we should plus both prepare_request and total_errors and check their limit?
+        // TODO: Maybe we should change from 10 seconds to a higher number cycle? Like minutes/hours?
+        if ((this.usage_report.s3_usage_info.prepare_request > 10 ||
+            this.usage_report.s3_errors_info.total_errors > 10) &&
             Math.abs(moment().diff(this.usage_report.last_updated, 'Seconds')) > 10) {
             return req.rpc_client.object.add_s3_usage_report({
                     s3_usage_info: this.usage_report.s3_usage_info,
+                    s3_errors_info: this.usage_report.s3_errors_info
                 })
                 .then(() => {
-                    this.usage_report.s3_usage_info = _.cloneDeep(S3_USAGE_INFO_DEFAULTS);
-                    this.usage_report.last_updated = new Date();
-                    return;
+                    this.usage_report = {
+                        s3_usage_info: _.cloneDeep(S3_USAGE_INFO_DEFAULTS),
+                        s3_errors_info: {
+                            total_errors: 0
+                        },
+                        last_updated: new Date(),
+                    };
                 })
                 .catch((err) => {
                     console.error('Error Updating S3 Usage Report', err);
-                    return;
                 });
         }
-        return;
     }
 }
 

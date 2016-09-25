@@ -663,7 +663,7 @@ module.exports = {
                     },
                     sort: {
                         type: 'string',
-                        enum: ['state', 'name', 'size']
+                        enum: ['state', 'name', 'size', 'create_time']
                     },
                     order: {
                         type: 'integer',
@@ -745,10 +745,15 @@ module.exports = {
             method: 'PUT',
             params: {
                 type: 'object',
-                required: ['s3_usage_info'],
+                required: ['s3_usage_info', 's3_errors_info'],
                 properties: {
                     s3_usage_info: {
                         $ref: '#/definitions/s3_usage_info',
+                    },
+                    s3_errors_info: {
+                        type: 'object',
+                        additionalProperties: true,
+                        properties: {}
                     },
                 }
             },
@@ -792,7 +797,7 @@ module.exports = {
                         type: 'array',
                         items: {
                             type: 'object',
-                            required: ['system', 'time', 's3_usage_info'],
+                            required: ['system', 'time', 's3_usage_info', 's3_errors_info'],
                             properties: {
                                 system: {
                                     type: 'string',
@@ -802,6 +807,11 @@ module.exports = {
                                 },
                                 s3_usage_info: {
                                     $ref: '#/definitions/s3_usage_info',
+                                },
+                                s3_errors_info: {
+                                    type: 'object',
+                                    additionalProperties: true,
+                                    properties: {}
                                 },
                             }
                         }

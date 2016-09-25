@@ -46,8 +46,28 @@
 
 
     <section class="column c3 borders pad">
-        <h3 class="heading3">No Activity</h3>
+        <h3 class="heading3" data-bind="text: activityTitle"></h3>
+
         <hr>
-        <p>Pool in optimal condition</p>
+
+        <p data-bind="visible: !hasActivities()">
+            Pool is in optimal condition
+        </p>
+
+        <div class="column progress-bar greedy" data-bind="if: hasActivities">
+            <bar params="values: activityProgressBarValues"></bar>
+            <div class="text-right">
+                ETA:
+                <span data-bind="text: activityETA"></span>
+            </div>
+        </div>
+
+        <div class="column" data-bind="if: hasAdditionalActivities">
+            <hr>
+            <p class="align-start" data-bind="
+                text: additionalActivitiesMessage,
+                tooltip: additionalActivitiesTooltip
+            "></p>
+        </div>
     </section>
 </div>

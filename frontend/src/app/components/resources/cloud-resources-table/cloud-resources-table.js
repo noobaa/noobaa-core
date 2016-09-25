@@ -24,7 +24,8 @@ const columns = deepFreeze([
     },
     {
         name: 'buckets',
-        label: 'bucket using resource'
+        label: 'bucket using resource',
+        sortable: true
     },
     {
         name: 'cloudBucket',
@@ -44,13 +45,37 @@ const columns = deepFreeze([
     }
 ]);
 
+const resourcesToBuckets = ko.pureComputed(
+    () => {
+        if (!systemInfo()) {
+            return {};
+        }
+
+        return systemInfo().buckets.reduce(
+            (mapping, bucket) => systemInfo().tiers
+                .find(
+                    tier => tier.name === bucket.tiering.tiers[0].tier
+                )
+                .cloud_pools.reduce(
+                    (mapping, pool) => {
+                        mapping[pool] = mapping[pool] || [];
+                        mapping[pool].push(bucket.name);
+                        return mapping;
+                    },
+                    mapping
+                ),
+            {}
+        );
+    }
+);
+
 const compareAccessors = Object.freeze({
     state: () => true,
-    type: resource => resource.endpoint,
+    type: resource => resource.cloud_info.endpoint_type,
     name: resource => resource.name,
-    buckets: () => true,
-    usage: resource => resource.storage.used,
-    cloudBucket: resource => resource.cloud_info.target_bucket
+    buckets: resource => (resourcesToBuckets()[resource.name] || []).length,
+    cloudBucket: resource => resource.cloud_info.target_bucket,
+    usage: resource => resource.storage.used
 });
 
 class CloudResourcesTableViewModel extends Disposable {
@@ -60,10 +85,15 @@ class CloudResourcesTableViewModel extends Disposable {
         this.columns = columns;
 
         this.sorting = ko.pureComputed({
-            read: () => ({
-                sortBy: routeContext().query.sortBy || 'name',
-                order: Number(routeContext().query.order) || 1
-            }),
+            read: () => {
+                let { params, query } = routeContext();
+                let isOnScreen = params.tab === 'cloud';
+
+                return {
+                    sortBy: (isOnScreen && query.sortBy) || 'name',
+                    order: (isOnScreen && Number(routeContext().query.order)) || 1
+                };
+            },
             write: value => {
                 this.deleteGroup(null);
                 redirectTo(undefined, undefined, value);
@@ -84,39 +114,15 @@ class CloudResourcesTableViewModel extends Disposable {
             }
         );
 
-        this.poolsToBuckets = ko.pureComputed(
-            () => {
-                if (!systemInfo()) {
-                    return {};
-                }
-
-                return systemInfo().buckets.reduce(
-                    (mapping, bucket) => systemInfo().tiers
-                        .find(
-                            tier => tier.name === bucket.tiering.tiers[0].tier
-                        )
-                        .cloud_pools.reduce(
-                            (mapping, pool) => {
-                                mapping[pool] = mapping[pool] || [];
-                                mapping[pool].push(bucket.name);
-                                return mapping;
-                            },
-                            mapping
-                        ),
-                    {}
-                );
-            }
-        );
-
         this.deleteGroup = ko.observable();
         this.isAddCloudResourceModalVisible = ko.observable(false);
         this.isAfterDeleteAlertModalVisible = ko.observable(false);
     }
 
-    rowFactory(resource) {
+    newResourceRow(resource) {
         return new CloudResourceRowViewModel(
             resource,
-            this.poolsToBuckets,
+            resourcesToBuckets,
             this.deleteGroup,
             () => this.showAfterDeleteAlertModal()
         );

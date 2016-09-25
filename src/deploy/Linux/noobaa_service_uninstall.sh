@@ -8,24 +8,35 @@ PATH=/usr/local/noobaa:$PATH;
 echo "Uninstalling NooBaa"
 if [ -f /usr/bin/systemctl ] || [ -f /bin/systemctl ]; then
   echo "Systemd detected. Uninstalling service"
+  systemctl stop noobaalocalservice
   systemctl disable noobaalocalservice
   rm /etc/systemd/system/multi-user.target.wants/noobaalocalservice.service
+  systemctl daemon-reload
 elif [[ -d /etc/init ]]; then
   echo "Upstart detected. Removing init script"
   initctl stop noobaalocalservice
   rm /etc/init/noobaalocalservice.conf
 elif [[ -d /etc/init.d ]]; then
   echo "System V detected. Uninstalling service"
+  type chkconfig &> /dev/null
+  if [ $? -eq 0 ]; then
+    chkconfig noobaalocalservice off
+  else
+    update-rc.d noobaalocalservice disable
+  fi
+  service noobaalocalservice stop
   /usr/local/noobaa/node /usr/local/noobaa/src/agent/agent_linux_installer --uninstall
+  rm /etc/init.d/noobaalocalservice
 else
   echo "ERROR: Cannot detect init mechanism! Attempting to force service uninstallation"
   service noobaalocalservice stop
+  rm /etc/systemd/system/multi-user.target.wants/noobaalocalservice.service
+  systemctl daemon-reload
   rm /etc/init/noobaalocalservice.conf
+  rm /etc/init.d/noobaalocalservice
   systemctl disable noobaalocalservice
   /usr/local/noobaa/node /usr/local/noobaa/src/agent/agent_linux_installer --uninstall
-
 fi
-
 
 rm -rf /usr/local/noobaa
 echo "NooBaa agent removed"

@@ -7,10 +7,6 @@
 const Service = require('node-linux').Service;
 const argv = require('minimist')(process.argv);
 
-
-var fs = require('fs');
-
-
 var srv = new Service({
     name: 'noobaalocalservice',
     description: 'The NooBaa node service.',

@@ -701,7 +701,7 @@ export function createAccount(name, email, password, accessKeys, S3AccessList) {
         name: name,
         email: email,
         password: password,
-        must_change_password: true,
+        // must_change_password: true,
         access_keys: accessKeys,
         allowed_buckets: S3AccessList
     })

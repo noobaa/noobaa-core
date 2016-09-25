@@ -3,9 +3,11 @@ import Disposable from 'disposable';
 import ko from 'knockout';
 import { CloudConnections, CloudBucketList } from 'model';
 import { loadCloudConnections, loadCloudBucketList, setCloudSyncPolicy } from 'actions';
+import { deepFreeze } from 'utils';
 
 const [ MIN, HOUR, DAY ] = [ 1, 60, 60 * 24 ];
-const frequencyUnitOptions = Object.freeze([
+
+const frequencyUnitOptions = deepFreeze([
     {
         value: MIN,
         label: 'Minutes'
@@ -20,7 +22,7 @@ const frequencyUnitOptions = Object.freeze([
     }
 ]);
 
-const directionOptions = Object.freeze([
+const directionOptions = deepFreeze([
     {
         value: 3,
         label: 'Bi-Direcitonal'
@@ -35,15 +37,21 @@ const directionOptions = Object.freeze([
     }
 ]);
 
-const addConnectionOption = Object.freeze({
+const addConnectionOption = deepFreeze({
     label: 'Add new connection',
     value: {}
 });
 
-class CloudSyncModalViewModel extends Disposable {
+const allowedServices = deepFreeze([
+    'AWS',
+    'S3_COMPATIBLE'
+]);
+
+class SetCloudSyncModalViewModel extends Disposable {
     constructor({ bucketName, onClose }) {
         super();
 
+        this.allowedServices = allowedServices;
         this.onClose = onClose;
         this.bucketName = bucketName;
 
@@ -51,12 +59,18 @@ class CloudSyncModalViewModel extends Disposable {
             () => [
                 addConnectionOption,
                 null,
-                ...CloudConnections().map(
-                    connection => ({
-                        label: connection.name || connection.access_key,
-                        value: connection
-                    })
-                )
+                ...CloudConnections()
+                    .filter(
+                        connection => allowedServices.some(
+                            service => connection.endpoint_type === service
+                        )
+                    )
+                    .map(
+                        connection => ({
+                            label: connection.name || connection.identity,
+                            value: connection
+                        })
+                    )
             ]
         );
 
@@ -167,6 +181,6 @@ class CloudSyncModalViewModel extends Disposable {
 }
 
 export default {
-    viewModel: CloudSyncModalViewModel,
+    viewModel: SetCloudSyncModalViewModel,
     template: template
 };

@@ -5,28 +5,58 @@ import { CloudConnections, isCloudConnectionValid } from 'model';
 import { checkCloudConnection, addCloudConnection } from 'actions';
 import { deepFreeze } from 'utils';
 
-const endpointTypeMapping = deepFreeze({
+const serviceMapping = deepFreeze({
     AWS: {
-        label: 'AWS S3 Storage',
-        identityLabel: 'Access Key',
-        secretLabel: 'Secret Key',
+        optionLabel: 'AWS S3',
+        identity: {
+            label: 'Access Key',
+            placeholder: 'Enter Key',
+            requiredMessage: 'Please enter an AWS access key',
+            duplicateMessage: 'Access key already used in another AWS connection'
+        },
+        secret: {
+            label: 'Secret Key',
+            placeholder: 'Enter Secret',
+            requiredMessage: 'Please enter an AWS secret key'
+        },
         defaultEndpoint: 'https://s3.amazonaws.com'
     },
     AZURE: {
-        label: 'Microsoft Azure Blob Storage',
-        identityLabel: 'Account Name',
-        secretLabel: 'Account Key',
+        optionLabel: 'Microsoft Azure',
+        identity: {
+            label: 'Account Name',
+            placeholder: 'Enter Name',
+            requiredMessage: 'Please enter an Azure acount name',
+            duplicateMessage: 'Account name already used in another azure connection'
+        },
+        secret: {
+            label: 'Account Key',
+            placeholder: 'Enter Key',
+            requiredMessage: 'Please enter an Azure account key'
+        },
         defaultEndpoint: 'https://blob.core.windows.net'
     },
     S3_COMPATIBLE: {
-        label: 'S3 Compatible Storage',
-        identityLabel: 'Access Key',
-        secretLabel: 'Secret Key'
+        optionLabel: 'Generic S3 Compatible Service',
+        identity: {
+            label: 'Access Key',
+            placeholder: 'Enter Key',
+            requiredMessage: 'Please enter an access key',
+            duplicateMessage: 'Access key already used in another S3 compatible connection'
+        },
+        secret: {
+            label: 'Secret Key',
+            placeholder: 'Enter Secret',
+            requiredMessage: 'Please enter a secret key'
+        }
     }
 });
 
 class AddCloudConnectionModalViewModel extends Disposable {
-    constructor({ onClose }) {
+    constructor({
+        onClose,
+        allowedServices =  Object.keys(serviceMapping)
+    }) {
         super();
 
         isCloudConnectionValid(true);
@@ -61,21 +91,21 @@ class AddCloudConnectionModalViewModel extends Disposable {
             }
         });
 
-        this.endpointTypeOptions = Object.keys(endpointTypeMapping).map(
-            type => {
-                let value = endpointTypeMapping[type];
-                return { label: value.label, value: type };
-            }
+        this.serviceOptions = allowedServices.map(
+            type => ({
+                label: serviceMapping[type].optionLabel,
+                value: type
+            })
         );
 
-        this.endpointType = ko.observable('AWS');
+        this.service = ko.observable('AWS');
 
-        let endpointTypeInfo = ko.pureComputed(
-            () => endpointTypeMapping[this.endpointType()]
+        let serviceInfo = ko.pureComputed(
+            () => serviceMapping[this.service()]
         );
 
         this.endpoint = ko.observableWithDefault(
-            () => endpointTypeInfo().defaultEndpoint
+            () => serviceInfo().defaultEndpoint
         )
             .extend({
                 required: { message: 'Please enter valid URI endpoint' },
@@ -83,32 +113,49 @@ class AddCloudConnectionModalViewModel extends Disposable {
             });
 
         this.identityLabel = ko.pureComputed(
-            () => endpointTypeInfo().identityLabel
+            () => serviceInfo().identity.label
+        );
+
+        this.identityPlaceholder = ko.pureComputed(
+            () => serviceInfo().identity.placeholder
+        );
+
+        let identityBlackList = ko.pureComputed(
+            () => CloudConnections().map(
+                ({ endpoint_type, access_key }) => `${endpoint_type}:${access_key}`
+            )
         );
 
         this.identity = ko.observable()
             .extend({
-                required: { message: 'Please enter an aws access key' },
-                notIn: {
-                    params: {
-                        list: CloudConnections.map(
-                            ({ access_key }) => access_key
-                        )
-                    },
-                    message: 'Access Key already defined'
+                required: {
+                    message: () => serviceInfo().identity.requiredMessage
+                },
+
+                validation: {
+                    validator: val => !identityBlackList().includes(
+                        `${this.service()}:${val}`
+                    ),
+                    message: () => serviceInfo().identity.duplicateMessage
                 }
             });
 
         this.secretLabel = ko.pureComputed(
-            () => endpointTypeInfo().secretLabel
+            () => serviceInfo().secret.label
+        );
+
+        this.secretPlaceholder = ko.pureComputed(
+            () => serviceInfo().secret.placeholder
         );
 
         this.secret = ko.observable()
             .extend({
-                required: { message: 'Please enter an aws secret key'}
+                required: {
+                    message: () => serviceInfo().secret.requiredMessage
+                }
             });
 
-        this.isValidConenction = isCloudConnectionValid
+        this.isValidConnection = isCloudConnectionValid
             .extend({
                 equal: {
                     params: true,
@@ -118,11 +165,17 @@ class AddCloudConnectionModalViewModel extends Disposable {
 
         this.addToDisposeList(
             isCloudConnectionValid.subscribe(
-                isValid => isValid && this.save()
+                isValid => isValid ? this.save() : this.shake(true)
             )
         );
 
-        this.errors = ko.validation.group(this);
+        // Dont use 'this' as argument because we want to exclude this.isValidConnection
+        this.errors = ko.validation.group([
+            this.endpoint,
+            this.identity,
+            this.secret
+        ]);
+
         this.shake = ko.observable(false);
     }
 
@@ -133,7 +186,7 @@ class AddCloudConnectionModalViewModel extends Disposable {
 
         } else {
             checkCloudConnection(
-                this.endpointType(),
+                this.service(),
                 this.endpoint(),
                 this.identity(),
                 this.secret()
@@ -144,7 +197,7 @@ class AddCloudConnectionModalViewModel extends Disposable {
     save() {
         addCloudConnection(
             this.name(),
-            this.endpointType(),
+            this.service(),
             this.endpoint(),
             this.identity(),
             this.secret()

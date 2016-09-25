@@ -171,19 +171,50 @@ function configure_ntp_dialog {
     sudo /etc/init.d/rsyslog restart
 }
 
+
+function reset_password {
+
+    local err_pass=1
+    local err_pass_msg=""
+    while [ ${err_pass} -eq 1 ]; do
+
+        local number_of_account=$(/usr/bin/mongo nbcore --eval 'db.accounts.count({_id: {$exists: true}})' --quiet)
+        if [ ${number_of_account} -lt 2 ]; then
+          echo "Could not find any account. Please setup a system from the web management first"
+          return 0
+        fi
+
+        local user_name=$(/usr/bin/mongo nbcore --eval 'db.accounts.find({email:{$ne:"support@noobaa.com"}},{email:1,_id:0}).sort({_id:-1}).limit(1).map(function(u){return u.email})[0]' --quiet)
+
+        local answer_reset_password=$(dialog --colors --backtitle "NooBaa First Install" --title "Password Reset for ${user_name}"  --passwordbox "Password enter a new password (your input is hidden):\n${err_pass_msg}"  10 50 --stdout)
+
+        case $answer_reset_password in
+            ''|*[!0-9]*) err_pass=0 ;;
+            *) err_pass_msg="error: password cannot be a number"  ;;
+        esac
+
+    done
+
+    local bcrypt_sec=$(sudo /usr/local/bin/node /root/node_modules/noobaa-core/src/util/crypto_utils.js --bcrypt_password $answer_reset_password)
+    /usr/bin/mongo nbcore --eval  "db.accounts.update({email:'${user_name}'},{\$set:{password:'${bcrypt_sec}'}})" --quiet
+
+
+}
+
 function run_wizard {
 
   dialog --colors --backtitle "NooBaa First Install" --title 'Welcome to \Z5\ZbNooBaa\Zn' --msgbox 'Welcome to your \Z5\ZbNooBaa\Zn experience.\n\nThis
-is a short first install wizard to help configure \Z5\ZbNooBaa\Zn to best suit your needs' 8 50
+is a short first install wizard to help configure \Z5\ZbNooBaa\Zn to best suit your needs' 8 60
   local menu_entry="0"
-  while [ "${menu_entry}" -ne "3" ]; do
-    dialog --colors --nocancel --backtitle "NooBaa First Install" --menu "Choose one of the items below\n(Use \Z4\ZbUp/Down\Zn to navigate):" 12 55 3 1 "Networking Configuration" 2 "NTP Configuration" 3 "Exit" 2> choice
-
+  while [ "${menu_entry}" -ne "4" ]; do
+    dialog --colors --nocancel --backtitle "NooBaa First Install" --menu "Choose one of the items below\n(Use \Z4\ZbUp/Down\Zn to navigate):" 12 55 4 1 "Networking Configuration" 2 "NTP Configuration" 3 "Password reset" 4 "Exit" 2> choice
     menu_entry=$(cat choice)
     if [ "${menu_entry}" -eq "1" ]; then
       configure_networking_dialog
     elif [ "${menu_entry}" -eq "2" ]; then
       configure_ntp_dialog
+  elif [ "${menu_entry}" -eq "3" ]; then
+        reset_password
     fi
   done
   dialog --colors --nocancel --backtitle "NooBaa First Install" --infobox "Finalizing \Z5\ZbNooBaa\Zn first install..." 4 40 ; sleep 2

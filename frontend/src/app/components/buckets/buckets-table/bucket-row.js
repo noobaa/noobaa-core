@@ -2,7 +2,7 @@ import Disposable from 'disposable';
 import ko from 'knockout';
 import numeral from 'numeral';
 import { systemInfo } from 'model';
-import { deepFreeze, isDefined } from 'utils';
+import { deepFreeze, isDefined, capitalize } from 'utils';
 import { deleteBucket } from'actions';
 
 const stateIconMapping = deepFreeze({
@@ -46,10 +46,24 @@ const cloudSyncStatusMapping = deepFreeze({
     }
 });
 
-const policyTypeMapping = deepFreeze({
+const placementPolicyTypeMapping = deepFreeze({
     SPREAD: 'Spread',
     MIRROR: 'Mirrored'
 });
+
+function cloudStorageIcon(list, baseIconName, tooltipTitle) {
+    let count = list.length;
+    let name =  `${baseIconName}${count ? '-colored' : ''}`;
+
+    let tooltipText = count === 0 ?
+        `No ${tooltipTitle}` :
+        { title: capitalize(tooltipTitle), list: list };
+
+    return {
+        name: name,
+        tooltip: { text: tooltipText }
+    };
+}
 
 export default class BucketRowViewModel extends Disposable {
     constructor(bucket, deleteGroup, isLastBucket) {
@@ -101,7 +115,7 @@ export default class BucketRowViewModel extends Disposable {
                     let count = node_pools.length;
 
                     let text = `${
-                            policyTypeMapping[data_placement]
+                            placementPolicyTypeMapping[data_placement]
                         } on ${
                             count
                         } pool${
@@ -115,6 +129,55 @@ export default class BucketRowViewModel extends Disposable {
                 }
             }
         );
+
+        let cloudPolicy = ko.pureComputed(
+            () => {
+                let policy = { AWS: [], AZURE: [], S3_COMPATIBLE: [] };
+                if (!tier()) {
+                    return policy;
+                }
+
+                let a = tier().cloud_pools
+                    .map(
+                        name => systemInfo().pools.find(
+                            pool => pool.name === name
+                        )
+                    )
+                    .reduce(
+                        (mapping, pool) => {
+                            mapping[pool.cloud_info.endpoint_type].push(pool.name);
+                            return mapping;
+                        },
+                        policy
+                    );
+
+                return a;
+            }
+        );
+
+        this.cloudStorage = {
+            awsIcon: ko.pureComputed(
+                () => cloudStorageIcon(
+                    cloudPolicy().AWS,
+                    'aws-s3-resource',
+                    'AWS S3 resources'
+                )
+            ),
+            azureIcon: ko.pureComputed(
+                () => cloudStorageIcon(
+                    cloudPolicy().AZURE,
+                    'azure-resource',
+                    'Azure resources'
+                )
+            ),
+            cloudIcon: ko.pureComputed(
+                () => cloudStorageIcon(
+                    cloudPolicy().S3_COMPATIBLE,
+                    'cloud-resource',
+                    'generic cloud resorurces'
+                )
+            )
+        };
 
         let storage = ko.pureComputed(
             () => bucket() ? bucket().storage : {}

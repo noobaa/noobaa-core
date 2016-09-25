@@ -46,6 +46,16 @@ export function start() {
                 });
             }
         })
+        .catch(err => {
+            if (err.rpc_code === 'UNAUTHORIZED') {
+                if (api.options.auth_token) {
+                    console.info('Signing out on unauthorized session.');
+                    signOut(false);
+                }
+            } else {
+                console.error(err);
+            }
+        })
         // Start the router.
         .then(
             () => page.start()
@@ -345,11 +355,14 @@ export function signIn(email, password, keepSessionAlive = false, redirectUrl) {
         .done();
 }
 
-export function signOut() {
+export function signOut(shouldRefresh = true) {
     sessionStorage.removeItem('sessionToken');
     localStorage.removeItem('sessionToken');
     model.sessionInfo(null);
-    refresh();
+    api.options.auth_token = undefined;
+    if (shouldRefresh) {
+        refresh();
+    }
 }
 
 // -----------------------------------------------------
@@ -358,17 +371,18 @@ export function signOut() {
 export function loadServerInfo() {
     logAction('loadServerInfo');
 
+    model.serverInfo(null);
     api.account.accounts_status()
         .then(
             reply => reply.has_accounts ?
                 { initialized: true } :
-                api.cluster_server.read_server_config()
-                    .then(
-                        config => ({
-                            initialized: false,
-                            config: config
-                        })
-                    )
+                api.cluster_server.read_server_config().then(
+                    config => ({
+                        initialized: false,
+                        address: endpoint,
+                        config: config
+                    })
+                )
         )
         .then(model.serverInfo)
         .done();
@@ -610,7 +624,6 @@ export function loadCloudConnections() {
     logAction('loadCloudConnections');
 
     api.account.get_account_sync_credentials_cache()
-        .then(conns => conns.map(conn => Object.assign(conn, {access_key: conn.identity})))
         .then(model.CloudConnections)
         .done();
 }
@@ -1767,4 +1780,3 @@ export function recommissionNode(name) {
         .then(refresh)
         .done();
 }
-

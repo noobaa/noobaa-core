@@ -4,6 +4,7 @@
 PATH=/usr/local/noobaa:$PATH;
 
 #attempting to remove service installations
+chmod 777 /usr/local/noobaa/remove_service.sh
 /usr/local/noobaa/remove_service.sh
 
 rm -rf /usr/local/noobaa

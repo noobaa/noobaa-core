@@ -5,6 +5,7 @@ echo "installing NooBaa"
 PATH=/usr/local/noobaa:$PATH;
 mkdir /usr/local/noobaa/logs
 
+chmod 777 /usr/local/noobaa/remove_service.sh
 /usr/local/noobaa/remove_service.sh &> /dev/null
 
 if [ -f /usr/bin/systemctl ] || [ -f /bin/systemctl ]; then

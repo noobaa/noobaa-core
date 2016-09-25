@@ -22,7 +22,6 @@ const cutil = require('../utils/clustering_utils');
 const config = require('../../../config');
 const md_store = require('../object_services/md_store');
 const os_utils = require('../../util/os_utils');
-const upgrade_utils = require('../../util/upgrade_utils');
 const RpcError = require('../../rpc/rpc_error');
 const size_utils = require('../../util/size_utils');
 const server_rpc = require('../server_rpc');

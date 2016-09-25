@@ -1,5 +1,7 @@
 /* eslint-env mongo */
 /* global setVerboseShell */
+/* global sleep */
+
 'use strict';
 // the following params are set from outside the script
 // using mongo --eval 'var param_ip="..."' and we only declare them here for completeness

@@ -10,25 +10,30 @@ mkdir /usr/local/noobaa/logs
 if [ -f /usr/bin/systemctl ] || [ -f /bin/systemctl ]; then
   echo "Systemd detected. Installing service"
   if [ -f /etc/systemd/system/multi-user.target.wants/noobaalocalservice.service ]; then
-    systemctl stop noobaalocalservice
     systemctl disable noobaalocalservice
-    systemctl daemon-reload
+    systemctl stop noobaalocalservice
     rm /etc/systemd/system/multi-user.target.wants/noobaalocalservice.service
+    systemctl daemon-reload
   fi
 
   cp /usr/local/noobaa/src/agent/system_d.conf /etc/systemd/system/multi-user.target.wants/noobaalocalservice.service
-  systemctl enable noobaalocalservice
   systemctl restart noobaalocalservice
+  systemctl enable noobaalocalservice
   systemctl daemon-reload
 elif [[ -d /etc/init ]]; then
   echo "Upstart detected. Creating startup script"
   if [ -f /etc/init/noobaalocalservice.conf ]; then
+    initctl stop noobaalocalservice
     rm /etc/init/noobaalocalservice.conf
   fi
   cp /usr/local/noobaa/src/agent/upstart.conf /etc/init/noobaalocalservice.conf
-  initctl restart noobaalocalservice
+  initctl start noobaalocalservice
 elif [[ -d /etc/init.d ]]; then
   echo "System V detected. Installing service"
+  if [ -f /etc/init.d/noobaalocalservice ]
+    service noobaalocalservice stop
+    rm /etc/init.d/noobaalocalservice
+  fi
   /usr/local/noobaa/node /usr/local/noobaa/src/agent/agent_linux_installer
   type chkconfig &> /dev/null
   if [ $? -eq 0 ]; then
@@ -36,7 +41,7 @@ elif [[ -d /etc/init.d ]]; then
   else
     update-rc.d noobaalocalservice enable
   fi
-  service noobaalocalservice restart
+  service noobaalocalservice start
 else
   echo "ERROR: Cannot detect init mechanism! Attempting to force service installation"
   /usr/local/noobaa/node /usr/local/noobaa/src/agent/agent_linux_installer
@@ -47,6 +52,8 @@ else
   else
     update-rc.d noobaalocalservice enable
   fi
+  systemctl enable noobaalocalservice
+  service noobaalocalservice start
 fi
 
 echo "NooBaa installation complete"

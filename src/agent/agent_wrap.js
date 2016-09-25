@@ -21,9 +21,6 @@ const DUPLICATE_RET_CODE = 68;
 
 var address = "";
 
-const out1 = fs.openSync('/tmp/setupLog.txt', 'a');
-const err1 = fs.openSync('/tmp/setupLog.txt', 'a');
-
 fs.readFileAsync('./agent_conf.json')
     .then(agent_conf_file => {
         address = url.parse(JSON.parse(agent_conf_file).address).host;

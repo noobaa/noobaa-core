@@ -10,6 +10,7 @@ const chance = require('chance')();
 const EventEmitter = require('events').EventEmitter;
 
 const P = require('../../util/promise');
+const util = require('util');
 const pkg = require('../../../package.json');
 const dbg = require('../../util/debug_module')(__filename);
 const config = require('../../../config');
@@ -330,9 +331,6 @@ class NodesMonitor extends EventEmitter {
         }
         this._set_need_update.add(item);
         this._update_status(item);
-
-        // TODO GUYM implement delete_node
-        // throw new RpcError('TODO', 'delete_node');
     }
 
 
@@ -652,19 +650,36 @@ class NodesMonitor extends EventEmitter {
             if (!item.node_from_store) {
                 new_nodes.push(item);
             }
+            // Here we gather all of the nodes that ready and need to be deleted
+            // TODO: At this time, the code is relevant to nodes of cloud resources
+            // Ready means that they evacuated their data from the cloud resource
+            // And currently waiting for their process to be deleted and removed from DB
+            // Notice that we do not update the DB and then try to remeve the process
+            // This is done in order to attempt and remove the process until we succeed
+            // The node won't be deleted from the DB until the process is down and dead
+            // This is why we are required to use a new variable by the name ready_to_be_deleted
+            // In order to mark the nodes that wait for their processes to be removed (cloud resource)
+            // If the node is not relevant to a cloud resouce it will be just marked as deleted
             if (item.ready_to_be_deleted) {
                 deleted_nodes.push(item);
             }
         }
 
         return P.resolve()
+            // Handle and complete the full deletion of cloud resource nodes
             .then(() => P.map(deleted_nodes, item => {
+                dbg.log0('_update_nodes_store deleted_node:', util.inspect(item));
                 if (item.node.is_cloud_node) {
+                    // Removing the internal node from the processes
                     return server_rpc.client.hosted_agents.remove_agent({
                             // Remove agent expects to receive the cloud pool name, so we cut it out
-                            name: String(item.node.name).replace('noobaa-internal-agent-', '')
+                            name: item.node.name
                         })
                         .then(() => {
+                            // Marking the node as deleted since we've removed it completely
+                            // If we did not succeed at removing the process we don't mark the deletion
+                            // This is done in order to cycle the node once again and attempt until
+                            // We succeed
                             item.node.deleted = Date.now();
                         })
                         .catch(err => {
@@ -672,6 +687,9 @@ class NodesMonitor extends EventEmitter {
                             dbg.warn('delete_cloud_pool_node ERROR node', item.node, err);
                         });
                 } else {
+                    // Just mark the node as deleted and we will not scan it anymore
+                    // This is done once the node's proccess is deleted (relevant to cloud resource)
+                    // Or in a normal node it is done immediately
                     item.node.deleted = Date.now();
                 }
             }))

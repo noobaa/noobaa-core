@@ -13,8 +13,11 @@ const request = require('request');
 const url = require('url');
 const dbg = require('../util/debug_module')(__filename);
 
+
 const SETUP_FILENAME = './noobaa-setup';
+const UPGRADE_SCRIPT = './agent_linux_upgrader.sh';
 const EXECUTABLE_MOD_VAL = 511;
+const DUPLICATE_RET_CODE = 68;
 
 var address = "";
 
@@ -28,7 +31,7 @@ fs.readFileAsync('./agent_conf.json')
         return promise_utils.fork('./src/agent/agent_cli');
     })
     .catch(err => {
-        if (err.code && err.code === 1) { // TODO: is this still 1?
+        if (err.code && err.code === DUPLICATE_RET_CODE) {
             dbg.log0('Duplicate token');
             return promise_utils.fork('./src/agent/agent_cli', '--duplicate');
         }
@@ -50,11 +53,13 @@ fs.readFileAsync('./agent_conf.json')
         });
     })
     .then(() => fs.chmodAsync(SETUP_FILENAME, EXECUTABLE_MOD_VAL))
+    .then(() => fs.chmodAsync(UPGRADE_SCRIPT, EXECUTABLE_MOD_VAL))
     .then(() => {
         dbg.log0('Upgrading Noobaa agent');
-        promise_utils.spawn('nohup', [SETUP_FILENAME], {
-            stdio: ['ignore', out1, err1],
-            detached: true
-        }, false, true);
+        return promise_utils.spawn(UPGRADE_SCRIPT);
     })
+    .then(() => (function loop() {
+        dbg.log0('Upgrading Noobaa agent...');
+        setTimeout(loop, 60000);
+    }()))
     .catch(err => dbg.error(err));

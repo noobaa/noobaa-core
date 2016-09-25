@@ -22,33 +22,27 @@ var srv = new Service({
 
 srv.on('doesnotexist', () => {
     console.log('NooBaa service is not yet installed');
-    logg('NooBaa service is not yet installed');
 });
 
 srv.on('install', () => {
     console.log('Done installing NooBaa local service');
-    logg('Done installing NooBaa local service');
     srv.start();
 });
 
 srv.on('alreadyinstalled', () => {
     console.log('NooBaa local service is already installed');
-    logg('NooBaa local service is already installed');
 });
 
 srv.on('uninstall', () => {
     console.log('Done uninstalling NooBaa local service.');
-    logg('Done uninstalling NooBaa local service.');
 });
 
 srv.on('start', () => {
     console.log('Starting NooBaa local service');
-    logg('Starting NooBaa local service');
 });
 
 srv.on('stop', () => {
     console.log('Stopping NooBaa local service');
-    logg('Stopping NooBaa local service');
 });
 
 if (argv.uninstall) {
@@ -57,9 +51,4 @@ if (argv.uninstall) {
 } else {
     console.log('Installing NooBaa local service');
     srv.install();
-}
-
-function logg(str) {
-    console.log(str);
-    fs.appendFileSync('/tmp/testLog.txt', Date.now() + ":" + str + '\n');
 }

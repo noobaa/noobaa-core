@@ -1,0 +1,6 @@
+#!/bin/sh
+
+while read oldrev newrev refname
+do
+	`./hooks/fbNotify.py $oldrev $newrev $refname`
+done

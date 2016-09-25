@@ -206,9 +206,12 @@ function _delete_cloud_pool(system, pool, account) {
                 }
             });
         })
-        .then(() => server_rpc.client.hosted_agents.remove_agent({
-            name: pool.name
-        }))
+        .then(() => nodes_client.instance().list_nodes_by_pool(pool._id))
+        .then(function(pool_nodes) {
+            return P.each(pool_nodes && pool_nodes.nodes, node => {
+                nodes_client.instance().delete_node_by_name(system._id, node.name);
+            });
+        })
         .then(() => {
             Dispatcher.instance().activity({
                 event: 'pool.delete',

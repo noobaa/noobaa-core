@@ -6,7 +6,7 @@ PATH=/usr/local/noobaa:$PATH;
 #attempting to remove old service installations
 /usr/local/noobaa/node_modules/forever-service/bin/forever-service delete noobaa_local_service &> /dev/null
 
-echo "Uninstalling NooBaa"
+echo "Uninstalling NooBaa local service"
 if [ -f /usr/bin/systemctl ] || [ -f /bin/systemctl ]; then
   echo "Systemd detected. Uninstalling service"
   systemctl stop noobaalocalservice
@@ -19,6 +19,7 @@ elif [[ -d /etc/init ]]; then
   rm /etc/init/noobaalocalservice.conf
 elif [[ -d /etc/init.d ]]; then
   echo "System V detected. Uninstalling service"
+  # This command may or may not exist, depending on linux distro
   type chkconfig &> /dev/null
   if [ $? -eq 0 ]; then
     chkconfig noobaalocalservice off

@@ -1,8 +1,8 @@
 "use strict";
 
 /*
- * This script wrapps agent_cli
- * it makes sure that when it exists, it either upgrades, or reopens as necessary
+ * This script wraps agent_cli
+ * it keeps it alive and should also handle ugprades, repairs etc.
  */
 process.chdir('/usr/local/noobaa');
 
@@ -33,7 +33,7 @@ fs.readFileAsync('./agent_conf.json')
             return promise_utils.fork('./src/agent/agent_cli', '--duplicate');
         }
         throw err;
-    })
+    }) // Currently, to signal an upgrade is required agent_cli exits with 0
     .then(() => {
         const output = fs.createWriteStream(SETUP_FILENAME);
         return new P((resolve, reject) => {
@@ -56,7 +56,9 @@ fs.readFileAsync('./agent_conf.json')
         return promise_utils.spawn(UPGRADE_SCRIPT);
     })
     .then(() => (function loop() {
+        // This will not (or should not) run forever because when the service
+        // installs, it stops the old service, which kills this thread.
         dbg.log0('Upgrading Noobaa agent...');
-        setTimeout(loop, 60000);
+        setTimeout(loop, 30000);
     }()))
     .catch(err => dbg.error(err));

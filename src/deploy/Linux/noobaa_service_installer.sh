@@ -10,12 +10,14 @@ mkdir /usr/local/noobaa/logs
 if [ -f /usr/bin/systemctl ] || [ -f /bin/systemctl ]; then
   echo "Systemd detected. Installing service"
   cp /usr/local/noobaa/src/agent/system_d.conf /etc/systemd/system/multi-user.target.wants/noobaalocalservice.service
-  systemctl restart noobaalocalservice
+  systemctl daemon-reload
   systemctl enable noobaalocalservice
+  systemctl start noobaalocalservice
   systemctl daemon-reload
 elif [[ -d /etc/init ]]; then
   echo "Upstart detected. Creating startup script"
   cp /usr/local/noobaa/src/agent/upstart.conf /etc/init/noobaalocalservice.conf
+  sleep 1
   initctl start noobaalocalservice
 elif [[ -d /etc/init.d ]]; then
   echo "System V detected. Installing service"

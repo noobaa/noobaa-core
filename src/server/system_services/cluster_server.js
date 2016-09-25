@@ -551,7 +551,7 @@ function update_server_location(req) {
 
 // UPGRADE ////////////////////////////////////////////////////////
 function member_pre_upgrade(req) {
-    dbg.log0('DZDZ received upgrade package:, ', req.rpc_params.filepath, req.rpc_params.mongo_upgrade ?
+    dbg.log0('UPGRADE: received upgrade package:, ', req.rpc_params.filepath, req.rpc_params.mongo_upgrade ?
         'this server should preform mongo_upgrade' :
         'this server should not preform mongo_upgrade');
     let server = system_store.get_local_cluster_info(); //Update path in DB
@@ -563,7 +563,7 @@ function member_pre_upgrade(req) {
         error: ''
     };
 
-    dbg.log0('DZDZ:', 'updating cluster for server._id', server._id, 'with upgrade =', upgrade);
+    dbg.log0('UPGRADE:', 'updating cluster for server._id', server._id, 'with upgrade =', upgrade);
 
     return system_store.make_changes({
             update: {
@@ -577,15 +577,15 @@ function member_pre_upgrade(req) {
         .then(res => {
             //Update result of pre_upgrade and message in DB
             if (res.result) {
-                dbg.log0('DZDZ:', 'get res.result =', res.result, ' setting status to CAN_UPGRADE');
+                dbg.log0('UPGRADE:', 'get res.result =', res.result, ' setting status to CAN_UPGRADE');
                 upgrade.status = 'CAN_UPGRADE';
             } else {
-                dbg.log0('DZDZ:', 'get res.result =', res.result, ' setting status to FAILED');
+                dbg.log0('UPGRADE:', 'get res.result =', res.result, ' setting status to FAILED');
                 upgrade.status = 'FAILED';
                 upgrade.error = res.message;
             }
 
-            dbg.log0('DZDZ:', 'updating cluster again for server._id', server._id, 'with upgrade =', upgrade);
+            dbg.log0('UPGRADE:', 'updating cluster again for server._id', server._id, 'with upgrade =', upgrade);
 
             return system_store.make_changes({
                 update: {
@@ -600,7 +600,7 @@ function member_pre_upgrade(req) {
 }
 
 function do_upgrade(req) {
-    dbg.log0('DZDZ:', 'got do_upgrade');
+    dbg.log0('UPGRADE:', 'got do_upgrade');
     let server = system_store.get_local_cluster_info();
     if (server.upgrade.status !== 'CAN_UPGRADE') {
         throw new Error('Not in upgrade state:', server.upgrade.error ? server.upgrade.error : '');
@@ -616,10 +616,10 @@ function do_upgrade(req) {
 
 
 function upgrade_cluster(req) {
-    dbg.log0('DZDZ got request to upgrade the cluster:', cutil.pretty_topology(cutil.get_topology()));
+    dbg.log0('UPGRADE got request to upgrade the cluster:', cutil.pretty_topology(cutil.get_topology()));
     // get all cluster members other than the master
     let secondary_members = cutil.get_all_cluster_members().filter(ip => ip !== os_utils.get_local_ipv4_ips()[0]);
-    dbg.log0('DZDZ:', 'secondaries =', secondary_members);
+    dbg.log0('UPGRADE:', 'secondaries =', secondary_members);
     // upgrade can only be called from master. throw error otherwise
     return P.fcall(() => {
             let cinfo = system_store.get_local_cluster_info();
@@ -631,59 +631,59 @@ function upgrade_cluster(req) {
         })
         .then(is_master => {
             if (!is_master) {
-                throw new Error('DZDZ upgrade must be done on master node');
+                throw new Error('UPGRADE upgrade must be done on master node');
             }
             // upload package to secondaries
-            dbg.log0('DZDZ:', 'uploading package to all cluster members');
+            dbg.log0('UPGRADE:', 'uploading package to all cluster members');
             // upload package to cluster members
             return P.all(secondary_members.map(member => _upload_package(req.rpc_params.filepath, member)))
                 .catch(err => {
-                    dbg.error('DZDZ:', 'failed uploading upgrade package to secondaries - aborting upgrade', err);
+                    dbg.error('UPGRADE:', 'failed uploading upgrade package to secondaries - aborting upgrade', err);
                     throw err;
                 });
         })
         .then(() => {
-            dbg.log0('DZDZ:', 'calling member_pre_upgrade');
+            dbg.log0('UPGRADE:', 'calling member_pre_upgrade');
             return server_rpc.client.cluster_internal.member_pre_upgrade({
                     filepath: req.rpc_params.filepath,
                     mongo_upgrade: true
                 })
                 .catch(err => {
-                    dbg.error('DZDZ:', 'pre_upgrade failed on master - aborting upgrade', err);
+                    dbg.error('UPGRADE:', 'pre_upgrade failed on master - aborting upgrade', err);
                     throw err;
                 });
         })
         .then(() => {
             //wait for all secondaries to reach CAN_UPGRADE. if one failed fail the upgrade
-            dbg.log0('DZDZ:', 'waiting for secondaries to reach CAN_UPGRADE');
+            dbg.log0('UPGRADE:', 'waiting for secondaries to reach CAN_UPGRADE');
             // TODO: on multiple shards we can upgrade one at the time in each shard
             return P.all(secondary_members, ip => {
                 // for each server, wait for it to reach CAN_UPGRADE, then call do_upgrade
                 // wait for UPGRADED status before continuing to next one
-                dbg.log0('DZDZ:', 'waiting for server', ip, 'to reach CAN_UPGRADE');
+                dbg.log0('UPGRADE:', 'waiting for server', ip, 'to reach CAN_UPGRADE');
                 return _wait_for_upgrade_state(ip, 'CAN_UPGRADE')
                     .catch(err => {
-                        dbg.error('DZDZ:', 'timeout: server at', ip, 'did not reach CAN_UPGRADE state. aborting upgrade', err);
+                        dbg.error('UPGRADE:', 'timeout: server at', ip, 'did not reach CAN_UPGRADE state. aborting upgrade', err);
                         throw err;
                     });
             });
         })
         // after all servers reached CAN_UPGRADE, start upgrading secondaries one by one
         .then(() => P.each(secondary_members, ip => {
-            dbg.log0('DZDZ:', 'sending do_upgrade to server', ip, 'and and waiting for DB_READY state');
+            dbg.log0('UPGRADE:', 'sending do_upgrade to server', ip, 'and and waiting for DB_READY state');
             return server_rpc.client.cluster_internal.do_upgrade({}, {
                     address: 'ws://' + ip + ':' + server_rpc.get_base_port()
                 })
                 .then(() => _wait_for_upgrade_state(ip, 'DB_READY'))
                 .catch(err => {
-                    dbg.error('DZDZ:', 'got error on upgrade of server', ip, 'aborting upgrade process', err);
+                    dbg.error('UPGRADE:', 'got error on upgrade of server', ip, 'aborting upgrade process', err);
                     throw err;
                 });
         }))
         // after all secondaries are upgraded it is safe to upgrade the primary.
         // secondaries should wait (in upgrade.sh) for primary to complete upgrade and perform mongo_upgrade
         .then(() => {
-            dbg.log0('DZDZ:', 'calling do_upgrade on master');
+            dbg.log0('UPGRADE:', 'calling do_upgrade on master');
             return server_rpc.client.cluster_internal.do_upgrade({
                 filepath: req.rpc_params.filepath
             });
@@ -696,11 +696,11 @@ function _wait_for_upgrade_state(ip, state) {
     const upgrade_retry_delay = 10 * 1000; // the delay between testing upgrade status
     return promise_utils.retry(max_retries, upgrade_retry_delay, () => system_store.load()
         .then(() => {
-            dbg.log0('DZDZ:', 'wating for', ip, 'to reach', state);
+            dbg.log0('UPGRADE:', 'wating for', ip, 'to reach', state);
             let status = cutil.get_member_upgrade_status(ip);
-            dbg.log0('DZDZ:', 'got status:', status);
+            dbg.log0('UPGRADE:', 'got status:', status);
             if (status !== state) {
-                dbg.error('DZDZ:', 'timedout waiting for ' + ip + ' to reach ' + state);
+                dbg.error('UPGRADE:', 'timedout waiting for ' + ip + ' to reach ' + state);
                 throw new Error('timedout waiting for ' + ip + ' to reach ' + state);
             }
         })

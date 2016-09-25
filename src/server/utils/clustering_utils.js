@@ -216,9 +216,9 @@ function get_potential_masters() {
 }
 
 function get_member_upgrade_status(ip) {
-    dbg.log0('DZDZ:', 'get upgrade status for ip', ip);
+    dbg.log0('UPGRADE:', 'get upgrade status for ip', ip);
     let server_entry = system_store.data.clusters.find(server => server.owner_address === ip);
-    dbg.log0('DZDZ:', 'found server:', server_entry);
+    dbg.log0('UPGRADE:', 'found server:', server_entry);
     if (!server_entry || !server_entry.upgrade) return 'NOT_READY';
     return server_entry.upgrade.status;
 }

@@ -17,3 +17,7 @@
     - Add:
     - Change:
     - Remove:
+
+### Fixed Issues References
+Fixes #xxxx
+Fixes #yyyy

@@ -3,6 +3,7 @@
 #first we find the newest init mechanism, then we uninstall
 PATH=/usr/local/noobaa:$PATH;
 
+#attempting to remove service installations
 /usr/local/noobaa/node_modules/forever-service/bin/forever-service delete noobaa_local_service &> /dev/null
 
 echo "Uninstalling NooBaa"

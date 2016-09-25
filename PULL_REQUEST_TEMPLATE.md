@@ -1,3 +1,5 @@
+[For FE PRs use the template](https://github.com/noobaa/noobaa-core/blob/master/FE_PULL_REQUEST.md)
+
 ### Purpose
 - Besides making the world a better place it also ...
 

@@ -8,6 +8,11 @@ import { redirectTo } from 'actions';
 
 const columns = deepFreeze([
     {
+        name: 'state',
+        cellTemplate: 'icon',
+        sortable: true
+    },
+    {
         name: 'type',
         cellTemplate: 'icon',
         sortable: true
@@ -18,13 +23,18 @@ const columns = deepFreeze([
         sortable: true
     },
     {
-        name: 'usage',
-        label: 'used capacity by noobaa',
+        name: 'buckets',
+        label: 'bucket using resource',
         sortable: true
     },
     {
         name: 'cloudBucket',
-        label: 'cloud bucket',
+        label: 'cloud target bucket',
+        sortable: true
+    },
+    {
+        name: 'usage',
+        label: 'used capacity by noobaa',
         sortable: true
     },
     {
@@ -35,11 +45,37 @@ const columns = deepFreeze([
     }
 ]);
 
+const resourcesToBuckets = ko.pureComputed(
+    () => {
+        if (!systemInfo()) {
+            return {};
+        }
+
+        return systemInfo().buckets.reduce(
+            (mapping, bucket) => systemInfo().tiers
+                .find(
+                    tier => tier.name === bucket.tiering.tiers[0].tier
+                )
+                .cloud_pools.reduce(
+                    (mapping, pool) => {
+                        mapping[pool] = mapping[pool] || [];
+                        mapping[pool].push(bucket.name);
+                        return mapping;
+                    },
+                    mapping
+                ),
+            {}
+        );
+    }
+);
+
 const compareAccessors = Object.freeze({
-    type: resource => resource.endpoint,
+    state: () => true,
+    type: resource => resource.cloud_info.endpoint_type,
     name: resource => resource.name,
-    usage: resource => resource.storage.used,
-    cloudBucket: resource => resource.cloud_info.target_bucket
+    buckets: resource => (resourcesToBuckets()[resource.name] || []).length,
+    cloudBucket: resource => resource.cloud_info.target_bucket,
+    usage: resource => resource.storage.used
 });
 
 class CloudResourcesTableViewModel extends Disposable {
@@ -49,10 +85,15 @@ class CloudResourcesTableViewModel extends Disposable {
         this.columns = columns;
 
         this.sorting = ko.pureComputed({
-            read: () => ({
-                sortBy: routeContext().query.sortBy || 'name',
-                order: Number(routeContext().query.order) || 1
-            }),
+            read: () => {
+                let { params, query } = routeContext();
+                let isOnScreen = params.tab === 'cloud';
+
+                return {
+                    sortBy: (isOnScreen && query.sortBy) || 'name',
+                    order: (isOnScreen && Number(routeContext().query.order)) || 1
+                };
+            },
             write: value => {
                 this.deleteGroup(null);
                 redirectTo(undefined, undefined, value);
@@ -78,9 +119,10 @@ class CloudResourcesTableViewModel extends Disposable {
         this.isAfterDeleteAlertModalVisible = ko.observable(false);
     }
 
-    rowFactory(resource) {
+    newResourceRow(resource) {
         return new CloudResourceRowViewModel(
             resource,
+            resourcesToBuckets,
             this.deleteGroup,
             () => this.showAfterDeleteAlertModal()
         );

@@ -24,7 +24,8 @@ const Dispatcher = require('../notifications/dispatcher');
 const nodes_client = require('../node_services/nodes_client');
 const system_store = require('../system_services/system_store').get_instance();
 const object_server = require('../object_services/object_server');
-const cloud_utils = require('../utils/cloud_utils');
+const cloud_utils = require('../../util/cloud_utils');
+const azure = require('azure-storage');
 
 const VALID_BUCKET_NAME_REGEXP =
     /^(([a-z0-9]|[a-z0-9][a-z0-9\-]*[a-z0-9])\.)*([a-z0-9]|[a-z0-9][a-z0-9\-]*[a-z0-9])$/;
@@ -417,6 +418,7 @@ function get_cloud_sync(req, bucket) {
             return {
                 name: bucket.name,
                 endpoint: bucket.cloud_sync.endpoint,
+                endpoint_type: bucket.cloud_sync.endpoint_type || 'AWS',
                 access_key: bucket.cloud_sync.access_keys.access_key,
                 health: res.health,
                 status: cloud_utils.resolve_cloud_sync_info(bucket.cloud_sync),
@@ -506,6 +508,7 @@ function set_cloud_sync(req) {
     }
     var cloud_sync = {
         endpoint: connection.endpoint,
+        endpoint_type: connection.endpoint_type || 'AWS',
         target_bucket: req.rpc_params.target_bucket,
         access_keys: {
             access_key: connection.access_key,
@@ -782,22 +785,31 @@ function get_cloud_buckets(req) {
             req.account,
             req.rpc_params.connection
         );
-        var s3 = new AWS.S3({
-            endpoint: connection.endpoint,
-            accessKeyId: connection.access_key,
-            secretAccessKey: connection.secret_key,
-            httpOptions: {
-                agent: new https.Agent({
-                    rejectUnauthorized: false,
-                })
-            }
-        });
-        return P.ninvoke(s3, "listBuckets");
-    }).then(function(data) {
-        _.each(data.Buckets, function(bucket) {
-            buckets.push(bucket.Name);
-        });
-        return buckets;
+        if (connection.endpoint_type === 'AZURE') {
+            let blob_svc = azure.createBlobService(cloud_utils.get_azure_connection_string(connection));
+            return P.ninvoke(blob_svc, 'listContainersSegmented', null, {})
+                .then(function(data) {
+                    return data.entries.map(entry => entry.name);
+                });
+        } else {
+            var s3 = new AWS.S3({
+                endpoint: connection.endpoint,
+                accessKeyId: connection.access_key,
+                secretAccessKey: connection.secret_key,
+                httpOptions: {
+                    agent: new https.Agent({
+                        rejectUnauthorized: false,
+                    })
+                }
+            });
+            return P.ninvoke(s3, "listBuckets")
+                .then(function(data) {
+                    _.each(data.Buckets, function(bucket) {
+                        buckets.push(bucket.Name);
+                    });
+                    return buckets;
+                });
+        }
     }).catch(function(err) {
         dbg.error("get_cloud_buckets ERROR", err.stack || err);
         throw err;

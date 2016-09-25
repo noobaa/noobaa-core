@@ -142,6 +142,10 @@ mocha.describe('system_servers', function() {
                 system: SYS1,
             }))
             .then(() => client.system.delete_system())
+            .then(() => {
+                // reset the token after delete system, because it is invalid
+                client.options.auth_token = '';
+            })
             .then(() => client.system.create_system({
                 activation_code: '1111',
                 name: SYS,
@@ -269,8 +273,8 @@ mocha.describe('system_servers', function() {
             .then(() => client.account.add_account_sync_credentials_cache({
                 name: CLOUD_SYNC_CONNECTION,
                 endpoint: 'https://s3.amazonaws.com',
-                access_key: process.env.AWS_ACCESS_KEY_ID,
-                secret_key: process.env.AWS_SECRET_ACCESS_KEY
+                identity: process.env.AWS_ACCESS_KEY_ID,
+                secret: process.env.AWS_SECRET_ACCESS_KEY
             }))
             .then(() => client.bucket.set_cloud_sync({
                 name: BUCKET,

@@ -5,7 +5,7 @@
 // using mongo --eval 'var param_ip="..."' and we only declare them here for completeness
 var param_ip;
 var param_secret;
-var params_cluster_id;
+var param_bcrypt_secret;
 setVerboseShell(true);
 upgrade();
 
@@ -177,7 +177,18 @@ function upgrade_system(system) {
                 }
 
             });
-
+        } else if (account.is_support && String(account.password) !== String(param_bcrypt_secret)) {
+            print('\n*** updated old support account', param_bcrypt_secret);
+            db.accounts.update({
+                _id: account._id
+            }, {
+                $set: {
+                    password: param_bcrypt_secret
+                },
+                $unset: {
+                    __v: 1
+                }
+            });
         } else {
             db.accounts.update({
                 _id: account._id
@@ -187,8 +198,24 @@ function upgrade_system(system) {
                 }
 
             });
-
         }
+    });
+
+    print('\n*** OBJECT STATS ***');
+    db.objectstats.update({
+        s3_errors_info: {
+            $exists: false
+        }
+    }, {
+        $set: {
+            // Notice that I've left an empty object, this is done on purpose
+            // In order to distinguish what from old records and new records
+            // The new records will have a minimum of total_errors property
+            // Even if we did not encounter any s3 related errors
+            s3_errors_info: {}
+        }
+    }, {
+        multi: true
     });
 }
 
@@ -255,7 +282,8 @@ function upgrade_cluster() {
         if (!clusters[0].owner_shardname) {
             db.clusters.update({}, {
                 $set: {
-                    owner_shardname: 'shard1'
+                    owner_shardname: 'shard1',
+                    cluster_id: param_secret
                 }
             });
         }
@@ -269,7 +297,7 @@ function upgrade_cluster() {
         owner_address: param_ip,
         owner_shardname: 'shard1',
         location: 'Earth',
-        cluster_id: params_cluster_id,
+        cluster_id: param_secret,
         shards: [{
             shardname: 'shard1',
             servers: [{
@@ -295,7 +323,6 @@ function upgrade_cluster() {
     db.clusters.insert(cluster);
 }
 
-// TODO: JEN AIN'T PROUD OF IT BUT NOBODY PERFECT!, should do the update with 1 db reach
 function upgrade_object_mds() {
     print('\n*** upgrade_object_mds ...');
     db.objectmds.find({

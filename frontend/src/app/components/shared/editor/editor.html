@@ -1,7 +1,7 @@
 <!-- ko if: visible -->
 <span class="editor-label push-next" data-bind="
     css: { disabled: disabled },
-    text: label + ':'
+    text: ko.unwrap(label) + ':'
 "></span>
 <div class="editor-content column" data-bind="
     validationOptions: { insertMessages: insertValMessages },

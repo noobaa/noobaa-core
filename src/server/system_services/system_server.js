@@ -785,7 +785,7 @@ function update_base_address(req) {
             Dispatcher.instance().activity({
                 event: 'conf.dns_address',
                 level: 'info',
-                system: req.system,
+                system: req.system._id,
                 actor: req.account && req.account._id,
                 desc: `DNS Address was changed from ${prior_base_address} to ${req.rpc_params.base_address}`,
             });

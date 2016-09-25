@@ -29,7 +29,7 @@ const string_utils = require('../../util/string_utils');
 const map_allocator = require('./map_allocator');
 const mongo_functions = require('../../util/mongo_functions');
 const system_server_utils = require('../utils/system_server_utils');
-const cloud_utils = require('../utils/cloud_utils');
+const cloud_utils = require('../../util/cloud_utils');
 const moment = require('moment');
 
 /**
@@ -142,7 +142,7 @@ function complete_object_upload(req) {
         })
         .then(object_size => {
             Dispatcher.instance().activity({
-                system: req.system,
+                system: req.system._id,
                 level: 'info',
                 event: 'obj.uploaded',
                 obj: obj,
@@ -312,7 +312,7 @@ function copy_object(req) {
         })
         .then(() => {
             Dispatcher.instance().activity({
-                system: req.system,
+                system: req.system._id,
                 level: 'info',
                 event: 'obj.uploaded',
                 obj: create_info._id,
@@ -529,7 +529,7 @@ function delete_object(req) {
         })
         .then(() => {
             Dispatcher.instance().activity({
-                system: req.system,
+                system: req.system._id,
                 level: 'info',
                 event: 'obj.deleted',
                 obj: obj_to_delete,
@@ -798,6 +798,7 @@ function add_s3_usage_report(req) {
         return ObjectStats.create({
             system: req.system,
             s3_usage_info: req.rpc_params.s3_usage_info,
+            s3_errors_info: req.rpc_params.s3_errors_info,
         });
     }).return();
 }
@@ -835,7 +836,7 @@ function read_s3_usage_report(req) {
     return P.resolve(q.exec())
         .then(reports => {
             reports = _.map(reports, report_item => {
-                let report = _.pick(report_item, 'system', 's3_usage_info');
+                let report = _.pick(report_item, 'system', 's3_usage_info', 's3_errors_info');
                 report.time = report_item.time.getTime();
                 return report;
             });

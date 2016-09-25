@@ -9,7 +9,8 @@ class RadioGroupViewModel extends Disposable {
             name = randomString(5),
             options,
             multiline = false,
-            disabled = false
+            disabled = false,
+            hasFocus = false
     }) {
         super();
 
@@ -17,6 +18,7 @@ class RadioGroupViewModel extends Disposable {
         this.selected = selected;
         this.options = options;
         this.disabled = disabled;
+        this.hasFocus = hasFocus;
         this.layoutClass = multiline ? 'column' : 'row';
     }
 }

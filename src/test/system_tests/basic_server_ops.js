@@ -15,6 +15,7 @@ var rpc = api.new_rpc();
 
 module.exports = {
     upload_and_upgrade: upload_and_upgrade,
+    wait_for_server: wait_for_server,
     get_agent_setup: get_agent_setup,
     upload_file: upload_file,
     download_file: download_file,
@@ -50,52 +51,68 @@ function upload_and_upgrade(ip, upgrade_pack) {
             formData: formData,
             rejectUnauthorized: false,
         })
-        .then(function(httpResponse, body) {
-            console.log('Upload package successful');
+        .then(res => console.log('Upload package successful', res.statusCode))
+        .then(() => P.delay(10000))
+        .then(() => wait_for_server(ip))
+        .then(() => P.delay(10000))
+        .then(() => {
             var isNotListening = true;
-            return P.delay(10000).then(function() {
-                return promise_utils.pwhile(
-                    function() {
-                        return isNotListening;
-                    },
-                    function() {
-                        return P.ninvoke(request, 'get', {
-                            url: 'http://' + ip + ':8080/',
-                            rejectUnauthorized: false,
-                        }).then(function(res, body) {
-                            console.log('Web Server started after upgrade');
-                            isNotListening = false;
-                        }, function(err) {
-                            console.log('waiting for Web Server to start');
-                            return P.delay(10000);
-                        });
+            return promise_utils.pwhile(
+                function() {
+                    return isNotListening;
+                },
+                function() {
+                    return P.ninvoke(request, 'get', {
+                        url: 'http://' + ip + ':80/',
+                        rejectUnauthorized: false,
+                    }).then(res => {
+                        console.log('S3 server started after upgrade');
+                        isNotListening = false;
+                    }, err => {
+                        console.log('waiting for S3 server to start');
+                        return P.delay(10000);
                     });
-            }).then(function() {
-                isNotListening = true;
-                return P.delay(10000).then(function() {
-                    return promise_utils.pwhile(
-                        function() {
-                            return isNotListening;
-                        },
-                        function() {
-                            return P.ninvoke(request, 'get', {
-                                url: 'http://' + ip + ':80/',
-                                rejectUnauthorized: false,
-                            }).then(function(res, body) {
-                                console.log('S3 server started after upgrade');
-                                isNotListening = false;
-                            }, function(err) {
-                                console.log('waiting for S3 server to start');
-                                return P.delay(10000);
-                            });
-                        });
                 });
-            });
         })
-        .then(null, function(err) {
+        .catch(err => {
             console.error('Upload package failed', err, err.stack);
             throw new Error('Upload package failed ' + err);
         });
+}
+
+function wait_for_server(ip, wait_for_version) {
+    var isNotListening = true;
+    var version;
+    return promise_utils.pwhile(
+        function() {
+            return isNotListening;
+        },
+        function() {
+            console.log('waiting for Web Server to start');
+            return P.fromCallback(callback => request({
+                    method: 'get',
+                    url: 'http://' + ip + ':8080/version',
+                    strictSSL: false,
+                }, callback), {
+                    multiArgs: true
+                })
+                .spread(function(response, body) {
+                    if (response.statusCode !== 200) {
+                        throw new Error('got error code ' + response.statusCode);
+                    }
+                    if (wait_for_version && body !== wait_for_version) {
+                        throw new Error('version is ' + body +
+                            ' wait for version ' + wait_for_version);
+                    }
+                    console.log('Web Server started. version is: ' + body);
+                    version = body;
+                    isNotListening = false;
+                })
+                .catch(function(err) {
+                    console.log('not up yet...', err.message);
+                    return P.delay(5000);
+                });
+        }).return(version);
 }
 
 function get_agent_setup(ip) {

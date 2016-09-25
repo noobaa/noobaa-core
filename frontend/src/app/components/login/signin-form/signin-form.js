@@ -19,6 +19,8 @@ class SignInFormViewModel extends Disposable {
                 required: { message: 'Please enter a password' }
             });
 
+        this.keepSessionAlive = ko.observable(false);
+
         let retryCount = ko.pureComputed(
             () => loginInfo().retryCount
         );
@@ -44,13 +46,17 @@ class SignInFormViewModel extends Disposable {
     }
 
     signIn() {
-        if (this.errors().length === 0) {
-            this.isDirty(false);
-            signIn(this.email(), this.password(), uiState().returnUrl);
+        if (this.errors().length > 0) {
+            this.errors.showAllMessages();
+            this.shake(true);
 
         } else {
-            this.shake(true);
-            this.errors.showAllMessages();
+            this.isDirty(false);
+            signIn(
+                this.email(),
+                this.password(),
+                this.keepSessionAlive(),
+                uiState().returnUrl);
         }
     }
 }

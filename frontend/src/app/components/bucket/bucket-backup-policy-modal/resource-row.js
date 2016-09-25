@@ -2,26 +2,25 @@ import Disposable from 'disposable';
 import ko from 'knockout';
 import { deepFreeze } from 'utils';
 
-const icons = deepFreeze([
-    {
-        pattern: 's3.amazonaws.com',
-        icon: 'amazon-resource',
-        description: 'AWS S3 Bucket'
+const iconMapping = deepFreeze({
+    AWS: {
+        name: 'aws-s3-resource',
+        tooltip: 'AWS S3 Bucket'
     },
-    {
-        pattern: 'storage.googleapis.com',
-        icon: 'google-resource',
-        description: 'GCloud Bucket'
+
+    AZURE: {
+        name: 'azure-resource',
+        tooltip: 'Azure Container'
     },
-    {
-        pattern: '',
-        icon: 'cloud-resource',
-        description: 'AWS Compatible Cloud Bukcet'
+
+    S3_COMPATIBLE: {
+        name: 'cloud-resource',
+        tooltip: 'S3 Compatible Cloud Bukcet'
     }
-]);
+});
 
 export default class ResourceRowViewModel extends Disposable {
-    constructor(pool, selectedResrouces) {
+    constructor(resource, selectedResrouces) {
         super();
 
         this.select = ko.pureComputed({
@@ -32,28 +31,15 @@ export default class ResourceRowViewModel extends Disposable {
         });
 
         this.type = ko.pureComputed(
-            () => {
-                if (!pool()) {
-                    return '';
-                }
-
-                let { icon, description } = icons.find(
-                    ({ pattern }) => pool().cloud_info.endpoint.includes(pattern)
-                );
-
-                return {
-                    name: icon,
-                    tooltip: description
-                };
-            }
+            () => resource() ? iconMapping[resource().cloud_info.endpoint_type] : ''
         );
 
         this.name = ko.pureComputed(
-            () => pool() && pool().name
+            () => resource() ? resource().name : ''
         );
 
         this.usage = ko.pureComputed(
-            () => pool() && pool().storage.used
+            () => resource() ? resource().storage.used : ''
         ).extend({
             formatSize: true
         });

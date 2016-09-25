@@ -5,7 +5,7 @@ echo "installing NooBaa"
 PATH=/usr/local/noobaa:$PATH;
 mkdir /usr/local/noobaa/logs
 
-/usr/local/noobaa/noobaa_service_uninstall.sh &> /dev/null
+/usr/local/noobaa/remove_service.sh &> /dev/null
 
 if [ -f /usr/bin/systemctl ] || [ -f /bin/systemctl ]; then
   echo "Systemd detected. Installing service"

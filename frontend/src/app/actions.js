@@ -695,12 +695,13 @@ export function createSystem(
 }
 
 export function createAccount(name, email, password, accessKeys, S3AccessList) {
-    logAction('createAccount', { name, email, password, accessKeys,     S3AccessList });
+    logAction('createAccount', { name, email, password, accessKeys, S3AccessList });
 
     api.account.create_account({
         name: name,
         email: email,
         password: password,
+        must_change_password: true,
         access_keys: accessKeys,
         allowed_buckets: S3AccessList
     })

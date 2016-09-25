@@ -130,6 +130,9 @@ module.exports = {
                             is_support: {
                                 type: 'boolean',
                             },
+                            must_change_password: {
+                                type: 'boolean'
+                            },
                         },
                     },
                     system: {

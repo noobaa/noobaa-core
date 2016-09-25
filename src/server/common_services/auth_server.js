@@ -245,6 +245,11 @@ function read_auth(req) {
         if (req.account.is_support) {
             reply.account.is_support = true;
         }
+
+        let next_password_change = req.account.next_password_change;
+        if (next_password_change && next_password_change < Date.now()) {
+            reply.account.must_change_password = true;
+        }
     }
     if (req.system) {
         reply.system = _.pick(req.system, 'name');

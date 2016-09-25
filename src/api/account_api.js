@@ -29,6 +29,9 @@ module.exports = {
                     password: {
                         type: 'string',
                     },
+                    must_change_password: {
+                        type: 'boolean',
+                    },
                     access_keys: {
                         type: 'object',
                         properties: {
@@ -116,6 +119,9 @@ module.exports = {
                     },
                     password: {
                         type: 'string',
+                    },
+                    must_change_password: {
+                        type: 'boolean',
                     },
                     new_email: {
                         type: 'string',
@@ -349,6 +355,9 @@ module.exports = {
                 },
                 is_support: {
                     type: 'boolean',
+                },
+                next_password_change: {
+                    format: 'idate',
                 },
                 access_keys: {
                     type: 'array',

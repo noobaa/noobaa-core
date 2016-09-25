@@ -597,9 +597,6 @@ module.exports = {
                 type: 'object',
                 required: ['objects', 'is_truncated'],
                 properties: {
-                    total_count: {
-                        type: 'integer'
-                    },
                     objects: {
                         type: 'array',
                         items: {

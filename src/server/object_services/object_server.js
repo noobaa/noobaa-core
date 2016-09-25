@@ -619,10 +619,26 @@ function delete_multiple_objects_by_prefix(req) {
 // var ONE_LEVEL_SLASH_DELIMITER = one_level_delimiter('/');
 //
 
+// The method list_objects_s3 is used for s3 access exclusively
+// Read: http://docs.aws.amazon.com/AmazonS3/latest/API/RESTBucketGET.html
+// TODO: Currently we implement v1 of list-objects need to implement v2 as well
+// There are two main ways to store objects inside folders:
+// First way (mainly used by Cyberduck) - The objects are stored inside folders
+// In this case Cyberduck will create an empty "object" (size 0) for each folder
+// So to upload /tmp/object.mp4, Cyberduck will upload 0 sized object with key tmp/
+// And afterwards upload an object with the key /tmp/object.mp4, which will have the content
+// Second way - The objects are stored inside folders but we don't create the folders
+// In this case we just upload the objects and write the folder hierarchy in it's key
+// So to we just upload a file with key /tmp/object.mp4 and the list_objects will resolve it
 function list_objects_s3(req) {
     dbg.log0('list_objects_s3', req.rpc_params);
+    // Prefix mainly used as a folder name, in order to get all objects/prefixes inside that folder
+    // Notice that the prefix can also be used as a searching tool among objects (not only folder)
     var prefix = req.rpc_params.prefix || '';
+    // The delimiter is usually '/', this describes how we should handle the folder hierarchy
     var delimiter = req.rpc_params.delimiter || '';
+    // Last object's key that was received from list-objects last call (when truncated)
+    // This is used in order to continue from a certain key when the response is truncated
     var marker = prefix + (req.rpc_params.key_marker || '');
     var limit = req.rpc_params.limit || 1000;
     // ********* Important!!! *********
@@ -648,35 +664,42 @@ function list_objects_s3(req) {
                     })
                     .then(res => {
                         results = _.concat(results, res);
+                        // This is the case when there are no more objects that apply to the query
                         if (_.get(res, 'length', 0) === 0) {
                             // If there were no object/common prefixes to match than no next marker
-                            // reply.next_marker = marker;
                             reply.next_marker = marker.slice(prefix.length);
                             done = true;
                         } else if (results.length === limit) {
+                            // This is the case when the number of objects that apply to the query
+                            // Exceeds the number of objects that we've requested (max-keys)
+                            // Thus we must cut the additional object (as mentioned above we request
+                            // one more key in order to know if the response is truncated or not)
+                            // In order to reply with the right amount of objects and prefixes
                             results.pop();
                             reply.is_truncated = true;
+                            // Marking the object/prefix that we've stopped on
+                            // Notice: THIS IS THE LAST OBJECT AFTER THE POP
                             reply.next_marker = results[results.length - 1].key;
                             done = true;
                         } else {
+                            // In this case we did not reach the end yet
                             marker = prefix + res[res.length - 1].key;
                         }
                     });
             })
         .then(() => {
             // Fetching common prefixes and returning them in appropriate property
-            reply.common_prefixes = _.compact(_.map(results, common_prefixes => {
-                if (_.isUndefined(common_prefixes.info)) {
-                    return common_prefixes.key;
+            reply.common_prefixes = _.compact(_.map(results, result => {
+                if (!result.info) {
+                    return result.key;
                 }
             }));
 
-            // Removing the common prefixes from objects
-            _.remove(reply.objects = results, obj =>
-                _.find(reply.common_prefixes, common_pref =>
-                    String(common_pref) === String(obj.key)
-                )
-            );
+            // Creating set of prefixes for an efficient look up
+            let prefixes_set = new Set(reply.common_prefixes);
+            // Filtering all of the prefixes and returning only objects
+            reply.objects = _.filter(results, obj => !prefixes_set.has(obj.key));
+
             return reply;
         });
 }

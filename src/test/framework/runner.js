@@ -117,7 +117,7 @@ TestRunner.prototype.init_run = function() {
             }))
         .then(() => self._client.create_auth_token({
             email: 'demo@noobaa.com',
-            password: 'DeMo',
+            password: 'DeMo1',
             system: 'demo'
         }))
         //Restart services to hook require instanbul

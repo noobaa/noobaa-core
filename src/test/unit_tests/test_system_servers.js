@@ -142,6 +142,10 @@ mocha.describe('system_servers', function() {
                 system: SYS1,
             }))
             .then(() => client.system.delete_system())
+            .then(() => {
+                // reset the token after delete system, because it is invalid
+                client.options.auth_token = '';
+            })
             .then(() => client.system.create_system({
                 activation_code: '1111',
                 name: SYS,

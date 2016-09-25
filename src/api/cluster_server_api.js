@@ -141,7 +141,7 @@ module.exports = {
             method: 'GET',
             reply: {
                 type: 'object',
-                required: [],
+                required: ['using_dhcp', 'phone_home_connectivity_status'],
                 properties: {
                     ntp_server: {
                         type: 'string'
@@ -154,6 +154,20 @@ module.exports = {
                         items: {
                             type: 'string'
                         },
+                    },
+                    using_dhcp: {
+                        type: 'boolean'
+                    },
+                    phone_home_connectivity_status: {
+                        enum: [
+                            'CANNOT_REACH_DNS_SERVER',
+                            'CANNOT_RESOLVE_PHONEHOME_NAME',
+                            'CANNOT_CONNECT_INTERNET',
+                            'CANNOT_CONNECT_PHONEHOME_SERVER',
+                            'MALFORMED_RESPONSE',
+                            'CONNECTED'
+                        ],
+                        type: 'string',
                     },
                 }
             },

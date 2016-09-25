@@ -798,6 +798,7 @@ function add_s3_usage_report(req) {
         return ObjectStats.create({
             system: req.system,
             s3_usage_info: req.rpc_params.s3_usage_info,
+            s3_errors_info: req.rpc_params.s3_errors_info,
         });
     }).return();
 }
@@ -835,7 +836,7 @@ function read_s3_usage_report(req) {
     return P.resolve(q.exec())
         .then(reports => {
             reports = _.map(reports, report_item => {
-                let report = _.pick(report_item, 'system', 's3_usage_info');
+                let report = _.pick(report_item, 'system', 's3_usage_info', 's3_errors_info');
                 report.time = report_item.time.getTime();
                 return report;
             });

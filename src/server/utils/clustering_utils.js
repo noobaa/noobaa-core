@@ -163,7 +163,7 @@ function get_cluster_info() {
         let memory_usage = 0;
         let cpu_usage = 0;
         let version = '0';
-        let is_connected;
+        let is_connected = 'DISCONNECTED';
         let hostname = os.hostname();
         let time_epoch = moment().unix();
         let location = cinfo.location;

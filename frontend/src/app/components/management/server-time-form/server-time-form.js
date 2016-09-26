@@ -36,9 +36,9 @@ class ServerTimeFormViewModel extends Disposable{
             clearInterval
         );
 
-        this.formattedTime = ko.pureComputed(
-            () => this.time() && moment(this.time()).format('MM/DD/YYYY HH:mm:ss ([GMT]Z)')
-        );
+        this.formattedTime = this.time.extend({
+            formatTime: { format: 'MM/DD/YYYY HH:mm:ss ([GMT]Z)' }
+        });
 
         this.configTypes = configTypes;
         this.selectedConfigType = ko.observableWithDefault(
@@ -70,25 +70,13 @@ class ServerTimeFormViewModel extends Disposable{
         ]);
     }
 
-    matchByTimezoneName(option, input) {
-        let regExp = new RegExp(`\\b${input.replace('/', '\\/')}`);
-        return regExp.test(option.label.toLowerCase());
-    }
-
     applyChanges() {
         this.usingNTP() ? this.setNTPTime() : this.setManualTime();
     }
 
     setManualTime() {
-        let epoch = moment.tz(
-            this.time(),
-            this.timezone()
-        )
-        .unix();
-
-        updateServerClock(
-            this.serverSecret(), this.timezone(), epoch
-        );
+        let epoch = moment.tz(this.time(), this.timezone()).unix();
+        updateServerClock(this.serverSecret(), this.timezone(), epoch);
     }
 
     setNTPTime() {
@@ -96,9 +84,7 @@ class ServerTimeFormViewModel extends Disposable{
             this.ntpErrors.showAllMessages();
 
         } else {
-            updateServerNTPSettings(
-                this.serverSecret(), this.timezone(), this.ntpServer()
-            );
+            updateServerNTPSettings(this.serverSecret(), this.timezone(), this.ntpServer());
         }
     }
 }

@@ -15,7 +15,7 @@ const dbg = require('../util/debug_module')(__filename);
 
 
 const SETUP_FILENAME = './noobaa-setup';
-const UPGRADE_SCRIPT = './agent_linux_upgrader.sh';
+const UPGRADE_SCRIPT = './src/agent/agent_linux_upgrader.sh';
 const EXECUTABLE_MOD_VAL = 511;
 const DUPLICATE_RET_CODE = 68;
 

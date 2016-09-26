@@ -65,20 +65,21 @@ function create_agent(req) {
 
 
 function remove_agent(req) {
+    let pool_resource_name = String(req.params.name).replace('noobaa-internal-agent-', '');
     return P.resolve()
         .then(() => {
             // stop agent process
             if (os_utils.is_supervised_env()) {
-                dbg.log0('removing agent from supervisor configuration', 'agent_' + req.params.name);
-                return supervisor.remove_program('agent_' + req.params.name)
+                dbg.log0('removing agent from supervisor configuration', 'agent_' + pool_resource_name);
+                return supervisor.remove_program('agent_' + pool_resource_name)
                     .then(() => supervisor.apply_changes());
             } else {
-                dbg.log0('looking for child process of', req.params.name);
-                let child = spawned_hosted_agents[req.params.name];
+                dbg.log0('looking for child process of', pool_resource_name);
+                let child = spawned_hosted_agents[pool_resource_name];
                 if (child) {
-                    dbg.log0('killing agent', req.params.name, 'PID=', child.pid, ')');
+                    dbg.log0('killing agent', pool_resource_name, 'PID=', child.pid, ')');
                     child.kill('SIGKILL');
-                    delete spawned_hosted_agents[req.params.name];
+                    delete spawned_hosted_agents[pool_resource_name];
                 }
 
             }

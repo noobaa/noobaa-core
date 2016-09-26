@@ -845,10 +845,10 @@ module.exports = {
                 },
                 secret: {
                     type: 'string',
-                    enum: ['CONNECTED', 'DISCONNECTED', 'IN_PROGRESS']
                 },
                 status: {
-                    type: 'boolean'
+                    type: 'string',
+                    enum: ['CONNECTED', 'DISCONNECTED', 'IN_PROGRESS']
                 },
                 hostname: {
                     type: 'string'

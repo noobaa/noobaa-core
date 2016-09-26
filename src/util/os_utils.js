@@ -400,8 +400,7 @@ function read_server_secret() {
     } else if (os.type() === 'Darwin') {
         return fs.readFileAsync(config.CLUSTERING_PATHS.DARWIN_SECRET_FILE)
             .then(function(data) {
-                var sec = data.toString();
-                return sec.substring(0, sec.length - 1);
+                return data.toString();
             })
             .catch(err => {
                 //For Darwin only, if file does not exist, create it

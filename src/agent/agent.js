@@ -549,14 +549,17 @@ class Agent {
 
     update_auth_token(req) {
         const auth_token = req.rpc_params.auth_token;
+        dbg.log0('update_auth_token: received new token');
         return P.resolve()
             .then(() => {
                 if (this.storage_path) {
                     const token_path = path.join(this.storage_path, 'token');
+                    dbg.log0('update_auth_token: write new token', token_path);
                     return fs.writeFileAsync(token_path, auth_token);
                 }
             })
             .then(() => {
+                dbg.log0('update_auth_token: using new token');
                 this.client.options.auth_token = auth_token;
             });
     }

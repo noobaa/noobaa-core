@@ -16,7 +16,6 @@ const nodes_client = require('../node_services/nodes_client');
 const system_store = require('../system_services/system_store').get_instance();
 const system_server = require('../system_services/system_server');
 const object_server = require('../object_services/object_server');
-const md_store = require('../object_services/md_store');
 const bucket_server = require('../system_services/bucket_server');
 const auth_server = require('../common_services/auth_server');
 const server_rpc = require('../server_rpc');

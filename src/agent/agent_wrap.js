@@ -13,7 +13,6 @@ const request = require('request');
 const url = require('url');
 const dbg = require('../util/debug_module')(__filename);
 
-
 const SETUP_FILENAME = './noobaa-setup';
 const UPGRADE_SCRIPT = './src/agent/agent_linux_upgrader.sh';
 const EXECUTABLE_MOD_VAL = 511;

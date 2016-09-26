@@ -132,20 +132,23 @@ function join_to_cluster(req) {
     // first thing we update the new topology as the local topoology.
     // later it will be updated to hold this server's info in the cluster's DB
     req.rpc_params.topology.owner_shardname = req.rpc_params.shard;
+    req.rpc_params.topology.owner_address = req.rpc_params.ip;
     return P.resolve(cutil.update_cluster_info(req.rpc_params.topology))
         .then(() => {
             dbg.log0('server new role is', req.rpc_params.role);
             if (req.rpc_params.role === 'SHARD') {
                 //Server is joining as a new shard, update the shard topology
-
-                return P.resolve(cutil.update_cluster_info(
-                        cutil.get_topology().shards.push({
-                            shardname: req.rpc_params.shard,
-                            servers: [{
-                                address: req.rpc_params.ip
-                            }]
-                        })
-                    ))
+                let shards = cutil.get_topology().shards;
+                shards.push({
+                    shardname: req.rpc_params.shard,
+                    servers: [{
+                        address: req.rpc_params.ip
+                    }]
+                });
+                return P.resolve(cutil.update_cluster_info({
+                        owner_address: req.rpc_params.ip,
+                        shards: shards
+                    }))
                     .then(() => {
                         //Add the new shard server
                         return _add_new_shard_on_server(req.rpc_params.shard, req.rpc_params.ip, {
@@ -216,7 +219,10 @@ function news_updated_topology(req) {
 
     dbg.log0('updating topolgy to the new published topology:', req.rpc_params);
     //Update our view of the topology
-    return P.resolve(cutil.update_cluster_info(req.rpc_params));
+    return P.resolve(cutil.update_cluster_info({
+        is_clusterized: true,
+        shards: req.rpc_params.shards
+    }));
 }
 
 

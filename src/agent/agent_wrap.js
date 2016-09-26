@@ -34,7 +34,7 @@ fs.readFileAsync('./agent_conf.json')
         }
         throw err;
     }) // Currently, to signal an upgrade is required agent_cli exits with 0
-    .then(() => {
+    .then(() => { //TODO: this should also happen in throws, but it needs to be handled better.
         const output = fs.createWriteStream(SETUP_FILENAME);
         return new P((resolve, reject) => {
             dbg.log0('Downloading Noobaa agent upgrade package');

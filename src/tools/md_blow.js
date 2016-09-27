@@ -11,7 +11,7 @@ const rpc = api.new_rpc();
 const client = rpc.new_client();
 
 argv.email = argv.email || 'demo@noobaa.com';
-argv.password = argv.password || 'DeMo';
+argv.password = argv.password || 'DeMo1';
 argv.system = argv.system || 'demo';
 argv.bucket = argv.bucket || 'files';
 argv.count = argv.count || 100;

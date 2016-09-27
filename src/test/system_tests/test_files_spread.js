@@ -24,7 +24,7 @@ module.exports = {
 function get_nodes_auth() {
     var auth_params = {
         email: 'demo@noobaa.com',
-        password: 'DeMo',
+        password: 'DeMo1',
         system: 'demo'
     };
     return P.fcall(function() {

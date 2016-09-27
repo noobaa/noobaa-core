@@ -30,7 +30,7 @@ module.exports = {
 function authenticate() {
     let auth_params = {
         email: 'demo@noobaa.com',
-        password: 'DeMo',
+        password: 'DeMo1',
         system: 'demo'
     };
     return P.fcall(function() {

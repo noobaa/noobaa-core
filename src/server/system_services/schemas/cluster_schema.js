@@ -90,6 +90,25 @@ module.exports = {
         debug_level: {
             type: 'integer'
         },
+        //Upgrade proccess
+        upgrade: {
+            type: 'object',
+            properties: {
+                path: {
+                    type: 'string'
+                },
+                mongo_upgrade: {
+                    type: 'boolean'
+                },
+                status: {
+                    type: 'string',
+                    enum: ['PENDING', 'FAILED', 'CAN_UPGRADE', 'DB_READY', 'COMPLETED']
+                },
+                error: {
+                    type: 'string'
+                },
+            },
+        },
 
         heartbeat: {
             type: 'object',

@@ -1,6 +1,8 @@
 /*global setImmediate */
 
 const sizeUnits = [' bytes', 'KB', 'MB', 'GB', 'TB', 'PB', 'EB', 'ZB', 'YB' ];
+const letters = 'abcdefghijklmnopqrstuvwxyz';
+const symbols = ')!@#$%^&*(';
 
 export function noop() {
 }
@@ -387,4 +389,192 @@ export function recognizeBrowser() {
     return  userAgentTokens.find(
         token => userAgent.includes(token)
     );
+}
+
+
+export function isLowerCase(str) {
+    return str.toLowerCase() === str;
+}
+
+export function isUpperCase(str) {
+    return str.toUpperCase() == str;
+}
+
+export function isLetter(str) {
+    return letters.indexOf(str.toLowerCase()) >=0;
+}
+
+export function isDigit(str) {
+    let num = Number(str);
+    return isNaN(num) && 0 <= num && num <= 9;
+}
+
+export function calcPasswordStrenght(password) {
+    let charsInfo = Array.from(password).map(
+        char => {
+            let digit = isDigit(char);
+            let letter = isLetter(char);
+            let symbol = !digit && !letter;
+            let upperCase = isUpperCase(char);
+            let lowerCase = isLowerCase(char);
+            let place = !letter ?
+                (symbol ? symbols.indexOf(char) : Number(char)) :
+                letters.indexOf(char.toLowerCase());
+
+
+            return { digit, letter, upperCase, lowerCase, place };
+        }
+    );
+
+    let counts = charsInfo.reduce(
+        (counts, charInfo) => {
+            counts.upperCase += charInfo.upperCase ? 1 : 0;
+            counts.lowerCase += charInfo.lowerCase ? 1 : 0;
+            counts.symbol += charInfo.symbol ? 1 : 0;
+            counts.digit += charInfo.digit ? 1 : 0;
+            counts.letter += charInfo.letter ? 1 : 0;
+            return counts;
+        },
+        {
+            upperCase: 0,
+            lowerCase: 0,
+            symbol: 0,
+            digit: 0,
+            letter: 0
+        }
+    );
+
+
+    let score = 0;
+
+    //  Number of Characters : +(n*4)
+    score += charsInfo.length * 4;
+
+    // Uppercase Letters : +((len-n)*2)
+    score += (counts.upperCase ?
+        (charsInfo.length - counts.upperCase) * 2 :
+        0);
+
+    // Lowercase Letters : +((len-n)*2)
+    score += (counts.upperCase ?
+        (charsInfo.length - counts.upperCase) * 2 :
+        0);
+
+    // Numbers : +(n*4)
+    score += counts.digit * 4;
+
+    // Symbols : +(n*6)
+    score += counts.symbol * 6;
+
+    // Middle Numbers or Symbols : +(n*2)
+    score += (counts.digit + counts.symbol) * 2;
+    score -= (charsInfo[0].digit || charsInfo[0].symbol ? 2 : 0);
+    score -= (charsInfo[charsInfo.length - 1].digit || charsInfo[charsInfo.length - 1].symbol ? 2 : 0);
+
+    // Requirements : +(4*2)
+    if (counts.digit > 0 && counts.lowerCase > 0 &&
+        counts.upperCase >0 && charsInfo.length >= 8)
+        score += 8;
+
+    //Letters Only : -n
+    score -= (charsInfo.length === counts.letter ? counts.letter : 0);
+
+    // Numbers Only : -n
+    score -= (charsInfo.length === counts.digit ? counts.digit : 0);
+
+    // Consecutive Uppercase Letters  : -(n*2)
+    score -= charsInfo.reduce(
+        (inc, currInfo, i) => {
+            if(i < 1) return inc;
+
+            return inc + Number(currInfo.letter && currInfo.upperCase &&
+                charsInfo[i - 1].letter && charsInfo[i - 1].upperCase) * 2;
+        },
+        0
+    );
+
+    // Consecutive Lowercase Letters : -(n*2)
+    score -= charsInfo.reduce(
+        (inc, currInfo, i) => {
+            if(i < 1) return inc;
+
+            return inc + Number(currInfo.letter && currInfo.lowerCase &&
+                charsInfo[i - 1].letter && charsInfo[i - 1].lowerCase) * 2;
+        },
+        0
+    );
+
+    // Consecutive Numbers : -(n*2)
+    score -= charsInfo.reduce(
+        (inc, currInfo, i) => {
+            if(i < 1) return inc;
+
+            return inc + Number(currInfo.digit && charsInfo[i - 1].digit) * 2;
+        },
+        0
+    );
+
+    // Sequential Letters (3+) : -(n*3)
+    score -= charsInfo.reduce(
+        (inc, currInfo, i) => {
+            if(i < 2) return inc;
+            if(!charsInfo[i - 2].letter || !charsInfo[i - 1].letter || !currInfo.letter) {
+                return inc;
+            }
+
+            let diff = charsInfo[i - 2].place - charsInfo[i - 1].place;
+            let diff2 = charsInfo[i - 1].place - currInfo.place;
+            return inc + Number(diff * diff2 === 1) * 3;
+        },
+        0
+    );
+
+    // Sequential Numbers (3+) : -(n*3)
+    score -= charsInfo.reduce(
+        (inc, currInfo, i) => {
+            if(i < 2) return inc;
+
+            if(!charsInfo[i - 2].digit || !charsInfo[i - 1].digit || !currInfo.digit) {
+                return inc;
+            }
+
+            let diff = charsInfo[i - 2].place - charsInfo[i - 1].place;
+            let diff2 = charsInfo[i - 1].place - currInfo.place;
+            return inc + Number(diff * diff2 === 1) * 3;
+        },
+        0
+    );
+    // Sequential Symbols (3+) : -(n*3)
+    score -= charsInfo.reduce(
+        (inc, currInfo, i) => {
+            if(i < 2) return inc;
+            if(!charsInfo[i - 2].symbol || !charsInfo[i - 1].symbol || !currInfo.symbol) {
+                return inc;
+            }
+
+            let diff = charsInfo[i - 2].place - charsInfo[i - 1].place;
+            let diff2 = charsInfo[i - 1].place - currInfo.place;
+            return inc + Number(diff * diff2 === 1) * 3;
+        },
+        0
+    );
+    // Repeat Characters (Case Insensitive)
+    // score -= charsInfo.reduce(
+    //     (inc, _, i)  => {
+    //         let newInc = charsInfo.reduce(
+    //             (inc, _, j) => (j !== i && pass[i] === pass[j]) ?
+    //                 inc += Math.abs(pass.length/(j - i)) :
+    //                 inc
+    //             },
+    //             inc
+    //         );
+
+    //         if (inc != newInc) {
+
+    //         }
+    //     }
+    //     0
+    // );
+
+    return Math.max(0, Math.min(score / 100, 1));
 }

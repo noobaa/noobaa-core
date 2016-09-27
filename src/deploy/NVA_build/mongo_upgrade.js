@@ -18,7 +18,8 @@ function upgrade() {
     upgrade_cluster();
     upgrade_system_access_keys();
     upgrade_object_mds();
-    mark_completed();
+    // cluster upgrade: mark that upgrade is completed for this server
+    mark_completed(); // do not remove
     print('\nUPGRADE DONE.');
 }
 
